@@ -1,0 +1,29 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+
+# never bake user data into the image — these live in the /data volume
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-wal
+prisma/*.db-shm
+private-uploads
+public/uploads
+data
+
+# tooling / editor
+.vscode
+.idea
+*.tsbuildinfo
+coverage
+.cache
+
+# docs / CI artefacts
+README.md
+DEPLOY.md
