@@ -1,0 +1,135 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: warranty-vault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: warranty
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: warranty_vault
+    volumes:
+      - warranty-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warranty -d warranty_vault"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* must be passed at BUILD time — they're inlined into
+        # the client bundle. Set in .env (compose auto-loads it) or here.
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+    image: warranty-vault:local
+    container_name: warranty-vault
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      # ── DB & uploads ──────────────────────────────────────────────
+      # Compose-internal DNS: `db` resolves to the postgres container.
+      DATABASE_URL: "postgresql://warranty:${POSTGRES_PASSWORD}@db:5432/warranty_vault"
+      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+
+      # ── Required ──────────────────────────────────────────────────
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set (>=32 chars)}
+      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+
+      # ── Push notifications (optional, but if you set one set all) ─
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+
+      # ── Email (optional — without it, reset links print to logs) ──
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+
+      NODE_ENV: production
+    volumes:
+      # /data still holds encrypted attachments. DB now lives in the
+      # warranty-pg volume on the postgres container.
+      - warranty-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Go API service. During migration (Phases A–E of BACKEND_GO_PLAN.md) it
+  # runs alongside the Next.js `app` and shares the same Postgres + the same
+  # encrypted-attachments volume. After Phase F the `app` service becomes a
+  # thin frontend that depends on this.
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    image: warranty-vault-api:local
+    container_name: warranty-vault-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      # ── DB & uploads ──────────────────────────────────────────────
+      DATABASE_URL: "postgresql://warranty:${POSTGRES_PASSWORD}@db:5432/warranty_vault"
+      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+
+      # ── Server ────────────────────────────────────────────────────
+      PORT: "4000"
+      WEB_URL: ${APP_URL:-http://localhost:3000}
+
+      # ── Required (shared with the web container) ──────────────────
+      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+
+      # ── Auth / sessions ───────────────────────────────────────────
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+
+      # ── Push notifications (optional) ─────────────────────────────
+      # Note: server-side var name in Go is VAPID_PUBLIC_KEY (no NEXT_PUBLIC_ prefix).
+      VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.warrantyvault.app}
+      APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+
+      # ── Email (Resend, optional) ──────────────────────────────────
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+
+      # ── Rate limit ────────────────────────────────────────────────
+      RATE_LIMITER: ${RATE_LIMITER:-memory}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+    volumes:
+      # Share the same volume as `app` so both services see identical
+      # encrypted blobs during the migration window.
+      - warranty-data:/data
+    # NOTE: distroless/static has no shell, wget, or curl, so a typical
+    # in-container healthcheck binary isn't available. We rely on the
+    # external orchestrator (compose `depends_on`, reverse proxy, k8s
+    # liveness/readiness probes) hitting GET /healthz directly. If we
+    # later switch to `distroless/base` or ship a tiny `healthcheck`
+    # subcommand on the server binary, restore a HEALTHCHECK here.
+
+volumes:
+  warranty-pg:
+  warranty-data:

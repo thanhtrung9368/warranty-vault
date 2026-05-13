@@ -1,0 +1,39 @@
+# Keep the build context lean — only what `go build` actually needs.
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Local env / secrets — never bake into the image.
+.env
+.env.*
+!.env.example
+
+# Local data the runtime would create (must come from a mounted volume).
+private-uploads/
+tmp/
+*.log
+
+# Editor / OS junk
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Vendored deps (we use module proxy, not vendor/).
+vendor/
+
+# Local SQLite leftovers (defensive — not used today).
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# CI / docs that don't influence the build output.
+.github/
+README.md
+*.md
+
+# NOTE: internal/store/gen/ IS shipped — do NOT exclude. It is the
+# sqlc-generated typed query layer that the binaries link against.

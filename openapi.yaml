@@ -1,0 +1,1122 @@
+openapi: 3.0.3
+info:
+  title: WarrantyVault API
+  description: |
+    REST API for native mobile clients (iOS / Android) of WarrantyVault.
+    Source-of-truth for client codegen:
+      - iOS:     swift-openapi-generator
+      - Android: openapi-generator-cli (kotlin)
+    The web app continues to use Next.js Server Actions — those are NOT
+    documented here.
+
+    Auth: bearer token from POST /api/v1/auth/login (or /register). Send as
+    `Authorization: Bearer <token>` on every authenticated request.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+  - url: https://warrantyvault.example.com
+    description: Production (set when deployed)
+
+tags:
+  - { name: auth }
+  - { name: devices }
+  - { name: warranties }
+  - { name: attachments }
+  - { name: subscriptions }
+  - { name: wishlist }
+  - { name: push }
+  - { name: catalog }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      security: []
+      summary: Create account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterInput' }
+      responses:
+        '201': { $ref: '#/components/responses/AuthSuccess' }
+        '200':
+          description: Email already taken (returns generic message; do not infer)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean }, message: { type: string } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginInput' }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current session token
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/auth/forgot:
+    post:
+      tags: [auth]
+      security: []
+      summary: Request a password-reset link by email
+      description: |
+        Always returns `{ ok: true }` regardless of whether the email is
+        registered (avoids user enumeration). Sends an email containing a
+        time-limited reset link to the address if it exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { user: { $ref: '#/components/schemas/User' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/auth/change-password:
+    post:
+      tags: [auth]
+      summary: Change the authenticated user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/catalog:
+    get:
+      tags: [catalog]
+      summary: Form-fill catalog (categories, brands, stores, warranty providers)
+      responses:
+        '200':
+          description: Catalog bundle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Catalog' }
+
+  /api/v1/devices:
+    get:
+      tags: [devices]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/DeviceStatus' } }
+        - { name: sort, in: query, schema: { type: string, enum: [purchaseDate, warrantyEndDate, price, name] } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Device list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items: { $ref: '#/components/schemas/Device' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { device: { $ref: '#/components/schemas/Device' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/devices/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [devices]
+      responses:
+        '200':
+          description: Device with warranties + attachments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device: { $ref: '#/components/schemas/DeviceDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { device: { $ref: '#/components/schemas/Device' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [devices]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/devices/{id}/warranties:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [warranties]
+      responses:
+        '200':
+          description: Warranties for the device
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warranties:
+                    type: array
+                    items: { $ref: '#/components/schemas/Warranty' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [warranties]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarrantyInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { warranty: { $ref: '#/components/schemas/Warranty' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/devices/{id}/attachments:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [attachments]
+      responses:
+        '200':
+          description: Attachment metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachments:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttachmentMeta' }
+    post:
+      tags: [attachments]
+      summary: Upload an attachment (multipart/form-data)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                description: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { attachment: { $ref: '#/components/schemas/AttachmentMeta' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/warranties/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      tags: [warranties]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WarrantyInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { warranty: { $ref: '#/components/schemas/Warranty' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [warranties]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/warranties/{id}/reminder:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [warranties]
+      summary: Dismiss the expiry reminder for this warranty
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [warranties]
+      summary: Restore the expiry reminder
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /api/v1/attachments/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      tags: [attachments]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/files/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [attachments]
+      summary: Stream an encrypted attachment (decrypted on the fly)
+      parameters:
+        - { name: download, in: query, schema: { type: string, enum: [ '1' ] } }
+      responses:
+        '200':
+          description: File bytes (Content-Type matches the attachment)
+          content:
+            'application/octet-stream':
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/subscriptions:
+    get:
+      tags: [subscriptions]
+      responses:
+        '200':
+          description: Subscription list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Subscription' }
+    post:
+      tags: [subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscriptionInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { subscription: { $ref: '#/components/schemas/Subscription' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/subscriptions/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [subscriptions]
+      responses:
+        '200':
+          description: Subscription detail with payment history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription: { $ref: '#/components/schemas/SubscriptionDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscriptionInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { subscription: { $ref: '#/components/schemas/Subscription' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [subscriptions]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /api/v1/subscriptions/{id}/payments:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentInput' }
+      responses:
+        '201':
+          description: Logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { payment: { $ref: '#/components/schemas/Payment' } }
+
+  /api/v1/subscriptions/{id}/renew:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [subscriptions]
+      summary: Manually mark subscription as renewed (logs payment + advances renewalDate)
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/wishlist:
+    get:
+      tags: [wishlist]
+      responses:
+        '200':
+          description: Wishlist items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WishlistItem' }
+    post:
+      tags: [wishlist]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WishlistInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { item: { $ref: '#/components/schemas/WishlistItem' } }
+
+  /api/v1/wishlist/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [wishlist]
+      summary: Item + price history (newest first)
+      responses:
+        '200':
+          description: Item with price history
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WishlistDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [wishlist]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WishlistInput' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [wishlist]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /api/v1/wishlist/{id}/prices:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      tags: [wishlist]
+      summary: Log a price observation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PriceLogInput' }
+      responses:
+        '201': { $ref: '#/components/responses/Ok' }
+
+  /api/v1/push:
+    get:
+      tags: [push]
+      responses:
+        '200':
+          description: This user's registered push subscriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptions:
+                    type: array
+                    items: { $ref: '#/components/schemas/PushSubscriptionMeta' }
+
+  /api/v1/push/register:
+    post:
+      tags: [push]
+      summary: Register a push token (web / apns / fcm)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/WebPushInput'
+                - $ref: '#/components/schemas/NativePushInput'
+      responses:
+        '201': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/BadInput' }
+
+  /api/v1/push/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      tags: [push]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/stats:
+    get:
+      tags: [stats]
+      summary: Aggregate dashboard stats for the current user
+      description: |
+        Returns devices / subscriptions / wishlist totals and per-status
+        breakdowns. `subscriptions.totalMonthlyVnd` is normalized to a per-month
+        VND amount across MONTHLY (price), QUARTERLY (price/3), YEARLY (price/12),
+        and CUSTOM (price * 30 / intervalDays); LIFETIME and non-ACTIVE subs are
+        excluded. `wishlist.totalCurrentPriceWatching` sums `currentPrice` for
+        items in WATCHING or DECIDED.
+      responses:
+        '200':
+          description: User stats
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserStats' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/reminders:
+    get:
+      tags: [reminders]
+      summary: Upcoming warranty reminders for the current user
+      description: |
+        Returns warranties whose `endDate` is within `[today, today + withinDays]`,
+        whose owning device has `status = ACTIVE`, and which have not been
+        dismissed via `Reminder.isDismissed`. Sorted by `endDate asc`.
+      parameters:
+        - name: withinDays
+          in: query
+          required: false
+          description: Lookahead horizon in days. Default 30, max 365.
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+      responses:
+        '200':
+          description: Reminder list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reminders]
+                properties:
+                  reminders:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReminderWarranty' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    Ok:
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { ok: { type: boolean } }
+    AuthSuccess:
+      description: Authenticated, returns access token + user
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [accessToken, expiresAt, user]
+            properties:
+              accessToken: { type: string }
+              expiresAt: { type: string, format: date-time }
+              user: { $ref: '#/components/schemas/User' }
+    BadInput:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unauthorized:
+      description: Missing / invalid / expired bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: Resource not found (or owned by another user)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Conflict:
+      description: Limit reached (per-user / per-resource cap exceeded)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: 'Stable code, e.g. unauthorized, not_found, bad_input, rate_limited, limit_reached' }
+        message: { type: string, description: 'Human-readable Vietnamese message' }
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string, nullable: true }
+
+    RegisterInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 200 }
+        name: { type: string, maxLength: 80, nullable: true }
+        deviceLabel: { type: string, maxLength: 80, nullable: true }
+        platform: { type: string, enum: [ios, android, web], nullable: true }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1 }
+        deviceLabel: { type: string, maxLength: 80, nullable: true }
+        platform: { type: string, enum: [ios, android, web], nullable: true }
+
+    ForgotRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword, confirmPassword]
+      properties:
+        currentPassword: { type: string, minLength: 1 }
+        newPassword: { type: string, minLength: 8, maxLength: 200 }
+        confirmPassword: { type: string, minLength: 1 }
+
+    DeviceStatus:
+      type: string
+      enum: [ACTIVE, EXPIRED, SOLD, BROKEN, LOST]
+
+    WarrantyType:
+      type: string
+      enum: [STANDARD, EXTENDED, THIRD_PARTY]
+
+    Device:
+      type: object
+      required: [id, name, category, purchaseDate, purchasePrice, status]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        name: { type: string }
+        category: { type: string }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        purchaseDate: { type: string, format: date-time }
+        purchasePrice: { type: integer, description: 'VND, integer' }
+        purchasePlace: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/DeviceStatus' }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    DeviceDetail:
+      allOf:
+        - $ref: '#/components/schemas/Device'
+        - type: object
+          properties:
+            attachments:
+              type: array
+              items: { $ref: '#/components/schemas/AttachmentMeta' }
+            warranties:
+              type: array
+              items: { $ref: '#/components/schemas/Warranty' }
+
+    DeviceInput:
+      type: object
+      required: [name, category, purchaseDate]
+      properties:
+        name: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        purchaseDate: { type: string, description: 'YYYY-MM-DD or full ISO' }
+        purchasePrice: { type: integer, default: 0 }
+        purchasePlace: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/DeviceStatus' }
+        notes: { type: string, nullable: true }
+        warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
+        warrantyProvider: { type: string, nullable: true }
+        warrantyAddress: { type: string, nullable: true }
+        warrantyPhone: { type: string, nullable: true }
+        warrantyNotes: { type: string, nullable: true }
+        fromWishlistId: { type: string, nullable: true, description: 'Optional. Marks the wishlist item as PURCHASED on success.' }
+
+    Warranty:
+      type: object
+      required: [id, deviceId, type, startDate, endDate, months]
+      properties:
+        id: { type: string }
+        deviceId: { type: string }
+        type: { $ref: '#/components/schemas/WarrantyType' }
+        provider: { type: string, nullable: true }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        months: { type: integer, minimum: 1 }
+        cost: { type: integer, nullable: true }
+        address: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    WarrantyInput:
+      type: object
+      required: [type, startDate, months]
+      properties:
+        type: { $ref: '#/components/schemas/WarrantyType' }
+        provider: { type: string, nullable: true }
+        startDate: { type: string }
+        months: { type: integer, minimum: 1 }
+        cost: { type: integer, nullable: true }
+        address: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    AttachmentMeta:
+      type: object
+      required: [id, fileName, fileType, fileSize, uploadedAt]
+      properties:
+        id: { type: string }
+        fileName: { type: string }
+        fileType: { type: string }
+        fileSize: { type: integer, description: 'plaintext bytes' }
+        description: { type: string, nullable: true }
+        uploadedAt: { type: string, format: date-time }
+
+    Subscription:
+      type: object
+      required: [id, name, billingCycle, price, startedAt, renewalDate, autoRenew, status]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        name: { type: string }
+        category: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        plan: { type: string, nullable: true }
+        billingCycle: { type: string, enum: [MONTHLY, QUARTERLY, YEARLY, LIFETIME, CUSTOM] }
+        intervalDays: { type: integer, nullable: true }
+        price: { type: integer, description: 'VND per cycle' }
+        currency: { type: string, default: 'VND' }
+        startedAt: { type: string, format: date-time }
+        renewalDate: { type: string, format: date-time }
+        autoRenew: { type: boolean }
+        status: { type: string, enum: [ACTIVE, PAUSED, CANCELED, EXPIRED] }
+        accountEmail: { type: string, nullable: true }
+        paymentMethod: { type: string, nullable: true }
+        manageUrl: { type: string, nullable: true }
+        cancelUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    SubscriptionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Subscription'
+        - type: object
+          properties:
+            payments:
+              type: array
+              items: { $ref: '#/components/schemas/Payment' }
+
+    SubscriptionInput:
+      type: object
+      required: [name, billingCycle, price, startedAt, autoRenew]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        plan: { type: string, nullable: true }
+        billingCycle: { type: string, enum: [MONTHLY, QUARTERLY, YEARLY, LIFETIME, CUSTOM] }
+        intervalDays: { type: integer, minimum: 1, nullable: true, description: 'Required when billingCycle=CUSTOM' }
+        price: { type: integer, minimum: 0 }
+        startedAt: { type: string }
+        renewalDate: { type: string, nullable: true, description: 'Defaults to nextRenewalDate(startedAt, billingCycle)' }
+        autoRenew: { type: boolean }
+        status: { type: string, enum: [ACTIVE, PAUSED, CANCELED, EXPIRED] }
+        accountEmail: { type: string, nullable: true }
+        paymentMethod: { type: string, nullable: true }
+        manageUrl: { type: string, nullable: true }
+        cancelUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    Payment:
+      type: object
+      required: [id, subscriptionId, amount, paidAt]
+      properties:
+        id: { type: string }
+        subscriptionId: { type: string }
+        amount: { type: integer }
+        paidAt: { type: string, format: date-time }
+        note: { type: string, nullable: true }
+
+    PaymentInput:
+      type: object
+      required: [amount, paidAt]
+      properties:
+        amount: { type: integer, minimum: 0 }
+        paidAt: { type: string }
+        note: { type: string, maxLength: 500, nullable: true }
+
+    WishlistItem:
+      type: object
+      required: [id, name, priority, status]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        name: { type: string }
+        category: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        initialPrice: { type: integer, nullable: true }
+        currentPrice: { type: integer, nullable: true }
+        buyUrl: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        targetDate: { type: string, format: date-time, nullable: true }
+        priority: { type: string, enum: [MUST, WANT, MAYBE] }
+        status: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
+        notes: { type: string, nullable: true }
+        reminderIntervalDays: { type: integer, nullable: true }
+        purchasedDeviceId: { type: string, nullable: true }
+
+    WishlistItemDetail:
+      allOf:
+        - $ref: '#/components/schemas/WishlistItem'
+        - type: object
+          properties:
+            prices:
+              type: array
+              items: { $ref: '#/components/schemas/WishlistPrice' }
+
+    WishlistDetail:
+      type: object
+      required: [item, prices]
+      properties:
+        item: { $ref: '#/components/schemas/WishlistItem' }
+        prices:
+          type: array
+          description: Price history, newest first.
+          items: { $ref: '#/components/schemas/WishlistPrice' }
+
+    WishlistPrice:
+      type: object
+      required: [id, itemId, price, recordedAt]
+      properties:
+        id: { type: string }
+        itemId: { type: string }
+        price: { type: integer }
+        note: { type: string, nullable: true }
+        recordedAt: { type: string, format: date-time }
+
+    WishlistInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        initialPrice: { type: integer, nullable: true }
+        currentPrice: { type: integer, nullable: true }
+        buyUrl: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        targetDate: { type: string, nullable: true }
+        priority: { type: string, enum: [MUST, WANT, MAYBE] }
+        status: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
+        notes: { type: string, nullable: true }
+        reminderIntervalDays: { type: integer, minimum: 1, nullable: true }
+
+    PriceLogInput:
+      type: object
+      required: [price]
+      properties:
+        price: { type: integer, minimum: 0 }
+        note: { type: string, maxLength: 500, nullable: true }
+
+    PushSubscriptionMeta:
+      type: object
+      required: [id, endpoint, platform, createdAt]
+      properties:
+        id: { type: string }
+        endpoint: { type: string }
+        platform: { type: string, enum: [web, apns, fcm] }
+        userAgent: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    WebPushInput:
+      type: object
+      required: [endpoint, p256dh, auth]
+      properties:
+        platform: { type: string, enum: [web], default: 'web' }
+        endpoint: { type: string, format: uri }
+        p256dh: { type: string }
+        auth: { type: string }
+        userAgent: { type: string, maxLength: 500, nullable: true }
+
+    NativePushInput:
+      type: object
+      required: [platform, token]
+      properties:
+        platform: { type: string, enum: [apns, fcm] }
+        token: { type: string, minLength: 8, maxLength: 4096 }
+        userAgent: { type: string, maxLength: 500, nullable: true }
+
+    Catalog:
+      type: object
+      required: [categories, brands, stores, warrantyProviders]
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            required: [code, name]
+            properties:
+              code: { type: string }
+              name: { type: string }
+        brands:
+          type: array
+          items:
+            type: object
+            required: [id, name, categoryCodes]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              categoryCodes:
+                type: array
+                items: { type: string }
+        stores:
+          type: array
+          items:
+            type: object
+            required: [id, name, type]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              type: { type: string }
+        warrantyProviders:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              phone: { type: string, nullable: true }
+              address: { type: string, nullable: true }
+              websiteUrl: { type: string, nullable: true }
+              notes: { type: string, nullable: true }
+
+    UserStats:
+      type: object
+      required: [devices, subscriptions, wishlist]
+      properties:
+        devices:
+          type: object
+          required: [total, byStatus, totalPurchasePrice]
+          properties:
+            total: { type: integer }
+            byStatus:
+              type: object
+              required: [ACTIVE, EXPIRED, SOLD, BROKEN, LOST]
+              properties:
+                ACTIVE: { type: integer }
+                EXPIRED: { type: integer }
+                SOLD: { type: integer }
+                BROKEN: { type: integer }
+                LOST: { type: integer }
+            totalPurchasePrice: { type: integer, description: 'VND, integer' }
+        subscriptions:
+          type: object
+          required: [total, byStatus, totalMonthlyVnd]
+          properties:
+            total: { type: integer }
+            byStatus:
+              type: object
+              required: [ACTIVE, PAUSED, CANCELED, EXPIRED]
+              properties:
+                ACTIVE: { type: integer }
+                PAUSED: { type: integer }
+                CANCELED: { type: integer }
+                EXPIRED: { type: integer }
+            totalMonthlyVnd:
+              type: integer
+              description: 'Sum of monthly-equivalent VND across ACTIVE, non-LIFETIME subs'
+        wishlist:
+          type: object
+          required: [total, byStatus, totalCurrentPriceWatching]
+          properties:
+            total: { type: integer }
+            byStatus:
+              type: object
+              required: [WATCHING, DECIDED, SKIPPED, PURCHASED]
+              properties:
+                WATCHING: { type: integer }
+                DECIDED: { type: integer }
+                SKIPPED: { type: integer }
+                PURCHASED: { type: integer }
+            totalCurrentPriceWatching:
+              type: integer
+              description: 'Sum of currentPrice for items in WATCHING or DECIDED'
+
+    ReminderWarranty:
+      allOf:
+        - $ref: '#/components/schemas/Warranty'
+        - type: object
+          required: [device]
+          properties:
+            device:
+              type: object
+              required: [id, name, category]
+              properties:
+                id: { type: string }
+                name: { type: string }
+                category: { type: string }

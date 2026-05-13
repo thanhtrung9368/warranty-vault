@@ -1,0 +1,66 @@
+# WarrantyVault API (Go)
+
+Standalone Go service that owns the WarrantyVault backend: REST API under `/v1/*`, file streaming, push fanout, and the cron worker. Web (`website/`) and mobile (`ios/`, `android/`) are pure clients of this service. See `../BACKEND_GO_PLAN.md` for the full migration plan.
+
+Stack: Go 1.22+ (`net/http` ServeMux), `pgx/v5` + `sqlc`, `pressly/goose` migrations, `go-playground/validator/v10`, stdlib `log/slog`. No frameworks (no gin/fiber/echo/gorm/viper).
+
+## Local dev
+
+```bash
+cp .env.example .env          # fill DATABASE_URL at minimum
+go run ./cmd/migrate up       # apply schema (migrations live in api/migrations/)
+go run ./cmd/server           # serves on :4000
+```
+
+Verify:
+
+```bash
+curl localhost:4000/healthz   # {"ok":true}
+curl localhost:4000/readyz    # {"ok":true} when DB is reachable, 503 otherwise
+```
+
+The server reads `.env` automatically when present; required env is `DATABASE_URL`. Optional: `PORT` (default `4000`), `WEB_URL` (CORS allowlist), `SESSION_SECRET` (used after Phase B; min 32 chars when set).
+
+## CLIs
+
+- `go run ./cmd/server` — HTTP server.
+- `go run ./cmd/migrate <up|down|status|version|redo|reset>` — goose wrapper. `reset` is destructive and requires `WV_ALLOW_DESTRUCTIVE=1`. `--force-reset` is always blocked (per repo CLAUDE.md).
+- `go run ./cmd/cron` — stub; populated in Phase D (warranty + wishlist + subscription notifications, subscription auto-bill).
+
+## Layout
+
+```
+api/
+├── cmd/
+│   ├── server/      HTTP entrypoint
+│   ├── cron/        cron entrypoint (Phase D)
+│   └── migrate/     goose CLI wrapper
+├── internal/
+│   ├── auth/        bearer issue/verify, bcrypt (Phase B)
+│   ├── handlers/    /v1/* HTTP handlers (Phase B+)
+│   ├── services/    pure business logic
+│   ├── store/
+│   │   ├── queries/ .sql files, sqlc input
+│   │   └── gen/     sqlc output (committed; run `sqlc generate` to refresh)
+│   ├── files/       AES-256-GCM encrypted attachments (Phase C)
+│   ├── push/        web push / APNs / FCM dispatch (Phase D)
+│   ├── ratelimit/   in-memory + Upstash (Phase B)
+│   ├── email/       Resend REST wrapper (Phase B)
+│   ├── config/      env loading + validation
+│   ├── httpx/       JSON helpers + middleware (logging, recover, request id)
+│   └── validate/    go-playground/validator setup
+├── migrations/      goose .sql (owned by the migrations tooling)
+├── sqlc.yaml
+├── go.mod
+└── README.md
+```
+
+## Generating sqlc code
+
+After migrations are in place:
+
+```bash
+sqlc generate
+```
+
+The generated package lands in `internal/store/gen/`. It is committed so contributors don't need sqlc installed just to build.

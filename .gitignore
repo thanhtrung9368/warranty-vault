@@ -1,58 +1,70 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# Universal — applies across website/, ios/, android/, mobile/
 .DS_Store
+*.log
 *.pem
+.idea/
+.vscode/
+Thumbs.db
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
+# Local env files (any project)
 .env
+.env*.local
 
-# vercel
-.vercel
-
-# typescript
+# Node / Next.js (web)
+node_modules/
+.pnp
+.pnp.js
+.next/
+out/
+build/
+coverage/
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma sqlite (WAL mode produces -wal/-shm side files)
-prisma/*.db
-prisma/*.db-journal
-prisma/*.db-wal
-prisma/*.db-shm
+# Vercel
+.vercel
 
-# encrypted user attachments — never commit
+# Prisma SQLite leftovers (we use Postgres now, but pattern stays defensive)
+**/prisma/*.db
+**/prisma/*.db-journal
+**/prisma/*.db-wal
+**/prisma/*.db-shm
+
+# Encrypted user attachments — never commit
 private-uploads/
 
-# docker bind-mount data dir (if used instead of named volume)
-/data/
+# Docker bind-mount data dir
+data/
 
-# backup tarballs (from README's `tar -czf warranty-backup-*.tar.gz`)
+# Backup tarballs
 warranty-backup-*.tar.gz
 
 # Claude Code per-user project state
 .claude/
 
-# editor / OS noise
-.idea/
-.vscode/
-Thumbs.db
-*.log
+# Go API (api/) — `.env`, `private-uploads/` already covered above globally.
+api/tmp/
+api/bin/
+api/*.test
+api/coverage.out
+api/coverage.html
+
+# iOS — Xcode build artifacts (only if user generates .xcodeproj/.xcworkspace)
+ios/.build/
+ios/.swiftpm/
+ios/DerivedData/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Android — Gradle/IDE
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+android/*.iml
+android/app/release/
+# Firebase Android config — never commit; comes from Firebase Console.
+android/app/google-services.json
