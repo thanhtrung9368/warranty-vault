@@ -40,6 +40,14 @@ SET "revokedAt" = NOW()
 WHERE "tokenHash" = $1
   AND "revokedAt" IS NULL;
 
+-- name: RevokeAllSessionsForUser :exec
+-- Used after password reset / account compromise: invalidate every still-live
+-- session the user has, regardless of device.
+UPDATE "Session"
+SET "revokedAt" = NOW()
+WHERE "userId" = $1
+  AND "revokedAt" IS NULL;
+
 -- name: PruneExpiredSessions :execrows
 DELETE FROM "Session"
 WHERE "expiresAt" < NOW()

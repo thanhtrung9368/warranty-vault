@@ -139,6 +139,20 @@ func (q *Queries) PruneExpiredSessions(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const revokeAllSessionsForUser = `-- name: RevokeAllSessionsForUser :exec
+UPDATE "Session"
+SET "revokedAt" = NOW()
+WHERE "userId" = $1
+  AND "revokedAt" IS NULL
+`
+
+// Used after password reset / account compromise: invalidate every still-live
+// session the user has, regardless of device.
+func (q *Queries) RevokeAllSessionsForUser(ctx context.Context, userid string) error {
+	_, err := q.db.Exec(ctx, revokeAllSessionsForUser, userid)
+	return err
+}
+
 const revokeSessionByTokenHash = `-- name: RevokeSessionByTokenHash :exec
 UPDATE "Session"
 SET "revokedAt" = NOW()

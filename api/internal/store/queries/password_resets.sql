@@ -15,6 +15,14 @@ UPDATE "PasswordReset"
 SET "usedAt" = NOW()
 WHERE id = $1;
 
+-- name: ConsumeAllPasswordResetsForUser :exec
+-- Used by the reset-password confirm step to invalidate every other
+-- outstanding reset token the user might have issued in parallel.
+UPDATE "PasswordReset"
+SET "usedAt" = NOW()
+WHERE "userId" = $1
+  AND "usedAt" IS NULL;
+
 -- name: PruneExpiredPasswordResets :execrows
 DELETE FROM "PasswordReset"
 WHERE "expiresAt" < NOW();

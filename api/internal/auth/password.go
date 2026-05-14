@@ -2,12 +2,22 @@ package auth
 
 import "golang.org/x/crypto/bcrypt"
 
-// BcryptCost matches the web client's BCRYPT_ROUNDS = 12. Hashes produced
-// by bcrypt-ts and golang.org/x/crypto/bcrypt are interoperable.
 const BcryptCost = 12
 
+// bcrypt-ts (used historically by the website) silently truncates passwords
+// longer than 72 bytes; golang.org/x/crypto/bcrypt rejects them with
+// ErrPasswordTooLong. Match the web behavior so users with long passwords
+// keep working after the Go cutover.
+func truncate72(plain string) []byte {
+	b := []byte(plain)
+	if len(b) > 72 {
+		return b[:72]
+	}
+	return b
+}
+
 func Hash(plain string) (string, error) {
-	b, err := bcrypt.GenerateFromPassword([]byte(plain), BcryptCost)
+	b, err := bcrypt.GenerateFromPassword(truncate72(plain), BcryptCost)
 	if err != nil {
 		return "", err
 	}
@@ -15,5 +25,5 @@ func Hash(plain string) (string, error) {
 }
 
 func Verify(plain, hash string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
+	return bcrypt.CompareHashAndPassword([]byte(hash), truncate72(plain)) == nil
 }

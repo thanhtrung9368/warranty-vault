@@ -1,25 +1,14 @@
 'use server';
 
-import path from 'node:path';
-import { rm } from 'node:fs/promises';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { compare } from 'bcrypt-ts';
-import { prisma } from '@/lib/prisma';
 import { api, toFormState } from '@/lib/api';
 import {
   setAuthCookie,
   destroyAuthCookie,
   getAuthCookie,
 } from '@/lib/auth-cookie';
-
-// TODO(phase-F): account deletion is not yet exposed by the Go service.
-// Until `DELETE /v1/users/me` (or similar) lands, `deleteAccount` keeps
-// hitting Prisma directly. The disk cleanup of `public/uploads/<deviceId>`
-// also moves to Go in Phase F (the file path is a leftover from the
-// pre-encrypted-attachments era).
-const UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads');
 
 export type AuthFormState = {
   ok?: boolean;
@@ -162,8 +151,10 @@ export async function changePassword(
 }
 
 // ---- delete account --------------------------------------------------------
-// TODO(phase-F): port to Go (DELETE /v1/users/me or similar). For now this
-// keeps the Prisma path so users can still close their account.
+//
+// Thin proxy over DELETE /v1/auth/me. The Go service verifies the password
+// inside the same handler, cascades the user's owned rows, and best-effort
+// removes the on-disk encrypted attachments.
 
 const DELETE_CONFIRM_PHRASE = 'XOA TAI KHOAN';
 
@@ -178,45 +169,21 @@ export async function deleteAccount(
   _prev: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
-  // Need an authenticated user. Resolve via the new cookie+me() flow, then
-  // load the prisma row to verify the password locally (Go does not yet
-  // expose an account-delete endpoint).
-  const meRes = await api.auth.me();
-  if (!meRes.ok) {
-    return { ok: false, message: 'Bạn chưa đăng nhập' };
-  }
-  const userId = meRes.data.user.id;
-
   const raw = Object.fromEntries(formData.entries());
   const parsed = deleteAccountSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, errors: fieldErrorsFromZod(parsed.error) };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { ok: false, message: 'Phiên đã hết hạn' };
-
-  const ok = await compare(parsed.data.password, user.passwordHash);
-  if (!ok) {
-    return { ok: false, errors: { password: ['Mật khẩu không đúng'] } };
-  }
-
-  // Snapshot device IDs so we can rm their (legacy) upload dirs after the
-  // cascade. Encrypted blobs under PRIVATE_UPLOAD_ROOT are handled by
-  // attachment cascade in Phase F's Go endpoint.
-  const devices = await prisma.device.findMany({
-    where: { userId: user.id },
-    select: { id: true },
-  });
-
-  await prisma.user.delete({ where: { id: user.id } });
-
-  for (const d of devices) {
-    if (!/^[a-z0-9_-]+$/i.test(d.id)) continue;
-    const dir = path.resolve(UPLOAD_ROOT, d.id);
-    if (dir.startsWith(path.resolve(UPLOAD_ROOT) + path.sep)) {
-      await rm(dir, { recursive: true, force: true }).catch(() => void 0);
+  const res = await api.auth.deleteMe(parsed.data.password);
+  if (!res.ok) {
+    if (res.status === 401) {
+      return { ok: false, message: 'Bạn chưa đăng nhập' };
     }
+    if (res.fieldErrors) {
+      return { ok: false, errors: res.fieldErrors, message: res.message };
+    }
+    return toFormState(res);
   }
 
   await destroyAuthCookie();

@@ -21,6 +21,7 @@ import * as wishlistApi from './wishlist';
 import * as catalogApi from './catalog';
 import * as pushApi from './push';
 import * as statsApi from './stats';
+import * as backupApi from './backup';
 // AGENT_C_IMPORTS_END
 
 export const api = {
@@ -37,6 +38,7 @@ export const api = {
   catalog: catalogApi,
   push: pushApi,
   stats: statsApi,
+  backup: backupApi,
   // AGENT_C_NAMESPACES_END
 };
 

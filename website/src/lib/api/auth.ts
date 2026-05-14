@@ -136,19 +136,29 @@ export async function changePassword(
   });
 }
 
-// TODO(phase-F): Go service does not yet expose POST /v1/auth/reset.
-// The TS server action `resetPassword` in `actions/password-reset.ts` keeps
-// hitting Prisma directly until the Go endpoint lands. This stub is here so
-// the auth namespace shape mirrors the eventual API surface.
+// Confirms a password-reset request. Posts the raw token + new password to
+// Go; the service hashes the token, locates the PasswordReset row, swaps
+// the user's password hash, marks every outstanding reset row used, and
+// revokes all of the user's sessions — all transactionally.
 export async function resetPassword(
-  _token: string,
-  _password: string,
-  _confirm: string,
-): Promise<ApiResult<{ ok: true }>> {
-  return {
-    ok: false,
-    status: 501,
-    error: 'not_implemented',
-    message: 'Go API chưa hỗ trợ reset mật khẩu. Dùng TS server action.',
-  };
+  token: string,
+  newPassword: string,
+): Promise<ApiResult<{ ok: boolean; message?: string }>> {
+  return apiFetch<{ ok: boolean; message?: string }>(
+    'POST',
+    '/v1/auth/reset-password',
+    { token, newPassword },
+    { auth: false },
+  );
+}
+
+// Permanently deletes the authenticated user. Requires the current password
+// in the body for confirmation (defense in depth: even with a stolen bearer
+// token an attacker still needs the password). The Go service cascades the
+// owned rows (Device / Subscription / Wishlist / Session / PasswordReset)
+// and best-effort purges the on-disk encrypted attachments.
+export async function deleteMe(
+  password: string,
+): Promise<ApiResult<{ ok: boolean; message?: string }>> {
+  return apiFetch<{ ok: boolean; message?: string }>('DELETE', '/v1/auth/me', { password });
 }

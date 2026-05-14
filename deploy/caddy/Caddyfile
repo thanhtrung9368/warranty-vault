@@ -1,0 +1,98 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# WarrantyVault — Caddy reverse proxy (template)
+#
+# TEMPLATE FILE — đây là placeholder. Trước khi dùng:
+#   1) Thay `warrantyvault.tld` bằng domain thật (vd: warrantyvault.vn).
+#   2) Sửa email trong block `{ ... }` global thành email thật để Let's Encrypt
+#      cảnh báo khi cert sắp hết hạn / có sự cố.
+#   3) Đảm bảo DNS A record cho cả `warrantyvault.tld`, `www.warrantyvault.tld`,
+#      và `api.warrantyvault.tld` đều trỏ về IP của VPS.
+#   4) Port 80 + 443 phải mở (firewall / security group).
+#
+# Caddy tự xin + renew TLS cert qua Let's Encrypt ACME. Không cần config gì
+# thêm — chỉ cần email global + domain trỏ đúng.
+#
+# Copy file: `cp deploy/caddy/Caddyfile /etc/caddy/Caddyfile`
+# Reload:    `systemctl reload caddy`
+# ─────────────────────────────────────────────────────────────────────────────
+
+{
+	# Email cho Let's Encrypt notifications. THAY EMAIL THẬT.
+	email admin@warrantyvault.tld
+
+	# Bật log để debug TLS / proxy.
+	# log {
+	# 	output file /var/log/caddy/access.log
+	# }
+}
+
+# ── Snippet: security headers dùng chung ────────────────────────────────────
+(security_headers) {
+	header {
+		# HSTS — 1 năm, áp dụng cho subdomain. Bật khi chắc chắn HTTPS ổn định.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Chống click-jacking.
+		X-Frame-Options "DENY"
+		# Tránh MIME sniff.
+		X-Content-Type-Options "nosniff"
+		# Referrer policy bảo thủ.
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Tắt 1 số API không cần cho 1 personal app.
+		Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
+		# Xoá header lộ server info.
+		-Server
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# api.warrantyvault.tld → Go API (container `api` trên :4000)
+# ─────────────────────────────────────────────────────────────────────────────
+api.warrantyvault.tld {
+	import security_headers
+
+	# Block cron route từ public. Go đã check `Authorization: Bearer <CRON_SECRET>`
+	# nhưng chặn ở edge cho yên tâm — cron chạy nội bộ qua systemd timer +
+	# `docker compose run cron`, không bao giờ qua reverse proxy.
+	@cron path /api/cron/* /api/v1/cron/*
+	respond @cron "Not Found" 404
+
+	# Giới hạn body upload (attachment max 5MB ở app, để 10MB ở edge cho overhead).
+	request_body {
+		max_size 10MB
+	}
+
+	reverse_proxy localhost:4000 {
+		# Forward client IP cho rate-limit nếu Go bật real-ip.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# warrantyvault.tld (+ www) → Next.js web UI (container `web` trên :3000)
+# ─────────────────────────────────────────────────────────────────────────────
+warrantyvault.tld, www.warrantyvault.tld {
+	import security_headers
+
+	# Redirect apex → www (hoặc ngược lại) tuỳ ý. Mặc định serve cả 2.
+	# Nếu muốn canonical:
+	# @www host www.warrantyvault.tld
+	# redir @www https://warrantyvault.tld{uri} permanent
+
+	# Block cron route từ public (Next.js cũ có /api/cron/*; sau Phase F xoá rồi
+	# nhưng giữ defense-in-depth).
+	@cron path /api/cron/*
+	respond @cron "Not Found" 404
+
+	# Upload attachment đi qua Next.js server action → max 10MB cho overhead.
+	request_body {
+		max_size 10MB
+	}
+
+	reverse_proxy localhost:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

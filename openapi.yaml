@@ -109,6 +109,52 @@ paths:
                 type: object
                 properties: { user: { $ref: '#/components/schemas/User' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [auth]
+      summary: Permanently delete the authenticated user's account
+      description: |
+        Cascades the user's owned rows (Device / Subscription / Wishlist /
+        Session / PasswordReset) in a single statement and best-effort
+        removes the on-disk encrypted attachments. Requires the current
+        password in the body for confirmation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeleteAccountRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [auth]
+      security: []
+      summary: Confirm a password-reset link by setting a new password
+      description: |
+        Takes the raw token from the `/forgot` link, finds the PasswordReset
+        row by `sha256(token)`, updates the user's password hash, marks every
+        outstanding reset row used, and revokes ALL of the user's Sessions
+        (the password change kicks all devices off). Transactional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPasswordRequest' }
+      responses:
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/change-password:
     post:
@@ -624,6 +670,59 @@ paths:
               schema: { $ref: '#/components/schemas/UserStats' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/backup/export:
+    get:
+      tags: [backup]
+      summary: Download the authenticated user's full data graph as JSON
+      description: |
+        Streams a single JSON file containing devices, warranties, reminders,
+        attachments (metadata + base64 IV / wrapped key), wishlist + price
+        history, subscriptions + payment history. Schema version 5.
+        Response sets `Content-Disposition: attachment; filename=...`.
+      responses:
+        '200':
+          description: Backup payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BackupV1' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/backup/import:
+    post:
+      tags: [backup]
+      summary: Restore a backup JSON into the authenticated user's account
+      parameters:
+        - name: mode
+          in: query
+          schema: { type: string, enum: [merge, replace], default: merge }
+          description: |
+            `merge` skips rows whose ids already exist for this user.
+            `replace` wipes the user's existing devices / subscriptions /
+            wishlist first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BackupV1' }
+      responses:
+        '200':
+          description: Import succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  result: { $ref: '#/components/schemas/ImportResult' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413':
+          description: Body exceeded the 50 MB upload cap
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/reminders:
     get:
       tags: [reminders]
@@ -765,6 +864,177 @@ components:
         currentPassword: { type: string, minLength: 1 }
         newPassword: { type: string, minLength: 8, maxLength: 200 }
         confirmPassword: { type: string, minLength: 1 }
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token: { type: string, description: 'Raw token from the /forgot reset link' }
+        newPassword: { type: string, minLength: 8, maxLength: 200 }
+
+    DeleteAccountRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 1, description: 'Current password — required for confirmation' }
+
+    BackupV1:
+      type: object
+      description: |
+        Schema version 5 of the user-data backup. Round-trip stable: an
+        export can be re-imported on a fresh account in `replace` mode to
+        get an identical row set.
+      required: [version, exportedAt, devices, wishlist, subscriptions]
+      properties:
+        version: { type: integer, enum: [5] }
+        exportedAt: { type: string, format: date-time }
+        subscriptions:
+          type: array
+          items: { $ref: '#/components/schemas/BackupSubscription' }
+        wishlist:
+          type: array
+          items: { $ref: '#/components/schemas/BackupWishlistItem' }
+        devices:
+          type: array
+          items: { $ref: '#/components/schemas/BackupDevice' }
+
+    BackupSubscription:
+      type: object
+      required: [id, name, billingCycle, price, currency, startedAt, renewalDate, autoRenew, status, createdAt, updatedAt, payments]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        plan: { type: string, nullable: true }
+        billingCycle: { type: string }
+        intervalDays: { type: integer, nullable: true }
+        price: { type: integer }
+        currency: { type: string }
+        startedAt: { type: string, format: date-time }
+        renewalDate: { type: string, format: date-time }
+        autoRenew: { type: boolean }
+        status: { type: string }
+        accountEmail: { type: string, nullable: true }
+        paymentMethod: { type: string, nullable: true }
+        manageUrl: { type: string, nullable: true }
+        cancelUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        payments:
+          type: array
+          items:
+            type: object
+            required: [id, amount, paidAt]
+            properties:
+              id: { type: string }
+              amount: { type: integer }
+              paidAt: { type: string, format: date-time }
+              note: { type: string, nullable: true }
+
+    BackupWishlistItem:
+      type: object
+      required: [id, name, priority, status, createdAt, updatedAt, prices]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        initialPrice: { type: integer, nullable: true }
+        currentPrice: { type: integer, nullable: true }
+        buyUrl: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        targetDate: { type: string, format: date-time, nullable: true }
+        priority: { type: string }
+        status: { type: string }
+        notes: { type: string, nullable: true }
+        reminderIntervalDays: { type: integer, nullable: true }
+        lastNotifiedAt: { type: string, format: date-time, nullable: true }
+        purchasedDeviceId: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        prices:
+          type: array
+          items:
+            type: object
+            required: [id, price, recordedAt]
+            properties:
+              id: { type: string }
+              price: { type: integer }
+              note: { type: string, nullable: true }
+              recordedAt: { type: string, format: date-time }
+
+    BackupDevice:
+      type: object
+      required: [id, name, category, purchaseDate, purchasePrice, status, createdAt, updatedAt, warranties, attachments]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        purchaseDate: { type: string, format: date-time }
+        purchasePrice: { type: integer }
+        purchasePlace: { type: string, nullable: true }
+        status: { type: string }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        warranties:
+          type: array
+          items:
+            type: object
+            required: [id, type, startDate, endDate, months, createdAt, updatedAt, reminders]
+            properties:
+              id: { type: string }
+              type: { type: string }
+              provider: { type: string, nullable: true }
+              startDate: { type: string, format: date-time }
+              endDate: { type: string, format: date-time }
+              months: { type: integer }
+              cost: { type: integer, nullable: true }
+              address: { type: string, nullable: true }
+              phone: { type: string, nullable: true }
+              notes: { type: string, nullable: true }
+              createdAt: { type: string, format: date-time }
+              updatedAt: { type: string, format: date-time }
+              reminders:
+                type: array
+                items:
+                  type: object
+                  required: [id, isDismissed, createdAt]
+                  properties:
+                    id: { type: string }
+                    isDismissed: { type: boolean }
+                    createdAt: { type: string, format: date-time }
+        attachments:
+          type: array
+          items:
+            type: object
+            required: [id, fileName, storagePath, fileType, fileSize, iv, wrappedKey, uploadedAt]
+            properties:
+              id: { type: string }
+              fileName: { type: string }
+              storagePath: { type: string, description: '<deviceId>/<uuid>.enc' }
+              fileType: { type: string }
+              fileSize: { type: integer }
+              iv: { type: string, description: 'base64-encoded 12-byte IV' }
+              wrappedKey: { type: string, description: 'base64-encoded wrapped per-file key' }
+              description: { type: string, nullable: true }
+              uploadedAt: { type: string, format: date-time }
+
+    ImportResult:
+      type: object
+      required: [imported, skipped, wishlistImported, wishlistSkipped, subImported, subSkipped]
+      properties:
+        imported: { type: integer }
+        skipped: { type: integer }
+        wishlistImported: { type: integer }
+        wishlistSkipped: { type: integer }
+        subImported: { type: integer }
+        subSkipped: { type: integer }
 
     DeviceStatus:
       type: string

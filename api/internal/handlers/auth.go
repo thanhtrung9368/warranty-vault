@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
@@ -551,3 +554,223 @@ func ChangePassword(d Deps) http.HandlerFunc {
 		})
 	}
 }
+
+// ---- POST /api/v1/auth/reset-password -----------------------------------------
+//
+// Confirm side of the password-reset flow started by /forgot. Body:
+//
+//	{ "token": "<raw token from reset link>", "newPassword": "..." }
+//
+// On success: writes the new password, marks the reset row used + invalidates
+// every other outstanding reset for the user, and revokes ALL existing
+// Session rows so the password change kicks all devices off.
+
+type resetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+}
+
+func ResetPassword(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body resetPasswordRequest
+		if err := decodeJSON(r, &body); err != nil {
+			badJSONBody(w)
+			return
+		}
+
+		fieldErrors := map[string][]string{}
+		body.Token = strings.TrimSpace(body.Token)
+		if body.Token == "" {
+			fieldErrors["token"] = []string{"Thiếu token"}
+		}
+		if len(body.NewPassword) < 8 {
+			fieldErrors["newPassword"] = []string{"Mật khẩu tối thiểu 8 ký tự"}
+		} else if len(body.NewPassword) > 200 {
+			fieldErrors["newPassword"] = []string{"Mật khẩu không được quá 200 ký tự"}
+		}
+		if len(fieldErrors) > 0 {
+			badInput(w, fieldErrors)
+			return
+		}
+
+		// Same per-IP+identifier bucket as /forgot, keyed by the (hashed) token
+		// so brute-forcing a single link is throttled.
+		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "reset",
+			ratelimit.GetClientIP(r), body.Token[:min(16, len(body.Token))])
+		if !rl.Ok {
+			rateLimited(w, rl.RetryAfterSec)
+			return
+		}
+
+		tokenHash := sha256Hex(body.Token)
+
+		q := store.New(d.DB)
+		reset, err := q.GetPasswordResetByTokenHash(r.Context(), tokenHash)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				httpx.WriteError(w, http.StatusBadRequest, "invalid_reset_token",
+					"Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+				return
+			}
+			slog.Error("lookup password reset", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		newHash, err := auth.Hash(body.NewPassword)
+		if err != nil {
+			slog.Error("bcrypt hash failed", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		tx, err := d.DB.Begin(r.Context())
+		if err != nil {
+			slog.Error("begin tx", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		defer tx.Rollback(r.Context())
+		tq := q.WithTx(tx)
+
+		if err := tq.UpdateUserPassword(r.Context(), store.UpdateUserPasswordParams{
+			ID:           reset.UserId,
+			PasswordHash: newHash,
+		}); err != nil {
+			slog.Error("update password", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		if err := tq.ConsumePasswordReset(r.Context(), reset.ID); err != nil {
+			slog.Error("consume reset", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		// Burn every other outstanding reset for this user.
+		if err := tq.ConsumeAllPasswordResetsForUser(r.Context(), reset.UserId); err != nil {
+			slog.Error("consume other resets", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		// Revoke every Session — password change kicks all devices off.
+		if err := tq.RevokeAllSessionsForUser(r.Context(), reset.UserId); err != nil {
+			slog.Error("revoke sessions", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		if err := tx.Commit(r.Context()); err != nil {
+			slog.Error("commit", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"message": "Đã đổi mật khẩu. Vào /login để đăng nhập.",
+		})
+	}
+}
+
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// ---- DELETE /api/v1/auth/me --------------------------------------------------
+//
+// Permanently deletes the authenticated user. Requires the current
+// password in the body so a stolen bearer token can't nuke the account.
+// The schema's `User → *` ON DELETE CASCADE constraints take care of
+// Devices, Subscriptions, WishlistItems, Sessions and PasswordResets in a
+// single statement.
+//
+// After the DB commit we best-effort remove the user's encrypted blobs from
+// disk. The path layout is `<PRIVATE_UPLOAD_ROOT>/<deviceId>/<uuid>.enc`,
+// without a per-user dir, so we iterate the snapshotted device ids.
+
+type deleteMeRequest struct {
+	Password string `json:"password"`
+}
+
+func DeleteMe(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		if err != nil {
+			unauthorized(w)
+			return
+		}
+
+		// Body is optional — if absent, we still require it. Decode loose so a
+		// trailing CSRF / confirm phrase doesn't 400 on us.
+		var body deleteMeRequest
+		if r.ContentLength > 0 || r.Header.Get("Content-Type") != "" {
+			_ = decodeJSONLoose(r, &body)
+		}
+		if strings.TrimSpace(body.Password) == "" {
+			badInput(w, map[string][]string{"password": {"Nhập mật khẩu để xác nhận"}})
+			return
+		}
+
+		q := store.New(d.DB)
+		row, gerr := q.GetUserByID(r.Context(), us.UserID)
+		if gerr != nil {
+			if errors.Is(gerr, pgx.ErrNoRows) {
+				httpx.WriteError(w, http.StatusNotFound, "user_not_found", "Không tìm thấy", nil)
+				return
+			}
+			slog.Error("get user by id", "err", gerr)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		if !auth.Verify(body.Password, row.PasswordHash) {
+			badInput(w, map[string][]string{"password": {"Mật khẩu không đúng"}})
+			return
+		}
+
+		// Snapshot device ids BEFORE delete so we know which on-disk dirs to
+		// purge afterwards.
+		devices, derr := q.ListDevicesByUserSimple(r.Context(), us.UserID)
+		if derr != nil {
+			slog.Error("list devices for delete", "err", derr, "userId", us.UserID)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		if err := q.DeleteUser(r.Context(), us.UserID); err != nil {
+			slog.Error("delete user", "err", err, "userId", us.UserID)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		// Best-effort disk cleanup. A failure here is logged but does not
+		// produce a 500 — the user's data is gone from the DB which is what
+		// matters for privacy / GDPR.
+		root := files.PrivateUploadRoot()
+		for _, dev := range devices {
+			if !files.SafeSegment(dev.ID) {
+				continue
+			}
+			abs, perr := files.ResolveSafe(root, dev.ID)
+			if perr != nil {
+				continue
+			}
+			if rmErr := osRemoveAll(abs); rmErr != nil {
+				slog.Warn("remove device upload dir failed",
+					"err", rmErr, "userId", us.UserID, "deviceId", dev.ID)
+			}
+		}
+
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"message": "Đã xoá tài khoản",
+		})
+	}
+}
+
+// osRemoveAll is a thin wrapper indirected through a var so tests can stub it
+// without pulling in os.RemoveAll directly across packages.
+var osRemoveAll = func(path string) error {
+	return os.RemoveAll(path)
+}
+

@@ -11,6 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const consumeAllPasswordResetsForUser = `-- name: ConsumeAllPasswordResetsForUser :exec
+UPDATE "PasswordReset"
+SET "usedAt" = NOW()
+WHERE "userId" = $1
+  AND "usedAt" IS NULL
+`
+
+// Used by the reset-password confirm step to invalidate every other
+// outstanding reset token the user might have issued in parallel.
+func (q *Queries) ConsumeAllPasswordResetsForUser(ctx context.Context, userid string) error {
+	_, err := q.db.Exec(ctx, consumeAllPasswordResetsForUser, userid)
+	return err
+}
+
 const consumePasswordReset = `-- name: ConsumePasswordReset :exec
 UPDATE "PasswordReset"
 SET "usedAt" = NOW()

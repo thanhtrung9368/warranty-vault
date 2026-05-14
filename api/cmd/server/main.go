@@ -56,7 +56,9 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/login", handlers.Login(deps))
 	mux.HandleFunc("POST /api/v1/auth/logout", handlers.Logout(deps))
 	mux.HandleFunc("GET /api/v1/auth/me", handlers.Me(deps))
+	mux.HandleFunc("DELETE /api/v1/auth/me", handlers.DeleteMe(deps))
 	mux.HandleFunc("POST /api/v1/auth/forgot", handlers.Forgot(deps))
+	mux.HandleFunc("POST /api/v1/auth/reset-password", handlers.ResetPassword(deps))
 	mux.HandleFunc("POST /api/v1/auth/change-password", handlers.ChangePassword(deps))
 
 	handlers.RegisterDevices(mux, deps)
@@ -70,6 +72,7 @@ func main() {
 	handlers.RegisterPush(mux, deps)
 	mux.HandleFunc("POST /api/v1/push/test", handlers.TestPush(deps))
 	handlers.RegisterCron(mux, deps)
+	handlers.RegisterBackup(mux, deps)
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})

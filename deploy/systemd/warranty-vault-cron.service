@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# WarrantyVault — one-shot cron service (template)
+#
+# Service này được kích hoạt bởi `warranty-vault-cron.timer` (daily 09:00
+# Hanoi). Nó chạy binary `/app/cron` trong image `warranty-vault-api:local`
+# qua `docker compose run --rm cron`.
+#
+# TEMPLATE — đường dẫn `/opt/warranty-vault/` là quy ước. Nếu repo đặt chỗ
+# khác (vd `/srv/warranty-vault/`, `/home/deploy/warranty-vault/`), sửa
+# `ExecStart` cho khớp.
+#
+# Cài đặt:
+#   cp deploy/systemd/warranty-vault-cron.service /etc/systemd/system/
+#   cp deploy/systemd/warranty-vault-cron.timer   /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now warranty-vault-cron.timer
+#
+# Verify:
+#   systemctl list-timers | grep warranty
+#   journalctl -u warranty-vault-cron.service -n 100
+#
+# Chạy thủ công 1 lần (test):
+#   systemctl start warranty-vault-cron.service
+# ─────────────────────────────────────────────────────────────────────────────
+
+[Unit]
+Description=WarrantyVault daily cron job (warranty + wishlist + subscription notifications)
+Documentation=https://github.com/thanhtrung9368/warranty-vault
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+# `docker compose run --rm cron` build từ profile `cron` trong docker-compose.yml.
+# `--rm` đảm bảo container bị xoá sau khi exit, không tích tụ stopped containers.
+# Working directory phải có docker-compose.yml + .env.
+WorkingDirectory=/opt/warranty-vault
+ExecStart=/usr/bin/docker compose -f /opt/warranty-vault/docker-compose.yml --profile cron run --rm cron
+
+# Timeout cho 1 lần chạy cron. Tăng nếu user nhiều / push fanout chậm.
+TimeoutStartSec=10min
+
+# Output → journald. Xem bằng `journalctl -u warranty-vault-cron.service`.
+StandardOutput=journal
+StandardError=journal
+
+# Không restart khi exit — đây là one-shot, timer chịu trách nhiệm trigger lại.
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

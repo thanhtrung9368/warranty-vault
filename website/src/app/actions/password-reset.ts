@@ -1,10 +1,6 @@
 'use server';
 
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { hash } from 'bcrypt-ts';
-import { prisma } from '@/lib/prisma';
-import { BCRYPT_ROUNDS } from '@/lib/auth';
 import { api } from '@/lib/api';
 
 export type ResetRequestState = {
@@ -28,10 +24,6 @@ const resetSchema = z
     path: ['confirmPassword'],
   });
 
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
-
 // `requestPasswordReset` posts to Go's `POST /v1/auth/forgot`. The Go
 // handler always returns `{ ok: true }` to avoid user enumeration, sending
 // the email + creating the `PasswordReset` row internally.
@@ -47,17 +39,15 @@ export async function requestPasswordReset(
 
   const res = await api.auth.forgot(parsed.data.email);
   if (!res.ok) {
-    // Rate-limited or network error — surface the message but don't reveal
-    // whether the email is registered.
     return { ok: false, message: res.message ?? 'Có lỗi xảy ra, thử lại sau' };
   }
   return { ok: true, message: 'Nếu email tồn tại, link đặt lại đã được gửi.' };
 }
 
-// TODO(phase-F): Go does not yet expose `POST /v1/auth/reset`. The Go
-// `Forgot` handler creates a `PasswordReset` row keyed by sha256(token), so
-// the data is interoperable — we just need the consume-side endpoint.
-// Until then this keeps using Prisma directly.
+// Thin proxy over the Go `POST /v1/auth/reset-password` handler. The Go
+// service finds the PasswordReset by sha256(token), updates the user's
+// password hash, marks every outstanding reset row used, and revokes all
+// of the user's Sessions in a single transaction.
 export async function resetPassword(
   _prev: ResetRequestState,
   formData: FormData,
@@ -67,32 +57,23 @@ export async function resetPassword(
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.flatten().fieldErrors };
   }
-  const { token, newPassword } = parsed.data;
-  const tokenHash = hashToken(token);
 
-  const record = await prisma.passwordReset.findUnique({
-    where: { tokenHash },
-    include: { user: true },
-  });
-  if (!record || record.usedAt || record.expiresAt < new Date()) {
-    return { ok: false, message: 'Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.' };
+  const res = await api.auth.resetPassword(parsed.data.token, parsed.data.newPassword);
+  if (!res.ok) {
+    if (res.status === 400 && res.error === 'invalid_reset_token') {
+      return {
+        ok: false,
+        message: res.message ?? 'Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.',
+      };
+    }
+    if (res.status === 429) {
+      return { ok: false, message: res.message ?? 'Thao tác quá nhanh, thử lại sau' };
+    }
+    return {
+      ok: false,
+      errors: res.fieldErrors,
+      message: res.message ?? 'Không đổi được mật khẩu',
+    };
   }
-
-  const passwordHash = await hash(newPassword, BCRYPT_ROUNDS);
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: record.userId },
-      data: { passwordHash, passwordChangedAt: new Date() },
-    }),
-    prisma.passwordReset.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    }),
-    prisma.passwordReset.updateMany({
-      where: { userId: record.userId, usedAt: null, id: { not: record.id } },
-      data: { usedAt: new Date() },
-    }),
-  ]);
-
-  return { ok: true, message: 'Đã đổi mật khẩu. Vào /login để đăng nhập.' };
+  return { ok: true, message: res.data.message ?? 'Đã đổi mật khẩu. Vào /login để đăng nhập.' };
 }

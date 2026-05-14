@@ -1,0 +1,178 @@
+-- Backup export/import queries.
+--
+-- The export path issues several plain SELECTs (no cross-row JOINs) so the Go
+-- service can serialize each section independently. The import path uses
+-- INSERTs that preserve client-supplied ids/timestamps — mirroring the
+-- Prisma v5 backup format produced by the legacy `exportAllJson()` server
+-- action.
+--
+-- Ownership for every query is enforced through "userId" or a join to a
+-- userId-scoped parent. The service additionally pre-validates payload ids
+-- with a `^[a-z0-9_-]+$` regex before invoking these.
+
+-- ─── Export ───────────────────────────────────────────────────────────────
+
+-- name: BackupListDevices :many
+SELECT *
+FROM "Device"
+WHERE "userId" = $1
+ORDER BY "createdAt" ASC;
+
+-- name: BackupListWarrantiesForUser :many
+SELECT w.*
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE d."userId" = $1
+ORDER BY w."createdAt" ASC;
+
+-- name: BackupListRemindersForUser :many
+SELECT r.*
+FROM "Reminder" r
+JOIN "Warranty" w ON w.id = r."warrantyId"
+JOIN "Device"   d ON d.id = w."deviceId"
+WHERE d."userId" = $1
+ORDER BY r."createdAt" ASC;
+
+-- name: BackupListAttachmentsForUser :many
+SELECT a.*
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE d."userId" = $1
+ORDER BY a."uploadedAt" ASC;
+
+-- name: BackupListWishlistForUser :many
+SELECT *
+FROM "WishlistItem"
+WHERE "userId" = $1
+ORDER BY "createdAt" ASC;
+
+-- name: BackupListWishlistPricesForUser :many
+SELECT p.*
+FROM "WishlistPrice" p
+JOIN "WishlistItem" i ON i.id = p."itemId"
+WHERE i."userId" = $1
+ORDER BY p."recordedAt" ASC;
+
+-- name: BackupListSubscriptionsForUser :many
+SELECT *
+FROM "Subscription"
+WHERE "userId" = $1
+ORDER BY "createdAt" ASC;
+
+-- name: BackupListPaymentsForUser :many
+SELECT p.*
+FROM "SubscriptionPayment" p
+JOIN "Subscription" s ON s.id = p."subscriptionId"
+WHERE s."userId" = $1
+ORDER BY p."paidAt" ASC;
+
+-- ─── Import wipe (mode=replace) ───────────────────────────────────────────
+
+-- name: BackupDeleteAttachmentsForUser :exec
+DELETE FROM "Attachment" a
+USING "Device" d
+WHERE a."deviceId" = d.id AND d."userId" = $1;
+
+-- name: BackupDeleteRemindersForUser :exec
+DELETE FROM "Reminder" r
+USING "Warranty" w, "Device" d
+WHERE r."warrantyId" = w.id
+  AND w."deviceId" = d.id
+  AND d."userId" = $1;
+
+-- name: BackupDeleteWarrantiesForUser :exec
+DELETE FROM "Warranty" w
+USING "Device" d
+WHERE w."deviceId" = d.id AND d."userId" = $1;
+
+-- name: BackupDeleteWishlistPricesForUser :exec
+DELETE FROM "WishlistPrice" p
+USING "WishlistItem" i
+WHERE p."itemId" = i.id AND i."userId" = $1;
+
+-- name: BackupDeleteWishlistForUser :exec
+DELETE FROM "WishlistItem"
+WHERE "userId" = $1;
+
+-- name: BackupDeletePaymentsForUser :exec
+DELETE FROM "SubscriptionPayment" p
+USING "Subscription" s
+WHERE p."subscriptionId" = s.id AND s."userId" = $1;
+
+-- name: BackupDeleteSubscriptionsForUser :exec
+DELETE FROM "Subscription"
+WHERE "userId" = $1;
+
+-- name: BackupDeleteDevicesForUser :exec
+DELETE FROM "Device"
+WHERE "userId" = $1;
+
+-- ─── Import inserts (preserve ids + timestamps) ──────────────────────────
+
+-- name: BackupInsertDevice :exec
+INSERT INTO "Device" (
+    id, "userId", name, category, brand, model, "serialNumber",
+    "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
+    "createdAt", "updatedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+);
+
+-- name: BackupInsertWarranty :exec
+INSERT INTO "Warranty" (
+    id, "deviceId", type, provider, "startDate", "endDate", months, cost,
+    address, phone, notes, "createdAt", "updatedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+);
+
+-- name: BackupInsertReminder :exec
+INSERT INTO "Reminder" (
+    id, "warrantyId", "isDismissed", "createdAt"
+) VALUES (
+    $1, $2, $3, $4
+);
+
+-- name: BackupInsertAttachment :exec
+INSERT INTO "Attachment" (
+    id, "deviceId", "fileName", "storagePath", "fileType", "fileSize",
+    iv, "wrappedKey", description, "uploadedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+);
+
+-- name: BackupInsertWishlistItem :exec
+INSERT INTO "WishlistItem" (
+    id, "userId", name, category, brand, "initialPrice", "currentPrice",
+    "buyUrl", "imageUrl", "targetDate", priority, status, notes,
+    "reminderIntervalDays", "lastNotifiedAt", "purchasedDeviceId",
+    "createdAt", "updatedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+    $17, $18
+);
+
+-- name: BackupInsertWishlistPrice :exec
+INSERT INTO "WishlistPrice" (
+    id, "itemId", price, note, "recordedAt"
+) VALUES (
+    $1, $2, $3, $4, $5
+);
+
+-- name: BackupInsertSubscription :exec
+INSERT INTO "Subscription" (
+    id, "userId", name, category, brand, plan, "billingCycle",
+    "intervalDays", price, currency, "startedAt", "renewalDate",
+    "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl",
+    "cancelUrl", notes, "createdAt", "updatedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+    $17, $18, $19, $20, $21
+);
+
+-- name: BackupInsertPayment :exec
+INSERT INTO "SubscriptionPayment" (
+    id, "subscriptionId", amount, "paidAt", note, "createdAt"
+) VALUES (
+    $1, $2, $3, $4, $5, NOW()
+);
