@@ -31,7 +31,7 @@ func TestSendPasswordReset_PostsExpectedBody(t *testing.T) {
 			t.Errorf("unmarshal body: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id":"abc"}`))
+		_, _ = w.Write([]byte(`{"id":"abc"}`))
 	}))
 	defer srv.Close()
 
@@ -74,7 +74,7 @@ func TestSendPasswordReset_PropagatesNon2xx(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error":"invalid_api_key"}`))
+		_, _ = w.Write([]byte(`{"error":"invalid_api_key"}`))
 	}))
 	defer srv.Close()
 

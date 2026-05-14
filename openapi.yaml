@@ -752,6 +752,40 @@ paths:
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/cron/warranty-check:
+    post:
+      tags: [cron]
+      security: []
+      summary: Run the daily warranty + subscription + wishlist notification sweep
+      description: |
+        Internal endpoint triggered by a scheduler (systemd timer, Vercel Cron, or
+        equivalent). Authenticated via `Authorization: Bearer ${CRON_SECRET}` —
+        not the user bearer scheme. Fans out warranty-expiry, wishlist target-date,
+        wishlist periodic check-in, and subscription renewal notifications, plus
+        auto-bills overdue ACTIVE subscriptions. Idempotent for billing
+        (filters by `renewalDate <= now`); see `internal/cron/run.go` for the
+        per-bucket idempotency notes.
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string, example: 'Bearer <CRON_SECRET>' }
+      responses:
+        '200':
+          description: Sweep summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warrantyNotified: { type: integer }
+                  wishlistTargetNotified: { type: integer }
+                  wishlistIntervalNotified: { type: integer }
+                  subsBilled: { type: integer }
+                  subsExpired: { type: integer }
+                  subsRenewalNotified: { type: integer }
+        '401': { description: 'Missing or wrong CRON_SECRET' }
+
 components:
   securitySchemes:
     bearerAuth:

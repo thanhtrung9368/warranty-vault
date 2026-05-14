@@ -39,6 +39,7 @@ import com.warrantyvault.app.auth.AuthStore
 import com.warrantyvault.app.ui.screens.devices.DeviceDetailScreen
 import com.warrantyvault.app.ui.screens.devices.DevicesScreen
 import com.warrantyvault.app.ui.screens.reminders.RemindersScreen
+import com.warrantyvault.app.ui.screens.settings.PushDevicesScreen
 import com.warrantyvault.app.ui.screens.settings.SettingsScreen
 import com.warrantyvault.app.ui.screens.stats.StatsScreen
 import com.warrantyvault.app.ui.screens.subscriptions.SubscriptionDetailScreen
@@ -65,6 +66,7 @@ fun MainScreen(auth: AuthStore) {
     var openDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var openSubscriptionId by rememberSaveable { mutableStateOf<String?>(null) }
     var openWishlistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var openPushDevices by rememberSaveable { mutableStateOf(false) }
 
     val devId = openDeviceId
     if (devId != null) {
@@ -90,6 +92,13 @@ fun MainScreen(auth: AuthStore) {
             api = App.instance.api,
             itemId = wishId,
             onBack = { openWishlistId = null },
+        )
+        return
+    }
+    if (openPushDevices) {
+        PushDevicesScreen(
+            api = App.instance.api,
+            onBack = { openPushDevices = false },
         )
         return
     }
@@ -157,6 +166,7 @@ fun MainScreen(auth: AuthStore) {
                     Tab.Settings      -> SettingsScreen(
                         auth = auth,
                         themeStore = App.instance.themeStore,
+                        onOpenPushDevices = { openPushDevices = true },
                     )
                 }
             }

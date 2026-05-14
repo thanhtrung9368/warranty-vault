@@ -53,7 +53,7 @@ func TestMemoryLimiter_WindowResets(t *testing.T) {
 
 	// Burn the bucket.
 	for i := 0; i < 3; i++ {
-		m.Check(ctx, "k", 3, 1000)
+		_, _ = m.Check(ctx, "k", 3, 1000)
 	}
 	r, _ := m.Check(ctx, "k", 3, 1000)
 	if r.Ok {
@@ -79,7 +79,7 @@ func TestMemoryLimiter_Concurrent(t *testing.T) {
 	done := make(chan struct{}, max+10)
 	for i := 0; i < max+10; i++ {
 		go func() {
-			m.Check(ctx, "race", max, 60_000)
+			_, _ = m.Check(ctx, "race", max, 60_000)
 			done <- struct{}{}
 		}()
 	}

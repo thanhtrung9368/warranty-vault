@@ -103,7 +103,7 @@ func (w *WebPusher) SendWeb(sub WebSub, payload Payload) Result {
 	if err != nil {
 		return Result{Ok: false, Error: err.Error()}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return Result{Ok: true}

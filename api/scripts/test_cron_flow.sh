@@ -230,16 +230,64 @@ wi_advanced=$(psql "$DATABASE_URL" -tAc \
 assert "$cond" "wishlist interval item lastNotifiedAt bumped within last hour"
 
 echo
-echo "→ Re-run cron (idempotent within window)"
+echo "→ Re-run cron — verify DB-side idempotency for advanceable side-effects"
+# Snapshot state before the second run so we can prove non-duplication.
+# NOTE on what idempotency we can / can't assert here:
+#   * Subscription auto-bill IS idempotent at the DB layer — after the first
+#     run advances renewalDate past today, the row no longer matches
+#     ListSubscriptionsOverdue. SubscriptionPayment count should stay at 1.
+#   * Wishlist periodic check-in IS idempotent — ListWishlistDueForCheckin
+#     filters by NOW() - lastNotifiedAt >= interval, and the first run just
+#     stamped lastNotifiedAt to ~now, so the second run skips it. We assert
+#     lastNotifiedAt is unchanged between runs (within a few seconds).
+#   * Subscription "expire" path (autoRenew=false): once status=EXPIRED, the
+#     row no longer matches `status='ACTIVE'` filters, so it's idempotent too.
+#   * Notification-only buckets (warranty 7d/30d, wishlist target-date day-of,
+#     subscription renewal warnings 3/1/0) DO NOT persist a per-bucket "last
+#     notified" stamp — running the cron twice on the same day will re-fan-out
+#     pushes. We can't assert this from psql, but it's worth noting in the
+#     repo's idempotency report.
+wt_stamp_before=$(psql "$DATABASE_URL" -tAc \
+  "SELECT \"lastNotifiedAt\" FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")
+sub_renewal_before=$(psql "$DATABASE_URL" -tAc \
+  "SELECT \"renewalDate\" FROM \"Subscription\" WHERE id = '${SUB_AUTO}';")
+
 curl -s -o /tmp/wv_cron2.json -w "%{http_code}" \
   -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H "authorization: Bearer ${CRON_SECRET}" >/dev/null
-# After advancing once, the auto-renew sub should now be in the future and
-# NOT trigger a second payment.
+
+# 1. Auto-renew sub: no second payment.
 pay_count2=$(psql "$DATABASE_URL" -tAc \
   "SELECT COUNT(*) FROM \"SubscriptionPayment\" WHERE \"subscriptionId\" = '${SUB_AUTO}';")
 [ "$pay_count2" = "1" ] && cond=true || cond=false
 assert "$cond" "second cron run does NOT add another payment (got $pay_count2)"
+
+# 2. Auto-renew sub: renewalDate didn't advance a second time.
+sub_renewal_after=$(psql "$DATABASE_URL" -tAc \
+  "SELECT \"renewalDate\" FROM \"Subscription\" WHERE id = '${SUB_AUTO}';")
+[ "$sub_renewal_before" = "$sub_renewal_after" ] && cond=true || cond=false
+assert "$cond" "auto-renew sub renewalDate unchanged on 2nd run"
+
+# 3. Manual (autoRenew=false) sub: still EXPIRED, no flip back.
+manual_status2=$(psql "$DATABASE_URL" -tAc \
+  "SELECT status FROM \"Subscription\" WHERE id = '${SUB_MANUAL}';")
+[ "$manual_status2" = "EXPIRED" ] && cond=true || cond=false
+assert "$cond" "manual sub stays EXPIRED on 2nd run (got '$manual_status2')"
+
+# 4. Wishlist interval check-in: lastNotifiedAt did NOT bump again, because
+#    the first run set it to ~now and the next-run window check (>= 7 days
+#    elapsed) won't fire so soon.
+wt_stamp_after=$(psql "$DATABASE_URL" -tAc \
+  "SELECT \"lastNotifiedAt\" FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")
+[ "$wt_stamp_before" = "$wt_stamp_after" ] && cond=true || cond=false
+assert "$cond" "wishlist interval item lastNotifiedAt unchanged on 2nd run"
+
+# 5. Wishlist payment table sanity — there should never be > 1 Auto-renew row
+#    even across many runs (regression guard).
+auto_pay_total=$(psql "$DATABASE_URL" -tAc \
+  "SELECT COUNT(*) FROM \"SubscriptionPayment\" WHERE \"subscriptionId\" = '${SUB_AUTO}' AND note = 'Auto-renew';")
+[ "$auto_pay_total" = "1" ] && cond=true || cond=false
+assert "$cond" "exactly 1 Auto-renew payment exists for the test sub (got $auto_pay_total)"
 
 echo
 echo "→ Cleanup"

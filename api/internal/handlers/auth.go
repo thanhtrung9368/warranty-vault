@@ -118,14 +118,6 @@ func strconvItoa(n int) string {
 	return string(buf[i:])
 }
 
-func ptrIfNotEmpty(s string) *string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
 // validateEmail performs cheap RFC-ish validation matching the strictness
 // of Zod's z.string().email().
 func validateEmail(s string) bool {
@@ -630,7 +622,7 @@ func ResetPassword(d Deps) http.HandlerFunc {
 			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
-		defer tx.Rollback(r.Context())
+		defer func() { _ = tx.Rollback(r.Context()) }()
 		tq := q.WithTx(tx)
 
 		if err := tq.UpdateUserPassword(r.Context(), store.UpdateUserPasswordParams{
@@ -770,7 +762,5 @@ func DeleteMe(d Deps) http.HandlerFunc {
 
 // osRemoveAll is a thin wrapper indirected through a var so tests can stub it
 // without pulling in os.RemoveAll directly across packages.
-var osRemoveAll = func(path string) error {
-	return os.RemoveAll(path)
-}
+var osRemoveAll = os.RemoveAll
 

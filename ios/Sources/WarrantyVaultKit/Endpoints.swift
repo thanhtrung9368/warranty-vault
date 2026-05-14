@@ -291,4 +291,12 @@ extension APIClient {
     public func unregisterPush(id: String) async throws {
         let _: EmptyResponse = try await request("DELETE", "/api/v1/push/\(id)")
     }
+
+    /// Sends a sample push to every subscription owned by the current user.
+    /// Returns `(sent, failed)` so the UI can show a Vietnamese toast.
+    public func sendTestPush() async throws -> (sent: Int, failed: Int) {
+        struct Resp: Decodable { let sent: Int; let failed: Int }
+        let r: Resp = try await request("POST", "/api/v1/push/test")
+        return (r.sent, r.failed)
+    }
 }

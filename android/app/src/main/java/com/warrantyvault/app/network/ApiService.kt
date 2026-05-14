@@ -144,6 +144,9 @@ interface ApiService {
     @DELETE("api/v1/push/{id}")
     suspend fun unregisterPush(@Path("id") id: String): OkResponse
 
+    @POST("api/v1/push/test")
+    suspend fun sendTestPush(): TestPushResponse
+
     // ---- Attachments ----
     @GET("api/v1/devices/{id}/attachments")
     suspend fun listAttachments(@Path("id") id: String): AttachmentListResponse

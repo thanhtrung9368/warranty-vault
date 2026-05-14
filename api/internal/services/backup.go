@@ -415,7 +415,7 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	q := store.New(tx)
 
 	if mode == ImportReplace {

@@ -143,7 +143,7 @@ func (f *FCMPusher) getAccessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("fcm token mint %d: %s", resp.StatusCode, string(body))
@@ -254,7 +254,7 @@ func (f *FCMPusher) SendFCM(registrationToken string, payload Payload) Result {
 	if err != nil {
 		return Result{Ok: false, Error: err.Error()}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return Result{Ok: true}

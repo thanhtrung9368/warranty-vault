@@ -49,7 +49,7 @@ func DetectAndValidate(buf []byte, declared string) (string, error) {
 	}
 
 	if _, ok := AllowedMIMEs[canonical]; !ok {
-		return "", errors.New("Chỉ chấp nhận JPG/PNG/WEBP/GIF/HEIC hoặc PDF")
+		return "", errors.New("Chỉ chấp nhận JPG/PNG/WEBP/GIF/HEIC hoặc PDF") //nolint:staticcheck // Vietnamese user-facing error
 	}
 
 	// If the client declared a type, it must match the magic bytes.
@@ -58,7 +58,7 @@ func DetectAndValidate(buf []byte, declared string) (string, error) {
 		if alias, ok := heifAliases[declaredCT]; ok && alias == canonical {
 			return canonical, nil
 		}
-		return "", errors.New("Nội dung file không khớp định dạng khai báo")
+		return "", errors.New("Nội dung file không khớp định dạng khai báo") //nolint:staticcheck // Vietnamese user-facing error
 	}
 	return canonical, nil
 }

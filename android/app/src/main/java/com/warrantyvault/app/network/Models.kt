@@ -406,6 +406,12 @@ data class PushSubscriptionListResponse(
     val subscriptions: List<PushSubscriptionMeta> = emptyList(),
 )
 
+@Serializable
+data class TestPushResponse(
+    val sent: Int = 0,
+    val failed: Int = 0,
+)
+
 // ---- Attachments ----
 
 @Serializable

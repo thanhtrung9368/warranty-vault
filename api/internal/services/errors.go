@@ -4,7 +4,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 )
 
@@ -84,7 +83,3 @@ func ErrCategoryInvalid() *Error {
 	}
 }
 
-// internalf is for unexpected errors that should bubble as 500s.
-func internalf(format string, args ...any) error {
-	return fmt.Errorf(format, args...)
-}

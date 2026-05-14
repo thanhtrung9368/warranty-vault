@@ -35,7 +35,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -64,7 +63,11 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(auth: AuthStore, themeStore: ThemeStore) {
+fun SettingsScreen(
+    auth: AuthStore,
+    themeStore: ThemeStore,
+    onOpenPushDevices: () -> Unit = {},
+) {
     val status by auth.status.collectAsState()
     val themePref by themeStore.preference.collectAsState()
     val cs = MaterialTheme.colorScheme
@@ -191,10 +194,9 @@ fun SettingsScreen(auth: AuthStore, themeStore: ThemeStore) {
                     )
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
-                        title = "Bật thông báo",
-                        subtitle = "FCM sẽ bật khi có Firebase project (xem mobile/FIREBASE_SETUP.md).",
-                        onClick = null,
-                        trailing = { Switch(checked = false, onCheckedChange = null, enabled = false) },
+                        title = "Thiết bị nhận thông báo",
+                        subtitle = "Quản lý các thiết bị đăng ký push notification.",
+                        onClick = onOpenPushDevices,
                         showDivider = false,
                     )
                 }

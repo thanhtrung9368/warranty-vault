@@ -63,7 +63,7 @@ func (u *UpstashLimiter) Check(ctx context.Context, key string, max int, windowM
 		slog.Warn("rate-limit upstash transport; failing open", "err", err)
 		return Result{Ok: true, Remaining: max - 1}, nil
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		slog.Warn("rate-limit upstash non-2xx; failing open", "status", res.StatusCode)
@@ -108,7 +108,7 @@ func toInt(v any) int {
 		return int(x)
 	case string:
 		var n int
-		fmt.Sscanf(x, "%d", &n)
+		_, _ = fmt.Sscanf(x, "%d", &n)
 		return n
 	default:
 		return 0

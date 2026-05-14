@@ -139,7 +139,7 @@ func resizeGIF(buf []byte) ([]byte, error) {
 }
 
 // errBadImage is returned when decoding a declared-image upload fails.
-var errBadImage = errors.New("Không xử lý được ảnh, file có thể đã hỏng")
+var errBadImage = errors.New("Không xử lý được ảnh, file có thể đã hỏng") //nolint:staticcheck // Vietnamese user-facing error
 
 // Ensure errBadImage is referenced so go vet doesn't complain in builds
 // where MaybeResize is the only caller path. Kept exported via local use.

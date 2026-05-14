@@ -214,7 +214,7 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 	if err != nil {
 		return store.WishlistItem{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
 
 	priority := in.Priority
@@ -311,7 +311,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 	if err != nil {
 		return store.WishlistItem{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
 
 	updated, err := tq.UpdateWishlist(ctx, store.UpdateWishlistParams{
@@ -462,7 +462,7 @@ func LogWishlistPrice(ctx context.Context, db *pgxpool.Pool, userID, id string, 
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
 
 	if _, err := tq.CreateWishlistPrice(ctx, store.CreateWishlistPriceParams{

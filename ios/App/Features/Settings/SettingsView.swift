@@ -117,6 +117,18 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .disabled(pushButtonDisabled)
+            Divider()
+            NavigationLink {
+                PushDevicesView(client: client)
+            } label: {
+                row(icon: "iphone.gen3", iconTint: WV.Tokens.info,
+                    chevron: true) {
+                    Text("Thiết bị nhận thông báo")
+                        .font(.system(size: 15))
+                        .foregroundStyle(WV.Tokens.fg)
+                }
+            }
+            .buttonStyle(.plain)
             Text(pushHint)
                 .font(.system(size: 12))
                 .foregroundStyle(WV.Tokens.mutedFg)

@@ -103,7 +103,7 @@ func TestFCM_MintsTokenAndSends(t *testing.T) {
 
 	sendSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer fake-access-token" {
-			http.Error(w, "bad auth: "+got, 401)
+			http.Error(w, "bad auth: "+got, http.StatusUnauthorized)
 			return
 		}
 		body, _ := io.ReadAll(r.Body)

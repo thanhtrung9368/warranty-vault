@@ -300,7 +300,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err != nil {
 		return store.Device{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
 
 	status := in.Status
@@ -393,7 +393,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err != nil {
 		return store.Device{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
 
 	updated, err := tq.UpdateDevice(ctx, store.UpdateDeviceParams{

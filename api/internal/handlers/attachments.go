@@ -118,7 +118,7 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu file", nil)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Buffer the body — the service needs full bytes for magic-byte
 		// detection + image resize.
@@ -195,7 +195,7 @@ func downloadFileHandler(d Deps) http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		defer body.Close()
+		defer func() { _ = body.Close() }()
 
 		download := r.URL.Query().Get("download") == "1"
 		w.Header().Set("Content-Type", mime)

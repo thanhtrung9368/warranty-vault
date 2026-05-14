@@ -51,3 +51,14 @@ jobs:
         with:
           version: latest
           working-directory: api
+
+      - name: Set up Python (for OpenAPI drift check)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Check OpenAPI drift
+        run: bash scripts/check_openapi_drift.sh

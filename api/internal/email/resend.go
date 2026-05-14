@@ -114,7 +114,7 @@ func (c *Client) send(ctx context.Context, to, subject, text, html string) error
 	if err != nil {
 		return fmt.Errorf("send via resend: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		raw, _ := io.ReadAll(res.Body)

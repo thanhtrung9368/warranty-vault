@@ -49,7 +49,7 @@ func main() {
 	pool, err := pgxpool.New(poolCtx, cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("db pool init failed", "err", err)
-		os.Exit(1)
+		os.Exit(1) //nolint:gocritic // process is exiting; deferred cancel is moot
 	}
 	defer pool.Close()
 

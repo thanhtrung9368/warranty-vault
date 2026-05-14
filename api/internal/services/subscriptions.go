@@ -170,7 +170,7 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 			"Đã đạt giới hạn %d gói. Xoá bớt rồi thử lại.", MaxSubscriptionsPerUser))
 	}
 
-	renewal := time.Time{}
+	var renewal time.Time
 	if in.RenewalDate != nil && !in.RenewalDate.IsZero() {
 		renewal = *in.RenewalDate
 	} else {
