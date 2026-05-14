@@ -147,7 +147,7 @@ func validateEmail(s string) bool {
 	return true
 }
 
-// ---- POST /v1/auth/register ------------------------------------------------
+// ---- POST /api/v1/auth/register ------------------------------------------------
 
 type registerRequest struct {
 	Email       string  `json:"email"`
@@ -280,7 +280,7 @@ func ptrIfNotEmptyOrPassthrough(in *string) *string {
 	return &v
 }
 
-// ---- POST /v1/auth/login ---------------------------------------------------
+// ---- POST /api/v1/auth/login ---------------------------------------------------
 
 type loginRequest struct {
 	Email       string  `json:"email"`
@@ -355,7 +355,7 @@ func Login(d Deps) http.HandlerFunc {
 	}
 }
 
-// ---- POST /v1/auth/logout --------------------------------------------------
+// ---- POST /api/v1/auth/logout --------------------------------------------------
 
 func Logout(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -379,7 +379,7 @@ func Logout(d Deps) http.HandlerFunc {
 	}
 }
 
-// ---- GET /v1/auth/me -------------------------------------------------------
+// ---- GET /api/v1/auth/me -------------------------------------------------------
 
 func Me(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -394,7 +394,7 @@ func Me(d Deps) http.HandlerFunc {
 	}
 }
 
-// ---- POST /v1/auth/forgot --------------------------------------------------
+// ---- POST /api/v1/auth/forgot --------------------------------------------------
 
 type forgotRequest struct {
 	Email string `json:"email"`
@@ -465,7 +465,7 @@ func Forgot(d Deps) http.HandlerFunc {
 	}
 }
 
-// ---- POST /v1/auth/change-password -----------------------------------------
+// ---- POST /api/v1/auth/change-password -----------------------------------------
 
 type changePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`

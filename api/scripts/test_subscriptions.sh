@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for /v1/subscriptions against the Go service.
+# Parity test for /api/v1/subscriptions against the Go service.
 # Cleans up via cascade delete of the scoped test user.
 
 set -euo pipefail
@@ -59,7 +59,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Sub Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -69,7 +69,7 @@ H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
 echo "→ Create monthly subscription (100000 VND)"
-status=$(curl_status -X POST "${BASE}/v1/subscriptions" \
+status=$(curl_status -X POST "${BASE}/api/v1/subscriptions" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"ChatGPT Plus",
@@ -91,7 +91,7 @@ assert "$cond" "price = 100000 (got $PRICE)"
 
 echo
 echo "→ List subscriptions"
-status=$(curl_status -X GET "${BASE}/v1/subscriptions" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/subscriptions" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "list returns 200 (got $status)"
 COUNT=$(jq '.subscriptions | length' /tmp/wv_body.json)
@@ -100,7 +100,7 @@ assert "$cond" "list returns 1 subscription (got $COUNT)"
 
 echo
 echo "→ Get subscription detail (with payments=[])"
-status=$(curl_status -X GET "${BASE}/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "get detail returns 200 (got $status)"
 PCOUNT=$(jq '.subscription.payments | length' /tmp/wv_body.json)
@@ -109,7 +109,7 @@ assert "$cond" "payments empty initially (got $PCOUNT)"
 
 echo
 echo "→ Log a manual payment"
-status=$(curl_status -X POST "${BASE}/v1/subscriptions/${SUB_ID}/payments" \
+status=$(curl_status -X POST "${BASE}/api/v1/subscriptions/${SUB_ID}/payments" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{"amount":100000,"paidAt":"2026-04-01","note":"Manual log"}')
 [ "$status" = "201" ] && cond=true || cond=false
@@ -117,22 +117,22 @@ assert "$cond" "log payment returns 201 (got $status)"
 
 echo
 echo "→ Renew subscription → assert payments=2 + renewalDate advanced"
-ORIG_RENEWAL=$(curl -s -H "$H_AUTH" "${BASE}/v1/subscriptions/${SUB_ID}" | jq -r '.subscription.renewalDate')
-status=$(curl_status -X POST "${BASE}/v1/subscriptions/${SUB_ID}/renew" -H "$H_AUTH")
+ORIG_RENEWAL=$(curl -s -H "$H_AUTH" "${BASE}/api/v1/subscriptions/${SUB_ID}" | jq -r '.subscription.renewalDate')
+status=$(curl_status -X POST "${BASE}/api/v1/subscriptions/${SUB_ID}/renew" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "renew returns 200 (got $status)"
 NEW_RENEWAL=$(jq -r '.subscription.renewalDate' /tmp/wv_body.json)
 [ "$NEW_RENEWAL" != "$ORIG_RENEWAL" ] && [ "$NEW_RENEWAL" != "null" ] && cond=true || cond=false
 assert "$cond" "renewalDate advanced ($ORIG_RENEWAL → $NEW_RENEWAL)"
 # Pull detail to count payments
-status=$(curl_status -X GET "${BASE}/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
 PCOUNT=$(jq '.subscription.payments | length' /tmp/wv_body.json)
 [ "$PCOUNT" = "2" ] && cond=true || cond=false
 assert "$cond" "payments now == 2 (got $PCOUNT)"
 
 echo
 echo "→ Update price (PATCH)"
-status=$(curl_status -X PATCH "${BASE}/v1/subscriptions/${SUB_ID}" \
+status=$(curl_status -X PATCH "${BASE}/api/v1/subscriptions/${SUB_ID}" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"ChatGPT Plus",
@@ -150,13 +150,13 @@ assert "$cond" "price updated to 150000 (got $NEW_PRICE)"
 
 echo
 echo "→ Delete subscription"
-status=$(curl_status -X DELETE "${BASE}/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
+status=$(curl_status -X DELETE "${BASE}/api/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "delete returns 200 (got $status)"
 
 echo
 echo "→ GET deleted → 404"
-status=$(curl_status -X GET "${BASE}/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/subscriptions/${SUB_ID}" -H "$H_AUTH")
 [ "$status" = "404" ] && cond=true || cond=false
 assert "$cond" "GET deleted returns 404 (got $status)"
 

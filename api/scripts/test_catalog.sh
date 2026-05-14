@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for GET /v1/catalog. Verifies the bundle has all four arrays,
+# Smoke test for GET /api/v1/catalog. Verifies the bundle has all four arrays,
 # auth-gated.
 # Cleans up via cascade delete of the scoped test user.
 
@@ -60,7 +60,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Catalog Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -70,15 +70,15 @@ H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
 echo "→ Catalog requires auth — without token returns 401"
-status=$(curl_status -X GET "${BASE}/v1/catalog")
+status=$(curl_status -X GET "${BASE}/api/v1/catalog")
 [ "$status" = "401" ] && cond=true || cond=false
-assert "$cond" "no-auth GET /v1/catalog returns 401 (got $status)"
+assert "$cond" "no-auth GET /api/v1/catalog returns 401 (got $status)"
 
 echo
-echo "→ GET /v1/catalog with valid token"
-status=$(curl_status -X GET "${BASE}/v1/catalog" -H "$H_AUTH")
+echo "→ GET /api/v1/catalog with valid token"
+status=$(curl_status -X GET "${BASE}/api/v1/catalog" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /v1/catalog returns 200 (got $status)"
+assert "$cond" "GET /api/v1/catalog returns 200 (got $status)"
 
 for key in categories brands stores warrantyProviders; do
   KIND=$(jq -r ".$key | type" /tmp/wv_body.json)

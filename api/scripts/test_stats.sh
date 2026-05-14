@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for GET /v1/stats. Ports website/scripts/test-stats.mjs to
+# Parity test for GET /api/v1/stats. Ports website/scripts/test-stats.mjs to
 # bash + psql seeding + curl + jq. Cleans up via cascade delete.
 
 set -euo pipefail
@@ -59,7 +59,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register (sets up scoped user)"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Stats Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -94,16 +94,16 @@ SQL
 echo "  OK    fixtures seeded"
 
 echo
-echo "→ Unauthenticated GET /v1/stats → 401"
-status=$(curl_status -X GET "${BASE}/v1/stats")
+echo "→ Unauthenticated GET /api/v1/stats → 401"
+status=$(curl_status -X GET "${BASE}/api/v1/stats")
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "no-auth returns 401 (got $status)"
 
 echo
-echo "→ Authed GET /v1/stats"
-status=$(curl_status -X GET "${BASE}/v1/stats" -H "$H_AUTH")
+echo "→ Authed GET /api/v1/stats"
+status=$(curl_status -X GET "${BASE}/api/v1/stats" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /v1/stats returns 200 (got $status)"
+assert "$cond" "GET /api/v1/stats returns 200 (got $status)"
 
 echo
 echo "→ Devices totals"

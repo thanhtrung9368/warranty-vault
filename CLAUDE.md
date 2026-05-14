@@ -6,16 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 warranty-vault/
-├── website/        # Next.js fullstack — backend (REST + cron) + web UI. THIS is the code below.
-├── ios/            # Native iOS app (Swift + SwiftUI). See ios/README.md.
-├── android/        # Native Android app (Kotlin + Compose). See android/README.md.
-├── mobile/         # Cross-platform mobile docs (Firebase setup, etc).
-├── openapi.yaml    # Source of truth for the REST API contract — both apps codegen from this.
-├── MOBILE_PLAN.md  # Phasing for the native rollout.
-└── README.md       # Repo overview.
+├── website/            # Next.js web UI + legacy backend (server actions, Prisma, cron). See sections below.
+├── api/                # Go backend — the canonical API server going forward. See api/README.md.
+├── ios/                # Native iOS app (Swift + SwiftUI). See ios/README.md.
+├── android/            # Native Android app (Kotlin + Compose). See android/README.md.
+├── mobile/             # Cross-platform mobile docs (Firebase setup, etc).
+├── openapi.yaml        # Source of truth for the REST API contract — Go server, website client, and both mobile apps all bind to this.
+├── BACKEND_GO_PLAN.md  # Phasing for the Next.js → Go migration (ends with Phase F: decommission Next.js /api/v1).
+├── MOBILE_PLAN.md      # Phasing for the native rollout.
+└── README.md           # Repo overview.
 ```
 
-When the user says "the app", "the backend", or refers to a route/server-action/Prisma path, they mean `website/`. iOS/Android are pure clients of `website/`'s `/api/v1/*` REST endpoints.
+**Backend ownership is migrating.** The Go service in `api/` is the canonical backend. The Next.js app in `website/` is transitioning from "fullstack" to "web UI that proxies the Go API":
+- Server actions in `website/src/app/actions/*.ts` are being rewritten to call the Go API via `website/src/lib/api/*` (uses `GO_API_URL`). New mutation logic goes in **Go**, not in `website/src/lib/services/`.
+- The Next.js `/api/v1/*` routes still wrap local Prisma services and stay around for now — they are decommissioned in Phase F of `BACKEND_GO_PLAN.md`.
+- iOS / Android also point at the Go API. Don't add new mobile endpoints to Next.js.
+
+When the user says "the website" or refers to a route/server-action/Prisma path, they mean `website/`. "The API" / "the backend" means `api/` (Go).
 
 ## Commands (run from `website/` unless noted)
 
@@ -56,9 +63,9 @@ There is no middleware — auth is enforced inside the layout and inside every s
 
 **Sessions.** `iron-session` cookie (`wv_session`), encrypted with `SESSION_SECRET` (must be ≥32 chars; `src/lib/session.ts` throws at import time otherwise). Session contains only `{ userId, email }`; user data is re-fetched on each request.
 
-**Server actions are the API.** All writes live in `src/app/actions/*.ts` (`'use server'`): `auth`, `devices`, `warranties`, `attachments`, `subscriptions`, `wishlist`, `reminders`, `push`, `backup`, `password-reset`, `catalog`. Only two HTTP routes exist (cron + file streaming) — don't add REST endpoints unless they need to be hit by an external system (cron, webhooks) or have to stream non-JSON bytes (files).
+**Server actions wrap the Go API.** Writes live in `src/app/actions/*.ts` (`'use server'`): `auth`, `devices`, `warranties`, `attachments`, `subscriptions`, `wishlist`, `reminders`, `push`, `backup`, `password-reset`, `catalog`. Each action does `requireUser()` + `revalidatePath()` + form parsing, then forwards to the Go backend via `src/lib/api/*` (`GO_API_URL`). The local Prisma `src/lib/services/*` modules are the legacy implementation — still wired up behind `/api/v1/*` routes for now, but **don't add new business logic there**; put it in Go and call it from the action. New REST endpoints on the Next.js side are only justified for non-JSON streaming (e.g. `/api/files/[id]`) or external hooks that must hit the website.
 
-**Rate limiting (`src/lib/rate-limit.ts`).** In-memory token-bucket on `globalThis` — works for a single Vercel instance / local dev only. Two helpers:
+**Rate limiting (`src/lib/rate-limit.ts`).** Uses Upstash REST when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set; otherwise falls back to in-memory token-bucket on `globalThis` (single Vercel instance / local dev only). Two helpers:
 - `rateLimitAuth('login'|'register'|'change-password', identifier)` — call before `prisma.user.findUnique` in auth flows.
 - `rateLimitUserWrite(userId)` — 60 writes/min/user. Call at the top of every authenticated mutation server action (every action in `src/app/actions/` already does this).
 
@@ -105,9 +112,20 @@ A 404/410 from the push service means the subscription is gone — the route del
 
 ## Mobile clients
 
-Native apps live in `ios/` and `android/`. They are pure REST clients of `website/`'s `/api/v1/*` endpoints — they never reach into Prisma directly. When adding a new server-side feature, decide up front whether mobile needs it: if yes, expose a JSON route under `src/app/api/v1/`, reuse the same Zod schema + service module that the server action calls, and update `openapi.yaml`.
+Native apps live in `ios/` and `android/`. Both are pure REST clients of the **Go** backend in `api/`; the same endpoints are codegen'd from `openapi.yaml`. When adding a new feature, add the endpoint to `openapi.yaml` + implement it in `api/` first, then wire up the Next.js action (proxy) and the iOS/Android clients.
 
-- **Service layer (`src/lib/services/`).** Pure business logic. Server actions wrap services and add `requireUser()` + `revalidatePath()` + `redirect()`. REST handlers wrap services and add `requireApiUser()` + JSON envelopes. Don't put logic only in an action — services are the source of truth.
-- **Auth.** Web continues to use `iron-session` cookie. Mobile uses opaque bearer tokens stored in the `Session` table. `src/lib/auth.ts::getCurrentUser()` checks bearer first, falls back to cookie. Use `requireUser()` in server actions / web pages, `requireApiUser()` in `/api/v1/*` routes.
-- **Push.** `PushSubscription.platform ∈ {web, apns, fcm}`. `src/lib/push-fanout.ts::sendToSubscription()` dispatches per platform; APNs/FCM helpers no-op when env not configured. The cron uses fanout, not the raw web-push helper.
-- **Vietnamese copy.** Mobile labels mirror the web ones in `src/lib/types.ts`. iOS duplicates them in `ios/Sources/WarrantyVaultKit/Models.swift`; Android in `android/.../network/Models.kt`. When you change a Vietnamese label on the web, update the mobile copies too.
+- **Auth.** Web uses `iron-session` cookie (`wv_session`). Mobile + Go API use opaque bearer tokens. During the transition, `website/src/lib/auth.ts` still recognizes both (bearer first, then cookie); the Go server is the canonical issuer.
+- **Push.** `PushSubscription.platform ∈ {web, apns, fcm}`. Web push (VAPID) is still fanned out from the Next.js cron during transition; APNs/FCM live in Go (env vars below). When env is missing, the helpers no-op.
+- **Vietnamese copy.** Mobile labels mirror the web ones in `website/src/lib/types.ts`. iOS duplicates them in `ios/Sources/WarrantyVaultKit/Models.swift`; Android in `android/.../network/Models.kt`. When you change a Vietnamese label on the web, update the mobile copies too.
+
+## Env vars (cross-service)
+
+`website/` env (in addition to `DATABASE_URL`, `SESSION_SECRET`, `FILE_MASTER_KEY`, `VAPID_*`, `CRON_SECRET`):
+- `GO_API_URL` — base URL of the Go backend. Required once an action is migrated to proxy mode.
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — optional. When both are set, rate limiting uses Upstash; otherwise in-memory.
+
+`api/` (Go) env — push fanout for mobile:
+- `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_KEY_P8` — iOS push (APNs token auth, P8 key inline).
+- `FCM_SERVICE_ACCOUNT_JSON` — Android push (FCM service account JSON inline).
+
+See `api/README.md` for the full Go-side env list and `website/.env.example` for the web side.

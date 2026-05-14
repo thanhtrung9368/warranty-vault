@@ -1,7 +1,7 @@
 // Command cron runs one warranty-check pass and exits.
 //
 // Designed for systemd timer / k8s CronJob / cloud scheduler. The HTTP
-// endpoint POST /v1/cron/warranty-check shares the same internal/cron.Run
+// endpoint POST /api/v1/cron/warranty-check shares the same internal/cron.Run
 // logic for callers that prefer to hit the live server (Vercel Cron etc).
 //
 // Usage:

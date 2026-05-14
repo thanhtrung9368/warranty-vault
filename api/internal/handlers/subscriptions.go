@@ -12,7 +12,7 @@ import (
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
-// RegisterSubscriptions wires the /v1/subscriptions endpoints onto mux.
+// RegisterSubscriptions wires the /api/v1/subscriptions endpoints onto mux.
 // All routes require a valid bearer token; mutating routes additionally
 // run through the per-user write rate limiter (60 writes / 60s).
 //
@@ -21,19 +21,19 @@ import (
 func RegisterSubscriptions(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 
-	mux.Handle("GET /v1/subscriptions",
+	mux.Handle("GET /api/v1/subscriptions",
 		requireUser(http.HandlerFunc(listSubscriptionsHandler(deps))))
-	mux.Handle("POST /v1/subscriptions",
+	mux.Handle("POST /api/v1/subscriptions",
 		requireUser(http.HandlerFunc(createSubscriptionHandler(deps))))
-	mux.Handle("GET /v1/subscriptions/{id}",
+	mux.Handle("GET /api/v1/subscriptions/{id}",
 		requireUser(http.HandlerFunc(getSubscriptionHandler(deps))))
-	mux.Handle("PATCH /v1/subscriptions/{id}",
+	mux.Handle("PATCH /api/v1/subscriptions/{id}",
 		requireUser(http.HandlerFunc(updateSubscriptionHandler(deps))))
-	mux.Handle("DELETE /v1/subscriptions/{id}",
+	mux.Handle("DELETE /api/v1/subscriptions/{id}",
 		requireUser(http.HandlerFunc(deleteSubscriptionHandler(deps))))
-	mux.Handle("POST /v1/subscriptions/{id}/payments",
+	mux.Handle("POST /api/v1/subscriptions/{id}/payments",
 		requireUser(http.HandlerFunc(logSubscriptionPaymentHandler(deps))))
-	mux.Handle("POST /v1/subscriptions/{id}/renew",
+	mux.Handle("POST /api/v1/subscriptions/{id}/renew",
 		requireUser(http.HandlerFunc(renewSubscriptionHandler(deps))))
 }
 
@@ -126,7 +126,7 @@ func subscriptionRequestToInput(body subscriptionRequest) (services.Subscription
 	}, ferrs
 }
 
-// ---- GET /v1/subscriptions ------------------------------------------------
+// ---- GET /api/v1/subscriptions ------------------------------------------------
 
 func listSubscriptionsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +153,7 @@ func listSubscriptionsHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// ---- POST /v1/subscriptions -----------------------------------------------
+// ---- POST /api/v1/subscriptions -----------------------------------------------
 
 func createSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +183,7 @@ func createSubscriptionHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// ---- GET /v1/subscriptions/{id} -------------------------------------------
+// ---- GET /api/v1/subscriptions/{id} -------------------------------------------
 
 // subscriptionDetail is the on-the-wire shape that bundles payments inline
 // with the subscription, mirroring the TS `prisma.findFirst({ include })`.
@@ -217,7 +217,7 @@ func getSubscriptionHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// ---- PATCH /v1/subscriptions/{id} -----------------------------------------
+// ---- PATCH /api/v1/subscriptions/{id} -----------------------------------------
 
 func updateSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +252,7 @@ func updateSubscriptionHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// ---- DELETE /v1/subscriptions/{id} ----------------------------------------
+// ---- DELETE /api/v1/subscriptions/{id} ----------------------------------------
 
 func deleteSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +273,7 @@ func deleteSubscriptionHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// ---- POST /v1/subscriptions/{id}/payments ---------------------------------
+// ---- POST /api/v1/subscriptions/{id}/payments ---------------------------------
 
 func logSubscriptionPaymentHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -314,7 +314,7 @@ func logSubscriptionPaymentHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
-// ---- POST /v1/subscriptions/{id}/renew ------------------------------------
+// ---- POST /api/v1/subscriptions/{id}/renew ------------------------------------
 
 func renewSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -48,10 +48,10 @@ func toAttachmentDTO(a store.Attachment) attachmentDTO {
 // out of cmd/server/main.go per Phase C contract: the mux owner only calls
 // RegisterAttachments(mux, deps).
 func RegisterAttachments(mux *http.ServeMux, deps Deps) {
-	mux.HandleFunc("POST /v1/devices/{id}/attachments", uploadAttachmentHandler(deps))
-	mux.HandleFunc("GET /v1/devices/{id}/attachments", listAttachmentsHandler(deps))
-	mux.HandleFunc("DELETE /v1/attachments/{id}", deleteAttachmentHandler(deps))
-	mux.HandleFunc("GET /v1/files/{id}", downloadFileHandler(deps))
+	mux.HandleFunc("POST /api/v1/devices/{id}/attachments", uploadAttachmentHandler(deps))
+	mux.HandleFunc("GET /api/v1/devices/{id}/attachments", listAttachmentsHandler(deps))
+	mux.HandleFunc("DELETE /api/v1/attachments/{id}", deleteAttachmentHandler(deps))
+	mux.HandleFunc("GET /api/files/{id}", downloadFileHandler(deps))
 }
 
 // ---- handlers --------------------------------------------------------------

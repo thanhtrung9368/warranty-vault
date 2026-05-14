@@ -1,4 +1,4 @@
-// Package handlers hosts HTTP handlers for the /v1/* REST surface.
+// Package handlers hosts HTTP handlers for the /api/v1/* REST surface.
 package handlers
 
 import (

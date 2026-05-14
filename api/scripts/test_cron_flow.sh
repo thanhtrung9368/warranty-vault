@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for the Go cron job (POST /v1/cron/warranty-check) against the
+# Parity test for the Go cron job (POST /api/v1/cron/warranty-check) against the
 # TS reference at website/scripts/test-cron-flow.mjs. Seeds a scoped test user
 # directly in the dev DB, hits the Go endpoint, then asserts the same DB-level
 # side-effects the TS test asserts:
@@ -167,7 +167,7 @@ echo "  wlToday=${WL_TODAY} wlInterval=${WL_INTERVAL}"
 echo
 echo "→ Hit cron endpoint with bad secret (expect 401)"
 status=$(curl -s -o /tmp/wv_cron.json -w "%{http_code}" \
-  -X POST "${BASE}/v1/cron/warranty-check" \
+  -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H 'authorization: Bearer wrong-secret')
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "bad bearer returns 401 (got $status)"
@@ -175,7 +175,7 @@ assert "$cond" "bad bearer returns 401 (got $status)"
 echo
 echo "→ Hit cron endpoint with valid bearer"
 status=$(curl -s -o /tmp/wv_cron.json -w "%{http_code}" \
-  -X POST "${BASE}/v1/cron/warranty-check" \
+  -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H "authorization: Bearer ${CRON_SECRET}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "bearer auth returns 200 (got $status)"
@@ -186,7 +186,7 @@ assert "$cond" "response ok=true"
 echo
 echo "→ Hit cron endpoint with ?secret= query string"
 status=$(curl -s -o /tmp/wv_cron.json -w "%{http_code}" \
-  -X POST "${BASE}/v1/cron/warranty-check?secret=${CRON_SECRET}")
+  -X POST "${BASE}/api/v1/cron/warranty-check?secret=${CRON_SECRET}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "?secret= works (got $status)"
 
@@ -232,7 +232,7 @@ assert "$cond" "wishlist interval item lastNotifiedAt bumped within last hour"
 echo
 echo "→ Re-run cron (idempotent within window)"
 curl -s -o /tmp/wv_cron2.json -w "%{http_code}" \
-  -X POST "${BASE}/v1/cron/warranty-check" \
+  -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H "authorization: Bearer ${CRON_SECRET}" >/dev/null
 # After advancing once, the auto-renew sub should now be in the future and
 # NOT trigger a second payment.

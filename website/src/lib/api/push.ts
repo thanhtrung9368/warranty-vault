@@ -40,3 +40,9 @@ export async function register(input: PushInput): Promise<ApiResult<{ ok: boolea
 export async function unregister(id: string): Promise<ApiResult<{ ok: boolean }>> {
   return apiFetch<{ ok: boolean }>('DELETE', `/v1/push/${encodeURIComponent(id)}`);
 }
+
+// Trigger a sample notification to every push subscription the current user
+// has registered. Returns counts so the caller can surface a friendly toast.
+export async function test(): Promise<ApiResult<{ sent: number; failed: number }>> {
+  return apiFetch<{ sent: number; failed: number }>('POST', '/v1/push/test');
+}

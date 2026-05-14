@@ -1,6 +1,6 @@
 // Package cron hosts the warranty-check job logic, used by both the CLI
 // command (cmd/cron) and the protected HTTP endpoint
-// (POST /v1/cron/warranty-check).
+// (POST /api/v1/cron/warranty-check).
 //
 // Mirrors website/src/app/api/cron/warranty-check/route.ts byte-for-byte:
 // same buckets, same Vietnamese strings, same auto-bill transaction, same

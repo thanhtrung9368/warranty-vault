@@ -1,0 +1,207 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# WarrantyVault — full-stack compose (Postgres + Go API + Next.js + Cron).
+#
+# Cách dùng:
+#   1) Sao chép `.env.example` (cả `api/` và `website/`) thành `.env` ở repo
+#      root, điền `POSTGRES_PASSWORD`, `SESSION_SECRET` (≥32 ký tự),
+#      `FILE_MASTER_KEY` (base64 32 byte), `CRON_SECRET`, các VAPID/APNS/FCM
+#      nếu cần push.
+#   2) Build + chạy stack:           docker compose up --build
+#      Chạy nền:                     docker compose up -d --build
+#      Xem log:                      docker compose logs -f web api
+#      Dừng + xoá container:         docker compose down
+#      Dừng + xoá kèm volume DB:     docker compose down -v   (cẩn thận!)
+#
+#   3) Cron là binary one-shot (build từ `api/cmd/cron`). Không tự lặp.
+#      Chạy thủ công 1 lần:          docker compose run --rm cron
+#      Hoặc lên lịch ngoài compose (host cron / systemd timer):
+#          0 9 * * *  docker compose -f /path/compose.yml run --rm cron
+#
+#   4) Migrate DB lần đầu (binary `migrate` cũng nằm trong image api):
+#          docker compose run --rm --entrypoint /app/migrate api up
+#
+# Ghi chú:
+#   - `website/docker-compose.yml` vẫn giữ nguyên cho ai chỉ muốn chạy Next.js
+#     đứng một mình (không có Go API).
+#   - File `.env` ở repo root KHÔNG được commit (đã có trong .gitignore).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Compose Spec (v2+) — `version:` field is obsolete and omitted on purpose.
+
+services:
+  # ── Postgres 17 ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: warranty-vault-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-warranty}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-warranty_vault}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - warranty-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-warranty} -d ${POSTGRES_DB:-warranty_vault}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # ── Go REST API (server binary on :4000) ───────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: warranty-vault-api:local
+    container_name: warranty-vault-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      # ── DB & uploads ───────────────────────────────────────────────
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-warranty}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-warranty_vault}?sslmode=disable"
+      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+
+      # ── Server ─────────────────────────────────────────────────────
+      PORT: "4000"
+      WEB_URL: ${APP_URL:-http://localhost:3000}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+
+      # ── Required ──────────────────────────────────────────────────
+      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+
+      # ── Push notifications (optional) ─────────────────────────────
+      VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.warrantyvault.app}
+      APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+
+      # ── Email (Resend, optional) ──────────────────────────────────
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+
+      # ── Rate limit ────────────────────────────────────────────────
+      RATE_LIMITER: ${RATE_LIMITER:-memory}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+    volumes:
+      - uploads:/data
+    networks:
+      - warranty-net
+
+  # ── Next.js web (UI + còn dùng Prisma trong Phase E) ───────────────────────
+  web:
+    build:
+      context: ./website
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* phải có ở BUILD time — inline vào client bundle.
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+    image: warranty-vault-web:local
+    container_name: warranty-vault-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      # ── DB & uploads ───────────────────────────────────────────────
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-warranty}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-warranty_vault}"
+      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+
+      # ── Go API URL (web đẩy dần I/O sang api) ─────────────────────
+      GO_API_URL: "http://api:4000"
+
+      # ── Required ──────────────────────────────────────────────────
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set (>=32 chars)}
+      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NODE_ENV: production
+
+      # ── Push notifications (optional) ─────────────────────────────
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+
+      # ── Email (Resend, optional) ──────────────────────────────────
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+    volumes:
+      # Cùng volume với api để cả 2 đọc/ghi cùng encrypted blobs.
+      - uploads:/data
+    networks:
+      - warranty-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Cron (one-shot binary) ─────────────────────────────────────────────────
+  # Image dùng chung với api, chỉ override entrypoint sang /app/cron.
+  # KHÔNG tự lặp; chạy bằng: `docker compose run --rm cron`, hoặc gọi từ
+  # host scheduler (cron / systemd timer / k8s CronJob).
+  cron:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: warranty-vault-api:local
+    container_name: warranty-vault-cron
+    restart: "no"
+    profiles: ["cron"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/app/cron"]
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-warranty}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-warranty_vault}?sslmode=disable"
+      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
+
+      # Push: cron đẩy notification trực tiếp, không qua HTTP api.
+      VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.warrantyvault.app}
+      APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
+      APNS_PRODUCTION: ${APNS_PRODUCTION:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+    volumes:
+      - uploads:/data
+    networks:
+      - warranty-net
+
+# ── Volumes & networks ───────────────────────────────────────────────────────
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  warranty-net:
+    driver: bridge

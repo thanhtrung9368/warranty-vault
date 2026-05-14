@@ -76,6 +76,19 @@ export async function listDevices(userId: string, filter: DeviceListFilter = {})
   }));
 }
 
+export async function getDevice(userId: string, id: string) {
+  return prisma.device.findFirst({
+    where: { id, userId },
+    include: {
+      attachments: { orderBy: { uploadedAt: 'desc' } },
+      warranties: {
+        orderBy: [{ type: 'asc' }, { endDate: 'desc' }],
+        include: { reminders: { orderBy: { createdAt: 'asc' } } },
+      },
+    },
+  });
+}
+
 // Same schema as the FormData-flavored one in src/app/actions/devices.ts.
 // Lives here so /api/v1/devices and the server action both validate against
 // a single source of truth.

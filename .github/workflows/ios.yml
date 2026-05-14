@@ -1,0 +1,35 @@
+# Build WarrantyVaultKit Swift package (thư viện chia sẻ cho iOS app).
+name: ios
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+
+# Cancel in-flight runs for the same ref.
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-build:
+    name: swift build
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Swift build (WarrantyVaultKit)
+        run: swift build

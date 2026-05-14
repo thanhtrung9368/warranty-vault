@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for /v1/devices + warranties + reminders against the Go service.
+# Parity test for /api/v1/devices + warranties + reminders against the Go service.
 # Cleans up via cascade delete of the scoped test user.
 
 set -euo pipefail
@@ -59,7 +59,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Devices Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -69,7 +69,7 @@ H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
 echo "→ Create device with inline warranty (warrantyMonths=24)"
-status=$(curl_status -X POST "${BASE}/v1/devices" \
+status=$(curl_status -X POST "${BASE}/api/v1/devices" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"iPhone 17 Pro",
@@ -88,7 +88,7 @@ assert "$cond" "device.id present"
 
 echo
 echo "→ List devices"
-status=$(curl_status -X GET "${BASE}/v1/devices" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/devices" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "list devices returns 200 (got $status)"
 COUNT=$(jq '.devices | length' /tmp/wv_body.json)
@@ -97,7 +97,7 @@ assert "$cond" "list returns exactly 1 device (got $COUNT)"
 
 echo
 echo "→ Get device detail (with warranty)"
-status=$(curl_status -X GET "${BASE}/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "get device returns 200 (got $status)"
 WCOUNT=$(jq '.device.warranties | length' /tmp/wv_body.json)
@@ -110,7 +110,7 @@ assert "$cond" "inline warranty is STANDARD type (got $WTYPE)"
 
 echo
 echo "→ Update device (rename + change purchasePrice)"
-status=$(curl_status -X PATCH "${BASE}/v1/devices/${DEVICE_ID}" \
+status=$(curl_status -X PATCH "${BASE}/api/v1/devices/${DEVICE_ID}" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"iPhone 17 Pro Max",
@@ -127,7 +127,7 @@ assert "$cond" "name updated (got $NAME)"
 
 echo
 echo "→ Create extra warranty (EXTENDED 12 months)"
-status=$(curl_status -X POST "${BASE}/v1/devices/${DEVICE_ID}/warranties" \
+status=$(curl_status -X POST "${BASE}/api/v1/devices/${DEVICE_ID}/warranties" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "type":"EXTENDED",
@@ -142,20 +142,20 @@ EXTRA_W_ID=$(jq -r '.warranty.id' /tmp/wv_body.json)
 
 echo
 echo "→ Confirm device now has 2 warranties"
-status=$(curl_status -X GET "${BASE}/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
 WCOUNT=$(jq '.device.warranties | length' /tmp/wv_body.json)
 [ "$WCOUNT" = "2" ] && cond=true || cond=false
 assert "$cond" "device now has 2 warranties (got $WCOUNT)"
 
 echo
 echo "→ Dismiss reminder for first warranty"
-status=$(curl_status -X POST "${BASE}/v1/warranties/${WARRANTY_ID}/reminder" -H "$H_AUTH")
+status=$(curl_status -X POST "${BASE}/api/v1/warranties/${WARRANTY_ID}/reminder" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "dismiss reminder returns 200 (got $status)"
 
 echo
-echo "→ GET /v1/reminders (should be reachable, default 30-day window)"
-status=$(curl_status -X GET "${BASE}/v1/reminders" -H "$H_AUTH")
+echo "→ GET /api/v1/reminders (should be reachable, default 30-day window)"
+status=$(curl_status -X GET "${BASE}/api/v1/reminders" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "list reminders returns 200 (got $status)"
 KIND=$(jq -r '.reminders | type' /tmp/wv_body.json)
@@ -164,19 +164,19 @@ assert "$cond" ".reminders is an array (got $KIND)"
 
 echo
 echo "→ Restore reminder"
-status=$(curl_status -X DELETE "${BASE}/v1/warranties/${WARRANTY_ID}/reminder" -H "$H_AUTH")
+status=$(curl_status -X DELETE "${BASE}/api/v1/warranties/${WARRANTY_ID}/reminder" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "restore reminder returns 200 (got $status)"
 
 echo
 echo "→ Delete device"
-status=$(curl_status -X DELETE "${BASE}/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
+status=$(curl_status -X DELETE "${BASE}/api/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "delete device returns 200 (got $status)"
 
 echo
 echo "→ GET deleted device → 404"
-status=$(curl_status -X GET "${BASE}/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
 [ "$status" = "404" ] && cond=true || cond=false
 assert "$cond" "get deleted device returns 404 (got $status)"
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for /v1/devices/{id}/attachments + /v1/files/{id} against the Go
+# Parity test for /api/v1/devices/{id}/attachments + /api/files/{id} against the Go
 # service. Verifies upload, listing, download (byte length), MIME whitelist
 # enforcement (fake-jpeg-with-script body), 5MB cap, and delete-then-404.
 # Cleans up via cascade delete of the scoped test user.
@@ -62,7 +62,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Attach Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -72,7 +72,7 @@ H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
 echo "→ Create device for attachments"
-status=$(curl_status -X POST "${BASE}/v1/devices" \
+status=$(curl_status -X POST "${BASE}/api/v1/devices" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"Attachment Host Device",
@@ -104,7 +104,7 @@ assert "$cond" "1-pixel PNG fixture written"
 
 echo
 echo "→ Upload 1-pixel PNG"
-status=$(curl_status -X POST "${BASE}/v1/devices/${DEVICE_ID}/attachments" \
+status=$(curl_status -X POST "${BASE}/api/v1/devices/${DEVICE_ID}/attachments" \
   -H "$H_AUTH" \
   -F "file=@/tmp/wv_pixel.png;type=image/png" \
   -F "description=Test PNG")
@@ -120,7 +120,7 @@ assert "$cond" "fileSize > 0 (got $ATT_SIZE)"
 
 echo
 echo "→ List attachments"
-status=$(curl_status -X GET "${BASE}/v1/devices/${DEVICE_ID}/attachments" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/devices/${DEVICE_ID}/attachments" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "list attachments returns 200 (got $status)"
 COUNT=$(jq '.attachments | length' /tmp/wv_body.json)
@@ -128,9 +128,9 @@ COUNT=$(jq '.attachments | length' /tmp/wv_body.json)
 assert "$cond" "list returns exactly 1 attachment (got $COUNT)"
 
 echo
-echo "→ GET /v1/files/{id} → assert byte length matches fileSize"
+echo "→ GET /api/files/{id} → assert byte length matches fileSize"
 http_code=$(curl -s -o /tmp/wv_dl.bin -w "%{http_code}" \
-  -H "$H_AUTH" "${BASE}/v1/files/${ATT_ID}")
+  -H "$H_AUTH" "${BASE}/api/files/${ATT_ID}")
 [ "$http_code" = "200" ] && cond=true || cond=false
 assert "$cond" "download returns 200 (got $http_code)"
 DL_SIZE=$(wc -c < /tmp/wv_dl.bin | tr -d ' ')
@@ -140,7 +140,7 @@ assert "$cond" "downloaded byte length ($DL_SIZE) == fileSize ($ATT_SIZE)"
 echo
 echo "→ Fake JPEG (declared image/jpeg, body literal <script>) → 400"
 printf '<script>alert(1)</script>' > /tmp/wv_fake.jpg
-status=$(curl_status -X POST "${BASE}/v1/devices/${DEVICE_ID}/attachments" \
+status=$(curl_status -X POST "${BASE}/api/v1/devices/${DEVICE_ID}/attachments" \
   -H "$H_AUTH" \
   -F "file=@/tmp/wv_fake.jpg;type=image/jpeg")
 [ "$status" = "400" ] && cond=true || cond=false
@@ -152,7 +152,7 @@ echo "→ Oversize file (6 MB) → 413"
 # reject MIME first (400) UNLESS we exceed 5MB cap, in which case service
 # returns 413 before MIME detect runs. Let's just test the 5MB cap.
 dd if=/dev/zero of=/tmp/wv_big.jpg bs=1024 count=6144 2>/dev/null
-status=$(curl_status -X POST "${BASE}/v1/devices/${DEVICE_ID}/attachments" \
+status=$(curl_status -X POST "${BASE}/api/v1/devices/${DEVICE_ID}/attachments" \
   -H "$H_AUTH" \
   -F "file=@/tmp/wv_big.jpg;type=image/jpeg")
 [ "$status" = "413" ] && cond=true || cond=false
@@ -160,13 +160,13 @@ assert "$cond" "6MB upload returns 413 (got $status)"
 
 echo
 echo "→ Delete attachment"
-status=$(curl_status -X DELETE "${BASE}/v1/attachments/${ATT_ID}" -H "$H_AUTH")
+status=$(curl_status -X DELETE "${BASE}/api/v1/attachments/${ATT_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "delete attachment returns 200 (got $status)"
 
 echo
-echo "→ GET /v1/files/{id} after delete → 404"
-status=$(curl_status -X GET "${BASE}/v1/files/${ATT_ID}" -H "$H_AUTH")
+echo "→ GET /api/files/{id} after delete → 404"
+status=$(curl_status -X GET "${BASE}/api/files/${ATT_ID}" -H "$H_AUTH")
 [ "$status" = "404" ] && cond=true || cond=false
 assert "$cond" "GET deleted file returns 404 (got $status)"
 

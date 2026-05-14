@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for /v1/wishlist against the Go service.
+# Parity test for /api/v1/wishlist against the Go service.
 # Cleans up via cascade delete of the scoped test user.
 
 set -euo pipefail
@@ -59,7 +59,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Wish Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -69,7 +69,7 @@ H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
 echo "→ Create wishlist (WATCHING, with initialPrice → seeds price history)"
-status=$(curl_status -X POST "${BASE}/v1/wishlist" \
+status=$(curl_status -X POST "${BASE}/api/v1/wishlist" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"MacBook Pro 16 M5",
@@ -87,7 +87,7 @@ assert "$cond" "item.id present"
 
 echo
 echo "→ List wishlist"
-status=$(curl_status -X GET "${BASE}/v1/wishlist" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/wishlist" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "list returns 200 (got $status)"
 COUNT=$(jq '.items | length' /tmp/wv_body.json)
@@ -96,7 +96,7 @@ assert "$cond" "list returns 1 item (got $COUNT)"
 
 echo
 echo "→ Update currentPrice → assert price history grew"
-status=$(curl_status -X PATCH "${BASE}/v1/wishlist/${ITEM_ID}" \
+status=$(curl_status -X PATCH "${BASE}/api/v1/wishlist/${ITEM_ID}" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"MacBook Pro 16 M5",
@@ -111,7 +111,7 @@ status=$(curl_status -X PATCH "${BASE}/v1/wishlist/${ITEM_ID}" \
 assert "$cond" "update returns 200 (got $status)"
 
 # Verify via GET detail
-status=$(curl_status -X GET "${BASE}/v1/wishlist/${ITEM_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/wishlist/${ITEM_ID}" -H "$H_AUTH")
 PCOUNT=$(jq '.prices | length' /tmp/wv_body.json)
 # Initial create with initialPrice seeds 1 row, then PATCH appends another → 2
 [ "$PCOUNT" = "2" ] && cond=true || cond=false
@@ -122,7 +122,7 @@ assert "$cond" "currentPrice = 75000000 (got $CURRENT)"
 
 echo
 echo "→ Mark PURCHASED → assert purchasedDeviceId set + new Device created"
-status=$(curl_status -X PATCH "${BASE}/v1/wishlist/${ITEM_ID}" \
+status=$(curl_status -X PATCH "${BASE}/api/v1/wishlist/${ITEM_ID}" \
   -H "$H_AUTH" -H 'content-type: application/json' \
   -d '{
     "name":"MacBook Pro 16 M5",
@@ -139,7 +139,7 @@ PURCHASED_DID=$(jq -r '.item.purchasedDeviceId' /tmp/wv_body.json)
 assert "$cond" "purchasedDeviceId set (got $PURCHASED_DID)"
 
 # Verify the device exists
-status=$(curl_status -X GET "${BASE}/v1/devices/${PURCHASED_DID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/devices/${PURCHASED_DID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "spawned device fetchable (got $status)"
 DNAME=$(jq -r '.device.name' /tmp/wv_body.json)
@@ -148,13 +148,13 @@ assert "$cond" "spawned device has correct name (got $DNAME)"
 
 echo
 echo "→ Delete wishlist item"
-status=$(curl_status -X DELETE "${BASE}/v1/wishlist/${ITEM_ID}" -H "$H_AUTH")
+status=$(curl_status -X DELETE "${BASE}/api/v1/wishlist/${ITEM_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "delete returns 200 (got $status)"
 
 echo
 echo "→ GET deleted → 404"
-status=$(curl_status -X GET "${BASE}/v1/wishlist/${ITEM_ID}" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/wishlist/${ITEM_ID}" -H "$H_AUTH")
 [ "$status" = "404" ] && cond=true || cond=false
 assert "$cond" "GET deleted returns 404 (got $status)"
 

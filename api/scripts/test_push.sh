@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for /v1/push/* against the Go service. Verifies the contract
+# Smoke test for /api/v1/push/* against the Go service. Verifies the contract
 # (register → list → delete) without actually delivering a push (real APNs/FCM
 # delivery requires a phone). Cleans up via cascade-delete of the scoped test
 # user.
@@ -63,7 +63,7 @@ cleanup
 
 echo
 echo "→ Register test user"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Push Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -74,10 +74,10 @@ assert "$cond" "got accessToken"
 
 echo
 echo "→ List subscriptions (initially empty)"
-status=$(curl_status -X GET "${BASE}/v1/push" \
+status=$(curl_status -X GET "${BASE}/api/v1/push" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /v1/push returns 200 (got $status)"
+assert "$cond" "GET /api/v1/push returns 200 (got $status)"
 count=$(jq -r '.subscriptions | length' /tmp/wv_push_body.json)
 [ "$count" = "0" ] && cond=true || cond=false
 assert "$cond" "subscriptions list initially empty (got count=$count)"
@@ -85,16 +85,16 @@ assert "$cond" "subscriptions list initially empty (got count=$count)"
 echo
 echo "→ Register a fake web push subscription"
 WEB_ENDPOINT="https://fcm.googleapis.com/wp/fake-test-endpoint-$(date +%s)"
-status=$(curl_status -X POST "${BASE}/v1/push/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d "{\"platform\":\"web\",\"endpoint\":\"${WEB_ENDPOINT}\",\"p256dh\":\"BFakeP256dhKey0123456789\",\"auth\":\"FakeAuthSecret123\",\"userAgent\":\"test-agent\"}")
 [ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "POST /v1/push/register web returns 201 (got $status)"
+assert "$cond" "POST /api/v1/push/register web returns 201 (got $status)"
 
 echo
 echo "→ Re-register same endpoint (upsert idempotent)"
-status=$(curl_status -X POST "${BASE}/v1/push/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d "{\"platform\":\"web\",\"endpoint\":\"${WEB_ENDPOINT}\",\"p256dh\":\"BFakeP256dhKeyUPDATED\",\"auth\":\"FakeAuthSecretUPDATED\"}")
@@ -103,7 +103,7 @@ assert "$cond" "re-register idempotent (got $status)"
 
 echo
 echo "→ Register a fake APNs subscription"
-status=$(curl_status -X POST "${BASE}/v1/push/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"apns","token":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}')
@@ -112,7 +112,7 @@ assert "$cond" "POST apns subscription returns 201 (got $status)"
 
 echo
 echo "→ Register a fake FCM subscription"
-status=$(curl_status -X POST "${BASE}/v1/push/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"fcm","token":"fcm-test-registration-token-1234567890"}')
@@ -121,7 +121,7 @@ assert "$cond" "POST fcm subscription returns 201 (got $status)"
 
 echo
 echo "→ Validation: bad platform rejected"
-status=$(curl_status -X POST "${BASE}/v1/push/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"smoke-signal","endpoint":"x"}')
@@ -130,7 +130,7 @@ assert "$cond" "bad platform returns 400 (got $status)"
 
 echo
 echo "→ Validation: web push missing crypto rejected"
-status=$(curl_status -X POST "${BASE}/v1/push/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"web","endpoint":"https://example.com/x"}')
@@ -139,10 +139,10 @@ assert "$cond" "web missing p256dh+auth returns 400 (got $status)"
 
 echo
 echo "→ List subscriptions (now 3 rows)"
-status=$(curl_status -X GET "${BASE}/v1/push" \
+status=$(curl_status -X GET "${BASE}/api/v1/push" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /v1/push returns 200"
+assert "$cond" "GET /api/v1/push returns 200"
 count=$(jq -r '.subscriptions | length' /tmp/wv_push_body.json)
 [ "$count" = "3" ] && cond=true || cond=false
 assert "$cond" "list has 3 subscriptions (got $count)"
@@ -153,15 +153,15 @@ APNS_ID=$(jq -r '.subscriptions[] | select(.platform=="apns") | .id' /tmp/wv_pus
 assert "$cond" "found apns row id"
 
 echo
-echo "→ DELETE /v1/push/{id}"
-status=$(curl_status -X DELETE "${BASE}/v1/push/${APNS_ID}" \
+echo "→ DELETE /api/v1/push/{id}"
+status=$(curl_status -X DELETE "${BASE}/api/v1/push/${APNS_ID}" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "DELETE returns 200 (got $status)"
 
 echo
 echo "→ List again (now 2)"
-status=$(curl_status -X GET "${BASE}/v1/push" \
+status=$(curl_status -X GET "${BASE}/api/v1/push" \
   -H "authorization: Bearer ${TOKEN}")
 count=$(jq -r '.subscriptions | length' /tmp/wv_push_body.json)
 [ "$count" = "2" ] && cond=true || cond=false
@@ -169,14 +169,14 @@ assert "$cond" "list has 2 after delete (got $count)"
 
 echo
 echo "→ DELETE non-existent id returns 404"
-status=$(curl_status -X DELETE "${BASE}/v1/push/clxNotARealId" \
+status=$(curl_status -X DELETE "${BASE}/api/v1/push/clxNotARealId" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "404" ] && cond=true || cond=false
 assert "$cond" "delete missing id returns 404 (got $status)"
 
 echo
 echo "→ Auth required"
-status=$(curl_status -X GET "${BASE}/v1/push")
+status=$(curl_status -X GET "${BASE}/api/v1/push")
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "GET without bearer returns 401 (got $status)"
 

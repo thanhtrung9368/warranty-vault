@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for GET /v1/reminders. Asserts:
+# Smoke test for GET /api/v1/reminders. Asserts:
 #   - 401 without auth
 #   - 200 + array shape with auth
 #   - scoped to the calling user (a fresh user sees no reminders even if
@@ -64,7 +64,7 @@ cleanup
 trap cleanup EXIT
 
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Reminders Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -73,14 +73,14 @@ TOKEN=$(jq -r '.accessToken' /tmp/wv_body.json)
 H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
-echo "→ Unauthenticated GET /v1/reminders → 401"
-status=$(curl_status -X GET "${BASE}/v1/reminders")
+echo "→ Unauthenticated GET /api/v1/reminders → 401"
+status=$(curl_status -X GET "${BASE}/api/v1/reminders")
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "no-auth returns 401 (got $status)"
 
 echo
-echo "→ Authed GET /v1/reminders"
-status=$(curl_status -X GET "${BASE}/v1/reminders" -H "$H_AUTH")
+echo "→ Authed GET /api/v1/reminders"
+status=$(curl_status -X GET "${BASE}/api/v1/reminders" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "list reminders returns 200 (got $status)"
 KIND=$(jq -r '.reminders | type' /tmp/wv_body.json)
@@ -92,19 +92,19 @@ assert "$cond" "fresh user has 0 reminders (got $LEN) — confirms per-user scop
 
 echo
 echo "→ Custom withinDays=7 still returns 200"
-status=$(curl_status -X GET "${BASE}/v1/reminders?withinDays=7" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/reminders?withinDays=7" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "withinDays=7 returns 200 (got $status)"
 
 echo
 echo "→ Invalid withinDays=0 → 400"
-status=$(curl_status -X GET "${BASE}/v1/reminders?withinDays=0" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/reminders?withinDays=0" -H "$H_AUTH")
 [ "$status" = "400" ] && cond=true || cond=false
 assert "$cond" "withinDays=0 returns 400 (got $status)"
 
 echo
 echo "→ Invalid withinDays=abc → 400"
-status=$(curl_status -X GET "${BASE}/v1/reminders?withinDays=abc" -H "$H_AUTH")
+status=$(curl_status -X GET "${BASE}/api/v1/reminders?withinDays=abc" -H "$H_AUTH")
 [ "$status" = "400" ] && cond=true || cond=false
 assert "$cond" "withinDays=abc returns 400 (got $status)"
 

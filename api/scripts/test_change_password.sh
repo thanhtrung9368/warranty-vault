@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity test for POST /v1/auth/change-password against the Go service.
+# Parity test for POST /api/v1/auth/change-password against the Go service.
 # Mirrors website/scripts/test-change-password.mjs (12 assertions).
 #
 # Requires:
@@ -82,15 +82,15 @@ echo "  OK    server is up"
 echo "→ Cleanup any prior test data"
 cleanup
 
-echo "→ Seed test user (via /v1/auth/register)"
-status=$(post_json /v1/auth/register \
+echo "→ Seed test user (via /api/v1/auth/register)"
+status=$(post_json /api/v1/auth/register \
   "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${ORIGINAL_PW}\",\"name\":\"PW Test\"}")
 [ "$status" = "201" ] || { echo "register failed: status=$status body=$(cat /tmp/wv_body.json)" >&2; exit 1; }
 echo "  OK    user seeded"
 
 echo
 echo "→ Login with original password"
-status=$(post_json /v1/auth/login \
+status=$(post_json /api/v1/auth/login \
   "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${ORIGINAL_PW}\",\"platform\":\"web\"}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "login returns 200 (got $status)"
@@ -100,7 +100,7 @@ assert "$cond" "response has accessToken"
 
 echo
 echo "→ Wrong currentPassword → 400 + fieldErrors"
-status=$(post_json /v1/auth/change-password \
+status=$(post_json /api/v1/auth/change-password \
   "{\"currentPassword\":\"definitely-wrong\",\"newPassword\":\"${NEW_PW}\",\"confirmPassword\":\"${NEW_PW}\"}" \
   "authorization: Bearer ${TOKEN}")
 [ "$status" = "400" ] && cond=true || cond=false
@@ -114,7 +114,7 @@ assert "$cond" "fieldErrors.currentPassword present"
 
 echo
 echo "→ Mismatched confirm → 400 + fieldErrors.confirmPassword"
-status=$(post_json /v1/auth/change-password \
+status=$(post_json /api/v1/auth/change-password \
   "{\"currentPassword\":\"${ORIGINAL_PW}\",\"newPassword\":\"${NEW_PW}\",\"confirmPassword\":\"something-else-12345\"}" \
   "authorization: Bearer ${TOKEN}")
 [ "$status" = "400" ] && cond=true || cond=false
@@ -125,7 +125,7 @@ assert "$cond" "fieldErrors.confirmPassword present"
 
 echo
 echo "→ Happy path: change to NEW_PW"
-status=$(post_json /v1/auth/change-password \
+status=$(post_json /api/v1/auth/change-password \
   "{\"currentPassword\":\"${ORIGINAL_PW}\",\"newPassword\":\"${NEW_PW}\",\"confirmPassword\":\"${NEW_PW}\"}" \
   "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
@@ -136,21 +136,21 @@ assert "$cond" "response.ok === true"
 
 echo
 echo "→ Old password no longer works"
-status=$(post_json /v1/auth/login \
+status=$(post_json /api/v1/auth/login \
   "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${ORIGINAL_PW}\"}")
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "old password login returns 401 (got $status)"
 
 echo
 echo "→ New password works"
-status=$(post_json /v1/auth/login \
+status=$(post_json /api/v1/auth/login \
   "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${NEW_PW}\"}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "new password login returns 200 (got $status)"
 
 echo
 echo "→ Unauthenticated request → 401"
-status=$(post_json /v1/auth/change-password \
+status=$(post_json /api/v1/auth/change-password \
   "{\"currentPassword\":\"${NEW_PW}\",\"newPassword\":\"whatever-12345\",\"confirmPassword\":\"whatever-12345\"}")
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "unauthenticated returns 401 (got $status)"

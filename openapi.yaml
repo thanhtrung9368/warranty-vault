@@ -568,6 +568,35 @@ paths:
         '201': { $ref: '#/components/responses/Ok' }
         '400': { $ref: '#/components/responses/BadInput' }
 
+  /api/v1/push/test:
+    post:
+      tags: [push]
+      summary: Send a sample notification to every registered subscription
+      description: |
+        Dispatches a test notification through the push fanout (web / APNs /
+        FCM) to every PushSubscription the caller owns. Subscriptions the
+        upstream gateway reports as gone (404/410, FCM UNREGISTERED) are
+        deleted as a side effect, matching the cron's gone-detection.
+      responses:
+        '200':
+          description: Send counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sent, failed]
+                properties:
+                  sent:
+                    type: integer
+                    minimum: 0
+                    description: Subscriptions the dispatcher accepted
+                  failed:
+                    type: integer
+                    minimum: 0
+                    description: Subscriptions that errored (including gone rows that were deleted)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/push/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:

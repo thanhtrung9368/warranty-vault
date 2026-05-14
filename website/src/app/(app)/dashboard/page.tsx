@@ -24,9 +24,6 @@ import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-// Mirror of the previous dashboardStats() projection — computed in-memory
-// from the device list since the Go service exposes per-device warranty
-// metadata via `effectiveWarrantyEnd` on every list row.
 function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[]) {
   const now = new Date();
   const in30 = new Date();

@@ -63,7 +63,7 @@ cleanup
 
 echo
 echo "→ Register"
-status=$(curl_status -X POST "${BASE}/v1/auth/register" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Auth Test\"}")
 [ "$status" = "201" ] && cond=true || cond=false
@@ -76,8 +76,8 @@ USER_ID=$(jq -r '.user.id' /tmp/wv_body.json)
 assert "$cond" "register returned user.id"
 
 echo
-echo "→ /v1/auth/me with token"
-status=$(curl_status -X GET "${BASE}/v1/auth/me" \
+echo "→ /api/v1/auth/me with token"
+status=$(curl_status -X GET "${BASE}/api/v1/auth/me" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "me returns 200"
@@ -87,7 +87,7 @@ assert "$cond" "me returns correct email"
 
 echo
 echo "→ Login with correct password"
-status=$(curl_status -X POST "${BASE}/v1/auth/login" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/login" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\"}")
 [ "$status" = "200" ] && cond=true || cond=false
@@ -98,7 +98,7 @@ assert "$cond" "login returned a fresh accessToken"
 
 echo
 echo "→ Login with wrong password"
-status=$(curl_status -X POST "${BASE}/v1/auth/login" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/login" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"definitely-wrong-pw\"}")
 [ "$status" = "401" ] && cond=true || cond=false
@@ -109,7 +109,7 @@ assert "$cond" "error = invalid_credentials"
 
 echo
 echo "→ Login validation: bad email"
-status=$(curl_status -X POST "${BASE}/v1/auth/login" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/login" \
   -H 'content-type: application/json' \
   -d '{"email":"not-an-email","password":"any-pass"}')
 [ "$status" = "400" ] && cond=true || cond=false
@@ -117,33 +117,33 @@ assert "$cond" "invalid email returns 400 (got $status)"
 
 echo
 echo "→ Logout"
-status=$(curl_status -X POST "${BASE}/v1/auth/logout" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/logout" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "logout returns 200 (got $status)"
 
 echo
-echo "→ /v1/auth/me after logout (revoked token)"
-status=$(curl_status -X GET "${BASE}/v1/auth/me" \
+echo "→ /api/v1/auth/me after logout (revoked token)"
+status=$(curl_status -X GET "${BASE}/api/v1/auth/me" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "401" ] && cond=true || cond=false
 assert "$cond" "revoked token returns 401 (got $status)"
 
 echo
-echo "→ /v1/auth/me with second (non-revoked) token"
-status=$(curl_status -X GET "${BASE}/v1/auth/me" \
+echo "→ /api/v1/auth/me with second (non-revoked) token"
+status=$(curl_status -X GET "${BASE}/api/v1/auth/me" \
   -H "authorization: Bearer ${TOKEN2}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "second token still works (got $status)"
 
 echo
 echo "→ Forgot password (always 200, no enumeration)"
-status=$(curl_status -X POST "${BASE}/v1/auth/forgot" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/forgot" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"${TEST_EMAIL}\"}")
 [ "$status" = "200" ] && cond=true || cond=false
 assert "$cond" "forgot returns 200 for known email"
-status=$(curl_status -X POST "${BASE}/v1/auth/forgot" \
+status=$(curl_status -X POST "${BASE}/api/v1/auth/forgot" \
   -H 'content-type: application/json' \
   -d '{"email":"unknown-noone@local.test"}')
 [ "$status" = "200" ] && cond=true || cond=false

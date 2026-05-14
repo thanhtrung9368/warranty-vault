@@ -14,10 +14,10 @@ const (
 	maxRemindersWithinDays     = 365
 )
 
-// RegisterReminders wires GET /v1/reminders.
+// RegisterReminders wires GET /api/v1/reminders.
 func RegisterReminders(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
-	mux.Handle("GET /v1/reminders", requireUser(http.HandlerFunc(listRemindersHandler(deps))))
+	mux.Handle("GET /api/v1/reminders", requireUser(http.HandlerFunc(listRemindersHandler(deps))))
 }
 
 func listRemindersHandler(deps Deps) http.HandlerFunc {

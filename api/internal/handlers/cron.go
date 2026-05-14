@@ -13,14 +13,14 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 )
 
-// RegisterCron wires POST /v1/cron/warranty-check.
+// RegisterCron wires POST /api/v1/cron/warranty-check.
 //
 // Auth: shared secret in CRON_SECRET env. Mirrors the TS route — accepts
 // either `Authorization: Bearer <secret>` (Vercel Cron's format) or
 // `?secret=<secret>` (handy for `curl` smoke tests). Without CRON_SECRET set,
 // the endpoint hard-fails with 500 to avoid running unauthenticated in prod.
 func RegisterCron(mux *http.ServeMux, deps Deps) {
-	mux.HandleFunc("POST /v1/cron/warranty-check", warrantyCheckHandler(deps))
+	mux.HandleFunc("POST /api/v1/cron/warranty-check", warrantyCheckHandler(deps))
 }
 
 func warrantyCheckHandler(deps Deps) http.HandlerFunc {

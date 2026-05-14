@@ -1,8 +1,8 @@
 import { requireApiUser } from '@/lib/auth';
 import { rateLimitUserWrite } from '@/lib/rate-limit';
-import { getDevice } from '@/lib/devices';
 import {
   deleteDevice,
+  getDevice,
   updateDevice,
   deviceInputSchema,
 } from '@/lib/services/devices';

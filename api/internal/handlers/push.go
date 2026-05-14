@@ -1,23 +1,26 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
+	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
-// RegisterPush wires the /v1/push/* surface. Auth + per-user write rate
+// RegisterPush wires the /api/v1/push/* surface. Auth + per-user write rate
 // limit are enforced inline. Mirrors website/src/app/api/v1/push/* + the
 // push server actions.
 func RegisterPush(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 
-	mux.Handle("GET /v1/push", requireUser(http.HandlerFunc(listPushHandler(deps))))
-	mux.Handle("POST /v1/push/register", requireUser(http.HandlerFunc(registerPushHandler(deps))))
-	mux.Handle("DELETE /v1/push/{id}", requireUser(http.HandlerFunc(deletePushHandler(deps))))
+	mux.Handle("GET /api/v1/push", requireUser(http.HandlerFunc(listPushHandler(deps))))
+	mux.Handle("POST /api/v1/push/register", requireUser(http.HandlerFunc(registerPushHandler(deps))))
+	mux.Handle("DELETE /api/v1/push/{id}", requireUser(http.HandlerFunc(deletePushHandler(deps))))
 }
 
 // pushRegisterRequest mirrors the Zod union accepted by the TS register route.
@@ -105,4 +108,72 @@ func deletePushHandler(deps Deps) http.HandlerFunc {
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
+}
+
+// TestPush sends a sample notification to every PushSubscription belonging to
+// the authenticated user. Used by the web settings page's "Send test" button.
+// Auth is enforced via auth.RequireUser so this handler can be registered
+// directly on the mux from main.go.
+//
+// Returns `{ sent, failed }`. Subscriptions reported `gone` by the dispatcher
+// are deleted (matches the cron's gone-detection behavior).
+func TestPush(deps Deps) http.HandlerFunc {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		us, _ := auth.UserFromContext(r.Context())
+		if !ensureUserWriteRate(w, r, deps, us.UserID) {
+			return
+		}
+		if deps.Dispatcher == nil {
+			httpx.WriteError(w, http.StatusInternalServerError,
+				"push_not_configured", "Push dispatcher chưa khởi tạo", nil)
+			return
+		}
+
+		q := store.New(deps.DB)
+		rows, err := q.ListPushSubscriptionsByUser(r.Context(), us.UserID)
+		if err != nil {
+			slog.Error("test push: list subs failed", "user", us.UserID, "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		payload := push.Payload{
+			Title: "WarrantyVault",
+			Body:  "Đây là thông báo thử nghiệm",
+			URL:   "/settings",
+			Tag:   "wv-test-push",
+		}
+
+		sent, failed := 0, 0
+		for _, row := range rows {
+			sub := push.Subscription{
+				ID:       row.ID,
+				Platform: row.Platform,
+				Endpoint: row.Endpoint,
+				P256dh:   row.P256dh,
+				Auth:     row.Auth,
+			}
+			res := deps.Dispatcher.Send(sub, payload)
+			if res.Ok {
+				sent++
+				continue
+			}
+			if res.Gone {
+				failed++
+				if _, derr := q.DeletePushSubscriptionByIDInternal(r.Context(), row.ID); derr != nil {
+					slog.Error("test push: delete gone sub failed", "sub", row.ID, "err", derr)
+				}
+				slog.Info("test push", "user", us.UserID, "sub", row.ID, "platform", row.Platform, "gone", true, "err", res.Error)
+				continue
+			}
+			failed++
+			slog.Warn("test push", "user", us.UserID, "sub", row.ID, "platform", row.Platform, "err", res.Error)
+		}
+
+		httpx.WriteJSON(w, http.StatusOK, map[string]int{
+			"sent":   sent,
+			"failed": failed,
+		})
+	})
+	return auth.RequireUser(deps.DB)(inner).ServeHTTP
 }

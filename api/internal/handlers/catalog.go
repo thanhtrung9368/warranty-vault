@@ -8,11 +8,11 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
-// RegisterCatalog wires GET /v1/catalog. Read-only, auth-gated, in-process
+// RegisterCatalog wires GET /api/v1/catalog. Read-only, auth-gated, in-process
 // TTL-cached at the service layer.
 func RegisterCatalog(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
-	mux.Handle("GET /v1/catalog", requireUser(http.HandlerFunc(catalogHandler(deps))))
+	mux.Handle("GET /api/v1/catalog", requireUser(http.HandlerFunc(catalogHandler(deps))))
 }
 
 func catalogHandler(deps Deps) http.HandlerFunc {

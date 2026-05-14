@@ -11,21 +11,21 @@ import (
 // RegisterWarranties wires the warranty + reminder dismiss/restore routes.
 //
 // Routes:
-//   GET    /v1/devices/{id}/warranties     - list (verifies device ownership)
-//   POST   /v1/devices/{id}/warranties     - create (write rate limit, count<5)
-//   PATCH  /v1/warranties/{id}             - update
-//   DELETE /v1/warranties/{id}             - delete
-//   POST   /v1/warranties/{id}/reminder    - dismiss
-//   DELETE /v1/warranties/{id}/reminder    - restore (i.e. un-dismiss)
+//   GET    /api/v1/devices/{id}/warranties     - list (verifies device ownership)
+//   POST   /api/v1/devices/{id}/warranties     - create (write rate limit, count<5)
+//   PATCH  /api/v1/warranties/{id}             - update
+//   DELETE /api/v1/warranties/{id}             - delete
+//   POST   /api/v1/warranties/{id}/reminder    - dismiss
+//   DELETE /api/v1/warranties/{id}/reminder    - restore (i.e. un-dismiss)
 func RegisterWarranties(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 
-	mux.Handle("GET /v1/devices/{id}/warranties", requireUser(http.HandlerFunc(listWarrantiesHandler(deps))))
-	mux.Handle("POST /v1/devices/{id}/warranties", requireUser(http.HandlerFunc(createWarrantyHandler(deps))))
-	mux.Handle("PATCH /v1/warranties/{id}", requireUser(http.HandlerFunc(updateWarrantyHandler(deps))))
-	mux.Handle("DELETE /v1/warranties/{id}", requireUser(http.HandlerFunc(deleteWarrantyHandler(deps))))
-	mux.Handle("POST /v1/warranties/{id}/reminder", requireUser(http.HandlerFunc(dismissReminderHandler(deps))))
-	mux.Handle("DELETE /v1/warranties/{id}/reminder", requireUser(http.HandlerFunc(restoreReminderHandler(deps))))
+	mux.Handle("GET /api/v1/devices/{id}/warranties", requireUser(http.HandlerFunc(listWarrantiesHandler(deps))))
+	mux.Handle("POST /api/v1/devices/{id}/warranties", requireUser(http.HandlerFunc(createWarrantyHandler(deps))))
+	mux.Handle("PATCH /api/v1/warranties/{id}", requireUser(http.HandlerFunc(updateWarrantyHandler(deps))))
+	mux.Handle("DELETE /api/v1/warranties/{id}", requireUser(http.HandlerFunc(deleteWarrantyHandler(deps))))
+	mux.Handle("POST /api/v1/warranties/{id}/reminder", requireUser(http.HandlerFunc(dismissReminderHandler(deps))))
+	mux.Handle("DELETE /api/v1/warranties/{id}/reminder", requireUser(http.HandlerFunc(restoreReminderHandler(deps))))
 }
 
 func listWarrantiesHandler(deps Deps) http.HandlerFunc {

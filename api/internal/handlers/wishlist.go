@@ -8,17 +8,17 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
-// RegisterWishlist wires the /v1/wishlist/* surface onto the supplied mux.
+// RegisterWishlist wires the /api/v1/wishlist/* surface onto the supplied mux.
 // Auth wraps every route; per-user rate-limit wraps mutations.
 func RegisterWishlist(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 
-	mux.Handle("GET /v1/wishlist", requireUser(http.HandlerFunc(listWishlistHandler(deps))))
-	mux.Handle("POST /v1/wishlist", requireUser(http.HandlerFunc(createWishlistHandler(deps))))
-	mux.Handle("GET /v1/wishlist/{id}", requireUser(http.HandlerFunc(getWishlistHandler(deps))))
-	mux.Handle("PATCH /v1/wishlist/{id}", requireUser(http.HandlerFunc(updateWishlistHandler(deps))))
-	mux.Handle("DELETE /v1/wishlist/{id}", requireUser(http.HandlerFunc(deleteWishlistHandler(deps))))
-	mux.Handle("POST /v1/wishlist/{id}/prices", requireUser(http.HandlerFunc(logWishlistPriceHandler(deps))))
+	mux.Handle("GET /api/v1/wishlist", requireUser(http.HandlerFunc(listWishlistHandler(deps))))
+	mux.Handle("POST /api/v1/wishlist", requireUser(http.HandlerFunc(createWishlistHandler(deps))))
+	mux.Handle("GET /api/v1/wishlist/{id}", requireUser(http.HandlerFunc(getWishlistHandler(deps))))
+	mux.Handle("PATCH /api/v1/wishlist/{id}", requireUser(http.HandlerFunc(updateWishlistHandler(deps))))
+	mux.Handle("DELETE /api/v1/wishlist/{id}", requireUser(http.HandlerFunc(deleteWishlistHandler(deps))))
+	mux.Handle("POST /api/v1/wishlist/{id}/prices", requireUser(http.HandlerFunc(logWishlistPriceHandler(deps))))
 }
 
 func listWishlistHandler(deps Deps) http.HandlerFunc {

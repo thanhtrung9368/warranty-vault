@@ -12,17 +12,17 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
-// RegisterDevices wires the /v1/devices/* surface onto the supplied mux.
+// RegisterDevices wires the /api/v1/devices/* surface onto the supplied mux.
 // Auth + rate limit are wrapped at registration; per-row ownership lives
 // inside the service layer.
 func RegisterDevices(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 
-	mux.Handle("GET /v1/devices", requireUser(http.HandlerFunc(listDevicesHandler(deps))))
-	mux.Handle("POST /v1/devices", requireUser(http.HandlerFunc(createDeviceHandler(deps))))
-	mux.Handle("GET /v1/devices/{id}", requireUser(http.HandlerFunc(getDeviceHandler(deps))))
-	mux.Handle("PATCH /v1/devices/{id}", requireUser(http.HandlerFunc(updateDeviceHandler(deps))))
-	mux.Handle("DELETE /v1/devices/{id}", requireUser(http.HandlerFunc(deleteDeviceHandler(deps))))
+	mux.Handle("GET /api/v1/devices", requireUser(http.HandlerFunc(listDevicesHandler(deps))))
+	mux.Handle("POST /api/v1/devices", requireUser(http.HandlerFunc(createDeviceHandler(deps))))
+	mux.Handle("GET /api/v1/devices/{id}", requireUser(http.HandlerFunc(getDeviceHandler(deps))))
+	mux.Handle("PATCH /api/v1/devices/{id}", requireUser(http.HandlerFunc(updateDeviceHandler(deps))))
+	mux.Handle("DELETE /api/v1/devices/{id}", requireUser(http.HandlerFunc(deleteDeviceHandler(deps))))
 }
 
 func listDevicesHandler(deps Deps) http.HandlerFunc {

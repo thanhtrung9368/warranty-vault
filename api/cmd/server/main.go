@@ -52,12 +52,12 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /v1/auth/register", handlers.Register(deps))
-	mux.HandleFunc("POST /v1/auth/login", handlers.Login(deps))
-	mux.HandleFunc("POST /v1/auth/logout", handlers.Logout(deps))
-	mux.HandleFunc("GET /v1/auth/me", handlers.Me(deps))
-	mux.HandleFunc("POST /v1/auth/forgot", handlers.Forgot(deps))
-	mux.HandleFunc("POST /v1/auth/change-password", handlers.ChangePassword(deps))
+	mux.HandleFunc("POST /api/v1/auth/register", handlers.Register(deps))
+	mux.HandleFunc("POST /api/v1/auth/login", handlers.Login(deps))
+	mux.HandleFunc("POST /api/v1/auth/logout", handlers.Logout(deps))
+	mux.HandleFunc("GET /api/v1/auth/me", handlers.Me(deps))
+	mux.HandleFunc("POST /api/v1/auth/forgot", handlers.Forgot(deps))
+	mux.HandleFunc("POST /api/v1/auth/change-password", handlers.ChangePassword(deps))
 
 	handlers.RegisterDevices(mux, deps)
 	handlers.RegisterWarranties(mux, deps)
@@ -68,6 +68,7 @@ func main() {
 	handlers.RegisterCatalog(mux, deps)
 	handlers.RegisterStats(mux, deps)
 	handlers.RegisterPush(mux, deps)
+	mux.HandleFunc("POST /api/v1/push/test", handlers.TestPush(deps))
 	handlers.RegisterCron(mux, deps)
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

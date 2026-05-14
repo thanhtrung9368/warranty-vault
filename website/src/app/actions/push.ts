@@ -34,17 +34,24 @@ export async function unsubscribePush(endpoint: string) {
   return { ok: true };
 }
 
-// TODO(Phase F): Go does not yet expose a `POST /v1/push/test` endpoint.
-// For now we return a friendly message; the previous behaviour exercised
-// web-push directly from the website using `web-push` lib + Prisma. Once
-// the Go endpoint lands (or the cron handler can be invoked manually),
-// this becomes another thin proxy.
+// Sends a sample notification to every subscription the user has registered.
+// Thin proxy over `POST /api/v1/push/test` on the Go service.
 export async function sendTestPush() {
-  return {
-    ok: false,
-    message:
-      'Test push tạm thời tắt — endpoint /v1/push/test sẽ có ở Phase F. Cron sẽ vẫn gửi thông báo bình thường.',
-  };
+  const res = await api.push.test();
+  if (!res.ok) {
+    return { ok: false, message: res.message ?? 'Không gửi được thông báo thử' };
+  }
+  const { sent, failed } = res.data;
+  if (sent === 0 && failed === 0) {
+    return { ok: true, message: 'Bạn chưa đăng ký thiết bị nào để nhận thông báo' };
+  }
+  if (failed > 0 && sent === 0) {
+    return { ok: false, message: `Gửi thất bại cho ${failed} thiết bị` };
+  }
+  if (failed > 0) {
+    return { ok: true, message: `Đã gửi ${sent} thông báo (lỗi: ${failed})` };
+  }
+  return { ok: true, message: `Đã gửi ${sent} thông báo thử` };
 }
 
 export async function listMySubscriptions() {
