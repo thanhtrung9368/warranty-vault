@@ -152,8 +152,10 @@ WHERE d."userId" = $1
 
 -- name: ListWarrantiesInWindow :many
 -- For cron: every ACTIVE-device warranty whose endDate is in [start, end),
--- skipping warranties with a dismissed Reminder row. Returns userId so the
--- caller can fan out push notifications.
+-- skipping warranties with a dismissed Reminder row OR a Reminder already
+-- stamped lastNotifiedAt today (idempotency — prevents a same-day re-run
+-- from firing the push again). Returns userId so the caller can fan out
+-- push notifications.
 SELECT
     w.*,
     d."userId"  AS user_id,
@@ -166,4 +168,27 @@ WHERE d.status = 'ACTIVE'
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
+  )
+  AND NOT EXISTS (
+      SELECT 1 FROM "Reminder" r
+      WHERE r."warrantyId" = w.id
+        AND r."lastNotifiedAt" IS NOT NULL
+        AND r."lastNotifiedAt"::date >= CURRENT_DATE
   );
+
+-- name: StampWarrantyNotified :exec
+-- Called by cron after a successful warranty fan-out. If a Reminder row
+-- already exists for the warranty (any row, including a non-dismissed one),
+-- bumps its lastNotifiedAt to NOW(). Otherwise inserts a new non-dismissed
+-- Reminder stamped with NOW(). This keeps the same-day idempotency check
+-- in ListWarrantiesInWindow working even when the user has never dismissed
+-- a reminder for this warranty.
+WITH updated AS (
+    UPDATE "Reminder"
+    SET "lastNotifiedAt" = NOW()
+    WHERE "warrantyId" = $1
+    RETURNING id
+)
+INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt")
+SELECT $2, $1, false, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM updated);

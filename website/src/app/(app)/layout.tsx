@@ -1,6 +1,6 @@
 import { Sidebar, MobileSidebar } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
-import { countActiveReminders } from '@/lib/queries';
+import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 
 export default async function AppLayout({
@@ -9,7 +9,11 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  const reminderCount = await countActiveReminders(user.id).catch(() => 0);
+  // 30-day horizon to match the previous countActiveReminders() default.
+  // The Go endpoint already filters out dismissed reminders and only
+  // returns warranties on ACTIVE devices.
+  const remindersRes = await api.reminders.list(30);
+  const reminderCount = remindersRes.ok ? remindersRes.data.length : 0;
 
   return (
     <>

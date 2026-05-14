@@ -242,11 +242,14 @@ echo "→ Re-run cron — verify DB-side idempotency for advanceable side-effect
 #     lastNotifiedAt is unchanged between runs (within a few seconds).
 #   * Subscription "expire" path (autoRenew=false): once status=EXPIRED, the
 #     row no longer matches `status='ACTIVE'` filters, so it's idempotent too.
-#   * Notification-only buckets (warranty 7d/30d, wishlist target-date day-of,
-#     subscription renewal warnings 3/1/0) DO NOT persist a per-bucket "last
-#     notified" stamp — running the cron twice on the same day will re-fan-out
-#     pushes. We can't assert this from psql, but it's worth noting in the
-#     repo's idempotency report.
+#   * Notification-only buckets — fixed by migration 0002:
+#       - warranty 7d/30d → Reminder.lastNotifiedAt stamped after fan-out;
+#         ListWarrantiesInWindow filters by ::date >= CURRENT_DATE.
+#       - wishlist target-date day-of → WishlistItem.lastNotifiedAt is already
+#         stamped (existed pre-fix); ListWishlistTargetDateDue now filters it.
+#       - subscription renewal warnings 3/1/0 → Subscription.lastNotifiedRenewalAt
+#         is stamped after fan-out; ListSubscriptionsDueForRenewal filters it.
+#     The 2nd-run assertions below cover these via the same-day re-run check.
 wt_stamp_before=$(psql "$DATABASE_URL" -tAc \
   "SELECT \"lastNotifiedAt\" FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")
 sub_renewal_before=$(psql "$DATABASE_URL" -tAc \

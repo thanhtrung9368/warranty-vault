@@ -15,12 +15,74 @@ import { CategoryIcon } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { EmptyState } from '@/components/empty-state';
 import { api } from '@/lib/api';
-import { wishlistTotals } from '@/lib/wishlist';
-import { subscriptionTotals } from '@/lib/subscriptions';
+import type { WishlistItem } from '@/lib/api/wishlist';
+import type { Subscription } from '@/lib/api/subscriptions';
+import {
+  monthlyEquivalent,
+  SUBSCRIPTION_ACTIVE_STATUSES,
+  type BillingCycle,
+} from '@/lib/subscription-types';
+import { WISHLIST_ACTIVE_STATUSES } from '@/lib/wishlist-types';
 import { requireUser } from '@/lib/auth';
 import { CATEGORY_LABELS } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { cn } from '@/lib/utils';
+
+// Local helpers — replace the old prisma-backed `wishlistTotals()` and
+// `subscriptionTotals()`. We pull the lists from the Go API and crunch the
+// numbers on the RSC. Volumes are tiny (≤200 wishlist, ≤100 subs per user).
+
+type WishlistTotals = {
+  count: number;
+  totalPrice: number;
+  upcoming: Array<Pick<WishlistItem, 'id' | 'name' | 'targetDate'>>;
+};
+
+function computeWishlistTotals(items: WishlistItem[]): WishlistTotals {
+  const active = items.filter((i) =>
+    (WISHLIST_ACTIVE_STATUSES as readonly string[]).includes(i.status),
+  );
+  const totalPrice = active.reduce(
+    (sum, i) => sum + (i.currentPrice ?? i.initialPrice ?? 0),
+    0,
+  );
+  const upcoming = active
+    .filter((i) => i.targetDate)
+    .sort(
+      (a, b) =>
+        new Date(a.targetDate ?? 0).getTime() - new Date(b.targetDate ?? 0).getTime(),
+    )
+    .slice(0, 3)
+    .map((i) => ({ id: i.id, name: i.name, targetDate: i.targetDate }));
+  return { count: active.length, totalPrice, upcoming };
+}
+
+type SubscriptionTotals = {
+  count: number;
+  monthly: number;
+  yearly: number;
+  upcoming: Array<Pick<Subscription, 'id' | 'name' | 'renewalDate' | 'price'>>;
+};
+
+function computeSubscriptionTotals(subs: Subscription[]): SubscriptionTotals {
+  const active = subs.filter((s) =>
+    (SUBSCRIPTION_ACTIVE_STATUSES as readonly string[]).includes(s.status),
+  );
+  let monthly = 0;
+  for (const s of active) {
+    const m = monthlyEquivalent(s.price, s.billingCycle as BillingCycle, s.intervalDays);
+    if (m != null) monthly += m;
+  }
+  const upcoming = active
+    .filter((s) => s.status === 'ACTIVE' && s.autoRenew && s.billingCycle !== 'LIFETIME')
+    .sort(
+      (a, b) =>
+        new Date(a.renewalDate).getTime() - new Date(b.renewalDate).getTime(),
+    )
+    .slice(0, 5)
+    .map((s) => ({ id: s.id, name: s.name, renewalDate: s.renewalDate, price: s.price }));
+  return { count: active.length, monthly, yearly: monthly * 12, upcoming };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -78,12 +140,16 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [devicesRes, wishlist, subs] = await Promise.all([
+  const [devicesRes, wishlistRes, subsRes] = await Promise.all([
     api.devices.list(),
-    wishlistTotals(user.id),
-    subscriptionTotals(user.id),
+    api.wishlist.list({ status: 'ALL' }),
+    api.subscriptions.list({ status: 'ALL' }),
   ]);
   const stats = computeDeviceStats(devicesRes.ok ? devicesRes.data : []);
+  const wishlist = computeWishlistTotals(wishlistRes.ok ? wishlistRes.data.items : []);
+  const subs = computeSubscriptionTotals(
+    subsRes.ok ? subsRes.data.subscriptions : [],
+  );
 
   const cards = [
     {

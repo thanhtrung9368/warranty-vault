@@ -114,12 +114,23 @@ ORDER BY p."paidAt" DESC;
 -- name: ListSubscriptionsDueForRenewal :many
 -- ACTIVE, non-LIFETIME subs whose renewalDate falls in [start, end).
 -- Used for the day-bucket renewal warnings (3 / 1 / 0 days out).
+-- Skips rows already stamped today via lastNotifiedRenewalAt — idempotency
+-- guard so a 2nd cron run on the same day doesn't re-push the warning.
 SELECT *
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
   AND "renewalDate" >= $1
-  AND "renewalDate" <  $2;
+  AND "renewalDate" <  $2
+  AND ("lastNotifiedRenewalAt" IS NULL OR "lastNotifiedRenewalAt"::date < CURRENT_DATE);
+
+-- name: StampSubscriptionRenewalNotified :exec
+-- Cron stamps this after a successful renewal-warning fan-out so the next
+-- same-day run is filtered out by ListSubscriptionsDueForRenewal.
+UPDATE "Subscription"
+SET "lastNotifiedRenewalAt" = NOW(),
+    "updatedAt" = NOW()
+WHERE id = $1;
 
 -- name: ListSubscriptionsOverdue :many
 -- ACTIVE, non-LIFETIME subs whose renewalDate has passed (< today midnight).

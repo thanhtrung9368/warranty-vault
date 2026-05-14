@@ -219,6 +219,19 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			}
 			dispatch(w.UserID, payload, "warranty",
 				"warranty", w.ID, "device", w.DeviceId, "days", days)
+
+			// Stamp Reminder.lastNotifiedAt so a 2nd cron run on the same day
+			// is filtered out by ListWarrantiesInWindow. If no Reminder row
+			// exists for this warranty yet, the query inserts one with
+			// isDismissed=false. Dismissed reminders are still filtered by the
+			// query's other NOT EXISTS clause, so this can't accidentally
+			// re-show a warranty the user already dismissed.
+			if err := q.StampWarrantyNotified(ctx, store.StampWarrantyNotifiedParams{
+				WarrantyId: w.ID,
+				ID:         uuid.NewString(),
+			}); err != nil {
+				slog.Error("cron: stamp warranty notified", "warranty", w.ID, "err", err)
+			}
 		}
 	}
 
@@ -335,6 +348,15 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			}
 			dispatch(s.UserId, payload, "subscription_renewal",
 				"sub", s.ID, "days", days)
+
+			// Stamp lastNotifiedRenewalAt so a 2nd same-day cron run skips this
+			// row in ListSubscriptionsDueForRenewal. Cron firing across the 3
+			// different timing buckets (3/1/0d) doesn't collide because a given
+			// sub's renewalDate only matches one bucket per run.
+			if err := q.StampSubscriptionRenewalNotified(ctx, s.ID); err != nil {
+				slog.Error("cron: stamp subscription renewal notified",
+					"sub", s.ID, "err", err)
+			}
 		}
 	}
 

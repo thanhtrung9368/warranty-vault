@@ -14,7 +14,6 @@
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { rateLimitUserWrite } from '@/lib/rate-limit';
 import type { BackupExport, ImportResult } from '@/lib/api/backup';
 
 export type { BackupExport } from '@/lib/api/backup';
@@ -34,11 +33,9 @@ export async function importJson(
   payload: unknown,
   mode: 'merge' | 'replace' = 'merge',
 ): Promise<{ ok: boolean; message?: string }> {
-  const user = await requireUser();
-  const rl = await rateLimitUserWrite(user.id);
-  if (!rl.ok) {
-    return { ok: false, message: 'Thao tác quá nhanh, thử lại sau' };
-  }
+  await requireUser();
+  // Rate limiting is enforced on the Go side per-endpoint — the previous
+  // web-side `rateLimitUserWrite()` guard is gone with Phase F.
   if (!payload || typeof payload !== 'object') {
     return { ok: false, message: 'File JSON không hợp lệ' };
   }

@@ -78,7 +78,7 @@ export default async function SettingsPage() {
             App cá nhân theo dõi thiết bị, bảo hành và chi phí. Mỗi tài khoản dữ liệu riêng, không
             chia sẻ. Backup JSON xuất/nhập bất cứ lúc nào.
           </p>
-          <p>Tech stack: Next.js 16, React 19, Prisma 7, Tailwind, shadcn/ui, recharts.</p>
+          <p>Tech stack: Next.js 16, React 19, Go backend, Tailwind, shadcn/ui, recharts.</p>
         </CardContent>
       </Card>
     </div>

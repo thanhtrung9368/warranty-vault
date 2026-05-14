@@ -313,6 +313,134 @@ func TestRun_AgainstDevDB(t *testing.T) {
 	if stats.PushesSent != len(mock.sends) {
 		t.Errorf("PushesSent = %d, want %d", stats.PushesSent, len(mock.sends))
 	}
+
+	// ─── 2nd-run idempotency (regression guard for the duplicate-push bug) ─
+	// Re-running Run on the same day must NOT re-fan-out the 3 notification
+	// buckets we just fixed:
+	//   - warranty 7d notice (Reminder.lastNotifiedAt stamped above)
+	//   - wishlist target-date day-of (WishlistItem.lastNotifiedAt stamped)
+	//   - subscription renewal warning (Subscription.lastNotifiedRenewalAt
+	//     stamped — N/A here because our subs are overdue, not warning-window,
+	//     but we still assert WarrantyNotices and WishlistTargetHits.)
+	firstSends := len(mock.sends)
+	stats2, err := Run(ctx, pool, mock)
+	if err != nil {
+		t.Fatalf("Run (2nd): %v", err)
+	}
+	if stats2.WarrantyNotices != 0 {
+		t.Errorf("2nd run WarrantyNotices = %d, want 0 (idempotency)", stats2.WarrantyNotices)
+	}
+	if stats2.WishlistTargetHits != 0 {
+		t.Errorf("2nd run WishlistTargetHits = %d, want 0 (idempotency)", stats2.WishlistTargetHits)
+	}
+	// Only newly-stale wishlist intervals should fire; ours was just stamped.
+	if stats2.WishlistCheckins != 0 {
+		t.Errorf("2nd run WishlistCheckins = %d, want 0 (idempotency)", stats2.WishlistCheckins)
+	}
+	// Auto-bill / expire already mutated row state — no second-pass effects.
+	if stats2.SubscriptionRenewals != 0 || stats2.SubscriptionExpired != 0 {
+		t.Errorf("2nd run sub state changed: renew=%d expire=%d, want 0/0",
+			stats2.SubscriptionRenewals, stats2.SubscriptionExpired)
+	}
+	if len(mock.sends) != firstSends {
+		t.Errorf("2nd run added %d push sends, want 0",
+			len(mock.sends)-firstSends)
+	}
+}
+
+// TestRun_SubRenewalWarningIdempotent seeds an ACTIVE sub whose renewalDate
+// lands in the "today" (0d) warning bucket — autoRenew=true, status=ACTIVE,
+// so the cron should fire a `subscription_renewal` warning push the first
+// time, then skip it on the second same-day run because
+// ListSubscriptionsDueForRenewal filters by lastNotifiedRenewalAt::date <
+// CURRENT_DATE. Guards against the bug fixed in 0002_cron_idempotency.sql.
+func TestRun_SubRenewalWarningIdempotent(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set; skipping integration test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	defer pool.Close()
+	if err := pool.Ping(ctx); err != nil {
+		t.Skipf("DB not reachable: %v", err)
+	}
+
+	const testEmail = "__cron_go_subwarn__@local.test"
+	cleanup := func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM "User" WHERE email = $1`, testEmail)
+	}
+	cleanup()
+	defer cleanup()
+
+	userID := uuid.NewString()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO "User" (id, email, "passwordHash", "updatedAt")
+		VALUES ($1, $2, 'x', NOW())`, userID, testEmail); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO "PushSubscription" (id, "userId", endpoint, p256dh, auth, platform, "createdAt")
+		VALUES ($1, $2, 'https://fake.local/push-warn', 'p', 'a', 'web', NOW())`,
+		uuid.NewString(), userID); err != nil {
+		t.Fatalf("insert push sub: %v", err)
+	}
+
+	// renewalDate at noon today (matches the 0-day warning bucket).
+	now := time.Now()
+	todayNoon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
+	q := store.New(pool)
+	subID := uuid.NewString()
+	if _, err := q.CreateSubscription(ctx, store.CreateSubscriptionParams{
+		ID:           subID,
+		UserId:       userID,
+		Name:         "Warning Sub",
+		BillingCycle: "MONTHLY",
+		Price:        100000,
+		StartedAt:    pgtype.Timestamp{Time: todayNoon.AddDate(0, -1, 0), Valid: true},
+		RenewalDate:  pgtype.Timestamp{Time: todayNoon, Valid: true},
+		AutoRenew:    true,
+	}); err != nil {
+		t.Fatalf("create sub: %v", err)
+	}
+
+	mock := &mockDispatcher{}
+	stats, err := Run(ctx, pool, mock)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// First run: at least one warning push fired (we can't read the
+	// warning-bucket count directly, but mock.sends should be non-empty and
+	// lastNotifiedRenewalAt should now be stamped).
+	if len(mock.sends) == 0 {
+		t.Fatalf("first run: no push sent for 0d warning bucket")
+	}
+	var stampedAt *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT "lastNotifiedRenewalAt" FROM "Subscription" WHERE id = $1`, subID).
+		Scan(&stampedAt); err != nil {
+		t.Fatalf("read lastNotifiedRenewalAt: %v", err)
+	}
+	if stampedAt == nil {
+		t.Fatalf("lastNotifiedRenewalAt not stamped after first run")
+	}
+
+	firstSends := len(mock.sends)
+	stats2, err := Run(ctx, pool, mock)
+	if err != nil {
+		t.Fatalf("Run (2nd): %v", err)
+	}
+	// 2nd run on same day must not fan out again.
+	if len(mock.sends) != firstSends {
+		t.Errorf("2nd run added %d new sends, want 0 (idempotency)",
+			len(mock.sends)-firstSends)
+	}
+	_ = stats
+	_ = stats2
 }
 
 // TestRun_DispatchGoneDeletesRow verifies the Gone path removes the

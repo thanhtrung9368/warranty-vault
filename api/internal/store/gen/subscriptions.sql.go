@@ -427,6 +427,7 @@ WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
   AND "renewalDate" >= $1
   AND "renewalDate" <  $2
+  AND ("lastNotifiedRenewalAt" IS NULL OR "lastNotifiedRenewalAt"::date < CURRENT_DATE)
 `
 
 type ListSubscriptionsDueForRenewalParams struct {
@@ -437,6 +438,8 @@ type ListSubscriptionsDueForRenewalParams struct {
 // ─── Cron / renewal helpers ───────────────────────────────────────────────
 // ACTIVE, non-LIFETIME subs whose renewalDate falls in [start, end).
 // Used for the day-bucket renewal warnings (3 / 1 / 0 days out).
+// Skips rows already stamped today via lastNotifiedRenewalAt — idempotency
+// guard so a 2nd cron run on the same day doesn't re-push the warning.
 func (q *Queries) ListSubscriptionsDueForRenewal(ctx context.Context, arg ListSubscriptionsDueForRenewalParams) ([]Subscription, error) {
 	rows, err := q.db.Query(ctx, listSubscriptionsDueForRenewal, arg.RenewalDate, arg.RenewalDate_2)
 	if err != nil {
@@ -574,6 +577,20 @@ func (q *Queries) SetSubscriptionStatus(ctx context.Context, arg SetSubscription
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const stampSubscriptionRenewalNotified = `-- name: StampSubscriptionRenewalNotified :exec
+UPDATE "Subscription"
+SET "lastNotifiedRenewalAt" = NOW(),
+    "updatedAt" = NOW()
+WHERE id = $1
+`
+
+// Cron stamps this after a successful renewal-warning fan-out so the next
+// same-day run is filtered out by ListSubscriptionsDueForRenewal.
+func (q *Queries) StampSubscriptionRenewalNotified(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, stampSubscriptionRenewalNotified, id)
+	return err
 }
 
 const updateSubscription = `-- name: UpdateSubscription :one

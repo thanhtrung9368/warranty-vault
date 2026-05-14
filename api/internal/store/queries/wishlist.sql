@@ -131,13 +131,16 @@ ORDER BY p."recordedAt" DESC;
 
 -- name: ListWishlistTargetDateDue :many
 -- Items in WATCHING|DECIDED status with targetDate in [start, end).
--- The cron stamps lastNotifiedAt after firing.
+-- Skips items whose lastNotifiedAt is already today — that's the idempotency
+-- guard against re-firing the same target-date push when the cron runs more
+-- than once in a day. The cron stamps lastNotifiedAt = NOW() after firing.
 SELECT *
 FROM "WishlistItem"
 WHERE status IN ('WATCHING', 'DECIDED')
   AND "targetDate" IS NOT NULL
   AND "targetDate" >= $1
-  AND "targetDate" <  $2;
+  AND "targetDate" <  $2
+  AND ("lastNotifiedAt" IS NULL OR "lastNotifiedAt"::date < CURRENT_DATE);
 
 -- name: ListWishlistDueForCheckin :many
 -- Periodic price-check pings. Items with reminderIntervalDays set, where

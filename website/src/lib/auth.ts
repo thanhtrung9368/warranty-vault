@@ -10,11 +10,6 @@ import { redirect } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getAuthCookie } from '@/lib/auth-cookie';
 
-// @deprecated bcrypt rounds — Go owns hashing now. Kept exported for
-// transitional callers (none should remain after Phase F). Remove together
-// with `bcrypt-ts` from package.json in Phase F cleanup.
-export const BCRYPT_ROUNDS = 12;
-
 export type CurrentUser = {
   id: string;
   email: string;
@@ -40,11 +35,4 @@ export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   return user;
-}
-
-// Compatibility shim for the old `/api/v1/*` Next.js route handlers (which
-// remain wired but will be deleted in Phase F). They expect a non-redirect
-// resolver that returns null on miss.
-export async function requireApiUser(): Promise<CurrentUser | null> {
-  return getCurrentUser();
 }

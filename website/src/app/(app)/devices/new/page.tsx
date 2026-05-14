@@ -3,7 +3,7 @@ import { ArrowLeft, Heart } from 'lucide-react';
 import { DeviceForm } from '@/components/device-form';
 import { Button } from '@/components/ui/button';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
-import { getWishlistItem } from '@/lib/wishlist';
+import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 
 export default async function NewDevicePage({
@@ -12,10 +12,12 @@ export default async function NewDevicePage({
   searchParams: Promise<{ fromWishlist?: string }>;
 }) {
   const sp = await searchParams;
-  const user = await requireUser();
+  await requireUser();
   const [catalog, fromItem] = await Promise.all([
     getDeviceFormCatalog(),
-    sp.fromWishlist ? getWishlistItem(user.id, sp.fromWishlist) : Promise.resolve(null),
+    sp.fromWishlist
+      ? api.wishlist.get(sp.fromWishlist).then((res) => (res.ok ? res.data.item : null))
+      : Promise.resolve(null),
   ]);
 
   // Prefill device form from a wishlist item, if provided + owned by user.

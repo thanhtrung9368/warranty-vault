@@ -1,16 +1,9 @@
 #!/bin/sh
 set -e
 
-# Ensure the persistent data dir for encrypted attachments exists. /data is
-# a Docker volume mounted from compose. The DB itself lives in a separate
-# postgres container/volume.
-mkdir -p /data /data/private-uploads
+# Post Phase F: the website is a pure frontend. Database schema, encrypted
+# attachment storage, and migrations are owned by the Go service (api/).
+# This entrypoint just starts Next.js.
 
-# Sync the Prisma schema into the postgres DB. Idempotent — if the schema
-# already matches, this is a no-op. Compose makes `app` wait until `db` is
-# healthy via depends_on, so the connection should succeed on first try.
-echo "[entrypoint] prisma db push → $DATABASE_URL"
-node node_modules/prisma/build/index.js db push
-
-echo "[entrypoint] starting Next.js"
+echo "[entrypoint] starting Next.js (GO_API_URL=${GO_API_URL:-unset})"
 exec "$@"

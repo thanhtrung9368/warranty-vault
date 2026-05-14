@@ -561,7 +561,7 @@ func (q *Queries) BackupListPaymentsForUser(ctx context.Context, userid string) 
 }
 
 const backupListRemindersForUser = `-- name: BackupListRemindersForUser :many
-SELECT r.id, r."warrantyId", r."isDismissed", r."createdAt"
+SELECT r.id, r."warrantyId", r."isDismissed", r."createdAt", r."lastNotifiedAt"
 FROM "Reminder" r
 JOIN "Warranty" w ON w.id = r."warrantyId"
 JOIN "Device"   d ON d.id = w."deviceId"
@@ -583,6 +583,7 @@ func (q *Queries) BackupListRemindersForUser(ctx context.Context, userid string)
 			&i.WarrantyId,
 			&i.IsDismissed,
 			&i.CreatedAt,
+			&i.LastNotifiedAt,
 		); err != nil {
 			return nil, err
 		}

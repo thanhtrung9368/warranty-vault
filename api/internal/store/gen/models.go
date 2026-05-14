@@ -78,10 +78,11 @@ type PushSubscription struct {
 }
 
 type Reminder struct {
-	ID          string           `json:"id"`
-	WarrantyId  string           `json:"warrantyId"`
-	IsDismissed bool             `json:"isDismissed"`
-	CreatedAt   pgtype.Timestamp `json:"createdAt"`
+	ID             string           `json:"id"`
+	WarrantyId     string           `json:"warrantyId"`
+	IsDismissed    bool             `json:"isDismissed"`
+	CreatedAt      pgtype.Timestamp `json:"createdAt"`
+	LastNotifiedAt pgtype.Timestamp `json:"lastNotifiedAt"`
 }
 
 type Session struct {

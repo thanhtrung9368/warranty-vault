@@ -1,16 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
 # ─────────────────────────────────────────────────────────────────────────────
-# WarrantyVault — multi-stage Docker build
+# WarrantyVault — multi-stage Docker build (web UI only)
 #
-# - Node 22 alpine (libc6-compat for prebuilt binaries: sharp)
-# - builder stage runs `next build` (which calls `prisma generate` first via
-#   package.json `build` script). Postgres talks over TCP via `pg`, so no
-#   native module compile step.
-# - runner stage ships full node_modules so the prisma CLI is available at
-#   container start to run `prisma db push` against the postgres service
-# - Encrypted attachments live under /data (volume); DB lives in a separate
-#   `warranty-pg` volume on the postgres container (see docker-compose.yml).
+# Post Phase F: the website is a pure Next.js frontend that talks to the Go
+# API over HTTP. No Prisma, no Postgres driver, no native compile step.
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM node:22-alpine AS base
@@ -20,10 +14,8 @@ RUN apk add --no-cache libc6-compat
 FROM base AS builder
 WORKDIR /app
 
-# Install deps first (cache layer). Prisma schema is needed because
-# `postinstall` runs `prisma generate`.
+# Install deps first (cache layer).
 COPY package.json package-lock.json ./
-COPY prisma ./prisma
 RUN npm ci
 
 # Copy the rest of the source.
@@ -56,14 +48,12 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
 COPY --from=builder --chown=nextjs:nodejs /app/.next         ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public        ./public
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules  ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/prisma        ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/package.json  ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs  ./next.config.mjs
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json    ./tsconfig.json
 
 COPY --chown=nextjs:nodejs docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && mkdir -p /data && chown -R nextjs:nodejs /data
+RUN chmod +x /entrypoint.sh
 
 USER nextjs
 EXPOSE 3000

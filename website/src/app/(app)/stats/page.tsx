@@ -1,34 +1,115 @@
 import Link from 'next/link';
 import { ShieldCheck, TrendingUp, Trophy, BarChart3 } from 'lucide-react';
+import { startOfMonth, subMonths, format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CategoryIcon } from '@/components/category-icon';
 import { MonthlyBar } from '@/components/charts/monthly-bar';
 import { CategoryPie } from '@/components/charts/category-pie';
 import { YearPicker } from '@/components/year-picker';
 import { EmptyState } from '@/components/empty-state';
-import {
-  monthlySpend,
-  spendByCategory,
-  yearlySpend,
-  topExpensive,
-  activeAssetValue,
-  getYearsWithData,
-} from '@/lib/stats';
+import { api } from '@/lib/api';
+import type { DeviceListItem } from '@/lib/api/devices';
 import { CATEGORY_LABELS, type Category } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
-import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
+
+// All stats are now computed in-RSC from a single `GET /v1/devices` call.
+// Volumes are tiny (≤50 devices per user) so an in-memory rollup beats
+// adding aggregation endpoints to Go just for the stats page.
+
+function monthlySpendBuckets(devices: DeviceListItem[], months = 12) {
+  const start = startOfMonth(subMonths(new Date(), months - 1));
+  const buckets = new Map<string, number>();
+  for (let i = 0; i < months; i++) {
+    const d = startOfMonth(subMonths(new Date(), months - 1 - i));
+    buckets.set(format(d, 'yyyy-MM'), 0);
+  }
+  for (const d of devices) {
+    const pd = new Date(d.purchaseDate);
+    if (pd < start) continue;
+    const key = format(startOfMonth(pd), 'yyyy-MM');
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + d.purchasePrice);
+  }
+  return Array.from(buckets.entries()).map(([k, total]) => {
+    const [y, m] = k.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, 1);
+    return {
+      month: format(dateObj, 'MM/yy', { locale: vi }),
+      total,
+    };
+  });
+}
+
+function spendByCategoryRollup(devices: DeviceListItem[]) {
+  const map = new Map<string, { total: number; count: number }>();
+  for (const d of devices) {
+    const cur = map.get(d.category) ?? { total: 0, count: 0 };
+    cur.total += d.purchasePrice;
+    cur.count += 1;
+    map.set(d.category, cur);
+  }
+  return Array.from(map.entries()).map(([category, v]) => ({
+    category,
+    label: CATEGORY_LABELS[category as Category] ?? category,
+    total: v.total,
+    count: v.count,
+  }));
+}
+
+function yearlySpend(devices: DeviceListItem[], year: number) {
+  let total = 0;
+  let count = 0;
+  for (const d of devices) {
+    const pd = new Date(d.purchaseDate);
+    if (pd.getFullYear() === year) {
+      total += d.purchasePrice;
+      count += 1;
+    }
+  }
+  return { total, count };
+}
+
+function topExpensiveRollup(devices: DeviceListItem[], limit = 5) {
+  return [...devices]
+    .sort((a, b) => b.purchasePrice - a.purchasePrice)
+    .slice(0, limit);
+}
+
+function activeAssetValue(devices: DeviceListItem[]) {
+  const now = new Date();
+  const active = devices.filter(
+    (d) =>
+      d.status === 'ACTIVE' &&
+      d.effectiveWarrantyEnd != null &&
+      new Date(d.effectiveWarrantyEnd) > now,
+  );
+  return {
+    total: active.reduce((sum, d) => sum + d.purchasePrice, 0),
+    count: active.length,
+  };
+}
+
+function yearsWithData(devices: DeviceListItem[]): number[] {
+  const set = new Set<number>();
+  for (const d of devices) set.add(new Date(d.purchaseDate).getFullYear());
+  set.add(new Date().getFullYear());
+  return Array.from(set).sort((a, b) => b - a);
+}
 
 export default async function StatsPage({
   searchParams,
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const sp = await searchParams;
-  const total = await prisma.device.count({ where: { userId: user.id } });
+  const devicesRes = await api.devices.list();
+  const devices: DeviceListItem[] = devicesRes.ok ? devicesRes.data : [];
+  const total = devices.length;
+
   if (total === 0) {
     return (
       <div className="space-y-6">
@@ -48,17 +129,15 @@ export default async function StatsPage({
     );
   }
 
-  const years = await getYearsWithData(user.id);
+  const years = yearsWithData(devices);
   const currentYear = new Date().getFullYear();
   const year = sp.year ? Number(sp.year) : currentYear;
 
-  const [monthly, byCategory, yearTotal, top, asset] = await Promise.all([
-    monthlySpend(user.id, 12),
-    spendByCategory(user.id),
-    yearlySpend(user.id, year),
-    topExpensive(user.id, 5),
-    activeAssetValue(user.id),
-  ]);
+  const monthly = monthlySpendBuckets(devices, 12);
+  const byCategory = spendByCategoryRollup(devices);
+  const yearTotal = yearlySpend(devices, year);
+  const top = topExpensiveRollup(devices, 5);
+  const asset = activeAssetValue(devices);
 
   return (
     <div className="space-y-6">
