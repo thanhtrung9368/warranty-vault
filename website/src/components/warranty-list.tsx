@@ -13,14 +13,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { WarrantyTimeline } from '@/components/warranty-timeline';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { WarrantyForm } from '@/components/warranty-form';
 import { deleteWarranty } from '@/app/actions/warranties';
 import {
   WARRANTY_TYPE_LABELS,
-  WARRANTY_TYPE_COLORS,
   type WarrantyType,
 } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
@@ -39,6 +37,13 @@ type WarrantyItem = {
   notes: string | null;
 };
 
+// Coral-palette badge backgrounds by warranty type, mirrors design.
+const TYPE_BADGE: Record<WarrantyType, string> = {
+  STANDARD: 'bg-primary-soft text-primary-ink',
+  EXTENDED: 'bg-violet-soft text-violet-ink',
+  THIRD_PARTY: 'bg-sky-soft text-sky-ink',
+};
+
 function InfoLine({
   icon: Icon,
   label,
@@ -52,11 +57,11 @@ function InfoLine({
 }) {
   if (!value) return null;
   const inner = (
-    <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
-      <div className="min-w-0">
-        <span className="text-xs text-muted-foreground">{label}: </span>
-        <span className="text-sm break-words">{value}</span>
+    <div className="info-row">
+      <Icon className="info-row-icon h-4 w-4" />
+      <div className="min-w-0 flex-1">
+        <p className="info-row-label">{label}</p>
+        <p className="info-row-value text-sm break-words">{value}</p>
       </div>
     </div>
   );
@@ -83,29 +88,45 @@ function WarrantyCard({
     : undefined;
 
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn('border-transparent', WARRANTY_TYPE_COLORS[type] ?? '')}
+          <span
+            className={cn(
+              'inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-bold',
+              TYPE_BADGE[type] ?? 'bg-zinc-soft text-ink-2',
+            )}
           >
             {WARRANTY_TYPE_LABELS[type] ?? w.type}
-          </Badge>
-          {w.provider && <span className="font-medium">{w.provider}</span>}
+          </span>
+          {w.provider && (
+            <span className="text-sm font-semibold text-ink">{w.provider}</span>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           <WarrantyPill warrantyEnd={w.endDate} variant="badge" />
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onEdit}>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full"
+            onClick={onEdit}
+            aria-label="Sửa gói"
+          >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-destructive hover:text-destructive"
+            className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
             disabled={pending}
+            aria-label="Xoá gói"
             onClick={() => {
-              if (!confirm(`Xoá gói bảo hành "${WARRANTY_TYPE_LABELS[type] ?? w.type}"?`)) return;
+              if (
+                !confirm(
+                  `Xoá gói bảo hành "${WARRANTY_TYPE_LABELS[type] ?? w.type}"?`,
+                )
+              )
+                return;
               startTransition(async () => {
                 const res = await deleteWarranty(w.id);
                 if (res?.ok) toast.success('Đã xoá gói bảo hành');
@@ -122,14 +143,14 @@ function WarrantyCard({
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-4">
         <WarrantyTimeline purchaseDate={w.startDate} warrantyEndDate={w.endDate} />
         <p className="mt-2 text-xs text-muted-foreground">
           {w.months} tháng • {formatDate(w.startDate)} → {formatDate(w.endDate)}
         </p>
       </div>
 
-      <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+      <div className="mt-3 grid gap-x-6 sm:grid-cols-2">
         {w.cost != null && (
           <InfoLine icon={Wallet} label="Giá gói" value={formatVND(w.cost)} />
         )}
@@ -161,7 +182,6 @@ export function WarrantyList({
 }) {
   const [adding, setAdding] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const editing = warranties.find((w) => w.id === editingId);
   const canAdd = warranties.length < maxPerDevice;
 
   return (
@@ -174,8 +194,13 @@ export function WarrantyList({
 
       {warranties.map((w) =>
         editingId === w.id ? (
-          <div key={w.id} className="rounded-lg border bg-card p-4">
-            <h4 className="mb-3 text-sm font-semibold">Sửa gói bảo hành</h4>
+          <div
+            key={w.id}
+            className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5"
+          >
+            <h4 className="mb-3 text-sm font-bold text-primary-ink">
+              Sửa gói bảo hành
+            </h4>
             <WarrantyForm
               deviceId={deviceId}
               initial={{
@@ -202,16 +227,23 @@ export function WarrantyList({
       )}
 
       {adding && (
-        <div className="rounded-lg border bg-card p-4">
-          <h4 className="mb-3 text-sm font-semibold">Thêm gói bảo hành</h4>
+        <div className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5">
+          <h4 className="mb-3 text-sm font-bold text-primary-ink">
+            Thêm gói bảo hành
+          </h4>
           <WarrantyForm deviceId={deviceId} onCancel={() => setAdding(false)} />
         </div>
       )}
 
       {!adding && canAdd && editingId === null && (
-        <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-pill"
+          onClick={() => setAdding(true)}
+        >
           <Plus className="mr-1 h-4 w-4" />
-          Thêm gói
+          Thêm gói bảo hành
         </Button>
       )}
       {!canAdd && (

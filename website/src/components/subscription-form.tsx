@@ -6,7 +6,7 @@ import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { format, addDays, addMonths, addYears } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +37,7 @@ import type {
   CategoryOption,
   BrandOption,
 } from '@/app/actions/catalog';
+import { cn } from '@/lib/utils';
 
 type Initial = {
   id?: string;
@@ -63,16 +64,29 @@ type Catalog = {
   brands: BrandOption[];
 };
 
-const FIELD_META: Record<string, { label: string; focusId: string }> = {
-  name: { label: 'Tên gói', focusId: 'name' },
-  billingCycle: { label: 'Chu kỳ', focusId: 'billingCycle' },
-  intervalDays: { label: 'Số ngày', focusId: 'intervalDays' },
-  price: { label: 'Giá', focusId: 'price' },
-  startedAt: { label: 'Ngày bắt đầu', focusId: 'startedAt' },
-  renewalDate: { label: 'Ngày gia hạn', focusId: 'renewalDate' },
-  manageUrl: { label: 'Link quản lý', focusId: 'manageUrl' },
-  cancelUrl: { label: 'Link huỷ', focusId: 'cancelUrl' },
+// Maps each field to (a) its server-validation key for error focus and
+// (b) which step contains it. Lets us auto-jump back when Go returns
+// fieldErrors for a step the user has already moved past.
+const FIELD_META: Record<string, { label: string; focusId: string; step: number }> = {
+  name: { label: 'Tên gói', focusId: 'name', step: 0 },
+  category: { label: 'Loại', focusId: 'category', step: 0 },
+  brand: { label: 'Hãng', focusId: 'brand', step: 0 },
+  plan: { label: 'Plan', focusId: 'plan', step: 0 },
+  status: { label: 'Trạng thái', focusId: 'status', step: 0 },
+  autoRenew: { label: 'Tự gia hạn', focusId: 'autoRenew', step: 0 },
+  billingCycle: { label: 'Chu kỳ', focusId: 'billingCycle', step: 1 },
+  intervalDays: { label: 'Số ngày', focusId: 'intervalDays', step: 1 },
+  price: { label: 'Giá', focusId: 'price', step: 1 },
+  startedAt: { label: 'Ngày bắt đầu', focusId: 'startedAt', step: 1 },
+  renewalDate: { label: 'Ngày gia hạn', focusId: 'renewalDate', step: 1 },
+  accountEmail: { label: 'Email tài khoản', focusId: 'accountEmail', step: 2 },
+  paymentMethod: { label: 'Thanh toán', focusId: 'paymentMethod', step: 2 },
+  manageUrl: { label: 'Link quản lý', focusId: 'manageUrl', step: 2 },
+  cancelUrl: { label: 'Link huỷ', focusId: 'cancelUrl', step: 2 },
+  notes: { label: 'Ghi chú', focusId: 'notes', step: 2 },
 };
+
+const STEPS = ['Cơ bản', 'Chu kỳ & giá', 'Xác nhận'] as const;
 
 function focusField(key: string) {
   const meta = FIELD_META[key];
@@ -94,7 +108,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" className="rounded-pill" disabled={pending}>
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
       {label}
     </Button>
@@ -125,7 +139,7 @@ function MoneyInput({
         placeholder="0"
         className="pr-10"
       />
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
         ₫
       </span>
       <input type="hidden" name={name} value={parseVNDInput(value)} />
@@ -156,6 +170,39 @@ function autoRenewalDate(
   return format(next, 'yyyy-MM-dd');
 }
 
+function Stepper({
+  current,
+  onStepClick,
+}: {
+  current: number;
+  onStepClick?: (i: number) => void;
+}) {
+  return (
+    <div className="stepper">
+      {STEPS.map((label, i) => {
+        const state = i < current ? 'done' : i === current ? 'active' : 'todo';
+        return (
+          <React.Fragment key={label}>
+            <button
+              type="button"
+              className="stepper-step"
+              data-state={state}
+              onClick={() => onStepClick?.(i)}
+              aria-current={state === 'active' ? 'step' : undefined}
+            >
+              <span className="stepper-bubble">
+                {state === 'done' ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
+              </span>
+              <span className="stepper-label">{label}</span>
+            </button>
+            {i < STEPS.length - 1 && <span className="stepper-line" />}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SubscriptionForm({
   initial,
   catalog,
@@ -172,6 +219,7 @@ export function SubscriptionForm({
 
   const [state, formAction] = useActionState<SubscriptionFormState, FormData>(action, {});
   const errors = state?.errors ?? {};
+  const [step, setStep] = React.useState<number>(0);
 
   const initialMount = React.useRef(true);
   React.useEffect(() => {
@@ -184,7 +232,14 @@ export function SubscriptionForm({
       const keys = Object.keys(errs);
       const labels = keys.map((k) => FIELD_META[k]?.label ?? k);
       toast.error('Vui lòng kiểm tra: ' + labels.join(', '));
-      focusField(keys[0]);
+      const stepOf = FIELD_META[keys[0]]?.step ?? 0;
+      // Defer the step jump out of the effect body — lint flags synchronous
+      // setState inside effects. We also need to wait a tick before focusing
+      // so the target step's inputs are mounted in the DOM.
+      setTimeout(() => {
+        setStep(stepOf);
+        setTimeout(() => focusField(keys[0]), 30);
+      }, 0);
     } else if (state?.ok === false && state.message) {
       toast.error(state.message);
     }
@@ -208,9 +263,6 @@ export function SubscriptionForm({
       ? format(new Date(initial.startedAt), 'yyyy-MM-dd')
       : format(new Date(), 'yyyy-MM-dd'),
   );
-  // If user hasn't typed a value, the field shows an auto-derived date
-  // (startedAt + cycle). Once they type, `renewalOverride` holds their value
-  // and we stop deriving — same UX, but without setState-in-effect.
   const [renewalOverride, setRenewalOverride] = React.useState<string | null>(
     initial?.renewalDate ? format(new Date(initial.renewalDate), 'yyyy-MM-dd') : null,
   );
@@ -242,18 +294,46 @@ export function SubscriptionForm({
     ];
   }, [catalog.brands, category]);
 
+  // Step gate: validate locally before advancing. The server is still the
+  // final authority — these are just friendly fast-fail checks per step.
+  const validateStep = (s: number): { ok: boolean; firstMissing?: string } => {
+    if (s === 0) {
+      if (!name.trim()) return { ok: false, firstMissing: 'name' };
+    }
+    if (s === 1) {
+      if (!price || parseVNDInput(price) <= 0)
+        return { ok: false, firstMissing: 'price' };
+      if (!startedAt) return { ok: false, firstMissing: 'startedAt' };
+      if (billingCycle === 'CUSTOM' && !intervalDays)
+        return { ok: false, firstMissing: 'intervalDays' };
+    }
+    return { ok: true };
+  };
+
+  const goNext = () => {
+    const v = validateStep(step);
+    if (!v.ok) {
+      const k = v.firstMissing!;
+      toast.error('Vui lòng nhập: ' + (FIELD_META[k]?.label ?? k));
+      focusField(k);
+      return;
+    }
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  };
+  const goPrev = () => setStep((s) => Math.max(0, s - 1));
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    const fd = new FormData(e.currentTarget);
-    const missing: string[] = [];
-    if (!String(fd.get('name') ?? '').trim()) missing.push('name');
-    if (!String(fd.get('startedAt') ?? '').trim()) missing.push('startedAt');
-    if (Number(fd.get('price') ?? 0) <= 0) missing.push('price');
-    if (billingCycle === 'CUSTOM' && !intervalDays) missing.push('intervalDays');
-    if (missing.length > 0) {
-      e.preventDefault();
-      const labels = missing.map((k) => FIELD_META[k]?.label ?? k);
-      toast.error('Vui lòng nhập: ' + labels.join(', '));
-      focusField(missing[0]);
+    // Re-validate every step before letting the form action fire.
+    for (let i = 0; i < STEPS.length; i++) {
+      const v = validateStep(i);
+      if (!v.ok) {
+        e.preventDefault();
+        setStep(i);
+        const k = v.firstMissing!;
+        toast.error('Vui lòng nhập: ' + (FIELD_META[k]?.label ?? k));
+        setTimeout(() => focusField(k), 50);
+        return;
+      }
     }
   };
 
@@ -263,9 +343,18 @@ export function SubscriptionForm({
         <input type="hidden" name="fromWishlistId" value={fromWishlistId} />
       ) : null}
 
-      <div className="rounded-xl border bg-card p-6">
-        <h3 className="mb-4 text-base font-semibold">Thông tin gói</h3>
-        <div className="grid gap-4 md:grid-cols-2">
+      {/* Hidden mirrors keep FormData contract intact regardless of which
+          step the user is on. We render real inputs visually per step but
+          let unmounted ones still submit through these hidden copies. */}
+      <input type="hidden" name="status" value={status} />
+      <input type="hidden" name="billingCycle" value={billingCycle} />
+
+      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft md:p-8">
+        <Stepper current={step} onStepClick={(i) => i < step && setStep(i)} />
+        <div className="my-6 h-px bg-border" />
+
+        {/* === STEP 0 — Cơ bản === */}
+        <div className={cn('grid gap-4 md:grid-cols-2', step !== 0 && 'hidden')}>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">
               Tên gói <span className="text-destructive">*</span>
@@ -322,13 +411,12 @@ export function SubscriptionForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">Trạng thái</Label>
+            <Label htmlFor="statusVisible">Trạng thái</Label>
             <Select
-              name="status"
               value={status}
               onValueChange={(v) => setStatus(v as SubscriptionStatus)}
             >
-              <SelectTrigger id="status">
+              <SelectTrigger id="statusVisible">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -343,14 +431,14 @@ export function SubscriptionForm({
 
           <div className="space-y-2">
             <Label htmlFor="autoRenew">Tự động gia hạn</Label>
-            <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3">
+            <div className="flex h-10 items-center gap-2 rounded-md border-[1.5px] border-border bg-surface px-3">
               <input
                 id="autoRenew"
                 name="autoRenew"
                 type="checkbox"
                 checked={autoRenew}
                 onChange={(e) => setAutoRenew(e.target.checked)}
-                className="h-4 w-4"
+                className="h-4 w-4 accent-primary"
               />
               <span className="text-sm text-muted-foreground">
                 {autoRenew
@@ -360,17 +448,14 @@ export function SubscriptionForm({
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <h3 className="mb-4 text-base font-semibold">Chu kỳ & Giá</h3>
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* === STEP 1 — Chu kỳ & giá === */}
+        <div className={cn('grid gap-4 md:grid-cols-2', step !== 1 && 'hidden')}>
           <div className="space-y-2">
             <Label htmlFor="billingCycle">
               Chu kỳ <span className="text-destructive">*</span>
             </Label>
             <Select
-              name="billingCycle"
               value={billingCycle}
               onValueChange={(v) => setBillingCycle(v as BillingCycle)}
             >
@@ -407,12 +492,7 @@ export function SubscriptionForm({
             <Label htmlFor="price">
               Giá / chu kỳ (VND) <span className="text-destructive">*</span>
             </Label>
-            <MoneyInput
-              id="price"
-              value={price}
-              onChange={setPrice}
-              name="price"
-            />
+            <MoneyInput id="price" value={price} onChange={setPrice} name="price" />
             <FieldError errors={errors.price} />
           </div>
 
@@ -445,79 +525,146 @@ export function SubscriptionForm({
             </p>
           </div>
         </div>
-      </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <h3 className="mb-4 text-base font-semibold">Account & Liên kết</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="accountEmail">Email tài khoản</Label>
-            <Input
-              id="accountEmail"
-              name="accountEmail"
-              type="email"
-              value={accountEmail}
-              onChange={(e) => setAccountEmail(e.target.value)}
-              placeholder="vd: thanhtrung@..."
-            />
+        {/* === STEP 2 — Account, link, ghi chú, xác nhận === */}
+        <div className={cn('space-y-6', step !== 2 && 'hidden')}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="accountEmail">Email tài khoản</Label>
+              <Input
+                id="accountEmail"
+                name="accountEmail"
+                type="email"
+                value={accountEmail}
+                onChange={(e) => setAccountEmail(e.target.value)}
+                placeholder="vd: thanhtrung@..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
+              <Input
+                id="paymentMethod"
+                name="paymentMethod"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                placeholder="vd: Visa **4242, Apple ID, Momo"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="manageUrl">Link quản lý gói</Label>
+              <Input
+                id="manageUrl"
+                name="manageUrl"
+                type="url"
+                value={manageUrl}
+                onChange={(e) => setManageUrl(e.target.value)}
+                placeholder="https://..."
+              />
+              <FieldError errors={errors.manageUrl} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cancelUrl">Link huỷ gói</Label>
+              <Input
+                id="cancelUrl"
+                name="cancelUrl"
+                type="url"
+                value={cancelUrl}
+                onChange={(e) => setCancelUrl(e.target.value)}
+                placeholder="https://... (1-click cancel nếu có)"
+              />
+              <FieldError errors={errors.cancelUrl} />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="notes">Ghi chú</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Lưu ý billing, mã coupon, người dùng chung gia đình..."
+                rows={3}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
-            <Input
-              id="paymentMethod"
-              name="paymentMethod"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              placeholder="vd: Visa **4242, Apple ID, Momo"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="manageUrl">Link quản lý gói</Label>
-            <Input
-              id="manageUrl"
-              name="manageUrl"
-              type="url"
-              value={manageUrl}
-              onChange={(e) => setManageUrl(e.target.value)}
-              placeholder="https://..."
-            />
-            <FieldError errors={errors.manageUrl} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cancelUrl">Link huỷ gói</Label>
-            <Input
-              id="cancelUrl"
-              name="cancelUrl"
-              type="url"
-              value={cancelUrl}
-              onChange={(e) => setCancelUrl(e.target.value)}
-              placeholder="https://... (1-click cancel nếu có)"
-            />
-            <FieldError errors={errors.cancelUrl} />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="notes">Ghi chú</Label>
-            <Textarea
-              id="notes"
-              name="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Lưu ý billing, mã coupon, người dùng chung gia đình..."
-              rows={3}
-            />
+          {/* Mini recap card to make the confirm step feel intentional. */}
+          <div className="rounded-2xl border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
+            <p className="eyebrow">Xác nhận</p>
+            <p className="mt-1 text-sm text-ink-2">
+              <span className="font-semibold text-ink">{name || '—'}</span>
+              {brand && (
+                <>
+                  {' '}
+                  · <span>{brand}</span>
+                </>
+              )}
+              {plan && (
+                <>
+                  {' '}
+                  · <span>{plan}</span>
+                </>
+              )}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {price ? `${price} ₫` : '—'} ·{' '}
+              {BILLING_CYCLE_LABELS[billingCycle]}
+              {billingCycle === 'CUSTOM' && intervalDays
+                ? ` (${intervalDays} ngày)`
+                : ''}{' '}
+              · Bắt đầu {startedAt || '—'}
+              {billingCycle !== 'LIFETIME' && renewalDate
+                ? ` · Gia hạn tới ${renewalDate}`
+                : ''}
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button type="button" variant="outline" asChild>
-          <Link href={isEdit ? `/subscriptions/${initial!.id}` : '/subscriptions'}>Hủy</Link>
-        </Button>
-        <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Thêm gói'} />
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
+          <div className="flex gap-2">
+            {step > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-pill border-border-strong"
+                onClick={goPrev}
+              >
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Quay lại
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-pill"
+              asChild
+            >
+              <Link href={isEdit ? `/subscriptions/${initial!.id}` : '/subscriptions'}>
+                Hủy
+              </Link>
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              {step + 1}/{STEPS.length}
+            </span>
+            {step < STEPS.length - 1 ? (
+              <Button
+                type="button"
+                className="rounded-pill"
+                onClick={goNext}
+              >
+                Tiếp tục
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            ) : (
+              <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Thêm gói'} />
+            )}
+          </div>
+        </div>
       </div>
     </form>
   );

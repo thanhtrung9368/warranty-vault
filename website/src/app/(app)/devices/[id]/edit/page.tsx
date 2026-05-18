@@ -32,14 +32,15 @@ export default async function EditDevicePage({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href={`/devices/${device.id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Quay lại chi tiết
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Sửa thiết bị</h1>
-        <p className="text-sm text-muted-foreground">{device.name}</p>
+        <p className="eyebrow">Cập nhật</p>
+        <h1 className="display mt-1 text-3xl text-ink">Sửa thiết bị</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{device.name}</p>
       </div>
       <DeviceForm
         catalog={catalog}

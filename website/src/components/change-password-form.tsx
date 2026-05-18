@@ -81,12 +81,12 @@ export function ChangePasswordForm() {
         </div>
       </div>
       {state?.message && !state.ok && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="rounded-md border-[1.5px] border-destructive/30 bg-destructive-soft/60 px-3 py-2 text-sm font-medium text-destructive">
           {state.message}
         </p>
       )}
       {state?.ok && (
-        <p className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+        <p className="inline-flex items-center gap-2 rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 px-3 py-2 text-sm font-medium text-emerald-ink">
           <CheckCircle2 className="h-4 w-4" />
           {state.message}
         </p>

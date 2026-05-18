@@ -20,7 +20,7 @@ export default async function EditWishlistPage({
   if (!res.ok) {
     if (res.status === 404) notFound();
     return (
-      <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
         Lỗi tải món: {res.message ?? res.error}
       </div>
     );
@@ -31,14 +31,15 @@ export default async function EditWishlistPage({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href={`/wishlist/${item.id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             Quay lại chi tiết
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Sửa món thèm</h1>
-        <p className="text-sm text-muted-foreground">{item.name}</p>
+        <p className="eyebrow">Chỉnh sửa</p>
+        <h1 className="display mt-1 text-3xl text-ink">Sửa món thèm</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{item.name}</p>
       </div>
       <WishlistForm
         catalog={{

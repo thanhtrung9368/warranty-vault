@@ -1,16 +1,7 @@
 import Link from 'next/link';
-import { Plus, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Plus, RefreshCw, ExternalLink, AlertTriangle, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { CategoryIcon } from '@/components/category-icon';
+import { CategoryIconBadge } from '@/components/category-icon';
 import { EmptyState } from '@/components/empty-state';
 import { SubscriptionFilterBar } from '@/components/subscription-filter-bar';
 import { api } from '@/lib/api';
@@ -22,7 +13,6 @@ import {
   BILLING_CYCLE_LABELS,
   SUBSCRIPTION_ACTIVE_STATUSES,
   SUBSCRIPTION_STATUS_LABELS,
-  SUBSCRIPTION_STATUS_BADGE_VARIANT,
   SUBSCRIPTION_STATUSES,
   monthlyEquivalent,
   type BillingCycle,
@@ -34,17 +24,36 @@ import { differenceInDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
-function renewalLabel(date: Date, cycle: string): { text: string; tone: string } {
-  if (cycle === 'LIFETIME') return { text: 'Lifetime', tone: 'text-muted-foreground' };
+type RenewalTone = 'safe' | 'warn' | 'danger' | 'expired' | 'neutral';
+
+function renewalLabel(
+  date: Date,
+  cycle: string,
+): { text: string; tone: RenewalTone } {
+  if (cycle === 'LIFETIME') return { text: 'Lifetime', tone: 'neutral' };
   const days = differenceInDays(date, new Date());
-  if (days < 0)
-    return { text: `Quá hạn ${Math.abs(days)} ngày`, tone: 'text-red-600' };
-  if (days === 0) return { text: 'Hôm nay', tone: 'text-amber-600 font-semibold' };
-  if (days <= 3) return { text: `Còn ${days} ngày`, tone: 'text-red-600' };
-  if (days <= 7) return { text: `Còn ${days} ngày`, tone: 'text-amber-600' };
-  if (days <= 30) return { text: `Còn ${days} ngày`, tone: 'text-foreground' };
-  return { text: formatDate(date), tone: 'text-muted-foreground' };
+  if (days < 0) return { text: `Quá hạn ${Math.abs(days)} ngày`, tone: 'danger' };
+  if (days === 0) return { text: 'Hôm nay', tone: 'warn' };
+  if (days <= 3) return { text: `Còn ${days} ngày`, tone: 'danger' };
+  if (days <= 7) return { text: `Còn ${days} ngày`, tone: 'warn' };
+  if (days <= 30) return { text: `Còn ${days} ngày`, tone: 'safe' };
+  return { text: formatDate(date), tone: 'neutral' };
 }
+
+const RENEWAL_PILL: Record<RenewalTone, string> = {
+  safe: 'bg-emerald-soft text-emerald-ink',
+  warn: 'bg-amber-soft text-amber-ink',
+  danger: 'bg-rose-soft text-rose-ink',
+  expired: 'bg-zinc-soft text-ink-2',
+  neutral: 'bg-surface-2 text-ink-2',
+};
+
+const STATUS_PILL: Record<SubscriptionStatus, string> = {
+  ACTIVE: 'bg-emerald-soft text-emerald-ink',
+  PAUSED: 'bg-amber-soft text-amber-ink',
+  CANCELED: 'bg-zinc-soft text-ink-2',
+  EXPIRED: 'bg-rose-soft text-rose-ink',
+};
 
 type SubFilter = {
   q?: string;
@@ -126,12 +135,7 @@ function computeTotals(rows: Subscription[]) {
     .map((s) => ({ ...s, _renewalAt: new Date(s.renewalDate).getTime() }))
     .sort((a, b) => a._renewalAt - b._renewalAt)
     .slice(0, 5);
-  return {
-    count: active.length,
-    monthly,
-    yearly,
-    upcoming,
-  };
+  return { count: active.length, monthly, yearly, upcoming };
 }
 
 export default async function SubscriptionsPage({
@@ -163,8 +167,8 @@ export default async function SubscriptionsPage({
   if (!listRes.ok) {
     return (
       <div className="space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight">Gói đăng ký</h1>
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <h1 className="display text-3xl text-ink">Gói đăng ký</h1>
+        <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           Lỗi tải danh sách: {listRes.message ?? listRes.error}
         </div>
       </div>
@@ -173,23 +177,22 @@ export default async function SubscriptionsPage({
   const all = listRes.data.subscriptions;
   const subs = applyFilter(all, filter);
   const totals = computeTotals(all);
+  const isFiltered = Boolean(
+    filter.q || filter.category || filter.billingCycle || (filter.status && filter.status !== 'ACTIVE_PAUSED'),
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Gói đăng ký</h1>
+          <p className="eyebrow">Gói định kỳ</p>
+          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Gói đăng ký</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
             Hiển thị {subs.length} gói
-            {filter.q || filter.category || filter.billingCycle ? ' (đã lọc)' : ''}.
-            Theo dõi chi phí định kỳ — biết tiền chảy đi đâu mỗi tháng.
+            {isFiltered ? ' (đã lọc)' : ''}. Theo dõi chi phí định kỳ — biết tiền chảy đi đâu mỗi tháng.
           </p>
         </div>
-        <Button
-          asChild
-          size="lg"
-          className="rounded-full transition-transform hover:scale-[1.02]"
-        >
+        <Button asChild size="lg" className="rounded-pill">
           <Link href="/subscriptions/new">
             <Plus className="mr-1 h-4 w-4" />
             Thêm gói
@@ -199,40 +202,40 @@ export default async function SubscriptionsPage({
 
       {totals.count > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-sky-500/10 bg-sky-500/5 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Mỗi tháng
-            </p>
-            <p className="mt-1.5 text-3xl font-bold tracking-tight">
+          <div className="stat-card tint-sky">
+            <p className="stat-eyebrow">Mỗi tháng</p>
+            <p className="display mt-1.5 text-3xl tabular-nums text-sky-ink">
               {formatVND(totals.monthly)}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs opacity-80">
               ~ {formatVND(totals.yearly)} / năm
             </p>
           </div>
-          <div className="rounded-2xl border border-primary/10 bg-primary/5 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Đang hoạt động
+          <div className="stat-card tint-primary">
+            <p className="stat-eyebrow">Đang hoạt động</p>
+            <p className="display mt-1.5 text-3xl tabular-nums text-primary-ink">
+              {totals.count}
             </p>
-            <p className="mt-1.5 text-3xl font-bold tracking-tight">{totals.count}</p>
-            <p className="mt-1 text-xs text-muted-foreground">gói đang chạy</p>
+            <p className="mt-1 text-xs opacity-80">gói đang chạy</p>
           </div>
-          <div className="rounded-2xl border border-amber-500/10 bg-amber-500/5 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Sắp gia hạn
-            </p>
+          <div className="stat-card tint-amber">
+            <p className="stat-eyebrow">Sắp gia hạn</p>
             {totals.upcoming.length === 0 ? (
-              <p className="mt-1 text-sm text-muted-foreground">Chưa có gói nào sắp charge</p>
+              <p className="mt-2 text-sm opacity-80">Chưa có gói nào sắp charge</p>
             ) : (
-              <ul className="mt-1 space-y-0.5 text-sm">
+              <ul className="mt-2 space-y-1 text-sm">
                 {totals.upcoming.slice(0, 3).map((u) => {
-                  const { text, tone } = renewalLabel(new Date(u.renewalDate), u.billingCycle);
+                  const { text } = renewalLabel(new Date(u.renewalDate), u.billingCycle);
                   return (
-                    <li key={u.id} className="truncate">
-                      <Link href={`/subscriptions/${u.id}`} className="hover:underline">
+                    <li key={u.id} className="flex items-center gap-2 truncate">
+                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                      <Link
+                        href={`/subscriptions/${u.id}`}
+                        className="truncate font-medium hover:underline"
+                      >
                         {u.name}
-                      </Link>{' '}
-                      <span className={cn('text-xs', tone)}>{text}</span>
+                      </Link>
+                      <span className="ml-auto shrink-0 text-xs opacity-80">{text}</span>
                     </li>
                   );
                 })}
@@ -248,117 +251,107 @@ export default async function SubscriptionsPage({
         <EmptyState
           icon={RefreshCw}
           tone="sky"
-          title={
-            filter.q || filter.category
-              ? 'Không có gì khớp bộ lọc'
-              : 'Chưa có gói đăng ký nào'
-          }
+          title={isFiltered ? 'Không có gì khớp bộ lọc' : 'Chưa có gói đăng ký nào'}
           description={
-            filter.q || filter.category
+            isFiltered
               ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
               : 'Note lại các gói phần mềm/dịch vụ — Apple One, ChatGPT, Spotify, hosting...'
           }
           ctaHref="/subscriptions/new"
           ctaLabel="Thêm gói đầu tiên"
+          cta={!isFiltered}
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Gói</TableHead>
-                <TableHead className="hidden md:table-cell">Plan</TableHead>
-                <TableHead>Giá / chu kỳ</TableHead>
-                <TableHead className="hidden lg:table-cell">~ /tháng</TableHead>
-                <TableHead>Gia hạn</TableHead>
-                <TableHead className="hidden sm:table-cell">Trạng thái</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {subs.map((s) => {
-                const monthly = monthlyEquivalent(
-                  s.price,
-                  s.billingCycle as BillingCycle,
-                  s.intervalDays,
-                );
-                const renewalAt = new Date(s.renewalDate);
-                const { text: rText, tone: rTone } = renewalLabel(
-                  renewalAt,
-                  s.billingCycle,
-                );
-                return (
-                  <TableRow key={s.id} className="transition-colors hover:bg-accent/50">
-                    <TableCell>
-                      <Link
-                        href={`/subscriptions/${s.id}`}
-                        className="flex items-start gap-3"
-                      >
-                        <div className="rounded-md bg-muted p-2">
-                          <CategoryIcon
-                            category={s.category ?? 'OTHER'}
-                            className="h-4 w-4 text-muted-foreground"
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium">{s.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {s.brand}
-                            {s.brand && s.category ? ' • ' : ''}
-                            {s.category ? categoryLabel(s.category) : ''}
-                            {s.cancelUrl && (
-                              <a
-                                href={s.cancelUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                title="Trang huỷ gói"
-                                className="ml-2 inline-flex items-center text-rose-600 hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            )}
-                          </p>
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {s.plan ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{formatVND(s.price)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {BILLING_CYCLE_LABELS[s.billingCycle as BillingCycle] ?? s.billingCycle}
-                      </p>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {subs.map((s) => {
+            const monthly = monthlyEquivalent(
+              s.price,
+              s.billingCycle as BillingCycle,
+              s.intervalDays,
+            );
+            const renewalAt = new Date(s.renewalDate);
+            const { text: rText, tone: rTone } = renewalLabel(renewalAt, s.billingCycle);
+            const status = s.status as SubscriptionStatus;
+            return (
+              <Link
+                key={s.id}
+                href={`/subscriptions/${s.id}`}
+                className="group flex h-full flex-col gap-4 rounded-2xl border-[1.5px] border-border bg-card p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-lift"
+              >
+                <div className="flex items-start gap-3">
+                  <CategoryIconBadge
+                    category={s.category ?? 'OTHER'}
+                    size="md"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="truncate font-display text-base font-bold text-ink">
+                        {s.name}
+                      </h3>
+                      {s.cancelUrl && (
+                        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {s.brand}
+                      {s.brand && s.category ? ' • ' : ''}
+                      {s.category ? categoryLabel(s.category) : ''}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      'inline-flex shrink-0 items-center rounded-pill px-2.5 py-1 text-[11px] font-semibold',
+                      STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
+                    )}
+                  >
+                    {SUBSCRIPTION_STATUS_LABELS[status] ?? s.status}
+                  </span>
+                </div>
+
+                {s.plan && (
+                  <p className="text-xs text-ink-2">
+                    <span className="eyebrow mr-1.5">Plan</span>
+                    {s.plan}
+                  </p>
+                )}
+
+                <div className="mt-auto grid grid-cols-2 gap-3 border-t border-dashed border-border pt-4">
+                  <div>
+                    <p className="eyebrow">Giá / chu kỳ</p>
+                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink">
+                      {formatVND(s.price)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {BILLING_CYCLE_LABELS[s.billingCycle as BillingCycle] ?? s.billingCycle}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="eyebrow">~ / tháng</p>
+                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink-2">
                       {monthly == null ? '—' : formatVND(monthly)}
-                    </TableCell>
-                    <TableCell className={rTone}>
-                      <span className="inline-flex items-center gap-1 text-sm">
-                        {rText.startsWith('Quá hạn') && (
-                          <AlertTriangle className="h-3 w-3" />
-                        )}
-                        {!rText.startsWith('Quá hạn') && (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                        {rText}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <Badge
-                        variant={
-                          SUBSCRIPTION_STATUS_BADGE_VARIANT[s.status as SubscriptionStatus] ??
-                          'secondary'
-                        }
-                      >
-                        {SUBSCRIPTION_STATUS_LABELS[s.status as SubscriptionStatus] ?? s.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 border-t border-dashed border-border pt-3">
+                  <span className="eyebrow">Gia hạn</span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[11px] font-semibold',
+                      RENEWAL_PILL[rTone],
+                    )}
+                  >
+                    {rTone === 'danger' ? (
+                      <AlertTriangle className="h-3 w-3" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    {rText}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

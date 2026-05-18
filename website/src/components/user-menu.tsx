@@ -27,11 +27,15 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2 px-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-10 gap-2 rounded-pill border-border bg-card pl-1 pr-3 text-ink-2 shadow-none hover:bg-secondary"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
             {initial}
           </span>
-          <span className="hidden text-sm font-medium md:inline">
+          <span className="hidden max-w-[140px] truncate text-sm font-semibold md:inline">
             {name || email}
           </span>
         </Button>

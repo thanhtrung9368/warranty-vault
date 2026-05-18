@@ -13,12 +13,9 @@ export default async function NewSubscriptionPage({
   const sp = await searchParams;
   const [catalog, fromItemRes] = await Promise.all([
     getDeviceFormCatalog(),
-    sp.fromWishlist
-      ? api.wishlist.get(sp.fromWishlist)
-      : Promise.resolve(null),
+    sp.fromWishlist ? api.wishlist.get(sp.fromWishlist) : Promise.resolve(null),
   ]);
-  const fromItem =
-    fromItemRes && fromItemRes.ok ? fromItemRes.data.item : null;
+  const fromItem = fromItemRes && fromItemRes.ok ? fromItemRes.data.item : null;
 
   const initial = fromItem
     ? {
@@ -34,21 +31,22 @@ export default async function NewSubscriptionPage({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href={fromItem ? `/wishlist/${fromItem.id}` : '/subscriptions'}>
             <ArrowLeft className="mr-1 h-4 w-4" />
             {fromItem ? 'Quay lại wishlist' : 'Đăng ký'}
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Thêm gói đăng ký</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="eyebrow">Thêm mới</p>
+        <h1 className="display mt-1 text-3xl text-ink">Thêm gói đăng ký</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Apple One, ChatGPT Plus, hosting, domain, streaming...
         </p>
         {fromItem && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+          <div className="mt-3 inline-flex items-center gap-2 rounded-pill bg-rose-soft px-3 py-1.5 text-sm font-semibold text-rose-ink">
             <Heart className="h-4 w-4" />
             Tạo từ wishlist:{' '}
-            <span className="font-medium">{fromItem.name}</span>
+            <span className="font-bold">{fromItem.name}</span>
           </div>
         )}
       </div>

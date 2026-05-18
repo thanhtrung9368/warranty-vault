@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CategoryIcon } from '@/components/category-icon';
+import { Card, CardContent } from '@/components/ui/card';
+import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { DismissButton } from '@/components/dismiss-button';
 import { EmptyState } from '@/components/empty-state';
@@ -12,7 +11,6 @@ import { requireUser } from '@/lib/auth';
 import {
   CATEGORY_LABELS,
   WARRANTY_TYPE_LABELS,
-  WARRANTY_TYPE_COLORS,
   type Category,
   type WarrantyType,
 } from '@/lib/types';
@@ -38,11 +36,35 @@ type ReminderItem = {
   bucket: Bucket;
 };
 
-const SECTIONS: { key: Bucket; title: string; tone: string }[] = [
-  { key: '30', title: 'Sắp hết trong 30 ngày', tone: 'text-red-600 dark:text-red-400' },
-  { key: '60', title: 'Sắp hết trong 60 ngày', tone: 'text-amber-600 dark:text-amber-400' },
-  { key: '90', title: 'Sắp hết trong 90 ngày', tone: 'text-emerald-600 dark:text-emerald-400' },
+type SectionTone = 'rose' | 'amber' | 'emerald';
+
+const SECTIONS: {
+  key: Bucket;
+  title: string;
+  tone: SectionTone;
+}[] = [
+  { key: '30', title: 'Sắp hết trong 30 ngày', tone: 'rose' },
+  { key: '60', title: 'Sắp hết trong 60 ngày', tone: 'amber' },
+  { key: '90', title: 'Sắp hết trong 90 ngày', tone: 'emerald' },
 ];
+
+const TONE_BADGE: Record<SectionTone, string> = {
+  rose: 'tint-rose',
+  amber: 'tint-amber',
+  emerald: 'tint-emerald',
+};
+
+const TONE_TITLE: Record<SectionTone, string> = {
+  rose: 'text-rose-ink',
+  amber: 'text-amber-ink',
+  emerald: 'text-emerald-ink',
+};
+
+const WARRANTY_TYPE_TINT: Record<WarrantyType, string> = {
+  STANDARD: 'tint-primary',
+  EXTENDED: 'tint-violet',
+  THIRD_PARTY: 'tint-sky',
+};
 
 function bucketFor(endDate: string, now: Date): Bucket {
   const days = Math.round((new Date(endDate).getTime() - now.getTime()) / 86_400_000);
@@ -74,7 +96,8 @@ export default async function RemindersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Nhắc nhở</h1>
+        <p className="eyebrow">Bảo hành sắp hết</p>
+        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Nhắc nhở</h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
           Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói.
         </p>
@@ -89,67 +112,80 @@ export default async function RemindersPage() {
           cta={false}
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-2">
           {SECTIONS.map((section) => {
             const items = active.filter((r) => r.bucket === section.key);
             if (items.length === 0) return null;
             return (
-              <Card key={section.key} className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
-                <CardHeader>
-                  <CardTitle className={`flex items-center gap-2 text-base ${section.tone}`}>
-                    <Bell className="h-5 w-5" />
+              <section key={section.key} className="space-y-3">
+                <div className="section-divider">
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-pill px-3 py-1 text-xs font-bold',
+                      TONE_BADGE[section.tone],
+                    )}
+                  >
+                    <Bell className="h-3.5 w-3.5" />
+                    {items.length}
+                  </span>
+                  <span
+                    className={cn(
+                      'font-display text-[15px] font-bold tracking-tight',
+                      TONE_TITLE[section.tone],
+                    )}
+                  >
                     {section.title}
-                    <span className="ml-auto text-sm font-normal text-muted-foreground">
-                      {items.length} gói
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="divide-y">
-                    {items.map((r) => (
-                      <li key={r.warrantyId} className="flex items-center justify-between gap-3 py-3">
-                        <Link
-                          href={`/devices/${r.deviceId}`}
-                          className="flex min-w-0 flex-1 items-center gap-3 hover:underline"
+                  </span>
+                </div>
+                <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+                  <CardContent className="p-4 sm:p-5">
+                    <ul>
+                      {items.map((r, i) => (
+                        <li
+                          key={r.warrantyId}
+                          className={cn(
+                            'info-row flex flex-wrap items-center gap-3 py-3',
+                            i === 0 && '!border-t-0 pt-0',
+                          )}
                         >
-                          <div className="rounded-md bg-muted p-2">
-                            <CategoryIcon
-                              category={r.category}
-                              className="h-4 w-4 text-muted-foreground"
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate font-medium">{r.deviceName}</p>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  'border-transparent text-[10px]',
-                                  WARRANTY_TYPE_COLORS[r.warrantyType] ?? '',
-                                )}
-                              >
-                                {WARRANTY_TYPE_LABELS[r.warrantyType] ?? r.warrantyType}
-                              </Badge>
+                          <Link
+                            href={`/devices/${r.deviceId}`}
+                            className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80"
+                          >
+                            <CategoryIconBadge category={r.category} size="sm" />
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate font-display text-sm font-bold text-ink">
+                                  {r.deviceName}
+                                </p>
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                                    WARRANTY_TYPE_TINT[r.warrantyType] ?? 'tint-primary',
+                                  )}
+                                >
+                                  {WARRANTY_TYPE_LABELS[r.warrantyType] ?? r.warrantyType}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {CATEGORY_LABELS[r.category as Category] ?? r.category}
+                                {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • Hết{' '}
+                                {formatDate(r.endDate)}
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {CATEGORY_LABELS[r.category as Category] ?? r.category}
-                              {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • Hết{' '}
-                              {formatDate(r.endDate)}
-                            </p>
+                          </Link>
+                          <div className="ml-auto flex items-center gap-2">
+                            <WarrantyPill warrantyEnd={r.endDate} variant="badge" />
+                            <DismissButton warrantyId={r.warrantyId} isDismissed={false} />
                           </div>
-                        </Link>
-                        <div className="flex items-center gap-2">
-                          <WarrantyPill warrantyEnd={r.endDate} variant="badge" />
-                          <DismissButton warrantyId={r.warrantyId} isDismissed={false} />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </section>
             );
           })}
-
         </div>
       )}
     </div>

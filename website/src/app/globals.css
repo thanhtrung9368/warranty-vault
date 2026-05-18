@@ -2,75 +2,515 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   WarrantyVault — Playful / casual, vault-inspired.
+   Tokens migrated from /design-handoff/project/styles.css and
+   re-expressed in HSL so Tailwind utilities pick them up.
+============================================================ */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* surfaces — warm cream */
+    --background: 32 100% 96%;          /* #FFF7EE */
+    --bg-pattern: 32 100% 93%;          /* #FFEFDD */
+    --foreground: 30 21% 10%;           /* #1F1A14 */
+
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 30 21% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 224 76% 40%;            /* deep blue ~ #1e40af */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;             /* amber ~ #f59e0b */
-    --warning-foreground: 26 83% 14%;
-    --success: 142 71% 35%;
-    --success-foreground: 210 40% 98%;
-    --info: 199 89% 48%;               /* sky ~ #0ea5e9 */
-    --info-foreground: 210 40% 98%;
-    --expiring: 24 94% 53%;            /* orange ~ #f97316 */
-    --expiring-foreground: 26 83% 14%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 224 76% 40%;
-    --radius: 0.5rem;
+    --popover-foreground: 30 21% 10%;
+
+    --surface-2: 32 100% 94%;           /* #FFF0E0 */
+    --surface-3: 32 100% 90%;           /* #FFE5CC */
+    --border: 35 60% 86%;               /* #F1DDC4 */
+    --border-strong: 33 53% 78%;        /* #E5C9A6 */
+    --input: 35 60% 86%;
+
+    --ink: 30 21% 10%;
+    --ink-2: 28 26% 22%;                /* #46382A */
+    --muted: 33 22% 44%;                /* #8A7558 */
+    --muted-foreground: 33 22% 44%;
+    --muted-2: 32 28% 61%;              /* #B89F7F */
+
+    /* brand — coral */
+    --primary: 13 100% 64%;             /* #FF6B45 */
+    --primary-2: 14 100% 71%;           /* #FF8B6A */
+    --primary-foreground: 0 0% 100%;
+    --primary-ink: 12 86% 16%;          /* #4A1505 */
+    --primary-soft: 19 100% 89%;        /* #FFD9C9 */
+    --primary-soft-2: 19 100% 83%;      /* #FFC2A8 */
+
+    --ring: 13 100% 64%;
+
+    /* secondary surface (Tailwind shadcn uses this for muted chips) */
+    --secondary: 32 100% 94%;
+    --secondary-foreground: 28 26% 22%;
+    --accent: 32 100% 94%;
+    --accent-foreground: 28 26% 22%;
+
+    /* semantic palette */
+    --emerald: 150 75% 37%;             /* #16A765 */
+    --emerald-soft: 142 73% 87%;        /* #C8F3DC */
+    --emerald-ink: 150 84% 17%;         /* #064E2B */
+    --success: 150 75% 37%;
+    --success-foreground: 0 0% 100%;
+
+    --amber: 39 88% 48%;                /* #E89B0E */
+    --amber-soft: 41 100% 83%;          /* #FFE4A8 */
+    --amber-ink: 39 100% 18%;           /* #5C3B00 */
+    --warning: 39 88% 48%;
+    --warning-foreground: 39 100% 18%;
+    --expiring: 14 100% 64%;
+    --expiring-foreground: 12 86% 16%;
+
+    --rose: 343 76% 58%;                /* #E5476F */
+    --rose-soft: 343 100% 90%;          /* #FFCEDC */
+    --rose-ink: 341 75% 24%;             /* #6A0F2C */
+
+    --violet: 253 70% 62%;              /* #7B5BE0 */
+    --violet-soft: 254 87% 90%;         /* #DCD2FB */
+    --violet-ink: 254 60% 27%;          /* #2F1B6E */
+
+    --sky: 200 93% 48%;                 /* #0EA5E9 */
+    --sky-soft: 202 84% 88%;            /* #C9E9FA */
+    --sky-ink: 203 84% 16%;             /* #07344C */
+    --info: 200 93% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 53%;           /* #DC3030 */
+    --destructive-soft: 0 100% 91%;     /* #FFD1D1 */
+    --destructive-foreground: 0 0% 100%;
+
+    --zinc: 33 9% 38%;
+    --zinc-soft: 36 38% 88%;            /* #ECE3D5 */
+
+    /* shape / density tweakables */
+    --radius: 22px;
+    --radius-sm: 14px;
+    --radius-lg: 28px;
+    --radius-pill: 9999px;
+
+    --density: 1;
+    --gap: calc(20px * var(--density));
+    --pad: calc(20px * var(--density));
+    --pad-sm: calc(12px * var(--density));
+
+    --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+    --shadow-1: 0 1px 0 rgba(50, 30, 10, 0.04), 0 2px 6px rgba(80, 50, 20, 0.04);
+    --shadow-2: 0 2px 4px rgba(60, 35, 10, 0.06), 0 10px 30px -10px rgba(80, 50, 20, 0.18);
+    --shadow-3: 0 12px 40px -8px rgba(80, 50, 20, 0.24);
+    --shadow-chunky: 0 4px 0 rgba(60, 40, 20, 0.08), 0 8px 24px -8px rgba(80, 50, 20, 0.18);
   }
 
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 26 83% 14%;
-    --success: 142 60% 40%;
-    --success-foreground: 210 40% 98%;
-    --info: 199 89% 60%;
+    --background: 228 25% 8%;           /* #0E1018 */
+    --bg-pattern: 228 27% 12%;          /* #151826 */
+    --foreground: 38 60% 91%;           /* #F4EBDC */
+
+    --card: 229 24% 13%;                /* #181C2A */
+    --card-foreground: 38 60% 91%;
+    --popover: 229 24% 13%;
+    --popover-foreground: 38 60% 91%;
+
+    --surface-2: 226 29% 18%;           /* #20253A */
+    --surface-3: 226 27% 23%;           /* #2A3149 */
+    --border: 226 27% 23%;
+    --border-strong: 225 27% 31%;       /* #3A4365 */
+    --input: 226 27% 23%;
+
+    --ink: 38 60% 91%;
+    --ink-2: 35 38% 75%;
+    --muted: 269 13% 59%;
+    --muted-foreground: 269 13% 59%;
+    --muted-2: 254 11% 45%;
+
+    --primary: 14 100% 69%;             /* #FF8060 */
+    --primary-2: 18 100% 77%;
+    --primary-foreground: 12 100% 12%;
+    --primary-ink: 19 100% 92%;
+    --primary-soft: 12 70% 17%;         /* #4A1A0C */
+    --primary-soft-2: 12 70% 24%;       /* #6A2613 */
+
+    --ring: 14 100% 69%;
+
+    --secondary: 226 29% 18%;
+    --secondary-foreground: 38 60% 91%;
+    --accent: 226 29% 18%;
+    --accent-foreground: 38 60% 91%;
+
+    --emerald: 150 60% 45%;
+    --emerald-soft: 152 60% 14%;
+    --emerald-ink: 149 73% 77%;
+    --success: 150 60% 45%;
+    --success-foreground: 152 60% 14%;
+
+    --amber: 39 88% 55%;
+    --amber-soft: 39 80% 16%;
+    --amber-ink: 39 100% 77%;
+    --warning: 39 88% 55%;
+    --warning-foreground: 39 80% 16%;
+    --expiring: 18 100% 77%;
+    --expiring-foreground: 19 100% 92%;
+
+    --rose: 343 80% 65%;
+    --rose-soft: 343 60% 19%;
+    --rose-ink: 343 100% 86%;
+
+    --violet: 253 70% 70%;
+    --violet-soft: 251 47% 23%;
+    --violet-ink: 254 96% 86%;
+
+    --sky: 200 93% 60%;
+    --sky-soft: 203 78% 18%;
+    --sky-ink: 199 75% 78%;
+    --info: 200 93% 60%;
     --info-foreground: 222 47% 11%;
-    --expiring: 24 94% 60%;
-    --expiring-foreground: 26 83% 14%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+
+    --destructive: 0 100% 70%;
+    --destructive-soft: 0 60% 19%;
+    --destructive-foreground: 0 0% 100%;
+
+    --zinc: 33 9% 60%;
+    --zinc-soft: 226 14% 20%;
+
+    --shadow-1: 0 1px 0 rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.3);
+    --shadow-2: 0 2px 4px rgba(0,0,0,0.4), 0 10px 30px -10px rgba(0,0,0,0.6);
+    --shadow-3: 0 12px 40px -8px rgba(0,0,0,0.7);
+    --shadow-chunky: 0 4px 0 rgba(0,0,0,0.4), 0 8px 24px -8px rgba(0,0,0,0.6);
   }
 }
+
+/* density / radius tweakables (data attributes opt-in) */
+[data-density="loose"] { --density: 1.15; }
+[data-density="cozy"]  { --density: 1; }
+[data-density="dense"] { --density: 0.82; }
+
+[data-radius="sharp"]  { --radius: 8px;  --radius-sm: 6px;  --radius-lg: 12px; }
+[data-radius="soft"]   { --radius: 18px; --radius-sm: 12px; --radius-lg: 24px; }
+[data-radius="chunky"] { --radius: 26px; --radius-sm: 16px; --radius-lg: 36px; }
+
+/* font tweakables — default Plus Jakarta needs no rule */
+[data-font="system"] { --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+[data-font="inter"]  { --font-display: var(--font-inter), system-ui, sans-serif; }
+[data-font="serif"]  { --font-display: var(--font-fraunces), Georgia, serif; }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html, body { min-height: 100%; }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
+}
+
+/* ============================================================
+   Background — subtle warm dot pattern
+============================================================ */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 1px 1px, hsl(var(--bg-pattern)) 1px, transparent 0) 0 0 / 24px 24px,
+    hsl(var(--background));
+  pointer-events: none;
+}
+
+/* ============================================================
+   Display / brand typography
+============================================================ */
+.display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(var(--muted));
+}
+
+/* ============================================================
+   Vault brand mark
+============================================================ */
+.brand-mark {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  background: hsl(var(--ink));
+  color: hsl(var(--background));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dark .brand-mark {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-ink));
+}
+.brand-mark-sm { width: 30px; height: 30px; border-radius: 9px; }
+.brand-mark-lg { width: 48px; height: 48px; border-radius: 14px; }
+
+/* ============================================================
+   Tints — pastel chip backgrounds keyed off the semantic palette
+============================================================ */
+.tint-primary { background: hsl(var(--primary-soft)); color: hsl(var(--primary-ink)); }
+.tint-emerald { background: hsl(var(--emerald-soft)); color: hsl(var(--emerald-ink)); }
+.tint-amber   { background: hsl(var(--amber-soft));   color: hsl(var(--amber-ink)); }
+.tint-rose    { background: hsl(var(--rose-soft));    color: hsl(var(--rose-ink)); }
+.tint-violet  { background: hsl(var(--violet-soft));  color: hsl(var(--violet-ink)); }
+.tint-sky     { background: hsl(var(--sky-soft));     color: hsl(var(--sky-ink)); }
+.tint-zinc    { background: hsl(var(--zinc-soft));    color: hsl(var(--ink-2)); }
+
+/* ============================================================
+   Icon badge (round chip with icon)
+============================================================ */
+.icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.icon-badge-lg { width: 56px; height: 56px; border-radius: 18px; }
+.icon-badge-sm { width: 34px; height: 34px; border-radius: 10px; }
+.icon-badge-xs { width: 28px; height: 28px; border-radius: 8px; }
+
+/* ============================================================
+   Warranty pill — color by days remaining
+============================================================ */
+.wv-warranty-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1.5px solid transparent;
+  white-space: nowrap;
+}
+.wv-warranty-pill[data-status="safe"]    { background: hsl(var(--emerald-soft)); color: hsl(var(--emerald-ink)); }
+.wv-warranty-pill[data-status="warn"]    { background: hsl(var(--amber-soft));   color: hsl(var(--amber-ink)); }
+.wv-warranty-pill[data-status="danger"]  { background: hsl(var(--rose-soft));    color: hsl(var(--rose-ink)); }
+.wv-warranty-pill[data-status="expired"] { background: hsl(var(--zinc-soft));    color: hsl(var(--muted)); }
+.wv-warranty-pill[data-status="danger"] .dot {
+  background: hsl(var(--rose));
+  animation: wv-pulse 1.4s ease-in-out infinite;
+}
+.wv-warranty-pill .dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+@keyframes wv-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ============================================================
+   Hero / auth gradient backgrounds
+============================================================ */
+.hero-gradient {
+  background:
+    radial-gradient(circle at 20% 10%, hsl(var(--primary-soft)) 0%, transparent 35%),
+    radial-gradient(circle at 80% 30%, hsl(var(--violet-soft)) 0%, transparent 40%),
+    radial-gradient(circle at 60% 80%, hsl(var(--emerald-soft)) 0%, transparent 35%);
+}
+.auth-gradient {
+  background:
+    radial-gradient(circle at 15% 20%, hsl(var(--primary-soft)) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, hsl(var(--violet-soft)) 0%, transparent 40%),
+    hsl(var(--background));
+}
+
+/* ============================================================
+   Stepper (multi-step form)
+============================================================ */
+.stepper { display: flex; gap: 8px; align-items: center; }
+.stepper-step { display: flex; align-items: center; gap: 8px; }
+.stepper-bubble {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: hsl(var(--secondary));
+  border: 1.5px solid hsl(var(--border));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: hsl(var(--muted));
+  flex-shrink: 0;
+}
+.stepper-step[data-state="active"] .stepper-bubble {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 4px hsl(var(--primary-soft));
+}
+.stepper-step[data-state="done"] .stepper-bubble {
+  background: hsl(var(--emerald));
+  color: white;
+  border-color: hsl(var(--emerald));
+}
+.stepper-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted));
+}
+.stepper-step[data-state="active"] .stepper-label { color: hsl(var(--ink)); }
+.stepper-step[data-state="done"] .stepper-label { color: hsl(var(--ink-2)); }
+.stepper-line { height: 2px; background: hsl(var(--border)); flex: 1; border-radius: 2px; }
+.stepper-step[data-state="done"] + .stepper-line { background: hsl(var(--emerald)); }
+
+/* ============================================================
+   Info row (definition list, dashed dividers)
+============================================================ */
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+}
+.info-row + .info-row { border-top: 1px dashed hsl(var(--border)); }
+.info-row-icon { color: hsl(var(--muted)); margin-top: 2px; flex-shrink: 0; }
+.info-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted));
+}
+.info-row-value {
+  font-weight: 600;
+  color: hsl(var(--ink));
+  margin-top: 2px;
+}
+
+/* ============================================================
+   Rank pill — top-N lists
+============================================================ */
+.rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 12px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted));
+  flex-shrink: 0;
+}
+.rank-1 { background: linear-gradient(135deg, #FFD66B, #F2A52A); color: #5C3B00; }
+.rank-2 { background: linear-gradient(135deg, #E5E5E5, #B8B8B8); color: #2D2D2D; }
+.rank-3 { background: linear-gradient(135deg, #E89160, #A05A2C); color: white; }
+
+/* ============================================================
+   Stat card (dashboard hero)
+============================================================ */
+.stat-card {
+  background: hsl(var(--card));
+  border: 1.5px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(var(--muted));
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: 6px;
+}
+.stat-sub { font-size: 12px; color: hsl(var(--muted)); margin-top: 4px; }
+.stat-icon { position: absolute; top: 16px; right: 16px; }
+
+/* ============================================================
+   Section divider with label
+============================================================ */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--muted));
+}
+.section-divider::before,
+.section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1.5px;
+  background: hsl(var(--border));
+  border-radius: 1px;
+}
+
+/* ============================================================
+   Custom SVG charts (stats page)
+============================================================ */
+.chart-grid line  { stroke: hsl(var(--border)); stroke-dasharray: 3 4; }
+.chart-axis text  { fill: hsl(var(--muted)); font-size: 11px; }
+.chart-bar        { fill: hsl(var(--primary)); transition: fill 0.15s; }
+.chart-bar:hover  { fill: hsl(var(--primary-2)); }
+.chart-line       { fill: none; stroke: hsl(var(--primary)); stroke-width: 2.5; }
+.chart-area       { fill: hsl(var(--primary-soft)); opacity: 0.5; }
+.chart-dot        { fill: hsl(var(--card)); stroke: hsl(var(--primary)); stroke-width: 2; }
+
+/* ============================================================
+   Scrollbar — subtle, warm
+============================================================ */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 8px;
+    border: 3px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted)); }
+}
+
+/* ============================================================
+   Pill button group (segmented control)
+============================================================ */
+.pill-group {
+  display: inline-flex;
+  padding: 4px;
+  background: hsl(var(--secondary));
+  border-radius: 9999px;
+  border: 1.5px solid hsl(var(--border));
+  gap: 2px;
+}
+.pill-group > button {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 13px;
+  color: hsl(var(--muted));
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.pill-group > button[data-active="true"] {
+  background: hsl(var(--card));
+  color: hsl(var(--ink));
+  box-shadow: var(--shadow-1);
 }

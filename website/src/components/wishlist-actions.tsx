@@ -63,13 +63,15 @@ export function UpdatePriceDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="rounded-pill border-border-strong">
           <RefreshCcw className="mr-2 h-4 w-4" />
           Cập nhật giá
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogTitle>Cập nhật giá hiện tại</DialogTitle>
+      <DialogContent className="max-w-md rounded-2xl border-[1.5px]">
+        <DialogTitle className="font-display text-xl text-ink">
+          Cập nhật giá hiện tại
+        </DialogTitle>
         <div className="space-y-3 pt-2">
           <div className="space-y-2">
             <Label htmlFor="price">Giá mới (VND)</Label>
@@ -100,10 +102,14 @@ export function UpdatePriceDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              className="rounded-pill border-border-strong"
+              onClick={() => setOpen(false)}
+            >
               Huỷ
             </Button>
-            <Button onClick={submit} disabled={pending}>
+            <Button className="rounded-pill" onClick={submit} disabled={pending}>
               {pending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -145,6 +151,7 @@ export function WishlistStatusButtons({
       <Button
         variant="outline"
         size="sm"
+        className="rounded-pill border-border-strong"
         onClick={() => flip('WATCHING')}
         disabled={pending !== null}
       >
@@ -153,47 +160,36 @@ export function WishlistStatusButtons({
     );
   }
 
+  const options: { value: string; label: string; icon: React.ReactNode | null }[] = [
+    { value: 'WATCHING', label: 'Theo dõi', icon: null },
+    { value: 'DECIDED', label: 'Quyết mua', icon: <Check className="h-3 w-3" /> },
+    { value: 'SKIPPED', label: 'Bỏ qua', icon: <Ban className="h-3 w-3" /> },
+  ];
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {status !== 'WATCHING' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => flip('WATCHING')}
-          disabled={pending !== null}
+    <div className="pill-group" role="tablist" aria-label="Đổi trạng thái">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="tab"
+          aria-selected={status === o.value}
+          data-active={status === o.value}
+          disabled={pending !== null || status === o.value}
+          onClick={() => flip(o.value)}
+          className="inline-flex items-center gap-1.5"
         >
-          Theo dõi
-        </Button>
-      )}
-      {status !== 'DECIDED' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => flip('DECIDED')}
-          disabled={pending !== null}
-        >
-          <Check className="mr-1 h-3 w-3" />
-          Quyết mua
-        </Button>
-      )}
-      {status !== 'SKIPPED' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => flip('SKIPPED')}
-          disabled={pending !== null}
-        >
-          <Ban className="mr-1 h-3 w-3" />
-          Bỏ qua
-        </Button>
-      )}
+          {o.icon}
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
 
 export function MarkPurchasedButton({ itemId }: { itemId: string }) {
   return (
-    <Button asChild>
+    <Button asChild size="sm" className="rounded-pill">
       <a href={`/devices/new?fromWishlist=${itemId}`}>
         <ShoppingBag className="mr-2 h-4 w-4" />
         Đã mua → tạo Device
@@ -204,7 +200,7 @@ export function MarkPurchasedButton({ itemId }: { itemId: string }) {
 
 export function MarkSubscribedButton({ itemId }: { itemId: string }) {
   return (
-    <Button asChild variant="outline">
+    <Button asChild variant="outline" size="sm" className="rounded-pill border-border-strong">
       <a href={`/subscriptions/new?fromWishlist=${itemId}`}>
         <RefreshCw className="mr-2 h-4 w-4" />
         Đã đăng ký → tạo Subscription
@@ -219,6 +215,7 @@ export function DeleteWishlistButton({ itemId }: { itemId: string }) {
     <Button
       variant="outline"
       size="sm"
+      className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive-soft hover:text-destructive"
       disabled={pending}
       onClick={async () => {
         if (!confirm('Xoá món này khỏi wishlist? Lịch sử giá cũng sẽ mất.')) return;

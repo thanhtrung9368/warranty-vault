@@ -29,11 +29,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
   if (items.length === 0) {
-    return (
-      <p className="py-6 text-center text-sm text-muted-foreground">
-        Chưa có file đính kèm. Tải lên hóa đơn hoặc phiếu bảo hành ở dưới.
-      </p>
-    );
+    return null;
   }
 
   return (
@@ -44,7 +40,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
           return (
             <div
               key={a.id}
-              className="group relative overflow-hidden rounded-lg border bg-muted/30"
+              className="group relative overflow-hidden rounded-2xl border-[1.5px] border-border bg-surface-2"
             >
               {isImage ? (
                 <button
@@ -68,15 +64,15 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                   rel="noopener noreferrer"
                   className="flex aspect-square w-full flex-col items-center justify-center gap-2 p-4 text-center"
                 >
-                  <FileText className="h-10 w-10 text-muted-foreground" />
-                  <span className="text-xs font-medium">PDF</span>
+                  <FileText className="h-10 w-10 text-primary" />
+                  <span className="text-xs font-bold text-ink">PDF</span>
                   <span className="line-clamp-2 text-[10px] text-muted-foreground">
                     {a.fileName}
                   </span>
                 </a>
               )}
-              <div className="flex items-center justify-between gap-1 border-t bg-background/80 px-2 py-1.5 backdrop-blur">
-                <span className="truncate text-[11px] text-muted-foreground">
+              <div className="flex items-center justify-between gap-1 border-t border-border bg-card/80 px-2.5 py-1.5 backdrop-blur">
+                <span className="truncate text-[11px] font-medium text-ink-2">
                   {a.description ?? a.fileName}
                 </span>
                 <button

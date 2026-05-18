@@ -1,4 +1,4 @@
-import { Sidebar, MobileSidebar } from '@/components/sidebar';
+import { Sidebar, MobileBottomNav } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
@@ -21,12 +21,12 @@ export default async function AppLayout({
         <Sidebar reminderCount={reminderCount} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar user={user} />
-          <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-10">
-            {children}
+          <main className="flex-1 px-4 pb-28 pt-6 md:px-9 md:pb-12 md:pt-8">
+            <div className="mx-auto w-full max-w-[1200px]">{children}</div>
           </main>
         </div>
       </div>
-      <MobileSidebar reminderCount={reminderCount} />
+      <MobileBottomNav reminderCount={reminderCount} />
     </>
   );
 }

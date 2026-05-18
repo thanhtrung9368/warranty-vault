@@ -19,15 +19,22 @@ import {
 } from '@/lib/wishlist-types';
 import type { CategoryOption } from '@/app/actions/catalog';
 
+type StatusPill = 'ACTIVE' | 'ALL' | (typeof WISHLIST_STATUSES)[number];
+
+const QUICK_STATUSES: { value: StatusPill; label: string }[] = [
+  { value: 'ACTIVE', label: 'Đang theo dõi' },
+  { value: 'WATCHING', label: 'Watching' },
+  { value: 'DECIDED', label: 'Quyết mua' },
+  { value: 'PURCHASED', label: 'Đã mua' },
+  { value: 'ALL', label: 'Tất cả' },
+];
+
 export function WishlistFilterBar({ categories }: { categories: CategoryOption[] }) {
   const router = useRouter();
   const params = useSearchParams();
 
   const update = (key: string, value: string | undefined) => {
     const next = new URLSearchParams(params.toString());
-    // Status's default (= ACTIVE = WATCHING+DECIDED) is NOT the same as
-    // "ALL", so we must keep ?status=ALL on the URL when user picks it.
-    // For category/priority, 'ALL' means "no filter" — equal to absence.
     if (!value) next.delete(key);
     else if (key === 'status' && value === 'ACTIVE') next.delete(key);
     else if (key !== 'status' && value === 'ALL') next.delete(key);
@@ -42,39 +49,42 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const status = params.get('status') ?? 'ACTIVE';
+  const status = (params.get('status') ?? 'ACTIVE') as StatusPill;
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Tìm tên, hãng, ghi chú..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="pl-9"
-        />
+    <div className="flex flex-col gap-3 rounded-2xl border-[1.5px] border-border bg-card p-3 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Tìm tên, hãng, ghi chú..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="rounded-pill border-border-strong bg-surface pl-9"
+          />
+        </div>
+        <div className="pill-group" role="tablist" aria-label="Trạng thái">
+          {QUICK_STATUSES.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              role="tab"
+              aria-selected={status === s.value}
+              data-active={status === s.value}
+              onClick={() => update('status', s.value)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
+
       <div className="flex flex-wrap gap-2">
-        <Select value={status} onValueChange={(v) => update('status', v)}>
-          <SelectTrigger className="w-[170px]">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ACTIVE">Đang theo dõi + quyết mua</SelectItem>
-            <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
-            {WISHLIST_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {WISHLIST_STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select
           value={params.get('priority') ?? 'ALL'}
           onValueChange={(v) => update('priority', v)}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[140px] rounded-pill border-border-strong bg-surface-2">
             <SelectValue placeholder="Mức độ" />
           </SelectTrigger>
           <SelectContent>
@@ -90,7 +100,7 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
           value={params.get('category') ?? 'ALL'}
           onValueChange={(v) => update('category', v)}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[140px] rounded-pill border-border-strong bg-surface-2">
             <SelectValue placeholder="Loại" />
           </SelectTrigger>
           <SelectContent>
@@ -98,6 +108,23 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
             {categories.map((c) => (
               <SelectItem key={c.code} value={c.code}>
                 {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={status === 'ACTIVE' ? 'ACTIVE' : status}
+          onValueChange={(v) => update('status', v)}
+        >
+          <SelectTrigger className="w-[180px] rounded-pill border-border-strong bg-surface-2">
+            <SelectValue placeholder="Trạng thái chi tiết" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ACTIVE">Đang theo dõi + quyết mua</SelectItem>
+            <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+            {WISHLIST_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {WISHLIST_STATUS_LABELS[s]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -112,7 +139,7 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
             router.replace(`/wishlist?${next.toString()}`);
           }}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px] rounded-pill border-border-strong bg-surface-2">
             <SelectValue placeholder="Sắp xếp" />
           </SelectTrigger>
           <SelectContent>

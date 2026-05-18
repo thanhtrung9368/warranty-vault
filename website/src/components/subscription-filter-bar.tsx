@@ -19,6 +19,18 @@ import {
 } from '@/lib/subscription-types';
 import type { CategoryOption } from '@/app/actions/catalog';
 
+type StatusPill = 'ACTIVE_PAUSED' | 'ALL' | (typeof SUBSCRIPTION_STATUSES)[number];
+
+// Pill-group quick filters for the most common statuses — full select stays
+// below for less common picks (EXPIRED) to keep the bar compact.
+const QUICK_STATUSES: { value: StatusPill; label: string }[] = [
+  { value: 'ACTIVE_PAUSED', label: 'Đang dùng' },
+  { value: 'ACTIVE', label: 'Hoạt động' },
+  { value: 'PAUSED', label: 'Tạm dừng' },
+  { value: 'CANCELED', label: 'Đã huỷ' },
+  { value: 'ALL', label: 'Tất cả' },
+];
+
 export function SubscriptionFilterBar({ categories }: { categories: CategoryOption[] }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -39,39 +51,42 @@ export function SubscriptionFilterBar({ categories }: { categories: CategoryOpti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const status = params.get('status') ?? 'ACTIVE_PAUSED';
+  const status = (params.get('status') ?? 'ACTIVE_PAUSED') as StatusPill;
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Tìm tên, hãng, plan..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="pl-9"
-        />
+    <div className="flex flex-col gap-3 rounded-2xl border-[1.5px] border-border bg-card p-3 shadow-soft">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Tìm tên, hãng, plan..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="rounded-pill border-border-strong bg-surface pl-9"
+          />
+        </div>
+        <div className="pill-group" role="tablist" aria-label="Trạng thái">
+          {QUICK_STATUSES.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              role="tab"
+              aria-selected={status === s.value}
+              data-active={status === s.value}
+              onClick={() => update('status', s.value)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
+
       <div className="flex flex-wrap gap-2">
-        <Select value={status} onValueChange={(v) => update('status', v)}>
-          <SelectTrigger className="w-[170px]">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ACTIVE_PAUSED">Đang dùng + tạm dừng</SelectItem>
-            <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
-            {SUBSCRIPTION_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {SUBSCRIPTION_STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select
           value={params.get('billingCycle') ?? 'ALL'}
           onValueChange={(v) => update('billingCycle', v)}
         >
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[150px] rounded-pill border-border-strong bg-surface-2">
             <SelectValue placeholder="Chu kỳ" />
           </SelectTrigger>
           <SelectContent>
@@ -87,7 +102,7 @@ export function SubscriptionFilterBar({ categories }: { categories: CategoryOpti
           value={params.get('category') ?? 'ALL'}
           onValueChange={(v) => update('category', v)}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[140px] rounded-pill border-border-strong bg-surface-2">
             <SelectValue placeholder="Loại" />
           </SelectTrigger>
           <SelectContent>
@@ -95,6 +110,23 @@ export function SubscriptionFilterBar({ categories }: { categories: CategoryOpti
             {categories.map((c) => (
               <SelectItem key={c.code} value={c.code}>
                 {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={status === 'ACTIVE_PAUSED' ? 'ACTIVE_PAUSED' : status}
+          onValueChange={(v) => update('status', v)}
+        >
+          <SelectTrigger className="w-[180px] rounded-pill border-border-strong bg-surface-2">
+            <SelectValue placeholder="Trạng thái chi tiết" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ACTIVE_PAUSED">Đang dùng + tạm dừng</SelectItem>
+            <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+            {SUBSCRIPTION_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {SUBSCRIPTION_STATUS_LABELS[s]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -109,7 +141,7 @@ export function SubscriptionFilterBar({ categories }: { categories: CategoryOpti
             router.replace(`/subscriptions?${next.toString()}`);
           }}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[190px] rounded-pill border-border-strong bg-surface-2">
             <SelectValue placeholder="Sắp xếp" />
           </SelectTrigger>
           <SelectContent>

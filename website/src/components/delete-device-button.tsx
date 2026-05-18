@@ -22,9 +22,13 @@ export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
           <Trash2 className="mr-1 h-4 w-4" />
-          Xóa
+          Xoá
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -36,25 +40,31 @@ export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+          <Button
+            variant="ghost"
+            className="rounded-pill"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+          >
             Hủy
           </Button>
           <Button
             variant="destructive"
+            className="rounded-pill"
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
                 try {
                   await deleteDevice(id);
-                  toast.success('Đã xóa thiết bị');
+                  toast.success('Đã xoá thiết bị');
                 } catch {
-                  toast.error('Không xóa được, thử lại sau');
+                  toast.error('Không xoá được, thử lại sau');
                 }
               })
             }
           >
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            Xóa vĩnh viễn
+            Xoá vĩnh viễn
           </Button>
         </DialogFooter>
       </DialogContent>

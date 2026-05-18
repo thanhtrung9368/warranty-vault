@@ -12,11 +12,8 @@ import {
   Vault,
   Heart,
   RefreshCw,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 type NavItem = {
   href: string;
@@ -70,122 +67,54 @@ const items: NavItem[] = [
   },
 ];
 
-const STORAGE_KEY = 'wv-sidebar-collapsed';
-
-// Subscribe to "storage" events so multiple tabs stay in sync.
-function subscribe(cb: () => void) {
-  window.addEventListener('storage', cb);
-  return () => window.removeEventListener('storage', cb);
-}
-
-function getSnapshot(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-// Server snapshot: render expanded; the client effect will swap if needed.
-function getServerSnapshot(): boolean {
-  return false;
-}
-
 export function Sidebar({ reminderCount = 0 }: { reminderCount?: number }) {
   const pathname = usePathname();
-  const collapsed = React.useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot,
-  );
-
-  const toggle = () => {
-    try {
-      const next = !collapsed;
-      localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
-      // Manually notify subscribers in this tab — the "storage" event only
-      // fires for cross-tab changes.
-      window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
-    } catch {
-      // ignore
-    }
-  };
 
   return (
-    <aside
-      className={cn(
-        'hidden md:flex md:flex-col md:border-r md:bg-card/30 md:transition-[width]',
-        collapsed ? 'md:w-16' : 'md:w-60',
-      )}
-    >
-      <div
-        className={cn(
-          'flex h-16 items-center gap-2 border-b px-4',
-          collapsed && 'justify-center px-2',
-        )}
+    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-1.5 border-r border-border bg-card px-3.5 py-4 md:flex">
+      {/* Brand */}
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-2.5 px-2 pb-4 pt-2.5"
       >
-        <Vault className="h-6 w-6 shrink-0 text-primary" />
-        {!collapsed && (
-          <span className="text-base font-bold tracking-tight">AssetVault</span>
-        )}
-      </div>
-      <nav className="flex-1 space-y-1 p-3">
+        <span className="brand-mark brand-mark-sm">
+          <Vault className="h-4 w-4" />
+        </span>
+        <span className="font-display text-[17px] font-extrabold tracking-tight text-ink">
+          WarrantyVault
+        </span>
+      </Link>
+
+      {/* Nav */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.match(pathname);
-          const showBadge =
-            item.href === '/reminders' && reminderCount > 0;
+          const showBadge = item.href === '/reminders' && reminderCount > 0;
           return (
             <Link
               key={item.href}
               href={item.href}
-              title={collapsed ? item.label : undefined}
+              data-active={active ? 'true' : undefined}
               className={cn(
-                'group relative flex items-center rounded-md text-sm transition-colors',
-                collapsed
-                  ? 'justify-center p-2'
-                  : 'justify-between gap-3 px-3 py-2',
+                'relative flex h-[42px] items-center gap-3 overflow-hidden rounded-md px-3 text-sm font-semibold transition-colors',
                 active
-                  ? 'bg-primary/10 font-medium text-primary dark:bg-primary/15'
-                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                  ? 'bg-primary-soft text-primary-ink'
+                  : 'text-ink-2 hover:bg-secondary hover:text-ink',
               )}
             >
-              {active && !collapsed && (
+              {active && (
                 <span
                   aria-hidden
-                  className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary"
+                  className="absolute -left-3.5 top-2.5 bottom-2.5 w-1 rounded-r bg-primary"
                 />
               )}
-              {active && collapsed && (
-                <span
-                  aria-hidden
-                  className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary"
-                />
-              )}
-              <span
-                className={cn(
-                  'flex items-center',
-                  collapsed ? 'gap-0' : 'gap-3',
-                )}
-              >
-                <Icon
-                  className={cn(
-                    'h-4 w-4 shrink-0 transition-colors',
-                    active && 'text-primary',
-                  )}
-                />
-                {!collapsed && item.label}
+              <span className="flex w-[22px] items-center justify-center">
+                <Icon className="h-[18px] w-[18px]" />
               </span>
-              {showBadge && !collapsed && (
-                <Badge
-                  variant="destructive"
-                  className="h-5 min-w-5 justify-center px-1.5 text-[10px]"
-                >
-                  {reminderCount}
-                </Badge>
-              )}
-              {showBadge && collapsed && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">
+              <span className="flex-1 truncate">{item.label}</span>
+              {showBadge && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
                   {reminderCount}
                 </span>
               )}
@@ -193,53 +122,50 @@ export function Sidebar({ reminderCount = 0 }: { reminderCount?: number }) {
           );
         })}
       </nav>
-      <div
-        className={cn(
-          'flex border-t p-2',
-          collapsed ? 'justify-center' : 'items-center justify-between gap-2 px-3',
-        )}
-      >
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
-          title={collapsed ? 'Mở rộng' : 'Thu gọn'}
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <PanelLeftClose className="h-4 w-4" />
-          )}
-        </button>
-        {!collapsed && (
-          <span className="text-xs text-muted-foreground">v0.1 — local-first</span>
-        )}
-      </div>
     </aside>
   );
 }
 
-export function MobileSidebar({ reminderCount = 0 }: { reminderCount?: number }) {
+/**
+ * Mobile pill-shaped bottom navigation — 5 most important destinations.
+ * Hidden on desktop (sidebar takes over from md: up).
+ */
+export function MobileBottomNav({
+  reminderCount = 0,
+}: {
+  reminderCount?: number;
+}) {
   const pathname = usePathname();
+  const mobileItems = items.filter((i) =>
+    ['/dashboard', '/devices', '/subscriptions', '/wishlist', '/settings'].includes(
+      i.href,
+    ),
+  );
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 flex justify-around border-t bg-background py-2 md:hidden">
-      {items.map((item) => {
+    <nav
+      className="fixed bottom-3 left-3 right-3 z-40 flex h-16 items-center justify-around rounded-pill border border-border bg-card p-1.5 shadow-lift md:hidden"
+      aria-label="Điều hướng chính"
+    >
+      {mobileItems.map((item) => {
         const Icon = item.icon;
         const active = item.match(pathname);
+        const showBadge = item.href === '/reminders' && reminderCount > 0;
         return (
           <Link
             key={item.href}
             href={item.href}
+            data-active={active ? 'true' : undefined}
             className={cn(
-              'relative flex flex-col items-center gap-0.5 rounded-md px-3 py-1 text-[11px]',
-              active ? 'text-primary' : 'text-muted-foreground',
+              'relative flex h-full flex-1 flex-col items-center justify-center gap-0.5 rounded-pill px-1 text-[10px] font-semibold transition-colors',
+              active
+                ? 'bg-primary-soft text-primary-ink'
+                : 'text-ink-2 hover:text-ink',
             )}
           >
             <Icon className="h-5 w-5" />
-            {item.label}
-            {item.href === '/reminders' && reminderCount > 0 && (
-              <span className="absolute right-1 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">
+            <span className="leading-none">{item.label}</span>
+            {showBadge && (
+              <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
                 {reminderCount}
               </span>
             )}
@@ -249,3 +175,6 @@ export function MobileSidebar({ reminderCount = 0 }: { reminderCount?: number })
     </nav>
   );
 }
+
+// Back-compat export — older callers import `MobileSidebar`.
+export const MobileSidebar = MobileBottomNav;

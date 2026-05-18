@@ -34,8 +34,13 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Đổi giao diện">
-          <TriggerIcon className={mounted ? 'h-5 w-5' : 'h-5 w-5 opacity-0'} />
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Đổi giao diện"
+          className="h-10 w-10 rounded-pill border-border bg-card text-ink-2 shadow-none hover:bg-secondary"
+        >
+          <TriggerIcon className={mounted ? 'h-[18px] w-[18px]' : 'h-[18px] w-[18px] opacity-0'} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[10rem]">

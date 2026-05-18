@@ -1,7 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, BellOff, Send, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import {
+  Bell,
+  BellOff,
+  BellRing,
+  Send,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { subscribePush, unsubscribePush, sendTestPush } from '@/app/actions/push';
@@ -117,8 +125,8 @@ export function PushSettings() {
 
   if (state === 'unsupported') {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+      <div className="flex items-start gap-3 rounded-md bg-zinc-soft p-3.5 text-sm text-ink-2">
+        <BellOff className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
           Trình duyệt này chưa hỗ trợ push notification. Thử Chrome, Edge, Firefox hoặc Safari
           phiên bản mới.
@@ -129,11 +137,55 @@ export function PushSettings() {
 
   if (state === 'denied') {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="flex items-start gap-3 rounded-md bg-rose-soft p-3.5 text-sm text-rose-ink">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
-          Bạn đã chặn thông báo từ site này. Mở cài đặt trình duyệt → quyền thông báo → cho phép rồi tải lại trang.
+          Bạn đã chặn thông báo từ site này. Mở cài đặt trình duyệt → quyền thông báo → cho phép
+          rồi tải lại trang.
         </p>
+      </div>
+    );
+  }
+
+  if (state === 'subscribed') {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-md bg-emerald-soft p-3.5 text-sm text-emerald-ink">
+          <span className="icon-badge icon-badge-xs tint-emerald">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+          <span className="font-medium">Thiết bị này đã bật thông báo</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-pill"
+            onClick={testPush}
+            disabled={pending !== null}
+          >
+            {pending === 'test' ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
+            Gửi thử
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-pill"
+            onClick={unsubscribe}
+            disabled={pending !== null}
+          >
+            {pending === 'unsub' ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <BellOff className="mr-2 h-4 w-4" />
+            )}
+            Tắt
+          </Button>
+        </div>
       </div>
     );
   }
@@ -143,41 +195,19 @@ export function PushSettings() {
       <p className="text-sm text-muted-foreground">
         Nhận thông báo khi thiết bị sắp hết bảo hành, ngay cả khi không mở web.
       </p>
-      <div className="flex flex-wrap gap-2">
-        {state === 'subscribed' ? (
-          <>
-            <div className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-              <CheckCircle2 className="h-4 w-4" />
-              Thiết bị này đã bật thông báo
-            </div>
-            <Button variant="outline" size="sm" onClick={testPush} disabled={pending !== null}>
-              {pending === 'test' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-4 w-4" />
-              )}
-              Gửi thử
-            </Button>
-            <Button variant="ghost" size="sm" onClick={unsubscribe} disabled={pending !== null}>
-              {pending === 'unsub' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <BellOff className="mr-2 h-4 w-4" />
-              )}
-              Tắt
-            </Button>
-          </>
+      <Button
+        size="lg"
+        className="rounded-pill"
+        onClick={subscribe}
+        disabled={pending !== null}
+      >
+        {pending === 'sub' ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
-          <Button onClick={subscribe} disabled={pending !== null}>
-            {pending === 'sub' ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Bell className="mr-2 h-4 w-4" />
-            )}
-            Bật thông báo
-          </Button>
+          <BellRing className="mr-2 h-4 w-4" />
         )}
-      </div>
+        Bật thông báo
+      </Button>
     </div>
   );
 }

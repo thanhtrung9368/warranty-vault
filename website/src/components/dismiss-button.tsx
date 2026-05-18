@@ -20,7 +20,8 @@ export function DismissButton({
   return (
     <Button
       size="sm"
-      variant="ghost"
+      variant="outline"
+      className="rounded-pill border-border-strong bg-surface-2 text-ink-2 hover:bg-surface-3"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {

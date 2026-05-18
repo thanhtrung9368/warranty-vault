@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { ShieldCheck, TrendingUp, Trophy, BarChart3 } from 'lucide-react';
+import { ShieldCheck, TrendingUp, Trophy, BarChart3, Package, PieChart, Calendar } from 'lucide-react';
 import { startOfMonth, subMonths, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CategoryIcon } from '@/components/category-icon';
+import { CategoryIconBadge } from '@/components/category-icon';
 import { MonthlyBar } from '@/components/charts/monthly-bar';
 import { CategoryPie } from '@/components/charts/category-pie';
 import { YearPicker } from '@/components/year-picker';
@@ -13,6 +13,7 @@ import type { DeviceListItem } from '@/lib/api/devices';
 import { CATEGORY_LABELS, type Category } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { requireUser } from '@/lib/auth';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +115,8 @@ export default async function StatsPage({
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Thống kê</h1>
+          <p className="eyebrow">Tổng quan</p>
+          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Thống kê</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
             Chưa có gì để thống kê đâu — thêm thiết bị xong quay lại nhé.
           </p>
@@ -142,74 +144,62 @@ export default async function StatsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Thống kê</h1>
+        <p className="eyebrow">Tổng quan</p>
+        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Thống kê</h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
           Tổng quan chi phí mua sắm và giá trị tài sản còn bảo hành.
         </p>
       </div>
 
+      {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="rounded-2xl border-amber-500/10 bg-amber-500/5 shadow-sm transition-all duration-200 hover:shadow-md">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Tổng chi {year}
-              </p>
-              <p className="mt-1.5 text-3xl font-bold tracking-tight">
-                {formatVND(yearTotal.total)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{yearTotal.count} thiết bị</p>
-            </div>
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-emerald-500/10 bg-emerald-500/5 shadow-sm transition-all duration-200 hover:shadow-md">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Tài sản còn bảo hành
-              </p>
-              <p className="mt-1.5 text-3xl font-bold tracking-tight">
-                {formatVND(asset.total)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{asset.count} thiết bị</p>
-            </div>
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-primary/10 bg-primary/5 shadow-sm transition-all duration-200 hover:shadow-md">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Tổng số thiết bị
-              </p>
-              <p className="mt-1.5 text-3xl font-bold tracking-tight">{total}</p>
-              <p className="mt-1 text-xs text-muted-foreground">đang theo dõi</p>
-            </div>
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <BarChart3 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <KpiCard
+          eyebrow={`Tổng chi ${year}`}
+          value={formatVND(yearTotal.total)}
+          sub={`${yearTotal.count} thiết bị`}
+          tint="tint-amber"
+          icon={<TrendingUp className="h-5 w-5" />}
+        />
+        <KpiCard
+          eyebrow="Tài sản còn bảo hành"
+          value={formatVND(asset.total)}
+          sub={`${asset.count} thiết bị`}
+          tint="tint-emerald"
+          icon={<ShieldCheck className="h-5 w-5" />}
+        />
+        <KpiCard
+          eyebrow="Tổng số thiết bị"
+          value={String(total)}
+          sub="đang theo dõi"
+          tint="tint-primary"
+          icon={<Package className="h-5 w-5" />}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Chi phí 12 tháng gần nhất</CardTitle>
+      {/* Charts row */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+              <span className="icon-badge icon-badge-xs tint-primary">
+                <BarChart3 className="h-3.5 w-3.5" />
+              </span>
+              Chi phí 12 tháng gần nhất
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <MonthlyBar data={monthly} />
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
+        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
           <CardHeader>
-            <CardTitle className="text-base">Phân bổ theo loại</CardTitle>
+            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+              <span className="icon-badge icon-badge-xs tint-violet">
+                <PieChart className="h-3.5 w-3.5" />
+              </span>
+              Phân bổ theo loại
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <CategoryPie data={byCategory} />
@@ -217,47 +207,47 @@ export default async function StatsPage({
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
+      {/* Year breakdown + Top 5 */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Tổng chi theo năm</CardTitle>
+            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+              <span className="icon-badge icon-badge-xs tint-sky">
+                <Calendar className="h-3.5 w-3.5" />
+              </span>
+              Tổng chi theo năm
+            </CardTitle>
             <YearPicker years={years} value={year} />
           </CardHeader>
           <CardContent>
             <div className="flex items-end gap-3">
-              <span className="text-3xl font-bold">{formatVND(yearTotal.total)}</span>
+              <span className="display text-3xl text-ink">{formatVND(yearTotal.total)}</span>
               <span className="pb-1 text-sm text-muted-foreground">
-                ({yearTotal.count} thiết bị mua trong {year})
+                ({yearTotal.count} thiết bị trong {year})
               </span>
             </div>
-            <ul className="mt-4 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+            <ul className="mt-4 space-y-1">
               {byCategory
                 .filter((c) => c.total > 0)
                 .sort((a, b) => b.total - a.total)
                 .map((c) => (
-                  <li
-                    key={c.category}
-                    className="flex items-center justify-between rounded-md border bg-card/50 px-3 py-2"
-                  >
-                    <span className="flex items-center gap-2">
-                      <CategoryIcon
-                        category={c.category}
-                        className="h-4 w-4 text-muted-foreground"
-                      />
-                      {c.label}
+                  <li key={c.category} className="info-row flex items-center gap-3 py-2">
+                    <CategoryIconBadge category={c.category} size="xs" />
+                    <span className="flex-1 truncate text-sm">{c.label}</span>
+                    <span className="font-semibold tabular-nums text-ink-2">
+                      {formatVND(c.total)}
                     </span>
-                    <span className="font-medium">{formatVND(c.total)}</span>
                   </li>
                 ))}
             </ul>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
+        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="flex size-8 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <Trophy className="h-4 w-4" />
+            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+              <span className="icon-badge icon-badge-xs tint-amber">
+                <Trophy className="h-3.5 w-3.5" />
               </span>
               Top 5 thiết bị đắt nhất
             </CardTitle>
@@ -266,28 +256,30 @@ export default async function StatsPage({
             {top.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">Chưa có dữ liệu.</p>
             ) : (
-              <ol className="space-y-2">
+              <ol>
                 {top.map((d, i) => (
                   <li key={d.id}>
                     <Link
                       href={`/devices/${d.id}`}
-                      className="flex items-center gap-3 rounded-md p-2 hover:bg-accent"
+                      className={cn(
+                        'info-row flex items-center gap-3 py-2.5 hover:opacity-80',
+                        i === 0 && '!border-t-0 pt-0',
+                      )}
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-bold">
-                        {i + 1}
-                      </span>
-                      <CategoryIcon
-                        category={d.category}
-                        className="h-4 w-4 text-muted-foreground"
-                      />
+                      <span className={cn('rank', `rank-${i + 1}`)}>{i + 1}</span>
+                      <CategoryIconBadge category={d.category} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{d.name}</p>
+                        <p className="truncate font-display text-sm font-bold text-ink">
+                          {d.name}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {CATEGORY_LABELS[d.category as Category] ?? d.category}
                           {d.brand ? ` • ${d.brand}` : ''} • {formatDate(d.purchaseDate)}
                         </p>
                       </div>
-                      <span className="font-semibold">{formatVND(d.purchasePrice)}</span>
+                      <span className="font-display font-bold tabular-nums text-ink">
+                        {formatVND(d.purchasePrice)}
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -296,6 +288,29 @@ export default async function StatsPage({
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function KpiCard({
+  eyebrow,
+  value,
+  sub,
+  tint,
+  icon,
+}: {
+  eyebrow: string;
+  value: string;
+  sub: string;
+  tint: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="stat-card">
+      <span className={cn('icon-badge icon-badge-sm stat-icon', tint)}>{icon}</span>
+      <p className="stat-eyebrow">{eyebrow}</p>
+      <p className="stat-value text-ink">{value}</p>
+      <p className="stat-sub">{sub}</p>
     </div>
   );
 }

@@ -6,7 +6,14 @@ import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Save, RotateCcw, Info } from 'lucide-react';
+import {
+  Loader2,
+  Save,
+  RotateCcw,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,11 +27,12 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import {
+  CATEGORY_LABELS,
   STATUSES,
   STATUS_LABELS,
   type Status,
 } from '@/lib/types';
-import { formatNumber, parseVNDInput } from '@/lib/format';
+import { formatNumber, parseVNDInput, formatVND, formatDate } from '@/lib/format';
 import {
   createDevice,
   updateDevice,
@@ -36,6 +44,7 @@ import type {
   StoreOption,
   WarrantyProviderOption,
 } from '@/app/actions/catalog';
+import { cn } from '@/lib/utils';
 
 type Initial = {
   id?: string;
@@ -63,14 +72,20 @@ type Catalog = {
   warrantyProviders: WarrantyProviderOption[];
 };
 
-// Maps a server-side field key (from Zod errors) to its UI label and
-// the DOM id to focus. The Combobox triggers carry these ids too.
-const FIELD_META: Record<string, { label: string; focusId: string }> = {
-  name: { label: 'Tên thiết bị', focusId: 'name' },
-  category: { label: 'Loại thiết bị', focusId: 'category' },
-  purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate' },
-  warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths' },
+// Maps a server-side field key (from Zod errors) to label, focus id, and step.
+const FIELD_META: Record<string, { label: string; focusId: string; step: number }> = {
+  name: { label: 'Tên thiết bị', focusId: 'name', step: 0 },
+  category: { label: 'Loại thiết bị', focusId: 'category', step: 0 },
+  purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate', step: 1 },
+  warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
 };
+
+const STEPS = [
+  { label: 'Cơ bản', hint: 'Tên, hãng, model' },
+  { label: 'Mua hàng', hint: 'Ngày mua, giá, nơi mua' },
+  { label: 'Bảo hành', hint: 'Gói tiêu chuẩn' },
+  { label: 'Xác nhận', hint: 'Ghi chú & kiểm tra' },
+];
 
 function focusField(key: string) {
   const meta = FIELD_META[key];
@@ -90,29 +105,32 @@ function focusField(key: string) {
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
+  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
 }
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+    <Button type="submit" disabled={pending} className="rounded-pill">
+      {pending ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <Save className="mr-2 h-4 w-4" />
+      )}
       {label}
     </Button>
   );
 }
 
 function MoneyInput({
-  defaultValue,
+  value,
+  onChange,
   name = 'purchasePrice',
 }: {
-  defaultValue?: number;
+  value: string;
+  onChange: (v: string) => void;
   name?: string;
 }) {
-  const [value, setValue] = React.useState<string>(
-    defaultValue ? formatNumber(defaultValue) : '',
-  );
   return (
     <div className="relative">
       <Input
@@ -120,7 +138,7 @@ function MoneyInput({
         value={value}
         onChange={(e) => {
           const n = parseVNDInput(e.target.value);
-          setValue(n ? formatNumber(n) : '');
+          onChange(n ? formatNumber(n) : '');
         }}
         placeholder="0"
         className="pr-10"
@@ -129,6 +147,30 @@ function MoneyInput({
         ₫
       </span>
       <input type="hidden" name={name} value={parseVNDInput(value)} />
+    </div>
+  );
+}
+
+function Stepper({ current }: { current: number }) {
+  return (
+    <div className="stepper w-full">
+      {STEPS.map((s, i) => {
+        const state =
+          i < current ? 'done' : i === current ? 'active' : 'pending';
+        return (
+          <React.Fragment key={s.label}>
+            <div className="stepper-step min-w-0" data-state={state}>
+              <span className="stepper-bubble">
+                {state === 'done' ? <Check className="h-3.5 w-3.5" /> : i + 1}
+              </span>
+              <span className="stepper-label hidden truncate sm:inline">
+                {s.label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && <span className="stepper-line" />}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -143,41 +185,39 @@ export function DeviceForm({
   fromWishlistId?: string;
 }) {
   const isEdit = Boolean(initial?.id);
-  const action = isEdit
-    ? updateDevice.bind(null, initial!.id!)
-    : createDevice;
+  const action = isEdit ? updateDevice.bind(null, initial!.id!) : createDevice;
 
   const [state, formAction] = useActionState<DeviceFormState, FormData>(action, {});
   const errors = state?.errors ?? {};
 
-  // Toast + focus when the server action returns errors (skip the initial mount).
-  const initialMount = React.useRef(true);
-  React.useEffect(() => {
-    if (initialMount.current) {
-      initialMount.current = false;
-      return;
-    }
-    const errs = state?.errors;
-    if (errs && Object.keys(errs).length > 0) {
-      const keys = Object.keys(errs);
-      const labels = keys.map((k) => FIELD_META[k]?.label ?? k);
-      toast.error('Vui lòng kiểm tra: ' + labels.join(', '));
-      focusField(keys[0]);
-    } else if (state?.ok === false && state.message) {
-      toast.error(state.message);
-    }
-  }, [state]);
-
-  // ─── Controlled state for the catalog-backed fields ─────────────────────
+  // ─── Field state — fully controlled so we can split across steps ────────
+  const [step, setStep] = React.useState(0);
+  const [name, setName] = React.useState(initial?.name ?? '');
   const [category, setCategory] = React.useState<string>(
     initial?.category ?? catalog.categories[0]?.code ?? 'OTHER',
   );
   const [brand, setBrand] = React.useState<string>(initial?.brand ?? '');
+  const [model, setModel] = React.useState<string>(initial?.model ?? '');
+  const [serialNumber, setSerialNumber] = React.useState<string>(
+    initial?.serialNumber ?? '',
+  );
+  const [status, setStatus] = React.useState<Status>(initial?.status ?? 'ACTIVE');
+
+  const [purchaseDate, setPurchaseDate] = React.useState<string>(
+    initial?.purchaseDate
+      ? format(new Date(initial.purchaseDate), 'yyyy-MM-dd')
+      : format(new Date(), 'yyyy-MM-dd'),
+  );
+  const [purchasePriceDisplay, setPurchasePriceDisplay] = React.useState<string>(
+    initial?.purchasePrice ? formatNumber(initial.purchasePrice) : '',
+  );
   const [purchasePlace, setPurchasePlace] = React.useState<string>(
     initial?.purchasePlace ?? '',
   );
 
-  // Warranty fields are controlled so the provider picker can autofill them.
+  const [warrantyMonths, setWarrantyMonths] = React.useState<number>(
+    initial?.warrantyMonths ?? 12,
+  );
   const [warrantyProvider, setWarrantyProvider] = React.useState<string>(
     initial?.warrantyProvider ?? '',
   );
@@ -191,7 +231,32 @@ export function DeviceForm({
     initial?.warrantyNotes ?? '',
   );
 
-  // ─── Brand list filtered by category ────────────────────────────────────
+  const [notes, setNotes] = React.useState<string>(initial?.notes ?? '');
+
+  // Toast + focus when the server returns errors (skip the initial mount).
+  const initialMount = React.useRef(true);
+  React.useEffect(() => {
+    if (initialMount.current) {
+      initialMount.current = false;
+      return;
+    }
+    const errs = state?.errors;
+    if (errs && Object.keys(errs).length > 0) {
+      const keys = Object.keys(errs);
+      const labels = keys.map((k) => FIELD_META[k]?.label ?? k);
+      toast.error('Vui lòng kiểm tra: ' + labels.join(', '));
+      // Jump to the step that owns the first failing field, then focus it.
+      // The setState here syncs UI to a server-action result, not local state.
+      const firstStep = FIELD_META[keys[0]]?.step ?? 0;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStep(firstStep);
+      setTimeout(() => focusField(keys[0]), 0);
+    } else if (state?.ok === false && state.message) {
+      toast.error(state.message);
+    }
+  }, [state]);
+
+  // ─── Catalog-driven options ─────────────────────────────────────────────
   const brandOptions: ComboboxOption[] = React.useMemo(() => {
     const inCat = catalog.brands.filter(
       (b) => b.categoryCodes.length === 0 || b.categoryCodes.includes(category),
@@ -204,7 +269,6 @@ export function DeviceForm({
     });
     return [
       ...inCat.map(toOpt),
-      // Brands not in this category are still selectable, just sorted to the end.
       ...others.map((b) => ({ value: b.name, label: b.name, hint: 'khác loại' })),
     ];
   }, [catalog.brands, category]);
@@ -228,9 +292,6 @@ export function DeviceForm({
   }));
 
   // ─── Warranty provider autofill ─────────────────────────────────────────
-  // When user picks a provider from the catalog: copy phone/address/notes
-  // into the editable inputs IF they're empty (don't clobber user edits).
-  // The "↺ Khôi phục từ template" button does a full overwrite.
   const applyProviderTemplate = React.useCallback(
     (providerName: string, force: boolean) => {
       const tpl = catalog.warrantyProviders.find((p) => p.name === providerName);
@@ -248,29 +309,77 @@ export function DeviceForm({
     if (next) applyProviderTemplate(next, false);
   };
 
-  const purchaseDateDefault = initial?.purchaseDate
-    ? format(new Date(initial.purchaseDate), 'yyyy-MM-dd')
-    : format(new Date(), 'yyyy-MM-dd');
-
   const selectedTemplate = catalog.warrantyProviders.find(
     (p) => p.name === warrantyProvider,
   );
 
-  // Client-side guard before the server action runs. Replaces the native HTML5
-  // popup with a sonner toast and focuses the first missing field.
+  // ─── Step navigation w/ per-step validation ─────────────────────────────
+  const validateStep = (s: number): string | null => {
+    if (s === 0) {
+      if (!name.trim()) return 'name';
+      if (!category) return 'category';
+    }
+    if (s === 1) {
+      if (!purchaseDate) return 'purchaseDate';
+    }
+    if (s === 2) {
+      if (warrantyMonths < 0) return 'warrantyMonths';
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const bad = validateStep(step);
+    if (bad) {
+      toast.error('Vui lòng nhập: ' + (FIELD_META[bad]?.label ?? bad));
+      focusField(bad);
+      return;
+    }
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
+
+  const goPrev = () => setStep((s) => Math.max(s - 1, 0));
+
+  const resetAll = () => {
+    setName('');
+    setCategory(catalog.categories[0]?.code ?? 'OTHER');
+    setBrand('');
+    setModel('');
+    setSerialNumber('');
+    setStatus('ACTIVE');
+    setPurchaseDate(format(new Date(), 'yyyy-MM-dd'));
+    setPurchasePriceDisplay('');
+    setPurchasePlace('');
+    setWarrantyMonths(12);
+    setWarrantyProvider('');
+    setWarrantyPhone('');
+    setWarrantyAddress('');
+    setWarrantyNotes('');
+    setNotes('');
+    setStep(0);
+  };
+
+  // Pre-submit guard — runs all step validations before the server action.
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    const fd = new FormData(e.currentTarget);
-    const missing: string[] = [];
-    if (!String(fd.get('name') ?? '').trim()) missing.push('name');
-    if (!category) missing.push('category');
-    if (!String(fd.get('purchaseDate') ?? '').trim()) missing.push('purchaseDate');
-    if (missing.length > 0) {
-      e.preventDefault();
-      const labels = missing.map((k) => FIELD_META[k]?.label ?? k);
-      toast.error('Vui lòng nhập: ' + labels.join(', '));
-      focusField(missing[0]);
+    for (let i = 0; i < STEPS.length; i++) {
+      const bad = validateStep(i);
+      if (bad) {
+        e.preventDefault();
+        setStep(i);
+        toast.error('Vui lòng nhập: ' + (FIELD_META[bad]?.label ?? bad));
+        setTimeout(() => focusField(bad), 0);
+        return;
+      }
     }
   };
+
+  // ─── Render helpers ─────────────────────────────────────────────────────
+  const categoryLabel =
+    CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? category;
+
+  // All steps share the same form, just toggle visibility per step.
+  // This keeps every field mounted so its hidden input ships with submit.
+  const stepCls = (i: number) => (step === i ? 'block' : 'hidden');
 
   return (
     <form
@@ -282,9 +391,16 @@ export function DeviceForm({
       {fromWishlistId ? (
         <input type="hidden" name="fromWishlistId" value={fromWishlistId} />
       ) : null}
-      <div className="rounded-xl border bg-card p-6">
-        <h3 className="mb-4 text-base font-semibold">Thông tin thiết bị</h3>
-        <div className="grid gap-4 md:grid-cols-2">
+
+      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 md:p-8">
+        <Stepper current={step} />
+        <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Bước {step + 1}/{STEPS.length} · {STEPS[step].hint}
+        </p>
+        <hr className="my-6 border-border" />
+
+        {/* ───── Step 1 — Cơ bản ───── */}
+        <div className={cn('grid gap-4 md:grid-cols-2', stepCls(0))}>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">
               Tên thiết bị <span className="text-destructive">*</span>
@@ -292,7 +408,8 @@ export function DeviceForm({
             <Input
               id="name"
               name="name"
-              defaultValue={initial?.name}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="vd: MacBook Pro M3"
               required
             />
@@ -307,31 +424,15 @@ export function DeviceForm({
               triggerId="category"
               options={categoryOptions}
               value={category}
-              onValueChange={(v) => {
-                setCategory(v || catalog.categories[0]?.code || 'OTHER');
-              }}
+              onValueChange={(v) =>
+                setCategory(v || catalog.categories[0]?.code || 'OTHER')
+              }
               placeholder="Chọn loại"
               searchPlaceholder="Tìm loại..."
               clearable={false}
             />
             <input type="hidden" name="category" value={category} />
             <FieldError errors={errors.category} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="status">Trạng thái</Label>
-            <Select name="status" defaultValue={initial?.status ?? 'ACTIVE'}>
-              <SelectTrigger id="status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-2">
@@ -354,7 +455,8 @@ export function DeviceForm({
             <Input
               id="model"
               name="model"
-              defaultValue={initial?.model ?? ''}
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
               placeholder="vd: MBP 14 inch 2024"
             />
           </div>
@@ -364,16 +466,15 @@ export function DeviceForm({
             <Input
               id="serialNumber"
               name="serialNumber"
-              defaultValue={initial?.serialNumber ?? ''}
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
               placeholder="Không bắt buộc"
             />
           </div>
         </div>
-      </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <h3 className="mb-4 text-base font-semibold">Mua hàng</h3>
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* ───── Step 2 — Mua hàng ───── */}
+        <div className={cn('grid gap-4 md:grid-cols-2', stepCls(1))}>
           <div className="space-y-2">
             <Label htmlFor="purchaseDate">
               Ngày mua <span className="text-destructive">*</span>
@@ -382,7 +483,8 @@ export function DeviceForm({
               id="purchaseDate"
               name="purchaseDate"
               type="date"
-              defaultValue={purchaseDateDefault}
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
               required
             />
             <FieldError errors={errors.purchaseDate} />
@@ -390,7 +492,10 @@ export function DeviceForm({
 
           <div className="space-y-2">
             <Label htmlFor="purchasePrice">Giá mua (VND)</Label>
-            <MoneyInput defaultValue={initial?.purchasePrice} />
+            <MoneyInput
+              value={purchasePriceDisplay}
+              onChange={setPurchasePriceDisplay}
+            />
           </div>
 
           <div className="space-y-2 md:col-span-2">
@@ -408,140 +513,260 @@ export function DeviceForm({
             <input type="hidden" name="purchasePlace" value={purchasePlace} />
           </div>
         </div>
-      </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <div className="mb-4 flex items-baseline justify-between gap-2">
-          <h3 className="text-base font-semibold">Bảo hành tiêu chuẩn</h3>
-          <span className="text-xs text-muted-foreground">
-            Có thể thêm gói mở rộng (AppleCare+, ...) sau khi tạo
-          </span>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="warrantyMonths">Số tháng bảo hành</Label>
-            <Input
-              id="warrantyMonths"
-              name="warrantyMonths"
-              type="number"
-              min={0}
-              defaultValue={initial?.warrantyMonths ?? 12}
-            />
-            <FieldError errors={errors.warrantyMonths} />
-            <p className="text-xs text-muted-foreground">
-              Ngày hết = ngày mua + số tháng. Để 0 nếu không có bảo hành.
-            </p>
-          </div>
+        {/* ───── Step 3 — Bảo hành ───── */}
+        <div className={cn('space-y-4', stepCls(2))}>
+          <p className="text-sm text-muted-foreground">
+            Đây là gói bảo hành tiêu chuẩn khi tạo thiết bị. Có thể thêm gói khác
+            (AppleCare+, FPT Care...) sau khi tạo.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="warrantyMonths">Số tháng bảo hành</Label>
+              <Input
+                id="warrantyMonths"
+                name="warrantyMonths"
+                type="number"
+                min={0}
+                value={warrantyMonths}
+                onChange={(e) => setWarrantyMonths(Number(e.target.value))}
+              />
+              <FieldError errors={errors.warrantyMonths} />
+              <p className="text-xs text-muted-foreground">
+                Ngày hết = ngày mua + số tháng. Để 0 nếu không có.
+              </p>
+            </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="warrantyProvider">Đơn vị bảo hành</Label>
-              {selectedTemplate ? (
-                <button
-                  type="button"
-                  onClick={() => applyProviderTemplate(warrantyProvider, true)}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  title="Ghi đè SĐT/địa chỉ/ghi chú từ template"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Khôi phục từ template
-                </button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="warrantyProvider">Đơn vị bảo hành</Label>
+                {selectedTemplate ? (
+                  <button
+                    type="button"
+                    onClick={() => applyProviderTemplate(warrantyProvider, true)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    title="Ghi đè SĐT/địa chỉ/ghi chú từ template"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Khôi phục từ template
+                  </button>
+                ) : null}
+              </div>
+              <Combobox
+                triggerId="warrantyProvider"
+                options={providerOptions}
+                value={warrantyProvider}
+                onValueChange={handleProviderChange}
+                placeholder="vd: Apple Việt Nam"
+                searchPlaceholder="Tìm đơn vị bảo hành..."
+                allowCustom
+                customLabel={(v) => `Dùng đơn vị "${v}"`}
+              />
+              <input
+                type="hidden"
+                name="warrantyProvider"
+                value={warrantyProvider}
+              />
+              {selectedTemplate?.websiteUrl ? (
+                <p className="text-xs text-muted-foreground">
+                  Website:{' '}
+                  <a
+                    href={selectedTemplate.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    {selectedTemplate.websiteUrl}
+                  </a>
+                </p>
               ) : null}
             </div>
-            <Combobox
-              triggerId="warrantyProvider"
-              options={providerOptions}
-              value={warrantyProvider}
-              onValueChange={handleProviderChange}
-              placeholder="vd: Apple Việt Nam"
-              searchPlaceholder="Tìm đơn vị bảo hành..."
-              allowCustom
-              customLabel={(v) => `Dùng đơn vị "${v}"`}
-            />
-            <input type="hidden" name="warrantyProvider" value={warrantyProvider} />
-            {selectedTemplate?.websiteUrl ? (
-              <p className="text-xs text-muted-foreground">
-                Website:{' '}
-                <a
-                  href={selectedTemplate.websiteUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  {selectedTemplate.websiteUrl}
-                </a>
-              </p>
-            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="warrantyPhone">SĐT bảo hành</Label>
+              <Input
+                id="warrantyPhone"
+                name="warrantyPhone"
+                type="tel"
+                value={warrantyPhone}
+                onChange={(e) => setWarrantyPhone(e.target.value)}
+                placeholder="vd: 1800 1234"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="warrantyAddress">Địa chỉ trung tâm BH</Label>
+              <Input
+                id="warrantyAddress"
+                name="warrantyAddress"
+                value={warrantyAddress}
+                onChange={(e) => setWarrantyAddress(e.target.value)}
+                placeholder="vd: 123 Nguyễn Trãi, Q.1"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="warrantyNotes">Ghi chú bảo hành</Label>
+              <Textarea
+                id="warrantyNotes"
+                name="warrantyNotes"
+                value={warrantyNotes}
+                onChange={(e) => setWarrantyNotes(e.target.value)}
+                placeholder="Điều kiện, lưu ý khi đi bảo hành..."
+                rows={3}
+              />
+            </div>
           </div>
+        </div>
+
+        {/* ───── Step 4 — Xác nhận ───── */}
+        <div className={cn('space-y-5', stepCls(3))}>
+          {isEdit && (
+            <div className="space-y-2 md:max-w-xs">
+              <Label htmlFor="status">Trạng thái</Label>
+              <Select
+                name="status"
+                value={status}
+                onValueChange={(v) => setStatus(v as Status)}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
-            <Label htmlFor="warrantyPhone">SĐT bảo hành</Label>
-            <Input
-              id="warrantyPhone"
-              name="warrantyPhone"
-              type="tel"
-              value={warrantyPhone}
-              onChange={(e) => setWarrantyPhone(e.target.value)}
-              placeholder="vd: 1800 1234"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="warrantyAddress">Địa chỉ trung tâm BH</Label>
-            <Input
-              id="warrantyAddress"
-              name="warrantyAddress"
-              value={warrantyAddress}
-              onChange={(e) => setWarrantyAddress(e.target.value)}
-              placeholder="vd: 123 Nguyễn Trãi, Q.1"
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="warrantyNotes">Ghi chú bảo hành</Label>
+            <Label htmlFor="notes">Ghi chú</Label>
             <Textarea
-              id="warrantyNotes"
-              name="warrantyNotes"
-              value={warrantyNotes}
-              onChange={(e) => setWarrantyNotes(e.target.value)}
-              placeholder="Điều kiện, lưu ý khi đi bảo hành..."
-              rows={3}
+              id="notes"
+              name="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ghi chú tự do về thiết bị..."
+              rows={4}
             />
           </div>
-        </div>
-      </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <h3 className="mb-4 text-base font-semibold">Ghi chú</h3>
-        <Textarea
-          id="notes"
-          name="notes"
-          defaultValue={initial?.notes ?? ''}
-          placeholder="Ghi chú tự do về thiết bị..."
-          rows={4}
-        />
-      </div>
-
-      {!isEdit ? (
-        <div className="flex gap-3 rounded-xl border border-dashed bg-muted/30 p-4 text-sm">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="space-y-1">
-            <p className="font-medium">Có thể thêm sau khi tạo (ở trang chi tiết):</p>
-            <ul className="ml-4 list-disc space-y-0.5 text-muted-foreground">
-              <li>Ảnh, hoá đơn, PDF đính kèm — tối đa 5 file, mỗi file 5MB.</li>
-              <li>Gói bảo hành mở rộng (AppleCare+, Samsung Care+, FPT Care...).</li>
-              <li>Gói bảo hành bên thứ ba (bảo hiểm thẻ tín dụng, gói cửa hàng...).</li>
-            </ul>
+          {/* Summary card — quick review before saving */}
+          <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+            <p className="eyebrow mb-3">Kiểm tra lại</p>
+            <div className="grid gap-x-6 sm:grid-cols-2">
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Tên</p>
+                  <p className="info-row-value text-sm">{name || '—'}</p>
+                </div>
+              </div>
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Loại</p>
+                  <p className="info-row-value text-sm">{categoryLabel}</p>
+                </div>
+              </div>
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Hãng / Model</p>
+                  <p className="info-row-value text-sm">
+                    {[brand, model].filter(Boolean).join(' • ') || '—'}
+                  </p>
+                </div>
+              </div>
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Ngày mua</p>
+                  <p className="info-row-value text-sm">
+                    {purchaseDate ? formatDate(purchaseDate) : '—'}
+                  </p>
+                </div>
+              </div>
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Giá</p>
+                  <p className="info-row-value text-sm tabular-nums">
+                    {purchasePriceDisplay
+                      ? formatVND(parseVNDInput(purchasePriceDisplay) || 0)
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Bảo hành</p>
+                  <p className="info-row-value text-sm">
+                    {warrantyMonths > 0
+                      ? `${warrantyMonths} tháng${warrantyProvider ? ' · ' + warrantyProvider : ''}`
+                      : 'Không'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      ) : null}
 
-      <div className="flex items-center justify-end gap-3">
-        <Button type="button" variant="outline" asChild>
-          <Link href={isEdit ? `/devices/${initial!.id}` : '/devices'}>Hủy</Link>
-        </Button>
-        <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Thêm thiết bị'} />
+        <hr className="mt-7 border-border" />
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
+            {step > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-pill"
+                onClick={goPrev}
+              >
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Quay lại
+              </Button>
+            )}
+            {!isEdit && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-pill"
+                onClick={resetAll}
+              >
+                <RotateCcw className="mr-1 h-4 w-4" />
+                Đặt lại
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-muted-foreground">
+              {step + 1}/{STEPS.length}
+            </span>
+            {step < STEPS.length - 1 ? (
+              <Button
+                type="button"
+                className="rounded-pill"
+                onClick={goNext}
+              >
+                Tiếp tục
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            ) : (
+              <>
+                <Button type="button" variant="outline" asChild className="rounded-pill">
+                  <Link href={isEdit ? `/devices/${initial!.id}` : '/devices'}>
+                    Huỷ
+                  </Link>
+                </Button>
+                <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Lưu thiết bị'} />
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Always-mounted fields that don't belong to a visible step on the create flow.
+          When editing, status lives on step 4; otherwise it gets a default. */}
+      {!isEdit && <input type="hidden" name="status" value={status} />}
     </form>
   );
 }

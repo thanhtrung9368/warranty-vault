@@ -67,13 +67,15 @@ export function LogPaymentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="rounded-pill border-border-strong">
           <RefreshCcw className="mr-2 h-4 w-4" />
           Log payment
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogTitle>Log một lần thanh toán</DialogTitle>
+      <DialogContent className="max-w-md rounded-2xl border-[1.5px]">
+        <DialogTitle className="font-display text-xl text-ink">
+          Log một lần thanh toán
+        </DialogTitle>
         <div className="space-y-3 pt-2">
           <div className="space-y-2">
             <Label htmlFor="amount">Số tiền (VND)</Label>
@@ -113,10 +115,14 @@ export function LogPaymentDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              className="rounded-pill border-border-strong"
+              onClick={() => setOpen(false)}
+            >
               Huỷ
             </Button>
-            <Button onClick={submit} disabled={pending}>
+            <Button className="rounded-pill" onClick={submit} disabled={pending}>
               {pending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -137,6 +143,7 @@ export function RenewNowButton({ subId }: { subId: string }) {
   return (
     <Button
       size="sm"
+      className="rounded-pill"
       disabled={pending}
       onClick={async () => {
         if (!confirm('Đánh dấu đã gia hạn 1 chu kỳ? Sẽ log payment + bump ngày tới.'))
@@ -185,41 +192,29 @@ export function SubscriptionStatusButtons({
     }
   };
 
+  const options: { value: string; label: string; icon: React.ReactNode }[] = [
+    { value: 'ACTIVE', label: 'Đang dùng', icon: <Check className="h-3 w-3" /> },
+    { value: 'PAUSED', label: 'Tạm dừng', icon: <Pause className="h-3 w-3" /> },
+    { value: 'CANCELED', label: 'Đã huỷ', icon: <X className="h-3 w-3" /> },
+  ];
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {status !== 'ACTIVE' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => flip('ACTIVE')}
-          disabled={pending !== null}
+    <div className="pill-group" role="tablist" aria-label="Đổi trạng thái">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="tab"
+          aria-selected={status === o.value}
+          data-active={status === o.value}
+          disabled={pending !== null || status === o.value}
+          onClick={() => flip(o.value)}
+          className="inline-flex items-center gap-1.5"
         >
-          <Check className="mr-1 h-3 w-3" />
-          Kích hoạt
-        </Button>
-      )}
-      {status !== 'PAUSED' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => flip('PAUSED')}
-          disabled={pending !== null}
-        >
-          <Pause className="mr-1 h-3 w-3" />
-          Tạm dừng
-        </Button>
-      )}
-      {status !== 'CANCELED' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => flip('CANCELED')}
-          disabled={pending !== null}
-        >
-          <X className="mr-1 h-3 w-3" />
-          Huỷ
-        </Button>
-      )}
+          {o.icon}
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -230,6 +225,7 @@ export function DeleteSubscriptionButton({ subId }: { subId: string }) {
     <Button
       variant="outline"
       size="sm"
+      className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive-soft hover:text-destructive"
       disabled={pending}
       onClick={async () => {
         if (!confirm('Xoá gói này? Lịch sử thanh toán cũng sẽ mất.')) return;

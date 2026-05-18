@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Plus, Paperclip } from 'lucide-react';
+import { Plus, Paperclip, Package, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -9,8 +9,7 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { CategoryIcon } from '@/components/category-icon';
+import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { EmptyState } from '@/components/empty-state';
 import { DevicesFilterBar } from '@/components/devices-filter-bar';
@@ -21,12 +20,20 @@ import { getCategories } from '@/app/actions/catalog';
 import {
   CATEGORY_LABELS,
   STATUS_LABELS,
-  STATUS_BADGE_VARIANT,
   type Status,
 } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
+
+// Soft pill backgrounds keyed off the device status. Mirrors design tokens.
+const STATUS_PILL: Record<Status, string> = {
+  ACTIVE: 'bg-emerald-soft text-emerald-ink',
+  EXPIRED: 'bg-amber-soft text-amber-ink',
+  SOLD: 'bg-sky-soft text-sky-ink',
+  BROKEN: 'bg-rose-soft text-rose-ink',
+  LOST: 'bg-zinc-soft text-ink-2',
+};
 
 export default async function DevicesPage({
   searchParams,
@@ -47,23 +54,20 @@ export default async function DevicesPage({
     getCategories(),
   ]);
   const devices = devicesRes.ok ? devicesRes.data : [];
+  const isFiltered = Boolean(filter.q || filter.category || filter.status);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Thiết bị</h1>
+          <p className="eyebrow">Kho thiết bị</p>
+          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Thiết bị</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
             Tổng {devices.length} thiết bị
-            {filter.q || filter.category || filter.status ? ' (đã lọc)' : ''}.
-            Bấm vào từng cái để xem chi tiết.
+            {isFiltered ? ' (đã lọc)' : ''}. Bấm vào từng cái để xem chi tiết.
           </p>
         </div>
-        <Button
-          asChild
-          size="lg"
-          className="rounded-full transition-transform hover:scale-[1.02]"
-        >
+        <Button asChild size="lg" className="rounded-pill">
           <Link href="/devices/new">
             <Plus className="mr-1 h-4 w-4" />
             Thêm thiết bị
@@ -75,85 +79,107 @@ export default async function DevicesPage({
 
       {devices.length === 0 ? (
         <EmptyState
+          icon={isFiltered ? Search : Package}
+          tone={isFiltered ? 'zinc' : 'primary'}
           title={
-            filter.q || filter.category || filter.status
-              ? 'Không có gì khớp bộ lọc'
-              : 'Chưa có thiết bị nào, mày'
+            isFiltered ? 'Không có gì khớp bộ lọc' : 'Chưa có thiết bị nào, mày'
           }
           description={
-            filter.q || filter.category || filter.status
+            isFiltered
               ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
               : 'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.'
           }
+          cta={!isFiltered}
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md">
+        <div className="overflow-hidden rounded-lg border-[1.5px] border-border bg-card">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-surface-2">
               <TableRow>
-                <TableHead>Tên</TableHead>
-                <TableHead className="hidden sm:table-cell">Loại</TableHead>
-                <TableHead className="hidden lg:table-cell">Giá</TableHead>
-                <TableHead className="hidden md:table-cell">Ngày mua</TableHead>
-                <TableHead>Bảo hành</TableHead>
-                <TableHead className="hidden md:table-cell">Trạng thái</TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Tên
+                </TableHead>
+                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground sm:table-cell">
+                  Loại
+                </TableHead>
+                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground lg:table-cell">
+                  Giá
+                </TableHead>
+                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
+                  Ngày mua
+                </TableHead>
+                <TableHead className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Bảo hành
+                </TableHead>
+                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
+                  Trạng thái
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {devices.map((d) => (
-                <TableRow
-                  key={d.id}
-                  className="cursor-pointer transition-colors hover:bg-accent/50"
-                >
-                  <TableCell>
-                    <Link href={`/devices/${d.id}`} className="flex items-center gap-3">
-                      <div className="rounded-md bg-muted p-2">
-                        <CategoryIcon
-                          category={d.category}
-                          className="h-4 w-4 text-muted-foreground"
+              {devices.map((d) => {
+                const status = d.status as Status;
+                return (
+                  <TableRow
+                    key={d.id}
+                    className="cursor-pointer transition-colors hover:bg-surface-2"
+                  >
+                    <TableCell>
+                      <Link
+                        href={`/devices/${d.id}`}
+                        className="flex items-center gap-3"
+                      >
+                        <CategoryIconBadge category={d.category} size="sm" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-ink">{d.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {d.brand}
+                            {d.brand && d.model ? ' • ' : ''}
+                            {d.model}
+                            {d.attachmentCount > 0 && (
+                              <span className="ml-2 inline-flex items-center gap-0.5">
+                                <Paperclip className="h-3 w-3" />
+                                {d.attachmentCount}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <span className="inline-flex items-center rounded-pill bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-2">
+                        {CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] ??
+                          d.category}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden font-semibold tabular-nums lg:table-cell">
+                      {formatVND(d.purchasePrice)}
+                    </TableCell>
+                    <TableCell className="hidden text-ink-2 md:table-cell">
+                      {formatDate(d.purchaseDate)}
+                    </TableCell>
+                    <TableCell>
+                      {d.effectiveWarrantyEnd ? (
+                        <WarrantyPill
+                          warrantyEnd={d.effectiveWarrantyEnd}
+                          variant="badge"
                         />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium">{d.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {d.brand}
-                          {d.brand && d.model ? ' • ' : ''}
-                          {d.model}
-                          {d.attachmentCount > 0 && (
-                            <span className="ml-2 inline-flex items-center gap-0.5">
-                              <Paperclip className="h-3 w-3" />
-                              {d.attachmentCount}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </Link>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] ?? d.category}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell font-medium">
-                    {formatVND(d.purchasePrice)}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {formatDate(d.purchaseDate)}
-                  </TableCell>
-                  <TableCell>
-                    {d.effectiveWarrantyEnd ? (
-                      <WarrantyPill warrantyEnd={d.effectiveWarrantyEnd} variant="badge" />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Không có</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Badge
-                      variant={STATUS_BADGE_VARIANT[d.status as Status] ?? 'secondary'}
-                    >
-                      {STATUS_LABELS[d.status as Status] ?? d.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Không có</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <span
+                        className={`inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-semibold ${
+                          STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2'
+                        }`}
+                      >
+                        {STATUS_LABELS[status] ?? d.status}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

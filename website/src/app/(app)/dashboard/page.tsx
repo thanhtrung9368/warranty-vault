@@ -8,10 +8,12 @@ import {
   Heart,
   Calendar,
   RefreshCw,
+  Plus,
+  Zap,
+  type LucideIcon,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CategoryIcon } from '@/components/category-icon';
+import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { EmptyState } from '@/components/empty-state';
 import { api } from '@/lib/api';
@@ -138,6 +140,66 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
   };
 }
 
+type Tint = 'primary' | 'emerald' | 'amber' | 'zinc' | 'sky' | 'rose';
+type StatCardProps = {
+  label: string;
+  value: number | string;
+  icon: LucideIcon;
+  sub: string;
+  tone: Tint;
+};
+
+function StatCard({ label, value, icon: Icon, sub, tone }: StatCardProps) {
+  return (
+    <div className="stat-card">
+      <div className="stat-icon">
+        <span className={cn('icon-badge', `tint-${tone}`)}>
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+      <div className="stat-eyebrow">{label}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-sub">{sub}</div>
+    </div>
+  );
+}
+
+function SectionCard({
+  icon: Icon,
+  tint,
+  title,
+  href,
+  children,
+}: {
+  icon: LucideIcon;
+  tint: Tint;
+  title: string;
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[var(--radius)] border border-border bg-card p-5 shadow-soft">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className={cn('icon-badge icon-badge-sm', `tint-${tint}`)}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <h3 className="font-display text-lg font-bold tracking-tight">
+            {title}
+          </h3>
+        </div>
+        <Button asChild variant="ghost" size="sm" className="h-8 px-3 text-primary">
+          <Link href={href}>
+            Xem tất cả
+            <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
   const [devicesRes, wishlistRes, subsRes] = await Promise.all([
@@ -151,136 +213,90 @@ export default async function DashboardPage() {
     subsRes.ok ? subsRes.data.subscriptions : [],
   );
 
-  const cards = [
+  const cards: StatCardProps[] = [
     {
       label: 'Tổng thiết bị',
       value: stats.total,
       icon: Package,
       sub: 'Đang theo dõi',
-      cardClass:
-        'bg-primary/5 border-primary/10 hover:border-primary/30',
-      iconClass: 'bg-primary/10 text-primary',
+      tone: 'primary',
     },
     {
       label: 'Còn bảo hành',
-      value: stats.active,
+      value: Math.max(0, stats.active - stats.soon),
       icon: ShieldCheck,
       sub: 'Còn được bảo vệ',
-      cardClass:
-        'bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/30',
-      iconClass:
-        'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      tone: 'emerald',
     },
     {
       label: 'Sắp hết (≤30 ngày)',
       value: stats.soon,
       icon: AlertTriangle,
       sub: 'Cần để ý nha',
-      cardClass:
-        'bg-amber-500/5 border-amber-500/10 hover:border-amber-500/30',
-      iconClass:
-        'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      tone: 'amber',
     },
     {
       label: 'Đã hết bảo hành',
       value: stats.expired,
       icon: ShieldX,
       sub: 'Hết kèo rồi',
-      cardClass:
-        'bg-muted/40 border-border hover:border-muted-foreground/30',
-      iconClass:
-        'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
+      tone: 'zinc',
     },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-7">
+      {/* Hero greeting */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-          Chào{user.name ? `, ${user.name}` : ''} 👋
+        <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-[34px]">
+          Chào{user.name ? `, ${user.name}` : ''}{' '}
+          <span style={{ fontFamily: 'system-ui' }}>👋</span>
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
           Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((c) => {
-          const Icon = c.icon;
-          return (
-            <Card
-              key={c.label}
-              className={cn(
-                'rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md',
-                c.cardClass,
-              )}
-            >
-              <CardContent className="flex items-center justify-between p-5">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {c.label}
-                  </p>
-                  <p className="mt-1.5 text-3xl font-bold tracking-tight">
-                    {c.value}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{c.sub}</p>
-                </div>
-                <div
-                  className={cn(
-                    'flex size-12 shrink-0 items-center justify-center rounded-full',
-                    c.iconClass,
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Stat cards */}
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((c) => (
+          <StatCard key={c.label} {...c} />
+        ))}
       </div>
 
-      <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" />
-            </span>
-            Sắp hết bảo hành
-          </CardTitle>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/reminders">
-              Xem tất cả
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
+      {/* Main grid — section cards */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Sắp hết bảo hành */}
+        <SectionCard
+          icon={AlertTriangle}
+          tint="amber"
+          title="Sắp hết bảo hành"
+          href="/reminders"
+        >
           {stats.soonList.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Tất cả đều ngon, không có gì sắp hết trong 30 ngày tới đâu.
-            </p>
+            <div className="py-3 text-sm text-muted-foreground">
+              <span className="text-emerald-ink">✓</span> Tất cả đều ngon, không có
+              gì sắp hết trong 30 ngày tới đâu.
+            </div>
           ) : (
-            <ul className="divide-y">
+            <ul className="flex flex-col">
               {stats.soonList.map((d) => (
                 <li key={d.id}>
                   <Link
                     href={`/devices/${d.id}`}
-                    className="-mx-2 flex items-center justify-between gap-3 rounded-lg p-2 transition-colors hover:bg-accent"
+                    className="info-row -mx-2 items-center gap-3 rounded-md px-2 transition-colors hover:bg-secondary"
                   >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="rounded-lg bg-muted p-2">
-                        <CategoryIcon
-                          category={d.category}
-                          className="h-4 w-4 text-muted-foreground"
-                        />
+                    <CategoryIconBadge category={d.category} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-ink">
+                        {d.name}
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{d.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] ?? d.category}
-                          {d.brand ? ` • ${d.brand}` : ''} • Mua {formatDate(d.purchaseDate)} •{' '}
-                          {formatVND(d.purchasePrice)}
-                        </p>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] ??
+                          d.category}
+                        {d.brand ? ` • ${d.brand}` : ''} • {formatDate(d.purchaseDate)}
+                        {' • '}
+                        {formatVND(d.purchasePrice)}
                       </div>
                     </div>
                     <WarrantyPill warrantyEnd={d.effectiveWarrantyEnd} variant="badge" />
@@ -289,110 +305,94 @@ export default async function DashboardPage() {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </SectionCard>
 
-      {subs.count > 0 && (
-        <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                <RefreshCw className="h-4 w-4" />
-              </span>
-              Gói đăng ký
-            </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/subscriptions">
-                Xem tất cả
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
+        {/* Subscriptions */}
+        {subs.count > 0 && (
+          <SectionCard
+            icon={RefreshCw}
+            tint="sky"
+            title="Gói đăng ký"
+            href="/subscriptions"
+          >
+            <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <p className="text-xs text-muted-foreground">Mỗi tháng</p>
-                <p className="mt-1 text-3xl font-bold">{formatVND(subs.monthly)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <div className="stat-eyebrow">Mỗi tháng</div>
+                <div className="font-display text-[28px] font-extrabold leading-tight tracking-tight">
+                  {formatVND(subs.monthly)}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
                   ~ {formatVND(subs.yearly)} / năm • {subs.count} gói đang hoạt động
-                </p>
+                </div>
               </div>
-              <div>
-                <p className="mb-1 text-xs text-muted-foreground">Sắp gia hạn</p>
+              <div className="min-w-0">
+                <div className="stat-eyebrow mb-1.5">Sắp gia hạn</div>
                 {subs.upcoming.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Không có gói nào sắp charge
                   </p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="flex flex-col gap-1.5">
                     {subs.upcoming.slice(0, 4).map((u) => (
-                      <li key={u.id} className="flex items-center gap-2 text-sm">
-                        <RefreshCw className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          {formatDate(u.renewalDate)}
-                        </span>
+                      <li key={u.id}>
                         <Link
                           href={`/subscriptions/${u.id}`}
-                          className="truncate hover:underline"
+                          className="flex items-center gap-2 text-[13px]"
                         >
-                          {u.name}
+                          <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="font-semibold text-ink-2">
+                            {formatDate(u.renewalDate)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                            {u.name}
+                          </span>
+                          <span className="font-semibold tabular-nums">
+                            {formatVND(u.price)}
+                          </span>
                         </Link>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          {formatVND(u.price)}
-                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </SectionCard>
+        )}
 
-      {wishlist.count > 0 && (
-        <Card className="rounded-2xl shadow-sm transition-shadow hover:shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                <Heart className="h-4 w-4" />
-              </span>
-              Đang thèm
-            </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/wishlist">
-                Xem tất cả
-                <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
+        {/* Wishlist */}
+        {wishlist.count > 0 && (
+          <SectionCard icon={Heart} tint="rose" title="Đang thèm" href="/wishlist">
+            <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <p className="text-xs text-muted-foreground">
-                  Tổng tiền (giá hiện tại)
-                </p>
-                <p className="mt-1 text-3xl font-bold">{formatVND(wishlist.totalPrice)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <div className="stat-eyebrow">Tổng tiền (giá hiện tại)</div>
+                <div className="font-display text-[28px] font-extrabold leading-tight tracking-tight">
+                  {formatVND(wishlist.totalPrice)}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
                   {wishlist.count} món đang theo dõi
-                </p>
+                </div>
               </div>
-              <div>
-                <p className="mb-1 text-xs text-muted-foreground">Sắp tới ngày mua</p>
+              <div className="min-w-0">
+                <div className="stat-eyebrow mb-1.5">Sắp tới ngày mua</div>
                 {wishlist.upcoming.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Chưa có món nào đặt ngày dự kiến
                   </p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="flex flex-col gap-1.5">
                     {wishlist.upcoming.map((u) => (
-                      <li key={u.id} className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          {u.targetDate ? formatDate(u.targetDate) : ''}
-                        </span>
-                        <Link href={`/wishlist/${u.id}`} className="truncate hover:underline">
-                          {u.name}
+                      <li key={u.id}>
+                        <Link
+                          href={`/wishlist/${u.id}`}
+                          className="flex items-center gap-2 text-[13px]"
+                        >
+                          <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="font-semibold text-ink-2">
+                            {u.targetDate ? formatDate(u.targetDate) : ''}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                            {u.name}
+                          </span>
                         </Link>
                       </li>
                     ))}
@@ -400,9 +400,44 @@ export default async function DashboardPage() {
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </SectionCard>
+        )}
+
+        {/* Quick add — chunky playful card */}
+        <div
+          className="rounded-[var(--radius)] border-2 border-ink bg-gradient-to-br from-primary-soft to-primary-soft-2 p-5 shadow-chunky"
+        >
+          <div className="mb-3 flex items-center gap-2.5">
+            <Zap className="h-5 w-5 text-primary-ink" />
+            <h3 className="font-display text-lg font-extrabold tracking-tight text-primary-ink">
+              Thêm nhanh
+            </h3>
+          </div>
+          <p className="mb-4 text-[13px] text-primary-ink/85">
+            Mới mua đồ? Note ngay vào kẻo lại quên.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm" className="h-9">
+              <Link href="/devices/new">
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Thiết bị
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="h-9 bg-card">
+              <Link href="/subscriptions/new">
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                Gói đăng ký
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="h-9 bg-card">
+              <Link href="/wishlist/new">
+                <Heart className="mr-1 h-3.5 w-3.5" />
+                Wishlist
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {stats.total === 0 && (
         <EmptyState

@@ -1,11 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e40af"/>
-      <stop offset="100%" stop-color="#0ea5e9"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <path fill="#fff" d="M256 96c-56 24-112 32-144 32v128c0 72 56 136 144 160 88-24 144-88 144-160V128c-32 0-88-8-144-32z" opacity="0.15"/>
-  <path fill="#fff" d="M256 112c-48 20-96 28-128 28v112c0 64 48 120 128 140 80-20 128-76 128-140V140c-32 0-80-8-128-28zm-8 232-56-56 22-22 34 34 74-74 22 22z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="WarrantyVault">
+  <!-- Cream rounded-square background -->
+  <rect x="0" y="0" width="64" height="64" rx="14" ry="14" fill="#FFF7EE"/>
+
+  <!-- Vault body: coral with ink stroke -->
+  <rect x="9" y="12" width="46" height="40" rx="6" ry="6"
+        fill="#FF6B45" stroke="#1F1A14" stroke-width="1.5"/>
+
+  <!-- Inner ink panel line for depth -->
+  <rect x="13" y="16" width="38" height="32" rx="4" ry="4"
+        fill="none" stroke="#1F1A14" stroke-width="1.5" opacity="0.55"/>
+
+  <!-- Hinge dots (left edge, two of them) -->
+  <circle cx="9" cy="22" r="1.8" fill="#1F1A14"/>
+  <circle cx="9" cy="42" r="1.8" fill="#1F1A14"/>
+
+  <!-- Feet -->
+  <rect x="14" y="52" width="6" height="4" rx="1" fill="#1F1A14"/>
+  <rect x="44" y="52" width="6" height="4" rx="1" fill="#1F1A14"/>
+
+  <!-- Handle bar on the right -->
+  <rect x="46" y="28" width="3.5" height="8" rx="1.2"
+        fill="#FFF7EE" stroke="#1F1A14" stroke-width="1.2"/>
+
+  <!-- Center dial: white circle with ink stroke -->
+  <circle cx="32" cy="32" r="10"
+          fill="#FFF7EE" stroke="#1F1A14" stroke-width="1.8"/>
+
+  <!-- Dial inner ring -->
+  <circle cx="32" cy="32" r="6.5"
+          fill="none" stroke="#1F1A14" stroke-width="1.2" opacity="0.7"/>
+
+  <!-- Coral notch on the dial -->
+  <rect x="31" y="22.5" width="2" height="4" rx="0.8" fill="#FF6B45" stroke="#1F1A14" stroke-width="0.8"/>
+
+  <!-- Center pivot dot -->
+  <circle cx="32" cy="32" r="1.6" fill="#1F1A14"/>
 </svg>

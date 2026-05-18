@@ -48,7 +48,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending} className="rounded-pill">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
       {label}
     </Button>
@@ -207,7 +207,12 @@ export function WarrantyForm({
 
       <div className="flex items-center justify-end gap-2">
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-pill"
+            onClick={onCancel}
+          >
             Hủy
           </Button>
         )}

@@ -85,12 +85,14 @@ export function AttachmentUploader({
           accept(e.dataTransfer.files);
         }}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-          dragOver ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent/40'
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
+          dragOver
+            ? 'border-primary bg-primary-soft'
+            : 'border-border-strong bg-surface-2 hover:bg-primary-soft/60'
         }`}
       >
-        <Upload className="h-6 w-6 text-muted-foreground" />
-        <p className="text-sm font-medium">Kéo thả hoặc bấm để chọn file</p>
+        <Upload className="h-7 w-7 text-primary" />
+        <p className="text-sm font-bold text-ink">Kéo thả hoặc bấm để chọn file</p>
         <p className="text-xs text-muted-foreground">
           Ảnh hoặc PDF, tối đa 5MB. Còn lại: {remaining} file.
         </p>
@@ -105,15 +107,19 @@ export function AttachmentUploader({
       </div>
 
       {files.length > 0 && (
-        <div className="space-y-2 rounded-lg border p-3">
-          <ul className="space-y-1 text-sm">
+        <div className="space-y-2 rounded-2xl border-[1.5px] border-border p-4">
+          <ul className="space-y-1.5 text-sm">
             {files.map((f, i) => (
-              <li key={i} className="flex items-center justify-between gap-2">
-                <span className="truncate">{f.name}</span>
+              <li
+                key={i}
+                className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2"
+              >
+                <span className="truncate font-medium">{f.name}</span>
                 <button
                   type="button"
                   onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
                   className="text-muted-foreground hover:text-destructive"
+                  aria-label="Bỏ chọn"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -125,7 +131,11 @@ export function AttachmentUploader({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <Button onClick={submit} disabled={pending} className="w-full">
+          <Button
+            onClick={submit}
+            disabled={pending}
+            className="w-full rounded-pill"
+          >
             {pending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (

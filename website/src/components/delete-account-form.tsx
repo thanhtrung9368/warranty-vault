@@ -13,13 +13,18 @@ const CONFIRM_PHRASE = 'XOA TAI KHOAN';
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
+  return <p className="text-xs font-medium text-destructive">{errors[0]}</p>;
 }
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="destructive" disabled={pending}>
+    <Button
+      type="submit"
+      variant="destructive"
+      disabled={pending}
+      className="rounded-pill"
+    >
       {pending ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
@@ -38,11 +43,15 @@ export function DeleteAccountForm() {
   if (!open) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-ink-2">
           Xoá tài khoản sẽ xoá toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt push. Không thể hoàn
           tác.
         </p>
-        <Button variant="outline" onClick={() => setOpen(true)}>
+        <Button
+          variant="outline"
+          onClick={() => setOpen(true)}
+          className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive-soft hover:text-destructive"
+        >
           <Trash2 className="mr-2 h-4 w-4" />
           Tao muốn xoá tài khoản
         </Button>
@@ -52,15 +61,17 @@ export function DeleteAccountForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+      <div className="flex items-start gap-3 rounded-md bg-destructive-soft p-3.5 text-sm text-destructive">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
-          Sau khi bấm xoá, toàn bộ dữ liệu của mày bị xoá vĩnh viễn. Tao khuyên mày
-          xuất backup JSON trước.
+          Sau khi bấm xoá, toàn bộ dữ liệu của mày bị xoá vĩnh viễn. Tao khuyên mày xuất backup
+          JSON trước.
         </p>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="delete-password">Mật khẩu hiện tại</Label>
+        <Label htmlFor="delete-password" className="font-semibold">
+          Mật khẩu hiện tại
+        </Label>
         <Input
           id="delete-password"
           name="password"
@@ -71,26 +82,36 @@ export function DeleteAccountForm() {
         <FieldError errors={errors.password} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="delete-confirm">
-          Gõ <code className="font-mono text-destructive">{CONFIRM_PHRASE}</code> để xác nhận
+        <Label htmlFor="delete-confirm" className="font-semibold">
+          Gõ{' '}
+          <code className="rounded bg-destructive-soft px-1.5 py-0.5 font-mono text-destructive">
+            {CONFIRM_PHRASE}
+          </code>{' '}
+          để xác nhận
         </Label>
         <Input
           id="delete-confirm"
           name="confirm"
           type="text"
           autoComplete="off"
+          placeholder={CONFIRM_PHRASE}
           required
         />
         <FieldError errors={errors.confirm} />
       </div>
       {state?.message && !state.ok && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">
           {state.message}
         </p>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <SubmitButton />
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setOpen(false)}
+          className="rounded-pill"
+        >
           Huỷ
         </Button>
       </div>

@@ -159,7 +159,7 @@ export function Combobox({
           id={triggerId}
           aria-expanded={open}
           className={cn(
-            'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+            'flex h-11 w-full items-center justify-between rounded-md border-[1.5px] border-border bg-card px-3.5 py-2 text-sm text-ink ring-offset-background transition-[border-color,box-shadow] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/30 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}
         >
@@ -195,7 +195,7 @@ export function Combobox({
           align="start"
           sideOffset={4}
           className={cn(
-            'z-50 w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md',
+            'z-50 w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-lg border-[1.5px] bg-card text-popover-foreground shadow-lift',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           )}
         >
