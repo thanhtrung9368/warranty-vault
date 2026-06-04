@@ -24,10 +24,12 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // Default base URL for the Next.js backend. Override per build type or
-        // per-flavor when needed. 10.0.2.2 is the Android emulator's loopback
-        // alias to the host machine — perfect for `npm run dev` on the laptop.
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000\"")
+        // Default base URL for the Go API backend (api/cmd/server, port 4000).
+        // Mobile clients hit Go directly — the Next.js website no longer serves
+        // /api/v1/*. Override per build type or per-flavor when needed.
+        // 10.0.2.2 is the Android emulator's loopback alias to the host machine
+        // — perfect for `go run ./cmd/server` on the laptop.
+        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:4000\"")
     }
 
     buildTypes {

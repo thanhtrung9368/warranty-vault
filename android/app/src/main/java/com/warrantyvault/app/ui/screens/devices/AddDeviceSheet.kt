@@ -1,5 +1,9 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,8 +17,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -38,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -52,8 +59,15 @@ import com.warrantyvault.app.network.DeviceStatus
 import com.warrantyvault.app.network.StoreOption
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.SheetGroup
+import com.warrantyvault.app.network.DraftDevice
 import com.warrantyvault.app.ui.screens.common.StoreAutocompleteField
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -95,7 +109,54 @@ fun AddDeviceSheet(
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // OCR receipt scan (create flow only, gated on the per-user AI opt-in).
+    val context = LocalContext.current
+    var scanning by remember { mutableStateOf(false) }
+    var scanInfo by remember { mutableStateOf<DraftDevice?>(null) }
+    var aiOptIn by remember { mutableStateOf(false) }
+
+    // Seeds the form from an extracted draft. Category only applied when it
+    // matches a known catalog code; brand/place set verbatim. Never persists —
+    // the user reviews & taps save.
+    fun applyDraft(d: DraftDevice) {
+        d.name?.takeIf { it.isNotBlank() }?.let { name = it }
+        d.category?.let { c ->
+            if (categoryOptions.any { it.code.equals(c, ignoreCase = true) }) category = c
+        }
+        d.brand?.takeIf { it.isNotBlank() }?.let { brand = it }
+        d.model?.takeIf { it.isNotBlank() }?.let { model = it }
+        d.serialNumber?.takeIf { it.isNotBlank() }?.let { serial = it }
+        d.purchaseDate?.takeIf { it.isNotBlank() }?.let { purchaseDate = it }
+        d.purchasePrice?.let { price = it.toString() }
+        d.purchasePlace?.takeIf { it.isNotBlank() }?.let { purchasePlace = it }
+        d.warrantyMonths?.let { months = it.toString() }
+    }
+
+    val receiptPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                scanning = true
+                error = null
+                scanInfo = null
+                try {
+                    val draft = extractReceiptFromUri(context, api, uri)
+                    applyDraft(draft)
+                    scanInfo = draft
+                } catch (e: Exception) {
+                    error = e.toUserMessage(ApiClient.json)
+                } finally {
+                    scanning = false
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
+        if (!isEdit) {
+            runCatching { api.getAIOptIn() }.onSuccess { aiOptIn = it.aiOptIn }
+        }
         runCatching { api.catalog() }
             .onSuccess {
                 categoryOptions = it.categories
@@ -123,6 +184,50 @@ fun AddDeviceSheet(
                 if (isEdit) "Sửa thiết bị" else "Thêm thiết bị",
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
+
+            if (!isEdit && aiOptIn) {
+                OutlinedButton(
+                    onClick = {
+                        receiptPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                    enabled = !scanning,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (scanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.width(18.dp).height(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(Icons.Outlined.DocumentScanner, contentDescription = null)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (scanning) "Đang quét hoá đơn…" else "Quét hoá đơn / phiếu bảo hành")
+                }
+                Text(
+                    "Chụp hoặc chọn ảnh để tự điền — vẫn kiểm tra lại trước khi lưu.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                scanInfo?.let { d ->
+                    val head = if (d.confidence == "high") {
+                        "Đã điền nháp từ hoá đơn."
+                    } else {
+                        "Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé."
+                    }
+                    val unmatched = d.unmatched.mapNotNull { unmatchedLabel(it) }
+                    val tail = if (unmatched.isNotEmpty()) {
+                        " Cần xem lại: " + unmatched.joinToString(", ") + "."
+                    } else ""
+                    Text(
+                        head + tail,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             SheetGroup {
                 OutlinedTextField(
@@ -393,3 +498,28 @@ private fun today(): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US)
         .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         .format(Date())
+
+// Reads an image Uri, sends it to the Go OCR endpoint, returns the draft. The
+// server decrypts/validates/maps and never persists — the caller seeds the
+// form and the user confirms.
+private suspend fun extractReceiptFromUri(
+    context: android.content.Context,
+    api: ApiService,
+    uri: Uri,
+): DraftDevice {
+    val resolver = context.contentResolver
+    val mime = resolver.getType(uri) ?: "image/jpeg"
+    val bytes = withContext(Dispatchers.IO) {
+        resolver.openInputStream(uri)?.use { it.readBytes() }
+    } ?: throw IllegalStateException("Không đọc được ảnh")
+    val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
+    val part = MultipartBody.Part.createFormData("file", "receipt.jpg", body)
+    return api.extractReceipt(part).draft
+}
+
+private fun unmatchedLabel(key: String): String? = when (key) {
+    "brand" -> "Hãng"
+    "purchasePlace" -> "Nơi mua"
+    "category" -> "Loại thiết bị"
+    else -> null
+}

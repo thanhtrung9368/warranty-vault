@@ -35,10 +35,12 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +57,8 @@ import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.BuildConfig
 import com.warrantyvault.app.auth.AuthStore
+import com.warrantyvault.app.network.AIOptInRequest
+import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.SectionHeader
 import com.warrantyvault.app.ui.theme.ThemePreference
@@ -66,6 +70,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     auth: AuthStore,
     themeStore: ThemeStore,
+    api: ApiService,
     onOpenPushDevices: () -> Unit = {},
 ) {
     val status by auth.status.collectAsState()
@@ -74,6 +79,13 @@ fun SettingsScreen(
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // AI receipt-scan opt-in.
+    var aiOptIn by remember { mutableStateOf(false) }
+    var aiBusy by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        runCatching { api.getAIOptIn() }.onSuccess { aiOptIn = it.aiOptIn }
+    }
 
     Scaffold(
         topBar = {
@@ -199,6 +211,55 @@ fun SettingsScreen(
                         onClick = onOpenPushDevices,
                         showDivider = false,
                     )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                SectionHeader("Quét hoá đơn (AI)")
+            }
+            Spacer(Modifier.height(8.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cs.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Quét hoá đơn bằng AI",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "Ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền. Luôn kiểm tra lại trước khi lưu. Mặc định tắt.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = cs.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.size(12.dp))
+                        Switch(
+                            checked = aiOptIn,
+                            enabled = !aiBusy,
+                            onCheckedChange = { next ->
+                                aiBusy = true
+                                scope.launch {
+                                    try {
+                                        val res = api.setAIOptIn(AIOptInRequest(next))
+                                        aiOptIn = res.aiOptIn
+                                    } catch (_: Exception) {
+                                        // keep previous state on failure
+                                    } finally {
+                                        aiBusy = false
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
             }
 

@@ -51,6 +51,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.ui.viewModelFactory
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.WishlistItem
@@ -127,7 +129,9 @@ fun WishlistScreen(
     api: ApiService,
     onOpenItem: (String) -> Unit = {},
 ) {
-    val vm: WishlistViewModel = remember { WishlistViewModel(api) }
+    val vm: WishlistViewModel = viewModel(
+        factory = viewModelFactory { WishlistViewModel(api) },
+    )
     val state by vm.state.collectAsState()
     var creating by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }

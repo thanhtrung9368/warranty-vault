@@ -8,6 +8,7 @@ import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -161,6 +162,21 @@ interface ApiService {
 
     @DELETE("api/v1/attachments/{id}")
     suspend fun deleteAttachment(@Path("id") id: String): OkResponse
+
+    // ---- AI receipt OCR ----
+    // Returns a DRAFT only — the caller pre-fills the device form and the user
+    // confirms before saving. Decryption/validation/catalog-mapping is server-side.
+    @Multipart
+    @POST("api/v1/ai/extract-receipt")
+    suspend fun extractReceipt(
+        @Part file: MultipartBody.Part,
+    ): DraftDeviceResponse
+
+    @GET("api/v1/ai/opt-in")
+    suspend fun getAIOptIn(): AIOptInResponse
+
+    @PUT("api/v1/ai/opt-in")
+    suspend fun setAIOptIn(@Body body: AIOptInRequest): AIOptInResponse
 
     // ---- Stats ----
     @GET("api/v1/stats")

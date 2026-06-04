@@ -8,12 +8,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarBorder
@@ -25,6 +27,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.auth.AuthStore
+import com.warrantyvault.app.ui.screens.dashboard.DashboardScreen
 import com.warrantyvault.app.ui.screens.devices.DeviceDetailScreen
 import com.warrantyvault.app.ui.screens.devices.DevicesScreen
 import com.warrantyvault.app.ui.screens.reminders.RemindersScreen
@@ -52,6 +56,7 @@ private enum class Tab(
     val outlined: ImageVector,
     val filled: ImageVector,
 ) {
+    Dashboard("Tổng quan", Icons.Outlined.GridView, Icons.Filled.GridView),
     Devices("Thiết bị", Icons.Outlined.Devices, Icons.Filled.Devices),
     Reminders("Nhắc", Icons.Outlined.Notifications, Icons.Filled.Notifications),
     Subscriptions("Gói", Icons.Outlined.CreditCard, Icons.Filled.CreditCard),
@@ -62,7 +67,11 @@ private enum class Tab(
 
 @Composable
 fun MainScreen(auth: AuthStore) {
-    var selected by remember { mutableStateOf(Tab.Devices) }
+    var selected by remember { mutableStateOf(Tab.Dashboard) }
+    val authStatus by auth.status.collectAsState()
+    val userName = (authStatus as? AuthStore.Status.Authenticated)?.user?.let { u ->
+        u.name?.takeIf { it.isNotBlank() } ?: u.email.substringBefore("@")
+    } ?: "Bạn"
     var openDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var openSubscriptionId by rememberSaveable { mutableStateOf<String?>(null) }
     var openWishlistId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -146,6 +155,11 @@ fun MainScreen(auth: AuthStore) {
                 label = "tab-crossfade",
             ) { current ->
                 when (current) {
+                    Tab.Dashboard     -> DashboardScreen(
+                        api = App.instance.api,
+                        userName = userName,
+                        onOpenDevice = { openDeviceId = it },
+                    )
                     Tab.Devices       -> DevicesScreen(
                         api = App.instance.api,
                         onOpenDevice = { openDeviceId = it },
@@ -166,6 +180,7 @@ fun MainScreen(auth: AuthStore) {
                     Tab.Settings      -> SettingsScreen(
                         auth = auth,
                         themeStore = App.instance.themeStore,
+                        api = App.instance.api,
                         onOpenPushDevices = { openPushDevices = true },
                     )
                 }

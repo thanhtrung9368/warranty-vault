@@ -51,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.warrantyvault.app.network.ApiClient
+import com.warrantyvault.app.ui.viewModelFactory
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceStatus
@@ -109,7 +111,9 @@ fun DevicesScreen(
     api: ApiService,
     onOpenDevice: (String) -> Unit = {},
 ) {
-    val vm: DevicesViewModel = remember { DevicesViewModel(api) }
+    val vm: DevicesViewModel = viewModel(
+        factory = viewModelFactory { DevicesViewModel(api) },
+    )
     val state by vm.state.collectAsState()
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }

@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.ui.viewModelFactory
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.DeviceStatus
@@ -100,7 +102,9 @@ private enum class StatTone { Primary, Warning, Success, Tertiary }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(api: ApiService) {
-    val vm = remember { StatsViewModel(api) }
+    val vm: StatsViewModel = viewModel(
+        factory = viewModelFactory { StatsViewModel(api) },
+    )
     val state by vm.state.collectAsState()
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()

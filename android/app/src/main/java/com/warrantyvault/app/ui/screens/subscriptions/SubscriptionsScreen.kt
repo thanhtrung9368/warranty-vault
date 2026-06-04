@@ -50,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.ui.viewModelFactory
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.BillingCycle
@@ -126,7 +128,9 @@ fun SubscriptionsScreen(
     api: ApiService,
     onOpenSubscription: (String) -> Unit = {},
 ) {
-    val vm: SubscriptionsViewModel = remember { SubscriptionsViewModel(api) }
+    val vm: SubscriptionsViewModel = viewModel(
+        factory = viewModelFactory { SubscriptionsViewModel(api) },
+    )
     val state by vm.state.collectAsState()
     var editing by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }

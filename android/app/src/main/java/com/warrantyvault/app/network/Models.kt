@@ -9,7 +9,12 @@ import kotlinx.serialization.Serializable
 data class AuthSuccess(val accessToken: String, val expiresAt: String, val user: User)
 
 @Serializable
-data class User(val id: String, val email: String, val name: String? = null)
+data class User(
+    val id: String,
+    val email: String,
+    val name: String? = null,
+    val aiOptIn: Boolean = false,
+)
 
 @Serializable
 data class RegisterInput(
@@ -161,6 +166,38 @@ data class DeviceInput(
     val warrantyNotes: String? = null,
     val fromWishlistId: String? = null,
 )
+
+// ---- AI receipt OCR ----
+
+// Draft from POST /api/v1/ai/extract-receipt. Mirrors Go DraftDevice / openapi.
+// Every field is nullable — the model returns null for anything it can't read.
+// NEVER persisted directly; the form pre-fills from it and the user confirms.
+@Serializable
+data class DraftDevice(
+    val name: String? = null,
+    val category: String? = null,
+    val brand: String? = null,
+    val brandId: String? = null,
+    val model: String? = null,
+    val serialNumber: String? = null,
+    val purchaseDate: String? = null,
+    val purchasePrice: Int? = null,
+    val purchasePlace: String? = null,
+    val storeId: String? = null,
+    val warrantyMonths: Int? = null,
+    val warrantyProviderId: String? = null,
+    val confidence: String = "medium",
+    val unmatched: List<String> = emptyList(),
+)
+
+@Serializable
+data class DraftDeviceResponse(val draft: DraftDevice)
+
+@Serializable
+data class AIOptInRequest(val enabled: Boolean)
+
+@Serializable
+data class AIOptInResponse(val aiOptIn: Boolean)
 
 // ---- Catalog ----
 

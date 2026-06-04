@@ -331,7 +331,7 @@ private suspend fun openAttachment(context: Context, att: Attachment) {
     val outFile = File(cacheDir, sanitize(att.fileName))
 
     withContext(Dispatchers.IO) {
-        val client = okhttp3.OkHttpClient()
+        val client = ApiClient.fileClient
         val req = Request.Builder()
             .url(url)
             .addHeader("Authorization", "Bearer $token")
