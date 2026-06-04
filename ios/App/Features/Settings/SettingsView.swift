@@ -1,10 +1,25 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import WarrantyVaultKit
 
 // ============================================================
 // SettingsView — App preferences, notifications, theme.
 // Port of SettingsScreen in screens-3.jsx.
 // ============================================================
+
+/// Wraps the exported backup JSON so `.fileExporter` can write it to a
+/// user-chosen location (Files / iCloud Drive / AirDrop).
+struct JSONBackupDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var data: Data
+    init(data: Data) { self.data = data }
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
 
 struct SettingsView: View {
     let client: APIClient
@@ -21,6 +36,15 @@ struct SettingsView: View {
     // AI receipt-scan opt-in.
     @State private var aiOptIn = false
     @State private var aiBusy = false
+
+    // Backup export / import.
+    @State private var backupBusy = false
+    @State private var exportDoc: JSONBackupDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var showImportModeDialog = false
+    @State private var importMode = "merge"
+    @State private var backupMessage: String?
 
     var body: some View {
         ScrollView {
@@ -47,6 +71,7 @@ struct SettingsView: View {
 
                 // Data
                 WVSectionHeader("Dữ liệu")
+                WVSectionFooter("File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn.")
                 dataSection
 
                 // Info
@@ -70,6 +95,84 @@ struct SettingsView: View {
         }
         .task {
             if let v = try? await client.getAIOptIn() { aiOptIn = v }
+        }
+        .fileExporter(
+            isPresented: $showExporter,
+            document: exportDoc,
+            contentType: .json,
+            defaultFilename: "warrantyvault-backup"
+        ) { result in
+            if case .failure = result { backupMessage = "Không lưu được file backup." }
+        }
+        .confirmationDialog(
+            "Khôi phục từ sao lưu",
+            isPresented: $showImportModeDialog,
+            titleVisibility: .visible
+        ) {
+            Button("Gộp (merge)") { importMode = "merge"; showImporter = true }
+            Button("Thay thế — xoá hết (replace)", role: .destructive) {
+                importMode = "replace"; showImporter = true
+            }
+            Button("Huỷ", role: .cancel) {}
+        } message: {
+            Text("“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.")
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImportSelection(result)
+        }
+        .alert("Sao lưu", isPresented: Binding(
+            get: { backupMessage != nil },
+            set: { if !$0 { backupMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { backupMessage = nil }
+        } message: {
+            Text(backupMessage ?? "")
+        }
+    }
+
+    // MARK: - Backup actions
+
+    private func exportBackup() {
+        backupBusy = true
+        Task {
+            defer { backupBusy = false }
+            do {
+                let data = try await client.exportBackup()
+                exportDoc = JSONBackupDocument(data: data)
+                showExporter = true
+            } catch {
+                backupMessage = "Không xuất được dữ liệu."
+            }
+        }
+    }
+
+    private func handleImportSelection(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result, let url = urls.first else {
+            if case .failure = result { backupMessage = "Không mở được file." }
+            return
+        }
+        backupBusy = true
+        Task {
+            defer { backupBusy = false }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                let res = try await client.importBackup(data, mode: importMode)
+                backupMessage = "Đã nhập \(res.imported) thiết bị, \(res.subImported) gói, "
+                    + "\(res.wishlistImported) mục yêu thích."
+                    + ((res.skipped + res.subSkipped + res.wishlistSkipped) > 0
+                        ? " Bỏ qua \(res.skipped + res.subSkipped + res.wishlistSkipped) bản ghi trùng."
+                        : "")
+            } catch let APIError.server(_, envelope) {
+                backupMessage = envelope.message ?? "File backup không hợp lệ."
+            } catch {
+                backupMessage = "Nhập thất bại — kiểm tra lại file."
+            }
         }
     }
 
@@ -227,17 +330,18 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         WVGroup {
-            WVRow(icon: "cloud", iconColor: WVColor.teal,
-                  title: "iCloud Sync", detail: "Bật", chevron: true)
-            WVDivider(inset: 60)
             WVRow(icon: "download", iconColor: WVColor.green,
-                  title: "Sao lưu", detail: "Hôm qua", chevron: true)
+                  title: backupBusy ? "Đang xử lý…" : "Sao lưu (xuất JSON)",
+                  chevron: true) {
+                guard !backupBusy else { return }
+                exportBackup()
+            }
             WVDivider(inset: 60)
             WVRow(icon: "upload", iconColor: WVColor.orange,
-                  title: "Khôi phục từ sao lưu", chevron: true)
-            WVDivider(inset: 60)
-            WVRow(icon: "trash", iconColor: WVColor.red,
-                  title: "Xoá toàn bộ dữ liệu", role: .destructive)
+                  title: "Khôi phục từ sao lưu", chevron: true) {
+                guard !backupBusy else { return }
+                showImportModeDialog = true
+            }
         }
     }
 

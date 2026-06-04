@@ -144,6 +144,50 @@ public actor APIClient {
         )
     }
 
+    /// POSTs an already-serialized body verbatim (no re-encoding) and returns
+    /// the raw response bytes. Used for backup import, where the payload is a
+    /// JSON file the user picked — we forward its bytes as-is rather than
+    /// decoding+re-encoding through `Encodable`.
+    func rawDataRequest(
+        _ method: String,
+        _ path: String,
+        query: [URLQueryItem] = [],
+        rawBody: Data? = nil,
+        contentType: String? = nil,
+        authenticated: Bool = true
+    ) async throws -> Data {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent(path),
+            resolvingAgainstBaseURL: false
+        )!
+        if !query.isEmpty { components.queryItems = query }
+        guard let url = components.url else { throw APIError.invalidURL }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let rawBody {
+            req.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = rawBody
+        }
+        if authenticated, let token = await tokenProvider() {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.transport("Invalid response")
+        }
+        if (200...299).contains(http.statusCode) { return data }
+        if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
+            throw APIError.server(status: http.statusCode, envelope: envelope)
+        }
+        throw APIError.server(
+            status: http.statusCode,
+            envelope: APIErrorEnvelope(error: "unknown", message: nil, fieldErrors: nil)
+        )
+    }
+
     // MARK: - Multipart upload (for attachments)
 
     func uploadMultipart<Out: Decodable>(

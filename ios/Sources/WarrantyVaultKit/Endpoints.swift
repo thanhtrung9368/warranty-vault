@@ -36,6 +36,33 @@ extension APIClient {
         try await request("POST", "/api/v1/auth/change-password", body: input)
     }
 
+    /// Permanently deletes the signed-in account. The server requires the
+    /// current password so a stolen bearer token can't nuke the account.
+    public func deleteAccount(password: String) async throws {
+        struct Body: Encodable { let password: String }
+        let _: EmptyResponse = try await request(
+            "DELETE", "/api/v1/auth/me", body: Body(password: password)
+        )
+    }
+
+    // MARK: - Backup
+
+    /// Downloads the full account backup as raw JSON bytes (v5 payload).
+    public func exportBackup() async throws -> Data {
+        try await rawDataRequest("GET", "/api/v1/backup/export")
+    }
+
+    /// Imports a previously-exported backup file. `mode` is "merge" or "replace".
+    public func importBackup(_ json: Data, mode: String) async throws -> ImportResult {
+        let data = try await rawDataRequest(
+            "POST", "/api/v1/backup/import",
+            query: [.init(name: "mode", value: mode)],
+            rawBody: json
+        )
+        struct Wrapper: Decodable { let result: ImportResult }
+        return try Self.decoder.decode(Wrapper.self, from: data).result
+    }
+
     // MARK: - Catalog
 
     public func catalog() async throws -> Catalog {

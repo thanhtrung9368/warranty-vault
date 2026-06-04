@@ -474,6 +474,18 @@ public struct WishlistStats: Decodable, Sendable {
     public let totalCurrentPriceWatching: Int
 }
 
+// MARK: - Backup import result
+
+/// Counts returned by `POST /api/v1/backup/import` (mirrors services.ImportResult).
+public struct ImportResult: Decodable, Sendable {
+    public let imported: Int
+    public let skipped: Int
+    public let wishlistImported: Int
+    public let wishlistSkipped: Int
+    public let subImported: Int
+    public let subSkipped: Int
+}
+
 // MARK: - Upcoming reminders
 
 public struct UpcomingReminder: Decodable, Sendable, Identifiable {

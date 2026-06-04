@@ -12,6 +12,8 @@ struct AccountView: View {
     @State private var showChangePassword = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
+    @State private var deletePassword = ""
+    @State private var deleteError: String?
 
     var body: some View {
         ScrollView {
@@ -79,10 +81,12 @@ struct AccountView: View {
 
                 // Delete account
                 Spacer().frame(height: 20)
-                WVButton("Yêu cầu xoá tài khoản",
+                WVButton(isDeleting ? "Đang xoá…" : "Yêu cầu xoá tài khoản",
                          kind: .destructiveGhost) {
+                    deletePassword = ""
                     showDeleteAlert = true
                 }
+                .disabled(isDeleting)
                 .padding(.horizontal, WVSpacing.gutter)
 
                 Spacer().frame(height: 24)
@@ -93,12 +97,43 @@ struct AccountView: View {
             ChangePasswordSheet(client: client)
         }
         .alert("Xoá tài khoản?", isPresented: $showDeleteAlert) {
-            Button("Huỷ", role: .cancel) {}
-            Button("Xoá", role: .destructive) {
-                // In a real implementation, call the API
-            }
+            SecureField("Mật khẩu hiện tại", text: $deletePassword)
+            Button("Huỷ", role: .cancel) { deletePassword = "" }
+            Button("Xoá vĩnh viễn", role: .destructive) { performDelete() }
         } message: {
-            Text("Toàn bộ dữ liệu sẽ bị xoá vĩnh viễn. Thao tác này không thể hoàn tác.")
+            Text("Nhập mật khẩu để xác nhận. Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác.")
+        }
+        .alert("Không xoá được", isPresented: Binding(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("OK", role: .cancel) { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
+    }
+
+    private func performDelete() {
+        let pw = deletePassword
+        deletePassword = ""
+        guard !pw.isEmpty else {
+            deleteError = "Nhập mật khẩu để xác nhận."
+            return
+        }
+        isDeleting = true
+        Task {
+            defer { isDeleting = false }
+            do {
+                // On success auth.status flips to .unauthenticated and RootView
+                // swaps to the login screen automatically.
+                try await auth.deleteAccount(password: pw)
+            } catch let APIError.server(_, envelope) {
+                deleteError = envelope.message
+                    ?? envelope.fieldErrors?.values.first?.first
+                    ?? "Mật khẩu không đúng hoặc lỗi máy chủ."
+            } catch {
+                deleteError = "Không kết nối được máy chủ."
+            }
         }
     }
 

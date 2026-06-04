@@ -86,6 +86,15 @@ public final class AuthStore: ObservableObject {
         status = .unauthenticated
     }
 
+    /// Permanently deletes the account (requires the current password), then
+    /// clears the keychain and drops to the unauthenticated state. Throws on
+    /// failure (e.g. wrong password) so the caller can surface the error.
+    public func deleteAccount(password: String) async throws {
+        try await client.deleteAccount(password: password)
+        keychain.clear()
+        status = .unauthenticated
+    }
+
     private func deviceLabel() -> String {
 #if canImport(UIKit)
         return UIDevice.current.model
