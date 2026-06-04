@@ -12,7 +12,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO "User" (id, email, "passwordHash", name, "createdAt", "updatedAt", "passwordChangedAt")
 VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt"
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn"
 `
 
 type CreateUserParams struct {
@@ -38,6 +38,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AiOptIn,
 	)
 	return i, err
 }
@@ -52,7 +53,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt" FROM "User" WHERE email = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn" FROM "User" WHERE email = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -66,12 +67,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AiOptIn,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt" FROM "User" WHERE id = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn" FROM "User" WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -85,8 +87,26 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AiOptIn,
 	)
 	return i, err
+}
+
+const setUserAIOptIn = `-- name: SetUserAIOptIn :exec
+UPDATE "User"
+SET "aiOptIn" = $2,
+    "updatedAt" = NOW()
+WHERE id = $1
+`
+
+type SetUserAIOptInParams struct {
+	ID      string `json:"id"`
+	AiOptIn bool   `json:"aiOptIn"`
+}
+
+func (q *Queries) SetUserAIOptIn(ctx context.Context, arg SetUserAIOptInParams) error {
+	_, err := q.db.Exec(ctx, setUserAIOptIn, arg.ID, arg.AiOptIn)
+	return err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec

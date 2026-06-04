@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
@@ -31,14 +32,16 @@ type Deps struct {
 	Limiter    ratelimit.Limiter
 	Email      *email.Client
 	Dispatcher *push.Dispatcher
+	AI         *ai.Client
 }
 
 // ---- response shapes -------------------------------------------------------
 
 type userDTO struct {
-	ID    string  `json:"id"`
-	Email string  `json:"email"`
-	Name  *string `json:"name"`
+	ID      string  `json:"id"`
+	Email   string  `json:"email"`
+	Name    *string `json:"name"`
+	AiOptIn bool    `json:"aiOptIn"`
 }
 
 type authTokenResponse struct {
@@ -243,7 +246,7 @@ func Register(d Deps) http.HandlerFunc {
 		httpx.WriteJSON(w, http.StatusCreated, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn},
 		})
 	}
 }
@@ -345,7 +348,7 @@ func Login(d Deps) http.HandlerFunc {
 		httpx.WriteJSON(w, http.StatusOK, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn},
 		})
 	}
 }
@@ -383,8 +386,14 @@ func Me(d Deps) http.HandlerFunc {
 			unauthorized(w)
 			return
 		}
+		// aiOptIn lives on the User row, not the session — read it so clients
+		// can render the Settings toggle state.
+		aiOptIn := false
+		if u, uerr := store.New(d.DB).GetUserByID(r.Context(), us.UserID); uerr == nil {
+			aiOptIn = u.AiOptIn
+		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]userDTO{
-			"user": {ID: us.UserID, Email: us.Email, Name: us.Name},
+			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn},
 		})
 	}
 }
@@ -763,4 +772,3 @@ func DeleteMe(d Deps) http.HandlerFunc {
 // osRemoveAll is a thin wrapper indirected through a var so tests can stub it
 // without pulling in os.RemoveAll directly across packages.
 var osRemoveAll = os.RemoveAll
-

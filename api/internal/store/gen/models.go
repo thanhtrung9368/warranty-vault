@@ -147,6 +147,7 @@ type User struct {
 	PasswordChangedAt pgtype.Timestamp `json:"passwordChangedAt"`
 	CreatedAt         pgtype.Timestamp `json:"createdAt"`
 	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
+	AiOptIn           bool             `json:"aiOptIn"`
 }
 
 type Warranty struct {

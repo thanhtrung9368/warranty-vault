@@ -55,6 +55,16 @@ SELECT COUNT(*)::bigint AS count
 FROM "Attachment"
 WHERE "deviceId" = $1;
 
+-- name: CountAttachmentsByDeviceIDs :many
+-- Batch attachment counts for ListDevices: one grouped query instead of one
+-- COUNT per device. Devices with zero attachments are simply absent from the
+-- result set — the caller defaults missing ids to 0.
+SELECT a."deviceId" AS device_id, COUNT(*)::bigint AS count
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE a."deviceId" = ANY($1::text[]) AND d."userId" = $2
+GROUP BY a."deviceId";
+
 -- name: SumAttachmentBytesByUser :one
 -- For MAX_UPLOAD_BYTES_PER_USER (100 MB) cap. COALESCE so the empty-set
 -- case returns 0 instead of NULL.

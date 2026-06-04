@@ -24,9 +24,14 @@ WHERE s."tokenHash" = $1
 LIMIT 1;
 
 -- name: TouchSession :exec
+-- Bumps lastSeenAt, but only when the column is stale by ≥ 5 minutes. This
+-- turns the per-request touch into a no-op for the vast majority of requests
+-- (a session is "touched" at most once per 5-minute window). 0 rows affected
+-- is expected and not an error — the :exec contract ignores the row count.
 UPDATE "Session"
 SET "lastSeenAt" = NOW()
-WHERE id = $1;
+WHERE id = $1
+  AND ("lastSeenAt" IS NULL OR "lastSeenAt" < NOW() - INTERVAL '5 minutes');
 
 -- name: ExtendSession :exec
 UPDATE "Session"

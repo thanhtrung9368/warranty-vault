@@ -210,28 +210,40 @@ func Delete(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) 
 	return nil
 }
 
-// OpenStream returns the decrypted bytes of the attachment as an
-// io.ReadCloser, plus the MIME and original filename. ≤5 MB files are
-// buffered in memory — well within the request budget.
-func OpenStream(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) (mime, name string, body io.ReadCloser, size int64, err error) {
+// decryptAttachment reads + decrypts an owned attachment's blob into memory.
+// Plaintext bytes never touch disk (matching OpenStream). Returns notFound on
+// any miss / decrypt failure to avoid leaking which IDs exist. Shared by
+// OpenStream (file download) and the AI extraction service.
+func decryptAttachment(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) (plain []byte, mime, name string, err error) {
 	att, gerr := GetAttachmentForUser(ctx, db, userID, attachmentID)
 	if gerr != nil {
-		return "", "", nil, 0, gerr
+		return nil, "", "", gerr
 	}
 	root := files.PrivateUploadRoot()
 	ct, rerr := files.ReadEncrypted(root, att.StoragePath)
 	if rerr != nil {
-		return "", "", nil, 0, notFound("Không tìm thấy file")
+		return nil, "", "", notFound("Không tìm thấy file")
 	}
 	master, merr := files.LoadMasterKey()
 	if merr != nil {
-		return "", "", nil, 0, internalErr(merr.Error())
+		return nil, "", "", internalErr(merr.Error())
 	}
-	plain, derr := files.Decrypt(ct, att.Iv, att.WrappedKey, master)
+	plainBytes, derr := files.Decrypt(ct, att.Iv, att.WrappedKey, master)
 	if derr != nil {
 		// Decrypt failure (key mismatch / tag fail) → leak nothing, treat as
 		// missing.
-		return "", "", nil, 0, notFound("Không tìm thấy file")
+		return nil, "", "", notFound("Không tìm thấy file")
 	}
-	return att.FileType, att.FileName, io.NopCloser(bytes.NewReader(plain)), int64(len(plain)), nil
+	return plainBytes, att.FileType, att.FileName, nil
+}
+
+// OpenStream returns the decrypted bytes of the attachment as an
+// io.ReadCloser, plus the MIME and original filename. ≤5 MB files are
+// buffered in memory — well within the request budget.
+func OpenStream(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) (mime, name string, body io.ReadCloser, size int64, err error) {
+	plain, ft, fn, derr := decryptAttachment(ctx, db, userID, attachmentID)
+	if derr != nil {
+		return "", "", nil, 0, derr
+	}
+	return ft, fn, io.NopCloser(bytes.NewReader(plain)), int64(len(plain)), nil
 }

@@ -150,27 +150,49 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 	}
 
 	// Hydrate per-row attachment count + effective warranty end. The TS layer
-	// does this via Prisma's `_count` + an `include`. We issue two cheap
-	// fan-out queries per row; for the typical case (≤ MAX_DEVICES_PER_USER
-	// = 50) this is fine. If it ever becomes a hotspot, swap for a single
-	// joined query with array_agg.
+	// does this via Prisma's `_count` + an `include`. Rather than two queries
+	// per row (~101 round-trips for a full 50-device list), we gather the
+	// device ids and issue two batch queries (`= ANY($1)`), then index the
+	// results by deviceId in Go — same pattern as ExportBackup in backup.go.
 	out := make([]DeviceListItem, 0, len(rows))
+	if len(rows) == 0 {
+		return out, nil
+	}
+
+	deviceIDs := make([]string, 0, len(rows))
 	for _, d := range rows {
-		count, err := q.CountAttachmentsByDevice(ctx, d.ID)
-		if err != nil {
-			return nil, fmt.Errorf("count attachments: %w", err)
-		}
-		warranties, err := q.ListWarrantiesByDevice(ctx, store.ListWarrantiesByDeviceParams{
-			DeviceId: d.ID,
-			UserId:   userID,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("list warranties: %w", err)
-		}
-		end := effectiveWarrantyEnd(warranties)
+		deviceIDs = append(deviceIDs, d.ID)
+	}
+
+	warrantyRows, err := q.ListWarrantiesByDeviceIDs(ctx, store.ListWarrantiesByDeviceIDsParams{
+		Column1: deviceIDs,
+		UserId:  userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list warranties: %w", err)
+	}
+	warByDevice := map[string][]store.Warranty{}
+	for _, w := range warrantyRows {
+		warByDevice[w.DeviceId] = append(warByDevice[w.DeviceId], w)
+	}
+
+	countRows, err := q.CountAttachmentsByDeviceIDs(ctx, store.CountAttachmentsByDeviceIDsParams{
+		Column1: deviceIDs,
+		UserId:  userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("count attachments: %w", err)
+	}
+	countByDevice := map[string]int64{}
+	for _, c := range countRows {
+		countByDevice[c.DeviceID] = c.Count
+	}
+
+	for _, d := range rows {
+		end := effectiveWarrantyEnd(warByDevice[d.ID])
 		out = append(out, DeviceListItem{
 			Device:               d,
-			AttachmentCount:      count,
+			AttachmentCount:      countByDevice[d.ID],
 			EffectiveWarrantyEnd: end,
 		})
 	}

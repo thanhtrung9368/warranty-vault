@@ -16,5 +16,11 @@ SET "passwordHash" = $2,
     "updatedAt" = NOW()
 WHERE id = $1;
 
+-- name: SetUserAIOptIn :exec
+UPDATE "User"
+SET "aiOptIn" = $2,
+    "updatedAt" = NOW()
+WHERE id = $1;
+
 -- name: DeleteUser :exec
 DELETE FROM "User" WHERE id = $1;

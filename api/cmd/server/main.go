@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/config"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/handlers"
@@ -48,6 +49,7 @@ func main() {
 		Limiter:    ratelimit.NewFromEnv(),
 		Email:      email.NewFromEnv(),
 		Dispatcher: push.NewFromEnv(),
+		AI:         ai.NewFromEnv(),
 	}
 
 	mux := http.NewServeMux()
@@ -73,6 +75,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/push/test", handlers.TestPush(deps))
 	handlers.RegisterCron(mux, deps)
 	handlers.RegisterBackup(mux, deps)
+	handlers.RegisterAI(mux, deps)
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})

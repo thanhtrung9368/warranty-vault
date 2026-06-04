@@ -22,6 +22,47 @@ func (q *Queries) CountAttachmentsByDevice(ctx context.Context, deviceid string)
 	return count, err
 }
 
+const countAttachmentsByDeviceIDs = `-- name: CountAttachmentsByDeviceIDs :many
+SELECT a."deviceId" AS device_id, COUNT(*)::bigint AS count
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE a."deviceId" = ANY($1::text[]) AND d."userId" = $2
+GROUP BY a."deviceId"
+`
+
+type CountAttachmentsByDeviceIDsParams struct {
+	Column1 []string `json:"column_1"`
+	UserId  string   `json:"userId"`
+}
+
+type CountAttachmentsByDeviceIDsRow struct {
+	DeviceID string `json:"device_id"`
+	Count    int64  `json:"count"`
+}
+
+// Batch attachment counts for ListDevices: one grouped query instead of one
+// COUNT per device. Devices with zero attachments are simply absent from the
+// result set — the caller defaults missing ids to 0.
+func (q *Queries) CountAttachmentsByDeviceIDs(ctx context.Context, arg CountAttachmentsByDeviceIDsParams) ([]CountAttachmentsByDeviceIDsRow, error) {
+	rows, err := q.db.Query(ctx, countAttachmentsByDeviceIDs, arg.Column1, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountAttachmentsByDeviceIDsRow
+	for rows.Next() {
+		var i CountAttachmentsByDeviceIDsRow
+		if err := rows.Scan(&i.DeviceID, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createAttachment = `-- name: CreateAttachment :one
 INSERT INTO "Attachment" (
     id,

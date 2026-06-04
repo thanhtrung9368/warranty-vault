@@ -2,15 +2,36 @@ package push
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 )
+
+// webPushTimeout bounds a single web-push delivery. webpush.SendNotification
+// otherwise uses http.DefaultClient, which has no Timeout — a hung push
+// service endpoint would block a cron goroutine indefinitely.
+const webPushTimeout = 10 * time.Second
+
+// webPushClient is the shared HTTP client for all web-push deliveries. Built
+// once at package init: a per-call client would leak idle connections and
+// defeat keep-alive reuse across the cron fan-out.
+var webPushClient = &http.Client{
+	Timeout: webPushTimeout,
+	Transport: &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 8,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+	},
+}
 
 // WebSub is the W3C Push API subscription shape we need to deliver a message.
 // Mirrors the `{ endpoint, p256dh, auth }` blob the browser hands the client.
@@ -88,13 +109,20 @@ func (w *WebPusher) SendWeb(sub WebSub, payload Payload) Result {
 		return Result{Ok: false, Error: err.Error()}
 	}
 
-	resp, err := webpush.SendNotification(body, &webpush.Subscription{
+	// SendWeb's interface has no ctx param (the Dispatcher contract predates
+	// it), so we derive a bounded context here. The shared webPushClient also
+	// carries a Timeout — both guard against a hung push endpoint.
+	ctx, cancel := context.WithTimeout(context.Background(), webPushTimeout)
+	defer cancel()
+
+	resp, err := webpush.SendNotificationWithContext(ctx, body, &webpush.Subscription{
 		Endpoint: sub.Endpoint,
 		Keys: webpush.Keys{
 			P256dh: sub.P256dh,
 			Auth:   sub.Auth,
 		},
 	}, &webpush.Options{
+		HTTPClient:      webPushClient,
 		Subscriber:      w.cfg.subject,
 		VAPIDPublicKey:  w.cfg.publicKey,
 		VAPIDPrivateKey: w.cfg.privateKey,

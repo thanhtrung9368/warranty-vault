@@ -16,6 +16,11 @@ type Config struct {
 	SessionSecret string
 }
 
+// AnthropicAPIKey / AnthropicModel are read directly from the env by
+// ai.NewFromEnv() (mirroring email/ratelimit which self-read). They are NOT
+// part of Config.validate() — the OCR feature degrades gracefully when the
+// key is absent, so the server still boots without it.
+
 func Load() (*Config, error) {
 	// Best-effort load; ignore error if .env is absent.
 	_ = godotenv.Load()

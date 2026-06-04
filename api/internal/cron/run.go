@@ -12,17 +12,24 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
+
+// pushFanoutLimit caps how many push deliveries run concurrently within a
+// single dispatch() call. Mirrors the bound used by Snapshot in
+// services/stats.go.
+const pushFanoutLimit = 8
 
 // Stats summarises one Run pass. All counters are best-effort — failures on
 // any one row are logged and skipped, never aborting the rest of the job.
@@ -120,6 +127,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// zone, so comparisons line up. Set TZ=Asia/Ho_Chi_Minh in deployment.
 	now := time.Now()
 	stats := Stats{}
+	// statsMu guards the push counters in `stats`, which are now incremented
+	// from multiple goroutines inside dispatch(). The non-push counters are
+	// only touched on the (sequential) outer loops, so they need no lock.
+	var statsMu sync.Mutex
 	q := store.New(db)
 
 	// Cache PushSubscription lists per user to avoid hammering the DB during
@@ -151,34 +162,52 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	}
 
 	// dispatch fans payload to every push sub of userID, accounting for
-	// Gone/Failed counters and deleting dead rows.
+	// Gone/Failed counters and deleting dead rows. Deliveries run concurrently
+	// (bounded by pushFanoutLimit) since each Send() is a blocking network
+	// call; the stats counters are guarded by statsMu because they are now
+	// written from multiple goroutines.
 	dispatch := func(userID string, payload push.Payload, kind string, extra ...any) {
 		subs := pushFor(userID)
+		g, gctx := errgroup.WithContext(ctx)
+		g.SetLimit(pushFanoutLimit)
 		for _, s := range subs {
-			res := dispatcher.Send(s, payload)
-			args := append([]any{
-				"user", userID,
-				"kind", kind,
-				"platform", s.Platform,
-				"sub", s.ID,
-				"ok", res.Ok,
-			}, extra...)
-			if res.Ok {
-				stats.PushesSent++
-				slog.Info("push", args...)
-				continue
-			}
-			if res.Gone {
-				stats.PushesGone++
-				if _, err := q.DeletePushSubscriptionByIDInternal(ctx, s.ID); err != nil {
-					slog.Error("cron: delete gone push sub failed", "sub", s.ID, "err", err)
+			s := s
+			g.Go(func() error {
+				res := dispatcher.Send(s, payload)
+				args := append([]any{
+					"user", userID,
+					"kind", kind,
+					"platform", s.Platform,
+					"sub", s.ID,
+					"ok", res.Ok,
+				}, extra...)
+				if res.Ok {
+					statsMu.Lock()
+					stats.PushesSent++
+					statsMu.Unlock()
+					slog.Info("push", args...)
+					return nil
 				}
-				slog.Info("push", append(args, "gone", true, "err", res.Error)...)
-				continue
-			}
-			stats.PushesFailed++
-			slog.Warn("push", append(args, "err", res.Error)...)
+				if res.Gone {
+					statsMu.Lock()
+					stats.PushesGone++
+					statsMu.Unlock()
+					if _, err := q.DeletePushSubscriptionByIDInternal(gctx, s.ID); err != nil {
+						slog.Error("cron: delete gone push sub failed", "sub", s.ID, "err", err)
+					}
+					slog.Info("push", append(args, "gone", true, "err", res.Error)...)
+					return nil
+				}
+				statsMu.Lock()
+				stats.PushesFailed++
+				statsMu.Unlock()
+				slog.Warn("push", append(args, "err", res.Error)...)
+				return nil
+			})
 		}
+		// The goroutines never return an error (per-row failures are folded
+		// into the counters), so Wait only serves as a barrier here.
+		_ = g.Wait()
 	}
 
 	// ─── 1. Warranty expiry notices (7d / 30d) ─────────────────────────────

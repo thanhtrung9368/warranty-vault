@@ -28,6 +28,7 @@ tags:
   - { name: wishlist }
   - { name: push }
   - { name: catalog }
+  - { name: ai }
 
 security:
   - bearerAuth: []
@@ -786,6 +787,83 @@ paths:
                   subsRenewalNotified: { type: integer }
         '401': { description: 'Missing or wrong CRON_SECRET' }
 
+  /api/v1/ai/extract-receipt:
+    post:
+      tags: [ai]
+      summary: OCR một ảnh hoá đơn / phiếu bảo hành, trả về DRAFT để người dùng xác nhận (không tự lưu)
+      description: >
+        Nhận ảnh (multipart file HOẶC attachmentId của ảnh đã upload), gửi qua
+        dịch vụ AI để trích xuất thông tin thiết bị + bảo hành, trả về bản nháp.
+        KHÔNG bao giờ tạo Device — client tự điền form và người dùng xác nhận.
+        Cần ANTHROPIC_API_KEY trên server; nếu chưa cấu hình trả về 503.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attachmentId]
+              properties:
+                attachmentId: { type: string, description: 'ID ảnh đã upload (reuse decrypt path)' }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: 'Ảnh JPEG/PNG/WEBP, tối đa 5MB' }
+      responses:
+        '200':
+          description: Bản nháp (chưa lưu)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [draft]
+                properties:
+                  draft: { $ref: '#/components/schemas/DraftDevice' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'Người dùng chưa bật opt-in AI (ai_optin_required)' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { description: 'Lỗi dịch vụ AI (ai_upstream)' }
+        '503': { description: 'Tính năng chưa được bật (feature_disabled)' }
+
+  /api/v1/ai/opt-in:
+    get:
+      tags: [ai]
+      summary: Trạng thái opt-in quét hoá đơn AI của người dùng
+      responses:
+        '200':
+          description: Trạng thái hiện tại
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { aiOptIn: { type: boolean } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [ai]
+      summary: Bật/tắt opt-in quét hoá đơn AI (ảnh sẽ gửi tới dịch vụ AI bên thứ ba)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties: { enabled: { type: boolean } }
+      responses:
+        '200':
+          description: Trạng thái mới
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { aiOptIn: { type: boolean } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -858,6 +936,33 @@ components:
             type: array
             items: { type: string }
 
+    DraftDevice:
+      type: object
+      description: >
+        Bản nháp trích xuất từ ảnh hoá đơn / phiếu bảo hành. Tên trường khớp
+        DeviceInput để client điền thẳng vào form. Mọi trường đều nullable. Các
+        *Id chỉ được set khi map chắc chắn với danh mục; còn lại giữ free-text và
+        liệt kê trong `unmatched`.
+      required: [confidence, unmatched]
+      properties:
+        name: { type: string, nullable: true }
+        category: { type: string, nullable: true, description: 'Mã danh mục nếu map được, ngược lại free-text' }
+        brand: { type: string, nullable: true }
+        brandId: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        purchaseDate: { type: string, nullable: true, description: 'YYYY-MM-DD' }
+        purchasePrice: { type: integer, format: int64, nullable: true, description: 'VND' }
+        purchasePlace: { type: string, nullable: true }
+        storeId: { type: string, nullable: true }
+        warrantyMonths: { type: integer, nullable: true }
+        warrantyProviderId: { type: string, nullable: true }
+        confidence: { type: string, enum: [high, medium, low] }
+        unmatched:
+          type: array
+          items: { type: string }
+          description: 'Tên các trường để free-text vì không khớp danh mục'
+
     User:
       type: object
       required: [id, email]
@@ -865,6 +970,7 @@ components:
         id: { type: string }
         email: { type: string, format: email }
         name: { type: string, nullable: true }
+        aiOptIn: { type: boolean, description: 'Người dùng đã bật tính năng quét hoá đơn AI (mặc định false)' }
 
     RegisterInput:
       type: object

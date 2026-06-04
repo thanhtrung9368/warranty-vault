@@ -43,6 +43,12 @@ func CheckUserWrite(ctx context.Context, limiter Limiter, userID string) (Result
 	return limiter.Check(ctx, "write:user:"+userID, writeLimit, writeWindow)
 }
 
+// CheckAIExtract enforces a tighter per-user limit on the OCR endpoint (each
+// call hits a paid third-party API): 10 requests / 60s.
+func CheckAIExtract(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "ai:extract:user:"+userID, 10, writeWindow)
+}
+
 // FormatRetry mirrors website/src/lib/rate-limit.ts::formatRetry.
 // >=60s -> "X phút" (ceil); else "X giây".
 func FormatRetry(seconds int) string {

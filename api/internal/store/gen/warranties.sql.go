@@ -437,6 +437,56 @@ func (q *Queries) ListWarrantiesByDevice(ctx context.Context, arg ListWarranties
 	return items, nil
 }
 
+const listWarrantiesByDeviceIDs = `-- name: ListWarrantiesByDeviceIDs :many
+SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt"
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE w."deviceId" = ANY($1::text[]) AND d."userId" = $2
+ORDER BY w.type ASC, w."endDate" DESC
+`
+
+type ListWarrantiesByDeviceIDsParams struct {
+	Column1 []string `json:"column_1"`
+	UserId  string   `json:"userId"`
+}
+
+// Batch fan-out for ListDevices: returns every warranty across a set of
+// devices in one round-trip, joined through Device for ownership. Caller
+// indexes the rows by "deviceId" in Go (see services/devices.go).
+func (q *Queries) ListWarrantiesByDeviceIDs(ctx context.Context, arg ListWarrantiesByDeviceIDsParams) ([]Warranty, error) {
+	rows, err := q.db.Query(ctx, listWarrantiesByDeviceIDs, arg.Column1, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Warranty
+	for rows.Next() {
+		var i Warranty
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.Type,
+			&i.Provider,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Months,
+			&i.Cost,
+			&i.Address,
+			&i.Phone,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWarrantiesInWindow = `-- name: ListWarrantiesInWindow :many
 
 SELECT

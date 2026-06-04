@@ -83,6 +83,16 @@ SELECT COUNT(*)::bigint AS count
 FROM "Warranty"
 WHERE "deviceId" = $1;
 
+-- name: ListWarrantiesByDeviceIDs :many
+-- Batch fan-out for ListDevices: returns every warranty across a set of
+-- devices in one round-trip, joined through Device for ownership. Caller
+-- indexes the rows by "deviceId" in Go (see services/devices.go).
+SELECT w.*
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE w."deviceId" = ANY($1::text[]) AND d."userId" = $2
+ORDER BY w.type ASC, w."endDate" DESC;
+
 -- ─── Reminders ────────────────────────────────────────────────────────────
 
 -- name: GetActiveReminderForWarranty :one

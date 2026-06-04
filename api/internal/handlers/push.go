@@ -4,6 +4,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
@@ -144,31 +147,50 @@ func TestPush(deps Deps) http.HandlerFunc {
 			Tag:   "wv-test-push",
 		}
 
-		sent, failed := 0, 0
+		// Fan out the test deliveries concurrently (bounded), since each
+		// Send() is a blocking network call. `sent`/`failed` are guarded by a
+		// mutex because they are written from multiple goroutines.
+		var (
+			sent, failed int
+			countMu      sync.Mutex
+		)
+		g, gctx := errgroup.WithContext(r.Context())
+		g.SetLimit(8)
 		for _, row := range rows {
-			sub := push.Subscription{
-				ID:       row.ID,
-				Platform: row.Platform,
-				Endpoint: row.Endpoint,
-				P256dh:   row.P256dh,
-				Auth:     row.Auth,
-			}
-			res := deps.Dispatcher.Send(sub, payload)
-			if res.Ok {
-				sent++
-				continue
-			}
-			if res.Gone {
-				failed++
-				if _, derr := q.DeletePushSubscriptionByIDInternal(r.Context(), row.ID); derr != nil {
-					slog.Error("test push: delete gone sub failed", "sub", row.ID, "err", derr)
+			row := row
+			g.Go(func() error {
+				sub := push.Subscription{
+					ID:       row.ID,
+					Platform: row.Platform,
+					Endpoint: row.Endpoint,
+					P256dh:   row.P256dh,
+					Auth:     row.Auth,
 				}
-				slog.Info("test push", "user", us.UserID, "sub", row.ID, "platform", row.Platform, "gone", true, "err", res.Error)
-				continue
-			}
-			failed++
-			slog.Warn("test push", "user", us.UserID, "sub", row.ID, "platform", row.Platform, "err", res.Error)
+				res := deps.Dispatcher.Send(sub, payload)
+				if res.Ok {
+					countMu.Lock()
+					sent++
+					countMu.Unlock()
+					return nil
+				}
+				if res.Gone {
+					countMu.Lock()
+					failed++
+					countMu.Unlock()
+					if _, derr := q.DeletePushSubscriptionByIDInternal(gctx, row.ID); derr != nil {
+						slog.Error("test push: delete gone sub failed", "sub", row.ID, "err", derr)
+					}
+					slog.Info("test push", "user", us.UserID, "sub", row.ID, "platform", row.Platform, "gone", true, "err", res.Error)
+					return nil
+				}
+				countMu.Lock()
+				failed++
+				countMu.Unlock()
+				slog.Warn("test push", "user", us.UserID, "sub", row.ID, "platform", row.Platform, "err", res.Error)
+				return nil
+			})
 		}
+		_ = g.Wait()
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]int{
 			"sent":   sent,
