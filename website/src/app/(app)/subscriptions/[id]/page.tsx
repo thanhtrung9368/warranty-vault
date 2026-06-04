@@ -16,7 +16,7 @@ import {
 import { differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
-import { PriceHistoryChart } from '@/components/charts/price-history';
+import { PriceHistoryChart } from '@/components/charts/lazy';
 import {
   LogPaymentDialog,
   RenewNowButton,

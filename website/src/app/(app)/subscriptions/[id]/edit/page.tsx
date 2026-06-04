@@ -16,7 +16,10 @@ export default async function EditSubscriptionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const res = await api.subscriptions.get(id);
+  const [res, catalog] = await Promise.all([
+    api.subscriptions.get(id),
+    getDeviceFormCatalog(),
+  ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
     return (
@@ -26,7 +29,6 @@ export default async function EditSubscriptionPage({
     );
   }
   const sub = res.data.subscription;
-  const catalog = await getDeviceFormCatalog();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

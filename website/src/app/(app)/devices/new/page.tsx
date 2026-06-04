@@ -12,7 +12,7 @@ export default async function NewDevicePage({
   searchParams: Promise<{ fromWishlist?: string }>;
 }) {
   const sp = await searchParams;
-  await requireUser();
+  const user = await requireUser();
   const [catalog, fromItem] = await Promise.all([
     getDeviceFormCatalog(),
     sp.fromWishlist
@@ -57,6 +57,7 @@ export default async function NewDevicePage({
         catalog={catalog}
         initial={initial}
         fromWishlistId={fromItem?.id ?? undefined}
+        aiEnabled={user.aiOptIn}
       />
     </div>
   );

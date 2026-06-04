@@ -42,6 +42,9 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    // Tree-shake barrel-file imports so only the icons/helpers actually
+    // used get bundled — cuts dead weight from these large packages.
+    optimizePackageImports: ['recharts', 'lucide-react', 'date-fns'],
   },
   async headers() {
     return [

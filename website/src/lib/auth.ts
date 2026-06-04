@@ -14,6 +14,7 @@ export type CurrentUser = {
   id: string;
   email: string;
   name: string | null;
+  aiOptIn: boolean;
 };
 
 // React `cache()` dedupes within a single request — multiple RSCs calling
@@ -26,7 +27,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const res = await api.auth.me();
   if (!res.ok) return null;
   const u = res.data.user;
-  return { id: u.id, email: u.email, name: u.name };
+  return { id: u.id, email: u.email, name: u.name, aiOptIn: Boolean(u.aiOptIn) };
 });
 
 // For server components / server actions invoked from the web. Redirects

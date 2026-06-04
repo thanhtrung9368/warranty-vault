@@ -1,9 +1,10 @@
-import { Bell, Database, Info, Lock, Palette, Trash2 } from 'lucide-react';
+import { Bell, Database, Info, Lock, Palette, ScanLine, Trash2 } from 'lucide-react';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
 import { PushSettings } from '@/components/push-settings';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { DeleteAccountForm } from '@/components/delete-account-form';
+import { AISettings } from '@/components/ai-settings';
 import { requireUser } from '@/lib/auth';
 
 export default async function SettingsPage() {
@@ -29,6 +30,10 @@ export default async function SettingsPage() {
 
       <Section icon={<Lock className="h-4 w-4" />} tint="tint-violet" title="Đổi mật khẩu">
         <ChangePasswordForm />
+      </Section>
+
+      <Section icon={<ScanLine className="h-4 w-4" />} tint="tint-primary" title="Quét hoá đơn (AI)">
+        <AISettings initialEnabled={user.aiOptIn} />
       </Section>
 
       <Section icon={<Database className="h-4 w-4" />} tint="tint-sky" title="Sao lưu & khôi phục">

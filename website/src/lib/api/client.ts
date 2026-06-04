@@ -37,6 +37,10 @@ export type ApiFetchOpts = {
   signal?: AbortSignal;
   // Extra headers, merged after auth + content-type.
   headers?: Record<string, string>;
+  // Opt into Next's Data Cache for this request. When set, the default
+  // `cache: 'no-store'` is dropped and `next: { revalidate, tags }` is used
+  // instead. Only safe for global, non-user-specific data (e.g. the catalog).
+  next?: { revalidate?: number | false; tags?: string[] };
 };
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
@@ -78,17 +82,19 @@ export async function apiFetch<T>(
       body: payload,
       signal: opts.signal,
       // Server-side fetch from a Next server action; never cache by default.
-      cache: 'no-store',
+      // Callers can opt a request into the Data Cache via `opts.next` — used
+      // for global, non-user-specific reads like the admin catalog.
+      ...(opts.next ? { next: opts.next } : { cache: 'no-store' as const }),
     });
   } catch (err) {
+    // Log the raw transport error server-side for debugging; never surface the
+    // technical detail (e.g. "fetch failed", "ECONNREFUSED") to end users.
+    console.error(`[api] ${method} ${url} failed:`, err);
     return {
       ok: false,
       status: 0,
       error: 'network_error',
-      message:
-        err instanceof Error
-          ? `Không kết nối được tới máy chủ: ${err.message}`
-          : 'Không kết nối được tới máy chủ',
+      message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
     };
   }
 
@@ -153,6 +159,6 @@ function defaultMessageForStatus(status: number, code: string): string {
   if (status === 409) return 'Đã đạt giới hạn cho phép';
   if (status === 429) return 'Thao tác quá nhanh, thử lại sau';
   if (status >= 500) return 'Lỗi hệ thống, thử lại sau';
-  if (code === 'network_error') return 'Không kết nối được tới máy chủ';
+  if (code === 'network_error') return 'Mất kết nối tới máy chủ, thử lại sau nhé.';
   return 'Có lỗi xảy ra, thử lại sau';
 }

@@ -6,8 +6,15 @@
 // `getWarrantyProviders`, `getDeviceFormCatalog`).
 //
 // We deliberately fetch the whole catalog each time and slice it — RSC
-// dedupes across the same render, so a page that needs categories + brands
-// + stores still makes only one HTTP call.
+// `cache()` dedupes across the same render, so a page that needs categories +
+// brands + stores still makes only one call.
+//
+// Across requests, the catalog is admin-curated and effectively static. The
+// Go `/v1/catalog` endpoint is auth-gated (the request carries the user's
+// bearer token), so it can't be wrapped in `unstable_cache` — that helper
+// must not depend on cookies/headers. Instead the underlying fetch in
+// `lib/api/catalog.ts` opts into Next's Data Cache (`revalidate: 300`, tag
+// `catalog`), so navigations reuse a cached body instead of hitting Go.
 
 import { cache } from 'react';
 import { api } from '@/lib/api';

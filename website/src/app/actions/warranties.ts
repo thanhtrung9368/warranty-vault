@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { WarrantyInput } from '@/lib/api/warranties';
@@ -43,10 +42,8 @@ export async function createWarranty(
   const res = await api.warranties.create(deviceId, input);
   if (!res.ok) return toFormState(res);
 
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath(`/devices/${deviceId}`);
-  revalidatePath('/reminders');
+  // No revalidatePath: /dashboard, /devices, /devices/[id] and /reminders are
+  // all `force-dynamic`, so path revalidation would be a no-op.
   redirect(`/devices/${deviceId}`);
 }
 
@@ -60,20 +57,14 @@ export async function updateWarranty(
   if (!res.ok) return toFormState(res);
 
   const deviceId = res.data.deviceId;
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath(`/devices/${deviceId}`);
-  revalidatePath('/reminders');
+  // No revalidatePath — affected pages are all `force-dynamic`.
   redirect(`/devices/${deviceId}`);
 }
 
 export async function deleteWarranty(warrantyId: string) {
   const res = await api.warranties.remove(warrantyId);
   if (!res.ok) return { ok: false };
-  // We don't know the deviceId after delete — revalidate the broad routes
-  // and let the caller's redirect/refresh handle the device-detail bust.
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath('/reminders');
+  // No revalidatePath — the affected pages are all `force-dynamic`; the
+  // caller's redirect/refresh re-renders them with fresh data.
   return { ok: true };
 }

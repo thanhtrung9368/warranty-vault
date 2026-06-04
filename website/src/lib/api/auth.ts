@@ -10,6 +10,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  aiOptIn?: boolean;
 };
 
 export type AuthSuccess = {
@@ -69,14 +70,12 @@ export async function register(
       cache: 'no-store',
     });
   } catch (err) {
+    console.error('[api] auth request failed:', err);
     return {
       ok: false,
       status: 0,
       error: 'network_error',
-      message:
-        err instanceof Error
-          ? `Không kết nối được tới máy chủ: ${err.message}`
-          : 'Không kết nối được tới máy chủ',
+      message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
     };
   }
 

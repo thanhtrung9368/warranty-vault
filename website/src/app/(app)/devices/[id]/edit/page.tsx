@@ -15,13 +15,15 @@ export default async function EditDevicePage({
 }) {
   await requireUser();
   const { id } = await params;
-  const res = await api.devices.get(id);
+  const [res, catalog] = await Promise.all([
+    api.devices.get(id),
+    getDeviceFormCatalog(),
+  ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
     throw new Error(res.message ?? 'Không tải được thiết bị');
   }
   const device = res.data;
-  const catalog = await getDeviceFormCatalog();
 
   // `createdAt` arrives as an ISO string from Go — sort lexicographically,
   // which gives the same order as numeric timestamp comparison for ISO 8601.

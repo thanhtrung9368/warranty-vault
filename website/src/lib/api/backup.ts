@@ -123,14 +123,12 @@ export async function exportRaw(): Promise<
       cache: 'no-store',
     });
   } catch (err) {
+    console.error('[api] backup export failed:', err);
     return {
       ok: false,
       status: 0,
       error: 'network_error',
-      message:
-        err instanceof Error
-          ? `Không kết nối được tới máy chủ: ${err.message}`
-          : 'Không kết nối được tới máy chủ',
+      message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
     };
   }
   if (!res.ok) {

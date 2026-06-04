@@ -13,6 +13,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ScanLine,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +40,7 @@ import {
   updateDevice,
   type DeviceFormState,
 } from '@/app/actions/devices';
+import { extractReceipt } from '@/app/actions/ai';
 import type {
   CategoryOption,
   BrandOption,
@@ -78,6 +81,13 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   category: { label: 'Loại thiết bị', focusId: 'category', step: 0 },
   purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate', step: 1 },
   warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
+};
+
+// Vietnamese labels for draft fields the OCR could not map to the catalog.
+const UNMATCHED_LABELS: Record<string, string> = {
+  brand: 'Hãng',
+  purchasePlace: 'Nơi mua',
+  category: 'Loại thiết bị',
 };
 
 const STEPS = [
@@ -179,10 +189,12 @@ export function DeviceForm({
   initial,
   catalog,
   fromWishlistId,
+  aiEnabled = false,
 }: {
   initial?: Initial;
   catalog: Catalog;
   fromWishlistId?: string;
+  aiEnabled?: boolean;
 }) {
   const isEdit = Boolean(initial?.id);
   const action = isEdit ? updateDevice.bind(null, initial!.id!) : createDevice;
@@ -232,6 +244,60 @@ export function DeviceForm({
   );
 
   const [notes, setNotes] = React.useState<string>(initial?.notes ?? '');
+
+  // ─── OCR receipt scan (create flow only) ────────────────────────────────
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = React.useState(false);
+  const [scanInfo, setScanInfo] = React.useState<
+    { confidence: 'high' | 'medium' | 'low'; unmatched: string[] } | null
+  >(null);
+
+  // applyDraft seeds the controlled fields from an extracted draft. Catalog
+  // codes (category) are only applied when they exist in the loaded catalog;
+  // free-text brand / place is set verbatim (the comboboxes allowCustom).
+  const applyDraft = React.useCallback(
+    (d: import('@/lib/api/ai').DraftDevice) => {
+      if (d.name) setName(d.name);
+      if (d.category && catalog.categories.some((c) => c.code === d.category)) {
+        setCategory(d.category);
+      }
+      if (d.brand) setBrand(d.brand);
+      if (d.model) setModel(d.model);
+      if (d.serialNumber) setSerialNumber(d.serialNumber);
+      if (d.purchaseDate) setPurchaseDate(d.purchaseDate);
+      if (typeof d.purchasePrice === 'number') {
+        setPurchasePriceDisplay(formatNumber(d.purchasePrice));
+      }
+      if (d.purchasePlace) setPurchasePlace(d.purchasePlace);
+      if (typeof d.warrantyMonths === 'number') setWarrantyMonths(d.warrantyMonths);
+    },
+    [catalog.categories],
+  );
+
+  const handleScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setScanning(true);
+    setScanInfo(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      const res = await extractReceipt(fd);
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      applyDraft(res.draft);
+      setScanInfo({ confidence: res.draft.confidence, unmatched: res.draft.unmatched });
+      setStep(0);
+      toast.success('Đã điền nháp từ hoá đơn — kiểm tra lại trước khi lưu nhé');
+    } catch {
+      toast.error('Không quét được hoá đơn, thử lại sau');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // Toast + focus when the server returns errors (skip the initial mount).
   const initialMount = React.useRef(true);
@@ -401,6 +467,59 @@ export function DeviceForm({
 
         {/* ───── Step 1 — Cơ bản ───── */}
         <div className={cn('grid gap-4 md:grid-cols-2', stepCls(0))}>
+          {!isEdit && aiEnabled && (
+            <div className="md:col-span-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                capture="environment"
+                className="hidden"
+                onChange={handleScanFile}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={scanning}
+                className="flex w-full items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-left transition hover:bg-primary/10 disabled:opacity-60"
+              >
+                {scanning ? (
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
+                ) : (
+                  <ScanLine className="h-5 w-5 shrink-0 text-primary" />
+                )}
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">
+                    {scanning ? 'Đang quét hoá đơn…' : 'Quét hoá đơn / phiếu bảo hành'}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Chụp hoặc chọn ảnh để tự điền thông tin — bạn vẫn kiểm tra lại trước khi lưu
+                  </span>
+                </span>
+              </button>
+
+              {scanInfo && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-surface-2 px-3 py-2 text-xs">
+                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                  <div className="space-y-0.5">
+                    <p className="font-medium text-foreground">
+                      Đã điền nháp từ hoá đơn
+                      {scanInfo.confidence !== 'high' && ' (độ tin cậy chưa cao — kiểm tra kỹ)'}
+                    </p>
+                    {scanInfo.unmatched.length > 0 && (
+                      <p className="text-muted-foreground">
+                        Cần xem lại:{' '}
+                        {scanInfo.unmatched
+                          .map((k) => UNMATCHED_LABELS[k] ?? k)
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">
               Tên thiết bị <span className="text-destructive">*</span>

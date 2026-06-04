@@ -11,7 +11,6 @@
 // The Vietnamese user-facing strings come from Go; we only fall back to a
 // generic message on transport failure.
 
-import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
 import type { BackupExport, ImportResult } from '@/lib/api/backup';
@@ -45,13 +44,9 @@ export async function importJson(
     return { ok: false, message: res.message ?? 'Import thất bại' };
   }
 
-  // After a successful import the user's entire dataset may have changed;
-  // poke every page that reads from it.
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath('/reminders');
-  revalidatePath('/wishlist');
-  revalidatePath('/subscriptions');
+  // No revalidatePath: every page that reads the user's dataset (/dashboard,
+  // /devices, /reminders, /wishlist, /subscriptions) is `force-dynamic`, so
+  // path revalidation would be a no-op — the client refresh re-renders them.
 
   const r: ImportResult = res.data.result;
   const parts: string[] = [`Đã import ${r.imported} thiết bị`];

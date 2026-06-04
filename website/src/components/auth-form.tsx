@@ -44,6 +44,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const [state, formAction] = useActionState<AuthFormState, FormData>(action, {});
   const errors = state?.errors ?? {};
   const Icon = mode === 'login' ? ShieldCheck : UserPlus;
+  const [email, setEmail] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [password, setPassword] = React.useState('');
 
   return (
     <div className="rounded-xl border-[1.5px] border-border bg-card p-7 shadow-lift sm:p-8">
@@ -73,6 +76,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               placeholder="vd: Trung"
               autoComplete="name"
               maxLength={80}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
             <p className="text-xs text-muted">Để trống cũng được</p>
             <FieldError errors={errors.name} />
@@ -89,6 +94,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             placeholder="ban@example.com"
             autoComplete="email"
             required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
           <FieldError errors={errors.email} />
         </div>
@@ -114,6 +121,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             minLength={mode === 'register' ? 8 : undefined}
             placeholder={mode === 'register' ? 'Tối thiểu 8 ký tự' : '••••••••'}
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
           {mode === 'register' && !errors.password && (
             <p className="text-xs text-muted">Tối thiểu 8 ký tự</p>

@@ -38,5 +38,12 @@ export type Catalog = {
 };
 
 export async function get(): Promise<ApiResult<Catalog>> {
-  return apiFetch<Catalog>('GET', '/v1/catalog');
+  // The catalog endpoint is auth-gated on Go, so the request still carries the
+  // user's bearer token and can't be hoisted into `unstable_cache`. Instead we
+  // opt the underlying fetch into Next's Data Cache: admin-curated catalog data
+  // is global, so caching the response body for 5 minutes (tag `catalog`) is
+  // safe and skips a Go round-trip on every navigation.
+  return apiFetch<Catalog>('GET', '/v1/catalog', undefined, {
+    next: { revalidate: 300, tags: ['catalog'] },
+  });
 }

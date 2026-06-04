@@ -16,7 +16,10 @@ export default async function EditWishlistPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const res = await api.wishlist.get(id);
+  const [res, catalog] = await Promise.all([
+    api.wishlist.get(id),
+    getDeviceFormCatalog(),
+  ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
     return (
@@ -26,7 +29,6 @@ export default async function EditWishlistPage({
     );
   }
   const item = res.data.item;
-  const catalog = await getDeviceFormCatalog();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

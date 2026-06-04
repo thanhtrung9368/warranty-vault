@@ -1,12 +1,12 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { api } from '@/lib/api';
 
 // Upload an attachment for a device. Auth + ownership + MIME magic-byte
 // verification + image downscale + AES-256-GCM encryption all happen on
-// the Go side. We just forward the multipart body and revalidate the
-// device-detail page on success.
+// the Go side. We just forward the multipart body; the caller component on
+// /devices/[id] (a `force-dynamic` page) picks up the change via
+// router.refresh(), so no revalidatePath is needed.
 export async function uploadAttachment(formData: FormData) {
   const deviceId = String(formData.get('deviceId') ?? '');
   const file = formData.get('file');
@@ -26,7 +26,6 @@ export async function uploadAttachment(formData: FormData) {
   const res = await api.attachments.upload(deviceId, upstream);
   if (!res.ok) return { ok: false, message: res.message ?? 'Tải lên thất bại' };
 
-  revalidatePath(`/devices/${deviceId}`);
   return { ok: true };
 }
 
@@ -39,8 +38,7 @@ export async function deleteAttachment(id: string) {
   if (!res.ok && res.status !== 404) {
     return { ok: false };
   }
-  // The caller component lives on /devices/[id] and will refetch via
-  // router.refresh(). No deviceId here so we revalidate the index too.
-  revalidatePath('/devices');
+  // The caller component lives on /devices/[id] (a `force-dynamic` page) and
+  // refetches via router.refresh(); no revalidatePath needed.
   return { ok: true };
 }

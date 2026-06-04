@@ -8,10 +8,13 @@
 // forward the status flip and pass `purchasedDeviceId` if the caller has
 // a specific device to link.
 
-import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { WishlistInput, PriceLogInput } from '@/lib/api/wishlist';
+
+// No revalidatePath: /wishlist, /wishlist/[id] and /dashboard are all
+// `export const dynamic = 'force-dynamic'`, so path revalidation is a no-op.
+// The caller's redirect / router.refresh() re-renders with fresh data.
 
 export type WishlistFormState = FormState;
 
@@ -54,8 +57,6 @@ export async function createWishlistItem(
   const res = await api.wishlist.create(input);
   if (!res.ok) return toFormState(res);
 
-  revalidatePath('/wishlist');
-  revalidatePath('/dashboard');
   redirect(`/wishlist/${res.data.item.id}`);
 }
 
@@ -68,9 +69,6 @@ export async function updateWishlistItem(
   const res = await api.wishlist.update(id, input);
   if (!res.ok) return toFormState(res);
 
-  revalidatePath('/wishlist');
-  revalidatePath(`/wishlist/${id}`);
-  revalidatePath('/dashboard');
   redirect(`/wishlist/${id}`);
 }
 
@@ -84,8 +82,6 @@ export async function logWishlistPrice(
   };
   const res = await api.wishlist.updatePrice(id, body);
   if (!res.ok) return toFormState(res);
-  revalidatePath('/wishlist');
-  revalidatePath(`/wishlist/${id}`);
   return { ok: true };
 }
 
@@ -110,17 +106,12 @@ export async function setWishlistStatus(id: string, status: string) {
     reminderIntervalDays: it.reminderIntervalDays,
   });
   if (!res.ok) return { ok: false };
-  revalidatePath('/wishlist');
-  revalidatePath(`/wishlist/${id}`);
-  revalidatePath('/dashboard');
   return { ok: true };
 }
 
 export async function deleteWishlistItem(id: string) {
   const res = await api.wishlist.remove(id);
   if (!res.ok) redirect('/wishlist');
-  revalidatePath('/wishlist');
-  revalidatePath('/dashboard');
   redirect('/wishlist');
 }
 
@@ -149,7 +140,4 @@ export async function markWishlistPurchased(itemId: string, deviceId: string) {
     purchasedDeviceId: deviceId,
   } as unknown as WishlistInput);
   if (!res.ok) return;
-  revalidatePath('/wishlist');
-  revalidatePath(`/wishlist/${itemId}`);
-  revalidatePath('/dashboard');
 }

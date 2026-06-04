@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { DeviceInput } from '@/lib/api/devices';
@@ -55,13 +54,9 @@ export async function createDevice(
   const res = await api.devices.create({ ...input, fromWishlistId });
   if (!res.ok) return toFormState(res);
 
-  if (fromWishlistId) {
-    revalidatePath('/wishlist');
-    revalidatePath(`/wishlist/${fromWishlistId}`);
-  }
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath('/reminders');
+  // No revalidatePath: every page that reads this data (/dashboard, /devices,
+  // /reminders, /wishlist[/id]) is `export const dynamic = 'force-dynamic'`,
+  // so a path revalidation would be a no-op anyway.
   redirect(`/devices/${res.data.id}`);
 }
 
@@ -74,10 +69,7 @@ export async function updateDevice(
   const res = await api.devices.update(id, input);
   if (!res.ok) return toFormState(res);
 
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath(`/devices/${id}`);
-  revalidatePath('/reminders');
+  // No revalidatePath — the affected pages are all `force-dynamic` (see createDevice).
   redirect(`/devices/${id}`);
 }
 
@@ -85,8 +77,6 @@ export async function deleteDevice(id: string) {
   // Best-effort delete; either way redirect back to the list. The Go service
   // 404s for not-found / not-owned, which we treat as a successful no-op.
   await api.devices.remove(id);
-  revalidatePath('/dashboard');
-  revalidatePath('/devices');
-  revalidatePath('/reminders');
+  // No revalidatePath — the affected pages are all `force-dynamic`.
   redirect('/devices');
 }

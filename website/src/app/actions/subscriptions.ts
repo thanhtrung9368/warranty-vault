@@ -4,10 +4,12 @@
 // (Go owns both). Each action:
 //   - parses FormData with the existing Vietnamese coercion behavior,
 //   - forwards to `api.subscriptions.*`,
-//   - revalidatePaths the affected pages,
 //   - either redirects (form-submit) or returns FormState (in-place forms).
+//
+// No revalidatePath: every page that reads subscription/wishlist/dashboard
+// data is `export const dynamic = 'force-dynamic'`, so path revalidation
+// would be a no-op. The caller's redirect / router.refresh() re-renders.
 
-import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { SubscriptionInput, PaymentInput } from '@/lib/api/subscriptions';
@@ -70,12 +72,6 @@ export async function createSubscription(
   const res = await api.subscriptions.create(input);
   if (!res.ok) return toFormState(res);
 
-  if (input.fromWishlistId) {
-    revalidatePath('/wishlist');
-    revalidatePath(`/wishlist/${input.fromWishlistId}`);
-  }
-  revalidatePath('/dashboard');
-  revalidatePath('/subscriptions');
   redirect(`/subscriptions/${res.data.subscription.id}`);
 }
 
@@ -88,9 +84,6 @@ export async function updateSubscription(
   const res = await api.subscriptions.update(id, input);
   if (!res.ok) return toFormState(res);
 
-  revalidatePath('/subscriptions');
-  revalidatePath(`/subscriptions/${id}`);
-  revalidatePath('/dashboard');
   redirect(`/subscriptions/${id}`);
 }
 
@@ -105,7 +98,6 @@ export async function logSubscriptionPayment(
   };
   const res = await api.subscriptions.logPayment(id, body);
   if (!res.ok) return toFormState(res);
-  revalidatePath(`/subscriptions/${id}`);
   return { ok: true };
 }
 
@@ -135,25 +127,17 @@ export async function setSubscriptionStatus(id: string, status: string) {
     notes: s.notes,
   });
   if (!res.ok) return { ok: false };
-  revalidatePath('/subscriptions');
-  revalidatePath(`/subscriptions/${id}`);
-  revalidatePath('/dashboard');
   return { ok: true };
 }
 
 export async function deleteSubscription(id: string) {
   const res = await api.subscriptions.remove(id);
   if (!res.ok) redirect('/subscriptions');
-  revalidatePath('/subscriptions');
-  revalidatePath('/dashboard');
   redirect('/subscriptions');
 }
 
 export async function renewSubscriptionNow(id: string): Promise<SubscriptionFormState> {
   const res = await api.subscriptions.renew(id);
   if (!res.ok) return toFormState(res);
-  revalidatePath('/subscriptions');
-  revalidatePath(`/subscriptions/${id}`);
-  revalidatePath('/dashboard');
   return { ok: true };
 }
