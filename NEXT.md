@@ -37,17 +37,17 @@ Commits: `perf(api)…` · `refactor(web)…` · `feat(ios)…` · `feat(android
 
 Backend đã có đủ endpoint; đây thuần là UI mobile còn thiếu so với web.
 
-### 1.1 Backup export/import — iOS + Android (~4h) 🔴
-- Backend: `GET /api/v1/backup/export`, `POST /api/v1/backup/import?mode=merge|replace` — đã có.
-- iOS: `SettingsView.swift` đang là placeholder ("Sao lưu"/"Khôi phục" không có action).
-  Wire export (share sheet file `.json`) + import (fileImporter, chọn mode merge/replace).
-  Mẫu copy: `website/src/components/backup-tools.tsx`.
-- Android: `SettingsScreen.kt` chưa có mục backup → thêm section + SAF document picker.
+### 1.1 Backup export/import — iOS + Android ✅ XONG (2026-06-05)
+- iOS: `SettingsView` Dữ liệu section — export qua `.fileExporter` (JSONBackupDocument),
+  import qua `.fileImporter` + confirmationDialog chọn merge/replace. Bỏ row giả iCloud/wipe.
+- Android: `SettingsScreen` Dữ liệu section — SAF `CreateDocument`/`OpenDocument`, dialog chọn mode.
+- Network: iOS `rawDataRequest` (verbatim body); Android `exportBackup(): ResponseBody` +
+  `importBackup(mode, RequestBody)`. Model `ImportResult` cả 2 bên. Build xanh cả 2.
 
-### 1.2 Delete account — iOS + Android (~1.5h) 🟠
-- Backend: `DELETE /api/v1/auth/me` — đã có.
-- iOS: `AccountView.swift` có UI + alert nhưng **call API rỗng** → wire thật + clear keychain + về login.
-- Android: chưa có UI → thêm vào Settings (confirm dialog + gọi API + clear token store).
+### 1.2 Delete account — iOS + Android ✅ XONG (2026-06-05)
+- Server **yêu cầu mật khẩu hiện tại** trong body → cả 2 client thu password trước khi gọi.
+- iOS: `AccountView` alert + SecureField → `auth.deleteAccount(password:)` clear keychain → login.
+- Android: `SettingsScreen` nút "Xoá tài khoản" + AlertDialog password → `auth.deleteAccount` clear token.
 
 ### 1.3 Dismiss/restore reminder UI — cả 3 client (~2h) 🟡
 - Backend: `POST` / `DELETE /api/v1/warranties/{id}/reminder` — đã có.
@@ -111,8 +111,8 @@ Template đã có (`docker-compose.yml`, `deploy/`, kể cả `android/app/googl
 ## Đề xuất thứ tự
 
 1. ~~**Block 0** — chốt working tree~~ ✅ XONG (2026-06-05).
-2. **Block 1.1 + 1.2** — backup + delete account mobile (critical gap, backend sẵn, user thấy ngay). ⬅ TIẾP THEO
-3. **Block 2** — đồng bộ docs (rẻ, gỡ nợ nhận thức).
-4. **Block 1.3–1.5** — reminder/payment/label parity.
+2. ~~**Block 1.1 + 1.2** — backup + delete account mobile~~ ✅ XONG (2026-06-05).
+3. **Block 1.3–1.5** — reminder/payment/label parity. ⬅ TIẾP THEO
+4. **Block 2** — đồng bộ docs (rẻ, gỡ nợ nhận thức).
 5. **Block 3** — CI test.
 6. **Block 4** — khi có server/account.
