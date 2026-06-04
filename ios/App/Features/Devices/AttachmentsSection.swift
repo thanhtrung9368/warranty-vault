@@ -3,7 +3,15 @@ import PhotosUI
 import UniformTypeIdentifiers
 import WarrantyVaultKit
 
-struct AttachmentsSection: View {
+// ============================================================
+// DeviceAttachmentsSection — inline attachments inside device detail
+//
+// Keeps all upload/download/delete wiring from the old
+// AttachmentsSection.swift and rebuilds the UI to match the
+// prototype (thumbnail grid + "Tải file mới lên" row).
+// ============================================================
+
+struct DeviceAttachmentsSection: View {
     let client: APIClient
     let deviceId: String
     let initialAttachments: [AttachmentMeta]
@@ -17,6 +25,7 @@ struct AttachmentsSection: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showFileImporter = false
     @State private var errorMessage: String?
+    @State private var showPreviewURL: URL?
 
     init(client: APIClient, deviceId: String, initialAttachments: [AttachmentMeta]) {
         self.client = client
@@ -25,67 +34,108 @@ struct AttachmentsSection: View {
         _attachments = State(initialValue: initialAttachments)
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: WV.Spacing.md) {
-            HStack {
-                Text("Tài liệu / Ảnh đính kèm")
-                    .font(.system(size: 17, weight: .semibold))
-                Spacer()
-                Text("\(attachments.count) tệp")
-                    .font(.system(size: 12))
-                    .foregroundStyle(WV.Tokens.mutedFg)
-            }
-            .padding(.horizontal, WV.Spacing.lg)
+    private var canUpload: Bool { attachments.count < 5 }
 
+    // MARK: - Body
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
             if isLoading && attachments.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, WV.Spacing.lg)
-            } else if attachments.isEmpty {
-                emptyState
+                    .padding(.vertical, WVSpacing.lg)
+                    .padding(.horizontal, WVSpacing.gutter)
             } else {
-                VStack(spacing: WV.Spacing.sm) {
-                    ForEach(attachments) { att in
-                        attachmentRow(att)
+                WVGroup {
+                    // Thumbnail grid (if any)
+                    if !attachments.isEmpty {
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible(), spacing: 8),
+                                GridItem(.flexible(), spacing: 8),
+                                GridItem(.flexible(), spacing: 8),
+                            ],
+                            spacing: 8
+                        ) {
+                            ForEach(attachments) { att in
+                                AttachmentThumbnail(
+                                    att: att,
+                                    downloadURL: downloadURLs[att.id],
+                                    isDeleting: pendingDeleteId == att.id,
+                                    onDelete: { Task { await delete(att) } }
+                                )
+                            }
+                        }
+                        .padding(12)
+                        WVDivider()
+                    }
+
+                    // Upload row
+                    if canUpload {
+                        PhotosPicker(selection: $photoItem, matching: .any(of: [.images, .videos])) {
+                            HStack(spacing: 12) {
+                                WVLeadingIcon(icon: "upload", color: WVColor.blue, size: 30)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Tải file mới lên")
+                                        .font(.system(size: 17))
+                                        .foregroundStyle(WVColor.tint)
+                                    Text("Ảnh hoặc PDF, ≤5MB")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(WVColor.label3)
+                                }
+                                Spacer()
+                                if pendingUpload {
+                                    ProgressView()
+                                } else {
+                                    WVIcon("arrowRight", size: 13)
+                                        .foregroundStyle(WVColor.label4)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 7)
+                            .contentShape(Rectangle())
+                        }
+                        .disabled(pendingUpload)
+                        .buttonStyle(WVRowButtonStyle())
+
+                        WVDivider()
+
+                        // PDF picker row
+                        Button {
+                            showFileImporter = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                WVLeadingIcon(icon: "paperclip", color: WVColor.orange, size: 30)
+                                Text("Thêm PDF")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.tint)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 7)
+                            .contentShape(Rectangle())
+                        }
+                        .disabled(pendingUpload)
+                        .buttonStyle(WVRowButtonStyle())
                     }
                 }
-                .padding(.horizontal, WV.Spacing.lg)
             }
 
+            // Error
             if let errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(WV.Tokens.destructive)
                     .font(.system(size: 13))
-                    .padding(.horizontal, WV.Spacing.lg)
+                    .foregroundStyle(WVColor.red)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 8)
             }
-
-            HStack(spacing: WV.Spacing.md) {
-                PhotosPicker(selection: $photoItem, matching: .images) {
-                    if pendingUpload {
-                        ProgressView()
-                    } else {
-                        Label("Thêm ảnh", systemImage: "photo")
-                    }
-                }
-                .buttonStyle(SecondaryButtonStyle(fullWidth: true))
-                .disabled(pendingUpload)
-
-                Button {
-                    showFileImporter = true
-                } label: {
-                    Label("Thêm PDF", systemImage: "doc")
-                }
-                .buttonStyle(SecondaryButtonStyle(fullWidth: true))
-                .disabled(pendingUpload)
-            }
-            .padding(.horizontal, WV.Spacing.lg)
         }
         .task {
-            // The detail body already gives us attachments; refresh once on appear
-            // to pick up changes made on another device.
             guard !hasLoadedInitial else { return }
             hasLoadedInitial = true
-            await rebuildURLs()
+            rebuildURLs()
             await refresh()
         }
         .onChange(of: photoItem) { _, newItem in
@@ -101,63 +151,6 @@ struct AttachmentsSection: View {
         }
     }
 
-    // MARK: - Rows
-
-    private var emptyState: some View {
-        VStack(spacing: WV.Spacing.sm) {
-            Image(systemName: "paperclip")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(WV.Tokens.mutedFg)
-            Text("Chưa có tệp đính kèm")
-                .font(.system(size: 13))
-                .foregroundStyle(WV.Tokens.mutedFg)
-        }
-        .padding(WV.Spacing.lg)
-        .frame(maxWidth: .infinity)
-    }
-
-    private func attachmentRow(_ att: AttachmentMeta) -> some View {
-        WVCard {
-            HStack(alignment: .center, spacing: WV.Spacing.md) {
-                Image(systemName: iconFor(fileType: att.fileType))
-                    .font(.system(size: 22))
-                    .foregroundStyle(WV.Tokens.primary)
-                    .frame(width: 40, height: 40)
-                    .background(WV.Tokens.primary.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: WV.Radius.md))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(att.fileName)
-                        .font(.system(size: 14, weight: .medium))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(formatBytes(att.fileSize))
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-                Spacer()
-                if let url = downloadURLs[att.id] {
-                    Link(destination: url) {
-                        Image(systemName: "arrow.up.right.square")
-                            .font(.system(size: 18))
-                            .foregroundStyle(WV.Tokens.primary)
-                    }
-                }
-                Button {
-                    Task { await delete(att) }
-                } label: {
-                    if pendingDeleteId == att.id {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "trash")
-                            .font(.system(size: 16))
-                            .foregroundStyle(WV.Tokens.destructive)
-                    }
-                }
-                .disabled(pendingDeleteId != nil)
-            }
-        }
-    }
-
     // MARK: - Actions
 
     private func refresh() async {
@@ -165,18 +158,16 @@ struct AttachmentsSection: View {
         defer { isLoading = false }
         do {
             attachments = try await client.listAttachments(deviceId: deviceId)
-            await rebuildURLs()
+            rebuildURLs()
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
 
-    /// `attachmentDownloadURL` is actor-isolated; pre-resolve URLs once per refresh
-    /// so the rows can use them synchronously.
-    private func rebuildURLs() async {
+    private func rebuildURLs() {
         var map: [String: URL] = [:]
         for att in attachments {
-            map[att.id] = await client.attachmentDownloadURL(id: att.id)
+            map[att.id] = client.attachmentDownloadURL(id: att.id)
         }
         downloadURLs = map
     }
@@ -188,6 +179,7 @@ struct AttachmentsSection: View {
         do {
             try await client.deleteAttachment(id: att.id)
             attachments.removeAll { $0.id == att.id }
+            downloadURLs.removeValue(forKey: att.id)
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
@@ -200,7 +192,6 @@ struct AttachmentsSection: View {
         defer { pendingUpload = false }
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
-            // Try to detect PNG vs JPEG from magic bytes; default to JPEG.
             let (mime, ext): (String, String)
             if data.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
                 mime = "image/png"; ext = "png"
@@ -212,7 +203,7 @@ struct AttachmentsSection: View {
                 deviceId: deviceId, fileName: name, fileType: mime, data: data, description: nil
             )
             attachments.insert(meta, at: 0)
-            downloadURLs[meta.id] = await client.attachmentDownloadURL(id: meta.id)
+            downloadURLs[meta.id] = client.attachmentDownloadURL(id: meta.id)
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
@@ -223,35 +214,83 @@ struct AttachmentsSection: View {
         do {
             let urls = try result.get()
             guard let url = urls.first else { return }
-            // Security-scoped resource — required for files outside the app sandbox.
             let needsScope = url.startAccessingSecurityScopedResource()
             defer { if needsScope { url.stopAccessingSecurityScopedResource() } }
             pendingUpload = true
             defer { pendingUpload = false }
             let data = try Data(contentsOf: url)
-            let name = url.lastPathComponent
+            let fileName = url.lastPathComponent
             let meta = try await client.uploadAttachment(
-                deviceId: deviceId, fileName: name, fileType: "application/pdf",
+                deviceId: deviceId, fileName: fileName, fileType: "application/pdf",
                 data: data, description: nil
             )
             attachments.insert(meta, at: 0)
-            downloadURLs[meta.id] = await client.attachmentDownloadURL(id: meta.id)
+            downloadURLs[meta.id] = client.attachmentDownloadURL(id: meta.id)
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
+}
 
-    // MARK: - Helpers
+// MARK: - Attachment thumbnail
 
-    private func iconFor(fileType: String) -> String {
-        if fileType.hasPrefix("image/") { return "photo" }
-        if fileType == "application/pdf" { return "doc.text" }
-        return "doc"
-    }
+private struct AttachmentThumbnail: View {
+    let att: AttachmentMeta
+    let downloadURL: URL?
+    let isDeleting: Bool
+    let onDelete: () -> Void
 
-    private func formatBytes(_ bytes: Int) -> String {
-        let f = ByteCountFormatter()
-        f.countStyle = .file
-        return f.string(fromByteCount: Int64(bytes))
+    private var isImage: Bool { att.fileType.hasPrefix("image/") }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            // Tile background
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [WVColor.fill3, WVColor.fill4],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    // Icon
+                    VStack(spacing: 4) {
+                        WVIcon(isImage ? "camera" : "receipt", size: 24, weight: .regular)
+                            .foregroundStyle(WVColor.label3)
+                        Text(att.fileName)
+                            .font(.system(size: 9))
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 4)
+                    }
+                }
+                .overlay {
+                    // Tap to open
+                    if let url = downloadURL {
+                        Link(destination: url) {
+                            Color.clear
+                        }
+                    }
+                }
+
+            // Delete button
+            Button(action: onDelete) {
+                if isDeleting {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .frame(width: 22, height: 22)
+                } else {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(WVColor.label2)
+                        .background(WVColor.bg2.clipShape(Circle()))
+                }
+            }
+            .offset(x: 6, y: -6)
+            .disabled(isDeleting)
+        }
     }
 }

@@ -1,9 +1,15 @@
 import SwiftUI
 import WarrantyVaultKit
 
+// ============================================================
+// RemindersView — warranty expiry reminders bucketed by urgency.
+// Port of RemindersScreen in screens-3.jsx.
+// ============================================================
+
 struct RemindersView: View {
-    @EnvironmentObject var auth: AuthStore
+    @EnvironmentObject private var auth: AuthStore
     @StateObject private var store: RemindersStore
+
     @State private var pendingDismiss: String?
     @State private var actionError: String?
 
@@ -12,182 +18,162 @@ struct RemindersView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Nhắc")
-                .background(WV.Tokens.bg)
+        Group {
+            switch store.state {
+            case .idle, .loading where store.entries.isEmpty:
+                ScrollView {
+                    RemindersSkeleton()
+                }
+                .wvScreen()
+            case .error(let msg) where store.entries.isEmpty:
+                ScrollView {
+                    WVEmpty(icon: "alert", title: "Không tải được nhắc", description: msg) {
+                        WVButton("Thử lại") { Task { await store.load() } }
+                            .padding(.horizontal, 32)
+                    }
+                }
+                .wvScreen()
+            case .loaded where store.entries.isEmpty:
+                ScrollView {
+                    WVEmpty(icon: "checkCircle",
+                            title: "Không có nhắc nào, ngon!",
+                            description: "Tất cả gói bảo hành đều an toàn.")
+                }
+                .wvScreen()
+            default:
+                mainList
+            }
         }
         .task { await store.load() }
         .refreshable { await store.load() }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        switch store.state {
-        case .idle:
-            ScrollView { WVSkeletonList(count: 3) }
-        case .loading where store.entries.isEmpty:
-            ScrollView { WVSkeletonList(count: 3) }
-        case .error(let msg) where store.entries.isEmpty:
-            errorState(msg)
-        case .loaded where store.entries.isEmpty:
-            emptyState
-        default:
-            list
-        }
-    }
+    // MARK: - Main list
 
-    private var list: some View {
-        List {
-            if let actionError {
-                Section {
-                    Label(actionError, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(WV.Tokens.destructive)
-                        .font(.system(size: 13))
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-            Section {
-                ForEach(store.entries) { entry in
-                    reminderCard(entry)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(
-                            top: WV.Spacing.xs,
-                            leading: WV.Spacing.lg,
-                            bottom: WV.Spacing.xs,
-                            trailing: WV.Spacing.lg
-                        ))
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button {
-                                Task { await dismiss(entry.id) }
-                            } label: {
-                                Label("Đã xem", systemImage: "eye.slash")
-                            }
-                            .tint(WV.Tokens.primary)
-                        }
-                }
-            }
-            .listRowBackground(Color.clear)
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-    }
-
-    private func reminderCard(_ entry: UpcomingReminder) -> some View {
-        let warnTint = remainingTint(days: entry.daysRemaining)
-        return WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack(alignment: .top, spacing: WV.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: WV.Radius.md)
-                            .fill(warnTint.opacity(0.15))
-                        Image(systemName: iconForCategory(entry.device.category))
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(warnTint)
+    private var mainList: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                if let actionError {
+                    HStack(spacing: 8) {
+                        WVIcon("alert", size: 14)
+                        Text(actionError)
+                            .font(.system(size: 13))
                     }
-                    .frame(width: 48, height: 48)
-                    VStack(alignment: .leading, spacing: 6) {
+                    .foregroundStyle(WVColor.red)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, 12)
+                }
+
+                ForEach(buckets, id: \.label) { bucket in
+                    let items = store.entries.filter(bucket.filter)
+                    if !items.isEmpty {
+                        // Colored section header
+                        HStack {
+                            Text("\(bucket.label) · \(items.count)")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(bucket.color)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.top, 20)
+                        .padding(.bottom, 6)
+
+                        WVGroup {
+                            ForEach(Array(items.enumerated()), id: \.element.id) { idx, entry in
+                                if idx > 0 { WVDivider(inset: 60) }
+                                reminderRow(entry)
+                            }
+                        }
+                    }
+                }
+
+                Spacer().frame(height: 24)
+            }
+        }
+        .wvScreen()
+    }
+
+    // MARK: - Reminder row
+
+    private func reminderRow(_ entry: UpcomingReminder) -> some View {
+        WVRowContainer {
+            HStack(spacing: 12) {
+                WVLeadingIcon(
+                    icon: WVCategory.icon(for: entry.device.category),
+                    color: WVCategory.accent(for: entry.device.category),
+                    size: 36
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
                         Text(entry.device.name)
                             .font(.system(size: 16, weight: .semibold))
-                        WVStatusPill(entry.type.label, kind: kind(for: entry.type))
+                            .foregroundStyle(WVColor.label)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        WarrantyPill(daysLeft: entry.daysRemaining)
                     }
-                    Spacer()
-                    Text(remainingLabel(days: entry.daysRemaining))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(warnTint)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(warnTint.opacity(0.14)))
-                }
 
-                HStack(spacing: WV.Spacing.lg) {
-                    metaRow(label: "Hết hạn", value: formatDate(entry.endDate))
-                    if let provider = entry.provider, !provider.isEmpty {
-                        metaRow(label: "Đơn vị", value: provider)
+                    HStack(spacing: 8) {
+                        WVChip(entry.type.label, tone: chipTone(for: entry.type))
+                        Text("\(entry.provider ?? "–") · \(WVFormat.date(entry.endDate))")
+                            .font(.system(size: 13))
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
                     }
-                }
 
-                Divider()
-
-                HStack {
-                    Spacer()
+                    // Dismiss button
                     Button {
                         Task { await dismiss(entry.id) }
                     } label: {
-                        if pendingDismiss == entry.id {
-                            ProgressView()
-                        } else {
-                            Label("Đã xem", systemImage: "eye.slash")
-                                .font(.system(size: 12, weight: .medium))
+                        HStack(spacing: 4) {
+                            if pendingDismiss == entry.id {
+                                ProgressView().scaleEffect(0.7)
+                            } else {
+                                WVIcon("x", size: 10, weight: .bold)
+                                Text("Đã xem, ẩn đi")
+                            }
                         }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(WVColor.label3)
+                        .padding(.horizontal, 8)
+                        .frame(height: 22)
+                        .background(WVColor.fill3)
+                        .clipShape(Capsule())
                     }
+                    .buttonStyle(.plain)
                     .disabled(pendingDismiss != nil)
-                    .foregroundStyle(WV.Tokens.primary)
+                    .padding(.top, 2)
                 }
+
+                WVIcon("arrowRight", size: 13, weight: .semibold)
+                    .foregroundStyle(WVColor.label4)
             }
         }
-    }
-
-    private var emptyState: some View {
-        WVEmptyState(
-            icon: "checkmark.seal.fill",
-            tint: WV.Tokens.success,
-            title: "Không có gì cần nhắc",
-            message: "Mọi thiết bị đều ổn. Bảo hành nào sắp hết trong 30 ngày sẽ tự xuất hiện ở đây.",
-            ctaTitle: nil,
-            action: nil
-        )
-    }
-
-    private func errorState(_ msg: String) -> some View {
-        WVEmptyState(
-            icon: "exclamationmark.triangle.fill",
-            tint: WV.Tokens.warning,
-            title: "Không tải được nhắc",
-            message: msg,
-            ctaTitle: "Thử lại",
-            action: { Task { await store.load() } }
-        )
     }
 
     // MARK: - Helpers
 
-    private func metaRow(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 11)).foregroundStyle(WV.Tokens.mutedFg)
-            Text(value).font(.system(size: 13, weight: .medium))
-        }
+    private struct Bucket {
+        let label: String
+        let color: Color
+        let filter: (UpcomingReminder) -> Bool
     }
 
-    private func tint(for type: WarrantyType) -> Color {
+    private var buckets: [Bucket] {
+        [
+            Bucket(label: "Sắp hết trong 30 ngày", color: WVColor.red)   { $0.daysRemaining <= 30 },
+            Bucket(label: "Sắp hết trong 60 ngày", color: WVColor.orange) { $0.daysRemaining > 30 && $0.daysRemaining <= 60 },
+            Bucket(label: "Sắp hết trong 90 ngày", color: WVColor.green)  { $0.daysRemaining > 60 && $0.daysRemaining <= 90 },
+        ]
+    }
+
+    private func chipTone(for type: WarrantyType) -> WVChipTone {
         switch type {
-        case .STANDARD:    return WV.Tokens.mutedFg
-        case .EXTENDED:    return WV.Tokens.primary
-        case .THIRD_PARTY: return WV.Tokens.success
+        case .STANDARD:    return .gray
+        case .EXTENDED:    return .brand
+        case .THIRD_PARTY: return .green
         }
-    }
-
-    private func kind(for type: WarrantyType) -> WVStatusKind {
-        switch type {
-        case .STANDARD:    return .neutral
-        case .EXTENDED:    return .accent
-        case .THIRD_PARTY: return .success
-        }
-    }
-
-    private func remainingLabel(days: Int) -> String {
-        if days < 0 { return "Đã hết \(-days) ngày" }
-        if days == 0 { return "Hết hôm nay" }
-        return "Còn \(days) ngày"
-    }
-
-    private func remainingTint(days: Int) -> Color {
-        if days < 0 { return WV.Tokens.destructive }
-        if days <= 7 { return WV.Tokens.destructive }
-        if days <= 30 { return WV.Tokens.warning }
-        return WV.Tokens.success
     }
 
     private func dismiss(_ id: String) async {
@@ -199,5 +185,38 @@ struct RemindersView: View {
         } catch {
             actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
+    }
+}
+
+// MARK: - Skeleton
+
+private struct RemindersSkeleton: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            WVSectionHeader("Đang tải…")
+            WVGroup {
+                ForEach(0..<3) { i in
+                    if i > 0 { WVDivider(inset: 60) }
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 36, height: 36)
+                        VStack(alignment: .leading, spacing: 6) {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(height: 14)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(width: 140, height: 12)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .redacted(reason: .placeholder)
+                }
+            }
+        }
+        .padding(.top, 8)
     }
 }

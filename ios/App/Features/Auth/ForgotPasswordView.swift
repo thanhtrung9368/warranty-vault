@@ -1,6 +1,11 @@
 import SwiftUI
 import WarrantyVaultKit
 
+// ============================================================
+// ForgotPasswordView — Đặt lại mật khẩu.
+// Presented as a sheet from LoginView.
+// ============================================================
+
 struct ForgotPasswordView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -15,18 +20,27 @@ struct ForgotPasswordView: View {
         NavigationStack {
             ZStack {
                 LinearGradient(
-                    colors: [WV.Tokens.primary.opacity(0.15), WV.Tokens.bg],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ).ignoresSafeArea()
+                    colors: [WVColor.brand.opacity(0.12), WVColor.bg],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: WV.Spacing.xl) {
-                        Spacer().frame(height: 24)
-                        header
-                        formCard
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: 40)
+                        forgotHeader
+                        Spacer().frame(height: 28)
+                        if didSend {
+                            successSection
+                        } else {
+                            formSection
+                        }
+                        Spacer().frame(height: 32)
                     }
-                    .padding(WV.Spacing.lg)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(maxWidth: 480)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -35,75 +49,102 @@ struct ForgotPasswordView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Đóng") { dismiss() }
+                        .foregroundStyle(WVColor.tint)
                 }
             }
         }
     }
 
-    private var header: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "key.horizontal.fill")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(WV.Tokens.primary)
+    // MARK: - Header
+
+    private var forgotHeader: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(WVColor.brandSoft)
+                    .frame(width: 80, height: 80)
+                Image(systemName: "key.horizontal.fill")
+                    .font(.system(size: 36, weight: .regular))
+                    .foregroundStyle(WVColor.brand)
+            }
             Text("Đặt lại mật khẩu")
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(WV.Tokens.fg)
+                .foregroundStyle(WVColor.label)
             Text("Nhập email đã đăng ký để nhận link đặt lại.")
                 .font(.system(size: 13))
-                .foregroundStyle(WV.Tokens.mutedFg)
+                .foregroundStyle(WVColor.label3)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
         }
     }
 
-    private var formCard: some View {
-        WVCard {
-            VStack(spacing: WV.Spacing.md) {
-                if didSend {
-                    Label(
-                        "Nếu email đã đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.",
-                        systemImage: "envelope.badge"
-                    )
-                    .font(.system(size: 14))
-                    .foregroundStyle(WV.Tokens.fg)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+    // MARK: - Form
 
-                    Button(action: { dismiss() }) {
-                        Text("Quay lại đăng nhập")
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .padding(.top, WV.Spacing.sm)
-                } else {
-                    WVTextField(
-                        "Email", placeholder: "you@example.com",
-                        text: $email,
-                        keyboardType: .emailAddress, contentType: .emailAddress
-                    )
+    private var formSection: some View {
+        VStack(spacing: 0) {
+            WVGroup {
+                AuthTextField(
+                    label: "Email",
+                    placeholder: "you@example.com",
+                    text: $email,
+                    keyboardType: .emailAddress,
+                    contentType: .emailAddress,
+                    error: nil
+                )
+            }
 
-                    if let topError {
-                        Label(topError, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(WV.Tokens.destructive)
-                            .padding(.top, 4)
-                    }
-
-                    Button(action: { Task { await submit() } }) {
-                        HStack {
-                            if isSubmitting { ProgressView().tint(WV.Tokens.primaryFg) }
-                            Text("Gửi")
-                        }
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isSubmitting || email.isEmpty)
-                    .padding(.top, WV.Spacing.sm)
-
-                    Button(action: { dismiss() }) {
-                        Text("Quay lại đăng nhập")
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
+            if let topError {
+                HStack(spacing: 6) {
+                    WVIcon("alert", size: 13)
+                    Text(topError).font(.system(size: 13))
                 }
+                .foregroundStyle(WVColor.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.top, 10)
+            }
+
+            Spacer().frame(height: 16)
+
+            WVButton(
+                isSubmitting ? "Đang gửi…" : "Gửi",
+                kind: .primary
+            ) {
+                Task { await submit() }
+            }
+            .disabled(isSubmitting || email.isEmpty)
+
+            Spacer().frame(height: 10)
+
+            WVButton("Quay lại đăng nhập", kind: .secondary) {
+                dismiss()
             }
         }
     }
+
+    // MARK: - Success
+
+    private var successSection: some View {
+        VStack(spacing: 16) {
+            WVGroup {
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "mail", color: WVColor.green)
+                    Text("Nếu email đã đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(WVColor.label)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+
+            WVButton("Quay lại đăng nhập", kind: .primary) {
+                dismiss()
+            }
+        }
+    }
+
+    // MARK: - Logic
 
     private func submit() async {
         topError = nil

@@ -8,71 +8,91 @@
 
 /* Begin PBXBuildFile section */
 		031104C7488298B47DB85160 /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145DA658595117A13A5B642D /* ForgotPasswordView.swift */; };
+		055A0E96098278F34B7E6F88 /* PushDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E261920E537271E2DED771A9 /* PushDevicesView.swift */; };
 		075528076B8A6FE939C0F423 /* WarrantiesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6B007469F655782FC84C25 /* WarrantiesStore.swift */; };
-		12BE8343A4D31B92EFA2A89C /* DevicesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9221ED9E65D885174E3240CD /* DevicesListView.swift */; };
+		081AFBE901C196AC6449F4B7 /* ChangePasswordSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3F17674EABA0114000A947 /* ChangePasswordSheet.swift */; };
 		166E111F7BEB9CF1161CA73D /* RemindersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7FBAD0D43AB1C8B49947CF /* RemindersView.swift */; };
 		16C3E0CEDAF1AE2FA7FA65B1 /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CAF04638E1D1F55D0B9506 /* AuthStore.swift */; };
-		1E7FDD791EC65767A479851E /* AddDeviceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90683A6E40995281FCC9C23D /* AddDeviceSheet.swift */; };
 		2134378BD4951A03366DD28C /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CED85D2A836A81602152C5 /* StatsView.swift */; };
-		253B2C1421D83B188242D36C /* SubscriptionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA718C7C5858C5A90FB07AC /* SubscriptionsListView.swift */; };
+		22C8A5DDF5F0A85A256F6051 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB155315A27FC9DFA6D37250 /* DashboardView.swift */; };
+		27F0C943E3AE17FEC707D590 /* SubscriptionsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4A7C50590B1E487E8EAB6A /* SubscriptionsScreen.swift */; };
 		286634EA8CF7330257DD629B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B998712AA011363D2304F8 /* SettingsView.swift */; };
-		36FA6B6FEA9A54C7C38EEB84 /* WishlistListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0DBFC365F3884F2E7B2999 /* WishlistListView.swift */; };
+		302CE729E4D8359E3ABFA515 /* DevicesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8640D0C88034361042587B40 /* DevicesScreen.swift */; };
+		32B75C186453FB73428D255C /* WarrantyFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D160074B79CE5DD628859CC6 /* WarrantyFormView.swift */; };
 		45E5018476A992A7111F6E50 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F4E2D7F35FB1C280CC8F69 /* AppDelegate.swift */; };
+		463FEB822AED6492E6EB00C0 /* SubscriptionFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5361951BD7F5AE217A9D2B6 /* SubscriptionFormView.swift */; };
+		4E2DCD02F45AE52F2AA2A64B /* WishlistFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362E11CADFB1926B3045C1A7 /* WishlistFormView.swift */; };
+		543917639DB6D1362B66F6CF /* CatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88E631B9D6944853E1DB7069 /* CatalogStore.swift */; };
 		544E4DDC74EC4ADCA6E6EAD5 /* DeviceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B64D656AFFBB2A82DFBFC12 /* DeviceDetailView.swift */; };
 		5A48FF84CEF5E8FCCAE4700F /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F328F74EB569D9AC38242843 /* PushRegistrar.swift */; };
 		62DFB4202083D3689225D744 /* RemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A363E257968B6F55DCDE2265 /* RemindersStore.swift */; };
+		688C4894B526315EE139ED52 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5DE588B298BE90EA3C601F /* Formatters.swift */; };
 		79D4798C3B96746BD94FDEFB /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C497F19BB57A314BE8AC27 /* LoginView.swift */; };
+		7B35C3BDC24958C92652CCCA /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989444F7590454C4B6CC5B77 /* RegisterView.swift */; };
 		7B7485325DE0DD71C66BB8EA /* SubscriptionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D171296492CB187D31E7ACC /* SubscriptionDetailView.swift */; };
 		871386809869675D58D16E4A /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92BFB67BAFC3C7D10FBB62F6 /* StatsStore.swift */; };
+		873C40C6FD9B40F45CB14070 /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55D208CC42F0645778E6B4E /* AccountView.swift */; };
 		965700B52BEF6DC898A447D2 /* DevicesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B619D8E807A35AACF6317AA /* DevicesStore.swift */; };
 		9828500C425D79F793BF8E2A /* SubscriptionsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B2BAC75F19604607D58D25 /* SubscriptionsStore.swift */; };
 		9C0D4D54181D3B319D4C91BA /* WarrantyVaultApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6F019A31DD18F47AB68185 /* WarrantyVaultApp.swift */; };
-		A2C0BB583017009D7A5147E4 /* SubscriptionEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE09E9991BE5D1C8233A548D /* SubscriptionEditorSheet.swift */; };
-		A4189122C1294442EE7DEC3C /* WishlistEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419FE820B9D891850220FDDF /* WishlistEditorSheet.swift */; };
+		9F0749E4C4E2618699A4192B /* DeviceFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 270716D6FFEF8ED810610938 /* DeviceFormView.swift */; };
+		A06511C6CADE2FB1A8BFF2BA /* MoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF9756A7ABBC72933AD1F083 /* MoreScreen.swift */; };
+		A219819B4CFB4D73847D92AF /* WishlistScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC8DC9F67E8D9962CDD5063 /* WishlistScreen.swift */; };
 		AA093A255BC73ADA2F4FFD2A /* WarrantyVaultKit in Frameworks */ = {isa = PBXBuildFile; productRef = DE1CC65855A938B92594071D /* WarrantyVaultKit */; };
+		ABA88E4BB81F55E61E96C35A /* Charts.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38F9FE999EDDF61F5C32EA4 /* Charts.swift */; };
 		B6272CF0F1E8E64F8D6C1A85 /* WishlistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8CBBAE58C07F9D910238935 /* WishlistDetailView.swift */; };
 		BC79F663EFF244BE0CB88D73 /* WishlistStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46158D8EA71511893CBEE9B9 /* WishlistStore.swift */; };
 		BED64B22F2BFDAC45AAF207C /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B686B336D76CD40CEC983A5 /* Theme.swift */; };
+		C39A04AA0FEEE5CEBA3119BD /* AutocompleteChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB571955A5315B649D8BB8A3 /* AutocompleteChips.swift */; };
 		C41ABACD2FC2533A0760FAF5 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C32AEF77946805DFC3E5112 /* Components.swift */; };
 		CFCCCACF4474A91AFF358EBB /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 901EF104266E4673ADA27B48 /* ThemeStore.swift */; };
 		EB2C5F109A275BB6193C1E97 /* AttachmentsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A3A6328546A239C9A68CB6 /* AttachmentsSection.swift */; };
 		F9B680AC74B2C3AD8B41C698 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A961F8ED6F5C20F50684387D /* RootView.swift */; };
-		FD88D6B355E5FECA8F3EEAA4 /* WarrantyEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80DB592C111476C983D45797 /* WarrantyEditorSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		03A3A6328546A239C9A68CB6 /* AttachmentsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentsSection.swift; sourceTree = "<group>"; };
 		145DA658595117A13A5B642D /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
+		270716D6FFEF8ED810610938 /* DeviceFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceFormView.swift; sourceTree = "<group>"; };
 		2B619D8E807A35AACF6317AA /* DevicesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesStore.swift; sourceTree = "<group>"; };
 		2D171296492CB187D31E7ACC /* SubscriptionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionDetailView.swift; sourceTree = "<group>"; };
 		32CAF04638E1D1F55D0B9506 /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
 		35C497F19BB57A314BE8AC27 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		362E11CADFB1926B3045C1A7 /* WishlistFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistFormView.swift; sourceTree = "<group>"; };
 		3A33E462E62F4A6AF5062E89 /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
 		3A6F019A31DD18F47AB68185 /* WarrantyVaultApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyVaultApp.swift; sourceTree = "<group>"; };
-		3B0DBFC365F3884F2E7B2999 /* WishlistListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistListView.swift; sourceTree = "<group>"; };
 		3DCFDE23C8047019681F414D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		419FE820B9D891850220FDDF /* WishlistEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistEditorSheet.swift; sourceTree = "<group>"; };
 		43B2BAC75F19604607D58D25 /* SubscriptionsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsStore.swift; sourceTree = "<group>"; };
 		46158D8EA71511893CBEE9B9 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
-		4AA718C7C5858C5A90FB07AC /* SubscriptionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsListView.swift; sourceTree = "<group>"; };
 		4D51951900CD3FF4D601AAF1 /* WarrantyVault.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WarrantyVault.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		55F4E2D7F35FB1C280CC8F69 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		5B4A7C50590B1E487E8EAB6A /* SubscriptionsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsScreen.swift; sourceTree = "<group>"; };
 		6A7FBAD0D43AB1C8B49947CF /* RemindersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersView.swift; sourceTree = "<group>"; };
 		6B686B336D76CD40CEC983A5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		80DB592C111476C983D45797 /* WarrantyEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyEditorSheet.swift; sourceTree = "<group>"; };
+		7D5DE588B298BE90EA3C601F /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
+		8640D0C88034361042587B40 /* DevicesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesScreen.swift; sourceTree = "<group>"; };
+		88E631B9D6944853E1DB7069 /* CatalogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogStore.swift; sourceTree = "<group>"; };
 		901EF104266E4673ADA27B48 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
-		90683A6E40995281FCC9C23D /* AddDeviceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDeviceSheet.swift; sourceTree = "<group>"; };
-		9221ED9E65D885174E3240CD /* DevicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesListView.swift; sourceTree = "<group>"; };
 		92BFB67BAFC3C7D10FBB62F6 /* StatsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsStore.swift; sourceTree = "<group>"; };
 		94B998712AA011363D2304F8 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		989444F7590454C4B6CC5B77 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
 		9B64D656AFFBB2A82DFBFC12 /* DeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDetailView.swift; sourceTree = "<group>"; };
 		9C32AEF77946805DFC3E5112 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A363E257968B6F55DCDE2265 /* RemindersStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersStore.swift; sourceTree = "<group>"; };
 		A3CED85D2A836A81602152C5 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		A8CBBAE58C07F9D910238935 /* WishlistDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistDetailView.swift; sourceTree = "<group>"; };
 		A961F8ED6F5C20F50684387D /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		B5361951BD7F5AE217A9D2B6 /* SubscriptionFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionFormView.swift; sourceTree = "<group>"; };
+		BB155315A27FC9DFA6D37250 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		CB571955A5315B649D8BB8A3 /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
+		CC3F17674EABA0114000A947 /* ChangePasswordSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangePasswordSheet.swift; sourceTree = "<group>"; };
 		CF6B007469F655782FC84C25 /* WarrantiesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantiesStore.swift; sourceTree = "<group>"; };
-		EE09E9991BE5D1C8233A548D /* SubscriptionEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionEditorSheet.swift; sourceTree = "<group>"; };
+		D160074B79CE5DD628859CC6 /* WarrantyFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyFormView.swift; sourceTree = "<group>"; };
+		D55D208CC42F0645778E6B4E /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		DAC8DC9F67E8D9962CDD5063 /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
+		E261920E537271E2DED771A9 /* PushDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushDevicesView.swift; sourceTree = "<group>"; };
+		E38F9FE999EDDF61F5C32EA4 /* Charts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Charts.swift; sourceTree = "<group>"; };
+		EF9756A7ABBC72933AD1F083 /* MoreScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreScreen.swift; sourceTree = "<group>"; };
 		F328F74EB569D9AC38242843 /* PushRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushRegistrar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -101,6 +121,7 @@
 			isa = PBXGroup;
 			children = (
 				32CAF04638E1D1F55D0B9506 /* AuthStore.swift */,
+				88E631B9D6944853E1DB7069 /* CatalogStore.swift */,
 				2B619D8E807A35AACF6317AA /* DevicesStore.swift */,
 				A363E257968B6F55DCDE2265 /* RemindersStore.swift */,
 				92BFB67BAFC3C7D10FBB62F6 /* StatsStore.swift */,
@@ -116,8 +137,8 @@
 			isa = PBXGroup;
 			children = (
 				2D171296492CB187D31E7ACC /* SubscriptionDetailView.swift */,
-				EE09E9991BE5D1C8233A548D /* SubscriptionEditorSheet.swift */,
-				4AA718C7C5858C5A90FB07AC /* SubscriptionsListView.swift */,
+				B5361951BD7F5AE217A9D2B6 /* SubscriptionFormView.swift */,
+				5B4A7C50590B1E487E8EAB6A /* SubscriptionsScreen.swift */,
 			);
 			path = Subscriptions;
 			sourceTree = "<group>";
@@ -125,7 +146,10 @@
 		3AD6D8B99E8D47EB6774263F /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				CB571955A5315B649D8BB8A3 /* AutocompleteChips.swift */,
+				E38F9FE999EDDF61F5C32EA4 /* Charts.swift */,
 				9C32AEF77946805DFC3E5112 /* Components.swift */,
+				7D5DE588B298BE90EA3C601F /* Formatters.swift */,
 				6B686B336D76CD40CEC983A5 /* Theme.swift */,
 			);
 			path = DesignSystem;
@@ -145,6 +169,14 @@
 				6A7FBAD0D43AB1C8B49947CF /* RemindersView.swift */,
 			);
 			path = Reminders;
+			sourceTree = "<group>";
+		};
+		64265D0279739F3C9554A03D /* More */ = {
+			isa = PBXGroup;
+			children = (
+				EF9756A7ABBC72933AD1F083 /* MoreScreen.swift */,
+			);
+			path = More;
 			sourceTree = "<group>";
 		};
 		7087F5ADA61A0B2E34218D2D /* Products */ = {
@@ -172,10 +204,10 @@
 		9A3E145FF947719B6CB46DBC /* Devices */ = {
 			isa = PBXGroup;
 			children = (
-				90683A6E40995281FCC9C23D /* AddDeviceSheet.swift */,
 				03A3A6328546A239C9A68CB6 /* AttachmentsSection.swift */,
 				9B64D656AFFBB2A82DFBFC12 /* DeviceDetailView.swift */,
-				9221ED9E65D885174E3240CD /* DevicesListView.swift */,
+				270716D6FFEF8ED810610938 /* DeviceFormView.swift */,
+				8640D0C88034361042587B40 /* DevicesScreen.swift */,
 			);
 			path = Devices;
 			sourceTree = "<group>";
@@ -186,6 +218,14 @@
 				0AA3453817CF8600B82A6695 /* Push */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		A039A252816FF34BFCDE3FCC /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				BB155315A27FC9DFA6D37250 /* DashboardView.swift */,
+			);
+			path = Dashboard;
 			sourceTree = "<group>";
 		};
 		AA2E939A09101BA60F99FCE5 /* Stats */ = {
@@ -208,6 +248,9 @@
 		B9BBCB77E3CC0E25AEFA274F /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				D55D208CC42F0645778E6B4E /* AccountView.swift */,
+				CC3F17674EABA0114000A947 /* ChangePasswordSheet.swift */,
+				E261920E537271E2DED771A9 /* PushDevicesView.swift */,
 				94B998712AA011363D2304F8 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -217,7 +260,9 @@
 			isa = PBXGroup;
 			children = (
 				DB381C1943DB44018C1AA236 /* Auth */,
+				A039A252816FF34BFCDE3FCC /* Dashboard */,
 				9A3E145FF947719B6CB46DBC /* Devices */,
+				64265D0279739F3C9554A03D /* More */,
 				615DAFBDB4E298F20489117A /* Reminders */,
 				B9BBCB77E3CC0E25AEFA274F /* Settings */,
 				AA2E939A09101BA60F99FCE5 /* Stats */,
@@ -232,8 +277,8 @@
 			isa = PBXGroup;
 			children = (
 				A8CBBAE58C07F9D910238935 /* WishlistDetailView.swift */,
-				419FE820B9D891850220FDDF /* WishlistEditorSheet.swift */,
-				3B0DBFC365F3884F2E7B2999 /* WishlistListView.swift */,
+				362E11CADFB1926B3045C1A7 /* WishlistFormView.swift */,
+				DAC8DC9F67E8D9962CDD5063 /* WishlistScreen.swift */,
 			);
 			path = Wishlist;
 			sourceTree = "<group>";
@@ -243,6 +288,7 @@
 			children = (
 				145DA658595117A13A5B642D /* ForgotPasswordView.swift */,
 				35C497F19BB57A314BE8AC27 /* LoginView.swift */,
+				989444F7590454C4B6CC5B77 /* RegisterView.swift */,
 			);
 			path = Auth;
 			sourceTree = "<group>";
@@ -250,7 +296,7 @@
 		E01424FEE9B947AB54D118DF /* Warranties */ = {
 			isa = PBXGroup;
 			children = (
-				80DB592C111476C983D45797 /* WarrantyEditorSheet.swift */,
+				D160074B79CE5DD628859CC6 /* WarrantyFormView.swift */,
 			);
 			path = Warranties;
 			sourceTree = "<group>";
@@ -318,17 +364,27 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1E7FDD791EC65767A479851E /* AddDeviceSheet.swift in Sources */,
+				873C40C6FD9B40F45CB14070 /* AccountView.swift in Sources */,
 				45E5018476A992A7111F6E50 /* AppDelegate.swift in Sources */,
 				EB2C5F109A275BB6193C1E97 /* AttachmentsSection.swift in Sources */,
 				16C3E0CEDAF1AE2FA7FA65B1 /* AuthStore.swift in Sources */,
+				C39A04AA0FEEE5CEBA3119BD /* AutocompleteChips.swift in Sources */,
+				543917639DB6D1362B66F6CF /* CatalogStore.swift in Sources */,
+				081AFBE901C196AC6449F4B7 /* ChangePasswordSheet.swift in Sources */,
+				ABA88E4BB81F55E61E96C35A /* Charts.swift in Sources */,
 				C41ABACD2FC2533A0760FAF5 /* Components.swift in Sources */,
+				22C8A5DDF5F0A85A256F6051 /* DashboardView.swift in Sources */,
 				544E4DDC74EC4ADCA6E6EAD5 /* DeviceDetailView.swift in Sources */,
-				12BE8343A4D31B92EFA2A89C /* DevicesListView.swift in Sources */,
+				9F0749E4C4E2618699A4192B /* DeviceFormView.swift in Sources */,
+				302CE729E4D8359E3ABFA515 /* DevicesScreen.swift in Sources */,
 				965700B52BEF6DC898A447D2 /* DevicesStore.swift in Sources */,
 				031104C7488298B47DB85160 /* ForgotPasswordView.swift in Sources */,
+				688C4894B526315EE139ED52 /* Formatters.swift in Sources */,
 				79D4798C3B96746BD94FDEFB /* LoginView.swift in Sources */,
+				A06511C6CADE2FB1A8BFF2BA /* MoreScreen.swift in Sources */,
+				055A0E96098278F34B7E6F88 /* PushDevicesView.swift in Sources */,
 				5A48FF84CEF5E8FCCAE4700F /* PushRegistrar.swift in Sources */,
+				7B35C3BDC24958C92652CCCA /* RegisterView.swift in Sources */,
 				62DFB4202083D3689225D744 /* RemindersStore.swift in Sources */,
 				166E111F7BEB9CF1161CA73D /* RemindersView.swift in Sources */,
 				F9B680AC74B2C3AD8B41C698 /* RootView.swift in Sources */,
@@ -336,17 +392,17 @@
 				871386809869675D58D16E4A /* StatsStore.swift in Sources */,
 				2134378BD4951A03366DD28C /* StatsView.swift in Sources */,
 				7B7485325DE0DD71C66BB8EA /* SubscriptionDetailView.swift in Sources */,
-				A2C0BB583017009D7A5147E4 /* SubscriptionEditorSheet.swift in Sources */,
-				253B2C1421D83B188242D36C /* SubscriptionsListView.swift in Sources */,
+				463FEB822AED6492E6EB00C0 /* SubscriptionFormView.swift in Sources */,
+				27F0C943E3AE17FEC707D590 /* SubscriptionsScreen.swift in Sources */,
 				9828500C425D79F793BF8E2A /* SubscriptionsStore.swift in Sources */,
 				BED64B22F2BFDAC45AAF207C /* Theme.swift in Sources */,
 				CFCCCACF4474A91AFF358EBB /* ThemeStore.swift in Sources */,
 				075528076B8A6FE939C0F423 /* WarrantiesStore.swift in Sources */,
-				FD88D6B355E5FECA8F3EEAA4 /* WarrantyEditorSheet.swift in Sources */,
+				32B75C186453FB73428D255C /* WarrantyFormView.swift in Sources */,
 				9C0D4D54181D3B319D4C91BA /* WarrantyVaultApp.swift in Sources */,
 				B6272CF0F1E8E64F8D6C1A85 /* WishlistDetailView.swift in Sources */,
-				A4189122C1294442EE7DEC3C /* WishlistEditorSheet.swift in Sources */,
-				36FA6B6FEA9A54C7C38EEB84 /* WishlistListView.swift in Sources */,
+				4E2DCD02F45AE52F2AA2A64B /* WishlistFormView.swift in Sources */,
+				A219819B4CFB4D73847D92AF /* WishlistScreen.swift in Sources */,
 				BC79F663EFF244BE0CB88D73 /* WishlistStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

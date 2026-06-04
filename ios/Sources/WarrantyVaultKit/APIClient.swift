@@ -34,24 +34,48 @@ public actor APIClient {
         d.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let str = try container.decode(String.self)
-            // ISO8601DateFormatter isn't Sendable, so re-create per call.
-            // Cheap relative to decoding the surrounding payload.
-            let f = ISO8601DateFormatter()
-            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = f.date(from: str) { return date }
-            f.formatOptions = [.withInternetDateTime]
-            if let date = f.date(from: str) { return date }
-            // Date-only YYYY-MM-DD fallback (some payloads use this)
-            let dayFormatter = DateFormatter()
-            dayFormatter.dateFormat = "yyyy-MM-dd"
-            dayFormatter.timeZone = TimeZone(identifier: "UTC")
-            if let d = dayFormatter.date(from: str) { return d }
+            if let date = DateFormatters.parse(str) { return date }
             throw DecodingError.dataCorruptedError(
                 in: container, debugDescription: "Unrecognized date: \(str)"
             )
         }
         return d
     }()
+
+    // Cached date parsers. The Go API emits timestamps in several shapes —
+    // RFC3339 with a `Z` (`2026-03-12T00:00:00Z`), offset-less local time
+    // (`2025-03-12T00:00:00`, `2026-05-22T21:05:12.687`), and bare dates
+    // (`2025-03-12`). ISO8601DateFormatter rejects the offset-less forms, so
+    // we use a fixed-format DateFormatter ladder instead. Built once; each
+    // formatter is immutable after setup and safe for concurrent reads.
+    enum DateFormatters {
+        // Widest-first. en_US_POSIX keeps parsing locale-independent; no
+        // timeZone is set, so offset-less strings parse in the device zone —
+        // the same lenient behavior as the web's `new Date(...)`.
+        private static let formatters: [DateFormatter] = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ",
+            "yyyy-MM-dd'T'HH:mm:ssZZZZZ",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd",
+        ].map { pattern in
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = pattern
+            return f
+        }
+
+        /// Parses an API date string. Fractional seconds are first clamped to
+        /// 3 digits because `DateFormatter` rejects longer precision.
+        static func parse(_ raw: String) -> Date? {
+            let str = raw.replacingOccurrences(
+                of: #"\.(\d{3})\d+"#, with: ".$1", options: .regularExpression)
+            for formatter in formatters {
+                if let date = formatter.date(from: str) { return date }
+            }
+            return nil
+        }
+    }
 
     // MARK: - Core request
 

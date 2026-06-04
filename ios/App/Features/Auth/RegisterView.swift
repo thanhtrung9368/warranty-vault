@@ -1,9 +1,11 @@
 import SwiftUI
 import WarrantyVaultKit
 
-/// Đăng ký tài khoản mới. Mirrors LoginView styling (gradient backdrop, WVCard,
-/// WVTextField, HeroPrimaryButtonStyle) and the web form at /register
-/// (`src/components/auth-form.tsx`) — fields: tên hiển thị, email, mật khẩu.
+// ============================================================
+// RegisterView — Tạo tài khoản mới.
+// Presented as a sheet from LoginView. Same coral design language.
+// ============================================================
+
 struct RegisterView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var auth: AuthStore
@@ -11,7 +13,6 @@ struct RegisterView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
-
     @State private var isSubmitting = false
     @State private var topError: String?
     @State private var fieldErrors: [String: [String]] = [:]
@@ -20,18 +21,25 @@ struct RegisterView: View {
         NavigationStack {
             ZStack {
                 LinearGradient(
-                    colors: [WV.Tokens.primary.opacity(0.15), WV.Tokens.bg],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ).ignoresSafeArea()
+                    colors: [WVColor.brand.opacity(0.15), WVColor.bg],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: WV.Spacing.xl) {
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: 32)
+                        registerHeader
+                        Spacer().frame(height: 28)
+                        formSection
                         Spacer().frame(height: 24)
-                        header
-                        formCard
+                        loginLink
+                        Spacer().frame(height: 32)
                     }
-                    .padding(WV.Spacing.lg)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(maxWidth: 480)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -40,92 +48,111 @@ struct RegisterView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Đóng") { dismiss() }
+                        .foregroundStyle(WVColor.tint)
                 }
             }
         }
     }
 
-    private var header: some View {
-        VStack(spacing: WV.Spacing.md) {
+    // MARK: - Header
+
+    private var registerHeader: some View {
+        VStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(WV.Tokens.primary.opacity(0.14))
+                    .fill(WVColor.brandSoft)
                     .frame(width: 88, height: 88)
                 Image(systemName: "person.crop.circle.badge.plus")
                     .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(WV.Tokens.primary)
+                    .foregroundStyle(WVColor.brand)
             }
-            .shadow(color: WV.Tokens.primary.opacity(0.18), radius: 18, y: 8)
+            .shadow(color: WVColor.brand.opacity(0.2), radius: 18, y: 8)
 
             VStack(spacing: 6) {
                 Text("Tạo tài khoản miễn phí")
-                    .font(.title2.bold())
-                    .tracking(-0.5)
-                    .foregroundStyle(WV.Tokens.fg)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
                 Text("Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.")
                     .font(.system(size: 13))
-                    .foregroundStyle(WV.Tokens.mutedFg)
+                    .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, WV.Spacing.md)
+                    .padding(.horizontal, 16)
             }
         }
     }
 
-    private var formCard: some View {
-        WVCard {
-            VStack(spacing: WV.Spacing.md) {
-                WVTextField(
-                    "Tên hiển thị", placeholder: "vd: Trung",
+    // MARK: - Form
+
+    private var formSection: some View {
+        VStack(spacing: 0) {
+            WVGroup {
+                AuthTextField(
+                    label: "Tên",
+                    placeholder: "vd: Trung",
                     text: $name,
                     contentType: .name,
                     error: fieldErrors["name"]?.first
                 )
-                WVTextField(
-                    "Email", placeholder: "ban@example.com",
+                WVDivider(inset: 16)
+                AuthTextField(
+                    label: "Email",
+                    placeholder: "ban@example.com",
                     text: $email,
-                    keyboardType: .emailAddress, contentType: .emailAddress,
+                    keyboardType: .emailAddress,
+                    contentType: .emailAddress,
                     error: fieldErrors["email"]?.first
                 )
-                WVTextField(
-                    "Mật khẩu",
+                WVDivider(inset: 16)
+                AuthTextField(
+                    label: "Mật khẩu",
                     placeholder: "Tối thiểu 8 ký tự",
                     text: $password,
                     contentType: .newPassword,
                     isSecure: true,
                     error: fieldErrors["password"]?.first
                 )
-
-                if let topError {
-                    Label(topError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.destructive)
-                        .padding(.top, 4)
-                }
-
-                Button(action: { Task { await submit() } }) {
-                    HStack {
-                        if isSubmitting { ProgressView().tint(WV.Tokens.primaryFg) }
-                        Text("Tạo tài khoản")
-                    }
-                }
-                .buttonStyle(HeroPrimaryButtonStyle(fullWidth: true))
-                .disabled(isSubmitting || !canSubmit)
-                .padding(.top, WV.Spacing.sm)
-
-                Button(action: { dismiss() }) {
-                    Text("Đã có tài khoản? Đăng nhập")
-                }
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(WV.Tokens.primary)
-                .padding(.top, 2)
             }
+
+            if let topError {
+                HStack(spacing: 6) {
+                    WVIcon("alert", size: 13)
+                    Text(topError).font(.system(size: 13))
+                }
+                .foregroundStyle(WVColor.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.top, 10)
+            }
+
+            Spacer().frame(height: 16)
+
+            WVButton(
+                isSubmitting ? "Đang tạo tài khoản…" : "Tạo tài khoản",
+                kind: .primary
+            ) {
+                Task { await submit() }
+            }
+            .disabled(isSubmitting || !canSubmit)
         }
     }
 
-    private var canSubmit: Bool {
-        !email.isEmpty && password.count >= 8
+    // MARK: - Login link
+
+    private var loginLink: some View {
+        Button {
+            dismiss()
+        } label: {
+            (Text("Đã có tài khoản? ") +
+             Text("Đăng nhập").foregroundColor(WVColor.tint).bold())
+                .font(.system(size: 14))
+                .foregroundStyle(WVColor.label3)
+        }
     }
+
+    // MARK: - Logic
+
+    private var canSubmit: Bool { !email.isEmpty && password.count >= 8 }
 
     private func submit() async {
         topError = nil; fieldErrors = [:]
@@ -133,11 +160,11 @@ struct RegisterView: View {
         defer { isSubmitting = false }
         do {
             try await auth.register(
-                email: email, password: password,
+                email: email,
+                password: password,
                 name: name.isEmpty ? nil : name
             )
-            // Đăng ký thành công — AuthStore chuyển sang .authenticated,
-            // root view sẽ tự thay LoginView; không cần dismiss thủ công.
+            // AuthStore flips to .authenticated → RootView replaces LoginView automatically.
         } catch let err as APIError {
             topError = err.localizedDescription
             fieldErrors = err.fieldErrors

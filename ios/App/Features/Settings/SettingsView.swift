@@ -1,282 +1,335 @@
 import SwiftUI
 import WarrantyVaultKit
 
-struct SettingsView: View {
-    @EnvironmentObject var auth: AuthStore
-    @EnvironmentObject var push: PushRegistrar
-    @EnvironmentObject var theme: ThemeStore
+// ============================================================
+// SettingsView — App preferences, notifications, theme.
+// Port of SettingsScreen in screens-3.jsx.
+// ============================================================
 
+struct SettingsView: View {
     let client: APIClient
+
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var push: PushRegistrar
+    @EnvironmentObject private var theme: ThemeStore
+
     @State private var showChangePassword = false
+    @State private var showReminderSheet = false
+    @State private var showPushDevices = false
+    @State private var reminderDays: Int = 30
+
+    // AI receipt-scan opt-in.
+    @State private var aiOptIn = false
+    @State private var aiBusy = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: WV.Spacing.lg) {
-                    WVPageIntro(
-                        title: "Cài đặt",
-                        subtitle: "Tùy chỉnh app theo ý mày"
-                    )
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 8)
 
-                    accountCard
-                    appearanceCard
-                    notificationsCard
-                    securityCard
-                    systemCard
-                    logoutCard
-                }
-                .padding(.horizontal, WV.Spacing.lg)
-                .padding(.bottom, WV.Spacing.xl)
+                // Appearance
+                WVSectionHeader("Giao diện")
+                appearanceSection
+
+                // Theme accent (simplified — just dark / light toggle + system)
+                WVSectionHeader("Chế độ")
+                themeSection
+
+                // Notifications
+                WVSectionHeader("Nhắc nhở")
+                WVSectionFooter("Khi gói bảo hành sắp hết, ứng dụng sẽ đẩy thông báo về máy.")
+                notificationsSection
+
+                // AI receipt scan
+                WVSectionHeader("Quét hoá đơn (AI)")
+                WVSectionFooter("Khi bật, ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền thông tin. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt.")
+                aiSection
+
+                // Data
+                WVSectionHeader("Dữ liệu")
+                dataSection
+
+                // Info
+                WVSectionHeader("Thông tin")
+                infoSection
+
+                Spacer().frame(height: 24)
             }
-            .background(WV.Tokens.bg)
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showChangePassword) {
-                ChangePasswordSheet(client: client)
+        }
+        .wvScreen()
+        .sheet(isPresented: $showChangePassword) {
+            ChangePasswordSheet(client: client)
+        }
+        .sheet(isPresented: $showReminderSheet) {
+            reminderPickerSheet
+        }
+        .navigationDestination(isPresented: $showPushDevices) {
+            PushDevicesView(client: client)
+                .navigationTitle("Thiết bị nhận thông báo")
+                .navigationBarTitleDisplayMode(.inline)
+        }
+        .task {
+            if let v = try? await client.getAIOptIn() { aiOptIn = v }
+        }
+    }
+
+    // MARK: - AI section
+
+    private var aiSection: some View {
+        WVGroup {
+            HStack(spacing: 12) {
+                WVLeadingIcon(icon: "receipt", color: WVColor.tint)
+                Text("Quét hoá đơn bằng AI")
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                Spacer(minLength: 8)
+                if aiBusy {
+                    ProgressView()
+                } else {
+                    Toggle("", isOn: Binding(
+                        get: { aiOptIn },
+                        set: { newValue in setAIOptIn(newValue) }
+                    ))
+                    .labelsHidden()
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+        }
+    }
+
+    private func setAIOptIn(_ enabled: Bool) {
+        aiBusy = true
+        Task {
+            defer { aiBusy = false }
+            do {
+                let v = try await client.setAIOptIn(enabled)
+                aiOptIn = v
+            } catch {
+                // Revert the toggle on failure.
+                aiOptIn = !enabled
             }
         }
     }
 
-    // MARK: - Cards
+    // MARK: - Appearance
 
-    private var accountCard: some View {
-        sectionCard(title: "Tài khoản") {
-            if case let .authenticated(user) = auth.status {
-                row(icon: "person.crop.circle.fill", iconTint: WV.Tokens.primary) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(user.name ?? user.email)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(WV.Tokens.fg)
-                        Text(user.email)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.mutedFg)
-                    }
-                }
-                Divider()
+    private var appearanceSection: some View {
+        WVGroup {
+            WVRow(
+                icon: "moon",
+                iconColor: WVColor.gray,
+                title: "Giao diện tối",
+                detail: theme.preference == .dark ? "Bật" : nil
+            ) {
+                theme.preference = theme.preference == .dark ? .light : .dark
             }
-            Button {
-                showChangePassword = true
-            } label: {
-                row(icon: "key.fill", iconTint: WV.Tokens.primary,
-                    chevron: true) {
-                    Text("Đổi mật khẩu")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                }
-            }
-            .buttonStyle(.plain)
         }
     }
 
-    private var appearanceCard: some View {
-        sectionCard(title: "Giao diện") {
+    // MARK: - Theme (3-way picker)
+
+    private var themeSection: some View {
+        WVGroup {
             ForEach(Array(ThemePreference.allCases.enumerated()), id: \.element.id) { idx, option in
+                if idx > 0 { WVDivider(inset: 60) }
                 Button {
                     theme.preference = option
                 } label: {
-                    row(icon: option.icon, iconTint: WV.Tokens.primary) {
-                        HStack {
-                            Text(option.label)
-                                .font(.system(size: 15))
-                                .foregroundStyle(WV.Tokens.fg)
-                            Spacer()
-                            if theme.preference == option {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(WV.Tokens.primary)
-                            }
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(
+                            icon: option == .dark ? "moon" : option == .light ? "sun" : "settings",
+                            color: WVColor.gray
+                        )
+                        Text(option.label)
+                            .font(.system(size: 17))
+                            .foregroundStyle(WVColor.label)
+                        Spacer(minLength: 8)
+                        if theme.preference == option {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(WVColor.tint)
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                if idx < ThemePreference.allCases.count - 1 { Divider() }
+                .buttonStyle(WVRowButtonStyle())
             }
         }
     }
 
-    private var notificationsCard: some View {
-        sectionCard(title: "Thông báo") {
-            row(icon: "bell.badge.fill", iconTint: WV.Tokens.primary) {
-                HStack {
-                    Text("Thông báo bảo hành")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                    Spacer()
-                    pushBadge
-                }
+    // MARK: - Notifications
+
+    private var notificationsSection: some View {
+        WVGroup {
+            // Push status row
+            HStack(spacing: 12) {
+                WVLeadingIcon(icon: "bell", color: WVColor.red)
+                Text("Bật thông báo")
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                Spacer(minLength: 8)
+                pushStatusBadge
             }
-            Divider()
-            Button {
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+
+            WVDivider(inset: 60)
+
+            // Enable / re-register
+            WVRow(icon: "refresh", iconColor: WVColor.orange,
+                  title: pushButtonLabel, chevron: true) {
                 Task { await push.requestAndRegister() }
-            } label: {
-                row(icon: "arrow.triangle.2.circlepath", iconTint: WV.Tokens.primary,
-                    chevron: true) {
-                    Text(pushButtonLabel)
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                }
             }
-            .buttonStyle(.plain)
             .disabled(pushButtonDisabled)
-            Divider()
-            NavigationLink {
-                PushDevicesView(client: client)
-            } label: {
-                row(icon: "iphone.gen3", iconTint: WV.Tokens.info,
-                    chevron: true) {
-                    Text("Thiết bị nhận thông báo")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                }
-            }
-            .buttonStyle(.plain)
-            Text(pushHint)
-                .font(.system(size: 12))
-                .foregroundStyle(WV.Tokens.mutedFg)
-                .padding(.top, WV.Spacing.xs)
-        }
-    }
 
-    private var securityCard: some View {
-        sectionCard(title: "Bảo mật") {
-            row(icon: "lock.shield.fill", iconTint: WV.Tokens.success) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Phiên đăng nhập")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                    Text("Bearer token được lưu trong Keychain.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-            }
-        }
-    }
+            WVDivider(inset: 60)
 
-    private var systemCard: some View {
-        sectionCard(title: "Hệ thống") {
-            row(icon: "server.rack", iconTint: WV.Tokens.mutedFg) {
-                HStack {
-                    Text("Backend")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                    Spacer()
-                    Text(auth.baseURL.absoluteString)
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
+            // Devices list
+            WVRow(icon: "smartphone", iconColor: WVColor.blue,
+                  title: "Thiết bị nhận thông báo", chevron: true) {
+                showPushDevices = true
             }
-            Divider()
-            row(icon: "info.circle.fill", iconTint: WV.Tokens.mutedFg) {
-                HStack {
-                    Text("Phiên bản")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WV.Tokens.fg)
-                    Spacer()
-                    Text(appVersion)
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-            }
-        }
-    }
 
-    private var logoutCard: some View {
-        WVCard {
+            WVDivider(inset: 60)
+
+            // Reminder lead time
             Button {
-                Task { await auth.logout() }
+                showReminderSheet = true
             } label: {
-                HStack(spacing: WV.Spacing.md) {
-                    iconChip("rectangle.portrait.and.arrow.right",
-                             tint: WV.Tokens.destructive)
-                    Text("Đăng xuất")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(WV.Tokens.destructive)
-                    Spacer()
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "clock", color: WVColor.purple)
+                    Text("Nhắc trước")
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.label)
+                    Spacer(minLength: 8)
+                    Text("\(reminderDays) ngày")
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.label3)
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
                 }
-                .padding(.vertical, 4)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 7)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(WVRowButtonStyle())
         }
     }
 
-    // MARK: - Building blocks
+    // MARK: - Data section
 
-    @ViewBuilder
-    private func sectionCard<Content: View>(
-        title: String,
-        @ViewBuilder _ content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-            Text(title)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(WV.Tokens.fg)
-                .padding(.horizontal, WV.Spacing.xs)
-            WVCard {
-                VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                    content()
+    private var dataSection: some View {
+        WVGroup {
+            WVRow(icon: "cloud", iconColor: WVColor.teal,
+                  title: "iCloud Sync", detail: "Bật", chevron: true)
+            WVDivider(inset: 60)
+            WVRow(icon: "download", iconColor: WVColor.green,
+                  title: "Sao lưu", detail: "Hôm qua", chevron: true)
+            WVDivider(inset: 60)
+            WVRow(icon: "upload", iconColor: WVColor.orange,
+                  title: "Khôi phục từ sao lưu", chevron: true)
+            WVDivider(inset: 60)
+            WVRow(icon: "trash", iconColor: WVColor.red,
+                  title: "Xoá toàn bộ dữ liệu", role: .destructive)
+        }
+    }
+
+    // MARK: - Info section
+
+    private var infoSection: some View {
+        WVGroup {
+            WVRow(icon: "info", iconColor: WVColor.blue,
+                  title: "Phiên bản", detail: appVersion)
+            WVDivider(inset: 60)
+            WVRow(icon: "shield", iconColor: WVColor.green,
+                  title: "Chính sách bảo mật", chevron: true)
+            WVDivider(inset: 60)
+            WVRow(icon: "receipt", iconColor: WVColor.gray,
+                  title: "Điều khoản sử dụng", chevron: true)
+        }
+    }
+
+    // MARK: - Reminder picker sheet
+
+    private var reminderPickerSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 12)
+                    WVGroup {
+                        ForEach(Array([7, 14, 30, 60, 90].enumerated()), id: \.element) { idx, n in
+                            if idx > 0 { WVDivider(inset: 16) }
+                            Button {
+                                reminderDays = n
+                                showReminderSheet = false
+                            } label: {
+                                HStack {
+                                    Text("\(n) ngày trước hết hạn")
+                                        .font(.system(size: 17))
+                                        .foregroundStyle(WVColor.label)
+                                    Spacer()
+                                    if reminderDays == n {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(WVColor.tint)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(WVRowButtonStyle())
+                        }
+                    }
+                    Spacer().frame(height: 20)
+                }
+            }
+            .wvScreen()
+            .navigationTitle("Nhắc trước")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Xong") { showReminderSheet = false }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
                 }
             }
         }
     }
 
-    @ViewBuilder
-    private func row<Content: View>(
-        icon: String,
-        iconTint: Color,
-        chevron: Bool = false,
-        @ViewBuilder _ content: () -> Content
-    ) -> some View {
-        HStack(spacing: WV.Spacing.md) {
-            iconChip(icon, tint: iconTint)
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if chevron {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(WV.Tokens.mutedFg)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-    }
-
-    private func iconChip(_ name: String, tint: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: WV.Radius.md)
-                .fill(tint.opacity(0.14))
-            Image(systemName: name)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(tint)
-        }
-        .frame(width: 36, height: 36)
-    }
+    // MARK: - Push helpers
 
     @ViewBuilder
-    private var pushBadge: some View {
+    private var pushStatusBadge: some View {
         switch push.status {
         case .registered:
-            WVStatusPill("Đã bật", kind: .success)
+            WVChip("Đã bật", tone: .green)
         case .registering, .requesting:
             ProgressView().scaleEffect(0.8)
         case .denied:
-            WVStatusPill("Đã tắt", kind: .danger)
+            WVChip("Đã tắt", tone: .red)
         case .failed:
-            WVStatusPill("Lỗi", kind: .warning)
+            WVChip("Lỗi", tone: .orange)
         case .unknown:
-            WVStatusPill("Chưa bật", kind: .neutral)
+            WVChip("Chưa bật", tone: .gray)
         }
     }
 
     private var pushButtonLabel: String {
         switch push.status {
-        case .registered:    return "Đăng ký lại token"
-        case .denied:        return "Mở Cài đặt iOS để bật"
-        case .failed(let m): return "Thử lại — \(m)"
-        case .registering:   return "Đang đăng ký…"
-        case .requesting:    return "Đang xin quyền…"
-        case .unknown:       return "Bật thông báo"
+        case .registered:       return "Đăng ký lại token"
+        case .denied:           return "Mở Cài đặt iOS để bật"
+        case .failed(let m):    return "Thử lại — \(m)"
+        case .registering:      return "Đang đăng ký…"
+        case .requesting:       return "Đang xin quyền…"
+        case .unknown:          return "Bật thông báo"
         }
     }
 
@@ -287,19 +340,8 @@ struct SettingsView: View {
         }
     }
 
-    private var pushHint: String {
-        switch push.status {
-        case .denied:
-            return "Bạn đã từ chối quyền thông báo. Vào Cài đặt iOS → WarrantyVault → Thông báo để bật lại."
-        case .registered:
-            return "Bạn sẽ nhận nhắc khi bảo hành sắp hết, gói dịch vụ tới hạn, hoặc món thèm tới ngày dự kiến."
-        default:
-            return "Đăng ký APNs để nhận nhắc bảo hành, đăng ký gói dịch vụ, và wishlist."
-        }
-    }
-
     private var appVersion: String {
-        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return b.isEmpty ? v : "\(v) (\(b))"
     }

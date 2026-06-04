@@ -6,6 +6,7 @@ struct WarrantyVaultApp: App {
     @StateObject private var push = PushRegistrar.shared
     @StateObject private var theme = ThemeStore()
     @StateObject private var catalog: CatalogStore
+    @StateObject private var toasts = WVToastCenter()
 
     init() {
         let authStore = AuthStore(baseURL: AppConfig.baseURL)
@@ -23,6 +24,8 @@ struct WarrantyVaultApp: App {
                 .environmentObject(push)
                 .environmentObject(theme)
                 .environmentObject(catalog)
+                .environmentObject(toasts)
+                .wvToastHost(toasts)
                 .preferredColorScheme(theme.preference.colorScheme)
                 .task(id: authIdentity) {
                     // Wire APIClient into the push registrar whenever the
@@ -51,17 +54,18 @@ struct WarrantyVaultApp: App {
 }
 
 enum AppConfig {
-    /// Where the Next.js backend lives.
+    /// Where the Go API backend lives (api/cmd/server, port 4000).
+    /// Mobile clients hit Go directly — the Next.js website no longer serves
+    /// /api/v1/*.
     /// - Simulator: localhost works because the simulator shares the host's loopback.
     /// - Real device on the same Wi-Fi: replace with your Mac's LAN IP, e.g.
-    ///   "http://192.168.1.17:3000". Run `npm run dev -- -H 0.0.0.0` on the
-    ///   Mac so it binds outside loopback.
+    ///   "http://192.168.1.17:4000". Run `go run ./cmd/server` on the Mac.
     /// - Production: set to https://yourdomain.com (must be HTTPS for ATS).
     static let baseURL: URL = {
         if let envURL = ProcessInfo.processInfo.environment["WV_BASE_URL"],
            let url = URL(string: envURL) {
             return url
         }
-        return URL(string: "http://localhost:3000")!
+        return URL(string: "http://localhost:4000")!
     }()
 }

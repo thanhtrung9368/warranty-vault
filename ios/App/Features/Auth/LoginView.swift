@@ -1,38 +1,55 @@
 import SwiftUI
 import WarrantyVaultKit
 
+// ============================================================
+// LoginView — authentication entry point.
+// Shown by RootView when auth.status == .unauthenticated.
+// Coral brand, grouped fields, WVButton — matches the prototype
+// design language applied to an iOS-native auth form.
+// ============================================================
+
 struct LoginView: View {
     @EnvironmentObject var auth: AuthStore
 
     @State private var email = ""
     @State private var password = ""
-
     @State private var isSubmitting = false
     @State private var topError: String?
     @State private var fieldErrors: [String: [String]] = [:]
     @State private var showForgot = false
     @State private var showRegister = false
 
-    var body: some View {
-        ZStack {
-            // Gradient backdrop using primary tint at low opacity — distinct
-            // from web's flat marketing page; feels app-native.
-            LinearGradient(
-                colors: [WV.Tokens.primary.opacity(0.15), WV.Tokens.bg],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ).ignoresSafeArea()
+    init() {}
 
-            ScrollView {
-                VStack(spacing: WV.Spacing.xl) {
-                    Spacer().frame(height: 40)
-                    header
-                    formCard
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Coral gradient backdrop
+                LinearGradient(
+                    colors: [WVColor.brand.opacity(0.18), WVColor.bg],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: 52)
+                        logoHeader
+                        Spacer().frame(height: 32)
+                        formSection
+                        Spacer().frame(height: 24)
+                        registerLink
+                        Spacer().frame(height: 32)
+                    }
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .frame(maxWidth: 480)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(WV.Spacing.lg)
-                .frame(maxWidth: 480)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .navigationBarHidden(true)
         }
-        .scrollDismissesKeyboard(.interactively)
         .sheet(isPresented: $showForgot) {
             ForgotPasswordView(client: auth.client)
         }
@@ -42,88 +59,118 @@ struct LoginView: View {
         }
     }
 
-    private var header: some View {
-        VStack(spacing: WV.Spacing.md) {
+    // MARK: - Logo + title
+
+    private var logoHeader: some View {
+        VStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(WV.Tokens.primary.opacity(0.14))
+                    .fill(WVColor.brandSoft)
                     .frame(width: 96, height: 96)
                 Image(systemName: "shield.checkered")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(WV.Tokens.primary)
+                    .font(.system(size: 46, weight: .semibold))
+                    .foregroundStyle(WVColor.brand)
             }
-            .shadow(color: WV.Tokens.primary.opacity(0.18), radius: 18, y: 8)
+            .shadow(color: WVColor.brand.opacity(0.22), radius: 20, y: 8)
 
             VStack(spacing: 6) {
                 Text("Chào mừng quay lại")
-                    .font(.largeTitle.bold())
-                    .tracking(-0.5)
-                    .foregroundStyle(WV.Tokens.fg)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
                 Text("Đăng nhập để xem bảo hành, đăng ký và wishlist của mày.")
                     .font(.system(size: 14))
-                    .foregroundStyle(WV.Tokens.mutedFg)
+                    .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, WV.Spacing.md)
+                    .padding(.horizontal, 16)
             }
         }
     }
 
-    private var formCard: some View {
-        WVCard {
-            VStack(spacing: WV.Spacing.md) {
-                WVTextField(
-                    "Email", placeholder: "you@example.com",
+    // MARK: - Form
+
+    private var formSection: some View {
+        VStack(spacing: 0) {
+            // Fields
+            WVGroup {
+                AuthTextField(
+                    label: "Email",
+                    placeholder: "you@example.com",
                     text: $email,
-                    keyboardType: .emailAddress, contentType: .emailAddress,
+                    keyboardType: .emailAddress,
+                    contentType: .emailAddress,
+                    isSecure: false,
                     error: fieldErrors["email"]?.first
                 )
-                WVTextField(
-                    "Mật khẩu",
+                WVDivider(inset: 16)
+                AuthTextField(
+                    label: "Mật khẩu",
                     placeholder: "•••••",
                     text: $password,
+                    keyboardType: .default,
                     contentType: .password,
                     isSecure: true,
                     error: fieldErrors["password"]?.first
                 )
-
-                if let topError {
-                    Label(topError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.destructive)
-                        .padding(.top, 4)
-                }
-
-                Button(action: { Task { await submit() } }) {
-                    HStack {
-                        if isSubmitting { ProgressView().tint(WV.Tokens.primaryFg) }
-                        Text("Đăng nhập")
-                    }
-                }
-                .buttonStyle(HeroPrimaryButtonStyle(fullWidth: true))
-                .disabled(isSubmitting || !canSubmit)
-                .padding(.top, WV.Spacing.sm)
-
-                Button("Quên mật khẩu?") { showForgot = true }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(WV.Tokens.primary)
-                    .padding(.top, 2)
-
-                Divider()
-                    .padding(.vertical, 4)
-
-                Button(action: { showRegister = true }) {
-                    Text("Chưa có tài khoản? Đăng ký")
-                }
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(WV.Tokens.primary)
             }
+
+            // Inline error
+            if let topError {
+                HStack(spacing: 6) {
+                    WVIcon("alert", size: 13)
+                    Text(topError)
+                        .font(.system(size: 13))
+                }
+                .foregroundStyle(WVColor.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.top, 10)
+            }
+
+            Spacer().frame(height: 16)
+
+            // Primary button
+            WVButton(
+                isSubmitting ? "Đang đăng nhập…" : "Đăng nhập",
+                kind: .primary
+            ) {
+                Task { await submit() }
+            }
+            .disabled(isSubmitting || !canSubmit)
+
+            // Forgot password
+            Button {
+                showForgot = true
+            } label: {
+                Text("Quên mật khẩu?")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(WVColor.tint)
+            }
+            .padding(.top, 12)
         }
     }
 
-    private var canSubmit: Bool {
-        !email.isEmpty && !password.isEmpty
+    // MARK: - Register link
+
+    private var registerLink: some View {
+        VStack(spacing: 8) {
+            Divider()
+                .padding(.horizontal, WVSpacing.gutter)
+            Button {
+                showRegister = true
+            } label: {
+                Text("Chưa có tài khoản? ") +
+                Text("Đăng ký").foregroundColor(WVColor.tint).bold()
+            }
+            .font(.system(size: 14))
+            .foregroundStyle(WVColor.label3)
+            .padding(.top, 4)
+        }
     }
+
+    // MARK: - Logic
+
+    private var canSubmit: Bool { !email.isEmpty && !password.isEmpty }
 
     private func submit() async {
         topError = nil; fieldErrors = [:]
@@ -136,6 +183,60 @@ struct LoginView: View {
             fieldErrors = err.fieldErrors
         } catch {
             topError = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Shared auth text field
+
+/// Grouped-list style text/secure field with inline error label.
+struct AuthTextField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+    var contentType: UITextContentType? = nil
+    var isSecure: Bool = false
+    var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Text(label)
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                    .frame(width: 100, alignment: .leading)
+
+                if isSecure {
+                    SecureField(placeholder, text: $text)
+                        .keyboardType(keyboardType)
+                        .textContentType(contentType)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.label)
+                        .multilineTextAlignment(.trailing)
+                } else {
+                    TextField(placeholder, text: $text)
+                        .keyboardType(keyboardType)
+                        .textContentType(contentType)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.label)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+
+            if let error {
+                Text(error)
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.red)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
         }
     }
 }

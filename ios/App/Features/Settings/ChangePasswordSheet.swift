@@ -1,6 +1,12 @@
 import SwiftUI
 import WarrantyVaultKit
 
+// ============================================================
+// ChangePasswordSheet — Đổi mật khẩu bottom sheet.
+// Restyled to use WVGroup / WVButton from the new design system.
+// Data wiring is preserved from the previous version.
+// ============================================================
+
 struct ChangePasswordSheet: View {
     let client: APIClient
 
@@ -17,72 +23,89 @@ struct ChangePasswordSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: sectionHeader("Mật khẩu hiện tại")) {
-                    secureField("Mật khẩu hiện tại", text: $currentPassword)
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 12)
+
+                    // Current password
+                    WVSectionHeader("Mật khẩu hiện tại")
+                    WVGroup {
+                        CPSecureRow("Mật khẩu hiện tại", text: $currentPassword)
+                    }
                     if let msg = fieldErrors["currentPassword"]?.first {
-                        Text(msg)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.destructive)
+                        WVSectionFooter(msg)
+                            .foregroundStyle(WVColor.red)
                     }
-                }
 
-                Section(header: sectionHeader("Mật khẩu mới")) {
-                    secureField("Mật khẩu mới (≥8 ký tự)", text: $newPassword)
+                    // New password
+                    WVSectionHeader("Mật khẩu mới")
+                    WVGroup {
+                        CPSecureRow("Mật khẩu mới (≥8 ký tự)", text: $newPassword)
+                        WVDivider(inset: 16)
+                        CPSecureRow("Xác nhận mật khẩu mới", text: $confirmPassword)
+                    }
                     if let msg = fieldErrors["newPassword"]?.first {
-                        Text(msg)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.destructive)
+                        WVSectionFooter(msg)
+                            .foregroundStyle(WVColor.red)
                     }
-                    secureField("Xác nhận mật khẩu mới", text: $confirmPassword)
                     if let msg = fieldErrors["confirmPassword"]?.first {
-                        Text(msg)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.destructive)
+                        WVSectionFooter(msg)
+                            .foregroundStyle(WVColor.red)
                     }
-                }
 
-                if let topError {
-                    Section {
-                        Label(topError, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(WV.Tokens.destructive)
-                            .font(.system(size: 13))
+                    // Error / success banner
+                    if let topError {
+                        HStack(spacing: 8) {
+                            WVIcon("alert", size: 14)
+                            Text(topError)
+                                .font(.system(size: 13))
+                        }
+                        .foregroundStyle(WVColor.red)
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .padding(.top, 12)
                     }
-                }
+                    if let successMessage {
+                        HStack(spacing: 8) {
+                            WVIcon("checkCircle", size: 14)
+                            Text(successMessage)
+                                .font(.system(size: 13))
+                        }
+                        .foregroundStyle(WVColor.green)
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .padding(.top, 12)
+                    }
 
-                if let successMessage {
-                    Section {
-                        Label(successMessage, systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(WV.Tokens.success)
-                            .font(.system(size: 13))
+                    Spacer().frame(height: 20)
+
+                    WVButton(
+                        isSubmitting ? "Đang lưu…" : "Lưu mật khẩu",
+                        icon: isSubmitting ? nil : "save",
+                        kind: .primary
+                    ) {
+                        Task { await submit() }
                     }
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .disabled(isSubmitting || !canSubmit)
+
+                    Spacer().frame(height: 24)
                 }
             }
+            .wvScreen()
             .navigationTitle("Đổi mật khẩu")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Huỷ") { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await submit() } } label: {
-                        if isSubmitting { ProgressView() } else { Text("Lưu").bold() }
-                    }
-                    .disabled(isSubmitting || !canSubmit)
+                        .foregroundStyle(WVColor.tint)
                 }
             }
         }
     }
 
+    // MARK: - Logic
+
     private var canSubmit: Bool {
         !currentPassword.isEmpty && newPassword.count >= 8 && !confirmPassword.isEmpty
-    }
-
-    private func secureField(_ placeholder: String, text: Binding<String>) -> some View {
-        SecureField(placeholder, text: text)
-            .textContentType(.password)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
     }
 
     private func submit() async {
@@ -92,8 +115,6 @@ struct ChangePasswordSheet: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        // Client-side guard mirrors the server schema so we surface the right
-        // field message instantly without a round-trip.
         if newPassword != confirmPassword {
             fieldErrors["confirmPassword"] = ["Xác nhận mật khẩu không khớp"]
             return
@@ -111,13 +132,33 @@ struct ChangePasswordSheet: View {
             dismiss()
         } catch let err as APIError {
             fieldErrors = err.fieldErrors
-            // If a field error exists we don't need a top banner — but if the
-            // server only sent a top-level message (e.g. 429 rate-limit) keep it.
             if fieldErrors.isEmpty {
                 topError = err.localizedDescription
             }
         } catch {
             topError = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Private helper row
+
+private struct CPSecureRow: View {
+    let placeholder: String
+    @Binding var text: String
+
+    init(_ placeholder: String, text: Binding<String>) {
+        self.placeholder = placeholder
+        self._text = text
+    }
+
+    var body: some View {
+        SecureField(placeholder, text: $text)
+            .textContentType(.password)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .font(.system(size: 17))
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
     }
 }

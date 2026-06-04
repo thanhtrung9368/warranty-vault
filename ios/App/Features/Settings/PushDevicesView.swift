@@ -1,11 +1,12 @@
 import SwiftUI
 import WarrantyVaultKit
 
-/// Lists every PushSubscription tied to the current user (web, APNs, FCM)
-/// and lets them unregister one or fire a test notification.
-///
-/// Backed by `GET /api/v1/push`, `DELETE /api/v1/push/{id}` and
-/// `POST /api/v1/push/test`. Mirrors the equivalent settings panel on the web.
+// ============================================================
+// PushDevicesView — list of registered push subscriptions.
+// Restyled to use WVGroup / WVRow / WVChip from the new design
+// system. Data wiring is preserved from the previous version.
+// ============================================================
+
 struct PushDevicesView: View {
     let client: APIClient
 
@@ -14,205 +15,194 @@ struct PushDevicesView: View {
     @State private var errorMessage: String?
     @State private var pendingDeleteId: String?
     @State private var isSendingTest = false
-    @State private var toast: ToastKind?
-
-    enum ToastKind {
-        case success(String)
-        case warning(String)
-        case error(String)
-
-        var message: String {
-            switch self {
-            case .success(let m), .warning(let m), .error(let m): return m
-            }
-        }
-        var icon: String {
-            switch self {
-            case .success: return "checkmark.circle.fill"
-            case .warning: return "exclamationmark.triangle.fill"
-            case .error:   return "xmark.octagon.fill"
-            }
-        }
-        var tint: Color {
-            switch self {
-            case .success: return WV.Tokens.success
-            case .warning: return WV.Tokens.warning
-            case .error:   return WV.Tokens.destructive
-            }
-        }
-    }
+    @State private var toastMessage: String?
+    @State private var toastIsError = false
 
     var body: some View {
-        content
-            .navigationTitle("Thiết bị nhận thông báo")
-            .navigationBarTitleDisplayMode(.inline)
-            .background(WV.Tokens.bg)
-            .task { await reload() }
-            .refreshable { await reload() }
-            .overlay(alignment: .top) { toastBanner }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if isLoading && subscriptions.isEmpty {
-            ScrollView { WVSkeletonList(count: 3) }
-        } else if let errorMessage, subscriptions.isEmpty {
-            WVEmptyState(
-                icon: "exclamationmark.triangle.fill",
-                tint: WV.Tokens.warning,
-                title: "Không tải được danh sách",
-                message: errorMessage,
-                ctaTitle: "Thử lại",
-                action: { Task { await reload() } }
-            )
-        } else if subscriptions.isEmpty {
-            WVEmptyState(
-                icon: "bell.slash.fill",
-                tint: WV.Tokens.mutedFg,
-                title: "Chưa có thiết bị nào đăng ký",
-                message: "Bật thông báo ở Cài đặt để nhận nhắc bảo hành, gia hạn và wishlist."
-            )
-        } else {
-            ScrollView {
-                LazyVStack(spacing: WV.Spacing.md) {
-                    testCard
-                    ForEach(subscriptions) { sub in
-                        subscriptionCard(sub)
+        Group {
+            if isLoading && subscriptions.isEmpty {
+                ScrollView { pushSkeleton }
+                    .wvScreen()
+            } else if let errorMessage, subscriptions.isEmpty {
+                ScrollView {
+                    WVEmpty(icon: "alert", title: "Không tải được danh sách",
+                            description: errorMessage) {
+                        WVButton("Thử lại") { Task { await reload() } }
+                            .padding(.horizontal, 32)
                     }
                 }
-                .padding(WV.Spacing.lg)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85),
-                           value: subscriptions.count)
+                .wvScreen()
+            } else if subscriptions.isEmpty {
+                ScrollView {
+                    WVEmpty(icon: "bellOff",
+                            title: "Chưa có thiết bị nào đăng ký",
+                            description: "Bật thông báo ở Cài đặt để nhận nhắc bảo hành, gia hạn và wishlist.")
+                }
+                .wvScreen()
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        Spacer().frame(height: 8)
+                        testCard
+                        WVSectionHeader("Đã đăng ký")
+                        deviceList
+                        Spacer().frame(height: 24)
+                    }
+                }
+                .wvScreen()
             }
         }
+        .task { await reload() }
+        .refreshable { await reload() }
+        .overlay(alignment: .top) { toastBanner }
     }
 
     // MARK: - Test card
 
     private var testCard: some View {
         WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack(spacing: WV.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: WV.Radius.md)
-                            .fill(WV.Tokens.primary.opacity(0.14))
-                        Image(systemName: "paperplane.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(WV.Tokens.primary)
-                    }
-                    .frame(width: 36, height: 36)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "send", color: WVColor.brand)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Gửi thông báo thử")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(WV.Tokens.fg)
+                            .foregroundStyle(WVColor.label)
                         Text("Bắn 1 push đến tất cả \(subscriptions.count) thiết bị bên dưới.")
                             .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.mutedFg)
+                            .foregroundStyle(WVColor.label3)
                     }
                     Spacer()
                 }
-                Button {
+                WVButton(
+                    isSendingTest ? "Đang gửi…" : "Gửi thử",
+                    icon: "send",
+                    kind: .primary
+                ) {
                     Task { await sendTest() }
-                } label: {
-                    HStack {
-                        if isSendingTest {
-                            ProgressView().tint(WV.Tokens.primaryFg)
-                        }
-                        Text(isSendingTest ? "Đang gửi…" : "Gửi thử")
-                    }
                 }
-                .buttonStyle(PrimaryButtonStyle(fullWidth: true))
                 .disabled(isSendingTest)
             }
         }
     }
 
-    // MARK: - Subscription card
+    // MARK: - Device list
 
-    private func subscriptionCard(_ sub: PushSubscriptionMeta) -> some View {
-        WVCard {
-            HStack(spacing: WV.Spacing.md) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: WV.Radius.md)
-                        .fill(tint(for: sub.platform).opacity(0.14))
-                    Image(systemName: icon(for: sub.platform))
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(tint(for: sub.platform))
-                }
-                .frame(width: 44, height: 44)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(platformLabel(sub.platform))
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(WV.Tokens.fg)
-                        Spacer()
-                        WVStatusPill(platformBadge(sub.platform),
-                                     kind: pillKind(for: sub.platform))
-                    }
-                    if let ua = sub.userAgent, !ua.isEmpty {
-                        Text(ua)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.mutedFg)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    Text("Đăng ký lúc \(formatDate(sub.createdAt))")
-                        .font(.system(size: 11))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-
-                if pendingDeleteId == sub.id {
-                    ProgressView()
-                } else {
-                    Button(role: .destructive) {
-                        Task { await delete(sub) }
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(WV.Tokens.destructive)
-                            .padding(8)
-                            .background(
-                                Circle().fill(WV.Tokens.destructive.opacity(0.12))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        // Swipe-to-delete on the row itself for parity with iOS list UX.
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                Task { await delete(sub) }
-            } label: {
-                Label("Xoá", systemImage: "trash")
+    private var deviceList: some View {
+        WVGroup {
+            ForEach(Array(subscriptions.enumerated()), id: \.element.id) { idx, sub in
+                if idx > 0 { WVDivider(inset: 60) }
+                pushDeviceRow(sub)
             }
         }
     }
 
+    private func pushDeviceRow(_ sub: PushSubscriptionMeta) -> some View {
+        HStack(spacing: 12) {
+            WVLeadingIcon(
+                icon: platformIcon(sub.platform),
+                color: platformColor(sub.platform),
+                size: 36
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(platformLabel(sub.platform))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(WVColor.label)
+                    Spacer(minLength: 4)
+                    WVChip(platformBadge(sub.platform),
+                           tone: platformChipTone(sub.platform))
+                }
+                if let ua = sub.userAgent, !ua.isEmpty {
+                    Text(ua)
+                        .font(.system(size: 12))
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Text("Đăng ký lúc \(WVFormat.date(sub.createdAt))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(WVColor.label3)
+            }
+
+            Spacer(minLength: 0)
+
+            if pendingDeleteId == sub.id {
+                ProgressView().scaleEffect(0.8)
+            } else {
+                Button(role: .destructive) {
+                    Task { await delete(sub) }
+                } label: {
+                    Circle()
+                        .fill(WVColor.red.opacity(0.12))
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            WVIcon("trash", size: 14)
+                                .foregroundStyle(WVColor.red)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 56)
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Skeleton
+
+    private var pushSkeleton: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: 8)
+            WVGroup {
+                ForEach(0..<3) { i in
+                    if i > 0 { WVDivider(inset: 60) }
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 36, height: 36)
+                        VStack(alignment: .leading, spacing: 6) {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(height: 14)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(width: 100, height: 10)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .redacted(reason: .placeholder)
+                }
+            }
+        }
+    }
+
+    // MARK: - Toast overlay
+
     @ViewBuilder
     private var toastBanner: some View {
-        if let toast {
-            HStack(spacing: WV.Spacing.sm) {
-                Image(systemName: toast.icon)
-                    .foregroundStyle(toast.tint)
-                Text(toast.message)
+        if let toastMessage {
+            HStack(spacing: 8) {
+                WVIcon(toastIsError ? "alert" : "checkCircle", size: 15)
+                Text(toastMessage)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(WV.Tokens.fg)
             }
-            .padding(.horizontal, WV.Spacing.md)
-            .padding(.vertical, WV.Spacing.sm)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: WV.Radius.md)
-                    .fill(WV.Tokens.card)
-                    .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(hex: "282828").opacity(0.92))
             )
-            .padding(.top, WV.Spacing.md)
+            .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 
-    // MARK: - Labels
+    // MARK: - Platform helpers
 
     private func platformLabel(_ p: PushPlatform) -> String {
         switch p {
@@ -230,27 +220,27 @@ struct PushDevicesView: View {
         }
     }
 
-    private func icon(for p: PushPlatform) -> String {
+    private func platformIcon(_ p: PushPlatform) -> String {
         switch p {
-        case .apns: return "applelogo"
-        case .fcm:  return "candybarphone"
+        case .apns: return "smartphone"
+        case .fcm:  return "smartphone"
         case .web:  return "globe"
         }
     }
 
-    private func tint(for p: PushPlatform) -> Color {
+    private func platformColor(_ p: PushPlatform) -> Color {
         switch p {
-        case .apns: return WV.Tokens.primary
-        case .fcm:  return WV.Tokens.success
-        case .web:  return WV.Tokens.info
+        case .apns: return WVColor.brand
+        case .fcm:  return WVColor.green
+        case .web:  return WVColor.blue
         }
     }
 
-    private func pillKind(for p: PushPlatform) -> WVStatusKind {
+    private func platformChipTone(_ p: PushPlatform) -> WVChipTone {
         switch p {
-        case .apns: return .info
-        case .fcm:  return .success
-        case .web:  return .neutral
+        case .apns: return .brand
+        case .fcm:  return .green
+        case .web:  return .blue
         }
     }
 
@@ -264,8 +254,7 @@ struct PushDevicesView: View {
             subscriptions = subs.sorted { $0.createdAt > $1.createdAt }
             errorMessage = nil
         } catch {
-            errorMessage = (error as? APIError)?.localizedDescription
-                ?? error.localizedDescription
+            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
 
@@ -276,11 +265,11 @@ struct PushDevicesView: View {
         do {
             try await client.unregisterPush(id: sub.id)
             subscriptions.removeAll { $0.id == sub.id }
-            showToast(.success("Đã gỡ thiết bị"))
+            showToast("Đã gỡ thiết bị", error: false)
         } catch let err as APIError {
-            showToast(.error(err.localizedDescription))
+            showToast(err.localizedDescription, error: true)
         } catch {
-            showToast(.error(error.localizedDescription))
+            showToast(error.localizedDescription, error: true)
         }
     }
 
@@ -291,27 +280,28 @@ struct PushDevicesView: View {
         do {
             let r = try await client.sendTestPush()
             if r.failed == 0 {
-                showToast(.success("Đã gửi \(r.sent) thông báo"))
+                showToast("Đã gửi \(r.sent) thông báo", error: false)
             } else if r.sent == 0 {
-                showToast(.error("Tất cả \(r.failed) thiết bị gửi thất bại"))
+                showToast("Tất cả \(r.failed) thiết bị gửi thất bại", error: true)
             } else {
-                showToast(.warning("Gửi \(r.sent), lỗi \(r.failed)"))
+                showToast("Gửi \(r.sent), lỗi \(r.failed)", error: true)
             }
-            // Some subscriptions may have been pruned by the server (gone) so
-            // refresh the list to stay in sync.
             await reload()
         } catch let err as APIError {
-            showToast(.error(err.localizedDescription))
+            showToast(err.localizedDescription, error: true)
         } catch {
-            showToast(.error(error.localizedDescription))
+            showToast(error.localizedDescription, error: true)
         }
     }
 
-    private func showToast(_ kind: ToastKind) {
-        withAnimation { toast = kind }
+    private func showToast(_ message: String, error: Bool) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+            toastMessage = message
+            toastIsError = error
+        }
         Task {
             try? await Task.sleep(nanoseconds: 2_500_000_000)
-            withAnimation { toast = nil }
+            withAnimation { toastMessage = nil }
         }
     }
 }

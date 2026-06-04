@@ -1,99 +1,33 @@
 import SwiftUI
 
-// Colors mirror the web app's CSS variables in src/app/globals.css.
-// Web uses HSL; here we convert to RGB once at compile time. Both light
-// and dark variants are defined so SwiftUI's color scheme switching works.
+// ============================================================
+// WarrantyVault iOS — design tokens
+//
+// Ported 1:1 from the Claude Design handoff prototype
+// (project/ios/styles.css `:root` + `[data-theme="dark"]`).
+// Native-iOS look: systemGroupedBackground, SF Pro, coral brand.
+// ============================================================
 
 extension Color {
-    /// Construct a Color from HSL components in [0, 1] (Hue uses 0...360 here for ergonomic use).
-    static func hsl(_ h: Double, _ s: Double, _ l: Double, _ a: Double = 1) -> Color {
-        let h1 = (h / 360).truncatingRemainder(dividingBy: 1)
-        let c = (1 - abs(2 * l - 1)) * s
-        let x = c * (1 - abs((h1 * 6).truncatingRemainder(dividingBy: 2) - 1))
-        let m = l - c / 2
-        let (r, g, b): (Double, Double, Double)
-        switch h1 * 6 {
-        case 0..<1: (r, g, b) = (c, x, 0)
-        case 1..<2: (r, g, b) = (x, c, 0)
-        case 2..<3: (r, g, b) = (0, c, x)
-        case 3..<4: (r, g, b) = (0, x, c)
-        case 4..<5: (r, g, b) = (x, 0, c)
-        default:    (r, g, b) = (c, 0, x)
-        }
-        return Color(red: r + m, green: g + m, blue: b + m, opacity: a)
-    }
-}
-
-public enum WV {
-    /// Tokens — light/dark pairs. Use `WV.Color.primary` and SwiftUI flips by environment.
-    public enum Palette {
-        // Light
-        public static let primaryLight       = Color.hsl(224, 0.76, 0.40)   // #1e40af-ish
-        public static let primaryFgLight     = Color.hsl(210, 0.40, 0.98)
-        public static let bgLight            = Color.white
-        public static let fgLight            = Color.hsl(222, 0.47, 0.11)
-        public static let cardLight          = Color.white
-        public static let mutedLight         = Color.hsl(210, 0.40, 0.96)
-        public static let mutedFgLight       = Color.hsl(215, 0.16, 0.47)
-        public static let borderLight        = Color.hsl(214, 0.32, 0.91)
-        public static let warningLight       = Color.hsl(38, 0.92, 0.50)    // amber #f59e0b
-        public static let successLight       = Color.hsl(142, 0.71, 0.35)
-        public static let destructiveLight   = Color.hsl(0, 0.84, 0.60)
-        public static let infoLight          = Color.hsl(199, 0.89, 0.48)   // sky blue
-        public static let pinkLight          = Color.hsl(330, 0.81, 0.60)   // wishlist
-        public static let purpleLight        = Color.hsl(262, 0.83, 0.58)
-
-        // Dark
-        public static let primaryDark        = Color.hsl(217, 0.91, 0.60)   // #3b82f6
-        public static let bgDark             = Color.hsl(222, 0.47, 0.06)
-        public static let fgDark             = Color.hsl(210, 0.40, 0.98)
-        public static let cardDark           = Color.hsl(222, 0.47, 0.09)
-        public static let mutedDark          = Color.hsl(217, 0.33, 0.17)
-        public static let mutedFgDark        = Color.hsl(215, 0.20, 0.65)
-        public static let borderDark         = Color.hsl(217, 0.33, 0.17)
-        public static let successDark        = Color.hsl(142, 0.60, 0.40)
-        public static let destructiveDark    = Color.hsl(0, 0.63, 0.31)
-        public static let infoDark           = Color.hsl(199, 0.89, 0.55)
-        public static let pinkDark           = Color.hsl(330, 0.81, 0.66)
-        public static let purpleDark         = Color.hsl(262, 0.83, 0.66)
+    /// Construct a Color from a 6-digit hex string (`"#FF6B45"` or `"FF6B45"`).
+    init(hex: String) {
+        let raw = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        var value: UInt64 = 0
+        Scanner(string: raw).scanHexInt64(&value)
+        let r = Double((value >> 16) & 0xFF) / 255
+        let g = Double((value >> 8) & 0xFF) / 255
+        let b = Double(value & 0xFF) / 255
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: 1)
     }
 
-    public enum Tokens {
-        public static let primary    = Color.adaptive(Palette.primaryLight, Palette.primaryDark)
-        public static let primaryFg  = Color.adaptive(Palette.primaryFgLight, Palette.primaryFgLight)
-        public static let bg         = Color.adaptive(Palette.bgLight, Palette.bgDark)
-        public static let fg         = Color.adaptive(Palette.fgLight, Palette.fgDark)
-        public static let card       = Color.adaptive(Palette.cardLight, Palette.cardDark)
-        public static let muted      = Color.adaptive(Palette.mutedLight, Palette.mutedDark)
-        public static let mutedFg    = Color.adaptive(Palette.mutedFgLight, Palette.mutedFgDark)
-        public static let border     = Color.adaptive(Palette.borderLight, Palette.borderDark)
-        public static let warning    = Color.adaptive(Palette.warningLight, Palette.warningLight)
-        public static let success    = Color.adaptive(Palette.successLight, Palette.successDark)
-        public static let destructive = Color.adaptive(Palette.destructiveLight, Palette.destructiveDark)
-        public static let info        = Color.adaptive(Palette.infoLight, Palette.infoDark)
-        public static let pink        = Color.adaptive(Palette.pinkLight, Palette.pinkDark)
-        public static let purple      = Color.adaptive(Palette.purpleLight, Palette.purpleDark)
+    /// Translucent color expressed as RGB 0-255 plus an alpha — matches the
+    /// `rgba(...)` system fills in the prototype CSS.
+    static func rgba(_ r: Double, _ g: Double, _ b: Double, _ a: Double) -> Color {
+        Color(.sRGB, red: r / 255, green: g / 255, blue: b / 255, opacity: a)
     }
 
-    public enum Radius {
-        public static let sm: CGFloat = 6
-        public static let md: CGFloat = 10
-        public static let lg: CGFloat = 16   // bumped for friendlier feel
-        public static let xl: CGFloat = 20
-        public static let pill: CGFloat = 999
-    }
-
-    public enum Spacing {
-        public static let xs: CGFloat = 4
-        public static let sm: CGFloat = 8
-        public static let md: CGFloat = 12
-        public static let lg: CGFloat = 16
-        public static let xl: CGFloat = 24
-        public static let xxl: CGFloat = 32
-    }
-}
-
-extension Color {
+    /// Picks `light` or `dark` based on the active `UITraitCollection`, so the
+    /// same token re-resolves when the system / app color scheme flips.
     static func adaptive(_ light: Color, _ dark: Color) -> Color {
 #if canImport(UIKit)
         return Color(UIColor { trait in
@@ -102,5 +36,95 @@ extension Color {
 #else
         return light
 #endif
+    }
+}
+
+/// Semantic color tokens. Every value is light/dark adaptive.
+enum WVColor {
+    // Backgrounds
+    static let bg      = Color.adaptive(Color(hex: "F2F2F7"), Color(hex: "000000"))
+    static let bg2     = Color.adaptive(Color(hex: "FFFFFF"), Color(hex: "1C1C1E"))
+    static let bg3     = Color.adaptive(Color(hex: "EFEFF4"), Color(hex: "2C2C2E"))
+    static let bgElev  = Color.adaptive(Color(hex: "FFFFFF"), Color(hex: "1C1C1E"))
+
+    // Labels
+    static let label   = Color.adaptive(.black, .white)
+    static let label2  = Color.adaptive(.rgba(60, 60, 67, 0.85), .rgba(235, 235, 245, 0.85))
+    static let label3  = Color.adaptive(.rgba(60, 60, 67, 0.60), .rgba(235, 235, 245, 0.60))
+    static let label4  = Color.adaptive(.rgba(60, 60, 67, 0.30), .rgba(235, 235, 245, 0.30))
+
+    // Separators
+    static let sep     = Color.adaptive(.rgba(60, 60, 67, 0.18), .rgba(84, 84, 88, 0.65))
+    static let sepThin = Color.adaptive(.rgba(60, 60, 67, 0.10), .rgba(84, 84, 88, 0.40))
+
+    // System fills (used for chips, segmented, search backgrounds)
+    static let fill1   = Color.adaptive(.rgba(120, 120, 128, 0.20), .rgba(120, 120, 128, 0.36))
+    static let fill2   = Color.adaptive(.rgba(120, 120, 128, 0.16), .rgba(120, 120, 128, 0.32))
+    static let fill3   = Color.adaptive(.rgba(120, 120, 128, 0.12), .rgba(120, 120, 128, 0.24))
+    static let fill4   = Color.adaptive(.rgba(118, 118, 128, 0.08), .rgba(118, 118, 128, 0.18))
+
+    // Brand (coral) + the accent tint used for interactive elements
+    static let brand     = Color.adaptive(Color(hex: "FF6B45"), Color(hex: "FF8060"))
+    static let brand2    = Color.adaptive(Color(hex: "FF8B6A"), Color(hex: "FF8B6A"))
+    static let brandSoft = Color.adaptive(Color(hex: "FFE3D7"), Color(hex: "4A1A0C"))
+    static let tint      = brand
+
+    // iOS system palette (identical light/dark except gray)
+    static let blue   = Color(hex: "007AFF")
+    static let green  = Color(hex: "34C759")
+    static let orange = Color(hex: "FF9500")
+    static let red    = Color(hex: "FF3B30")
+    static let purple = Color(hex: "AF52DE")
+    static let pink   = Color(hex: "FF2D55")
+    static let teal   = Color(hex: "5AC8FA")
+    static let indigo = Color(hex: "5856D6")
+    static let yellow = Color(hex: "FFCC00")
+    static let gray   = Color(hex: "8E8E93")
+    static let gray2  = Color(hex: "AEAEB2")
+    static let gray3  = Color(hex: "C7C7CC")
+}
+
+/// Corner radii (styles.css `--r-*`).
+enum WVRadius {
+    static let card: CGFloat = 14
+    static let list: CGFloat = 12
+    static let widget: CGFloat = 18
+    static let sm: CGFloat = 8
+    static let pill: CGFloat = 999
+}
+
+/// Common spacing steps. The prototype hangs grouped content off a 16pt
+/// horizontal gutter, with 20pt for large-title rows.
+enum WVSpacing {
+    static let gutter: CGFloat = 16
+    static let titleGutter: CGFloat = 20
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 24
+}
+
+// MARK: - Named accent colors
+
+/// The category/icon accent names the prototype uses (`tintBg` in ios-ui.jsx)
+/// mapped to a concrete iOS system color.
+enum WVAccent: String, CaseIterable {
+    case brand, blue, green, orange, red, purple, pink, teal, indigo, yellow, gray
+
+    var color: Color {
+        switch self {
+        case .brand:  return WVColor.brand
+        case .blue:   return WVColor.blue
+        case .green:  return WVColor.green
+        case .orange: return WVColor.orange
+        case .red:    return WVColor.red
+        case .purple: return WVColor.purple
+        case .pink:   return WVColor.pink
+        case .teal:   return WVColor.teal
+        case .indigo: return WVColor.indigo
+        case .yellow: return WVColor.yellow
+        case .gray:   return WVColor.gray
+        }
     }
 }

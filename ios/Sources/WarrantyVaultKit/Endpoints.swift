@@ -154,6 +154,37 @@ extension APIClient {
         let _: EmptyResponse = try await request("DELETE", "/api/v1/attachments/\(id)")
     }
 
+    // MARK: - AI receipt OCR
+
+    /// Sends a receipt / warranty-card image to the Go OCR endpoint and returns
+    /// the extracted draft. The server decrypts/validates, calls the model,
+    /// fuzzy-maps the catalog, and never persists — the caller pre-fills the
+    /// device form and the user confirms before saving.
+    public func extractReceipt(fileName: String, fileType: String, data: Data) async throws -> DraftDevice {
+        struct Wrapper: Decodable { let draft: DraftDevice }
+        let w: Wrapper = try await uploadMultipart(
+            "/api/v1/ai/extract-receipt",
+            fileName: fileName, fileType: fileType, fileData: data
+        )
+        return w.draft
+    }
+
+    /// Current AI opt-in state for the signed-in user.
+    public func getAIOptIn() async throws -> Bool {
+        struct Wrapper: Decodable { let aiOptIn: Bool }
+        let w: Wrapper = try await request("GET", "/api/v1/ai/opt-in")
+        return w.aiOptIn
+    }
+
+    /// Enable/disable the AI receipt-scan opt-in. Returns the new state.
+    @discardableResult
+    public func setAIOptIn(_ enabled: Bool) async throws -> Bool {
+        struct Body: Encodable { let enabled: Bool }
+        struct Wrapper: Decodable { let aiOptIn: Bool }
+        let w: Wrapper = try await request("PUT", "/api/v1/ai/opt-in", body: Body(enabled: enabled))
+        return w.aiOptIn
+    }
+
     public func attachmentDownloadURL(id: String, download: Bool = false) -> URL {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("/api/files/\(id)"),

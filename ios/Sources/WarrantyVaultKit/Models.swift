@@ -12,6 +12,11 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     public let id: String
     public let email: String
     public let name: String?
+    public let aiOptIn: Bool?
+
+    public init(id: String, email: String, name: String?, aiOptIn: Bool? = nil) {
+        self.id = id; self.email = email; self.name = name; self.aiOptIn = aiOptIn
+    }
 }
 
 public struct RegisterInput: Encodable, Sendable {
@@ -201,6 +206,29 @@ public struct DeviceInput: Encodable, Sendable {
     public init(name: String, category: String, purchaseDate: String) {
         self.name = name; self.category = category; self.purchaseDate = purchaseDate
     }
+}
+
+// MARK: - AI receipt draft
+
+/// Draft returned by `POST /api/v1/ai/extract-receipt`. Mirrors the Go
+/// `DraftDevice` / openapi schema. Every field is optional — the model returns
+/// null for anything it can't read. This is NEVER persisted directly; the form
+/// pre-fills from it and the user confirms before saving.
+public struct DraftDevice: Decodable, Sendable {
+    public let name: String?
+    public let category: String?
+    public let brand: String?
+    public let brandId: String?
+    public let model: String?
+    public let serialNumber: String?
+    public let purchaseDate: String?
+    public let purchasePrice: Int?
+    public let purchasePlace: String?
+    public let storeId: String?
+    public let warrantyMonths: Int?
+    public let warrantyProviderId: String?
+    public let confidence: String
+    public let unmatched: [String]
 }
 
 // MARK: - Warranty

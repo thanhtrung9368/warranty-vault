@@ -13,7 +13,7 @@ struct AutocompleteChips: View {
             EmptyView()
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: WV.Spacing.xs) {
+                HStack(spacing: WVSpacing.xs) {
                     ForEach(suggestions, id: \.self) { name in
                         Button {
                             text = name
@@ -23,8 +23,8 @@ struct AutocompleteChips: View {
                                 .font(.system(size: 12, weight: .medium))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(WV.Tokens.muted.opacity(0.6))
-                                .foregroundStyle(WV.Tokens.fg)
+                                .background(WVColor.fill3)
+                                .foregroundStyle(WVColor.label)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)

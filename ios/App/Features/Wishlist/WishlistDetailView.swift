@@ -1,395 +1,534 @@
 import SwiftUI
+import UIKit
 import WarrantyVaultKit
 
+// MARK: - WishlistDetailView
+
 struct WishlistDetailView: View {
+    let client: APIClient
     @ObservedObject var store: WishlistStore
     let itemId: String
 
-    @State private var showEditor = false
-    @State private var showLogPrice = false
-    @State private var showPurchasedConfirm = false
-    @State private var pendingMark = false
-    @State private var errorMessage: String?
-    @State private var prices: [WishlistPrice] = []
-    @State private var isLoadingDetail = false
+    @EnvironmentObject private var toast: WVToastCenter
 
-    private let client: APIClient
+    @State private var item: WishlistItem?
+    @State private var prices: [WishlistPrice]    = []
+    @State private var isLoading                   = false
+    @State private var errorMsg: String?
+    @State private var showUpdatePrice             = false
+    @State private var showMore                    = false
+    @State private var showDelete                  = false
+    @State private var localStatus: WishlistStatus = .WATCHING
+    @State private var pushEdit                    = false
 
-    init(client: APIClient, store: WishlistStore, itemId: String) {
-        self.client = client
-        self.store = store
-        self.itemId = itemId
-    }
-
-    /// Always read the latest copy from the store so reload picks up server-derived changes.
-    private var item: WishlistItem? {
-        store.items.first(where: { $0.id == itemId })
-    }
+    // MARK: Body
 
     var body: some View {
-        ScrollView {
-            if let item {
-                VStack(alignment: .leading, spacing: WV.Spacing.lg) {
-                    headerCard(item)
-                    actionsRow(item)
-                    metaCard(item)
-                    pricesCard
-                    if let errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(WV.Tokens.destructive)
-                            .font(.system(size: 13))
-                            .padding(.horizontal, WV.Spacing.lg)
-                    }
-                }
-                .padding(.vertical, WV.Spacing.lg)
+        Group {
+            if let w = item {
+                mainContent(w)
+            } else if isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, WV.Spacing.xl)
+                WVEmpty(icon: "alert", title: "Không tìm thấy")
             }
         }
-        .background(WV.Tokens.bg)
-        .navigationTitle(item?.name ?? "Chi tiết")
+        .navigationTitle(item?.name ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Sửa") { showEditor = true }
-                    .disabled(item == nil)
+                Button { showMore = true } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.tint)
+                }
             }
         }
-        .refreshable { await reloadAll() }
-        .task { await loadDetail() }
-        .sheet(isPresented: $showEditor, onDismiss: { Task { await loadDetail() } }) {
-            if let item {
-                WishlistEditorSheet(store: store, item: item)
+        .task { await reload() }
+        .refreshable { await reload() }
+        .sheet(isPresented: $showUpdatePrice) {
+            if let w = item {
+                WishUpdatePriceSheet(store: store, itemId: w.id,
+                                     defaultPrice: w.currentPrice ?? 0) {
+                    Task { await reload() }
+                }
             }
         }
-        .sheet(isPresented: $showLogPrice, onDismiss: { Task { await loadDetail() } }) {
-            if let item {
-                LogPriceSheet(
-                    store: store,
-                    itemId: item.id,
-                    defaultPrice: item.currentPrice ?? item.initialPrice ?? 0
-                )
+        .confirmationDialog("", isPresented: $showMore, titleVisibility: .hidden) {
+            Button("Sửa") { pushEdit = true }
+            Button("Update giá") { showUpdatePrice = true }
+            if item?.status != .PURCHASED {
+                Button("Đã mua → tạo thiết bị") { Task { await markPurchased() } }
             }
-        }
-        .confirmationDialog(
-            "Đánh dấu đã mua?",
-            isPresented: $showPurchasedConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Đã mua") { Task { await markPurchased() } }
+            Button("Xoá", role: .destructive) { showDelete = true }
             Button("Huỷ", role: .cancel) {}
+        }
+        .alert("Xoá khỏi wishlist?", isPresented: $showDelete) {
+            Button("Huỷ", role: .cancel) {}
+            Button("Xoá", role: .destructive) { Task { await deleteItem() } }
         } message: {
-            Text("Sẽ chuyển trạng thái sang \"Đã mua\".")
+            Text("\"\(item?.name ?? "")\" và lịch sử giá sẽ bị xoá.")
+        }
+        .navigationDestination(isPresented: $pushEdit) {
+            if let w = item {
+                WishlistFormView(client: client, store: store, item: w)
+            }
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Main content
 
-    private func headerCard(_ item: WishlistItem) -> some View {
+    private func mainContent(_ w: WishlistItem) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                heroSection(w)
+                priceCard(w)             .padding(.top, WVSpacing.sm)
+                quickActions(w)
+                infoSection(w)
+                priceHistorySection
+                statusSection(w)
+                if let notes = w.notes, !notes.isEmpty { noteSection(notes) }
+                deleteSection
+                Spacer().frame(height: WVSpacing.xl)
+            }
+        }
+        .wvScreen()
+    }
+
+    // MARK: - Hero
+
+    private func heroSection(_ w: WishlistItem) -> some View {
+        VStack(spacing: 12) {
+            WVLeadingIcon(
+                icon: WVCategory.icon(for: w.category),
+                color: WVCategory.accent(for: w.category),
+                size: 64
+            )
+            Text(w.name)
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.4)
+                .foregroundStyle(WVColor.label)
+            let sub = [w.brand, w.category]
+                .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+            if !sub.isEmpty {
+                Text(sub)
+                    .font(.system(size: 14))
+                    .foregroundStyle(WVColor.label3)
+            }
+            HStack(spacing: 6) {
+                WVChip(w.priority.chipLabel, tone: w.priority.chipTone)
+                WVChip(localStatus.wishChipLabel, tone: localStatus.wishChipTone)
+            }
+        }
+        .padding(.horizontal, WVSpacing.titleGutter)
+        .padding(.top, WVSpacing.xs)
+        .padding(.bottom, WVSpacing.md)
+    }
+
+    // MARK: - Price card
+
+    private func priceCard(_ w: WishlistItem) -> some View {
         WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack(alignment: .top, spacing: WV.Spacing.md) {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(WV.Tokens.primary)
-                        .frame(width: 48, height: 48)
-                        .background(WV.Tokens.primary.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: WV.Radius.md))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.name)
-                            .font(.system(size: 18, weight: .semibold))
-                        if let brand = item.brand, !brand.isEmpty {
-                            Text(brand)
-                                .font(.system(size: 13))
-                                .foregroundStyle(WV.Tokens.mutedFg)
-                        }
-                        HStack(spacing: WV.Spacing.xs) {
-                            WVStatusPill(item.priority.label, kind: kind(for: item.priority))
-                            WVStatusPill(item.status.label, kind: kind(for: item.status))
-                        }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text(WVFormat.vnd(w.currentPrice ?? 0))
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(WVColor.label)
+
+                    if let init_ = w.initialPrice, let cur = w.currentPrice,
+                       init_ != 0, cur != init_ {
+                        let d = Double(cur - init_) / Double(init_) * 100
+                        Text("\(d < 0 ? "↓" : "↑") \(String(format: "%.1f", abs(d)))%")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(d < 0 ? WVColor.green : WVColor.red)
                     }
-                    Spacer()
                 }
 
-                Divider()
+                // Stats row
+                let pVals = prices.map { $0.price }
+                let minP = pVals.min() ?? 0
+                let maxP = pVals.max() ?? 0
+                Text("Giá ban đầu \(WVFormat.vnd(w.initialPrice ?? 0)) · Min \(WVFormat.vnd(minP)) · Max \(WVFormat.vnd(maxP))")
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label3)
+                    .padding(.top, 2)
 
-                HStack(alignment: .firstTextBaseline) {
-                    if let cur = item.currentPrice {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Giá hiện tại")
-                                .font(.system(size: 11))
-                                .foregroundStyle(WV.Tokens.mutedFg)
-                            Text(formatVND(cur))
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(WV.Tokens.primary)
-                        }
+                // Price chart
+                if prices.count > 1 {
+                    let pts = prices.map { p in
+                        WVChartPoint(
+                            label: String(WVFormat.date(p.recordedAt).prefix(5)),
+                            value: Double(p.price)
+                        )
                     }
-                    Spacer()
-                    if let init_ = item.initialPrice, init_ != item.currentPrice {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("Ban đầu")
-                                .font(.system(size: 11))
-                                .foregroundStyle(WV.Tokens.mutedFg)
-                            Text(formatVND(init_))
-                                .font(.system(size: 14))
-                                .strikethrough()
-                                .foregroundStyle(WV.Tokens.mutedFg)
-                        }
+                    WVLineChart(data: pts, height: 140, color: WVColor.pink) { v in
+                        let m = v / 1_000_000
+                        return String(format: "%.1fM", m)
                     }
+                    .padding(.top, WVSpacing.sm)
                 }
             }
         }
-        .padding(.horizontal, WV.Spacing.lg)
     }
 
-    private func actionsRow(_ item: WishlistItem) -> some View {
-        HStack(spacing: WV.Spacing.md) {
-            Button {
-                showLogPrice = true
-            } label: {
-                Label("Ghi nhận giá mới", systemImage: "tag")
-            }
-            .buttonStyle(PrimaryButtonStyle(fullWidth: true))
+    // MARK: - Quick actions
 
-            if item.status != .PURCHASED {
-                Button {
-                    showPurchasedConfirm = true
-                } label: {
-                    if pendingMark {
-                        ProgressView()
-                    } else {
-                        Label("Đã mua", systemImage: "checkmark.circle")
-                    }
-                }
-                .buttonStyle(SecondaryButtonStyle(fullWidth: true))
-                .disabled(pendingMark)
+    private func quickActions(_ w: WishlistItem) -> some View {
+        HStack(spacing: WVSpacing.sm) {
+            WVButton("Update giá", icon: "wallet", kind: .secondary, size: .small,
+                     fullWidth: true) { showUpdatePrice = true }
+
+            if w.status != .PURCHASED {
+                WVButton("Đã mua", icon: "shoppingBag", kind: .primary, size: .small,
+                         fullWidth: true) { Task { await markPurchased() } }
             }
         }
-        .padding(.horizontal, WV.Spacing.lg)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.md)
     }
 
-    private func metaCard(_ item: WishlistItem) -> some View {
-        WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                if let category = item.category, !category.isEmpty {
-                    metaRow(label: "Danh mục", value: category)
-                }
-                if let target = item.targetDate {
-                    metaRow(label: "Hạn mua", value: formatDate(target))
-                }
-                if let n = item.reminderIntervalDays, n > 0 {
-                    metaRow(label: "Nhắc lại", value: "Mỗi \(n) ngày")
-                }
-                if let url = item.buyUrl, !url.isEmpty, let u = URL(string: url) {
-                    Link(destination: u) {
-                        Label("Mở link mua", systemImage: "arrow.up.right.square")
-                            .font(.system(size: 13))
+    // MARK: - Info section
+
+    private func infoSection(_ w: WishlistItem) -> some View {
+        // Build the row list imperatively here (a @ViewBuilder body can't hold
+        // `var`/`append` statements), then render it.
+        var rows: [(icon: String, color: Color, title: String, detail: String)] = []
+        if let td = w.targetDate {
+            rows.append(("calendar", WVColor.orange, "Ngày dự kiến", WVFormat.date(td)))
+        }
+        if let n = w.reminderIntervalDays, n > 0 {
+            rows.append(("bell", WVColor.red, "Nhắc lại", "Mỗi \(n) ngày"))
+        }
+        if let cat = w.category, !cat.isEmpty {
+            rows.append(("tag", WVColor.purple, "Loại", cat.capitalized))
+        }
+        let buyURL = w.buyUrl.flatMap { $0.isEmpty ? nil : URL(string: $0) }
+
+        return VStack(spacing: 0) {
+            WVSectionHeader("Thông tin")
+            WVGroup {
+                if rows.isEmpty && buyURL == nil {
+                    WVRowContainer {
+                        Text("Không có thông tin bổ sung")
+                            .font(.system(size: 15))
+                            .foregroundStyle(WVColor.label3)
                     }
-                }
-                if let url = item.imageUrl, !url.isEmpty, let u = URL(string: url) {
-                    Link(destination: u) {
-                        Label("Mở ảnh", systemImage: "photo")
-                            .font(.system(size: 13))
-                    }
-                }
-                if let notes = item.notes, !notes.isEmpty {
-                    Divider()
-                    Text(notes)
-                        .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.fg)
-                }
-            }
-        }
-        .padding(.horizontal, WV.Spacing.lg)
-    }
-
-    // MARK: - Helpers
-
-    private func metaRow(label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label).font(.system(size: 12)).foregroundStyle(WV.Tokens.mutedFg)
-            Spacer()
-            Text(value).font(.system(size: 13, weight: .medium))
-        }
-    }
-
-    private func kind(for priority: WishlistPriority) -> WVStatusKind {
-        switch priority {
-        case .MUST:  return .danger
-        case .WANT:  return .warning
-        case .MAYBE: return .neutral
-        }
-    }
-
-    private func kind(for status: WishlistStatus) -> WVStatusKind {
-        switch status {
-        case .WATCHING:  return .info
-        case .DECIDED:   return .accent
-        case .SKIPPED:   return .neutral
-        case .PURCHASED: return .success
-        }
-    }
-
-    // MARK: - Prices
-
-    private var pricesCard: some View {
-        WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack {
-                    Text("Lịch sử giá")
-                        .font(.system(size: 14, weight: .semibold))
-                    Spacer()
-                    if isLoadingDetail {
-                        ProgressView().scaleEffect(0.8)
-                    }
-                }
-                if prices.isEmpty {
-                    Text("Chưa có ghi nhận giá nào.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.mutedFg)
                 } else {
-                    ForEach(prices) { p in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text(formatVND(p.price))
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(WV.Tokens.primary)
-                                Spacer()
-                                Text(formatDate(p.recordedAt))
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(WV.Tokens.mutedFg)
-                            }
-                            if let note = p.note, !note.isEmpty {
-                                Text(note)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(WV.Tokens.mutedFg)
-                            }
+                    ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
+                        if idx > 0 { WVDivider(inset: 60) }
+                        WVRow(icon: row.icon, iconColor: row.color,
+                              title: row.title, detail: row.detail)
+                    }
+                    if let url = buyURL {
+                        if !rows.isEmpty { WVDivider(inset: 60) }
+                        WVRow(icon: "externalLink", iconColor: WVColor.blue,
+                              title: "Mua ở đâu", chevron: true, role: .tint) {
+                            UIApplication.shared.open(url)
                         }
-                        if p.id != prices.last?.id { Divider() }
                     }
                 }
             }
         }
-        .padding(.horizontal, WV.Spacing.lg)
+        .padding(.top, WVSpacing.sm)
     }
 
-    private func loadDetail() async {
-        isLoadingDetail = true
-        defer { isLoadingDetail = false }
-        do {
-            let (_, fetched) = try await client.getWishlistItem(id: itemId)
-            prices = fetched
-        } catch {
-            // Soft fail — keep current prices, surface only via errorMessage if no item.
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+    // MARK: - Price history
+
+    private var priceHistorySection: some View {
+        VStack(spacing: 0) {
+            WVSectionHeader("Lịch sử giá (\(prices.count))")
+            WVGroup {
+                if prices.isEmpty {
+                    WVRowContainer {
+                        Text("Chưa có lịch sử giá nào")
+                            .font(.system(size: 15))
+                            .foregroundStyle(WVColor.label3)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, WVSpacing.sm)
+                    }
+                } else {
+                    let sorted = prices.sorted { $0.recordedAt > $1.recordedAt }
+                    ForEach(Array(sorted.prefix(8).enumerated()), id: \.element.id) { idx, p in
+                        if idx > 0 { WVDivider(inset: 60) }
+                        WVRow(
+                            icon: idx == 0 ? "tag" : "clock",
+                            iconColor: idx == 0 ? WVColor.brand : WVColor.gray,
+                            title: WVFormat.date(p.recordedAt),
+                            subtitle: p.note,
+                            detail: WVFormat.vnd(p.price)
+                        )
+                    }
+                }
+            }
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Status section (chip picker)
+
+    private func statusSection(_ w: WishlistItem) -> some View {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
+            WVSectionHeader("Đổi trạng thái")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: WVSpacing.sm) {
+                    ForEach(WishlistStatus.allCases, id: \.self) { s in
+                        let active = localStatus == s
+                        Button {
+                            Task { await changeStatus(s, w: w) }
+                        } label: {
+                            Text(s.wishChipLabel)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(active ? .white : WVColor.label2)
+                                .padding(.horizontal, 12)
+                                .frame(height: 30)
+                                .background(active ? WVColor.brand : WVColor.fill3)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(WVPressableStyle())
+                    }
+                }
+                .padding(.horizontal, WVSpacing.gutter)
+            }
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Note
+
+    private func noteSection(_ text: String) -> some View {
+        VStack(spacing: 0) {
+            WVSectionHeader("Ghi chú")
+            WVGroup {
+                WVRowContainer {
+                    Text(text)
+                        .font(.system(size: 15))
+                        .foregroundStyle(WVColor.label)
+                        .lineSpacing(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, WVSpacing.xs)
+                }
+            }
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Delete
+
+    private var deleteSection: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: WVSpacing.md)
+            WVGroup {
+                WVRow(icon: "trash", iconColor: WVColor.red,
+                      title: "Xoá khỏi wishlist", role: .destructive) {
+                    showDelete = true
+                }
+            }
         }
     }
 
-    private func reloadAll() async {
-        await store.load()
-        await loadDetail()
+    // MARK: - Data
+
+    private func reload() async {
+        // Optimistic from store
+        if item == nil {
+            item = store.items.first(where: { $0.id == itemId })
+            if let w = item { localStatus = w.status }
+        }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let (w, ps) = try await client.getWishlistItem(id: itemId)
+            item        = w
+            prices      = ps.sorted { $0.recordedAt < $1.recordedAt }
+            localStatus = w.status
+            errorMsg    = nil
+        } catch {
+            errorMsg = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
     }
 
-    // MARK: - Actions
+    private func changeStatus(_ newStatus: WishlistStatus, w: WishlistItem) async {
+        let prev = localStatus
+        localStatus = newStatus
+        var input = wishInputFrom(w)
+        input.status = newStatus
+        do {
+            try await store.update(id: w.id, input)
+            await reload()
+            toast.show("Đổi sang \"\(newStatus.wishChipLabel)\"")
+        } catch {
+            localStatus = prev
+            toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
+        }
+    }
 
     private func markPurchased() async {
-        guard let item else { return }
-        pendingMark = true
-        defer { pendingMark = false }
-        var input = WishlistInput(name: item.name)
-        input.category = item.category
-        input.brand = item.brand
-        input.initialPrice = item.initialPrice
-        input.currentPrice = item.currentPrice
-        input.buyUrl = item.buyUrl
-        input.imageUrl = item.imageUrl
-        input.targetDate = item.targetDate.map { ISO8601DateFormatter.dayOnly.string(from: $0) }
-        input.priority = item.priority
+        guard let w = item else { return }
+        var input = wishInputFrom(w)
         input.status = .PURCHASED
-        input.notes = item.notes
-        input.reminderIntervalDays = item.reminderIntervalDays
         do {
-            try await store.update(id: item.id, input)
-            errorMessage = nil
+            try await store.update(id: w.id, input)
+            await reload()
+            toast.show("Tạo thiết bị từ wishlist")
         } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
+        }
+    }
+
+    private func deleteItem() async {
+        do {
+            try await store.delete(id: itemId)
+        } catch {
+            toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
+        }
+    }
+
+    private func wishInputFrom(_ w: WishlistItem) -> WishlistInput {
+        var input          = WishlistInput(name: w.name)
+        input.category     = w.category
+        input.brand        = w.brand
+        input.initialPrice = w.initialPrice
+        input.currentPrice = w.currentPrice
+        input.buyUrl       = w.buyUrl
+        input.targetDate   = w.targetDate.map { ISO8601DateFormatter.dayOnly.string(from: $0) }
+        input.priority     = w.priority
+        input.status       = w.status
+        input.notes        = w.notes
+        input.reminderIntervalDays = w.reminderIntervalDays
+        return input
+    }
+}
+
+// MARK: - WishlistPriority display
+
+extension WishlistPriority {
+    var chipLabel: String {
+        switch self {
+        case .MUST:  return "Cực thèm"
+        case .WANT:  return "Khá thèm"
+        case .MAYBE: return "Hơi thèm"
+        }
+    }
+    var chipTone: WVChipTone {
+        switch self {
+        case .MUST:  return .red
+        case .WANT:  return .orange
+        case .MAYBE: return .gray
         }
     }
 }
 
-// MARK: - Log Price sheet
+// MARK: - WishlistStatus display
 
-struct LogPriceSheet: View {
+extension WishlistStatus {
+    var wishChipLabel: String {
+        switch self {
+        case .WATCHING:  return "Đang ngó"
+        case .DECIDED:   return "Quyết mua"
+        case .SKIPPED:   return "Bỏ qua"
+        case .PURCHASED: return "Đã mua"
+        }
+    }
+    var wishChipTone: WVChipTone {
+        switch self {
+        case .WATCHING:  return .blue
+        case .DECIDED:   return .brand
+        case .SKIPPED:   return .gray
+        case .PURCHASED: return .green
+        }
+    }
+}
+
+// MARK: - Update Price sheet
+
+struct WishUpdatePriceSheet: View {
     @ObservedObject var store: WishlistStore
     let itemId: String
     let defaultPrice: Int
+    let onUpdated: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var toast: WVToastCenter
 
-    @State private var price: String
-    @State private var note: String = ""
-    @State private var isSubmitting = false
+    @State private var price: Int?
+    @State private var note    = ""
+    @State private var isBusy  = false
     @State private var topError: String?
-
-    init(store: WishlistStore, itemId: String, defaultPrice: Int) {
-        self.store = store
-        self.itemId = itemId
-        self.defaultPrice = defaultPrice
-        _price = State(initialValue: defaultPrice > 0 ? String(defaultPrice) : "")
-    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: sectionHeader("Giá mới")) {
-                    TextField("Giá (VND)", text: $price)
-                        .keyboardType(.numberPad)
-                }
-                Section(header: sectionHeader("Ghi chú")) {
-                    TextField("Ghi chú (tuỳ chọn)", text: $note, axis: .vertical)
-                        .lineLimit(2...5)
-                }
-                if let topError {
-                    Section {
-                        Label(topError, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(WV.Tokens.destructive)
-                            .font(.system(size: 13))
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: WVSpacing.sm)
+                    WVGroup {
+                        WVRowContainer {
+                            HStack {
+                                Text("Giá")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label)
+                                Spacer()
+                                WVMoneyField(value: $price)
+                                    .frame(width: 150)
+                            }
+                        }
+                        WVDivider()
+                        WVRowContainer {
+                            HStack {
+                                Text("Ghi chú")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label)
+                                Spacer()
+                                TextField("vd: Sale Lazada...", text: $note)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label3)
+                                    .frame(width: 160)
+                            }
+                        }
                     }
+                    if let topError {
+                        Text(topError)
+                            .font(.system(size: 13))
+                            .foregroundStyle(WVColor.red)
+                            .padding(.horizontal, WVSpacing.gutter)
+                            .padding(.top, WVSpacing.sm)
+                    }
+                    Spacer().frame(height: WVSpacing.xl)
                 }
             }
-            .navigationTitle("Ghi nhận giá mới")
+            .wvScreen()
+            .navigationTitle("Cập nhật giá")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { dismiss() }
+                    Button("Huỷ") { dismiss() }.foregroundStyle(WVColor.tint)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await submit() } } label: {
-                        if isSubmitting { ProgressView() } else { Text("Lưu").bold() }
-                    }
-                    .disabled(isSubmitting || (Int(price) ?? 0) <= 0)
+                    Button("Lưu") { Task { await submit() } }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                        .disabled(isBusy || (price ?? 0) <= 0)
                 }
             }
+        }
+        .presentationDetents([.medium])
+        .onAppear {
+            price = defaultPrice > 0 ? defaultPrice : nil
+            note  = ""
         }
     }
 
     private func submit() async {
-        topError = nil
-        isSubmitting = true
-        defer { isSubmitting = false }
-        let input = PriceLogInput(
-            price: Int(price) ?? 0,
-            note: note.isEmpty ? nil : note
-        )
+        topError = nil; isBusy = true
+        defer { isBusy = false }
+        let input = PriceLogInput(price: price ?? 0, note: note.isEmpty ? nil : note)
         do {
             try await store.logPrice(id: itemId, input)
+            onUpdated()
+            toast.show("Đã cập nhật giá 💸")
             dismiss()
-        } catch let err as APIError {
-            topError = err.localizedDescription
         } catch {
-            topError = error.localizedDescription
+            topError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
 }

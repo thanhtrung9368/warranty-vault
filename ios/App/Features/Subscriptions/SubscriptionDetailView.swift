@@ -1,375 +1,563 @@
 import SwiftUI
+import UIKit
 import WarrantyVaultKit
 
+// MARK: - SubscriptionDetailView
+
 struct SubscriptionDetailView: View {
-    @ObservedObject var listStore: SubscriptionsStore
+    let client: APIClient
+    @ObservedObject var store: SubscriptionsStore
     let subscriptionId: String
-    let initialSubscription: Subscription
 
-    @State private var subscription: Subscription
-    @State private var payments: [Payment] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var showEditor = false
-    @State private var showLogPayment = false
-    @State private var showRenewConfirm = false
-    @State private var pendingRenew = false
+    @EnvironmentObject private var toast: WVToastCenter
 
-    private let client: APIClient
+    @State private var subscription: Subscription?
+    @State private var payments: [Payment]      = []
+    @State private var isLoading                = false
+    @State private var errorMsg: String?
+    @State private var showLogPayment           = false
+    @State private var showMore                 = false
+    @State private var showDelete               = false
+    @State private var status: SubscriptionStatus = .ACTIVE
+    @State private var pushEdit                 = false
 
-    init(client: APIClient, listStore: SubscriptionsStore, subscription: Subscription) {
-        self.client = client
-        self.listStore = listStore
-        self.subscriptionId = subscription.id
-        self.initialSubscription = subscription
-        _subscription = State(initialValue: subscription)
-    }
+    // MARK: Body
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: WV.Spacing.lg) {
-                headerCard
-                actionsRow
-                paymentsSection
-                if let errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(WV.Tokens.destructive)
-                        .font(.system(size: 13))
-                        .padding(.horizontal, WV.Spacing.lg)
-                }
+        Group {
+            if let sub = subscription {
+                mainContent(sub)
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                WVEmpty(icon: "alert", title: "Không tìm thấy")
             }
-            .padding(.vertical, WV.Spacing.lg)
         }
-        .background(WV.Tokens.bg)
-        .navigationTitle(subscription.name)
+        .navigationTitle(subscription?.name ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Sửa") { showEditor = true }
+                Button {
+                    showMore = true
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.tint)
+                }
             }
         }
         .task { await reload() }
         .refreshable { await reload() }
-        .sheet(isPresented: $showEditor, onDismiss: {
-            Task { await reload() }
-        }) {
-            SubscriptionEditorSheet(store: listStore, subscription: subscription)
-        }
         .sheet(isPresented: $showLogPayment) {
-            LogPaymentSheet(
-                client: client,
-                subscriptionId: subscriptionId,
-                defaultAmount: subscription.price
-            ) {
-                Task { await reload() }
+            if let sub = subscription {
+                SubLogPaymentSheet(
+                    client: client,
+                    subscriptionId: sub.id,
+                    defaultAmount: sub.price
+                ) {
+                    Task { await reload() }
+                }
             }
         }
-        .confirmationDialog(
-            "Gia hạn ngay?",
-            isPresented: $showRenewConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Gia hạn") { Task { await renewNow() } }
+        .confirmationDialog("", isPresented: $showMore, titleVisibility: .hidden) {
+            Button("Sửa") { pushEdit = true }
+            Button("Log payment") { showLogPayment = true }
+            if subscription?.billingCycle != .LIFETIME {
+                Button("Renew Now") { Task { await renewNow() } }
+            }
+            Button("Xoá", role: .destructive) { showDelete = true }
             Button("Huỷ", role: .cancel) {}
+        }
+        .alert("Xoá gói đăng ký?", isPresented: $showDelete) {
+            Button("Huỷ", role: .cancel) {}
+            Button("Xoá", role: .destructive) { Task { await deleteSub() } }
         } message: {
-            Text("Sẽ ghi nhận thanh toán cho chu kỳ hiện tại và đẩy ngày gia hạn sang chu kỳ kế tiếp.")
+            Text("\"\(subscription?.name ?? "")\" và lịch sử thanh toán sẽ bị xoá.")
+        }
+        .navigationDestination(isPresented: $pushEdit) {
+            if let sub = subscription {
+                SubscriptionFormView(client: client, store: store, subscription: sub)
+            }
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Main content
 
-    private var headerCard: some View {
+    private func mainContent(_ sub: Subscription) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                heroSection(sub)
+                costCard(sub)        .padding(.top, WVSpacing.sm)
+                quickActions(sub)
+                statusSegmented(sub)
+                if payments.count > 1 { paymentChart }
+                accountSection(sub)
+                linksSection(sub)
+                paymentsSection
+                if let notes = sub.notes, !notes.isEmpty { noteSection(notes) }
+                deleteSection
+                Spacer().frame(height: WVSpacing.xl)
+            }
+        }
+        .wvScreen()
+    }
+
+    // MARK: - Hero
+
+    private func heroSection(_ sub: Subscription) -> some View {
+        VStack(spacing: 12) {
+            WVLeadingIcon(
+                icon: WVCategory.icon(for: sub.category),
+                color: WVCategory.accent(for: sub.category),
+                size: 64
+            )
+            Text(sub.name)
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.4)
+                .foregroundStyle(WVColor.label)
+
+            let meta = [sub.brand, sub.plan, sub.category]
+                .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+            if !meta.isEmpty {
+                Text(meta)
+                    .font(.system(size: 14))
+                    .foregroundStyle(WVColor.label3)
+            }
+
+            HStack(spacing: 6) {
+                WVChip(sub.status.chipLabel, tone: sub.status.chipTone)
+                let days = WVFormat.daysUntil(sub.renewalDate)
+                if days < 0 && sub.status == .ACTIVE {
+                    WVChip("Quá hạn \(abs(days))d", tone: .red, icon: "alert")
+                }
+            }
+        }
+        .padding(.horizontal, WVSpacing.titleGutter)
+        .padding(.top, WVSpacing.xs)
+        .padding(.bottom, WVSpacing.md)
+    }
+
+    // MARK: - Cost card
+
+    private func costCard(_ sub: Subscription) -> some View {
         WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack(alignment: .top, spacing: WV.Spacing.md) {
-                    Image(systemName: "creditcard")
-                        .font(.system(size: 24))
-                        .foregroundStyle(WV.Tokens.primary)
-                        .frame(width: 48, height: 48)
-                        .background(WV.Tokens.primary.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: WV.Radius.md))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(subscription.name)
-                            .font(.system(size: 18, weight: .semibold))
-                        if let plan = subscription.plan, !plan.isEmpty {
-                            Text(plan)
-                                .font(.system(size: 13))
-                                .foregroundStyle(WV.Tokens.mutedFg)
-                        }
-                        WVStatusPill(subscription.status.label,
-                                     kind: kind(for: subscription.status))
-                    }
-                    Spacer()
-                }
-
-                Divider()
-
-                HStack {
-                    metaRow(label: "Giá", value: formatVND(subscription.price))
-                    Spacer()
-                    metaRow(label: "Chu kỳ", value: subscription.billingCycle.label)
-                }
-
-                HStack {
-                    metaRow(label: "Bắt đầu", value: formatDate(subscription.startedAt))
-                    Spacer()
-                    if subscription.billingCycle != .LIFETIME {
-                        metaRow(label: "Gia hạn", value: formatDate(subscription.renewalDate))
-                    }
-                }
-
-                if subscription.billingCycle == .CUSTOM, let n = subscription.intervalDays {
-                    metaRow(label: "Khoảng cách", value: "\(n) ngày")
-                }
-
-                metaRow(label: "Tự động gia hạn", value: subscription.autoRenew ? "Có" : "Không")
-
-                if let email = subscription.accountEmail, !email.isEmpty {
-                    metaRow(label: "Email tài khoản", value: email)
-                }
-                if let pm = subscription.paymentMethod, !pm.isEmpty {
-                    metaRow(label: "Thanh toán", value: pm)
-                }
-                if let manage = subscription.manageUrl, !manage.isEmpty,
-                   let url = URL(string: manage) {
-                    Link(destination: url) {
-                        Label("Mở trang quản lý", systemImage: "arrow.up.right.square")
-                            .font(.system(size: 13))
-                    }
-                }
-                if let cancel = subscription.cancelUrl, !cancel.isEmpty,
-                   let url = URL(string: cancel) {
-                    Link(destination: url) {
-                        Label("Mở trang huỷ", systemImage: "xmark.square")
-                            .font(.system(size: 13))
-                    }
-                }
-                if let notes = subscription.notes, !notes.isEmpty {
-                    Divider()
-                    Text(notes)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text(WVFormat.vnd(sub.price))
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(WVColor.label)
+                    Text(sub.billingCycle.shortLabel)
                         .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.fg)
+                        .foregroundStyle(WVColor.label3)
                 }
-            }
-        }
-        .padding(.horizontal, WV.Spacing.lg)
-    }
+                if sub.billingCycle != .LIFETIME {
+                    let monthly = subMonthlyEquivalent(sub)
+                    let total   = payments.reduce(0) { $0 + $1.amount }
+                    Text("~ \(WVFormat.vnd(Int(monthly.rounded()))) / tháng · Đã chi tổng \(WVFormat.vnd(total))")
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                        .padding(.top, 2)
+                }
 
-    private var actionsRow: some View {
-        HStack(spacing: WV.Spacing.md) {
-            Button {
-                showLogPayment = true
-            } label: {
-                Label("Ghi nhận thanh toán", systemImage: "plus.circle")
-            }
-            .buttonStyle(PrimaryButtonStyle(fullWidth: true))
+                Rectangle().fill(WVColor.sep).frame(height: 0.5)
+                    .padding(.vertical, WVSpacing.md)
 
-            if subscription.billingCycle != .LIFETIME {
-                Button {
-                    showRenewConfirm = true
-                } label: {
-                    if pendingRenew {
-                        ProgressView()
-                    } else {
-                        Label("Gia hạn ngay", systemImage: "arrow.clockwise")
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(sub.billingCycle == .LIFETIME ? "LIFETIME" : "GIA HẠN TỚI")
+                            .font(.system(size: 12, weight: .semibold))
+                            .tracking(0.5)
+                            .foregroundStyle(WVColor.label3)
+                        if sub.billingCycle == .LIFETIME {
+                            Text("∞")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(WVColor.label)
+                        } else {
+                            let days = WVFormat.daysUntil(sub.renewalDate)
+                            Text(WVFormat.date(sub.renewalDate))
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(days < 0 ? WVColor.red : WVColor.label)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if sub.billingCycle != .LIFETIME {
+                        WVButton("Renew", icon: "refresh", kind: .secondary, size: .small,
+                                 fullWidth: false) {
+                            Task { await renewNow() }
+                        }
                     }
                 }
-                .buttonStyle(SecondaryButtonStyle(fullWidth: true))
-                .disabled(pendingRenew)
             }
         }
-        .padding(.horizontal, WV.Spacing.lg)
     }
+
+    // MARK: - Quick actions
+
+    private func quickActions(_ sub: Subscription) -> some View {
+        HStack(spacing: WVSpacing.sm) {
+            WVButton("Log payment", icon: "wallet", kind: .secondary, size: .small,
+                     fullWidth: true) { showLogPayment = true }
+
+            if let urlStr = sub.manageUrl, !urlStr.isEmpty, let url = URL(string: urlStr) {
+                Link(destination: url) {
+                    HStack(spacing: 6) {
+                        WVIcon("externalLink", size: 14)
+                        Text("Quản lý").font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundStyle(WVColor.tint)
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(WVColor.fill2)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+            }
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.md)
+    }
+
+    // MARK: - Status segmented
+
+    private func statusSegmented(_ sub: Subscription) -> some View {
+        WVSegmented(
+            options: [
+                (.ACTIVE,   "Đang dùng"),
+                (.PAUSED,   "Tạm dừng"),
+                (.CANCELED, "Đã huỷ"),
+            ],
+            selection: $status
+        )
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.sm)
+        .onChange(of: status) { _, newVal in
+            Task { await changeStatus(newVal, sub: sub) }
+        }
+    }
+
+    // MARK: - Payment chart
+
+    private var paymentChart: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            WVSectionHeader("Biểu đồ thanh toán")
+            WVCard {
+                let pts = payments.reversed().map { p in
+                    WVChartPoint(
+                        label: String(WVFormat.date(p.paidAt).prefix(5)),
+                        value: Double(p.amount)
+                    )
+                }
+                WVLineChart(data: pts, height: 160, color: WVColor.indigo) { v in
+                    "\(Int(v / 1_000))k"
+                }
+            }
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Account section
+
+    private func accountSection(_ sub: Subscription) -> some View {
+        // Build the rows imperatively before the @ViewBuilder body.
+        var rows: [(icon: String, color: Color, title: String, detail: String)] = []
+        if let e = sub.accountEmail, !e.isEmpty { rows.append(("mail", WVColor.blue, "Email", e)) }
+        if let pm = sub.paymentMethod, !pm.isEmpty { rows.append(("creditCard", WVColor.purple, "Thanh toán", pm)) }
+        rows.append(("refresh", WVColor.green, "Tự gia hạn", sub.autoRenew ? "Bật" : "Tắt"))
+        rows.append(("calendar", WVColor.orange, "Bắt đầu", WVFormat.date(sub.startedAt)))
+
+        return VStack(spacing: 0) {
+            WVSectionHeader("Tài khoản")
+            WVGroup {
+                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
+                    if idx > 0 { WVDivider(inset: 60) }
+                    WVRow(icon: row.icon, iconColor: row.color,
+                          title: row.title, detail: row.detail)
+                }
+            }
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Links section
+
+    @ViewBuilder
+    private func linksSection(_ sub: Subscription) -> some View {
+        let manageValid = sub.manageUrl.map { !$0.isEmpty && URL(string: $0) != nil } ?? false
+        let cancelValid = sub.cancelUrl.map { !$0.isEmpty && URL(string: $0) != nil } ?? false
+        if manageValid || cancelValid {
+            VStack(spacing: 0) {
+                WVSectionHeader("Liên kết")
+                WVGroup {
+                    if manageValid, let url = URL(string: sub.manageUrl ?? "") {
+                        WVRow(icon: "externalLink", iconColor: WVColor.blue,
+                              title: "Quản lý gói", chevron: true, role: .tint) {
+                            UIApplication.shared.open(url)
+                        }
+                        if cancelValid { WVDivider(inset: 60) }
+                    }
+                    if cancelValid, let url = URL(string: sub.cancelUrl ?? "") {
+                        WVRow(icon: "x", iconColor: WVColor.red,
+                              title: "Huỷ gói", chevron: true, role: .destructive) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                }
+            }
+            .padding(.top, WVSpacing.sm)
+        }
+    }
+
+    // MARK: - Payment history
 
     private var paymentsSection: some View {
-        VStack(alignment: .leading, spacing: WV.Spacing.md) {
-            HStack {
-                Text("Lịch sử thanh toán")
-                    .font(.system(size: 17, weight: .semibold))
-                Spacer()
-                Text("\(payments.count) lần")
-                    .font(.system(size: 12))
-                    .foregroundStyle(WV.Tokens.mutedFg)
-            }
-            .padding(.horizontal, WV.Spacing.lg)
-
-            if isLoading && payments.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, WV.Spacing.xl)
-            } else if payments.isEmpty {
-                emptyPayments
-            } else {
-                VStack(spacing: WV.Spacing.sm) {
-                    ForEach(payments) { p in
-                        paymentCard(p)
+        VStack(spacing: 0) {
+            WVSectionHeader("Lịch sử thanh toán (\(payments.count))")
+            WVGroup {
+                if payments.isEmpty {
+                    WVRowContainer {
+                        Text("Chưa có thanh toán nào")
+                            .font(.system(size: 15))
+                            .foregroundStyle(WVColor.label3)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, WVSpacing.sm)
+                    }
+                } else {
+                    ForEach(Array(payments.prefix(8).enumerated()), id: \.element.id) { idx, p in
+                        if idx > 0 { WVDivider(inset: 60) }
+                        WVRow(
+                            icon: "wallet", iconColor: WVColor.green,
+                            title: WVFormat.date(p.paidAt),
+                            subtitle: p.note,
+                            detail: WVFormat.vnd(p.amount)
+                        )
                     }
                 }
-                .padding(.horizontal, WV.Spacing.lg)
             }
         }
+        .padding(.top, WVSpacing.sm)
     }
 
-    private var emptyPayments: some View {
-        VStack(spacing: WV.Spacing.sm) {
-            Image(systemName: "tray")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(WV.Tokens.mutedFg)
-            Text("Chưa có lượt thanh toán nào")
-                .font(.system(size: 13))
-                .foregroundStyle(WV.Tokens.mutedFg)
-        }
-        .padding(WV.Spacing.lg)
-        .frame(maxWidth: .infinity)
-    }
+    // MARK: - Note
 
-    private func paymentCard(_ p: Payment) -> some View {
-        WVCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(formatDate(p.paidAt))
-                        .font(.system(size: 14, weight: .medium))
-                    if let note = p.note, !note.isEmpty {
-                        Text(note)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WV.Tokens.mutedFg)
-                    }
+    private func noteSection(_ text: String) -> some View {
+        VStack(spacing: 0) {
+            WVSectionHeader("Ghi chú")
+            WVGroup {
+                WVRowContainer {
+                    Text(text)
+                        .font(.system(size: 15))
+                        .foregroundStyle(WVColor.label)
+                        .lineSpacing(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, WVSpacing.xs)
                 }
-                Spacer()
-                Text(formatVND(p.amount))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(WV.Tokens.primary)
+            }
+        }
+        .padding(.top, WVSpacing.sm)
+    }
+
+    // MARK: - Delete row
+
+    private var deleteSection: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: WVSpacing.md)
+            WVGroup {
+                WVRow(icon: "trash", iconColor: WVColor.red,
+                      title: "Xoá gói đăng ký", role: .destructive) {
+                    showDelete = true
+                }
             }
         }
     }
 
-    // MARK: - Helpers
-
-    private func metaRow(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 11)).foregroundStyle(WV.Tokens.mutedFg)
-            Text(value).font(.system(size: 14, weight: .medium))
-        }
-    }
-
-    private func kind(for status: SubscriptionStatus) -> WVStatusKind {
-        switch status {
-        case .ACTIVE:   return .success
-        case .PAUSED:   return .warning
-        case .CANCELED: return .neutral
-        case .EXPIRED:  return .danger
-        }
-    }
-
-    // MARK: - Actions
+    // MARK: - Data
 
     private func reload() async {
+        // Optimistically show data from the list store
+        if subscription == nil {
+            subscription = store.subscriptions.first(where: { $0.id == subscriptionId })
+            if let s = subscription { status = s.status }
+        }
         isLoading = true
         defer { isLoading = false }
         do {
             let (sub, ps) = try await client.getSubscription(id: subscriptionId)
             subscription = sub
             payments = ps.sorted { $0.paidAt > $1.paidAt }
-            errorMessage = nil
+            status = sub.status
+            errorMsg = nil
         } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            errorMsg = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
 
     private func renewNow() async {
-        pendingRenew = true
-        defer { pendingRenew = false }
         do {
-            try await client.renewSubscription(id: subscriptionId)
+            try await store.renewNow(id: subscriptionId)
             await reload()
-            // Also refresh the list so the renewalDate / status reflect server state.
-            await listStore.load()
+            toast.show("Đã renew gói 🔁")
         } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
         }
+    }
+
+    private func changeStatus(_ newStatus: SubscriptionStatus, sub: Subscription) async {
+        do {
+            try await store.setStatus(id: sub.id, status: newStatus)
+            toast.show("Đổi sang \(newStatus.chipLabel)")
+        } catch {
+            status = sub.status   // revert optimistic update
+            toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
+        }
+    }
+
+    private func deleteSub() async {
+        do {
+            try await store.delete(id: subscriptionId)
+        } catch {
+            toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - SubscriptionStatus display helpers
+
+extension SubscriptionStatus {
+    var chipLabel: String {
+        switch self {
+        case .ACTIVE:   return "Đang dùng"
+        case .PAUSED:   return "Tạm dừng"
+        case .CANCELED: return "Đã huỷ"
+        case .EXPIRED:  return "Hết hạn"
+        }
+    }
+    var chipTone: WVChipTone {
+        switch self {
+        case .ACTIVE:   return .green
+        case .PAUSED:   return .orange
+        case .CANCELED: return .red
+        case .EXPIRED:  return .gray
+        }
+    }
+}
+
+// MARK: - monthlyEquivalent
+
+private func subMonthlyEquivalent(_ sub: Subscription) -> Double {
+    let p = Double(sub.price)
+    switch sub.billingCycle {
+    case .MONTHLY:   return p
+    case .QUARTERLY: return p / 3
+    case .YEARLY:    return p / 12
+    case .LIFETIME:  return 0
+    case .CUSTOM:
+        let d = Double(sub.intervalDays ?? 30)
+        return d > 0 ? p / d * 30 : 0
     }
 }
 
 // MARK: - Log Payment sheet
 
-struct LogPaymentSheet: View {
+struct SubLogPaymentSheet: View {
     let client: APIClient
     let subscriptionId: String
     let defaultAmount: Int
     let onLogged: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var toast: WVToastCenter
 
-    @State private var amount: String
-    @State private var paidAt: Date = Date()
-    @State private var note: String = ""
-    @State private var isSubmitting = false
+    @State private var amount: Int?
+    @State private var paidAt   = Date()
+    @State private var note     = ""
+    @State private var isBusy   = false
     @State private var topError: String?
-
-    init(client: APIClient, subscriptionId: String, defaultAmount: Int,
-         onLogged: @escaping () -> Void) {
-        self.client = client
-        self.subscriptionId = subscriptionId
-        self.defaultAmount = defaultAmount
-        self.onLogged = onLogged
-        _amount = State(initialValue: defaultAmount > 0 ? String(defaultAmount) : "")
-    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: sectionHeader("Số tiền")) {
-                    TextField("Số tiền (VND)", text: $amount)
-                        .keyboardType(.numberPad)
-                }
-                Section(header: sectionHeader("Ngày")) {
-                    DatePicker("Ngày thanh toán", selection: $paidAt, displayedComponents: .date)
-                }
-                Section(header: sectionHeader("Ghi chú")) {
-                    TextField("Ghi chú (tuỳ chọn)", text: $note, axis: .vertical)
-                        .lineLimit(2...5)
-                }
-                if let topError {
-                    Section {
-                        Label(topError, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(WV.Tokens.destructive)
-                            .font(.system(size: 13))
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: WVSpacing.sm)
+                    WVGroup {
+                        WVRowContainer {
+                            HStack {
+                                Text("Số tiền")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label)
+                                Spacer()
+                                WVMoneyField(value: $amount)
+                                    .frame(width: 140)
+                            }
+                        }
+                        WVDivider()
+                        WVRowContainer {
+                            DatePicker("Ngày trả", selection: $paidAt,
+                                       displayedComponents: .date)
+                                .font(.system(size: 17))
+                        }
+                        WVDivider()
+                        WVRowContainer {
+                            HStack {
+                                Text("Ghi chú")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label)
+                                Spacer()
+                                TextField("vd: Tháng 4/2026", text: $note)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label3)
+                                    .frame(width: 160)
+                            }
+                        }
                     }
+                    if let topError {
+                        Text(topError)
+                            .font(.system(size: 13))
+                            .foregroundStyle(WVColor.red)
+                            .padding(.horizontal, WVSpacing.gutter)
+                            .padding(.top, WVSpacing.sm)
+                    }
+                    Spacer().frame(height: WVSpacing.xl)
                 }
             }
-            .navigationTitle("Ghi nhận thanh toán")
+            .wvScreen()
+            .navigationTitle("Log thanh toán")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Huỷ") { dismiss() }
+                        .foregroundStyle(WVColor.tint)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await submit() } } label: {
-                        if isSubmitting { ProgressView() } else { Text("Lưu").bold() }
-                    }
-                    .disabled(isSubmitting || (Int(amount) ?? 0) <= 0)
+                    Button("Lưu") { Task { await submit() } }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                        .disabled(isBusy || (amount ?? 0) <= 0)
                 }
             }
+        }
+        .presentationDetents([.medium, .large])
+        .onAppear {
+            amount = defaultAmount > 0 ? defaultAmount : nil
+            paidAt = Date()
+            note   = ""
         }
     }
 
     private func submit() async {
-        topError = nil
-        isSubmitting = true
-        defer { isSubmitting = false }
+        topError = nil; isBusy = true
+        defer { isBusy = false }
         let input = PaymentInput(
-            amount: Int(amount) ?? 0,
+            amount: amount ?? 0,
             paidAt: ISO8601DateFormatter.dayOnly.string(from: paidAt),
-            note: note.isEmpty ? nil : note
+            note:   note.isEmpty ? nil : note
         )
         do {
             _ = try await client.logSubscriptionPayment(id: subscriptionId, input)
             onLogged()
+            toast.show("Đã log payment 💸")
             dismiss()
-        } catch let err as APIError {
-            topError = err.localizedDescription
         } catch {
-            topError = error.localizedDescription
+            topError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
 }

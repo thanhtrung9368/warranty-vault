@@ -1,387 +1,504 @@
 import SwiftUI
+import UIKit
 import WarrantyVaultKit
 
+// ============================================================
+// DeviceDetailView — device detail screen
+//
+// Ports DeviceDetailScreen from project/ios/js/screens-1.jsx.
+// Hero icon + info groups + warranty timeline cards + attachments.
+// Edit → push DeviceFormView; add/edit warranty → push WarrantyFormView.
+// ============================================================
+
 struct DeviceDetailView: View {
-    @EnvironmentObject var auth: AuthStore
-    @StateObject private var store: WarrantiesStore
-    let deviceSummary: Device
-
-    @State private var showAddWarranty = false
-    @State private var showEditDevice = false
-    @State private var editingWarranty: Warranty?
-    @State private var pendingActionId: String?
-    @State private var actionError: String?
-
-    private let client: APIClient
-    /// Optional reference to the list's store so edits propagate back into the list.
+    let client: APIClient
     @ObservedObject var devicesStore: DevicesStore
+    let device: Device
 
-    init(device: Device, client: APIClient, devicesStore: DevicesStore) {
-        self.deviceSummary = device
+    @StateObject private var store: WarrantiesStore
+
+    @State private var showActionMenu = false
+    @State private var showDeleteAlert = false
+    @State private var deletionError: String?
+    @State private var actionError: String?
+    @State private var deviceStatus: DeviceStatus
+    @State private var statusSaving = false
+
+    @Environment(\.dismiss) private var dismiss
+
+    init(client: APIClient, devicesStore: DevicesStore, device: Device) {
         self.client = client
         self.devicesStore = devicesStore
+        self.device = device
         _store = StateObject(wrappedValue: WarrantiesStore(client: client, deviceId: device.id))
+        _deviceStatus = State(initialValue: device.status)
     }
+
+    // MARK: - Computed
+
+    private var currentDevice: Device {
+        devicesStore.devices.first(where: { $0.id == device.id }) ?? device
+    }
+
+    private var warranties: [Warranty] { store.warranties }
+    private var attachments: [AttachmentMeta] { store.device?.attachments ?? [] }
+
+    private var maxDaysLeft: Int? {
+        guard !warranties.isEmpty else { return nil }
+        return warranties.map { warrantyDaysLeft($0) }.max()
+    }
+
+    // MARK: - Body
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: WV.Spacing.lg) {
-                deviceHeader
-                warrantiesSection
-                AttachmentsSection(
-                    client: client,
-                    deviceId: deviceSummary.id,
-                    initialAttachments: store.device?.attachments ?? []
-                )
-                if let actionError {
-                    Label(actionError, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(WV.Tokens.destructive)
-                        .font(.system(size: 13))
-                        .padding(.horizontal, WV.Spacing.lg)
+            VStack(alignment: .leading, spacing: 0) {
+                // Hero section
+                heroSection
+
+                // Warranty timeline card (if any)
+                if !warranties.isEmpty {
+                    warrantyTimelineCard
+                        .padding(.top, 12)
                 }
+
+                // Info group — purchase
+                WVSectionHeader("Mua hàng")
+                WVGroup {
+                    WVRow(icon: "calendar", iconColor: WVColor.red,
+                          title: "Ngày mua",
+                          detail: WVFormat.date(currentDevice.purchaseDate))
+                    WVDivider(inset: 60)
+                    WVRow(icon: "wallet", iconColor: WVColor.green,
+                          title: "Giá mua",
+                          detail: WVFormat.vnd(currentDevice.purchasePrice))
+                    WVDivider(inset: 60)
+                    WVRow(icon: "store", iconColor: WVColor.orange,
+                          title: "Nơi mua",
+                          detail: currentDevice.purchasePlace ?? "—")
+                    WVDivider(inset: 60)
+                    WVRow(icon: "hash", iconColor: WVColor.blue,
+                          title: "Serial / IMEI",
+                          detail: currentDevice.serialNumber ?? "—")
+                }
+
+                // Warranty list group
+                WVSectionHeader("Bảo hành (\(warranties.count)/5)")
+                warrantyListGroup
+
+                // Warranty contact group (if phones/addresses present)
+                let contactWarranties = warranties.filter { $0.phone != nil || $0.address != nil }
+                if !contactWarranties.isEmpty {
+                    WVSectionHeader("Liên hệ bảo hành")
+                    WVGroup {
+                        ForEach(Array(contactWarranties.enumerated()), id: \.element.id) { _, w in
+                            if let phone = w.phone {
+                                WVDivider(inset: 60)
+                                WVRow(icon: "phone", iconColor: WVColor.green,
+                                      title: phone,
+                                      subtitle: w.provider,
+                                      chevron: true,
+                                      action: { openURL("tel:\(phone)") })
+                            }
+                            if let address = w.address {
+                                WVDivider(inset: 60)
+                                WVRow(icon: "mapPin", iconColor: WVColor.red,
+                                      title: address,
+                                      subtitle: w.provider,
+                                      chevron: true,
+                                      action: { openURL("https://maps.google.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") })
+                            }
+                        }
+                    }
+                }
+
+                // Attachments
+                WVSectionHeader("File đính kèm (\(attachments.count)/5)")
+                DeviceAttachmentsSection(
+                    client: client,
+                    deviceId: currentDevice.id,
+                    initialAttachments: attachments
+                )
+
+                // Note
+                if let note = currentDevice.notes, !note.isEmpty {
+                    WVSectionHeader("Ghi chú")
+                    WVGroup {
+                        Text(note)
+                            .font(.system(size: 15))
+                            .foregroundStyle(WVColor.label)
+                            .lineSpacing(4)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                // Status quick-change
+                WVSectionHeader("Trạng thái")
+                WVSegmented(
+                    options: [
+                        (value: DeviceStatus.ACTIVE, label: "Đang dùng"),
+                        (value: DeviceStatus.BROKEN, label: "Hỏng"),
+                        (value: DeviceStatus.SOLD,   label: "Đã bán"),
+                    ],
+                    selection: $deviceStatus
+                )
+                .padding(.horizontal, WVSpacing.gutter)
+                .disabled(statusSaving)
+                .onChange(of: deviceStatus) { _, newStatus in
+                    guard newStatus != currentDevice.status else { return }
+                    Task { await saveStatus(newStatus) }
+                }
+
+                // Delete row
+                WVGroup {
+                    WVRow(icon: "trash", iconColor: WVColor.red,
+                          title: "Xoá thiết bị",
+                          role: .destructive,
+                          action: { showDeleteAlert = true })
+                }
+                .padding(.top, 16)
+
+                if let actionError {
+                    Text(actionError)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.red)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 8)
+                }
+
+                Spacer().frame(height: 24)
             }
-            .padding(.vertical, WV.Spacing.lg)
         }
-        .background(WV.Tokens.bg)
-        .navigationTitle(deviceSummary.name)
+        .wvScreen()
+        .navigationTitle(currentDevice.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showEditDevice = true
-                    } label: {
-                        Label("Sửa thiết bị", systemImage: "pencil")
+                    NavigationLink(value: DeviceFormNav.edit(currentDevice)) {
+                        Label("Sửa thông tin", systemImage: "pencil")
                     }
                     Button {
-                        showAddWarranty = true
+                        UIPasteboard.general.string = currentDevice.serialNumber ?? ""
                     } label: {
-                        Label("Thêm bảo hành", systemImage: "shield.checkerboard")
+                        Label("Sao chép Serial", systemImage: "doc.on.doc")
+                    }
+                    .disabled(currentDevice.serialNumber == nil)
+                    Divider()
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Label("Xoá thiết bị", systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(WV.Tokens.primary)
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
                 }
             }
+        }
+        .navigationDestination(for: DeviceFormNav.self) { nav in
+            switch nav {
+            case .create:
+                DeviceFormView(client: client, store: devicesStore, device: nil)
+            case .edit(let d):
+                DeviceFormView(client: client, store: devicesStore, device: d)
+            }
+        }
+        .navigationDestination(for: WarrantyFormNav.self) { nav in
+            WarrantyFormView(store: store, warranty: nav.warranty)
+        }
+        .alert("Xoá thiết bị?", isPresented: $showDeleteAlert) {
+            Button("Huỷ", role: .cancel) {}
+            Button("Xoá", role: .destructive) { Task { await deleteDevice() } }
+        } message: {
+            Text("\"\(currentDevice.name)\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành.")
         }
         .task { await store.load() }
         .refreshable { await store.load() }
-        .sheet(isPresented: $showAddWarranty) {
-            WarrantyEditorSheet(store: store, warranty: nil)
-        }
-        .sheet(item: $editingWarranty) { w in
-            WarrantyEditorSheet(store: store, warranty: w)
-        }
-        .sheet(isPresented: $showEditDevice) {
-            // Use the latest copy from the list store if present (post-edit refresh),
-            // otherwise fall back to the snapshot we were navigated with.
-            let latest = devicesStore.devices.first(where: { $0.id == deviceSummary.id }) ?? deviceSummary
-            AddDeviceSheet(store: devicesStore, client: client, editing: latest)
-        }
     }
 
-    // MARK: - Sections
+    // MARK: - Hero section
 
-    private var deviceHeader: some View {
-        WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack(alignment: .top, spacing: WV.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: WV.Radius.md)
-                            .fill(WV.Tokens.primary.opacity(0.14))
-                        Image(systemName: iconForCategory(deviceSummary.category))
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(WV.Tokens.primary)
-                    }
-                    .frame(width: 56, height: 56)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(deviceSummary.name)
-                            .font(.title3.weight(.semibold))
-                        if let brand = deviceSummary.brand {
-                            Text(brand + (deviceSummary.model.map { " • \($0)" } ?? ""))
-                                .font(.system(size: 13))
-                                .foregroundStyle(WV.Tokens.mutedFg)
-                        }
-                        WVStatusPill(deviceSummary.status.label, kind: kind(for: deviceSummary.status))
-                    }
-                    Spacer()
-                }
-                Divider()
-                HStack {
-                    metaRow(label: "Ngày mua", value: formatDate(deviceSummary.purchaseDate))
-                    Spacer()
-                    metaRow(label: "Giá", value: formatVND(deviceSummary.purchasePrice))
-                }
-                if let serial = deviceSummary.serialNumber, !serial.isEmpty {
-                    metaRow(label: "Số serial", value: serial)
-                }
-            }
-        }
-        .padding(.horizontal, WV.Spacing.lg)
-    }
-
-    private func metaRow(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 11)).foregroundStyle(WV.Tokens.mutedFg)
-            Text(value).font(.system(size: 14, weight: .medium))
-        }
-    }
-
-    private var warrantiesSection: some View {
-        VStack(alignment: .leading, spacing: WV.Spacing.md) {
-            HStack {
-                Text("Bảo hành")
-                    .font(.title3.weight(.semibold))
-                Spacer()
-                Text("\(store.warranties.count) gói")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(WV.Tokens.mutedFg)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(WV.Tokens.muted))
-            }
-            .padding(.horizontal, WV.Spacing.lg)
-
-            switch store.state {
-            case .idle:
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, WV.Spacing.xl)
-            case .loading where store.warranties.isEmpty:
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, WV.Spacing.xl)
-            case .error(let msg) where store.warranties.isEmpty:
-                VStack(spacing: WV.Spacing.sm) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 32))
-                        .foregroundStyle(WV.Tokens.warning)
-                    Text(msg)
-                        .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.mutedFg)
+    private var heroSection: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                WVLeadingIcon(
+                    icon: WVCategory.icon(for: currentDevice.category),
+                    color: WVCategory.accent(for: currentDevice.category),
+                    size: 64
+                )
+                VStack(spacing: 4) {
+                    Text(currentDevice.name)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(WVColor.label)
                         .multilineTextAlignment(.center)
-                    Button("Thử lại") { Task { await store.load() } }
-                        .buttonStyle(SecondaryButtonStyle(fullWidth: false))
+                    Text([currentDevice.brand, currentDevice.model]
+                        .compactMap { $0 }
+                        .joined(separator: " · "))
+                        .font(.system(size: 14))
+                        .foregroundStyle(WVColor.label3)
                 }
-                .padding(WV.Spacing.lg)
-                .frame(maxWidth: .infinity)
-            case .loaded where store.warranties.isEmpty:
-                emptyWarranty
-            default:
-                VStack(spacing: WV.Spacing.md) {
-                    ForEach(store.warranties) { w in
-                        warrantyCard(w)
+                HStack(spacing: 6) {
+                    DeviceStatusBadge(status: currentDevice.status)
+                    if let dl = maxDaysLeft {
+                        WarrantyPill(daysLeft: dl)
                     }
                 }
-                .padding(.horizontal, WV.Spacing.lg)
             }
-        }
-    }
-
-    private var emptyWarranty: some View {
-        WVCard {
-            VStack(spacing: WV.Spacing.sm) {
-                ZStack {
-                    Circle().fill(WV.Tokens.primary.opacity(0.14))
-                    Image(systemName: "shield.lefthalf.filled")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(WV.Tokens.primary)
-                }
-                .frame(width: 64, height: 64)
-                Text("Chưa có gói bảo hành nào")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Thêm bảo hành tiêu chuẩn, mở rộng hoặc bên thứ ba.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(WV.Tokens.mutedFg)
-                    .multilineTextAlignment(.center)
-                Button("Thêm bảo hành") { showAddWarranty = true }
-                    .buttonStyle(PrimaryButtonStyle(fullWidth: false))
-                    .padding(.top, WV.Spacing.xs)
-            }
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.vertical, 20)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, WV.Spacing.sm)
         }
-        .padding(.horizontal, WV.Spacing.lg)
     }
 
-    private func warrantyCard(_ w: Warranty) -> some View {
-        WVCard {
-            VStack(alignment: .leading, spacing: WV.Spacing.sm) {
-                HStack {
-                    WVStatusPill(w.type.label, kind: kind(for: w.type))
-                    Spacer()
-                    if w.isReminderDismissed {
-                        WVStatusPill("Đã ẩn nhắc", kind: .neutral, systemImage: "eye.slash")
+    // MARK: - Warranty timeline card
+
+    private var warrantyTimelineCard: some View {
+        WVCard(padding: 16) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Tổng quan bảo hành")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(WVColor.label)
+                ForEach(Array(warranties.enumerated()), id: \.element.id) { idx, w in
+                    if idx > 0 {
+                        Rectangle().fill(WVColor.sep).frame(height: 0.5)
                     }
-                    let tint = remainingTint(end: w.endDate)
-                    Text(remainingLabel(end: w.endDate))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(tint)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(tint.opacity(0.14)))
+                    WarrantyTimelineRow(warranty: w)
                 }
+            }
+        }
+    }
 
-                if let provider = w.provider, !provider.isEmpty {
-                    Text(provider)
-                        .font(.system(size: 14, weight: .semibold))
+    // MARK: - Warranty list group
+
+    private var warrantyListGroup: some View {
+        WVGroup {
+            let canAdd = warranties.count < 5
+            ForEach(Array(warranties.enumerated()), id: \.element.id) { idx, w in
+                if idx > 0 { WVDivider(inset: 60) }
+                NavigationLink(value: WarrantyFormNav(warranty: w)) {
+                    WarrantyListRow(warranty: w)
                 }
-
-                HStack(spacing: WV.Spacing.lg) {
-                    metaRow(label: "Bắt đầu", value: formatDate(w.startDate))
-                    metaRow(label: "Kết thúc", value: formatDate(w.endDate))
-                    Spacer()
-                    metaRow(label: "Thời hạn", value: "\(w.months) tháng")
+                .buttonStyle(WVRowButtonStyle())
+            }
+            if canAdd {
+                if !warranties.isEmpty { WVDivider(inset: 60) }
+                NavigationLink(value: WarrantyFormNav(warranty: nil)) {
+                    WVRow(icon: "plus", iconColor: WVColor.tint,
+                          title: "Thêm gói bảo hành",
+                          role: .tint)
                 }
-
-                if let cost = w.cost, cost > 0 {
-                    Text("Phí gói: \(formatVND(cost))")
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-
-                if let phone = w.phone, !phone.isEmpty {
-                    Label(phone, systemImage: "phone")
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-
-                if let address = w.address, !address.isEmpty {
-                    Label(address, systemImage: "mappin.and.ellipse")
-                        .font(.system(size: 12))
-                        .foregroundStyle(WV.Tokens.mutedFg)
-                }
-
-                if let notes = w.notes, !notes.isEmpty {
-                    Text(notes)
-                        .font(.system(size: 13))
-                        .foregroundStyle(WV.Tokens.fg)
-                }
-
-                Divider()
-
-                HStack(spacing: WV.Spacing.sm) {
-                    Button {
-                        Task { await toggleReminder(w) }
-                    } label: {
-                        if pendingActionId == "reminder-\(w.id)" {
-                            ProgressView()
-                        } else {
-                            Label(
-                                w.isReminderDismissed ? "Hiện lại" : "Đã xem, ẩn đi",
-                                systemImage: w.isReminderDismissed ? "eye" : "eye.slash"
-                            )
-                            .font(.system(size: 12, weight: .medium))
-                        }
-                    }
-                    .disabled(pendingActionId != nil)
-
-                    Spacer()
-
-                    Button {
-                        editingWarranty = w
-                    } label: {
-                        Label("Sửa", systemImage: "pencil")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-
-                    Button(role: .destructive) {
-                        Task { await deleteWarranty(w) }
-                    } label: {
-                        if pendingActionId == "delete-\(w.id)" {
-                            ProgressView()
-                        } else {
-                            Label("Xoá", systemImage: "trash")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                    }
-                    .disabled(pendingActionId != nil)
-                }
-                .foregroundStyle(WV.Tokens.primary)
+                .buttonStyle(WVRowButtonStyle())
             }
         }
     }
 
     // MARK: - Actions
 
-    private func toggleReminder(_ w: Warranty) async {
-        actionError = nil
-        pendingActionId = "reminder-\(w.id)"
-        defer { pendingActionId = nil }
+    private func deleteDevice() async {
         do {
-            if w.isReminderDismissed {
-                try await store.restoreReminder(warrantyId: w.id)
-            } else {
-                try await store.dismissReminder(warrantyId: w.id)
+            try await devicesStore.delete(device.id)
+            dismiss()
+        } catch {
+            deletionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
+    }
+
+    private func saveStatus(_ status: DeviceStatus) async {
+        statusSaving = true
+        defer { statusSaving = false }
+        let d = currentDevice
+        let isoDate = WVFormat.isoDay(d.purchaseDate)
+        var input = DeviceInput(name: d.name, category: d.category, purchaseDate: isoDate)
+        input.brand = d.brand
+        input.model = d.model
+        input.serialNumber = d.serialNumber
+        input.purchasePlace = d.purchasePlace
+        input.purchasePrice = d.purchasePrice
+        input.status = status
+        input.notes = d.notes
+        do {
+            _ = try await devicesStore.update(id: d.id, input)
+        } catch {
+            actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            // Revert
+            deviceStatus = d.status
+        }
+    }
+
+    private func openURL(_ string: String) {
+        guard let url = URL(string: string) else { return }
+        UIApplication.shared.open(url)
+    }
+}
+
+// MARK: - Navigation value
+
+struct WarrantyFormNav: Hashable {
+    let warranty: Warranty?
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(warranty?.id)
+    }
+    static func == (lhs: WarrantyFormNav, rhs: WarrantyFormNav) -> Bool {
+        lhs.warranty?.id == rhs.warranty?.id
+    }
+}
+
+// MARK: - Device status badge
+
+private struct DeviceStatusBadge: View {
+    let status: DeviceStatus
+
+    private var tone: WVChipTone {
+        switch status {
+        case .ACTIVE:  return .green
+        case .EXPIRED: return .gray
+        case .SOLD:    return .blue
+        case .BROKEN:  return .red
+        case .LOST:    return .orange
+        }
+    }
+
+    private var label: String {
+        switch status {
+        case .ACTIVE:  return "Đang dùng"
+        case .EXPIRED: return "Hết BH"
+        case .SOLD:    return "Đã bán"
+        case .BROKEN:  return "Hỏng"
+        case .LOST:    return "Mất"
+        }
+    }
+
+    var body: some View {
+        WVChip(label, tone: tone)
+    }
+}
+
+// MARK: - Warranty timeline row
+
+private struct WarrantyTimelineRow: View {
+    let warranty: Warranty
+
+    private var daysLeft: Int { warrantyDaysLeft(warranty) }
+    private var isExpired: Bool { daysLeft < 0 }
+
+    private var progressValue: Double {
+        let total = Double(warranty.months * 30)
+        let used = total - Double(daysLeft)
+        return max(0, min(1, used / max(1, total)))
+    }
+
+    private var progressTone: Color {
+        if isExpired { return WVColor.gray }
+        if progressValue > 0.8 { return WVColor.red }
+        if progressValue > 0.6 { return WVColor.orange }
+        return WVColor.green
+    }
+
+    private var typeTone: WVChipTone {
+        switch warranty.type {
+        case .STANDARD:    return .brand
+        case .EXTENDED:    return .purple
+        case .THIRD_PARTY: return .blue
+        }
+    }
+
+    private var typeLabel: String {
+        switch warranty.type {
+        case .STANDARD:    return "BH chính hãng"
+        case .EXTENDED:    return "BH mở rộng"
+        case .THIRD_PARTY: return "BH bên thứ 3"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 8) {
+                WVChip(typeLabel, tone: typeTone)
+                if let provider = warranty.provider {
+                    Text(provider)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Spacer(minLength: 0)
+                }
+                WarrantyPill(daysLeft: daysLeft)
             }
-        } catch {
-            actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            WVProgressBar(value: progressValue, tone: progressTone)
+            HStack {
+                Text(WVFormat.date(warranty.startDate))
+                    .font(.system(size: 11))
+                    .foregroundStyle(WVColor.label3)
+                Spacer()
+                Text(WVFormat.date(warranty.endDate))
+                    .font(.system(size: 11))
+                    .foregroundStyle(WVColor.label3)
+            }
+        }
+    }
+}
+
+// MARK: - Warranty list row
+
+private struct WarrantyListRow: View {
+    let warranty: Warranty
+
+    private var typeTone: WVChipTone {
+        switch warranty.type {
+        case .STANDARD:    return .brand
+        case .EXTENDED:    return .purple
+        case .THIRD_PARTY: return .blue
         }
     }
 
-    private func deleteWarranty(_ w: Warranty) async {
-        actionError = nil
-        pendingActionId = "delete-\(w.id)"
-        defer { pendingActionId = nil }
-        do {
-            try await store.delete(id: w.id)
-        } catch {
-            actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+    private var iconColor: Color {
+        switch warranty.type {
+        case .STANDARD:    return WVColor.brand
+        case .EXTENDED:    return WVColor.purple
+        case .THIRD_PARTY: return WVColor.blue
         }
     }
 
-    // MARK: - Helpers
-
-    private func tint(for status: DeviceStatus) -> Color {
-        switch status {
-        case .ACTIVE:  return WV.Tokens.success
-        case .EXPIRED: return WV.Tokens.mutedFg
-        case .SOLD:    return WV.Tokens.primary
-        case .BROKEN:  return WV.Tokens.destructive
-        case .LOST:    return WV.Tokens.warning
+    private var typeLabel: String {
+        switch warranty.type {
+        case .STANDARD:    return "BH chính hãng"
+        case .EXTENDED:    return "BH mở rộng"
+        case .THIRD_PARTY: return "BH bên thứ 3"
         }
     }
 
-    private func kind(for status: DeviceStatus) -> WVStatusKind {
-        switch status {
-        case .ACTIVE:  return .success
-        case .EXPIRED: return .neutral
-        case .SOLD:    return .accent
-        case .BROKEN:  return .danger
-        case .LOST:    return .warning
+    var body: some View {
+        HStack(spacing: 12) {
+            WVLeadingIcon(icon: "shieldCheck", color: iconColor, size: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(warranty.provider ?? typeLabel)
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                Text("\(typeLabel) · \(warranty.months) tháng · Hết \(WVFormat.date(warranty.endDate))")
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label3)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            WVIcon("arrowRight", size: 13)
+                .foregroundStyle(WVColor.label4)
         }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+        .contentShape(Rectangle())
     }
+}
 
-    private func tint(for type: WarrantyType) -> Color {
-        switch type {
-        case .STANDARD:    return WV.Tokens.mutedFg
-        case .EXTENDED:    return WV.Tokens.primary
-        case .THIRD_PARTY: return WV.Tokens.success
-        }
-    }
+// MARK: - Days helper (no warrantyEndDate available without separate store load)
 
-    private func kind(for type: WarrantyType) -> WVStatusKind {
-        switch type {
-        case .STANDARD:    return .neutral
-        case .EXTENDED:    return .accent
-        case .THIRD_PARTY: return .success
-        }
-    }
-
-    private func remainingLabel(end: Date) -> String {
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: end).day ?? 0
-        if days < 0 { return "Đã hết \(-days) ngày" }
-        if days == 0 { return "Hết hôm nay" }
-        if days <= 30 { return "Còn \(days) ngày" }
-        let months = days / 30
-        return "Còn ~\(months) tháng"
-    }
-
-    private func remainingTint(end: Date) -> Color {
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: end).day ?? 0
-        if days < 0 { return WV.Tokens.destructive }
-        if days <= 30 { return WV.Tokens.warning }
-        return WV.Tokens.success
-    }
+private func warrantyDaysLeft(_ w: Warranty) -> Int {
+    WVFormat.daysUntil(w.endDate)
 }
