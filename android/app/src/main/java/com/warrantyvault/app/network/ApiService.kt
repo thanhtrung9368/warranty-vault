@@ -2,9 +2,11 @@ package com.warrantyvault.app.network
 
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -12,6 +14,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface ApiService {
 
@@ -33,6 +36,22 @@ interface ApiService {
 
     @GET("api/v1/auth/me")
     suspend fun me(): MeResponse
+
+    // DELETE with a body — Retrofit's @DELETE forbids @Body, so use @HTTP.
+    // The server requires the current password to confirm the deletion.
+    @HTTP(method = "DELETE", path = "api/v1/auth/me", hasBody = true)
+    suspend fun deleteAccount(@Body body: DeleteAccountRequest): OkResponse
+
+    // ---- Backup ----
+    @Streaming
+    @GET("api/v1/backup/export")
+    suspend fun exportBackup(): ResponseBody
+
+    @POST("api/v1/backup/import")
+    suspend fun importBackup(
+        @Query("mode") mode: String,
+        @Body body: RequestBody,
+    ): ImportResultResponse
 
     // ---- Catalog ----
     @GET("api/v1/catalog")

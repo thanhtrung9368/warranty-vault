@@ -467,6 +467,25 @@ data class AttachmentListResponse(val attachments: List<Attachment> = emptyList(
 @Serializable
 data class AttachmentUploadResponse(val attachment: Attachment)
 
+// ---- Account / Backup ----
+
+@Serializable
+data class DeleteAccountRequest(val password: String)
+
+/** Counts returned by POST /api/v1/backup/import (mirrors services.ImportResult). */
+@Serializable
+data class ImportResult(
+    val imported: Int = 0,
+    val skipped: Int = 0,
+    val wishlistImported: Int = 0,
+    val wishlistSkipped: Int = 0,
+    val subImported: Int = 0,
+    val subSkipped: Int = 0,
+)
+
+@Serializable
+data class ImportResultResponse(val ok: Boolean = true, val result: ImportResult)
+
 // ---- Generic ----
 
 @Serializable

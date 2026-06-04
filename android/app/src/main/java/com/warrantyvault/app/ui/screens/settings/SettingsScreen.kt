@@ -1,5 +1,7 @@
 package com.warrantyvault.app.ui.screens.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,14 +18,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -31,12 +38,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,17 +61,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.BuildConfig
 import com.warrantyvault.app.auth.AuthStore
 import com.warrantyvault.app.network.AIOptInRequest
+import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
+import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.SectionHeader
 import com.warrantyvault.app.ui.theme.ThemePreference
 import com.warrantyvault.app.ui.theme.ThemeStore
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,11 +96,72 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    val context = LocalContext.current
+
     // AI receipt-scan opt-in.
     var aiOptIn by remember { mutableStateOf(false) }
     var aiBusy by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         runCatching { api.getAIOptIn() }.onSuccess { aiOptIn = it.aiOptIn }
+    }
+
+    // Backup export / import + account deletion.
+    var backupBusy by remember { mutableStateOf(false) }
+    var showImportModeDialog by remember { mutableStateOf(false) }
+    var pendingImportMode by remember { mutableStateOf("merge") }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deletePassword by rememberSaveable { mutableStateOf("") }
+    var deleteBusy by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
+
+    fun snack(msg: String) { scope.launch { snackbarHostState.showSnackbar(msg) } }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            backupBusy = true
+            try {
+                val body = api.exportBackup()
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    body.byteStream().use { it.copyTo(out) }
+                } ?: throw IllegalStateException("no stream")
+                snack("Đã sao lưu ra file JSON")
+            } catch (e: Exception) {
+                snack("Không sao lưu được: ${e.toUserMessage(ApiClient.json)}")
+            } finally {
+                backupBusy = false
+            }
+        }
+    }
+
+    fun runImport(uri: android.net.Uri, mode: String) {
+        scope.launch {
+            backupBusy = true
+            try {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalStateException("no stream")
+                val reqBody = bytes.toRequestBody("application/json".toMediaType())
+                val res = api.importBackup(mode, reqBody).result
+                val skipped = res.skipped + res.subSkipped + res.wishlistSkipped
+                snack(
+                    "Đã nhập ${res.imported} thiết bị, ${res.subImported} gói, " +
+                        "${res.wishlistImported} mục" +
+                        if (skipped > 0) " · bỏ qua $skipped bản trùng" else "",
+                )
+            } catch (e: Exception) {
+                snack("Nhập thất bại: ${e.toUserMessage(ApiClient.json)}")
+            } finally {
+                backupBusy = false
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) runImport(uri, pendingImportMode)
     }
 
     Scaffold(
@@ -265,6 +342,39 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
+                SectionHeader("Dữ liệu")
+            }
+            Spacer(Modifier.height(8.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cs.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Column {
+                    SettingsRow(
+                        icon = Icons.Filled.CloudDownload,
+                        title = if (backupBusy) "Đang xử lý…" else "Sao lưu (xuất JSON)",
+                        subtitle = "Tải toàn bộ thiết bị, gói & wishlist ra 1 file JSON.",
+                        onClick = {
+                            if (!backupBusy) exportLauncher.launch("warrantyvault-backup.json")
+                        },
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        icon = Icons.Filled.Restore,
+                        title = "Khôi phục từ sao lưu",
+                        subtitle = "Nhập lại dữ liệu từ file JSON đã xuất.",
+                        onClick = { if (!backupBusy) showImportModeDialog = true },
+                        showDivider = false,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.padding(horizontal = 16.dp)) {
                 SectionHeader("Hệ thống")
             }
             Spacer(Modifier.height(8.dp))
@@ -314,7 +424,116 @@ fun SettingsScreen(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
+
+            Spacer(Modifier.height(8.dp))
+
+            TextButton(
+                onClick = { deletePassword = ""; deleteError = null; showDeleteDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Icon(
+                    Icons.Filled.DeleteForever, null,
+                    tint = cs.error, modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "Xoá tài khoản",
+                    color = cs.error,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
+    }
+
+    // Import-mode picker (merge vs replace).
+    if (showImportModeDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportModeDialog = false },
+            title = { Text("Khôi phục từ sao lưu") },
+            text = {
+                Text(
+                    "“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. " +
+                        "“Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImportMode = "merge"
+                    showImportModeDialog = false
+                    importLauncher.launch(arrayOf("application/json"))
+                }) { Text("Gộp (merge)") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingImportMode = "replace"
+                    showImportModeDialog = false
+                    importLauncher.launch(arrayOf("application/json"))
+                }) { Text("Thay thế", color = cs.error) }
+            },
+        )
+    }
+
+    // Delete-account confirmation (requires current password).
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!deleteBusy) showDeleteDialog = false },
+            title = { Text("Xoá tài khoản?") },
+            text = {
+                Column {
+                    Text(
+                        "Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — " +
+                            "không thể hoàn tác. Nhập mật khẩu để xác nhận.",
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = { deletePassword = it },
+                        label = { Text("Mật khẩu hiện tại") },
+                        singleLine = true,
+                        enabled = !deleteBusy,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = deleteError != null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (deleteError != null) {
+                        Text(
+                            deleteError!!,
+                            color = cs.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !deleteBusy && deletePassword.isNotBlank(),
+                    onClick = {
+                        deleteBusy = true
+                        deleteError = null
+                        scope.launch {
+                            try {
+                                // On success the auth status flips and the app
+                                // returns to the login screen automatically.
+                                auth.deleteAccount(deletePassword)
+                            } catch (e: Exception) {
+                                deleteError = e.toUserMessage(ApiClient.json)
+                            } finally {
+                                deleteBusy = false
+                                if (deleteError == null) showDeleteDialog = false
+                            }
+                        }
+                    },
+                ) { Text(if (deleteBusy) "Đang xoá…" else "Xoá vĩnh viễn", color = cs.error) }
+            },
+            dismissButton = {
+                TextButton(enabled = !deleteBusy, onClick = { showDeleteDialog = false }) {
+                    Text("Huỷ")
+                }
+            },
+        )
     }
 
     if (showChangePassword) {

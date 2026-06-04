@@ -2,6 +2,7 @@ package com.warrantyvault.app.auth
 
 import android.os.Build
 import com.warrantyvault.app.network.ApiService
+import com.warrantyvault.app.network.DeleteAccountRequest
 import com.warrantyvault.app.network.ForgotRequest
 import com.warrantyvault.app.network.LoginInput
 import com.warrantyvault.app.network.RegisterInput
@@ -78,6 +79,17 @@ class AuthStore(
             tokenStore.clear()
             _status.value = Status.Unauthenticated
         }
+    }
+
+    /**
+     * Permanently deletes the account (server requires the current password),
+     * then clears the token and drops to the unauthenticated state. Throws on
+     * failure so the caller can surface the error.
+     */
+    suspend fun deleteAccount(password: String) {
+        api.deleteAccount(DeleteAccountRequest(password))
+        tokenStore.clear()
+        _status.value = Status.Unauthenticated
     }
 
     private fun deviceLabel(): String {
