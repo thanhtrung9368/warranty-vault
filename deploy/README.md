@@ -196,8 +196,20 @@ docker run --rm \
 > DB + blobs mà thiếu `FILE_MASTER_KEY` thì attachment vĩnh viễn không decrypt
 > được — đây là design intentional (xem `api/internal/files/files.go`).
 
-Tự động hoá: copy 2 lệnh trên vào `/etc/cron.daily/warranty-vault-backup`,
-rsync `/var/backups/` sang object storage / máy khác.
+Tự động hoá: dùng sẵn script `deploy/backup.sh` — nó gộp cả dump DB + tar blob
+(qua `docker compose exec`), tự đặt timestamp và prune bản cũ
+(`BACKUP_RETENTION_DAYS`, mặc định 14 ngày). Ghi ra `./backups/` (đổi bằng
+`BACKUP_DIR`). Cài vào cron:
+
+```bash
+chmod +x /opt/warranty-vault/deploy/backup.sh
+# Nightly 03:00, log ra file.
+echo '0 3 * * * root /opt/warranty-vault/deploy/backup.sh >> /var/log/wv-backup.log 2>&1' \
+  > /etc/cron.d/warranty-vault-backup
+```
+
+Rồi rsync `backups/` sang object storage / máy khác. Vẫn phải backup `.env`
+(`FILE_MASTER_KEY`) riêng — script không đụng tới secret.
 
 ---
 
