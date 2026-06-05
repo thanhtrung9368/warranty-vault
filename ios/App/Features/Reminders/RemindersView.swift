@@ -12,6 +12,8 @@ struct RemindersView: View {
 
     @State private var pendingDismiss: String?
     @State private var actionError: String?
+    @State private var recentlyDismissed: UpcomingReminder?
+    @State private var restoring = false
 
     init(client: APIClient) {
         _store = StateObject(wrappedValue: RemindersStore(client: client))
@@ -60,6 +62,32 @@ struct RemindersView: View {
                             .font(.system(size: 13))
                     }
                     .foregroundStyle(WVColor.red)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, 12)
+                }
+
+                if let dismissed = recentlyDismissed {
+                    HStack(spacing: 8) {
+                        WVIcon("checkCircle", size: 14)
+                        Text("Đã ẩn “\(dismissed.device.name)”")
+                            .font(.system(size: 13))
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        Button {
+                            Task { await restore(dismissed.id) }
+                        } label: {
+                            if restoring {
+                                ProgressView().scaleEffect(0.7)
+                            } else {
+                                Text("Hoàn tác")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(WVColor.tint)
+                        .disabled(restoring)
+                    }
+                    .foregroundStyle(WVColor.label2)
                     .padding(.horizontal, WVSpacing.gutter)
                     .padding(.top, 12)
                 }
@@ -124,7 +152,7 @@ struct RemindersView: View {
 
                     // Dismiss button
                     Button {
-                        Task { await dismiss(entry.id) }
+                        Task { await dismiss(entry) }
                     } label: {
                         HStack(spacing: 4) {
                             if pendingDismiss == entry.id {
@@ -176,12 +204,25 @@ struct RemindersView: View {
         }
     }
 
-    private func dismiss(_ id: String) async {
+    private func dismiss(_ entry: UpcomingReminder) async {
         actionError = nil
-        pendingDismiss = id
+        pendingDismiss = entry.id
         defer { pendingDismiss = nil }
         do {
-            try await store.dismiss(warrantyId: id)
+            try await store.dismiss(warrantyId: entry.id)
+            withAnimation { recentlyDismissed = entry }
+        } catch {
+            actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
+    }
+
+    private func restore(_ id: String) async {
+        actionError = nil
+        restoring = true
+        defer { restoring = false }
+        do {
+            try await store.restore(warrantyId: id)
+            withAnimation { recentlyDismissed = nil }
         } catch {
             actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }

@@ -29,6 +29,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -90,10 +93,23 @@ class RemindersViewModel(private val api: ApiService) : ViewModel() {
         }
     }
 
-    fun dismiss(warrantyId: String, onError: (String) -> Unit) {
+    fun dismiss(warrantyId: String, onError: (String) -> Unit, onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
                 api.dismissWarrantyReminder(warrantyId)
+                load()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.toUserMessage(ApiClient.json))
+            }
+        }
+    }
+
+    /** Un-dismisses a reminder (the "Hoàn tác" undo action) and reloads. */
+    fun restore(warrantyId: String, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.restoreWarrantyReminder(warrantyId)
                 load()
             } catch (e: Exception) {
                 onError(e.toUserMessage(ApiClient.json))
@@ -130,6 +146,25 @@ fun RemindersScreen(
     var refreshing by remember { mutableStateOf(false) }
     var actionError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    fun onDismiss(warrantyId: String) {
+        vm.dismiss(
+            warrantyId,
+            onError = { actionError = it },
+            onSuccess = {
+                scope.launch {
+                    val res = snackbarHostState.showSnackbar(
+                        message = "Đã ẩn nhắc nhở",
+                        actionLabel = "Hoàn tác",
+                    )
+                    if (res == SnackbarResult.ActionPerformed) {
+                        vm.restore(warrantyId) { actionError = it }
+                    }
+                }
+            },
+        )
+    }
 
     LaunchedEffect(Unit) { vm.load() }
 
@@ -142,6 +177,7 @@ fun RemindersScreen(
                 ),
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         PullToRefreshBox(
@@ -228,9 +264,7 @@ fun RemindersScreen(
                                         ReminderCard(
                                             reminder = r,
                                             onOpenDevice = { onOpenDevice(r.deviceId) },
-                                            onDismiss = {
-                                                vm.dismiss(r.id) { actionError = it }
-                                            },
+                                            onDismiss = { onDismiss(r.id) },
                                         )
                                     }
                                 }

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,15 @@ export function DismissButton({
   isDismissed: boolean;
 }) {
   const [pending, startTransition] = React.useTransition();
+  const router = useRouter();
+
+  const restore = () =>
+    startTransition(async () => {
+      await restoreWarrantyReminder(warrantyId);
+      router.refresh();
+      toast.success('Đã hiện lại nhắc nhở');
+    });
+
   return (
     <Button
       size="sm"
@@ -27,10 +37,16 @@ export function DismissButton({
         startTransition(async () => {
           if (isDismissed) {
             await restoreWarrantyReminder(warrantyId);
+            router.refresh();
             toast.success('Đã hiện lại nhắc nhở');
           } else {
             await dismissWarrantyReminder(warrantyId);
-            toast.success('Đã ẩn nhắc nhở');
+            router.refresh();
+            // The row leaves the list (force-dynamic page re-renders), so the
+            // undo lives on the toast — mirrors the mobile snackbar/banner.
+            toast.success('Đã ẩn nhắc nhở', {
+              action: { label: 'Hoàn tác', onClick: restore },
+            });
           }
         })
       }

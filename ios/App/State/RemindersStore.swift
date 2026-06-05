@@ -11,8 +11,9 @@ public final class RemindersStore: ObservableObject {
     @Published public private(set) var entries: [UpcomingReminder] = []
     @Published public private(set) var state: LoadState = .idle
 
-    /// Threshold for "expiring soon". Mirrors the web's 30-day window.
-    public let windowDays: Int = 30
+    /// Horizon for upcoming reminders. Mirrors the web's 90-day fetch so the
+    /// 30/60/90-day buckets in the view all populate.
+    public let windowDays: Int = 90
 
     private let client: APIClient
     public init(client: APIClient) { self.client = client }
@@ -33,6 +34,13 @@ public final class RemindersStore: ObservableObject {
     public func dismiss(warrantyId: String) async throws {
         try await client.dismissReminder(warrantyId: warrantyId)
         entries.removeAll { $0.id == warrantyId }
+    }
+
+    /// Un-dismisses a reminder (used by the "Hoàn tác" undo affordance) and
+    /// reloads so the row reappears in its bucket.
+    public func restore(warrantyId: String) async throws {
+        try await client.restoreReminder(warrantyId: warrantyId)
+        await load()
     }
 }
 
