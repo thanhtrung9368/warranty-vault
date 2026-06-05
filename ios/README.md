@@ -1,6 +1,6 @@
 # WarrantyVault iOS
 
-Native iOS app — SwiftUI + async/await, talks to the Next.js backend via REST.
+Native iOS app — SwiftUI + async/await, talks to the Go backend (`../api`) via REST.
 
 ## Cấu trúc
 
@@ -22,10 +22,11 @@ ios/
     ├── State/
     │   ├── AuthStore.swift        # @MainActor ObservableObject — login/logout/me
     │   └── DevicesStore.swift     # ObservableObject — load/create/delete
-    └── Features/
+    └── Features/                  # 5-tab shell (Dashboard / Devices / Subscriptions / Wishlist / More)
         ├── Auth/LoginView.swift
-        ├── Devices/DevicesListView.swift
-        ├── Devices/AddDeviceSheet.swift
+        ├── Dashboard/DashboardView.swift
+        ├── Devices/DevicesScreen.swift      # list
+        ├── Devices/DeviceFormView.swift     # full-screen add/edit (was AddDeviceSheet)
         └── Settings/SettingsView.swift
 ```
 
@@ -78,15 +79,17 @@ Hoặc set env var khi build (không cần sửa code): trong Xcode scheme → R
 | Auth: login / register / logout / me | ✅ |
 | Devices: list / create / inline warranty | ✅ |
 | Devices: detail screen | ✅ — `DeviceDetailView` (header + warranties + attachments) |
-| Devices: edit (full fields) | ✅ — `AddDeviceSheet(editing:)` (name/category/brand/model/serial/store/date/giá/status/notes) |
-| Warranties CRUD | ✅ — `WarrantyEditorSheet` từ DeviceDetailView |
-| Subscriptions | ✅ — `SubscriptionsListView` + `SubscriptionEditorSheet` + detail |
-| Wishlist | ✅ — `WishlistListView` + `WishlistEditorSheet` + detail |
+| Devices: edit (full fields) | ✅ — `DeviceFormView` (full-screen add/edit; name/category/brand/model/serial/store/date/giá/status/notes) |
+| Warranties CRUD | ✅ — `WarrantyFormView` từ DeviceDetailView |
+| Subscriptions | ✅ — `SubscriptionsScreen` + `SubscriptionFormView` + `SubscriptionDetailView` (payment log + renew) |
+| Wishlist | ✅ — `WishlistScreen` + `WishlistFormView` + `WishlistDetailView` |
 | Attachments upload (camera roll + PDF picker) | ✅ — `AttachmentsSection` (PhotosPicker + fileImporter) |
+| AI quét hoá đơn (opt-in) | ✅ — gated trên `aiOptIn`; toggle ở `SettingsView`, gọi `client.extractReceipt` |
+| Backup export/import + xoá tài khoản | ✅ — `SettingsView` (fileExporter/fileImporter) + `AccountView` |
 | Stats screen | ✅ — `StatsView` (devices / bảo hành sắp hết 7-30 ngày / subs monthly / wishlist) |
-| Reminders screen | ✅ — `RemindersView` (List + swipe-to-dismiss + nút "Đã xem") |
+| Reminders screen | ✅ — `RemindersView` (buckets 30/60/90 + dismiss + undo "Hoàn tác") |
 | Settings: đổi mật khẩu | ✅ — `ChangePasswordSheet` qua `POST /api/v1/auth/change-password` |
 | Push (APNs token register) | ✅ — `PushRegistrar` + `AppDelegate` wire `UNUserNotificationCenter`, gọi `client.registerPush(.apns)` |
 | Catalog autocomplete đầy đủ | ✅ — `CatalogStore` + `AutocompleteChips` (brand/store/warranty provider) |
 
-Code pattern: mỗi module = 1 `Store: ObservableObject` (state) + 1 hoặc N `View` SwiftUI gọi store. Xem `DevicesStore.swift` + `DevicesListView.swift` làm template.
+Code pattern: mỗi module = 1 `Store: ObservableObject` (state) + 1 hoặc N `View` SwiftUI gọi store. Xem `DevicesStore.swift` + `DevicesScreen.swift` làm template.

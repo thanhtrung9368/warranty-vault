@@ -10,11 +10,9 @@ import (
 )
 
 const healthCheck = `-- name: HealthCheck :one
-
 SELECT 1 AS ok
 `
 
-// TODO: Run `sqlc generate` after migrations are applied.
 func (q *Queries) HealthCheck(ctx context.Context) (int32, error) {
 	row := q.db.QueryRow(ctx, healthCheck)
 	var ok int32

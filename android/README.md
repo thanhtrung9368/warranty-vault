@@ -1,6 +1,6 @@
 # WarrantyVault Android
 
-Native Android app — Kotlin + Jetpack Compose + Material 3, talks to the Next.js backend (`../website`) via REST.
+Native Android app — Kotlin + Jetpack Compose + Material 3, talks to the Go backend (`../api`) via REST.
 
 ## Cấu trúc
 
@@ -58,18 +58,18 @@ android/
 2. Android Studio detect Gradle project → **Trust** project khi prompt
 3. Đợi Gradle sync (lần đầu sẽ download AGP 8.7 + Compose BOM + …; mất vài phút)
 4. Khi sync xong, chọn device:
-   - **Emulator**: tạo Pixel 8 / API 34 trong AVD Manager. URL backend mặc định là `http://10.0.2.2:3000` (alias loopback đến máy host).
-   - **Device thật cùng Wi-Fi**: enable Developer Options + USB debugging, plug vào. Sửa `BASE_URL` trong `app/build.gradle.kts` thành IP LAN máy Mac (vd `http://192.168.1.17:3000`) rồi sync lại.
+   - **Emulator**: tạo Pixel 8 / API 34 trong AVD Manager. URL backend mặc định là `http://10.0.2.2:4000` (alias loopback đến máy host — Go API chạy ở cổng 4000).
+   - **Device thật cùng Wi-Fi**: enable Developer Options + USB debugging, plug vào. Sửa `BASE_URL` trong `app/build.gradle.kts` thành IP LAN máy Mac (vd `http://192.168.1.17:4000`) rồi sync lại.
 5. Bấm **Run ▶️** → app build + install → màn login hiện ra
 
 ## Chạy backend trước
 
 ```
-cd ../website
-npm run dev
+cd ../api
+go run ./cmd/server      # Go API ở http://localhost:4000
 ```
 
-Trên emulator, app gọi `http://10.0.2.2:3000` → tự đến `localhost:3000` của Mac. Trên device thật phải `npm run dev -- -H 0.0.0.0` để Next bind ra LAN.
+Trên emulator, app gọi `http://10.0.2.2:4000` → tự đến `localhost:4000` của Mac. Trên device thật, chạy Go server bind ra LAN (`HOST=0.0.0.0` hoặc tương đương) rồi trỏ `BASE_URL` về IP LAN của máy.
 
 ## Build từ CLI
 
@@ -114,6 +114,6 @@ Pattern: mỗi module = 1 `ViewModel` (StateFlow) + 1 hoặc N `@Composable`. Xe
 ## Lưu ý
 
 - Min SDK 26 (Android 8). Adaptive icon dùng vector drawable, không cần PNG fallback.
-- Cleartext HTTP cho dev (`android:usesCleartextTraffic="true"` + `BASE_URL=http://10.0.2.2:3000`). Khi deploy production, đổi sang HTTPS-only.
+- Cleartext HTTP cho dev (`android:usesCleartextTraffic="true"` + `BASE_URL=http://10.0.2.2:4000`). Khi deploy production, đổi sang HTTPS-only.
 - Manual DI qua `App.instance` — nhỏ vừa đủ, chưa cần Hilt. Nếu app phình lên thì refactor sang Hilt sau.
-- Tao chưa verify gradle build chạy được trên máy này (đĩa hết dung lượng — 99% full khi tao tạo wrapper xong). Khi mày dọn ổ rồi mở Android Studio, sync sẽ hiện error nếu có thiếu/sai gì — báo tao fix.
+- `./gradlew :app:assembleDebug` đã verify build xanh (cần `app/google-services.json` — đã có stub trong repo).
