@@ -49,48 +49,47 @@ Backend đã có đủ endpoint; đây thuần là UI mobile còn thiếu so v�
 - iOS: `AccountView` alert + SecureField → `auth.deleteAccount(password:)` clear keychain → login.
 - Android: `SettingsScreen` nút "Xoá tài khoản" + AlertDialog password → `auth.deleteAccount` clear token.
 
-### 1.3 Dismiss/restore reminder UI — cả 3 client (~2h) 🟡
-- Backend: `POST` / `DELETE /api/v1/warranties/{id}/reminder` — đã có.
-- iOS `RemindersView` có swipe-to-dismiss; verify nút "Đã xem" gọi đúng endpoint + có restore.
-- Android `RemindersScreen`: thêm swipe/long-press dismiss + restore.
-- Web: thêm nút dismiss ở warranty detail (hiện chưa có).
+### 1.3 Dismiss/restore reminder UI — cả 3 client ✅ XONG (2026-06-05)
+- Dismissed reminder rời khỏi list "sắp tới", nên "restore" = **undo ngay sau dismiss**, nhất quán 3 client.
+- iOS: `RemindersStore.restore()` + banner "Đã ẩn — Hoàn tác"; sửa fetch 30→90 ngày cho bucket 60/90.
+- Android: `RemindersViewModel.restore()` + Snackbar action "Hoàn tác".
+- Web: `DismissButton` gọi `router.refresh()` + toast có nút "Hoàn tác".
 
-### 1.4 Subscription detail + payment log — mobile (~2h) 🟡
-- Backend: `GET /api/v1/subscriptions/{id}/payments`, `POST .../payments`, `POST .../renew` — kiểm tra đủ.
-- iOS/Android `SubscriptionDetail*`: list payment history + nút log payment + manual renew.
+### 1.4 Subscription detail + payment log — mobile ✅ ĐÃ CÓ SẴN (NEXT cũ lỗi thời)
+- iOS `SubscriptionDetailView`: `SubLogPaymentSheet` + `paymentsSection` + `renewNow` + biểu đồ — đủ.
+- Android `SubscriptionDetailScreen`: `LogPaymentSheet` + payment history + renew dialog — đủ.
 
-### 1.5 Vietnamese label parity (~30 phút)
-- Diff enum labels giữa `website/src/lib/types.ts` ↔ `ios/Sources/WarrantyVaultKit/Models.swift`
-  ↔ `android/.../network/Models.kt`. Sync: DEVICE_STATUS, WARRANTY_TYPE, BILLING_CYCLE, WISHLIST_STATUS, SUB_STATUS.
-
----
-
-## Block 2 — Đồng bộ docs + dọn nốt (1–2h)
-
-- [ ] Update `BACKEND_GO_PLAN.md`: đánh dấu Phase F complete (nếu chưa).
-- [ ] Update `MOBILE_PLAN.md` + `ios/README.md` + `android/README.md`: README iOS vẫn nói
-      "talks to the Next.js backend" và liệt kê các Sheet đã xoá (`AddDeviceSheet`, `DevicesListView`…)
-      → cập nhật sang Go backend + tên file mới (`DeviceFormView`, `DevicesScreen`, shell 5 tab).
-- [ ] Viết nội dung thật cho `website/src/app/(public)/{privacy,terms,cookies}/page.tsx`
-      (đang là placeholder "sẽ được cập nhật").
-- [ ] Xoá `api/internal/store/gen/health.sql.go` TODO comment nếu đã chạy sqlc.
+### 1.5 Vietnamese label parity ✅ ĐÃ PARITY (verified 2026-06-05)
+- 6 enum (DeviceStatus, WarrantyType, BillingCycle, SubscriptionStatus, WishlistStatus, WishlistPriority)
+  label tiếng Việt **giống hệt** giữa web `types.ts` ↔ iOS `Models.swift` ↔ Android `Models.kt`. Không phải sửa.
 
 ---
 
-## Block 3 — Siết test + CI (1 ngày, song song)
+## Block 2 — Đồng bộ docs + dọn nốt ✅ XONG (2026-06-05)
 
-- [ ] `website.yml`: thêm step `npm test` (vitest đã có nhưng CI chưa chạy).
-- [ ] Mở rộng `website/src/lib/__tests__/`: test cho `subscription-types.ts` (monthlyEquivalent, nextRenewalDate)
-      + vài server action mapping (`toFormState`).
-- [ ] `android.yml`: thêm `./gradlew test` (unit). `ios.yml`: cân nhắc build cả app (hiện chỉ build lib `WarrantyVaultKit`).
-- [ ] (Optional) deploy workflow: build + push Docker image lên registry khi tag.
+- [x] `privacy/terms/cookies` — viết nội dung thật (mã hoá AES, AI opt-in gửi Anthropic, cookie `wv_session`,
+      Resend email, không tracking; quyền export/xoá tài khoản).
+- [x] `ios/README.md` + `android/README.md` — sửa "Next.js backend" → Go (`../api`), port 3000 → 4000,
+      tên file mới (`DeviceFormView`/`DevicesScreen`), bỏ tham chiếu file đã xoá.
+- [x] Xoá TODO trong `health.sql` source + regen sqlc (gen sạch).
+- [ ] (còn) `BACKEND_GO_PLAN.md` / `MOBILE_PLAN.md` — đánh dấu hoàn tất (low-pri).
+
+---
+
+## Block 3 — Siết test + CI ✅ XONG (2026-06-05)
+
+- [x] `website.yml`: thêm step `npm test`.
+- [x] `subscription-types.test.ts` — 12 test cho `monthlyEquivalent` + `nextRenewalDate` (22 test total xanh).
+      (Bỏ test `toFormState`: import `client.ts` kéo theo `auth-cookie` cần `SESSION_SECRET` → fragile.)
+- [x] `android.yml`: thêm step `:app:testDebugUnitTest`.
+- [ ] (còn, optional) `ios.yml` build cả app; deploy workflow push image khi tag.
 
 ---
 
 ## Block 4 — Pre-deploy (chờ account/server, soạn sẵn được)
 
 Template đã có (`docker-compose.yml`, `deploy/`, kể cả `android/app/google-services.json` stub). Còn thiếu:
-- [ ] `deploy/backup.sh` — script dump DB + blob (README có nhắc nhưng chưa có file).
+- [x] `deploy/backup.sh` — dump DB (`pg_dump`) + tar blob qua `docker compose exec`, timestamp + retention prune.
 - [ ] Production checklist + health monitoring (optional).
 - [ ] `android/app/google-services.json` THẬT — thay stub bằng file từ Firebase project (deferred).
 
@@ -112,7 +111,10 @@ Template đã có (`docker-compose.yml`, `deploy/`, kể cả `android/app/googl
 
 1. ~~**Block 0** — chốt working tree~~ ✅ XONG (2026-06-05).
 2. ~~**Block 1.1 + 1.2** — backup + delete account mobile~~ ✅ XONG (2026-06-05).
-3. **Block 1.3–1.5** — reminder/payment/label parity. ⬅ TIẾP THEO
-4. **Block 2** — đồng bộ docs (rẻ, gỡ nợ nhận thức).
-5. **Block 3** — CI test.
-6. **Block 4** — khi có server/account.
+3. ~~**Block 1.3–1.5** — reminder/payment/label parity~~ ✅ XONG (2026-06-05).
+4. ~~**Block 2** — đồng bộ docs~~ ✅ XONG (2026-06-05).
+5. ~~**Block 3** — CI test~~ ✅ XONG (2026-06-05).
+6. **Block 4** — `backup.sh` xong; phần còn lại chờ server/account.
+
+> Còn lại đều **chờ tiền/tài khoản** (Apple Dev, Firebase, VPS, prod keys) — xem bảng "Defer hẳn".
+> Code/feature parity giữa web ↔ iOS ↔ Android coi như đã đầy đủ.
