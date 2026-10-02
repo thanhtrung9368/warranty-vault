@@ -4,10 +4,16 @@
 # Trigger `warranty-vault-cron.service` mỗi ngày lúc 09:00 giờ Hà Nội.
 # Asia/Ho_Chi_Minh = UTC+7 (không có DST) → 09:00 Hanoi = 02:00 UTC.
 #
-# Nếu VPS đặt timezone là Asia/Ho_Chi_Minh (`timedatectl set-timezone
-# Asia/Ho_Chi_Minh`), có thể đổi `OnCalendar` thành `*-*-* 09:00:00` cho dễ
-# đọc — systemd diễn giải theo timezone của host. Mặc định template dùng UTC
-# để khỏi phụ thuộc cấu hình host.
+# QUAN TRỌNG — timezone: hậu tố `UTC` ở cuối `OnCalendar` là BẮT BUỘC.
+# Nếu bỏ hậu tố, systemd diễn giải giờ theo timezone LOCAL của host, nên trên
+# VPS đặt `Asia/Ho_Chi_Minh` timer sẽ bắn lúc 02:00 giờ VN (sớm hơn 7 tiếng)
+# chứ không phải 09:00 như tên unit mô tả.
+#
+# Lưu ý: `systemd.timer` KHÔNG có directive `Timezone=` trong `[Timer]` —
+# timezone phải nằm trong chính biểu thức lịch (systemd.time(7): "Timezone can
+# be specified as the literal string UTC …", ví dụ `daily UTC`).
+#
+# Muốn đổi giờ, sửa cả số lẫn hậu tố, ví dụ `*-*-* 09:00:00 Asia/Ho_Chi_Minh`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [Unit]
@@ -15,8 +21,8 @@ Description=Run WarrantyVault cron daily at 09:00 Asia/Ho_Chi_Minh (02:00 UTC)
 Requires=warranty-vault-cron.service
 
 [Timer]
-# 02:00 UTC = 09:00 Hanoi (UTC+7).
-OnCalendar=*-*-* 02:00:00
+# 02:00 UTC = 09:00 Hanoi (UTC+7). Hậu tố `UTC` KHÔNG được bỏ — xem ghi chú trên.
+OnCalendar=*-*-* 02:00:00 UTC
 
 # Nếu VPS bị down lúc 02:00 UTC, chạy bù ngay khi up trở lại.
 Persistent=true

@@ -50,10 +50,37 @@ echo "[$(date -u +%H:%M:%S)] dumping database '$PG_DB' → $DB_OUT"
   | gzip -9 > "$DB_OUT"
 
 # ── 2. Encrypted upload blobs ────────────────────────────────────────────────
+# NOTE: the api image is gcr.io/distroless/static-debian12:nonroot, which ships
+# NO shell and NO `tar`. Running `docker compose exec api tar …` therefore always
+# fails — and because that failure used to be swallowed by the `if`, the script
+# printed "skipping blob archive" and exited 0 with the database dump as the only
+# output. Attachments were silently never backed up. We now mount the same named
+# volume into a throwaway alpine container instead, and hard-fail if the volume
+# cannot be resolved (a backup you think you have is worse than no backup).
 echo "[$(date -u +%H:%M:%S)] archiving uploads (/data/$UPLOAD_DIR) → $UPLOADS_OUT"
-if "${DC[@]}" exec -T api sh -c "[ -d /data/$UPLOAD_DIR ]"; then
-  "${DC[@]}" exec -T api tar -C /data -cf - "$UPLOAD_DIR" | gzip -9 > "$UPLOADS_OUT"
+
+API_CID="$("${DC[@]}" ps -q api 2>/dev/null || true)"
+UPLOADS_VOL=""
+if [ -n "$API_CID" ]; then
+  UPLOADS_VOL="$(docker inspect \
+    -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' \
+    "$API_CID" 2>/dev/null || true)"
+fi
+
+if [ -z "$UPLOADS_VOL" ]; then
+  echo "ERROR: could not resolve the /data volume of service 'api'." >&2
+  echo "       Refusing to report success — the blob archive was NOT written." >&2
+  echo "       Is the stack up? Check: ${DC[*]} ps" >&2
+  exit 1
+fi
+
+if docker run --rm -v "$UPLOADS_VOL":/data:ro alpine:3 \
+     sh -c "[ -d /data/$UPLOAD_DIR ]"; then
+  docker run --rm -v "$UPLOADS_VOL":/data:ro alpine:3 \
+    tar -C /data -czf - "$UPLOAD_DIR" > "$UPLOADS_OUT"
+  echo "  volume: $UPLOADS_VOL"
 else
+  # Genuine fresh-install case: no attachments uploaded yet.
   echo "  (no uploads directory yet — skipping blob archive)"
   rm -f "$UPLOADS_OUT"
 fi

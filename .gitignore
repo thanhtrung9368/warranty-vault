@@ -39,6 +39,12 @@ data/
 # Backup tarballs
 warranty-backup-*.tar.gz
 
+# deploy/backup.sh output dir (BACKUP_DIR mặc định = <repo>/backups) — chứa
+# dump DB + blob attachment, KHÔNG bao giờ được commit.
+backups/
+db-*.sql.gz
+uploads-*.tar.gz
+
 # Claude Code per-user project state
 .claude/
 
