@@ -9,10 +9,11 @@ public final class RemindersStore: ObservableObject {
     }
 
     @Published public private(set) var entries: [UpcomingReminder] = []
-    /// Warranties the user has hidden. The upcoming feed excludes them, so
-    /// they come from the backup export — see `DismissedReminders`.
+    /// Warranties the user has hidden. The plain upcoming feed excludes them,
+    /// so they come from the same endpoint asked with `includeDismissed=true`
+    /// — see `DismissedReminders`.
     @Published public private(set) var dismissed: [DismissedReminder] = []
-    /// True when the backup read failed, so the "Đã ẩn" list can say so
+    /// True when the hidden-rows read failed, so the "Đã ẩn" list can say so
     /// instead of implying there is nothing hidden.
     @Published public private(set) var dismissedUnavailable = false
     @Published public private(set) var state: LoadState = .idle
@@ -20,6 +21,12 @@ public final class RemindersStore: ObservableObject {
     /// Horizon for upcoming reminders. Mirrors the web's 90-day fetch so the
     /// 30/60/90-day buckets in the view all populate.
     public let windowDays: Int = 90
+
+    /// Horizon for the hidden rows: the widest lookahead the endpoint accepts
+    /// (`withinDays` max 365). "Đã ẩn" is a history, not a countdown — asking
+    /// for the full window keeps a reminder hidden long ago from falling off
+    /// the list just because its end date left the upcoming horizon.
+    private let dismissedWindowDays: Int = 365
 
     private let client: APIClient
     public init(client: APIClient) { self.client = client }
@@ -29,10 +36,14 @@ public final class RemindersStore: ObservableObject {
 
         // Two independent reads — run them together. Capturing `client` (an
         // actor) rather than `self` keeps the child tasks off the main actor.
+        // Both go to the light reminders endpoint now; the hidden rows used to
+        // cost a second, much heavier read of the whole account export.
         let client = self.client
         let window = windowDays
+        let dismissedWindow = dismissedWindowDays
         async let remindersTask = client.listUpcomingReminders(withinDays: window)
-        async let backupTask = client.exportBackup()
+        async let dismissedTask = client.listUpcomingReminders(withinDays: dismissedWindow,
+                                                              includeDismissed: true)
 
         do {
             entries = try await remindersTask
@@ -43,7 +54,7 @@ public final class RemindersStore: ObservableObject {
             state = .error(error.localizedDescription)
         }
 
-        apply(backup: try? await backupTask)
+        apply(dismissed: try? await dismissedTask)
     }
 
     // MARK: - Dismiss / restore
@@ -62,7 +73,6 @@ public final class RemindersStore: ObservableObject {
             // (openapi: `GET /api/v1/reminders`).
             deviceStatus: .ACTIVE,
             warrantyType: entry.type,
-            warrantyTypeRaw: entry.type.rawValue,
             warrantyProvider: entry.provider,
             endDate: entry.endDate
         )
@@ -93,19 +103,14 @@ public final class RemindersStore: ObservableObject {
         }
     }
 
-    private func apply(backup: Data?) {
-        guard let backup else {
+    private func apply(dismissed rows: [UpcomingReminder]?) {
+        guard let rows else {
             dismissed = []
             dismissedUnavailable = true
             return
         }
-        do {
-            dismissed = try DismissedReminders.fromBackup(backup)
-            dismissedUnavailable = false
-        } catch {
-            dismissed = []
-            dismissedUnavailable = true
-        }
+        dismissed = DismissedReminders.fromReminders(rows)
+        dismissedUnavailable = false
     }
 }
 

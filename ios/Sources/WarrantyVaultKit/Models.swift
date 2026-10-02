@@ -508,12 +508,22 @@ public struct UpcomingReminder: Decodable, Sendable, Identifiable {
     public let startDate: Date
     public let endDate: Date
     public let months: Int
+    /// True when the user hid this reminder ("Đã xem, ẩn đi").
+    ///
+    /// Only sent by the opt-in read (`includeDismissed=true`); the plain
+    /// upcoming feed omits it, so `nil` means "not hidden". See
+    /// `DismissedReminders` for the "Đã ẩn" rollup built on top of it.
+    public let isDismissed: Bool?
 }
 
 public struct ReminderDevice: Decodable, Sendable {
     public let id: String
     public let name: String
     public let category: String
+    /// Owning device's status, sent alongside `includeDismissed` rows so the
+    /// "Đã ẩn" list can render its badge. Kept as a raw string (with an
+    /// `ACTIVE` fallback) so an unknown status can't fail the whole feed.
+    public let status: String?
 }
 
 // MARK: - Push

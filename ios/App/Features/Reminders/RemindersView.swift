@@ -185,8 +185,9 @@ struct RemindersView: View {
 
     // MARK: - Đã ẩn (dismissed + restore)
 
-    /// Every hidden warranty, read from the backup export (the upcoming feed
-    /// excludes dismissed rows). Mirrors the web reminders page's "Đã ẩn"
+    /// Every hidden warranty, read from the reminders feed with
+    /// `includeDismissed=true` (the plain feed excludes dismissed rows).
+    /// Mirrors the web reminders page's "Đã ẩn"
     /// section: a dismissed reminder always stays visible *and* restorable,
     /// not just during the few seconds the undo banner is on screen.
     @ViewBuilder
@@ -247,7 +248,7 @@ struct RemindersView: View {
 
                     HStack(spacing: 8) {
                         WVChip(item.warrantyTypeLabel,
-                               tone: item.warrantyType.map(chipTone(for:)) ?? .gray)
+                               tone: chipTone(for: item.warrantyType))
                         if item.deviceStatus != .ACTIVE {
                             WVChip(item.deviceStatus.label, tone: .gray)
                         }

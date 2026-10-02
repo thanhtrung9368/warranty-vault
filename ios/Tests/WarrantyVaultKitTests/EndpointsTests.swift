@@ -202,9 +202,41 @@ final class EndpointsTests: KitTestCase {
 
         XCTAssertEqual(reminders.count, 1)
         XCTAssertEqual(reminders.first?.device.name, "Tủ lạnh")
+        XCTAssertNil(reminders.first?.isDismissed,
+                     "the plain feed doesn't send the dismissed flag")
+        XCTAssertNil(reminders.first?.device.status,
+                     "the plain feed doesn't send a device status either")
         let request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.url?.path, "/api/v1/reminders")
-        XCTAssertEqual(queryItems(of: request), ["withinDays": "14"])
+        XCTAssertEqual(queryItems(of: request), ["withinDays": "14"],
+                       "includeDismissed must be omitted unless it is asked for")
+    }
+
+    func testListUpcomingRemindersCanOptIntoDismissedRows() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"reminders": [{"id": "war_hidden", "deviceId": "dev_2",
+                        "device": {"id": "dev_2", "name": "Nồi chiên", "category": "KITCHEN",
+                                   "status": "BROKEN"},
+                        "type": "STANDARD", "provider": null,
+                        "startDate": "2024-11-02T00:00:00Z",
+                        "endDate": "2028-11-02T00:00:00Z", "months": 48,
+                        "isDismissed": true}]}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let reminders = try await client.listUpcomingReminders(withinDays: 365,
+                                                               includeDismissed: true)
+
+        XCTAssertEqual(reminders.count, 1)
+        XCTAssertEqual(reminders.first?.id, "war_hidden")
+        XCTAssertEqual(reminders.first?.isDismissed, true)
+        XCTAssertEqual(reminders.first?.device.status, "BROKEN")
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        XCTAssertEqual(request.url?.path, "/api/v1/reminders")
+        XCTAssertEqual(queryItems(of: request),
+                       ["withinDays": "365", "includeDismissed": "true"])
     }
 
     func testAttachmentDownloadURLBuildsFileURL() async throws {

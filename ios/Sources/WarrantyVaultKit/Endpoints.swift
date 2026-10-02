@@ -326,12 +326,23 @@ extension APIClient {
 
     // MARK: - Reminders
 
-    public func listUpcomingReminders(withinDays: Int = 30) async throws -> [UpcomingReminder] {
+    /// The reminders feed.
+    ///
+    /// `includeDismissed` opts into the rows the user has hidden — each one
+    /// carries a top-level `isDismissed: true` plus its device's `status`, so
+    /// the "Đã ẩn" list can be read from this light endpoint instead of the
+    /// whole backup export. It defaults to `false`, which leaves the plain
+    /// upcoming read (and its response shape) exactly as it was.
+    public func listUpcomingReminders(
+        withinDays: Int = 30,
+        includeDismissed: Bool = false
+    ) async throws -> [UpcomingReminder] {
         struct Wrapper: Decodable { let reminders: [UpcomingReminder] }
-        let w: Wrapper = try await request(
-            "GET", "/api/v1/reminders",
-            query: [.init(name: "withinDays", value: String(withinDays))]
-        )
+        var query: [URLQueryItem] = [.init(name: "withinDays", value: String(withinDays))]
+        if includeDismissed {
+            query.append(.init(name: "includeDismissed", value: "true"))
+        }
+        let w: Wrapper = try await request("GET", "/api/v1/reminders", query: query)
         return w.reminders
     }
 

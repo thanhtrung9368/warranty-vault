@@ -4,28 +4,31 @@ import Foundation
 
 /// One warranty the user has hidden with "Đã xem, ẩn đi" and can restore.
 ///
-/// ## Why this reads the backup export
+/// ## Where these rows come from
 ///
-/// The Go reminders feed (`GET /api/v1/reminders`) deliberately *excludes*
-/// dismissed rows, and `GET /api/v1/devices/{id}` projects only the active
-/// reminder (`services.GetActiveReminderForWarranty`). The only documented
-/// read that still carries `Reminder.isDismissed` for dismissed rows is the
-/// backup export (`GET /api/v1/backup/export` → `devices[].warranties[].reminders[]`,
-/// openapi `BackupDevice`), so that is what the "Đã ẩn" list parses. Restoring
-/// then goes through the existing `DELETE /api/v1/warranties/{id}/reminder`.
+/// `GET /api/v1/reminders?includeDismissed=true` — the light reminders feed
+/// with the hidden rows opted back in. Each row carries a top-level
+/// `isDismissed` flag and its device's `status`, so the "Đã ẩn" list no longer
+/// has to pull the whole account export (`devices[].warranties[].reminders[]`)
+/// just to find out what is hidden. Without the flag the feed keeps excluding
+/// dismissed rows, so its existing callers and response shape are untouched.
 ///
-/// This mirrors `website/src/lib/dismissed-reminders.ts` exactly. Pure and
-/// synchronous so it can be unit tested without a backend.
+/// The server returns hidden rows regardless of the owning device's status (a
+/// reminder hidden on a device that has since been sold must not disappear),
+/// so `deviceStatus` is mapped from whatever the row carries rather than
+/// assumed to be ACTIVE.
+///
+/// Restoring goes through the existing `DELETE /api/v1/warranties/{id}/reminder`.
+///
+/// This mirrors `website/src/lib/dismissed-reminders.ts`. Pure and synchronous
+/// so it can be unit tested without a backend.
 public struct DismissedReminder: Sendable, Equatable, Identifiable {
     public let warrantyId: String
     public let deviceId: String
     public let deviceName: String
     public let deviceCategory: String
     public let deviceStatus: DeviceStatus
-    /// `nil` when the server sends a type this build doesn't know yet.
-    public let warrantyType: WarrantyType?
-    /// The raw wire value, so an unknown type still renders.
-    public let warrantyTypeRaw: String
+    public let warrantyType: WarrantyType
     public let warrantyProvider: String?
     public let endDate: Date
 
@@ -34,8 +37,7 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
                 deviceName: String,
                 deviceCategory: String,
                 deviceStatus: DeviceStatus,
-                warrantyType: WarrantyType?,
-                warrantyTypeRaw: String,
+                warrantyType: WarrantyType,
                 warrantyProvider: String?,
                 endDate: Date) {
         self.warrantyId = warrantyId
@@ -44,7 +46,6 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
         self.deviceCategory = deviceCategory
         self.deviceStatus = deviceStatus
         self.warrantyType = warrantyType
-        self.warrantyTypeRaw = warrantyTypeRaw
         self.warrantyProvider = warrantyProvider
         self.endDate = endDate
     }
@@ -53,7 +54,7 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
     /// time, because dismiss/restore flips the same `Reminder` row.
     public var id: String { warrantyId }
 
-    public var warrantyTypeLabel: String { warrantyType?.label ?? warrantyTypeRaw }
+    public var warrantyTypeLabel: String { warrantyType.label }
 
     /// Vietnamese label for the owning device's category.
     public var deviceCategoryLabel: String { CategoryLabels.label(for: deviceCategory) }
@@ -68,60 +69,29 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
 
 public enum DismissedReminders {
 
-    /// Structural subset of the v5 backup payload — only the fields the
-    /// rollup needs, so a caller can hand over the parsed JSON without casts
-    /// and tests can build tiny fixtures.
-    private struct Backup: Decodable {
-        let devices: [BackupDevice]?
-    }
-
-    private struct BackupDevice: Decodable {
-        let id: String
-        let name: String
-        let category: String
-        let status: String?
-        let warranties: [BackupWarranty]?
-    }
-
-    private struct BackupWarranty: Decodable {
-        let id: String
-        let type: String
-        let provider: String?
-        let endDate: Date
-        let reminders: [BackupReminder]?
-    }
-
-    private struct BackupReminder: Decodable {
-        let isDismissed: Bool
-    }
-
-    /// Parses a `GET /api/v1/backup/export` payload into the list of dismissed
-    /// reminders, newest warranty end date first.
+    /// Filters a `GET /api/v1/reminders?includeDismissed=true` payload down to
+    /// the hidden rows, newest warranty end date first.
     ///
-    /// - Throws: whatever `JSONDecoder` throws when `data` isn't a backup
-    ///   payload. Callers show "Không tải được danh sách nhắc nhở đã ẩn".
-    public static func fromBackup(_ data: Data) throws -> [DismissedReminder] {
-        let backup = try APIClient.decoder.decode(Backup.self, from: data)
-
-        var out: [DismissedReminder] = []
-        for device in backup.devices ?? [] {
-            let status = device.status.flatMap(DeviceStatus.init(rawValue:)) ?? .ACTIVE
-            for warranty in device.warranties ?? [] {
-                let dismissed = (warranty.reminders ?? []).contains { $0.isDismissed }
-                guard dismissed else { continue }
-                out.append(DismissedReminder(
-                    warrantyId: warranty.id,
-                    deviceId: device.id,
-                    deviceName: device.name,
-                    deviceCategory: device.category,
-                    deviceStatus: status,
-                    warrantyType: WarrantyType(rawValue: warranty.type),
-                    warrantyTypeRaw: warranty.type,
-                    warrantyProvider: warranty.provider,
-                    endDate: warranty.endDate
-                ))
-            }
+    /// `isDismissed` is optional on the wire — only the opt-in read sends it —
+    /// so a row that omits it counts as *visible* and is skipped, which keeps
+    /// this correct even if it is handed a plain upcoming feed by mistake.
+    /// `device.status` is optional too and defaults to ACTIVE, so the status
+    /// badge only shows up for the rows that really are on a non-active device.
+    public static func fromReminders(_ reminders: [UpcomingReminder]) -> [DismissedReminder] {
+        reminders.compactMap { reminder in
+            guard reminder.isDismissed == true else { return nil }
+            return DismissedReminder(
+                warrantyId: reminder.id,
+                deviceId: reminder.deviceId,
+                deviceName: reminder.device.name,
+                deviceCategory: reminder.device.category,
+                deviceStatus: reminder.device.status
+                    .flatMap(DeviceStatus.init(rawValue:)) ?? .ACTIVE,
+                warrantyType: reminder.type,
+                warrantyProvider: reminder.provider,
+                endDate: reminder.endDate
+            )
         }
-        return out.sorted { $0.endDate > $1.endDate }
+        .sorted { $0.endDate > $1.endDate }
     }
 }
