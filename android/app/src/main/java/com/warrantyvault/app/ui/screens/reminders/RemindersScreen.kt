@@ -57,6 +57,7 @@ import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.UpcomingReminder
 import com.warrantyvault.app.network.WarrantyType
 import com.warrantyvault.app.network.toUserMessage
+import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.EmptyState
 import com.warrantyvault.app.ui.components.ErrorState
 import com.warrantyvault.app.ui.components.PageHeader
@@ -327,7 +328,7 @@ private fun ReminderCard(
             )
             if (reminder.device.category.isNotBlank()) {
                 Text(
-                    reminder.device.category,
+                    CategoryLabels.label(reminder.device.category),
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                 )

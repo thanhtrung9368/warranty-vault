@@ -68,6 +68,7 @@ import com.warrantyvault.app.network.UserStats
 import com.warrantyvault.app.network.WishlistItem
 import com.warrantyvault.app.network.WishlistStatus
 import com.warrantyvault.app.network.toUserMessage
+import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.ErrorState
 import com.warrantyvault.app.ui.components.SectionHeader
 import com.warrantyvault.app.ui.components.pressScale
@@ -477,7 +478,7 @@ private fun WarrantyPreviewRow(
                 )
                 if (reminder.device.category.isNotBlank()) {
                     Text(
-                        categoryLabel(reminder.device.category),
+                        CategoryLabels.label(reminder.device.category),
                         style = MaterialTheme.typography.bodySmall,
                         color = cs.onSurfaceVariant,
                     )
@@ -695,18 +696,3 @@ private fun formatVnd(amount: Long): String {
     return nf.format(amount) + "đ"
 }
 
-private fun categoryLabel(code: String): String = when (code.lowercase()) {
-    "phone" -> "Điện thoại"
-    "laptop" -> "Laptop"
-    "tablet" -> "Máy tính bảng"
-    "watch" -> "Đồng hồ"
-    "tv" -> "TV"
-    "audio" -> "Tai nghe / Loa"
-    "camera" -> "Camera"
-    "appliance" -> "Thiết bị gia dụng"
-    "console" -> "Máy chơi game"
-    "monitor" -> "Màn hình"
-    "printer" -> "Máy in"
-    "vehicle" -> "Xe cộ"
-    else -> code
-}

@@ -58,6 +58,7 @@ import com.warrantyvault.app.network.DeviceInput
 import com.warrantyvault.app.network.DeviceStatus
 import com.warrantyvault.app.network.StoreOption
 import com.warrantyvault.app.network.toUserMessage
+import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.SheetGroup
 import com.warrantyvault.app.network.DraftDevice
 import com.warrantyvault.app.ui.screens.common.StoreAutocompleteField
@@ -164,12 +165,9 @@ fun AddDeviceSheet(
                 storeOptions = it.stores
             }
             .onFailure {
-                categoryOptions = listOf(
-                    CategoryOption("PHONE", "Điện thoại"),
-                    CategoryOption("LAPTOP", "Laptop"),
-                    CategoryOption("TABLET", "Máy tính bảng"),
-                    CategoryOption("OTHER", "Khác"),
-                )
+                // Offline fallback: the full catalog, straight from the one
+                // shared label table — not a hand-copied shortlist.
+                categoryOptions = CategoryLabels.table.map { CategoryOption(it.key, it.value) }
             }
     }
 

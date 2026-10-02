@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,6 +26,15 @@ import (
 // "Loại thiết bị không hợp lệ".
 const categorySeedMigration = "0004_seed_category_catalog.sql"
 
+// The two mobile clients each keep a static mirror of CATEGORY_LABELS because
+// list / chart / reminder payloads only carry the category *code*. Both are
+// parsed from source by TestCategorySeedMatchesWebsiteLabels so no copy can
+// drift unnoticed.
+const (
+	iosCategoryLabelsPath     = "ios/Sources/WarrantyVaultKit/CategoryLabels.swift"
+	androidCategoryLabelsPath = "android/app/src/main/java/com/warrantyvault/app/ui/components/CategoryLabels.kt"
+)
+
 // activeCategoryCodes lists the codes CATEGORY_LABELS is expected to contain, in
 // declaration order. This mirrors website/src/lib/types.ts::CATEGORY_LABELS; the
 // tests below re-parse that file so the two cannot drift silently.
@@ -40,6 +50,10 @@ type seededCategory struct {
 var (
 	// `  PHONE: 'Điện thoại',` inside the CATEGORY_LABELS object literal.
 	categoryLabelLine = regexp.MustCompile(`^\s*([A-Z][A-Z0-9_]*):\s*'([^']*)',\s*$`)
+	// `        "PHONE": "Điện thoại",` inside the Swift `CategoryLabels.table` literal.
+	swiftCategoryLabelLine = regexp.MustCompile(`^\s*"([A-Z][A-Z0-9_]*)":\s*"([^"]*)",\s*$`)
+	// `        "PHONE" to "Điện thoại",` inside the Kotlin `CategoryLabels.table` mapOf(...).
+	kotlinCategoryLabelLine = regexp.MustCompile(`^\s*"([A-Z][A-Z0-9_]*)"\s+to\s+"([^"]*)",\s*$`)
 	// `('PHONE', 'Điện thoại', 10, true)` — used by both the INSERT (up) and the
 	// VALUES list of the DELETE (down).
 	categorySeedTuple = regexp.MustCompile(`\('([A-Z][A-Z0-9_]*)',\s*'([^']*)',\s*(\d+),\s*(true|false)\)`)
@@ -69,15 +83,94 @@ func parseCategoryLabels(t *testing.T) []seededCategory {
 	if block == nil {
 		t.Fatalf("%s: could not find the CATEGORY_LABELS object literal", path)
 	}
+	return parseCategoryLabelLines(block[1], categoryLabelLine)
+}
+
+// parseIOSCategoryLabels reads `CategoryLabels.table` from the Swift mirror in
+// WarrantyVaultKit. Anchored on `static let table ... = [` so a second dictionary
+// elsewhere in the file cannot be picked up by accident.
+func parseIOSCategoryLabels(t *testing.T) []seededCategory {
+	t.Helper()
+	path := repoFile(t, filepath.FromSlash(iosCategoryLabelsPath))
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	block := regexp.MustCompile(`(?s)static let table[^=]*=\s*\[(.*?)\n\s*\]`).FindStringSubmatch(string(raw))
+	if block == nil {
+		t.Fatalf("%s: could not find the `static let table ... = [` dictionary — if CategoryLabels was reshaped, update this reader", iosCategoryLabelsPath)
+	}
+	return parseCategoryLabelLines(block[1], swiftCategoryLabelLine)
+}
+
+// parseAndroidCategoryLabels reads `CategoryLabels.table` from the Kotlin mirror
+// in the Android app. Anchored on the `object CategoryLabels` declaration and its
+// `val table ... = mapOf(` literal.
+func parseAndroidCategoryLabels(t *testing.T) []seededCategory {
+	t.Helper()
+	path := repoFile(t, filepath.FromSlash(androidCategoryLabelsPath))
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	block := regexp.MustCompile(`(?s)object CategoryLabels\b.*?val table[^=]*=\s*mapOf\((.*?)\n\s*\)`).FindStringSubmatch(string(raw))
+	if block == nil {
+		t.Fatalf("%s: could not find the `object CategoryLabels` / `val table ... = mapOf(` literal — if CategoryLabels moved, update this reader", androidCategoryLabelsPath)
+	}
+	return parseCategoryLabelLines(block[1], kotlinCategoryLabelLine)
+}
+
+// parseCategoryLabelLines pulls the one-entry-per-line `"CODE": "Name",` (or
+// Kotlin `"CODE" to "Name",`) pairs out of a declaration block. Lines that do
+// not match are skipped, so a reformat that hides entries shows up as a count
+// mismatch in assertCategoryLabelsAgree — never as a silent pass.
+func parseCategoryLabelLines(block string, line *regexp.Regexp) []seededCategory {
 	var out []seededCategory
-	for _, line := range strings.Split(block[1], "\n") {
-		m := categoryLabelLine.FindStringSubmatch(line)
+	for _, l := range strings.Split(block, "\n") {
+		m := line.FindStringSubmatch(l)
 		if m == nil {
 			continue
 		}
 		out = append(out, seededCategory{Code: m[1], Name: m[2]})
 	}
 	return out
+}
+
+// assertCategoryLabelsAgree asserts one mirror of CATEGORY_LABELS carries exactly
+// the same code → Vietnamese name pairs as the website map. Order is deliberately
+// not compared (each copy documents its own layout); the *content* must match.
+func assertCategoryLabelsAgree(t *testing.T, source string, got, want []seededCategory) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: parsed %d categories, website CATEGORY_LABELS has %d — if the file was merely reformatted, fix the reader in this test; never let a short parse pass",
+			source, len(got), len(want))
+	}
+	byCode := make(map[string]string, len(got))
+	for _, c := range got {
+		if prev, dup := byCode[c.Code]; dup {
+			t.Errorf("%s: %s appears twice (%q and %q)", source, c.Code, prev, c.Name)
+		}
+		byCode[c.Code] = c.Name
+	}
+	for _, w := range want {
+		name, ok := byCode[w.Code]
+		if !ok {
+			t.Errorf("%s: missing category %s — the website renders %q", source, w.Code, w.Name)
+			continue
+		}
+		if name != w.Name {
+			t.Errorf("%s: %s is %q, website CATEGORY_LABELS says %q", source, w.Code, name, w.Name)
+		}
+		delete(byCode, w.Code)
+	}
+	extras := make([]string, 0, len(byCode))
+	for code := range byCode {
+		extras = append(extras, code)
+	}
+	sort.Strings(extras)
+	for _, code := range extras {
+		t.Errorf("%s: has category %s (%q) that the website CATEGORY_LABELS does not define", source, code, byCode[code])
+	}
 }
 
 // parseCategorySeedMigration splits the seed migration into its up and down
@@ -133,8 +226,10 @@ func categoryInvalid(err error) bool {
 	return ok && de.Code == "CATEGORY_INVALID"
 }
 
-// TestCategorySeedMatchesWebsiteLabels is the anti-drift test: the codes and
-// Vietnamese names seeded by migration 0004 must equal CATEGORY_LABELS.
+// TestCategorySeedMatchesWebsiteLabels is the anti-drift test: all four copies of
+// the category catalog — the seed migration, the iOS enum and the Android table —
+// must carry the same codes and Vietnamese names as CATEGORY_LABELS. It is
+// DB-free: everything is parsed out of the source files.
 func TestCategorySeedMatchesWebsiteLabels(t *testing.T) {
 	labels := parseCategoryLabels(t)
 	if len(labels) != categoryLabelCount {
@@ -173,6 +268,20 @@ func TestCategorySeedMatchesWebsiteLabels(t *testing.T) {
 		if up[i] != down[i] {
 			t.Errorf("down tuple #%d is %+v, up tuple is %+v", i, down[i], up[i])
 		}
+	}
+
+	// The two mobile clients ship their own static copy of the map (list, chart
+	// and reminder payloads only carry the code). Both used to be able to drift
+	// silently — the Android dashboard's private map still had the pre-catalog
+	// short keys `watch` / `tv` / `camera` / `console` and ten missing codes.
+	for _, mirror := range []struct {
+		source string
+		got    []seededCategory
+	}{
+		{iosCategoryLabelsPath, parseIOSCategoryLabels(t)},
+		{androidCategoryLabelsPath, parseAndroidCategoryLabels(t)},
+	} {
+		assertCategoryLabelsAgree(t, mirror.source, mirror.got, labels)
 	}
 }
 
