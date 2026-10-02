@@ -7,10 +7,11 @@ import WarrantyVaultKit
 // Port of SettingsScreen in screens-3.jsx.
 // ============================================================
 
-/// Wraps the exported backup JSON so `.fileExporter` can write it to a
-/// user-chosen location (Files / iCloud Drive / AirDrop).
-struct JSONBackupDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.json] }
+/// Single-file wrapper for `.fileExporter`: the one export mechanism in the
+/// app. Used by the JSON backup ("Sao lưu (xuất JSON)") and by the device CSV
+/// export in Thêm ("Xuất dữ liệu CSV").
+struct ExportFileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json, .commaSeparatedText] }
     var data: Data
     init(data: Data) { self.data = data }
     init(configuration: ReadConfiguration) throws {
@@ -18,6 +19,89 @@ struct JSONBackupDocument: FileDocument {
     }
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
+    }
+}
+
+/// The app's single JSON-backup importer: mode picker → file picker → result.
+///
+/// Extracted from `SettingsView` so that "Cài đặt → Khôi phục từ sao lưu" and
+/// "Thêm → Import từ file" drive *the same* flow instead of two copies of a
+/// destructive ("replace") operation.
+///
+/// - Parameters:
+///   - isPresented: set to `true` to show the merge/replace confirmation.
+///   - isBusy: `true` while the picked file is being uploaded.
+///   - message: result / failure copy, written for the host screen's alert.
+struct BackupImportFlow: ViewModifier {
+    let client: APIClient
+    @Binding var isPresented: Bool
+    @Binding var isBusy: Bool
+    @Binding var message: String?
+
+    @State private var showImporter = false
+    @State private var mode = "merge"
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(
+                "Khôi phục từ sao lưu",
+                isPresented: $isPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Gộp (merge)") { mode = "merge"; showImporter = true }
+                Button("Thay thế — xoá hết (replace)", role: .destructive) {
+                    mode = "replace"; showImporter = true
+                }
+                Button("Huỷ", role: .cancel) {}
+            } message: {
+                Text("“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.")
+            }
+            .fileImporter(
+                isPresented: $showImporter,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                handleSelection(result)
+            }
+    }
+
+    private func handleSelection(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result, let url = urls.first else {
+            if case .failure = result { message = "Không mở được file." }
+            return
+        }
+        isBusy = true
+        Task {
+            defer { isBusy = false }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                let res = try await client.importBackup(data, mode: mode)
+                message = "Đã nhập \(res.imported) thiết bị, \(res.subImported) gói, "
+                    + "\(res.wishlistImported) mục yêu thích."
+                    + ((res.skipped + res.subSkipped + res.wishlistSkipped) > 0
+                        ? " Bỏ qua \(res.skipped + res.subSkipped + res.wishlistSkipped) bản ghi trùng."
+                        : "")
+            } catch let APIError.server(_, envelope) {
+                message = envelope.message ?? "File backup không hợp lệ."
+            } catch {
+                message = "Nhập thất bại — kiểm tra lại file."
+            }
+        }
+    }
+}
+
+extension View {
+    /// Attaches the shared backup-import flow to a screen.
+    func backupImportFlow(client: APIClient,
+                          isPresented: Binding<Bool>,
+                          isBusy: Binding<Bool>,
+                          message: Binding<String?>) -> some View {
+        modifier(BackupImportFlow(client: client,
+                                  isPresented: isPresented,
+                                  isBusy: isBusy,
+                                  message: message))
     }
 }
 
@@ -29,9 +113,7 @@ struct SettingsView: View {
     @EnvironmentObject private var theme: ThemeStore
 
     @State private var showChangePassword = false
-    @State private var showReminderSheet = false
     @State private var showPushDevices = false
-    @State private var reminderDays: Int = 30
 
     // AI receipt-scan opt-in.
     @State private var aiOptIn = false
@@ -39,11 +121,9 @@ struct SettingsView: View {
 
     // Backup export / import.
     @State private var backupBusy = false
-    @State private var exportDoc: JSONBackupDocument?
+    @State private var exportDoc: ExportFileDocument?
     @State private var showExporter = false
     @State private var showImporter = false
-    @State private var showImportModeDialog = false
-    @State private var importMode = "merge"
     @State private var backupMessage: String?
 
     var body: some View {
@@ -61,7 +141,7 @@ struct SettingsView: View {
 
                 // Notifications
                 WVSectionHeader("Nhắc nhở")
-                WVSectionFooter("Khi gói bảo hành sắp hết, ứng dụng sẽ đẩy thông báo về máy.")
+                WVSectionFooter("Khi gói bảo hành sắp hết, hệ thống đẩy thông báo tự động trước 7 ngày và 30 ngày. Mốc nhắc do máy chủ quy định — ứng dụng chưa hỗ trợ tuỳ chỉnh.")
                 notificationsSection
 
                 // AI receipt scan
@@ -85,9 +165,6 @@ struct SettingsView: View {
         .sheet(isPresented: $showChangePassword) {
             ChangePasswordSheet(client: client)
         }
-        .sheet(isPresented: $showReminderSheet) {
-            reminderPickerSheet
-        }
         .navigationDestination(isPresented: $showPushDevices) {
             PushDevicesView(client: client)
                 .navigationTitle("Thiết bị nhận thông báo")
@@ -96,6 +173,12 @@ struct SettingsView: View {
         .task {
             if let v = try? await client.getAIOptIn() { aiOptIn = v }
         }
+        .backupImportFlow(
+            client: client,
+            isPresented: $showImporter,
+            isBusy: $backupBusy,
+            message: $backupMessage
+        )
         .fileExporter(
             isPresented: $showExporter,
             document: exportDoc,
@@ -103,26 +186,6 @@ struct SettingsView: View {
             defaultFilename: "warrantyvault-backup"
         ) { result in
             if case .failure = result { backupMessage = "Không lưu được file backup." }
-        }
-        .confirmationDialog(
-            "Khôi phục từ sao lưu",
-            isPresented: $showImportModeDialog,
-            titleVisibility: .visible
-        ) {
-            Button("Gộp (merge)") { importMode = "merge"; showImporter = true }
-            Button("Thay thế — xoá hết (replace)", role: .destructive) {
-                importMode = "replace"; showImporter = true
-            }
-            Button("Huỷ", role: .cancel) {}
-        } message: {
-            Text("“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.")
-        }
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: [.json],
-            allowsMultipleSelection: false
-        ) { result in
-            handleImportSelection(result)
         }
         .alert("Sao lưu", isPresented: Binding(
             get: { backupMessage != nil },
@@ -142,36 +205,10 @@ struct SettingsView: View {
             defer { backupBusy = false }
             do {
                 let data = try await client.exportBackup()
-                exportDoc = JSONBackupDocument(data: data)
+                exportDoc = ExportFileDocument(data: data)
                 showExporter = true
             } catch {
                 backupMessage = "Không xuất được dữ liệu."
-            }
-        }
-    }
-
-    private func handleImportSelection(_ result: Result<[URL], Error>) {
-        guard case let .success(urls) = result, let url = urls.first else {
-            if case .failure = result { backupMessage = "Không mở được file." }
-            return
-        }
-        backupBusy = true
-        Task {
-            defer { backupBusy = false }
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            do {
-                let data = try Data(contentsOf: url)
-                let res = try await client.importBackup(data, mode: importMode)
-                backupMessage = "Đã nhập \(res.imported) thiết bị, \(res.subImported) gói, "
-                    + "\(res.wishlistImported) mục yêu thích."
-                    + ((res.skipped + res.subSkipped + res.wishlistSkipped) > 0
-                        ? " Bỏ qua \(res.skipped + res.subSkipped + res.wishlistSkipped) bản ghi trùng."
-                        : "")
-            } catch let APIError.server(_, envelope) {
-                backupMessage = envelope.message ?? "File backup không hợp lệ."
-            } catch {
-                backupMessage = "Nhập thất bại — kiểm tra lại file."
             }
         }
     }
@@ -301,28 +338,20 @@ struct SettingsView: View {
 
             WVDivider(inset: 60)
 
-            // Reminder lead time
-            Button {
-                showReminderSheet = true
-            } label: {
-                HStack(spacing: 12) {
-                    WVLeadingIcon(icon: "clock", color: WVColor.purple)
-                    Text("Nhắc trước")
-                        .font(.system(size: 17))
-                        .foregroundStyle(WVColor.label)
-                    Spacer(minLength: 8)
-                    Text("\(reminderDays) ngày")
-                        .font(.system(size: 17))
-                        .foregroundStyle(WVColor.label3)
-                    WVIcon("arrowRight", size: 13, weight: .semibold)
-                        .foregroundStyle(WVColor.label4)
-                }
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .padding(.vertical, 7)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(WVRowButtonStyle())
+            // Reminder lead time.
+            //
+            // This used to be a picker writing to `@State` only: nothing was
+            // saved, nothing was sent, and the value reset on every launch. The
+            // push fanout is a server-side cron job on a *fixed* schedule
+            // (`api/internal/cron/run.go` fires at 7 and 30 days before expiry)
+            // and the API has no per-user lead-time field, so a PATCH-able
+            // value does not exist. Rather than keep a control that pretends to
+            // work, the row now states the real schedule — and stays a
+            // non-interactive row (no chevron, no action).
+            WVRow(icon: "clock", iconColor: WVColor.purple,
+                  title: "Nhắc trước",
+                  subtitle: "Hệ thống tự gửi, chưa tuỳ chỉnh được",
+                  detail: "7 & 30 ngày")
         }
     }
 
@@ -340,7 +369,7 @@ struct SettingsView: View {
             WVRow(icon: "upload", iconColor: WVColor.orange,
                   title: "Khôi phục từ sao lưu", chevron: true) {
                 guard !backupBusy else { return }
-                showImportModeDialog = true
+                showImporter = true
             }
         }
     }
@@ -357,54 +386,6 @@ struct SettingsView: View {
             WVDivider(inset: 60)
             WVRow(icon: "receipt", iconColor: WVColor.gray,
                   title: "Điều khoản sử dụng", chevron: true)
-        }
-    }
-
-    // MARK: - Reminder picker sheet
-
-    private var reminderPickerSheet: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    Spacer().frame(height: 12)
-                    WVGroup {
-                        ForEach(Array([7, 14, 30, 60, 90].enumerated()), id: \.element) { idx, n in
-                            if idx > 0 { WVDivider(inset: 16) }
-                            Button {
-                                reminderDays = n
-                                showReminderSheet = false
-                            } label: {
-                                HStack {
-                                    Text("\(n) ngày trước hết hạn")
-                                        .font(.system(size: 17))
-                                        .foregroundStyle(WVColor.label)
-                                    Spacer()
-                                    if reminderDays == n {
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .foregroundStyle(WVColor.tint)
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                                .frame(minHeight: 44)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(WVRowButtonStyle())
-                        }
-                    }
-                    Spacer().frame(height: 20)
-                }
-            }
-            .wvScreen()
-            .navigationTitle("Nhắc trước")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { showReminderSheet = false }
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(WVColor.tint)
-                }
-            }
         }
     }
 

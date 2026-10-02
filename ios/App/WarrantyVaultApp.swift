@@ -1,4 +1,5 @@
 import SwiftUI
+import WarrantyVaultKit
 
 @main
 struct WarrantyVaultApp: App {
@@ -7,6 +8,8 @@ struct WarrantyVaultApp: App {
     @StateObject private var theme = ThemeStore()
     @StateObject private var catalog: CatalogStore
     @StateObject private var toasts = WVToastCenter()
+    /// Face ID / Touch ID app lock. Off unless the user turns it on in Hồ sơ.
+    @StateObject private var appLock = AppLockStore()
 
     init() {
         let authStore = AuthStore(baseURL: AppConfig.baseURL)
@@ -25,6 +28,7 @@ struct WarrantyVaultApp: App {
                 .environmentObject(theme)
                 .environmentObject(catalog)
                 .environmentObject(toasts)
+                .environmentObject(appLock)
                 .wvToastHost(toasts)
                 .preferredColorScheme(theme.preference.colorScheme)
                 .task(id: authIdentity) {

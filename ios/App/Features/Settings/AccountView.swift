@@ -9,6 +9,7 @@ struct AccountView: View {
     let client: APIClient
 
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var appLock: AppLockStore
     @State private var showChangePassword = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
@@ -57,27 +58,33 @@ struct AccountView: View {
                     .frame(minHeight: 44)
                 }
 
-                // Password section
-                WVSectionHeader("Mật khẩu")
+                // Password + app lock
+                WVSectionHeader("Bảo mật")
                 WVGroup {
                     WVRow(icon: "key", iconColor: WVColor.orange,
                           title: "Đổi mật khẩu", chevron: true) {
                         showChangePassword = true
                     }
                     WVDivider(inset: 60)
-                    WVRow(icon: "lock", iconColor: WVColor.purple,
-                          title: "Face ID & Touch ID", chevron: true)
+                    appLockRow
                 }
+                WVSectionFooter("Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng.")
 
                 // Linked accounts section
                 WVSectionHeader("Liên kết")
                 WVGroup {
+                    // Sign in with Apple is deliberately NOT implemented: it
+                    // needs a paid Apple Developer account, server-side
+                    // identity-token verification and changes to the Go auth
+                    // flow. The row stays honest instead of offering a login
+                    // that cannot work.
                     WVRow(icon: "mail", iconColor: WVColor.red,
-                          title: "Apple ID", detail: "Liên kết")
+                          title: "Apple ID", detail: "Chưa khả dụng")
                     WVDivider(inset: 60)
                     WVRow(icon: "users", iconColor: WVColor.blue,
-                          title: "Google", detail: "Chưa")
+                          title: "Google", detail: "Chưa khả dụng")
                 }
+                WVSectionFooter("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản WarrantyVault dùng email và mật khẩu — đổi mật khẩu ở mục Bảo mật.")
 
                 // Delete account
                 Spacer().frame(height: 20)
@@ -135,6 +142,55 @@ struct AccountView: View {
                 deleteError = "Không kết nối được máy chủ."
             }
         }
+    }
+
+    // MARK: - App lock (Face ID & Touch ID)
+
+    /// Toggle row for the biometric app lock.
+    ///
+    /// The switch is disabled when the device has no enrolled biometrics, so a
+    /// user can never turn on a lock they'd be unable to satisfy. Both turning
+    /// it on and off run one authentication first (`AppLockStore.setEnabled`).
+    private var appLockRow: some View {
+        HStack(spacing: 12) {
+            WVLeadingIcon(icon: "lock", color: WVColor.purple)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Face ID & Touch ID")
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                Text(appLockDetail)
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label3)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            if appLock.isAuthenticating {
+                ProgressView()
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { appLock.isEnabled },
+                    set: { newValue in
+                        appLock.acknowledgeAutoDisabledNotice()
+                        Task { await appLock.setEnabled(newValue) }
+                    }
+                ))
+                .labelsHidden()
+                .disabled(!appLock.isEnabled && !appLock.availability.canEnableLock)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+    }
+
+    private var appLockDetail: String {
+        if let error = appLock.lastError { return error }
+        if let notice = appLock.autoDisabledNotice { return notice }
+        if appLock.isEnabled {
+            return "Đang bật — mở khoá bằng \(appLock.availability.biometry.label) hoặc mã mở khoá"
+        }
+        if let reason = appLock.availability.unavailableReason { return reason }
+        return "Đang tắt"
     }
 
     // MARK: - Avatar header

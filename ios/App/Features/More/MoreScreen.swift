@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import WarrantyVaultKit
 
 // ============================================================
@@ -11,6 +12,15 @@ struct MoreScreen: View {
 
     @EnvironmentObject private var auth: AuthStore
     @StateObject private var remindersStore: RemindersStore
+
+    // CSV export of the user's devices — built in WarrantyVaultKit
+    // (`DeviceCSVExport`) and written through the app's shared `.fileExporter`.
+    @State private var exportDoc: ExportFileDocument?
+    @State private var showExporter = false
+    @State private var fileBusy = false
+    @State private var fileMessage: String?
+    // Trigger for the shared JSON-backup importer (see `BackupImportFlow`).
+    @State private var showImporter = false
 
     init(client: APIClient) {
         self.client = client
@@ -66,6 +76,47 @@ struct MoreScreen: View {
         .navigationTitle("Thêm")
         .navigationBarTitleDisplayMode(.large)
         .task { await remindersStore.load() }
+        .backupImportFlow(
+            client: client,
+            isPresented: $showImporter,
+            isBusy: $fileBusy,
+            message: $fileMessage
+        )
+        .fileExporter(
+            isPresented: $showExporter,
+            document: exportDoc,
+            contentType: .commaSeparatedText,
+            defaultFilename: "warrantyvault-thiet-bi"
+        ) { result in
+            if case .failure = result { fileMessage = "Không lưu được file CSV." }
+        }
+        .alert("Dữ liệu", isPresented: Binding(
+            get: { fileMessage != nil },
+            set: { if !$0 { fileMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { fileMessage = nil }
+        } message: {
+            Text(fileMessage ?? "")
+        }
+    }
+
+    // MARK: - CSV export
+
+    /// Reads the device list and hands it to the pure CSV builder, then opens
+    /// the system save sheet. Nothing is uploaded; the file is written wherever
+    /// the user picks (Files / iCloud Drive / AirDrop).
+    private func exportDevicesCSV() {
+        fileBusy = true
+        Task {
+            defer { fileBusy = false }
+            do {
+                let devices = try await client.listDevices()
+                exportDoc = ExportFileDocument(data: DeviceCSVExport.data(for: devices))
+                showExporter = true
+            } catch {
+                fileMessage = "Không xuất được dữ liệu. Kiểm tra kết nối và thử lại."
+            }
+        }
     }
 
     // MARK: - Sections
@@ -211,11 +262,21 @@ struct MoreScreen: View {
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "download", iconColor: WVColor.green, title: "Xuất dữ liệu CSV", chevron: true)
+            WVRow(icon: "download", iconColor: WVColor.green,
+                  title: fileBusy ? "Đang xử lý…" : "Xuất dữ liệu CSV", chevron: true) {
+                guard !fileBusy else { return }
+                exportDevicesCSV()
+            }
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "upload", iconColor: WVColor.orange, title: "Import từ file", chevron: true)
+            // Same importer as Cài đặt → "Khôi phục từ sao lưu"; this row is a
+            // shortcut into that one flow, not a second implementation.
+            WVRow(icon: "upload", iconColor: WVColor.orange,
+                  title: fileBusy ? "Đang xử lý…" : "Import từ file", chevron: true) {
+                guard !fileBusy else { return }
+                showImporter = true
+            }
         }
     }
 
