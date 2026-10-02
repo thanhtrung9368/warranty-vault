@@ -30,9 +30,10 @@ import { CATEGORY_LABELS } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-// Local helpers — replace the old prisma-backed `wishlistTotals()` and
-// `subscriptionTotals()`. We pull the lists from the Go API and crunch the
-// numbers on the RSC. Volumes are tiny (≤200 wishlist, ≤100 subs per user).
+// Local helpers — replaced the DB-side `wishlistTotals()` /
+// `subscriptionTotals()` that went away with the Prisma layer in Phase F.
+// We pull the lists from the Go API and crunch the numbers on the RSC.
+// Volumes are tiny (≤200 wishlist, ≤100 subs per user).
 
 type WishlistTotals = {
   count: number;

@@ -1,233 +1,164 @@
-# WarrantyVault
+# WarrantyVault — Web UI
 
 Web app cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký phần mềm và danh sách "thèm". Multi-user, tiếng Việt 100%.
 
+> **Đây là frontend mỏng.** Backend canonical là Go service ở [`../api`](../api) — web không có DB, không Prisma, không cron route, không business logic. Mọi read/write đi qua typed client `src/lib/api/*` (fetch tới `GO_API_URL`), và Go là thứ duy nhất nói chuyện với Postgres. Đọc thêm [`../api/README.md`](../api/README.md) + [`../CLAUDE.md`](../CLAUDE.md).
+
 ## Tech stack
 
-- **Next.js 16** (App Router, Turbopack) + **TypeScript** + **React 19**
-- **Tailwind CSS** + **shadcn/ui** + **lucide-react**
-- **Prisma 7** (driver adapter `@prisma/adapter-pg` + `pg`) + **PostgreSQL 17**
-- Auth: **iron-session** cookie + **bcrypt-ts** (pure JS)
-- Push: **web-push** (VAPID, free) + Service Worker
-- Email: **Resend** (optional, free 3K/tháng — không set thì reset link in ra console)
-- Charts: **recharts**
+- **Next.js 16** (App Router) + **TypeScript** + **React 19**
+- **Tailwind CSS** + shadcn/ui-style primitives trong `src/components/ui` + **lucide-react**
+- **iron-session** cookie `wv_session` — chỉ giữ bearer token + expiry do Go cấp; identity lấy lại từ `GET /api/v1/auth/me` mỗi request
+- **recharts** (biểu đồ), **sonner** (toast), **next-themes** (dark mode)
+- **Zod** chỉ dùng cho form auth public (`actions/auth.ts`, `actions/password-reset.ts`). Validate nghiệp vụ, rate limit, push fanout, email, cron: **tất cả ở Go**
+- Không còn `prisma`, `pg`, `bcrypt-ts`, `web-push`, `resend`, `sharp` trong `package.json` — đừng thêm lại
 
 ## Tính năng
 
-- Đăng ký/đăng nhập nhiều user, dữ liệu mỗi user riêng
+- Đăng ký/đăng nhập nhiều user, dữ liệu mỗi user riêng (Go giữ session + bearer token)
 - **Thiết bị** — CRUD (laptop, điện thoại, đồ gia dụng, …) với ngày mua, giá, nơi mua
 - **Bảo hành nhiều lớp** — mỗi thiết bị có thể có nhiều gói (chính hãng, mở rộng, bên thứ 3); ngày hết BH hiệu lực = max(endDate)
-- **Đăng ký phần mềm** — Apple One, ChatGPT Plus, iCloud+, … với chu kỳ Hàng tháng / Quý / Năm / Lifetime / Tuỳ chỉnh; cron tự ghi log thanh toán + cảnh báo trước renewal 3 / 1 / 0 ngày
-- **Wishlist ("đồ thèm")** — track sản phẩm muốn mua, lịch sử giá theo thời gian, ngày dự kiến mua, ping định kỳ N ngày; khi flip sang "đã mua" thì tự link sang Device
-- **Upload hoá đơn/phiếu BH** — ảnh + PDF, tối đa 5MB × 5 file/device, **mã hoá AES-256-GCM trên đĩa** (`FILE_MASTER_KEY`); ảnh tự resize ≤1600px
+- **Đăng ký phần mềm** — Apple One, ChatGPT Plus, iCloud+, … với chu kỳ Hàng tháng / Quý / Năm / Lifetime / Tuỳ chỉnh; cron (Go) tự ghi log thanh toán + cảnh báo trước renewal 3 / 1 / 0 ngày
+- **Wishlist ("đồ thèm")** — track sản phẩm muốn mua, lịch sử giá theo thời gian, ngày dự kiến mua, ping định kỳ N ngày; khi flip sang "đã mua" thì Go tự tạo Device trong cùng transaction
+- **Upload hoá đơn/phiếu BH** — ảnh + PDF, tối đa 5MB × 5 file/device; Go mã hoá AES-256-GCM trên đĩa (`FILE_MASTER_KEY`) và tự resize ảnh ≤1600px. Web chỉ proxy byte stream qua `/api/files/[id]` để cookie auth hoạt động trong browser
 - Gọi trung tâm BH (tel:) + mở Google Maps 1 chạm
-- Catalog dùng chung: loại sản phẩm, hãng, nơi mua, trung tâm BH (admin sửa qua Prisma Studio, autofill khi tạo device/sub)
+- Catalog dùng chung: loại sản phẩm, hãng, nơi mua, trung tâm BH — admin sửa trong DB (Go), web đọc qua `GET /api/v1/catalog` và autofill khi tạo device/sub
 - Thống kê: biểu đồ cột chi phí 12 tháng, pie theo loại, top 5 đắt nhất, chi phí sub quy đổi theo tháng
 - **Landing page** + Privacy / Terms / Cookies public
 - **PWA** — cài được lên điện thoại
-- **Push notification** — BH sắp hết, sub sắp gia hạn, wishlist tới ngày dự kiến — dù tab đóng
-- **Rate limit** login/register/change-password (chống brute-force) + 60 writes/phút/user
+- **Push notification** — BH sắp hết, sub sắp gia hạn, wishlist tới ngày dự kiến — dù tab đóng (fanout nằm ở Go)
 - **Quên mật khẩu** qua email + đổi mật khẩu trong settings
-- Backup/restore JSON
+- Backup/restore JSON (export/import qua Go)
 - Dark mode
-- Cron job hàng ngày: warranty + subscription auto-bill + wishlist ping
 
 ## Chạy local
 
-Cần Postgres 17+ chạy local. Trên macOS dùng Homebrew:
+Web cần **Go API + Postgres 17** chạy trước. Nhanh nhất là dùng stack Docker ở root repo (postgres + api + cron + web):
 
 ```bash
-brew install postgresql@17
-brew services start postgresql@17
-createdb warranty_vault_dev
-createdb warranty_vault_test    # chỉ cần nếu chạy test scripts
+cd ..
+cp api/.env.example .env    # điền SESSION_SECRET, FILE_MASTER_KEY, CRON_SECRET, …
+docker compose up -d --build
+docker compose run --rm --entrypoint /app/migrate api up   # migrate lần đầu
 ```
 
-Hoặc dùng Docker:
+Hoặc chạy Go API tay (xem [`../api/README.md`](../api/README.md)):
 
 ```bash
-docker run -d --name wv-pg \
-  -e POSTGRES_USER=warranty -e POSTGRES_PASSWORD=warranty \
-  -e POSTGRES_DB=warranty_vault_dev -p 5432:5432 \
-  postgres:17-alpine
+cd ../api
+cp .env.example .env        # tối thiểu DATABASE_URL
+go run ./cmd/migrate up     # schema (goose migrations, không phải prisma)
+go run ./cmd/server         # :4000
 ```
 
-Sau đó:
+Rồi chạy web:
 
 ```bash
-# cài deps
 npm install
-
-# env: sao chép mẫu, đổi DATABASE_URL theo Postgres mày + sinh các secret
 cp .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # SESSION_SECRET
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # FILE_MASTER_KEY
-npx web-push generate-vapid-keys
 
-# tạo schema + seed catalog (categories, brands, stores, …)
-npm run db:push
-npm run db:seed
-
-# dev
 npm run dev
 # → http://localhost:3000
-
-# build production
-npm run build
-npm run start
 ```
+
+Schema + catalog không do web quản lý: migrations ở `../api/migrations/*.sql`, seed catalog dev bằng `psql "$DATABASE_URL" -v user_id="'<user-id>'" -f ../api/scripts/seed_dev.sql`.
+
+### Scripts
+
+| Lệnh | Việc |
+|---|---|
+| `npm run dev` | Next dev server (`http://localhost:3000`) |
+| `npm run build` | `next build` |
+| `npm run start` | serve production build — **bắt buộc** để service worker / web push chạy |
+| `npm run lint` | `eslint .` (eslint-config-next, flat config) |
+| `npm test` | `vitest run` — unit tests trong `src/lib/__tests__/` |
+
+CI (`.github/workflows/website.yml`) chạy `lint` → `tsc --noEmit` → `npm test` → `npm run build`.
 
 ### Truy cập
 
 - `/` — landing page (public)
-- `/register` — tạo tài khoản
-- `/login` — đăng nhập
+- `/register`, `/login`, `/forgot`, `/reset/[token]` — auth flows (public)
 - `/dashboard` — tổng quan (sau khi login)
 - `/devices`, `/subscriptions`, `/wishlist`, `/reminders`, `/stats`, `/settings` — các trang app
 - `/privacy`, `/terms`, `/cookies` — public legal pages
 
 ### Bật push notification (local)
 
-1. Build prod (`npm run build && npm run start`) — service worker chỉ chạy prod
-2. Vào Settings → bấm "Bật thông báo" → cho phép
-3. Bấm "Gửi thử" — thông báo sẽ pop-up
+1. Set VAPID ở **Go**: `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (+ `VAPID_SUBJECT`) trong `api/.env` — thiếu một trong hai key thì mọi lần gửi web push fail với `web push not configured` (cron đếm vào `pushesFailed`, subscription không bị xoá).
+2. `NEXT_PUBLIC_VAPID_PUBLIC_KEY` ở `website/.env` phải là **cùng public key**, và phải có **lúc build** (Next inline biến `NEXT_PUBLIC_*` vào client bundle — đổi key = build lại).
+3. `npm run build && npm run start` — service worker chỉ chạy bản production.
+4. Vào Settings → "Bật thông báo" → cho phép → bấm "Gửi thử".
 
 ### Test cron
 
-```bash
-curl "http://localhost:3000/api/cron/warranty-check?secret=<CRON_SECRET từ .env>"
-```
-
-Endpoint trả về `{ warrantySent, wishlistSent, subscriptionSent, removedSubscriptions, perUser }`. Vercel Cron dùng header `Authorization: Bearer $CRON_SECRET`.
-
-### Scripts test (chạy thẳng vào dev DB, tự dọn user `__*_test__@local.test`)
+Cron không còn trong web — nó là `api/cmd/cron` (hoặc `POST /api/v1/cron/warranty-check` trên Go):
 
 ```bash
-node scripts/test-backup-restore.mjs       # export → wipe → import round-trip
-node scripts/test-warranty-refactor.mjs    # multi-warranty + effective-end-date
-node scripts/test-cron-flow.mjs            # subscription auto-bill + wishlist ping
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:4000/api/v1/cron/warranty-check
+# hoặc: curl "http://localhost:4000/api/v1/cron/warranty-check?secret=$CRON_SECRET"
 ```
 
-## Chạy bằng Docker (local, self-host)
+Response: `{ ok, checkedAt, stats: { warrantyNotices, wishlistTargetHits, wishlistCheckins, subscriptionRenewals, subscriptionExpired, sessionsPruned, pushesSent, pushesFailed, pushesGone } }`.
 
-Compose chạy 2 service: `db` (postgres:17-alpine) + `app` (Next.js production build). DB lưu ở volume `warranty-pg`, file đính kèm mã hoá ở `warranty-data` mount vào `/data` — rebuild không mất dữ liệu.
+## Chạy bằng Docker
 
-```bash
-# 1. Đảm bảo .env ở project root đã có đủ secrets:
-#    POSTGRES_PASSWORD (compose tự ghép DATABASE_URL từ cái này)
-#    SESSION_SECRET (≥32 ký tự), FILE_MASTER_KEY, CRON_SECRET,
-#    NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
-#    (DATABASE_URL & PRIVATE_UPLOAD_ROOT bị compose ghi đè — không cần sửa)
+Dùng stack đầy đủ ở root repo: [README.md → Quick start (Docker)](../README.md#quick-start-docker). Root `docker-compose.yml` chạy `postgres + api + cron + web` (service `web`, trỏ `GO_API_URL` vào service `api`) và share volume `/data` cho encrypted attachments.
 
-# 2. Build + chạy nền
-docker compose up -d --build
-
-# 3. Xem log / status
-docker compose logs -f app
-docker compose ps
-
-# 4. Stop (giữ dữ liệu)
-docker compose down
-
-# 5. Stop + XOÁ DB và uploads — cẩn thận
-docker compose down -v
-```
-
-App chạy ở `http://localhost:3000`. Entrypoint tự động chạy `prisma db push` mỗi lần start (idempotent), schema mới sẽ tự sync.
-
-### Lưu ý khi build Docker
-
-- **`NEXT_PUBLIC_VAPID_PUBLIC_KEY` phải có lúc BUILD**, không phải runtime — Next inline biến `NEXT_PUBLIC_*` vào client bundle. `docker-compose.yml` đã pass qua `args:` từ `.env`. Đổi VAPID public key = phải `--build` lại.
-- **Service worker / push** chỉ chạy bản production, mà container đã chạy `next start` nên push hoạt động bình thường.
-- Postgres adapter `pg` chạy thuần TypeScript/JS qua TCP — Dockerfile không cần `python3/make/g++` nữa, build nhanh hơn bản SQLite cũ.
-- Container chạy với user non-root `nextjs:1001`. Image cuối giữ full `node_modules` để có Prisma CLI cho `db push` lúc startup.
-
-### Backup / restore
-
-DB và attachments giờ ở 2 volume khác nhau — backup cả 2.
-
-```bash
-# Backup DB (pg_dump qua container)
-docker compose exec -T db pg_dump -U warranty warranty_vault \
-  | gzip > warranty-db-$(date +%F).sql.gz
-
-# Backup attachments volume
-docker run --rm \
-  -v warranty-vault_warranty-data:/data \
-  -v "$PWD":/backup alpine \
-  tar -czf /backup/warranty-files-$(date +%F).tar.gz -C /data .
-
-# Restore DB
-gunzip -c warranty-db-YYYY-MM-DD.sql.gz \
-  | docker compose exec -T db psql -U warranty warranty_vault
-
-# Restore attachments
-docker run --rm \
-  -v warranty-vault_warranty-data:/data \
-  -v "$PWD":/backup alpine \
-  tar -xzf /backup/warranty-files-YYYY-MM-DD.tar.gz -C /data
-```
-
-## Deploy
-
-Xem [DEPLOY.md](./DEPLOY.md) cho Vercel + Turso.
+> ⚠️ `docker-compose.yml` **trong thư mục này** là bản cũ từ thời Prisma (chỉ có `db` + `app`, không có Go API và không set `GO_API_URL`) — không dùng nữa.
+>
+> ⚠️ Root compose hiện set `GO_API_URL: http://api:4000` — **thiếu `/api`**, nên web sẽ gọi `/v1/...` và bị 404. Giá trị đúng là `http://api:4000/api` (xem mục Environment variables).
 
 ## Cấu trúc
 
 ```
 src/
 ├── app/
-│   ├── (app)/              # protected routes (sidebar + requireUser)
-│   │   ├── dashboard/
-│   │   ├── devices/{,new,[id],[id]/edit}/
+│   ├── (app)/              # protected routes — layout gọi requireUser()
+│   │   ├── dashboard/  devices/{,new,[id],[id]/edit}/
 │   │   ├── subscriptions/{,new,[id],[id]/edit}/
 │   │   ├── wishlist/{,new,[id],[id]/edit}/
-│   │   ├── reminders/
-│   │   ├── stats/
-│   │   └── settings/
+│   │   └── reminders/  stats/  settings/
 │   ├── (auth)/             # public auth routes
-│   │   ├── login/  register/  forgot/  reset/[token]/
+│   │   └── login/  register/  forgot/  reset/[token]/
 │   ├── (public)/           # public legal pages
-│   │   ├── privacy/  terms/  cookies/
-│   ├── api/
-│   │   ├── cron/warranty-check/    # warranty + sub + wishlist
-│   │   └── files/[id]/             # encrypted attachment stream
-│   ├── actions/            # server actions
+│   │   └── privacy/  terms/  cookies/
+│   ├── api/files/[id]/     # HTTP route duy nhất: proxy byte stream sang Go
+│   ├── actions/            # server actions ('use server') — thin Go proxy
+│   │   ├── auth.ts  password-reset.ts  catalog.ts  ai.ts
 │   │   ├── devices.ts  warranties.ts  attachments.ts
-│   │   ├── subscriptions.ts  wishlist.ts
-│   │   ├── reminders.ts  push.ts  backup.ts
-│   │   ├── auth.ts  password-reset.ts  catalog.ts
+│   │   └── subscriptions.ts  wishlist.ts  reminders.ts  push.ts  backup.ts
 │   ├── offline/
 │   ├── page.tsx            # landing
 │   └── layout.tsx          # root layout (theme, PWA register, toaster)
 ├── components/
-│   ├── ui/                 # shadcn primitives
-│   └── (feature components — device-form, subscription-form, wishlist-actions, …)
+│   ├── ui/                 # shadcn-style primitives
+│   └── (feature components — device-form, subscription-form, push-settings, …)
 └── lib/
-    ├── prisma.ts           # Prisma client + adapter (@prisma/adapter-pg)
-    ├── session.ts          # iron-session config
-    ├── auth.ts             # getCurrentUser, requireUser
-    ├── files.ts            # AES-256-GCM encrypted attachment storage
-    ├── push.ts             # web-push wrapper
-    ├── email.ts            # Resend + console fallback
-    ├── rate-limit.ts       # in-memory token bucket
-    ├── warranty.ts         # effective-end-date helpers
-    ├── subscription-types.ts wishlist-types.ts types.ts
-    └── (devices, subscriptions, wishlist, reminders, stats, queries, format, …)
+    ├── api/                # typed client cho Go REST (client.ts + từng resource)
+    ├── auth.ts             # requireUser / getCurrentUser (GET /v1/auth/me)
+    ├── auth-cookie.ts      # iron-session cookie (SESSION_SECRET) + bearerHeader()
+    ├── warranty.ts  subscription-types.ts  wishlist-types.ts  types.ts  format.ts
+    └── __tests__/          # vitest unit tests
 
-prisma/schema.prisma          # User, Device, Warranty, Attachment, Reminder, PushSubscription,
-                              # PasswordReset, Subscription, SubscriptionPayment, WishlistItem,
-                              # WishlistPrice, Category, Brand, BrandCategory, Store, WarrantyProvider
-prisma.config.ts              # Prisma 7 config
 public/
-├── manifest.webmanifest      # PWA manifest
-├── sw.js                     # Service worker (push + offline)
-└── icon.svg                  # App icon
-private-uploads/[deviceId]/   # AES-256-GCM encrypted attachments (NOT served publicly —
-                              # accessed via /api/files/<attachmentId> with auth)
-vercel.json                   # Vercel Cron schedule
+├── manifest.webmanifest    # PWA manifest
+├── sw.js                   # Service worker (push + offline)
+└── icon*.png / icon.svg    # App icons
 ```
 
 ## Environment variables
 
-Xem `.env.example` — đầy đủ comments.
+| Biến | Bắt buộc | Ghi chú |
+|---|---|---|
+| `GO_API_URL` | ✅ | Base URL của Go API **kèm prefix `/api`** — vd `http://localhost:4000/api`. `src/lib/api/*` nối thêm `/v1/...` còn Go phục vụ `/api/v1/*`, nên thiếu `/api` là mọi request 404. Root compose hiện set `http://api:4000` (thiếu `/api`) |
+| `SESSION_SECRET` | ✅ | ≥32 ký tự, mã hoá cookie `wv_session`. Đổi = logout toàn bộ user web. **Không cần trùng** với `SESSION_SECRET` của Go (Go chỉ validate độ dài, không đọc cookie) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | optional | Public key web push, phải khớp `VAPID_PUBLIC_KEY` ở Go. Inline lúc **build**, không phải runtime |
+
+Chi tiết + comment: xem `.env.example`.
+
+## Deploy
+
+- Self-host VPS (Caddy + systemd + Docker Compose): [`../deploy/README.md`](../deploy/README.md).
+- Web-only (Node host / Vercel) trỏ vào Go API đã deploy: [`DEPLOY.md`](./DEPLOY.md).

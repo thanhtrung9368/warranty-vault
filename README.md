@@ -69,12 +69,12 @@ Chạy 2 service ở 2 terminal khác nhau:
 | iOS | `cd ios && swift build`, sau đó mở Xcode | [ios/README.md](ios/README.md) |
 | Android | Mở `android/` trong Android Studio, sync Gradle | [android/README.md](android/README.md) |
 
-Note: `SESSION_SECRET` và `FILE_MASTER_KEY` phải GIỐNG nhau giữa `website/.env` và `api/.env` trong giai đoạn cùng đọc/ghi.
+Note: sau Phase F web **không** cần `FILE_MASTER_KEY` — chỉ Go giữ key này (web proxy file chỉ stream bytes, không decrypt). `SESSION_SECRET` cũng độc lập giữa 2 service: web dùng nó để mã hoá cookie `wv_session`, còn Go chỉ kiểm tra độ dài ≥32 ký tự chứ không đọc cookie đó.
 
 ## Migration status
 
 - **Phase E (xong)** — Go là backend chính. Mobile (iOS + Android) đã point sang Go API. Web server actions proxy qua `GO_API_URL`.
-- **Phase F (đang làm)** — Decommission `website/src/app/api/v1/*` + Prisma client trong web. Sau đó web chỉ còn UI + thin proxy.
+- **Phase F (xong)** — đã decommission `website/src/app/api/v1/*` + Prisma client trong web; web giờ chỉ còn UI + thin proxy (`website/src/lib/api/*` + `/api/files/[id]`). Commit chốt: `33c79c4`.
 
 Chi tiết phase plan: [BACKEND_GO_PLAN.md](BACKEND_GO_PLAN.md). Công việc kế tiếp: [NEXT.md](NEXT.md).
 

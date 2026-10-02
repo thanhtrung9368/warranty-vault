@@ -6,8 +6,6 @@
     ".next/**",
     "private-uploads/**",
     "public/uploads/**",
-    "prisma/*.db",
-    "prisma/*.db-journal",
     "package-lock.json"
   ],
   "words": [

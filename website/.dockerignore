@@ -8,11 +8,8 @@ node_modules
 *.log
 .DS_Store
 
-# never bake user data into the image — these live in the /data volume
-prisma/*.db
-prisma/*.db-journal
-prisma/*.db-wal
-prisma/*.db-shm
+# never bake user data into the image — encrypted blobs live in the Go API's
+# /data volume; the web container keeps no local state.
 private-uploads
 public/uploads
 data

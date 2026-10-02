@@ -46,13 +46,13 @@ Multi-user, Vietnamese-only Next.js 16 (App Router, React 19) personal **device 
 - `(app)/` — protected. `(app)/layout.tsx` calls `requireUser()` (redirects to `/login`); every page below assumes an authenticated user is present. Sections: `dashboard`, `devices`, `subscriptions`, `wishlist`, `reminders`, `stats`, `settings`.
 - `(auth)/` — public auth flows (`login`, `register`, `forgot`, `reset/[token]`).
 - `(public)/` — landing page (`/`) plus `privacy`, `terms`, `cookies`.
-- `api/files/[id]/` — only Next.js HTTP route left. Thin proxy: reads the bearer token from the iron-session cookie and forwards to Go's `GET /api/v1/files/{id}` (auth-gated, ownership-checked, decrypts blob, streams body). Re-emits defensive security headers locally.
+- `api/files/[id]/` — only Next.js HTTP route left. Thin proxy: reads the bearer token from the iron-session cookie and forwards to Go's `GET /api/files/{id}` (auth-gated, ownership-checked, decrypts blob, streams body). Re-emits defensive security headers locally. (Go route names: everything else is `/api/v1/*`, but file streaming is deliberately `/api/files/{id}` — see `api/internal/handlers/attachments.go`.)
 
-There is no middleware — auth is enforced inside the `(app)/` layout and inside every server action via `requireUser()` from `src/lib/auth.ts`. `requireUser()` reads the bearer token from the iron-session cookie and calls `GET /api/v1/auth/me` against Go (deduped per request via React `cache()`). Per-row ownership is the Go server's responsibility — every Go handler does `AND userId = $1` on its queries; the web does not re-check.
+There is no middleware — the `(app)/` layout calls `requireUser()` from `src/lib/auth.ts` (reads the bearer token from the iron-session cookie and calls `GET /api/v1/auth/me` against Go, deduped per request via React `cache()`), and Go enforces auth on every request. Server actions do *not* each re-check identity: calls through `src/lib/api/*` attach the cookie's bearer via `bearerHeader()` (empty object when the cookie is missing/expired) and Go answers 401. Only the actions that need the user object up front (`backup.ts`, `ai.ts`) call `requireUser()` explicitly. Per-row ownership is the Go server's responsibility — every Go handler does `AND userId = $1` on its queries; the web does not re-check.
 
 **Sessions.** `iron-session` cookie (`wv_session`), encrypted with `SESSION_SECRET` (≥32 chars). Stores only `{ accessToken, expiresAt }` — userID/email come from `GET /api/v1/auth/me` per request.
 
-**Server actions are thin Go proxies.** Writes live in `src/app/actions/*.ts` (`'use server'`): `auth`, `devices`, `warranties`, `attachments`, `subscriptions`, `wishlist`, `reminders`, `push`, `backup`, `password-reset`, `catalog`. Each action does `requireUser()` (identity) + form parsing + `revalidatePath()`, then forwards to Go via `src/lib/api/*`. **All business logic, rate limiting, encryption, push fanout, and validation lives in Go** — see `api/internal/{services,handlers,httpx,files,push,ratelimit,email}/`. Don't add `prisma.*`, `web-push`, `resend`, `sharp`, `bcrypt`, or `pg` back into the web — those deps are gone on purpose.
+**Server actions are thin Go proxies.** Writes live in `src/app/actions/*.ts` (`'use server'`): `auth`, `devices`, `warranties`, `attachments`, `subscriptions`, `wishlist`, `reminders`, `push`, `backup`, `password-reset`, `catalog`, `ai`. Each action parses its `FormData`/payload and forwards to Go via `src/lib/api/*`, then maps the result for `useFormState`. Form parsing is mostly hand-rolled (`str()` / `num()` helpers in e.g. `devices.ts`) — only the pre-auth flows `auth.ts` and `password-reset.ts` use a local Zod schema; everywhere else Go's validator produces the Vietnamese `fieldErrors`. `revalidatePath()` is called after mutations where the affected pages aren't already `dynamic = 'force-dynamic'` (device create, for instance, deliberately skips it — see the comment in `devices.ts`). **All business logic, rate limiting, encryption, push fanout, and validation lives in Go** — see `api/internal/{services,handlers,httpx,files,push,ratelimit,email}/`. Don't add `prisma.*`, `web-push`, `resend`, `sharp`, `bcrypt`, or `pg` back into the web — those deps are gone on purpose.
 
 **Per-user / per-row limits — enforced in Go** (`api/internal/services/`):
 | Constant | Where | Value |
@@ -71,9 +71,9 @@ The web doesn't pre-validate these — Go returns 409 with a Vietnamese `message
 - `Device` has 0..N `Warranty` rows (`STANDARD | EXTENDED | THIRD_PARTY`). Effective warranty end = `max(endDate)` across rows. The helper `effectiveWarrantyEnd()` in `src/lib/warranty.ts` is RSC-friendly (takes plain JSON, no DB access) and is unit-tested in `src/lib/__tests__/warranty.test.ts`.
 - `Subscription` covers recurring software/services. `billingCycle ∈ {MONTHLY, QUARTERLY, YEARLY, LIFETIME, CUSTOM}`. `monthlyEquivalent()` + `nextRenewalDate()` in `src/lib/subscription-types.ts` are pure functions, also reused in RSC for dashboard totals.
 - `WishlistItem` is a "thèm" list. Marking PURCHASED creates a `Device` row in the same Go transaction (see openapi `PATCH /api/v1/wishlist/{id}` and `services/wishlist.go`).
-- Global catalogs (Category / Brand / Store / WarrantyProvider) are admin-curated in the DB. Web reads them via `getDeviceFormCatalog()` server action which is cached with `unstable_cache`.
+- Global catalogs (Category / Brand / Store / WarrantyProvider) are curated in the DB. Web reads them via `getCategories()` and `getDeviceFormCatalog()` in `src/app/actions/catalog.ts` — the latter backs every combobox in the device form. Both slice a single `GET /v1/catalog` call (deduped per render by React `cache()`). That endpoint is auth-gated, so `unstable_cache` can't wrap it; the fetch in `src/lib/api/catalog.ts` opts into Next's Data Cache instead (`revalidate: 300`, tag `catalog`). There is **no admin UI** — the catalog tables are populated by a goose seed migration in `api/migrations/` and edited directly in Postgres afterwards.
 
-**Encrypted attachments.** Everything is in Go — see `api/internal/files/` (AES-256-GCM, per-file data key wrapped with `FILE_MASTER_KEY`, magic-byte whitelist, image downscale, served via `GET /api/v1/files/{id}`). The web only proxies the byte stream through `app/api/files/[id]/route.ts` so cookie-based auth works in the browser. To rotate `FILE_MASTER_KEY`, re-wrap every `Attachment.wrappedKey` server-side; see `api/README.md`.
+**Encrypted attachments.** Everything is in Go — see `api/internal/files/` (AES-256-GCM, per-file data key wrapped with `FILE_MASTER_KEY`, magic-byte whitelist, image downscale, served via `GET /api/files/{id}`). The web only proxies the byte stream through `app/api/files/[id]/route.ts` so cookie-based auth works in the browser. To rotate `FILE_MASTER_KEY`, re-wrap every `Attachment.wrappedKey` server-side; see `api/README.md`.
 
 **Push notifications.** Web push (VAPID), APNs (.p8 token auth), and FCM (service account) all live in Go (`api/internal/push/`). The cron job at `api/cmd/cron` (also `POST /api/v1/cron/warranty-check`) fans out warranty-expiry, wishlist target-date, wishlist check-in, and subscription-renewal notifications. The subscribed device's `platform` field (`web | apns | fcm`) routes the payload. 404/410 from any backend → Go deletes the `PushSubscription` row.
 
@@ -85,7 +85,7 @@ The web doesn't pre-validate these — Go returns 409 with a Vietnamese `message
 
 - **All user-facing strings are Vietnamese.** Validation copy comes from the Go server (Go writes Vietnamese into `message` + `fieldErrors`); web only adds Vietnamese for transport errors. Static labels live in `src/lib/types.ts`, `subscription-types.ts`, `wishlist-types.ts`.
 - Path alias `@/*` → `src/*` (see `tsconfig.json`).
-- Server actions parse `FormData` with a Zod schema (web side), then call `api.*`. The result is mapped to `{ ok, errors?, message? }` for `useFormState` via `toFormState()` in `src/lib/api/client.ts`.
+- Server actions call `api.*`; the result is mapped to `{ ok, errors?, message? }` for `useFormState` via `toFormState()` in `src/lib/api/client.ts`. A local Zod schema guards `FormData` only in the public auth flows (`auth.ts`, `password-reset.ts`) — the rest pass raw values through and surface Go's validator errors. There is no form library: forms are plain React + `useFormState`.
 - After mutating, call `revalidatePath` for every page that reads the changed data.
 
 ## Mobile clients
@@ -98,14 +98,14 @@ Native apps live in `ios/` and `android/`. Both are pure REST clients of the **G
 ## Env vars (cross-service)
 
 `website/` env:
-- `GO_API_URL` — base URL of the Go backend (e.g. `http://localhost:4000`).
+- `GO_API_URL` — base URL of the Go backend **including the `/api` prefix** (Go serves `/api/v1/*` while `src/lib/api/*` appends `/v1/...`), e.g. `http://localhost:4000/api`.
 - `SESSION_SECRET` — ≥32 chars, used for `iron-session` cookie encryption.
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — used by the service worker on the client to subscribe to web push.
 
 `api/` (Go) env — see `api/README.md` for the full list. Notables:
 - `DATABASE_URL`, `FILE_MASTER_KEY`, `PRIVATE_UPLOAD_ROOT`, `CRON_SECRET`.
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — web push.
-- `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_KEY_P8` — iOS push.
+- `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY` (nội dung file `.p8`) — iOS push.
 - `FCM_SERVICE_ACCOUNT_JSON` — Android push.
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — optional rate-limit backing.
 - `RESEND_API_KEY` — password reset emails.
