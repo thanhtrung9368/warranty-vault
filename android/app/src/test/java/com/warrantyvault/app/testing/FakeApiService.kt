@@ -3,8 +3,9 @@ package com.warrantyvault.app.testing
 import com.warrantyvault.app.network.AIOptInRequest
 import com.warrantyvault.app.network.AIOptInResponse
 import com.warrantyvault.app.network.ApiService
+import com.warrantyvault.app.network.AttachmentDescriptionInput
 import com.warrantyvault.app.network.AttachmentListResponse
-import com.warrantyvault.app.network.AttachmentUploadResponse
+import com.warrantyvault.app.network.AttachmentResponse
 import com.warrantyvault.app.network.AuthSuccess
 import com.warrantyvault.app.network.Catalog
 import com.warrantyvault.app.network.ChangePasswordRequest
@@ -29,6 +30,8 @@ import com.warrantyvault.app.network.SubscriptionInput
 import com.warrantyvault.app.network.SubscriptionListResponse
 import com.warrantyvault.app.network.SubscriptionResponse
 import com.warrantyvault.app.network.TestPushResponse
+import com.warrantyvault.app.network.UpdateProfileInput
+import com.warrantyvault.app.network.UpdateProfileResponse
 import com.warrantyvault.app.network.UserStats
 import com.warrantyvault.app.network.WarrantyInput
 import com.warrantyvault.app.network.WarrantyResponse
@@ -62,6 +65,9 @@ open class FakeApiService : ApiService {
         notStubbed("changePassword")
 
     override suspend fun me(): MeResponse = notStubbed("me")
+    override suspend fun updateProfile(body: UpdateProfileInput): UpdateProfileResponse =
+        notStubbed("updateProfile")
+
     override suspend fun deleteAccount(body: DeleteAccountRequest): OkResponse = notStubbed("deleteAccount")
     override suspend fun exportBackup(): ResponseBody = notStubbed("exportBackup")
     override suspend fun importBackup(mode: String, body: RequestBody): ImportResultResponse =
@@ -135,7 +141,10 @@ open class FakeApiService : ApiService {
         deviceId: String,
         file: MultipartBody.Part,
         description: RequestBody?,
-    ): AttachmentUploadResponse = notStubbed("uploadAttachment")
+    ): AttachmentResponse = notStubbed("uploadAttachment")
+
+    override suspend fun updateAttachment(id: String, body: AttachmentDescriptionInput): AttachmentResponse =
+        notStubbed("updateAttachment")
 
     override suspend fun deleteAttachment(id: String): OkResponse = notStubbed("deleteAttachment")
     override suspend fun extractReceipt(file: MultipartBody.Part): DraftDeviceResponse =

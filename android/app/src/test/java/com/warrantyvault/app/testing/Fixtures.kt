@@ -1,5 +1,6 @@
 package com.warrantyvault.app.testing
 
+import com.warrantyvault.app.network.Attachment
 import com.warrantyvault.app.network.BillingCycle
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceStats
@@ -29,6 +30,9 @@ object Fixtures {
         effectiveWarrantyEnd: String? = null,
         attachmentCount: Int = 0,
         brand: String? = "Apple",
+        purchasePrice: Int = 30_000_000,
+        soldAt: String? = null,
+        soldPrice: Int? = null,
     ) = Device(
         id = id,
         userId = "user-1",
@@ -36,11 +40,32 @@ object Fixtures {
         category = category,
         brand = brand,
         purchaseDate = "2024-03-01",
-        purchasePrice = 30_000_000,
+        purchasePrice = purchasePrice,
         status = status,
+        notes = null,
+        soldAt = soldAt,
+        soldPrice = soldPrice,
         warranties = warranties,
         effectiveWarrantyEnd = effectiveWarrantyEnd,
         attachmentCount = attachmentCount,
+    )
+
+    /** A recorded sale — the server always writes the pair together. */
+    fun soldDevice(soldPrice: Int = 25_000_000, soldAt: String = "2026-03-01T00:00:00") =
+        device(soldAt = soldAt, soldPrice = soldPrice)
+
+    fun attachment(
+        id: String = "att-1",
+        fileName: String = "hoa-don.pdf",
+        fileType: String = "application/pdf",
+        description: String? = null,
+    ) = Attachment(
+        id = id,
+        fileName = fileName,
+        fileType = fileType,
+        fileSize = 2048,
+        description = description,
+        uploadedAt = "2025-01-02T03:04:05",
     )
 
     fun warranty(id: String = "war-1", deviceId: String = "dev-1") = Warranty(

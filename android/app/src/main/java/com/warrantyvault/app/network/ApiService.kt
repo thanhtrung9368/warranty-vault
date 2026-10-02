@@ -37,6 +37,11 @@ interface ApiService {
     @GET("api/v1/auth/me")
     suspend fun me(): MeResponse
 
+    // Partial profile update — `displayName` only; email change is 400 by
+    // contract (see UpdateProfileInput).
+    @PATCH("api/v1/auth/me")
+    suspend fun updateProfile(@Body body: UpdateProfileInput): UpdateProfileResponse
+
     // DELETE with a body — Retrofit's @DELETE forbids @Body, so use @HTTP.
     // The server requires the current password to confirm the deletion.
     @HTTP(method = "DELETE", path = "api/v1/auth/me", hasBody = true)
@@ -177,7 +182,16 @@ interface ApiService {
         @Path("id") deviceId: String,
         @Part file: MultipartBody.Part,
         @Part("description") description: RequestBody? = null,
-    ): AttachmentUploadResponse
+    ): AttachmentResponse
+
+    // Only the description is mutable; the file bytes need delete + re-upload.
+    // Someone else's id answers 404 (not 403) — the server joins through the
+    // owning device and confirms nothing.
+    @PATCH("api/v1/attachments/{id}")
+    suspend fun updateAttachment(
+        @Path("id") id: String,
+        @Body body: AttachmentDescriptionInput,
+    ): AttachmentResponse
 
     @DELETE("api/v1/attachments/{id}")
     suspend fun deleteAttachment(@Path("id") id: String): OkResponse

@@ -21,21 +21,32 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +67,8 @@ import com.warrantyvault.app.BuildConfig
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Attachment
+import com.warrantyvault.app.network.AttachmentDescriptionInput
+import com.warrantyvault.app.network.fieldErrors
 import com.warrantyvault.app.network.toUserMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,6 +89,9 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var uploading by remember { mutableStateOf(false) }
+    // Which attachment's description is being edited (PATCH
+    // /api/v1/attachments/{id} — description is the only mutable field).
+    var editing by remember { mutableStateOf<Attachment?>(null) }
 
     suspend fun reload() {
         loading = true
@@ -215,6 +231,7 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
                                 }
                             }
                         },
+                        onEditDescription = { editing = att },
                         onDelete = {
                             scope.launch {
                                 try {
@@ -230,12 +247,149 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
             }
         }
     }
+
+    // Description editing. Reached from the pencil on a row; ownership of the
+    // id is the server's call (someone else's id is a 404, never a 403).
+    editing?.let { att ->
+        AttachmentDescriptionSheet(
+            api = api,
+            attachment = att,
+            onDismiss = { editing = null },
+            onSaved = {
+                editing = null
+                scope.launch { reload() }
+            },
+        )
+    }
+}
+
+/**
+ * `PATCH /api/v1/attachments/{id}` in the house sheet style
+ * (see `WarrantyEditSheet`). The field starts from the current description and
+ * a blank value clears it — the server trims and maps blank → NULL.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttachmentDescriptionSheet(
+    api: ApiService,
+    attachment: Attachment,
+    onDismiss: () -> Unit,
+    onSaved: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    var description by remember { mutableStateOf(attachment.description.orEmpty()) }
+    var submitting by remember { mutableStateOf(false) }
+    var generalError by remember { mutableStateOf<String?>(null) }
+    var fieldErrors by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
+
+    val descriptionError = fieldErrors["description"]?.firstOrNull()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                "Sửa mô tả",
+                fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                attachment.fileName,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = {
+                    description = it
+                    fieldErrors = fieldErrors - "description"
+                },
+                label = { Text("Mô tả") },
+                enabled = !submitting,
+                isError = descriptionError != null,
+                supportingText = {
+                    Text(
+                        descriptionError ?: "Để trống để xoá mô tả.",
+                        color = if (descriptionError != null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            generalError?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.WarningAmber, null,
+                        tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(6.dp))
+                    Text(it,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 13.sp)
+                }
+            }
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        submitting = true
+                        generalError = null
+                        fieldErrors = emptyMap()
+                        try {
+                            // "" clears: the key is required by the server and a
+                            // null would be dropped by `explicitNulls = false`.
+                            api.updateAttachment(
+                                attachment.id,
+                                AttachmentDescriptionInput(description),
+                            )
+                            onSaved()
+                        } catch (e: Exception) {
+                            val fe = e.fieldErrors(ApiClient.json)
+                            if (fe.isNotEmpty()) {
+                                fieldErrors = fe
+                            } else {
+                                generalError = e.toUserMessage(ApiClient.json)
+                            }
+                        } finally {
+                            submitting = false
+                        }
+                    }
+                },
+                enabled = !submitting,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                if (submitting) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.height(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Text("Lưu", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+        }
+    }
 }
 
 @Composable
 private fun AttachmentRow(
     att: Attachment,
     onOpen: () -> Unit,
+    onEditDescription: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
@@ -272,6 +426,16 @@ private fun AttachmentRow(
                     formatBytes(att.fileSize),
                     fontSize = 12.sp, color = cs.onSurfaceVariant,
                 )
+                if (!att.description.isNullOrBlank()) {
+                    Text(
+                        att.description,
+                        fontSize = 12.sp,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onEditDescription) {
+                Icon(Icons.Filled.Edit, "Sửa mô tả", tint = cs.primary)
             }
             IconButton(onClick = onOpen) {
                 Icon(Icons.AutoMirrored.Filled.OpenInNew, "Mở", tint = cs.primary)

@@ -21,11 +21,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
@@ -96,8 +98,13 @@ fun SettingsScreen(
     val themePref by themeStore.preference.collectAsState()
     val cs = MaterialTheme.colorScheme
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
+    var showProfileEdit by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // The store is the single source of truth for the signed-in user: the
+    // profile card below recomposes from it after a successful PATCH.
+    val currentUser = (status as? AuthStore.Status.Authenticated)?.user
 
     val context = LocalContext.current
 
@@ -246,7 +253,7 @@ fun SettingsScreen(
             PageHeader("Cài đặt", "Cá nhân hoá tài khoản & giao diện của mày")
 
             // Profile card
-            (status as? AuthStore.Status.Authenticated)?.user?.let { user ->
+            currentUser?.let { user ->
                 Card(
                     colors = CardDefaults.cardColors(containerColor = cs.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -275,7 +282,7 @@ fun SettingsScreen(
                         Spacer(Modifier.size(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
-                                user.name ?: user.email,
+                                user.displayLabel,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -286,6 +293,44 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // Profile editing. Only the display name is mutable: email change is
+            // not supported by the API at all (an explicit 400), so the email row
+            // is rendered as plain, non-clickable information.
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                SectionHeader("Hồ sơ")
+            }
+            Spacer(Modifier.height(8.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cs.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Column {
+                    SettingsRow(
+                        icon = Icons.Filled.Badge,
+                        title = "Tên hiển thị",
+                        subtitle = currentUser?.name?.takeIf { it.isNotBlank() }
+                            ?: "Chưa đặt tên — bấm để thêm.",
+                        onClick = { showProfileEdit = true },
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        icon = Icons.Filled.MailOutline,
+                        title = "Email",
+                        subtitle = buildString {
+                            currentUser?.email?.let { append(it).append(" · ") }
+                            append("không thể thay đổi")
+                        },
+                        onClick = null,
+                        showDivider = false,
+                    )
                 }
             }
 
@@ -622,6 +667,20 @@ fun SettingsScreen(
                 scope.launch {
                     snackbarHostState.showSnackbar("Đã đổi mật khẩu thành công")
                 }
+            },
+        )
+    }
+
+    // PATCH /api/v1/auth/me. AuthStore republishes the user, so the card above
+    // and the "Tên hiển thị" row both show the saved name right away.
+    if (showProfileEdit && currentUser != null) {
+        ProfileEditSheet(
+            auth = auth,
+            initialName = currentUser.name.orEmpty(),
+            onDismiss = { showProfileEdit = false },
+            onSuccess = { message ->
+                showProfileEdit = false
+                snack(message)
             },
         )
     }

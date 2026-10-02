@@ -6,6 +6,8 @@ import com.warrantyvault.app.network.DeleteAccountRequest
 import com.warrantyvault.app.network.ForgotRequest
 import com.warrantyvault.app.network.LoginInput
 import com.warrantyvault.app.network.RegisterInput
+import com.warrantyvault.app.network.UpdateProfileInput
+import com.warrantyvault.app.network.UpdateProfileResponse
 import com.warrantyvault.app.network.User
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -71,6 +73,25 @@ class AuthStore(
 
     suspend fun forgotPassword(email: String) {
         api.forgotPassword(ForgotRequest(email = email))
+    }
+
+    /**
+     * `PATCH /api/v1/auth/me` — saves the display name and republishes the
+     * authenticated status so every screen reading `status` (the Settings
+     * profile card, the dashboard greeting) shows the new name immediately.
+     *
+     * [displayName] is sent verbatim: the server trims it and maps a blank
+     * value to NULL, so `""` is the documented way to clear the name. The 80
+     * **byte** cap is enforced server-side only — this never truncates, it lets
+     * the 400 `fieldErrors.displayName` message through for the sheet to show.
+     *
+     * Email cannot be changed through this call (or anywhere else yet); the
+     * request body deliberately has no email field.
+     */
+    suspend fun updateDisplayName(displayName: String): UpdateProfileResponse {
+        val res = api.updateProfile(UpdateProfileInput(displayName))
+        _status.value = Status.Authenticated(res.user)
+        return res
     }
 
     fun logout() {

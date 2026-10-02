@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,7 @@ import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.Warranty
 import com.warrantyvault.app.network.toUserMessage
+import com.warrantyvault.app.ui.theme.WVAccent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -487,6 +489,36 @@ private fun DeviceSummaryCard(device: Device) {
             if (!device.serialNumber.isNullOrBlank()) {
                 DetailRow("Số serial", device.serialNumber)
             }
+            // Resale (roadmap #12) — only when a sale is actually recorded.
+            // `soldAt` is a naive-UTC timestamp like `purchaseDate`, so only the
+            // date half is shown (see DeviceResale.kt). Labels mirror the web
+            // detail page's "Bán lại" card.
+            if (hasSaleRecord(device.soldAt, device.soldPrice)) {
+                Spacer(Modifier.height(8.dp))
+                Text("Bán lại",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = cs.onSurface)
+                val soldDate = soldDateInput(device.soldAt)
+                if (soldDate.isNotBlank()) {
+                    DetailRow("Ngày bán", soldDate)
+                }
+                val soldPrice = device.soldPrice
+                if (soldPrice != null) {
+                    DetailRow("Giá bán", formatVnd(soldPrice))
+                    saleProfit(soldPrice, device.purchasePrice)?.let { profit ->
+                        DetailRow(
+                            "Lãi/lỗ",
+                            saleProfitLabel(profit),
+                            valueColor = when {
+                                profit > 0 -> WVAccent.current.success
+                                profit < 0 -> cs.error
+                                else -> cs.onSurface
+                            },
+                        )
+                    }
+                }
+            }
             if (!device.notes.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
                 Text(device.notes, fontSize = 13.sp, color = cs.onSurfaceVariant)
@@ -496,7 +528,7 @@ private fun DeviceSummaryCard(device: Device) {
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun DetailRow(label: String, value: String, valueColor: Color? = null) {
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(label,
             fontSize = 13.sp,
@@ -504,7 +536,7 @@ private fun DetailRow(label: String, value: String) {
             modifier = Modifier.width(100.dp))
         Text(value,
             fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurface)
+            color = valueColor ?: MaterialTheme.colorScheme.onSurface)
     }
 }
 

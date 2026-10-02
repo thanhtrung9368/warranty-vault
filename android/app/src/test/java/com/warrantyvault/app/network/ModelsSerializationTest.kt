@@ -57,6 +57,63 @@ class ModelsSerializationTest {
         assertFalse("explicitNulls = false must drop nulls: $encoded", encoded.contains("deviceLabel"))
     }
 
+    // ---- Profile (PATCH /api/v1/auth/me) ----
+
+    /**
+     * `displayName` is a REQUIRED key that also happens to be the clear signal.
+     * `ApiClient.json` sets `explicitNulls = false`, so a `String?` field would
+     * have been dropped whenever the user cleared the name and the server would
+     * answer 400 `Thiếu displayName` instead of clearing. `""` is what the UI
+     * sends for "clear" and it must survive serialization verbatim.
+     */
+    @Test
+    fun updateProfileInput_alwaysSendsDisplayNameAndNeverAnEmail() {
+        val cleared = json.encodeToString(UpdateProfileInput.serializer(), UpdateProfileInput(""))
+        assertTrue("the key is required by the server: $cleared", cleared.contains("\"displayName\""))
+        assertEquals("""{"displayName":""}""", cleared)
+
+        val named = json.encodeToString(
+            UpdateProfileInput.serializer(),
+            UpdateProfileInput("Nguyễn An"),
+        )
+        assertEquals("""{"displayName":"Nguyễn An"}""", named)
+
+        // Email change is not part of the contract — sending email/newEmail is an
+        // explicit 400, so the body must never grow one by accident.
+        assertFalse(named.contains("email", ignoreCase = true))
+    }
+
+    @Test
+    fun updateProfileResponse_decodesTheFreshUserAndMessage() {
+        val raw = """
+            {
+              "user": {"id": "u1", "email": "an@example.com", "name": "Nguyễn An", "aiOptIn": false},
+              "message": "Đã cập nhật hồ sơ"
+            }
+        """.trimIndent()
+
+        val res = json.decodeFromString(UpdateProfileResponse.serializer(), raw)
+
+        assertEquals("Nguyễn An", res.user.name)
+        assertEquals("Đã cập nhật hồ sơ", res.message)
+    }
+
+    /**
+     * The profile card falls back to the email; a cleared (`null`) name must not
+     * render as an empty line.
+     */
+    @Test
+    fun user_displayLabel_fallsBackToTheEmailWhenTheNameIsUnset() {
+        val named = User(id = "u1", email = "an@example.com", name = "Nguyễn An")
+        assertEquals("Nguyễn An", named.displayLabel)
+
+        val cleared = User(id = "u1", email = "an@example.com", name = null)
+        assertEquals("an@example.com", cleared.displayLabel)
+
+        val blank = User(id = "u1", email = "an@example.com", name = "   ")
+        assertEquals("an@example.com", blank.displayLabel)
+    }
+
     // ---- Devices / warranties ----
 
     @Test
@@ -327,6 +384,57 @@ class ModelsSerializationTest {
         )
         assertEquals("SOMETHING_NEW", reminder.type)
         assertEquals("iPhone", reminder.device.name)
+    }
+
+    // ---- Attachments (PATCH /api/v1/attachments/{id}) ----
+
+    /**
+     * Same required-key trap as the profile PATCH: `description` must always be
+     * on the wire, including when the user clears it, so the clear value is `""`
+     * rather than a null that `explicitNulls = false` would silently drop.
+     */
+    @Test
+    fun attachmentDescriptionInput_alwaysSendsTheDescriptionKey() {
+        val cleared = json.encodeToString(
+            AttachmentDescriptionInput.serializer(),
+            AttachmentDescriptionInput(""),
+        )
+        assertEquals("""{"description":""}""", cleared)
+
+        val set = json.encodeToString(
+            AttachmentDescriptionInput.serializer(),
+            AttachmentDescriptionInput("Hoá đơn FPT Shop"),
+        )
+        assertEquals("""{"description":"Hoá đơn FPT Shop"}""", set)
+
+        // File metadata is not mutable through this endpoint.
+        assertFalse(set.contains("fileName"))
+        assertFalse(set.contains("fileType"))
+    }
+
+    @Test
+    fun attachmentResponse_decodesTheUpdatedMeta() {
+        val raw = """
+            {
+              "attachment": {
+                "id": "att-1", "fileName": "hoa-don.pdf", "fileType": "application/pdf",
+                "fileSize": 2048, "description": "Hoá đơn FPT Shop",
+                "uploadedAt": "2025-01-02T03:04:05"
+              }
+            }
+        """.trimIndent()
+
+        val res = json.decodeFromString(AttachmentResponse.serializer(), raw)
+
+        assertEquals("att-1", res.attachment.id)
+        assertEquals("Hoá đơn FPT Shop", res.attachment.description)
+        assertEquals(2048L, res.attachment.fileSize)
+
+        val cleared = json.decodeFromString(
+            AttachmentResponse.serializer(),
+            """{"attachment":{"id":"att-1","fileName":"a.pdf","fileType":"application/pdf","fileSize":1,"description":null}}""",
+        )
+        assertNull(cleared.attachment.description)
     }
 
     // ---- Stats ----

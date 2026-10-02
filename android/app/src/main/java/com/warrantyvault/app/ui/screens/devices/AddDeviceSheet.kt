@@ -57,6 +57,7 @@ import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceInput
 import com.warrantyvault.app.network.DeviceStatus
 import com.warrantyvault.app.network.StoreOption
+import com.warrantyvault.app.network.fieldErrors
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.SheetGroup
@@ -102,6 +103,12 @@ fun AddDeviceSheet(
     }
     var serial by remember { mutableStateOf(existing?.serialNumber ?: "") }
     var purchasePlace by remember { mutableStateOf(existing?.purchasePlace ?: "") }
+    // Resale (roadmap #12). `soldAt` is read exactly like `purchaseDate` above:
+    // a naive-UTC timestamp whose first 10 chars are the calendar date. A blank
+    // price stays blank rather than becoming 0 so "chưa bán" (null) and a
+    // give-away (0đ) are distinguishable.
+    var soldDate by remember { mutableStateOf(soldDateInput(existing?.soldAt)) }
+    var soldPrice by remember { mutableStateOf(existing?.soldPrice?.toString().orEmpty()) }
 
     var categoryOptions by remember { mutableStateOf<List<CategoryOption>>(emptyList()) }
     var brandOptions by remember { mutableStateOf<List<BrandOption>>(emptyList()) }
@@ -109,6 +116,12 @@ fun AddDeviceSheet(
 
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Per-field 400s from the server (the resale pair rule lands here:
+    // fieldErrors.soldAt / fieldErrors.soldPrice). Same pattern as
+    // ChangePasswordSheet — the server's Vietnamese copy is shown as-is.
+    var fieldErrors by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
+
+    fun firstFieldError(name: String): String? = fieldErrors[name]?.firstOrNull()
 
     // OCR receipt scan (create flow only, gated on the per-user AI opt-in).
     val context = LocalContext.current
@@ -287,6 +300,50 @@ fun AddDeviceSheet(
                 }
             }
 
+            // Resale (roadmap #12). The server owns the pair rule: exactly one of
+            // the two is a 400, so its field errors are surfaced under the fields
+            // instead of being pre-empted by a local check.
+            SheetGroup {
+                Text(
+                    "Thông tin bán lại (tuỳ chọn)",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = soldPrice,
+                    onValueChange = {
+                        soldPrice = it.filter { c -> c.isDigit() }
+                        fieldErrors = fieldErrors - "soldPrice"
+                    },
+                    label = { Text("Giá bán (VND)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = firstFieldError("soldPrice") != null,
+                    supportingText = firstFieldError("soldPrice")?.let {
+                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = soldDate,
+                    onValueChange = {
+                        soldDate = it
+                        fieldErrors = fieldErrors - "soldAt"
+                    },
+                    label = { Text("Ngày bán (YYYY-MM-DD)") },
+                    isError = firstFieldError("soldAt") != null,
+                    supportingText = firstFieldError("soldAt")?.let {
+                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Nhập cả hai để ghi nhận đã bán (0đ = cho tặng). Để trống cả hai nếu chưa bán.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             SheetGroup {
                 if (isEdit) {
                     StatusDropdown(selected = status, onSelected = { status = it })
@@ -310,7 +367,7 @@ fun AddDeviceSheet(
             Button(
                 onClick = {
                     scope.launch {
-                        submitting = true; error = null
+                        submitting = true; error = null; fieldErrors = emptyMap()
                         val input = DeviceInput(
                             name = name.trim(),
                             category = category,
@@ -321,8 +378,13 @@ fun AddDeviceSheet(
                             purchasePrice = price.toIntOrNull() ?: 0,
                             purchasePlace = purchasePlace.ifBlank { null },
                             status = status,
-                            warrantyMonths = if (isEdit) 0 else (months.toIntOrNull() ?: 0),
                             notes = notes.ifBlank { null },
+                            // Both blank ⇒ null ⇒ the server clears any recorded
+                            // sale (the keys are then omitted, which Go decodes
+                            // as nil exactly like an explicit null).
+                            soldAt = soldDateRequest(soldDate),
+                            soldPrice = soldPriceRequest(soldPrice),
+                            warrantyMonths = if (isEdit) 0 else (months.toIntOrNull() ?: 0),
                         )
                         try {
                             val res = if (existing != null) {
@@ -332,7 +394,16 @@ fun AddDeviceSheet(
                             }
                             onCreated(res.device)
                         } catch (e: Exception) {
-                            error = e.toUserMessage(ApiClient.json)
+                            val fe = e.fieldErrors(ApiClient.json)
+                            fieldErrors = fe
+                            // soldAt/soldPrice are rendered under their own fields;
+                            // every other server error still needs a visible place.
+                            val inline = setOf("soldAt", "soldPrice")
+                            error = if (fe.isEmpty() || fe.keys.any { it !in inline }) {
+                                e.toUserMessage(ApiClient.json)
+                            } else {
+                                null
+                            }
                         } finally {
                             submitting = false
                         }

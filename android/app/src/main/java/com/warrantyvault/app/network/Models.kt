@@ -14,7 +14,16 @@ data class User(
     val email: String,
     val name: String? = null,
     val aiOptIn: Boolean = false,
-)
+) {
+    /**
+     * What the profile card shows: the saved display name, or the account email
+     * when no name is set. The server trims and maps blank → NULL, so a stored
+     * name is never blank — the `takeIf` only guards a whitespace name coming
+     * from an older/cached payload.
+     */
+    val displayLabel: String
+        get() = name?.takeIf { it.isNotBlank() } ?: email
+}
 
 @Serializable
 data class RegisterInput(
@@ -35,6 +44,31 @@ data class LoginInput(
 
 @Serializable
 data class MeResponse(val user: User)
+
+/**
+ * Body of `PATCH /api/v1/auth/me` (openapi `UpdateProfileInput`).
+ *
+ * `displayName` is the ONLY accepted field and the key is **required**: a body
+ * without it is 400 `fieldErrors.displayName = ["Thiếu displayName"]`, while an
+ * empty (or whitespace-only) string clears the stored name (`User.name` → null).
+ *
+ * Deliberately non-nullable: `ApiClient.json` sets `explicitNulls = false`, so a
+ * `null` would drop the key entirely and turn "clear my name" into a 400.
+ * `""` is the documented clear value, so it is what the UI sends.
+ *
+ * There is no `email` / `newEmail` property because email change is NOT part of
+ * the contract — sending one is an explicit 400, and the Settings UI must not
+ * look like it can be edited.
+ */
+@Serializable
+data class UpdateProfileInput(val displayName: String)
+
+/** Response of `PATCH /api/v1/auth/me` — the fresh user plus a Vietnamese note. */
+@Serializable
+data class UpdateProfileResponse(
+    val user: User,
+    val message: String? = null,
+)
 
 @Serializable
 data class ForgotRequest(val email: String)
@@ -94,6 +128,21 @@ data class Device(
     val purchasePlace: String? = null,
     val status: DeviceStatus = DeviceStatus.ACTIVE,
     val notes: String? = null,
+    /**
+     * Sale record (openapi `Device.soldAt` / `soldPrice`, roadmap #12). `null`
+     * means "not sold / not recorded". The server enforces the pair rule on the
+     * write path — both fields together, or neither — so a response carries
+     * either both or none of them.
+     *
+     * Wire format is identical to [purchaseDate]: a naive UTC timestamp rendered
+     * as `YYYY-MM-DDTHH:MM:SS[.fff]` with **no** `Z` and no offset, e.g.
+     * `"2026-03-01T00:00:00"`. Parse the date half only (`take(10)`), never as an
+     * instant — see `ui/screens/devices/DeviceResale.kt`. (The JSON *backup* file
+     * is the exception: there `soldAt` is RFC3339 with a `Z`.)
+     */
+    val soldAt: String? = null,
+    /** Sale price in VND. `null` = not sold; `0` is a real price (give-away). */
+    val soldPrice: Int? = null,
     val warranties: List<Warranty> = emptyList(),
     /**
      * `GET /api/v1/devices` only (see Go `DeviceListItem`): `max(endDate)` over
@@ -168,6 +217,17 @@ data class DeviceInput(
     val purchasePlace: String? = null,
     val status: DeviceStatus = DeviceStatus.ACTIVE,
     val notes: String? = null,
+    /**
+     * Optional sale record (`YYYY-MM-DD`, like [purchaseDate]). The server
+     * rejects half a pair: `soldAt` without `soldPrice` → 400
+     * `fieldErrors.soldPrice = ["Thiếu giá bán"]`, and `soldPrice` without
+     * `soldAt` → 400 `fieldErrors.soldAt = ["Thiếu ngày bán"]`. Leaving both
+     * `null` (they are then omitted from the JSON) clears a recorded sale, which
+     * is exactly what the server does with explicit nulls.
+     */
+    val soldAt: String? = null,
+    /** Sale price in VND. Negative is a 400; `0` is a valid give-away price. */
+    val soldPrice: Int? = null,
     val warrantyMonths: Int = 0,
     val warrantyProvider: String? = null,
     val warrantyAddress: String? = null,
@@ -473,8 +533,25 @@ data class Attachment(
 @Serializable
 data class AttachmentListResponse(val attachments: List<Attachment> = emptyList())
 
+/**
+ * `{"attachment": {...}}` — the envelope of both the upload POST and the
+ * description PATCH (`AttachmentMeta` in openapi).
+ */
 @Serializable
-data class AttachmentUploadResponse(val attachment: Attachment)
+data class AttachmentResponse(val attachment: Attachment)
+
+/**
+ * Body of `PATCH /api/v1/attachments/{id}` (openapi `AttachmentDescriptionInput`).
+ *
+ * `description` is the only mutable field and the key is **required** — the
+ * server answers 400 `fieldErrors.description = ["Thiếu description"]` when it
+ * is missing — while `""` (or whitespace) clears it. Non-nullable for the same
+ * reason as [UpdateProfileInput]: `ApiClient.json` drops nulls, so `""` is how
+ * the UI says "clear". File metadata is not editable at all, hence no other
+ * properties here.
+ */
+@Serializable
+data class AttachmentDescriptionInput(val description: String)
 
 // ---- Account / Backup ----
 
