@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, BellOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
@@ -7,11 +7,17 @@ import { DismissButton } from '@/components/dismiss-button';
 import { EmptyState } from '@/components/empty-state';
 import { api } from '@/lib/api';
 import type { ReminderRow as ApiReminder } from '@/lib/api/reminders';
+import {
+  dismissedRemindersFromBackup,
+  type DismissedReminder,
+} from '@/lib/dismissed-reminders';
 import { requireUser } from '@/lib/auth';
 import {
   CATEGORY_LABELS,
+  STATUS_LABELS,
   WARRANTY_TYPE_LABELS,
   type Category,
+  type Status,
   type WarrantyType,
 } from '@/lib/types';
 import { formatDate } from '@/lib/format';
@@ -89,9 +95,27 @@ function toItem(r: ApiReminder, now: Date): ReminderItem {
 export default async function RemindersPage() {
   await requireUser();
   // 90-day horizon matches the previous UI's bucket coverage.
-  const res = await api.reminders.list(90);
+  // The "Đã ẩn" list comes from the backup export because that is the only
+  // documented read that still carries dismissed `Reminder` rows — see
+  // `lib/dismissed-reminders.ts` for the details.
+  const [res, backupRes] = await Promise.all([
+    api.reminders.list(90),
+    api.backup.exportRaw(),
+  ]);
   const now = new Date();
   const active: ReminderItem[] = res.ok ? res.data.map((r) => toItem(r, now)) : [];
+
+  let dismissed: DismissedReminder[] = [];
+  let dismissedUnavailable = false;
+  if (backupRes.ok) {
+    try {
+      dismissed = dismissedRemindersFromBackup(JSON.parse(backupRes.body));
+    } catch {
+      dismissedUnavailable = true;
+    }
+  } else {
+    dismissedUnavailable = true;
+  }
 
   return (
     <div className="space-y-6">
@@ -99,7 +123,8 @@ export default async function RemindersPage() {
         <p className="eyebrow">Bảo hành sắp hết</p>
         <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Nhắc nhở</h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói.
+          Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói — gói đã ẩn
+          luôn xem lại và khôi phục được ở mục “Đã ẩn” bên dưới.
         </p>
       </div>
 
@@ -188,6 +213,82 @@ export default async function RemindersPage() {
           })}
         </div>
       )}
+
+      {/* Đã ẩn — xem lại + khôi phục (restore = DELETE /v1/warranties/{id}/reminder) */}
+      <section className="space-y-3">
+        <div className="section-divider">
+          <span className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-xs font-bold tint-zinc">
+            <BellOff className="h-3.5 w-3.5" />
+            {dismissedUnavailable ? '?' : dismissed.length}
+          </span>
+          <span className="font-display text-[15px] font-bold tracking-tight text-ink-2">
+            Đã ẩn
+          </span>
+        </div>
+        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+          <CardContent className="p-4 sm:p-5">
+            {dismissedUnavailable ? (
+              <p className="py-3 text-sm text-muted-foreground">
+                Không tải được danh sách nhắc nhở đã ẩn — thử tải lại trang nhé.
+              </p>
+            ) : dismissed.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">
+                Chưa ẩn gói bảo hành nào. Gói nào mày bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục
+                lại.
+              </p>
+            ) : (
+              <ul>
+                {dismissed.map((r, i) => (
+                  <li
+                    key={r.warrantyId}
+                    className={cn(
+                      'info-row flex flex-wrap items-center gap-3 py-3',
+                      i === 0 && '!border-t-0 pt-0',
+                    )}
+                  >
+                    <Link
+                      href={`/devices/${r.deviceId}`}
+                      className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80"
+                    >
+                      <CategoryIconBadge category={r.deviceCategory} size="sm" />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-display text-sm font-bold text-ink">
+                            {r.deviceName}
+                          </p>
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                              WARRANTY_TYPE_TINT[r.warrantyType as WarrantyType] ?? 'tint-primary',
+                            )}
+                          >
+                            {WARRANTY_TYPE_LABELS[r.warrantyType as WarrantyType] ??
+                              r.warrantyType}
+                          </span>
+                          {r.deviceStatus !== 'ACTIVE' && (
+                            <span className="inline-flex items-center rounded-pill bg-zinc-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-2">
+                              {STATUS_LABELS[r.deviceStatus as Status] ?? r.deviceStatus}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {CATEGORY_LABELS[r.deviceCategory as Category] ?? r.deviceCategory}
+                          {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • Hết{' '}
+                          {formatDate(r.endDate)}
+                        </p>
+                      </div>
+                    </Link>
+                    <div className="ml-auto flex items-center gap-2">
+                      <WarrantyPill warrantyEnd={r.endDate} variant="badge" />
+                      <DismissButton warrantyId={r.warrantyId} isDismissed />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

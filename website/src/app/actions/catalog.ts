@@ -1,9 +1,11 @@
 // Catalog re-exports backed by the Go `/v1/catalog` endpoint.
 //
 // Pre-Phase E this file proxied the Prisma-backed `lib/services/catalog.ts`.
-// Now it splits the single Go bundle into the four functions existing
-// callers expect (`getCategories`, `getBrands`, `getStores`,
-// `getWarrantyProviders`, `getDeviceFormCatalog`).
+// Now it splits the single Go bundle into the two entry points existing
+// callers use: `getCategories` (filter bars) and `getDeviceFormCatalog`
+// (the full bundle for the device / wishlist / subscription forms). The
+// `*Option` types are re-exported for the form/filter components that type
+// their props from here.
 //
 // We deliberately fetch the whole catalog each time and slice it — RSC
 // `cache()` dedupes across the same render, so a page that needs categories +
@@ -45,18 +47,6 @@ const fetchCatalog = cache(async () => {
 
 export async function getCategories(): Promise<CategoryOption[]> {
   return (await fetchCatalog()).categories;
-}
-
-export async function getBrands(): Promise<BrandOption[]> {
-  return (await fetchCatalog()).brands;
-}
-
-export async function getStores(): Promise<StoreOption[]> {
-  return (await fetchCatalog()).stores;
-}
-
-export async function getWarrantyProviders(): Promise<WarrantyProviderOption[]> {
-  return (await fetchCatalog()).warrantyProviders;
 }
 
 export async function getDeviceFormCatalog() {

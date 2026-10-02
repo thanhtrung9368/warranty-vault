@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Vault, Wifi, Plane, RotateCcw } from 'lucide-react';
+import { Vault, Wifi, Plane, RotateCcw, Info } from 'lucide-react';
 import { RetryButton } from './retry-button';
 
 export const metadata = {
@@ -23,7 +23,7 @@ export default function OfflinePage() {
       <main className="flex flex-1 items-center justify-center px-4 pb-12">
         <div className="w-full max-w-lg rounded-[var(--radius)] border border-border bg-card/80 px-6 py-10 text-center shadow-[0_30px_80px_-40px_rgba(60,20,5,0.25)] backdrop-blur md:px-10">
           <div className="mb-2 flex justify-center">
-            <span className="eyebrow">Trạng thái · Offline</span>
+            <span className="eyebrow">Trạng thái · Ngoại tuyến</span>
           </div>
 
           <div className="mb-5 flex justify-center">
@@ -34,11 +34,20 @@ export default function OfflinePage() {
             Mất kết nối rồi 📡
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-[15px]">
-            Mày đang offline. Một số dữ liệu đã lưu trước đó vẫn xem được — phần còn lại sẽ sync khi có mạng.
+            Mày đang ngoại tuyến. WarrantyVault chưa lưu dữ liệu để xem offline — thiết bị, bảo
+            hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.
           </p>
 
           <div className="mt-6 flex justify-center">
             <RetryButton />
+          </div>
+
+          <div className="mt-6 flex items-start gap-3 rounded-md bg-surface-2 p-3.5 text-left text-sm text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <p>
+              Ngoại tuyến thì chỉ mở được đúng trang này thôi. Thông báo đẩy vẫn do trình duyệt nhận
+              giúp khi thiết bị có mạng — không cần mở web.
+            </p>
           </div>
 
           <div className="mt-8 text-left">

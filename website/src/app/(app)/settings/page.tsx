@@ -2,13 +2,16 @@ import { Bell, Database, Info, Lock, Palette, ScanLine, Trash2 } from 'lucide-re
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
 import { PushSettings } from '@/components/push-settings';
+import { PushDevices } from '@/components/push-devices';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { DeleteAccountForm } from '@/components/delete-account-form';
 import { AISettings } from '@/components/ai-settings';
+import { listMySubscriptions } from '@/app/actions/push';
 import { requireUser } from '@/lib/auth';
 
 export default async function SettingsPage() {
   const user = await requireUser();
+  const pushSubscriptions = await listMySubscriptions();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -26,6 +29,10 @@ export default async function SettingsPage() {
 
       <Section icon={<Bell className="h-4 w-4" />} tint="tint-primary" title="Thông báo">
         <PushSettings />
+        <PushDevices
+          subscriptions={pushSubscriptions.subscriptions}
+          unavailable={!pushSubscriptions.ok}
+        />
       </Section>
 
       <Section icon={<Lock className="h-4 w-4" />} tint="tint-violet" title="Đổi mật khẩu">

@@ -2,11 +2,14 @@
 
 import * as React from 'react';
 import {
+  Check,
   Circle,
   Minus,
   Monitor,
   Moon,
   MoreHorizontal,
+  PanelLeft,
+  PanelLeftClose,
   Rows3,
   Square,
   Sun,
@@ -18,13 +21,33 @@ type Radius = 'sharp' | 'soft' | 'chunky';
 type Density = 'loose' | 'cozy' | 'dense';
 type Font = 'jakarta' | 'system' | 'inter' | 'serif';
 
+/**
+ * Accent keys — each one must have a matching `[data-accent='<key>']` block in
+ * globals.css (light + `.dark` variants). Hex values are the design handoff's
+ * swatch palette (`.design-handoff/project/js/app.jsx`, ACCENTS / ACCENTS_DARK).
+ */
+const ACCENTS = ['coral', 'emerald', 'violet', 'sky'] as const;
+type Accent = (typeof ACCENTS)[number];
+
+/** Sidebar variants — each key maps to a `[data-sidebar='<key>']` block in globals.css. */
+const SIDEBARS = ['full', 'icon'] as const;
+type SidebarVariant = (typeof SIDEBARS)[number];
+
 type Prefs = {
   radius: Radius;
   density: Density;
   font: Font;
+  accent: Accent;
+  sidebar: SidebarVariant;
 };
 
-const DEFAULTS: Prefs = { radius: 'soft', density: 'cozy', font: 'jakarta' };
+const DEFAULTS: Prefs = {
+  radius: 'soft',
+  density: 'cozy',
+  font: 'jakarta',
+  accent: 'coral',
+  sidebar: 'full',
+};
 
 const STORAGE_KEY = 'wv:prefs';
 
@@ -38,6 +61,12 @@ function readPrefs(): Prefs {
       radius: (parsed.radius ?? DEFAULTS.radius) as Radius,
       density: (parsed.density ?? DEFAULTS.density) as Density,
       font: (parsed.font ?? DEFAULTS.font) as Font,
+      accent: ACCENTS.includes(parsed.accent as Accent)
+        ? (parsed.accent as Accent)
+        : DEFAULTS.accent,
+      sidebar: SIDEBARS.includes(parsed.sidebar as SidebarVariant)
+        ? (parsed.sidebar as SidebarVariant)
+        : DEFAULTS.sidebar,
     };
   } catch {
     return DEFAULTS;
@@ -57,6 +86,18 @@ function applyPrefs(p: Prefs) {
   html.setAttribute('data-radius', p.radius);
   html.setAttribute('data-density', p.density);
   html.setAttribute('data-font', p.font);
+  html.setAttribute('data-accent', p.accent);
+  html.setAttribute('data-sidebar', p.sidebar);
+}
+
+/** Mirrors the handoff's `__twkIsLight()` so the tick stays legible on any swatch. */
+function isLightHex(hex: string): boolean {
+  const n = Number.parseInt(hex.replace('#', ''), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
 }
 
 const THEME_OPTIONS = [
@@ -82,6 +123,23 @@ const FONT_OPTIONS: Array<{ value: Font; label: string }> = [
   { value: 'system', label: 'Hệ thống' },
   { value: 'inter', label: 'Inter' },
   { value: 'serif', label: 'Fraunces (serif)' },
+];
+
+/** Swatch hexes are the light-mode brand colours from the design handoff. */
+const ACCENT_OPTIONS: Array<{ value: Accent; label: string; hex: string }> = [
+  { value: 'coral', label: 'Cam san hô', hex: '#FF6B45' },
+  { value: 'emerald', label: 'Xanh lục bảo', hex: '#16A765' },
+  { value: 'violet', label: 'Tím', hex: '#7B5BE0' },
+  { value: 'sky', label: 'Xanh da trời', hex: '#0EA5E9' },
+];
+
+const SIDEBAR_OPTIONS: Array<{
+  value: SidebarVariant;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { value: 'full', label: 'Đầy đủ', Icon: PanelLeft },
+  { value: 'icon', label: 'Biểu tượng', Icon: PanelLeftClose },
 ];
 
 export function AppearanceTweaks() {
@@ -120,6 +178,60 @@ export function AppearanceTweaks() {
               data-active={currentTheme === value}
               onClick={() => setTheme(value)}
               aria-pressed={currentTheme === value}
+            >
+              <Icon className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      <Divider />
+
+      <Row
+        label="Màu nhấn"
+        description="Màu chủ đạo cho nút, liên kết, biểu đồ và các điểm nhấn."
+      >
+        <div className="swatch-group" role="group" aria-label="Màu nhấn">
+          {ACCENT_OPTIONS.map(({ value, label, hex }) => {
+            const active = mounted && prefs.accent === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                className="swatch"
+                style={{ background: hex }}
+                data-active={active}
+                aria-pressed={active}
+                aria-label={label}
+                title={label}
+                onClick={() => update({ accent: value })}
+              >
+                {active && (
+                  <Check
+                    className={`h-4 w-4 ${isLightHex(hex) ? 'text-[#1F1A14]' : 'text-white'}`}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Row>
+
+      <Divider />
+
+      <Row
+        label="Thanh bên"
+        description="Hiện đầy đủ nhãn, hoặc chỉ biểu tượng cho gọn."
+      >
+        <div className="pill-group" role="group" aria-label="Thanh bên">
+          {SIDEBAR_OPTIONS.map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              data-active={mounted && prefs.sidebar === value}
+              onClick={() => update({ sidebar: value })}
+              aria-pressed={prefs.sidebar === value}
             >
               <Icon className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
               {label}

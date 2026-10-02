@@ -41,7 +41,7 @@ export function BackupTools() {
   const handleImport = async (file: File) => {
     if (mode === 'replace') {
       const ok = confirm(
-        'Chế độ "Thay thế" sẽ XOÁ TOÀN BỘ dữ liệu hiện tại. File ảnh dưới /uploads sẽ KHÔNG bị xoá nhưng các bản ghi sẽ mất. Tiếp tục?',
+        'Chế độ "Thay thế" sẽ XOÁ TOÀN BỘ dữ liệu hiện tại (thiết bị, bảo hành, đăng ký, wishlist). Ảnh đính kèm đã mã hoá nằm trong kho riêng của máy chủ nên không bị xoá theo, nhưng mọi bản ghi trỏ tới chúng sẽ mất. Tiếp tục?',
       );
       if (!ok) return;
     }
@@ -66,12 +66,10 @@ export function BackupTools() {
       <div className="space-y-3">
         <h3 className="font-display text-[15px] font-bold text-ink">Xuất dữ liệu</h3>
         <p className="text-sm text-muted-foreground">
-          Tải toàn bộ thiết bị, file đính kèm (tên/đường dẫn) và nhắc nhở ra 1 file JSON. File ảnh
-          thật vẫn nằm trong thư mục{' '}
-          <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs">
-            public/uploads
-          </code>
-          .
+          Tải toàn bộ thiết bị, gói bảo hành, nhắc nhở, gói đăng ký và wishlist ra 1 file JSON. File
+          đính kèm chỉ đi kèm phần mô tả (tên file, kích thước, đường dẫn) — <b>ảnh gốc không nằm
+          trong file backup</b>. Ảnh được mã hoá AES-256-GCM và lưu trong kho riêng của máy chủ
+          (không nằm trong thư mục public của web), nên file JSON không mang ảnh theo được.
         </p>
         <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -103,11 +101,14 @@ export function BackupTools() {
       <div className="space-y-3">
         <h3 className="font-display text-[15px] font-bold text-ink">Nhập dữ liệu</h3>
         <p className="text-sm text-muted-foreground">
-          Chọn file JSON đã xuất trước đó. Lưu ý sao chép lại folder{' '}
+          Chọn file JSON đã xuất trước đó. Nhập lại chỉ khôi phục <b>bản ghi</b> (thiết bị, bảo hành,
+          đăng ký, wishlist) — ảnh đã mã hoá không nằm trong file backup, nên ảnh cũ chỉ hiện lại nếu
+          kho file trên máy chủ vẫn còn. Muốn khôi phục cả ảnh thì phải sao lưu kho file riêng của
+          máy chủ (biến môi trường{' '}
           <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs">
-            public/uploads
-          </code>{' '}
-          để khớp đường dẫn ảnh.
+            PRIVATE_UPLOAD_ROOT
+          </code>
+          ) chứ không chỉ mỗi file JSON.
         </p>
 
         <div>

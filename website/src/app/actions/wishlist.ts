@@ -1,12 +1,10 @@
 'use server';
 
 // Thin proxy actions over the Go REST client. No Prisma, no rate-limit.
-// `markWishlistPurchased`: the old version called a service that wrote
-// `purchasedDeviceId` directly. Under Go, the user updates the wishlist
-// item with `status='PURCHASED'` and the Go service handles the linkage
-// in a transaction (creating a Device row when needed). Here we just
-// forward the status flip and pass `purchasedDeviceId` if the caller has
-// a specific device to link.
+// Marking a wishlist item as purchased goes through `setWishlistStatus` with
+// `status='PURCHASED'` — Go creates the linked Device row in the same
+// transaction (see api/internal/services/wishlist.go), so the web never has
+// to write `purchasedDeviceId` itself.
 
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
@@ -115,29 +113,3 @@ export async function deleteWishlistItem(id: string) {
   redirect('/wishlist');
 }
 
-// Mark as purchased — called after a Device is created from the wishlist
-// flow. Fetch the existing item, merge purchasedDeviceId + PURCHASED, then
-// PATCH. Go ignores `purchasedDeviceId` if it's not on WishlistInput yet,
-// so this is a soft hint until the field lands in openapi.yaml.
-export async function markWishlistPurchased(itemId: string, deviceId: string) {
-  const cur = await api.wishlist.get(itemId);
-  if (!cur.ok) return;
-  const it = cur.data.item;
-  const res = await api.wishlist.update(itemId, {
-    name: it.name,
-    category: it.category,
-    brand: it.brand,
-    initialPrice: it.initialPrice,
-    currentPrice: it.currentPrice,
-    buyUrl: it.buyUrl,
-    imageUrl: it.imageUrl,
-    targetDate: it.targetDate,
-    priority: it.priority,
-    status: 'PURCHASED',
-    notes: it.notes,
-    reminderIntervalDays: it.reminderIntervalDays,
-    // Opaque hint — see openapi gap noted in BACKEND_GO_PLAN Phase F.
-    purchasedDeviceId: deviceId,
-  } as unknown as WishlistInput);
-  if (!res.ok) return;
-}

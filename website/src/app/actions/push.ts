@@ -5,8 +5,9 @@
 //   - the per-platform fanout (web push / APNs / FCM),
 //   - the test-push helper.
 
+import { revalidatePath } from 'next/cache';
 import { api } from '@/lib/api';
-import type { PushInput } from '@/lib/api/push';
+import type { PushInput, PushSubscriptionMeta } from '@/lib/api/push';
 
 // Web subscribe — called from the browser via PushSettings client component.
 export async function subscribePush(raw: unknown) {
@@ -54,8 +55,25 @@ export async function sendTestPush() {
   return { ok: true, message: `Đã gửi ${sent} thông báo thử` };
 }
 
-export async function listMySubscriptions() {
+// Registered devices for the Settings list. `ok: false` when the Go read
+// failed so the UI can say "không tải được" instead of rendering an empty
+// list that looks like "no devices".
+export async function listMySubscriptions(): Promise<{
+  ok: boolean;
+  subscriptions: PushSubscriptionMeta[];
+}> {
   const res = await api.push.list();
-  if (!res.ok) return [];
-  return res.data.subscriptions;
+  if (!res.ok) return { ok: false, subscriptions: [] };
+  return { ok: true, subscriptions: res.data.subscriptions ?? [] };
+}
+
+// Remove one registered device by id (`DELETE /v1/push/{id}`). The id comes
+// from `listMySubscriptions`; Go checks ownership on delete.
+export async function removePushSubscription(id: string) {
+  const trimmed = typeof id === 'string' ? id.trim() : '';
+  if (!trimmed) return { ok: false, message: 'Thiếu id thiết bị' };
+  const res = await api.push.unregister(trimmed);
+  if (!res.ok) return { ok: false, message: res.message ?? 'Không gỡ được thiết bị' };
+  revalidatePath('/settings');
+  return { ok: true };
 }
