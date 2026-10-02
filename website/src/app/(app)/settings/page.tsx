@@ -1,6 +1,7 @@
-import { Bell, Database, Info, Lock, Palette, ScanLine, Trash2 } from 'lucide-react';
+import { Bell, Database, FileSpreadsheet, Info, Lock, Palette, ScanLine, Trash2 } from 'lucide-react';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
+import { CsvExport } from '@/components/csv-export';
 import { PushSettings } from '@/components/push-settings';
 import { PushDevices } from '@/components/push-devices';
 import { ChangePasswordForm } from '@/components/change-password-form';
@@ -45,6 +46,14 @@ export default async function SettingsPage() {
 
       <Section icon={<Database className="h-4 w-4" />} tint="tint-sky" title="Sao lưu & khôi phục">
         <BackupTools />
+      </Section>
+
+      <Section
+        icon={<FileSpreadsheet className="h-4 w-4" />}
+        tint="tint-emerald"
+        title="Xuất bảng tính (CSV)"
+      >
+        <CsvExport />
       </Section>
 
       <section className="rounded-lg border-2 border-destructive/30 bg-destructive-soft/40 p-6">
