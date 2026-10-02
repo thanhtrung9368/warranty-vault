@@ -1,10 +1,24 @@
 -- ============================================================================
 -- seed_dev.sql — realistic Vietnamese sample data for the dev DB
 --
--- Usage:
---   psql "postgresql://trungit@localhost:5432/warranty_vault_dev" \
---        -v user_id="'cmok3ap9q0000raurkomxs5l6'" \
---        -f api/scripts/seed_dev.sql
+-- Usage (KHÔNG cần psql — máy dev chỉ có Postgres server, không có client):
+--   api/scripts/dbtool.sh -v "user_id='<user-id>'" -f api/scripts/seed_dev.sql
+--
+--   # ví dụ lấy user id từ DB dev:
+--   DATABASE_URL='postgresql://trungit@localhost:5432/warranty_vault_dev' \
+--     api/scripts/dbtool.sh -c 'SELECT id, email FROM "User" ORDER BY "createdAt" LIMIT 5;'
+--
+--   # hoặc lấy token rồi tự tạo user qua API:
+--   #   POST /api/v1/auth/register → .user.id
+--
+-- `dbtool.sh` build + chạy client SQL nhỏ trong scripts/dbtool (Go + pgx) thay
+-- thế psql: nó hiểu `\set` và biến `:user_id` như psql, in kết quả kiểu
+-- `psql -tA`. Nếu bạn có psql thật thì lệnh tương đương là:
+--   psql "$DATABASE_URL" -v user_id="'<user-id>'" -f api/scripts/seed_dev.sql
+--
+-- File này được kiểm chứng tự động bởi scripts/test_seed_dev.sh (chạy trong
+-- suite `scripts/e2e.sh`): seed phải khớp schema, chạy lại không nhân đôi dữ
+-- liệu, và dữ liệu phải đọc được qua HTTP API.
 --
 -- All row IDs are prefixed with `seed_` so the script is idempotent — rerunning
 -- it cleanly deletes the previous batch (cascades down to warranties,
@@ -209,7 +223,7 @@ INSERT INTO "WishlistItem"
 VALUES
   ('seed_wl_01', :user_id, 'iPad Pro M4 11"',        'TABLET',         'Apple',
    28990000, 27490000,
-   'https://www.topzone.vn/ipad-pro-m4-11', '2026-09-01', 'HIGH',  'WATCHING',
+   'https://www.topzone.vn/ipad-pro-m4-11', '2026-09-01', 'MUST',  'WATCHING',
    'Theo dõi giá khi Apple ra series mới, cần Wi-Fi 256GB.', 14, now()),
 
   ('seed_wl_02', :user_id, 'Sony A7C II body',       'CAMERA',         'Sony',

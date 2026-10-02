@@ -21,6 +21,77 @@ curl localhost:4000/readyz    # {"ok":true} when DB is reachable, 503 otherwise
 
 The server reads `.env` automatically when present; required env is `DATABASE_URL`. Optional: `PORT` (default `4000`), `WEB_URL` (CORS allowlist), `SESSION_SECRET` (only length-validated — the server never reads the web's `wv_session` cookie; min 32 chars when set). Everything else (push, email, rate limit, encrypted uploads, cron) is documented with comments in `.env.example`.
 
+## Kiểm thử e2e (`api/scripts/`)
+
+Bộ `scripts/test_*.sh` là chỗ **duy nhất** exercise HTTP surface thật (Go unit test gọi thẳng services, không đi qua route). Một lệnh chạy hết:
+
+```bash
+cd api
+./scripts/e2e.sh
+```
+
+Runner tự làm mọi thứ mà trước đây các script giả định đã có sẵn: tạo database tạm → `cmd/migrate up` → build & chạy `cmd/server` ở cổng test (mặc định `4187`) → chờ `/readyz` → chạy từng script → in bảng đạt/không đạt kèm log riêng. Khi kết thúc — kể cả khi có script fail, hay bạn `Ctrl-C` giữa chừng — runner **luôn** dừng server và `DROP DATABASE` tạm (trap `EXIT`/`INT`/`TERM`), nên không để lại tiến trình treo hay DB rác.
+
+| Tuỳ chọn | Ý nghĩa |
+|---|---|
+| `--only CHUỖI` | chỉ chạy script có tên chứa `CHUỖI` (vd `--only stats`, `--only cron`) |
+| `--db-url URL` | Postgres **admin** để tạo DB tạm. Mặc định: `$WV_E2E_DATABASE_URL` → `$WV_TEST_DATABASE_URL` → `postgres://postgres@127.0.0.1:55432/postgres?sslmode=disable` |
+| `--port N` | cổng server test (mặc định `4187`, hoặc `$WV_E2E_PORT`) |
+| `--go-tests` | chạy thêm `go test ./...` với `WV_TEST_DATABASE_URL` trỏ vào một DB tạm riêng |
+| `--list` | liệt kê các script sẽ chạy rồi thoát |
+
+Biến do runner export luôn **đè** giá trị trong `api/.env` (`DATABASE_URL`, `CRON_SECRET`, `FILE_MASTER_KEY`, `PRIVATE_UPLOAD_ROOT`, `SESSION_SECRET`, `PORT`) — nhờ vậy suite không bao giờ ghi vào DB dev. Mỗi script tự tạo rồi tự xoá user test của mình (email `__go*test__@local.test`, xoá cascade).
+
+### Suite bao gồm
+
+| Script | Nội dung |
+|---|---|
+| `test_auth.sh` | register → login → me → sai mật khẩu → logout → token bị thu hồi, forgot-password |
+| `test_change_password.sh` | change-password: sai current, confirm lệch, happy path, mật khẩu cũ hết hiệu lực |
+| `test_devices.sh` | devices + warranty inline/EXTENDED + reminders (dismiss/restore) + xoá → 404 |
+| `test_subscriptions.sh` | CRUD subscription, log payment, renew (payments + renewalDate), 404 sau xoá |
+| `test_wishlist.sh` | CRUD wishlist, lịch sử giá, mark PURCHASED sinh Device |
+| `test_reminders.sh` | 401/200, scope theo user, `withinDays` không hợp lệ → 400 |
+| `test_attachments.sh` | upload PNG, list, tải file đúng số byte, MIME whitelist → 400, quá 5MB → 413, xoá → 404 |
+| `test_catalog.sh` | catalog auth-gated + 4 mảng categories/brands/stores/warrantyProviders |
+| `test_stats.sh` | seed fixture ở tầng DB rồi đối chiếu toàn bộ số liệu `/api/v1/stats` |
+| `test_cron_flow.sh` | seed sub/wishlist quá hạn, gọi cron 2 lần, kiểm tra side-effect + idempotency ở tầng DB |
+| `test_push.sh` | register/list/delete push subscription (web/apns/fcm), validate platform |
+| `test_seed_dev.sh` | chạy `seed_dev.sql` qua `dbtool`: khớp schema, idempotent, đọc lại được qua API |
+| `check_openapi_drift.sh` | kiểm tra tĩnh: route Go ↔ `openapi.yaml` (không cần server; bỏ qua nếu thiếu PyYAML) |
+
+Log từng lần chạy nằm ở `api/tmp/e2e/run-*/logs/` (đã gitignore, runner tự dọn chỉ giữ 5 lần gần nhất).
+
+Chạy một script lẻ khi đã có server + DB:
+
+```bash
+WV_BASE_URL=http://localhost:4000 \
+DATABASE_URL='postgresql://trungit@localhost:5432/warranty_vault_dev' \
+CRON_SECRET=... ./scripts/test_stats.sh
+```
+
+### Vì sao không có `psql`
+
+Máy dev dùng Postgres 17 lấy từ zonky embedded binaries — chỉ có `initdb`/`pg_ctl`/`postgres`, **không kèm client `psql`**. Các fixture mà HTTP API không diễn tả được (`renewalDate` trong quá khứ, `lastNotifiedAt` 8 ngày trước, `status=EXPIRED`, hay đếm `SubscriptionPayment` sau khi cron chạy) đi qua `scripts/dbtool`: client SQL nhỏ viết bằng Go + `pgx` (driver sẵn có của module, không thêm dependency), in kết quả đúng định dạng `psql -tA`:
+
+```bash
+api/scripts/dbtool.sh -c 'SELECT count(*) FROM "User";'
+api/scripts/dbtool.sh -q -c "DELETE FROM \"User\" WHERE email = 'x@y.z';"
+api/scripts/dbtool.sh -v "user_id='<user-id>'" -f api/scripts/seed_dev.sql
+```
+
+`scripts/lib.sh` là phần dùng chung cho các script (nạp `.env` không ghi đè biến của runner, `wv_curl`/`wv_curl_status`, `wv_sql`, `assert`, `wv_summary`). Mỗi script giả một client IP riêng qua `X-Forwarded-For` để không đụng rate limit auth (10 register / 15 phút theo IP).
+
+### Go test cần DB thật
+
+`WV_TEST_DATABASE_URL` bật các test Go bị gate theo Postgres (migration goose, search `unaccent`/`pg_trgm`); không đặt thì chúng **skip im lặng**:
+
+```bash
+WV_TEST_DATABASE_URL='postgres://postgres@127.0.0.1:55432/wv_test?sslmode=disable' go test ./...
+```
+
+`./scripts/e2e.sh --go-tests` làm việc này tự động với DB tạm do runner tạo và xoá.
+
 ## CLIs
 
 - `go run ./cmd/server` — HTTP server.
@@ -52,7 +123,9 @@ api/
 │   ├── httpx/       JSON helpers + middleware (logging, recover, request id)
 │   └── validate/    go-playground/validator setup
 ├── migrations/      goose .sql (owned by the migrations tooling)
-├── scripts/         seed_dev.sql + parity/e2e shell tests
+├── scripts/         seed_dev.sql + e2e suite:
+│                    e2e.sh (runner) · lib.sh (helpers) · dbtool/ (SQL client thay psql)
+│                    check_openapi_drift.sh + test_*.sh
 ├── sqlc.yaml
 ├── go.mod
 └── README.md

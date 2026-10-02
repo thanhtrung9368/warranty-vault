@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Parity test for the Go cron job (POST /api/v1/cron/warranty-check) against the
 # TS reference at website/scripts/test-cron-flow.mjs. Seeds a scoped test user
-# directly in the dev DB, hits the Go endpoint, then asserts the same DB-level
-# side-effects the TS test asserts:
+# directly in the DB (qua dbtool — không cần psql), hits the Go endpoint, then
+# asserts the same DB-level side-effects the TS test asserts:
 #
 #   - autoRenew=true overdue sub → SubscriptionPayment row + advanced renewalDate
 #   - autoRenew=false overdue sub → status=EXPIRED
@@ -10,69 +10,41 @@
 #   - wishlist target-date item gets lastNotifiedAt stamped
 #   - wishlist 8-days-stale interval item gets lastNotifiedAt stamped
 #
-# Usage:
-#   WV_BASE_URL=http://localhost:4000 ./scripts/test_cron_flow.sh
+# Chạy qua runner:
+#   ./scripts/e2e.sh [--only cron_flow]
+# Chạy tay:
+#   WV_BASE_URL=http://localhost:4000 CRON_SECRET=... ./scripts/test_cron_flow.sh
 #
-# Requires:
-#   - The Go server running locally (go run ./cmd/server) on $WV_BASE_URL.
-#   - DATABASE_URL pointing at warranty_vault_dev (or any DB the server uses).
-#   - CRON_SECRET set in the same env the server is using.
-#   - psql + curl + jq.
+# Yêu cầu:
+#   - Server Go đang chạy ở $WV_BASE_URL.
+#   - DATABASE_URL trỏ đúng DB server đang dùng (runner tự export DB tạm).
+#   - CRON_SECRET trùng với server (và FILE_MASTER_KEY hợp lệ thì server mới boot).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib.sh
+. "${SCRIPT_DIR}/lib.sh"
 
-if [ -f "${API_DIR}/.env" ]; then
-  set -o allexport
-  # shellcheck disable=SC1090,SC1091
-  source "${API_DIR}/.env"
-  set +o allexport
-fi
+wv_init "${API_DIR}"
 
-BASE="${WV_BASE_URL:-http://localhost:4000}"
 TEST_EMAIL="__cron_go_parity__@local.test"
 
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "DATABASE_URL not set." >&2
-  exit 1
-fi
 if [ -z "${CRON_SECRET:-}" ]; then
-  echo "CRON_SECRET not set — the server endpoint requires it." >&2
+  echo "CRON_SECRET chưa được đặt — endpoint cron yêu cầu secret này." >&2
   exit 1
 fi
-for tool in curl jq psql; do
-  command -v "$tool" >/dev/null || { echo "missing required tool: $tool" >&2; exit 1; }
-done
 
-PASS=0
-FAIL=0
-assert() {
-  local cond="$1" msg="$2"
-  if [ "$cond" = "true" ]; then
-    echo "  OK    $msg"
-    PASS=$((PASS+1))
-  else
-    echo "  FAIL  $msg"
-    FAIL=$((FAIL+1))
-  fi
-}
+wv_require_server
 
-ping_server() {
-  curl -sf -m 3 "${BASE}/healthz" -o /dev/null
-}
+echo "→ Dọn dữ liệu test cũ"
+wv_cleanup_user "${TEST_EMAIL}"
 
-cleanup() {
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc \
-    "DELETE FROM \"User\" WHERE email = '${TEST_EMAIL}';" >/dev/null
-}
-
-# Compose the SQL fixture inline. Uses gen_random_uuid() so the user/device/
-# warranty/wishlist IDs are server-side; we read them back via SELECT to feed
-# the assertions.
+# Fixture SQL: dùng gen_random_uuid() để ID do server sinh, rồi SELECT trả về
+# một dòng `user|subAuto|subManual|subLifetime|wlToday|wlInterval` cho assertion.
 seed() {
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tA <<SQL
+  wv_sql <<SQL
 DELETE FROM "User" WHERE email = '${TEST_EMAIL}';
 
 WITH
@@ -145,14 +117,7 @@ SELECT
 SQL
 }
 
-echo "→ Server check: ${BASE}"
-ping_server || { echo "Server not reachable. Start \`go run ./cmd/server\` first." >&2; exit 1; }
-echo "  OK    server is up"
-
-echo "→ Cleanup any prior test data"
-cleanup
-
-echo "→ Seed test fixtures"
+echo "→ Seed fixture test"
 ids=$(seed | tail -1)
 USER_ID=$(echo "$ids" | cut -d'|' -f1)
 SUB_AUTO=$(echo "$ids" | cut -d'|' -f2)
@@ -163,74 +128,76 @@ WL_INTERVAL=$(echo "$ids" | cut -d'|' -f6)
 echo "  user=${USER_ID}"
 echo "  subAuto=${SUB_AUTO} subManual=${SUB_MANUAL} subLifetime=${SUB_LIFETIME}"
 echo "  wlToday=${WL_TODAY} wlInterval=${WL_INTERVAL}"
+[ -n "$USER_ID" ] && [ -n "$SUB_AUTO" ] && cond=true || cond=false
+assert "$cond" "seed fixture trả đủ ID"
 
 echo
-echo "→ Hit cron endpoint with bad secret (expect 401)"
-status=$(curl -s -o /tmp/wv_cron.json -w "%{http_code}" \
+echo "→ Gọi cron bằng secret sai (kỳ vọng 401)"
+status=$(wv_curl_status \
   -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H 'authorization: Bearer wrong-secret')
 [ "$status" = "401" ] && cond=true || cond=false
-assert "$cond" "bad bearer returns 401 (got $status)"
+assert "$cond" "bearer sai trả 401 (nhận $status)"
 
 echo
-echo "→ Hit cron endpoint with valid bearer"
-status=$(curl -s -o /tmp/wv_cron.json -w "%{http_code}" \
+echo "→ Gọi cron bằng bearer hợp lệ"
+status=$(wv_curl_status \
   -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H "authorization: Bearer ${CRON_SECRET}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "bearer auth returns 200 (got $status)"
-ok=$(jq -r '.ok' /tmp/wv_cron.json)
+assert "$cond" "bearer auth trả 200 (nhận $status)"
+ok=$(jq -r '.ok' "$WV_BODY_FILE")
 [ "$ok" = "true" ] && cond=true || cond=false
 assert "$cond" "response ok=true"
 
 echo
-echo "→ Hit cron endpoint with ?secret= query string"
-status=$(curl -s -o /tmp/wv_cron.json -w "%{http_code}" \
+echo "→ Gọi cron bằng query ?secret="
+status=$(wv_curl_status \
   -X POST "${BASE}/api/v1/cron/warranty-check?secret=${CRON_SECRET}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "?secret= works (got $status)"
+assert "$cond" "?secret= dùng được (nhận $status)"
 
 echo
-echo "→ Verify subscription side-effects"
-auto_status=$(psql "$DATABASE_URL" -tAc \
+echo "→ Kiểm tra side-effect của subscription"
+auto_status=$(wv_sql -c \
   "SELECT status FROM \"Subscription\" WHERE id = '${SUB_AUTO}';")
 [ "$auto_status" = "ACTIVE" ] && cond=true || cond=false
-assert "$cond" "auto-renew sub still ACTIVE (got '$auto_status')"
+assert "$cond" "sub auto-renew vẫn ACTIVE (nhận '$auto_status')"
 
-pay_count=$(psql "$DATABASE_URL" -tAc \
+pay_count=$(wv_sql -c \
   "SELECT COUNT(*) FROM \"SubscriptionPayment\" WHERE \"subscriptionId\" = '${SUB_AUTO}' AND note = 'Auto-renew';")
 [ "$pay_count" = "1" ] && cond=true || cond=false
-assert "$cond" "auto-renew sub has 1 'Auto-renew' payment (got $pay_count)"
+assert "$cond" "sub auto-renew có đúng 1 payment 'Auto-renew' (nhận $pay_count)"
 
-advanced=$(psql "$DATABASE_URL" -tAc \
+advanced=$(wv_sql -c \
   "SELECT \"renewalDate\" > NOW() FROM \"Subscription\" WHERE id = '${SUB_AUTO}';")
 [ "$advanced" = "t" ] && cond=true || cond=false
-assert "$cond" "auto-renew sub renewalDate advanced past today"
+assert "$cond" "renewalDate của sub auto-renew đã vượt hôm nay"
 
-manual_status=$(psql "$DATABASE_URL" -tAc \
+manual_status=$(wv_sql -c \
   "SELECT status FROM \"Subscription\" WHERE id = '${SUB_MANUAL}';")
 [ "$manual_status" = "EXPIRED" ] && cond=true || cond=false
-assert "$cond" "manual (autoRenew=false) sub flipped to EXPIRED (got '$manual_status')"
+assert "$cond" "sub autoRenew=false chuyển EXPIRED (nhận '$manual_status')"
 
-life_status=$(psql "$DATABASE_URL" -tAc \
+life_status=$(wv_sql -c \
   "SELECT status FROM \"Subscription\" WHERE id = '${SUB_LIFETIME}';")
 [ "$life_status" = "ACTIVE" ] && cond=true || cond=false
-assert "$cond" "LIFETIME sub untouched (got '$life_status')"
+assert "$cond" "sub LIFETIME không bị đụng (nhận '$life_status')"
 
 echo
-echo "→ Verify wishlist side-effects"
-wt_stamped=$(psql "$DATABASE_URL" -tAc \
+echo "→ Kiểm tra side-effect của wishlist"
+wt_stamped=$(wv_sql -c \
   "SELECT \"lastNotifiedAt\" IS NOT NULL FROM \"WishlistItem\" WHERE id = '${WL_TODAY}';")
 [ "$wt_stamped" = "t" ] && cond=true || cond=false
-assert "$cond" "wishlist today-bucket item got lastNotifiedAt stamped"
+assert "$cond" "wishlist target-date hôm nay được đóng dấu lastNotifiedAt"
 
-wi_advanced=$(psql "$DATABASE_URL" -tAc \
+wi_advanced=$(wv_sql -c \
   "SELECT \"lastNotifiedAt\" > NOW() - INTERVAL '1 hour' FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")
 [ "$wi_advanced" = "t" ] && cond=true || cond=false
-assert "$cond" "wishlist interval item lastNotifiedAt bumped within last hour"
+assert "$cond" "wishlist interval được bump lastNotifiedAt trong 1 giờ qua"
 
 echo
-echo "→ Re-run cron — verify DB-side idempotency for advanceable side-effects"
+echo "→ Chạy cron lần 2 — kiểm tra idempotency ở tầng DB"
 # Snapshot state before the second run so we can prove non-duplication.
 # NOTE on what idempotency we can / can't assert here:
 #   * Subscription auto-bill IS idempotent at the DB layer — after the first
@@ -250,53 +217,49 @@ echo "→ Re-run cron — verify DB-side idempotency for advanceable side-effect
 #       - subscription renewal warnings 3/1/0 → Subscription.lastNotifiedRenewalAt
 #         is stamped after fan-out; ListSubscriptionsDueForRenewal filters it.
 #     The 2nd-run assertions below cover these via the same-day re-run check.
-wt_stamp_before=$(psql "$DATABASE_URL" -tAc \
+wt_stamp_before=$(wv_sql -c \
   "SELECT \"lastNotifiedAt\" FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")
-sub_renewal_before=$(psql "$DATABASE_URL" -tAc \
+sub_renewal_before=$(wv_sql -c \
   "SELECT \"renewalDate\" FROM \"Subscription\" WHERE id = '${SUB_AUTO}';")
 
-curl -s -o /tmp/wv_cron2.json -w "%{http_code}" \
-  -X POST "${BASE}/api/v1/cron/warranty-check" \
+wv_curl_status -X POST "${BASE}/api/v1/cron/warranty-check" \
   -H "authorization: Bearer ${CRON_SECRET}" >/dev/null
 
 # 1. Auto-renew sub: no second payment.
-pay_count2=$(psql "$DATABASE_URL" -tAc \
+pay_count2=$(wv_sql -c \
   "SELECT COUNT(*) FROM \"SubscriptionPayment\" WHERE \"subscriptionId\" = '${SUB_AUTO}';")
 [ "$pay_count2" = "1" ] && cond=true || cond=false
-assert "$cond" "second cron run does NOT add another payment (got $pay_count2)"
+assert "$cond" "cron lần 2 KHÔNG thêm payment (nhận $pay_count2)"
 
 # 2. Auto-renew sub: renewalDate didn't advance a second time.
-sub_renewal_after=$(psql "$DATABASE_URL" -tAc \
+sub_renewal_after=$(wv_sql -c \
   "SELECT \"renewalDate\" FROM \"Subscription\" WHERE id = '${SUB_AUTO}';")
 [ "$sub_renewal_before" = "$sub_renewal_after" ] && cond=true || cond=false
-assert "$cond" "auto-renew sub renewalDate unchanged on 2nd run"
+assert "$cond" "renewalDate của sub auto-renew không đổi ở lần 2"
 
 # 3. Manual (autoRenew=false) sub: still EXPIRED, no flip back.
-manual_status2=$(psql "$DATABASE_URL" -tAc \
+manual_status2=$(wv_sql -c \
   "SELECT status FROM \"Subscription\" WHERE id = '${SUB_MANUAL}';")
 [ "$manual_status2" = "EXPIRED" ] && cond=true || cond=false
-assert "$cond" "manual sub stays EXPIRED on 2nd run (got '$manual_status2')"
+assert "$cond" "sub manual vẫn EXPIRED ở lần 2 (nhận '$manual_status2')"
 
 # 4. Wishlist interval check-in: lastNotifiedAt did NOT bump again, because
 #    the first run set it to ~now and the next-run window check (>= 7 days
 #    elapsed) won't fire so soon.
-wt_stamp_after=$(psql "$DATABASE_URL" -tAc \
+wt_stamp_after=$(wv_sql -c \
   "SELECT \"lastNotifiedAt\" FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")
 [ "$wt_stamp_before" = "$wt_stamp_after" ] && cond=true || cond=false
-assert "$cond" "wishlist interval item lastNotifiedAt unchanged on 2nd run"
+assert "$cond" "lastNotifiedAt của wishlist interval không đổi ở lần 2"
 
 # 5. Wishlist payment table sanity — there should never be > 1 Auto-renew row
 #    even across many runs (regression guard).
-auto_pay_total=$(psql "$DATABASE_URL" -tAc \
+auto_pay_total=$(wv_sql -c \
   "SELECT COUNT(*) FROM \"SubscriptionPayment\" WHERE \"subscriptionId\" = '${SUB_AUTO}' AND note = 'Auto-renew';")
 [ "$auto_pay_total" = "1" ] && cond=true || cond=false
-assert "$cond" "exactly 1 Auto-renew payment exists for the test sub (got $auto_pay_total)"
+assert "$cond" "chỉ tồn tại đúng 1 payment 'Auto-renew' cho sub test (nhận $auto_pay_total)"
 
 echo
-echo "→ Cleanup"
-cleanup
+echo "→ Dọn dẹp"
+wv_cleanup_user "${TEST_EMAIL}"
 
-echo
-echo "Pass: $PASS  Fail: $FAIL"
-[ "$FAIL" = "0" ] || exit 1
-echo "ALL CRON-FLOW PARITY TESTS PASSED"
+wv_summary "TOÀN BỘ TEST CRON-FLOW ĐỀU ĐẠT"

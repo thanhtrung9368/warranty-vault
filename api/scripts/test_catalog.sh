@@ -1,103 +1,62 @@
 #!/usr/bin/env bash
 # Smoke test for GET /api/v1/catalog. Verifies the bundle has all four arrays,
 # auth-gated.
-# Cleans up via cascade delete of the scoped test user.
+#
+# Chạy qua runner: ./scripts/e2e.sh [--only catalog]
+# Dọn dẹp: xoá user test (cascade) qua dbtool — không cần psql.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib.sh
+. "${SCRIPT_DIR}/lib.sh"
 
-if [ -f "${API_DIR}/.env" ]; then
-  set -o allexport
-  # shellcheck disable=SC1090,SC1091
-  source "${API_DIR}/.env"
-  set +o allexport
-fi
+wv_init "${API_DIR}"
 
-BASE="${WV_BASE_URL:-http://localhost:4000}"
 TEST_EMAIL="__gocataltest__@local.test"
 PW="catalog-test-pw-12345"
 
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "DATABASE_URL not set." >&2
-  exit 1
-fi
-for tool in curl jq psql; do
-  command -v "$tool" >/dev/null || { echo "missing required tool: $tool" >&2; exit 1; }
-done
+wv_require_server
 
-PASS=0
-FAIL=0
-assert() {
-  local cond="$1" msg="$2"
-  if [ "$cond" = "true" ]; then
-    echo "  OK    $msg"
-    PASS=$((PASS+1))
-  else
-    echo "  FAIL  $msg  body=$(cat /tmp/wv_body.json 2>/dev/null | head -c 400)"
-    FAIL=$((FAIL+1))
-  fi
-}
+echo "→ Dọn dữ liệu test cũ"
+wv_cleanup_user "${TEST_EMAIL}"
+trap 'wv_cleanup_user "${TEST_EMAIL}"' EXIT
 
-cleanup() {
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc \
-    "DELETE FROM \"User\" WHERE email = '${TEST_EMAIL}';" >/dev/null
-}
-
-curl_status() {
-  curl -s -o /tmp/wv_body.json -w "%{http_code}" "$@"
-}
-
-ping_server() {
-  curl -sf -m 3 "${BASE}/healthz" -o /dev/null
-}
-
-echo "→ Server check: ${BASE}"
-ping_server || { echo "Server not reachable. Start \`go run ./cmd/server\` first." >&2; exit 1; }
-
-cleanup
-trap cleanup EXIT
-
-echo "→ Register"
-status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
-  -H 'content-type: application/json' \
-  -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Catalog Test\"}")
-[ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "register returns 201 (got $status)"
-TOKEN=$(jq -r '.accessToken' /tmp/wv_body.json)
+echo "→ Đăng ký"
+wv_register "${TEST_EMAIL}" "${PW}" "Catalog Test"
+[ "$WV_STATUS" = "201" ] && cond=true || cond=false
+assert "$cond" "register trả 201 (nhận $WV_STATUS)"
+TOKEN="$WV_TOKEN"
 H_AUTH="authorization: Bearer ${TOKEN}"
 
 echo
-echo "→ Catalog requires auth — without token returns 401"
-status=$(curl_status -X GET "${BASE}/api/v1/catalog")
+echo "→ Catalog yêu cầu auth — không token trả 401"
+status=$(wv_curl_status -X GET "${BASE}/api/v1/catalog")
 [ "$status" = "401" ] && cond=true || cond=false
-assert "$cond" "no-auth GET /api/v1/catalog returns 401 (got $status)"
+assert "$cond" "GET /api/v1/catalog không auth trả 401 (nhận $status)"
 
 echo
-echo "→ GET /api/v1/catalog with valid token"
-status=$(curl_status -X GET "${BASE}/api/v1/catalog" -H "$H_AUTH")
+echo "→ GET /api/v1/catalog với token hợp lệ"
+status=$(wv_curl_status -X GET "${BASE}/api/v1/catalog" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /api/v1/catalog returns 200 (got $status)"
+assert "$cond" "GET /api/v1/catalog trả 200 (nhận $status)"
 
 for key in categories brands stores warrantyProviders; do
-  KIND=$(jq -r ".$key | type" /tmp/wv_body.json)
+  KIND=$(jq -r ".$key | type" "$WV_BODY_FILE")
   [ "$KIND" = "array" ] && cond=true || cond=false
-  assert "$cond" "key '$key' is an array (got $KIND)"
+  assert "$cond" "key '$key' là array (nhận $KIND)"
 done
 
-# At least categories should be non-empty in dev DB (PHONE/LAPTOP/etc are seeded)
-CCOUNT=$(jq '.categories | length' /tmp/wv_body.json)
+# Ít nhất categories phải có dữ liệu (migration 0004 seed PHONE/LAPTOP/…)
+CCOUNT=$(jq '.categories | length' "$WV_BODY_FILE")
 [ "$CCOUNT" -gt 0 ] && cond=true || cond=false
-assert "$cond" "categories non-empty (got $CCOUNT entries)"
+assert "$cond" "categories không rỗng (nhận $CCOUNT phần tử)"
 
-# Spot-check a category shape: code + name strings
-HAS_CODE=$(jq -r '.categories[0].code' /tmp/wv_body.json)
-HAS_NAME=$(jq -r '.categories[0].name' /tmp/wv_body.json)
+# Kiểm tra shape của một category: code + name là string
+HAS_CODE=$(jq -r '.categories[0].code' "$WV_BODY_FILE")
+HAS_NAME=$(jq -r '.categories[0].name' "$WV_BODY_FILE")
 [ "$HAS_CODE" != "null" ] && [ "$HAS_NAME" != "null" ] && cond=true || cond=false
-assert "$cond" "categories[0] has code + name (code=$HAS_CODE)"
+assert "$cond" "categories[0] có code + name (code=$HAS_CODE)"
 
-echo
-echo "Pass: $PASS  Fail: $FAIL"
-[ "$FAIL" = "0" ] || exit 1
-echo "ALL CATALOG TESTS PASSED"
+wv_summary "TOÀN BỘ TEST CATALOG ĐỀU ĐẠT"

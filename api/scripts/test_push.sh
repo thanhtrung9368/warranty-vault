@@ -1,190 +1,148 @@
 #!/usr/bin/env bash
 # Smoke test for /api/v1/push/* against the Go service. Verifies the contract
 # (register → list → delete) without actually delivering a push (real APNs/FCM
-# delivery requires a phone). Cleans up via cascade-delete of the scoped test
-# user.
+# delivery requires a phone).
+#
+# Chạy qua runner: ./scripts/e2e.sh [--only push]
+# Dọn dẹp: xoá user test (cascade) qua dbtool — không cần psql.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck source=lib.sh
+. "${SCRIPT_DIR}/lib.sh"
 
-if [ -f "${API_DIR}/.env" ]; then
-  set -o allexport
-  # shellcheck disable=SC1090,SC1091
-  source "${API_DIR}/.env"
-  set +o allexport
-fi
+wv_init "${API_DIR}"
 
-BASE="${WV_BASE_URL:-http://localhost:4000}"
 TEST_EMAIL="__gopushtest__@local.test"
 PW="push-flow-pw-12345"
 
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "DATABASE_URL not set." >&2
-  exit 1
-fi
-for tool in curl jq psql; do
-  command -v "$tool" >/dev/null || { echo "missing required tool: $tool" >&2; exit 1; }
-done
+wv_require_server
 
-PASS=0
-FAIL=0
-assert() {
-  local cond="$1" msg="$2"
-  if [ "$cond" = "true" ]; then
-    echo "  OK    $msg"
-    PASS=$((PASS+1))
-  else
-    echo "  FAIL  $msg"
-    FAIL=$((FAIL+1))
-  fi
-}
-
-cleanup() {
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc \
-    "DELETE FROM \"User\" WHERE email = '${TEST_EMAIL}';" >/dev/null
-}
-
-curl_status() {
-  curl -s -o /tmp/wv_push_body.json -w "%{http_code}" "$@"
-}
-
-ping_server() {
-  curl -sf -m 3 "${BASE}/healthz" -o /dev/null
-}
-
-echo "→ Server check: ${BASE}"
-ping_server || { echo "Server not reachable. Start \`go run ./cmd/server\` first." >&2; exit 1; }
-echo "  OK    server is up"
-
-echo "→ Cleanup any prior test data"
-cleanup
+echo "→ Dọn dữ liệu test cũ"
+wv_cleanup_user "${TEST_EMAIL}"
+trap 'wv_cleanup_user "${TEST_EMAIL}"' EXIT
 
 echo
-echo "→ Register test user"
-status=$(curl_status -X POST "${BASE}/api/v1/auth/register" \
-  -H 'content-type: application/json' \
-  -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${PW}\",\"name\":\"Push Test\"}")
-[ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "register returns 201 (got $status)"
-TOKEN=$(jq -r '.accessToken' /tmp/wv_push_body.json)
-[ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] && cond=true || cond=false
-assert "$cond" "got accessToken"
+echo "→ Đăng ký user test"
+wv_register "${TEST_EMAIL}" "${PW}" "Push Test"
+[ "$WV_STATUS" = "201" ] && cond=true || cond=false
+assert "$cond" "register trả 201 (nhận $WV_STATUS)"
+TOKEN="$WV_TOKEN"
+[ -n "$TOKEN" ] && cond=true || cond=false
+assert "$cond" "có accessToken"
 
 echo
-echo "→ List subscriptions (initially empty)"
-status=$(curl_status -X GET "${BASE}/api/v1/push" \
+echo "→ Liệt kê subscription (ban đầu rỗng)"
+status=$(wv_curl_status -X GET "${BASE}/api/v1/push" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /api/v1/push returns 200 (got $status)"
-count=$(jq -r '.subscriptions | length' /tmp/wv_push_body.json)
+assert "$cond" "GET /api/v1/push trả 200 (nhận $status)"
+count=$(jq -r '.subscriptions | length' "$WV_BODY_FILE")
 [ "$count" = "0" ] && cond=true || cond=false
-assert "$cond" "subscriptions list initially empty (got count=$count)"
+assert "$cond" "danh sách ban đầu rỗng (nhận count=$count)"
 
 echo
-echo "→ Register a fake web push subscription"
+echo "→ Đăng ký web push giả"
 WEB_ENDPOINT="https://fcm.googleapis.com/wp/fake-test-endpoint-$(date +%s)"
-status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
+status=$(wv_curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d "{\"platform\":\"web\",\"endpoint\":\"${WEB_ENDPOINT}\",\"p256dh\":\"BFakeP256dhKey0123456789\",\"auth\":\"FakeAuthSecret123\",\"userAgent\":\"test-agent\"}")
 [ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "POST /api/v1/push/register web returns 201 (got $status)"
+assert "$cond" "POST /api/v1/push/register web trả 201 (nhận $status)"
 
 echo
-echo "→ Re-register same endpoint (upsert idempotent)"
-status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
+echo "→ Đăng ký lại cùng endpoint (upsert idempotent)"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d "{\"platform\":\"web\",\"endpoint\":\"${WEB_ENDPOINT}\",\"p256dh\":\"BFakeP256dhKeyUPDATED\",\"auth\":\"FakeAuthSecretUPDATED\"}")
 [ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "re-register idempotent (got $status)"
+assert "$cond" "đăng ký lại idempotent (nhận $status)"
 
 echo
-echo "→ Register a fake APNs subscription"
-status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
+echo "→ Đăng ký subscription APNs giả"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"apns","token":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}')
 [ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "POST apns subscription returns 201 (got $status)"
+assert "$cond" "POST apns subscription trả 201 (nhận $status)"
 
 echo
-echo "→ Register a fake FCM subscription"
-status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
+echo "→ Đăng ký subscription FCM giả"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"fcm","token":"fcm-test-registration-token-1234567890"}')
 [ "$status" = "201" ] && cond=true || cond=false
-assert "$cond" "POST fcm subscription returns 201 (got $status)"
+assert "$cond" "POST fcm subscription trả 201 (nhận $status)"
 
 echo
-echo "→ Validation: bad platform rejected"
-status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
+echo "→ Validate: platform rác bị từ chối"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"smoke-signal","endpoint":"x"}')
 [ "$status" = "400" ] && cond=true || cond=false
-assert "$cond" "bad platform returns 400 (got $status)"
+assert "$cond" "platform rác trả 400 (nhận $status)"
 
 echo
-echo "→ Validation: web push missing crypto rejected"
-status=$(curl_status -X POST "${BASE}/api/v1/push/register" \
+echo "→ Validate: web push thiếu crypto bị từ chối"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/push/register" \
   -H "authorization: Bearer ${TOKEN}" \
   -H 'content-type: application/json' \
   -d '{"platform":"web","endpoint":"https://example.com/x"}')
 [ "$status" = "400" ] && cond=true || cond=false
-assert "$cond" "web missing p256dh+auth returns 400 (got $status)"
+assert "$cond" "web thiếu p256dh+auth trả 400 (nhận $status)"
 
 echo
-echo "→ List subscriptions (now 3 rows)"
-status=$(curl_status -X GET "${BASE}/api/v1/push" \
+echo "→ Liệt kê subscription (nay 3 dòng)"
+status=$(wv_curl_status -X GET "${BASE}/api/v1/push" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "GET /api/v1/push returns 200"
-count=$(jq -r '.subscriptions | length' /tmp/wv_push_body.json)
+assert "$cond" "GET /api/v1/push trả 200"
+count=$(jq -r '.subscriptions | length' "$WV_BODY_FILE")
 [ "$count" = "3" ] && cond=true || cond=false
-assert "$cond" "list has 3 subscriptions (got $count)"
+assert "$cond" "danh sách có 3 subscription (nhận $count)"
 
-# Pick the apns row to delete by id
-APNS_ID=$(jq -r '.subscriptions[] | select(.platform=="apns") | .id' /tmp/wv_push_body.json | head -n1)
+# Chọn dòng apns để xoá theo id
+APNS_ID=$(jq -r '.subscriptions[] | select(.platform=="apns") | .id' "$WV_BODY_FILE" | head -n1)
 [ -n "$APNS_ID" ] && [ "$APNS_ID" != "null" ] && cond=true || cond=false
-assert "$cond" "found apns row id"
+assert "$cond" "tìm được id dòng apns"
 
 echo
 echo "→ DELETE /api/v1/push/{id}"
-status=$(curl_status -X DELETE "${BASE}/api/v1/push/${APNS_ID}" \
+status=$(wv_curl_status -X DELETE "${BASE}/api/v1/push/${APNS_ID}" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "200" ] && cond=true || cond=false
-assert "$cond" "DELETE returns 200 (got $status)"
+assert "$cond" "DELETE trả 200 (nhận $status)"
 
 echo
-echo "→ List again (now 2)"
-status=$(curl_status -X GET "${BASE}/api/v1/push" \
+echo "→ Liệt kê lại (nay 2)"
+status=$(wv_curl_status -X GET "${BASE}/api/v1/push" \
   -H "authorization: Bearer ${TOKEN}")
-count=$(jq -r '.subscriptions | length' /tmp/wv_push_body.json)
+count=$(jq -r '.subscriptions | length' "$WV_BODY_FILE")
 [ "$count" = "2" ] && cond=true || cond=false
-assert "$cond" "list has 2 after delete (got $count)"
+assert "$cond" "sau khi xoá còn 2 (nhận $count)"
 
 echo
-echo "→ DELETE non-existent id returns 404"
-status=$(curl_status -X DELETE "${BASE}/api/v1/push/clxNotARealId" \
+echo "→ DELETE id không tồn tại trả 404"
+status=$(wv_curl_status -X DELETE "${BASE}/api/v1/push/clxNotARealId" \
   -H "authorization: Bearer ${TOKEN}")
 [ "$status" = "404" ] && cond=true || cond=false
-assert "$cond" "delete missing id returns 404 (got $status)"
+assert "$cond" "xoá id không tồn tại trả 404 (nhận $status)"
 
 echo
-echo "→ Auth required"
-status=$(curl_status -X GET "${BASE}/api/v1/push")
+echo "→ Bắt buộc auth"
+status=$(wv_curl_status -X GET "${BASE}/api/v1/push")
 [ "$status" = "401" ] && cond=true || cond=false
-assert "$cond" "GET without bearer returns 401 (got $status)"
+assert "$cond" "GET không bearer trả 401 (nhận $status)"
 
 echo
-echo "→ Cleanup"
-cleanup
+echo "→ Dọn dẹp"
+wv_cleanup_user "${TEST_EMAIL}"
 
-echo
-echo "Pass: $PASS  Fail: $FAIL"
-[ "$FAIL" = "0" ] || exit 1
-echo "ALL PUSH FLOW TESTS PASSED"
+wv_summary "TOÀN BỘ TEST PUSH ĐỀU ĐẠT"
