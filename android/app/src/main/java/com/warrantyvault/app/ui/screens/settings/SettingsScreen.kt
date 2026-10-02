@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,6 +70,8 @@ import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.BuildConfig
 import com.warrantyvault.app.auth.AuthStore
+import com.warrantyvault.app.export.csvFileName
+import com.warrantyvault.app.export.devicesCsvBytes
 import com.warrantyvault.app.network.AIOptInRequest
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
@@ -114,6 +117,16 @@ fun SettingsScreen(
     var deleteBusy by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
 
+    // CSV export of the device list. Built client-side by `devicesCsvBytes()`
+    // (pure, unit-tested in app/src/test/.../export/CsvExportTest.kt) from
+    // `GET /api/v1/devices` — the same call the "Thiết bị" tab already makes, so
+    // this adds no API surface. Delivered through SAF exactly like the JSON
+    // backup below; `pendingCsv` holds the finished bytes so cancelling the
+    // picker never leaves a half-written file behind.
+    var csvBusy by remember { mutableStateOf(false) }
+    var pendingCsv by remember { mutableStateOf<ByteArray?>(null) }
+    var pendingCsvCount by remember { mutableStateOf(0) }
+
     fun snack(msg: String) { scope.launch { snackbarHostState.showSnackbar(msg) } }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -132,6 +145,53 @@ fun SettingsScreen(
                 snack("Không sao lưu được: ${e.toUserMessage(ApiClient.json)}")
             } finally {
                 backupBusy = false
+            }
+        }
+    }
+
+    // SAF writer for the CSV bytes prepared by `startCsvExport()`. Same
+    // `CreateDocument` pattern as the JSON backup above, with `text/csv` so the
+    // picker offers spreadsheet-friendly targets.
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        val bytes = pendingCsv
+        pendingCsv = null
+        if (uri == null || bytes == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            csvBusy = true
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    ?: throw IllegalStateException("no stream")
+                snack("Đã xuất $pendingCsvCount thiết bị ra file CSV")
+            } catch (e: Exception) {
+                snack("Không xuất được CSV: ${e.toUserMessage(ApiClient.json)}")
+            } finally {
+                csvBusy = false
+            }
+        }
+    }
+
+    fun startCsvExport() {
+        if (csvBusy || backupBusy) return
+        csvBusy = true
+        scope.launch {
+            try {
+                val devices = api.listDevices().devices
+                if (devices.isEmpty()) {
+                    snack("Không có thiết bị nào để xuất")
+                    return@launch
+                }
+                // Fetch + serialise before opening the picker: an empty list or a
+                // network error then costs the user nothing, and the bytes carry
+                // the UTF-8 BOM Excel needs (see CsvExport.kt).
+                pendingCsv = devicesCsvBytes(devices)
+                pendingCsvCount = devices.size
+                csvLauncher.launch(csvFileName())
+            } catch (e: Exception) {
+                snack("Không xuất được CSV: ${e.toUserMessage(ApiClient.json)}")
+            } finally {
+                csvBusy = false
             }
         }
     }
@@ -371,6 +431,13 @@ fun SettingsScreen(
                         onClick = {
                             if (!backupBusy) exportLauncher.launch("warrantyvault-backup.json")
                         },
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        icon = Icons.Filled.TableChart,
+                        title = if (csvBusy) "Đang xử lý…" else "Xuất CSV (Excel)",
+                        subtitle = "Tải danh sách thiết bị ra file CSV (UTF-8) để mở bằng Excel / Google Sheets.",
+                        onClick = { startCsvExport() },
                         showDivider = true,
                     )
                     SettingsRow(
