@@ -48,7 +48,7 @@ const FEATURES = [
   {
     icon: Receipt,
     title: 'Lưu hoá đơn & phiếu BH',
-    desc: 'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần claim.',
+    desc: 'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.',
     tint: 'tint-emerald',
   },
   {
