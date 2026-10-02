@@ -9,5 +9,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "WarrantyVaultKit", path: "Sources/WarrantyVaultKit"),
+        .testTarget(
+            name: "WarrantyVaultKitTests",
+            dependencies: ["WarrantyVaultKit"],
+            path: "Tests/WarrantyVaultKitTests"
+        ),
     ]
 )

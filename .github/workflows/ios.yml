@@ -1,4 +1,4 @@
-# Build WarrantyVaultKit Swift package (thư viện chia sẻ cho iOS app).
+# Build + test WarrantyVaultKit Swift package (thư viện chia sẻ cho iOS app).
 name: ios
 
 on:
@@ -33,3 +33,6 @@ jobs:
 
       - name: Swift build (WarrantyVaultKit)
         run: swift build
+
+      - name: Swift test (WarrantyVaultKit)
+        run: swift test
