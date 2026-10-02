@@ -67,6 +67,125 @@ final class EndpointsTests: KitTestCase {
         XCTAssertEqual(try request.jsonBody()["password"] as? String, "matkhau123")
     }
 
+    // MARK: - Email change (2 steps)
+
+    /// Step 1 is authenticated and needs the current password; step 2 is not
+    /// authenticated at all — the mailed token *is* the credential. The response
+    /// of step 1 has no token field, by design.
+    func testEmailChangeRequestAndConfirmUseTheExactContract() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+
+        StubURLProtocol.install(.json(#"""
+        {"ok": true, "message": "Nếu địa chỉ mới hợp lệ và chưa được dùng cho tài khoản khác, một email xác nhận đã được gửi tới địa chỉ mới."}
+        """#))
+        let requested = try await client.requestEmailChange(
+            EmailChangeInput(newEmail: "moi@example.vn", currentPassword: "matkhau123")
+        )
+
+        XCTAssertTrue(requested.ok)
+        XCTAssertEqual(requested.message?.contains("chưa được dùng cho tài khoản khác"), true,
+                       "the server's neutral message is surfaced as-is")
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/change-email")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc",
+                       "step 1 requires the bearer token")
+        let body = try request.jsonBody()
+        XCTAssertEqual(body["newEmail"] as? String, "moi@example.vn")
+        XCTAssertEqual(body["currentPassword"] as? String, "matkhau123")
+        XCTAssertEqual(body.keys.sorted(), ["currentPassword", "newEmail"],
+                       "exactly {newEmail, currentPassword} — nothing else")
+
+        StubURLProtocol.install(.json(#"""
+        {"ok": true, "message": "Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới."}
+        """#))
+        let confirmed = try await client.confirmEmailChange(token: "tok_raw_1")
+
+        XCTAssertTrue(confirmed.ok)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/confirm-email-change")
+        XCTAssertEqual(try request.jsonBody()["token"] as? String, "tok_raw_1")
+        XCTAssertEqual(try request.jsonBody().keys.sorted(), ["token"])
+        XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"),
+                     "confirm is unauthenticated — the token is the credential")
+    }
+
+    func testConfirmEmailChangeSurfacesInvalidToken() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"error": "invalid_email_change_token",
+         "message": "Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới."}
+        """#, statusCode: 400))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let error = await captureAPIError { try await client.confirmEmailChange(token: "used") }
+
+        guard case let .server(status, envelope)? = error else {
+            return XCTFail("expected a server APIError, got \(String(describing: error))")
+        }
+        XCTAssertEqual(status, 400)
+        XCTAssertEqual(envelope.error, "invalid_email_change_token")
+        XCTAssertEqual(envelope.message, "Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.")
+    }
+
+    // MARK: - Cross-entity search
+
+    func testSearchBuildsQueryAndClampsThePerGroupLimit() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"query": "samsung", "devices": [\#(Fixtures.device)], "subscriptions": [],
+         "wishlist": [\#(Fixtures.wishlistItem)]}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let results = try await client.search(q: "  samsung  ")
+
+        XCTAssertEqual(results.query, "samsung")
+        XCTAssertEqual(results.devices.map(\.id), ["dev_1"])
+        XCTAssertTrue(results.subscriptions.isEmpty)
+        XCTAssertEqual(results.wishlist.map(\.id), ["wish_1"])
+        XCTAssertEqual(results.totalCount, 2)
+
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/search")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        XCTAssertEqual(queryItems(of: request), ["q": "samsung", "limit": "20"],
+                       "q is trimmed; limit defaults to the server's 20")
+        XCTAssertEqual(request.url?.query, "q=samsung&limit=20")
+
+        // `limit` is per group and the server 400s outside 1...50, so the client
+        // clamps before it ever sends it.
+        _ = try await client.search(q: "samsung", limit: 500)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(queryItems(of: request), ["q": "samsung", "limit": "50"])
+
+        _ = try await client.search(q: "samsung", limit: 0)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(queryItems(of: request), ["q": "samsung", "limit": "20"])
+    }
+
+    /// Deleting the last character of the box must not raise: a blank `q` is a
+    /// plain 200 with three empty groups.
+    func testSearchWithBlankQueryIsA200WithEmptyGroups() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"query": "", "devices": [], "subscriptions": [], "wishlist": []}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let results = try await client.search(q: "   ")
+
+        XCTAssertTrue(results.isEmpty)
+        XCTAssertEqual(results.query, "")
+        XCTAssertTrue(results.sections.isEmpty)
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.url?.path, "/api/v1/search")
+        XCTAssertEqual(queryItems(of: request), ["q": "", "limit": "20"])
+        XCTAssertEqual(SearchPhase.resolve(query: "   ", isLoading: false, results: results, error: nil),
+                       .idle, "clearing the box returns to the idle state, never an error")
+    }
+
     // MARK: - Devices
 
     func testListDevicesBuildsQueryItemsAndOmitsThemWhenEmpty() async throws {

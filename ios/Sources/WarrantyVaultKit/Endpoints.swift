@@ -45,6 +45,35 @@ extension APIClient {
         )
     }
 
+    // MARK: - Email change (2 steps)
+
+    /// Step 1 of 2: asks the server to mail a single-use, 30-minute token to
+    /// `newEmail`. Requires the current password, so a stolen bearer token
+    /// alone cannot move the account. **The account email does not change
+    /// here** — the old address keeps working until step 2 succeeds.
+    ///
+    /// The response is deliberately neutral (same `message` whether the address
+    /// is free or already taken by someone else) and carries **no token**: the
+    /// raw token is only in the email, which is why `EmailChangeRules` exists to
+    /// pull it out of what the user pastes.
+    public func requestEmailChange(_ input: EmailChangeInput) async throws -> EmailChangeResult {
+        try await request("POST", "/api/v1/auth/change-email", body: input)
+    }
+
+    /// Step 2 of 2: consumes the token from the email.
+    ///
+    /// Unauthenticated on purpose — the token *is* the credential, and it may
+    /// have been requested on another device. On success the server revokes
+    /// **every** session (like a password reset), so the caller must clear the
+    /// local session and send the user back to login with the new address.
+    public func confirmEmailChange(token: String) async throws -> ConfirmEmailChangeResult {
+        struct Body: Encodable { let token: String }
+        return try await request(
+            "POST", "/api/v1/auth/confirm-email-change",
+            body: Body(token: token), authenticated: false
+        )
+    }
+
     // MARK: - Backup
 
     /// Downloads the full account backup as raw JSON bytes (v5 payload).
@@ -315,6 +344,25 @@ extension APIClient {
         let _: EmptyResponse = try await request(
             "POST", "/api/v1/wishlist/\(id)/prices", body: input
         )
+    }
+
+    // MARK: - Cross-entity search
+
+    /// Searches devices, subscriptions and wishlist in one round trip.
+    ///
+    /// `limit` is **per group** (default 20, max 50) and is clamped client-side
+    /// so an out-of-range value can never turn into the server's 400 on
+    /// `limit`. `q` is trimmed; a blank one is a valid request that returns 200
+    /// with three empty groups — the screen only skips the call because there is
+    /// nothing to show, not because blank input is an error.
+    public func search(
+        q: String,
+        limit: Int = SearchQueryRules.defaultLimit
+    ) async throws -> SearchResults {
+        try await request("GET", "/api/v1/search", query: [
+            .init(name: "q", value: SearchQueryRules.trimmed(q)),
+            .init(name: "limit", value: String(SearchQueryRules.clampedLimit(limit))),
+        ])
     }
 
     // MARK: - Stats

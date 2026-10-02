@@ -100,31 +100,51 @@ final class AttachmentFileTypeTests: KitTestCase {
     // MARK: - Receipt-scan acceptance
 
     func testOCRPayloadsThatPassThroughUntouched() {
-        XCTAssertFalse(AttachmentFileType.ocrNeedsTranscode(payload([0xFF, 0xD8, 0xFF])))
-        XCTAssertFalse(AttachmentFileType.ocrNeedsTranscode(
-            payload([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])))
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: payload([0xFF, 0xD8, 0xFF])),
+                       .asIs(mimeType: "image/jpeg", fileExtension: "jpg"))
+        XCTAssertEqual(AttachmentFileType.ocrPayload(
+            for: payload([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])),
+            .asIs(mimeType: "image/png", fileExtension: "png"))
 
         var webp = Array("RIFF".utf8)
         webp += [0x24, 0x00, 0x00, 0x00]
         webp += Array("WEBP".utf8)
-        XCTAssertFalse(AttachmentFileType.ocrNeedsTranscode(payload(webp)))
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: payload(webp)),
+                       .asIs(mimeType: "image/webp", fileExtension: "webp"))
     }
 
-    /// The endpoint is stricter than the attachment whitelist, so HEIC (the
-    /// iPhone default), GIF and PDF all have to be re-encoded before upload.
-    func testOCRPayloadsThatNeedTranscoding() {
-        XCTAssertTrue(AttachmentFileType.ocrNeedsTranscode(isoBMFF("heic")))
-        XCTAssertTrue(AttachmentFileType.ocrNeedsTranscode(isoBMFF("mif1")))
-        XCTAssertTrue(AttachmentFileType.ocrNeedsTranscode(payload(Array("GIF89a".utf8))))
-        XCTAssertTrue(AttachmentFileType.ocrNeedsTranscode(payload(Array("%PDF-1.7".utf8))))
-        XCTAssertTrue(AttachmentFileType.ocrNeedsTranscode(isoBMFF("isom")), "video")
-        XCTAssertTrue(AttachmentFileType.ocrNeedsTranscode(Data()))
+    /// A PDF receipt is a supported OCR input now (`services/ai_extract.go`
+    /// sends it as an Anthropic `document` block) and must go up byte-for-byte:
+    /// it is not an image, so `UIImage(data:)` can never "convert" it.
+    func testPDFReceiptsAreSentAsIsAndNeverTranscoded() {
+        let pdf = payload(Array("%PDF-1.7".utf8), total: 64)
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: pdf),
+                       .asIs(mimeType: "application/pdf", fileExtension: "pdf"))
+        XCTAssertTrue(AttachmentFileType.ocrAcceptedMIMEs.contains("application/pdf"))
+    }
+
+    /// GIF and HEIC are still image-only rejects: they can be re-encoded to
+    /// JPEG client-side, and that has to stay true after the PDF change.
+    func testOCRPayloadsThatStillNeedTranscoding() {
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: isoBMFF("heic")), .transcodeToJPEG)
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: isoBMFF("mif1")), .transcodeToJPEG)
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: payload(Array("GIF89a".utf8))),
+                       .transcodeToJPEG)
+    }
+
+    /// Video / empty / unknown bytes are not "transcode me" — there is nothing
+    /// to send, so the scan shows the Vietnamese rejection instead.
+    func testNonImagePayloadsAreUnsupportedNotTranscodable() {
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: isoBMFF("isom")), .unsupported)
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: Data()), .unsupported)
+        XCTAssertEqual(AttachmentFileType.ocrPayload(for: payload(Array("hello world".utf8))),
+                       .unsupported)
     }
 
     func testOCRWhitelistMatchesTheHandler() {
         XCTAssertEqual(AttachmentFileType.ocrAcceptedMIMEs,
-                       ["image/jpeg", "image/png", "image/webp"])
+                       ["image/jpeg", "image/png", "image/webp", "application/pdf"])
         XCTAssertEqual(AttachmentFileType.ocrUnsupportedMessage,
-                       "Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP.")
+                       "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF.")
     }
 }

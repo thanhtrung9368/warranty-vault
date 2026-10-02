@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import UniformTypeIdentifiers
 import WarrantyVaultKit
 
 // ============================================================
@@ -59,7 +60,10 @@ struct DeviceFormView: View {
     @State private var fieldErrors: [String: [String]] = [:]
 
     // OCR receipt scan (create flow only, gated on the per-user AI opt-in).
+    // Two sources: the photo library (JPEG/PNG/WEBP/HEIC) and Files (PDF).
     @State private var scanPhotoItem: PhotosPickerItem?
+    @State private var showPhotoPicker = false
+    @State private var showPDFImporter = false
     @State private var scanning = false
     @State private var scanInfo: ScanInfo?
     @State private var aiEnabled = false
@@ -120,9 +124,22 @@ struct DeviceFormView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer().frame(height: 8)
 
-                // OCR receipt scan — create flow only, gated on AI opt-in
+                // OCR receipt scan — create flow only, gated on AI opt-in.
+                // The endpoint accepts JPEG/PNG/WEBP **and PDF**, so the menu
+                // offers both the photo library and a PDF file.
                 if !isEditing && aiEnabled {
-                    PhotosPicker(selection: $scanPhotoItem, matching: .images) {
+                    Menu {
+                        Button {
+                            showPhotoPicker = true
+                        } label: {
+                            Label("Chụp hoặc chọn ảnh", systemImage: "photo.on.rectangle")
+                        }
+                        Button {
+                            showPDFImporter = true
+                        } label: {
+                            Label("Chọn tệp PDF", systemImage: "doc")
+                        }
+                    } label: {
                         HStack(spacing: 12) {
                             if scanning {
                                 ProgressView()
@@ -134,12 +151,14 @@ struct DeviceFormView: View {
                                 Text(scanning ? "Đang quét hoá đơn…" : "Quét hoá đơn / phiếu bảo hành")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(WVColor.label)
-                                Text("Chụp hoặc chọn ảnh để tự điền — vẫn kiểm tra lại trước khi lưu")
+                                Text("Chọn ảnh (JPG/PNG/WEBP/HEIC) hoặc tệp PDF để tự điền — vẫn kiểm tra lại trước khi lưu")
                                     .font(.system(size: 12))
                                     .foregroundStyle(WVColor.label3)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer(minLength: 0)
+                            WVIcon("arrowDown", size: 12)
+                                .foregroundStyle(WVColor.label3)
                         }
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -392,34 +411,94 @@ struct DeviceFormView: View {
             guard let item else { return }
             Task { await handleScan(item) }
         }
+        // Photo library picker (images only — PDFs come through Files below).
+        .photosPicker(isPresented: $showPhotoPicker, selection: $scanPhotoItem, matching: .images)
+        .fileImporter(
+            isPresented: $showPDFImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            Task { await handlePDFImport(result) }
+        }
     }
 
     // MARK: - OCR receipt scan
 
     private func handleScan(_ item: PhotosPickerItem) async {
         defer { scanPhotoItem = nil }
-        scanning = true
         topError = nil
         scanInfo = nil
-        defer { scanning = false }
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
             guard data.count <= AttachmentFileType.maxBytes else {
                 topError = AttachmentFileType.tooLargeMessage
                 return
             }
-            // The OCR endpoint only takes JPEG/PNG/WEBP and cross-checks the
-            // declared Content-Type against the magic bytes. iPhones write
-            // HEIC by default, so transcode anything else to JPEG first
-            // instead of declaring a type the server will reject.
-            let payload = Self.ocrPayload(from: data)
-            guard let payload else {
+            // The endpoint takes JPEG/PNG/WEBP/PDF and cross-checks the declared
+            // Content-Type against the magic bytes. iPhones write HEIC by
+            // default, so anything that isn't accepted but *is* an image is
+            // re-encoded as JPEG — a PDF is never touched (it is a supported
+            // input on its own, and `UIImage` cannot read it anyway).
+            switch AttachmentFileType.ocrPayload(for: data) {
+            case let .asIs(mimeType, fileExtension):
+                await scan(fileName: "receipt-\(Self.stamp()).\(fileExtension)",
+                           fileType: mimeType, data: data)
+
+            case .transcodeToJPEG:
+                guard let image = UIImage(data: data),
+                      let jpeg = image.jpegData(compressionQuality: 0.9) else {
+                    topError = AttachmentFileType.ocrUnsupportedMessage
+                    return
+                }
+                await scan(fileName: "receipt-\(Self.stamp()).jpg",
+                           fileType: "image/jpeg", data: jpeg)
+
+            case .unsupported:
+                topError = AttachmentFileType.ocrUnsupportedMessage
+            }
+        } catch {
+            topError = "Không đọc được ảnh, thử lại sau"
+        }
+    }
+
+    /// PDF receipts come from Files rather than the photo library, but are
+    /// handled exactly like one: the bytes go up untouched.
+    private func handlePDFImport(_ result: Result<[URL], Error>) async {
+        topError = nil
+        scanInfo = nil
+        guard case let .success(urls) = result, let url = urls.first else {
+            if case .failure = result { topError = "Không mở được file." }
+            return
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            guard data.count <= AttachmentFileType.maxBytes else {
+                topError = AttachmentFileType.tooLargeMessage
+                return
+            }
+            // Only a real PDF; a picked file that sniffs as something else would
+            // be rejected by the server after a wasted round trip.
+            guard case let .asIs(mimeType, _) = AttachmentFileType.ocrPayload(for: data),
+                  mimeType == "application/pdf" else {
                 topError = AttachmentFileType.ocrUnsupportedMessage
                 return
             }
-            let fileName = "receipt-\(Int(Date().timeIntervalSince1970)).\(payload.fileExtension)"
+            await scan(fileName: "receipt-\(Self.stamp()).pdf", fileType: mimeType, data: data)
+        } catch {
+            topError = "Không đọc được file."
+        }
+    }
+
+    /// The single place that calls `extractReceipt`, so both entry points fill
+    /// the form the same way.
+    private func scan(fileName: String, fileType: String, data: Data) async {
+        scanning = true
+        defer { scanning = false }
+        do {
             let draft = try await client.extractReceipt(
-                fileName: fileName, fileType: payload.mimeType, data: payload.data
+                fileName: fileName, fileType: fileType, data: data
             )
             applyDraft(draft)
             scanInfo = ScanInfo(confidence: draft.confidence, unmatched: draft.unmatched)
@@ -430,18 +509,7 @@ struct DeviceFormView: View {
         }
     }
 
-    /// JPEG/PNG/WEBP go up untouched; anything else `UIImage` can decode
-    /// (HEIC, GIF, …) is re-encoded as JPEG. Returns nil when the bytes aren't
-    /// an image the receipt-scan endpoint could accept at all.
-    static func ocrPayload(from data: Data) -> (mimeType: String, fileExtension: String, data: Data)? {
-        if !AttachmentFileType.ocrNeedsTranscode(data),
-           let detected = AttachmentFileType.detect(data) {
-            return (detected.mimeType, detected.fileExtension, data)
-        }
-        guard let image = UIImage(data: data),
-              let jpeg = image.jpegData(compressionQuality: 0.9) else { return nil }
-        return ("image/jpeg", "jpg", jpeg)
-    }
+    private static func stamp() -> Int { Int(Date().timeIntervalSince1970) }
 
     /// Seeds the form from an extracted draft. Category is only applied when it
     /// matches a known catalog code; brand/place are set verbatim (free-text

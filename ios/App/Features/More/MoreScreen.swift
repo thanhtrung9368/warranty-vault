@@ -124,6 +124,29 @@ struct MoreScreen: View {
     private var moreActionsSection: some View {
         VStack(spacing: 0) {
             WVGroup {
+                // Cross-entity search. Same screen as the magnifier in the
+                // Tổng quan toolbar; this row is the way in from the "Thêm" tab.
+                NavigationLink {
+                    SearchScreen(client: client)
+                } label: {
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(icon: "search", color: WVColor.indigo)
+                        Text("Tìm kiếm")
+                            .font(.system(size: 17))
+                            .foregroundStyle(WVColor.label)
+                        Spacer(minLength: 8)
+                        WVIcon("arrowRight", size: 13, weight: .semibold)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(WVRowButtonStyle())
+
+                WVDivider(inset: 60)
+
                 NavigationLink {
                     RemindersView(client: client)
                         .navigationTitle("Nhắc nhở")

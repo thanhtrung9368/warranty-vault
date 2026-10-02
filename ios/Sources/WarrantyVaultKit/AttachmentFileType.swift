@@ -74,23 +74,50 @@ public enum AttachmentFileType {
     // MARK: - OCR (receipt scan) acceptance
     //
     // `POST /api/v1/ai/extract-receipt` is *stricter* than the attachment
-    // whitelist: it accepts JPEG / PNG / WEBP only, and — like the attachment
-    // path — validates the declared Content-Type against the magic bytes
-    // (`api/internal/handlers/ai.go`).
+    // whitelist: it accepts JPEG / PNG / WEBP **and PDF** only — GIF and HEIC
+    // are rejected with a clear 400 before any paid model call — and, like the
+    // attachment path, validates the declared Content-Type against the magic
+    // bytes (`api/internal/handlers/ai.go`).
+    //
+    // PDFs go to the model as Anthropic `document` blocks
+    // (`services/ai_extract.go`), so a PDF is a supported input that must be
+    // uploaded **byte-for-byte**: it is not an image and cannot be re-encoded
+    // as one.
 
     public static let ocrAcceptedMIMEs: Set<String> = [
-        "image/jpeg", "image/png", "image/webp",
+        "image/jpeg", "image/png", "image/webp", "application/pdf",
     ]
 
-    /// Vietnamese message for a payload the OCR endpoint can't take.
-    public static let ocrUnsupportedMessage = "Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP."
+    /// Vietnamese message for a payload the OCR endpoint can't take
+    /// (mirrors the server's `Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF`).
+    public static let ocrUnsupportedMessage = "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF."
 
-    /// True when `data` can't be uploaded to the receipt-scan endpoint as-is
-    /// and has to be re-encoded first. An iPhone camera writes HEIC, so this
-    /// is the common case for a freshly-taken receipt photo.
-    public static func ocrNeedsTranscode(_ data: Data) -> Bool {
-        guard let detected = detect(data) else { return true }
-        return !ocrAcceptedMIMEs.contains(detected.mimeType)
+    /// What the receipt scan has to do with `data` before uploading it.
+    public enum OCRPayload: Equatable, Sendable {
+        /// Send it as-is, declaring `mimeType` (JPEG / PNG / WEBP / PDF).
+        case asIs(mimeType: String, fileExtension: String)
+        /// A still image the endpoint won't take (an iPhone camera writes HEIC;
+        /// GIF is the other one): re-encode as JPEG first.
+        case transcodeToJPEG
+        /// Nothing the endpoint could ever read (video, empty, unknown bytes).
+        case unsupported
+    }
+
+    /// Decides the upload shape for a receipt scan.
+    ///
+    /// The PDF case matters: it is accepted (`.asIs`), so it can never fall
+    /// through to the image transcode step — decoding a PDF with `UIImage(data:)`
+    /// yields nothing, and *pretending* to convert it would silently lose the
+    /// receipt. Anything that is not an `image/*` the endpoint accepts is
+    /// `unsupported`, not "transcode me".
+    public static func ocrPayload(for data: Data) -> OCRPayload {
+        guard let detected = detect(data) else { return .unsupported }
+        if ocrAcceptedMIMEs.contains(detected.mimeType) {
+            return .asIs(mimeType: detected.mimeType, fileExtension: detected.fileExtension)
+        }
+        // HEIC / GIF: images the endpoint rejects but `UIImage` can decode.
+        if detected.mimeType.hasPrefix("image/") { return .transcodeToJPEG }
+        return .unsupported
     }
 
     // MARK: - Private

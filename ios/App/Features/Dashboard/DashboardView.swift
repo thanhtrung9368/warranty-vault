@@ -122,6 +122,19 @@ struct DashboardView: View {
         .navigationTitle("Tổng quan")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            // Global search lives on the landing tab: it spans three other tabs
+            // (thiết bị / đăng ký / wishlist), so it can't sit inside any one of
+            // them without hiding two thirds of the results.
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    SearchScreen(client: client)
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                }
+                .accessibilityLabel("Tìm kiếm")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showQuickAdd = true } label: {
                     Image(systemName: "plus")

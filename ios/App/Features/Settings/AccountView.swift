@@ -11,6 +11,7 @@ struct AccountView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var appLock: AppLockStore
     @State private var showChangePassword = false
+    @State private var showChangeEmail = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
     @State private var deletePassword = ""
@@ -58,7 +59,13 @@ struct AccountView: View {
                     .frame(minHeight: 44)
                 }
 
-                // Password + app lock
+                // Password + email + app lock.
+                //
+                // Email change lives here rather than in "Thông tin" because it
+                // is password-gated and revokes every session: it needs the
+                // current password (a stolen bearer token must not be able to
+                // move the account) and the old address keeps working until the
+                // mailed token is confirmed.
                 WVSectionHeader("Bảo mật")
                 WVGroup {
                     WVRow(icon: "key", iconColor: WVColor.orange,
@@ -66,8 +73,15 @@ struct AccountView: View {
                         showChangePassword = true
                     }
                     WVDivider(inset: 60)
+                    WVRow(icon: "mail", iconColor: WVColor.blue,
+                          title: "Đổi email",
+                          subtitle: userEmail, chevron: true) {
+                        showChangeEmail = true
+                    }
+                    WVDivider(inset: 60)
                     appLockRow
                 }
+                WVSectionFooter("Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại.")
                 WVSectionFooter("Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng.")
 
                 // Linked accounts section
@@ -84,7 +98,7 @@ struct AccountView: View {
                     WVRow(icon: "users", iconColor: WVColor.blue,
                           title: "Google", detail: "Chưa khả dụng")
                 }
-                WVSectionFooter("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản WarrantyVault dùng email và mật khẩu — đổi mật khẩu ở mục Bảo mật.")
+                WVSectionFooter("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản WarrantyVault dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật.")
 
                 // Delete account
                 Spacer().frame(height: 20)
@@ -102,6 +116,9 @@ struct AccountView: View {
         .wvScreen()
         .sheet(isPresented: $showChangePassword) {
             ChangePasswordSheet(client: client)
+        }
+        .sheet(isPresented: $showChangeEmail) {
+            EmailChangeSheet(client: client)
         }
         .alert("Xoá tài khoản?", isPresented: $showDeleteAlert) {
             SecureField("Mật khẩu hiện tại", text: $deletePassword)
