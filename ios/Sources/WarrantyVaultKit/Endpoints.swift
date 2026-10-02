@@ -212,7 +212,10 @@ extension APIClient {
         return w.aiOptIn
     }
 
-    public func attachmentDownloadURL(id: String, download: Bool = false) -> URL {
+    /// URL of the byte stream for an attachment. `nonisolated` because it only
+    /// reads the immutable `baseURL` — callers (SwiftUI views) build these
+    /// synchronously while rendering.
+    nonisolated public func attachmentDownloadURL(id: String, download: Bool = false) -> URL {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("/api/files/\(id)"),
             resolvingAgainstBaseURL: false

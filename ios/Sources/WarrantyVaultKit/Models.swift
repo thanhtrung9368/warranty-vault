@@ -164,6 +164,17 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     public let notes: String?
     public let createdAt: Date?
     public let updatedAt: Date?
+
+    // List-row projection only (`GET /api/v1/devices`). The Go service returns
+    // `DeviceListItem` = `store.Device` + these two counts — see
+    // `api/internal/services/devices.go` and `website/src/lib/api/devices.ts`.
+    // Both are absent on create/update/detail responses, hence optional.
+    //
+    // NOTE: these two fields are missing from the `Device` schema in
+    // `openapi.yaml` even though the server emits them; the web client already
+    // relies on them.
+    public let attachmentCount: Int?
+    public let effectiveWarrantyEnd: Date?
 }
 
 public struct DeviceDetail: Decodable, Sendable {

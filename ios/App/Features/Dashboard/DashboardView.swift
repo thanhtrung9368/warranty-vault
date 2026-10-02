@@ -22,6 +22,7 @@ struct DashboardView: View {
     @StateObject private var statsStore: StatsStore
 
     @State private var showQuickAdd = false
+    @State private var quickAddTarget: DashQuickAdd?
 
     init(client: APIClient) {
         self.client = client
@@ -50,13 +51,17 @@ struct DashboardView: View {
 
     private var totalDevices: Int { statsStore.snapshot.totalDevices }
     private var activeDevices: Int { (statsStore.snapshot.devicesByStatus[.ACTIVE] ?? 0) }
+    /// Devices whose effective warranty ends within 30 days.
     private var expiringSoon: Int { statsStore.snapshot.expiringIn30Days }
+    /// "Đã hết" counts devices whose effective warranty end has passed —
+    /// not devices whose *status* is EXPIRED. Mirrors `computeDeviceStats()`
+    /// on the web dashboard.
     private var expiredDevices: Int {
-        // "Đã hết" — count from reminders with negative days
-        // Use stats snapshot: total - active? No, model doesn't have "expired warranty" stat.
-        // Use reminders entries with daysRemaining < 0 count isn't in store.
-        // Best effort from snapshot: any device not ACTIVE.
-        (statsStore.snapshot.devicesByStatus[.EXPIRED] ?? 0)
+        let now = Date()
+        return devicesStore.devices.filter { device in
+            guard let end = device.effectiveWarrantyEnd else { return false }
+            return end < now
+        }.count
     }
     private var safeActive: Int { max(0, activeDevices - expiringSoon) }
 
@@ -126,7 +131,23 @@ struct DashboardView: View {
             }
         }
         .sheet(isPresented: $showQuickAdd) {
-            DashQuickAddSheet()
+            DashQuickAddSheet { target in
+                showQuickAdd = false
+                quickAddTarget = target
+            }
+        }
+        // "Thêm nhanh" from the dashboard opens the same create forms the tabs
+        // use. Previously the sheet just dismissed itself, so the buttons did
+        // nothing.
+        .sheet(item: $quickAddTarget) { target in
+            switch target {
+            case .device:
+                DeviceFormView(client: client, store: devicesStore, device: nil)
+            case .subscription:
+                SubscriptionFormView(client: client, store: subsStore, subscription: nil)
+            case .wishlist:
+                WishlistFormView(client: client, store: wishStore, item: nil)
+            }
         }
         .navigationDestination(for: DashDeviceNav.self) { nav in
             // Find the device from store; if not found yet show the detail with a placeholder.
@@ -341,7 +362,7 @@ private struct DashWarrantyRow: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
-                Text(categoryLabel(category))
+                Text(CategoryLabels.label(for: category))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
@@ -355,25 +376,6 @@ private struct DashWarrantyRow: View {
         .frame(minHeight: 44)
         .padding(.vertical, 7)
         .contentShape(Rectangle())
-    }
-
-    private func categoryLabel(_ code: String) -> String {
-        // Map category codes to Vietnamese display labels
-        switch code.lowercased() {
-        case "phone":     return "Điện thoại"
-        case "laptop":    return "Laptop"
-        case "tablet":    return "Máy tính bảng"
-        case "watch":     return "Đồng hồ"
-        case "tv":        return "TV"
-        case "audio":     return "Tai nghe / Loa"
-        case "camera":    return "Camera"
-        case "appliance": return "Thiết bị gia dụng"
-        case "console":   return "Máy chơi game"
-        case "monitor":   return "Màn hình"
-        case "printer":   return "Máy in"
-        case "vehicle":   return "Xe cộ"
-        default:          return code
-        }
     }
 }
 
@@ -406,46 +408,60 @@ private struct DashSubRow: View {
 
 // MARK: - Quick-add sheet
 
+/// The three "Thêm nhanh" destinations from the web dashboard.
+enum DashQuickAdd: String, Identifiable, CaseIterable {
+    case device, subscription, wishlist
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .device:       return "Thiết bị"
+        case .subscription: return "Gói đăng ký"
+        case .wishlist:     return "Wishlist"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .device:       return "package"
+        case .subscription: return "refresh"
+        case .wishlist:     return "heart"
+        }
+    }
+}
+
 private struct DashQuickAddSheet: View {
-    @Environment(\.dismiss) private var dismiss
+    /// Called with the chosen destination — the presenter dismisses this sheet
+    /// and opens the matching create form.
+    let onSelect: (DashQuickAdd) -> Void
 
     var body: some View {
-        // Action sheet style — just a list of options.
         NavigationStack {
             List {
                 Section {
-                    Label("Thiết bị", systemImage: "shippingbox.fill")
-                        .font(.system(size: 17))
-                        .foregroundStyle(WVColor.label)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { dismiss() }
-
-                    Label("Gói đăng ký", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 17))
-                        .foregroundStyle(WVColor.label)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { dismiss() }
-
-                    Label("Wishlist", systemImage: "heart.fill")
-                        .font(.system(size: 17))
-                        .foregroundStyle(WVColor.label)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture { dismiss() }
+                    ForEach(DashQuickAdd.allCases) { target in
+                        Button {
+                            onSelect(target)
+                        } label: {
+                            Label {
+                                Text(target.title)
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label)
+                            } icon: {
+                                WVIcon(target.icon, size: 15)
+                                    .foregroundStyle(WVColor.tint)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                    }
                 } header: {
                     Text("Thêm nhanh")
                 }
             }
             .navigationTitle("Thêm nhanh")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
-                }
-            }
         }
         .presentationDetents([.medium])
     }

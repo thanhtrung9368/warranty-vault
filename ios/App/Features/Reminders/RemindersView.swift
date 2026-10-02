@@ -2,8 +2,9 @@ import SwiftUI
 import WarrantyVaultKit
 
 // ============================================================
-// RemindersView — warranty expiry reminders bucketed by urgency.
-// Port of RemindersScreen in screens-3.jsx.
+// RemindersView — warranty expiry reminders bucketed by urgency,
+// plus the "Đã ẩn" list where a hidden reminder can be restored.
+// Port of RemindersScreen in screens-3.jsx + the web's restore path.
 // ============================================================
 
 struct RemindersView: View {
@@ -11,9 +12,9 @@ struct RemindersView: View {
     @StateObject private var store: RemindersStore
 
     @State private var pendingDismiss: String?
+    @State private var pendingRestore: String?
     @State private var actionError: String?
     @State private var recentlyDismissed: UpcomingReminder?
-    @State private var restoring = false
 
     init(client: APIClient) {
         _store = StateObject(wrappedValue: RemindersStore(client: client))
@@ -21,13 +22,7 @@ struct RemindersView: View {
 
     var body: some View {
         Group {
-            switch store.state {
-            case .idle, .loading where store.entries.isEmpty:
-                ScrollView {
-                    RemindersSkeleton()
-                }
-                .wvScreen()
-            case .error(let msg) where store.entries.isEmpty:
+            if store.entries.isEmpty, case .error(let msg) = store.state {
                 ScrollView {
                     WVEmpty(icon: "alert", title: "Không tải được nhắc", description: msg) {
                         WVButton("Thử lại") { Task { await store.load() } }
@@ -35,14 +30,13 @@ struct RemindersView: View {
                     }
                 }
                 .wvScreen()
-            case .loaded where store.entries.isEmpty:
+            } else if store.entries.isEmpty,
+                      store.state == .idle || store.state == .loading {
                 ScrollView {
-                    WVEmpty(icon: "checkCircle",
-                            title: "Không có nhắc nào, ngon!",
-                            description: "Tất cả gói bảo hành đều an toàn.")
+                    RemindersSkeleton()
                 }
                 .wvScreen()
-            default:
+            } else {
                 mainList
             }
         }
@@ -74,9 +68,9 @@ struct RemindersView: View {
                             .lineLimit(1)
                         Spacer(minLength: 8)
                         Button {
-                            Task { await restore(dismissed.id) }
+                            Task { await restore(dismissed.id, clearUndo: true) }
                         } label: {
-                            if restoring {
+                            if pendingRestore == dismissed.id {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 Text("Hoàn tác")
@@ -85,11 +79,18 @@ struct RemindersView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(WVColor.tint)
-                        .disabled(restoring)
+                        .disabled(pendingRestore != nil)
                     }
                     .foregroundStyle(WVColor.label2)
                     .padding(.horizontal, WVSpacing.gutter)
                     .padding(.top, 12)
+                }
+
+                if store.entries.isEmpty {
+                    WVEmpty(icon: "checkCircle",
+                            title: "Không có nhắc nào, ngon!",
+                            description: "Tất cả gói bảo hành đều an toàn.")
+                        .padding(.top, 24)
                 }
 
                 ForEach(buckets, id: \.label) { bucket in
@@ -114,6 +115,8 @@ struct RemindersView: View {
                         }
                     }
                 }
+
+                dismissedSection
 
                 Spacer().frame(height: 24)
             }
@@ -180,6 +183,109 @@ struct RemindersView: View {
         }
     }
 
+    // MARK: - Đã ẩn (dismissed + restore)
+
+    /// Every hidden warranty, read from the backup export (the upcoming feed
+    /// excludes dismissed rows). Mirrors the web reminders page's "Đã ẩn"
+    /// section: a dismissed reminder always stays visible *and* restorable,
+    /// not just during the few seconds the undo banner is on screen.
+    @ViewBuilder
+    private var dismissedSection: some View {
+        let count = store.dismissedUnavailable ? "?" : "\(store.dismissed.count)"
+
+        HStack {
+            Text("Đã ẩn · \(count)")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(WVColor.label3)
+            Spacer()
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 20)
+        .padding(.bottom, 6)
+
+        WVGroup {
+            if store.dismissedUnavailable {
+                WVRowContainer {
+                    Text("Không tải được danh sách nhắc nhở đã ẩn — kéo xuống để tải lại nhé.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(WVColor.label3)
+                }
+            } else if store.dismissed.isEmpty {
+                WVRowContainer {
+                    Text("Chưa ẩn gói bảo hành nào. Gói nào bạn bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                ForEach(Array(store.dismissed.enumerated()), id: \.element.id) { idx, item in
+                    if idx > 0 { WVDivider(inset: 60) }
+                    dismissedRow(item)
+                }
+            }
+        }
+    }
+
+    private func dismissedRow(_ item: DismissedReminder) -> some View {
+        WVRowContainer {
+            HStack(spacing: 12) {
+                WVLeadingIcon(
+                    icon: WVCategory.icon(for: item.deviceCategory),
+                    color: WVCategory.accent(for: item.deviceCategory),
+                    size: 36
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(item.deviceName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(WVColor.label)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        WarrantyPill(daysLeft: item.daysRemaining())
+                    }
+
+                    HStack(spacing: 8) {
+                        WVChip(item.warrantyTypeLabel,
+                               tone: item.warrantyType.map(chipTone(for:)) ?? .gray)
+                        if item.deviceStatus != .ACTIVE {
+                            WVChip(item.deviceStatus.label, tone: .gray)
+                        }
+                        Text("\(item.warrantyProvider ?? "–") · \(WVFormat.date(item.endDate))")
+                            .font(.system(size: 13))
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
+                    }
+
+                    Button {
+                        Task { await restore(item.warrantyId, clearUndo: false) }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if pendingRestore == item.warrantyId {
+                                ProgressView().scaleEffect(0.7)
+                            } else {
+                                WVIcon("rotateCcw", size: 10, weight: .bold)
+                                Text("Khôi phục")
+                            }
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                        .padding(.horizontal, 8)
+                        .frame(height: 22)
+                        .background(WVColor.tint.opacity(0.14))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(pendingRestore != nil)
+                    .padding(.top, 2)
+                }
+
+                WVIcon("arrowRight", size: 13, weight: .semibold)
+                    .foregroundStyle(WVColor.label4)
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private struct Bucket {
@@ -209,20 +315,22 @@ struct RemindersView: View {
         pendingDismiss = entry.id
         defer { pendingDismiss = nil }
         do {
-            try await store.dismiss(warrantyId: entry.id)
+            try await store.dismiss(entry)
             withAnimation { recentlyDismissed = entry }
         } catch {
             actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
     }
 
-    private func restore(_ id: String) async {
+    private func restore(_ warrantyId: String, clearUndo: Bool) async {
         actionError = nil
-        restoring = true
-        defer { restoring = false }
+        pendingRestore = warrantyId
+        defer { pendingRestore = nil }
         do {
-            try await store.restore(warrantyId: id)
-            withAnimation { recentlyDismissed = nil }
+            try await store.restore(warrantyId: warrantyId)
+            if clearUndo {
+                withAnimation { recentlyDismissed = nil }
+            }
         } catch {
             actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }

@@ -18,6 +18,7 @@ struct DevicesScreen: View {
     // Search + filter state
     @State private var searchQuery = ""
     @State private var statusFilter: DeviceStatus? = nil
+    @State private var categoryFilter: String? = nil
     @State private var sortOrder: DeviceSortOrder = .purchaseDesc
     @State private var showFilterSheet = false
 
@@ -58,12 +59,14 @@ struct DevicesScreen: View {
         if let sf = statusFilter {
             arr = arr.filter { $0.status == sf }
         }
+        if let cf = categoryFilter {
+            arr = arr.filter { $0.category == cf }
+        }
         switch sortOrder {
         case .purchaseDesc:
             arr.sort { $0.purchaseDate > $1.purchaseDate }
         case .warrantyAsc:
-            // No warranty data at list level — just keep server order for now
-            break
+            arr = Self.sortedByWarrantyEndAscending(arr)
         case .priceDesc:
             arr.sort { $0.purchasePrice > $1.purchasePrice }
         case .priceAsc:
@@ -74,7 +77,30 @@ struct DevicesScreen: View {
         return arr
     }
 
-    private var hasActiveFilters: Bool { statusFilter != nil || sortOrder != .purchaseDesc }
+    /// "BH sắp hết trước": soonest effective warranty end first. Devices with
+    /// no warranty package sort last, mirroring the Go list endpoint
+    /// (`services.ListDevices` treats a missing `effectiveWarrantyEnd` as
+    /// infinitely far away when ordering ascending).
+    static func sortedByWarrantyEndAscending(_ devices: [Device]) -> [Device] {
+        devices.sorted { a, b in
+            switch (a.effectiveWarrantyEnd, b.effectiveWarrantyEnd) {
+            case let (lhs?, rhs?): return lhs < rhs
+            case (nil, _?):        return false
+            case (_?, nil):        return true
+            case (nil, nil):       return false
+            }
+        }
+    }
+
+    private var hasActiveFilters: Bool {
+        statusFilter != nil || categoryFilter != nil || sortOrder != .purchaseDesc
+    }
+
+    private var categoryFilterLabel: String? {
+        guard let code = categoryFilter else { return nil }
+        return catalog.categories.first(where: { $0.code == code })?.name
+            ?? CategoryLabels.label(for: code)
+    }
 
     // MARK: - Body
 
@@ -144,7 +170,10 @@ struct DevicesScreen: View {
         }
         // Dashboard push via DashDeviceNav (cross-tab usage doesn't apply here)
         .sheet(isPresented: $showFilterSheet) {
-            DeviceFilterSheet(statusFilter: $statusFilter, sortOrder: $sortOrder)
+            DeviceFilterSheet(statusFilter: $statusFilter,
+                              categoryFilter: $categoryFilter,
+                              sortOrder: $sortOrder,
+                              categories: catalog.categories)
         }
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -173,6 +202,17 @@ struct DevicesScreen: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    if let categoryFilterLabel {
+                        HStack(spacing: 6) {
+                            Text("Loại: \(categoryFilterLabel)")
+                                .font(.system(size: 13))
+                                .foregroundStyle(WVColor.label3)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.top, 12)
+                    }
+
                     WVGroup {
                         ForEach(Array(items.enumerated()), id: \.element.id) { idx, device in
                             if idx > 0 { WVDivider(inset: 60) }
@@ -216,14 +256,28 @@ private struct DeviceListRow: View {
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    // Warranty pill placeholder — no per-device warranty at list level.
-                    // Show status chip instead.
-                    DeviceStatusChip(status: device.status)
+                    // Effective warranty end (max endDate across the device's
+                    // packages), straight from the list projection.
+                    if let end = device.effectiveWarrantyEnd {
+                        WarrantyPill(daysLeft: WVFormat.daysUntil(end))
+                    } else {
+                        DeviceStatusChip(status: device.status)
+                    }
                 }
-                Text("\(device.brand ?? "—") · \(WVFormat.vnd(device.purchasePrice))")
-                    .font(.system(size: 13))
-                    .foregroundStyle(WVColor.label3)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text("\(device.brand ?? "—") · \(WVFormat.vnd(device.purchasePrice))")
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                    if let count = device.attachmentCount, count > 0 {
+                        HStack(spacing: 2) {
+                            WVIcon("paperclip", size: 10)
+                            Text("\(count)")
+                                .font(.system(size: 12))
+                        }
+                        .foregroundStyle(WVColor.label3)
+                    }
+                }
             }
             WVIcon("arrowRight", size: 13)
                 .foregroundStyle(WVColor.label4)
@@ -270,7 +324,9 @@ private struct DeviceStatusChip: View {
 private struct DeviceFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var statusFilter: DeviceStatus?
+    @Binding var categoryFilter: String?
     @Binding var sortOrder: DevicesScreen.DeviceSortOrder
+    let categories: [CategoryOption]
 
     var body: some View {
         NavigationStack {
@@ -328,6 +384,41 @@ private struct DeviceFilterSheet: View {
                 } header: {
                     Text("Trạng thái")
                 }
+
+                // Category filter — mirrors the web's `DevicesFilterBar`,
+                // which passes `?category=` to `GET /v1/devices`.
+                Section {
+                    Button {
+                        categoryFilter = nil
+                    } label: {
+                        HStack {
+                            Text("Tất cả").foregroundStyle(WVColor.label)
+                            Spacer()
+                            if categoryFilter == nil {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(WVColor.tint)
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                        }
+                    }
+                    ForEach(categories) { option in
+                        Button {
+                            categoryFilter = option.code
+                        } label: {
+                            HStack {
+                                Text(option.name).foregroundStyle(WVColor.label)
+                                Spacer()
+                                if categoryFilter == option.code {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(WVColor.tint)
+                                        .font(.system(size: 15, weight: .semibold))
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Loại")
+                }
             }
             .navigationTitle("Lọc & Sắp xếp")
             .navigationBarTitleDisplayMode(.inline)
@@ -335,6 +426,7 @@ private struct DeviceFilterSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Xoá") {
                         statusFilter = nil
+                        categoryFilter = nil
                         sortOrder = .purchaseDesc
                     }
                     .foregroundStyle(WVColor.tint)

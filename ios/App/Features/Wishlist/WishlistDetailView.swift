@@ -20,6 +20,17 @@ struct WishlistDetailView: View {
     @State private var showDelete                  = false
     @State private var localStatus: WishlistStatus = .WATCHING
     @State private var pushEdit                    = false
+    /// Backs the "Đã mua → Xem thiết bị" link: marking a wishlist item
+    /// PURCHASED makes the server create a Device, and this is where that
+    /// device is reachable from.
+    @StateObject private var devicesStore: DevicesStore
+
+    init(client: APIClient, store: WishlistStore, itemId: String) {
+        self.client = client
+        self.store = store
+        self.itemId = itemId
+        _devicesStore = StateObject(wrappedValue: DevicesStore(client: client))
+    }
 
     // MARK: Body
 
@@ -74,6 +85,15 @@ struct WishlistDetailView: View {
                 WishlistFormView(client: client, store: store, item: w)
             }
         }
+        .navigationDestination(for: DashDeviceNav.self) { nav in
+            if let device = devicesStore.devices.first(where: { $0.id == nav.id }) {
+                DeviceDetailView(client: client, devicesStore: devicesStore, device: device)
+            } else {
+                ProgressView("Đang tải...")
+                    .navigationTitle(nav.name)
+                    .task { await devicesStore.load() }
+            }
+        }
     }
 
     // MARK: - Main content
@@ -82,6 +102,7 @@ struct WishlistDetailView: View {
         ScrollView {
             VStack(spacing: 0) {
                 heroSection(w)
+                if w.purchasedDeviceId != nil { purchasedBanner(w) }
                 priceCard(w)             .padding(.top, WVSpacing.sm)
                 quickActions(w)
                 infoSection(w)
@@ -123,6 +144,37 @@ struct WishlistDetailView: View {
         .padding(.horizontal, WVSpacing.titleGutter)
         .padding(.top, WVSpacing.xs)
         .padding(.bottom, WVSpacing.md)
+    }
+
+    // MARK: - Purchased banner
+    //
+    // Marking a wishlist item "Đã mua" makes the Go service create a linked
+    // Device in the same transaction and echo its id back as
+    // `purchasedDeviceId`. The web links to `/devices/{id}` here; on iOS the
+    // row pushes that device's detail screen.
+    @ViewBuilder
+    private func purchasedBanner(_ w: WishlistItem) -> some View {
+        if let deviceId = w.purchasedDeviceId, !deviceId.isEmpty {
+            NavigationLink(value: DashDeviceNav(id: deviceId, name: w.name)) {
+                HStack(spacing: 8) {
+                    WVIcon("shoppingBag", size: 14)
+                    Text("Đã mua → Xem thiết bị")
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer(minLength: 4)
+                    WVIcon("arrowRight", size: 12, weight: .semibold)
+                }
+                .foregroundStyle(WVColor.green)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 40)
+                .background(WVColor.green.opacity(0.14))
+                .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.bottom, WVSpacing.sm)
+            .task { await devicesStore.load() }
+        }
     }
 
     // MARK: - Price card
@@ -200,7 +252,7 @@ struct WishlistDetailView: View {
             rows.append(("bell", WVColor.red, "Nhắc lại", "Mỗi \(n) ngày"))
         }
         if let cat = w.category, !cat.isEmpty {
-            rows.append(("tag", WVColor.purple, "Loại", cat.capitalized))
+            rows.append(("tag", WVColor.purple, "Loại", CategoryLabels.label(for: cat)))
         }
         let buyURL = w.buyUrl.flatMap { $0.isEmpty ? nil : URL(string: $0) }
 

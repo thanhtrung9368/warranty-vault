@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 import WarrantyVaultKit
 
 // ============================================================
@@ -403,14 +404,23 @@ struct DeviceFormView: View {
         defer { scanning = false }
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
-            let (mime, ext): (String, String)
-            if data.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
-                mime = "image/png"; ext = "png"
-            } else {
-                mime = "image/jpeg"; ext = "jpg"
+            guard data.count <= AttachmentFileType.maxBytes else {
+                topError = AttachmentFileType.tooLargeMessage
+                return
             }
-            let fileName = "receipt-\(Int(Date().timeIntervalSince1970)).\(ext)"
-            let draft = try await client.extractReceipt(fileName: fileName, fileType: mime, data: data)
+            // The OCR endpoint only takes JPEG/PNG/WEBP and cross-checks the
+            // declared Content-Type against the magic bytes. iPhones write
+            // HEIC by default, so transcode anything else to JPEG first
+            // instead of declaring a type the server will reject.
+            let payload = Self.ocrPayload(from: data)
+            guard let payload else {
+                topError = AttachmentFileType.ocrUnsupportedMessage
+                return
+            }
+            let fileName = "receipt-\(Int(Date().timeIntervalSince1970)).\(payload.fileExtension)"
+            let draft = try await client.extractReceipt(
+                fileName: fileName, fileType: payload.mimeType, data: payload.data
+            )
             applyDraft(draft)
             scanInfo = ScanInfo(confidence: draft.confidence, unmatched: draft.unmatched)
         } catch let err as APIError {
@@ -418,6 +428,19 @@ struct DeviceFormView: View {
         } catch {
             topError = "Không quét được hoá đơn, thử lại sau"
         }
+    }
+
+    /// JPEG/PNG/WEBP go up untouched; anything else `UIImage` can decode
+    /// (HEIC, GIF, …) is re-encoded as JPEG. Returns nil when the bytes aren't
+    /// an image the receipt-scan endpoint could accept at all.
+    static func ocrPayload(from data: Data) -> (mimeType: String, fileExtension: String, data: Data)? {
+        if !AttachmentFileType.ocrNeedsTranscode(data),
+           let detected = AttachmentFileType.detect(data) {
+            return (detected.mimeType, detected.fileExtension, data)
+        }
+        guard let image = UIImage(data: data),
+              let jpeg = image.jpegData(compressionQuality: 0.9) else { return nil }
+        return ("image/jpeg", "jpg", jpeg)
     }
 
     /// Seeds the form from an extracted draft. Category is only applied when it

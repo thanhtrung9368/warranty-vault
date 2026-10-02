@@ -62,9 +62,9 @@ struct SubscriptionDetailView: View {
         }
         .confirmationDialog("", isPresented: $showMore, titleVisibility: .hidden) {
             Button("Sửa") { pushEdit = true }
-            Button("Log payment") { showLogPayment = true }
+            Button("Ghi nhận thanh toán") { showLogPayment = true }
             if subscription?.billingCycle != .LIFETIME {
-                Button("Renew Now") { Task { await renewNow() } }
+                Button("Gia hạn ngay") { Task { await renewNow() } }
             }
             Button("Xoá", role: .destructive) { showDelete = true }
             Button("Huỷ", role: .cancel) {}
@@ -182,7 +182,7 @@ struct SubscriptionDetailView: View {
                     }
                     Spacer(minLength: 0)
                     if sub.billingCycle != .LIFETIME {
-                        WVButton("Renew", icon: "refresh", kind: .secondary, size: .small,
+                        WVButton("Gia hạn", icon: "refresh", kind: .secondary, size: .small,
                                  fullWidth: false) {
                             Task { await renewNow() }
                         }
@@ -196,7 +196,7 @@ struct SubscriptionDetailView: View {
 
     private func quickActions(_ sub: Subscription) -> some View {
         HStack(spacing: WVSpacing.sm) {
-            WVButton("Log payment", icon: "wallet", kind: .secondary, size: .small,
+            WVButton("Ghi nhận thanh toán", icon: "wallet", kind: .secondary, size: .small,
                      fullWidth: true) { showLogPayment = true }
 
             if let urlStr = sub.manageUrl, !urlStr.isEmpty, let url = URL(string: urlStr) {
@@ -394,7 +394,7 @@ struct SubscriptionDetailView: View {
         do {
             try await store.renewNow(id: subscriptionId)
             await reload()
-            toast.show("Đã renew gói 🔁")
+            toast.show("Đã gia hạn gói 🔁")
         } catch {
             toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
         }

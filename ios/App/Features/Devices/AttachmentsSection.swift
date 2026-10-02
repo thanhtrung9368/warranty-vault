@@ -72,7 +72,10 @@ struct DeviceAttachmentsSection: View {
 
                     // Upload row
                     if canUpload {
-                        PhotosPicker(selection: $photoItem, matching: .any(of: [.images, .videos])) {
+                        // Images only: the server's MIME whitelist is
+                        // JPG/PNG/WEBP/GIF/HEIC + PDF, so offering videos here
+                        // just produced a rejected upload.
+                        PhotosPicker(selection: $photoItem, matching: .images) {
                             HStack(spacing: 12) {
                                 WVLeadingIcon(icon: "upload", color: WVColor.blue, size: 30)
                                 VStack(alignment: .leading, spacing: 1) {
@@ -192,15 +195,21 @@ struct DeviceAttachmentsSection: View {
         defer { pendingUpload = false }
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
-            let (mime, ext): (String, String)
-            if data.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
-                mime = "image/png"; ext = "png"
-            } else {
-                mime = "image/jpeg"; ext = "jpg"
+            guard data.count <= AttachmentFileType.maxBytes else {
+                errorMessage = AttachmentFileType.tooLargeMessage
+                return
             }
-            let name = "photo-\(Int(Date().timeIntervalSince1970)).\(ext)"
+            // Declare what the bytes actually are. iPhones shoot HEIC by
+            // default, and Go rejects an upload whose Content-Type disagrees
+            // with its magic bytes.
+            guard let type = AttachmentFileType.detect(data) else {
+                errorMessage = AttachmentFileType.unsupportedMessage
+                return
+            }
+            let name = "photo-\(Int(Date().timeIntervalSince1970)).\(type.fileExtension)"
             let meta = try await client.uploadAttachment(
-                deviceId: deviceId, fileName: name, fileType: mime, data: data, description: nil
+                deviceId: deviceId, fileName: name, fileType: type.mimeType,
+                data: data, description: nil
             )
             attachments.insert(meta, at: 0)
             downloadURLs[meta.id] = client.attachmentDownloadURL(id: meta.id)
@@ -219,9 +228,19 @@ struct DeviceAttachmentsSection: View {
             pendingUpload = true
             defer { pendingUpload = false }
             let data = try Data(contentsOf: url)
+            guard data.count <= AttachmentFileType.maxBytes else {
+                errorMessage = AttachmentFileType.tooLargeMessage
+                return
+            }
+            // The importer is restricted to `.pdf`, but sniff anyway so a
+            // renamed file can't produce a declared/actual mismatch.
+            guard let type = AttachmentFileType.detect(data) else {
+                errorMessage = AttachmentFileType.unsupportedMessage
+                return
+            }
             let fileName = url.lastPathComponent
             let meta = try await client.uploadAttachment(
-                deviceId: deviceId, fileName: fileName, fileType: "application/pdf",
+                deviceId: deviceId, fileName: fileName, fileType: type.mimeType,
                 data: data, description: nil
             )
             attachments.insert(meta, at: 0)
