@@ -7,10 +7,7 @@ import { DismissButton } from '@/components/dismiss-button';
 import { EmptyState } from '@/components/empty-state';
 import { api } from '@/lib/api';
 import type { ReminderRow as ApiReminder } from '@/lib/api/reminders';
-import {
-  dismissedRemindersFromBackup,
-  type DismissedReminder,
-} from '@/lib/dismissed-reminders';
+import { dismissedReminders, type DismissedReminder } from '@/lib/dismissed-reminders';
 import { requireUser } from '@/lib/auth';
 import {
   CATEGORY_LABELS,
@@ -28,7 +25,8 @@ export const dynamic = 'force-dynamic';
 // Bucket the Go endpoint's already-filtered upcoming-reminders by remaining
 // days. The Go endpoint excludes dismissed reminders + expired warranties,
 // so this page only renders the three "Sắp hết" sections — the previous
-// "Đã hết (gần đây)" + "Đã ẩn" sections went away with the Go cutover.
+// "Đã hết (gần đây)" section went away with the Go cutover, while the hidden
+// ones are rolled up separately into "Đã ẩn" at the bottom.
 type Bucket = '30' | '60' | '90';
 
 type ReminderItem = {
@@ -95,22 +93,25 @@ function toItem(r: ApiReminder, now: Date): ReminderItem {
 export default async function RemindersPage() {
   await requireUser();
   // 90-day horizon matches the previous UI's bucket coverage.
-  // The "Đã ẩn" list comes from the backup export because that is the only
-  // documented read that still carries dismissed `Reminder` rows — see
-  // `lib/dismissed-reminders.ts` for the details.
-  const [res, backupRes] = await Promise.all([
+  // The “Đã ẩn” list comes from that same light feed, widened with
+  // `includeDismissed=true`, instead of the whole-database export document it
+  // used to parse — see `lib/dismissed-reminders.ts`. The plain call is left
+  // exactly as it was so the active sections keep their previous behaviour.
+  const [res, dismissedRes] = await Promise.all([
     api.reminders.list(90),
-    api.backup.exportRaw(),
+    api.reminders.list(90, { includeDismissed: true }),
   ]);
   const now = new Date();
   const active: ReminderItem[] = res.ok ? res.data.map((r) => toItem(r, now)) : [];
 
   let dismissed: DismissedReminder[] = [];
   let dismissedUnavailable = false;
-  if (backupRes.ok) {
+  if (dismissedRes.ok) {
     try {
-      dismissed = dismissedRemindersFromBackup(JSON.parse(backupRes.body));
+      dismissed = dismissedReminders(dismissedRes.data);
     } catch {
+      // Malformed payload → same “Không tải được” copy as a failed request, so
+      // a bad response never renders as “nothing hidden”.
       dismissedUnavailable = true;
     }
   } else {
