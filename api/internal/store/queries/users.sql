@@ -16,6 +16,16 @@ SET "passwordHash" = $2,
     "updatedAt" = NOW()
 WHERE id = $1;
 
+-- name: UpdateUserDisplayName :one
+-- PATCH /api/v1/auth/me. A NULL $2 clears the display name (the column is
+-- nullable and Register already treats "no name" as NULL). Returns the updated
+-- row so the handler can respond with the full user DTO (including aiOptIn).
+UPDATE "User"
+SET name = $2,
+    "updatedAt" = NOW()
+WHERE id = $1
+RETURNING *;
+
 -- name: SetUserAIOptIn :exec
 UPDATE "User"
 SET "aiOptIn" = $2,

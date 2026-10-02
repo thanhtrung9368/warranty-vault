@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +17,29 @@ import (
 // is reported in Unmatched so the UI can flag it for review. Conservative on
 // purpose — a wrong silent bind is worse than leaving free-text.
 const matchThreshold = 0.82
+
+// OCR draft sanity bounds (roadmap #15).
+//
+// warrantyMonths: the manual device form bounds this field at min 0
+// (website/src/components/device-form.tsx: `min={0}` + validateStep rejects
+// < 0) and the write path (ValidateDeviceInput) rejects negative values — but
+// neither caps the upper end. A vision model reading a noisy receipt can emit
+// e.g. 1200, and the draft is fed straight into that form, so an absurd value
+// would silently create a warranty ending a century from now. The draft path
+// therefore bounds it to [0, 120] (10 years — longer than any consumer warranty
+// this app tracks). 0 stays valid and means "no warranty", matching the form's
+// own hint "Để 0 nếu không có".
+//
+// serialNumber: trimmed; a value longer than 120 bytes is OCR noise (junk line/
+// table text) rather than an IMEI/serial, so it is dropped as well.
+//
+// A value that fails either bound is NOT passed through: it becomes null and the
+// field name is appended to `unmatched`, so the UI can ask the user to fill it
+// in manually instead of showing a wrong value.
+const (
+	maxDraftWarrantyMonths = 120
+	maxDraftSerialBytes    = 120
+)
 
 // ReceiptExtractor is the AI boundary the service depends on. *ai.Client
 // satisfies it; tests inject a fake. Keeps the service free of HTTP concerns.
@@ -94,6 +118,14 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 		imgBytes, mediaType = in.Body, in.MediaType
 	}
 
+	// Attachments accept PDF / GIF / HEIC (files.AllowedMIMEs), but OCR does not:
+	// the Messages API call below only carries JPEG/PNG/WEBP. Checking here means
+	// an attachmentId pointing at a PDF gets a clear 400 instead of a 502
+	// "Dịch vụ AI lỗi" after a pointless round-trip. PDF OCR is NOT supported.
+	if !ai.IsSupportedImageType(mediaType) {
+		return DraftDevice{}, badInput("Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP")
+	}
+
 	extracted, err := client.ExtractReceipt(ctx, imgBytes, mediaType)
 	if err != nil {
 		if ae, ok := ai.AsError(err); ok {
@@ -129,17 +161,31 @@ func GetAIOptIn(ctx context.Context, db *pgxpool.Pool, userID string) (bool, err
 
 func buildDraft(e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
 	d := DraftDevice{
-		Name:           e.Name,
-		Model:          e.Model,
-		SerialNumber:   e.SerialNumber,
-		PurchaseDate:   e.PurchaseDate,
-		PurchasePrice:  e.PurchasePrice,
-		WarrantyMonths: e.WarrantyMonths,
-		Confidence:     "medium",
-		Unmatched:      []string{},
+		Name:          e.Name,
+		Model:         e.Model,
+		PurchaseDate:  e.PurchaseDate,
+		PurchasePrice: e.PurchasePrice,
+		Confidence:    "medium",
+		Unmatched:     []string{},
 	}
 	if e.Confidence != nil && *e.Confidence != "" {
 		d.Confidence = *e.Confidence
+	}
+
+	// Serial/IMEI — the real warranty identifier in Vietnam. Trimmed; a value
+	// that is empty or implausibly long (OCR noise) is dropped and flagged.
+	if sn, ok := sanitizeSerialNumber(e.SerialNumber); ok {
+		d.SerialNumber = sn
+	} else {
+		d.Unmatched = append(d.Unmatched, "serialNumber")
+	}
+
+	// Warranty duration — bounded to [0, 120] months; out-of-range is dropped and
+	// flagged rather than passed into the form.
+	if wm, ok := sanitizeWarrantyMonths(e.WarrantyMonths); ok {
+		d.WarrantyMonths = wm
+	} else {
+		d.Unmatched = append(d.Unmatched, "warrantyMonths")
 	}
 
 	// Brand → catalog Brands.
@@ -174,6 +220,35 @@ func buildDraft(e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
 	}
 
 	return d
+}
+
+// sanitizeSerialNumber trims an OCR'd serial/IMEI. ok=false means the value was
+// present but implausible (longer than any real identifier — junk table text),
+// so the caller flags the field instead of forwarding it. nil/empty is simply
+// "not found on the receipt" and is not an error.
+func sanitizeSerialNumber(raw *string) (*string, bool) {
+	if raw == nil {
+		return nil, true
+	}
+	v := strings.TrimSpace(*raw)
+	if v == "" {
+		return nil, true
+	}
+	if len(v) > maxDraftSerialBytes {
+		return nil, false
+	}
+	return &v, true
+}
+
+// sanitizeWarrantyMonths enforces the [0, maxDraftWarrantyMonths] bound.
+func sanitizeWarrantyMonths(raw *int) (*int, bool) {
+	if raw == nil {
+		return nil, true
+	}
+	if *raw < 0 || *raw > maxDraftWarrantyMonths {
+		return nil, false
+	}
+	return raw, true
 }
 
 func matchBrand(text string, brands []BrandOption) (string, bool) {

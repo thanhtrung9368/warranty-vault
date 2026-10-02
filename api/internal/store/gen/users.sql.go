@@ -109,6 +109,38 @@ func (q *Queries) SetUserAIOptIn(ctx context.Context, arg SetUserAIOptInParams) 
 	return err
 }
 
+const updateUserDisplayName = `-- name: UpdateUserDisplayName :one
+UPDATE "User"
+SET name = $2,
+    "updatedAt" = NOW()
+WHERE id = $1
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn"
+`
+
+type UpdateUserDisplayNameParams struct {
+	ID   string  `json:"id"`
+	Name *string `json:"name"`
+}
+
+// PATCH /api/v1/auth/me. A NULL $2 clears the display name (the column is
+// nullable and Register already treats "no name" as NULL). Returns the updated
+// row so the handler can respond with the full user DTO (including aiOptIn).
+func (q *Queries) UpdateUserDisplayName(ctx context.Context, arg UpdateUserDisplayNameParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserDisplayName, arg.ID, arg.Name)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.PasswordChangedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AiOptIn,
+	)
+	return i, err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE "User"
 SET "passwordHash" = $2,

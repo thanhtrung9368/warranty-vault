@@ -110,6 +110,42 @@ paths:
                 type: object
                 properties: { user: { $ref: '#/components/schemas/User' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [auth]
+      summary: Cập nhật hồ sơ — chỉ tên hiển thị
+      description: |
+        Partial profile update. `displayName` is the ONLY accepted field; the
+        account email **cannot be changed here** (and is not supported anywhere
+        yet — it needs a two-step verification flow, deliberately out of scope).
+        A body carrying `email` / `newEmail` is rejected with 400 and a
+        `fieldErrors` entry saying so, rather than silently ignored.
+
+        Clearing: `"displayName": null`, `""`, or only whitespace all set the
+        name to null. A missing `displayName` key is 400 (`Thiếu displayName`),
+        not a silent no-op.
+
+        Response mirrors `GET /api/v1/auth/me` (`{ "user": ... }`) plus a
+        Vietnamese `message`, so a client can replace its cached user object
+        directly from the PATCH response. Rate-limited per user like every other
+        authenticated write (60 req/60s).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfileInput' }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       tags: [auth]
       summary: Permanently delete the authenticated user's account
@@ -347,6 +383,14 @@ paths:
     post:
       tags: [attachments]
       summary: Upload an attachment (multipart/form-data)
+      description: |
+        Accepted types are decided by magic bytes, not the filename:
+        JPEG / PNG / WEBP / GIF / HEIC / **PDF**. SVG, HTML and JS are rejected on
+        purpose (they can carry executable content). Max 5 MB per file, 5 files
+        per device, 100 MB total per user.
+
+        Note: PDF is accepted *as an attachment* but is not supported by the OCR
+        endpoint (`/api/v1/ai/extract-receipt`), which is image-only.
       requestBody:
         required: true
         content:
@@ -414,6 +458,38 @@ paths:
 
   /api/v1/attachments/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      tags: [attachments]
+      summary: Sửa mô tả của file đính kèm
+      description: |
+        Updates the attachment's `description` — the only mutable field; the file
+        bytes themselves cannot be edited (delete + re-upload instead).
+
+        Ownership is resolved through the owning `Device` (the query joins
+        `Attachment.deviceId = Device.id AND Device.userId = :currentUser`), so an
+        id that belongs to someone else matches no row and returns **404**, never
+        403 — same "confirm nothing" policy as `GET /api/files/{id}`.
+
+        Clearing: `"description": null`, `""` or whitespace-only all set it to
+        null, mirroring the upload-time normalization. There is no length cap
+        beyond the request-body size (the upload path has none either).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AttachmentDescriptionInput' }
+      responses:
+        '200':
+          description: Updated attachment metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { attachment: { $ref: '#/components/schemas/AttachmentMeta' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       tags: [attachments]
       responses:
@@ -721,6 +797,11 @@ paths:
         attachments (metadata + base64 IV / wrapped key), wishlist + price
         history, subscriptions + payment history. Schema version 5.
         Response sets `Content-Disposition: attachment; filename=...`.
+
+        The attachment BLOBS are not in the file — only metadata. The payload
+        says so explicitly via `includesAttachmentBytes: false` and
+        `attachmentBytesNote` (Vietnamese), so a client can warn the user that
+        restoring onto a new server will not bring invoice images back.
       responses:
         '200':
           description: Backup payload
@@ -837,6 +918,9 @@ paths:
         dịch vụ AI để trích xuất thông tin thiết bị + bảo hành, trả về bản nháp.
         KHÔNG bao giờ tạo Device — client tự điền form và người dùng xác nhận.
         Cần ANTHROPIC_API_KEY trên server; nếu chưa cấu hình trả về 503.
+        CHỈ hỗ trợ ảnh JPEG/PNG/WEBP (tối đa 5MB): file đính kèm có thể là PDF,
+        GIF hoặc HEIC nhưng OCR các định dạng đó KHÔNG được hỗ trợ trong phiên
+        bản này — gửi lên sẽ nhận 400 "Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP".
       requestBody:
         required: true
         content:
@@ -845,7 +929,7 @@ paths:
               type: object
               required: [attachmentId]
               properties:
-                attachmentId: { type: string, description: 'ID ảnh đã upload (reuse decrypt path)' }
+                attachmentId: { type: string, description: 'ID ảnh đã upload (reuse decrypt path). Nếu file không phải JPEG/PNG/WEBP ⇒ 400.' }
           multipart/form-data:
             schema:
               type: object
@@ -983,7 +1067,7 @@ components:
         Bản nháp trích xuất từ ảnh hoá đơn / phiếu bảo hành. Tên trường khớp
         DeviceInput để client điền thẳng vào form. Mọi trường đều nullable. Các
         *Id chỉ được set khi map chắc chắn với danh mục; còn lại giữ free-text và
-        liệt kê trong `unmatched`.
+        liệt kê trong `unmatched`. Bản nháp KHÔNG bao giờ được lưu tự động.
       required: [confidence, unmatched]
       properties:
         name: { type: string, nullable: true }
@@ -991,18 +1075,38 @@ components:
         brand: { type: string, nullable: true }
         brandId: { type: string, nullable: true }
         model: { type: string, nullable: true }
-        serialNumber: { type: string, nullable: true }
+        serialNumber:
+          type: string
+          nullable: true
+          description: |
+            Số serial / IMEI đọc được trên ảnh hoặc phiếu — định danh bảo hành
+            điện tử ở Việt Nam, nên được đưa thẳng vào `Device.serialNumber`.
+            Đã trim. `null` khi ảnh không có/không đọc được, HOẶC khi giá trị dài
+            bất thường (> 120 byte — rác OCR); trường hợp sau được liệt kê trong
+            `unmatched` để client yêu cầu người dùng tự nhập.
         purchaseDate: { type: string, nullable: true, description: 'YYYY-MM-DD' }
         purchasePrice: { type: integer, format: int64, nullable: true, description: 'VND' }
         purchasePlace: { type: string, nullable: true }
         storeId: { type: string, nullable: true }
-        warrantyMonths: { type: integer, nullable: true }
+        warrantyMonths:
+          type: integer
+          minimum: 0
+          maximum: 120
+          nullable: true
+          description: |
+            Số tháng bảo hành đọc được. Bị chặn trong khoảng [0, 120] (10 năm):
+            giá trị âm hoặc > 120 do model trả về sẽ bị BỎ (thành `null`) và ghi
+            vào `unmatched`, không bao giờ chuyển thẳng vào form. 0 = không có
+            bảo hành (đúng như form thủ công: "Để 0 nếu không có").
         warrantyProviderId: { type: string, nullable: true }
         confidence: { type: string, enum: [high, medium, low] }
         unmatched:
           type: array
           items: { type: string }
-          description: 'Tên các trường để free-text vì không khớp danh mục'
+          description: |
+            Tên các trường cần người dùng tự kiểm tra: free-text không khớp danh
+            mục (`brand`, `purchasePlace`, `category`), hoặc giá trị bị loại vì vô
+            lý (`serialNumber`, `warrantyMonths`).
 
     User:
       type: object
@@ -1038,6 +1142,25 @@ components:
       properties:
         email: { type: string, format: email }
 
+    # Body of PATCH /api/v1/auth/me. Email change is NOT part of this contract.
+    UpdateProfileInput:
+      type: object
+      description: |
+        Chỉ `displayName` được chấp nhận. Đổi email chưa được hỗ trợ (cần luồng
+        xác minh 2 bước) — gửi thêm `email`/`newEmail` sẽ trả 400 kèm
+        `fieldErrors`.
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          nullable: true
+          maxLength: 80
+          description: |
+            Tên hiển thị mới. `null`, chuỗi rỗng hoặc chỉ khoảng trắng ⇒ XOÁ tên
+            (`User.name` trở thành null). Giới hạn 80 **byte** UTF-8, đúng bằng
+            giới hạn của bước đăng ký (tên tiếng Việt có dấu tốn nhiều byte hơn
+            số ký tự). Giá trị được trim trước khi lưu.
+
     ChangePasswordRequest:
       type: object
       required: [currentPassword, newPassword, confirmPassword]
@@ -1065,10 +1188,39 @@ components:
         Schema version 5 of the user-data backup. Round-trip stable: an
         export can be re-imported on a fresh account in `replace` mode to
         get an identical row set.
+
+        **Honesty about attachments (roadmap #2).** The export carries
+        attachment *metadata* only — never the encrypted blob bytes. Restoring
+        onto a fresh server therefore does NOT bring invoice images back; the
+        blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need
+        `FILE_MASTER_KEY` to decrypt. `includesAttachmentBytes` /
+        `attachmentBytesNote` state this inside the payload itself so a client
+        can warn accurately instead of hardcoding the assumption. Both fields
+        are export-only metadata: the import endpoint ignores them, and a
+        payload that omits them still imports (older exports stay restorable).
       required: [version, exportedAt, devices, wishlist, subscriptions]
       properties:
-        version: { type: integer, enum: [5] }
+        version:
+          type: integer
+          enum: [5]
+          description: |
+            Phiên bản định dạng. Import chấp nhận **mọi** phiên bản trong khoảng
+            [MinBackupVersion, BackupVersion] (hiện tại 5-5) thay vì so bằng đúng,
+            nên một lần tăng version sau này không làm file cũ của người dùng
+            thành không đọc được. Payload mới hơn (ví dụ 6) bị từ chối với thông
+            báo tiếng Việt nói rõ phiên bản nhận được; payload quá cũ cũng vậy.
         exportedAt: { type: string, format: date-time }
+        includesAttachmentBytes:
+          type: boolean
+          enum: [false]
+          description: |
+            Luôn `false` ở định dạng v5: payload KHÔNG chứa nội dung ảnh/hoá đơn,
+            chỉ có metadata (`fileName`, `fileType`, `fileSize`, `iv`,
+            `wrappedKey`) và `storagePath` của thiết bị. Đổi thành `true` là thay
+            đổi định dạng (zip kèm blob) — chưa làm.
+        attachmentBytesNote:
+          type: string
+          description: 'Câu tiếng Việt giải thích `includesAttachmentBytes` để client hiển thị thẳng cho người dùng.'
         subscriptions:
           type: array
           items: { $ref: '#/components/schemas/BackupSubscription' }
@@ -1101,6 +1253,14 @@ components:
         manageUrl: { type: string, nullable: true }
         cancelUrl: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        lastNotifiedRenewalAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Mốc chống trùng thông báo gia hạn của cron. Được export/import nguyên
+            vẹn: nếu thiếu, lần chạy cron kế tiếp sẽ nhắc lại các mốc 3/1/0 ngày
+            mà người dùng đã được nhắc. Null = chưa từng nhắc.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         payments:
@@ -1161,6 +1321,12 @@ components:
         purchasePlace: { type: string, nullable: true }
         status: { type: string }
         notes: { type: string, nullable: true }
+        soldAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Thời điểm bán (migration 0006). Vắng mặt/null trong file backup cũ = chưa bán, vẫn import được.'
+        soldPrice: { type: integer, nullable: true, description: 'Giá bán, VND. Null = chưa bán.' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         warranties:
@@ -1189,6 +1355,15 @@ components:
                   properties:
                     id: { type: string }
                     isDismissed: { type: boolean }
+                    lastNotifiedAt:
+                      type: string
+                      format: date-time
+                      nullable: true
+                      description: |
+                        Mốc cron đã gửi nhắc lần cuối (chống trùng, migration
+                        0002). Được export/import nguyên vẹn — thiếu nó thì lần
+                        cron kế tiếp sẽ nhắc lại bảo hành người dùng đã được nhắc.
+                        Null = chưa từng nhắc.
                     createdAt: { type: string, format: date-time }
         attachments:
           type: array
@@ -1241,6 +1416,27 @@ components:
         purchasePlace: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/DeviceStatus' }
         notes: { type: string, nullable: true }
+        soldAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Thời điểm bán (resale, roadmap #12). `null` = chưa bán hoặc chưa ghi
+            nhận. Luôn đi kèm `soldPrice` — write path từ chối payload chỉ có một
+            trong hai trường.
+
+            Định dạng trả về giống hệt `purchaseDate`/`createdAt` (cột
+            `timestamp without time zone`, ngữ nghĩa UTC):
+            `YYYY-MM-DDTHH:MM:SS[.fff]` — **không** có hậu tố `Z`/offset. Ví dụ
+            `"2026-03-01T00:00:00"`. (Trong file backup JSON thì ngược lại:
+            `soldAt` ở đó dùng RFC3339 kèm `Z`.)
+        soldPrice:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            Giá bán, VND (số nguyên). `null` = chưa bán. Lãi/lỗ = soldPrice −
+            purchasePrice (client tự tính; API không trả sẵn).
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -1290,6 +1486,23 @@ components:
         purchasePlace: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/DeviceStatus' }
         notes: { type: string, nullable: true }
+        soldAt:
+          type: string
+          nullable: true
+          description: |
+            Ngày bán (`YYYY-MM-DD` hoặc ISO đầy đủ), nullable. PHẢI gửi kèm
+            `soldPrice`: gửi đúng một trong hai trường ⇒ 400 với
+            `fieldErrors.soldAt = ["Thiếu ngày bán"]` (hoặc `fieldErrors.soldPrice`
+            ngược lại). Gửi cả hai = `null` để xoá ghi nhận đã bán.
+            Giá trị không parse được ⇒ 400 `fieldErrors.soldAt = ["Ngày bán không hợp lệ"]`.
+        soldPrice:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            Giá bán, VND, nullable. Số âm ⇒ 400 `fieldErrors.soldPrice`. Ràng buộc
+            cặp đôi với `soldAt` như trên. Độc lập với `status` — client có thể đặt
+            `status: SOLD` mà không cần số liệu bán.
         warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
@@ -1361,6 +1574,20 @@ components:
         fileSize: { type: integer, description: 'plaintext bytes' }
         description: { type: string, nullable: true }
         uploadedAt: { type: string, format: date-time }
+
+    # Body of PATCH /api/v1/attachments/{id}.
+    AttachmentDescriptionInput:
+      type: object
+      description: |
+        Chỉ `description` được chấp nhận (các trường khác ⇒ 400, kể cả tên file).
+      required: [description]
+      properties:
+        description:
+          type: string
+          nullable: true
+          description: |
+            Mô tả mới. `null`, chuỗi rỗng hoặc chỉ khoảng trắng ⇒ XOÁ mô tả
+            (`description` trở thành null). Giá trị được trim trước khi lưu.
 
     Subscription:
       type: object

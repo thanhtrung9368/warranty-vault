@@ -30,17 +30,23 @@ var validStatuses = map[string]bool{
 // DeviceInput mirrors website/src/lib/services/devices.ts::deviceInputSchema.
 // All optional string fields use `*string`; empty string is normalized to nil
 // (matching the Zod `blankToNull` preprocess in actions/devices.ts).
+//
+// SoldAt / SoldPrice are the resale pair added for roadmap #12 (migration 0006).
+// Both are nullable pointers: nil means "not sold". They must be supplied
+// together — see ValidateDeviceInput.
 type DeviceInput struct {
 	Name             string  `json:"name"`
 	Category         string  `json:"category"`
 	Brand            *string `json:"brand,omitempty"`
 	Model            *string `json:"model,omitempty"`
 	SerialNumber     *string `json:"serialNumber,omitempty"`
-	PurchaseDate     string  `json:"purchaseDate"`     // YYYY-MM-DD or RFC3339
+	PurchaseDate     string  `json:"purchaseDate"` // YYYY-MM-DD or RFC3339
 	PurchasePrice    int32   `json:"purchasePrice"`
 	PurchasePlace    *string `json:"purchasePlace,omitempty"`
 	Status           string  `json:"status,omitempty"` // default ACTIVE
 	Notes            *string `json:"notes,omitempty"`
+	SoldAt           *string `json:"soldAt,omitempty"`    // YYYY-MM-DD or RFC3339; nil = not sold
+	SoldPrice        *int32  `json:"soldPrice,omitempty"` // VND; nil = not sold
 	WarrantyMonths   int32   `json:"warrantyMonths"`
 	WarrantyProvider *string `json:"warrantyProvider,omitempty"`
 	WarrantyAddress  *string `json:"warrantyAddress,omitempty"`
@@ -125,6 +131,7 @@ func ValidateDeviceInput(in *DeviceInput) error {
 	trimPtr(&in.SerialNumber)
 	trimPtr(&in.PurchasePlace)
 	trimPtr(&in.Notes)
+	trimPtr(&in.SoldAt)
 	trimPtr(&in.WarrantyProvider)
 	trimPtr(&in.WarrantyAddress)
 	trimPtr(&in.WarrantyPhone)
@@ -143,6 +150,22 @@ func ValidateDeviceInput(in *DeviceInput) error {
 	}
 	if in.PurchasePrice < 0 {
 		fieldErrors["purchasePrice"] = []string{"Giá mua không hợp lệ"}
+	}
+	if in.SoldPrice != nil && *in.SoldPrice < 0 {
+		fieldErrors["soldPrice"] = []string{"Giá bán không hợp lệ"}
+	}
+	// Resale pair rule: a sale is recorded either completely (date + price) or
+	// not at all. Exactly one of the two is rejected so a client can never
+	// persist a half-recorded sale (which would make profit/loss meaningless).
+	// `soldAt`/`soldPrice` both null (or absent) clears a previously recorded
+	// sale; this is deliberately independent of `status`, which a client may set
+	// to SOLD without any resale figures.
+	if (in.SoldAt == nil) != (in.SoldPrice == nil) {
+		if in.SoldAt == nil {
+			fieldErrors["soldAt"] = []string{"Thiếu ngày bán"}
+		} else {
+			fieldErrors["soldPrice"] = []string{"Thiếu giá bán"}
+		}
 	}
 	if in.WarrantyMonths < 0 {
 		fieldErrors["warrantyMonths"] = []string{"Số tháng bảo hành không hợp lệ"}
@@ -352,6 +375,10 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err != nil {
 		return store.Device{}, ErrValidation(FieldErrors{"purchaseDate": {"Ngày mua không hợp lệ"}})
 	}
+	soldAt, err := parseSoldAt(in.SoldAt)
+	if err != nil {
+		return store.Device{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -374,6 +401,8 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		PurchasePrice: in.PurchasePrice,
 		PurchasePlace: in.PurchasePlace,
 		Notes:         in.Notes,
+		SoldAt:        soldAt,
+		SoldPrice:     in.SoldPrice,
 		Status:        statusPtr,
 	})
 	if err != nil {
@@ -445,6 +474,10 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err != nil {
 		return store.Device{}, ErrValidation(FieldErrors{"purchaseDate": {"Ngày mua không hợp lệ"}})
 	}
+	soldAt, err := parseSoldAt(in.SoldAt)
+	if err != nil {
+		return store.Device{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -466,6 +499,8 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		PurchasePlace: in.PurchasePlace,
 		Status:        in.Status,
 		Notes:         in.Notes,
+		SoldAt:        soldAt,
+		SoldPrice:     in.SoldPrice,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -591,6 +626,21 @@ func parseDate(s string) (time.Time, error) {
 		return t.UTC(), nil
 	}
 	return time.Time{}, errors.New("invalid date")
+}
+
+// parseSoldAt converts the optional `soldAt` input (same accepted formats as
+// purchaseDate: YYYY-MM-DD or RFC3339) into a pgtype.Timestamp for the write
+// path. nil / absent → zero (invalid) timestamp, which pgx writes as SQL NULL —
+// the "not sold" state.
+func parseSoldAt(in *string) (pgtype.Timestamp, error) {
+	if in == nil {
+		return pgtype.Timestamp{}, nil
+	}
+	t, err := parseDate(*in)
+	if err != nil {
+		return pgtype.Timestamp{}, ErrValidation(FieldErrors{"soldAt": {"Ngày bán không hợp lệ"}})
+	}
+	return pgtype.Timestamp{Time: t, Valid: true}, nil
 }
 
 // addMonths mirrors date-fns/addMonths: clamps the day-of-month to the last

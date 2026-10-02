@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -185,6 +186,43 @@ func Upload(ctx context.Context, db *pgxpool.Pool, userID string, in UploadAttac
 	if err != nil {
 		_ = files.DeleteEncrypted(root, storagePath)
 		return store.Attachment{}, fmt.Errorf("create attachment: %w", err)
+	}
+	return att, nil
+}
+
+// NormalizeDescription applies the same normalization the upload path uses for
+// the multipart `description` field: trim, and treat blank as "no description"
+// (SQL NULL). So PATCHing `""`, `"   "` or `null` all clear it, and a client can
+// reuse its upload-time encoding verbatim.
+func NormalizeDescription(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*raw)
+	if v == "" {
+		return nil
+	}
+	return &v
+}
+
+// UpdateDescription rewrites one attachment's description.
+//
+// Ownership is enforced inside the query, through the owning Device row
+// (`a."deviceId" = d.id AND d."userId" = $2`) — the same join GetAttachmentByID
+// uses. Someone else's attachment therefore matches no row and comes back as
+// notFound, i.e. HTTP 404 and never 403: the endpoint must not confirm that an
+// id exists for a user who does not own it (matching downloadFileHandler).
+func UpdateDescription(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string, description *string) (store.Attachment, error) {
+	att, err := store.New(db).UpdateAttachmentDescription(ctx, store.UpdateAttachmentDescriptionParams{
+		ID:          attachmentID,
+		UserId:      userID,
+		Description: description,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return store.Attachment{}, notFound("Không tìm thấy file")
+		}
+		return store.Attachment{}, fmt.Errorf("update attachment description: %w", err)
 	}
 	return att, nil
 }

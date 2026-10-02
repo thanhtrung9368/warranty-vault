@@ -67,3 +67,16 @@ sqlc generate
 ```
 
 The generated package lands in `internal/store/gen/`. It is committed so contributors don't need sqlc installed just to build.
+
+## Profile editing — email change is NOT supported
+
+`PATCH /api/v1/auth/me` accepts exactly one field, `displayName` (trimmed, max 80 bytes; `null`/`""` clears it). It returns the same `{ "user": ... }` envelope as `GET /api/v1/auth/me` plus a Vietnamese `message`.
+
+**The account email cannot be changed through the API.** There is no endpoint for it, `PATCH /api/v1/auth/me` rejects `email`/`newEmail` with a 400 `fieldErrors` entry saying so (rather than silently ignoring it), and `RegisterInput` is the only place an email is ever set. A real email change needs a two-step verified flow (prove control of the new address, then re-authenticate); it is deliberately out of scope for this pass. Do not add an email field to this endpoint as a shortcut — it would let a stolen bearer token silently move the account to an attacker-controlled address, which is exactly why the flow is gated on verification.
+
+## Backups: attachments are metadata only
+
+`GET /api/v1/backup/export` is JSON schema version 5 and contains attachment **metadata** (`fileName`, `fileType`, `fileSize`, `iv`, `wrappedKey`, `storagePath`) — never the encrypted blob bytes. Restoring onto a fresh server therefore does not bring invoice images back: the blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need `FILE_MASTER_KEY` to decrypt. The payload states this itself via `includesAttachmentBytes: false` + `attachmentBytesNote` (Vietnamese) so clients warn from the data instead of hardcoding it. A zip-with-blobs format is deliberately deferred.
+
+`POST /api/v1/backup/import` accepts any payload whose `version` falls in `[MinBackupVersion, BackupVersion]` (see `internal/services/backup.go`) rather than testing for equality: an equality check means a routine version bump instantly makes every backup a user already holds unimportable. Older versions import by letting added fields decode to their zero values; newer versions are refused with a Vietnamese message naming the received version.
+

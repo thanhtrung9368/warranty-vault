@@ -9,18 +9,23 @@
 -- warranty end date is computed from the related `Warranty` rows and is
 -- handled in the service layer (Go) — same trade-off as the TS version.
 --
--- Search is diacritic-insensitive: `public.wv_unaccent(lower(x))` (defined in
--- migration 0005) strips Vietnamese accents on BOTH sides, so "dien thoai"
--- matches "Điện thoại". ILIKE is no longer needed because both sides are
--- lowercased; the predicate is `LIKE`.
+-- Search is diacritic-insensitive: `lower(public.wv_unaccent(x))` (wrapper from
+-- migration 0005, ordering fixed in 0007) strips Vietnamese accents on BOTH
+-- sides, so "dien thoai" matches "Điện thoại". ILIKE is no longer needed because
+-- both sides are lowercased; the predicate is `LIKE`.
 --
--- Index note: migration 0005 creates GIN trigram indexes on exactly these four
--- expressions, but a trigram index can only be used when the LIKE pattern is
--- known at plan time. `'%' || wv_unaccent(lower($4)) || '%'` is immutable, so
--- PostgreSQL folds it into a constant in a *custom* plan and can then use the
--- index; under a generic plan (pgx caches statements, plan_cache_mode=auto) the
--- planner falls back to a sequential scan. Correctness does not depend on the
--- index either way — it is a speed optimisation only.
+-- The order matters: unaccent runs FIRST, then lower(). `wv_unaccent(lower(x))`
+-- (the original 0005 ordering) is broken on a C/POSIX-locale database, where
+-- lower() is ASCII-only — 'Đ' survives it and unaccent turns it into an
+-- uppercase 'D', so the search silently matches nothing. See migration 0007.
+--
+-- Index note: migration 0007 creates GIN trigram indexes on exactly these four
+-- expressions (in this order), but a trigram index can only be used when the LIKE
+-- pattern is known at plan time. `'%' || lower(wv_unaccent($4)) || '%'` is
+-- immutable, so PostgreSQL folds it into a constant in a *custom* plan and can
+-- then use the index; under a generic plan (pgx caches statements,
+-- plan_cache_mode=auto) the planner falls back to a sequential scan. Correctness
+-- does not depend on the index either way — it is a speed optimisation only.
 
 -- name: ListDevicesByUser :many
 SELECT *
@@ -30,10 +35,10 @@ WHERE "userId" = $1
   AND (NULLIF($3::text, '') IS NULL OR status = $3)
   AND (
     NULLIF($4::text, '') IS NULL
-    OR public.wv_unaccent(lower(name)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
-    OR public.wv_unaccent(lower(brand)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
-    OR public.wv_unaccent(lower(model)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
-    OR public.wv_unaccent(lower("serialNumber")) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
+    OR lower(public.wv_unaccent(name)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent(brand)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent(model)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent("serialNumber")) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
   )
 ORDER BY "createdAt" DESC;
 
@@ -72,12 +77,14 @@ INSERT INTO "Device" (
     "purchasePlace",
     status,
     notes,
+    "soldAt",
+    "soldPrice",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     COALESCE(sqlc.narg('status')::text, 'ACTIVE'),
-    $11,
+    $11, $12, $13,
     NOW(),
     NOW()
 )
@@ -95,6 +102,8 @@ UPDATE "Device" SET
     "purchasePlace" = $10,
     status = $11,
     notes = $12,
+    "soldAt" = $13,
+    "soldPrice" = $14,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;

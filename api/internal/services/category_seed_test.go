@@ -415,12 +415,19 @@ func TestCategorySeedAgainstRealPostgres(t *testing.T) {
 
 	// unaccent must fold Vietnamese diacritics, including đ (which has no Unicode
 	// decomposition and is covered by unaccent.rules directly).
+	//
+	// Order matters: unaccent runs FIRST, then lower() — see migration 0007. The
+	// original 0005 ordering (wv_unaccent(lower(x))) is wrong on a C-locale
+	// database, where lower() is ASCII-only and 'Đ' comes out as an uppercase 'D'.
+	// This assertion and the index check below are the locale-agnostic pins for
+	// that ordering; TestVietnameseSearchAgainstCLocaleDatabase proves the runtime
+	// behaviour on a database that actually has the C locale.
 	var folded string
-	if err := pool.QueryRow(ctx, `SELECT public.wv_unaccent(lower($1))`, "Điện thoại / Tủ lạnh").Scan(&folded); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT lower(public.wv_unaccent($1))`, "Điện thoại / Tủ lạnh").Scan(&folded); err != nil {
 		t.Fatalf("wv_unaccent: %v", err)
 	}
 	if folded != "dien thoai / tu lanh" {
-		t.Errorf("wv_unaccent(lower('Điện thoại / Tủ lạnh')) = %q, want %q", folded, "dien thoai / tu lanh")
+		t.Errorf("lower(wv_unaccent('Điện thoại / Tủ lạnh')) = %q, want %q — unaccent must run before lower() (migration 0007)", folded, "dien thoai / tu lanh")
 	}
 
 	// The wrapper must be IMMUTABLE and the four functional indexes must be GIN
@@ -438,8 +445,11 @@ func TestCategorySeedAgainstRealPostgres(t *testing.T) {
 			t.Errorf("index %s missing: %v", idx, err)
 			continue
 		}
-		if !strings.Contains(def, "gin_trgm_ops") || !strings.Contains(def, "wv_unaccent(lower(") {
-			t.Errorf("index %s definition is not a wv_unaccent(lower(...)) trigram index: %s", idx, def)
+		if !strings.Contains(def, "gin_trgm_ops") || !strings.Contains(def, "lower(wv_unaccent(") {
+			t.Errorf("index %s definition is not a lower(wv_unaccent(...)) trigram index: %s", idx, def)
+		}
+		if strings.Contains(def, "wv_unaccent(lower(") {
+			t.Errorf("index %s still uses the locale-dependent wv_unaccent(lower(...)) ordering: %s", idx, def)
 		}
 	}
 
@@ -519,6 +529,12 @@ func TestCategorySeedAgainstRealPostgres(t *testing.T) {
 // TestCategorySeedMigrationDownAndUp exercises down/up against a real database:
 // down must remove the seeded rows and the search objects, and a second up must
 // restore them (idempotency, not just "works on an empty database").
+//
+// It rolls back to version 3 rather than calling goose.Down twice: Down only
+// steps back one version from the head, and the head has moved past 0005
+// (0006 device resale, 0007 locale-safe unaccent). DownTo(3) keeps the intent —
+// unwind everything from the catalog seed onwards — while staying correct
+// whenever a new migration is appended.
 func TestCategorySeedMigrationDownAndUp(t *testing.T) {
 	dsn := testDatabaseURL(t)
 	gooseUp(t, dsn)
@@ -561,12 +577,9 @@ func TestCategorySeedMigrationDownAndUp(t *testing.T) {
 		t.Fatalf("after up: %d/%d seeded categories present", got, len(up))
 	}
 
-	// Roll back 0005 then 0004.
-	if err := goose.Down(db, dir); err != nil {
-		t.Fatalf("goose down (0005): %v", err)
-	}
-	if err := goose.Down(db, dir); err != nil {
-		t.Fatalf("goose down (0004): %v", err)
+	// Roll back to the version just before the catalog seed: 0007, 0006, 0005, 0004.
+	if err := goose.DownTo(db, dir, 3); err != nil {
+		t.Fatalf("goose down-to 3: %v", err)
 	}
 	if got := countSeeded(); got != 0 {
 		t.Errorf("after down: %d seeded categories still present, want 0", got)

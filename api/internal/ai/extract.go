@@ -47,7 +47,8 @@ Nhiệm vụ: đọc ảnh và gọi công cụ emit_receipt với các trườn
 - KHÔNG tự đoán hay "sửa" tên cửa hàng / hãng / model. Trả về đúng chữ đọc được, kể cả khi thiếu dấu tiếng Việt.
 - purchaseDate: chuẩn hoá về định dạng YYYY-MM-DD. Nếu chỉ có tháng/năm hoặc không rõ, để null.
 - purchasePrice: số nguyên VND, bỏ dấu chấm/phẩy/ký hiệu đ/VND (ví dụ "28.990.000đ" -> 28990000). Đây là giá sản phẩm, không phải tổng hoá đơn nếu có nhiều món.
-- warrantyMonths: số tháng bảo hành nếu in trên phiếu (ví dụ "Bảo hành 12 tháng" -> 12). Không rõ thì null.
+- serialNumber: số serial hoặc IMEI in trên máy / trên phiếu (ví dụ "IMEI: 356789012345678" -> "356789012345678"). Đọc đúng từng ký tự, KHÔNG thêm dấu cách hay dấu gạch ngang nếu ảnh không có. Đây là định danh bảo hành điện tử ở Việt Nam nên chỉ điền khi đọc chắc chắn; ảnh mờ thì để null.
+- warrantyMonths: số tháng bảo hành nếu in trên phiếu (ví dụ "Bảo hành 12 tháng" -> 12). Chỉ nhận giá trị từ 0 đến 120; lớn hơn hoặc không rõ thì để null.
 - purchasePlace: tên cửa hàng/hệ thống bán (ví dụ "Thế Giới Di Động"). brand: hãng sản phẩm (ví dụ "Apple", "Samsung").
 - confidence: "high" nếu ảnh rõ và chắc chắn, "medium" nếu mờ một phần, "low" nếu khó đọc.
 
@@ -65,11 +66,11 @@ var emitReceiptTool = map[string]any{
 			"name":           nullable("string", "Tên sản phẩm/thiết bị"),
 			"brand":          nullable("string", "Hãng sản xuất"),
 			"model":          nullable("string", "Mã model"),
-			"serialNumber":   nullable("string", "Số serial / IMEI"),
+			"serialNumber":   nullable("string", "Số serial / IMEI đọc được nguyên văn, không thêm dấu cách"),
 			"purchaseDate":   nullable("string", "Ngày mua, định dạng YYYY-MM-DD"),
 			"purchasePrice":  nullable("integer", "Giá mua, số nguyên VND"),
 			"purchasePlace":  nullable("string", "Tên cửa hàng/nơi mua"),
-			"warrantyMonths": nullable("integer", "Số tháng bảo hành"),
+			"warrantyMonths": nullable("integer", "Số tháng bảo hành (0-120; ngoài khoảng này để null)"),
 			"category":       nullable("string", "Loại thiết bị (đoán)"),
 			"confidence": map[string]any{
 				"type":        []string{"string", "null"},
@@ -130,7 +131,7 @@ func (c *Client) ExtractReceipt(ctx context.Context, imageBytes []byte, mediaTyp
 	if !c.Enabled() {
 		return ExtractedReceipt{}, &Error{Code: "disabled", Message: "Tính năng quét hoá đơn chưa được bật"}
 	}
-	if !isSupportedImageType(mediaType) {
+	if !IsSupportedImageType(mediaType) {
 		return ExtractedReceipt{}, &Error{Code: "bad_output", Message: "Định dạng ảnh không hỗ trợ"}
 	}
 
@@ -205,7 +206,11 @@ func parseToolResult(body []byte) (ExtractedReceipt, error) {
 	return ExtractedReceipt{}, &Error{Code: "bad_output", Message: "AI không trả về dữ liệu trích xuất"}
 }
 
-func isSupportedImageType(mt string) bool {
+// IsSupportedImageType reports whether the OCR pipeline can send this media
+// type to the Messages API. Exported so the service layer can reject an
+// unsupported attachment (e.g. a PDF or HEIC) with a 400 and a clear Vietnamese
+// message *before* paying for an upstream round-trip that can only fail.
+func IsSupportedImageType(mt string) bool {
 	switch mt {
 	case "image/jpeg", "image/png", "image/webp":
 		return true

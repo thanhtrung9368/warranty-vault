@@ -50,6 +50,18 @@ USING "Device" d
 WHERE a.id = $1 AND a."deviceId" = d.id AND d."userId" = $2
 RETURNING a.*;
 
+-- name: UpdateAttachmentDescription :one
+-- PATCH /api/v1/attachments/{id}. Ownership is enforced through the owning
+-- Device row (the same join used by GetAttachmentByID), and a non-owned id
+-- simply matches no row → sqlc/pgx returns ErrNoRows → handler 404 (never 403,
+-- matching downloadFileHandler's "leak nothing" policy).
+-- A NULL $3 clears the description.
+UPDATE "Attachment" a
+SET description = $3
+FROM "Device" d
+WHERE a.id = $1 AND a."deviceId" = d.id AND d."userId" = $2
+RETURNING a.*;
+
 -- name: CountAttachmentsByDevice :one
 SELECT COUNT(*)::bigint AS count
 FROM "Attachment"

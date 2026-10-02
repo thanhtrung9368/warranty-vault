@@ -38,16 +38,18 @@ INSERT INTO "Device" (
     "purchasePlace",
     status,
     notes,
+    "soldAt",
+    "soldPrice",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-    COALESCE($12::text, 'ACTIVE'),
-    $11,
+    COALESCE($14::text, 'ACTIVE'),
+    $11, $12, $13,
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 `
 
 type CreateDeviceParams struct {
@@ -62,6 +64,8 @@ type CreateDeviceParams struct {
 	PurchasePrice int32            `json:"purchasePrice"`
 	PurchasePlace *string          `json:"purchasePlace"`
 	Notes         *string          `json:"notes"`
+	SoldAt        pgtype.Timestamp `json:"soldAt"`
+	SoldPrice     *int32           `json:"soldPrice"`
 	Status        *string          `json:"status"`
 }
 
@@ -78,6 +82,8 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.PurchasePrice,
 		arg.PurchasePlace,
 		arg.Notes,
+		arg.SoldAt,
+		arg.SoldPrice,
 		arg.Status,
 	)
 	var i Device
@@ -96,6 +102,8 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SoldAt,
+		&i.SoldPrice,
 	)
 	return i, err
 }
@@ -121,7 +129,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -150,12 +158,14 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SoldAt,
+		&i.SoldPrice,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -181,23 +191,25 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SoldAt,
+		&i.SoldPrice,
 	)
 	return i, err
 }
 
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
   AND (NULLIF($3::text, '') IS NULL OR status = $3)
   AND (
     NULLIF($4::text, '') IS NULL
-    OR public.wv_unaccent(lower(name)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
-    OR public.wv_unaccent(lower(brand)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
-    OR public.wv_unaccent(lower(model)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
-    OR public.wv_unaccent(lower("serialNumber")) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
+    OR lower(public.wv_unaccent(name)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent(brand)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent(model)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent("serialNumber")) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
   )
 ORDER BY "createdAt" DESC
 `
@@ -220,18 +232,23 @@ type ListDevicesByUserParams struct {
 // warranty end date is computed from the related `Warranty` rows and is
 // handled in the service layer (Go) — same trade-off as the TS version.
 //
-// Search is diacritic-insensitive: `public.wv_unaccent(lower(x))` (defined in
-// migration 0005) strips Vietnamese accents on BOTH sides, so "dien thoai"
-// matches "Điện thoại". ILIKE is no longer needed because both sides are
-// lowercased; the predicate is `LIKE`.
+// Search is diacritic-insensitive: `lower(public.wv_unaccent(x))` (wrapper from
+// migration 0005, ordering fixed in 0007) strips Vietnamese accents on BOTH
+// sides, so "dien thoai" matches "Điện thoại". ILIKE is no longer needed because
+// both sides are lowercased; the predicate is `LIKE`.
 //
-// Index note: migration 0005 creates GIN trigram indexes on exactly these four
-// expressions, but a trigram index can only be used when the LIKE pattern is
-// known at plan time. `'%' || wv_unaccent(lower($4)) || '%'` is immutable, so
-// PostgreSQL folds it into a constant in a *custom* plan and can then use the
-// index; under a generic plan (pgx caches statements, plan_cache_mode=auto) the
-// planner falls back to a sequential scan. Correctness does not depend on the
-// index either way — it is a speed optimisation only.
+// The order matters: unaccent runs FIRST, then lower(). `wv_unaccent(lower(x))`
+// (the original 0005 ordering) is broken on a C/POSIX-locale database, where
+// lower() is ASCII-only — 'Đ' survives it and unaccent turns it into an
+// uppercase 'D', so the search silently matches nothing. See migration 0007.
+//
+// Index note: migration 0007 creates GIN trigram indexes on exactly these four
+// expressions (in this order), but a trigram index can only be used when the LIKE
+// pattern is known at plan time. `'%' || lower(wv_unaccent($4)) || '%'` is
+// immutable, so PostgreSQL folds it into a constant in a *custom* plan and can
+// then use the index; under a generic plan (pgx caches statements,
+// plan_cache_mode=auto) the planner falls back to a sequential scan. Correctness
+// does not depend on the index either way — it is a speed optimisation only.
 func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserParams) ([]Device, error) {
 	rows, err := q.db.Query(ctx, listDevicesByUser,
 		arg.UserId,
@@ -261,6 +278,8 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SoldAt,
+			&i.SoldPrice,
 		); err != nil {
 			return nil, err
 		}
@@ -273,7 +292,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -304,6 +323,8 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SoldAt,
+			&i.SoldPrice,
 		); err != nil {
 			return nil, err
 		}
@@ -327,9 +348,11 @@ UPDATE "Device" SET
     "purchasePlace" = $10,
     status = $11,
     notes = $12,
+    "soldAt" = $13,
+    "soldPrice" = $14,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 `
 
 type UpdateDeviceParams struct {
@@ -345,6 +368,8 @@ type UpdateDeviceParams struct {
 	PurchasePlace *string          `json:"purchasePlace"`
 	Status        string           `json:"status"`
 	Notes         *string          `json:"notes"`
+	SoldAt        pgtype.Timestamp `json:"soldAt"`
+	SoldPrice     *int32           `json:"soldPrice"`
 }
 
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
@@ -361,6 +386,8 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.PurchasePlace,
 		arg.Status,
 		arg.Notes,
+		arg.SoldAt,
+		arg.SoldPrice,
 	)
 	var i Device
 	err := row.Scan(
@@ -378,6 +405,8 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SoldAt,
+		&i.SoldPrice,
 	)
 	return i, err
 }

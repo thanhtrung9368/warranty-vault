@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -50,6 +51,7 @@ func toAttachmentDTO(a store.Attachment) attachmentDTO {
 func RegisterAttachments(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/v1/devices/{id}/attachments", uploadAttachmentHandler(deps))
 	mux.HandleFunc("GET /api/v1/devices/{id}/attachments", listAttachmentsHandler(deps))
+	mux.HandleFunc("PATCH /api/v1/attachments/{id}", updateAttachmentHandler(deps))
 	mux.HandleFunc("DELETE /api/v1/attachments/{id}", deleteAttachmentHandler(deps))
 	mux.HandleFunc("GET /api/files/{id}", downloadFileHandler(deps))
 }
@@ -153,6 +155,73 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{
+			"attachment": toAttachmentDTO(att),
+		})
+	}
+}
+
+// updateAttachmentHandler edits an attachment's description. `description` is
+// the ONLY accepted field — file bytes are immutable once uploaded (replace by
+// delete + re-upload instead). Body:
+//
+//	{ "description": "Hoá đơn FPT Shop" }   → set (trimmed)
+//	{ "description": "" } / { "description": null }  → clear
+//
+// Ownership is resolved through the owning device inside the service query; a
+// row that belongs to someone else is a 404, exactly like GET /api/files/{id}.
+func updateAttachmentHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		if err != nil {
+			unauthorized(w)
+			return
+		}
+		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
+		if !rl.Ok {
+			rateLimited(w, rl.RetryAfterSec)
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id file", nil)
+			return
+		}
+
+		// Raw-map decode so "key absent" is distinguishable from "explicit null /
+		// empty" and so unknown fields get a field-level Vietnamese message.
+		var raw map[string]json.RawMessage
+		if err := decodeJSON(r, &raw); err != nil {
+			badJSONBody(w)
+			return
+		}
+		unknown := map[string][]string{}
+		for k := range raw {
+			if k != "description" {
+				unknown[k] = []string{"Chỉ hỗ trợ sửa mô tả"}
+			}
+		}
+		if len(unknown) > 0 {
+			badInput(w, unknown, "Chỉ hỗ trợ sửa mô tả")
+			return
+		}
+		rawDesc, present := raw["description"]
+		if !present {
+			badInput(w, map[string][]string{"description": {"Thiếu description"}})
+			return
+		}
+		var descIn *string
+		if err := json.Unmarshal(rawDesc, &descIn); err != nil {
+			badInput(w, map[string][]string{"description": {"Mô tả không hợp lệ"}})
+			return
+		}
+
+		att, sErr := services.UpdateDescription(r.Context(), d.DB, us.UserID, id,
+			services.NormalizeDescription(descIn))
+		if sErr != nil {
+			writeAttachmentError(w, sErr)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"attachment": toAttachmentDTO(att),
 		})
 	}

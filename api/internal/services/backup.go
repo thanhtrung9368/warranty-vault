@@ -32,12 +32,62 @@ var (
 // ---- Export shapes (BackupV1 = the canonical Vietnamese-named JSON the web
 //      client + mobile apps consume; numbered version: 5 to match TS).
 
+// Backup schema versions.
+//
+// The format is additive: a later version may add fields, and the importer reads
+// an older payload by letting the missing fields decode to their zero values.
+// Import therefore accepts the whole [MinBackupVersion, BackupVersion] range
+// rather than testing for equality — an equality check turns every future bump
+// into a data-loss path, because every backup a user already holds instantly
+// becomes unimportable.
+const (
+	// BackupVersion is the shape this build writes AND the newest one it reads.
+	BackupVersion = 5
+	// MinBackupVersion is the oldest shape this importer can still read.
+	// It equals BackupVersion today because version 5 (the legacy TS exporter's
+	// numbering) is the only format that has ever existed; raise it only when an
+	// older payload would import *wrongly* (a changed field meaning), not merely
+	// because fields were added.
+	MinBackupVersion = 5
+)
+
+// AttachmentBytesNoteVN is the Vietnamese warning that ships inside every
+// export. It exists so any client can warn accurately from the payload itself
+// instead of hardcoding "the backup has no images" (roadmap #2) — which is true
+// today but would silently become a lie if the format ever changes.
+const AttachmentBytesNoteVN = "Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh."
+
 type BackupExport struct {
-	Version       int                       `json:"version"`
-	ExportedAt    string                    `json:"exportedAt"`
-	Subscriptions []BackupSubscription      `json:"subscriptions"`
-	Wishlist      []BackupWishlistItem      `json:"wishlist"`
-	Devices       []BackupDevice            `json:"devices"`
+	Version    int    `json:"version"`
+	ExportedAt string `json:"exportedAt"`
+	// Self-describing honesty metadata (roadmap #2). Always emitted:
+	//   includesAttachmentBytes — false. The export carries Attachment *metadata*
+	//     (fileName, fileType, fileSize, iv, wrappedKey) plus the owning device's
+	//     storagePath, but never the encrypted blob bytes. A restore on a fresh
+	//     server therefore cannot bring invoice images back; the blobs live under
+	//     PRIVATE_UPLOAD_ROOT and need FILE_MASTER_KEY to decrypt.
+	//   attachmentBytesNote — Vietnamese one-liner for the client to surface.
+	// Bumping these to true is a format change (zip-with-blobs) and is deferred.
+	IncludesAttachmentBytes bool                 `json:"includesAttachmentBytes"`
+	AttachmentBytesNote     string               `json:"attachmentBytesNote"`
+	Subscriptions           []BackupSubscription `json:"subscriptions"`
+	Wishlist                []BackupWishlistItem `json:"wishlist"`
+	Devices                 []BackupDevice       `json:"devices"`
+}
+
+// newBackupExport builds the export envelope. The honesty fields are set here
+// rather than at the call site so every export path is self-describing by
+// construction.
+func newBackupExport(deviceCount, wishlistCount, subCount int) *BackupExport {
+	return &BackupExport{
+		Version:                 BackupVersion,
+		ExportedAt:              time.Now().UTC().Format(time.RFC3339Nano),
+		IncludesAttachmentBytes: false,
+		AttachmentBytesNote:     AttachmentBytesNoteVN,
+		Subscriptions:           make([]BackupSubscription, 0, subCount),
+		Wishlist:                make([]BackupWishlistItem, 0, wishlistCount),
+		Devices:                 make([]BackupDevice, 0, deviceCount),
+	}
 }
 
 type BackupSubscription struct {
@@ -59,9 +109,14 @@ type BackupSubscription struct {
 	ManageUrl     *string            `json:"manageUrl"`
 	CancelUrl     *string            `json:"cancelUrl"`
 	Notes         *string            `json:"notes"`
-	CreatedAt     string             `json:"createdAt"`
-	UpdatedAt     string             `json:"updatedAt"`
-	Payments      []BackupPayment    `json:"payments"`
+	// LastNotifiedRenewalAt is the cron renewal-warning dedup marker
+	// (Subscription."lastNotifiedRenewalAt", migration 0001). Same class of bug
+	// as BackupReminder.LastNotifiedAt: dropping it on restore re-fires the
+	// 3/1/0-day renewal notifications.
+	LastNotifiedRenewalAt *string            `json:"lastNotifiedRenewalAt"`
+	CreatedAt             string             `json:"createdAt"`
+	UpdatedAt             string             `json:"updatedAt"`
+	Payments              []BackupPayment    `json:"payments"`
 }
 
 type BackupPayment struct {
@@ -111,10 +166,14 @@ type BackupDevice struct {
 	PurchasePlace *string             `json:"purchasePlace"`
 	Status        string              `json:"status"`
 	Notes         *string             `json:"notes"`
-	CreatedAt     string              `json:"createdAt"`
-	UpdatedAt     string              `json:"updatedAt"`
-	Warranties    []BackupWarranty    `json:"warranties"`
-	Attachments   []BackupAttachment  `json:"attachments"`
+	// Resale pair (migration 0006). Absent/null in older v5 backups — the
+	// importer treats that as "not sold", so old exports stay restorable.
+	SoldAt      *string            `json:"soldAt"`
+	SoldPrice   *int32             `json:"soldPrice"`
+	CreatedAt   string             `json:"createdAt"`
+	UpdatedAt   string             `json:"updatedAt"`
+	Warranties  []BackupWarranty   `json:"warranties"`
+	Attachments []BackupAttachment `json:"attachments"`
 }
 
 type BackupWarranty struct {
@@ -136,7 +195,12 @@ type BackupWarranty struct {
 type BackupReminder struct {
 	ID          string `json:"id"`
 	IsDismissed bool   `json:"isDismissed"`
-	CreatedAt   string `json:"createdAt"`
+	// LastNotifiedAt is the cron dedup marker (migration 0002 + the index there):
+	// the sweep skips reminders it has already pushed. Omitting it here made a
+	// restore wipe the marker, so the next run re-notified warranties the user
+	// had already been told about.
+	LastNotifiedAt *string `json:"lastNotifiedAt"`
+	CreatedAt      string  `json:"createdAt"`
 }
 
 type BackupAttachment struct {
@@ -222,13 +286,7 @@ func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*Backup
 		payBySub[p.SubscriptionId] = append(payBySub[p.SubscriptionId], p)
 	}
 
-	out := &BackupExport{
-		Version:       5,
-		ExportedAt:    time.Now().UTC().Format(time.RFC3339Nano),
-		Subscriptions: make([]BackupSubscription, 0, len(subs)),
-		Wishlist:      make([]BackupWishlistItem, 0, len(wishlist)),
-		Devices:       make([]BackupDevice, 0, len(devices)),
-	}
+	out := newBackupExport(len(devices), len(wishlist), len(subs))
 
 	for _, s := range subs {
 		bs := BackupSubscription{
@@ -247,12 +305,13 @@ func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*Backup
 			Status:        s.Status,
 			AccountEmail:  s.AccountEmail,
 			PaymentMethod: s.PaymentMethod,
-			ManageUrl:     s.ManageUrl,
-			CancelUrl:     s.CancelUrl,
-			Notes:         s.Notes,
-			CreatedAt:     ts(s.CreatedAt),
-			UpdatedAt:     ts(s.UpdatedAt),
-			Payments:      []BackupPayment{},
+			ManageUrl:             s.ManageUrl,
+			CancelUrl:             s.CancelUrl,
+			Notes:                 s.Notes,
+			LastNotifiedRenewalAt: tsPtr(s.LastNotifiedRenewalAt),
+			CreatedAt:             ts(s.CreatedAt),
+			UpdatedAt:             ts(s.UpdatedAt),
+			Payments:              []BackupPayment{},
 		}
 		for _, p := range payBySub[s.ID] {
 			bs.Payments = append(bs.Payments, BackupPayment{
@@ -310,6 +369,8 @@ func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*Backup
 			PurchasePlace: d.PurchasePlace,
 			Status:        d.Status,
 			Notes:         d.Notes,
+			SoldAt:        tsPtr(d.SoldAt),
+			SoldPrice:     d.SoldPrice,
 			CreatedAt:     ts(d.CreatedAt),
 			UpdatedAt:     ts(d.UpdatedAt),
 			Warranties:    []BackupWarranty{},
@@ -333,9 +394,10 @@ func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*Backup
 			}
 			for _, r := range remByWarranty[w.ID] {
 				bw.Reminders = append(bw.Reminders, BackupReminder{
-					ID:          r.ID,
-					IsDismissed: r.IsDismissed,
-					CreatedAt:   ts(r.CreatedAt),
+					ID:             r.ID,
+					IsDismissed:    r.IsDismissed,
+					LastNotifiedAt: tsPtr(r.LastNotifiedAt),
+					CreatedAt:      ts(r.CreatedAt),
 				})
 			}
 			bd.Warranties = append(bd.Warranties, bw)
@@ -361,6 +423,31 @@ func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*Backup
 
 // ---- Import ---------------------------------------------------------------
 
+// backupVersionError validates a payload version against the supported range.
+//
+// min/max are explicit parameters rather than reads of the package constants so
+// tests can pin the range semantics at a *simulated* future bump — the scenario
+// that used to destroy every existing backup (`version != current` rejected a
+// v5 file the moment the writer moved to v6).
+//
+// Too old and too new are different failures and get different Vietnamese
+// messages, both naming the received version: "quá cũ" for a payload older than
+// this build understands, and "mới hơn" for one written by a newer build (the
+// user should update the app instead of having the file rejected as corrupt).
+func backupVersionError(version, min, max int) error {
+	if version > max {
+		return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+			"Bản sao lưu phiên bản %d mới hơn phiên bản ứng dụng hỗ trợ (%d). Cập nhật ứng dụng rồi thử lại.",
+			version, max)}
+	}
+	if version < min {
+		return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+			"Bản sao lưu phiên bản %d quá cũ, phiên bản được hỗ trợ: %d-%d.",
+			version, min, max)}
+	}
+	return nil
+}
+
 // ImportMode controls the wipe-first behavior.
 type ImportMode string
 
@@ -379,8 +466,8 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	if payload == nil {
 		return nil, &Error{Code: "VALIDATION", Message: "File JSON không hợp lệ"}
 	}
-	if payload.Version != 5 {
-		return nil, &Error{Code: "VALIDATION", Message: "Định dạng backup không được hỗ trợ"}
+	if err := backupVersionError(payload.Version, MinBackupVersion, BackupVersion); err != nil {
+		return nil, err
 	}
 	if mode == "" {
 		mode = ImportMerge
@@ -470,6 +557,8 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			PurchasePlace: d.PurchasePlace,
 			Status:        d.Status,
 			Notes:         d.Notes,
+			SoldAt:        pgtsPtr(d.SoldAt),
+			SoldPrice:     d.SoldPrice,
 			CreatedAt:     pgts(d.CreatedAt),
 			UpdatedAt:     pgts(d.UpdatedAt),
 		}); err != nil {
@@ -501,10 +590,11 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 					continue
 				}
 				if err := q.BackupInsertReminder(ctx, store.BackupInsertReminderParams{
-					ID:          r.ID,
-					WarrantyId:  w.ID,
-					IsDismissed: r.IsDismissed,
-					CreatedAt:   pgts(r.CreatedAt),
+					ID:             r.ID,
+					WarrantyId:     w.ID,
+					IsDismissed:    r.IsDismissed,
+					LastNotifiedAt: pgtsPtr(r.LastNotifiedAt),
+					CreatedAt:      pgts(r.CreatedAt),
 				}); err != nil {
 					return nil, fmt.Errorf("insert reminder: %w", err)
 				}
@@ -607,27 +697,28 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			currency = "VND"
 		}
 		if err := q.BackupInsertSubscription(ctx, store.BackupInsertSubscriptionParams{
-			ID:            s.ID,
-			UserId:        userID,
-			Name:          s.Name,
-			Category:      s.Category,
-			Brand:         s.Brand,
-			Plan:          s.Plan,
-			BillingCycle:  s.BillingCycle,
-			IntervalDays:  s.IntervalDays,
-			Price:         s.Price,
-			Currency:      currency,
-			StartedAt:     pgts(s.StartedAt),
-			RenewalDate:   pgts(s.RenewalDate),
-			AutoRenew:     s.AutoRenew,
-			Status:        s.Status,
-			AccountEmail:  s.AccountEmail,
-			PaymentMethod: s.PaymentMethod,
-			ManageUrl:     s.ManageUrl,
-			CancelUrl:     s.CancelUrl,
-			Notes:         s.Notes,
-			CreatedAt:     pgts(s.CreatedAt),
-			UpdatedAt:     pgts(s.UpdatedAt),
+			ID:                    s.ID,
+			UserId:                userID,
+			Name:                  s.Name,
+			Category:              s.Category,
+			Brand:                 s.Brand,
+			Plan:                  s.Plan,
+			BillingCycle:          s.BillingCycle,
+			IntervalDays:          s.IntervalDays,
+			Price:                 s.Price,
+			Currency:              currency,
+			StartedAt:             pgts(s.StartedAt),
+			RenewalDate:           pgts(s.RenewalDate),
+			AutoRenew:             s.AutoRenew,
+			Status:                s.Status,
+			AccountEmail:          s.AccountEmail,
+			PaymentMethod:         s.PaymentMethod,
+			ManageUrl:             s.ManageUrl,
+			CancelUrl:             s.CancelUrl,
+			Notes:                 s.Notes,
+			LastNotifiedRenewalAt: pgtsPtr(s.LastNotifiedRenewalAt),
+			CreatedAt:             pgts(s.CreatedAt),
+			UpdatedAt:             pgts(s.UpdatedAt),
 		}); err != nil {
 			return nil, fmt.Errorf("insert subscription: %w", err)
 		}

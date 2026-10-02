@@ -35,6 +35,16 @@
 --   These indexes only help when the LIKE pattern is known at plan time; see the
 --   note in internal/store/queries/devices.sql.
 --
+-- !! SUPERSEDED EXPRESSION ORDERING — see migration 0007. !!
+--   The `public.wv_unaccent(lower(x))` ordering below calls lower() first, which
+--   is ASCII-only in a C/POSIX-locale database; 'Đ' then survives lower() and
+--   unaccent maps it to an uppercase 'D', so Vietnamese search silently returns
+--   nothing. Migration 0007 drops and rebuilds these four indexes on
+--   `lower(public.wv_unaccent(x))`, which is collation-independent. This file is
+--   deliberately not amended in place: goose keys on version numbers, so a
+--   database that already applied 0005 would keep the broken definition unless a
+--   later migration replaces it.
+--
 -- Privileges: unaccent and pg_trgm are *trusted* extensions since PG 13 (their
 -- control files say `trusted = true`), so the database owner can install them —
 -- no superuser required. A non-owner role would need CREATE on the database.

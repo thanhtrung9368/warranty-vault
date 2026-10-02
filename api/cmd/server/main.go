@@ -77,6 +77,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/forgot", handlers.Forgot(deps))
 	mux.HandleFunc("POST /api/v1/auth/reset-password", handlers.ResetPassword(deps))
 	mux.HandleFunc("POST /api/v1/auth/change-password", handlers.ChangePassword(deps))
+	handlers.RegisterProfile(mux, deps)
 
 	handlers.RegisterDevices(mux, deps)
 	handlers.RegisterWarranties(mux, deps)

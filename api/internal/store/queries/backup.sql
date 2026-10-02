@@ -110,12 +110,14 @@ WHERE "userId" = $1;
 -- ─── Import inserts (preserve ids + timestamps) ──────────────────────────
 
 -- name: BackupInsertDevice :exec
+-- soldAt/soldPrice are optional in the payload (older v5 exports predate them);
+-- a missing value decodes to NULL, which is exactly the "not sold / unknown" state.
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
-    "createdAt", "updatedAt"
+    "soldAt", "soldPrice", "createdAt", "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 );
 
 -- name: BackupInsertWarranty :exec
@@ -127,10 +129,12 @@ INSERT INTO "Warranty" (
 );
 
 -- name: BackupInsertReminder :exec
+-- "lastNotifiedAt" is the cron dedup marker (migration 0002): dropping it on
+-- restore makes the next cron run re-notify warranties the user already saw.
 INSERT INTO "Reminder" (
-    id, "warrantyId", "isDismissed", "createdAt"
+    id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt"
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 );
 
 -- name: BackupInsertAttachment :exec
@@ -160,14 +164,16 @@ INSERT INTO "WishlistPrice" (
 );
 
 -- name: BackupInsertSubscription :exec
+-- "lastNotifiedRenewalAt" is the cron renewal-warning dedup marker; like the
+-- reminder marker it must survive a restore or the user gets re-notified.
 INSERT INTO "Subscription" (
     id, "userId", name, category, brand, plan, "billingCycle",
     "intervalDays", price, currency, "startedAt", "renewalDate",
     "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl",
-    "cancelUrl", notes, "createdAt", "updatedAt"
+    "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19, $20, $21
+    $17, $18, $19, $20, $21, $22
 );
 
 -- name: BackupInsertPayment :exec

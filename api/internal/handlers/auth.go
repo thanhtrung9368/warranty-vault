@@ -23,6 +23,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -396,6 +397,114 @@ func Me(d Deps) http.HandlerFunc {
 			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn},
 		})
 	}
+}
+
+// ---- PATCH /api/v1/auth/me ----------------------------------------------------
+//
+// Partial profile update. ONLY `displayName` is accepted. Changing the account
+// email is deliberately NOT supported in this pass: it needs a two-step
+// verification flow (prove control of the new address, then re-authenticate)
+// and is tracked separately. A request carrying `email` / `newEmail` is
+// rejected with a Vietnamese fieldError rather than silently ignored, so the
+// three clients get an unambiguous answer. See openapi.yaml + api/README.md.
+//
+// Body:
+//
+//	{ "displayName": "Nguyễn Văn A" }   → set (trimmed)
+//	{ "displayName": "" }               → clear (same as null)
+//	{ "displayName": null }             → clear
+//
+// Responds with the same `{ "user": ... }` envelope as GET /auth/me so a client
+// can replace its cached user object straight from the response.
+
+// RegisterProfile wires PATCH /api/v1/auth/me. Registered separately from the
+// other auth routes in main.go because this one uses the shared requireUser
+// middleware (same as devices/attachments) instead of the older inline
+// VerifyBearer pattern the pre-existing auth handlers use.
+func RegisterProfile(mux *http.ServeMux, deps Deps) {
+	requireUser := auth.RequireUser(deps.DB)
+	mux.Handle("PATCH /api/v1/auth/me", requireUser(http.HandlerFunc(updateMeHandler(deps))))
+}
+
+func updateMeHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		us, ok := auth.UserFromContext(r.Context())
+		if !ok {
+			unauthorized(w)
+			return
+		}
+
+		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
+		if !rl.Ok {
+			rateLimited(w, rl.RetryAfterSec)
+			return
+		}
+
+		// Decode into a raw map first so we can (a) distinguish "key absent" from
+		// "explicit null / empty string" and (b) answer unknown fields with a
+		// field-level Vietnamese message instead of the generic bad-JSON one.
+		var raw map[string]json.RawMessage
+		if err := decodeJSON(r, &raw); err != nil {
+			badJSONBody(w)
+			return
+		}
+
+		unknown := map[string][]string{}
+		for k := range raw {
+			if k == "displayName" {
+				continue
+			}
+			if k == "email" || k == "newEmail" {
+				unknown[k] = []string{"Đổi email chưa được hỗ trợ. Chỉ có thể sửa tên hiển thị."}
+				continue
+			}
+			unknown[k] = []string{"Trường không được hỗ trợ"}
+		}
+		if len(unknown) > 0 {
+			badInput(w, unknown, "Chỉ hỗ trợ sửa tên hiển thị")
+			return
+		}
+
+		rawName, present := raw["displayName"]
+		var nameIn *string
+		if present {
+			// `null` unmarshals to a nil *string without error; a number/object/
+			// array/bool is rejected here.
+			if err := json.Unmarshal(rawName, &nameIn); err != nil {
+				badInput(w, map[string][]string{"displayName": {"Tên hiển thị không hợp lệ"}})
+				return
+			}
+		}
+		name, verr := services.NormalizeDisplayName(nameIn, present)
+		if verr != nil {
+			writeAuthServiceErr(w, verr, "validate display name")
+			return
+		}
+
+		user, uerr := services.UpdateDisplayName(r.Context(), d.DB, us.UserID, name)
+		if uerr != nil {
+			writeAuthServiceErr(w, uerr, "update display name")
+			return
+		}
+
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn},
+			"message": "Đã cập nhật hồ sơ",
+		})
+	}
+}
+
+// writeAuthServiceErr maps a services.* domain error onto the shared JSON error
+// envelope. Mirrors writeDevicesErr, kept local so auth.go doesn't depend on the
+// devices handler file.
+func writeAuthServiceErr(w http.ResponseWriter, err error, op string) {
+	var svc *services.Error
+	if errors.As(err, &svc) {
+		httpx.WriteError(w, svc.HTTPStatus(), strings.ToLower(svc.Code), svc.Message, svc.FieldErrors)
+		return
+	}
+	slog.Error(op+" failed", "err", err)
+	httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 }
 
 // ---- POST /api/v1/auth/forgot --------------------------------------------------

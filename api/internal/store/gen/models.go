@@ -55,6 +55,8 @@ type Device struct {
 	Notes         *string          `json:"notes"`
 	CreatedAt     pgtype.Timestamp `json:"createdAt"`
 	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
+	SoldAt        pgtype.Timestamp `json:"soldAt"`
+	SoldPrice     *int32           `json:"soldPrice"`
 }
 
 type PasswordReset struct {

@@ -143,9 +143,9 @@ const backupInsertDevice = `-- name: BackupInsertDevice :exec
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
-    "createdAt", "updatedAt"
+    "soldAt", "soldPrice", "createdAt", "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 )
 `
 
@@ -162,11 +162,15 @@ type BackupInsertDeviceParams struct {
 	PurchasePlace *string          `json:"purchasePlace"`
 	Status        string           `json:"status"`
 	Notes         *string          `json:"notes"`
+	SoldAt        pgtype.Timestamp `json:"soldAt"`
+	SoldPrice     *int32           `json:"soldPrice"`
 	CreatedAt     pgtype.Timestamp `json:"createdAt"`
 	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
 }
 
 // ─── Import inserts (preserve ids + timestamps) ──────────────────────────
+// soldAt/soldPrice are optional in the payload (older v5 exports predate them);
+// a missing value decodes to NULL, which is exactly the "not sold / unknown" state.
 func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDeviceParams) error {
 	_, err := q.db.Exec(ctx, backupInsertDevice,
 		arg.ID,
@@ -181,6 +185,8 @@ func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDevice
 		arg.PurchasePlace,
 		arg.Status,
 		arg.Notes,
+		arg.SoldAt,
+		arg.SoldPrice,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -216,24 +222,28 @@ func (q *Queries) BackupInsertPayment(ctx context.Context, arg BackupInsertPayme
 
 const backupInsertReminder = `-- name: BackupInsertReminder :exec
 INSERT INTO "Reminder" (
-    id, "warrantyId", "isDismissed", "createdAt"
+    id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt"
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 `
 
 type BackupInsertReminderParams struct {
-	ID          string           `json:"id"`
-	WarrantyId  string           `json:"warrantyId"`
-	IsDismissed bool             `json:"isDismissed"`
-	CreatedAt   pgtype.Timestamp `json:"createdAt"`
+	ID             string           `json:"id"`
+	WarrantyId     string           `json:"warrantyId"`
+	IsDismissed    bool             `json:"isDismissed"`
+	LastNotifiedAt pgtype.Timestamp `json:"lastNotifiedAt"`
+	CreatedAt      pgtype.Timestamp `json:"createdAt"`
 }
 
+// "lastNotifiedAt" is the cron dedup marker (migration 0002): dropping it on
+// restore makes the next cron run re-notify warranties the user already saw.
 func (q *Queries) BackupInsertReminder(ctx context.Context, arg BackupInsertReminderParams) error {
 	_, err := q.db.Exec(ctx, backupInsertReminder,
 		arg.ID,
 		arg.WarrantyId,
 		arg.IsDismissed,
+		arg.LastNotifiedAt,
 		arg.CreatedAt,
 	)
 	return err
@@ -244,37 +254,40 @@ INSERT INTO "Subscription" (
     id, "userId", name, category, brand, plan, "billingCycle",
     "intervalDays", price, currency, "startedAt", "renewalDate",
     "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl",
-    "cancelUrl", notes, "createdAt", "updatedAt"
+    "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19, $20, $21
+    $17, $18, $19, $20, $21, $22
 )
 `
 
 type BackupInsertSubscriptionParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      *string          `json:"category"`
-	Brand         *string          `json:"brand"`
-	Plan          *string          `json:"plan"`
-	BillingCycle  string           `json:"billingCycle"`
-	IntervalDays  *int32           `json:"intervalDays"`
-	Price         int32            `json:"price"`
-	Currency      string           `json:"currency"`
-	StartedAt     pgtype.Timestamp `json:"startedAt"`
-	RenewalDate   pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew     bool             `json:"autoRenew"`
-	Status        string           `json:"status"`
-	AccountEmail  *string          `json:"accountEmail"`
-	PaymentMethod *string          `json:"paymentMethod"`
-	ManageUrl     *string          `json:"manageUrl"`
-	CancelUrl     *string          `json:"cancelUrl"`
-	Notes         *string          `json:"notes"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
+	ID                    string           `json:"id"`
+	UserId                string           `json:"userId"`
+	Name                  string           `json:"name"`
+	Category              *string          `json:"category"`
+	Brand                 *string          `json:"brand"`
+	Plan                  *string          `json:"plan"`
+	BillingCycle          string           `json:"billingCycle"`
+	IntervalDays          *int32           `json:"intervalDays"`
+	Price                 int32            `json:"price"`
+	Currency              string           `json:"currency"`
+	StartedAt             pgtype.Timestamp `json:"startedAt"`
+	RenewalDate           pgtype.Timestamp `json:"renewalDate"`
+	AutoRenew             bool             `json:"autoRenew"`
+	Status                string           `json:"status"`
+	AccountEmail          *string          `json:"accountEmail"`
+	PaymentMethod         *string          `json:"paymentMethod"`
+	ManageUrl             *string          `json:"manageUrl"`
+	CancelUrl             *string          `json:"cancelUrl"`
+	Notes                 *string          `json:"notes"`
+	LastNotifiedRenewalAt pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
+	CreatedAt             pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt             pgtype.Timestamp `json:"updatedAt"`
 }
 
+// "lastNotifiedRenewalAt" is the cron renewal-warning dedup marker; like the
+// reminder marker it must survive a restore or the user gets re-notified.
 func (q *Queries) BackupInsertSubscription(ctx context.Context, arg BackupInsertSubscriptionParams) error {
 	_, err := q.db.Exec(ctx, backupInsertSubscription,
 		arg.ID,
@@ -296,6 +309,7 @@ func (q *Queries) BackupInsertSubscription(ctx context.Context, arg BackupInsert
 		arg.ManageUrl,
 		arg.CancelUrl,
 		arg.Notes,
+		arg.LastNotifiedRenewalAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -472,7 +486,7 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 const backupListDevices = `-- name: BackupListDevices :many
 
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -514,6 +528,8 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SoldAt,
+			&i.SoldPrice,
 		); err != nil {
 			return nil, err
 		}

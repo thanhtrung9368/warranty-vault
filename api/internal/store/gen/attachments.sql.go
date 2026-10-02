@@ -275,3 +275,40 @@ func (q *Queries) SumAttachmentBytesByUser(ctx context.Context, userid string) (
 	err := row.Scan(&total_bytes)
 	return total_bytes, err
 }
+
+const updateAttachmentDescription = `-- name: UpdateAttachmentDescription :one
+UPDATE "Attachment" a
+SET description = $3
+FROM "Device" d
+WHERE a.id = $1 AND a."deviceId" = d.id AND d."userId" = $2
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt"
+`
+
+type UpdateAttachmentDescriptionParams struct {
+	ID          string  `json:"id"`
+	UserId      string  `json:"userId"`
+	Description *string `json:"description"`
+}
+
+// PATCH /api/v1/attachments/{id}. Ownership is enforced through the owning
+// Device row (the same join used by GetAttachmentByID), and a non-owned id
+// simply matches no row → sqlc/pgx returns ErrNoRows → handler 404 (never 403,
+// matching downloadFileHandler's "leak nothing" policy).
+// A NULL $3 clears the description.
+func (q *Queries) UpdateAttachmentDescription(ctx context.Context, arg UpdateAttachmentDescriptionParams) (Attachment, error) {
+	row := q.db.QueryRow(ctx, updateAttachmentDescription, arg.ID, arg.UserId, arg.Description)
+	var i Attachment
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceId,
+		&i.FileName,
+		&i.StoragePath,
+		&i.FileType,
+		&i.FileSize,
+		&i.Iv,
+		&i.WrappedKey,
+		&i.Description,
+		&i.UploadedAt,
+	)
+	return i, err
+}
