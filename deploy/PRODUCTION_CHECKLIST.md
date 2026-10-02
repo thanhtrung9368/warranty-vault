@@ -95,7 +95,26 @@ endpoint trả 503 `feature_disabled`.
       `api: service_healthy` nên web chỉ lên khi API ping được DB
 - [ ] Migration lần đầu: `docker compose run --rm --entrypoint /app/migrate api up`
 - [ ] Kiểm tra version: `docker compose run --rm --entrypoint /app/migrate api status`
-      → 3 migration đã apply: `0001_initial`, `0002_cron_idempotency`, `0003_user_ai_optin`
+      → 7 migration đã apply: `0001_initial`, `0002_cron_idempotency`,
+      `0003_user_ai_optin`, `0004_seed_category_catalog`, `0005_device_search_unaccent`,
+      `0006_device_resale`, `0007_locale_safe_unaccent`
+- [ ] **Database PHẢI có encoding UTF-8.** Kiểm tra:
+      `docker compose exec -T postgres psql -U warranty -d warranty_vault -c 'SHOW server_encoding; SHOW lc_collate;'`
+      → `server_encoding` phải là `UTF8`. (`lc_collate` có thể là `C` — xem bên dưới.)
+      ⚠️ Đây không phải chi tiết vụn: nếu encoding **không** phải UTF-8 thì Postgres
+      không lưu nổi ký tự tiếng Việt, và **tìm kiếm trả về 0 kết quả — im lặng,
+      không lỗi, không log**.
+      Image `postgres:17` chính thức mặc định UTF-8 nên thường chỉ cần kiểm tra; nếu
+      tự dựng cluster thì `initdb -E UTF8`.
+- [ ] Kiểm tra tìm kiếm tiếng Việt chạy thật (bắt được cả lỗi encoding lẫn lỗi
+      biểu thức index): tạo 1 thiết bị tên `Điện thoại SamSung`, rồi tìm bằng
+      **`dien thoai`** không dấu → phải ra kết quả.
+      > Lịch sử: migration `0005` dựng biểu thức là `unaccent(lower(x))` — gọi hàm
+      > phụ thuộc locale **trước**. Trên database `lc_collate=C`, `lower()` chỉ xử lý
+      > ASCII nên `Đ` không hạ được, `unaccent` trả `D` hoa, và search hỏng hoàn
+      > toàn im lặng. Migration `0007` đảo thành `lower(unaccent(x))` nên giờ
+      > **collation không còn ảnh hưởng** — đã kiểm chứng bằng test tự dựng cluster
+      > `locale=C`. Chỉ encoding mới là ràng buộc thật.
 - [ ] Bảng đã tạo: `docker compose exec -T postgres psql -U warranty -d warranty_vault -c '\dt'`
       → thấy `"User"`, `"Device"`, `"Warranty"`, `"Attachment"`, `"Session"`, ...
 - [ ] Nếu có migration mới trong release sau: luôn `migrate up` **trước** khi
