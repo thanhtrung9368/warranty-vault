@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -96,8 +97,45 @@ class DeviceDetailViewModel(
         }
     }
 
+    /**
+     * Applies a locally-edited device without refetching.
+     *
+     * `PATCH /api/v1/devices/{id}` answers with a bare `store.Device` row — no
+     * `warranties`, no `attachments`, no `effectiveWarrantyEnd`. Assigning that
+     * straight into the Loaded state used to blank the whole "Bảo hành" and
+     * "Hoá đơn" sections of the detail screen until the user pulled to refresh,
+     * so anything the response omits is carried over from what we already have.
+     */
     fun replaceDevice(device: Device) {
-        _state.value = State.Loaded(device)
+        val current = (_state.value as? State.Loaded)?.device
+        _state.value = State.Loaded(
+            device.copy(
+                warranties = device.warranties.ifEmpty { current?.warranties ?: emptyList() },
+                effectiveWarrantyEnd = device.effectiveWarrantyEnd
+                    ?: current?.effectiveWarrantyEnd,
+                attachmentCount = if (device.attachmentCount != 0) {
+                    device.attachmentCount
+                } else {
+                    current?.attachmentCount ?: 0
+                },
+            ),
+        )
+    }
+
+    /**
+     * `DELETE /api/v1/devices/{id}` — cascades to the device's warranties,
+     * reminders and attachments server-side. Was reachable from the web
+     * (`delete-device-button.tsx`) but had no Android entry point at all.
+     */
+    fun delete(onDeleted: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.deleteDevice(deviceId)
+                onDeleted()
+            } catch (e: Exception) {
+                onError(e.toUserMessage(ApiClient.json))
+            }
+        }
     }
 }
 
@@ -117,6 +155,8 @@ fun DeviceDetailScreen(
     var showEditDevice by rememberSaveable { mutableStateOf(false) }
     var editingWarrantyId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingWarrantyId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showDeleteDevice by rememberSaveable { mutableStateOf(false) }
+    var deletingDevice by remember { mutableStateOf(false) }
     var actionError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(deviceId) { vm.load() }
@@ -136,6 +176,12 @@ fun DeviceDetailScreen(
                     if (deviceLoaded != null) {
                         IconButton(onClick = { showEditDevice = true }) {
                             Icon(Icons.Filled.Edit, "Sửa thiết bị")
+                        }
+                        IconButton(onClick = { showDeleteDevice = true }) {
+                            Icon(
+                                Icons.Filled.DeleteOutline, "Xoá thiết bị",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
                 },
@@ -271,6 +317,46 @@ fun DeviceDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deletingWarrantyId = null }) { Text("Huỷ") }
+            },
+        )
+    }
+
+    // Delete the whole device (web: DeleteDeviceButton). Cascades server-side.
+    if (showDeleteDevice && deviceLoaded != null) {
+        AlertDialog(
+            onDismissRequest = { if (!deletingDevice) showDeleteDevice = false },
+            title = { Text("Xóa thiết bị?") },
+            text = {
+                Text(
+                    "Hành động này sẽ xóa vĩnh viễn \"${deviceLoaded.name}\" cùng toàn bộ " +
+                        "file đính kèm và nhắc nhở. Không thể khôi phục.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !deletingDevice,
+                    onClick = {
+                        deletingDevice = true
+                        actionError = null
+                        vm.delete(
+                            onDeleted = {
+                                deletingDevice = false
+                                showDeleteDevice = false
+                                onBack()
+                            },
+                            onError = {
+                                deletingDevice = false
+                                showDeleteDevice = false
+                                actionError = it
+                            },
+                        )
+                    },
+                ) { Text(if (deletingDevice) "Đang xoá…" else "Xoá", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(enabled = !deletingDevice, onClick = { showDeleteDevice = false }) {
+                    Text("Huỷ")
+                }
             },
         )
     }

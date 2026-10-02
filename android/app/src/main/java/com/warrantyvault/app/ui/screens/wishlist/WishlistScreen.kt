@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterAltOff
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
@@ -61,9 +62,12 @@ import com.warrantyvault.app.network.WishlistStatus
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.EmptyState
 import com.warrantyvault.app.ui.components.ErrorState
+import com.warrantyvault.app.ui.components.FilterOption
+import com.warrantyvault.app.ui.components.ListFilterBar
 import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.PillKind
 import com.warrantyvault.app.ui.components.SkeletonList
+import com.warrantyvault.app.ui.components.SortMenuButton
 import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.pressScale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -135,6 +139,12 @@ fun WishlistScreen(
     val state by vm.state.collectAsState()
     var creating by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    // Filter state — mirrors the web `wishlist-filter-bar.tsx` (search box,
+    // "Đang theo dõi / Watching / …" pills, priority + sort dropdowns).
+    var query by rememberSaveable { mutableStateOf("") }
+    var statusKey by rememberSaveable { mutableStateOf(WishlistStatusFilter.Active.key) }
+    var priorityKey by rememberSaveable { mutableStateOf(WishlistPriorityFilter.All.key) }
+    var sortKey by rememberSaveable { mutableStateOf(WishlistSort.PriorityAsc.name) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { vm.load() }
@@ -188,6 +198,16 @@ fun WishlistScreen(
                         onRetry = { vm.load() },
                     )
                     is WishlistViewModel.State.Loaded -> {
+                        val statusFilter = WishlistStatusFilter.fromKey(statusKey)
+                        val priorityFilter = WishlistPriorityFilter.fromKey(priorityKey)
+                        val sort = WishlistSort.valueOf(sortKey)
+                        val visible = filterAndSortWishlist(
+                            rows = s.items,
+                            query = query,
+                            status = statusFilter,
+                            priority = priorityFilter,
+                            sort = sort,
+                        )
                         if (s.items.isEmpty()) {
                             Column(Modifier.fillMaxSize()) {
                                 PageHeader(
@@ -204,7 +224,22 @@ fun WishlistScreen(
                                 )
                             }
                         } else {
-                            WishlistList(items = s.items, onClick = onOpenItem)
+                            WishlistList(
+                                items = visible,
+                                total = s.items.size,
+                                isFiltered = query.isNotBlank() ||
+                                    statusFilter != WishlistStatusFilter.Active ||
+                                    priorityFilter != WishlistPriorityFilter.All,
+                                query = query,
+                                onQueryChange = { query = it },
+                                statusKey = statusKey,
+                                onStatusChange = { statusKey = it },
+                                priorityKey = priorityKey,
+                                onPriorityChange = { priorityKey = it },
+                                sort = sort,
+                                onSortChange = { sortKey = it.name },
+                                onClick = onOpenItem,
+                            )
                         }
                     }
                 }
@@ -230,20 +265,74 @@ fun WishlistScreen(
 }
 
 @Composable
-private fun WishlistList(items: List<WishlistItem>, onClick: (String) -> Unit) {
+private fun WishlistList(
+    items: List<WishlistItem>,
+    total: Int,
+    isFiltered: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    statusKey: String,
+    onStatusChange: (String) -> Unit,
+    priorityKey: String,
+    onPriorityChange: (String) -> Unit,
+    sort: WishlistSort,
+    onSortChange: (WishlistSort) -> Unit,
+    onClick: (String) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            PageHeader("Wishlist", "${items.size} món đang thèm")
+            PageHeader(
+                "Wishlist",
+                if (isFiltered) "${items.size}/$total món khớp bộ lọc"
+                else "$total món đang thèm",
+            )
+        }
+        item {
+            ListFilterBar(
+                query = query,
+                onQueryChange = onQueryChange,
+                placeholder = "Tìm tên, hãng, ghi chú...",
+                options = wishlistStatusOptions,
+                selectedKey = statusKey,
+                onSelect = onStatusChange,
+                modifier = Modifier.padding(horizontal = 4.dp),
+                secondaryOptions = wishlistPriorityOptions,
+                secondarySelectedKey = priorityKey,
+                onSecondarySelect = onPriorityChange,
+                trailing = {
+                    SortMenuButton(
+                        options = WishlistSort.entries,
+                        current = sort,
+                        label = { it.label },
+                        onSelect = onSortChange,
+                    )
+                },
+            )
+        }
+        if (items.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Filled.FilterAltOff,
+                    title = "Không có gì khớp bộ lọc",
+                    body = "Thử nới bộ lọc hoặc chọn \"Tất cả\" xem sao.",
+                )
+            }
         }
         items(items, key = { it.id }) { item ->
             WishlistCard(item) { onClick(item.id) }
         }
     }
 }
+
+private val wishlistStatusOptions: List<FilterOption> =
+    WishlistStatusFilter.entries.map { FilterOption(it.key, it.label) }
+
+private val wishlistPriorityOptions: List<FilterOption> =
+    WishlistPriorityFilter.entries.map { FilterOption(it.key, it.label) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

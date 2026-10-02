@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.dashboard
 
+import com.warrantyvault.app.network.DeviceListResponse
 import com.warrantyvault.app.network.RemindersResponse
 import com.warrantyvault.app.network.SubscriptionListResponse
 import com.warrantyvault.app.network.UserStats
@@ -36,25 +37,35 @@ class DashboardViewModelTest {
         private val reminders: suspend () -> RemindersResponse = { RemindersResponse(emptyList()) },
         private val subscriptions: suspend () -> SubscriptionListResponse = { SubscriptionListResponse(emptyList()) },
         private val wishlist: suspend () -> WishlistListResponse = { WishlistListResponse(emptyList()) },
+        private val devices: suspend () -> DeviceListResponse = { DeviceListResponse(emptyList()) },
     ) : FakeApiService() {
         override suspend fun getStats(): UserStats = stats()
         override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse = reminders()
         override suspend fun listSubscriptions(): SubscriptionListResponse = subscriptions()
         override suspend fun listWishlist(): WishlistListResponse = wishlist()
+        override suspend fun listDevices(
+            q: String?,
+            category: String?,
+            status: String?,
+            sort: String?,
+            dir: String?,
+        ): DeviceListResponse = devices()
     }
 
     @Test
-    fun load_mergesStatsRemindersSubscriptionsAndWishlist() = runTest(dispatcher) {
+    fun load_mergesStatsRemindersSubscriptionsWishlistAndDevices() = runTest(dispatcher) {
         val stats = Fixtures.stats(devices = 4)
         val reminders = listOf(Fixtures.upcomingReminder(id = "war-1"))
         val subs = listOf(Fixtures.subscription())
         val wishlist = listOf(Fixtures.wishlistItem())
+        val devices = listOf(Fixtures.device(id = "dev-1", effectiveWarrantyEnd = "2026-01-01"))
         val vm = DashboardViewModel(
             FakeDashboardApi(
                 stats = { stats },
                 reminders = { RemindersResponse(reminders) },
                 subscriptions = { SubscriptionListResponse(subs) },
                 wishlist = { WishlistListResponse(wishlist) },
+                devices = { DeviceListResponse(devices) },
             ),
         )
 
@@ -63,7 +74,13 @@ class DashboardViewModelTest {
 
         assertEquals(
             DashboardViewModel.State.Loaded(
-                DashboardData(stats = stats, reminders = reminders, subscriptions = subs, wishlist = wishlist),
+                DashboardData(
+                    stats = stats,
+                    reminders = reminders,
+                    subscriptions = subs,
+                    wishlist = wishlist,
+                    devices = devices,
+                ),
             ),
             vm.state.value,
         )
@@ -79,5 +96,19 @@ class DashboardViewModelTest {
         advanceUntilIdle()
 
         assertEquals(DashboardViewModel.State.Error("Máy chủ đang bận"), vm.state.value)
+    }
+
+    @Test
+    fun load_failsWhenTheDeviceListFails() = runTest(dispatcher) {
+        // The warranty grid reads the device list, so a failure there must not
+        // silently degrade to "0 đã hết hạn".
+        val vm = DashboardViewModel(
+            FakeDashboardApi(devices = { throw httpError(503, """{"error":"unavailable","message":"Tạm thời không có"}""") }),
+        )
+
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals(DashboardViewModel.State.Error("Tạm thời không có"), vm.state.value)
     }
 }

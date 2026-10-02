@@ -18,13 +18,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -211,11 +212,34 @@ private fun StatsBody(stats: UserStats) {
                 )
                 StatTile(
                     icon = Icons.Filled.MonetizationOn,
-                    value = formatVndShort(devices.totalPurchasePrice.toLong()),
+                    value = formatVndShort(devices.totalPurchasePrice),
                     label = "Tổng giá trị",
                     tone = StatTone.Primary,
                     modifier = Modifier.weight(1f),
                 )
+            }
+        }
+        // Warranty-package spend (SUM of Warranty.cost) shipped with
+        // `devices.totalWarrantyCost`. Only rendered once the server sends it —
+        // older Go builds decode to null and we keep the old two tiles.
+        devices.totalWarrantyCost?.let { warrantyCost ->
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatTile(
+                        icon = Icons.Filled.VerifiedUser,
+                        value = formatVndShort(warrantyCost),
+                        label = "Phí bảo hành",
+                        tone = StatTone.Success,
+                        modifier = Modifier.weight(1f),
+                    )
+                    StatTile(
+                        icon = Icons.Filled.AccountBalanceWallet,
+                        value = formatVndShort(devices.totalSpend),
+                        label = "Tổng chi mua sắm",
+                        tone = StatTone.Primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 
@@ -234,7 +258,7 @@ private fun StatsBody(stats: UserStats) {
                 )
                 StatTile(
                     icon = Icons.Filled.MonetizationOn,
-                    value = formatVndShort(subs.totalMonthlyVnd.toLong()),
+                    value = formatVndShort(subs.totalMonthlyVnd),
                     label = "Mỗi tháng",
                     tone = StatTone.Success,
                     modifier = Modifier.weight(1f),
@@ -257,7 +281,7 @@ private fun StatsBody(stats: UserStats) {
                 )
                 StatTile(
                     icon = Icons.Filled.FavoriteBorder,
-                    value = formatVndShort(wish.totalCurrentPriceWatching.toLong()),
+                    value = formatVndShort(wish.totalCurrentPriceWatching),
                     label = "Tổng dự kiến",
                     tone = StatTone.Tertiary,
                     modifier = Modifier.weight(1f),

@@ -328,4 +328,99 @@ class ModelsSerializationTest {
         assertEquals("SOMETHING_NEW", reminder.type)
         assertEquals("iPhone", reminder.device.name)
     }
+
+    // ---- Stats ----
+
+    /**
+     * `devices.totalWarrantyCost` is a NEW field on `GET /api/v1/stats`
+     * (docs/FEATURE_ROADMAP.md #3 — SUM(`Warranty.cost`) per user). The client
+     * must bind it when present…
+     */
+    @Test
+    fun userStats_decodesTheNewWarrantyCostField() {
+        val raw = """
+            {
+              "devices": {"total": 2, "byStatus": {"ACTIVE": 2}, "totalPurchasePrice": 30000000, "totalWarrantyCost": 4500000},
+              "subscriptions": {"total": 1, "byStatus": {"ACTIVE": 1}, "totalMonthlyVnd": 260000},
+              "wishlist": {"total": 1, "byStatus": {"WATCHING": 1}, "totalCurrentPriceWatching": 12000000}
+            }
+        """.trimIndent()
+
+        val stats = json.decodeFromString(UserStats.serializer(), raw)
+
+        assertEquals(4_500_000L, stats.devices.totalWarrantyCost)
+        assertEquals(30_000_000L, stats.devices.totalPurchasePrice)
+        // Web `/stats` "Tổng chi mua sắm" = devices + warranty packages.
+        assertEquals(34_500_000L, stats.devices.totalSpend)
+    }
+
+    /**
+     * …and must NOT blow up on a server that has not shipped it yet: the field
+     * decodes to null, and the UI hides the warranty tiles instead of printing
+     * a fabricated 0đ.
+     */
+    @Test
+    fun userStats_survivesAMissingWarrantyCostField() {
+        val raw = """
+            {
+              "devices": {"total": 2, "byStatus": {"ACTIVE": 2}, "totalPurchasePrice": 30000000},
+              "subscriptions": {"total": 0, "byStatus": {}, "totalMonthlyVnd": 0},
+              "wishlist": {"total": 0, "byStatus": {}, "totalCurrentPriceWatching": 0}
+            }
+        """.trimIndent()
+
+        val stats = json.decodeFromString(UserStats.serializer(), raw)
+
+        assertNull(stats.devices.totalWarrantyCost)
+        assertEquals(30_000_000L, stats.devices.totalSpend)
+    }
+
+    /**
+     * Every money rollup in `UserStats` is an int64 SUM on the Go side (the
+     * per-row values are int32, but up to 50 devices / 200 wishlist items are
+     * added together). Decoding them as `Int` threw
+     * `SerializationException: Expected value of type Int` and blanked the whole
+     * stats tab the moment a user crossed ~2.1 tỷ VND.
+     */
+    @Test
+    fun userStats_decodesMoneyRollupsThatOverflowInt() {
+        val raw = """
+            {
+              "devices": {"total": 3, "byStatus": {}, "totalPurchasePrice": 3000000000, "totalWarrantyCost": 2500000000},
+              "subscriptions": {"total": 2, "byStatus": {}, "totalMonthlyVnd": 2200000000},
+              "wishlist": {"total": 4, "byStatus": {}, "totalCurrentPriceWatching": 9999999999}
+            }
+        """.trimIndent()
+
+        val stats = json.decodeFromString(UserStats.serializer(), raw)
+
+        assertEquals(3_000_000_000L, stats.devices.totalPurchasePrice)
+        assertEquals(2_500_000_000L, stats.devices.totalWarrantyCost)
+        assertEquals(5_500_000_000L, stats.devices.totalSpend)
+        assertEquals(2_200_000_000L, stats.subscriptions.totalMonthlyVnd)
+        assertEquals(9_999_999_999L, stats.wishlist.totalCurrentPriceWatching)
+    }
+
+    /**
+     * The warranty slot is a guess in the exact *location* (top-level vs nested)
+     * until openapi.yaml lands it. An unrecognised extra key must be ignored
+     * silently — `ignoreUnknownKeys` — so a differently-shaped payload still
+     * yields a usable snapshot instead of a decode error.
+     */
+    @Test
+    fun userStats_ignoresAWarrantyCostShapedKeyItDoesNotKnow() {
+        val raw = """
+            {
+              "devices": {"total": 1, "byStatus": {}, "totalPurchasePrice": 100},
+              "subscriptions": {"total": 0, "byStatus": {}, "totalMonthlyVnd": 0},
+              "wishlist": {"total": 0, "byStatus": {}, "totalCurrentPriceWatching": 0},
+              "warranty": {"total": 3, "totalCost": 4500000}
+            }
+        """.trimIndent()
+
+        val stats = json.decodeFromString(UserStats.serializer(), raw)
+
+        assertNull(stats.devices.totalWarrantyCost)
+        assertEquals(1, stats.devices.total)
+    }
 }

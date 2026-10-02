@@ -95,6 +95,15 @@ data class Device(
     val status: DeviceStatus = DeviceStatus.ACTIVE,
     val notes: String? = null,
     val warranties: List<Warranty> = emptyList(),
+    /**
+     * `GET /api/v1/devices` only (see Go `DeviceListItem`): `max(endDate)` over
+     * the device's warranties. `null` when the device has no warranty at all —
+     * which is NOT the same as "expired". Absent on the detail read, so it
+     * defaults to null there and the list-only UI must not treat it as truth.
+     */
+    val effectiveWarrantyEnd: String? = null,
+    /** `GET /api/v1/devices` only — the list projection's attachment count. */
+    val attachmentCount: Int = 0,
 )
 
 @Serializable
@@ -507,25 +516,43 @@ data class UserStats(
     val wishlist: WishlistStats,
 )
 
+// Money rollups are VND sums computed by Go over up to MAX_DEVICES_PER_USER
+// (50) / MAX_WISHLIST_PER_USER (200) rows, each of which is an int32 on the
+// wire. A single row fits in an `Int`, but the SUM does not — 2 devices at
+// 1.5 tỷ already pass Int.MAX_VALUE — and kotlinx.serialization throws on an
+// out-of-range Int, which would blank the whole "Thống kê" tab. Hence `Long`.
 @Serializable
 data class DeviceStats(
     val total: Int,
     val byStatus: Map<String, Int> = emptyMap(),
-    val totalPurchasePrice: Int = 0,
-)
+    val totalPurchasePrice: Long = 0,
+    /**
+     * Warranty-package spend: `SUM(Warranty.cost)` across the user's devices.
+     *
+     * Added to `GET /api/v1/stats` as a *new* field (`devices.totalWarrantyCost`,
+     * see docs/FEATURE_ROADMAP.md item #3). Nullable + defaulted so a server
+     * that has not shipped the field yet decodes fine and the UI simply hides
+     * the warranty tiles — never a crash, and never a misleading "0đ".
+     */
+    val totalWarrantyCost: Long? = null,
+) {
+    /** Devices + warranty packages — mirrors the web `/stats` "Tổng chi mua sắm" KPI. */
+    val totalSpend: Long
+        get() = totalPurchasePrice + (totalWarrantyCost ?: 0)
+}
 
 @Serializable
 data class SubscriptionStats(
     val total: Int,
     val byStatus: Map<String, Int> = emptyMap(),
-    val totalMonthlyVnd: Int = 0,
+    val totalMonthlyVnd: Long = 0,
 )
 
 @Serializable
 data class WishlistStats(
     val total: Int,
     val byStatus: Map<String, Int> = emptyMap(),
-    val totalCurrentPriceWatching: Int = 0,
+    val totalCurrentPriceWatching: Long = 0,
 )
 
 // ---- Upcoming reminders ----

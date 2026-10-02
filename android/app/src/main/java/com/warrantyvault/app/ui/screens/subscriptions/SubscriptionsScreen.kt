@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.FilterAltOff
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,9 +61,12 @@ import com.warrantyvault.app.network.SubscriptionStatus
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.EmptyState
 import com.warrantyvault.app.ui.components.ErrorState
+import com.warrantyvault.app.ui.components.FilterOption
+import com.warrantyvault.app.ui.components.ListFilterBar
 import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.PillKind
 import com.warrantyvault.app.ui.components.SkeletonList
+import com.warrantyvault.app.ui.components.SortMenuButton
 import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.pressScale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -134,6 +138,11 @@ fun SubscriptionsScreen(
     val state by vm.state.collectAsState()
     var editing by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    // Filter state — mirrors the web `subscription-filter-bar.tsx` (search box,
+    // "Đang dùng / Hoạt động / …" pills, sort dropdown).
+    var query by rememberSaveable { mutableStateOf("") }
+    var statusKey by rememberSaveable { mutableStateOf(SubscriptionStatusFilter.ActivePaused.key) }
+    var sortKey by rememberSaveable { mutableStateOf(SubscriptionSort.RenewalAsc.name) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { vm.load() }
@@ -187,6 +196,14 @@ fun SubscriptionsScreen(
                         onRetry = { vm.load() },
                     )
                     is SubscriptionsViewModel.State.Loaded -> {
+                        val statusFilter = SubscriptionStatusFilter.fromKey(statusKey)
+                        val sort = SubscriptionSort.valueOf(sortKey)
+                        val visible = filterAndSortSubscriptions(
+                            rows = s.items,
+                            query = query,
+                            status = statusFilter,
+                            sort = sort,
+                        )
                         if (s.items.isEmpty()) {
                             Column(Modifier.fillMaxSize()) {
                                 PageHeader(
@@ -202,7 +219,19 @@ fun SubscriptionsScreen(
                                 )
                             }
                         } else {
-                            SubscriptionList(items = s.items, onClick = onOpenSubscription)
+                            SubscriptionList(
+                                items = visible,
+                                total = s.items.size,
+                                isFiltered = query.isNotBlank() ||
+                                    statusFilter != SubscriptionStatusFilter.ActivePaused,
+                                query = query,
+                                onQueryChange = { query = it },
+                                statusKey = statusKey,
+                                onStatusChange = { statusKey = it },
+                                sort = sort,
+                                onSortChange = { sortKey = it.name },
+                                onClick = onOpenSubscription,
+                            )
                         }
                     }
                 }
@@ -228,20 +257,66 @@ fun SubscriptionsScreen(
 }
 
 @Composable
-private fun SubscriptionList(items: List<Subscription>, onClick: (String) -> Unit) {
+private fun SubscriptionList(
+    items: List<Subscription>,
+    total: Int,
+    isFiltered: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    statusKey: String,
+    onStatusChange: (String) -> Unit,
+    sort: SubscriptionSort,
+    onSortChange: (SubscriptionSort) -> Unit,
+    onClick: (String) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            PageHeader("Gói dịch vụ", "${items.size} gói đang theo dõi")
+            PageHeader(
+                "Gói dịch vụ",
+                if (isFiltered) "${items.size}/$total gói khớp bộ lọc"
+                else "$total gói đang theo dõi",
+            )
+        }
+        item {
+            ListFilterBar(
+                query = query,
+                onQueryChange = onQueryChange,
+                placeholder = "Tìm tên, hãng, plan...",
+                options = subscriptionStatusOptions,
+                selectedKey = statusKey,
+                onSelect = onStatusChange,
+                modifier = Modifier.padding(horizontal = 4.dp),
+                trailing = {
+                    SortMenuButton(
+                        options = SubscriptionSort.entries,
+                        current = sort,
+                        label = { it.label },
+                        onSelect = onSortChange,
+                    )
+                },
+            )
+        }
+        if (items.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Filled.FilterAltOff,
+                    title = "Không có gói nào khớp",
+                    body = "Thử nới bộ lọc hoặc chọn \"Tất cả\" xem sao.",
+                )
+            }
         }
         items(items, key = { it.id }) { sub ->
             SubscriptionCard(sub) { onClick(sub.id) }
         }
     }
 }
+
+private val subscriptionStatusOptions: List<FilterOption> =
+    SubscriptionStatusFilter.entries.map { FilterOption(it.key, it.label) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

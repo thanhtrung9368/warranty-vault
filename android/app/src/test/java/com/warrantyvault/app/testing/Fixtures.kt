@@ -26,16 +26,21 @@ object Fixtures {
         category: String = "PHONE",
         status: DeviceStatus = DeviceStatus.ACTIVE,
         warranties: List<Warranty> = emptyList(),
+        effectiveWarrantyEnd: String? = null,
+        attachmentCount: Int = 0,
+        brand: String? = "Apple",
     ) = Device(
         id = id,
         userId = "user-1",
         name = name,
         category = category,
-        brand = "Apple",
+        brand = brand,
         purchaseDate = "2024-03-01",
         purchasePrice = 30_000_000,
         status = status,
         warranties = warranties,
+        effectiveWarrantyEnd = effectiveWarrantyEnd,
+        attachmentCount = attachmentCount,
     )
 
     fun warranty(id: String = "war-1", deviceId: String = "dev-1") = Warranty(
@@ -53,14 +58,25 @@ object Fixtures {
         status: SubscriptionStatus = SubscriptionStatus.ACTIVE,
         cycle: BillingCycle = BillingCycle.MONTHLY,
         renewalDate: String? = "2025-01-01",
+        price: Int = 260_000,
+        intervalDays: Int? = null,
+        brand: String? = null,
+        plan: String? = null,
+        notes: String? = null,
+        createdAt: String? = null,
     ) = Subscription(
         id = id,
         name = name,
+        brand = brand,
+        plan = plan,
         billingCycle = cycle,
-        price = 260_000,
+        intervalDays = intervalDays,
+        price = price,
         startedAt = "2024-01-01",
         renewalDate = renewalDate,
         status = status,
+        notes = notes,
+        createdAt = createdAt,
     )
 
     fun wishlistItem(
@@ -68,12 +84,21 @@ object Fixtures {
         name: String = "Steam Deck",
         priority: WishlistPriority = WishlistPriority.WANT,
         status: WishlistStatus = WishlistStatus.WATCHING,
+        currentPrice: Int? = 12_000_000,
+        targetDate: String? = null,
+        brand: String? = null,
+        notes: String? = null,
+        createdAt: String? = null,
     ) = WishlistItem(
         id = id,
         name = name,
         priority = priority,
         status = status,
-        currentPrice = 12_000_000,
+        currentPrice = currentPrice,
+        targetDate = targetDate,
+        brand = brand,
+        notes = notes,
+        createdAt = createdAt,
     )
 
     fun upcomingReminder(
@@ -94,8 +119,16 @@ object Fixtures {
         devices: Int = 3,
         subscriptions: Int = 2,
         wishlist: Int = 1,
+        purchasePrice: Long = 30_000_000,
+        /** `null` models a Go build that predates `devices.totalWarrantyCost`. */
+        warrantyCost: Long? = null,
     ) = UserStats(
-        devices = DeviceStats(total = devices, byStatus = mapOf("ACTIVE" to devices)),
+        devices = DeviceStats(
+            total = devices,
+            byStatus = mapOf("ACTIVE" to devices),
+            totalPurchasePrice = purchasePrice,
+            totalWarrantyCost = warrantyCost,
+        ),
         subscriptions = SubscriptionStats(total = subscriptions, totalMonthlyVnd = 260_000),
         wishlist = WishlistStats(total = wishlist, totalCurrentPriceWatching = 12_000_000),
     )

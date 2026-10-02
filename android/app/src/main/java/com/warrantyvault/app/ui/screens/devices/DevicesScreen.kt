@@ -21,16 +21,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -60,11 +66,16 @@ import com.warrantyvault.app.network.DeviceStatus
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.EmptyState
 import com.warrantyvault.app.ui.components.ErrorState
+import com.warrantyvault.app.ui.components.FilterOption
+import com.warrantyvault.app.ui.components.ListFilterBar
 import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.PillKind
 import com.warrantyvault.app.ui.components.SkeletonList
+import com.warrantyvault.app.ui.components.SortMenuButton
 import com.warrantyvault.app.ui.components.StatusPill
+import com.warrantyvault.app.ui.components.WarrantyPill
 import com.warrantyvault.app.ui.components.pressScale
+import com.warrantyvault.app.ui.components.warrantyState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,6 +83,22 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
+
+/**
+ * Sort choices in the device list — the web dropdown in
+ * `website/src/components/devices-filter-bar.tsx`, same 7 options, same order.
+ * The values map 1:1 onto the `sort` / `dir` query params of `GET /v1/devices`
+ * (openapi enum: purchaseDate | warrantyEndDate | price | name).
+ */
+enum class DeviceSort(val sort: String, val dir: String, val label: String) {
+    PurchaseDateDesc("purchaseDate", "desc", "Ngày mua mới nhất"),
+    PurchaseDateAsc("purchaseDate", "asc", "Ngày mua cũ nhất"),
+    WarrantyEndAsc("warrantyEndDate", "asc", "BH sắp hết trước"),
+    WarrantyEndDesc("warrantyEndDate", "desc", "BH lâu hết trước"),
+    PriceDesc("price", "desc", "Giá cao nhất"),
+    PriceAsc("price", "asc", "Giá thấp nhất"),
+    NameAsc("name", "asc", "Tên A-Z"),
+}
 
 class DevicesViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -83,11 +110,20 @@ class DevicesViewModel(private val api: ApiService) : ViewModel() {
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    fun load() {
+    fun load(
+        query: String = "",
+        status: DeviceStatus? = null,
+        sort: DeviceSort = DeviceSort.PurchaseDateDesc,
+    ) {
         viewModelScope.launch {
             _state.value = State.Loading
             try {
-                val res = api.listDevices()
+                val res = api.listDevices(
+                    q = query.trim().ifBlank { null },
+                    status = status?.name,
+                    sort = sort.sort,
+                    dir = sort.dir,
+                )
                 _state.value = State.Loaded(res.devices)
             } catch (e: Exception) {
                 _state.value = State.Error(e.toUserMessage(ApiClient.json))
@@ -117,9 +153,23 @@ fun DevicesScreen(
     val state by vm.state.collectAsState()
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    // Filter state — mirrors the web `devices-filter-bar.tsx` (search box, status
+    // pills, sort dropdown). Values are persisted across rotation.
+    var query by rememberSaveable { mutableStateOf("") }
+    var statusFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var sortKey by rememberSaveable { mutableStateOf(DeviceSort.PurchaseDateDesc.name) }
+    val sort = DeviceSort.valueOf(sortKey)
+    val status = statusFilter?.let { runCatching { DeviceStatus.valueOf(it) }.getOrNull() }
+    val isFiltered = query.isNotBlank() || status != null
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) { vm.load() }
+    fun reload() = vm.load(query = query, status = status, sort = sort)
+
+    // Debounced so each keystroke doesn't fire a request (web waits 300ms too).
+    LaunchedEffect(query, statusFilter, sortKey) {
+        if (query.isNotBlank()) kotlinx.coroutines.delay(300)
+        vm.load(query = query, status = status, sort = sort)
+    }
 
     Scaffold(
         topBar = {
@@ -147,7 +197,7 @@ fun DevicesScreen(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    vm.load()
+                    reload()
                     refreshing = false
                 }
             },
@@ -170,29 +220,21 @@ fun DevicesScreen(
                         icon = Icons.Outlined.WarningAmber,
                         title = "Tải không được rồi",
                         body = s.message,
-                        onRetry = { vm.load() },
+                        onRetry = { reload() },
                     )
                     is DevicesViewModel.State.Loaded -> {
-                        if (s.devices.isEmpty()) {
-                            Column(Modifier.fillMaxSize()) {
-                                PageHeader(
-                                    "Thiết bị",
-                                    "Theo dõi bảo hành & ngày mua",
-                                )
-                                EmptyState(
-                                    icon = Icons.Filled.Inventory2,
-                                    title = "Chưa có thiết bị nào, mày",
-                                    body = "Thêm cái đầu tiên để bắt đầu theo dõi bảo hành nha.",
-                                    ctaLabel = "Thêm thiết bị đầu tiên",
-                                    onCta = { showAdd = true },
-                                )
-                            }
-                        } else {
-                            DeviceList(
-                                devices = s.devices,
-                                onClick = onOpenDevice,
-                            )
-                        }
+                        DeviceList(
+                            devices = s.devices,
+                            isFiltered = isFiltered,
+                            query = query,
+                            onQueryChange = { query = it },
+                            statusKey = statusFilter ?: ALL_STATUSES,
+                            onStatusChange = { statusFilter = it.takeIf { k -> k != ALL_STATUSES } },
+                            sort = sort,
+                            onSortChange = { sortKey = it.name },
+                            onClick = onOpenDevice,
+                            onAddFirst = { showAdd = true },
+                        )
                     }
                 }
             }
@@ -204,15 +246,31 @@ fun DevicesScreen(
             api = api,
             onDismiss = { showAdd = false },
             onCreated = { device ->
+                // Optimistic insert for instant feedback, then reconcile: POST
+                // answers with a bare device row, so `effectiveWarrantyEnd` /
+                // `attachmentCount` (list-row projection only) would otherwise
+                // read as "no warranty, no files" until the next refresh.
                 vm.prepend(device)
                 showAdd = false
+                reload()
             },
         )
     }
 }
 
 @Composable
-private fun DeviceList(devices: List<Device>, onClick: (String) -> Unit) {
+private fun DeviceList(
+    devices: List<Device>,
+    isFiltered: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    statusKey: String,
+    onStatusChange: (String) -> Unit,
+    sort: DeviceSort,
+    onSortChange: (DeviceSort) -> Unit,
+    onClick: (String) -> Unit,
+    onAddFirst: () -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
@@ -221,15 +279,56 @@ private fun DeviceList(devices: List<Device>, onClick: (String) -> Unit) {
         item {
             PageHeader(
                 "Thiết bị",
-                "${devices.size} món đang theo dõi",
+                "${devices.size} món đang theo dõi" + if (isFiltered) " (đã lọc)" else "",
                 modifier = Modifier.padding(horizontal = 0.dp),
             )
+        }
+        item {
+            ListFilterBar(
+                query = query,
+                onQueryChange = onQueryChange,
+                placeholder = "Tìm theo tên, hãng, model, serial...",
+                options = statusOptions,
+                selectedKey = statusKey,
+                onSelect = onStatusChange,
+                modifier = Modifier.padding(horizontal = 4.dp),
+                trailing = {
+                    SortMenuButton(
+                        options = DeviceSort.entries,
+                        current = sort,
+                        label = { it.label },
+                        onSelect = onSortChange,
+                    )
+                },
+            )
+        }
+        if (devices.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = if (isFiltered) Icons.Filled.SearchOff else Icons.Filled.Inventory2,
+                    title = if (isFiltered) "Không có gì khớp bộ lọc" else "Chưa có thiết bị nào, mày",
+                    body = if (isFiltered) {
+                        "Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao."
+                    } else {
+                        "Thêm cái đầu tiên để bắt đầu theo dõi bảo hành nha."
+                    },
+                    ctaLabel = if (isFiltered) null else "Thêm thiết bị đầu tiên",
+                    onCta = if (isFiltered) null else onAddFirst,
+                )
+            }
         }
         items(devices, key = { it.id }) { device ->
             DeviceCard(device, onClick = { onClick(device.id) })
         }
     }
 }
+
+/** The status facet row: "Tất cả" + the five `DeviceStatus` labels. */
+private val statusOptions: List<FilterOption> =
+    listOf(FilterOption(ALL_STATUSES, "Tất cả")) +
+        DeviceStatus.entries.map { FilterOption(it.name, it.label) }
+
+internal const val ALL_STATUSES = "ALL"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -271,14 +370,34 @@ private fun DeviceCard(device: Device, onClick: () -> Unit) {
                     )
                     DeviceStatusPill(device.status)
                 }
-                if (device.brand != null) {
-                    val sub = device.brand + (device.model?.let { " • $it" } ?: "")
-                    Text(
-                        sub,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = cs.onSurfaceVariant,
-                    )
+                if (device.brand != null || device.attachmentCount > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (device.brand != null) {
+                            Text(
+                                device.brand + (device.model?.let { " • $it" } ?: ""),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = cs.onSurfaceVariant,
+                            )
+                        }
+                        if (device.attachmentCount > 0) {
+                            Spacer(Modifier.width(8.dp))
+                            Icon(
+                                Icons.Filled.AttachFile, "Tệp đính kèm",
+                                tint = cs.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Text(
+                                "${device.attachmentCount}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = cs.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
+                // Warranty state of the device (max endDate across its
+                // warranties) — the web table's "Bảo hành" column.
+                Spacer(Modifier.height(6.dp))
+                WarrantyPill(warrantyState(device.effectiveWarrantyEnd))
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

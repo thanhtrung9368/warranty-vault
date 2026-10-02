@@ -60,7 +60,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
-import com.warrantyvault.app.network.DeviceStatus
+import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.Subscription
 import com.warrantyvault.app.network.SubscriptionStatus
 import com.warrantyvault.app.network.UpcomingReminder
@@ -102,6 +102,12 @@ data class DashboardData(
     val reminders: List<UpcomingReminder>,
     val subscriptions: List<Subscription>,
     val wishlist: List<WishlistItem>,
+    /**
+     * Needed for the warranty stat grid: `GET /v1/reminders` can only describe
+     * *upcoming* expiries, so "Đã hết hạn" has to come from the device list's
+     * `effectiveWarrantyEnd` (same source as the web dashboard).
+     */
+    val devices: List<Device> = emptyList(),
 )
 
 class DashboardViewModel(private val api: ApiService) : ViewModel() {
@@ -123,11 +129,13 @@ class DashboardViewModel(private val api: ApiService) : ViewModel() {
                     val reminders = async { api.listUpcomingReminders().reminders }
                     val subs = async { api.listSubscriptions().subscriptions }
                     val wish = async { api.listWishlist().items }
+                    val devices = async { api.listDevices().devices }
                     DashboardData(
                         stats = stats.await(),
                         reminders = reminders.await(),
                         subscriptions = subs.await(),
                         wishlist = wish.await(),
+                        devices = devices.await(),
                     )
                 }
                 _state.value = State.Loaded(data)
@@ -223,13 +231,13 @@ private fun DashboardBody(
             .filter { it.second in 0..30 }
             .sortedBy { it.second }
     }
-    val expiringSoon = upcoming.size
-    val expired = remember(data.reminders) {
-        data.reminders.count { (daysLeftFromIso(it.endDate) ?: 0L) < 0L }
-    }
-    val totalDevices = stats.devices.total
-    val activeDevices = stats.devices.byStatus[DeviceStatus.ACTIVE.name] ?: 0
-    val safeActive = (activeDevices - expiringSoon).coerceAtLeast(0)
+    // Warranty counts come from the device list (max endDate per device), not
+    // from the reminders feed — see DeviceRollup for why.
+    val rollup = remember(data.devices) { deviceRollup(data.devices) }
+    val totalDevices = rollup.total
+    val expiringSoon = rollup.soon
+    val expired = rollup.expired
+    val safeActive = rollup.safeActive
 
     val monthlyTotal = stats.subscriptions.totalMonthlyVnd.toLong()
     val activeSubs = remember(data.subscriptions) {

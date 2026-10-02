@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -58,5 +59,35 @@ class StatsViewModelTest {
         advanceUntilIdle()
 
         assertEquals(StatsViewModel.State.Error("Tính năng đang tắt"), vm.state.value)
+    }
+
+    @Test
+    fun load_carriesTheWarrantyCostRollupThrough() = runTest(dispatcher) {
+        val stats = Fixtures.stats(
+            devices = 2,
+            purchasePrice = 30_000_000,
+            warrantyCost = 4_500_000,
+        )
+        val vm = StatsViewModel(FakeStatsApi { stats })
+
+        vm.load()
+        advanceUntilIdle()
+
+        val loaded = vm.state.value as StatsViewModel.State.Loaded
+        assertEquals(4_500_000L, loaded.stats.devices.totalWarrantyCost)
+        assertEquals(34_500_000L, loaded.stats.devices.totalSpend)
+    }
+
+    @Test
+    fun load_toleratesAServerWithoutTheWarrantyCostField() = runTest(dispatcher) {
+        val stats = Fixtures.stats(devices = 2, purchasePrice = 30_000_000)
+        val vm = StatsViewModel(FakeStatsApi { stats })
+
+        vm.load()
+        advanceUntilIdle()
+
+        val loaded = vm.state.value as StatsViewModel.State.Loaded
+        assertNull(loaded.stats.devices.totalWarrantyCost)
+        assertEquals(30_000_000L, loaded.stats.devices.totalSpend)
     }
 }

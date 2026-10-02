@@ -328,8 +328,18 @@ fun SettingsScreen(
                                     try {
                                         val res = api.setAIOptIn(AIOptInRequest(next))
                                         aiOptIn = res.aiOptIn
-                                    } catch (_: Exception) {
-                                        // keep previous state on failure
+                                        snack(
+                                            if (res.aiOptIn) "Đã bật quét hoá đơn AI"
+                                            else "Đã tắt quét hoá đơn AI",
+                                        )
+                                    } catch (e: Exception) {
+                                        // Never fail silently here: flipping back
+                                        // with no explanation reads as a bug, and
+                                        // the web toasts the server message.
+                                        snack(
+                                            "Không cập nhật được cài đặt: " +
+                                                e.toUserMessage(ApiClient.json),
+                                        )
                                     } finally {
                                         aiBusy = false
                                     }
