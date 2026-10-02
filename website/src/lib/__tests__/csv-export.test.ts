@@ -39,6 +39,10 @@ function device(over: Partial<DeviceListItem> = {}): DeviceListItem {
     purchasePlace: 'Điện Máy Xanh',
     status: 'ACTIVE',
     notes: null,
+    // Resale pair — absent on this fixture on purpose: the CSV export does not
+    // carry sold columns, so these stay at the "not sold" defaults.
+    soldAt: null,
+    soldPrice: null,
     createdAt: '2024-03-08T10:00:00Z',
     updatedAt: '2024-03-08T10:00:00Z',
     attachmentCount: 0,

@@ -15,6 +15,9 @@ import {
   Check,
   ScanLine,
   Sparkles,
+  HandCoins,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +38,14 @@ import {
   type Status,
 } from '@/lib/types';
 import { formatNumber, parseVNDInput, formatVND, formatDate } from '@/lib/format';
+import {
+  SALE_FIELD_MESSAGES,
+  saleDayLabel,
+  saleProfitLoss,
+  soldAtToInputValue,
+  soldPriceFromInput,
+  validateSaleToggled,
+} from '@/lib/device-resale';
 import {
   createDevice,
   updateDevice,
@@ -66,6 +77,9 @@ type Initial = {
   warrantyNotes?: string | null;
   status?: Status;
   notes?: string | null;
+  // Resale record (read back from the Go wire shape, no `Z`/offset on soldAt).
+  soldAt?: string | null;
+  soldPrice?: number | null;
 };
 
 type Catalog = {
@@ -81,7 +95,21 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   category: { label: 'Loại thiết bị', focusId: 'category', step: 0 },
   purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate', step: 1 },
   warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
+  // Resale pair — both live on the final step, next to `status`.
+  soldAt: { label: 'Ngày bán', focusId: 'soldAt', step: 3 },
+  soldPrice: { label: 'Giá bán', focusId: 'soldPrice', step: 3 },
 };
+
+// Toast copy for a field the client itself rejected. The sale pair reuses the
+// server's exact Vietnamese wording so the pre-flight check and a round-trip
+// rejection read identically; other fields keep the existing "Vui lòng nhập"
+// phrasing.
+function fieldMessage(key: string): string {
+  return (
+    SALE_FIELD_MESSAGES[key as keyof typeof SALE_FIELD_MESSAGES] ??
+    `Vui lòng nhập: ${FIELD_META[key]?.label ?? key}`
+  );
+}
 
 // Vietnamese labels for draft fields the OCR could not map to the catalog.
 const UNMATCHED_LABELS: Record<string, string> = {
@@ -157,6 +185,44 @@ function MoneyInput({
         ₫
       </span>
       <input type="hidden" name={name} value={parseVNDInput(value)} />
+    </div>
+  );
+}
+
+// Sale-price money input. Same feel as `MoneyInput`, with one deliberate
+// difference: `0` is a real sale price (cho tặng — the Go validator explicitly
+// accepts it), so "recorded" is decided by blankness, not truthiness. The
+// hidden field ships an empty string when unset, which the action maps to
+// `null` (the pair rule's "not sold" side).
+function SalePriceInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <Input
+        id="soldPrice"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const digits = raw.replace(/[^\d]/g, '');
+          onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw)));
+        }}
+        placeholder="0"
+        className="pr-10"
+      />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+        ₫
+      </span>
+      <input
+        type="hidden"
+        name="soldPrice"
+        value={value.trim() === '' ? '' : String(parseVNDInput(value))}
+      />
     </div>
   );
 }
@@ -244,6 +310,24 @@ export function DeviceForm({
   );
 
   const [notes, setNotes] = React.useState<string>(initial?.notes ?? '');
+
+  // ─── Resale (soldAt + soldPrice, server-enforced pair) ──────────────────
+  // `sold` is a UI-only gate: when off, neither field is mounted and the
+  // action submits `{soldAt: null, soldPrice: null}`, i.e. the server's explicit
+  // "clear the sale" signal. When on, both are required (validateSale mirrors
+  // the Go pair rule before we spend a round-trip).
+  const [sold, setSold] = React.useState<boolean>(
+    Boolean(initial?.soldAt) || initial?.soldPrice != null,
+  );
+  const [soldAt, setSoldAt] = React.useState<string>(
+    soldAtToInputValue(initial?.soldAt),
+  );
+  const [soldPriceDisplay, setSoldPriceDisplay] = React.useState<string>(
+    initial?.soldPrice != null ? formatNumber(initial.soldPrice) : '',
+  );
+
+  const saleSoldPrice = sold ? soldPriceFromInput(soldPriceDisplay) : null;
+  const profitLoss = saleProfitLoss(parseVNDInput(purchasePriceDisplay), saleSoldPrice);
 
   // ─── OCR receipt scan (create flow only) ────────────────────────────────
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -391,13 +475,22 @@ export function DeviceForm({
     if (s === 2) {
       if (warrantyMonths < 0) return 'warrantyMonths';
     }
+    if (s === 3) {
+      // Client-side mirror of the server's pair rule, so a half-recorded (or
+      // toggled-on-but-empty) sale is caught before the round-trip. Whatever
+      // the server still rejects (e.g. an unparseable date) comes back through
+      // `errors.soldAt` / `errors.soldPrice` and renders under the field.
+      const saleErrors = validateSaleToggled({ soldAt, soldPrice: saleSoldPrice }, sold);
+      if (saleErrors.soldAt) return 'soldAt';
+      if (saleErrors.soldPrice) return 'soldPrice';
+    }
     return null;
   };
 
   const goNext = () => {
     const bad = validateStep(step);
     if (bad) {
-      toast.error('Vui lòng nhập: ' + (FIELD_META[bad]?.label ?? bad));
+      toast.error(fieldMessage(bad));
       focusField(bad);
       return;
     }
@@ -422,6 +515,9 @@ export function DeviceForm({
     setWarrantyAddress('');
     setWarrantyNotes('');
     setNotes('');
+    setSold(false);
+    setSoldAt('');
+    setSoldPriceDisplay('');
     setStep(0);
   };
 
@@ -432,7 +528,7 @@ export function DeviceForm({
       if (bad) {
         e.preventDefault();
         setStep(i);
-        toast.error('Vui lòng nhập: ' + (FIELD_META[bad]?.label ?? bad));
+        toast.error(fieldMessage(bad));
         setTimeout(() => focusField(bad), 0);
         return;
       }
@@ -774,6 +870,89 @@ export function DeviceForm({
             />
           </div>
 
+          {/* ───── Bán lại (soldAt + soldPrice) ─────
+              Independent of `status`: the server accepts status SOLD with no
+              figures, and figures without SOLD. Both, or neither, is enforced
+              for the money pair itself (mirrored client-side by validateSale). */}
+          <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="icon-badge icon-badge-sm tint-sky mt-0.5">
+                  <HandCoins className="h-4 w-4" />
+                </span>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold text-ink">Bán lại</p>
+                  <p className="text-xs text-muted-foreground">
+                    Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant={sold ? 'outline' : 'default'}
+                className="rounded-pill"
+                onClick={() => setSold((v) => !v)}
+              >
+                {sold ? 'Bỏ ghi nhận' : 'Ghi nhận đã bán'}
+              </Button>
+            </div>
+
+            {sold && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="soldAt">
+                      Ngày bán <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="soldAt"
+                      name="soldAt"
+                      type="date"
+                      value={soldAt}
+                      onChange={(e) => setSoldAt(e.target.value)}
+                    />
+                    <FieldError errors={errors.soldAt} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="soldPrice">
+                      Giá bán (VND) <span className="text-destructive">*</span>
+                    </Label>
+                    <SalePriceInput
+                      value={soldPriceDisplay}
+                      onChange={setSoldPriceDisplay}
+                    />
+                    <FieldError errors={errors.soldPrice} />
+                    <p className="text-xs text-muted-foreground">
+                      Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán.
+                    </p>
+                  </div>
+                </div>
+
+                {profitLoss && (
+                  <p
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-sm font-semibold',
+                      profitLoss.tone === 'profit' && 'bg-emerald-soft text-emerald-ink',
+                      profitLoss.tone === 'loss' && 'bg-rose-soft text-rose-ink',
+                      profitLoss.tone === 'even' && 'bg-zinc-soft text-ink-2',
+                    )}
+                  >
+                    {profitLoss.tone === 'loss' ? (
+                      <TrendingDown className="h-4 w-4" />
+                    ) : (
+                      <TrendingUp className="h-4 w-4" />
+                    )}
+                    {profitLoss.label}
+                    <span className="font-normal opacity-80">
+                      so với giá mua {formatVND(parseVNDInput(purchasePriceDisplay))}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Summary card — quick review before saving */}
           <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
             <p className="eyebrow mb-3">Kiểm tra lại</p>
@@ -823,6 +1002,22 @@ export function DeviceForm({
                     {warrantyMonths > 0
                       ? `${warrantyMonths} tháng${warrantyProvider ? ' · ' + warrantyProvider : ''}`
                       : 'Không'}
+                  </p>
+                </div>
+              </div>
+              <div className="info-row">
+                <div className="min-w-0 flex-1">
+                  <p className="info-row-label">Bán lại</p>
+                  <p className="info-row-value text-sm">
+                    {sold
+                      ? [
+                          soldAt ? saleDayLabel(soldAt) : '—',
+                          saleSoldPrice != null ? formatVND(saleSoldPrice) : '—',
+                          profitLoss?.label,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : 'Chưa bán'}
                   </p>
                 </div>
               </div>

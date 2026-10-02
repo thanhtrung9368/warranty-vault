@@ -42,3 +42,33 @@ export async function deleteAttachment(id: string) {
   // refetches via router.refresh(); no revalidatePath needed.
   return { ok: true };
 }
+
+// Rename an attachment's description — the only mutable field (edit the row
+// that already exists, so unlike upload we DO have its id).
+//
+// `description` is the whole body: an empty/whitespace value clears it, which
+// is why callers pass `''` rather than omitting the key. Ownership lives in Go
+// (the query joins through the owning Device with `userId = :currentUser`), so
+// someone else's id is a 404 — never a 403 — and we surface that as a plain
+// not-found instead of hinting the row exists.
+//
+// The gallery is on /devices/[id] (a `force-dynamic` page) and applies the new
+// value optimistically, then calls router.refresh(); no revalidatePath needed.
+export async function updateAttachmentDescription(
+  id: string,
+  description: string,
+): Promise<{ ok: boolean; description?: string | null; message?: string }> {
+  if (!id) return { ok: false, message: 'Thiếu id file đính kèm' };
+
+  const res = await api.attachments.updateDescription(id, description);
+  if (!res.ok) {
+    if (res.status === 404) {
+      return { ok: false, message: 'Không tìm thấy file đính kèm' };
+    }
+    return { ok: false, message: res.message ?? 'Không lưu được mô tả' };
+  }
+
+  // Return the server's normalized value (trimmed, or null when cleared) so
+  // the caller can replace its optimistic guess with the real one.
+  return { ok: true, description: res.data.description };
+}

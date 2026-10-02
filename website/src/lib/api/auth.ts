@@ -115,6 +115,21 @@ export async function logout(): Promise<ApiResult<{ ok: true }>> {
   return apiFetch<{ ok: true }>('POST', '/v1/auth/logout');
 }
 
+// `PATCH /v1/auth/me` — profile update. `displayName` is the ONLY accepted
+// field (the account email cannot be changed here; sending `email`/`newEmail`
+// is a 400 from Go). `null` / `""` / whitespace-only clears the name — the
+// server trims and maps blanks to SQL NULL on purpose, so the caller must keep
+// sending the key even when the user emptied the input. The 80-byte UTF-8 cap
+// is validated in Go (a byte cap, not a character cap) and its Vietnamese
+// message is surfaced unchanged; we never pre-validate it here.
+export async function updateProfile(
+  displayName: string | null,
+): Promise<ApiResult<{ user: AuthUser; message?: string }>> {
+  return apiFetch<{ user: AuthUser; message?: string }>('PATCH', '/v1/auth/me', {
+    displayName,
+  });
+}
+
 export async function me(): Promise<ApiResult<{ user: AuthUser }>> {
   return apiFetch<{ user: AuthUser }>('GET', '/v1/auth/me');
 }

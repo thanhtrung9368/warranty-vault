@@ -25,6 +25,10 @@ function buildDeviceInput(formData: FormData): DeviceInput {
   // Required fields are surfaced as empty strings — server returns 400 with
   // Vietnamese fieldErrors which are passed through as-is.
   const status = str(formData, 'status');
+  // Resale pair: both keys are ALWAYS sent, so "no sale" is an explicit
+  // `{soldAt: null, soldPrice: null}` (the server's clear signal) rather than
+  // one key silently going missing and tripping the pair rule. `num()` keeps a
+  // legitimate `0` (cho tặng) — only a blank/!finite value becomes null.
   return {
     name: str(formData, 'name') ?? '',
     category: str(formData, 'category') ?? '',
@@ -36,6 +40,8 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     purchasePlace: str(formData, 'purchasePlace') ?? null,
     status: status as DeviceInput['status'],
     notes: str(formData, 'notes') ?? null,
+    soldAt: str(formData, 'soldAt') ?? null,
+    soldPrice: num(formData, 'soldPrice') ?? null,
     warrantyMonths: num(formData, 'warrantyMonths') ?? 0,
     warrantyProvider: str(formData, 'warrantyProvider') ?? null,
     warrantyAddress: str(formData, 'warrantyAddress') ?? null,

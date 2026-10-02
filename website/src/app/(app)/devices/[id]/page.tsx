@@ -13,6 +13,10 @@ import {
   StickyNote,
   Info,
   ShoppingBag,
+  CalendarCheck,
+  HandCoins,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +42,7 @@ import {
   type Status,
 } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
+import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,6 +104,14 @@ export default async function DeviceDetailPage({
   const status = device.status as Status;
   const statusLabel = STATUS_LABELS[status] ?? device.status;
   const effectiveEnd = effectiveWarrantyEnd(device.warranties);
+  // Resale (roadmap #12). The API returns both halves or neither; the
+  // profit/loss versus `purchasePrice` is computed client-side on purpose
+  // (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)").
+  const saleRecorded = hasSaleRecorded(device);
+  const profitLoss =
+    device.soldPrice != null
+      ? saleProfitLoss(device.purchasePrice, device.soldPrice)
+      : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -172,6 +185,55 @@ export default async function DeviceDetailPage({
               <InfoRow icon={Tag} label="Loại" value={categoryLabel} />
             </CardContent>
           </Card>
+
+          {/* Sale information is rendered only when a sale was actually
+              recorded — an unsold device shows no empty money rows. */}
+          {saleRecorded && (
+            <Card className="rounded-2xl border-[1.5px]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <HandCoins className="h-5 w-5 text-sky-ink" />
+                  Bán lại
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-x-6 sm:grid-cols-2">
+                <InfoRow
+                  icon={CalendarCheck}
+                  label="Ngày bán"
+                  value={device.soldAt ? formatDate(device.soldAt) : null}
+                />
+                <InfoRow
+                  icon={Wallet}
+                  label="Giá bán"
+                  value={
+                    device.soldPrice != null ? formatVND(device.soldPrice) : null
+                  }
+                />
+                {profitLoss && (
+                  <InfoRow
+                    icon={profitLoss.tone === 'loss' ? TrendingDown : TrendingUp}
+                    label="Lãi/lỗ so với giá mua"
+                    value={
+                      <span
+                        className={
+                          profitLoss.tone === 'profit'
+                            ? 'font-semibold text-emerald-ink'
+                            : profitLoss.tone === 'loss'
+                              ? 'font-semibold text-destructive'
+                              : 'font-semibold text-ink-2'
+                        }
+                      >
+                        {profitLoss.label}
+                        <span className="ml-1 font-normal text-muted-foreground">
+                          (giá mua {formatVND(device.purchasePrice)})
+                        </span>
+                      </span>
+                    }
+                  />
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="rounded-2xl border-[1.5px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">

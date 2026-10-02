@@ -63,6 +63,11 @@ export default async function EditDevicePage({
           warrantyNotes: standard?.notes ?? null,
           status: device.status as Status,
           notes: device.notes,
+          // Resale pair — both null until a sale is recorded. `soldAt` arrives
+          // in the same Z-less shape as `purchaseDate`; the form converts it
+          // for the date input via `soldAtToInputValue`.
+          soldAt: device.soldAt,
+          soldPrice: device.soldPrice,
         }}
       />
     </div>

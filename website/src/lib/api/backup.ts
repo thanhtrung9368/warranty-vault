@@ -67,6 +67,12 @@ export type BackupExport = {
     purchasePlace: string | null;
     status: string;
     notes: string | null;
+    // Resale pair (migration 0006). Format differs from `/v1/devices`: the
+    // backup JSON uses RFC3339 *with* the `Z` suffix. An export older than
+    // schema v5 simply has no keys here → "not sold" on import. The web only
+    // re-serialises the parsed payload, so these round-trip untouched.
+    soldAt?: string | null;
+    soldPrice?: number | null;
     createdAt: string;
     updatedAt: string;
     warranties: Array<{

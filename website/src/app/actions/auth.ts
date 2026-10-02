@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { api, toFormState } from '@/lib/api';
+import { requireUser } from '@/lib/auth';
 import {
   setAuthCookie,
   destroyAuthCookie,
@@ -148,6 +149,44 @@ export async function changePassword(
     return toFormState(res);
   }
   return { ok: true, message: res.data.message ?? 'Đã đổi mật khẩu thành công' };
+}
+
+// ---- update profile --------------------------------------------------------
+//
+// Thin proxy over PATCH /v1/auth/me. `displayName` is the only mutable field:
+// the account email is deliberately not changeable (it needs a two-step
+// verification flow), so there is no email input in the UI and we never send
+// one. An empty input is a *valid* request that clears the name, which is why
+// the key is always sent — only a structurally missing field is rejected here.
+//
+// The 80-byte UTF-8 cap is enforced in Go (a byte cap: ~26 Vietnamese
+// characters). We deliberately do not pre-validate a character count — the
+// server's Vietnamese fieldErrors are surfaced verbatim.
+
+export async function updateProfile(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  await requireUser();
+
+  const raw = formData.get('displayName');
+  if (typeof raw !== 'string') {
+    // The contract requires the key; an absent field is a programming error,
+    // not a request to clear the name.
+    return { ok: false, message: 'Thiếu tên hiển thị' };
+  }
+
+  const res = await api.auth.updateProfile(raw);
+  if (!res.ok) {
+    return toFormState(res);
+  }
+
+  // The name is rendered in the app shell (topbar / user menu) and on the
+  // dashboard, so revalidate the root layout — the same broad call the
+  // login/register/logout flows use.
+  revalidatePath('/', 'layout');
+
+  return { ok: true, message: res.data.message ?? 'Đã cập nhật hồ sơ' };
 }
 
 // ---- delete account --------------------------------------------------------

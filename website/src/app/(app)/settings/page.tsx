@@ -1,4 +1,4 @@
-import { Bell, Database, FileSpreadsheet, Info, Lock, Palette, ScanLine, Trash2 } from 'lucide-react';
+import { Bell, Database, FileSpreadsheet, Info, Lock, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
 import { CsvExport } from '@/components/csv-export';
@@ -7,6 +7,7 @@ import { PushDevices } from '@/components/push-devices';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { DeleteAccountForm } from '@/components/delete-account-form';
 import { AISettings } from '@/components/ai-settings';
+import { ProfileForm } from '@/components/profile-form';
 import { listMySubscriptions } from '@/app/actions/push';
 import { requireUser } from '@/lib/auth';
 
@@ -23,6 +24,10 @@ export default async function SettingsPage() {
           {user.email} · Quản lý tài khoản và dữ liệu cá nhân.
         </p>
       </div>
+
+      <Section icon={<UserRound className="h-4 w-4" />} tint="tint-violet" title="Hồ sơ">
+        <ProfileForm email={user.email} initialName={user.name} />
+      </Section>
 
       <Section icon={<Palette className="h-4 w-4" />} tint="tint-violet" title="Giao diện">
         <AppearanceTweaks />

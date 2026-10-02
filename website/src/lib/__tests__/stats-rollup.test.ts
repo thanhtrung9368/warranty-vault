@@ -24,6 +24,9 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     purchasePlace: null,
     status: 'ACTIVE',
     notes: null,
+    // Resale pair — defaults to "not sold"; the spend rollups ignore it.
+    soldAt: null,
+    soldPrice: null,
     createdAt: '2026-03-15T00:00:00Z',
     updatedAt: '2026-03-15T00:00:00Z',
     attachmentCount: 0,

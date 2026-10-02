@@ -45,6 +45,13 @@ export type DeviceInput = {
   purchasePlace?: string | null;
   status?: 'ACTIVE' | 'EXPIRED' | 'SOLD' | 'BROKEN' | 'LOST';
   notes?: string | null;
+  // Resale pair (migration 0006). Both or neither: sending exactly one is a
+  // 400 from Go (`fieldErrors.soldAt` / `fieldErrors.soldPrice`), and sending
+  // both as null clears a previously recorded sale. `soldAt` accepts
+  // `YYYY-MM-DD` (what the device form's date input gives us) or full RFC3339.
+  // Independent of `status` — `status: 'SOLD'` needs no figures.
+  soldAt?: string | null;
+  soldPrice?: number | null;
   warrantyMonths?: number;
   warrantyProvider?: string | null;
   warrantyAddress?: string | null;
@@ -72,6 +79,12 @@ export type Device = {
   purchasePlace: string | null;
   status: string;
   notes: string | null;
+  // Resale record. `soldAt` serialises like `purchaseDate`
+  // (`"2026-03-01T00:00:00"`, no `Z`, no offset) — never `new Date()` it into a
+  // UTC round-trip; see `@/lib/device-resale`. Both are null until a sale is
+  // recorded, and the write path refuses half a record.
+  soldAt: string | null;
+  soldPrice: number | null;
   createdAt: string;
   updatedAt: string;
 };
