@@ -118,18 +118,16 @@ export type WarrantyWithReminders = Warranty & {
 
 // Wire shape from `store.Attachment` minus the encryption-internal fields
 // (Go embeds them but we only ever consume metadata on the web).
+// The public attachment shape (openapi `AttachmentMeta`). Go strips the
+// internal columns — storagePath / iv / wrappedKey — before serialising, so
+// this type no longer declares them.
 export type AttachmentMeta = {
   id: string;
-  deviceId: string;
   fileName: string;
   fileType: string;
   fileSize: number;
   description: string | null;
   uploadedAt: string;
-  // Internal encryption fields — included by Go but unused by the web UI.
-  storagePath?: string;
-  iv?: string;
-  wrappedKey?: string;
 };
 
 // `GET /v1/devices/{id}` returns `{ device: DeviceDetail }`.

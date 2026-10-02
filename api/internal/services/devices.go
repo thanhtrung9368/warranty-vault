@@ -70,7 +70,41 @@ type DeviceListItem struct {
 type DeviceDetail struct {
 	store.Device
 	Warranties  []WarrantyWithReminders `json:"warranties"`
-	Attachments []store.Attachment      `json:"attachments"`
+	Attachments []AttachmentMeta        `json:"attachments"`
+}
+
+// AttachmentMeta is the redacted attachment shape for the device read path.
+//
+// A store.Attachment row also carries StoragePath, Iv and WrappedKey. Those are
+// internal at-rest/encryption details: StoragePath leaks the on-disk layout and
+// Iv/WrappedKey are the per-file key material. None of them belongs in a client
+// response — the openapi contract has always declared `attachments` as
+// AttachmentMeta, and handlers.attachmentDTO already redacts on the list
+// endpoint. This type closes the same hole on the device-detail endpoint.
+type AttachmentMeta struct {
+	ID          string  `json:"id"`
+	FileName    string  `json:"fileName"`
+	FileType    string  `json:"fileType"`
+	FileSize    int32   `json:"fileSize"`
+	Description *string `json:"description"`
+	UploadedAt  string  `json:"uploadedAt"`
+}
+
+// toAttachmentMeta strips a store row down to the public shape. Kept in sync
+// with handlers.toAttachmentDTO — both must emit the same JSON.
+func toAttachmentMeta(a store.Attachment) AttachmentMeta {
+	uploaded := ""
+	if a.UploadedAt.Valid {
+		uploaded = a.UploadedAt.Time.UTC().Format(time.RFC3339Nano)
+	}
+	return AttachmentMeta{
+		ID:          a.ID,
+		FileName:    a.FileName,
+		FileType:    a.FileType,
+		FileSize:    a.FileSize,
+		Description: a.Description,
+		UploadedAt:  uploaded,
+	}
 }
 
 // WarrantyWithReminders bundles a warranty row with its Reminder rows.
@@ -287,10 +321,11 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 		}
 		wr = append(wr, WarrantyWithReminders{Warranty: w, Reminders: rem})
 	}
-	if atts == nil {
-		atts = []store.Attachment{}
+	metas := make([]AttachmentMeta, 0, len(atts))
+	for _, a := range atts {
+		metas = append(metas, toAttachmentMeta(a))
 	}
-	return &DeviceDetail{Device: d, Warranties: wr, Attachments: atts}, nil
+	return &DeviceDetail{Device: d, Warranties: wr, Attachments: metas}, nil
 }
 
 // CreateDevice mirrors website/src/lib/services/devices.ts::createDevice
