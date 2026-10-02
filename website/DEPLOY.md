@@ -1,116 +1,76 @@
-# Deploy WarrantyVault
+# Deploy web UI (WarrantyVault)
 
-App giờ chạy Postgres native nên đường deploy đơn giản: bất cứ host nào support Node 22 + Postgres đều OK. Hai option chính:
+Web này là **frontend mỏng**: nó không có DB, không giữ state, không cron — mọi thứ nằm ở Go API ([`../api`](../api)). Vì vậy có 2 kiểu deploy:
 
-- **Self-host bằng Docker compose** — repo đã sẵn sàng, xem [README.md → Chạy bằng Docker](./README.md#chạy-bằng-docker-local-self-host).
-- **Vercel + Postgres managed** (Neon / Supabase / Render / Railway / RDS) — hướng dẫn dưới đây.
+1. **Full stack trên 1 VPS** (khuyến nghị) — Caddy + Docker Compose (postgres + api + cron + web) + systemd timer cho cron. Xem [`../deploy/README.md`](../deploy/README.md).
+2. **Web-only** — host chỉ chạy Next.js, trỏ `GO_API_URL` sang Go API đã deploy ở chỗ khác (VPS khác, Fly.io, Render, Railway…). Hướng dẫn dưới đây.
 
-## Tổng quan (Vercel route)
+> Deploy web một mình **không đủ**: không có Go API thì mọi trang app đều lỗi (web chỉ proxy sang Go). Postgres, migrations (goose), attachments, push, email, cron đều thuộc Go.
 
-- **Frontend + Server Actions**: Vercel (free tier đủ)
-- **Database**: Postgres hosted — Neon (free 0.5GB), Supabase (free 500MB), Render Postgres (free), hoặc bất kỳ Postgres ≥ 14 nào
-- **Uploads (hoá đơn/ảnh BH)**: **Vercel Blob** hoặc S3-compatible — Vercel filesystem ephemeral nên không lưu được encrypted attachments giữa các request
-- **Email (reset mật khẩu)**: Resend (free 3K email/tháng)
-- **Cron**: Vercel Cron (free 2 job/ngày)
+## Bước 1 — Chuẩn bị Go API trước
 
-## Bước 1 — Chuẩn bị Postgres
-
-Ví dụ với Neon (free, sinh URL kèm `sslmode=require`):
+Deploy `api/` + Postgres theo [`../deploy/README.md`](../deploy/README.md) (hoặc host Go bất kỳ). Kiểm tra:
 
 ```bash
-# 1. Tạo project ở https://neon.tech → copy connection string:
-#    postgresql://user:pass@ep-xxx.region.aws.neon.tech/warranty_vault?sslmode=require
-
-# 2. Push schema (dùng URL Neon, không cần migrations folder):
-DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" npx prisma db push
-
-# 3. Seed catalog tables (categories, brands, stores, warranty providers):
-DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" node prisma/seed.mjs
+curl -sf https://api.<domain>/healthz   # {"ok":true}
+curl -sf https://api.<domain>/readyz    # {"ok":true} khi ping được DB
 ```
 
-Lưu ý: `DATABASE_URL` Vercel cần **`sslmode=require`** (hoặc `?ssl=true`) — managed Postgres luôn enforce TLS.
+Trên Go phải set `WEB_URL=https://<domain>` (CORS allowlist cho browser gọi API) và `APP_URL=https://<domain>` (link reset password trong email trỏ về web).
 
-## Bước 2 — Uploads sang Vercel Blob
+## Bước 2 — Set env cho web
 
-File system Vercel serverless không bền. Chuyển upload sang Vercel Blob:
+| Biến | Bắt buộc | Giá trị |
+|---|---|---|
+| `GO_API_URL` | ✅ | Base URL của Go API **kèm prefix `/api`**, **không** có dấu `/` cuối — vd `https://api.<domain>/api`. `src/lib/api/*` nối thêm `/v1/...` còn Go phục vụ `/api/v1/*`, nên thiếu `/api` là mọi request 404 |
+| `SESSION_SECRET` | ✅ | Random ≥32 ký tự: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Đổi = logout toàn bộ user web |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | optional | Cùng public key với `VAPID_PUBLIC_KEY` ở Go. **Phải có lúc BUILD**, không phải runtime — Next inline biến `NEXT_PUBLIC_*` vào client bundle. Đổi key = build lại |
+
+Không cần `DATABASE_URL`, `FILE_MASTER_KEY`, `CRON_SECRET`, `RESEND_*`, `VAPID_PRIVATE_KEY` ở web — đó là env của Go (xem `api/.env.example`). Web cũng **không** cần object storage (Vercel Blob/S3): attachments đã nằm (mã hoá) trên đĩa của Go.
+
+**Lưu ý:**
+- `SESSION_SECRET` của web độc lập với `SESSION_SECRET` của Go — Go chỉ validate độ dài ≥32 ký tự, không đọc cookie `wv_session`.
+- `GO_API_URL` phải reachable **từ server** chạy Next.js (server actions fetch), không phải từ browser.
+- ⚠️ **Proxy file đang lệch path** (tính đến lúc viết): `src/app/api/files/[id]/route.ts` gọi `${GO_API_URL}/v1/files/{id}` → `/api/v1/files/{id}`, trong khi Go chỉ có `GET /api/files/{id}` (xem `api/internal/handlers/attachments.go`). Attachment xem/tải qua web vì vậy trả 404 cho tới khi proxy đổi thành `${GO_API_URL}/files/{id}`. Đây là bug ở code web, không phải env.
+
+## Bước 3 — Build + chạy
 
 ```bash
-npm install @vercel/blob
+npm ci
+npm run build
+npm run start        # Next production server, mặc định :3000
 ```
 
-Sửa `src/app/actions/attachments.ts` + `src/lib/files.ts`:
-- Thay `fs.writeFile` bằng `put()` của `@vercel/blob`
-- `storagePath` lưu URL từ Blob (vẫn validate path traversal)
-- `readAndDecrypt` fetch URL về buffer rồi decrypt như cũ
+Hoặc build Docker image của web (root compose đã làm sẵn — `docker compose up -d --build web`). `NEXT_PUBLIC_VAPID_PUBLIC_KEY` truyền qua build arg/compose `args:`, không phải `environment:`.
 
-Alternative free: Cloudflare R2 (10GB free), Supabase Storage, MinIO self-host. Mọi backend object-storage đều OK miễn server action ghi/đọc được.
+Với host PaaS (Vercel/Fly/Render/Railway): set env ở dashboard, build command `npm run build`, start command `npm run start`. Web stateless nên host nào chạy Node 20+ cũng được.
 
-## Bước 3 — Environment variables
+## Bước 4 — Cron
 
-Set trên Vercel dashboard (Settings → Environment Variables):
+**Cron không chạy ở web.** Nó là `api/cmd/cron` và cũng expose ở `POST /api/v1/cron/warranty-check` (auth bằng `Authorization: Bearer $CRON_SECRET` hoặc `?secret=`). Schedule bằng systemd timer ([`../deploy/README.md`](../deploy/README.md)), GitHub Actions, hoặc cron của host.
 
-| Biến | Giá trị |
-|---|---|
-| `DATABASE_URL` | `postgresql://user:pass@host:5432/db?sslmode=require` |
-| `SESSION_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-| `FILE_MASTER_KEY` | Tương tự SESSION_SECRET (32-byte base64). **Đổi key = mọi attachment cũ không decrypt được nữa.** |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | từ `npx web-push generate-vapid-keys` |
-| `VAPID_PRIVATE_KEY` | VAPID private |
-| `VAPID_SUBJECT` | `mailto:email@của_mày.com` |
-| `CRON_SECRET` | Random string dài (≥32 ký tự) |
-| `APP_URL` | `https://your-app.vercel.app` |
-| `RESEND_API_KEY` | (optional) từ resend.com — bỏ trống thì reset link in ra log |
-| `RESEND_FROM` | `WarrantyVault <noreply@yourdomain.com>` (cần verify domain ở Resend) |
-| `BLOB_READ_WRITE_TOKEN` | (nếu dùng Vercel Blob) |
+> ✅ `website/vercel.json` **đã bị xoá.** File đó khai báo cron `/api/cron/warranty-check`,
+> một route đã bị gỡ từ Phase F — nếu deploy web lên Vercel thì nó chỉ gọi vào 404 mỗi ngày.
+> Cron giờ chỉ có một nguồn duy nhất là Go, như mô tả ở trên.
 
-**Quan trọng:**
-- `SESSION_SECRET` phải unique production — không reuse của local. Đổi secret = tất cả user bị logout.
-- `FILE_MASTER_KEY` quan trọng hơn: rotate được nhưng phải re-wrap tất cả `Attachment.wrappedKey` (xem comment trong `src/lib/files.ts`). Mất key này = mất hết file đính kèm.
-
-## Bước 4 — Deploy
+## Bước 5 — Verify
 
 ```bash
-# Cài Vercel CLI
-npm i -g vercel
-vercel login
-vercel link          # chọn project
-vercel --prod        # deploy
+curl -sIf https://<domain>/login                        # 200 = Next.js sống
+curl -s https://api.<domain>/readyz                     # Go + DB sống
+curl -s -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  https://api.<domain>/api/v1/cron/warranty-check       # cron chạy tay được
 ```
 
-Hoặc push GitHub → Vercel tự deploy nếu đã connect repo. Postgres adapter `pg` chạy thuần JS qua TCP nên Vercel build không cần native compile step.
+Checklist:
 
-## Bước 5 — Vercel Cron
-
-File `vercel.json` đã có sẵn:
-```json
-{
-  "crons": [{ "path": "/api/cron/warranty-check", "schedule": "0 1 * * *" }]
-}
-```
-
-Chạy 01:00 UTC mỗi ngày. Vercel tự gửi `Authorization: Bearer <CRON_SECRET>` — endpoint đã check sẵn.
-
-Xem log cron: Vercel dashboard → project → Cron Jobs.
-
-## Checklist trước khi share link cho người khác
-
-- [ ] `SESSION_SECRET` & `CRON_SECRET` & `FILE_MASTER_KEY` là random unique (không phải default trong `.env` repo)
-- [ ] Postgres URL có `sslmode=require`
-- [ ] Schema đã push + catalog đã seed (`prisma/seed.mjs`)
-- [ ] VAPID keys đã set (nếu không push sẽ fail silent)
-- [ ] Resend đã verify domain + `RESEND_FROM` đúng (reset password mới gửi được email thật)
-- [ ] Postgres có backup tự động (Neon/Supabase đều có sẵn point-in-time hoặc daily snapshot)
-- [ ] `APP_URL` đúng domain production (reset password link dùng)
-- [ ] Test: đăng ký mới → nhận email → đặt lại mật khẩu → đăng nhập → bật push → `/api/cron/warranty-check?secret=<CRON_SECRET>` trả JSON
+- [ ] `GO_API_URL` trỏ đúng Go API và reachable từ server web
+- [ ] `SESSION_SECRET` random ≥32 ký tự, unique production
+- [ ] `NEXT_PUBLIC_VAPID_PUBLIC_KEY` set **lúc build** (nếu dùng push) và khớp `VAPID_PUBLIC_KEY` ở Go
+- [ ] `WEB_URL` + `APP_URL` bên Go trỏ đúng domain web (CORS + link reset password)
+- [ ] Migrations đã chạy ở Go (`go run ./cmd/migrate up` / image `migrate`)
+- [ ] Test: đăng ký → nhận email reset → đặt lại mật khẩu → đăng nhập → tạo device → upload hoá đơn → bật push
 
 ## Rollback
 
-- **Code**: Vercel lưu tất cả deployment. Dashboard → Deployments → chọn bản cũ → Promote to Production.
-- **DB**: dùng snapshot/point-in-time của provider (Neon, Supabase đều support). Hoặc giữ `pg_dump` định kỳ:
-  ```bash
-  pg_dump "postgresql://user:pass@host/db?sslmode=require" | gzip > backup-$(date +%F).sql.gz
-  ```
-
-## Self-host bằng Docker
-
-Tham khảo [README.md → Chạy bằng Docker](./README.md#chạy-bằng-docker-local-self-host). Compose stack: Postgres + Next app, 2 volume riêng cho DB và file đính kèm. Phù hợp cho bản dùng nội bộ / chia sẻ giới hạn vài user.
+Web stateless nên rollback = deploy lại bản build trước (Vercel: Deployments → Promote; VPS: `git checkout <sha>` + `docker compose up -d --build web`). DB/attachments rollback là việc của Go/Postgres — xem [`../deploy/README.md`](../deploy/README.md).

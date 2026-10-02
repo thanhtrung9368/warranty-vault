@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/warranty-check",
-      "schedule": "0 1 * * *"
-    }
-  ]
-}

@@ -1,3 +1,18 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# website/docker-compose.yml — web + Go API + Postgres, volumes RIÊNG.
+#
+# ⚠️ Đây KHÔNG phải file compose chính. File canonical ở repo root
+#    (`../docker-compose.yml`) — đó là file `deploy/README.md` và
+#    `deploy/PRODUCTION_CHECKLIST.md` hướng dẫn. Hai file dùng tên volume
+#    khác nhau (`warranty-pg`/`warranty-data` ở đây vs `pgdata`/`uploads`
+#    ở root) nên ĐỪNG trộn lẫn: chạy file này rồi chạy file root sẽ tạo
+#    hai bộ dữ liệu tách biệt.
+#
+# File này giữ lại cho ai muốn dựng nhanh bộ ba web+api+db mà không cần
+# Caddy / systemd timer. Sau Phase F, `app` chỉ là UI mỏng proxy sang `api`,
+# nên nó PHẢI có `GO_API_URL` — thiếu biến đó thì web không gọi được Go.
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
   db:
     image: postgres:17-alpine
@@ -30,34 +45,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Web là UI mỏng — mọi read/write proxy sang Go. API chết thì web
+      # không phục vụ được gì có ích. Đồ thị không có vòng lặp: db ← api ← app.
+      api:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
-      # ── DB & uploads ──────────────────────────────────────────────
-      # Compose-internal DNS: `db` resolves to the postgres container.
-      DATABASE_URL: "postgresql://warranty:${POSTGRES_PASSWORD}@db:5432/warranty_vault"
-      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+      # ── Go API URL ────────────────────────────────────────────────
+      # PHẢI kết thúc bằng `/api`: `src/lib/api/client.ts` ghép
+      # `GO_API_URL + '/v1/...'` còn Go phục vụ `/api/v1/...`. Thiếu `/api`
+      # thì mọi lời gọi web → Go đều 404.
+      GO_API_URL: "http://api:4000/api"
 
-      # ── Required ──────────────────────────────────────────────────
+      # ── Bắt buộc ──────────────────────────────────────────────────
+      # `app` chỉ thực sự đọc 2 biến: SESSION_SECRET (mã hoá cookie
+      # iron-session) và NEXT_PUBLIC_VAPID_PUBLIC_KEY (inline lúc build).
+      # DB, giải mã blob, gửi push/mail, cron đều là việc của `api`.
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set (>=32 chars)}
-      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
-      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
-      APP_URL: ${APP_URL:-http://localhost:3000}
-
-      # ── Push notifications (optional, but if you set one set all) ─
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
-
-      # ── Email (optional — without it, reset links print to logs) ──
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      RESEND_FROM: ${RESEND_FROM:-}
-
       NODE_ENV: production
-    volumes:
-      # /data still holds encrypted attachments. DB now lives in the
-      # warranty-pg volume on the postgres container.
-      - warranty-data:/data
+
+      # ── Web push (client subscribe) ───────────────────────────────
+      # Phải khớp VAPID_PUBLIC_KEY của service `api` bên dưới.
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
       interval: 30s
@@ -65,10 +75,8 @@ services:
       retries: 3
       start_period: 20s
 
-  # Go API service. During migration (Phases A–E of BACKEND_GO_PLAN.md) it
-  # runs alongside the Next.js `app` and shares the same Postgres + the same
-  # encrypted-attachments volume. After Phase F the `app` service becomes a
-  # thin frontend that depends on this.
+  # Go API service — backend canonical (Phase A–F đã xong). Sở hữu Postgres,
+  # blob mã hoá, push, cron; web chỉ proxy sang đây.
   api:
     build:
       context: ../api
@@ -119,16 +127,26 @@ services:
       RATE_LIMITER: ${RATE_LIMITER:-memory}
       UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+
+      # ── AI: OCR hoá đơn (optional) ────────────────────────────────
+      # ai.NewFromEnv() đọc thẳng từ env. Thiếu key → endpoint trả 503
+      # feature_disabled. Phải forward ở đây, không thì đặt trong .env vô ích.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
     volumes:
-      # Share the same volume as `app` so both services see identical
-      # encrypted blobs during the migration window.
+      # Chỉ `api` cần volume blob mã hoá — `app` proxy byte stream qua HTTP,
+      # không đọc đĩa.
       - warranty-data:/data
-    # NOTE: distroless/static has no shell, wget, or curl, so a typical
-    # in-container healthcheck binary isn't available. We rely on the
-    # external orchestrator (compose `depends_on`, reverse proxy, k8s
-    # liveness/readiness probes) hitting GET /healthz directly. If we
-    # later switch to `distroless/base` or ship a tiny `healthcheck`
-    # subcommand on the server binary, restore a HEALTHCHECK here.
+    # distroless/static không có shell, wget hay curl — nên healthcheck gọi
+    # thẳng binary: `/app/server -healthcheck` probe `GET /readyz` (có ping DB)
+    # rồi thoát 0/1. Probe tự timeout 4s, ngắn hơn `timeout` 5s bên dưới để nó
+    # tự báo lỗi thay vì bị SIGKILL.
+    healthcheck:
+      test: ["CMD", "/app/server", "-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   warranty-pg:

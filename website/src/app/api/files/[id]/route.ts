@@ -3,7 +3,7 @@ import { getAuthCookie } from '@/lib/auth-cookie';
 
 // GET /api/files/<attachmentId>
 //
-// Thin proxy to the Go service's `GET /v1/files/{id}` endpoint. The Go
+// Thin proxy to the Go service's `GET /api/files/{id}` endpoint. The Go
 // handler is auth-gated (Bearer), ownership-checked, decrypts the on-disk
 // blob, and streams it back. We:
 //   1) Read the iron-session cookie for the bearer token.
@@ -51,8 +51,14 @@ export async function GET(
   }
 
   // Pass `?download=1` (and any other query params) through unchanged.
+  //
+  // NOTE: the path here is `/files/{id}`, NOT `/v1/files/{id}`. Go registers
+  // file streaming as `GET /api/files/{id}` (attachments.go) — it is the one
+  // route deliberately outside the `/api/v1/*` namespace. `GO_API_URL`
+  // already ends in `/api`, so this resolves to `/api/files/{id}`. Adding
+  // `/v1` here 404s on every request.
   const incoming = new URL(req.url);
-  const upstreamUrl = `${GO_API_URL}/v1/files/${encodeURIComponent(id)}${incoming.search}`;
+  const upstreamUrl = `${GO_API_URL}/files/${encodeURIComponent(id)}${incoming.search}`;
 
   let upstream: Response;
   try {

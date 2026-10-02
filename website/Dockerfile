@@ -27,8 +27,10 @@ ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Dummy SESSION_SECRET so `src/lib/session.ts` doesn't throw during build
-# when Next pre-renders pages that touch the session module.
+# Dummy SESSION_SECRET for the build. `src/lib/auth-cookie.ts` throws at module
+# load when SESSION_SECRET is missing or shorter than 32 chars, and Next
+# evaluates that module while pre-rendering. The value is irrelevant at build
+# time — the real secret is injected as a runtime env var.
 ENV SESSION_SECRET="build-time-placeholder-must-be-32+chars-long"
 
 RUN npm run build
