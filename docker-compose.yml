@@ -143,31 +143,26 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # ── DB & uploads ───────────────────────────────────────────────
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-warranty}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-warranty_vault}"
-      PRIVATE_UPLOAD_ROOT: "/data/private-uploads"
+      # ── Go API URL ────────────────────────────────────────────────
+      # PHẢI có hậu tố `/api`. `website/src/lib/api/client.ts` ghép
+      # BASE_URL + '/v1/...', còn Go phục vụ '/api/v1/...'. Thiếu `/api`
+      # thì mọi lời gọi web → Go đều 404.
+      GO_API_URL: "http://api:4000/api"
 
-      # ── Go API URL (web đẩy dần I/O sang api) ─────────────────────
-      GO_API_URL: "http://api:4000"
-
-      # ── Required ──────────────────────────────────────────────────
+      # ── Bắt buộc ──────────────────────────────────────────────────
+      # Web thực chất chỉ đọc ĐÚNG 2 biến: SESSION_SECRET (mã hoá cookie
+      # iron-session) và NEXT_PUBLIC_VAPID_PUBLIC_KEY (inline lúc build).
+      # DB, giải mã blob, gửi push, gửi mail, cron đều là việc của Go —
+      # web chỉ proxy. Đã grep xác nhận website/ không đọc những biến đã
+      # gỡ ở đây: DATABASE_URL, PRIVATE_UPLOAD_ROOT, FILE_MASTER_KEY,
+      # CRON_SECRET, APP_URL, VAPID_PRIVATE_KEY, VAPID_SUBJECT, RESEND_*.
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set (>=32 chars)}
-      FILE_MASTER_KEY: ${FILE_MASTER_KEY:?FILE_MASTER_KEY must be set (32-byte base64)}
-      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set}
-      APP_URL: ${APP_URL:-http://localhost:3000}
       NODE_ENV: production
 
-      # ── Push notifications (optional) ─────────────────────────────
+      # ── Web push (client subscribe) ───────────────────────────────
+      # Phải khớp VAPID_PUBLIC_KEY của Go. NEXT_PUBLIC_* được inline vào
+      # bundle lúc build — xem build.args ở trên.
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
-      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
-
-      # ── Email (Resend, optional) ──────────────────────────────────
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      RESEND_FROM: ${RESEND_FROM:-}
-    volumes:
-      # Cùng volume với api để cả 2 đọc/ghi cùng encrypted blobs.
-      - uploads:/data
     networks:
       - warranty-net
     healthcheck:

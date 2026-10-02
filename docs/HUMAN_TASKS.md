@@ -263,7 +263,12 @@ thật. Apple đắt nhất nên để sau cùng, khi mọi thứ khác đã s�
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic console | 1.4 |
 | `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` / `APNS_PRIVATE_KEY` | Apple Developer | 2.3 |
 | `APP_URL` | domain của mày | 2.1 |
-| `GO_API_URL` | `http://api:4000` khi chạy compose | — |
+| `GO_API_URL` | compose tự set = `http://api:4000/api` — **phải có `/api`**, xem ghi chú dưới | — |
+
+> ⚠️ **`GO_API_URL` phải kết thúc bằng `/api`.** `website/src/lib/api/client.ts` ghép
+> `GO_API_URL + '/v1/...'`, còn Go phục vụ `/api/v1/...`. Thiếu `/api` là **mọi** lời
+> gọi web → Go 404, web trông như hỏng sạch. Giá trị đúng khi chạy local:
+> `GO_API_URL="http://localhost:4000/api"`.
 
 > ⚠️ **Compose chỉ đọc `.env` ở repo root.** Nó **không** có `env_file:`, nên
 > `api/.env` và `website/.env` **không có tác dụng** khi chạy `docker compose up`.
