@@ -18,8 +18,8 @@ WHERE "userId" = $1
   AND "usedAt" IS NULL
 `
 
-// Used by the reset-password confirm step to invalidate every other
-// outstanding reset token the user might have issued in parallel.
+// Used by the reset-password AND email-change confirm steps to invalidate every
+// other outstanding token the user might have issued in parallel (both kinds).
 func (q *Queries) ConsumeAllPasswordResetsForUser(ctx context.Context, userid string) error {
 	_, err := q.db.Exec(ctx, consumeAllPasswordResetsForUser, userid)
 	return err
@@ -36,10 +36,48 @@ func (q *Queries) ConsumePasswordReset(ctx context.Context, id string) error {
 	return err
 }
 
+const createEmailChange = `-- name: CreateEmailChange :one
+INSERT INTO "PasswordReset" (id, "userId", "tokenHash", "pendingEmail", "expiresAt", "createdAt")
+VALUES ($1, $2, $3, $4, $5, NOW())
+RETURNING id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt", "pendingEmail"
+`
+
+type CreateEmailChangeParams struct {
+	ID           string           `json:"id"`
+	UserId       string           `json:"userId"`
+	TokenHash    string           `json:"tokenHash"`
+	PendingEmail *string          `json:"pendingEmail"`
+	ExpiresAt    pgtype.Timestamp `json:"expiresAt"`
+}
+
+// Email-change token (migration 0009): same table and lifecycle as a password
+// reset, plus the pending address the token authorises. `pendingEmail` is what
+// keeps the two token kinds apart — see the migration header.
+func (q *Queries) CreateEmailChange(ctx context.Context, arg CreateEmailChangeParams) (PasswordReset, error) {
+	row := q.db.QueryRow(ctx, createEmailChange,
+		arg.ID,
+		arg.UserId,
+		arg.TokenHash,
+		arg.PendingEmail,
+		arg.ExpiresAt,
+	)
+	var i PasswordReset
+	err := row.Scan(
+		&i.ID,
+		&i.UserId,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+		&i.PendingEmail,
+	)
+	return i, err
+}
+
 const createPasswordReset = `-- name: CreatePasswordReset :one
 INSERT INTO "PasswordReset" (id, "userId", "tokenHash", "expiresAt", "createdAt")
 VALUES ($1, $2, $3, $4, NOW())
-RETURNING id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt"
+RETURNING id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt", "pendingEmail"
 `
 
 type CreatePasswordResetParams struct {
@@ -64,18 +102,48 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.PendingEmail,
 	)
 	return i, err
 }
 
-const getPasswordResetByTokenHash = `-- name: GetPasswordResetByTokenHash :one
-SELECT id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt" FROM "PasswordReset"
+const getEmailChangeByTokenHash = `-- name: GetEmailChangeByTokenHash :one
+SELECT id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt", "pendingEmail" FROM "PasswordReset"
 WHERE "tokenHash" = $1
+  AND "pendingEmail" IS NOT NULL
   AND "usedAt" IS NULL
   AND "expiresAt" > NOW()
 LIMIT 1
 `
 
+// Email-change tokens only (`"pendingEmail" IS NOT NULL`). Single-use
+// (`"usedAt" IS NULL`) and time-boxed (`"expiresAt"`), exactly like a reset token.
+func (q *Queries) GetEmailChangeByTokenHash(ctx context.Context, tokenhash string) (PasswordReset, error) {
+	row := q.db.QueryRow(ctx, getEmailChangeByTokenHash, tokenhash)
+	var i PasswordReset
+	err := row.Scan(
+		&i.ID,
+		&i.UserId,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+		&i.PendingEmail,
+	)
+	return i, err
+}
+
+const getPasswordResetByTokenHash = `-- name: GetPasswordResetByTokenHash :one
+SELECT id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt", "pendingEmail" FROM "PasswordReset"
+WHERE "tokenHash" = $1
+  AND "pendingEmail" IS NULL
+  AND "usedAt" IS NULL
+  AND "expiresAt" > NOW()
+LIMIT 1
+`
+
+// Password-reset tokens only (`"pendingEmail" IS NULL`): an email-change token is
+// delivered to the new address and must never be spendable as a password credential.
 func (q *Queries) GetPasswordResetByTokenHash(ctx context.Context, tokenhash string) (PasswordReset, error) {
 	row := q.db.QueryRow(ctx, getPasswordResetByTokenHash, tokenhash)
 	var i PasswordReset
@@ -86,6 +154,7 @@ func (q *Queries) GetPasswordResetByTokenHash(ctx context.Context, tokenhash str
 		&i.ExpiresAt,
 		&i.UsedAt,
 		&i.CreatedAt,
+		&i.PendingEmail,
 	)
 	return i, err
 }

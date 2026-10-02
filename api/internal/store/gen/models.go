@@ -60,12 +60,13 @@ type Device struct {
 }
 
 type PasswordReset struct {
-	ID        string           `json:"id"`
-	UserId    string           `json:"userId"`
-	TokenHash string           `json:"tokenHash"`
-	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
-	UsedAt    pgtype.Timestamp `json:"usedAt"`
-	CreatedAt pgtype.Timestamp `json:"createdAt"`
+	ID           string           `json:"id"`
+	UserId       string           `json:"userId"`
+	TokenHash    string           `json:"tokenHash"`
+	ExpiresAt    pgtype.Timestamp `json:"expiresAt"`
+	UsedAt       pgtype.Timestamp `json:"usedAt"`
+	CreatedAt    pgtype.Timestamp `json:"createdAt"`
+	PendingEmail *string          `json:"pendingEmail"`
 }
 
 type PushSubscription struct {

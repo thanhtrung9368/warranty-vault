@@ -141,6 +141,31 @@ func (q *Queries) UpdateUserDisplayName(ctx context.Context, arg UpdateUserDispl
 	return i, err
 }
 
+const updateUserEmail = `-- name: UpdateUserEmail :execrows
+UPDATE "User"
+SET email = $2,
+    "updatedAt" = NOW()
+WHERE id = $1
+`
+
+type UpdateUserEmailParams struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+}
+
+// Confirm step of the email-change flow (migration 0009). The caller has already
+// verified a single-use token sent to $2 and checked the address is free; the
+// unique index on email is the final race guard (a 23505 surfaces as 400, not 500).
+// Deliberately does NOT touch "passwordChangedAt": the email change is not a
+// password change, and the sessions are revoked explicitly by the handler.
+func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateUserEmail, arg.ID, arg.Email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE "User"
 SET "passwordHash" = $2,

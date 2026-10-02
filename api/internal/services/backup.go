@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -41,82 +43,116 @@ var (
 // into a data-loss path, because every backup a user already holds instantly
 // becomes unimportable.
 const (
-	// BackupVersion is the shape this build writes AND the newest one it reads.
-	BackupVersion = 5
-	// MinBackupVersion is the oldest shape this importer can still read.
-	// It equals BackupVersion today because version 5 (the legacy TS exporter's
-	// numbering) is the only format that has ever existed; raise it only when an
-	// older payload would import *wrongly* (a changed field meaning), not merely
-	// because fields were added.
+	// BackupVersion is the newest payload this build reads, and the version
+	// written inside the blob-carrying .zip archive
+	// (GET /api/v1/backup/export?includeBlobs=true). Version 6 means "this
+	// envelope may declare includesAttachmentBytes=true and the bytes travel
+	// beside it in the archive".
+	BackupVersion = 6
+	// MetadataOnlyBackupVersion is the version written by the plain JSON export.
+	// It is deliberately still 5: that document is byte-for-byte the old format,
+	// so a client or importer that only understands v5 keeps working, and
+	// existing v5 files stay valid.
+	MetadataOnlyBackupVersion = 5
+	// MinBackupVersion is the oldest shape this importer can still read. It stays
+	// at 5 — the legacy TS exporter's numbering — because a v5 payload imports
+	// *correctly*; raise it only when an older payload would import wrongly (a
+	// changed field meaning), not merely because fields were added.
 	MinBackupVersion = 5
 )
 
 // AttachmentBytesNoteVN is the Vietnamese warning that ships inside every
-// export. It exists so any client can warn accurately from the payload itself
-// instead of hardcoding "the backup has no images" (roadmap #2) — which is true
-// today but would silently become a lie if the format ever changes.
+// metadata-only export. It exists so any client can warn accurately from the
+// payload itself instead of hardcoding "the backup has no images" (roadmap #2) —
+// which is true for this document but would silently become a lie if the format
+// changed.
 const AttachmentBytesNoteVN = "Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh."
+
+// BlobAttachmentBytesNoteVN is the note that ships inside the .zip archive
+// (includeBlobs=true), where the encrypted bytes DO travel with the data. It
+// keeps telling the truth about the remaining requirement: the blobs are
+// AES-256-GCM ciphertext whose per-file keys are wrapped with FILE_MASTER_KEY, so
+// a restore on a server with a different (or missing) FILE_MASTER_KEY imports the
+// rows and the bytes but cannot decrypt them.
+const BlobAttachmentBytesNoteVN = "Bản sao lưu này CÓ chứa nội dung ảnh/hoá đơn đính kèm (đã mã hoá AES-256-GCM). Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu thì mới giải mã được; thiếu hoặc sai khoá thì file vẫn được khôi phục nhưng không mở được."
 
 type BackupExport struct {
 	Version    int    `json:"version"`
 	ExportedAt string `json:"exportedAt"`
 	// Self-describing honesty metadata (roadmap #2). Always emitted:
-	//   includesAttachmentBytes — false. The export carries Attachment *metadata*
-	//     (fileName, fileType, fileSize, iv, wrappedKey) plus the owning device's
-	//     storagePath, but never the encrypted blob bytes. A restore on a fresh
-	//     server therefore cannot bring invoice images back; the blobs live under
+	//   includesAttachmentBytes — true only for the .zip export
+	//     (?includeBlobs=true), where every attachment's encrypted blob travels in
+	//     the archive. The plain JSON export keeps false: it carries Attachment
+	//     *metadata* (fileName, fileType, fileSize, iv, wrappedKey) plus the
+	//     owning device's storagePath, but never the bytes, so a restore on a fresh
+	//     server cannot bring invoice images back — the blobs live under
 	//     PRIVATE_UPLOAD_ROOT and need FILE_MASTER_KEY to decrypt.
 	//   attachmentBytesNote — Vietnamese one-liner for the client to surface.
-	// Bumping these to true is a format change (zip-with-blobs) and is deferred.
 	IncludesAttachmentBytes bool                 `json:"includesAttachmentBytes"`
 	AttachmentBytesNote     string               `json:"attachmentBytesNote"`
 	Subscriptions           []BackupSubscription `json:"subscriptions"`
 	Wishlist                []BackupWishlistItem `json:"wishlist"`
 	Devices                 []BackupDevice       `json:"devices"`
+	// MissingAttachmentIds lists attachments whose blob file was absent from disk
+	// at export time, so the archive could not carry them. Export still succeeds
+	// (one lost blob must not block a backup) but the payload says exactly which
+	// ids are incomplete instead of silently shipping a smaller backup.
+	// Omitted when empty, and never present in the metadata-only JSON.
+	MissingAttachmentIds []string `json:"missingAttachmentIds,omitempty"`
 }
 
-// newBackupExport builds the export envelope. The honesty fields are set here
+// newBackupEnvelope builds an export envelope. The honesty fields are set here
 // rather than at the call site so every export path is self-describing by
 // construction.
-func newBackupExport(deviceCount, wishlistCount, subCount int) *BackupExport {
+func newBackupEnvelope(version int, includesBytes bool, note string, deviceCount, wishlistCount, subCount int) *BackupExport {
 	return &BackupExport{
-		Version:                 BackupVersion,
+		Version:                 version,
 		ExportedAt:              time.Now().UTC().Format(time.RFC3339Nano),
-		IncludesAttachmentBytes: false,
-		AttachmentBytesNote:     AttachmentBytesNoteVN,
+		IncludesAttachmentBytes: includesBytes,
+		AttachmentBytesNote:     note,
 		Subscriptions:           make([]BackupSubscription, 0, subCount),
 		Wishlist:                make([]BackupWishlistItem, 0, wishlistCount),
 		Devices:                 make([]BackupDevice, 0, deviceCount),
 	}
 }
 
+// newBackupExport builds the metadata-only JSON envelope (version 5, unchanged).
+func newBackupExport(deviceCount, wishlistCount, subCount int) *BackupExport {
+	return newBackupEnvelope(MetadataOnlyBackupVersion, false, AttachmentBytesNoteVN, deviceCount, wishlistCount, subCount)
+}
+
+// newBlobBackupExport builds the envelope written inside the .zip archive.
+func newBlobBackupExport(deviceCount, wishlistCount, subCount int) *BackupExport {
+	return newBackupEnvelope(BackupVersion, true, BlobAttachmentBytesNoteVN, deviceCount, wishlistCount, subCount)
+}
+
 type BackupSubscription struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Category      *string            `json:"category"`
-	Brand         *string            `json:"brand"`
-	Plan          *string            `json:"plan"`
-	BillingCycle  string             `json:"billingCycle"`
-	IntervalDays  *int32             `json:"intervalDays"`
-	Price         int32              `json:"price"`
-	Currency      string             `json:"currency"`
-	StartedAt     string             `json:"startedAt"`
-	RenewalDate   string             `json:"renewalDate"`
-	AutoRenew     bool               `json:"autoRenew"`
-	Status        string             `json:"status"`
-	AccountEmail  *string            `json:"accountEmail"`
-	PaymentMethod *string            `json:"paymentMethod"`
-	ManageUrl     *string            `json:"manageUrl"`
-	CancelUrl     *string            `json:"cancelUrl"`
-	Notes         *string            `json:"notes"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Category      *string `json:"category"`
+	Brand         *string `json:"brand"`
+	Plan          *string `json:"plan"`
+	BillingCycle  string  `json:"billingCycle"`
+	IntervalDays  *int32  `json:"intervalDays"`
+	Price         int32   `json:"price"`
+	Currency      string  `json:"currency"`
+	StartedAt     string  `json:"startedAt"`
+	RenewalDate   string  `json:"renewalDate"`
+	AutoRenew     bool    `json:"autoRenew"`
+	Status        string  `json:"status"`
+	AccountEmail  *string `json:"accountEmail"`
+	PaymentMethod *string `json:"paymentMethod"`
+	ManageUrl     *string `json:"manageUrl"`
+	CancelUrl     *string `json:"cancelUrl"`
+	Notes         *string `json:"notes"`
 	// LastNotifiedRenewalAt is the cron renewal-warning dedup marker
 	// (Subscription."lastNotifiedRenewalAt", migration 0001). Same class of bug
 	// as BackupReminder.LastNotifiedAt: dropping it on restore re-fires the
 	// 3/1/0-day renewal notifications.
-	LastNotifiedRenewalAt *string            `json:"lastNotifiedRenewalAt"`
-	CreatedAt             string             `json:"createdAt"`
-	UpdatedAt             string             `json:"updatedAt"`
-	Payments              []BackupPayment    `json:"payments"`
+	LastNotifiedRenewalAt *string         `json:"lastNotifiedRenewalAt"`
+	CreatedAt             string          `json:"createdAt"`
+	UpdatedAt             string          `json:"updatedAt"`
+	Payments              []BackupPayment `json:"payments"`
 }
 
 type BackupPayment struct {
@@ -127,24 +163,24 @@ type BackupPayment struct {
 }
 
 type BackupWishlistItem struct {
-	ID                   string                 `json:"id"`
-	Name                 string                 `json:"name"`
-	Category             *string                `json:"category"`
-	Brand                *string                `json:"brand"`
-	InitialPrice         *int32                 `json:"initialPrice"`
-	CurrentPrice         *int32                 `json:"currentPrice"`
-	BuyUrl               *string                `json:"buyUrl"`
-	ImageUrl             *string                `json:"imageUrl"`
-	TargetDate           *string                `json:"targetDate"`
-	Priority             string                 `json:"priority"`
-	Status               string                 `json:"status"`
-	Notes                *string                `json:"notes"`
-	ReminderIntervalDays *int32                 `json:"reminderIntervalDays"`
-	LastNotifiedAt       *string                `json:"lastNotifiedAt"`
-	PurchasedDeviceId    *string                `json:"purchasedDeviceId"`
-	CreatedAt            string                 `json:"createdAt"`
-	UpdatedAt            string                 `json:"updatedAt"`
-	Prices               []BackupWishlistPrice  `json:"prices"`
+	ID                   string                `json:"id"`
+	Name                 string                `json:"name"`
+	Category             *string               `json:"category"`
+	Brand                *string               `json:"brand"`
+	InitialPrice         *int32                `json:"initialPrice"`
+	CurrentPrice         *int32                `json:"currentPrice"`
+	BuyUrl               *string               `json:"buyUrl"`
+	ImageUrl             *string               `json:"imageUrl"`
+	TargetDate           *string               `json:"targetDate"`
+	Priority             string                `json:"priority"`
+	Status               string                `json:"status"`
+	Notes                *string               `json:"notes"`
+	ReminderIntervalDays *int32                `json:"reminderIntervalDays"`
+	LastNotifiedAt       *string               `json:"lastNotifiedAt"`
+	PurchasedDeviceId    *string               `json:"purchasedDeviceId"`
+	CreatedAt            string                `json:"createdAt"`
+	UpdatedAt            string                `json:"updatedAt"`
+	Prices               []BackupWishlistPrice `json:"prices"`
 }
 
 type BackupWishlistPrice struct {
@@ -155,17 +191,17 @@ type BackupWishlistPrice struct {
 }
 
 type BackupDevice struct {
-	ID            string              `json:"id"`
-	Name          string              `json:"name"`
-	Category      string              `json:"category"`
-	Brand         *string             `json:"brand"`
-	Model         *string             `json:"model"`
-	SerialNumber  *string             `json:"serialNumber"`
-	PurchaseDate  string              `json:"purchaseDate"`
-	PurchasePrice int32               `json:"purchasePrice"`
-	PurchasePlace *string             `json:"purchasePlace"`
-	Status        string              `json:"status"`
-	Notes         *string             `json:"notes"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Category      string  `json:"category"`
+	Brand         *string `json:"brand"`
+	Model         *string `json:"model"`
+	SerialNumber  *string `json:"serialNumber"`
+	PurchaseDate  string  `json:"purchaseDate"`
+	PurchasePrice int32   `json:"purchasePrice"`
+	PurchasePlace *string `json:"purchasePlace"`
+	Status        string  `json:"status"`
+	Notes         *string `json:"notes"`
 	// Resale pair (migration 0006). Absent/null in older v5 backups — the
 	// importer treats that as "not sold", so old exports stay restorable.
 	SoldAt      *string            `json:"soldAt"`
@@ -177,19 +213,19 @@ type BackupDevice struct {
 }
 
 type BackupWarranty struct {
-	ID        string            `json:"id"`
-	Type      string            `json:"type"`
-	Provider  *string           `json:"provider"`
-	StartDate string            `json:"startDate"`
-	EndDate   string            `json:"endDate"`
-	Months    int32             `json:"months"`
-	Cost      *int32            `json:"cost"`
-	Address   *string           `json:"address"`
-	Phone     *string           `json:"phone"`
-	Notes     *string           `json:"notes"`
-	CreatedAt string            `json:"createdAt"`
-	UpdatedAt string            `json:"updatedAt"`
-	Reminders []BackupReminder  `json:"reminders"`
+	ID        string           `json:"id"`
+	Type      string           `json:"type"`
+	Provider  *string          `json:"provider"`
+	StartDate string           `json:"startDate"`
+	EndDate   string           `json:"endDate"`
+	Months    int32            `json:"months"`
+	Cost      *int32           `json:"cost"`
+	Address   *string          `json:"address"`
+	Phone     *string          `json:"phone"`
+	Notes     *string          `json:"notes"`
+	CreatedAt string           `json:"createdAt"`
+	UpdatedAt string           `json:"updatedAt"`
+	Reminders []BackupReminder `json:"reminders"`
 }
 
 type BackupReminder struct {
@@ -217,18 +253,43 @@ type BackupAttachment struct {
 
 // ImportResult is returned by Import — handler folds it into the JSON envelope.
 type ImportResult struct {
-	Imported          int `json:"imported"`
-	Skipped           int `json:"skipped"`
-	WishlistImported  int `json:"wishlistImported"`
-	WishlistSkipped   int `json:"wishlistSkipped"`
-	SubImported       int `json:"subImported"`
-	SubSkipped        int `json:"subSkipped"`
+	Imported         int `json:"imported"`
+	Skipped          int `json:"skipped"`
+	WishlistImported int `json:"wishlistImported"`
+	WishlistSkipped  int `json:"wishlistSkipped"`
+	SubImported      int `json:"subImported"`
+	SubSkipped       int `json:"subSkipped"`
+	// Attachment counters, only meaningful for a .zip import
+	// (?includeBlobs=true export). A metadata-only JSON import leaves them 0:
+	// there are no bytes to write.
+	//
+	//   AttachmentsImported   — blob files written to PRIVATE_UPLOAD_ROOT.
+	//   AttachmentsSkipped    — attachment rows not inserted because their device
+	//                           was skipped in merge mode (their blobs are not
+	//                           written either, so no orphan files appear).
+	//   AttachmentsUnreadable — blobs written but NOT decryptable with this
+	//                           server's FILE_MASTER_KEY (including "no key
+	//                           configured"). The rows and the bytes are still
+	//                           restored; the count is how the caller learns that
+	//                           this server cannot open them.
+	AttachmentsImported   int `json:"attachmentsImported"`
+	AttachmentsSkipped    int `json:"attachmentsSkipped"`
+	AttachmentsUnreadable int `json:"attachmentsUnreadable"`
 }
 
 // ---- Export ---------------------------------------------------------------
 
-// ExportBackup gathers everything the user owns and returns the v5 payload.
+// ExportBackup gathers everything the user owns and returns the metadata-only v5
+// payload (attachment metadata, no bytes). Unchanged behaviour: this is what
+// GET /api/v1/backup/export returns without ?includeBlobs=true.
 func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*BackupExport, error) {
+	return exportBackup(ctx, db, userID, false)
+}
+
+// exportBackup assembles the payload. withBlobs selects the v6 envelope written
+// inside the .zip archive (includesAttachmentBytes=true); the row assembly is
+// otherwise identical.
+func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlobs bool) (*BackupExport, error) {
 	q := store.New(db)
 
 	devices, err := q.BackupListDevices(ctx, userID)
@@ -286,25 +347,30 @@ func ExportBackup(ctx context.Context, db *pgxpool.Pool, userID string) (*Backup
 		payBySub[p.SubscriptionId] = append(payBySub[p.SubscriptionId], p)
 	}
 
-	out := newBackupExport(len(devices), len(wishlist), len(subs))
+	var out *BackupExport
+	if withBlobs {
+		out = newBlobBackupExport(len(devices), len(wishlist), len(subs))
+	} else {
+		out = newBackupExport(len(devices), len(wishlist), len(subs))
+	}
 
 	for _, s := range subs {
 		bs := BackupSubscription{
-			ID:            s.ID,
-			Name:          s.Name,
-			Category:      s.Category,
-			Brand:         s.Brand,
-			Plan:          s.Plan,
-			BillingCycle:  s.BillingCycle,
-			IntervalDays:  s.IntervalDays,
-			Price:         s.Price,
-			Currency:      s.Currency,
-			StartedAt:     ts(s.StartedAt),
-			RenewalDate:   ts(s.RenewalDate),
-			AutoRenew:     s.AutoRenew,
-			Status:        s.Status,
-			AccountEmail:  s.AccountEmail,
-			PaymentMethod: s.PaymentMethod,
+			ID:                    s.ID,
+			Name:                  s.Name,
+			Category:              s.Category,
+			Brand:                 s.Brand,
+			Plan:                  s.Plan,
+			BillingCycle:          s.BillingCycle,
+			IntervalDays:          s.IntervalDays,
+			Price:                 s.Price,
+			Currency:              s.Currency,
+			StartedAt:             ts(s.StartedAt),
+			RenewalDate:           ts(s.RenewalDate),
+			AutoRenew:             s.AutoRenew,
+			Status:                s.Status,
+			AccountEmail:          s.AccountEmail,
+			PaymentMethod:         s.PaymentMethod,
 			ManageUrl:             s.ManageUrl,
 			CancelUrl:             s.CancelUrl,
 			Notes:                 s.Notes,
@@ -456,17 +522,86 @@ const (
 	ImportReplace ImportMode = "replace"
 )
 
-// ImportBackup applies a v5 payload to the user. On `replace` we wipe the
-// user's existing devices/subs/wishlist first (single transaction so a
-// failure mid-import leaves the user's data untouched).
+// ImportBackup applies a payload to the user (metadata only — no blobs; that is
+// the JSON path). On `replace` we wipe the user's existing
+// devices/subs/wishlist first (single transaction so a failure mid-import leaves
+// the user's data untouched).
 //
 // Returns a typed *Error on validation failure (matches the handler's error
 // envelope translator).
 func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload *BackupExport, mode ImportMode) (*ImportResult, error) {
+	// A v6 envelope that declares attachment bytes is the manifest of a .zip
+	// archive. Importing it on its own would restore rows whose images are missing
+	// — exactly the data loss the blob format exists to prevent — so say so
+	// instead. (A v6 payload with no attachments has nothing to lose and imports.)
+	if payload != nil && payload.IncludesAttachmentBytes && payloadHasAttachments(payload) {
+		return nil, &Error{Code: "VALIDATION", Message: "File data.json này là phần dữ liệu của một bản sao lưu .zip có kèm nội dung ảnh. Hãy chọn chính file .zip để khôi phục — import riêng data.json sẽ mất toàn bộ ảnh/hoá đơn."}
+	}
+	return importBackup(ctx, db, userID, payload, mode, nil)
+}
+
+// payloadHasAttachments reports whether any device in the payload carries an
+// attachment row (i.e. the manifest has blobs to account for).
+func payloadHasAttachments(payload *BackupExport) bool {
+	for _, d := range payload.Devices {
+		if len(d.Attachments) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// blobGetter supplies the encrypted bytes for one attachment during a .zip
+// import. nil means "metadata-only import" (the JSON path): no file is written.
+type blobGetter func(att BackupAttachment) ([]byte, error)
+
+// validateBackupPayload performs everything that can be checked from the payload
+// alone, BEFORE any database write — so a malicious file cannot half-wipe the
+// user's data in replace mode. Extracted from ImportBackup so the .zip path can
+// run the same checks before it writes any blob to disk.
+func validateBackupPayload(payload *BackupExport) error {
 	if payload == nil {
-		return nil, &Error{Code: "VALIDATION", Message: "File JSON không hợp lệ"}
+		return &Error{Code: "VALIDATION", Message: "File JSON không hợp lệ"}
 	}
 	if err := backupVersionError(payload.Version, MinBackupVersion, BackupVersion); err != nil {
+		return err
+	}
+	for _, d := range payload.Devices {
+		if !safeIDRE.MatchString(d.ID) {
+			return &Error{Code: "VALIDATION", Message: fmt.Sprintf("ID thiết bị không hợp lệ: %s", d.ID)}
+		}
+		if len(d.Attachments) > MaxAttachmentsPerDevice {
+			// The upload path caps this (services/attachments.go). A backup cannot
+			// legitimately exceed it, so this can only be a tampered file — refuse it
+			// rather than letting the restore create a state the upload path forbids.
+			return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+				"Thiết bị \"%s\" có %d file đính kèm, vượt giới hạn %d file/thiết bị.",
+				d.Name, len(d.Attachments), MaxAttachmentsPerDevice)}
+		}
+		for _, a := range d.Attachments {
+			if !safeStoragePathRE.MatchString(a.StoragePath) ||
+				!strings.HasPrefix(a.StoragePath, d.ID+"/") {
+				return &Error{Code: "VALIDATION",
+					Message: fmt.Sprintf("Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.", d.Name)}
+			}
+			iv, ivErr := base64.StdEncoding.DecodeString(a.IV)
+			wk, wkErr := base64.StdEncoding.DecodeString(a.WrappedKey)
+			if ivErr != nil || wkErr != nil || len(iv) != 12 || len(wk) < 28 {
+				return &Error{Code: "VALIDATION",
+					Message: fmt.Sprintf("Khoá file hỏng trong \"%s\".", d.Name)}
+			}
+		}
+	}
+	return nil
+}
+
+// importBackup is the shared import body. `blobs` is non-nil only for the .zip
+// path; when it is set, each attachment row that is actually inserted gets its
+// ciphertext written to <PRIVATE_UPLOAD_ROOT>/<storagePath> in the same pass, and
+// every file written is deleted again if the transaction does not commit (no
+// orphan blobs pointing at rows that were rolled back).
+func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload *BackupExport, mode ImportMode, blobs blobGetter) (*ImportResult, error) {
+	if err := validateBackupPayload(payload); err != nil {
 		return nil, err
 	}
 	if mode == "" {
@@ -476,27 +611,37 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 		return nil, &Error{Code: "VALIDATION", Message: "Mode không hợp lệ"}
 	}
 
-	// Pre-validate every device id + every attachment payload BEFORE touching
-	// the database, so a malicious file cannot half-wipe the user's data in
-	// replace mode.
-	for _, d := range payload.Devices {
-		if !safeIDRE.MatchString(d.ID) {
-			return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf("ID thiết bị không hợp lệ: %s", d.ID)}
-		}
-		for _, a := range d.Attachments {
-			if !safeStoragePathRE.MatchString(a.StoragePath) ||
-				!strings.HasPrefix(a.StoragePath, d.ID+"/") {
-				return nil, &Error{Code: "VALIDATION",
-					Message: fmt.Sprintf("Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.", d.Name)}
-			}
-			iv, ivErr := base64.StdEncoding.DecodeString(a.IV)
-			wk, wkErr := base64.StdEncoding.DecodeString(a.WrappedKey)
-			if ivErr != nil || wkErr != nil || len(iv) != 12 || len(wk) < 28 {
-				return nil, &Error{Code: "VALIDATION",
-					Message: fmt.Sprintf("Khoá file hỏng trong \"%s\".", d.Name)}
-			}
-		}
+	// IDs are globally unique (all ten tables have a text primary key, not a
+	// per-user one), so a payload built by ANOTHER account collides with rows this
+	// user does not own and the insert fails on the primary key — which the handler
+	// could only render as a 500. Detect it here, before the transaction (and
+	// before the replace-mode wipe), and answer with a clear 400.
+	//
+	// Runs in BOTH modes: merge skips ids the importing user owns, and replace
+	// deletes them, so the query — which only reports rows owned by a *different*
+	// account — never flags a legitimate own-backup row. Skipping the check in
+	// replace mode would let it wipe the user's data and then 500 on the foreign
+	// row, which is strictly worse.
+	if err := assertNoForeignBackupIDs(ctx, db, userID, payload); err != nil {
+		return nil, err
 	}
+
+	root := files.PrivateUploadRoot()
+	written := make([]string, 0, 8)
+	committed := false
+	if blobs != nil {
+		defer func() {
+			if committed {
+				return
+			}
+			// Roll back the files too: the rows are gone, so the blobs would be
+			// unreachable orphans.
+			for _, p := range written {
+				_ = files.DeleteEncrypted(root, p)
+			}
+		}()
+	}
+	master, masterErr := files.LoadMasterKey()
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -541,6 +686,10 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			// Skip if user already owns a device with this id.
 			if _, gerr := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: d.ID, UserId: userID}); gerr == nil {
 				res.Skipped++
+				// Its attachment rows are skipped with it, so their blobs must NOT be
+				// written either — otherwise every merge import would leave orphan
+				// ciphertext on disk.
+				res.AttachmentsSkipped += len(d.Attachments)
 				continue
 			}
 		}
@@ -602,6 +751,7 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 		}
 		for _, a := range d.Attachments {
 			if !safeIDRE.MatchString(a.ID) {
+				res.AttachmentsSkipped++
 				continue
 			}
 			iv, _ := base64.StdEncoding.DecodeString(a.IV)
@@ -620,6 +770,37 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			}); err != nil {
 				return nil, fmt.Errorf("insert attachment: %w", err)
 			}
+			if blobs == nil {
+				continue
+			}
+			ct, berr := blobs(a)
+			if berr != nil {
+				return nil, berr
+			}
+			if ct == nil {
+				// The envelope itself marked this attachment as missing on the export
+				// side: restore the row, no bytes. Counted as unreadable so the caller
+				// can tell the user which restore needs attention.
+				res.AttachmentsUnreadable++
+				continue
+			}
+			if _, werr := files.WriteEncrypted(root, d.ID, filepath.Base(a.StoragePath), ct); werr != nil {
+				return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+					"Không ghi được file đính kèm \"%s\" ra đĩa.", a.FileName)}
+			}
+			written = append(written, a.StoragePath)
+			// Verify while we still have the plaintext key material at hand: if the
+			// archive came from a server with a different FILE_MASTER_KEY the bytes
+			// are intact but unreadable here, and the caller must be told that
+			// instead of discovering it when the user opens the invoice.
+			if masterErr == nil {
+				if _, derr := files.Decrypt(ct, iv, wk, master); derr != nil {
+					res.AttachmentsUnreadable++
+				}
+			} else {
+				res.AttachmentsUnreadable++
+			}
+			res.AttachmentsImported++
 		}
 		res.Imported++
 	}
@@ -742,6 +923,7 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
+	committed = true
 	return res, nil
 }
 
@@ -788,4 +970,3 @@ func pgtsPtr(s *string) pgtype.Timestamp {
 	}
 	return pgts(*s)
 }
-

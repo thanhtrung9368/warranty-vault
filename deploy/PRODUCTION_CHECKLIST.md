@@ -60,7 +60,11 @@ Tạo một file `/opt/warranty-vault/.env` duy nhất.
 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`,
 `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY`, `APNS_PRODUCTION`, `FCM_SERVICE_ACCOUNT_JSON`,
 `FCM_PROJECT_ID`, `RESEND_API_KEY`, `RESEND_FROM`, `RATE_LIMITER`,
-`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SESSION_TTL_DAYS`.
+`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+
+> ⚠️ **`SESSION_TTL_DAYS` là config chết** — compose forward nó nhưng Go **không bao giờ đọc**.
+> TTL phiên là hằng số `30 * 24h` trong `api/internal/auth/session.go`. Đặt biến này
+> trong `.env` **không có tác dụng gì**. Đừng trông vào nó để chỉnh thời hạn đăng nhập.
 
 - [ ] `.env` đã tạo, `chmod 600`, `chown root:root`:
       `stat -c '%a %U:%G' /opt/warranty-vault/.env` → `600 root root`
@@ -95,9 +99,10 @@ endpoint trả 503 `feature_disabled`.
       `api: service_healthy` nên web chỉ lên khi API ping được DB
 - [ ] Migration lần đầu: `docker compose run --rm --entrypoint /app/migrate api up`
 - [ ] Kiểm tra version: `docker compose run --rm --entrypoint /app/migrate api status`
-      → 7 migration đã apply: `0001_initial`, `0002_cron_idempotency`,
+      → 9 migration đã apply: `0001_initial`, `0002_cron_idempotency`,
       `0003_user_ai_optin`, `0004_seed_category_catalog`, `0005_device_search_unaccent`,
-      `0006_device_resale`, `0007_locale_safe_unaccent`
+      `0006_device_resale`, `0007_locale_safe_unaccent`,
+      `0008_seed_brand_store_warranty_provider`, `0009_email_change`
 - [ ] **Database PHẢI có encoding UTF-8.** Kiểm tra:
       `docker compose exec -T postgres psql -U warranty -d warranty_vault -c 'SHOW server_encoding; SHOW lc_collate;'`
       → `server_encoding` phải là `UTF8`. (`lc_collate` có thể là `C` — xem bên dưới.)

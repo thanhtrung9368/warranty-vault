@@ -1,11 +1,13 @@
 // Package services / profile.go — the PATCH /api/v1/auth/me write path.
 //
 // Scope note: this endpoint edits the *display name* only. Changing the account
-// email is deliberately NOT supported in this pass — it needs a two-step
-// verification flow (prove control of the new address, then re-authenticate)
-// and reusing the PasswordReset infrastructure for it is tracked separately.
-// The handler rejects an `email` field with a Vietnamese fieldError so a client
-// that tries it gets a clear answer instead of a silent no-op.
+// email has its own two-step verification flow (POST /api/v1/auth/change-email →
+// token emailed to the NEW address → POST /api/v1/auth/confirm-email-change),
+// implemented in handlers/auth.go on top of the PasswordReset table
+// (`pendingEmail`, migration 0009). This handler still rejects an `email` /
+// `newEmail` field — with a Vietnamese fieldError that now points at those
+// endpoints — so a client that tries the wrong surface gets a clear answer
+// instead of a silent no-op.
 
 package services
 

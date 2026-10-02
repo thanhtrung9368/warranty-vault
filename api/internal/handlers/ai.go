@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
@@ -127,9 +128,11 @@ func extractReceiptHandler(d Deps) http.HandlerFunc {
 				httpx.WriteError(w, http.StatusBadRequest, "bad_input", verr.Error(), nil)
 				return
 			}
-			if mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" {
+			// PDF is accepted here as of roadmap #15 (the AI client sends it as a
+			// `document` block); GIF/HEIC are stored fine but cannot be OCR'd.
+			if !ai.IsSupportedReceiptType(mime) {
 				httpx.WriteError(w, http.StatusBadRequest, "bad_input",
-					"Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP", nil)
+					"Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF", nil)
 				return
 			}
 			in.Body = body

@@ -32,5 +32,16 @@ SET "aiOptIn" = $2,
     "updatedAt" = NOW()
 WHERE id = $1;
 
+-- name: UpdateUserEmail :execrows
+-- Confirm step of the email-change flow (migration 0009). The caller has already
+-- verified a single-use token sent to $2 and checked the address is free; the
+-- unique index on email is the final race guard (a 23505 surfaces as 400, not 500).
+-- Deliberately does NOT touch "passwordChangedAt": the email change is not a
+-- password change, and the sessions are revoked explicitly by the handler.
+UPDATE "User"
+SET email = $2,
+    "updatedAt" = NOW()
+WHERE id = $1;
+
 -- name: DeleteUser :exec
 DELETE FROM "User" WHERE id = $1;

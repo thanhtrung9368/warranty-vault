@@ -77,6 +77,8 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/forgot", handlers.Forgot(deps))
 	mux.HandleFunc("POST /api/v1/auth/reset-password", handlers.ResetPassword(deps))
 	mux.HandleFunc("POST /api/v1/auth/change-password", handlers.ChangePassword(deps))
+	mux.HandleFunc("POST /api/v1/auth/change-email", handlers.RequestEmailChange(deps))
+	mux.HandleFunc("POST /api/v1/auth/confirm-email-change", handlers.ConfirmEmailChange(deps))
 	handlers.RegisterProfile(mux, deps)
 
 	handlers.RegisterDevices(mux, deps)
@@ -86,6 +88,7 @@ func main() {
 	handlers.RegisterSubscriptions(mux, deps)
 	handlers.RegisterWishlist(mux, deps)
 	handlers.RegisterCatalog(mux, deps)
+	handlers.RegisterSearch(mux, deps)
 	handlers.RegisterStats(mux, deps)
 	handlers.RegisterPush(mux, deps)
 	mux.HandleFunc("POST /api/v1/push/test", handlers.TestPush(deps))

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,10 +16,16 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
-// 50 MB cap on import body — matches the legacy TS comment + is plenty for
-// the realistic per-user data graph (encrypted attachments dominate, but
-// each is bounded to 5 MB and per-user total bytes capped at 100 MB anyway).
+// 50 MB cap on a metadata-only JSON import body — matches the legacy TS comment
+// + is plenty for the realistic per-user data graph.
 const maxImportBodyBytes = 50 * 1024 * 1024
+
+// Cap for the blob-carrying .zip import (includeBlobs=true export). The blobs are
+// AES-256-GCM ciphertext (plaintext + 16-byte tag) of at most
+// MAX_UPLOAD_BYTES_PER_USER (100 MB) per user, plus the manifest, so 110 MB lets a
+// full backup through while staying bounded. Enforced per user by
+// services/attachments.go, and re-checked by services.ImportBackupZip.
+const maxImportZipBytes = 110 * 1024 * 1024
 
 // RegisterBackup wires GET /api/v1/backup/export + POST /api/v1/backup/import
 // behind RequireUser.
@@ -35,6 +42,44 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		us, _ := auth.UserFromContext(r.Context())
 
+		// Opt-in switch between the two formats (roadmap #2):
+		//   absent/false → the JSON export, byte-identical to before (v5, metadata
+		//                  only, includesAttachmentBytes=false)
+		//   true         → a .zip archive whose entries are the encrypted blobs plus
+		//                  a v6 data.json with includesAttachmentBytes=true
+		includeBlobs, ok := parseBoolQuery(r.URL.Query().Get("includeBlobs"))
+		if !ok {
+			httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+				"Tham số includeBlobs không hợp lệ",
+				map[string][]string{
+					"includeBlobs": {"Phải là true hoặc false"},
+				})
+			return
+		}
+
+		base := fmt.Sprintf("warranty-vault-%s-%s",
+			safeFilenameSegment(us.UserID), time.Now().UTC().Format("2006-01-02"))
+		w.Header().Set("Cache-Control", "private, no-store")
+
+		if includeBlobs {
+			w.Header().Set("Content-Type", "application/zip")
+			w.Header().Set("Content-Disposition",
+				fmt.Sprintf("attachment; filename=%q", base+".zip"))
+			// WriteBackupZip streams straight to the response: the archive can be
+			// ~100 MB, so it is never buffered. Once the first byte is out the status
+			// is fixed — a failure here can only be logged.
+			payload, err := services.WriteBackupZip(r.Context(), deps.DB, us.UserID, w)
+			if err != nil {
+				slog.Error("backup export with blobs failed", "err", err, "userId", us.UserID)
+				return
+			}
+			slog.Info("backup export with blobs",
+				"userId", us.UserID,
+				"devices", len(payload.Devices),
+				"missingAttachmentIds", len(payload.MissingAttachmentIds))
+			return
+		}
+
 		out, err := services.ExportBackup(r.Context(), deps.DB, us.UserID)
 		if err != nil {
 			slog.Error("backup export failed", "err", err, "userId", us.UserID)
@@ -42,11 +87,8 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		fname := fmt.Sprintf("warranty-vault-%s-%s.json",
-			safeFilenameSegment(us.UserID), time.Now().UTC().Format("2006-01-02"))
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fname))
-		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", base+".json"))
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(out); err != nil {
 			slog.Error("backup export write failed", "err", err)
@@ -70,38 +112,60 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		// Cap the body size; the limit-reader returns an error on overflow
-		// that we turn into a clear 413-style 400.
-		r.Body = http.MaxBytesReader(w, r.Body, maxImportBodyBytes)
+		// Body cap depends on the format the caller is sending. A blob-carrying
+		// archive can legitimately reach ~100 MB (the per-user upload cap) plus the
+		// manifest; a metadata-only JSON payload stays at 50 MB. Anything that is not
+		// declared JSON gets the larger cap, because the format is sniffed below.
+		contentType := strings.ToLower(r.Header.Get("Content-Type"))
+		limit := int64(maxImportZipBytes)
+		limitLabel := "110MB"
+		if strings.HasPrefix(contentType, "application/json") {
+			limit = maxImportBodyBytes
+			limitLabel = "50MB"
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		raw, err := io.ReadAll(r.Body)
 		if err != nil {
 			// MaxBytesReader sets a typed error; surface as a friendly Vietnamese msg.
 			var mberr *http.MaxBytesError
 			if errors.As(err, &mberr) {
 				httpx.WriteError(w, http.StatusRequestEntityTooLarge, "bad_input",
-					"File backup quá lớn (giới hạn 50MB)", nil)
+					"File backup quá lớn (giới hạn "+limitLabel+")", nil)
 				return
 			}
 			badInput(w, nil, "Không đọc được nội dung file")
 			return
 		}
 
-		var payload services.BackupExport
-		dec := json.NewDecoder(strings.NewReader(string(raw)))
-		// Allow unknown fields — older / future versions might carry extras.
-		if err := dec.Decode(&payload); err != nil {
-			badInput(w, nil, "File JSON không hợp lệ")
-			return
+		// Two accepted formats on the same endpoint:
+		//   - a v5/v6 JSON document (unchanged), and
+		//   - a .zip produced by GET /api/v1/backup/export?includeBlobs=true, which
+		//     carries the encrypted attachment bytes (roadmap #2).
+		// The format is decided by the ZIP magic ("PK\x03\x04") rather than by
+		// Content-Type, because clients (and curl) send application/octet-stream for
+		// binary uploads.
+		var result *services.ImportResult
+		var ierr error
+		if isZipArchive(raw) {
+			result, ierr = services.ImportBackupZip(r.Context(), deps.DB, us.UserID, raw, mode)
+		} else {
+			var payload services.BackupExport
+			dec := json.NewDecoder(bytes.NewReader(raw))
+			// Allow unknown fields — older / future versions might carry extras.
+			if derr := dec.Decode(&payload); derr != nil {
+				badInput(w, nil, "File JSON không hợp lệ")
+				return
+			}
+			result, ierr = services.ImportBackup(r.Context(), deps.DB, us.UserID, &payload, mode)
 		}
 
-		result, err := services.ImportBackup(r.Context(), deps.DB, us.UserID, &payload, mode)
-		if err != nil {
+		if ierr != nil {
 			var svc *services.Error
-			if errors.As(err, &svc) {
+			if errors.As(ierr, &svc) {
 				httpx.WriteError(w, svc.HTTPStatus(), strings.ToLower(svc.Code), svc.Message, svc.FieldErrors)
 				return
 			}
-			slog.Error("backup import failed", "err", err, "userId", us.UserID)
+			slog.Error("backup import failed", "err", ierr, "userId", us.UserID)
 			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
@@ -111,6 +175,13 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 			"result": result,
 		})
 	}
+}
+
+// isZipArchive reports whether raw starts with a ZIP local file header
+// ("PK\x03\x04"). An empty body is not an archive (the JSON path then produces the
+// usual "File JSON không hợp lệ").
+func isZipArchive(raw []byte) bool {
+	return len(raw) >= 4 && raw[0] == 'P' && raw[1] == 'K' && raw[2] == 0x03 && raw[3] == 0x04
 }
 
 // safeFilenameSegment strips anything outside [A-Za-z0-9_-] from s so it's

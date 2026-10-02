@@ -14,15 +14,22 @@ import (
 
 // Roadmap #2: a client must be able to warn "backup này không gồm ảnh" from the
 // payload alone, without hardcoding the assumption. This pins the exact JSON
-// names + values the three clients will read.
+// names + values the three clients will read for the METADATA-ONLY JSON export —
+// which is deliberately still version 5 even though the blob-carrying archive
+// writes version 6 (see newBlobBackupExport), so a v5-only client/importer keeps
+// reading this document unchanged.
 func TestBackupEnvelopeDeclaresMissingAttachmentBytes(t *testing.T) {
 	env := newBackupExport(0, 0, 0)
 
 	if env.IncludesAttachmentBytes {
-		t.Error("includesAttachmentBytes = true, want false — the export carries attachment metadata only")
+		t.Error("includesAttachmentBytes = true, want false — the JSON export carries attachment metadata only")
 	}
-	if env.Version != BackupVersion {
-		t.Errorf("version = %d, want %d", env.Version, BackupVersion)
+	if env.Version != MetadataOnlyBackupVersion {
+		t.Errorf("version = %d, want %d (the JSON document format did not change in the blob work)",
+			env.Version, MetadataOnlyBackupVersion)
+	}
+	if MetadataOnlyBackupVersion > BackupVersion {
+		t.Errorf("MetadataOnlyBackupVersion (%d) > BackupVersion (%d)", MetadataOnlyBackupVersion, BackupVersion)
 	}
 	if env.AttachmentBytesNote == "" {
 		t.Fatal("attachmentBytesNote is empty; clients need a ready-to-display Vietnamese warning")

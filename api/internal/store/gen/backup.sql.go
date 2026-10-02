@@ -100,6 +100,277 @@ func (q *Queries) BackupDeleteWishlistPricesForUser(ctx context.Context, userid 
 	return err
 }
 
+const backupFindForeignAttachmentIDs = `-- name: BackupFindForeignAttachmentIDs :many
+SELECT a.id
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE a.id = ANY($1::text[])
+  AND d."userId" <> $2::text
+`
+
+type BackupFindForeignAttachmentIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignAttachmentIDs(ctx context.Context, arg BackupFindForeignAttachmentIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignAttachmentIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignDeviceIDs = `-- name: BackupFindForeignDeviceIDs :many
+
+SELECT id FROM "Device"
+WHERE id = ANY($1::text[])
+  AND "userId" <> $2::text
+`
+
+type BackupFindForeignDeviceIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+// ─── Import: foreign-id detection ────────────────────────────────────────
+//
+// Every entity table has a *global* text primary key (not scoped per user), so a
+// payload built by another account can collide with rows this user does not own.
+// In merge mode the importer skips ids owned by the importing user; these queries
+// find the remaining case — an id that already exists under a DIFFERENT account —
+// so ImportBackup can answer 400 with a clear Vietnamese message instead of
+// letting the insert fail on the primary key and surface as a 500.
+//
+// Ownership for child tables is resolved through their parent join (Device or
+// WishlistItem / Subscription), matching every other query in this file.
+func (q *Queries) BackupFindForeignDeviceIDs(ctx context.Context, arg BackupFindForeignDeviceIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignDeviceIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignPaymentIDs = `-- name: BackupFindForeignPaymentIDs :many
+SELECT p.id
+FROM "SubscriptionPayment" p
+JOIN "Subscription" s ON s.id = p."subscriptionId"
+WHERE p.id = ANY($1::text[])
+  AND s."userId" <> $2::text
+`
+
+type BackupFindForeignPaymentIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignPaymentIDs(ctx context.Context, arg BackupFindForeignPaymentIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignPaymentIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignReminderIDs = `-- name: BackupFindForeignReminderIDs :many
+SELECT r.id
+FROM "Reminder" r
+JOIN "Warranty" w ON w.id = r."warrantyId"
+JOIN "Device"   d ON d.id = w."deviceId"
+WHERE r.id = ANY($1::text[])
+  AND d."userId" <> $2::text
+`
+
+type BackupFindForeignReminderIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignReminderIDs(ctx context.Context, arg BackupFindForeignReminderIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignReminderIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignSubscriptionIDs = `-- name: BackupFindForeignSubscriptionIDs :many
+SELECT id FROM "Subscription"
+WHERE id = ANY($1::text[])
+  AND "userId" <> $2::text
+`
+
+type BackupFindForeignSubscriptionIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignSubscriptionIDs(ctx context.Context, arg BackupFindForeignSubscriptionIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignSubscriptionIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignWarrantyIDs = `-- name: BackupFindForeignWarrantyIDs :many
+SELECT w.id
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE w.id = ANY($1::text[])
+  AND d."userId" <> $2::text
+`
+
+type BackupFindForeignWarrantyIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignWarrantyIDs(ctx context.Context, arg BackupFindForeignWarrantyIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignWarrantyIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignWishlistIDs = `-- name: BackupFindForeignWishlistIDs :many
+SELECT id FROM "WishlistItem"
+WHERE id = ANY($1::text[])
+  AND "userId" <> $2::text
+`
+
+type BackupFindForeignWishlistIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignWishlistIDs(ctx context.Context, arg BackupFindForeignWishlistIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignWishlistIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignWishlistPriceIDs = `-- name: BackupFindForeignWishlistPriceIDs :many
+SELECT p.id
+FROM "WishlistPrice" p
+JOIN "WishlistItem" i ON i.id = p."itemId"
+WHERE p.id = ANY($1::text[])
+  AND i."userId" <> $2::text
+`
+
+type BackupFindForeignWishlistPriceIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+func (q *Queries) BackupFindForeignWishlistPriceIDs(ctx context.Context, arg BackupFindForeignWishlistPriceIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignWishlistPriceIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const backupInsertAttachment = `-- name: BackupInsertAttachment :exec
 INSERT INTO "Attachment" (
     id, "deviceId", "fileName", "storagePath", "fileType", "fileSize",

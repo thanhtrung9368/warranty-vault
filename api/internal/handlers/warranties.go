@@ -11,12 +11,13 @@ import (
 // RegisterWarranties wires the warranty + reminder dismiss/restore routes.
 //
 // Routes:
-//   GET    /api/v1/devices/{id}/warranties     - list (verifies device ownership)
-//   POST   /api/v1/devices/{id}/warranties     - create (write rate limit, count<5)
-//   PATCH  /api/v1/warranties/{id}             - update
-//   DELETE /api/v1/warranties/{id}             - delete
-//   POST   /api/v1/warranties/{id}/reminder    - dismiss
-//   DELETE /api/v1/warranties/{id}/reminder    - restore (i.e. un-dismiss)
+//
+//	GET    /api/v1/devices/{id}/warranties     - list (verifies device ownership)
+//	POST   /api/v1/devices/{id}/warranties     - create (write rate limit, count<5)
+//	PATCH  /api/v1/warranties/{id}             - update
+//	DELETE /api/v1/warranties/{id}             - delete
+//	POST   /api/v1/warranties/{id}/reminder    - dismiss
+//	DELETE /api/v1/warranties/{id}/reminder    - restore (i.e. un-dismiss)
 func RegisterWarranties(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 

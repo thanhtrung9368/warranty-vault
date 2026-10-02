@@ -1,6 +1,12 @@
 package ai
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -120,10 +126,7 @@ func TestExtractReceipt_Disabled(t *testing.T) {
 	}
 }
 
-// PDF is accepted as an *attachment* by internal/files (AllowedMIMEs), but the
-// OCR pipeline is image-only. This guards the boundary both ways: the service
-// uses IsSupportedImageType to answer 400 before spending an upstream call, so
-// it must stay false for PDF and for the other uploadable non-OCR types.
+// IsSupportedImageType stays the narrow `image` block predicate…
 func TestIsSupportedImageType(t *testing.T) {
 	for _, mt := range []string{"image/jpeg", "image/png", "image/webp"} {
 		if !IsSupportedImageType(mt) {
@@ -132,7 +135,91 @@ func TestIsSupportedImageType(t *testing.T) {
 	}
 	for _, mt := range []string{"application/pdf", "image/gif", "image/heic", "image/heif", "", "text/plain"} {
 		if IsSupportedImageType(mt) {
-			t.Errorf("IsSupportedImageType(%q) = true, want false — OCR is image-only (JPEG/PNG/WEBP)", mt)
+			t.Errorf("IsSupportedImageType(%q) = true, want false — only JPEG/PNG/WEBP ride in an image block", mt)
+		}
+	}
+}
+
+// …while the OCR gate also accepts PDF, which goes as a `document` block
+// (roadmap #15). GIF/HEIC are uploadable attachments but have no block type, so
+// the service must still refuse them with a 400 before any paid round-trip.
+func TestIsSupportedReceiptType(t *testing.T) {
+	for _, mt := range []string{"image/jpeg", "image/png", "image/webp", "application/pdf"} {
+		if !IsSupportedReceiptType(mt) {
+			t.Errorf("IsSupportedReceiptType(%q) = false, want true", mt)
+		}
+	}
+	for _, mt := range []string{"image/gif", "image/heic", "image/heif", "", "text/plain", "application/x-pdf"} {
+		if IsSupportedReceiptType(mt) {
+			t.Errorf("IsSupportedReceiptType(%q) = true, want false", mt)
+		}
+	}
+}
+
+// The wire shape is the contract with the Messages API: a PDF must be sent as a
+// `document` content block with media_type application/pdf (base64), never as an
+// `image` block — the API rejects that. A JPEG must stay an `image` block.
+func TestExtractReceipt_SendsPdfAsDocumentBlock(t *testing.T) {
+	for _, tc := range []struct {
+		mediaType  string
+		wantBlock  string
+		wantPrompt string
+	}{
+		{mediaType: "application/pdf", wantBlock: "document", wantPrompt: "PDF"},
+		{mediaType: "image/jpeg", wantBlock: "image", wantPrompt: "ảnh"},
+	} {
+		t.Run(tc.mediaType, func(t *testing.T) {
+			var captured messageReq
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				if err := json.Unmarshal(body, &captured); err != nil {
+					t.Errorf("unmarshal request: %v", err)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"content":[{"type":"tool_use","name":"emit_receipt","input":{"name":"Hoá đơn"}}]}`))
+			}))
+			defer srv.Close()
+
+			c := &Client{apiKey: "test", model: "claude-haiku-4-5-20251001", endpoint: srv.URL, httpClient: srv.Client()}
+			if _, err := c.ExtractReceipt(context.Background(), []byte("doc-bytes"), tc.mediaType); err != nil {
+				t.Fatalf("ExtractReceipt: %v", err)
+			}
+			if len(captured.Messages) != 1 || len(captured.Messages[0].Content) < 2 {
+				t.Fatalf("request content = %+v, want a document/image block plus a text block", captured.Messages)
+			}
+			block := captured.Messages[0].Content[0]
+			if block.Type != tc.wantBlock {
+				t.Errorf("first content block type = %q, want %q", block.Type, tc.wantBlock)
+			}
+			if block.Source == nil {
+				t.Fatal("first content block has no source")
+			}
+			if block.Source.Type != "base64" || block.Source.MediaType != tc.mediaType {
+				t.Errorf("source = %+v, want base64/%s", *block.Source, tc.mediaType)
+			}
+			if want := base64.StdEncoding.EncodeToString([]byte("doc-bytes")); block.Source.Data != want {
+				t.Errorf("source data = %q, want %q", block.Source.Data, want)
+			}
+			if text := captured.Messages[0].Content[1].Text; !strings.Contains(text, tc.wantPrompt) {
+				t.Errorf("prompt text = %q, want it to mention %q", text, tc.wantPrompt)
+			}
+			// The tool schema, model and forced tool choice are unchanged.
+			if captured.Model != "claude-haiku-4-5-20251001" {
+				t.Errorf("model = %q", captured.Model)
+			}
+			if len(captured.Tools) != 1 {
+				t.Errorf("tools = %d, want the single emit_receipt tool", len(captured.Tools))
+			}
+		})
+	}
+}
+
+// The system prompt is prompt-cached, so its content matters for cache hits and
+// for model accuracy; pdf work must not have dropped the Vietnamese rules.
+func TestSystemPromptCoversPdfAndStaysVietnamese(t *testing.T) {
+	for _, want := range []string{"PDF", "serialNumber", "IMEI", "warrantyMonths", "confidence"} {
+		if !strings.Contains(systemPrompt, want) {
+			t.Errorf("system prompt lost %q", want)
 		}
 	}
 }

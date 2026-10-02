@@ -40,17 +40,17 @@ type ExtractedReceipt struct {
 // systemPrompt is cached (cache_control ephemeral) so repeated uploads only pay
 // for the variable image. It is intentionally explicit about Vietnamese OCR
 // pitfalls: never invent/"correct" names, return null when unsure.
-const systemPrompt = `Bạn là trợ lý trích xuất thông tin từ ảnh HOÁ ĐƠN hoặc PHIẾU BẢO HÀNH của người dùng Việt Nam.
+const systemPrompt = `Bạn là trợ lý trích xuất thông tin từ ẢNH hoặc FILE PDF của HOÁ ĐƠN / PHIẾU BẢO HÀNH của người dùng Việt Nam.
 
-Nhiệm vụ: đọc ảnh và gọi công cụ emit_receipt với các trường đọc được. Quy tắc bắt buộc:
-- CHỈ điền trường nào nhìn thấy rõ trên ảnh. Không chắc thì để null.
+Nhiệm vụ: đọc tài liệu (ảnh chụp, ảnh scan, hoặc PDF nhiều trang) và gọi công cụ emit_receipt với các trường đọc được. Quy tắc bắt buộc:
+- CHỈ điền trường nào nhìn thấy rõ trên tài liệu. Không chắc thì để null. PDF nhiều trang: tìm trang có hoá đơn/phiếu bảo hành, bỏ qua trang quảng cáo hay điều khoản chung.
 - KHÔNG tự đoán hay "sửa" tên cửa hàng / hãng / model. Trả về đúng chữ đọc được, kể cả khi thiếu dấu tiếng Việt.
 - purchaseDate: chuẩn hoá về định dạng YYYY-MM-DD. Nếu chỉ có tháng/năm hoặc không rõ, để null.
 - purchasePrice: số nguyên VND, bỏ dấu chấm/phẩy/ký hiệu đ/VND (ví dụ "28.990.000đ" -> 28990000). Đây là giá sản phẩm, không phải tổng hoá đơn nếu có nhiều món.
-- serialNumber: số serial hoặc IMEI in trên máy / trên phiếu (ví dụ "IMEI: 356789012345678" -> "356789012345678"). Đọc đúng từng ký tự, KHÔNG thêm dấu cách hay dấu gạch ngang nếu ảnh không có. Đây là định danh bảo hành điện tử ở Việt Nam nên chỉ điền khi đọc chắc chắn; ảnh mờ thì để null.
+- serialNumber: số serial hoặc IMEI in trên máy / trên phiếu (ví dụ "IMEI: 356789012345678" -> "356789012345678"). Đọc đúng từng ký tự, KHÔNG thêm dấu cách hay dấu gạch ngang nếu tài liệu không có. Đây là định danh bảo hành điện tử ở Việt Nam nên chỉ điền khi đọc chắc chắn; ảnh mờ / PDF không rõ thì để null.
 - warrantyMonths: số tháng bảo hành nếu in trên phiếu (ví dụ "Bảo hành 12 tháng" -> 12). Chỉ nhận giá trị từ 0 đến 120; lớn hơn hoặc không rõ thì để null.
 - purchasePlace: tên cửa hàng/hệ thống bán (ví dụ "Thế Giới Di Động"). brand: hãng sản phẩm (ví dụ "Apple", "Samsung").
-- confidence: "high" nếu ảnh rõ và chắc chắn, "medium" nếu mờ một phần, "low" nếu khó đọc.
+- confidence: "high" nếu tài liệu rõ và chắc chắn, "medium" nếu mờ một phần, "low" nếu khó đọc.
 
 Đây CHỈ là bản nháp để người dùng tự xác nhận trước khi lưu — không bao giờ coi là chính xác tuyệt đối.`
 
@@ -124,15 +124,26 @@ type messageResp struct {
 	Content []contentBlock `json:"content"`
 }
 
-// ExtractReceipt sends the image to the Messages API with a forced tool call
-// and returns the parsed draft. imageBytes are the decrypted plaintext image;
-// mediaType must be one of image/jpeg, image/png, image/webp.
-func (c *Client) ExtractReceipt(ctx context.Context, imageBytes []byte, mediaType string) (ExtractedReceipt, error) {
+// ExtractReceipt sends the document to the Messages API with a forced tool call
+// and returns the parsed draft. docBytes are the decrypted plaintext attachment;
+// mediaType must be one of image/jpeg, image/png, image/webp (sent as an `image`
+// block) or application/pdf (sent as a `document` block).
+func (c *Client) ExtractReceipt(ctx context.Context, docBytes []byte, mediaType string) (ExtractedReceipt, error) {
 	if !c.Enabled() {
 		return ExtractedReceipt{}, &Error{Code: "disabled", Message: "Tính năng quét hoá đơn chưa được bật"}
 	}
-	if !IsSupportedImageType(mediaType) {
-		return ExtractedReceipt{}, &Error{Code: "bad_output", Message: "Định dạng ảnh không hỗ trợ"}
+	if !IsSupportedReceiptType(mediaType) {
+		return ExtractedReceipt{}, &Error{Code: "bad_output", Message: "Định dạng tài liệu không hỗ trợ"}
+	}
+
+	// One content block, typed by media: a PDF goes as `document` (Claude reads
+	// text + page images), everything else as `image`. Both use the same base64
+	// `source` shape.
+	docKind := "image"
+	promptText := "Trích xuất thông tin từ ảnh này."
+	if mediaType == "application/pdf" {
+		docKind = "document"
+		promptText = "Trích xuất thông tin từ tài liệu PDF này (có thể nhiều trang)."
 	}
 
 	reqBody := messageReq{
@@ -148,12 +159,12 @@ func (c *Client) ExtractReceipt(ctx context.Context, imageBytes []byte, mediaTyp
 		Messages: []wireMessage{{
 			Role: "user",
 			Content: []contentBlock{
-				{Type: "image", Source: &imageSource{
+				{Type: docKind, Source: &imageSource{
 					Type:      "base64",
 					MediaType: mediaType,
-					Data:      base64.StdEncoding.EncodeToString(imageBytes),
+					Data:      base64.StdEncoding.EncodeToString(docBytes),
 				}},
-				{Type: "text", Text: "Trích xuất thông tin từ ảnh này."},
+				{Type: "text", Text: promptText},
 			},
 		}},
 	}
@@ -206,10 +217,8 @@ func parseToolResult(body []byte) (ExtractedReceipt, error) {
 	return ExtractedReceipt{}, &Error{Code: "bad_output", Message: "AI không trả về dữ liệu trích xuất"}
 }
 
-// IsSupportedImageType reports whether the OCR pipeline can send this media
-// type to the Messages API. Exported so the service layer can reject an
-// unsupported attachment (e.g. a PDF or HEIC) with a 400 and a clear Vietnamese
-// message *before* paying for an upstream round-trip that can only fail.
+// IsSupportedImageType reports whether the media type can ride in an `image`
+// content block.
 func IsSupportedImageType(mt string) bool {
 	switch mt {
 	case "image/jpeg", "image/png", "image/webp":
@@ -217,6 +226,30 @@ func IsSupportedImageType(mt string) bool {
 	default:
 		return false
 	}
+}
+
+// IsSupportedReceiptType reports whether the OCR pipeline can send this media
+// type to the Messages API at all: the three image types plus PDF.
+//
+// PDF support (roadmap #15, the part that was left out): the Messages API takes a
+// `document` content block with `media_type: application/pdf`, and every active
+// model — including the default extraction model (Claude Haiku 4.5) — supports
+// PDF processing (text, tables and page images):
+// https://platform.claude.com/docs/en/build-with-claude/pdf-support
+// Limits from that page: 32 MB per request and 100 pages when the request's
+// context window is under 1M tokens, standard (unencrypted) PDFs only.
+//
+// The app's own bounds already sit well inside the size limit: an attachment is
+// capped at 5 MB by services/attachments.go, so a request can never approach
+// 32 MB. Page count is NOT pre-checked — counting pages would mean parsing the
+// PDF — so an absurdly large document is refused by the upstream API and surfaces
+// as the existing 502 "Dịch vụ AI lỗi" path, not as a silent wrong draft.
+//
+// GIF and HEIC remain unsupported: they are accepted as *attachments* by
+// internal/files, but neither can be sent as an image or document block, so the
+// service rejects them with a 400 before any paid round-trip.
+func IsSupportedReceiptType(mt string) bool {
+	return IsSupportedImageType(mt) || mt == "application/pdf"
 }
 
 // AsError returns the typed *Error if err is one.

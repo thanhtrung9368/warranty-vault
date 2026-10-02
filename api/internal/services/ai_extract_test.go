@@ -34,13 +34,13 @@ func testCatalog() *Catalog {
 func TestBuildDraft_MapsCatalogDiacriticInsensitive(t *testing.T) {
 	// Store name without diacritics (typical OCR output) must still bind.
 	e := ai.ExtractedReceipt{
-		Name:          strp("iPhone 15 Pro"),
-		Brand:         strp("apple"),
-		PurchasePlace: strp("the gioi di dong"),
-		PurchasePrice: i64p(28990000),
+		Name:           strp("iPhone 15 Pro"),
+		Brand:          strp("apple"),
+		PurchasePlace:  strp("the gioi di dong"),
+		PurchasePrice:  i64p(28990000),
 		WarrantyMonths: intp(12),
-		Category:      strp("Điện thoại"),
-		Confidence:    strp("high"),
+		Category:       strp("Điện thoại"),
+		Confidence:     strp("high"),
 	}
 	d := buildDraft(e, testCatalog())
 
@@ -66,8 +66,8 @@ func TestBuildDraft_MapsCatalogDiacriticInsensitive(t *testing.T) {
 
 func TestBuildDraft_UnmatchedFreeText(t *testing.T) {
 	e := ai.ExtractedReceipt{
-		Brand:         strp("Xiaomi"),        // not in catalog
-		PurchasePlace: strp("Cửa hàng lạ"),   // not in catalog
+		Brand:         strp("Xiaomi"),      // not in catalog
+		PurchasePlace: strp("Cửa hàng lạ"), // not in catalog
 	}
 	d := buildDraft(e, testCatalog())
 
@@ -203,11 +203,11 @@ func TestExtractReceiptAgainstRealPostgres(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM "User" WHERE id = $1`, userID)
 	})
 
-	// 1. Non-image types are refused with bad_input BEFORE the extractor is
-	//    called. PDF matters most: files.AllowedMIMEs accepts application/pdf for
-	//    attachments, so without this guard a PDF attachment would reach the AI
-	//    client and surface as a confusing 502 after a paid round-trip.
-	for _, mt := range []string{"application/pdf", "image/gif", "image/heic"} {
+	// 1. Types with no Messages-API block are refused with bad_input BEFORE the
+	//    extractor is called. PDF used to be in this list; as of roadmap #15 it is
+	//    supported (step 1b), so only GIF/HEIC remain — they are accepted as
+	//    attachments but cannot be sent as an image or document block.
+	for _, mt := range []string{"image/gif", "image/heic"} {
 		fake := &fakeExtractor{result: ai.ExtractedReceipt{Name: strp("must not be used")}}
 		_, err := ExtractReceipt(ctx, pool, fake, userID, ExtractInput{
 			Body:      []byte("not an image"),
@@ -221,6 +221,25 @@ func TestExtractReceiptAgainstRealPostgres(t *testing.T) {
 		if fake.calls != 0 {
 			t.Errorf("ExtractReceipt(mediaType=%q) called the extractor %d times, want 0", mt, fake.calls)
 		}
+	}
+
+	// 1b. PDF IS accepted now and reaches the extractor as application/pdf.
+	pdfFake := &fakeExtractor{result: ai.ExtractedReceipt{Name: strp("Hoá đơn PDF")}}
+	pdfDraft, err := ExtractReceipt(ctx, pool, pdfFake, userID, ExtractInput{
+		Body:      []byte("%PDF-1.4 fake"),
+		MediaType: "application/pdf",
+	})
+	if err != nil {
+		t.Fatalf("ExtractReceipt(application/pdf) = %v, want it accepted", err)
+	}
+	if pdfFake.calls != 1 {
+		t.Errorf("PDF called the extractor %d times, want 1", pdfFake.calls)
+	}
+	if pdfFake.lastMediaType != "application/pdf" {
+		t.Errorf("extractor saw media type %q, want application/pdf", pdfFake.lastMediaType)
+	}
+	if pdfDraft.Name == nil || *pdfDraft.Name != "Hoá đơn PDF" {
+		t.Errorf("PDF draft name = %v, want the extractor's value", pdfDraft.Name)
 	}
 
 	// 2. A supported image flows through, and the OCR fields reach the draft with
@@ -255,15 +274,17 @@ func TestExtractReceiptAgainstRealPostgres(t *testing.T) {
 
 // fakeExtractor satisfies ReceiptExtractor with no network and no DB.
 type fakeExtractor struct {
-	calls  int
-	result ai.ExtractedReceipt
-	err    error
+	calls         int
+	lastMediaType string
+	result        ai.ExtractedReceipt
+	err           error
 }
 
 func (f *fakeExtractor) Enabled() bool { return true }
 
-func (f *fakeExtractor) ExtractReceipt(context.Context, []byte, string) (ai.ExtractedReceipt, error) {
+func (f *fakeExtractor) ExtractReceipt(_ context.Context, _ []byte, mediaType string) (ai.ExtractedReceipt, error) {
 	f.calls++
+	f.lastMediaType = mediaType
 	return f.result, f.err
 }
 

@@ -182,3 +182,66 @@ INSERT INTO "SubscriptionPayment" (
 ) VALUES (
     $1, $2, $3, $4, $5, NOW()
 );
+
+-- ─── Import: foreign-id detection ────────────────────────────────────────
+--
+-- Every entity table has a *global* text primary key (not scoped per user), so a
+-- payload built by another account can collide with rows this user does not own.
+-- In merge mode the importer skips ids owned by the importing user; these queries
+-- find the remaining case — an id that already exists under a DIFFERENT account —
+-- so ImportBackup can answer 400 with a clear Vietnamese message instead of
+-- letting the insert fail on the primary key and surface as a 500.
+--
+-- Ownership for child tables is resolved through their parent join (Device or
+-- WishlistItem / Subscription), matching every other query in this file.
+
+-- name: BackupFindForeignDeviceIDs :many
+SELECT id FROM "Device"
+WHERE id = ANY(sqlc.arg('ids')::text[])
+  AND "userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignWarrantyIDs :many
+SELECT w.id
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE w.id = ANY(sqlc.arg('ids')::text[])
+  AND d."userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignReminderIDs :many
+SELECT r.id
+FROM "Reminder" r
+JOIN "Warranty" w ON w.id = r."warrantyId"
+JOIN "Device"   d ON d.id = w."deviceId"
+WHERE r.id = ANY(sqlc.arg('ids')::text[])
+  AND d."userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignAttachmentIDs :many
+SELECT a.id
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE a.id = ANY(sqlc.arg('ids')::text[])
+  AND d."userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignWishlistIDs :many
+SELECT id FROM "WishlistItem"
+WHERE id = ANY(sqlc.arg('ids')::text[])
+  AND "userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignWishlistPriceIDs :many
+SELECT p.id
+FROM "WishlistPrice" p
+JOIN "WishlistItem" i ON i.id = p."itemId"
+WHERE p.id = ANY(sqlc.arg('ids')::text[])
+  AND i."userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignSubscriptionIDs :many
+SELECT id FROM "Subscription"
+WHERE id = ANY(sqlc.arg('ids')::text[])
+  AND "userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignPaymentIDs :many
+SELECT p.id
+FROM "SubscriptionPayment" p
+JOIN "Subscription" s ON s.id = p."subscriptionId"
+WHERE p.id = ANY(sqlc.arg('ids')::text[])
+  AND s."userId" <> sqlc.arg('userId')::text;

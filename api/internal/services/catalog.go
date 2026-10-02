@@ -14,10 +14,10 @@ import (
 
 // CatalogTTL is how long the in-process catalog cache lives. Mirrors the
 // `unstable_cache({ revalidate: 3600 })` TS setup conceptually but uses a
-// shorter TTL to match the Phase C plan ("60s TTL"). The only thing that writes
-// these tables today is migration 0004 (categories) plus manual operator edits —
-// there is no admin UI and Prisma Studio is long gone — so freshness within a
-// minute is plenty.
+// shorter TTL to match the Phase C plan ("60s TTL"). The only things that write
+// these tables today are the goose seed migrations (0004 categories; 0008 brands
+// / stores / warranty providers) plus manual operator edits — there is no admin
+// UI and Prisma Studio is long gone — so freshness within a minute is plenty.
 const CatalogTTL = 60 * time.Second
 
 // CategoryOption mirrors website/src/lib/services/catalog.ts::CategoryOption.
@@ -58,9 +58,12 @@ type WarrantyProviderOption struct {
 // active row, so migration 0004 seeds the 20 codes from CATEGORY_LABELS. The
 // other three are autocomplete suggestions only — Device.brand,
 // Device.purchasePlace and Warranty.provider are free-text columns and no service
-// validates them against these tables, which is why migration 0004 deliberately
-// leaves Brand / Store / WarrantyProvider empty (an empty table degrades the
-// pickers but never blocks a write).
+// validates them against these tables, so a missing row degrades a picker and
+// never blocks a write. They are seeded anyway (migration 0008) because an empty
+// picker on a fresh database is real friction: the user has to type and spell
+// every store / warranty centre by hand on the first device they add, and an
+// empty `Brand` table additionally makes `BrandCategory` and the OCR brand
+// matcher (buildDraft → matchBrand) dead code.
 type Catalog struct {
 	Categories         []CategoryOption         `json:"categories"`
 	Brands             []BrandOption            `json:"brands"`

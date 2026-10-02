@@ -123,23 +123,56 @@ WHERE "warrantyId" = $1 AND "isDismissed" = true;
 
 -- name: ListUpcomingReminders :many
 -- Mirrors `website/src/lib/services/reminders.ts::listUpcomingReminders`.
--- Returns warranties whose endDate falls within [today, today + N days],
--- for ACTIVE devices, that have NO `Reminder.isDismissed = true` row.
--- Joins Device for the small projection mobile clients render.
+-- Returns warranties whose endDate falls within [endDateFrom, endDateTo].
+--
+-- includeDismissed = false (the default every existing client gets) keeps the
+-- original predicate exactly: ACTIVE device AND no `Reminder.isDismissed = true`
+-- row, inside [endDateFrom, endDateTo]. includeDismissed = true ADDS the hidden
+-- rows, and for those two filters are deliberately dropped:
+--   * no endDate window — a reminder hidden years ago is history, and dropping it
+--     because its end date left the window is exactly the silent disappearance
+--     this flag exists to fix (clients cannot page, and withinDays is capped at
+--     365 days). The result is still bounded: the write path caps a user at
+--     MAX_DEVICES_PER_USER (50) × MAX_WARRANTIES_PER_DEVICE (5) = 250 warranty
+--     rows, so at most 250 dismissed rows can exist.
+--   * no `d.status = 'ACTIVE'` filter — a reminder hidden on a device that was
+--     later sold / broken / lost must still be visible in the "Đã ẩn" list.
+-- Rows that are NOT dismissed keep requiring an ACTIVE device inside the window
+-- in both modes, so the flag only ever reveals rows, never removes them, and an
+-- empty `reminders` array cannot be caused by passing it.
+--
+-- `is_dismissed` is computed from ALL Reminder rows of the warranty (bool_or, not
+-- a join): a warranty can accumulate more than one Reminder row (dismiss inserts
+-- one only when none exists; cron's StampWarrantyNotified updates every existing
+-- row), and a plain LEFT JOIN would duplicate the warranty row in that case.
+-- "dismissed" means at least one row is dismissed — the same meaning the old
+-- NOT EXISTS predicate had.
+--
+-- `device_status` rides along so a client can render the status badge of a
+-- hidden reminder whose device is no longer ACTIVE.
 SELECT
     w.*,
     d.id            AS device_id,
     d.name          AS device_name,
-    d.category      AS device_category
+    d.category      AS device_category,
+    d.status        AS device_status,
+    COALESCE(rm.dismissed, false) AS is_dismissed
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
-WHERE d."userId" = $1
-  AND d.status = 'ACTIVE'
-  AND w."endDate" >= $2
-  AND w."endDate" <= $3
-  AND NOT EXISTS (
-      SELECT 1 FROM "Reminder" r
-      WHERE r."warrantyId" = w.id AND r."isDismissed" = true
+LEFT JOIN LATERAL (
+    SELECT bool_or(r."isDismissed") AS dismissed
+    FROM "Reminder" r
+    WHERE r."warrantyId" = w.id
+) rm ON true
+WHERE d."userId" = sqlc.arg('userId')::text
+  AND (
+      (sqlc.arg('includeDismissed')::boolean AND COALESCE(rm.dismissed, false))
+      OR (
+          w."endDate" >= sqlc.arg('endDateFrom')::timestamp
+          AND w."endDate" <= sqlc.arg('endDateTo')::timestamp
+          AND d.status = 'ACTIVE'
+          AND COALESCE(rm.dismissed, false) = false
+      )
   )
 ORDER BY w."endDate" ASC;
 

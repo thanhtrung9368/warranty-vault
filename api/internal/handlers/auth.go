@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -455,13 +456,13 @@ func updateMeHandler(d Deps) http.HandlerFunc {
 				continue
 			}
 			if k == "email" || k == "newEmail" {
-				unknown[k] = []string{"Đổi email chưa được hỗ trợ. Chỉ có thể sửa tên hiển thị."}
+				unknown[k] = []string{"Không đổi email ở đây. Dùng POST /api/v1/auth/change-email (cần mật khẩu hiện tại) rồi xác nhận bằng token gửi tới địa chỉ mới."}
 				continue
 			}
 			unknown[k] = []string{"Trường không được hỗ trợ"}
 		}
 		if len(unknown) > 0 {
-			badInput(w, unknown, "Chỉ hỗ trợ sửa tên hiển thị")
+			badInput(w, unknown, "Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change).")
 			return
 		}
 
@@ -780,6 +781,288 @@ func ResetPassword(d Deps) http.HandlerFunc {
 			"message": "Đã đổi mật khẩu. Vào /login để đăng nhập.",
 		})
 	}
+}
+
+// ---- POST /api/v1/auth/change-email ------------------------------------------
+//
+// Step 1 of 2 of the email-change flow (roadmap #10). Body:
+//
+//	{ "newEmail": "...", "currentPassword": "..." }
+//
+// The account email is NOT touched here: the old address keeps working until the
+// confirm step succeeds. What this endpoint does is prove the password (so a
+// stolen bearer token alone cannot move the account) and send a single-use,
+// 30-minute token to the NEW address — receiving it there is the proof of
+// ownership that a naive UPDATE would skip.
+//
+// Storage reuses PasswordReset with `pendingEmail` set (migration 0009), and the
+// token is issued/expired/consumed exactly like a password reset.
+//
+// Enumeration: when the requested address already belongs to another account the
+// response is the same neutral 200 as the success path and no email is sent —
+// mirroring how Register treats an existing address. Nothing in the response
+// reveals whether the address exists.
+
+type changeEmailRequest struct {
+	NewEmail        string `json:"newEmail"`
+	CurrentPassword string `json:"currentPassword"`
+}
+
+// emailChangeNeutralMessage is deliberately identical for "token sent" and
+// "address already in use" so the response cannot be used to enumerate accounts.
+const emailChangeNeutralMessage = "Nếu địa chỉ mới hợp lệ và chưa được dùng cho tài khoản khác, một email xác nhận đã được gửi tới địa chỉ mới. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận."
+
+func RequestEmailChange(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		if err != nil {
+			unauthorized(w)
+			return
+		}
+
+		var body changeEmailRequest
+		if err := decodeJSON(r, &body); err != nil {
+			badJSONBody(w)
+			return
+		}
+
+		fieldErrors := map[string][]string{}
+		newEmail := strings.ToLower(strings.TrimSpace(body.NewEmail))
+		if !validateEmail(newEmail) {
+			fieldErrors["newEmail"] = []string{"Email không hợp lệ"}
+		}
+		if body.CurrentPassword == "" {
+			fieldErrors["currentPassword"] = []string{"Nhập mật khẩu hiện tại"}
+		}
+		if len(fieldErrors) > 0 {
+			badInput(w, fieldErrors)
+			return
+		}
+
+		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "change-email",
+			ratelimit.GetClientIP(r), us.UserID)
+		if !rl.Ok {
+			rateLimited(w, rl.RetryAfterSec)
+			return
+		}
+
+		q := store.New(d.DB)
+		user, err := q.GetUserByID(r.Context(), us.UserID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				httpx.WriteError(w, http.StatusNotFound, "user_not_found", "Không tìm thấy", nil)
+				return
+			}
+			slog.Error("get user by id", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		if !auth.Verify(body.CurrentPassword, user.PasswordHash) {
+			badInput(w, map[string][]string{"currentPassword": {"Mật khẩu hiện tại không đúng"}})
+			return
+		}
+		if newEmail == strings.ToLower(user.Email) {
+			// Not an enumeration risk: this is the caller's own address.
+			badInput(w, map[string][]string{"newEmail": {"Email mới trùng với email hiện tại"}})
+			return
+		}
+
+		// Address already taken by someone else → neutral 200, no token, no email.
+		if other, gerr := q.GetUserByEmail(r.Context(), newEmail); gerr == nil && other.ID != user.ID {
+			slog.Info("email change requested for an address already in use", "userId", user.ID)
+			httpx.WriteJSON(w, http.StatusOK, map[string]any{
+				"ok":      true,
+				"message": emailChangeNeutralMessage,
+			})
+			return
+		} else if gerr != nil && !errors.Is(gerr, pgx.ErrNoRows) {
+			slog.Error("email change lookup failed", "err", gerr)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		rawToken, hash, terr := auth.NewTokenAndHash()
+		if terr != nil {
+			slog.Error("email change token generation failed", "err", terr)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		expires := time.Now().Add(passwordResetTTLMin * time.Minute)
+		if _, perr := q.CreateEmailChange(r.Context(), store.CreateEmailChangeParams{
+			ID:           auth.NewID(),
+			UserId:       user.ID,
+			TokenHash:    hash,
+			PendingEmail: &newEmail,
+			ExpiresAt:    pgtype.Timestamp{Time: expires, Valid: true},
+		}); perr != nil {
+			slog.Error("create email change failed", "err", perr)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		appURL := os.Getenv("APP_URL")
+		if appURL == "" {
+			appURL = "http://localhost:3000"
+		}
+		link := strings.TrimRight(appURL, "/") + "/confirm-email/" + rawToken
+		if d.Email != nil {
+			sendCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+			go func() {
+				defer cancel()
+				if e := d.Email.SendEmailChange(sendCtx, newEmail, user.Email, link, rawToken); e != nil {
+					slog.Error("send email-change email failed", "err", e)
+				}
+			}()
+		} else {
+			slog.Info("email-change link (email client unavailable)",
+				"to", newEmail, "from", user.Email, "link", link)
+		}
+
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"message": emailChangeNeutralMessage,
+		})
+	}
+}
+
+// ---- POST /api/v1/auth/confirm-email-change ----------------------------------
+//
+// Step 2 of 2. Body: { "token": "<raw token from the email>" }
+//
+// Unauthenticated on purpose: the token is the credential, and the link is often
+// opened on another device. On success it updates User.email, marks the token (and
+// every other outstanding token for the user, of both kinds) used, and revokes ALL
+// sessions — the same "kick every device off" behaviour as a password reset, so a
+// session created for the old address cannot outlive the change.
+
+type confirmEmailChangeRequest struct {
+	Token string `json:"token"`
+}
+
+func ConfirmEmailChange(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body confirmEmailChangeRequest
+		if err := decodeJSON(r, &body); err != nil {
+			badJSONBody(w)
+			return
+		}
+		body.Token = strings.TrimSpace(body.Token)
+		if body.Token == "" {
+			badInput(w, map[string][]string{"token": {"Thiếu token"}})
+			return
+		}
+
+		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "confirm-email-change",
+			ratelimit.GetClientIP(r), body.Token[:min(16, len(body.Token))])
+		if !rl.Ok {
+			rateLimited(w, rl.RetryAfterSec)
+			return
+		}
+
+		tokenHash := sha256Hex(body.Token)
+		q := store.New(d.DB)
+		change, err := q.GetEmailChangeByTokenHash(r.Context(), tokenHash)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Covers unknown, already-used and expired tokens: the query filters
+				// usedAt + expiresAt, so a replayed token lands here.
+				httpx.WriteError(w, http.StatusBadRequest, "invalid_email_change_token",
+					"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+				return
+			}
+			slog.Error("lookup email change", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		if change.PendingEmail == nil || strings.TrimSpace(*change.PendingEmail) == "" {
+			// Defensive: the query already requires a non-NULL pendingEmail.
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_email_change_token",
+				"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+			return
+		}
+		newEmail := strings.ToLower(strings.TrimSpace(*change.PendingEmail))
+
+		// The address may have been registered by someone else while the token was
+		// outstanding. Say so plainly: at this point the caller has proven control of
+		// the address, so there is nothing left to enumerate.
+		if other, gerr := q.GetUserByEmail(r.Context(), newEmail); gerr == nil && other.ID != change.UserId {
+			httpx.WriteError(w, http.StatusBadRequest, "email_in_use",
+				"Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác.", nil)
+			return
+		} else if gerr != nil && !errors.Is(gerr, pgx.ErrNoRows) {
+			slog.Error("email change lookup failed", "err", gerr)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		tx, err := d.DB.Begin(r.Context())
+		if err != nil {
+			slog.Error("begin tx", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		defer func() { _ = tx.Rollback(r.Context()) }()
+		tq := q.WithTx(tx)
+
+		rows, err := tq.UpdateUserEmail(r.Context(), store.UpdateUserEmailParams{
+			ID:    change.UserId,
+			Email: newEmail,
+		})
+		if err != nil {
+			if isUniqueViolation(err) {
+				httpx.WriteError(w, http.StatusBadRequest, "email_in_use",
+					"Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác.", nil)
+				return
+			}
+			slog.Error("update user email", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		if rows == 0 {
+			// The user disappeared between issuing and confirming the token.
+			httpx.WriteError(w, http.StatusBadRequest, "invalid_email_change_token",
+				"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+			return
+		}
+		if err := tq.ConsumePasswordReset(r.Context(), change.ID); err != nil {
+			slog.Error("consume email change", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		// Burn every other outstanding token (password reset + email change).
+		if err := tq.ConsumeAllPasswordResetsForUser(r.Context(), change.UserId); err != nil {
+			slog.Error("consume other resets", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+		// Email change kicks all devices off, exactly like the password-reset path:
+		// sessions issued for the old address must not survive it.
+		if err := tq.RevokeAllSessionsForUser(r.Context(), change.UserId); err != nil {
+			slog.Error("revoke sessions", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		if err := tx.Commit(r.Context()); err != nil {
+			slog.Error("commit", "err", err)
+			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			return
+		}
+
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"message": "Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.",
+		})
+	}
+}
+
+// isUniqueViolation reports whether err is a PostgreSQL unique-constraint
+// violation (SQLSTATE 23505). The email unique index is the last race guard of the
+// email-change confirm step, and a duplicate must surface as a clean 400 rather
+// than a 500.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func sha256Hex(s string) string {

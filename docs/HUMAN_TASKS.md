@@ -7,7 +7,16 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-02
+**Cập nhật:** 2026-10-03 (lần 2) — **đã kiểm lại từng mục** (không tin bản cũ). Mục nào đã hết việc thì
+ghi rõ là **HẾT VIỆC** chứ không xoá, để mày biết là tao đã kiểm chứ không phải bỏ sót.
+
+> Kiểm ở HEAD `794b35a` **+ working tree** (backend agent còn đang commit). Thay đổi so với bản 2026-10-02:
+> **(a)** 0.1 (quyền `~/.npm`) **hết việc** — không cần `sudo` nữa;
+> **(b)** 3.4 (5 control chết trên iOS) **đã được xử lý bằng code**, không còn là quyết định của mày;
+> **(c)** thêm **2.5 — diễn tập restore**, việc quan trọng nhất còn lại mà chỉ mày làm được;
+> **(d)** **1.3 nay quan trọng hơn**: luồng đổi email mới của backend cũng cần email thật mới chạy được;
+> **(e)** không có **biến env mới nào bắt buộc** phải cấp (đã diff `api/.env.example` + grep toàn bộ
+> `os.Getenv` trong `api/`).
 
 ---
 
@@ -15,7 +24,7 @@
 
 Không tốn tiền, không cần chờ duyệt. Làm trước vì mấy cái dưới phụ thuộc vào đây.
 
-### [ ] 0.1 — Sửa quyền `~/.npm` (cần `sudo`)
+### [x] 0.1 — Sửa quyền `~/.npm` (cần `sudo`) — ✅ **HẾT VIỆC, không cần làm**
 
 ```bash
 sudo chown -R 501:20 ~/.npm
@@ -23,10 +32,11 @@ sudo chown -R 501:20 ~/.npm
 
 - **Vì sao:** npm không ghi được cache → `npm view`, `npm audit`, `npm ci` fail với
   `EPERM: Your cache folder contains root-owned files`. Lỗi này do một bản npm cũ để lại.
-- **Mất:** 5 giây. **Không** mất dữ liệu.
-- **Xong thì:** npm chạy bình thường, CI local khớp với CI GitHub.
+- **Kiểm lại 2026-10-03:** `ls -ld ~/.npm` → `trungit staff` (uid **501**, đúng uid hiện tại), và
+  `npm view left-pad version` trả `1.3.0` bình thường. **Không cần chạy lệnh trên nữa.**
+- ~~Xong thì: npm chạy bình thường, CI local khớp với CI GitHub.~~ → đã đạt.
 
-### [ ] 0.2 — Trỏ `xcode-select` về Xcode thật (cần `sudo`)
+### [ ] 0.2 — Trỏ `xcode-select` về Xcode thật (cần `sudo`) — **vẫn còn nguyên**
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -36,9 +46,13 @@ xcode-select -p   # phải ra /Applications/Xcode.app/Contents/Developer
 - **Vì sao:** đang trỏ vào `/Library/Developer/CommandLineTools` nên `swift build`,
   `swift test` và `xcodebuild` **đều fail**. Tao đã phải ép `DEVELOPER_DIR` mỗi lần
   chạy test iOS.
+- **Kiểm lại 2026-10-03:** `xcode-select -p` vẫn ra `/Library/Developer/CommandLineTools`. **Chưa sửa.**
+  Cách chạy test tạm thời (đã kiểm, xanh — 125 test ở lần đếm mới nhất):
+  `cd ios && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`
+  (`--disable-sandbox` là bắt buộc vì máy này bật sandbox cho SwiftPM.)
 - **Mất:** 5 giây.
-- **Xong thì:** `cd ios && swift test` chạy được trực tiếp; mở được project trong Xcode;
-  `xcrun simctl` hoạt động (mở khoá luôn mục 0.4).
+- **Xong thì:** `cd ios && swift test` chạy được trực tiếp, **không cần** `DEVELOPER_DIR` lẫn
+  `--disable-sandbox`; mở được project trong Xcode; `xcrun simctl` hoạt động (mở khoá luôn mục 0.4).
 
 ### [ ] 0.3 — Sinh bộ secret cho production
 
@@ -60,6 +74,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # �
 > download trả **404 "Không tìm thấy file"** (không phải báo lỗi key) — rất dễ
 > tưởng là lỗi khác. Backup file này **tách riêng** khỏi backup DB.
 
+> ⚠️ **`POSTGRES_PASSWORD` KHÔNG có trong `api/.env.example` lẫn `website/.env.example`.**
+> Cả hai file đó đều không có dòng nào cho nó, nhưng `docker-compose.yml` **bắt buộc**
+> (`POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?...}`) — thiếu là `docker compose up` dừng ngay.
+> Nên khi tạo `.env` ở repo root thì **tự thêm** dòng `POSTGRES_PASSWORD=...` (giá trị `-hex` ở trên),
+> đừng chỉ copy 2 file example rồi thắc mắc tại sao compose đòi biến chưa từng được nhắc.
+> `POSTGRES_USER` / `POSTGRES_DB` thì có default (`warranty` / `warranty_vault`), không cần điền.
+
+> ℹ️ **`SESSION_TTL_DAYS` là biến chết — đừng mất thời gian.** Compose có forward nó
+> (`docker-compose.yml:78`) và `deploy/PRODUCTION_CHECKLIST.md:63` có nhắc, nhưng **Go không đọc
+> biến này ở đâu cả**: TTL phiên là hằng số `30 * 24h` trong `api/internal/auth/session.go:17`.
+> Đặt gì cũng không có tác dụng.
+
 - **Mất:** 1 phút. **Xong thì:** đủ secret để dựng stack ở nhóm 2.
 
 ### [ ] 0.4 — Quyết định dọn 24G simulator
@@ -67,6 +93,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # �
 `~/Library/Developer/CoreSimulator` chiếm 24G nhưng **không phải rác** — đó là
 simulator thật kèm dữ liệu app (iPhone 17 6.6G, ToanThang iPhone 17 3.0G,
 iPad Pro 13" 2.9G, ToanThang iPhone SE 2.6G, Sim-iOS27 2.2G…).
+
+*(Kiểm lại 2026-10-03: vẫn đúng **24G**, chưa có gì thay đổi.)*
 
 Tao **không tự xoá** vì mất state app của mày. Chọn một:
 
@@ -108,6 +136,7 @@ npx web-push generate-vapid-keys
 3. Tải `google-services.json` → chép vào `android/app/google-services.json`.
    File hiện tại chỉ là **stub** (`project_number: "000"`, `api_key: "placeholder"`)
    nên build xanh nhưng push thật **không chạy**.
+   *(Kiểm lại 2026-10-03: vẫn **y nguyên stub**, chưa thay.)*
 4. Project Settings → Service accounts → **Generate new private key** → tải JSON.
    Nội dung JSON đó → biến `FCM_SERVICE_ACCOUNT_JSON` của Go.
 5. `FCM_PROJECT_ID` = project ID.
@@ -125,12 +154,14 @@ npx web-push generate-vapid-keys
 1. <https://upstash.com> → tạo Redis database (chọn region gần VN, vd Singapore).
 2. Lấy **REST URL** + **REST TOKEN**.
 3. → `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, và đặt `RATE_LIMITER=upstash`.
+   (`api/internal/ratelimit/factory.go` nhận **cả** `upstash` lẫn `redis`; giá trị khác thì log warning
+   rồi rơi về memory. Compose đã forward sẵn `RATE_LIMITER` từ `.env` root.)
 
 - **Không làm cũng chạy được:** Go tự fallback sang token-bucket in-memory khi thiếu
   env. Nhược điểm: reset khi restart và **không dùng chung giữa nhiều instance**.
 - **Mở khoá:** rate limit bền, chống brute-force auth đúng nghĩa.
 
-### [ ] 1.3 — Resend → email đặt lại mật khẩu
+### [ ] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email
 
 **Tốn:** 0đ ở free tier (giới hạn số email/ngày — kiểm tra lại khi đăng ký).
 
@@ -140,6 +171,12 @@ npx web-push generate-vapid-keys
 
 - **Không làm cũng "chạy":** chức năng quên mật khẩu **chỉ ghi link ra log**, user
   không nhận được email. Với app thật thì coi như **hỏng**.
+- 🆕 **Mục này nay chặn 2 tính năng, không còn 1.** Backend vừa thêm luồng **đổi email**
+  (`POST /api/v1/auth/change-email` + `confirm-email-change`, migration `0009`): token xác nhận gửi tới
+  **địa chỉ email mới**, nên không có Resend thật thì người dùng đổi email xong sẽ **kẹt** — địa chỉ cũ
+  vẫn dùng được (vì chưa confirm), nhưng không có đường nào confirm.
+  Phần **code** còn thiếu (không phải việc của mày): web chưa có trang `/confirm-email/<token>` mà link
+  trong mail trỏ tới. Việc của mày ở đây chỉ là **domain + API key**.
 
 ### [ ] 1.4 — Anthropic API key → OCR hoá đơn (tuỳ chọn)
 
@@ -147,8 +184,11 @@ npx web-push generate-vapid-keys
 
 1. <https://console.anthropic.com> → tạo API key.
 2. → `ANTHROPIC_API_KEY`. Có thể đổi `ANTHROPIC_MODEL`.
-3. ⚠️ **Compose phải forward 2 biến này** — tao đã thêm rồi. Trước đó đặt key trong
+3. ⚠️ **Compose phải forward 2 biến này** — tao đã thêm rồi (commit `daa9d29`). Trước đó đặt key trong
    `.env` cũng vô tác dụng khi chạy Docker: endpoint luôn trả 503 `feature_disabled`.
+   *(Kiểm lại 2026-10-03: `docker-compose.yml:101-102` vẫn forward đủ `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`.)*
+4. Nhớ bật opt-in trong app (Cài đặt → Quét hoá đơn) — thiếu opt-in thì endpoint trả 403
+   `ai_optin_required` **kể cả khi đã có key**.
 
 - **Riêng tư:** ảnh hoá đơn **đã giải mã** được gửi sang Anthropic. Đây là lý do
   tính năng bị khoá sau opt-in từng user và mặc định **TẮT**.
@@ -179,6 +219,14 @@ npx web-push generate-vapid-keys
   FORWARD/DOCKER-USER, không phải INPUT). Compose hiện publish `3000:3000` và
   `4000:4000` ra mọi interface. Sửa thành `127.0.0.1:4000:4000` nếu muốn chắc —
   hoặc dùng rule `DOCKER-USER`. Chi tiết có trong `deploy/PRODUCTION_CHECKLIST.md`.
+  *(Kiểm lại 2026-10-03: `docker-compose.yml` vẫn còn `"4000:4000"` (dòng 64) và `"3000:3000"` (dòng 144) —
+  **chưa siết**, và đây là việc của mày vì nó phụ thuộc cách mày dựng VPS.)*
+- ⚠️ **Nếu mày dùng Postgres tự dựng (không phải image `postgres:17` của compose): database PHẢI
+  có encoding UTF8.** Không phải chi tiết vụn: encoding khác UTF8 thì Postgres **không lưu nổi ký tự
+  tiếng Việt**, và tính năng tìm kiếm trả **rỗng trong im lặng** — không lỗi, không log, người dùng chỉ
+  thấy "không tìm thấy gì". Đây là ràng buộc duy nhất còn lại của search (collation thì **không** còn
+  ảnh hưởng — migration `0007` đã sửa). Kiểm bằng `SHOW server_encoding;` → phải là `UTF8`.
+  Cách kiểm hành vi: tạo thiết bị tên `Điện thoại SamSung` rồi tìm `dien thoai` không dấu.
 - **Mở khoá:** deploy thật. Trước đó mọi thứ chỉ là template.
 
 ### [ ] 2.3 — Apple Developer Program → APNs + TestFlight
@@ -203,6 +251,27 @@ npx web-push generate-vapid-keys
   <https://play.google.com/console/about/>).
 - **Mở khoá:** phát nội bộ cho máy Android thật, không phải sideload APK.
 
+### [ ] 2.5 — Diễn tập restore backup (cần VPS/DB staging) — **việc quan trọng nhất còn lại**
+
+- **Tốn:** 0đ thêm nếu đã có VPS ở 2.2 (dùng chính máy đó, hoặc một DB tạm).
+- **Vì sao chỉ mày làm được:** cần một môi trường thật + quyết định "thế nào là khôi phục thành công".
+  Agent không tự dựng hạ tầng được.
+- **Vì sao quan trọng:** `deploy/backup.sh` đã được sửa để thật sự archive cả **volume blob ảnh**
+  (bản cũ im lặng bỏ qua vì image distroless không có `tar`), nhưng **chưa từng có ai đem bản backup
+  đi restore thử**. Nay có **2 đường backup**, phải hiểu rõ đường nào mang ảnh theo:
+  - **JSON mặc định** (`GET /api/v1/backup/export`) — **KHÔNG** có bytes ảnh; chính payload tự khai báo
+    bằng `includesAttachmentBytes: false` + `attachmentBytesNote`.
+  - **ZIP** (`?includeBlobs=true`) — **CÓ** blob đã mã hoá (envelope version 6, note đổi thành "CÓ chứa …
+    cần đúng `FILE_MASTER_KEY`"). Blob là ciphertext AES-256-GCM, nên restore sang máy khác khoá thì
+    **file vẫn về nhưng không mở được** — và lỗi hiện ra dưới dạng 404 "Không tìm thấy file", rất dễ
+    chẩn đoán sai.
+- **Làm gì:** `deploy/PRODUCTION_CHECKLIST.md` §6 có quy trình; tối thiểu là
+  (1) restore `db-*.sql.gz` vào một DB rỗng, (2) giải nén `uploads-*.tar.gz` vào đúng `PRIVATE_UPLOAD_ROOT`,
+  (3) chạy stack với **đúng** `FILE_MASTER_KEY` cũ, (4) đăng nhập và **mở thử một ảnh hoá đơn**.
+  Bước 4 là bước duy nhất chứng minh được mọi thứ khớp nhau. Nếu muốn kiểm luôn đường mới thì làm thêm
+  một vòng: export `?includeBlobs=true` → import lại vào tài khoản sạch → mở ảnh.
+- **Xong thì:** mới được tin là có backup. Trước đó thì chưa.
+
 ---
 
 ## Nhóm 3 — Quyết định của mày (không tốn tiền, nhưng tao không tự quyết được)
@@ -211,7 +280,9 @@ npx web-push generate-vapid-keys
 
 Hiện app **không có paywall** — mọi tính năng mở hết. Nếu định thu phí thì cần chốt
 trước khi làm, vì nó ảnh hưởng cả 3 client + schema DB (thêm bảng subscription cho
-chính app). Xem mục "Monetization" trong `docs/FEATURE_ROADMAP.md`.
+chính app). *(Sửa 2026-10-03: bản cũ trỏ tới mục "Monetization" trong `docs/FEATURE_ROADMAP.md` —
+**mục đó không tồn tại**. Roadmap §5 có bàn các thứ bị loại, nhưng **không** có mục nào về giá/paywall;
+đây thuần là quyết định của mày, chưa tài liệu nào phân tích giúp.)*
 
 ### [ ] 3.2 — Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân
 
@@ -226,33 +297,39 @@ Code đang dùng **WarrantyVault** ở mọi nơi (web, iOS, Android, tài liệ
 handoff có nhắc cả **AssetVault**. Nếu muốn đổi thì đổi **trước khi** phát hành lên
 store — đổi sau phải sửa bundle ID, package name, và làm lại store listing.
 
-### [ ] 3.4 — 5 control chết trên iOS: xoá hay làm cho chạy?
+### [x] 3.4 — 5 control chết trên iOS — ✅ **HẾT VIỆC, agent đã xử lý xong (2026-10-03)**
 
-iOS có 5 chỗ bấm vào **không làm gì cả**, nhìn như app lỗi:
+Bản 2026-10-02 liệt kê 5 chỗ bấm vào không làm gì trên iOS và hỏi mày muốn xoá hay làm thật.
+Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, honest rows"*) đã xử lý
+**cả 5** — không cần mày quyết nữa:
 
-| Chỗ | Vấn đề |
-|---|---|
-| `MoreScreen.swift:214` "Xuất dữ liệu CSV" | **Không có endpoint CSV nào** trong openapi — backup chỉ có JSON. Muốn chạy thì phải thêm API. |
-| `MoreScreen.swift:218` "Import từ file" | Trùng chức năng với backup JSON đã có sẵn ở Settings. |
-| `AccountView.swift:69` "Face ID & Touch ID" | Chưa cài `LocalAuthentication`. |
-| `AccountView.swift:76` "Apple ID" | Cần làm OAuth Sign in with Apple thật. |
-| `SettingsView.swift:310` "Nhắc trước" | Ghi vào `@State` thôi — **không lưu, không gửi**, reset mỗi lần mở app. Và không có field nào trong API cho nó. |
+| Chỗ | Bản cũ | Nay |
+|---|---|---|
+| "Xuất dữ liệu CSV" | Không có endpoint CSV | ✅ Chạy thật: `DeviceCSVExport` + `.fileExporter` (roadmap #14) |
+| "Import từ file" | Trùng chức năng backup | ✅ Chạy thật: dùng chung luồng import backup JSON |
+| "Face ID & Touch ID" | Chưa cài `LocalAuthentication` | ✅ Chạy thật: `ios/Sources/WarrantyVaultKit/AppLock.swift` + `AppLockStore`, khoá khi app quay lại foreground, mở bằng biometrics **hoặc** mã mở khoá thiết bị, tự tắt nếu máy không còn mã (không bao giờ khoá cứng người dùng) |
+| "Apple ID" | Control chết | ✅ Nói thật: hiện "Chưa khả dụng" kèm footer giải thích — **không** còn giả vờ bấm được |
+| "Nhắc trước" | Ghi vào `@State`, không lưu | ✅ Nói thật: hiện "Hệ thống tự gửi, chưa tuỳ chỉnh được — 7 & 30 ngày" (đúng lịch cron), bỏ hẳn picker giả |
 
-**Tao đề xuất:** xoá 4 cái đầu, còn "Nhắc trước" thì hoặc xoá hoặc làm thật (cần
-thêm field vào API + migration). Lý do: control chết tệ hơn không có control — người
-dùng tưởng app hỏng.
+**Còn lại đúng một quyết định, và nó tuỳ chọn** — chỉ làm nếu mày muốn:
 
-**Nhưng đây là quyết định sản phẩm của mày**, tao không tự xoá tính năng. Chọn:
-`[ ]` xoá hết · `[ ]` giữ và làm thật · `[ ]` giữ nhưng ghi rõ "Sắp có"
+- `[ ]` **Sign in with Apple thật?** Hiện đã ghi "Chưa khả dụng" trung thực. Làm thật thì cần
+  Apple Developer (2.3) + endpoint xác thực token identity phía Go + liên kết tài khoản. Không có nó
+  thì app **không** bị coi là lỗi.
+- `[ ]` **Cho người dùng tự chọn "nhắc trước" mấy ngày?** Hiện là hằng số trong cron (7 & 30 ngày),
+  API **không** có field per-user. Muốn có thì phải thêm cột + migration + sửa cron + cả 3 client.
+  Mặc định đề xuất: **không làm** cho tới khi có người thật hỏi.
 
 ---
 
 ## Thứ tự tao đề xuất
 
 ```
-0.1 → 0.2 → 0.3 → 0.5      (miễn phí, 10 phút, mở khoá dev local)
+0.2 → 0.3 → 0.5            (miễn phí, 10 phút, mở khoá dev local; 0.1 đã hết việc)
    ↓
 2.1 domain → 2.2 VPS       (bắt đầu tốn tiền ~$6/tháng)
+   ↓
+2.5 DIỄN TẬP RESTORE       (làm ngay sau khi có VPS — trước khi tin vào backup)
    ↓
 1.2 Upstash → 1.3 Resend   (miễn phí, làm được ngay sau khi có domain)
    ↓
@@ -263,7 +340,9 @@ dùng tưởng app hỏng.
 
 **Lý do thứ tự này:** 0.x miễn phí và mở khoá dev local ngay. Domain + VPS là
 "cửa ngõ" — có nó mới verify được Resend, mới test được cookie `secure`, mới deploy
-thật. Apple đắt nhất nên để sau cùng, khi mọi thứ khác đã sẵn sàng.
+thật. **Diễn tập restore (2.5) chen ngay sau VPS** vì đó là bước duy nhất chứng minh
+backup có thật sự dùng được, và nó rẻ hơn nhiều so với việc phát hiện muộn. Apple đắt
+nhất nên để sau cùng, khi mọi thứ khác đã sẵn sàng.
 
 ---
 
@@ -271,18 +350,20 @@ thật. Apple đắt nhất nên để sau cùng, khi mọi thứ khác đã s�
 
 | Biến | Lấy từ | Nhóm |
 |---|---|---|
-| `POSTGRES_PASSWORD` | `openssl rand -hex 32` | 0.3 |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 32` — **không có trong `.env.example` nào**, phải tự thêm vào `.env` root | 0.3 |
 | `FILE_MASTER_KEY` | `openssl rand -base64 32` | 0.3 |
 | `CRON_SECRET` | `openssl rand -hex 32` | 0.3 |
 | `SESSION_SECRET` | `crypto.randomBytes(32).toString('base64')` | 0.3 |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | `npx web-push generate-vapid-keys` | 0.5 |
 | `FCM_SERVICE_ACCOUNT_JSON` / `FCM_PROJECT_ID` | Firebase service account | 1.1 |
-| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Upstash console | 1.2 |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` / `RATE_LIMITER=upstash` | Upstash console | 1.2 |
 | `RESEND_API_KEY` / `RESEND_FROM` | Resend console | 1.3 |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic console | 1.4 |
-| `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` / `APNS_PRIVATE_KEY` | Apple Developer | 2.3 |
+| `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` / `APNS_PRIVATE_KEY` / `APNS_PRODUCTION=1` | Apple Developer | 2.3 |
 | `APP_URL` | domain của mày | 2.1 |
+| `WEB_URL` | compose tự lấy từ `APP_URL`, không cần điền | — |
 | `GO_API_URL` | compose tự set = `http://api:4000/api` — **phải có `/api`**, xem ghi chú dưới | — |
+| ~~`SESSION_TTL_DAYS`~~ | **biến chết** — Go không đọc, đừng điền | — |
 
 > ⚠️ **`GO_API_URL` phải kết thúc bằng `/api`.** `website/src/lib/api/client.ts` ghép
 > `GO_API_URL + '/v1/...'`, còn Go phục vụ `/api/v1/...`. Thiếu `/api` là **mọi** lời
@@ -292,6 +373,35 @@ thật. Apple đắt nhất nên để sau cùng, khi mọi thứ khác đã s�
 > ⚠️ **Compose chỉ đọc `.env` ở repo root.** Nó **không** có `env_file:`, nên
 > `api/.env` và `website/.env` **không có tác dụng** khi chạy `docker compose up`.
 > Đây là cái bẫy hay gặp nhất khi deploy.
+> *(Kiểm lại 2026-10-03: vẫn đúng — `docker-compose.yml` không có `env_file:` nào; compose header
+> cũng ghi rõ phải copy **cả hai** file example ra `.env` ở root.)*
+
+---
+
+## Đã kiểm lại những gì (2026-10-03)
+
+Để mày biết chỗ nào tao **thật sự** xác minh chứ không phải chép lại bản cũ:
+
+| Mục | Cách kiểm | Kết quả |
+|---|---|---|
+| 0.1 quyền npm | `ls -ld ~/.npm` + `npm view left-pad version` | ✅ hết việc (chủ sở hữu uid 501, npm chạy được) |
+| 0.2 `xcode-select` | `xcode-select -p` | ❌ vẫn trỏ CommandLineTools |
+| 0.4 simulator | `du -sh ~/Library/Developer/CoreSimulator` | ❌ vẫn 24G |
+| 1.1 Firebase | đọc `android/app/google-services.json` | ❌ vẫn stub |
+| 1.4 Anthropic | grep `ANTHROPIC` trong `docker-compose.yml` | ✅ đã forward đủ 2 biến |
+| 2.2 port publish | grep `ports:` trong `docker-compose.yml` | ❌ vẫn `3000:3000` + `4000:4000` |
+| 2.3 tên biến APNs | đối chiếu `api/.env.example` | ✅ `APNS_PRIVATE_KEY`, không phải `APNS_KEY_P8` |
+| 3.4 5 control iOS | đọc `MoreScreen`/`AccountView`/`SettingsView`/`AppLock.swift` | ✅ đã xử lý xong |
+| 1.3 nay chặn mấy luồng | đọc `auth.go` (`change-email` / `confirm-email-change`) + `0009_email_change.sql` | ⚠️ **2 luồng** cùng phụ thuộc Resend: reset mật khẩu **và** xác nhận đổi email |
+| Backup có ảnh chưa | đọc `services/backup.go` + `handlers/backup.go` | ✅ có: `?includeBlobs=true` → .zip version 6; JSON mặc định vẫn không có ảnh |
+| Migration mới | `ls api/migrations/` | 9 file (`0001`…`0009`); `PRODUCTION_CHECKLIST.md` §2 mới liệt kê tới `0007` — **cần cập nhật** |
+| Biến env mới cần mày cấp | `git diff` trên `api/.env.example` + grep `os.Getenv` toàn bộ `api/` | ⚪ **không có biến mới nào bắt buộc** — chỉ thêm dòng `VAPID_PUBLIC_KEY` cho tường minh (0.5 đã bao) |
+
+**Hai thứ tao phát hiện thêm nhưng không sửa được (không nằm trong file của tao):**
+`website/.env.example` vẫn ghi *"Docker (root compose): hiện set `http://api:4000` — cần thêm `/api`"*
+— **đã lỗi thời**, compose nay set đúng `http://api:4000/api`. Và `deploy/PRODUCTION_CHECKLIST.md:63`
+liệt kê `SESSION_TTL_DAYS` như biến thật trong khi Go không đọc nó; §2 của checklist đó cũng còn liệt kê
+7 migration trong khi repo đã có 9.
 
 ---
 

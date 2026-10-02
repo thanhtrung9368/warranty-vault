@@ -37,7 +37,7 @@ func listDevicesHandler(deps Deps) http.HandlerFunc {
 		}
 		rows, err := services.ListDevices(r.Context(), deps.DB, us.UserID, f)
 		if err != nil {
-			writeDevicesErr(w, err,"list devices")
+			writeDevicesErr(w, err, "list devices")
 			return
 		}
 		if rows == nil {
@@ -74,7 +74,7 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 
 		device, err := services.CreateDevice(r.Context(), deps.DB, us.UserID, input, fromWishlistID)
 		if err != nil {
-			writeDevicesErr(w, err,"create device")
+			writeDevicesErr(w, err, "create device")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"device": device})
@@ -91,7 +91,7 @@ func getDeviceHandler(deps Deps) http.HandlerFunc {
 		}
 		device, err := services.GetDevice(r.Context(), deps.DB, us.UserID, id)
 		if err != nil {
-			writeDevicesErr(w, err,"get device")
+			writeDevicesErr(w, err, "get device")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device})
@@ -116,7 +116,7 @@ func updateDeviceHandler(deps Deps) http.HandlerFunc {
 		}
 		device, err := services.UpdateDevice(r.Context(), deps.DB, us.UserID, id, input)
 		if err != nil {
-			writeDevicesErr(w, err,"update device")
+			writeDevicesErr(w, err, "update device")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device})
@@ -135,7 +135,7 @@ func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 		if err := services.DeleteDevice(r.Context(), deps.DB, us.UserID, id); err != nil {
-			writeDevicesErr(w, err,"delete device")
+			writeDevicesErr(w, err, "delete device")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})

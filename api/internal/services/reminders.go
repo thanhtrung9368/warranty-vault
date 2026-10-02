@@ -14,24 +14,47 @@ import (
 // ReminderRow is the hydrated row returned to clients for the reminders feed.
 // Mirrors website/src/lib/services/reminders.ts::listUpcomingReminders shape:
 // warranty + minimal device projection.
+//
+// IsDismissed is emitted ONLY when true (`omitempty`). That is a deliberate
+// compatibility choice: with the default includeDismissed=false the dismissed
+// rows are filtered out in SQL, so every returned row has false and the field
+// disappears entirely — the response stays byte-identical to the pre-flag shape —
+// while a client reading `includeDismissed=true` can still tell a hidden row
+// (field present, true) from an active one (field absent). Clients must treat
+// "absent" as false.
 type ReminderRow struct {
 	store.Warranty
-	Device ReminderDeviceRef `json:"device"`
+	IsDismissed bool              `json:"isDismissed,omitempty"`
+	Device      ReminderDeviceRef `json:"device"`
 }
 
 // ReminderDeviceRef is the small device projection embedded in each reminder
 // row — enough for mobile clients to render the card without a second
 // round-trip.
+//
+// Status is included because hidden reminders are returned for devices of ANY
+// status (see ListUpcomingReminders): the UI renders a "Đã bán" / "Hỏng" / "Mất"
+// badge when status != ACTIVE, and the backup-derived read this replaces carried
+// it.
 type ReminderDeviceRef struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
+	Status   string `json:"status"`
 }
 
 // ListUpcomingReminders mirrors listUpcomingReminders from the TS service.
-// Returns warranties whose endDate falls within [today00:00, today+N 23:59:59.999]
-// for ACTIVE devices, excluding warranties with a dismissed Reminder row.
-func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string, withinDays int) ([]ReminderRow, error) {
+//
+// includeDismissed=false (unchanged behaviour): warranties whose endDate falls
+// within [today00:00, today+withinDays 23:59:59.999] for ACTIVE devices,
+// excluding warranties with a dismissed Reminder row.
+//
+// includeDismissed=true adds the user's dismissed reminders. For those two
+// filters do not apply — no endDate window, no ACTIVE-device requirement — so a
+// reminder hidden long ago, or hidden on a device that was later sold, stays
+// visible instead of silently disappearing. The extra rows are bounded by the
+// write-path caps (50 devices × 5 warranties = at most 250 warranties per user).
+func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string, withinDays int, includeDismissed bool) ([]ReminderRow, error) {
 	if withinDays <= 0 {
 		withinDays = 30
 	}
@@ -44,9 +67,10 @@ func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string,
 
 	q := store.New(db)
 	rows, err := q.ListUpcomingReminders(ctx, store.ListUpcomingRemindersParams{
-		UserId:    userID,
-		EndDate:   pgtype.Timestamp{Time: startOfToday.UTC(), Valid: true},
-		EndDate_2: pgtype.Timestamp{Time: horizon.UTC(), Valid: true},
+		UserId:           userID,
+		IncludeDismissed: includeDismissed,
+		EndDateFrom:      pgtype.Timestamp{Time: startOfToday.UTC(), Valid: true},
+		EndDateTo:        pgtype.Timestamp{Time: horizon.UTC(), Valid: true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list upcoming reminders: %w", err)
@@ -70,10 +94,12 @@ func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string,
 				CreatedAt: r.CreatedAt,
 				UpdatedAt: r.UpdatedAt,
 			},
+			IsDismissed: r.IsDismissed,
 			Device: ReminderDeviceRef{
 				ID:       r.DeviceID,
 				Name:     r.DeviceName,
 				Category: r.DeviceCategory,
+				Status:   r.DeviceStatus,
 			},
 		})
 	}

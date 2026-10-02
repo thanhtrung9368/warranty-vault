@@ -118,12 +118,13 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 		imgBytes, mediaType = in.Body, in.MediaType
 	}
 
-	// Attachments accept PDF / GIF / HEIC (files.AllowedMIMEs), but OCR does not:
-	// the Messages API call below only carries JPEG/PNG/WEBP. Checking here means
-	// an attachmentId pointing at a PDF gets a clear 400 instead of a 502
-	// "Dịch vụ AI lỗi" after a pointless round-trip. PDF OCR is NOT supported.
-	if !ai.IsSupportedImageType(mediaType) {
-		return DraftDevice{}, badInput("Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP")
+	// Attachments accept PDF / GIF / HEIC (files.AllowedMIMEs). OCR now accepts
+	// PDF as well (roadmap #15): the Messages API takes a `document` block with
+	// media_type application/pdf and every active model supports it — see
+	// ai.IsSupportedReceiptType. GIF and HEIC still have no block type, so they get
+	// a clear 400 here instead of a 502 "Dịch vụ AI lỗi" after a paid round-trip.
+	if !ai.IsSupportedReceiptType(mediaType) {
+		return DraftDevice{}, badInput("Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF")
 	}
 
 	extracted, err := client.ExtractReceipt(ctx, imgBytes, mediaType)

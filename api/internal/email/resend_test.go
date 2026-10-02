@@ -104,3 +104,62 @@ func TestNewFromEnv_DefaultsFrom(t *testing.T) {
 		t.Errorf("apiKey should be empty in dev")
 	}
 }
+
+func TestSendEmailChange_DevMode(t *testing.T) {
+	t.Parallel()
+	c := &Client{} // apiKey empty
+	if err := c.SendEmailChange(context.Background(), "new@example.com", "old@example.com",
+		"https://app/confirm-email/tok", "tok"); err != nil {
+		t.Fatalf("dev mode should not error, got %v", err)
+	}
+}
+
+// The confirmation email goes to the NEW address, names the OLD one, and carries
+// both the link and the raw token (native clients post the token directly).
+func TestSendEmailChange_PostsExpectedBody(t *testing.T) {
+	t.Parallel()
+
+	var captured sendRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(body, &captured); err != nil {
+			t.Errorf("unmarshal body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"abc"}`))
+	}))
+	defer srv.Close()
+
+	c := &Client{
+		apiKey:     "test_key",
+		from:       "Test <noreply@test.local>",
+		endpoint:   srv.URL,
+		httpClient: srv.Client(),
+	}
+
+	err := c.SendEmailChange(context.Background(), "new@example.com", "old@example.com",
+		"https://app.local/confirm-email/raw-token", "raw-token")
+	if err != nil {
+		t.Fatalf("send returned err: %v", err)
+	}
+	if len(captured.To) != 1 || captured.To[0] != "new@example.com" {
+		t.Errorf("To=%v, want the NEW address only", captured.To)
+	}
+	if captured.Subject != "Xác nhận đổi email AssetVault" {
+		t.Errorf("Subject=%q", captured.Subject)
+	}
+	for _, want := range []string{"old@example.com", "https://app.local/confirm-email/raw-token", "raw-token"} {
+		if !strings.Contains(captured.Text, want) {
+			t.Errorf("Text missing %q: %q", want, captured.Text)
+		}
+	}
+	if !strings.Contains(captured.HTML, "https://app.local/confirm-email/raw-token") {
+		t.Error("HTML missing confirm link")
+	}
+	if !strings.Contains(captured.HTML, "raw-token") {
+		t.Error("HTML missing the raw token")
+	}
+	if !strings.Contains(captured.Text, "Địa chỉ cũ vẫn dùng được") {
+		t.Error("Text does not promise that the old address keeps working until confirm")
+	}
+}
