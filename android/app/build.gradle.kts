@@ -56,6 +56,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Plain-JVM unit tests (src/test). No Robolectric / instrumentation — the
+    // Android framework stubs return default values instead of throwing so pure
+    // logic that only grazes android.* (e.g. a `Log` call) still runs fast.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -89,4 +96,9 @@ dependencies {
     // actually send/receive pushes. See android/README.md.
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+
+    // JVM unit tests — run by `:app:testDebugUnitTest` (CI "Unit tests" step).
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
 }

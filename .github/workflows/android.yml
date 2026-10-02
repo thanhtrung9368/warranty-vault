@@ -43,5 +43,22 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon
 
+      # :app:testDebugUnitTest used to report NO-SOURCE (no src/test existed),
+      # so a green run proved nothing. Fail loudly if the report is ever empty.
+      - name: Verify unit tests actually ran
+        run: |
+          shopt -s nullglob
+          results=(app/build/test-results/testDebugUnitTest/*.xml)
+          if [ ${#results[@]} -eq 0 ]; then
+            echo "::error:::app:testDebugUnitTest produced no test results (NO-SOURCE) — refusing to pass silently."
+            exit 1
+          fi
+          total=$(grep -ho 'tests="[0-9]*"' "${results[@]}" | grep -o '[0-9]*' | awk '{n+=$1} END {print n+0}')
+          echo "Executed $total unit tests across ${#results[@]} classes."
+          if [ "$total" -eq 0 ]; then
+            echo "::error::The unit test report contains zero tests."
+            exit 1
+          fi
+
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --no-daemon
