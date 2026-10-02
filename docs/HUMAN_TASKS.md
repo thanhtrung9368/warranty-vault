@@ -226,6 +226,25 @@ Code đang dùng **WarrantyVault** ở mọi nơi (web, iOS, Android, tài liệ
 handoff có nhắc cả **AssetVault**. Nếu muốn đổi thì đổi **trước khi** phát hành lên
 store — đổi sau phải sửa bundle ID, package name, và làm lại store listing.
 
+### [ ] 3.4 — 5 control chết trên iOS: xoá hay làm cho chạy?
+
+iOS có 5 chỗ bấm vào **không làm gì cả**, nhìn như app lỗi:
+
+| Chỗ | Vấn đề |
+|---|---|
+| `MoreScreen.swift:214` "Xuất dữ liệu CSV" | **Không có endpoint CSV nào** trong openapi — backup chỉ có JSON. Muốn chạy thì phải thêm API. |
+| `MoreScreen.swift:218` "Import từ file" | Trùng chức năng với backup JSON đã có sẵn ở Settings. |
+| `AccountView.swift:69` "Face ID & Touch ID" | Chưa cài `LocalAuthentication`. |
+| `AccountView.swift:76` "Apple ID" | Cần làm OAuth Sign in with Apple thật. |
+| `SettingsView.swift:310` "Nhắc trước" | Ghi vào `@State` thôi — **không lưu, không gửi**, reset mỗi lần mở app. Và không có field nào trong API cho nó. |
+
+**Tao đề xuất:** xoá 4 cái đầu, còn "Nhắc trước" thì hoặc xoá hoặc làm thật (cần
+thêm field vào API + migration). Lý do: control chết tệ hơn không có control — người
+dùng tưởng app hỏng.
+
+**Nhưng đây là quyết định sản phẩm của mày**, tao không tự xoá tính năng. Chọn:
+`[ ]` xoá hết · `[ ]` giữ và làm thật · `[ ]` giữ nhưng ghi rõ "Sắp có"
+
 ---
 
 ## Thứ tự tao đề xuất
