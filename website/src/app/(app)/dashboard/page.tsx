@@ -20,9 +20,8 @@ import { api } from '@/lib/api';
 import type { WishlistItem } from '@/lib/api/wishlist';
 import type { Subscription } from '@/lib/api/subscriptions';
 import {
-  monthlyEquivalent,
+  monthlySpendTotal,
   SUBSCRIPTION_ACTIVE_STATUSES,
-  type BillingCycle,
 } from '@/lib/subscription-types';
 import { WISHLIST_ACTIVE_STATUSES } from '@/lib/wishlist-types';
 import { requireUser } from '@/lib/auth';
@@ -68,14 +67,13 @@ type SubscriptionTotals = {
 };
 
 function computeSubscriptionTotals(subs: Subscription[]): SubscriptionTotals {
+  // "gói đang hoạt động" = ACTIVE + PAUSED: how many rows we present as live.
   const active = subs.filter((s) =>
     (SUBSCRIPTION_ACTIVE_STATUSES as readonly string[]).includes(s.status),
   );
-  let monthly = 0;
-  for (const s of active) {
-    const m = monthlyEquivalent(s.price, s.billingCycle as BillingCycle, s.intervalDays);
-    if (m != null) monthly += m;
-  }
+  // The money figure is ACTIVE-only so it matches `GET /api/v1/stats`
+  // (and therefore iOS/Android) for the same account.
+  const monthly = monthlySpendTotal(subs);
   const upcoming = active
     .filter((s) => s.status === 'ACTIVE' && s.autoRenew && s.billingCycle !== 'LIFETIME')
     .sort(

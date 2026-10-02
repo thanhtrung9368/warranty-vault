@@ -158,7 +158,7 @@ export default async function SubscriptionDetailPage({
           <div className="rounded-xl border border-border bg-surface p-4">
             <p className="eyebrow">Quy đổi / tháng</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
-              {monthly == null ? '—' : formatVND(monthly)}
+              {formatVND(monthly)}
             </p>
           </div>
           <div

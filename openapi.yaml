@@ -195,11 +195,31 @@ paths:
     get:
       tags: [devices]
       parameters:
-        - { name: q, in: query, schema: { type: string } }
-        - { name: category, in: query, schema: { type: string } }
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/DeviceStatus' } }
-        - { name: sort, in: query, schema: { type: string, enum: [purchaseDate, warrantyEndDate, price, name] } }
-        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
+        - name: q
+          in: query
+          description: Case- and accent-insensitive substring match on name, brand, model or serialNumber.
+          schema: { type: string }
+        - name: category
+          in: query
+          description: 'Category code. The sentinel `ALL` (or an empty value) means "no filter".'
+          schema: { type: string }
+        - name: status
+          in: query
+          description: |
+            Device status. The sentinel `ALL` (or an empty value) means "no filter".
+            Go does not validate this value — anything else is passed straight to the
+            `status = $n` predicate, so an unknown value simply matches nothing.
+          schema:
+            type: string
+            enum: [ACTIVE, EXPIRED, SOLD, BROKEN, LOST, ALL]
+        - name: sort
+          in: query
+          description: 'Defaults to purchaseDate; an unknown value falls back to purchaseDate (Go never rejects it).'
+          schema: { type: string, enum: [purchaseDate, warrantyEndDate, price, name] }
+        - name: dir
+          in: query
+          description: 'Defaults to desc; any value other than asc is treated as desc (Go never rejects it).'
+          schema: { type: string, enum: [asc, desc] }
       responses:
         '200':
           description: Device list
@@ -210,7 +230,7 @@ paths:
                 properties:
                   devices:
                     type: array
-                    items: { $ref: '#/components/schemas/Device' }
+                    items: { $ref: '#/components/schemas/DeviceListItem' }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [devices]
@@ -419,6 +439,15 @@ paths:
   /api/v1/subscriptions:
     get:
       tags: [subscriptions]
+      parameters:
+        - name: status
+          in: query
+          description: |
+            Filter by subscription status. Omit the parameter (or send an empty value)
+            to get every status. Unlike `/api/v1/devices` there is no `ALL` sentinel:
+            any other value is rejected with 400 `bad_input` and a Vietnamese field
+            error on `status`.
+          schema: { type: string, enum: [ACTIVE, PAUSED, CANCELED, EXPIRED] }
       responses:
         '200':
           description: Subscription list
@@ -430,6 +459,8 @@ paths:
                   subscriptions:
                     type: array
                     items: { $ref: '#/components/schemas/Subscription' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [subscriptions]
       requestBody:
@@ -515,6 +546,14 @@ paths:
   /api/v1/wishlist:
     get:
       tags: [wishlist]
+      parameters:
+        - name: status
+          in: query
+          description: |
+            Filter by wishlist status. Omit the parameter (or send an empty/blank value)
+            to get every status. There is no `ALL` sentinel: any other value is rejected
+            with 400 `bad_input` and a Vietnamese field error on `status`.
+          schema: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
       responses:
         '200':
           description: Wishlist items
@@ -526,6 +565,8 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/WishlistItem' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [wishlist]
       requestBody:
@@ -1203,6 +1244,26 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
+    # `GET /api/v1/devices` row: the stored Device plus two projection fields
+    # hydrated per row by services.ListDevices (api/internal/services/devices.go).
+    DeviceListItem:
+      allOf:
+        - $ref: '#/components/schemas/Device'
+        - type: object
+          required: [attachmentCount]
+          properties:
+            attachmentCount:
+              type: integer
+              description: 'Number of encrypted attachments on the device (0 when there are none).'
+            effectiveWarrantyEnd:
+              type: string
+              format: date-time
+              nullable: true
+              description: |
+                max(Warranty.endDate) across the device's warranties. Null when the
+                device has no warranty with an end date — this is a genuinely
+                nullable field (`*time.Time` in Go), not a required string.
+
     DeviceDetail:
       allOf:
         - $ref: '#/components/schemas/Device'
@@ -1213,7 +1274,7 @@ components:
               items: { $ref: '#/components/schemas/AttachmentMeta' }
             warranties:
               type: array
-              items: { $ref: '#/components/schemas/Warranty' }
+              items: { $ref: '#/components/schemas/WarrantyWithReminders' }
 
     DeviceInput:
       type: object
@@ -1251,6 +1312,31 @@ components:
         address: { type: string, nullable: true }
         phone: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    # Warranty rows on `GET /api/v1/devices/{id}` carry their Reminder rows too
+    # (services.WarrantyWithReminders). Distinct from `ReminderWarranty`, which is
+    # the `/api/v1/reminders` feed (warranty + embedded device).
+    WarrantyWithReminders:
+      allOf:
+        - $ref: '#/components/schemas/Warranty'
+        - type: object
+          required: [reminders]
+          properties:
+            reminders:
+              type: array
+              items: { $ref: '#/components/schemas/Reminder' }
+
+    Reminder:
+      type: object
+      required: [id, warrantyId, isDismissed]
+      properties:
+        id: { type: string }
+        warrantyId: { type: string }
+        isDismissed: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastNotifiedAt: { type: string, format: date-time, nullable: true }
 
     WarrantyInput:
       type: object
@@ -1299,6 +1385,13 @@ components:
         manageUrl: { type: string, nullable: true }
         cancelUrl: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        lastNotifiedRenewalAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Set by the renewal-notification cron; null until the first renewal push goes out.'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     SubscriptionDetail:
       allOf:
@@ -1339,6 +1432,7 @@ components:
         amount: { type: integer }
         paidAt: { type: string, format: date-time }
         note: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
 
     PaymentInput:
       type: object
@@ -1366,7 +1460,14 @@ components:
         status: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
         notes: { type: string, nullable: true }
         reminderIntervalDays: { type: integer, nullable: true }
+        lastNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Set by the wishlist check-in cron; null until the first check-in push goes out.'
         purchasedDeviceId: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     WishlistItemDetail:
       allOf:

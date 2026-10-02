@@ -55,7 +55,7 @@ export const viewport = {
   ],
 };
 
-const PREFS_BOOTSTRAP = `try { var p = JSON.parse(localStorage.getItem('wv:prefs') || '{}'); ['radius','density','font'].forEach(function(k){ if(p[k]) document.documentElement.setAttribute('data-' + k, p[k]); }); } catch(e) {}`;
+const PREFS_BOOTSTRAP = `try { var p = JSON.parse(localStorage.getItem('wv:prefs') || '{}'); ['radius','density','font','accent','sidebar'].forEach(function(k){ if(p[k]) document.documentElement.setAttribute('data-' + k, p[k]); }); } catch(e) {}`;
 
 export default function RootLayout({
   children,

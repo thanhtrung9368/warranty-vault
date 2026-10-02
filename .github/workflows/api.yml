@@ -23,6 +23,27 @@ jobs:
     defaults:
       run:
         working-directory: api
+
+    # Real Postgres so the migration + search tests actually execute.
+    # Those tests are gated on WV_TEST_DATABASE_URL and skip silently when it
+    # is unset — which meant CI never exercised goose migrations at all, the
+    # highest-risk part of a deploy. The postgres image ships contrib, so
+    # CREATE EXTENSION unaccent/pg_trgm in migration 0005 works here.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: wv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,8 +61,25 @@ jobs:
       - name: go vet
         run: go vet ./...
 
-      - name: go test (race)
+      - name: go test (race, with real Postgres)
+        env:
+          WV_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/wv_test?sslmode=disable
         run: go test ./... -race
+
+      # Guard against the DB-gated tests silently skipping again. If Postgres
+      # is unreachable the tests above still "pass" by skipping, so assert the
+      # migration tests genuinely reported PASS rather than SKIP.
+      - name: Verify DB-backed migration tests really ran
+        env:
+          WV_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/wv_test?sslmode=disable
+        run: |
+          go test ./internal/services/ -run 'TestCategorySeedAgainstRealPostgres|TestCategorySeedMigrationDownAndUp' -v -count=1 \
+            | tee /tmp/dbtests.log
+          if grep -q -- '--- SKIP' /tmp/dbtests.log; then
+            echo "::error::DB-backed migration tests skipped — WV_TEST_DATABASE_URL is not reaching Postgres"
+            exit 1
+          fi
+          grep -q -- '--- PASS' /tmp/dbtests.log || { echo "::error::DB-backed migration tests did not pass"; exit 1; }
 
       - name: go build
         run: go build ./...

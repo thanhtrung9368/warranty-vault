@@ -15,6 +15,7 @@ import {
   SUBSCRIPTION_STATUS_LABELS,
   SUBSCRIPTION_STATUSES,
   monthlyEquivalent,
+  monthlySpendTotal,
   type BillingCycle,
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
@@ -107,8 +108,8 @@ function applyFilter(rows: Subscription[], f: SubFilter): Subscription[] {
       return cmp(ta, tb);
     }
     if (sort === 'monthly') {
-      const ma = monthlyEquivalent(a.price, a.billingCycle as BillingCycle, a.intervalDays) ?? 0;
-      const mb = monthlyEquivalent(b.price, b.billingCycle as BillingCycle, b.intervalDays) ?? 0;
+      const ma = monthlyEquivalent(a.price, a.billingCycle as BillingCycle, a.intervalDays);
+      const mb = monthlyEquivalent(b.price, b.billingCycle as BillingCycle, b.intervalDays);
       return cmp(ma, mb);
     }
     // default renewal
@@ -118,18 +119,15 @@ function applyFilter(rows: Subscription[], f: SubFilter): Subscription[] {
 }
 
 function computeTotals(rows: Subscription[]) {
+  // "Đang hoạt động" = ACTIVE + PAUSED: this is how many rows we present as
+  // live, so PAUSED still counts here.
   const active = rows.filter((s) =>
     (SUBSCRIPTION_ACTIVE_STATUSES as readonly string[]).includes(s.status),
   );
-  let monthly = 0;
-  let yearly = 0;
-  for (const s of active) {
-    const m = monthlyEquivalent(s.price, s.billingCycle as BillingCycle, s.intervalDays);
-    if (m != null) {
-      monthly += m;
-      yearly += m * 12;
-    }
-  }
+  // Money is different: the totals must match `GET /api/v1/stats`, which sums
+  // ACTIVE rows only (a paused sub isn't charging you). See monthlySpendTotal().
+  const monthly = monthlySpendTotal(rows);
+  const yearly = monthly * 12;
   const upcoming = active
     .filter((s) => s.status === 'ACTIVE' && s.autoRenew && s.billingCycle !== 'LIFETIME')
     .map((s) => ({ ...s, _renewalAt: new Date(s.renewalDate).getTime() }))
@@ -328,7 +326,7 @@ export default async function SubscriptionsPage({
                   <div>
                     <p className="eyebrow">~ / tháng</p>
                     <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink-2">
-                      {monthly == null ? '—' : formatVND(monthly)}
+                      {formatVND(monthly)}
                     </p>
                   </div>
                 </div>

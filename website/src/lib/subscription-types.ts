@@ -15,17 +15,6 @@ export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
   CUSTOM: 'Tuỳ chỉnh',
 };
 
-// Average days per cycle, used to:
-//  - bump renewalDate when cron auto-bills
-//  - normalize cost-per-cycle to "monthly equivalent" for the dashboard
-export const BILLING_CYCLE_DAYS: Record<BillingCycle, number | null> = {
-  MONTHLY: 30,
-  QUARTERLY: 91,
-  YEARLY: 365,
-  LIFETIME: null, // never renews
-  CUSTOM: null, // intervalDays on the row
-};
-
 export const SUBSCRIPTION_STATUSES = ['ACTIVE', 'PAUSED', 'CANCELED', 'EXPIRED'] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
@@ -53,23 +42,85 @@ export const SUBSCRIPTION_STATUS_BADGE_VARIANT: Record<
   EXPIRED: 'destructive',
 };
 
+// Statuses a subscription must be in to count towards a *money* total.
+//
+// Canonical source: Go's `GET /api/v1/stats`, whose SQL aggregator
+// (api/internal/store/queries/stats.sql::StatsSubscriptionsMonthly) filters
+// `status = 'ACTIVE'` only. A PAUSED subscription is still *shown* as active
+// (see SUBSCRIPTION_ACTIVE_STATUSES below) but it does not cost anything, so
+// it must never add to "chi phí mỗi tháng".
+export const SUBSCRIPTION_SPEND_STATUSES: SubscriptionStatus[] = ['ACTIVE'];
+
+// The active/paused list filter + "đang hoạt động" counters. This means
+// "rows we present as active", NOT "rows that count as spend" — use
+// SUBSCRIPTION_SPEND_STATUSES / monthlySpendTotal() for money.
 export const SUBSCRIPTION_ACTIVE_STATUSES: SubscriptionStatus[] = ['ACTIVE', 'PAUSED'];
 
-// Convert one cycle's price into a monthly equivalent. Used by dashboard +
-// stats. Null = unable to normalize (CUSTOM with no intervalDays, or LIFETIME).
+// Go's math.Round: rounds half away from zero. JS Math.round rounds half
+// *up*, which only differs for negatives — prices are validated >= 0, but
+// mirroring Go exactly costs nothing.
+function roundHalfAwayFromZero(value: number): number {
+  return value < 0 ? -Math.round(-value) : Math.round(value);
+}
+
+// Convert one cycle's price into a monthly equivalent.
+//
+// This is a line-for-line mirror of Go's services.MonthlyEquivalent
+// (api/internal/services/subscription_billing.go) so the web dashboard can
+// never disagree with `GET /api/v1/stats` or with iOS/Android:
+//   MONTHLY    -> price
+//   QUARTERLY  -> price/3   (Go integer division == Math.trunc)
+//   YEARLY     -> price/12  (truncated)
+//   LIFETIME   -> 0
+//   CUSTOM     -> round(price * 30 / intervalDays), 0 when intervalDays <= 0
+//   anything else -> 0      (Go's `default` branch)
+//
+// Do NOT reintroduce an average-days model (price * 30 / 91, / 365): that was
+// the old web-only formula and it disagreed with every other client.
 export function monthlyEquivalent(
   price: number,
   cycle: BillingCycle,
   intervalDays?: number | null,
-): number | null {
-  if (cycle === 'LIFETIME') return 0;
-  if (cycle === 'CUSTOM') {
-    if (!intervalDays || intervalDays <= 0) return null;
-    return Math.round((price * 30) / intervalDays);
+): number {
+  switch (cycle) {
+    case 'MONTHLY':
+      return price;
+    case 'QUARTERLY':
+      return Math.trunc(price / 3);
+    case 'YEARLY':
+      return Math.trunc(price / 12);
+    case 'LIFETIME':
+      return 0;
+    case 'CUSTOM':
+      if (intervalDays == null || intervalDays <= 0) return 0;
+      return roundHalfAwayFromZero((price * 30) / intervalDays);
+    default:
+      return 0;
   }
-  const days = BILLING_CYCLE_DAYS[cycle];
-  if (!days) return null;
-  return Math.round((price * 30) / days);
+}
+
+// Minimal structural shape of the rows monthlySpendTotal() accepts — matches
+// the `/v1/subscriptions` wire rows without importing the API client type.
+type SubscriptionSpendRow = {
+  price: number;
+  billingCycle: BillingCycle;
+  intervalDays?: number | null;
+  status: string;
+};
+
+// Total "chi phí mỗi tháng" for a list of subscriptions. Only rows in
+// SUBSCRIPTION_SPEND_STATUSES count (ACTIVE), mirroring
+// `GET /api/v1/stats`.subscriptions.totalMonthlyVnd so the web agrees with the
+// mobile apps for the same account. LIFETIME rows contribute 0.
+export function monthlySpendTotal(rows: readonly SubscriptionSpendRow[]): number {
+  let total = 0;
+  for (const row of rows) {
+    if (!(SUBSCRIPTION_SPEND_STATUSES as readonly string[]).includes(row.status)) {
+      continue;
+    }
+    total += monthlyEquivalent(row.price, row.billingCycle, row.intervalDays);
+  }
+  return total;
 }
 
 // Compute the next renewal date from a starting date + cycle.

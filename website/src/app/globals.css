@@ -195,6 +195,109 @@
 [data-font="inter"]  { --font-display: var(--font-inter), system-ui, sans-serif; }
 [data-font="serif"]  { --font-display: var(--font-fraunces), Georgia, serif; }
 
+/* ============================================================
+   Accent tweakables — [data-accent] is written by applyPrefs() in
+   components/appearance-tweaks.tsx. Keys must match the ACCENTS array
+   there; values are the handoff's ACCENTS / ACCENTS_DARK palette.
+   Coral mirrors the base :root / .dark tokens so it is a no-op.
+============================================================ */
+[data-accent="coral"] {
+  --primary: 13 100% 64%;             /* #FF6B45 */
+  --primary-2: 14 100% 71%;           /* #FF8B6A */
+  --primary-soft: 19 100% 89%;        /* #FFD9C9 */
+  --primary-soft-2: 19 100% 83%;      /* #FFC2A8 */
+  --primary-ink: 12 86% 16%;          /* #4A1505 */
+  --ring: 13 100% 64%;
+}
+[data-accent="emerald"] {
+  --primary: 153 77% 37%;             /* #16A765 */
+  --primary-2: 153 54% 50%;           /* #3BC586 */
+  --primary-soft: 148 64% 87%;        /* #C8F3DC */
+  --primary-soft-2: 147 58% 76%;      /* #A0E6C0 */
+  --primary-ink: 151 86% 16%;         /* #064E2B */
+  --ring: 153 77% 37%;
+}
+[data-accent="violet"] {
+  --primary: 254 68% 62%;             /* #7B5BE0 */
+  --primary-2: 255 79% 72%;           /* #9B7FF0 */
+  --primary-soft: 255 84% 90%;        /* #DCD2FB */
+  --primary-soft-2: 254 78% 83%;      /* #C0B0F5 */
+  --primary-ink: 254 61% 27%;         /* #2F1B6E */
+  --ring: 254 68% 62%;
+}
+[data-accent="sky"] {
+  --primary: 199 89% 48%;             /* #0EA5E9 */
+  --primary-2: 199 100% 62%;          /* #3CC0FF */
+  --primary-soft: 201 83% 88%;        /* #C9E9FA */
+  --primary-soft-2: 198 77% 78%;      /* #9AD7F2 */
+  --primary-ink: 201 83% 16%;         /* #07344C */
+  --ring: 199 89% 48%;
+}
+
+/* Same swatches, dark-mode variants (the design's ACCENTS_DARK) */
+.dark[data-accent="coral"] {
+  --primary: 14 100% 69%;             /* #FF8060 */
+  --primary-2: 18 100% 77%;           /* #FFA489 */
+  --primary-soft: 12 70% 17%;         /* #4A1A0C */
+  --primary-soft-2: 12 70% 24%;       /* #6A2613 */
+  --primary-ink: 19 100% 92%;         /* #FFE5D9 */
+  --ring: 14 100% 69%;
+}
+.dark[data-accent="emerald"] {
+  --primary: 158 64% 52%;             /* #34D399 */
+  --primary-2: 157 72% 67%;           /* #6EE7B8 */
+  --primary-soft: 153 59% 15%;        /* #0F3B27 */
+  --primary-soft-2: 151 55% 23%;      /* #1A5A3B */
+  --primary-ink: 149 80% 90%;         /* #D1FAE5 */
+  --ring: 158 64% 52%;
+}
+.dark[data-accent="violet"] {
+  --primary: 255 92% 76%;             /* #A78BFA */
+  --primary-2: 252 95% 85%;           /* #C4B5FD */
+  --primary-soft: 252 48% 23%;        /* #2A1F58 */
+  --primary-soft-2: 252 45% 33%;      /* #3D2E7A */
+  --primary-ink: 251 91% 95%;         /* #EDE9FE */
+  --ring: 255 92% 76%;
+}
+.dark[data-accent="sky"] {
+  --primary: 198 93% 60%;             /* #38BDF8 */
+  --primary-2: 199 95% 74%;           /* #7DD3FC */
+  --primary-soft: 204 78% 18%;        /* #0A3450 */
+  --primary-soft-2: 200 72% 25%;      /* #125170 */
+  --primary-ink: 204 94% 94%;         /* #E0F2FE */
+  --ring: 198 93% 60%;
+}
+
+/* ============================================================
+   Sidebar variant tweakables — [data-sidebar] is written by applyPrefs()
+   in components/appearance-tweaks.tsx. `full` is the base layout, so it
+   needs no rules; `icon` collapses the shell to icon-only. The hooks
+   (.wv-sidebar*) live in components/sidebar.tsx.
+============================================================ */
+[data-sidebar="icon"] .wv-sidebar {
+  width: 76px;
+  padding-inline: 10px;
+}
+[data-sidebar="icon"] .wv-sidebar-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+[data-sidebar="icon"] .wv-sidebar-brand-text,
+[data-sidebar="icon"] .wv-sidebar-label {
+  display: none;
+}
+[data-sidebar="icon"] .wv-sidebar-item {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+[data-sidebar="icon"] .wv-sidebar-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin-left: 0;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -487,6 +590,11 @@
   ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted)); }
 }
 
+/* Hide the scrollbar on horizontally scrollable strips (mobile bottom nav)
+   while keeping the area swipeable. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ============================================================
    Pill button group (segmented control)
 ============================================================ */
@@ -513,4 +621,36 @@
   background: hsl(var(--card));
   color: hsl(var(--ink));
   box-shadow: var(--shadow-1);
+}
+
+/* ============================================================
+   Colour swatch group (accent tweak)
+============================================================ */
+.swatch-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--secondary));
+}
+.swatch-group > .swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1.5px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.swatch-group > .swatch:hover {
+  transform: translateY(-1px);
+}
+.swatch-group > .swatch[data-active="true"] {
+  box-shadow: 0 0 0 1.5px hsl(var(--background)), 0 0 0 3px hsl(var(--ink));
 }

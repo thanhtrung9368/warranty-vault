@@ -84,7 +84,10 @@ function buildQuery(filter: SubscriptionFilter | undefined): string {
   const sp = new URLSearchParams();
   if (filter.q) sp.set('q', filter.q);
   if (filter.category) sp.set('category', filter.category);
-  if (filter.status) sp.set('status', filter.status);
+  // `ALL` is a UI sentinel (subscription-filter-bar). Go's list handler only
+  // accepts the four real statuses and answers 400 `bad_input` for anything
+  // else, so strip it — same convention as `lib/api/devices.ts`.
+  if (filter.status && filter.status !== 'ALL') sp.set('status', filter.status);
   if (filter.billingCycle) sp.set('billingCycle', filter.billingCycle);
   if (filter.sort) sp.set('sort', filter.sort);
   if (filter.dir) sp.set('dir', filter.dir);
