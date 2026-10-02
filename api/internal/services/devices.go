@@ -299,7 +299,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err := ValidateDeviceInput(&in); err != nil {
 		return store.Device{}, err
 	}
-	if err := assertCategoryExists(ctx, db, in.Category); err != nil {
+	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
 		return store.Device{}, err
 	}
 
@@ -394,7 +394,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err := ValidateDeviceInput(&in); err != nil {
 		return store.Device{}, err
 	}
-	if err := assertCategoryExists(ctx, db, in.Category); err != nil {
+	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
 		return store.Device{}, err
 	}
 
@@ -512,8 +512,19 @@ func DeleteDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) erro
 
 // ---- helpers ---------------------------------------------------------------
 
-func assertCategoryExists(ctx context.Context, db *pgxpool.Pool, code string) error {
-	q := store.New(db)
+// categoryLookup is the slice of store.Queries that assertCategoryExists needs.
+// Declaring it as an interface (instead of taking *pgxpool.Pool) keeps the
+// validation path unit-testable: production passes store.New(db), while
+// category_seed_test.go passes an in-memory lookup so it can prove that every
+// code seeded by migration 0004 is accepted without needing a live database.
+type categoryLookup interface {
+	GetCategoryByCode(ctx context.Context, code string) (store.Category, error)
+}
+
+// assertCategoryExists rejects a category code that is not an active row of
+// public."Category". The catalog rows come from migration 0004 — before that
+// migration existed the table was empty and this check rejected every write.
+func assertCategoryExists(ctx context.Context, q categoryLookup, code string) error {
 	if _, err := q.GetCategoryByCode(ctx, code); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrCategoryInvalid()

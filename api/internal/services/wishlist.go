@@ -178,7 +178,7 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 		return store.WishlistItem{}, err
 	}
 	if in.Category != nil {
-		if err := assertCategoryExists(ctx, db, *in.Category); err != nil {
+		if err := assertCategoryExists(ctx, store.New(db), *in.Category); err != nil {
 			// Domain-translate to wishlist-flavored message.
 			if de, ok := As(err); ok && de.Code == "CATEGORY_INVALID" {
 				return store.WishlistItem{}, &Error{
@@ -277,7 +277,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 		return store.WishlistItem{}, err
 	}
 	if in.Category != nil {
-		if err := assertCategoryExists(ctx, db, *in.Category); err != nil {
+		if err := assertCategoryExists(ctx, store.New(db), *in.Category); err != nil {
 			if de, ok := As(err); ok && de.Code == "CATEGORY_INVALID" {
 				return store.WishlistItem{}, &Error{
 					Code:        "CATEGORY_INVALID",

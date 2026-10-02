@@ -8,6 +8,19 @@
 -- Sorting: SQL handles purchaseDate / purchasePrice / name. Sort by effective
 -- warranty end date is computed from the related `Warranty` rows and is
 -- handled in the service layer (Go) — same trade-off as the TS version.
+--
+-- Search is diacritic-insensitive: `public.wv_unaccent(lower(x))` (defined in
+-- migration 0005) strips Vietnamese accents on BOTH sides, so "dien thoai"
+-- matches "Điện thoại". ILIKE is no longer needed because both sides are
+-- lowercased; the predicate is `LIKE`.
+--
+-- Index note: migration 0005 creates GIN trigram indexes on exactly these four
+-- expressions, but a trigram index can only be used when the LIKE pattern is
+-- known at plan time. `'%' || wv_unaccent(lower($4)) || '%'` is immutable, so
+-- PostgreSQL folds it into a constant in a *custom* plan and can then use the
+-- index; under a generic plan (pgx caches statements, plan_cache_mode=auto) the
+-- planner falls back to a sequential scan. Correctness does not depend on the
+-- index either way — it is a speed optimisation only.
 
 -- name: ListDevicesByUser :many
 SELECT *
@@ -17,10 +30,10 @@ WHERE "userId" = $1
   AND (NULLIF($3::text, '') IS NULL OR status = $3)
   AND (
     NULLIF($4::text, '') IS NULL
-    OR name ILIKE '%' || $4 || '%'
-    OR brand ILIKE '%' || $4 || '%'
-    OR model ILIKE '%' || $4 || '%'
-    OR "serialNumber" ILIKE '%' || $4 || '%'
+    OR public.wv_unaccent(lower(name)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
+    OR public.wv_unaccent(lower(brand)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
+    OR public.wv_unaccent(lower(model)) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
+    OR public.wv_unaccent(lower("serialNumber")) LIKE '%' || public.wv_unaccent(lower($4::text)) || '%'
   )
 ORDER BY "createdAt" DESC;
 

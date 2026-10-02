@@ -14,8 +14,10 @@ import (
 
 // CatalogTTL is how long the in-process catalog cache lives. Mirrors the
 // `unstable_cache({ revalidate: 3600 })` TS setup conceptually but uses a
-// shorter TTL to match the Phase C plan ("60s TTL"). The catalog is
-// admin-edited via Prisma Studio so freshness within a minute is fine.
+// shorter TTL to match the Phase C plan ("60s TTL"). The only thing that writes
+// these tables today is migration 0004 (categories) plus manual operator edits —
+// there is no admin UI and Prisma Studio is long gone — so freshness within a
+// minute is plenty.
 const CatalogTTL = 60 * time.Second
 
 // CategoryOption mirrors website/src/lib/services/catalog.ts::CategoryOption.
@@ -50,6 +52,15 @@ type WarrantyProviderOption struct {
 }
 
 // Catalog mirrors the bundle returned by website/src/lib/services/catalog.ts::getDeviceFormCatalog.
+//
+// Only `Categories` is load-bearing for writes: assertCategoryExists (devices.go)
+// and the wishlist create/update path reject a category code that is not an
+// active row, so migration 0004 seeds the 20 codes from CATEGORY_LABELS. The
+// other three are autocomplete suggestions only — Device.brand,
+// Device.purchasePlace and Warranty.provider are free-text columns and no service
+// validates them against these tables, which is why migration 0004 deliberately
+// leaves Brand / Store / WarrantyProvider empty (an empty table degrades the
+// pickers but never blocks a write).
 type Catalog struct {
 	Categories         []CategoryOption         `json:"categories"`
 	Brands             []BrandOption            `json:"brands"`
@@ -120,9 +131,11 @@ func ListCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 	return value, err
 }
 
-// InvalidateCatalogCache drops the cached entry. Called after admin writes
-// (currently only Prisma Studio touches these tables, so this is mostly here
-// for tests).
+// InvalidateCatalogCache drops the cached entry. Nothing calls this in
+// production today — there is no admin route or admin page that writes the
+// catalog tables (Prisma Studio, which the old comment referenced, was removed
+// with the Go migration) — so it exists for tests and for operators who edit the
+// rows out-of-band and want the next request to see the change immediately.
 func InvalidateCatalogCache() {
 	catalogCache.Delete("catalog")
 }
