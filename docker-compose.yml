@@ -93,6 +93,14 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM: ${RESEND_FROM:-}
 
+      # ── AI: OCR hoá đơn (optional) ────────────────────────────────
+      # ai.NewFromEnv() đọc thẳng 2 biến này từ env (không qua config struct).
+      # Thiếu ANTHROPIC_API_KEY → POST /api/v1/ai/extract-receipt trả 503
+      # feature_disabled, kể cả khi user đã bật opt-in. Phải forward ở đây,
+      # nếu không thì đặt key trong .env cũng vô tác dụng khi chạy Docker.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+
       # ── Rate limit ────────────────────────────────────────────────
       RATE_LIMITER: ${RATE_LIMITER:-memory}
       UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
@@ -101,8 +109,18 @@ services:
       - uploads:/data
     networks:
       - warranty-net
+    # Image cuối là distroless: KHÔNG có shell, curl hay wget. Vì vậy
+    # healthcheck gọi thẳng binary server với cờ -healthcheck (exec form, không
+    # qua shell). Cờ này GET /readyz — tức là có ping DB thật, không chỉ hỏi
+    # "process còn sống" như /healthz. Exit 0 = healthy, 1 = unhealthy.
+    healthcheck:
+      test: ["CMD", "/app/server", "-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
-  # ── Next.js web (UI + còn dùng Prisma trong Phase E) ───────────────────────
+  # ── Next.js web (UI mỏng — mọi read/write proxy sang Go API) ─────────────
   web:
     build:
       context: ./website
@@ -116,8 +134,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # web là UI mỏng: mọi read/write đi qua Go API (requireUser() gọi
+      # /api/v1/auth/me, server action nào cũng proxy sang API). API chết thì
+      # web không phục vụ được gì có ích, nên chờ API healthy thay vì chỉ
+      # service_started. Không có vòng lặp phụ thuộc: postgres ← api ← web.
       api:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:

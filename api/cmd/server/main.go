@@ -3,10 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +28,17 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	// -healthcheck: chạy đúng một lần rồi thoát, KHÔNG khởi động server.
+	// Image cuối là distroless (không shell, không curl/wget) nên Docker
+	// HEALTHCHECK phải gọi thẳng binary này — xem docker-compose.yml.
+	healthcheck := flag.Bool("healthcheck", false, "gọi GET /readyz một lần rồi thoát (0 = khỏe, 1 = lỗi)")
+	healthcheckURL := flag.String("healthcheck-url", "", "URL đầy đủ cho -healthcheck (mặc định http://127.0.0.1:$PORT/readyz)")
+	flag.Parse()
+
+	if *healthcheck {
+		os.Exit(runHealthcheck(*healthcheckURL))
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -126,4 +141,65 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("server stopped")
+}
+
+// healthcheckTimeout bounds one /readyz probe. Deliberately shorter than the
+// healthcheck `timeout` in docker-compose.yml (5s) so the probe reports its own
+// failure instead of being SIGKILLed by Docker (exit 137) first.
+const healthcheckTimeout = 4 * time.Second
+
+// runHealthcheck probes the readiness endpoint of the server running in this
+// same container and returns the process exit code for Docker: 0 = healthy,
+// 1 = unhealthy (exit code 2 is reserved by Docker). Success is silent so the
+// container log does not grow by one line every interval.
+func runHealthcheck(url string) int {
+	if strings.TrimSpace(url) == "" {
+		url = readyzURL(os.Getenv("PORT"))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), healthcheckTimeout)
+	defer cancel()
+	// Timeout on the client as well: it covers dial + body read even if the
+	// context is cancelled later than expected.
+	client := &http.Client{Timeout: healthcheckTimeout}
+
+	if err := probeReadyz(ctx, client, url); err != nil {
+		slog.Error("healthcheck failed", "url", url, "err", err)
+		return 1
+	}
+	return 0
+}
+
+// readyzURL builds the default probe target from PORT, mirroring the "4000"
+// fallback in config.Load so probe and server always agree on the port.
+func readyzURL(port string) string {
+	port = strings.TrimSpace(port)
+	if port == "" {
+		port = "4000"
+	}
+	return "http://127.0.0.1:" + port + "/readyz"
+}
+
+// probeReadyz performs GET <url> and returns nil only on HTTP 200. /readyz is
+// the right target (not /healthz) because it pings the DB, so a container is
+// reported healthy only when the API can actually serve reads/writes.
+func probeReadyz(ctx context.Context, client *http.Client, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Drain the (tiny) body so the connection can be closed cleanly.
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status: HTTP %d", resp.StatusCode)
+	}
+	return nil
 }
