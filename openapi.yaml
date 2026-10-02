@@ -1601,7 +1601,7 @@ components:
       properties:
         devices:
           type: object
-          required: [total, byStatus, totalPurchasePrice]
+          required: [total, byStatus, totalPurchasePrice, totalWarrantyCost]
           properties:
             total: { type: integer }
             byStatus:
@@ -1614,6 +1614,9 @@ components:
                 BROKEN: { type: integer }
                 LOST: { type: integer }
             totalPurchasePrice: { type: integer, description: 'VND, integer' }
+            totalWarrantyCost:
+              type: integer
+              description: 'Sum of Warranty.cost across every warranty on the user''s devices (VND). Always present: 0 when the user has no device or no warranty carries a cost — a warranty row with a null cost contributes 0. int64 on the server; never narrowed to int32.'
         subscriptions:
           type: object
           required: [total, byStatus, totalMonthlyVnd]

@@ -20,6 +20,14 @@ type DeviceStats struct {
 	Total              int64            `json:"total"`
 	ByStatus           map[string]int64 `json:"byStatus"`
 	TotalPurchasePrice int64            `json:"totalPurchasePrice"`
+	// TotalWarrantyCost is the sum of Warranty.cost across every package on the
+	// user's devices. The Android stats screen already reads exactly
+	// `devices.totalWarrantyCost`; web/iOS used to recompute it with one
+	// warranties call per device (the N+1 this field exists to kill).
+	//
+	// int64 on purpose: money is stored as int32 per row, so the sum must not be
+	// narrowed back to int32.
+	TotalWarrantyCost int64 `json:"totalWarrantyCost"`
 }
 
 // SubscriptionStats mirrors the `subscriptions` slot.
@@ -43,6 +51,22 @@ type Stats struct {
 	Wishlist      WishlistStats     `json:"wishlist"`
 }
 
+// statsQuerier is the slice of store.Queries that Snapshot needs. Declaring it
+// as an interface (instead of taking *pgxpool.Pool all the way down) keeps the
+// composition logic unit-testable: production passes store.New(db), while
+// stats_test.go passes an in-memory querier so it can prove that
+// `devices.totalWarrantyCost` is wired to StatsTotalWarrantyCost without a live
+// database. Same pattern as categoryLookup in devices.go.
+type statsQuerier interface {
+	StatsDevicesByStatus(ctx context.Context, userID string) ([]store.StatsDevicesByStatusRow, error)
+	StatsDevicesTotal(ctx context.Context, userID string) (store.StatsDevicesTotalRow, error)
+	StatsTotalWarrantyCost(ctx context.Context, userID string) (int64, error)
+	StatsSubscriptionsByStatus(ctx context.Context, userID string) ([]store.StatsSubscriptionsByStatusRow, error)
+	StatsSubscriptionsMonthly(ctx context.Context, userID string) (int64, error)
+	StatsWishlistByStatus(ctx context.Context, userID string) ([]store.StatsWishlistByStatusRow, error)
+	StatsWishlistActiveValue(ctx context.Context, userID string) (int64, error)
+}
+
 // Snapshot returns aggregate stats for the dashboard / mobile home screen.
 //
 // Implementation choice: subscription monthly total uses the SQL CASE-based
@@ -63,11 +87,16 @@ type Stats struct {
 // /stats page via separate calls. We expose `Snapshot` to mirror exactly what
 // `GET /api/v1/stats` returns, keeping `test_stats.sh` parity tight.
 func Snapshot(ctx context.Context, db *pgxpool.Pool, userID string) (*Stats, error) {
-	q := store.New(db)
+	return snapshot(ctx, store.New(db), userID)
+}
 
+// snapshot is Snapshot's body, written against statsQuerier so the composition
+// can be exercised without Postgres.
+func snapshot(ctx context.Context, q statsQuerier, userID string) (*Stats, error) {
 	var (
 		deviceByStatus    []store.StatsDevicesByStatusRow
 		deviceTotal       store.StatsDevicesTotalRow
+		warrantyCostTotal int64
 		subByStatus       []store.StatsSubscriptionsByStatusRow
 		subMonthly        int64
 		wishlistByStatus  []store.StatsWishlistByStatusRow
@@ -89,6 +118,14 @@ func Snapshot(ctx context.Context, db *pgxpool.Pool, userID string) (*Stats, err
 			return fmt.Errorf("devices total: %w", err)
 		}
 		deviceTotal = row
+		return nil
+	})
+	g.Go(func() error {
+		v, err := q.StatsTotalWarrantyCost(gctx, userID)
+		if err != nil {
+			return fmt.Errorf("warranty cost total: %w", err)
+		}
+		warrantyCostTotal = v
 		return nil
 	})
 	g.Go(func() error {
@@ -133,6 +170,7 @@ func Snapshot(ctx context.Context, db *pgxpool.Pool, userID string) (*Stats, err
 			Total:              deviceTotal.Total,
 			ByStatus:           emptyStatusMap(statsDeviceStatuses),
 			TotalPurchasePrice: deviceTotal.TotalPurchasePrice,
+			TotalWarrantyCost:  warrantyCostTotal,
 		},
 		Subscriptions: SubscriptionStats{
 			ByStatus:        emptyStatusMap(statsSubscriptionStatuses),

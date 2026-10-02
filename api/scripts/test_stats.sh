@@ -77,6 +77,13 @@ VALUES
   ('stats_dev_2', '$USER_ID', 'iPhone 16', 'PHONE',  '2025-09-15', 20000000, 'ACTIVE', now(), now()),
   ('stats_dev_3', '$USER_ID', 'Old iPad',  'TABLET', '2022-01-01', 10000000, 'SOLD',   now(), now());
 
+-- Warranty packages: 2.5M on dev_1 plus a NULL-cost package on dev_2, so
+-- devices.totalWarrantyCost must be 2500000 (the NULL row contributes 0).
+INSERT INTO "Warranty" (id, "deviceId", type, "startDate", "endDate", months, cost, "createdAt", "updatedAt")
+VALUES
+  ('stats_war_1', 'stats_dev_1', 'STANDARD',    '2025-06-01', '2027-06-01', 24, 2500000, now(), now()),
+  ('stats_war_2', 'stats_dev_2', 'THIRD_PARTY', '2025-09-15', '2026-09-15', 12, NULL,    now(), now());
+
 INSERT INTO "Subscription" (id, "userId", name, "billingCycle", price, currency, "startedAt", "renewalDate", "autoRenew", status, "createdAt", "updatedAt")
 VALUES
   ('stats_sub_1', '$USER_ID', 'ChatGPT Plus', 'MONTHLY',  480000,  'VND', '2026-01-01', '2026-06-01', true,  'ACTIVE', now(), now()),
@@ -112,6 +119,7 @@ V=$(jq '.devices.byStatus.ACTIVE' /tmp/wv_body.json);    [ "$V" = "2" ]         
 V=$(jq '.devices.byStatus.SOLD' /tmp/wv_body.json);      [ "$V" = "1" ]            && cond=true || cond=false; assert "$cond" "devices.byStatus.SOLD = 1 (got $V)"
 V=$(jq '.devices.byStatus.EXPIRED' /tmp/wv_body.json);   [ "$V" = "0" ]            && cond=true || cond=false; assert "$cond" "devices.byStatus.EXPIRED = 0 (got $V)"
 V=$(jq '.devices.totalPurchasePrice' /tmp/wv_body.json); [ "$V" = "60000000" ]     && cond=true || cond=false; assert "$cond" "devices.totalPurchasePrice = 60M (got $V)"
+V=$(jq '.devices.totalWarrantyCost' /tmp/wv_body.json);  [ "$V" = "2500000" ]      && cond=true || cond=false; assert "$cond" "devices.totalWarrantyCost = 2.5M (got $V)"
 
 echo
 echo "→ Subscriptions totals"

@@ -103,6 +103,22 @@ WHERE d."userId" = $1
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
   );
 
+-- name: StatsTotalWarrantyCost :one
+-- Sum of Warranty.cost across every package on the user's devices. Feeds
+-- `devices.totalWarrantyCost` on GET /api/v1/stats.
+--
+-- cost is nullable: SUM() ignores NULL rows (a package stored without a price
+-- adds nothing to the total), and COALESCE turns the all-NULL / no-warranty
+-- case into 0 — the same treatment every other money rollup in this file
+-- gives a nullable sum. The result is widened to bigint (money is stored as
+-- int32 per row but totalled as int64) so a user with many costly packages
+-- cannot overflow the total.
+SELECT
+    COALESCE(SUM(w."cost"), 0)::bigint AS total_warranty_cost
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE d."userId" = $1;
+
 -- ─── Subscriptions ────────────────────────────────────────────────────────
 
 -- name: StatsSubscriptionsByStatus :many
