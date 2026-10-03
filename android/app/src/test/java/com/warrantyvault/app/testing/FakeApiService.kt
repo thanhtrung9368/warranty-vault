@@ -26,6 +26,7 @@ import com.warrantyvault.app.network.PriceLogInput
 import com.warrantyvault.app.network.PushSubscriptionListResponse
 import com.warrantyvault.app.network.RegisterInput
 import com.warrantyvault.app.network.RemindersResponse
+import com.warrantyvault.app.network.SearchResults
 import com.warrantyvault.app.network.SubscriptionInput
 import com.warrantyvault.app.network.SubscriptionListResponse
 import com.warrantyvault.app.network.SubscriptionResponse
@@ -154,6 +155,8 @@ open class FakeApiService : ApiService {
     override suspend fun setAIOptIn(body: AIOptInRequest): AIOptInResponse = notStubbed("setAIOptIn")
 
     override suspend fun getStats(): UserStats = notStubbed("getStats")
+
+    override suspend fun search(q: String?, limit: Int?): SearchResults = notStubbed("search")
 
     override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse =
         notStubbed("listUpcomingReminders")

@@ -112,6 +112,44 @@ class ApiClientNetworkTest {
     }
 
     @Test
+    fun search_forwardsTheKeywordAndThePerGroupLimit() = runBlocking {
+        enqueueJson(
+            """
+            {
+              "query": "samsung",
+              "devices": [
+                {
+                  "id": "d1",
+                  "userId": "u1",
+                  "name": "Galaxy S24",
+                  "category": "PHONE",
+                  "purchaseDate": "2024-03-01T00:00:00",
+                  "purchasePrice": 0,
+                  "status": "ACTIVE"
+                }
+              ],
+              "subscriptions": [],
+              "wishlist": []
+            }
+            """.trimIndent(),
+        )
+
+        val res = api().search(q = "samsung", limit = 20)
+
+        assertEquals("samsung", res.query)
+        assertEquals("Galaxy S24", res.devices.single().name)
+        assertTrue(res.subscriptions.isEmpty())
+        assertEquals("/api/v1/search?q=samsung&limit=20", server.takeRequest().path)
+
+        // No keyword → the parameters are omitted entirely (never `q=`): the
+        // client shows its own "gõ gì đó" state instead of asking the server
+        // for an empty result set.
+        enqueueJson("""{"query":"","devices":[],"subscriptions":[],"wishlist":[]}""")
+        api().search()
+        assertEquals("/api/v1/search", server.takeRequest().path)
+    }
+
+    @Test
     fun errorResponse_surfacesAsHttpExceptionCarryingTheVietnameseMessage() {
         enqueueJson("""{"error":"unauthorized","message":"Phiên đăng nhập đã hết hạn"}""", code = 401)
 

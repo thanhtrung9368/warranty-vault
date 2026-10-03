@@ -66,22 +66,10 @@ fun ListFilterBar(
 ) {
     val cs = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = { Text(placeholder) },
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Filled.Search, null, Modifier.size(18.dp)) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Filled.Clear, "Xoá tìm kiếm", Modifier.size(18.dp))
-                    }
-                }
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
-            modifier = Modifier.fillMaxWidth(),
+        SearchField(
+            query = query,
+            onQueryChange = onQueryChange,
+            placeholder = placeholder,
         )
         if (secondaryOptions.isNotEmpty()) {
             FilterChipRow(
@@ -103,6 +91,41 @@ fun ListFilterBar(
             }
         }
     }
+}
+
+/**
+ * The rounded search box every filter bar is built around — one copy of the
+ * styling, the leading magnifier and the "Xoá tìm kiếm" clear button. The
+ * global search screen (`ui/screens/search/SearchScreen.kt`) reuses it so a
+ * query typed there looks exactly like a per-list filter.
+ *
+ * Stateless on purpose, like [ListFilterBar]: the caller owns the text (and its
+ * 300 ms debounce).
+ */
+@Composable
+fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(placeholder) },
+        singleLine = true,
+        leadingIcon = { Icon(Icons.Filled.Search, null, Modifier.size(18.dp)) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Filled.Clear, "Xoá tìm kiếm", Modifier.size(18.dp))
+                }
+            }
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+        modifier = modifier.fillMaxWidth(),
+    )
 }
 
 @Composable

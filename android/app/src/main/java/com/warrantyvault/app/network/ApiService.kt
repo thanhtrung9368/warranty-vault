@@ -211,6 +211,16 @@ interface ApiService {
     @PUT("api/v1/ai/opt-in")
     suspend fun setAIOptIn(@Body body: AIOptInRequest): AIOptInResponse
 
+    // ---- Cross-entity search ----
+    // One grouped lookup over devices + subscriptions + wishlist (openapi
+    // `GET /api/v1/search`). `limit` is PER GROUP (default 20, max 50) and a
+    // blank `q` is a 200 with empty groups — never a 400.
+    @GET("api/v1/search")
+    suspend fun search(
+        @Query("q") q: String? = null,
+        @Query("limit") limit: Int? = null,
+    ): SearchResults
+
     // ---- Stats ----
     @GET("api/v1/stats")
     suspend fun getStats(): UserStats

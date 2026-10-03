@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -33,6 +34,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -146,6 +148,7 @@ class DevicesViewModel(private val api: ApiService) : ViewModel() {
 fun DevicesScreen(
     api: ApiService,
     onOpenDevice: (String) -> Unit = {},
+    onOpenSearch: () -> Unit = {},
 ) {
     val vm: DevicesViewModel = viewModel(
         factory = viewModelFactory { DevicesViewModel(api) },
@@ -175,6 +178,14 @@ fun DevicesScreen(
         topBar = {
             TopAppBar(
                 title = { Text("") },
+                actions = {
+                    // Global search (`GET /v1/search`), distinct from the filter
+                    // box below: that one narrows this list server-side, this one
+                    // looks across devices, subscriptions and wishlist.
+                    IconButton(onClick = onOpenSearch) {
+                        Icon(Icons.Filled.Search, "Tìm kiếm tất cả")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),

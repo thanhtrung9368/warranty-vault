@@ -98,6 +98,8 @@ cd android
 | Stats screen | ✅ — `StatsScreen.kt` tổng thiết bị / chi phí / sub tháng / wishlist, format VND vi-VN |
 | Reminders screen | ✅ — `RemindersScreen.kt` list warranty sắp hết, color-coded, dismiss → `POST /api/v1/warranties/{id}/reminder` |
 | Đổi mật khẩu | ✅ — `ChangePasswordSheet.kt` từ Settings, surface fieldErrors qua `Errors.kt` |
+| Tìm kiếm xuyên thực thể | ✅ — `ui/screens/search/`, `GET /api/v1/search` một lượt trả cả thiết bị / gói / wishlist, mở từ icon kính lúp ở top bar, debounce 300 ms |
+| Quét hoá đơn AI (ảnh + PDF) | ✅ — `ReceiptFiles.kt` sniff magic bytes, PDF gửi nguyên byte (không giải mã thành ảnh), HEIC/GIF transcode JPEG phía client |
 
 ### FCM setup TODO
 

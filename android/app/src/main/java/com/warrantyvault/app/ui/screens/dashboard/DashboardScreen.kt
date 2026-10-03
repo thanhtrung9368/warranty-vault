@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.GppBad
@@ -33,6 +34,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -155,6 +157,7 @@ fun DashboardScreen(
     api: ApiService,
     userName: String,
     onOpenDevice: (String) -> Unit = {},
+    onOpenSearch: () -> Unit = {},
 ) {
     val vm: DashboardViewModel = viewModel(
         factory = viewModelFactory { DashboardViewModel(api) },
@@ -169,6 +172,13 @@ fun DashboardScreen(
         topBar = {
             TopAppBar(
                 title = { Text("") },
+                actions = {
+                    // The landing tab is where a global search has to be
+                    // reachable from — one query covers all three lists.
+                    IconButton(onClick = onOpenSearch) {
+                        Icon(Icons.Filled.Search, "Tìm kiếm tất cả")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),

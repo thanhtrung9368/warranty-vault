@@ -43,6 +43,7 @@ import com.warrantyvault.app.ui.screens.dashboard.DashboardScreen
 import com.warrantyvault.app.ui.screens.devices.DeviceDetailScreen
 import com.warrantyvault.app.ui.screens.devices.DevicesScreen
 import com.warrantyvault.app.ui.screens.reminders.RemindersScreen
+import com.warrantyvault.app.ui.screens.search.SearchScreen
 import com.warrantyvault.app.ui.screens.settings.PushDevicesScreen
 import com.warrantyvault.app.ui.screens.settings.SettingsScreen
 import com.warrantyvault.app.ui.screens.stats.StatsScreen
@@ -76,6 +77,17 @@ fun MainScreen(auth: AuthStore) {
     var openSubscriptionId by rememberSaveable { mutableStateOf<String?>(null) }
     var openWishlistId by rememberSaveable { mutableStateOf<String?>(null) }
     var openPushDevices by rememberSaveable { mutableStateOf(false) }
+    // Global search (GET /api/v1/search) is a full-screen surface of the shell
+    // rather than a tab: the tab bar already carries seven destinations, and a
+    // search is a detour you come back from, not a place you live in. Checked
+    // *after* the detail routes so a result can push a detail screen on top and
+    // Back lands on the results again.
+    //
+    // The keyword lives here, not in SearchScreen: the route swap removes that
+    // composable from the tree, and a local rememberSaveable would then come
+    // back empty after opening a result.
+    var openSearch by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     val devId = openDeviceId
     if (devId != null) {
@@ -108,6 +120,18 @@ fun MainScreen(auth: AuthStore) {
         PushDevicesScreen(
             api = App.instance.api,
             onBack = { openPushDevices = false },
+        )
+        return
+    }
+    if (openSearch) {
+        SearchScreen(
+            api = App.instance.api,
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            onBack = { openSearch = false },
+            onOpenDevice = { openDeviceId = it },
+            onOpenSubscription = { openSubscriptionId = it },
+            onOpenWishlistItem = { openWishlistId = it },
         )
         return
     }
@@ -159,10 +183,12 @@ fun MainScreen(auth: AuthStore) {
                         api = App.instance.api,
                         userName = userName,
                         onOpenDevice = { openDeviceId = it },
+                        onOpenSearch = { openSearch = true },
                     )
                     Tab.Devices       -> DevicesScreen(
                         api = App.instance.api,
                         onOpenDevice = { openDeviceId = it },
+                        onOpenSearch = { openSearch = true },
                     )
                     Tab.Reminders     -> RemindersScreen(
                         api = App.instance.api,
@@ -171,10 +197,12 @@ fun MainScreen(auth: AuthStore) {
                     Tab.Subscriptions -> SubscriptionsScreen(
                         api = App.instance.api,
                         onOpenSubscription = { openSubscriptionId = it },
+                        onOpenSearch = { openSearch = true },
                     )
                     Tab.Wishlist      -> WishlistScreen(
                         api = App.instance.api,
                         onOpenItem = { openWishlistId = it },
+                        onOpenSearch = { openSearch = true },
                     )
                     Tab.Stats         -> StatsScreen(api = App.instance.api)
                     Tab.Settings      -> SettingsScreen(

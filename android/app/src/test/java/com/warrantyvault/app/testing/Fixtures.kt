@@ -107,6 +107,7 @@ object Fixtures {
     fun wishlistItem(
         id: String = "wish-1",
         name: String = "Steam Deck",
+        category: String? = null,
         priority: WishlistPriority = WishlistPriority.WANT,
         status: WishlistStatus = WishlistStatus.WATCHING,
         currentPrice: Int? = 12_000_000,
@@ -117,6 +118,7 @@ object Fixtures {
     ) = WishlistItem(
         id = id,
         name = name,
+        category = category,
         priority = priority,
         status = status,
         currentPrice = currentPrice,

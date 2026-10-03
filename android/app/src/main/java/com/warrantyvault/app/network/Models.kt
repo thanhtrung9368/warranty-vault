@@ -489,6 +489,44 @@ data class PriceLogInput(
     val note: String? = null,
 )
 
+// ---- Cross-entity search ----
+
+/**
+ * Response of `GET /api/v1/search?q=&limit=` (openapi `SearchResults`).
+ *
+ * One round trip answers "where does this text appear at all?" across the three
+ * entity kinds, so the search screen never fires three list requests and merges
+ * them client-side. `limit` is **per group** (server default 20, hard cap 50) —
+ * 20 devices + 20 subscriptions + 20 wishlist rows at most.
+ *
+ * A blank query is a 200 with three empty groups, not a 400: clearing the search
+ * box is a normal keystroke, so [isEmpty] can never be read as "the request
+ * failed" (that is what an exception / [ApiErrorEnvelope] is for).
+ *
+ * Every group is defaulted. The server always serialises `[]` and never `null`,
+ * but a default keeps a partial or older payload from throwing on the results
+ * screen — the same leniency the other list envelopes take.
+ */
+@Serializable
+data class SearchResults(
+    /** The keyword the server actually matched, trimmed — echoed back to us. */
+    val query: String = "",
+    /** Matched devices, newest first. Result rows carry no `warranties`. */
+    val devices: List<Device> = emptyList(),
+    /** Matched subscriptions (name / brand / plan / accountEmail). */
+    val subscriptions: List<Subscription> = emptyList(),
+    /** Matched wishlist items (name / brand / notes). */
+    val wishlist: List<WishlistItem> = emptyList(),
+) {
+    /** Rows across all three groups — what the results header counts. */
+    val total: Int
+        get() = devices.size + subscriptions.size + wishlist.size
+
+    /** `true` when a non-blank query matched nothing at all. */
+    val isEmpty: Boolean
+        get() = total == 0
+}
+
 // ---- Push ----
 
 @Serializable

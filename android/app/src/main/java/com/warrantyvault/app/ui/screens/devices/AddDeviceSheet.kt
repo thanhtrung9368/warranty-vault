@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
@@ -146,25 +147,39 @@ fun AddDeviceSheet(
         d.warrantyMonths?.let { months = it.toString() }
     }
 
+    // One path for both pickers: sniff the real type → send as-is or transcode
+    // to JPEG → POST. A PDF takes the "as-is" branch, an image photo the same
+    // one (a HEIC/GIF image is re-encoded first, see ReceiptFiles.plan).
+    fun startScan(uri: Uri) {
+        scope.launch {
+            scanning = true
+            error = null
+            scanInfo = null
+            try {
+                val draft = extractReceiptFromUri(context, api, uri)
+                applyDraft(draft)
+                scanInfo = draft
+            } catch (e: Exception) {
+                error = e.toUserMessage(ApiClient.json)
+            } finally {
+                scanning = false
+            }
+        }
+    }
+
     val receiptPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                scanning = true
-                error = null
-                scanInfo = null
-                try {
-                    val draft = extractReceiptFromUri(context, api, uri)
-                    applyDraft(draft)
-                    scanInfo = draft
-                } catch (e: Exception) {
-                    error = e.toUserMessage(ApiClient.json)
-                } finally {
-                    scanning = false
-                }
-            }
-        }
+        if (uri != null) startScan(uri)
+    }
+
+    // PDF receipts (roadmap #15). The photo picker cannot return a PDF at all,
+    // so the widened scan flow adds the document picker next to it instead of
+    // replacing it — the image path (camera / gallery) stays exactly as it was.
+    val receiptPdfPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri != null) startScan(uri)
     }
 
     LaunchedEffect(Unit) {
@@ -217,8 +232,20 @@ fun AddDeviceSheet(
                     Spacer(Modifier.width(8.dp))
                     Text(if (scanning) "Đang quét hoá đơn…" else "Quét hoá đơn / phiếu bảo hành")
                 }
+                // PDF receipts: the Go endpoint takes a PDF as a `document`
+                // block, which the photo picker can't hand over.
+                OutlinedButton(
+                    onClick = { receiptPdfPicker.launch(arrayOf("application/pdf")) },
+                    enabled = !scanning,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.PictureAsPdf, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Chọn hoá đơn PDF")
+                }
                 Text(
-                    "Chụp hoặc chọn ảnh để tự điền — vẫn kiểm tra lại trước khi lưu.",
+                    "Chụp hoặc chọn ảnh, hoặc chọn hoá đơn PDF để tự điền — " +
+                        "vẫn kiểm tra lại trước khi lưu.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -568,22 +595,40 @@ private fun today(): String =
         .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
         .format(Date())
 
-// Reads an image Uri, sends it to the Go OCR endpoint, returns the draft. The
-// server decrypts/validates/maps and never persists — the caller seeds the
-// form and the user confirms.
+// Reads the picked receipt (an image from the photo picker, or a PDF from the
+// document picker), sends it to the Go OCR endpoint, returns the draft. The
+// server decrypts/validates/maps and never persists — the caller seeds the form
+// and the user confirms.
+//
+// The multipart Content-Type is what the MAGIC BYTES say, not what the content
+// provider claims: the handler compares the declared type against the received
+// bytes (`files.DetectAndValidate`) and 400s on a mismatch, and providers do
+// mislabel HEIC photos as `image/jpeg`. A PDF is sent byte-for-byte — it is a
+// `document` block on the server side and must never be decoded as an image;
+// only HEIC/GIF take the client-side JPEG transcode.
 private suspend fun extractReceiptFromUri(
     context: android.content.Context,
     api: ApiService,
     uri: Uri,
 ): DraftDevice {
     val resolver = context.contentResolver
-    val mime = resolver.getType(uri) ?: "image/jpeg"
     val bytes = withContext(Dispatchers.IO) {
         resolver.openInputStream(uri)?.use { it.readBytes() }
-    } ?: throw IllegalStateException("Không đọc được ảnh")
-    val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
-    val part = MultipartBody.Part.createFormData("file", "receipt.jpg", body)
+    } ?: throw IllegalStateException("Không đọc được tệp")
+    val part = when (val plan = ReceiptFiles.plan(bytes)) {
+        is ReceiptPlan.SendAsIs -> receiptPart(bytes, plan.mime, plan.fileName)
+        ReceiptPlan.TranscodeToJpeg -> {
+            val jpeg = transcodeReceiptToJpeg(bytes)
+            receiptPart(jpeg, "image/jpeg", "receipt.jpg")
+        }
+        ReceiptPlan.Unsupported -> throw IllegalStateException(ReceiptFiles.UNSUPPORTED_MESSAGE)
+    }
     return api.extractReceipt(part).draft
+}
+
+private fun receiptPart(bytes: ByteArray, mime: String, fileName: String): MultipartBody.Part {
+    val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
+    return MultipartBody.Part.createFormData("file", fileName, body)
 }
 
 private fun unmatchedLabel(key: String): String? = when (key) {
