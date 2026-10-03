@@ -7,13 +7,14 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-03 (lần 4) — **0.1 và 0.2 đều đã xong**; phần còn lại vẫn kiểm lại
+**Cập nhật:** 2026-10-03 (lần 5) — **0.1, 0.2 và 0.3 đã xong**; phần còn lại vẫn kiểm lại
 từng mục (không tin bản cũ). Mục nào đã hết việc thì ghi rõ là **HẾT VIỆC** chứ không xoá, để mày
 biết là tao đã kiểm chứ không phải bỏ sót.
 
-> **Nhóm 0 còn lại 0.3 và 0.5** — cả hai đều miễn phí và chỉ mất vài phút. 0.2 xong kéo theo việc
-> bỏ được **cả hai** workaround chạy test iOS (`DEVELOPER_DIR` lẫn `--disable-sandbox`), và mở khoá
-> luôn `xcrun simctl` cho mục 0.4.
+> **Nhóm 0 chỉ còn 0.5 (VAPID)** — miễn phí, ~2 phút. 0.2 xong kéo theo việc bỏ được **cả hai**
+> workaround chạy test iOS (`DEVELOPER_DIR` lẫn `--disable-sandbox`) và mở khoá `xcrun simctl` cho
+> mục 0.4. 0.3 xong nghĩa là **`.env` ở gốc repo đã có đủ 4 biến compose bắt buộc**, nên
+> `docker compose up` đã chạy được (VAPID/APNS/FCM đều tuỳ chọn, thiếu chỉ tắt push).
 
 > Kiểm ở HEAD `794b35a` **+ working tree** (backend agent còn đang commit). Thay đổi so với bản 2026-10-02:
 > **(a)** 0.1 (quyền `~/.npm`) **hết việc** — không cần `sudo` nữa;
@@ -68,15 +69,17 @@ xcode-select -p   # phải ra /Applications/Xcode.app/Contents/Developer
   `--disable-sandbox`; mở được project trong Xcode; `xcrun simctl` hoạt động.~~ → **đã đạt**.
   Điều này cũng mở khoá mục **0.4** (quyết định dọn 24G simulator) vì `xcrun simctl` nay dùng được.
 
-### [ ] 0.3 — Sinh bộ secret cho production
+### [x] 0.3 — Sinh bộ secret cho production — ✅ **XONG 2026-10-03**
 
-Chạy 3 lệnh này, **lưu lại đâu đó an toàn** (1Password / keychain):
+Chạy 4 lệnh này. **Đừng để giá trị hiện ra màn hình** — thêm `| pbcopy` rồi dán thẳng vào
+1Password / keychain, vì giá trị in ra sẽ nằm trong scrollback của terminal (thứ bị lộ khi
+screenshot hoặc share màn hình). History của shell chỉ lưu *câu lệnh*, không lưu *kết quả*.
 
 ```bash
-openssl rand -hex 32      # → POSTGRES_PASSWORD
-openssl rand -base64 32   # → FILE_MASTER_KEY
-openssl rand -hex 32      # → CRON_SECRET
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # → SESSION_SECRET
+openssl rand -hex 32      | pbcopy   # → POSTGRES_PASSWORD
+openssl rand -base64 32   | pbcopy   # → FILE_MASTER_KEY
+openssl rand -hex 32      | pbcopy   # → CRON_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | pbcopy  # → SESSION_SECRET
 ```
 
 > ⚠️ **`POSTGRES_PASSWORD` phải dùng `-hex`, KHÔNG dùng `-base64`.** Mật khẩu base64
@@ -94,6 +97,19 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # �
 > Nên khi tạo `.env` ở repo root thì **tự thêm** dòng `POSTGRES_PASSWORD=...` (giá trị `-hex` ở trên),
 > đừng chỉ copy 2 file example rồi thắc mắc tại sao compose đòi biến chưa từng được nhắc.
 > `POSTGRES_USER` / `POSTGRES_DB` thì có default (`warranty` / `warranty_vault`), không cần điền.
+
+- **Đã làm 2026-10-03:** tạo **`.env` ở gốc repo** với **đúng 4 biến** trên. Kiểm lại (chỉ đọc
+  độ dài/định dạng, không in giá trị): `POSTGRES_PASSWORD` hex 64 ký tự **không chứa `/`**,
+  `FILE_MASTER_KEY` base64 44 ký tự, `CRON_SECRET` hex 64, `SESSION_SECRET` base64 44 — và **cả ba
+  giá trị dùng chung với bản dev đều khác** giá trị trong `api/.env` / `website/.env` (giá trị dev
+  nằm trong repo từ lâu, coi như đã lộ).
+- **Đã `chmod 600 .env`**: file gốc tạo ra là `644` (nhóm và người khác đọc được). Với file chứa
+  secret production thì chỉ chủ sở hữu nên đọc được.
+- **`.env` ở gốc đã nằm trong `.gitignore`** (`.gitignore:10`) — `git check-ignore` xác nhận, và
+  `git status` không thấy nó. Vẫn nên kiểm lại bằng `git status` trước mỗi lần commit lớn.
+- **Compose chỉ bắt buộc đúng 4 biến này** (`grep ':?' docker-compose.yml` → `POSTGRES_PASSWORD`,
+  `FILE_MASTER_KEY`, `CRON_SECRET`, `SESSION_SECRET`), nên **bộ tối thiểu đã đủ** để `docker compose up`.
+  VAPID/APNS/FCM đều tuỳ chọn — thiếu thì chỉ tắt push, không chặn khởi động.
 
 > ℹ️ **`SESSION_TTL_DAYS` là biến chết — đừng mất thời gian.** Compose có forward nó
 > (`docker-compose.yml:78`) và `deploy/PRODUCTION_CHECKLIST.md:63` có nhắc, nhưng **Go không đọc
@@ -339,7 +355,7 @@ Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, 
 ## Thứ tự tao đề xuất
 
 ```
-0.3 → 0.5                  (miễn phí, 10 phút, mở khoá dev local; 0.1 và 0.2 đã xong)
+0.5                        (miễn phí, 2 phút; 0.1, 0.2, 0.3 đã xong — nhóm 0 gần hết)
    ↓
 2.1 domain → 2.2 VPS       (bắt đầu tốn tiền ~$6/tháng)
    ↓
