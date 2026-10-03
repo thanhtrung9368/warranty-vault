@@ -20,6 +20,9 @@ struct DashboardView: View {
     @StateObject private var wishStore: WishlistStore
     @StateObject private var remindersStore: RemindersStore
     @StateObject private var statsStore: StatsStore
+    /// The derived "Việc cần xử lý" queue. Fetched here for its badge **only** —
+    /// the screen itself loads again when it opens.
+    @StateObject private var actionsStore: ActionQueueStore
 
     @State private var showQuickAdd = false
     @State private var quickAddTarget: DashQuickAdd?
@@ -31,6 +34,7 @@ struct DashboardView: View {
         _wishStore = StateObject(wrappedValue: WishlistStore(client: client))
         _remindersStore = StateObject(wrappedValue: RemindersStore(client: client))
         _statsStore = StateObject(wrappedValue: StatsStore(client: client))
+        _actionsStore = StateObject(wrappedValue: ActionQueueStore(client: client))
     }
 
     // MARK: - Computed stats
@@ -101,6 +105,11 @@ struct DashboardView: View {
                 statGrid
                     .padding(.horizontal, WVSpacing.gutter)
                     .padding(.bottom, 4)
+
+                // "Việc cần xử lý" — the derived queue, one tap away. Placed
+                // above the warranty preview because it is the only block here
+                // that asks the user to do something.
+                actionQueueSection
 
                 // Upcoming warranties
                 upcomingWarrantiesSection
@@ -174,6 +183,18 @@ struct DashboardView: View {
                     .task { await devicesStore.load() }
             }
         }
+        // Where a "Việc cần xử lý" row can lead. Registered here, on the stack
+        // that owns them, rather than inside the pushed screen.
+        .navigationDestination(for: ActionQueueNav.self) { nav in
+            switch nav {
+            case .device(let id):
+                ActionDeviceDestination(client: client, store: devicesStore, deviceId: id)
+            case .subscription(let id):
+                SubscriptionDetailView(client: client, store: subsStore, subscriptionId: id)
+            case .wishlistItem(let id):
+                WishlistDetailView(client: client, store: wishStore, itemId: id)
+            }
+        }
         .task {
             await withTaskGroup(of: Void.self) { g in
                 g.addTask { await self.devicesStore.load() }
@@ -181,6 +202,7 @@ struct DashboardView: View {
                 g.addTask { await self.wishStore.load() }
                 g.addTask { await self.remindersStore.load() }
                 g.addTask { await self.statsStore.load() }
+                g.addTask { await self.actionsStore.load() }
             }
         }
         .refreshable {
@@ -190,6 +212,7 @@ struct DashboardView: View {
                 g.addTask { await self.wishStore.load() }
                 g.addTask { await self.remindersStore.load() }
                 g.addTask { await self.statsStore.load() }
+                g.addTask { await self.actionsStore.load() }
             }
         }
     }
@@ -246,6 +269,73 @@ struct DashboardView: View {
             )
         }
         .padding(.bottom, 4)
+    }
+
+    // MARK: - Action queue ("Việc cần xử lý")
+
+    /// The dashboard's door into `GET /api/v1/actions`.
+    ///
+    /// The badge is `counts.total` — the server's count of the items that are
+    /// **actionable right now**. It is never the number of rows on screen (a
+    /// `?snoozed=true` read adds rows without adding work) and never a local sum,
+    /// so a snooze can move a row without moving the badge's meaning.
+    private var actionQueueSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            WVDashSectionHead("Việc cần xử lý")
+
+            WVGroup {
+                NavigationLink {
+                    ActionQueueScreen(store: actionsStore)
+                } label: {
+                    actionQueueRow
+                }
+                .buttonStyle(WVRowButtonStyle())
+            }
+            .padding(.bottom, 4)
+        }
+    }
+
+    private var actionQueueRow: some View {
+        let total = actionsStore.badgeCount
+        let urgent = (total ?? 0) > 0
+
+        return HStack(spacing: 12) {
+            WVLeadingIcon(icon: urgent ? "alert" : "checkCircle",
+                          color: urgent ? WVColor.orange : WVColor.green,
+                          size: 34)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Việc cần xử lý")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(WVColor.label)
+                // A failed read shows no number at all: "0 việc" would be a claim
+                // this screen cannot support.
+                Text(ActionQueueRules.entrySubtitle(counts: actionsStore.queue?.counts))
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label3)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+
+            if let total, total > 0 {
+                Text("\(total)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 9)
+                    .frame(height: 22)
+                    .background(WVColor.red)
+                    .clipShape(Capsule())
+            }
+
+            WVIcon("arrowRight", size: 13, weight: .semibold)
+                .foregroundStyle(WVColor.label4)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 
     // MARK: - Upcoming warranties

@@ -51,6 +51,26 @@ struct DeviceDetailView: View {
         return warranties.map { warrantyDaysLeft($0) }.max()
     }
 
+    /// The exchange / return window as a **read-only** row, or `nil` when nothing
+    /// is recorded.
+    ///
+    /// `returnDeadline` is the value the server computed for this read — the
+    /// client never divides the days itself. `0` days is a recorded answer ("cửa
+    /// hàng không cho đổi trả"), which is why it renders a line of its own instead
+    /// of looking like "chưa biết".
+    private var returnWindowDisplay: (value: String, note: String?)? {
+        guard let detail = store.device,
+              DeviceReturnWindow.hasReturnWindow(detail.returnWindowDays) else { return nil }
+
+        if let label = DeviceReturnWindow.deadlineLabel(detail.returnDeadline) {
+            return (label, DeviceReturnWindow.deadlineNote(detail.returnDeadline))
+        }
+        if DeviceReturnWindow.isNoExchange(detail.returnWindowDays) {
+            return ("Không cho đổi trả", "cửa hàng không áp dụng đổi/trả")
+        }
+        return nil
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -71,6 +91,17 @@ struct DeviceDetailView: View {
                     WVRow(icon: "calendar", iconColor: WVColor.red,
                           title: "Ngày mua",
                           detail: WVFormat.date(currentDevice.purchaseDate))
+                    if let window = returnWindowDisplay {
+                        WVDivider(inset: 60)
+                        // Read-only: this is the server's own derived deadline
+                        // (`COALESCE(receivedAt, purchaseDate) + returnWindowDays`),
+                        // never recomputed here. There is no input for the window
+                        // length on purpose — see `DeviceReturnWindow`.
+                        WVRow(icon: "arrowDown", iconColor: WVColor.purple,
+                              title: "Hạn đổi/trả",
+                              subtitle: window.note,
+                              detail: window.value)
+                    }
                     WVDivider(inset: 60)
                     WVRow(icon: "wallet", iconColor: WVColor.green,
                           title: "Giá mua",
@@ -347,6 +378,11 @@ struct DeviceDetailView: View {
         input.purchasePrice = d.purchasePrice
         input.status = status
         input.notes = d.notes
+        // A status change is still a FULL replacement of the device row, so the
+        // recorded exchange window has to travel with it. Omitting it here would
+        // erase a window the user recorded elsewhere just because they tapped
+        // "Đã bán".
+        DeviceReturnWindow.apply(DeviceReturnWindow.carried(from: d), to: &input)
         do {
             let result = try await devicesStore.update(id: d.id, input)
             // PATCH /devices/{id} carries the same advisory array as create. The

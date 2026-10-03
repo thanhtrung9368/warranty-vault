@@ -77,6 +77,41 @@ public actor APIClient {
         }
     }
 
+    // MARK: - URL building
+
+    /// Builds a request URL.
+    ///
+    /// `percentEncodedPath` selects a path whose segments are **already** escaped
+    /// (see `Endpoints.actionSnoozePath`). The default branch escapes every
+    /// segment for us, which would turn a deliberate `%3A` into `%253A`; the
+    /// escaped branch hands the string through untouched so a single path segment
+    /// can carry a reserved character without creating a new segment.
+    nonisolated static func url(
+        baseURL: URL,
+        path: String,
+        query: [URLQueryItem],
+        percentEncodedPath: Bool = false
+    ) throws -> URL {
+        guard var components = URLComponents(
+            url: baseURL.appendingPathComponent(path),
+            resolvingAgainstBaseURL: false
+        ) else { throw APIError.invalidURL }
+
+        if percentEncodedPath {
+            guard var encoded = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+                throw APIError.invalidURL
+            }
+            var base = encoded.percentEncodedPath
+            if base.hasSuffix("/") { base.removeLast() }
+            encoded.percentEncodedPath = base + path
+            components = encoded
+        }
+
+        if !query.isEmpty { components.queryItems = query }
+        guard let url = components.url else { throw APIError.invalidURL }
+        return url
+    }
+
     // MARK: - Core request
 
     func request<Out: Decodable>(
@@ -85,10 +120,12 @@ public actor APIClient {
         query: [URLQueryItem] = [],
         body: Encodable? = nil,
         authenticated: Bool = true,
+        percentEncodedPath: Bool = false,
         as outType: Out.Type = Out.self
     ) async throws -> Out {
         let data = try await rawRequest(
-            method, path, query: query, body: body, authenticated: authenticated
+            method, path, query: query, body: body, authenticated: authenticated,
+            percentEncodedPath: percentEncodedPath
         )
         if Out.self == EmptyResponse.self {
             return EmptyResponse() as! Out
@@ -105,14 +142,11 @@ public actor APIClient {
         _ path: String,
         query: [URLQueryItem] = [],
         body: Encodable? = nil,
-        authenticated: Bool = true
+        authenticated: Bool = true,
+        percentEncodedPath: Bool = false
     ) async throws -> Data {
-        var components = URLComponents(
-            url: baseURL.appendingPathComponent(path),
-            resolvingAgainstBaseURL: false
-        )!
-        if !query.isEmpty { components.queryItems = query }
-        guard let url = components.url else { throw APIError.invalidURL }
+        let url = try Self.url(baseURL: baseURL, path: path, query: query,
+                               percentEncodedPath: percentEncodedPath)
 
         var req = URLRequest(url: url)
         req.httpMethod = method
@@ -156,12 +190,7 @@ public actor APIClient {
         contentType: String? = nil,
         authenticated: Bool = true
     ) async throws -> Data {
-        var components = URLComponents(
-            url: baseURL.appendingPathComponent(path),
-            resolvingAgainstBaseURL: false
-        )!
-        if !query.isEmpty { components.queryItems = query }
-        guard let url = components.url else { throw APIError.invalidURL }
+        let url = try Self.url(baseURL: baseURL, path: path, query: query)
 
         var req = URLRequest(url: url)
         req.httpMethod = method

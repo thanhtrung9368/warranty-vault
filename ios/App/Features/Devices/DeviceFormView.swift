@@ -52,6 +52,17 @@ struct DeviceFormView: View {
     @State private var status: DeviceStatus
     @State private var notes: String
 
+    /// The exchange / return window, loaded from the device being edited and sent
+    /// straight back on every save.
+    ///
+    /// This screen deliberately has **no** input for it. `PATCH
+    /// /api/v1/devices/{id}` replaces the whole device, so a save that omitted
+    /// these two fields would silently erase a window recorded on the web or on
+    /// Android. Nothing here lets the user *set* a window — it only refuses to
+    /// destroy one. When `device` is nil (create) both values are `nil`, which the
+    /// encoder drops, i.e. exactly what the server already has.
+    @State private var returnWindow: ReturnWindowFields
+
     // UI state
     @State private var showCategoryPicker = false
     @State private var showDiscardAlert = false
@@ -106,6 +117,8 @@ struct DeviceFormView: View {
         _warrantyAddress = State(initialValue: "")
         _status = State(initialValue: device?.status ?? .ACTIVE)
         _notes = State(initialValue: device?.notes ?? "")
+        // Load the recorded window once; `submit()` writes it back unchanged.
+        _returnWindow = State(initialValue: device.map(DeviceReturnWindow.carried(from:)) ?? .unknown)
     }
 
     // MARK: - Validation
@@ -656,6 +669,12 @@ struct DeviceFormView: View {
         input.purchasePrice = price ?? 0
         input.status = status
         input.notes = notes.isEmpty ? nil : notes
+
+        // The window is fully replaced by a PATCH, so the values loaded from the
+        // device travel back on every save — create included (both are nil there,
+        // which the encoder omits). There is no UI for this and deliberately so:
+        // no client may *set* a window until all three ship the fields.
+        DeviceReturnWindow.apply(returnWindow, to: &input)
 
         if !isEditing {
             input.warrantyMonths = Int(warrantyMonths) ?? 0

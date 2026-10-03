@@ -373,6 +373,75 @@ extension APIClient {
         )
     }
 
+    // MARK: - Action queue ("Việc cần xử lý")
+
+    /// The derived queue of things that need a decision.
+    ///
+    /// `snoozed` is an **opt-in that only adds rows**: the default read returns
+    /// what is actionable now, and `true` returns those *plus* the rows a snooze
+    /// is hiding (each carrying `snoozedUntil`). `counts` counts the actionable
+    /// subset either way, which is why a badge must read it rather than the row
+    /// count. The flag is only ever sent when it is `true` — the server default is
+    /// already the other branch, so `snoozed=false` would just be noise.
+    public func listActionItems(snoozed: Bool = false) async throws -> ActionQueue {
+        var query: [URLQueryItem] = []
+        if snoozed { query.append(.init(name: "snoozed", value: "true")) }
+        return try await request("GET", "/api/v1/actions", query: query)
+    }
+
+    /// Hides one item until `now + days`, for this account, on **every** device
+    /// (the snooze lives server-side, so a local flag could not do this).
+    ///
+    /// `days` is always sent explicitly by this client; leaving it `nil` sends no
+    /// body at all, which the server reads as its 90-day default. The returned
+    /// `days` is the duration the server actually applied.
+    ///
+    /// Snoozing does **not** touch warranty notifications: the server keeps
+    /// `DecisionSnooze` separate from `Reminder`.
+    public func snoozeActionItem(_ itemKey: String, days: Int? = nil) async throws -> SnoozeResult {
+        try await request(
+            "POST", Self.actionSnoozePath(itemKey),
+            body: days.map { SnoozeInput(days: $0) },
+            percentEncodedPath: true
+        )
+    }
+
+    /// Un-snoozes — the item returns to the queue on the next read. The server
+    /// answers 404 when the item was not snoozed (deliberately not a silent 200),
+    /// so the caller can tell that another device already changed the state.
+    public func unsnoozeActionItem(_ itemKey: String) async throws {
+        let _: EmptyResponse = try await request(
+            "DELETE", Self.actionSnoozePath(itemKey), percentEncodedPath: true
+        )
+    }
+
+    /// Path of the snooze endpoints for one item.
+    ///
+    /// `itemKey` is `<KIND>:<entityId>`. The colon is legal unencoded inside a
+    /// path segment, but it is percent-encoded here so the key can never be read
+    /// as a structural separator — and `/` is encoded with it so an id can never
+    /// split the path into extra segments. Go's `ServeMux` unescapes a segment
+    /// before `PathValue`, so the handler still sees `KIND:id`
+    /// (`api/internal/handlers/actions.go`).
+    nonisolated public static func actionSnoozePath(_ itemKey: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: ":/")
+        let segment = itemKey.addingPercentEncoding(withAllowedCharacters: allowed) ?? itemKey
+        return "/api/v1/actions/\(segment)/snooze"
+    }
+
+    // MARK: - Subscription audit ("Soát gói đăng ký")
+
+    /// The advisory self-audit of the user's subscriptions.
+    ///
+    /// Read-only by construction: the endpoint has no write path, cancels nothing
+    /// and disables nothing (`advisory` is always `true`). It reads **payment
+    /// history**, never usage — the app has no usage telemetry, which is why the
+    /// payload's own `note` says so and why the screen renders it verbatim.
+    public func subscriptionAudit() async throws -> SubscriptionAudit {
+        try await request("GET", "/api/v1/subscriptions/audit")
+    }
+
     // MARK: - Cross-entity search
 
     /// Searches devices, subscriptions and wishlist in one round trip.

@@ -359,6 +359,118 @@ final class EndpointsTests: KitTestCase {
         XCTAssertEqual(request.url?.path, "/api/v1/auth/sessions/ses_now")
     }
 
+    // MARK: - Action queue ("Việc cần xử lý")
+
+    /// The queue read is opt-in: the flag is sent **only** when the caller asks
+    /// for the snoozed rows, and `true` only ever ADDS rows server-side.
+    func testListActionItemsSendsTheSnoozedFlagOnlyWhenAsked() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"generatedAt": "2026-03-15T00:00:00Z",
+         "items": [{"itemKey": "WARRANTY_EXPIRED:war_1", "kind": "WARRANTY_EXPIRED",
+                    "severity": "HIGH", "title": "Bảo hành đã hết hạn",
+                    "detail": "Gói Tiêu chuẩn của «MacBook Pro 14» đã hết hạn ngày 01/03/2026 (14 ngày trước).",
+                    "deviceId": "dev_1", "warrantyId": "war_1",
+                    "dueDate": "2026-03-01T00:00:00Z", "amountVnd": 4294967296}],
+         "counts": {"total": 1, "high": 1, "medium": 0, "low": 0},
+         "snoozedCount": 4, "note": "Danh sách này chỉ gồm những việc app TỰ SUY RA…"}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let queue = try await client.listActionItems()
+
+        XCTAssertEqual(queue.items.map(\.itemKey), ["WARRANTY_EXPIRED:war_1"])
+        XCTAssertEqual(queue.items.first?.title, "Bảo hành đã hết hạn",
+                       "the server's own sentence is carried through untouched")
+        XCTAssertEqual(queue.items.first?.amountVnd, 4_294_967_296, "int64 money is not narrowed")
+        XCTAssertEqual(ActionQueueRules.badgeCount(queue.counts), 1)
+        XCTAssertEqual(queue.snoozedCount, 4, "the separate \"đang hoãn\" number is kept apart")
+        XCTAssertTrue(queue.note.contains("TỰ SUY RA"))
+
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/actions")
+        XCTAssertNil(request.url?.query,
+                     "the default read sends nothing — snoozed=false would just be noise")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+
+        // The opt-in read. A snoozed row is only ever distinguishable by
+        // `snoozedUntil`, which is why `isSnoozed` is derived from it.
+        StubURLProtocol.install(.json(#"""
+        {"generatedAt": "2026-03-15T00:00:00Z",
+         "items": [{"itemKey": "WARRANTY_EXPIRED:war_1", "kind": "WARRANTY_EXPIRED",
+                    "severity": "HIGH", "title": "t", "detail": "d", "deviceId": "dev_1"},
+                   {"itemKey": "DEVICE_MISSING_SERIAL:dev_2", "kind": "DEVICE_MISSING_SERIAL",
+                    "severity": "LOW", "title": "t", "detail": "d", "deviceId": "dev_2",
+                    "snoozedUntil": "2026-06-13T00:00:00Z"}],
+         "counts": {"total": 1, "high": 1, "medium": 0, "low": 0},
+         "snoozedCount": 1, "note": "n"}
+        """#))
+        let withSnoozed = try await client.listActionItems(snoozed: true)
+
+        XCTAssertEqual(withSnoozed.items.count, 2)
+        XCTAssertEqual(withSnoozed.items.filter(\.isSnoozed).map(\.itemKey),
+                       ["DEVICE_MISSING_SERIAL:dev_2"])
+        XCTAssertEqual(ActionQueueRules.badgeCount(withSnoozed.counts), 1,
+                       "the badge never grows with the snoozed flag")
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(queryItems(of: request), ["snoozed": "true"])
+    }
+
+    /// `itemKey` is `<KIND>:<entityId>`. The colon is percent-encoded in the path
+    /// segment, and the route still resolves to the snooze endpoints — asserted
+    /// here on our own path rather than assumed from the web's result.
+    func testSnoozeAndUnsnoozePercentEncodeTheItemKeyInThePath() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+        let itemKey = "WARRANTY_EXPIRED:clx1234"
+
+        StubURLProtocol.install(.json(#"""
+        {"itemKey": "WARRANTY_EXPIRED:clx1234",
+         "snoozedUntil": "2026-06-13T00:00:00Z", "days": 90}
+        """#))
+        let result = try await client.snoozeActionItem(itemKey, days: 90)
+
+        XCTAssertEqual(result.days, 90)
+        XCTAssertEqual(result.itemKey, itemKey)
+        XCTAssertEqual(ActionQueueRules.snoozeConfirmation(result),
+                       "Đã hoãn 90 ngày — việc này hiện lại 13/06/2026")
+
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/actions/WARRANTY_EXPIRED:clx1234/snooze",
+                       "the path segment is one segment, holding the whole key")
+        XCTAssertEqual(request.url?.absoluteString,
+                       "https://api.example.test/api/v1/actions/WARRANTY_EXPIRED%3Aclx1234/snooze",
+                       "the colon is percent-encoded on the wire")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(try request.jsonBody()["days"] as? Int, 90)
+
+        // No `days` at all is the server's own 90-day default: no body is sent.
+        StubURLProtocol.install(.json(#"""
+        {"itemKey": "WARRANTY_EXPIRED:clx1234",
+         "snoozedUntil": "2026-06-13T00:00:00Z", "days": 90}
+        """#))
+        _ = try await client.snoozeActionItem(itemKey)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertTrue(request.capturedBody.isEmpty, "no days ⇒ no body, so the server's default applies")
+
+        StubURLProtocol.install(.json(#"{"ok": true, "itemKey": "WARRANTY_EXPIRED:clx1234"}"#))
+        try await client.unsnoozeActionItem(itemKey)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.absoluteString,
+                       "https://api.example.test/api/v1/actions/WARRANTY_EXPIRED%3Aclx1234/snooze")
+        XCTAssertTrue(request.capturedBody.isEmpty)
+    }
+
+    /// An id containing a slash must not be able to split the path into extra
+    /// segments — it is escaped with the colon.
+    func testItemKeyPathEscapesSlashesToo() {
+        XCTAssertEqual(APIClient.actionSnoozePath("WARRANTY_EXPIRED:a/b"),
+                       "/api/v1/actions/WARRANTY_EXPIRED%3Aa%2Fb/snooze")
+        XCTAssertEqual(APIClient.actionSnoozePath("DEVICE_MISSING_RECEIPT:dev_1"),
+                       "/api/v1/actions/DEVICE_MISSING_RECEIPT%3Adev_1/snooze")
+    }
+
     // MARK: - Forecast
 
     func testForecastRequestsTheWindowAndDecodesBuckets() async throws {
@@ -558,6 +670,45 @@ final class EndpointsTests: KitTestCase {
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.url?.path, "/api/v1/subscriptions/sub_1/payments")
         XCTAssertEqual(try request.jsonBody()["note"] as? String, "Gia hạn")
+    }
+
+    /// `GET /api/v1/subscriptions/audit` is a plain authenticated read of its own
+    /// route — it is not the detail route, and it writes nothing.
+    func testSubscriptionAuditReadsItsOwnRoute() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"generatedAt": "2026-03-15T00:00:00Z",
+         "findings": [{"findingKey": "PRICE_INCREASED:sub_1", "kind": "PRICE_INCREASED",
+                       "severity": "MEDIUM", "title": "Giá gói đã tăng",
+                       "detail": "«iCloud+ 200GB» tăng từ 59.000 ₫ lên 61.000 ₫ (+2.000 ₫, +3%) ở kỳ thanh toán ngày 01/02/2026.",
+                       "subscriptionIds": ["sub_1"], "names": ["iCloud+ 200GB"],
+                       "monthlyVnd": 61000, "chargedTotalVnd": 0, "chargeCount": 0,
+                       "previousAmountVnd": 59000, "amountVnd": 61000, "increaseVnd": 2000,
+                       "increasePercent": 3, "material": false,
+                       "lastRecordedAt": "2026-02-01T00:00:00"}],
+         "counts": {"total": 1, "high": 0, "medium": 1, "low": 0},
+         "advisory": true,
+         "thresholds": {"quietMinAutoCharges": 3, "quietMinMonths": 6, "upcomingRenewalDays": 14,
+                        "priceRiseMinPercent": 5, "duplicateNormalized": true},
+         "note": "Đây là số liệu TỰ SOÁT từ những gì bạn đã ghi…"}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let audit = try await client.subscriptionAudit()
+
+        XCTAssertEqual(audit.counts.total, 1)
+        XCTAssertTrue(audit.advisory)
+        XCTAssertEqual(audit.thresholds?.priceRiseMinPercent, 5)
+        XCTAssertEqual(audit.findings.first?.material, false)
+        XCTAssertEqual(SubscriptionAuditRules.minorPillLabel(try XCTUnwrap(audit.findings.first)),
+                       "Thay đổi nhỏ")
+        XCTAssertTrue(audit.note.contains("TỰ SOÁT"))
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/subscriptions/audit")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        XCTAssertTrue(request.capturedBody.isEmpty, "the audit is a read — nothing is written by it")
     }
 
     // MARK: - Wishlist

@@ -110,6 +110,16 @@ struct SubscriptionsScreen: View {
 
                 Spacer().frame(height: WVSpacing.md)
 
+                // "Soát gói đăng ký" — GET /api/v1/subscriptions/audit, one tap
+                // away. A plain entry row with no count on purpose: the report is
+                // a separate endpoint with its own `note` and `thresholds`, so
+                // fetching it here just to print a number would double this tab's
+                // requests and give the list a second failure mode. The audit
+                // screen owns its own badge.
+                auditEntryRow
+
+                Spacer().frame(height: WVSpacing.md)
+
                 WVSegmented(
                     options: [
                         (SubFilter.activePaused, "Đang dùng"),
@@ -155,6 +165,43 @@ struct SubscriptionsScreen: View {
         }
         .navigationDestination(isPresented: $pushCreate) {
             SubscriptionFormView(client: client, store: store)
+        }
+    }
+
+    // MARK: - Audit entry ("Soát gói đăng ký")
+
+    /// The way into the advisory self-audit.
+    ///
+    /// Deliberately a row rather than a section: the audit is read-only and
+    /// carries its own explanatory copy, so it opens its own screen. The text
+    /// here describes what it **reads** (recorded payment history) and never
+    /// pre-judges the result — no "gói bỏ quên", no "bạn không dùng".
+    private var auditEntryRow: some View {
+        WVGroup {
+            NavigationLink {
+                SubscriptionAuditScreen(client: client, subsStore: store)
+            } label: {
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "search", color: WVColor.purple, size: 34)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(SubscriptionAuditRules.entryTitle)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(WVColor.label)
+                        Text(SubscriptionAuditRules.entrySubtitle)
+                            .font(.system(size: 13))
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVRowButtonStyle())
         }
     }
 

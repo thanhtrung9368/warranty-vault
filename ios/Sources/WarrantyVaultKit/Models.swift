@@ -165,6 +165,39 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     public let createdAt: Date?
     public let updatedAt: Date?
 
+    /// Exchange / return window ("1 đổi 1") length in days, recorded by the user
+    /// for **this** device (migration 0010). Three states, and they are all
+    /// different: `nil` = **chưa biết** (the API has no default and never infers
+    /// one); `0` = the shop offers no exchange at all; `> 0` = that many days
+    /// counted from `receivedAt` (or `purchaseDate`). This is a shop policy the
+    /// user wrote down, **not** a legal right.
+    ///
+    /// ⚠️ `PATCH /api/v1/devices/{id}` replaces every field: a save that does not
+    /// send this back **clears** a recorded window. `DeviceInput` carries it too
+    /// for exactly that reason — see `DeviceReturnWindow`.
+    public let returnWindowDays: Int?
+
+    /// The day the user **actually received** the device, as the server's UTC
+    /// timestamp (`"2026-03-02T00:00:00Z"`) — the same wire shape as
+    /// `purchaseDate`. Kept as the raw string so only its date half is ever read:
+    /// parsing it as an instant would move the calendar day by the device's UTC
+    /// offset.
+    ///
+    /// `nil` means "chưa ghi", which is deliberately different from "arrived on
+    /// the purchase date": the deadline then falls back to `purchaseDate`, but the
+    /// app must not claim the device was received then.
+    public let receivedAt: String?
+
+    /// The derived exchange-window deadline,
+    /// `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`.
+    ///
+    /// Computed **server-side** on the list read only — it is not a stored column,
+    /// so a write response (POST/PATCH) omits it and this stays `nil` there. `nil`
+    /// also means "no window": unknown days, `0` days, or no date to count from.
+    /// Never recompute it locally: three clients dividing days three ways is
+    /// exactly what this field exists to prevent.
+    public let returnDeadline: String?
+
     // List-row projection only (`GET /api/v1/devices`). The Go service returns
     // `DeviceListItem` = `store.Device` + these two counts — see
     // `api/internal/services/devices.go` and `website/src/lib/api/devices.ts`.
@@ -194,6 +227,17 @@ public struct DeviceDetailBody: Decodable, Sendable {
     public let notes: String?
     public let attachments: [AttachmentMeta]?
     public let warranties: [Warranty]?
+
+    // The return window, on the detail read (openapi `DeviceDetail`).
+    //
+    // The detail endpoint is where the **derived** deadline is available even for
+    // a device that has dropped out of the list projection, and it is the read the
+    // detail screen uses to draw the read-only "Hạn đổi/trả" row. Same three-state
+    // rule as `Device.returnWindowDays`, and the same full-replacement warning:
+    // `DeviceDetailView.saveStatus` sends all three of the fields it loaded back.
+    public let returnWindowDays: Int?
+    public let receivedAt: String?
+    public let returnDeadline: String?
 }
 
 public struct DeviceInput: Encodable, Sendable {
@@ -213,6 +257,25 @@ public struct DeviceInput: Encodable, Sendable {
     public var warrantyPhone: String?
     public var warrantyNotes: String?
     public var fromWishlistId: String?
+
+    /// Exchange-window length in days (openapi `DeviceInput.returnWindowDays`).
+    /// Independent of `receivedAt` — sending one without the other is valid.
+    ///
+    /// `nil` (the key is then dropped from the JSON, which Go decodes as nil
+    /// exactly like an explicit null) means **chưa biết**; `0` is a real value
+    /// meaning "cửa hàng không cho đổi trả" and must be sent as `0`, never
+    /// collapsed into "absent". Out of `0–3650` → 400 `fieldErrors.returnWindowDays`.
+    ///
+    /// ⚠️ **Full-replacement warning.** `PATCH /api/v1/devices/{id}` replaces the
+    /// whole row, so omitting this key **erases** a window recorded by another
+    /// client. The device form therefore loads the existing value and sends it
+    /// straight back on every save — see `DeviceReturnWindow`.
+    public var returnWindowDays: Int?
+
+    /// The day the device was actually received (`YYYY-MM-DD` or full ISO), or
+    /// `nil` to clear it. Independent of `returnWindowDays`. Unparseable → 400
+    /// `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp lệ"]`.
+    public var receivedAt: String?
 
     public init(name: String, category: String, purchaseDate: String) {
         self.name = name; self.category = category; self.purchaseDate = purchaseDate
