@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Plus, Paperclip, Package, Search } from 'lucide-react';
+import { Plus, Paperclip, Package, Search, Coins, ClipboardPaste } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -67,30 +67,65 @@ export default async function DevicesPage({
             {isFiltered ? ' (đã lọc)' : ''}. Bấm vào từng cái để xem chi tiết.
           </p>
         </div>
-        <Button asChild size="lg" className="rounded-pill">
-          <Link href="/devices/new">
-            <Plus className="mr-1 h-4 w-4" />
-            Thêm thiết bị
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {/* đ/ngày (FEATURE_IDEAS #7) lives on /stats with the other money
+              rollups; this is the link that makes it discoverable from the list.
+              A sort option here would need every device's warranty costs (an
+              N+1 read on the hottest page) and a new `sort` value the Go service
+              does not accept, so the ranking is where the comparison happens. */}
+          <Button asChild size="lg" variant="outline" className="rounded-pill">
+            <Link href="/stats#chi-phi-moi-ngay">
+              <Coins className="mr-1 h-4 w-4" />
+              Chi phí mỗi ngày
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="rounded-pill">
+            <Link href="/devices/import">
+              <ClipboardPaste className="mr-1 h-4 w-4" />
+              Dán bảng
+            </Link>
+          </Button>
+          <Button asChild size="lg" className="rounded-pill">
+            <Link href="/devices/new">
+              <Plus className="mr-1 h-4 w-4" />
+              Thêm thiết bị
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <DevicesFilterBar categories={categories} />
 
       {devices.length === 0 ? (
-        <EmptyState
-          icon={isFiltered ? Search : Package}
-          tone={isFiltered ? 'zinc' : 'primary'}
-          title={
-            isFiltered ? 'Không có gì khớp bộ lọc' : 'Chưa có thiết bị nào, mày'
-          }
-          description={
-            isFiltered
-              ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
-              : 'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.'
-          }
-          cta={!isFiltered}
-        />
+        <>
+          <EmptyState
+            icon={isFiltered ? Search : Package}
+            tone={isFiltered ? 'zinc' : 'primary'}
+            title={
+              isFiltered ? 'Không có gì khớp bộ lọc' : 'Chưa có thiết bị nào, mày'
+            }
+            description={
+              isFiltered
+                ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
+                : 'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.'
+            }
+            cta={!isFiltered}
+          />
+          {/* The cold-start case this feature exists for: ten old items already
+              sitting in a spreadsheet. */}
+          {!isFiltered && (
+            <p className="text-center text-sm text-muted-foreground">
+              Đã có sẵn danh sách trong Excel/Google Sheets?{' '}
+              <Link
+                href="/devices/import"
+                className="font-semibold text-primary hover:underline"
+              >
+                Dán bảng để nhập nhiều thiết bị một lúc
+              </Link>
+              .
+            </p>
+          )}
+        </>
       ) : (
         <div className="overflow-hidden rounded-lg border-[1.5px] border-border bg-card">
           <Table>

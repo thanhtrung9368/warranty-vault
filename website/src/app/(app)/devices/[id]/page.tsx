@@ -17,6 +17,7 @@ import {
   HandCoins,
   TrendingDown,
   TrendingUp,
+  Coins,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,6 +47,7 @@ import { formatDate, formatVND } from '@/lib/format';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
 import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
+import { costPerDay } from '@/lib/stats-rollup';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +122,12 @@ export default async function DeviceDetailPage({
     device.soldPrice != null
       ? saleProfitLoss(device.purchasePrice, device.soldPrice)
       : null;
+  // Chi phí sở hữu mỗi ngày (FEATURE_IDEAS #7). Pure helper in
+  // `@/lib/stats-rollup` — the same function the /stats ranking uses, so the
+  // detail figure and the leaderboard can never disagree. `null` only when
+  // `purchaseDate` itself is unusable (the card then says so instead of
+  // printing a made-up number).
+  const perDay = costPerDay(device, device.warranties);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -342,6 +350,98 @@ export default async function DeviceDetailPage({
         </div>
 
         <div className="space-y-6">
+          {/* Chi phí sở hữu mỗi ngày (FEATURE_IDEAS #7). Deliberately next to
+              the money cards and above the attachment list: it is the one money
+              figure on this page that is divided by time, i.e. the only one that
+              can answer "món này có đáng tiền không". */}
+          <Card className="rounded-2xl border-[1.5px]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Coins className="h-5 w-5 text-amber-ink" />
+                Chi phí sử dụng
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {perDay == null ? (
+                <p className="text-muted-foreground">
+                  Thiết bị chưa có ngày mua hợp lệ nên chưa tính được chi phí mỗi ngày.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <p className="flex items-baseline gap-1.5">
+                      <span className="display text-2xl tabular-nums text-ink">
+                        {formatVND(perDay.perDay)}
+                      </span>
+                      <span className="text-muted-foreground">/ngày</span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {perDay.endedBySale ? 'Chi phí thực trả' : 'Tính đến hôm nay'} ·{' '}
+                      {perDay.days} ngày
+                      {perDay.endedBySale
+                        ? ` (${perDay.fromDayLabel} → ${perDay.toDayLabel})`
+                        : ` kể từ ${perDay.fromDayLabel}`}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 border-t border-dashed border-border pt-2 text-xs text-ink-2">
+                    <p className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Giá mua</span>
+                      <span className="tabular-nums">{formatVND(perDay.purchasePart)}</span>
+                    </p>
+                    <p className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">
+                        Gói bảo hành ({perDay.warrantyCount})
+                      </span>
+                      <span className="tabular-nums">{formatVND(perDay.warrantyPart)}</span>
+                    </p>
+                    {perDay.soldPart > 0 && (
+                      <p className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Tiền bán</span>
+                        <span className="tabular-nums">−{formatVND(perDay.soldPart)}</span>
+                      </p>
+                    )}
+                    <p className="flex items-center justify-between gap-2 border-t border-dashed border-border pt-1 font-semibold text-ink">
+                      <span>Tổng chi</span>
+                      <span className="tabular-nums">{formatVND(perDay.net)}</span>
+                    </p>
+                  </div>
+
+                  {(perDay.hasUnrecordedWarrantyCost ||
+                    perDay.soldBeforePurchase ||
+                    perDay.hasUndatedSale ||
+                    perDay.fullyRecovered ||
+                    perDay.hasNoRecordedCost) && (
+                    <ul className="space-y-1 border-t border-dashed border-border pt-2 text-xs text-muted-foreground">
+                      {perDay.hasNoRecordedCost && (
+                        <li>Chưa ghi giá mua và chi phí gói bảo hành nên tạm tính 0 ₫.</li>
+                      )}
+                      {perDay.hasUnrecordedWarrantyCost && (
+                        <li>Có gói bảo hành chưa ghi giá — con số này chỉ là mức tối thiểu.</li>
+                      )}
+                      {perDay.soldBeforePurchase && (
+                        <li>Ngày bán trước ngày mua — dữ liệu có vẻ sai, tạm tính 1 ngày.</li>
+                      )}
+                      {perDay.hasUndatedSale && (
+                        <li>Có giá bán nhưng thiếu ngày bán — tạm tính tới hôm nay.</li>
+                      )}
+                      {perDay.fullyRecovered && perDay.spent > 0 && (
+                        <li>Tiền bán đã thu hồi đủ (hoặc hơn) số đã chi.</li>
+                      )}
+                    </ul>
+                  )}
+
+                  <Link
+                    href="/stats#chi-phi-moi-ngay"
+                    className="inline-block text-xs font-semibold text-primary hover:underline"
+                  >
+                    So sánh với các thiết bị khác →
+                  </Link>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="rounded-2xl border-[1.5px]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

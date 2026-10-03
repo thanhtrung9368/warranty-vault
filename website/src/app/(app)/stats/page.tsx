@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Wallet,
   AlertTriangle,
+  Coins,
+  TrendingDown,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CategoryIconBadge } from '@/components/category-icon';
@@ -23,12 +25,14 @@ import {
   activeAssetValue,
   allTimeSpend,
   buildSpendEntries,
+  costPerDayRollup,
   entriesForYear,
   monthlySpendBuckets,
   spendByCategoryRollup,
   topExpensiveRollup,
   yearlySpend,
   yearsWithData,
+  type CostPerDayRankRow,
 } from '@/lib/stats-rollup';
 import { isForecastEmpty, normalizeForecastMonths } from '@/lib/forecast-rollup';
 import { CATEGORY_LABELS, type Category } from '@/lib/types';
@@ -121,6 +125,10 @@ export default async function StatsPage({
   const allTime = allTimeSpend(entries);
   const top = topExpensiveRollup(devices, 5);
   const asset = activeAssetValue(devices);
+  // đ/ngày (FEATURE_IDEAS #7): the inverse story of `top`. Same pure helper the
+  // device detail card uses, over the same warranty map this page already
+  // fetched — no extra request, no second money-math variant.
+  const perDayRanking = costPerDayRollup(devices, warrantiesByDevice, { limit: 5 });
 
   const monthlySubs = subscriptionStats?.totalMonthlyVnd ?? 0;
   const activeSubs = subscriptionStats?.byStatus?.ACTIVE ?? 0;
@@ -308,6 +316,62 @@ export default async function StatsPage({
         </Card>
       </div>
 
+      {/* ── đ/ngày (FEATURE_IDEAS #7) ──────────────────────────────────────
+          The deliberate inverse of "Top 5 thiết bị đắt nhất" above: raw price
+          says what you paid once, đ/ngày says what the thing costs you to own.
+          Both directions are shown because they tell different stories — the
+          machine that is cheapest per day is often the most expensive one. */}
+      <Card
+        id="chi-phi-moi-ngay"
+        className="scroll-mt-24 rounded-lg border-[1.5px] border-border bg-card shadow-soft"
+      >
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <span className="icon-badge icon-badge-xs tint-amber">
+              <Coins className="h-3.5 w-3.5" />
+            </span>
+            Chi phí mỗi ngày
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            (giá mua + gói bảo hành − tiền bán) ÷ số ngày sở hữu. Máy đắt mà dùng
+            lâu có thể rẻ mỗi ngày hơn máy rẻ mà dùng ngắn.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <CostPerDayList
+              title="Rẻ nhất mỗi ngày"
+              icon={<TrendingDown className="h-3.5 w-3.5" />}
+              tone="emerald"
+              rows={perDayRanking.cheapest}
+            />
+            <CostPerDayList
+              title="Đắt nhất mỗi ngày"
+              icon={<TrendingUp className="h-3.5 w-3.5" />}
+              tone="rose"
+              rows={perDayRanking.priciest}
+            />
+          </div>
+          {(perDayRanking.skipped.noPurchaseDate > 0 ||
+            perDayRanking.skipped.noRecordedCost > 0) && (
+            <p className="border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
+              Không xếp hạng:{' '}
+              {[
+                perDayRanking.skipped.noPurchaseDate > 0
+                  ? `${perDayRanking.skipped.noPurchaseDate} thiết bị thiếu ngày mua`
+                  : null,
+                perDayRanking.skipped.noRecordedCost > 0
+                  ? `${perDayRanking.skipped.noRecordedCost} thiết bị chưa ghi giá`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              .
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* ── Forward-looking half ──────────────────────────────────────────
           `GET /v1/forecast?months=` — the next N months of subscription
           charges, warranty expiries and wishlist milestones. It is a separate
@@ -354,6 +418,83 @@ function KpiCard({
       <p className="stat-eyebrow">{eyebrow}</p>
       <p className="stat-value text-ink">{value}</p>
       <p className="stat-sub">{sub}</p>
+    </div>
+  );
+}
+
+// One direction of the đ/ngày leaderboard. `≥` marks a figure that is only a
+// lower bound because at least one warranty package has no recorded cost — the
+// row stays in the ranking, but the number cannot be read as exact.
+function CostPerDayList({
+  title,
+  icon,
+  tone,
+  rows,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  tone: 'emerald' | 'rose';
+  rows: CostPerDayRankRow[];
+}) {
+  const anyLowerBound = rows.some((r) => r.cost.hasUnrecordedWarrantyCost);
+
+  return (
+    <div>
+      <p
+        className={cn(
+          'mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide',
+          tone === 'emerald' ? 'text-emerald-ink' : 'text-rose-ink',
+        )}
+      >
+        {icon}
+        {title}
+      </p>
+      {rows.length === 0 ? (
+        <p className="py-4 text-sm text-muted-foreground">
+          Chưa đủ dữ liệu — cần ngày mua và giá mua.
+        </p>
+      ) : (
+        <ol>
+          {rows.map((r, i) => (
+            <li key={r.device.id}>
+              <Link
+                href={`/devices/${r.device.id}`}
+                className={cn(
+                  'info-row flex items-center gap-3 py-2.5 hover:opacity-80',
+                  i === 0 && '!border-t-0 pt-0',
+                )}
+              >
+                <span className={cn('rank', `rank-${i + 1}`)}>{i + 1}</span>
+                <CategoryIconBadge category={r.device.category} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-display text-sm font-bold text-ink">
+                    {r.device.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {CATEGORY_LABELS[r.device.category as Category] ?? r.device.category} •{' '}
+                    {r.cost.days} ngày
+                    {r.cost.endedBySale ? ' (đã bán)' : ''}
+                  </p>
+                </div>
+                <span className="text-right">
+                  <span className="block font-display font-bold tabular-nums text-ink">
+                    {r.cost.hasUnrecordedWarrantyCost ? '≥ ' : ''}
+                    {r.cost.perDayLabel}
+                  </span>
+                  <span className="block text-xs tabular-nums text-muted-foreground">
+                    tổng {formatVND(r.cost.net)}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      )}
+      {anyLowerBound && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          “≥” = còn gói bảo hành chưa ghi giá, con số thực có thể cao hơn.
+        </p>
+      )}
     </div>
   );
 }
