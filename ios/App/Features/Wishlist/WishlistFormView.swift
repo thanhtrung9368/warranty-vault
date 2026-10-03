@@ -259,8 +259,10 @@ struct WishlistFormView: View {
         input.initialPrice     = initialPrice
         input.currentPrice     = currentPrice
         input.buyUrl           = buyUrl.isEmpty ? nil : buyUrl
+        // The picker's day, written in the zone the picker drew it in — a pinned
+        // format stores the day before the one on screen east of the pin.
         input.targetDate       = hasTargetDate
-            ? ISO8601DateFormatter.dayOnly.string(from: targetDate) : nil
+            ? WireDay.string(from: targetDate) : nil
         input.priority         = priority
         input.status           = item?.status ?? .WATCHING
         input.notes            = notes.isEmpty ? nil : notes

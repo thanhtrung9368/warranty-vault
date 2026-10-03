@@ -430,7 +430,11 @@ struct DeviceDetailView: View {
         statusSaving = true
         defer { statusSaving = false }
         let d = currentDevice
-        let isoDate = WVFormat.isoDay(d.purchaseDate)
+        // `d.purchaseDate` came from the shared decoder, which reads the Z-less
+        // wire value in the device's own zone. Writing it back through a
+        // zone-pinned formatter would move the day east of that pin — so a bare
+        // status tap on "Đã bán" would silently edit the purchase date.
+        let isoDate = WireDay.string(from: d.purchaseDate)
         var input = DeviceInput(name: d.name, category: d.category, purchaseDate: isoDate)
         input.brand = d.brand
         input.model = d.model

@@ -54,17 +54,22 @@ public final class SubscriptionsStore: ObservableObject {
 
     public func setStatus(id: String, status: SubscriptionStatus) async throws {
         guard let current = subscriptions.first(where: { $0.id == id }) else { return }
+        // A status tap is still a FULL replacement, so both dates are re-sent.
+        // They came from the shared decoder, which read the Z-less wire value in
+        // the device's own zone, so they are written back in that same zone —
+        // `WireDay` is the exact inverse. A zone-pinned format would move the
+        // date by a day here, which is a status change the user never asked for.
         var input = SubscriptionInput(
             name: current.name,
             billingCycle: current.billingCycle,
             price: current.price,
-            startedAt: ISO8601DateFormatter.dayOnly.string(from: current.startedAt)
+            startedAt: WireDay.string(from: current.startedAt)
         )
         input.category = current.category
         input.brand = current.brand
         input.plan = current.plan
         input.intervalDays = current.intervalDays
-        input.renewalDate = ISO8601DateFormatter.dayOnly.string(from: current.renewalDate)
+        input.renewalDate = WireDay.string(from: current.renewalDate)
         input.autoRenew = current.autoRenew
         input.status = status
         input.accountEmail = current.accountEmail

@@ -92,7 +92,7 @@ public enum DeviceCSVExport {
                 device.serialNumber,
                 day(device.purchaseDate),
                 String(device.purchasePrice),
-                device.effectiveWarrantyEnd.map(day),
+                device.effectiveWarrantyEnd.map { day($0) },
                 device.status.label,
             ]))
         }
@@ -115,18 +115,18 @@ public enum DeviceCSVExport {
     /// `yyyy-MM-dd` — a plain, locale-independent calendar date. Spreadsheets
     /// parse it natively and it sorts correctly, unlike `dd/MM/yyyy`.
     ///
-    /// The zone is pinned to `Asia/Ho_Chi_Minh` to match `WVFormat.isoDay` in
-    /// the app, so a purchase timestamp that is midnight UTC still exports as
-    /// the same Vietnamese calendar day.
-    public static func day(_ date: Date) -> String {
-        dayFormatter.string(from: date)
+    /// The zone is the **device's own**, via `WireDay`, which is the point: this
+    /// used to be pinned to `Asia/Ho_Chi_Minh` "to match `WVFormat.isoDay` in the
+    /// app", and both were wrong the same way. A `Device` reaches this function
+    /// with `purchaseDate` / `effectiveWarrantyEnd` already decoded, and the
+    /// decoder reads those Z-less wire values in the device's zone — so a
+    /// Vietnam-pinned format re-exported the day *before* the one the app draws on
+    /// screen for every device east of UTC+7 (`"2026-03-02"` → `"2026-03-01"`).
+    /// The file must say what the user is looking at.
+    ///
+    /// `timeZone` is a parameter only so the rule can be pinned in tests; every
+    /// caller in the app takes the default.
+    public static func day(_ date: Date, in timeZone: TimeZone = .current) -> String {
+        WireDay.string(from: date, in: timeZone)
     }
-
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
 }

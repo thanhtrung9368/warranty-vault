@@ -328,7 +328,10 @@ struct WarrantyFormView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        let isoDate = WVFormat.isoDay(startDate)
+        // The picker's `Date` is zoned; `startDate` is a bare calendar day on the
+        // wire. Written in the device's own zone — the one the picker drew — or a
+        // device east of the formatter's pin stores the day before the one shown.
+        let isoDate = WireDay.string(from: startDate)
         var input = WarrantyInput(type: type, startDate: isoDate, months: Int(months) ?? 0)
         input.provider = provider.isEmpty ? nil : provider
         input.cost = cost

@@ -5,22 +5,6 @@ import UniformTypeIdentifiers
 import WarrantyVaultKit
 
 // ============================================================
-// Shared date-formatter extension (was in deleted AddDeviceSheet.swift)
-// ============================================================
-
-extension ISO8601DateFormatter {
-    /// A `DateFormatter` (not `ISO8601DateFormatter`) that writes `yyyy-MM-dd`.
-    /// Kept as `dayOnly` on `ISO8601DateFormatter` for backwards compatibility with
-    /// sites across the app that call `ISO8601DateFormatter.dayOnly.string(from:)`.
-    static let dayOnly: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(identifier: "UTC")
-        return f
-    }()
-}
-
-// ============================================================
 // DeviceFormView — add / edit device (pushed as a screen)
 //
 // Ports DeviceFormScreen from project/ios/js/screens-1.jsx.
@@ -763,7 +747,11 @@ struct DeviceFormView: View {
         if let v = d.brand, !v.isEmpty { brand = v }
         if let v = d.model, !v.isEmpty { model = v }
         if let v = d.serialNumber, !v.isEmpty { serial = v }
-        if let v = d.purchaseDate, let date = WVFormat.parseDay(v) { purchaseDate = date }
+        // The extractor normalises to `YYYY-MM-DD` (`api/internal/ai/extract.go`),
+        // so the day is read off the string in the device's own zone — the zone
+        // the picker below draws its `Date` in. A zone-pinned parse shows a
+        // receipt dated the 2nd as the 1st to anyone west of the pin.
+        if let v = d.purchaseDate, let date = WireDay.date(from: v) { purchaseDate = date }
         if let v = d.purchasePrice { price = v }
         if let v = d.purchasePlace, !v.isEmpty { purchasePlace = v }
         if let v = d.warrantyMonths { warrantyMonths = String(v) }
@@ -833,7 +821,10 @@ struct DeviceFormView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
-        let isoDate = WVFormat.isoDay(purchaseDate)
+        // The picker's `Date` is zoned; the wire value is a bare calendar day. It
+        // has to be written in the zone the picker drew it in, or a device east of
+        // the formatter's pin stores the day *before* the one on screen.
+        let isoDate = WireDay.string(from: purchaseDate)
         var input = DeviceInput(name: name.trimmingCharacters(in: .whitespaces),
                                 category: category, purchaseDate: isoDate)
         input.brand = brand.isEmpty ? nil : brand

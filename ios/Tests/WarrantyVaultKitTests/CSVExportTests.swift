@@ -23,10 +23,20 @@ final class CSVExportTests: KitTestCase {
                         brand: String? = "Apple",
                         model: String? = "M3 Pro",
                         serial: String? = "SN-1",
-                        purchased: String = "2025-03-12T00:00:00Z",
+                        // **Z-less**, which is the shape the server really sends:
+                        // `purchaseDate` / `effectiveWarrantyEnd` are
+                        // `timestamp without time zone` columns and
+                        // `pgtype.Timestamp` marshals them without a `Z`. The
+                        // trailing `Z` these fixtures used to carry is an
+                        // *instant*, and the date columns are rendered in the
+                        // device's own zone — so a `Z` fixture made every
+                        // assertion below depend on where the suite runs
+                        // (`"2025-03-12T00:00:00Z"` exported as `"2025-03-11"` on
+                        // a device west of UTC).
+                        purchased: String = "2025-03-12T00:00:00",
                         price: Int = 49_990_000,
                         status: String = "ACTIVE",
-                        warrantyEnd: String? = "2027-03-12T00:00:00Z") throws -> Device {
+                        warrantyEnd: String? = "2027-03-12T00:00:00") throws -> Device {
         func quoted(_ value: String?) -> String {
             guard let value else { return "null" }
             let escaped = value
@@ -239,13 +249,54 @@ final class CSVExportTests: KitTestCase {
         XCTAssertEqual(parseCSV(csv).count, 3)
     }
 
-    func testDateUsesTheVietnameseCalendarDayNotUTC() throws {
-        // 23:30 UTC on the 31st is already the 1st in Asia/Ho_Chi_Minh.
-        let dev = try device(purchased: "2025-03-31T23:30:00Z",
-                             warrantyEnd: "2026-04-01T00:00:00Z")
+    /// The exported date must be the day the app draws on screen — the device's
+    /// own calendar day.
+    ///
+    /// ⚠️ **Changed assertion, deliberately.** This test used to be
+    /// `testDateUsesTheVietnameseCalendarDayNotUTC` and asserted that
+    /// `"2025-03-31T23:30:00Z"` exports as `"2025-04-01"`, i.e. the Vietnamese
+    /// calendar day of that instant. Two things were wrong with that expectation:
+    /// the column was formatted with a `DateFormatter` pinned to
+    /// `Asia/Ho_Chi_Minh`, so on a device east of UTC+7 the file disagreed with
+    /// the row on screen (a Tokyo user's `"2026-03-02"` exported as
+    /// `"2026-03-01"`); and the value it was pinned against is not the shape the
+    /// server sends. `pgtype.Timestamp` marshals **Z-less**, and the shared
+    /// decoder reads that in the device's zone — so the day is already the user's
+    /// local one and re-pinning it can only move it.
+    ///
+    /// The day asserted below is the same one in every zone the suite could run
+    /// in: the decoder's zone and the formatter's zone are both the device's.
+    func testDateExportsTheDayTheAppShows() throws {
+        let dev = try device(purchased: "2026-03-02T00:00:00",
+                             warrantyEnd: "2027-03-12T00:00:00")
         let rows = parseCSV(DeviceCSVExport.csv(for: [dev]))
-        XCTAssertEqual(rows[1][5], "2025-04-01")
-        XCTAssertEqual(rows[1][7], "2026-04-01")
+        XCTAssertEqual(rows[1][5], "2026-03-02")
+        XCTAssertEqual(rows[1][7], "2027-03-12")
+    }
+
+    /// …and that is a property of the zone, not a coincidence of where the suite
+    /// runs: stated across UTC−11 … UTC+14, the same six zones the resale pair is
+    /// pinned across. The Vietnam pin this replaced is spelled out in days.
+    func testTheExportedDayFollowsTheGivenZoneAndNotAHardcodedOne() throws {
+        for id in ["Pacific/Midway", "America/Los_Angeles", "UTC",
+                   "Asia/Ho_Chi_Minh", "Asia/Tokyo", "Pacific/Kiritimati"] {
+            let zone = try XCTUnwrap(TimeZone(identifier: id))
+            // Midnight on the 2nd, as a picker on a device in `id` would hold it.
+            let midnight = makeDate("2026-03-02", format: "yyyy-MM-dd", timeZone: zone)
+            XCTAssertEqual(DeviceCSVExport.day(midnight, in: zone), "2026-03-02",
+                           "the export drifted a day for a device in \(id)")
+        }
+
+        // What the removed pin did: `2026-03-02T00:00+09:00` is
+        // `2026-03-01T22:00` in Ho Chi Minh City, so a Tokyo device exported the
+        // 1st while its row said the 2nd.
+        let legacy = DateFormatter()
+        legacy.locale = Locale(identifier: "en_US_POSIX")
+        legacy.dateFormat = "yyyy-MM-dd"
+        legacy.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")
+        let tokyoMidnight = makeDate("2026-03-02", format: "yyyy-MM-dd",
+                                     timeZone: try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo")))
+        XCTAssertEqual(legacy.string(from: tokyoMidnight), "2026-03-01")
     }
 
     // MARK: - Data integrity

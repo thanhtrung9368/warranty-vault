@@ -226,26 +226,19 @@ public enum DeviceResale {
     /// `dayString(_:in:)` is its exact inverse in the same zone, so the day the
     /// user is looking at is the day that gets saved, and an untouched picker
     /// gives back precisely what was loaded.
+    ///
+    /// Delegates to `WireDay` — the shared home of that round trip, now that the
+    /// purchase date, warranty, subscription and wishlist paths need the very same
+    /// thing. Shared rather than re-implemented, so no two kinds of date can
+    /// disagree about what a day is.
     public static func dayDate(_ wire: String?, in timeZone: TimeZone = .current) -> Date? {
-        guard let day = dayPrefix(wire) else { return nil }
-        return dayFormatter(timeZone).date(from: day)
+        WireDay.date(from: wire, in: timeZone)
     }
 
     /// The `YYYY-MM-DD` a `Date` stands for in `timeZone` — the calendar day the
     /// user is looking at. The inverse of `dayDate(_:in:)`.
     public static func dayString(_ date: Date, in timeZone: TimeZone = .current) -> String {
-        dayFormatter(timeZone).string(from: date)
-    }
-
-    /// A `yyyy-MM-dd` formatter pinned to `timeZone` and to a fixed locale, so the
-    /// day can never drift with the device's locale. Built per call: these run
-    /// once per form load and once per save.
-    private static func dayFormatter(_ timeZone: TimeZone) -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = timeZone
-        return f
+        WireDay.string(from: date, in: timeZone)
     }
 
     // MARK: - The derived profit/loss (read-only)

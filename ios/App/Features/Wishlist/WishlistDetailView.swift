@@ -442,7 +442,9 @@ struct WishlistDetailView: View {
         input.initialPrice = w.initialPrice
         input.currentPrice = w.currentPrice
         input.buyUrl       = w.buyUrl
-        input.targetDate   = w.targetDate.map { ISO8601DateFormatter.dayOnly.string(from: $0) }
+        // Carried back unchanged: decoded in the device's zone, so written in the
+        // device's zone. `WireDay` is the exact inverse of that decode.
+        input.targetDate   = w.targetDate.map { WireDay.string(from: $0) }
         input.priority     = w.priority
         input.status       = w.status
         input.notes        = w.notes

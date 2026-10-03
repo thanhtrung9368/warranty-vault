@@ -310,18 +310,22 @@ struct SubscriptionFormView: View {
     private func submit() async {
         topError = nil; isBusy = true
         defer { isBusy = false }
+        // Both dates come from a `DatePicker`, so they are zoned instants; the
+        // wire wants the bare calendar day *the picker drew*. `WireDay` writes it
+        // in the device's own zone — a UTC- or Vietnam-pinned format saves the day
+        // before the one on screen for every device east of the pin.
         var input = SubscriptionInput(
             name: name,
             billingCycle: billingCycle,
             price: price ?? 0,
-            startedAt: ISO8601DateFormatter.dayOnly.string(from: startedAt)
+            startedAt: WireDay.string(from: startedAt)
         )
         input.category      = category.isEmpty ? nil : category
         input.brand         = brand.isEmpty ? nil : brand
         input.plan          = plan.isEmpty ? nil : plan
         input.intervalDays  = billingCycle == .CUSTOM ? Int(intervalDays) : nil
         input.renewalDate   = (hasRenewal && billingCycle != .LIFETIME)
-            ? ISO8601DateFormatter.dayOnly.string(from: renewalDate) : nil
+            ? WireDay.string(from: renewalDate) : nil
         input.autoRenew     = autoRenew
         input.status        = subStatus
         input.accountEmail  = accountEmail.isEmpty ? nil : accountEmail

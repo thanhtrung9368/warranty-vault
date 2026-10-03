@@ -548,7 +548,8 @@ struct SubLogPaymentSheet: View {
         defer { isBusy = false }
         let input = PaymentInput(
             amount: amount ?? 0,
-            paidAt: ISO8601DateFormatter.dayOnly.string(from: paidAt),
+            // The picker's day, written in the zone the picker drew it in.
+            paidAt: WireDay.string(from: paidAt),
             note:   note.isEmpty ? nil : note
         )
         do {

@@ -37,13 +37,20 @@ enum WVFormat {
     /// `'Thg' M, yyyy`.
     static func monthYear(_ date: Date) -> String { monthYearFormatter.string(from: date) }
 
-    /// `yyyy-MM-dd` — the wire format every `*Input` struct expects.
-    static func isoDay(_ date: Date) -> String { isoFormatter.string(from: date) }
-
-    /// Parses a `yyyy-MM-dd` (or RFC3339) string back into a `Date`.
-    static func parseDay(_ string: String) -> Date? {
-        isoFormatter.date(from: String(string.prefix(10)))
-    }
+    // There is deliberately **no** `isoDay` / `parseDay` here any more.
+    //
+    // They wrote and read `yyyy-MM-dd` with the formatter pinned to
+    // `Asia/Ho_Chi_Minh`, which is not a zone the user is looking at. A device
+    // east of UTC+7 that formatted a picked day through them stored the day
+    // *before* the one on screen; a device west of UTC+7 that parsed a wire day
+    // through them showed the day before. Both directions are the same mistake:
+    // a Z-less wire value is a calendar day, not an instant, so it has to be read
+    // and written in the zone it is displayed in.
+    //
+    // That round trip now lives in exactly one place, in the Kit, where it is
+    // unit-tested across UTC−11 … UTC+14: `WireDay.string(from:in:)` and
+    // `WireDay.date(from:in:)`. Use those for anything that reaches the wire —
+    // in either direction.
 
     /// Whole days between `now` and `date` (negative → in the past).
     static func daysUntil(_ date: Date, from now: Date = Date()) -> Int {
@@ -67,11 +74,10 @@ enum WVFormat {
     private static let dayFormatter = makeFormatter("dd/MM/yyyy")
     private static let dayMonthFormatter = makeFormatter("dd 'thg' M")
     private static let monthYearFormatter = makeFormatter("'Thg' M, yyyy")
-    private static let isoFormatter: DateFormatter = {
-        let f = makeFormatter("yyyy-MM-dd")
-        f.timeZone = TimeZone(identifier: "Asia/Ho_Chi_Minh")
-        return f
-    }()
+
+    /// Locale-pinned, and deliberately **not** zone-pinned: every one of these
+    /// renders a `Date` the user is looking at, so it belongs in the zone the
+    /// device is in. (The wire round trip is `WireDay`'s job, not this one's.)
     private static func makeFormatter(_ pattern: String) -> DateFormatter {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
