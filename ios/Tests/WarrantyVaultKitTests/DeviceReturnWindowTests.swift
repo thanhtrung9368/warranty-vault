@@ -248,20 +248,85 @@ final class DeviceReturnWindowTests: KitTestCase {
         XCTAssertNil(DeviceReturnWindow.deadlineLabel("2026-4-1"))
     }
 
-    func testDeadlineNoteUsesCalendarDaysWithZeroMeaningTodayIsTheLastDay() {
-        // A fixed zone so the assertion cannot depend on where the suite runs: the
-        // wire value is naive UTC and the day boundary is a calendar question.
-        let utc = TimeZone(identifier: "UTC")!
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = utc
-        let now = makeDate("2026-04-10 09:00:00", format: "yyyy-MM-dd HH:mm:ss", timeZone: utc)
+    /// The zones that break a single happy anchor: UTC−11, UTC−7, UTC, UTC+7,
+    /// UTC+9, UTC+14. The same six `WireDayTests` / `DeviceResaleTests` pin the
+    /// day round trips across.
+    private let extremeZones = ["Pacific/Midway", "America/Los_Angeles", "UTC",
+                                "Asia/Ho_Chi_Minh", "Asia/Tokyo", "Pacific/Kiritimati"]
 
+    private func zone(_ id: String) throws -> TimeZone {
+        try XCTUnwrap(TimeZone(identifier: id), "unknown zone \(id)")
+    }
+
+    /// The same three cases, judged **in every zone** rather than only at UTC.
+    ///
+    /// This test used to pin the calendar to UTC, which is exactly why it never
+    /// caught the off-by-one: at UTC the wire day's UTC midnight *is* the caller's
+    /// midnight, so anchoring one side in UTC and the other in the caller's zone
+    /// agrees there and only there. The day count is the whole answer this row
+    /// gives the user ("how long do I still have"), so each zone is asserted with
+    /// the same `now` on its own wall clock at 09:00.
+    func testDeadlineNoteUsesCalendarDaysWithZeroMeaningTodayIsTheLastDayInEveryZone() throws {
+        for id in extremeZones {
+            let tz = try zone(id)
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = tz
+            let now = makeDate("2026-04-10 09:00:00", format: "yyyy-MM-dd HH:mm:ss", timeZone: tz)
+
+            XCTAssertEqual(DeviceReturnWindow.deadlineNote("2026-04-13T00:00:00", now: now, calendar: calendar),
+                           "còn 3 ngày", "three days out read wrong for a device in \(id)")
+            XCTAssertEqual(DeviceReturnWindow.deadlineNote("2026-04-10T00:00:00", now: now, calendar: calendar),
+                           "hôm nay là ngày cuối", "the last day read wrong for a device in \(id)")
+            XCTAssertEqual(DeviceReturnWindow.deadlineNote("2026-04-01T00:00:00", now: now, calendar: calendar),
+                           "đã qua 9 ngày", "an elapsed window read wrong for a device in \(id)")
+            XCTAssertNil(DeviceReturnWindow.deadlineNote(nil, now: now, calendar: calendar))
+        }
+    }
+
+    /// The reported bug, in the reported zone: a Los Angeles caller at 09:00 on
+    /// 2026-04-10 was told "còn 2 ngày" for a deadline of `2026-04-13T00:00:00`,
+    /// because midnight UTC on the 13th is 17:00 on the 12th in UTC−7 and the old
+    /// code counted from there. One day short is a wrong answer, not a rounding
+    /// difference: it is the number the user decides on.
+    func testDeadlineNoteIsNotOneDayShortWestOfUTC() throws {
+        let la = try zone("America/Los_Angeles")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = la
+        let now = makeDate("2026-04-10 09:00:00", format: "yyyy-MM-dd HH:mm:ss", timeZone: la)
+
+        XCTAssertEqual(DeviceReturnWindow.daysLeft("2026-04-13T00:00:00", now: now, calendar: calendar), 3)
         XCTAssertEqual(DeviceReturnWindow.deadlineNote("2026-04-13T00:00:00", now: now, calendar: calendar),
                        "còn 3 ngày")
-        XCTAssertEqual(DeviceReturnWindow.deadlineNote("2026-04-10T00:00:00", now: now, calendar: calendar),
-                       "hôm nay là ngày cuối")
-        XCTAssertEqual(DeviceReturnWindow.deadlineNote("2026-04-01T00:00:00", now: now, calendar: calendar),
-                       "đã qua 9 ngày")
-        XCTAssertNil(DeviceReturnWindow.deadlineNote(nil, now: now, calendar: calendar))
+    }
+
+    /// The bug itself, stated as arithmetic so the fix cannot be "simplified" back:
+    /// the old anchor was a UTC-pinned parse whose result was then measured on the
+    /// caller's calendar. Kept as an executable description of what was wrong.
+    func testTheOldUTCPinnedAnchorIsWhyWestOfUTCWasOneDayShort() throws {
+        let la = try zone("America/Los_Angeles")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = la
+        let now = makeDate("2026-04-10 09:00:00", format: "yyyy-MM-dd HH:mm:ss", timeZone: la)
+
+        // What the removed `utcDay` formatter produced…
+        let utcPinned = DateFormatter()
+        utcPinned.locale = Locale(identifier: "en_US_POSIX")
+        utcPinned.dateFormat = "yyyy-MM-dd"
+        utcPinned.timeZone = TimeZone(identifier: "UTC")
+        let legacyDeadline = try XCTUnwrap(utcPinned.date(from: "2026-04-13"))
+        let legacy = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: now),
+            to: calendar.startOfDay(for: legacyDeadline)
+        ).day
+        XCTAssertEqual(legacy, 2, "the old anchor is only interesting because it was wrong")
+
+        // …and what the caller's own zone gives, which is the day on the screen.
+        let fixed = try XCTUnwrap(WireDay.date(from: "2026-04-13", in: la))
+        XCTAssertEqual(calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: now),
+            to: calendar.startOfDay(for: fixed)
+        ).day, 3)
     }
 }

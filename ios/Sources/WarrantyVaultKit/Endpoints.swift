@@ -505,6 +505,67 @@ extension APIClient {
         return w.reminders
     }
 
+    // MARK: - Handover certificate / share links
+
+    /// The device's share links, newest first, **dead rows included** (openapi
+    /// `GET /api/v1/devices/{id}/shares`).
+    ///
+    /// The array is always `[]`, never `null`, and never carries a `token` — the
+    /// server keeps only the hash, so there is no way to read an existing link
+    /// back. A device that belongs to someone else also answers `[]`, which is the
+    /// same amount of information an empty list gives.
+    public func listShares(deviceId: String) async throws -> [DeviceShare] {
+        struct Wrapper: Decodable { let shares: [DeviceShare] }
+        let w: Wrapper = try await request("GET", "/api/v1/devices/\(deviceId)/shares")
+        return w.shares
+    }
+
+    /// Creates a read-only handover certificate for one device.
+    ///
+    /// ⚠️ **The response is the only place `share.token` ever appears.** The server
+    /// stores its sha256, so the token cannot be fetched again — not by the owner,
+    /// not from a log. The caller must show it immediately, next to a copy action,
+    /// inside a surface that refuses to close until it has been copied or
+    /// acknowledged (`ShareCopy.closeBlockedHint`), and must never persist it.
+    ///
+    /// `expiresInDays` is clamped into the documented `1...90` by
+    /// `ShareLinks.normalizedExpiryDays` (default 30); there is no permanent link.
+    /// A `409` means the device already holds `ShareLinks.maxActivePerDevice`
+    /// live links.
+    public func createShare(deviceId: String,
+                            _ input: CreateShareInput = CreateShareInput()) async throws -> CreatedDeviceShare {
+        struct Wrapper: Decodable { let share: CreatedDeviceShare }
+        var body = input
+        body.expiresInDays = ShareLinks.normalizedExpiryDays(input.expiresInDays)
+        let w: Wrapper = try await request("POST", "/api/v1/devices/\(deviceId)/shares", body: body)
+        return w.share
+    }
+
+    /// Revokes a share link by its `DeviceShare.id`.
+    ///
+    /// Idempotent — a second call is still a 200 — and a link belonging to someone
+    /// else is a `404`, indistinguishable from an id that never existed. Links do
+    /// **not** auto-revoke when the device is marked `SOLD`: the certificate is
+    /// exactly what the buyer needs *after* the sale.
+    public func revokeShare(id: String) async throws {
+        let _: EmptyResponse = try await request("DELETE", "/api/v1/shares/\(id)")
+    }
+
+    // MARK: - Service directory
+
+    /// "Mang máy đi bảo hành ở đâu" for one device (openapi
+    /// `GET /api/v1/devices/{id}/service-directory`).
+    ///
+    /// Read it through `ServiceDirectoryInfo`: `brand == nil` and every `null`
+    /// field are answers, not errors, and the phone rows are gated on
+    /// `phoneSource`. Nothing here re-derives or invents contact details — the
+    /// server's `disclaimer` says so in its own words.
+    public func serviceDirectory(deviceId: String) async throws -> ServiceDirectory {
+        struct Wrapper: Decodable { let directory: ServiceDirectory }
+        let w: Wrapper = try await request("GET", "/api/v1/devices/\(deviceId)/service-directory")
+        return w.directory
+    }
+
     // MARK: - Push
 
     public func listPushSubscriptions() async throws -> [PushSubscriptionMeta] {

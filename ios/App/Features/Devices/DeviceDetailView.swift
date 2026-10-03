@@ -207,6 +207,23 @@ struct DeviceDetailView: View {
                     }
                 }
 
+                // Where to actually take the machine (FEATURE_IDEAS #15). Its own
+                // read: the directory is a device-level answer, and a failure to
+                // load it must not look like "the app has no information".
+                ServiceDirectorySection(
+                    client: client,
+                    deviceId: currentDevice.id
+                )
+
+                // The handover certificate (FEATURE_IDEAS #2). The link exists to
+                // be handed to a buyer, so it is offered next to the warranty
+                // contact details rather than buried under the attachments.
+                ShareCertificatesSection(
+                    client: client,
+                    deviceId: currentDevice.id,
+                    deviceName: currentDevice.name
+                )
+
                 // Attachments
                 WVSectionHeader("File đính kèm (\(attachments.count)/5)")
                 DeviceAttachmentsSection(

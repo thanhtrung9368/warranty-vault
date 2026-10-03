@@ -169,22 +169,35 @@ final class ActionQueueTests: KitTestCase {
 
     // MARK: - Dates + money
 
-    func testDueNoteIsBuiltFromTheDateHalfOnly() {
-        let utc = TimeZone(identifier: "UTC")!
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = utc
-        let today = makeDate("2026-03-15 08:00:00", format: "yyyy-MM-dd HH:mm:ss", timeZone: utc)
+    /// `dueNote` reads the date half of a naive-UTC wire value through
+    /// `DeviceReturnWindow.daysLeft`, so it inherits that helper's anchoring rule:
+    /// both days are counted on the caller's calendar. This loop is the same
+    /// blind-spot fix as in `DeviceReturnWindowTests` — the assertion used to run
+    /// only at UTC, where a UTC-pinned parse and the caller's calendar coincide,
+    /// so a row that was one day short for anyone west of UTC passed.
+    func testDueNoteIsBuiltFromTheDateHalfOnlyInEveryZone() throws {
+        for id in ["Pacific/Midway", "America/Los_Angeles", "UTC",
+                   "Asia/Ho_Chi_Minh", "Asia/Tokyo", "Pacific/Kiritimati"] {
+            let tz = try XCTUnwrap(TimeZone(identifier: id), "unknown zone \(id)")
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = tz
+            let today = makeDate("2026-03-15 08:00:00", format: "yyyy-MM-dd HH:mm:ss", timeZone: tz)
 
-        XCTAssertEqual(ActionQueueRules.dueNote("2026-03-18T00:00:00", now: today, calendar: calendar),
-                       ActionDueNote(label: "Còn 3 ngày", urgency: .soon))
-        XCTAssertEqual(ActionQueueRules.dueNote("2026-03-15T00:00:00", now: today, calendar: calendar),
-                       ActionDueNote(label: "Hôm nay", urgency: .today))
-        XCTAssertEqual(ActionQueueRules.dueNote("2026-03-10T00:00:00", now: today, calendar: calendar),
-                       ActionDueNote(label: "Quá hạn 5 ngày", urgency: .overdue))
-        XCTAssertEqual(ActionQueueRules.dueNote("2026-04-20T00:00:00", now: today, calendar: calendar),
-                       ActionDueNote(label: "Còn 36 ngày", urgency: .later))
-        XCTAssertNil(ActionQueueRules.dueNote(nil, now: today, calendar: calendar))
-        XCTAssertNil(ActionQueueRules.dueNote("không phải ngày", now: today, calendar: calendar))
+            XCTAssertEqual(ActionQueueRules.dueNote("2026-03-18T00:00:00", now: today, calendar: calendar),
+                           ActionDueNote(label: "Còn 3 ngày", urgency: .soon),
+                           "three days out read wrong for a device in \(id)")
+            XCTAssertEqual(ActionQueueRules.dueNote("2026-03-15T00:00:00", now: today, calendar: calendar),
+                           ActionDueNote(label: "Hôm nay", urgency: .today),
+                           "the due day read wrong for a device in \(id)")
+            XCTAssertEqual(ActionQueueRules.dueNote("2026-03-10T00:00:00", now: today, calendar: calendar),
+                           ActionDueNote(label: "Quá hạn 5 ngày", urgency: .overdue),
+                           "an overdue row read wrong for a device in \(id)")
+            XCTAssertEqual(ActionQueueRules.dueNote("2026-04-20T00:00:00", now: today, calendar: calendar),
+                           ActionDueNote(label: "Còn 36 ngày", urgency: .later),
+                           "a later row read wrong for a device in \(id)")
+            XCTAssertNil(ActionQueueRules.dueNote(nil, now: today, calendar: calendar))
+            XCTAssertNil(ActionQueueRules.dueNote("không phải ngày", now: today, calendar: calendar))
+        }
     }
 
     func testMoneyIsDecodedAsInt64AndNeverNarrowed() throws {

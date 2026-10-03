@@ -45,6 +45,11 @@ import Foundation
 // Reading the day **off the string** — rather than parsing it into a `Date` and
 // formatting it again — is what keeps the stored UTC day from sliding: a value
 // like `2026-03-02T23:30:00Z` must not become the 3rd in +07:00.
+//
+// The same rule governs the *arithmetic* on that day: `daysLeft` counts between
+// two days on the caller's calendar, so the parsed endpoint is anchored with
+// `WireDay` in the caller's zone too. Anchoring only one side in UTC is the
+// off-by-one fixed in this file — see `daysLeft`.
 
 /// The two preserved fields, exactly as they must travel into `DeviceInput`.
 public struct ReturnWindowFields: Equatable, Sendable {
@@ -135,10 +140,37 @@ public enum DeviceReturnWindow {
     /// Whole days from `now` to the deadline, at **calendar-day** resolution and
     /// with the same meaning as the server's `ReturnWindow.daysLeft`: `0` is
     /// "today is the last day".
+    ///
+    /// ## Both sides of the subtraction are anchored in the caller's calendar
+    ///
+    /// The wire value is a *calendar day* (`2026-04-13T00:00:00`), not an instant:
+    /// the server stores a day-anchored column, and `dayPrefix` already dropped the
+    /// time half. So this is a difference between two days **on the calendar the
+    /// user is looking at**, and both endpoints have to sit in that same anchor.
+    ///
+    /// The previous version mixed anchors — it parsed the wire day with a
+    /// UTC-pinned formatter (`utcDay`) but measured from `calendar.startOfDay(for:
+    /// now)` in the caller's zone. Midnight UTC is the **previous day** for every
+    /// zone west of UTC, so a Los Angeles seller was told a return window had one
+    /// day less than it did: at 09:00 on 2026-04-10, a deadline of
+    /// `2026-04-13T00:00:00` rendered "còn 2 ngày" instead of "còn 3".
+    ///
+    /// Nothing in this computation is an instant, so **no part of it wants a UTC
+    /// anchor**: `dayPrefix` reads the day off the string (zone-free by
+    /// construction), and `WireDay.date(from:in:)` — the one helper that turns a
+    /// wire day into a `Date` in a *given* zone — anchors the parsed side to
+    /// `calendar.timeZone`, exactly where `now` is measured. UTC remains the right
+    /// anchor for the wire format itself (the server writes UTC wall-clock days);
+    /// what was wrong was carrying that anchor into a local-calendar comparison.
+    ///
+    /// `DeviceReturnWindowTests` pins this across UTC−11 … UTC+14 rather than only
+    /// in the machine's own zone, because at UTC the two anchors coincide and the
+    /// bug is invisible.
     public static func daysLeft(_ wire: String?,
                                now: Date = Date(),
                                calendar: Calendar = .current) -> Int? {
-        guard let day = dayPrefix(wire), let deadline = utcDay.date(from: day) else { return nil }
+        guard let day = dayPrefix(wire),
+              let deadline = WireDay.date(from: day, in: calendar.timeZone) else { return nil }
         let from = calendar.startOfDay(for: now)
         let to = calendar.startOfDay(for: deadline)
         return calendar.dateComponents([.day], from: from, to: to).day
@@ -154,14 +186,4 @@ public enum DeviceReturnWindow {
         if days == 0 { return "hôm nay là ngày cuối" }
         return "đã qua \(abs(days)) ngày"
     }
-
-    /// The `dd/MM/yyyy` of a naive-UTC wire day. Fixed to UTC so the calendar day
-    /// the server stored is the one that comes back, in every device zone.
-    private static let utcDay: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone(identifier: "UTC")
-        return f
-    }()
 }

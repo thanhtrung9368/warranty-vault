@@ -5,7 +5,11 @@ import Foundation
 // login/logout without rebuilding the client.
 
 public actor APIClient {
-    public let baseURL: URL
+    /// Where the API lives. `nonisolated` because it is an immutable `Sendable`
+    /// value: SwiftUI views read it synchronously while rendering (the share-link
+    /// flow builds the buyer's absolute URL from `baseURL` + `sharePath`), exactly
+    /// like `attachmentDownloadURL` does.
+    public nonisolated let baseURL: URL
     private let session: URLSession
     private let tokenProvider: @Sendable () async -> String?
 
