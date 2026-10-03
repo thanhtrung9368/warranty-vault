@@ -7,8 +7,9 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-03 (lần 2) — **đã kiểm lại từng mục** (không tin bản cũ). Mục nào đã hết việc thì
-ghi rõ là **HẾT VIỆC** chứ không xoá, để mày biết là tao đã kiểm chứ không phải bỏ sót.
+**Cập nhật:** 2026-10-03 (lần 3) — **chủ repo đã xác nhận 0.1 xong**; phần còn lại vẫn kiểm lại
+từng mục (không tin bản cũ). Mục nào đã hết việc thì ghi rõ là **HẾT VIỆC** chứ không xoá, để mày
+biết là tao đã kiểm chứ không phải bỏ sót.
 
 > Kiểm ở HEAD `794b35a` **+ working tree** (backend agent còn đang commit). Thay đổi so với bản 2026-10-02:
 > **(a)** 0.1 (quyền `~/.npm`) **hết việc** — không cần `sudo` nữa;
@@ -34,6 +35,10 @@ sudo chown -R 501:20 ~/.npm
   `EPERM: Your cache folder contains root-owned files`. Lỗi này do một bản npm cũ để lại.
 - **Kiểm lại 2026-10-03:** `ls -ld ~/.npm` → `trungit staff` (uid **501**, đúng uid hiện tại), và
   `npm view left-pad version` trả `1.3.0` bình thường. **Không cần chạy lệnh trên nữa.**
+- **Chủ repo xác nhận (2026-10-03):** đã chạy rồi, khép mục này. Kiểm lại lần nữa cùng ngày:
+  `~/.npm` vẫn uid 501 và `npm view left-pad version` → `1.3.0` **không cần** `npm_config_cache`.
+  Không còn gì treo ở đây; các lệnh npm trong repo vẫn dùng
+  `npm_config_cache=/tmp/wv-npm-cache` như thói quen vô hại, không phải vì mục này.
 - ~~Xong thì: npm chạy bình thường, CI local khớp với CI GitHub.~~ → đã đạt.
 
 ### [ ] 0.2 — Trỏ `xcode-select` về Xcode thật (cần `sudo`) — **vẫn còn nguyên**
