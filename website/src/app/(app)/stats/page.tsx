@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { MonthlyBar, CategoryPie } from '@/components/charts/lazy';
+import { ForecastPanel } from '@/components/forecast-panel';
 import { YearPicker } from '@/components/year-picker';
 import { EmptyState } from '@/components/empty-state';
 import { api } from '@/lib/api';
@@ -29,6 +30,7 @@ import {
   yearlySpend,
   yearsWithData,
 } from '@/lib/stats-rollup';
+import { isForecastEmpty, normalizeForecastMonths } from '@/lib/forecast-rollup';
 import { CATEGORY_LABELS, type Category } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { requireUser } from '@/lib/auth';
@@ -50,17 +52,21 @@ export const dynamic = 'force-dynamic';
 export default async function StatsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string }>;
+  // `fm` = forecast window in months (1–24; the picker offers 3/6/12/24).
+  searchParams: Promise<{ year?: string; fm?: string }>;
 }) {
   await requireUser();
   const sp = await searchParams;
+  const forecastMonths = normalizeForecastMonths(sp.fm);
 
-  const [devicesRes, statsRes] = await Promise.all([
+  const [devicesRes, statsRes, forecastRes] = await Promise.all([
     api.devices.list(),
     api.stats.get(),
+    api.stats.forecast(forecastMonths),
   ]);
   const devices: DeviceListItem[] = devicesRes.ok ? devicesRes.data : [];
   const subscriptionStats = statsRes.ok ? statsRes.data.subscriptions : null;
+  const forecast = forecastRes.ok ? forecastRes.data : null;
 
   const warrantyResults = await Promise.all(
     devices.map(async (d) => ({
@@ -79,7 +85,10 @@ export default async function StatsPage({
   const total = devices.length;
   const subscriptionTotal = subscriptionStats?.total ?? 0;
 
-  if (total === 0 && subscriptionTotal === 0) {
+  // The forecast is part of "is there anything to show here": a user whose only
+  // data is a dated wishlist item has a milestone to forecast, so they must not
+  // get the "chưa có gì để thống kê" empty state.
+  if (total === 0 && subscriptionTotal === 0 && isForecastEmpty(forecast)) {
     return (
       <div className="space-y-6">
         <div>
@@ -298,6 +307,20 @@ export default async function StatsPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Forward-looking half ──────────────────────────────────────────
+          `GET /v1/forecast?months=` — the next N months of subscription
+          charges, warranty expiries and wishlist milestones. It is a separate
+          endpoint from /v1/stats (whose shape all three clients share), and its
+          two reference money columns are never presented as committed spend. */}
+      {forecast ? (
+        <ForecastPanel forecast={forecast} months={forecastMonths} year={sp.year} />
+      ) : (
+        <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <p>Không tải được dự báo chi tiêu — phần dự báo tạm ẩn, thử tải lại trang nhé.</p>
+        </div>
+      )}
 
       {total === 0 && (
         <EmptyState

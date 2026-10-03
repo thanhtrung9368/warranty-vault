@@ -1,20 +1,25 @@
-import { Bell, Database, FileSpreadsheet, Info, Lock, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
+import { Bell, Database, FileSpreadsheet, Info, Lock, MonitorSmartphone, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
 import { CsvExport } from '@/components/csv-export';
 import { PushSettings } from '@/components/push-settings';
 import { PushDevices } from '@/components/push-devices';
+import { SessionList } from '@/components/session-list';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { DeleteAccountForm } from '@/components/delete-account-form';
 import { EmailChangeForm } from '@/components/email-change-form';
 import { AISettings } from '@/components/ai-settings';
 import { ProfileForm } from '@/components/profile-form';
 import { listMySubscriptions } from '@/app/actions/push';
+import { listMySessions } from '@/app/actions/sessions';
 import { requireUser } from '@/lib/auth';
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const pushSubscriptions = await listMySubscriptions();
+  const [pushSubscriptions, sessions] = await Promise.all([
+    listMySubscriptions(),
+    listMySessions(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -50,6 +55,17 @@ export default async function SettingsPage() {
 
       <Section icon={<Lock className="h-4 w-4" />} tint="tint-violet" title="Đổi mật khẩu">
         <ChangePasswordForm />
+      </Section>
+
+      {/* Every active login session, with a per-session "Gỡ". Deliberately a
+          different thing from "Thiết bị nhận thông báo" above: removing a push
+          target only stops notifications, revoking a session cuts data access. */}
+      <Section
+        icon={<MonitorSmartphone className="h-4 w-4" />}
+        tint="tint-sky"
+        title="Phiên đăng nhập"
+      >
+        <SessionList sessions={sessions.sessions} unavailable={!sessions.ok} />
       </Section>
 
       <Section icon={<ScanLine className="h-4 w-4" />} tint="tint-primary" title="Quét hoá đơn (AI)">

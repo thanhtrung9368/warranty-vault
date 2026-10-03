@@ -2,9 +2,11 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 import { api, toFormState } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
+import { deviceLabelFromUserAgent } from '@/lib/sessions';
 import {
   setAuthCookie,
   destroyAuthCookie,
@@ -28,6 +30,18 @@ function rfc3339ToMillis(s: string): number {
   return Number.isFinite(t) ? t : Date.now() + 24 * 3600 * 1000;
 }
 
+// The label Go stores on the new Session row. Sending it is what makes the
+// settings "Phiên đăng nhập" list readable: without it every web session
+// rendered the documented null fallback ("Không rõ thiết bị"), because the web
+// was the one client that never passed `deviceLabel` at login.
+//
+// Derived from the request's User-Agent (pure, unit-tested in `lib/sessions`),
+// never from user input, and kept under the 80-byte cap Go enforces.
+async function currentDeviceLabel(): Promise<string> {
+  const h = await headers();
+  return deviceLabelFromUserAgent(h.get('user-agent'));
+}
+
 // ---- register --------------------------------------------------------------
 
 const registerSchema = z.object({
@@ -47,7 +61,11 @@ export async function registerUser(
   }
   const { email, name, password } = parsed.data;
 
-  const res = await api.auth.register(email, password, name || null);
+  // Register also mints a session, so it gets a label for the same reason login
+  // does (see `currentDeviceLabel`).
+  const res = await api.auth.register(email, password, name || null, {
+    deviceLabel: await currentDeviceLabel(),
+  });
   if (!res.ok) {
     return toFormState(res);
   }
@@ -85,7 +103,9 @@ export async function loginUser(
   }
   const { email, password } = parsed.data;
 
-  const res = await api.auth.login(email, password);
+  const res = await api.auth.login(email, password, {
+    deviceLabel: await currentDeviceLabel(),
+  });
   if (!res.ok) {
     // Map the Go `invalid_credentials` error code to the same Vietnamese
     // string the previous TS action returned. Go returns it already, but

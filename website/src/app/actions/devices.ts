@@ -3,6 +3,10 @@
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { DeviceInput } from '@/lib/api/devices';
+import {
+  clearDeviceWarningsFlash,
+  setDeviceWarningsFlash,
+} from '@/lib/device-warnings-flash';
 
 export type DeviceFormState = FormState;
 
@@ -60,10 +64,16 @@ export async function createDevice(
   const res = await api.devices.create({ ...input, fromWishlistId });
   if (!res.ok) return toFormState(res);
 
+  // The device WAS created — `warnings` are advisory findings about the serial
+  // (wrong IMEI checksum, odd length, a serial already used on another device).
+  // They cannot ride on the redirect, so they are flashed to the device page,
+  // which renders them above the saved values. Empty list → no cookie at all.
+  await setDeviceWarningsFlash(res.data.device.id, res.data.warnings);
+
   // No revalidatePath: every page that reads this data (/dashboard, /devices,
   // /reminders, /wishlist[/id]) is `export const dynamic = 'force-dynamic'`,
   // so a path revalidation would be a no-op anyway.
-  redirect(`/devices/${res.data.id}`);
+  redirect(`/devices/${res.data.device.id}`);
 }
 
 export async function updateDevice(
@@ -75,8 +85,20 @@ export async function updateDevice(
   const res = await api.devices.update(id, input);
   if (!res.ok) return toFormState(res);
 
+  // Same advisory channel as create, keyed to the device being edited so the
+  // banner cannot surface on another device's page. Go excludes the device being
+  // edited from the duplicate check, so re-saving the same serial warns about
+  // nothing.
+  await setDeviceWarningsFlash(res.data.device.id || id, res.data.warnings);
+
   // No revalidatePath — the affected pages are all `force-dynamic` (see createDevice).
   redirect(`/devices/${id}`);
+}
+
+// Called by `DeviceWarningsBanner` once the flash has been displayed, so a saved
+// serial that looks wrong is reported exactly once (not on every later render).
+export async function dismissDeviceWarnings(): Promise<void> {
+  await clearDeviceWarningsFlash();
 }
 
 export async function deleteDevice(id: string) {

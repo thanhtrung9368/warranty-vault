@@ -18,6 +18,7 @@
 // pages share the same querystring logic.
 
 import { apiFetch, type ApiResult } from './client';
+import { normalizeDeviceWarnings } from '@/lib/device-warnings';
 
 // ---- Filter / input shapes ---------------------------------------------------
 
@@ -150,6 +151,30 @@ export type DeviceDetail = Device & {
   attachments: AttachmentMeta[];
 };
 
+// Advisory, NON-BLOCKING findings attached to a serial number (openapi
+// `DeviceWarning`, FEATURE_IDEAS #6). A warning never means "rejected": the
+// device was created/updated and the value was kept. `message` is Vietnamese
+// copy meant to be shown as-is, which is why the UI prefers it over its own
+// wording; `code` is the stable machine-readable key.
+export type DeviceWarningCode = 'IMEI_CHECKSUM' | 'IMEI_LENGTH' | 'SERIAL_DUPLICATE';
+
+export type DeviceWarning = {
+  code: DeviceWarningCode | string;
+  // The request/draft field the warning points at — currently always
+  // "serialNumber" (services.SerialField).
+  field: string;
+  message: string;
+};
+
+// What POST /v1/devices (201) and PATCH /v1/devices/{id} (200) return: the saved
+// device plus any advisories about the serial that was just stored. `warnings` is
+// always present on the wire (and always `[]` when there is nothing to flag);
+// `normalizeDeviceWarnings` keeps that true even against an older server.
+export type DeviceWriteResult = {
+  device: Device;
+  warnings: DeviceWarning[];
+};
+
 // ---- Methods -----------------------------------------------------------------
 
 function toQueryString(filter: DeviceListFilter | undefined): string {
@@ -177,23 +202,33 @@ export async function get(id: string): Promise<ApiResult<DeviceDetail>> {
   return { ok: true, data: res.data.device };
 }
 
-export async function create(input: DeviceInput): Promise<ApiResult<Device>> {
-  const res = await apiFetch<{ device: Device }>('POST', '/v1/devices', input);
+export async function create(input: DeviceInput): Promise<ApiResult<DeviceWriteResult>> {
+  const res = await apiFetch<{ device: Device; warnings?: unknown }>(
+    'POST',
+    '/v1/devices',
+    input,
+  );
   if (!res.ok) return res;
-  return { ok: true, data: res.data.device };
+  return {
+    ok: true,
+    data: { device: res.data.device, warnings: normalizeDeviceWarnings(res.data.warnings) },
+  };
 }
 
 export async function update(
   id: string,
   input: DeviceInput | Partial<DeviceInput>,
-): Promise<ApiResult<Device>> {
-  const res = await apiFetch<{ device: Device }>(
+): Promise<ApiResult<DeviceWriteResult>> {
+  const res = await apiFetch<{ device: Device; warnings?: unknown }>(
     'PATCH',
     `/v1/devices/${encodeURIComponent(id)}`,
     input,
   );
   if (!res.ok) return res;
-  return { ok: true, data: res.data.device };
+  return {
+    ok: true,
+    data: { device: res.data.device, warnings: normalizeDeviceWarnings(res.data.warnings) },
+  };
 }
 
 export async function remove(id: string): Promise<ApiResult<{ ok: true }>> {

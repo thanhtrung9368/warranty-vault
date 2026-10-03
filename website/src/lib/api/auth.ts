@@ -134,6 +134,51 @@ export async function me(): Promise<ApiResult<{ user: AuthUser }>> {
   return apiFetch<{ user: AuthUser }>('GET', '/v1/auth/me');
 }
 
+// ---- device sessions (openapi `SessionSummary` / `SessionRevokeResult`) ----
+//
+// The observable half of revocation: `POST /auth/logout` revokes only the token
+// being presented and the password flows revoke everything, so without these two
+// calls a session minted on another device was invisible — and un-revocable.
+//
+// `id` is the `Session` row's cuid — NOT the bearer token and not its hash. It
+// travels in the URL; Go checks ownership in SQL and answers 404 (never 403) for
+// an id that is unknown or belongs to someone else.
+
+export type SessionSummary = {
+  id: string;
+  // Null when the client sent no label at login (openapi: render
+  // "Không rõ thiết bị"). A blank label is normalised to null by Go.
+  deviceLabel: string | null;
+  platform: 'web' | 'ios' | 'android' | null;
+  // True for the session making this very request — label it "Thiết bị này".
+  current: boolean;
+  // RFC3339Nano UTC strings.
+  lastSeenAt: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type SessionRevokeResult = {
+  ok: boolean;
+  // True when the revoked row was the calling session: the local bearer is dead
+  // and the next request will 401, so the caller must clear its token.
+  current: boolean;
+  // True when the row had already been revoked — an idempotent success.
+  alreadyRevoked: boolean;
+  message: string;
+};
+
+export async function listSessions(): Promise<ApiResult<{ sessions: SessionSummary[] }>> {
+  return apiFetch<{ sessions: SessionSummary[] }>('GET', '/v1/auth/sessions');
+}
+
+export async function revokeSession(id: string): Promise<ApiResult<SessionRevokeResult>> {
+  return apiFetch<SessionRevokeResult>(
+    'DELETE',
+    `/v1/auth/sessions/${encodeURIComponent(id)}`,
+  );
+}
+
 export async function forgot(email: string): Promise<ApiResult<{ ok: true }>> {
   return apiFetch<{ ok: true }>('POST', '/v1/auth/forgot', { email }, { auth: false });
 }

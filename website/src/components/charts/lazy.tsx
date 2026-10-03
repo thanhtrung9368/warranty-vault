@@ -38,3 +38,11 @@ export const PriceHistoryChart = dynamic(
   () => import('./price-history').then((m) => m.PriceHistoryChart),
   { ssr: false, loading: () => <ChartSkeleton height={220} /> },
 );
+
+// Spending forecast (`/stats`). Same on-demand recharts chunk as the others;
+// stacked because the auto-charged / self-renewed split is the point of the
+// chart, not a detail.
+export const ForecastBar = dynamic(
+  () => import('./forecast-bar').then((m) => m.ForecastBar),
+  { ssr: false, loading: () => <ChartSkeleton height={280} /> },
+);

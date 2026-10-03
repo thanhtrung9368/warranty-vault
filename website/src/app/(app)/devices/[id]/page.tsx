@@ -32,6 +32,7 @@ import { WarrantyList } from '@/components/warranty-list';
 import { DeleteDeviceButton } from '@/components/delete-device-button';
 import { AttachmentGallery } from '@/components/attachment-gallery';
 import { AttachmentUploader } from '@/components/attachment-uploader';
+import { DeviceWarningsBanner } from '@/components/device-warnings-banner';
 import { api } from '@/lib/api';
 import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
@@ -43,6 +44,7 @@ import {
 } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
+import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +94,11 @@ export default async function DeviceDetailPage({
 }) {
   await requireUser();
   const { id } = await params;
+  // Serial advisories from the create/update that just happened ("đã lưu, nhưng
+  // có vẻ sai"). They are computed at write time only, so the write action passes
+  // them here through a short-lived cookie scoped to this device id; empty for a
+  // normal page view.
+  const deviceWarnings = await readDeviceWarningsFlash(id);
   const res = await api.devices.get(id);
   if (!res.ok) {
     if (res.status === 404) notFound();
@@ -155,6 +162,8 @@ export default async function DeviceDetailPage({
           <DeleteDeviceButton id={device.id} name={device.name} />
         </div>
       </div>
+
+      {deviceWarnings.length > 0 && <DeviceWarningsBanner warnings={deviceWarnings} />}
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-6">

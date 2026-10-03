@@ -12,6 +12,7 @@ import {
   RotateCcw,
   ArrowLeft,
   ArrowRight,
+  AlertTriangle,
   Check,
   ScanLine,
   Sparkles,
@@ -52,6 +53,8 @@ import {
   type DeviceFormState,
 } from '@/app/actions/devices';
 import { extractReceipt } from '@/app/actions/ai';
+import type { DeviceWarning } from '@/lib/api/devices';
+import { deviceWarningTitle } from '@/lib/device-warnings';
 import type {
   CategoryOption,
   BrandOption,
@@ -332,9 +335,23 @@ export function DeviceForm({
   // ─── OCR receipt scan (create flow only) ────────────────────────────────
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = React.useState(false);
-  const [scanInfo, setScanInfo] = React.useState<
-    { confidence: 'high' | 'medium' | 'low'; unmatched: string[] } | null
-  >(null);
+  const [scanInfo, setScanInfo] = React.useState<{
+    confidence: 'high' | 'medium' | 'low';
+    unmatched: string[];
+    warnings: DeviceWarning[];
+    // The serial the draft put in the field. Used to keep the amber marker on the
+    // input honest: once the user edits the value away from it, the advisory no
+    // longer describes what is in the box (the scan panel keeps the full report).
+    serial: string | null;
+  } | null>(null);
+
+  // The draft's serial advisory (if any) — surfaced next to the input itself so
+  // the value the user can still edit is visibly the one being flagged. The full
+  // API message stays in the scan panel above; this is only the pointer to it.
+  const serialWarning =
+    scanInfo && scanInfo.serial !== null && serialNumber === scanInfo.serial
+      ? scanInfo.warnings.find((w) => w.field === 'serialNumber')
+      : undefined;
 
   // applyDraft seeds the controlled fields from an extracted draft. Catalog
   // codes (category) are only applied when they exist in the loaded catalog;
@@ -373,7 +390,12 @@ export function DeviceForm({
         return;
       }
       applyDraft(res.draft);
-      setScanInfo({ confidence: res.draft.confidence, unmatched: res.draft.unmatched });
+      setScanInfo({
+        confidence: res.draft.confidence,
+        unmatched: res.draft.unmatched ?? [],
+        warnings: res.draft.warnings ?? [],
+        serial: res.draft.serialNumber ?? null,
+      });
       setStep(0);
       toast.success('Đã điền nháp từ hoá đơn — kiểm tra lại trước khi lưu nhé');
     } catch {
@@ -601,22 +623,45 @@ export function DeviceForm({
               </button>
 
               {scanInfo && (
-                <div className="mt-3 flex items-start gap-2 rounded-xl bg-surface-2 px-3 py-2 text-xs">
-                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                  <div className="space-y-0.5">
-                    <p className="font-medium text-foreground">
-                      Đã điền nháp từ hoá đơn
-                      {scanInfo.confidence !== 'high' && ' (độ tin cậy chưa cao — kiểm tra kỹ)'}
-                    </p>
-                    {scanInfo.unmatched.length > 0 && (
-                      <p className="text-muted-foreground">
-                        Cần xem lại:{' '}
-                        {scanInfo.unmatched
-                          .map((k) => UNMATCHED_LABELS[k] ?? k)
-                          .join(', ')}
+                <div className="mt-3 space-y-2 rounded-xl bg-surface-2 px-3 py-2 text-xs">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <div className="space-y-0.5">
+                      <p className="font-medium text-foreground">
+                        Đã điền nháp từ hoá đơn
+                        {scanInfo.confidence !== 'high' && ' (độ tin cậy chưa cao — kiểm tra kỹ)'}
                       </p>
-                    )}
+                      {scanInfo.unmatched.length > 0 && (
+                        <p className="text-muted-foreground">
+                          Cần xem lại:{' '}
+                          {scanInfo.unmatched
+                            .map((k) => UNMATCHED_LABELS[k] ?? k)
+                            .join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Two different channels, kept visibly apart:
+                      `unmatched` = giá trị bị BỎ, bạn phải tự nhập;
+                      `warnings`  = giá trị ĐÃ ĐIỀN, chỉ là trông không đúng.
+                      Both are non-blocking; neither stops the save. */}
+                  {scanInfo.warnings.length > 0 && (
+                    <div className="rounded-lg border-[1.5px] border-amber-200 bg-amber-soft px-3 py-2 text-amber-ink dark:border-amber-900">
+                      <p className="flex items-center gap-1.5 font-semibold">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Vẫn dùng được, nhưng nên kiểm tra lại
+                      </p>
+                      <ul className="mt-1 space-y-1">
+                        {scanInfo.warnings.map((w, i) => (
+                          <li key={`${w.code}-${i}`}>
+                            <span className="font-medium">{deviceWarningTitle(w.code)}: </span>
+                            {w.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -690,7 +735,21 @@ export function DeviceForm({
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
               placeholder="Không bắt buộc"
+              className={serialWarning ? 'border-amber-400 dark:border-amber-700' : undefined}
+              aria-describedby={serialWarning ? 'serialNumber-warning' : undefined}
             />
+            {/* The scanned value was KEPT and is editable here — the full message
+                lives in the scan panel above, so this only points at it. */}
+            {serialWarning && (
+              <p
+                id="serialNumber-warning"
+                className="flex items-start gap-1.5 text-xs font-medium text-amber-ink"
+              >
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {deviceWarningTitle(serialWarning.code)} — vẫn lưu được, xem chi tiết ở khung quét
+                phía trên.
+              </p>
+            )}
           </div>
         </div>
 

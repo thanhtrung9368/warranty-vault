@@ -5,6 +5,8 @@
 // the user always confirms before the device is created.
 
 import { apiFetch, type ApiResult } from './client';
+import { normalizeDeviceWarnings } from '@/lib/device-warnings';
+import type { DeviceWarning } from './devices';
 
 export type DraftDevice = {
   name: string | null;
@@ -20,7 +22,14 @@ export type DraftDevice = {
   warrantyMonths: number | null;
   warrantyProviderId: string | null;
   confidence: 'high' | 'medium' | 'low';
+  // Fields the user must check themselves: free text that could not be mapped to
+  // the catalog, or a value that was DROPPED as unusable (e.g. a 400-character
+  // OCR serial). "We could not use this."
   unmatched: string[];
+  // Non-blocking serial advisories about a value that WAS kept (IMEI checksum,
+  // odd IMEI length, a serial already used on another device). "We used it, but
+  // it looks wrong." Always present on the wire; `[]` when there is nothing.
+  warnings: DeviceWarning[];
 };
 
 // extractReceipt sends a receipt / warranty-card image (multipart `file`) to
@@ -34,7 +43,12 @@ export async function extractReceipt(formData: FormData): Promise<ApiResult<Draf
     { multipart: true },
   );
   if (!res.ok) return res;
-  return { ok: true, data: res.data.draft };
+  // Normalised rather than trusted so a draft missing `warnings` (older server,
+  // truncated body) renders as "no advisories" instead of crashing the form.
+  return {
+    ok: true,
+    data: { ...res.data.draft, warnings: normalizeDeviceWarnings(res.data.draft?.warnings) },
+  };
 }
 
 // Toggle the per-user AI opt-in. Sending a receipt image to a third-party AI
