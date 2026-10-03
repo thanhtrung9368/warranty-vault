@@ -99,10 +99,11 @@ endpoint trả 503 `feature_disabled`.
       `api: service_healthy` nên web chỉ lên khi API ping được DB
 - [ ] Migration lần đầu: `docker compose run --rm --entrypoint /app/migrate api up`
 - [ ] Kiểm tra version: `docker compose run --rm --entrypoint /app/migrate api status`
-      → 9 migration đã apply: `0001_initial`, `0002_cron_idempotency`,
+      → 11 migration đã apply: `0001_initial`, `0002_cron_idempotency`,
       `0003_user_ai_optin`, `0004_seed_category_catalog`, `0005_device_search_unaccent`,
       `0006_device_resale`, `0007_locale_safe_unaccent`,
-      `0008_seed_brand_store_warranty_provider`, `0009_email_change`
+      `0008_seed_brand_store_warranty_provider`, `0009_email_change`,
+      `0010_return_window`, `0011_decision_snooze`
 - [ ] **Database PHẢI có encoding UTF-8.** Kiểm tra:
       `docker compose exec -T postgres psql -U warranty -d warranty_vault -c 'SHOW server_encoding; SHOW lc_collate;'`
       → `server_encoding` phải là `UTF8`. (`lc_collate` có thể là `C` — xem bên dưới.)

@@ -40,23 +40,34 @@ type Category struct {
 	IsActive  bool   `json:"isActive"`
 }
 
+type DecisionSnooze struct {
+	ID           string           `json:"id"`
+	UserId       string           `json:"userId"`
+	ItemKey      string           `json:"itemKey"`
+	SnoozedUntil pgtype.Timestamp `json:"snoozedUntil"`
+	CreatedAt    pgtype.Timestamp `json:"createdAt"`
+}
+
 type Device struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      string           `json:"category"`
-	Brand         *string          `json:"brand"`
-	Model         *string          `json:"model"`
-	SerialNumber  *string          `json:"serialNumber"`
-	PurchaseDate  pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice int32            `json:"purchasePrice"`
-	PurchasePlace *string          `json:"purchasePlace"`
-	Status        string           `json:"status"`
-	Notes         *string          `json:"notes"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
-	SoldAt        pgtype.Timestamp `json:"soldAt"`
-	SoldPrice     *int32           `json:"soldPrice"`
+	ID                     string           `json:"id"`
+	UserId                 string           `json:"userId"`
+	Name                   string           `json:"name"`
+	Category               string           `json:"category"`
+	Brand                  *string          `json:"brand"`
+	Model                  *string          `json:"model"`
+	SerialNumber           *string          `json:"serialNumber"`
+	PurchaseDate           pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice          int32            `json:"purchasePrice"`
+	PurchasePlace          *string          `json:"purchasePlace"`
+	Status                 string           `json:"status"`
+	Notes                  *string          `json:"notes"`
+	CreatedAt              pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt              pgtype.Timestamp `json:"updatedAt"`
+	SoldAt                 pgtype.Timestamp `json:"soldAt"`
+	SoldPrice              *int32           `json:"soldPrice"`
+	ReturnWindowDays       *int32           `json:"returnWindowDays"`
+	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
+	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
 }
 
 type PasswordReset struct {

@@ -58,6 +58,7 @@ func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 		slog.Info("cron run complete",
 			"duration_ms", time.Since(started).Milliseconds(),
 			"warranty_notices", stats.WarrantyNotices,
+			"return_window_notices", stats.ReturnWindowNotices,
 			"wishlist_target", stats.WishlistTargetHits,
 			"wishlist_checkin", stats.WishlistCheckins,
 			"sub_renewals", stats.SubscriptionRenewals,

@@ -82,4 +82,3 @@ func ErrCategoryInvalid() *Error {
 		FieldErrors: FieldErrors{"category": {"Loại thiết bị không hợp lệ"}},
 	}
 }
-

@@ -72,11 +72,12 @@ type statsQuerier interface {
 // Implementation choice: subscription monthly total uses the SQL CASE-based
 // aggregator (`StatsSubscriptionsMonthly`) because it returns the SAME value
 // the TS Go-side `monthlyVnd()` produces:
-//   * MONTHLY    → price            (SQL: price)
-//   * QUARTERLY  → floor(price/3)   (SQL: integer division price/3)
-//   * YEARLY     → floor(price/12)  (SQL: integer division price/12)
-//   * CUSTOM     → round(price*30/intervalDays) (SQL: ROUND(...))
-//   * LIFETIME   → 0                (filtered by predicate)
+//   - MONTHLY    → price            (SQL: price)
+//   - QUARTERLY  → floor(price/3)   (SQL: integer division price/3)
+//   - YEARLY     → floor(price/12)  (SQL: integer division price/12)
+//   - CUSTOM     → round(price*30/intervalDays) (SQL: ROUND(...))
+//   - LIFETIME   → 0                (filtered by predicate)
+//
 // Verified: integer floor division in Postgres matches Math.floor for
 // non-negative inputs, and ROUND vs Math.round both half-away-from-zero. The
 // TS value for the test fixture (480_000 + floor(1_200_000/12) = 580_000)

@@ -35,6 +35,7 @@ const pushFanoutLimit = 8
 // any one row are logged and skipped, never aborting the rest of the job.
 type Stats struct {
 	WarrantyNotices      int `json:"warrantyNotices"`
+	ReturnWindowNotices  int `json:"returnWindowNotices"`
 	WishlistTargetHits   int `json:"wishlistTargetHits"`
 	WishlistCheckins     int `json:"wishlistCheckins"`
 	SubscriptionRenewals int `json:"subscriptionRenewals"`
@@ -465,7 +466,66 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 6. Pruning ────────────────────────────────────────────────────────
+	// ─── 6. Return / exchange window closing (T-3 / T-1) ───────────────────
+	//
+	// The deadline is NOT "Warranty"."endDate" — it is
+	// COALESCE("receivedAt", "purchaseDate") + "returnWindowDays", which belongs to
+	// no warranty package. That is why this bucket reads "Device" directly and
+	// stamps "Device"."returnWindowNotifiedAt" instead of writing a "Reminder" row:
+	// "Reminder"."isDismissed" is the push gate for the warranty buckets, and
+	// putting a second kind of item in that table can silence a real warranty
+	// notice (docs/SPEC-MAINTENANCE-SCHEDULES.md §2.3).
+	//
+	// T-3 and T-1 mirror the feature's lead times.
+	//
+	// These buckets use dayWindow(now, days) — NOT dayWindow(now, days-1) the way
+	// the warranty bucket does — and the difference is deliberate: returnDeadline
+	// is an INCLUSIVE last day. services.DaysUntil(deadline, now) is 0 on the
+	// deadline itself and ListOpenReturnWindows still lists the device that day,
+	// so "còn 3 ngày" is exactly the deadline == now+3 bucket, i.e.
+	// [now+3 00:00, now+4 00:00). "Warranty"."endDate" is read the other way by
+	// the existing buckets (an endDate of now+6 is announced as "7 ngày"), which is
+	// established behaviour for that column and is not changed here.
+	// A given device's deadline can fall in only one bucket per run.
+	for _, days := range []int{3, 1} {
+		start, end := dayWindow(now, days)
+		rows, err := q.ListReturnWindowsInWindow(ctx, store.ListReturnWindowsInWindowParams{
+			WindowStart: pgtype.Timestamp{Time: start, Valid: true},
+			WindowEnd:   pgtype.Timestamp{Time: end, Valid: true},
+		})
+		if err != nil {
+			return stats, fmt.Errorf("list return windows in window (%dd): %w", days, err)
+		}
+		for _, d := range rows {
+			stats.ReturnWindowNotices++
+
+			deadline := ""
+			if d.ReturnDeadline.Valid {
+				deadline = formatVi(d.ReturnDeadline.Time)
+			}
+			body := "Hạn đổi/trả: " + deadline
+			if d.ReturnWindowDays != nil {
+				body += fmt.Sprintf(" (%d ngày kể từ ngày nhận)", *d.ReturnWindowDays)
+			}
+
+			payload := push.Payload{
+				Title: fmt.Sprintf(`↩️ Còn %d ngày đổi trả "%s"`, days, d.DeviceName),
+				Body:  body,
+				URL:   fmt.Sprintf("/devices/%s", d.ID),
+				Tag:   fmt.Sprintf("wv-return-%d-%s", days, d.ID),
+			}
+			dispatch(d.UserID, payload, "return_window",
+				"device", d.ID, "days", days)
+
+			// Same-day idempotency, same pattern as StampWarrantyNotified: a second
+			// run today is filtered out by ListReturnWindowsInWindow.
+			if err := q.StampDeviceReturnWindowNotified(ctx, d.ID); err != nil {
+				slog.Error("cron: stamp device return window notified", "device", d.ID, "err", err)
+			}
+		}
+	}
+
+	// ─── 7. Pruning ────────────────────────────────────────────────────────
 	pruned, err := q.PruneExpiredSessions(ctx)
 	if err != nil {
 		slog.Error("cron: prune expired sessions", "err", err)

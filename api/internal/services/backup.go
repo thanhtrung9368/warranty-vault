@@ -204,12 +204,26 @@ type BackupDevice struct {
 	Notes         *string `json:"notes"`
 	// Resale pair (migration 0006). Absent/null in older v5 backups — the
 	// importer treats that as "not sold", so old exports stay restorable.
-	SoldAt      *string            `json:"soldAt"`
-	SoldPrice   *int32             `json:"soldPrice"`
-	CreatedAt   string             `json:"createdAt"`
-	UpdatedAt   string             `json:"updatedAt"`
-	Warranties  []BackupWarranty   `json:"warranties"`
-	Attachments []BackupAttachment `json:"attachments"`
+	SoldAt    *string `json:"soldAt"`
+	SoldPrice *int32  `json:"soldPrice"`
+	// Exchange window (migration 0010, FEATURE_IDEAS #1). Additive and optional:
+	// a payload written before these existed decodes to nil, which reads as
+	// "unknown window" — the correct meaning — so the payload version stays at
+	// 5/6 exactly as the format's own rule requires ("raise it only when an older
+	// payload would import wrongly").
+	//
+	// Carrying them is not optional in spirit: dropping returnWindowDays on a
+	// restore would silently delete the deadline this feature exists to protect,
+	// and dropping returnWindowNotifiedAt would make the next cron run re-push a
+	// window the user already saw (same reason BackupReminder carries
+	// lastNotifiedAt).
+	ReturnWindowDays       *int32             `json:"returnWindowDays"`
+	ReceivedAt             *string            `json:"receivedAt"`
+	ReturnWindowNotifiedAt *string            `json:"returnWindowNotifiedAt"`
+	CreatedAt              string             `json:"createdAt"`
+	UpdatedAt              string             `json:"updatedAt"`
+	Warranties             []BackupWarranty   `json:"warranties"`
+	Attachments            []BackupAttachment `json:"attachments"`
 }
 
 type BackupWarranty struct {
@@ -437,10 +451,14 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			Notes:         d.Notes,
 			SoldAt:        tsPtr(d.SoldAt),
 			SoldPrice:     d.SoldPrice,
-			CreatedAt:     ts(d.CreatedAt),
-			UpdatedAt:     ts(d.UpdatedAt),
-			Warranties:    []BackupWarranty{},
-			Attachments:   []BackupAttachment{},
+
+			ReturnWindowDays:       d.ReturnWindowDays,
+			ReceivedAt:             tsPtr(d.ReceivedAt),
+			ReturnWindowNotifiedAt: tsPtr(d.ReturnWindowNotifiedAt),
+			CreatedAt:              ts(d.CreatedAt),
+			UpdatedAt:              ts(d.UpdatedAt),
+			Warranties:             []BackupWarranty{},
+			Attachments:            []BackupAttachment{},
 		}
 		for _, w := range warByDevice[d.ID] {
 			bw := BackupWarranty{
@@ -708,8 +726,12 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			Notes:         d.Notes,
 			SoldAt:        pgtsPtr(d.SoldAt),
 			SoldPrice:     d.SoldPrice,
-			CreatedAt:     pgts(d.CreatedAt),
-			UpdatedAt:     pgts(d.UpdatedAt),
+
+			ReturnWindowDays:       d.ReturnWindowDays,
+			ReceivedAt:             pgtsPtr(d.ReceivedAt),
+			ReturnWindowNotifiedAt: pgtsPtr(d.ReturnWindowNotifiedAt),
+			CreatedAt:              pgts(d.CreatedAt),
+			UpdatedAt:              pgts(d.UpdatedAt),
 		}); err != nil {
 			return nil, fmt.Errorf("insert device: %w", err)
 		}

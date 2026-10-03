@@ -20,9 +20,9 @@ import (
 
 // Limits — must match website/src/lib/services/attachments.ts.
 const (
-	MaxAttachmentBytes        = 5 * 1024 * 1024       // 5 MB per file
-	MaxAttachmentsPerDevice   = 5                     // 5 attachments / device
-	MaxUploadBytesPerUser     = 100 * 1024 * 1024     // 100 MB total / user
+	MaxAttachmentBytes      = 5 * 1024 * 1024   // 5 MB per file
+	MaxAttachmentsPerDevice = 5                 // 5 attachments / device
+	MaxUploadBytesPerUser   = 100 * 1024 * 1024 // 100 MB total / user
 )
 
 // AttachmentError carries a code → HTTP status mapping that the handler can
@@ -34,8 +34,8 @@ type AttachmentError struct {
 
 func (e *AttachmentError) Error() string { return e.Message }
 
-func badInput(msg string) error    { return &AttachmentError{Code: "bad_input", Message: msg} }
-func notFound(msg string) error    { return &AttachmentError{Code: "not_found", Message: msg} }
+func badInput(msg string) error     { return &AttachmentError{Code: "bad_input", Message: msg} }
+func notFound(msg string) error     { return &AttachmentError{Code: "not_found", Message: msg} }
 func limitReached(msg string) error { return &AttachmentError{Code: "limit_reached", Message: msg} }
 func internalErr(msg string) error  { return &AttachmentError{Code: "internal_error", Message: msg} }
 

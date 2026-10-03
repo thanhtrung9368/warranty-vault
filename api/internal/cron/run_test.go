@@ -2,15 +2,22 @@ package cron
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver used by goose below
+	"github.com/pressly/goose/v3"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -526,4 +533,204 @@ func TestRun_DispatchGoneDeletesRow(t *testing.T) {
 	if remaining != 0 {
 		t.Errorf("PushSubscription row not deleted; %d still exist", remaining)
 	}
+}
+
+// ─── Return / exchange window bucket (FEATURE_IDEAS #1) ──────────────────────
+
+// cronScratchDB creates a brand-new migrated database on the server behind
+// WV_TEST_DATABASE_URL and drops it when the test ends.
+//
+// A per-test database rather than a shared one, for the same reason
+// internal/handlers does it: `go test ./...` runs package test binaries in
+// parallel and any migration round-trip in another package would otherwise
+// change the schema under this one mid-run.
+func cronScratchDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	base := strings.TrimSpace(os.Getenv("WV_TEST_DATABASE_URL"))
+	if base == "" {
+		t.Skip("WV_TEST_DATABASE_URL not set; skipping real-Postgres assertions")
+	}
+	u, err := url.Parse(base)
+	if err != nil {
+		t.Fatalf("parse WV_TEST_DATABASE_URL: %v", err)
+	}
+	name := fmt.Sprintf("wv_cron_rt_%d", time.Now().UnixNano())
+	ctx := context.Background()
+
+	admin, err := pgx.Connect(ctx, base)
+	if err != nil {
+		t.Fatalf("connect admin: %v", err)
+	}
+	if _, err := admin.Exec(ctx, `CREATE DATABASE "`+name+`"`); err != nil {
+		_ = admin.Close(ctx)
+		t.Skipf("cannot CREATE DATABASE (%v) — the DB-backed cron test needs a createdb role", err)
+	}
+	_ = admin.Close(ctx)
+	t.Cleanup(func() {
+		cctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		a, err := pgx.Connect(cctx, base)
+		if err != nil {
+			return
+		}
+		defer func() { _ = a.Close(cctx) }()
+		_, _ = a.Exec(cctx, `DROP DATABASE IF EXISTS "`+name+`" WITH (FORCE)`)
+	})
+
+	u.Path = "/" + name
+	dsn := u.String()
+
+	sqldb, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open database/sql handle: %v", err)
+	}
+	defer func() { _ = sqldb.Close() }()
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatalf("goose dialect: %v", err)
+	}
+	dir, err := filepath.Abs(filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("resolve migrations dir: %v", err)
+	}
+	if err := goose.Up(sqldb, dir); err != nil {
+		t.Fatalf("goose up: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect scratch: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
+
+// TestRunReturnWindowBucket pins the three properties that matter for the new
+// sweep: the T-3 and T-1 buckets fire on the calendar day they claim, the
+// deadline is computed from receivedAt rather than purchaseDate, and a second run
+// on the same day sends nothing more.
+func TestRunReturnWindowBucket(t *testing.T) {
+	ctx := context.Background()
+	pool := cronScratchDB(t)
+
+	userID := uuid.NewString()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO "User" (id, email, "passwordHash", "updatedAt")
+		VALUES ($1, $2, 'x', NOW())`, userID, userID+"@cron.test"); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO "PushSubscription" (id, "userId", endpoint, p256dh, auth, platform, "createdAt")
+		VALUES ($1, $2, 'https://fake.local/return-window', 'p', 'a', 'web', NOW())`,
+		uuid.NewString(), userID); err != nil {
+		t.Fatalf("insert push sub: %v", err)
+	}
+
+	// Midnight of today in the process's own zone: the cron derives its day
+	// windows from time.Now(), and the stored columns are wall-clock, so the
+	// fixtures must use the same wall clock.
+	now := time.Now()
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	insert := func(id, name string, purchaseOffset, receivedOffset int, windowDays int32, status string) {
+		t.Helper()
+		purchase := midnight.AddDate(0, 0, purchaseOffset)
+		var received any
+		if receivedOffset != 0 {
+			received = midnight.AddDate(0, 0, receivedOffset)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "Device" (id, "userId", name, category, "purchaseDate", "receivedAt",
+			                      "returnWindowDays", "purchasePrice", status, "createdAt", "updatedAt")
+			VALUES ($1, $2, $3, 'PHONE', $4, $5, $6, 1000000, $7, NOW(), NOW())`,
+			id, userID, name, purchase, received, windowDays, status); err != nil {
+			t.Fatalf("insert device %s: %v", id, err)
+		}
+	}
+
+	// deadline == today+3 → the "còn 3 ngày" bucket, counted from receivedAt:
+	// received 27 days ago + a 30-day window = 3 days left. purchaseDate is 100
+	// days earlier, so a bucket that (wrongly) counted from it would fire nothing.
+	insert("rw_t3", "Còn 3 ngày", -100, -27, 30, "ACTIVE")
+	// deadline == today+1 → the "còn 1 ngày" bucket, counted from purchaseDate.
+	insert("rw_t1", "Còn 1 ngày", -29, 0, 30, "ACTIVE")
+	// deadline == today+5 → no bucket at all.
+	insert("rw_t5", "Còn 5 ngày", -25, 0, 30, "ACTIVE")
+	// deadline == today+3 but the device is sold → the window is moot.
+	insert("rw_sold", "Đã bán", -27, 0, 30, "SOLD")
+	// window 0 → no countdown ever.
+	insert("rw_zero", "Không đổi trả", -1, 0, 0, "ACTIVE")
+
+	mock := &mockDispatcher{}
+	stats, err := Run(ctx, pool, mock)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if stats.ReturnWindowNotices != 2 {
+		t.Errorf("ReturnWindowNotices = %d, want 2 (T-3 and T-1)", stats.ReturnWindowNotices)
+	}
+
+	byTag := map[string]push.Payload{}
+	for _, s := range mock.sends {
+		byTag[s.payload.Tag] = s.payload
+	}
+	t3, ok := byTag["wv-return-3-rw_t3"]
+	if !ok {
+		t.Fatalf("no T-3 push; got tags %v", tagsOf(mock.sends))
+	}
+	if !strings.Contains(t3.Title, "Còn 3 ngày đổi trả") || !strings.Contains(t3.Title, "Còn 3 ngày") {
+		t.Errorf("T-3 title = %q", t3.Title)
+	}
+	if t3.URL != "/devices/rw_t3" {
+		t.Errorf("T-3 url = %q", t3.URL)
+	}
+	// The body names the actual last day, which is 3 days out.
+	wantDeadline := midnight.AddDate(0, 0, 3)
+	if want := "Hạn đổi/trả: " + formatVi(wantDeadline); !strings.Contains(t3.Body, want) {
+		t.Errorf("T-3 body = %q, want it to contain %q", t3.Body, want)
+	}
+	if _, ok := byTag["wv-return-1-rw_t1"]; !ok {
+		t.Errorf("no T-1 push; got tags %v", tagsOf(mock.sends))
+	}
+	// No push for anything outside the two buckets, and none for a non-ACTIVE
+	// device or a zero-length window.
+	for _, absent := range []string{"wv-return-3-rw_sold", "wv-return-1-rw_sold", "wv-return-3-rw_t5", "wv-return-1-rw_t5", "wv-return-3-rw_zero"} {
+		if _, ok := byTag[absent]; ok {
+			t.Errorf("unexpected push %q", absent)
+		}
+	}
+
+	// Idempotency: the devices were stamped, so a second pass on the same day is a
+	// no-op. This is what lastNotifiedAt does for warranties and what
+	// returnWindowNotifiedAt must do here.
+	second := &mockDispatcher{}
+	stats2, err := Run(ctx, pool, second)
+	if err != nil {
+		t.Fatalf("second Run: %v", err)
+	}
+	if stats2.ReturnWindowNotices != 0 {
+		t.Errorf("second run re-notified %d devices, want 0", stats2.ReturnWindowNotices)
+	}
+	for _, s := range second.sends {
+		if strings.HasPrefix(s.payload.Tag, "wv-return-") {
+			t.Errorf("second run re-sent %q", s.payload.Tag)
+		}
+	}
+
+	// The stamp must not have leaked onto a device that was never notified.
+	var stamped int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM "Device" WHERE "returnWindowNotifiedAt" IS NOT NULL`).Scan(&stamped); err != nil {
+		t.Fatalf("count stamped: %v", err)
+	}
+	if stamped != 2 {
+		t.Errorf("stamped devices = %d, want exactly the 2 that were notified", stamped)
+	}
+}
+
+func tagsOf(sends []mockSend) []string {
+	out := make([]string, 0, len(sends))
+	for _, s := range sends {
+		out = append(out, s.payload.Tag)
+	}
+	return out
 }

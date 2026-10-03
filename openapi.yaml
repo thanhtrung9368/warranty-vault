@@ -30,6 +30,7 @@ tags:
   - { name: catalog }
   - { name: stats }
   - { name: ai }
+  - { name: actions }
 
 security:
   - bearerAuth: []
@@ -793,6 +794,72 @@ paths:
         '400': { $ref: '#/components/responses/BadInput' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/subscriptions/audit:
+    get:
+      tags: [subscriptions]
+      summary: Tự soát subscription — gói bị bỏ quên / tăng giá / trùng nhau (chỉ tư vấn)
+      description: |
+        Đọc **lịch sử thanh toán** để rút ra kết luận, thay vì chỉ hiển thị nó.
+        Thuần SQL + Go, **không AI**, tất định và giải thích được từng dòng.
+
+        ### ⚠️ Endpoint này KHÔNG sửa gì cả
+
+        Không huỷ, không tắt `autoRenew`, không đổi giá, không ghi hàng nào.
+        `advisory` luôn là `true`. Biến một phát hiện thành hành động là cú click
+        của người dùng, qua các endpoint subscription đã có
+        (`PATCH /api/v1/subscriptions/{id}`, `POST /api/v1/subscriptions/{id}/renew`).
+
+        ### Trung thực về "dùng" — điều dữ liệu KHÔNG nói được
+
+        App **không có tín hiệu sử dụng nào**: không telemetry, không đọc được
+        giao dịch ngân hàng (roadmap §5 đã loại vì không có API tiêu dùng công
+        khai), và schema không có gì ghi "dịch vụ này đã được mở". Vì vậy phát
+        hiện **không** được gọi là "bạn không dùng gói này". Nó được gọi đúng
+        tên: **"lâu rồi không thấy ghi nhận gì"**.
+
+        Hai tín hiệu duy nhất tồn tại, và cả hai nói về việc **GHI NHẬN**, không
+        phải việc dùng:
+          * `SubscriptionPayment.note = 'Auto-renew'` — đúng chuỗi mà cron ghi
+            khi tự trừ tiền (`internal/cron/run.go`). Tách được khoản máy trừ
+            với khoản người dùng tự ghi.
+          * các trường của `Subscription`, chỉ đổi khi người dùng sửa.
+
+        ### Ba luật, và ngưỡng của chúng
+
+        | `kind` | Điều kiện | Ngưỡng (hằng số trong Go) |
+        |---|---|---|
+        | `QUIET_AUTO_RENEW` | `ACTIVE` · `autoRenew = true` · không `LIFETIME` · **0 khoản do người dùng tự ghi** · số khoản máy tự trừ ≥ 3 · khoản tự trừ **đầu tiên** cách đây ≥ 6 tháng | `AuditQuietMinAutoCharges = 3`, `AuditQuietMinMonths = 6` |
+        | `PRICE_INCREASED` | giá tăng giữa **hai kỳ thanh toán liền kề** (LAG trên toàn bộ lịch sử). Báo **mọi** mức tăng; `material` = `false` khi dưới 5% | `AuditPriceRiseMinPercent = 5` |
+        | `DUPLICATE` | hai subscription `ACTIVE` cùng người dùng, **cùng tên sau khi bỏ dấu/viết thường** (`SAME_NAME`), hoặc **cùng hãng + cùng loại** (`SAME_BRAND_CATEGORY`). Loại trừ `LIFETIME` ở **cả hai** phía | — (không có ngưỡng) |
+
+        * Đếm một mình sẽ gắn cờ gói `QUARTERLY` sau 9 tháng và gói `MONTHLY` sau
+          3 tháng; yêu cầu thêm "khoản tự trừ đầu tiên ≥ 6 tháng" khiến luật có
+          cùng ý nghĩa với mọi chu kỳ.
+        * `AuditUpcomingRenewalDays = 14`: cửa sổ để một phát hiện còn hành động
+          được trước khi tiền bị trừ; trả về trong `nextRenewalAt`/`daysUntilRenewal`.
+        * So khớp trùng tên dùng `public.wv_unaccent` — đúng hàm mà tìm kiếm
+          thiết bị đang dùng — nên "iCloud+" khớp "icloud+" và "Điện thoại" khớp
+          "dien thoai" mà không cần thêm một bản chuẩn hoá thứ tư.
+        * "Trùng nhau" ở đây nghĩa là **cùng đang hoạt động** (`ACTIVE`); schema
+          không có ngày kết thúc cho một gói đang chạy, nên đó là định nghĩa
+          "chồng lấn" duy nhất dữ liệu biểu diễn được.
+
+        ### Vì sao tính ở server
+
+        Phần **phát hiện** ở server, phần **hiển thị** ở client. Ba lý do cụ thể:
+        (1) cần `wv_unaccent`, chỉ có trong Postgres; (2) cần `LAG` trên toàn bộ
+        lịch sử thanh toán — làm ở client là N+1 query; (3) ngưỡng là quyết định
+        sản phẩm, và ba client phải ra **cùng một lời khuyên** cho cùng một tài
+        khoản. Giá trị ngưỡng được trả về trong `thresholds` để client hiển thị
+        đúng luật đã áp dụng thay vì một phán quyết vô căn cứ.
+      responses:
+        '200':
+          description: Báo cáo tự soát (chỉ tư vấn)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionAudit' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/v1/wishlist:
     get:
       tags: [wishlist]
@@ -1272,6 +1339,207 @@ paths:
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/return-windows:
+    get:
+      tags: [devices]
+      summary: Thiết bị còn hạn đổi/trả ("1 đổi 1"), kèm deadline đã tính sẵn
+      description: |
+        Danh sách thiết bị **còn cửa sổ đổi/trả** — thứ quyết định một máy lỗi
+        ngay khi nhận được **đổi mới** hay chỉ được **sửa**, và là mốc duy nhất
+        trong app mà bỏ lỡ thì mất tiền trực tiếp.
+
+        ### Vì sao là endpoint riêng, không nằm trong `/api/v1/reminders`
+
+        * `/api/v1/reminders` là cửa sổ **nhìn tới** trên `Warranty.endDate`
+          ("cái gì sắp hết"). Hạn đổi/trả là "cái gì **còn đang mở**" — một
+          khoảng bắt đầu từ ngày nhận hàng, có thể đã trôi qua vài tuần. Nhét
+          chung vào `withinDays` sẽ khiến một tham số mang hai nghĩa.
+        * Hình dạng phản hồi của `/api/v1/reminders` đã bị ba client bind cứng.
+          Endpoint này **thêm** một bề mặt thay vì sửa một bề mặt đang chạy —
+          cùng lý do đã sinh ra `/api/v1/forecast` thay vì nhồi thêm field vào
+          `/api/v1/stats`.
+
+        ### Deadline được TÍNH, không được lưu
+
+        `returnDeadline = COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`
+
+        * `receivedAt` được ưu tiên vì đơn online thường xuất hoá đơn **trước**
+          khi giao máy; đếm từ ngày thực nhận mới đúng.
+        * Vì là giá trị dẫn xuất, sửa `receivedAt` hay `returnWindowDays` là
+          deadline đổi ngay, và không bao giờ có hai con số lệch nhau.
+        * Server trả luôn `daysLeft` để ba client không phải tự chia ngày —
+          cùng lý do `effectiveWarrantyEnd` được tính ở server.
+
+        ### Số ngày là DO NGƯỜI DÙNG NHẬP, không có mặc định của server
+
+        `returnWindowDays` là **cấu hình theo từng thiết bị**, không phải một
+        hằng số toàn cục, và API **không tự suy ra** giá trị nào:
+
+        * `null` = **chưa biết** (khác hẳn `0` = "cửa hàng không cho đổi trả").
+        * Chính sách thật rất khác nhau theo nhóm hàng. Ví dụ đã đọc trực tiếp
+          từ chính sách FPT Shop (hiệu lực 01/7/2024): sản phẩm ICT lỗi nhà sản
+          xuất `0–30 ngày` được "1 ĐỔI 1" với phí khấu hao 0%; phụ kiện
+          `0–365 ngày`; miếng dán màn hình thì không bảo hành, không đổi trả;
+          tủ lạnh/máy giặt chỉ hãng Casper mới 1 đổi 1 trong 30 ngày.
+        * **Đây KHÔNG phải quy định pháp luật.** Điều 30 Luật Bảo vệ quyền lợi
+          người tiêu dùng 19/2023/QH15 chỉ buộc đổi mới hoặc hoàn tiền khi (a)
+          hết thời gian bảo hành mà không sửa được, hoặc (b) đã bảo hành từ 3 lần
+          trở lên trong thời hạn bảo hành mà vẫn không khắc phục được lỗi. Không
+          có điều luật nào cho một cửa sổ đổi trả 30 ngày. Mọi con số ở đây là
+          **chính sách của cửa hàng do người dùng ghi lại**.
+
+        ### Nội dung trả về
+
+        Chỉ thiết bị `status = ACTIVE`, chỉ `returnWindowDays > 0`, và chỉ cửa sổ
+        **còn mở** (`returnDeadline >= hôm nay`). Sắp xếp theo `returnDeadline`
+        tăng dần. Không áp horizon: cửa sổ còn mở thì còn hành động được, và số
+        dòng bị chặn bởi hạn mức 50 thiết bị / người dùng. Cửa sổ đã đóng
+        **không** được trả về (màn hình "còn hạn đổi trả" không cần lịch sử);
+        deadline của một thiết bị bất kỳ vẫn xem được qua
+        `GET /api/v1/devices/{id}` → `returnDeadline`.
+      responses:
+        '200':
+          description: Danh sách thiết bị còn hạn đổi/trả
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [returnWindows]
+                properties:
+                  returnWindows:
+                    type: array
+                    description: 'Luôn là mảng, không bao giờ null. Rỗng khi không thiết bị nào còn hạn đổi/trả.'
+                    items: { $ref: '#/components/schemas/ReturnWindow' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/actions:
+    get:
+      tags: [actions]
+      summary: 'Hàng đợi "Việc cần xử lý" — những việc app tự suy ra và không tự quyết được'
+      description: |
+        Danh sách việc **app biết đủ để hỏi nhưng không hỏi**. Mỗi việc được
+        **suy ra** từ dữ liệu đã có, không có bảng "việc" nào được ghi thêm:
+        bảo hành vừa hết hạn, thiết bị chưa có gói bảo hành, trạng thái thiết bị
+        đã cũ, thiếu serial/IMEI, thiếu ảnh hoá đơn, hạn đổi trả sắp hết hoặc
+        chưa ghi, subscription sắp bị trừ mà thiếu link huỷ, ngày gia hạn chưa
+        được cập nhật sau khi đã ghi nhận thanh toán, wishlist đã qua ngày dự
+        kiến mua.
+
+        ### ⚠️ "Bảo hành hết hạn hôm qua" nằm ở ĐÂY, không nằm trong `/reminders`
+
+        `/api/v1/reminders` chỉ nhìn **về phía trước** (`endDate >= hôm nay`), nên
+        một gói hết hạn hôm qua biến mất khỏi mọi màn hình. Đó là một **query
+        riêng** ở đây (`WARRANTY_EXPIRED`, lùi tối đa 90 ngày), **không** phải
+        một tham số mới của feed cũ — hợp đồng của feed cũ giữ nguyên từng byte.
+
+        ### `itemKey` là gì
+
+        `<LOẠI_VIỆC>:<id-thực-thể>`, ví dụ `WARRANTY_EXPIRED:clx1234`. Đây là
+        danh tính **ổn định** của một phép suy ra (id thực thể không đổi), và là
+        thứ dùng để hoãn việc ở endpoint bên dưới.
+
+        ### Hoãn ("hoãn") sống ở server, không ở máy
+
+        Trạng thái hoãn lưu trong bảng riêng `DecisionSnooze`, khoá theo
+        `(userId, itemKey)`, nên **một máy hoãn thì mọi máy đều thấy**.
+        Cố ý **KHÔNG** tái dùng bảng `Reminder`: `Reminder.isDismissed` đang là
+        **cổng chặn push bảo hành** (xem `warranties.sql`), nên một hàng hoãn
+        chung chung ở đó có thể **tắt mất thông báo bảo hành thật**; và `Reminder`
+        không có trường thời gian nào để diễn đạt "hoãn 90 ngày".
+        `POST /api/v1/warranties/{id}/reminder` vì thế **không** bị ảnh hưởng.
+
+        ### Mặc định và `snoozed`
+
+        * `snoozed` vắng mặt hoặc `false` (mặc định): chỉ trả việc **đang cần
+          xử lý**. `counts` đếm đúng tập này.
+        * `snoozed=true`: trả **thêm** các việc đang bị hoãn, mỗi dòng có
+          `snoozedUntil` (để client vẽ mục "Đang hoãn" và cho bỏ hoãn). Cờ này
+          **chỉ thêm dòng, không bao giờ bớt dòng** — cùng hợp đồng với
+          `includeDismissed` của `/api/v1/reminders`.
+        * `counts` **luôn** đếm tập đang cần xử lý, kể cả khi `snoozed=true`, để
+          badge trên dashboard không đổi nghĩa theo cờ.
+      parameters:
+        - name: snoozed
+          in: query
+          required: false
+          description: |
+            `true` để trả thêm các việc đang bị hoãn (kèm `snoozedUntil`).
+            Mặc định `false` — chỉ việc đang cần xử lý. Chỉ nhận `true`/`false`
+            (và `1`/`0`); giá trị khác trả 400.
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Hàng đợi việc cần xử lý
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActionQueue' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/actions/{itemKey}/snooze:
+    post:
+      tags: [actions]
+      summary: Hoãn một việc cần xử lý (mặc định 90 ngày), có hiệu lực trên mọi thiết bị
+      description: |
+        Ẩn một việc khỏi hàng đợi cho tới `now + days`. Trạng thái lưu ở server
+        theo `(userId, itemKey)` nên **máy khác đăng nhập cùng tài khoản thấy ngay**
+        — đây là lý do không dùng cờ lưu cục bộ.
+
+        * Không có body, hoặc `days` bằng `0`/thiếu → dùng mặc định **90 ngày**
+          (đúng "để đó 90 ngày" của một lần chạm).
+        * `days` phải trong khoảng `1–365`. Ngoài khoảng → 400 kèm
+          `fieldErrors.days`.
+        * Hoãn **lại** một việc đã hoãn là hợp lệ và chỉ dời hạn (upsert theo
+          `(userId, itemKey)`), không tạo thêm hàng.
+        * `itemKey` phải là một việc **thuộc chính người dùng này** và **suy ra
+          được từ dữ liệu hiện tại**; nếu không, trả 404. Nhờ vậy bảng hoãn bị
+          chặn theo đúng tập việc có thật, và không rò rỉ việc của tài khoản khác.
+        * Sai định dạng `itemKey` (không phải `<LOẠI_VIỆC>:<id>`, hoặc loại việc
+          không tồn tại) → 400, cố ý **khác** 404 để một lỗi gõ không bị báo thành
+          "việc này đã biến mất".
+        * **Hoãn ở đây không ảnh hưởng tới thông báo đẩy bảo hành.** Hai cơ chế
+          độc lập (bảng `DecisionSnooze` so với `Reminder`).
+      parameters:
+        - name: itemKey
+          in: path
+          required: true
+          description: '`<LOẠI_VIỆC>:<id>`, ví dụ `WARRANTY_EXPIRED:clx1234`. Dấu `:` hợp lệ trong một path segment nên không cần encode.'
+          schema: { type: string, example: 'WARRANTY_EXPIRED:clx1234' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SnoozeInput' }
+      responses:
+        '200':
+          description: Đã hoãn
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SnoozeResult' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+    delete:
+      tags: [actions]
+      summary: Bỏ hoãn — việc quay lại hàng đợi ngay
+      description: |
+        Xoá hàng hoãn của `(userId, itemKey)`. Việc xuất hiện lại ở lần gọi
+        `GET /api/v1/actions` kế tiếp. Nếu việc đó **không** đang được hoãn → 404
+        (không im lặng trả 200, để client biết trạng thái đã lệch).
+      parameters:
+        - name: itemKey
+          in: path
+          required: true
+          schema: { type: string, example: 'WARRANTY_EXPIRED:clx1234' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/cron/warranty-check:
     post:
       tags: [cron]
@@ -1297,13 +1565,38 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [ok, checkedAt, stats]
                 properties:
-                  warrantyNotified: { type: integer }
-                  wishlistTargetNotified: { type: integer }
-                  wishlistIntervalNotified: { type: integer }
-                  subsBilled: { type: integer }
-                  subsExpired: { type: integer }
-                  subsRenewalNotified: { type: integer }
+                  ok: { type: boolean }
+                  checkedAt: { type: string, format: date-time }
+                  stats:
+                    type: object
+                    description: |
+                      Bộ đếm best-effort của một lượt chạy. Một hàng lỗi bị ghi log
+                      và bỏ qua, không làm hỏng phần còn lại của job — nên các con số
+                      này là "đã xử lý", không phải "đã thành công".
+                    required:
+                      - warrantyNotices
+                      - returnWindowNotices
+                      - wishlistTargetHits
+                      - wishlistCheckins
+                      - subscriptionRenewals
+                      - subscriptionExpired
+                      - sessionsPruned
+                      - pushesSent
+                      - pushesFailed
+                      - pushesGone
+                    properties:
+                      warrantyNotices: { type: integer, description: 'Số gói bảo hành rơi vào mốc 7 hoặc 30 ngày trước `endDate`.' }
+                      returnWindowNotices: { type: integer, description: 'Số thiết bị rơi vào mốc còn 3 hoặc 1 ngày đổi/trả (`COALESCE(receivedAt, purchaseDate) + returnWindowDays`).' }
+                      wishlistTargetHits: { type: integer }
+                      wishlistCheckins: { type: integer }
+                      subscriptionRenewals: { type: integer, description: 'Số gói đã được tự động gia hạn THẬT trong một transaction (có ghi `SubscriptionPayment`).' }
+                      subscriptionExpired: { type: integer }
+                      sessionsPruned: { type: integer }
+                      pushesSent: { type: integer }
+                      pushesFailed: { type: integer }
+                      pushesGone: { type: integer, description: 'Push trả 404/410 — hàng `PushSubscription` tương ứng đã bị xoá.' }
         '401': { description: 'Missing or wrong CRON_SECRET' }
 
   /api/v1/ai/extract-receipt:
@@ -1913,6 +2206,44 @@ components:
           description: |
             Giá bán, VND (số nguyên). `null` = chưa bán. Lãi/lỗ = soldPrice −
             purchasePrice (client tự tính; API không trả sẵn).
+        returnWindowDays:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 3650
+          description: |
+            Số ngày của cửa sổ đổi/trả ("1 đổi 1") của **cửa hàng** đối với thiết
+            bị này. Cấu hình **theo từng thiết bị**; API không có giá trị mặc
+            định và không tự suy ra từ loại thiết bị.
+
+            * `null` = **chưa biết** (khác hẳn `0`).
+            * `0` = cửa hàng **không cho đổi trả**.
+            * `> 0` = số ngày kể từ `receivedAt` (hoặc `purchaseDate` nếu chưa có
+              `receivedAt`).
+
+            Con số này **không phải quy định pháp luật**: Điều 30 Luật Bảo vệ
+            quyền lợi người tiêu dùng 19/2023/QH15 chỉ buộc đổi mới/hoàn tiền khi
+            hết hạn bảo hành mà không sửa được, hoặc đã bảo hành ≥ 3 lần mà vẫn
+            lỗi. Đây là chính sách của cửa hàng, do người dùng ghi lại. Thực tế
+            rất khác nhau (30 ngày cho ICT, 365 ngày cho phụ kiện, 0 cho miếng
+            dán màn hình, và với tủ lạnh/máy giặt thì phụ thuộc hãng).
+        receivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Ngày người dùng **thực nhận** thiết bị. Tách khỏi `purchaseDate` vì
+            đơn online thường xuất hoá đơn trước khi giao. Khi có, đây là mốc bắt
+            đầu của cửa sổ đổi/trả; khi `null`, deadline tính từ `purchaseDate`.
+            `null` nghĩa là "chưa ghi", **không** phải "nhận đúng ngày mua".
+        returnWindowNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Dấu chống trùng của cron: lần gần nhất đã đẩy thông báo "sắp hết hạn
+            đổi trả" cho thiết bị này. Là chi tiết vận hành — client hiển thị
+            hay không đều được. Cùng vai trò với `Reminder.lastNotifiedAt`.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -1935,12 +2266,27 @@ components:
                 max(Warranty.endDate) across the device's warranties. Null when the
                 device has no warranty with an end date — this is a genuinely
                 nullable field (`*time.Time` in Go), not a required string.
+            returnDeadline:
+              type: string
+              format: date-time
+              nullable: true
+              description: |
+                Hạn đổi/trả **đã tính sẵn**:
+                `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`.
+                `null` khi chưa biết số ngày, khi số ngày là 0, hoặc thiếu
+                `purchaseDate`. Tính ở server để ba client không tự chia ngày
+                theo ba cách khác nhau.
 
     DeviceDetail:
       allOf:
         - $ref: '#/components/schemas/Device'
         - type: object
           properties:
+            returnDeadline:
+              type: string
+              format: date-time
+              nullable: true
+              description: 'Giống `DeviceListItem.returnDeadline`: hạn đổi/trả đã tính sẵn, `null` khi chưa biết/không áp dụng.'
             attachments:
               type: array
               items: { $ref: '#/components/schemas/AttachmentMeta' }
@@ -1979,6 +2325,30 @@ components:
             Giá bán, VND, nullable. Số âm ⇒ 400 `fieldErrors.soldPrice`. Ràng buộc
             cặp đôi với `soldAt` như trên. Độc lập với `status` — client có thể đặt
             `status: SOLD` mà không cần số liệu bán.
+        returnWindowDays:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 3650
+          description: |
+            Số ngày đổi/trả của cửa hàng cho thiết bị này (cấu hình **theo từng
+            thiết bị**, không có mặc định của server — xem
+            `GET /api/v1/return-windows`). `null` = chưa biết, `0` = không cho đổi
+            trả. Ngoài khoảng `0–3650` ⇒ 400
+            `fieldErrors.returnWindowDays`. Độc lập với `receivedAt`: gửi cái này
+            mà không gửi cái kia vẫn hợp lệ.
+
+            ⚠️ `PATCH /api/v1/devices/{id}` **thay thế toàn bộ** các trường, đúng
+            như `soldAt`/`soldPrice`: không gửi `returnWindowDays`/`receivedAt`
+            nghĩa là **xoá** cửa sổ đổi/trả đã ghi. Client nào có hiển thị hai
+            trường này phải gửi lại đủ.
+        receivedAt:
+          type: string
+          nullable: true
+          description: |
+            Ngày thực nhận máy (`YYYY-MM-DD` hoặc ISO đầy đủ), nullable. Không
+            parse được ⇒ 400 `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp
+            lệ"]`. Gửi `null` để xoá.
         warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
@@ -2564,3 +2934,190 @@ components:
                     "Hỏng" / "Mất" cho reminder đã ẩn trên thiết bị không còn
                     ACTIVE (những dòng này được trả về khi
                     `includeDismissed=true`).
+
+    # ─── Hạn đổi trả ("1 đổi 1") — GET /api/v1/return-windows ────────────────
+    ReturnWindow:
+      type: object
+      required: [deviceId, name, category, status, purchaseDate, returnWindowDays, returnDeadline, daysLeft]
+      properties:
+        deviceId: { type: string }
+        name: { type: string }
+        category: { type: string }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/DeviceStatus' }
+        purchaseDate: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time, nullable: true, description: 'Ngày thực nhận, `null` nếu chưa ghi (deadline khi đó tính từ `purchaseDate`).' }
+        returnWindowDays: { type: integer, description: 'Số ngày đổi/trả người dùng đã ghi. Luôn `> 0` ở endpoint này (0 và null bị lọc).' }
+        returnDeadline:
+          type: string
+          format: date-time
+          description: 'Hạn cuối còn được đổi/trả = `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`.'
+        daysLeft:
+          type: integer
+          description: |
+            Số ngày còn lại, tính theo **ngày lịch**: `0` nghĩa là **hôm nay là
+            ngày cuối cùng**. Không bao giờ âm ở endpoint này (cửa sổ đã đóng bị
+            lọc khỏi danh sách).
+
+    # ─── "Việc cần xử lý" — GET /api/v1/actions ─────────────────────────────
+    ActionItem:
+      type: object
+      required: [itemKey, kind, severity, title, detail]
+      properties:
+        itemKey:
+          type: string
+          description: |
+            `<LOẠI_VIỆC>:<id>`. Danh tính ổn định của việc này — dùng nguyên văn
+            khi gọi `POST/DELETE /api/v1/actions/{itemKey}/snooze`.
+          example: 'WARRANTY_EXPIRED:clx1234'
+        kind:
+          type: string
+          enum:
+            - WARRANTY_EXPIRED
+            - DEVICE_NO_WARRANTY
+            - DEVICE_STATUS_STALE
+            - DEVICE_MISSING_SERIAL
+            - DEVICE_MISSING_RECEIPT
+            - RETURN_WINDOW_CLOSING
+            - RETURN_WINDOW_UNKNOWN
+            - SUBSCRIPTION_RENEWING_NO_CANCEL_URL
+            - SUBSCRIPTION_PAID_NOT_ADVANCED
+            - WISHLIST_TARGET_PASSED
+          description: |
+            Loại việc. **Client nên switch trên trường này** để quyết định hiện
+            nút nào; `title`/`detail` chỉ để hiển thị.
+
+            * `WARRANTY_EXPIRED` — bảo hành hết hạn trong vòng 90 ngày qua, trên
+              thiết bị còn `ACTIVE`. Đây là những dòng đã rơi khỏi mọi màn hình.
+            * `DEVICE_NO_WARRANTY` — thiết bị `ACTIVE` không có gói bảo hành nào.
+            * `DEVICE_STATUS_STALE` — `status` vẫn `ACTIVE` nhưng bảo hành cuối đã
+              hết **quá** 90 ngày (bổ sung, không trùng `WARRANTY_EXPIRED`).
+            * `DEVICE_MISSING_SERIAL` — thiếu `serialNumber`.
+            * `DEVICE_MISSING_RECEIPT` — không có `Attachment` nào.
+            * `RETURN_WINDOW_CLOSING` — hạn đổi/trả còn ≤ 7 ngày.
+            * `RETURN_WINDOW_UNKNOWN` — mua trong 30 ngày qua mà chưa ghi
+              `returnWindowDays`.
+            * `SUBSCRIPTION_RENEWING_NO_CANCEL_URL` — sắp tự gia hạn trong 14 ngày
+              mà thiếu `cancelUrl`.
+            * `SUBSCRIPTION_PAID_NOT_ADVANCED` — đã ghi nhận thanh toán cho một
+              `renewalDate` đã qua nhưng ngày gia hạn chưa được đẩy tiếp.
+            * `WISHLIST_TARGET_PASSED` — `targetDate` đã qua mà món vẫn đang theo dõi.
+        severity: { type: string, enum: [HIGH, MEDIUM, LOW], description: 'Thứ tự hiển thị gợi ý: `HIGH` trước. `HIGH` = mốc thời gian hoặc tiền sắp mất.' }
+        title: { type: string, description: 'Tiêu đề tiếng Việt, hiển thị thẳng.' }
+        detail: { type: string, description: 'Một câu tiếng Việt giải thích vì sao việc này xuất hiện, kèm ngày/số tiền liên quan.' }
+        deviceId: { type: string, nullable: true }
+        warrantyId: { type: string, nullable: true }
+        subscriptionId: { type: string, nullable: true }
+        wishlistItemId: { type: string, nullable: true }
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày mà việc này nói tới (hết hạn BH, hạn đổi trả, ngày gia hạn, ngày dự kiến mua). Vắng mặt khi việc không gắn với một ngày cụ thể.'
+        amountVnd:
+          type: integer
+          format: int64
+          nullable: true
+          description: 'Số tiền liên quan (VND, int64), khi có. Vắng mặt khi việc không gắn với tiền.'
+        snoozedUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Chỉ xuất hiện khi gọi `?snoozed=true` và việc này đang bị hoãn. Vắng mặt = việc đang cần xử lý.'
+
+    # Số lượng theo mức độ. Dùng chung cho hàng đợi việc cần xử lý và cho báo cáo
+    # tự soát subscription — hai tập hợp khác nhau, cùng một cách đếm.
+    ActionCounts:
+      type: object
+      required: [total, high, medium, low]
+      properties:
+        total: { type: integer, description: 'Tổng số mục trong tập đang được đếm. Với `ActionQueue` đây là số việc **đang cần xử lý** (không tính việc bị hoãn, kể cả khi gọi `?snoozed=true`); với `SubscriptionAudit` là tổng số phát hiện.' }
+        high: { type: integer }
+        medium: { type: integer }
+        low: { type: integer }
+
+    ActionQueue:
+      type: object
+      required: [generatedAt, items, counts, snoozedCount, note]
+      properties:
+        generatedAt: { type: string, format: date-time, description: 'Thời điểm server dựng hàng đợi. Mọi phép đếm ngày trong `items` đều tương đối với nó.' }
+        items:
+          type: array
+          description: 'Luôn là mảng, không bao giờ null. Đã sắp xếp: `severity` giảm dần, rồi tới `dueDate` tăng dần (không có ngày thì xuống cuối), rồi `kind`/`itemKey` để thứ tự ổn định giữa hai lần gọi.'
+          items: { $ref: '#/components/schemas/ActionItem' }
+        counts:
+          allOf: [{ $ref: '#/components/schemas/ActionCounts' }]
+          description: 'Luôn đếm tập **đang cần xử lý**: cờ `snoozed` chỉ thêm dòng vào `items`, không bao giờ đổi nghĩa của badge này.'
+        snoozedCount: { type: integer, description: 'Số việc đang bị hoãn, kể cả khi chúng không nằm trong `items`. Dùng để vẽ lối vào mục "Đang hoãn".' }
+        note: { type: string, description: 'Câu tiếng Việt nói rõ hàng đợi này là gì và **không** phải gì (không phải thông báo đẩy; hoãn ở đây không ảnh hưởng nhắc bảo hành). Hiển thị thẳng.' }
+
+    SnoozeInput:
+      type: object
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          default: 90
+          description: 'Số ngày hoãn. Bỏ trống hoặc `0` ⇒ dùng mặc định `90`. Ngoài khoảng `1–365` ⇒ 400 kèm `fieldErrors.days`.'
+
+    SnoozeResult:
+      type: object
+      required: [itemKey, snoozedUntil, days]
+      properties:
+        itemKey: { type: string }
+        snoozedUntil: { type: string, format: date-time, description: 'Thời điểm việc này hiện lại trong hàng đợi.' }
+        days: { type: integer, description: 'Số ngày đã áp dụng (hữu ích khi client không gửi `days` và cần biết mặc định là bao nhiêu).' }
+
+    # ─── Tự soát subscription — GET /api/v1/subscriptions/audit ─────────────
+    SubscriptionAuditThresholds:
+      type: object
+      required: [quietMinAutoCharges, quietMinMonths, upcomingRenewalDays, priceRiseMinPercent, duplicateNormalized]
+      properties:
+        quietMinAutoCharges: { type: integer, description: 'Số khoản tự động trừ tối thiểu để xét `QUIET_AUTO_RENEW` (3).' }
+        quietMinMonths: { type: integer, description: 'Khoản tự trừ ĐẦU TIÊN phải cách đây ít nhất bao nhiêu tháng (6).' }
+        upcomingRenewalDays: { type: integer, description: 'Cửa sổ để một phát hiện còn hành động được trước khi bị trừ tiền (14 ngày).' }
+        priceRiseMinPercent: { type: integer, description: 'Mức tăng (%) từ đó `material` = true. Mọi mức tăng vẫn được báo; ngưỡng này chỉ để client quyết định độ nổi bật (5).' }
+        duplicateNormalized: { type: boolean, description: 'Luôn `true`: so khớp trùng tên có bỏ dấu và không phân biệt hoa/thường (`public.wv_unaccent`).' }
+
+    SubscriptionAuditFinding:
+      type: object
+      required: [findingKey, kind, severity, title, detail, subscriptionIds, names, monthlyVnd, chargedTotalVnd, chargeCount]
+      properties:
+        findingKey: { type: string, description: '`<LOẠI_PHÁT_HIỆN>:<id hoặc cặp id>`. Ổn định giữa các lần gọi.' }
+        kind: { type: string, enum: [QUIET_AUTO_RENEW, PRICE_INCREASED, DUPLICATE] }
+        severity: { type: string, enum: [HIGH, MEDIUM, LOW] }
+        title: { type: string }
+        detail: { type: string, description: 'Câu tiếng Việt nêu đúng số liệu đã dẫn tới kết luận này.' }
+        subscriptionIds: { type: array, items: { type: string }, description: 'Một id cho hai luật đầu, hai id cho `DUPLICATE`.' }
+        names: { type: array, items: { type: string } }
+        monthlyVnd: { type: integer, format: int64, description: 'Tổng quy đổi tháng của các gói liên quan (VND, int64). `0` với `LIFETIME`.' }
+        chargedTotalVnd: { type: integer, format: int64, description: 'Tổng tiền **máy đã tự trừ** (`QUIET_AUTO_RENEW`). Không phải tổng mọi thanh toán.' }
+        chargeCount: { type: integer, format: int64, description: 'Số khoản máy đã tự trừ.' }
+        lastRecordedAt: { type: string, format: date-time, nullable: true, description: 'Ngày thanh toán mới nhất được ghi nhận. ⚠️ Đây **không** phải ngày dùng cuối — app không có dữ liệu đó.' }
+        nextRenewalAt: { type: string, format: date-time, nullable: true }
+        daysUntilRenewal: { type: integer, nullable: true }
+        previousAmountVnd: { type: integer, format: int64, nullable: true, description: '`PRICE_INCREASED`: giá kỳ trước.' }
+        amountVnd: { type: integer, format: int64, nullable: true, description: '`PRICE_INCREASED`: giá kỳ này.' }
+        increaseVnd: { type: integer, format: int64, nullable: true }
+        increasePercent: { type: integer, nullable: true, description: 'Mức tăng làm tròn theo %, `null` khi kỳ trước là 0 (không chia được).' }
+        material: { type: boolean, nullable: true, description: '`false` khi mức tăng dưới `priceRiseMinPercent`. Phát hiện vẫn được trả về; chỉ độ nổi bật là do client quyết định.' }
+        reason: { type: string, nullable: true, enum: [SAME_NAME, SAME_BRAND_CATEGORY], description: '`DUPLICATE`: tín hiệu nào đã khớp.' }
+
+    SubscriptionAudit:
+      type: object
+      required: [generatedAt, findings, counts, advisory, thresholds, note]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        findings:
+          type: array
+          description: 'Luôn là mảng, không bao giờ null. Sắp xếp: `severity` giảm dần, rồi `monthlyVnd` giảm dần (tiền là lý do tính năng này tồn tại), rồi `findingKey`.'
+          items: { $ref: '#/components/schemas/SubscriptionAuditFinding' }
+        counts: { $ref: '#/components/schemas/ActionCounts' }
+        advisory:
+          type: boolean
+          description: 'Luôn `true`. Có mặt để client khẳng định với người dùng rằng **không có gì bị sửa hay huỷ tự động** — endpoint này không có đường ghi nào.'
+        thresholds: { $ref: '#/components/schemas/SubscriptionAuditThresholds' }
+        note: { type: string, description: 'Câu tiếng Việt nói rõ giới hạn của phân tích (không đọc được giao dịch ngân hàng, không biết gói có đang được dùng hay không). Hiển thị thẳng.' }

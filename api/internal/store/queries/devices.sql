@@ -79,12 +79,14 @@ INSERT INTO "Device" (
     notes,
     "soldAt",
     "soldPrice",
+    "returnWindowDays",
+    "receivedAt",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     COALESCE(sqlc.narg('status')::text, 'ACTIVE'),
-    $11, $12, $13,
+    $11, $12, $13, $14, $15,
     NOW(),
     NOW()
 )
@@ -104,6 +106,8 @@ UPDATE "Device" SET
     notes = $12,
     "soldAt" = $13,
     "soldPrice" = $14,
+    "returnWindowDays" = $15,
+    "receivedAt" = $16,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;

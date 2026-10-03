@@ -112,12 +112,22 @@ WHERE "userId" = $1;
 -- name: BackupInsertDevice :exec
 -- soldAt/soldPrice are optional in the payload (older v5 exports predate them);
 -- a missing value decodes to NULL, which is exactly the "not sold / unknown" state.
+--
+-- returnWindowDays / receivedAt / returnWindowNotifiedAt are optional in the same
+-- way (migration 0010). Carrying them stops a restore from silently dropping the
+-- exchange deadline — the one date this feature exists to protect — and carrying
+-- returnWindowNotifiedAt stops the cron re-pushing a window the user was already
+-- told about, for the same reason BackupInsertReminder carries lastNotifiedAt. A
+-- payload that predates them decodes to NULL = "unknown window", which is the
+-- correct reading, so the payload version stays at 5/6 (the format is additive).
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
-    "soldAt", "soldPrice", "createdAt", "updatedAt"
+    "soldAt", "soldPrice", "returnWindowDays", "receivedAt",
+    "returnWindowNotifiedAt", "createdAt", "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+    $17, $18, $19
 );
 
 -- name: BackupInsertWarranty :exec

@@ -35,6 +35,33 @@ func RegisterSubscriptions(mux *http.ServeMux, deps Deps) {
 		requireUser(http.HandlerFunc(logSubscriptionPaymentHandler(deps))))
 	mux.Handle("POST /api/v1/subscriptions/{id}/renew",
 		requireUser(http.HandlerFunc(renewSubscriptionHandler(deps))))
+	// GET /api/v1/subscriptions/audit — advisory self-audit (FEATURE_IDEAS #4).
+	//
+	// It sits under the subscriptions collection, not under `{id}`, and there is no
+	// conflict: Go 1.22+ ServeMux precedence picks the more specific pattern, and a
+	// literal segment ("audit") is strictly more specific than a wildcard
+	// ("{id}"), so "audit" can never be read as an id.
+	//
+	// Read-only by construction: the service has no write path at all, so nothing
+	// reachable from here can cancel or modify a subscription.
+	mux.Handle("GET /api/v1/subscriptions/audit",
+		requireUser(http.HandlerFunc(auditSubscriptionsHandler(deps))))
+}
+
+func auditSubscriptionsHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		us, ok := auth.UserFromContext(r.Context())
+		if !ok {
+			unauthorized(w)
+			return
+		}
+		audit, err := services.GetSubscriptionAudit(r.Context(), deps.DB, us.UserID, time.Now())
+		if err != nil {
+			writeServiceError(w, err, "subscription audit")
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, audit)
+	}
 }
 
 // ---- request shapes -------------------------------------------------------

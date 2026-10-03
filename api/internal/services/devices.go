@@ -35,18 +35,31 @@ var validStatuses = map[string]bool{
 // Both are nullable pointers: nil means "not sold". They must be supplied
 // together — see ValidateDeviceInput.
 type DeviceInput struct {
-	Name             string  `json:"name"`
-	Category         string  `json:"category"`
-	Brand            *string `json:"brand,omitempty"`
-	Model            *string `json:"model,omitempty"`
-	SerialNumber     *string `json:"serialNumber,omitempty"`
-	PurchaseDate     string  `json:"purchaseDate"` // YYYY-MM-DD or RFC3339
-	PurchasePrice    int32   `json:"purchasePrice"`
-	PurchasePlace    *string `json:"purchasePlace,omitempty"`
-	Status           string  `json:"status,omitempty"` // default ACTIVE
-	Notes            *string `json:"notes,omitempty"`
-	SoldAt           *string `json:"soldAt,omitempty"`    // YYYY-MM-DD or RFC3339; nil = not sold
-	SoldPrice        *int32  `json:"soldPrice,omitempty"` // VND; nil = not sold
+	Name          string  `json:"name"`
+	Category      string  `json:"category"`
+	Brand         *string `json:"brand,omitempty"`
+	Model         *string `json:"model,omitempty"`
+	SerialNumber  *string `json:"serialNumber,omitempty"`
+	PurchaseDate  string  `json:"purchaseDate"` // YYYY-MM-DD or RFC3339
+	PurchasePrice int32   `json:"purchasePrice"`
+	PurchasePlace *string `json:"purchasePlace,omitempty"`
+	Status        string  `json:"status,omitempty"` // default ACTIVE
+	Notes         *string `json:"notes,omitempty"`
+	SoldAt        *string `json:"soldAt,omitempty"`    // YYYY-MM-DD or RFC3339; nil = not sold
+	SoldPrice     *int32  `json:"soldPrice,omitempty"` // VND; nil = not sold
+	// ReturnWindowDays / ReceivedAt are the retailer exchange-window pair added
+	// for FEATURE_IDEAS #1 (migration 0010). Both are optional and NULL-able:
+	//   * ReturnWindowDays nil = "chưa biết" (unknown), 0 = "cửa hàng không cho
+	//     đổi trả", > 0 = a real window. There is deliberately NO server default —
+	//     the number varies by category and brand (30 days for ICT, 365 for
+	//     accessories, none for screen protectors).
+	//   * ReceivedAt is when the user actually got the device; it wins over
+	//     PurchaseDate when computing the deadline, because an online order is
+	//     invoiced before it is delivered.
+	// Unlike the soldAt/soldPrice pair these two are independent: a user may know
+	// the window without the delivery date, or vice versa.
+	ReturnWindowDays *int32  `json:"returnWindowDays,omitempty"`
+	ReceivedAt       *string `json:"receivedAt,omitempty"` // YYYY-MM-DD or RFC3339
 	WarrantyMonths   int32   `json:"warrantyMonths"`
 	WarrantyProvider *string `json:"warrantyProvider,omitempty"`
 	WarrantyAddress  *string `json:"warrantyAddress,omitempty"`
@@ -67,8 +80,14 @@ type DeviceFilter struct {
 // warranty end (max over Warranty.endDate). Mirrors website/src/lib/devices.ts.
 type DeviceListItem struct {
 	store.Device
-	AttachmentCount       int64      `json:"attachmentCount"`
-	EffectiveWarrantyEnd  *time.Time `json:"effectiveWarrantyEnd"`
+	AttachmentCount      int64      `json:"attachmentCount"`
+	EffectiveWarrantyEnd *time.Time `json:"effectiveWarrantyEnd"`
+	// ReturnDeadline is the derived exchange-window deadline
+	// (COALESCE(receivedAt, purchaseDate) + returnWindowDays days), or nil when the
+	// window is unknown/absent. Derived server-side so the three clients cannot
+	// implement the rule three slightly different ways — the same reason
+	// effectiveWarrantyEnd is computed here rather than in each client.
+	ReturnDeadline *time.Time `json:"returnDeadline"`
 }
 
 // DeviceDetail is the full device read: device + warranties (with reminders) +
@@ -77,6 +96,8 @@ type DeviceDetail struct {
 	store.Device
 	Warranties  []WarrantyWithReminders `json:"warranties"`
 	Attachments []AttachmentMeta        `json:"attachments"`
+	// ReturnDeadline mirrors DeviceListItem.ReturnDeadline; see the comment there.
+	ReturnDeadline *time.Time `json:"returnDeadline"`
 }
 
 // AttachmentMeta is the redacted attachment shape for the device read path.
@@ -132,6 +153,7 @@ func ValidateDeviceInput(in *DeviceInput) error {
 	trimPtr(&in.PurchasePlace)
 	trimPtr(&in.Notes)
 	trimPtr(&in.SoldAt)
+	trimPtr(&in.ReceivedAt)
 	trimPtr(&in.WarrantyProvider)
 	trimPtr(&in.WarrantyAddress)
 	trimPtr(&in.WarrantyPhone)
@@ -170,6 +192,15 @@ func ValidateDeviceInput(in *DeviceInput) error {
 	if in.WarrantyMonths < 0 {
 		fieldErrors["warrantyMonths"] = []string{"Số tháng bảo hành không hợp lệ"}
 	}
+	// 0 is valid and meaningful ("cửa hàng không cho đổi trả"); NULL (absent) means
+	// unknown and is also valid. Only out-of-range values are rejected, so a typo
+	// cannot store a deadline in the year 9999.
+	if in.ReturnWindowDays != nil &&
+		(*in.ReturnWindowDays < ReturnWindowDaysMin || *in.ReturnWindowDays > ReturnWindowDaysMax) {
+		fieldErrors["returnWindowDays"] = []string{
+			fmt.Sprintf("Số ngày đổi trả phải từ %d tới %d", ReturnWindowDaysMin, ReturnWindowDaysMax),
+		}
+	}
 	if in.Status == "" {
 		in.Status = "ACTIVE"
 	} else if !validStatuses[in.Status] {
@@ -197,10 +228,10 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 	}
 
 	rows, err := q.ListDevicesByUser(ctx, store.ListDevicesByUserParams{
-		UserId:   userID,
-		Column2:  cat,
-		Column3:  st,
-		Column4:  strings.TrimSpace(f.Q),
+		UserId:  userID,
+		Column2: cat,
+		Column3: st,
+		Column4: strings.TrimSpace(f.Q),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list devices: %w", err)
@@ -251,6 +282,7 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 			Device:               d,
 			AttachmentCount:      countByDevice[d.ID],
 			EffectiveWarrantyEnd: end,
+			ReturnDeadline:       deviceReturnDeadline(d),
 		})
 	}
 
@@ -348,7 +380,12 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	for _, a := range atts {
 		metas = append(metas, toAttachmentMeta(a))
 	}
-	return &DeviceDetail{Device: d, Warranties: wr, Attachments: metas}, nil
+	return &DeviceDetail{
+		Device:         d,
+		Warranties:     wr,
+		Attachments:    metas,
+		ReturnDeadline: deviceReturnDeadline(d),
+	}, nil
 }
 
 // CreateDevice mirrors website/src/lib/services/devices.ts::createDevice
@@ -379,6 +416,10 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err != nil {
 		return store.Device{}, err
 	}
+	receivedAt, err := parseReceivedAt(in.ReceivedAt)
+	if err != nil {
+		return store.Device{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -404,6 +445,9 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		SoldAt:        soldAt,
 		SoldPrice:     in.SoldPrice,
 		Status:        statusPtr,
+
+		ReturnWindowDays: in.ReturnWindowDays,
+		ReceivedAt:       receivedAt,
 	})
 	if err != nil {
 		return store.Device{}, fmt.Errorf("create device: %w", err)
@@ -478,6 +522,10 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err != nil {
 		return store.Device{}, err
 	}
+	receivedAt, err := parseReceivedAt(in.ReceivedAt)
+	if err != nil {
+		return store.Device{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -501,6 +549,9 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		Notes:         in.Notes,
 		SoldAt:        soldAt,
 		SoldPrice:     in.SoldPrice,
+
+		ReturnWindowDays: in.ReturnWindowDays,
+		ReceivedAt:       receivedAt,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -639,6 +690,23 @@ func parseSoldAt(in *string) (pgtype.Timestamp, error) {
 	t, err := parseDate(*in)
 	if err != nil {
 		return pgtype.Timestamp{}, ErrValidation(FieldErrors{"soldAt": {"Ngày bán không hợp lệ"}})
+	}
+	return pgtype.Timestamp{Time: t, Valid: true}, nil
+}
+
+// parseReceivedAt converts the optional `receivedAt` input (same accepted formats
+// as purchaseDate: YYYY-MM-DD or RFC3339) into a pgtype.Timestamp for the write
+// path. nil / absent → zero (invalid) timestamp, which pgx writes as SQL NULL —
+// "delivery date not recorded", which is deliberately different from "delivered on
+// the purchase date": the deadline falls back to purchaseDate but the UI can still
+// say the date is unknown.
+func parseReceivedAt(in *string) (pgtype.Timestamp, error) {
+	if in == nil {
+		return pgtype.Timestamp{}, nil
+	}
+	t, err := parseDate(*in)
+	if err != nil {
+		return pgtype.Timestamp{}, ErrValidation(FieldErrors{"receivedAt": {"Ngày nhận hàng không hợp lệ"}})
 	}
 	return pgtype.Timestamp{Time: t, Valid: true}, nil
 }

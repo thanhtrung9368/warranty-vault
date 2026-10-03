@@ -414,34 +414,47 @@ const backupInsertDevice = `-- name: BackupInsertDevice :exec
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
-    "soldAt", "soldPrice", "createdAt", "updatedAt"
+    "soldAt", "soldPrice", "returnWindowDays", "receivedAt",
+    "returnWindowNotifiedAt", "createdAt", "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+    $17, $18, $19
 )
 `
 
 type BackupInsertDeviceParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      string           `json:"category"`
-	Brand         *string          `json:"brand"`
-	Model         *string          `json:"model"`
-	SerialNumber  *string          `json:"serialNumber"`
-	PurchaseDate  pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice int32            `json:"purchasePrice"`
-	PurchasePlace *string          `json:"purchasePlace"`
-	Status        string           `json:"status"`
-	Notes         *string          `json:"notes"`
-	SoldAt        pgtype.Timestamp `json:"soldAt"`
-	SoldPrice     *int32           `json:"soldPrice"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
+	ID                     string           `json:"id"`
+	UserId                 string           `json:"userId"`
+	Name                   string           `json:"name"`
+	Category               string           `json:"category"`
+	Brand                  *string          `json:"brand"`
+	Model                  *string          `json:"model"`
+	SerialNumber           *string          `json:"serialNumber"`
+	PurchaseDate           pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice          int32            `json:"purchasePrice"`
+	PurchasePlace          *string          `json:"purchasePlace"`
+	Status                 string           `json:"status"`
+	Notes                  *string          `json:"notes"`
+	SoldAt                 pgtype.Timestamp `json:"soldAt"`
+	SoldPrice              *int32           `json:"soldPrice"`
+	ReturnWindowDays       *int32           `json:"returnWindowDays"`
+	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
+	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
+	CreatedAt              pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt              pgtype.Timestamp `json:"updatedAt"`
 }
 
 // ─── Import inserts (preserve ids + timestamps) ──────────────────────────
 // soldAt/soldPrice are optional in the payload (older v5 exports predate them);
 // a missing value decodes to NULL, which is exactly the "not sold / unknown" state.
+//
+// returnWindowDays / receivedAt / returnWindowNotifiedAt are optional in the same
+// way (migration 0010). Carrying them stops a restore from silently dropping the
+// exchange deadline — the one date this feature exists to protect — and carrying
+// returnWindowNotifiedAt stops the cron re-pushing a window the user was already
+// told about, for the same reason BackupInsertReminder carries lastNotifiedAt. A
+// payload that predates them decodes to NULL = "unknown window", which is the
+// correct reading, so the payload version stays at 5/6 (the format is additive).
 func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDeviceParams) error {
 	_, err := q.db.Exec(ctx, backupInsertDevice,
 		arg.ID,
@@ -458,6 +471,9 @@ func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDevice
 		arg.Notes,
 		arg.SoldAt,
 		arg.SoldPrice,
+		arg.ReturnWindowDays,
+		arg.ReceivedAt,
+		arg.ReturnWindowNotifiedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -757,7 +773,7 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 const backupListDevices = `-- name: BackupListDevices :many
 
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -801,6 +817,9 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.UpdatedAt,
 			&i.SoldAt,
 			&i.SoldPrice,
+			&i.ReturnWindowDays,
+			&i.ReceivedAt,
+			&i.ReturnWindowNotifiedAt,
 		); err != nil {
 			return nil, err
 		}

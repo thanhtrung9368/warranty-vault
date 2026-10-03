@@ -65,10 +65,10 @@ type WarrantyProviderOption struct {
 // empty `Brand` table additionally makes `BrandCategory` and the OCR brand
 // matcher (buildDraft → matchBrand) dead code.
 type Catalog struct {
-	Categories         []CategoryOption         `json:"categories"`
-	Brands             []BrandOption            `json:"brands"`
-	Stores             []StoreOption            `json:"stores"`
-	WarrantyProviders  []WarrantyProviderOption `json:"warrantyProviders"`
+	Categories        []CategoryOption         `json:"categories"`
+	Brands            []BrandOption            `json:"brands"`
+	Stores            []StoreOption            `json:"stores"`
+	WarrantyProviders []WarrantyProviderOption `json:"warrantyProviders"`
 }
 
 // catalogCache is a process-wide TTL cache. We use a sync.Map to avoid lock
@@ -77,11 +77,11 @@ type Catalog struct {
 var catalogCache sync.Map
 
 type catalogEntry struct {
-	mu       sync.Mutex
-	value    *Catalog
-	expires  time.Time
-	loading  bool
-	pending  []chan catalogResult
+	mu      sync.Mutex
+	value   *Catalog
+	expires time.Time
+	loading bool
+	pending []chan catalogResult
 }
 
 type catalogResult struct {

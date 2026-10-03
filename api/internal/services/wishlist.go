@@ -267,11 +267,11 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 
 // UpdateWishlist mirrors website/src/lib/services/wishlist.ts::updateWishlistItem
 // PLUS the status-transition side effect:
-//   * WATCHING|DECIDED|SKIPPED → PURCHASED creates a new Device row from the
+//   - WATCHING|DECIDED|SKIPPED → PURCHASED creates a new Device row from the
 //     wishlist item's mappable fields, and the wishlist row's purchasedDeviceId
 //     gets set, all inside the same pgx.Tx.
-//   * Other transitions are plain field updates.
-//   * If currentPrice changes, a new WishlistPrice row is appended (matches TS).
+//   - Other transitions are plain field updates.
+//   - If currentPrice changes, a new WishlistPrice row is appended (matches TS).
 func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in WishlistInput) (store.WishlistItem, error) {
 	if err := ValidateWishlistInput(&in); err != nil {
 		return store.WishlistItem{}, err

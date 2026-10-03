@@ -71,33 +71,37 @@ INSERT INTO "Device" (
     notes,
     "soldAt",
     "soldPrice",
+    "returnWindowDays",
+    "receivedAt",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-    COALESCE($14::text, 'ACTIVE'),
-    $11, $12, $13,
+    COALESCE($16::text, 'ACTIVE'),
+    $11, $12, $13, $14, $15,
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 `
 
 type CreateDeviceParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      string           `json:"category"`
-	Brand         *string          `json:"brand"`
-	Model         *string          `json:"model"`
-	SerialNumber  *string          `json:"serialNumber"`
-	PurchaseDate  pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice int32            `json:"purchasePrice"`
-	PurchasePlace *string          `json:"purchasePlace"`
-	Notes         *string          `json:"notes"`
-	SoldAt        pgtype.Timestamp `json:"soldAt"`
-	SoldPrice     *int32           `json:"soldPrice"`
-	Status        *string          `json:"status"`
+	ID               string           `json:"id"`
+	UserId           string           `json:"userId"`
+	Name             string           `json:"name"`
+	Category         string           `json:"category"`
+	Brand            *string          `json:"brand"`
+	Model            *string          `json:"model"`
+	SerialNumber     *string          `json:"serialNumber"`
+	PurchaseDate     pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice    int32            `json:"purchasePrice"`
+	PurchasePlace    *string          `json:"purchasePlace"`
+	Notes            *string          `json:"notes"`
+	SoldAt           pgtype.Timestamp `json:"soldAt"`
+	SoldPrice        *int32           `json:"soldPrice"`
+	ReturnWindowDays *int32           `json:"returnWindowDays"`
+	ReceivedAt       pgtype.Timestamp `json:"receivedAt"`
+	Status           *string          `json:"status"`
 }
 
 func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Device, error) {
@@ -115,6 +119,8 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.Notes,
 		arg.SoldAt,
 		arg.SoldPrice,
+		arg.ReturnWindowDays,
+		arg.ReceivedAt,
 		arg.Status,
 	)
 	var i Device
@@ -135,6 +141,9 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.UpdatedAt,
 		&i.SoldAt,
 		&i.SoldPrice,
+		&i.ReturnWindowDays,
+		&i.ReceivedAt,
+		&i.ReturnWindowNotifiedAt,
 	)
 	return i, err
 }
@@ -160,7 +169,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -191,12 +200,15 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.UpdatedAt,
 		&i.SoldAt,
 		&i.SoldPrice,
+		&i.ReturnWindowDays,
+		&i.ReceivedAt,
+		&i.ReturnWindowNotifiedAt,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -224,13 +236,16 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.UpdatedAt,
 		&i.SoldAt,
 		&i.SoldPrice,
+		&i.ReturnWindowDays,
+		&i.ReceivedAt,
+		&i.ReturnWindowNotifiedAt,
 	)
 	return i, err
 }
 
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -311,6 +326,9 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.UpdatedAt,
 			&i.SoldAt,
 			&i.SoldPrice,
+			&i.ReturnWindowDays,
+			&i.ReceivedAt,
+			&i.ReturnWindowNotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -323,7 +341,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -356,6 +374,9 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.UpdatedAt,
 			&i.SoldAt,
 			&i.SoldPrice,
+			&i.ReturnWindowDays,
+			&i.ReceivedAt,
+			&i.ReturnWindowNotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -381,26 +402,30 @@ UPDATE "Device" SET
     notes = $12,
     "soldAt" = $13,
     "soldPrice" = $14,
+    "returnWindowDays" = $15,
+    "receivedAt" = $16,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 `
 
 type UpdateDeviceParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      string           `json:"category"`
-	Brand         *string          `json:"brand"`
-	Model         *string          `json:"model"`
-	SerialNumber  *string          `json:"serialNumber"`
-	PurchaseDate  pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice int32            `json:"purchasePrice"`
-	PurchasePlace *string          `json:"purchasePlace"`
-	Status        string           `json:"status"`
-	Notes         *string          `json:"notes"`
-	SoldAt        pgtype.Timestamp `json:"soldAt"`
-	SoldPrice     *int32           `json:"soldPrice"`
+	ID               string           `json:"id"`
+	UserId           string           `json:"userId"`
+	Name             string           `json:"name"`
+	Category         string           `json:"category"`
+	Brand            *string          `json:"brand"`
+	Model            *string          `json:"model"`
+	SerialNumber     *string          `json:"serialNumber"`
+	PurchaseDate     pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice    int32            `json:"purchasePrice"`
+	PurchasePlace    *string          `json:"purchasePlace"`
+	Status           string           `json:"status"`
+	Notes            *string          `json:"notes"`
+	SoldAt           pgtype.Timestamp `json:"soldAt"`
+	SoldPrice        *int32           `json:"soldPrice"`
+	ReturnWindowDays *int32           `json:"returnWindowDays"`
+	ReceivedAt       pgtype.Timestamp `json:"receivedAt"`
 }
 
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
@@ -419,6 +444,8 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.Notes,
 		arg.SoldAt,
 		arg.SoldPrice,
+		arg.ReturnWindowDays,
+		arg.ReceivedAt,
 	)
 	var i Device
 	err := row.Scan(
@@ -438,6 +465,9 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.UpdatedAt,
 		&i.SoldAt,
 		&i.SoldPrice,
+		&i.ReturnWindowDays,
+		&i.ReceivedAt,
+		&i.ReturnWindowNotifiedAt,
 	)
 	return i, err
 }

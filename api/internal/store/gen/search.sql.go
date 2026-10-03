@@ -11,7 +11,7 @@ import (
 
 const searchDevices = `-- name: SearchDevices :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
 FROM "Device"
 WHERE "userId" = $1::text
   AND (
@@ -82,6 +82,9 @@ func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([
 			&i.UpdatedAt,
 			&i.SoldAt,
 			&i.SoldPrice,
+			&i.ReturnWindowDays,
+			&i.ReceivedAt,
+			&i.ReturnWindowNotifiedAt,
 		); err != nil {
 			return nil, err
 		}
