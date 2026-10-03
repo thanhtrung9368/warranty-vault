@@ -49,6 +49,20 @@ func CheckAIExtract(ctx context.Context, limiter Limiter, userID string) (Result
 	return limiter.Check(ctx, "ai:extract:user:"+userID, 10, writeWindow)
 }
 
+// CheckShareView rate-limits the PUBLIC share endpoint (FEATURE_IDEAS #2) by IP.
+// This is the only unauthenticated read in the service, so its bucket is the
+// first line of defence against someone walking the token space — even though
+// the token is 256 random bits and that walk is hopeless.
+//
+// 60 / 15 min per IP: generous enough for a link forwarded into a group chat
+// (several readers behind one NAT, each loading the page a couple of times) and
+// tight enough that brute force is not worth attempting. The bucket is keyed by
+// action name, so it does not consume (or interfere with) the login/forgot
+// budget that CheckAuth manages.
+func CheckShareView(ctx context.Context, limiter Limiter, ip string) (Result, error) {
+	return limiter.Check(ctx, "share:view:ip:"+ip, 60, authWindowMs)
+}
+
 // FormatRetry mirrors website/src/lib/rate-limit.ts::formatRetry.
 // >=60s -> "X phút" (ceil); else "X giây".
 func FormatRetry(seconds int) string {

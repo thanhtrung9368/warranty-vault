@@ -533,5 +533,12 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		stats.SessionsPruned = int(pruned)
 	}
 
+	// Share links (FEATURE_IDEAS #2) die 30 days after they expire, so the table
+	// does not grow forever. Same housekeeping step, same "log and carry on"
+	// contract as the session prune: a failure here must not fail the cron run.
+	if _, err := q.PruneExpiredShares(ctx, pgtype.Timestamp{Time: time.Now(), Valid: true}); err != nil {
+		slog.Error("cron: prune expired shares", "err", err)
+	}
+
 	return stats, nil
 }

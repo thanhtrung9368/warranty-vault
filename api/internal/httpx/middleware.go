@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 )
 
@@ -60,7 +61,7 @@ func Logging(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 		slog.Info("http",
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", RedactPath(r.URL.Path),
 			"status", rec.status,
 			"bytes", rec.bytes,
 			"duration_ms", time.Since(start).Milliseconds(),
@@ -68,6 +69,35 @@ func Logging(next http.Handler) http.Handler {
 			"remote", r.RemoteAddr,
 		)
 	})
+}
+
+// sharePathPrefix is the one route whose PATH SEGMENT is a credential
+// (FEATURE_IDEAS #2). Everywhere else the bearer token travels in a header, which
+// the logger never touches.
+const sharePathPrefix = "/api/v1/public/shares/"
+
+// RedactPath replaces a credential carried in the URL path with a fixed marker
+// before the path is logged.
+//
+// Request logs are the longest-lived copy of a URL: they go to stdout, into
+// journald / a log shipper, and often into a third-party aggregator, and they are
+// read by people who have no business holding a live read capability. A share URL
+// is a bearer credential in path form — anyone who can read the log line can open
+// the certificate — so the token must never be written there. The replacement is
+// positional (`.../{token}`) so the line still shows WHICH route was hit, which is
+// all the log is for.
+//
+// A query string is not logged today (only r.URL.Path is); if that ever changes,
+// it needs the same treatment.
+func RedactPath(path string) string {
+	if !strings.HasPrefix(path, sharePathPrefix) {
+		return path
+	}
+	rest := path[len(sharePathPrefix):]
+	if rest == "" {
+		return path
+	}
+	return sharePathPrefix + "{token}"
 }
 
 func Recover(next http.Handler) http.Handler {

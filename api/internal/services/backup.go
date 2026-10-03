@@ -613,6 +613,57 @@ func validateBackupPayload(payload *BackupExport) error {
 	return nil
 }
 
+// assertBackupDeviceQuota applies the device ceilings (FEATURE_IDEAS #14) to an
+// import before anything is written.
+//
+// The base differs by mode, which is the only subtle part:
+//   - `replace` deletes every device the user owns inside the transaction, so
+//     the base is ZERO. Counting the rows that are about to be wiped would
+//     refuse a perfectly legal restore of an over-quota account onto itself.
+//   - `merge` keeps them, so they count — and, symmetrically, a payload device
+//     whose id the user ALREADY owns is skipped by the insert loop and must not
+//     be counted as incoming either. Without that, re-importing your own backup
+//     at the ceiling would be refused for "adding" devices you already have.
+func assertBackupDeviceQuota(ctx context.Context, db *pgxpool.Pool, userID string, payload *BackupExport, mode ImportMode) error {
+	if payload == nil || len(payload.Devices) == 0 {
+		return nil
+	}
+	q := store.New(db)
+
+	var baseActive, baseTotal int64
+	owned := map[string]bool{}
+	if mode != ImportReplace {
+		var err error
+		baseActive, err = q.CountActiveDevicesByUser(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("count active devices: %w", err)
+		}
+		baseTotal, err = q.CountAllDevicesByUser(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("count all devices: %w", err)
+		}
+	}
+	if mode == ImportMerge {
+		rows, err := q.ListDevicesByUserSimple(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("list devices: %w", err)
+		}
+		for _, r := range rows {
+			owned[r.ID] = true
+		}
+	}
+
+	var incomingActive, incomingTotal int64
+	for _, d := range payload.Devices {
+		if mode == ImportMerge && owned[d.ID] {
+			continue
+		}
+		incomingTotal++
+		incomingActive += deviceActiveIncoming(d.Status)
+	}
+	return enforceDeviceQuota(baseActive, baseTotal, incomingActive, incomingTotal)
+}
+
 // importBackup is the shared import body. `blobs` is non-nil only for the .zip
 // path; when it is set, each attachment row that is actually inserted gets its
 // ciphertext written to <PRIVATE_UPLOAD_ROOT>/<storagePath> in the same pass, and
@@ -641,6 +692,15 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	// replace mode would let it wipe the user's data and then 500 on the foreign
 	// row, which is strictly worse.
 	if err := assertNoForeignBackupIDs(ctx, db, userID, payload); err != nil {
+		return nil, err
+	}
+
+	// Device ceilings (FEATURE_IDEAS #14, hazard 2). CreateDevice enforces them,
+	// but this is a SECOND write path into the same table and used to skip the
+	// check entirely — so a 5.000-device file could be restored into an account
+	// that can only ever create 50. Runs BEFORE the transaction (and before the
+	// replace-mode wipe) so a refused import leaves the account untouched.
+	if err := assertBackupDeviceQuota(ctx, db, userID, payload, mode); err != nil {
 		return nil, err
 	}
 

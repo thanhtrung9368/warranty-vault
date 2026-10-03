@@ -45,3 +45,16 @@ SELECT id, name, slug, phone, address, "websiteUrl", notes, "isActive"
 FROM "WarrantyProvider"
 WHERE "isActive" = true
 ORDER BY name ASC;
+
+-- name: ListBrandServiceInfo :many
+-- Directory rows for "where do I take this" (FEATURE_IDEAS #15, migration 0012).
+-- Loaded through the same services.loadCatalog pass as the other four catalogs,
+-- so entries share the 60s in-process cache and InvalidateCatalogCache().
+--
+-- No `phone` / `address` column exists to select: migration 0012 deliberately
+-- has none, because this repo cannot verify a hotline and a wrong one is worse
+-- than an empty one.
+SELECT "brandId", "serviceLocatorUrl", "supportUrl", notes
+FROM "BrandServiceInfo"
+WHERE "isActive" = true
+ORDER BY "brandId" ASC;

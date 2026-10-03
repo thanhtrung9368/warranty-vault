@@ -33,6 +33,14 @@ type BrandCategory struct {
 	CategoryCode string `json:"categoryCode"`
 }
 
+type BrandServiceInfo struct {
+	BrandId           string  `json:"brandId"`
+	ServiceLocatorUrl *string `json:"serviceLocatorUrl"`
+	SupportUrl        *string `json:"supportUrl"`
+	Notes             *string `json:"notes"`
+	IsActive          bool    `json:"isActive"`
+}
+
 type Category struct {
 	Code      string `json:"code"`
 	Name      string `json:"name"`
@@ -68,6 +76,19 @@ type Device struct {
 	ReturnWindowDays       *int32           `json:"returnWindowDays"`
 	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
 	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
+}
+
+type DeviceShare struct {
+	ID            string           `json:"id"`
+	DeviceId      string           `json:"deviceId"`
+	UserId        string           `json:"userId"`
+	TokenHash     string           `json:"tokenHash"`
+	ExpiresAt     pgtype.Timestamp `json:"expiresAt"`
+	RevokedAt     pgtype.Timestamp `json:"revokedAt"`
+	IncludeSerial bool             `json:"includeSerial"`
+	ViewCount     int32            `json:"viewCount"`
+	LastViewedAt  pgtype.Timestamp `json:"lastViewedAt"`
+	CreatedAt     pgtype.Timestamp `json:"createdAt"`
 }
 
 type PasswordReset struct {

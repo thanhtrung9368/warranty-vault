@@ -24,6 +24,7 @@ tags:
   - { name: devices }
   - { name: warranties }
   - { name: attachments }
+  - { name: shares, description: 'Phiếu bàn giao bảo hành + link chia sẻ có token. `GET /api/v1/public/shares/{token}` là endpoint DUY NHẤT không cần bearer.' }
   - { name: subscriptions }
   - { name: wishlist }
   - { name: push }
@@ -429,6 +430,39 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [devices]
+      summary: Create a device
+      description: |
+        **Hạn mức thiết bị (FEATURE_IDEAS #14) — client KHÔNG được tự đếm lại theo
+        cách khác.** Có **hai** trần độc lập, và chúng đếm hai tập khác nhau:
+
+        | Trần | Giá trị | Đếm gì |
+        |---|---|---|
+        | Thiết bị đang sở hữu | **50** | `status <> 'SOLD'` |
+        | Lưu trữ (tổng số hàng) | **500** | **mọi** thiết bị, kể cả đã bán |
+
+        Nghĩa là: **thiết bị đã bán (`status = 'SOLD'`) không chiếm suất 50**. Đây là
+        thay đổi chính sách có chủ ý — trước đây máy đã bán vẫn tính, nên người dùng
+        lâu năm chỉ còn cách xoá hồ sơ máy đã bán để thêm máy mới, tức là xoá đúng
+        hoá đơn/ngày bán/lãi-lỗ mà app sinh ra để giữ.
+
+        Vì sao vẫn cần trần 500: nếu chỉ nới trần 50 mà không có trần tổng, tài khoản
+        có thể phình vô hạn bằng cách bán → thêm → bỏ đánh dấu bán → lặp lại. Trần 500
+        được áp ở **cả hai** đường ghi (`POST /api/v1/devices` **và**
+        `POST /api/v1/backup/import`), nên không đường nào lách được đường kia.
+
+        Hệ quả client phải biết:
+        * Đếm theo `status` — **không** đếm theo `soldAt`. `soldAt`/`soldPrice` là cặp
+          tuỳ chọn của migration 0006 ("đã bán, không ghi chi tiết"), và một thiết bị
+          có `soldAt` nhưng `status = 'ACTIVE'` **vẫn** chiếm suất.
+        * **Bỏ đánh dấu đã bán vẫn được phép** kể cả khi đang ở trần 50. Cách này
+          *không* giải phóng suất, nó lấy lại một suất, nên tài khoản có thể tạm ở 51
+          máy đang sở hữu sau khi sửa một lần bán nhầm. Đó là đánh đổi có chủ ý: từ
+          chối sửa một lần bán nhầm chính là cái bẫy mà tính năng này tồn tại để dỡ.
+          Client hiển thị theo `status`, đừng suy ra "còn bao nhiêu suất" từ hạn mức.
+        * Máy đã bán **vẫn** nằm trong danh sách, trong `GET /api/v1/stats` và trong
+          lịch sử chi tiêu. Chỉ **hạn mức** thay đổi, không phải luật báo cáo.
+        * Thông báo lỗi nói rõ đang chạm trần nào và còn cách nào (đánh dấu đã bán, hay
+          xoá hồ sơ cũ).
       requestBody:
         required: true
         content:
@@ -588,6 +622,235 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/devices/{id}/service-directory:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [devices]
+      summary: Warranty directory for one device — "mang máy đi bảo hành ở đâu"
+      description: |
+        Trả lời câu hỏi thật lúc đứng ở quầy: *"giờ tôi mang máy đi đâu"*, cho **một**
+        thiết bị (FEATURE_IDEAS #15).
+
+        Câu trả lời có ba tầng và chúng **không** được trộn vào nhau:
+
+        1. `brand` — trang tra cứu trung tâm uỷ quyền **của chính hãng**, lấy từ
+           catalog `BrandServiceInfo` (migration 0012) và được cache chung với
+           `GET /api/v1/catalog` (60 giây, `InvalidateCatalogCache`). Đây là URL do
+           hãng tự duy trì, không phải hotline chép tay.
+        2. `centres[].address` / `centres[].phone` — **do người dùng tự ghi** cho
+           từng gói bảo hành (`Warranty.address` / `Warranty.phone`), kèm
+           `phoneSource`. Đây là thông tin liên hệ **duy nhất** mà app dám hiển thị
+           như thông tin liên hệ.
+        3. `brand: null` / `provider: null` — app **không biết**. Không đoán.
+
+        App **không** lưu hotline hay địa chỉ trung tâm bảo hành: migration 0008 đã
+        cố ý để `WarrantyProvider.phone`/`.address` là NULL vì *"a wrong hotline is
+        worse than an empty one"*, và migration 0012 giữ nguyên quyết định đó —
+        bảng `BrandServiceInfo` **không có cột phone/address** nào.
+
+        Khớp chuỗi: `Device.brand` và `Warranty.provider` là văn bản tự do, được
+        chuẩn hoá bỏ dấu (`ai.Normalize`) rồi so theo **tập token**. Một ứng viên chỉ
+        khớp khi tập token của bên này chứa trọn tập token của bên kia, và **hoà thì
+        không khớp** (`provider: null`): "Trung tâm bảo hành" khớp mười mấy dòng như
+        nhau, chọn bừa một dòng là đoán — đúng thứ tính năng này phải tránh. Vì vậy
+        client **luôn** hiển thị `providerInput` bên cạnh `provider`.
+      responses:
+        '200':
+          description: Directory bundle
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [directory]
+                properties:
+                  directory: { $ref: '#/components/schemas/ServiceDirectory' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/devices/{id}/shares:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      tags: [shares]
+      summary: List share links of a device (owner only)
+      description: |
+        Chỉ các link của thiết bị **thuộc người gọi**. Thiết bị của người khác trả
+        `[]`, không phải 404 — cùng lượng thông tin mà một danh sách rỗng cho biết.
+
+        `token` **không bao giờ** xuất hiện ở đây: server chỉ lưu sha256 của token,
+        nên sau lúc tạo không ai — kể cả chủ máy — đọc lại được token. Muốn link mới
+        thì tạo link mới.
+      responses:
+        '200':
+          description: Share list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shares]
+                properties:
+                  shares:
+                    type: array
+                    description: 'Mới nhất trước, tối đa 50 dòng. Luôn là `[]`, không bao giờ `null`.'
+                    items: { $ref: '#/components/schemas/DeviceShare' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [shares]
+      summary: Create a read-only share link (handover certificate)
+      description: |
+        Tạo **phiếu bàn giao bảo hành**: một link chỉ-đọc, không cần đăng nhập, cho
+        đúng **một** thiết bị (FEATURE_IDEAS #2). Dùng lúc bán máy hoặc lúc đưa máy
+        cho người khác đi bảo hành.
+
+        **Token chỉ trả về MỘT LẦN** trong response này. Server lưu sha256 hex của
+        token (`auth.NewTokenAndHash`, cùng khuôn `PasswordReset`/`Session`), nên
+        token không thể đọc lại từ DB, từ log hay từ `GET .../shares`. Hãy đưa
+        `share.token` (hoặc `share.sharePath`) cho người nhận ngay.
+
+        Body rỗng là hợp lệ = mặc định 30 ngày + serial che giữa. Trường lạ bị từ
+        chối (`400`) để một lỗi gõ như `expiresInDay` không âm thầm tạo link mặc định.
+
+        Bảo mật (tóm tắt, chi tiết ở `GET /api/v1/public/shares/{token}`):
+        * quyền đọc nằm ở token, **không** ở `userId` — link không đọc được thiết bị
+          nào khác, và không có tham số nào để trỏ sai;
+        * link **luôn** hết hạn (1–90 ngày, mặc định 30), thu hồi được, và bị xoá
+          theo thiết bị (`ON DELETE CASCADE`);
+        * tối đa 10 link còn hiệu lực cho mỗi thiết bị.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresInDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 90
+                  description: 'Số ngày link còn hiệu lực. Bỏ trống = 30. Không có giá trị "vĩnh viễn".'
+                includeSerial:
+                  type: boolean
+                  default: false
+                  description: |
+                    `false` (mặc định): phiếu chỉ có `serialNumberMasked` (giữ đầu/cuối,
+                    che giữa). `true`: phiếu có thêm `serialNumber` đầy đủ — cần khi
+                    trung tâm bảo hành tra cứu theo IMEI, nhưng nghĩa là link (nếu bị
+                    chuyển tiếp) mang theo định danh đầy đủ của máy.
+      responses:
+        '201':
+          description: Created — `share.token` is shown once and never again
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [share]
+                properties:
+                  share: { $ref: '#/components/schemas/CreatedDeviceShare' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/shares/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      tags: [shares]
+      summary: Revoke a share link (owner only)
+      description: |
+        Thu hồi ngay lập tức. **Idempotent**: gọi lại lần hai vẫn `200`.
+
+        Link của người khác = `404`, không phân biệt được với id không tồn tại.
+
+        Link **không** tự thu hồi khi thiết bị được đánh dấu `SOLD`: phiếu bàn giao
+        chính là thứ người mua cần **sau** khi mua, nên thu hồi lúc bán sẽ vô hiệu
+        hoá đúng mục đích của nó. Ba đường thu hồi thật là: gọi endpoint này, để link
+        hết hạn, hoặc xoá thiết bị (xoá theo, `ON DELETE CASCADE`).
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/public/shares/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        description: 'Token 32 byte ngẫu nhiên (base64url) do `POST /api/v1/devices/{id}/shares` trả về. Không đoán được, không dò được.'
+        schema: { type: string }
+    get:
+      tags: [shares]
+      summary: Public handover certificate (NO authentication)
+      security: []
+      description: |
+        **Đây là đường đọc DUY NHẤT của service không cần bearer token.** Token trong
+        path *chính là* quyền truy cập, nên endpoint được thiết kế như một capability
+        URL và mọi chi tiết dưới đây là quyết định bảo mật, không phải trang trí.
+
+        **Nội dung trả về (projection hẹp, cố định).** Đúng những trường trong
+        `SharedCertificate`: tên máy, loại, hãng, model, ngày mua, nơi mua, trạng
+        thái, `soldAt`, serial (che giữa; đầy đủ chỉ khi chủ máy chọn
+        `includeSerial`), danh sách gói bảo hành (loại, nhà bảo hành, thời gian, địa
+        chỉ/số điện thoại **do người dùng ghi**), `effectiveWarrantyEnd`, ngày hết
+        hạn của link và disclaimer.
+
+        **Không bao giờ** có: `id` thiết bị, `notes`, `purchasePrice`, `soldPrice`,
+        `Warranty.cost`, `Warranty.notes`, ảnh/hoá đơn (`Attachment`), hay bất kỳ
+        thiết bị nào khác của chủ máy. Việc lọc nằm ở **câu SQL** (không select cột
+        đó), không phải ở một bộ lọc Go mà lần sửa sau có thể bỏ quên.
+
+        **Ảnh hoá đơn: chưa hỗ trợ, có chủ ý.** Một route file công khai sẽ là bề mặt
+        không xác thực thứ hai, và ảnh hoá đơn chứa nhiều dữ liệu cá nhân của người
+        bán (tên, địa chỉ, số điện thoại, có khi cả món khác) — nhiều hơn hẳn thứ
+        phiếu bàn giao cần.
+
+        **Ba kiểu hỏng trả về ĐÚNG MỘT câu trả lời.** Token sai, token hết hạn và
+        token đã thu hồi đều là `404` với body **giống hệt nhau** — endpoint không
+        phải một oracle để dò xem token nào từng tồn tại.
+
+        **Header trên MỌI response** (kể cả 404): `Cache-Control: no-store`, `Pragma:
+        no-cache`, `X-Robots-Tag: noindex, nofollow, noarchive`, `Referrer-Policy:
+        no-referrer` (token nằm trong path, không được rò qua Referer khi người nhận
+        bấm link của hãng), `X-Frame-Options: DENY`, và CSP `default-src 'none'`.
+
+        **Rate limit** theo IP: 60 request / 15 phút (`429` + `Retry-After`).
+
+        **Log**: token bị thay bằng `{token}` trước khi ghi access log
+        (`httpx.RedactPath`) — log không phải nơi giữ một credential sống.
+
+        **Nội dung trả về chọn theo `Accept`:**
+        * mặc định (trình duyệt, `Accept: text/html,...`) → **một trang HTML in được**,
+          tự chứa (không script, không CSS/ảnh ngoài), có `@media print`, tiếng Việt.
+          Không cần web app, nên link vẫn mở được kể cả khi web đổi phiên bản.
+        * `Accept: application/json` (và không có `text/html`) → JSON
+          `{"certificate": …}` cho client lập trình.
+      responses:
+        '200':
+          description: |
+            Phiếu bàn giao. `text/html` là mặc định; `application/json` khi client
+            yêu cầu rõ ràng.
+          content:
+            text/html:
+              schema: { type: string }
+            application/json:
+              schema:
+                type: object
+                required: [certificate]
+                properties:
+                  certificate: { $ref: '#/components/schemas/SharedCertificate' }
+        '404':
+          description: |
+            Token không tồn tại, đã hết hạn hoặc đã bị thu hồi — **không phân biệt
+            được** (cùng status, cùng body). HTML: một trang lỗi tiếng Việt; JSON:
+            envelope `ApiError`.
+          content:
+            text/html:
+              schema: { type: string }
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/warranties/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -2625,7 +2888,7 @@ components:
 
     Catalog:
       type: object
-      required: [categories, brands, stores, warrantyProviders]
+      required: [categories, brands, stores, warrantyProviders, brandServiceInfo]
       properties:
         categories:
           type: array
@@ -2667,6 +2930,18 @@ components:
               address: { type: string, nullable: true }
               websiteUrl: { type: string, nullable: true }
               notes: { type: string, nullable: true }
+        brandServiceInfo:
+          type: array
+          description: |
+            Danh bạ theo **hãng**: trang tra cứu trung tâm bảo hành uỷ quyền của chính
+            hãng (FEATURE_IDEAS #15, migration 0012). Cùng một cache 60 giây với bốn
+            catalog kia, nên `InvalidateCatalogCache` áp cho tất cả.
+
+            Đây là dữ liệu tra cứu, **không** phải dữ liệu để chọn: `brandId` khớp
+            `brands[].id`. Endpoint `GET /api/v1/devices/{id}/service-directory` là chỗ
+            luật khớp chuỗi tự do → dòng danh bạ được áp dụng; client đọc thẳng mảng này
+            thì phải tự khớp, và luật đó (hoà thì không khớp) nằm trong mô tả endpoint kia.
+          items: { $ref: '#/components/schemas/BrandServiceInfo' }
 
     # ─── Session management (GET/DELETE /api/v1/auth/sessions) ──────────────
 
@@ -3121,3 +3396,167 @@ components:
           description: 'Luôn `true`. Có mặt để client khẳng định với người dùng rằng **không có gì bị sửa hay huỷ tự động** — endpoint này không có đường ghi nào.'
         thresholds: { $ref: '#/components/schemas/SubscriptionAuditThresholds' }
         note: { type: string, description: 'Câu tiếng Việt nói rõ giới hạn của phân tích (không đọc được giao dịch ngân hàng, không biết gói có đang được dùng hay không). Hiển thị thẳng.' }
+
+    # ─── Warranty directory (FEATURE_IDEAS #15) ─────────────────────────────
+
+    ServiceDirectory:
+      type: object
+      required: [deviceId, deviceName, category, centres, disclaimer]
+      description: |
+        Danh bạ bảo hành cho **một** thiết bị. `phoneSource` và các trường `null`
+        không phải lỗi — chúng là cách app nói thẳng nó biết gì và không biết gì.
+      properties:
+        deviceId: { type: string }
+        deviceName: { type: string }
+        category: { type: string, description: 'Mã loại thiết bị (vd `PHONE`). Nhãn tiếng Việt do client giữ, như mọi payload khác.' }
+        brandInput:
+          type: string
+          nullable: true
+          description: '`Device.brand` nguyên văn người dùng gõ. `null` khi chưa ghi.'
+        brand:
+          allOf: [{ $ref: '#/components/schemas/BrandServiceInfo' }]
+          nullable: true
+          description: |
+            Dòng danh bạ của hãng, hoặc `null` khi app **không có** thông tin cho hãng
+            đó (chỉ 16 hãng được seed — xem migration 0012) hoặc khi chuỗi khớp bị **hoà**.
+            `null` là câu trả lời hợp lệ: client hiển thị `brandInput` và câu "app không
+            có thông tin cho hãng này", **không** tự đoán URL.
+        centres:
+          type: array
+          description: 'Mỗi gói bảo hành của thiết bị một dòng, kể cả gói không khớp catalog nào. Luôn là mảng.'
+          items: { $ref: '#/components/schemas/WarrantyCentre' }
+        disclaimer:
+          type: string
+          description: 'Câu tiếng Việt giải thích vì sao có nhiều `null`: app không lưu hotline/địa chỉ, số hiện ra là do người dùng tự ghi. Hiển thị thẳng.'
+
+    BrandServiceInfo:
+      type: object
+      required: [brandId, name]
+      description: |
+        Một dòng danh bạ theo hãng (bảng `BrandServiceInfo`, migration 0012).
+        **Không có `phone` và không có `address`** — bảng không có hai cột đó, vì repo
+        này không kiểm chứng được hotline và một hotline sai còn tệ hơn không có.
+        Đây cũng là lý do `GET /api/v1/catalog` trả về mảng `brandServiceInfo` cùng
+        hình dạng này.
+      properties:
+        brandId: { type: string, description: 'Khoá `Brand.id` (vd `samsung`).' }
+        name: { type: string, description: 'Tên hãng hiển thị (từ bảng `Brand`).' }
+        serviceLocatorUrl: { type: string, nullable: true, description: 'Trang tra cứu trung tâm bảo hành uỷ quyền **của chính hãng**. `null` khi không có URL nào kiểm chứng được.' }
+        supportUrl: { type: string, nullable: true, description: 'Trang hỗ trợ chung của hãng.' }
+        notes: { type: string, nullable: true, description: 'Ghi chú tiếng Việt: link dùng để làm gì.' }
+
+    WarrantyCentre:
+      type: object
+      required: [warrantyId, warrantyType, isActive, phoneSource]
+      properties:
+        warrantyId: { type: string }
+        warrantyType: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
+        endDate: { type: string, format: date-time, nullable: true }
+        isActive: { type: boolean, description: '`endDate` còn ở tương lai hay không, tính ở server.' }
+        providerInput:
+          type: string
+          nullable: true
+          description: '`Warranty.provider` nguyên văn người dùng gõ/nhập. **Luôn** hiển thị trường này, kể cả khi `provider` là `null`.'
+        provider:
+          allOf: [{ $ref: '#/components/schemas/WarrantyProviderRef' }]
+          nullable: true
+          description: 'Dòng `WarrantyProvider` mà chuỗi tự do khớp được, hoặc `null`. `null` là bình thường, không phải lỗi.'
+        address: { type: string, nullable: true, description: '`Warranty.address` — do **người dùng** ghi. App không tự điền.' }
+        phone: { type: string, nullable: true, description: '`Warranty.phone` — do **người dùng** ghi. App không tự điền.' }
+        phoneSource:
+          type: string
+          enum: [user, none]
+          description: '`user` khi `phone` có giá trị, `none` khi không. Không có giá trị thứ ba: app **không bao giờ** là nguồn của số điện thoại.'
+
+    WarrantyProviderRef:
+      type: object
+      required: [id, name]
+      description: 'Một dòng của catalog `WarrantyProvider`. `phone`/`address` là `null` với mọi dòng được seed (migration 0008) — hiển thị `WarrantyCentre.phone`/`.address` thay vì hai trường này.'
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        websiteUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+
+    # ─── Handover certificate / share link (FEATURE_IDEAS #2) ───────────────
+
+    DeviceShare:
+      type: object
+      required: [id, deviceId, expiresAt, includeSerial, viewCount, createdAt]
+      description: |
+        Link chia sẻ ở góc nhìn **chủ máy**. Không chứa `token` (chỉ trả về một lần
+        lúc tạo) và không chứa `tokenHash` (không bao giờ rời server).
+      properties:
+        id: { type: string, description: 'Dùng cho `DELETE /api/v1/shares/{id}`.' }
+        deviceId: { type: string }
+        expiresAt: { type: string, format: date-time, description: 'Hết hạn. Không có link vĩnh viễn.' }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        includeSerial: { type: boolean, description: 'Link này có kèm serial đầy đủ hay chỉ serial che giữa.' }
+        viewCount: { type: integer, description: 'Số lần phiếu được mở. Chỉ chủ máy thấy.' }
+        lastViewedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    CreatedDeviceShare:
+      allOf:
+        - { $ref: '#/components/schemas/DeviceShare' }
+        - type: object
+          required: [token, sharePath]
+          properties:
+            token:
+              type: string
+              description: |
+                **Credential. Chỉ xuất hiện đúng một lần, trong response này.** Server
+                chỉ lưu sha256 hex của nó. Mất token = phải tạo link mới.
+            sharePath:
+              type: string
+              description: 'Đường dẫn công khai (`/api/v1/public/shares/<token>`) để client ghép với base URL của chính nó. Server cố ý không dựng URL tuyệt đối vì nó không biết client đi qua host nào.'
+
+    SharedWarranty:
+      type: object
+      required: [type, startDate, endDate, months]
+      description: 'Một gói bảo hành trong phiếu. **Không** có `cost` và **không** có `notes`: người nhận cần thời hạn và nơi bảo hành, không cần biết người bán đã trả bao nhiêu.'
+      properties:
+        type: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
+        provider: { type: string, nullable: true }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        months: { type: integer }
+        address: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+
+    SharedCertificate:
+      type: object
+      required: [deviceName, category, purchaseDate, status, warranties, expiresAt, issuedAt, disclaimer]
+      description: |
+        **Toàn bộ** những gì một link chia sẻ để lộ ra cho người không đăng nhập.
+
+        Danh sách này là hợp đồng bảo mật: thêm một trường vào đây là mở rộng thứ mà
+        một người lạ đọc được. Những gì **cố ý vắng mặt**: `id` thiết bị, `notes`,
+        `purchasePrice`, `soldPrice`, `Warranty.cost`, `Warranty.notes`, danh sách
+        `Attachment`/ảnh hoá đơn, và mọi thiết bị khác của chủ máy.
+      properties:
+        deviceName: { type: string }
+        category: { type: string }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        purchaseDate: { type: string, format: date-time }
+        purchasePlace: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, EXPIRED, SOLD, BROKEN, LOST] }
+        soldAt: { type: string, format: date-time, nullable: true, description: 'Ngày bàn giao, nếu chủ máy có ghi.' }
+        serialNumber:
+          type: string
+          nullable: true
+          description: 'CHỈ có khi chủ máy chọn `includeSerial: true`. Mặc định `null`.'
+        serialNumberMasked:
+          type: string
+          nullable: true
+          description: 'Luôn có khi máy có serial: giữ tối đa 4 ký tự đầu và 4 ký tự cuối, che giữa bằng `*` (độ dài giữ nguyên). Luôn che ít nhất 1 ký tự, nên không độ dài nào dựng lại được số đầy đủ.'
+        effectiveWarrantyEnd: { type: string, format: date-time, nullable: true, description: '`max(endDate)` của các gói — con số người mua thật sự cần.' }
+        warranties:
+          type: array
+          items: { $ref: '#/components/schemas/SharedWarranty' }
+        expiresAt: { type: string, format: date-time, description: 'Ngày link ngừng hoạt động — người nhận biết phiếu có hạn.' }
+        issuedAt: { type: string, format: date-time, description: 'Ngày **tạo link**, không phải ngày mở phiếu.' }
+        disclaimer: { type: string, description: 'Câu tiếng Việt nói rõ phiếu **không** phải hoá đơn, không kèm ảnh chứng từ, và nên đối chiếu số máy trên máy thật. Hiển thị thẳng.' }

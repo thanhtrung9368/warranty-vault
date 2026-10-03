@@ -85,6 +85,52 @@ func (q *Queries) ListBrandCategoriesByBrand(ctx context.Context, brandid string
 	return items, nil
 }
 
+const listBrandServiceInfo = `-- name: ListBrandServiceInfo :many
+SELECT "brandId", "serviceLocatorUrl", "supportUrl", notes
+FROM "BrandServiceInfo"
+WHERE "isActive" = true
+ORDER BY "brandId" ASC
+`
+
+type ListBrandServiceInfoRow struct {
+	BrandId           string  `json:"brandId"`
+	ServiceLocatorUrl *string `json:"serviceLocatorUrl"`
+	SupportUrl        *string `json:"supportUrl"`
+	Notes             *string `json:"notes"`
+}
+
+// Directory rows for "where do I take this" (FEATURE_IDEAS #15, migration 0012).
+// Loaded through the same services.loadCatalog pass as the other four catalogs,
+// so entries share the 60s in-process cache and InvalidateCatalogCache().
+//
+// No `phone` / `address` column exists to select: migration 0012 deliberately
+// has none, because this repo cannot verify a hotline and a wrong one is worse
+// than an empty one.
+func (q *Queries) ListBrandServiceInfo(ctx context.Context) ([]ListBrandServiceInfoRow, error) {
+	rows, err := q.db.Query(ctx, listBrandServiceInfo)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBrandServiceInfoRow
+	for rows.Next() {
+		var i ListBrandServiceInfoRow
+		if err := rows.Scan(
+			&i.BrandId,
+			&i.ServiceLocatorUrl,
+			&i.SupportUrl,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBrands = `-- name: ListBrands :many
 SELECT id, name, slug, "isActive"
 FROM "Brand"

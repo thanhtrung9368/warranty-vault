@@ -34,7 +34,14 @@ func (e *Error) HTTPStatus() int {
 		return http.StatusNotFound
 	case "FORBIDDEN":
 		return http.StatusForbidden
-	case "LIMIT_REACHED", "VALIDATION", "CATEGORY_INVALID":
+	// LIMIT_REACHED is a conflict with the resource's current state (you already
+	// hold the maximum), not a malformed request, so it is 409 — which is what
+	// openapi.yaml documented all along and what the web client keys off to stop
+	// a bulk import instead of firing the rest of a doomed batch. It used to be
+	// 400 here, so the documented contract and the real server disagreed.
+	case "LIMIT_REACHED":
+		return http.StatusConflict
+	case "VALIDATION", "CATEGORY_INVALID":
 		return http.StatusBadRequest
 	case "CONFLICT":
 		return http.StatusConflict

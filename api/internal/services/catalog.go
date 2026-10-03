@@ -51,6 +51,23 @@ type WarrantyProviderOption struct {
 	Notes      *string `json:"notes"`
 }
 
+// BrandServiceInfoOption is one row of the brand warranty directory
+// (FEATURE_IDEAS #15, migration 0012).
+//
+// There is deliberately no `phone` and no `address` field: the table has no such
+// column, because the app cannot verify a hotline and migration 0008 settled that
+// a wrong hotline is worse than none. The only phone the app will ever show is
+// the one the USER recorded on a warranty (`Warranty.phone`) — see
+// ServiceDirectory / WarrantyCentre.Phone, which carry `phoneSource: "user"`.
+// Adding a field here would be the first step towards inventing contact data, so
+// it is a schema change and a conversation, not a patch.
+type BrandServiceInfoOption struct {
+	BrandID           string  `json:"brandId"`
+	ServiceLocatorURL *string `json:"serviceLocatorUrl"`
+	SupportURL        *string `json:"supportUrl"`
+	Notes             *string `json:"notes"`
+}
+
 // Catalog mirrors the bundle returned by website/src/lib/services/catalog.ts::getDeviceFormCatalog.
 //
 // Only `Categories` is load-bearing for writes: assertCategoryExists (devices.go)
@@ -69,6 +86,11 @@ type Catalog struct {
 	Brands            []BrandOption            `json:"brands"`
 	Stores            []StoreOption            `json:"stores"`
 	WarrantyProviders []WarrantyProviderOption `json:"warrantyProviders"`
+	// BrandServiceInfo is the brand → "where do I take this" directory added by
+	// FEATURE_IDEAS #15 / migration 0012. Additive: clients that do not know the
+	// field ignore it, and it ships through the SAME cached payload as the other
+	// four so there is no second cache to invalidate.
+	BrandServiceInfo []BrandServiceInfoOption `json:"brandServiceInfo"`
 }
 
 // catalogCache is a process-wide TTL cache. We use a sync.Map to avoid lock
@@ -208,10 +230,25 @@ func loadCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 		})
 	}
 
+	brandServiceInfo, err := q.ListBrandServiceInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list brand service info: %w", err)
+	}
+	bsiOpts := make([]BrandServiceInfoOption, 0, len(brandServiceInfo))
+	for _, b := range brandServiceInfo {
+		bsiOpts = append(bsiOpts, BrandServiceInfoOption{
+			BrandID:           b.BrandId,
+			ServiceLocatorURL: b.ServiceLocatorUrl,
+			SupportURL:        b.SupportUrl,
+			Notes:             b.Notes,
+		})
+	}
+
 	return &Catalog{
 		Categories:        categoryOpts,
 		Brands:            brandOpts,
 		Stores:            storeOpts,
 		WarrantyProviders: wpOpts,
+		BrandServiceInfo:  bsiOpts,
 	}, nil
 }

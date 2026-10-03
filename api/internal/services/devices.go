@@ -15,8 +15,18 @@ import (
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
-// MAX_DEVICES_PER_USER mirrors website/src/lib/services/devices.ts.
+// MaxDevicesPerUser is the ACTIVE-device quota (FEATURE_IDEAS #14): a device
+// with `status = 'SOLD'` does NOT occupy one of these 50 slots. See
+// CountActiveDevicesByUser for why the predicate is `status <> 'SOLD'`.
 const MaxDevicesPerUser = 50
+
+// MaxDevicesTotalPerUser is the storage backstop: every device row counts,
+// including sold ones. Without it, "sold devices don't count" would be gameable
+// — mark sold, add, un-sell, repeat — and the account could grow without bound.
+// 500 = 10× the active cap, i.e. a decade of phone churn for a personal user,
+// and it is enforced on both write paths (CreateDevice here, and the backup
+// import in backup.go) so neither can be used to walk around the other.
+const MaxDevicesTotalPerUser = 500
 
 // validStatus mirrors website/src/lib/types.ts::STATUSES.
 var validStatuses = map[string]bool{
@@ -399,13 +409,8 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	}
 
 	q := store.New(db)
-	count, err := q.CountDevicesByUser(ctx, userID)
-	if err != nil {
-		return store.Device{}, fmt.Errorf("count devices: %w", err)
-	}
-	if count >= MaxDevicesPerUser {
-		return store.Device{}, ErrLimit(fmt.Sprintf(
-			"Đã đạt giới hạn %d thiết bị. Xoá bớt rồi thử lại.", MaxDevicesPerUser))
+	if err := assertDeviceQuota(ctx, q, userID, deviceActiveIncoming(in.Status), 1); err != nil {
+		return store.Device{}, err
 	}
 
 	purchaseDate, err := parseDate(in.PurchaseDate)
@@ -653,6 +658,91 @@ func assertCategoryExists(ctx context.Context, q categoryLookup, code string) er
 		return fmt.Errorf("get category: %w", err)
 	}
 	return nil
+}
+
+// deviceQuotaCounter is the slice of store.Queries the shared quota rule needs.
+// Declaring it as an interface (instead of taking *pgxpool.Pool or
+// store.Queries) keeps the rule unit-testable without a live database — the same
+// trick assertCategoryExists uses with categoryLookup.
+type deviceQuotaCounter interface {
+	CountActiveDevicesByUser(ctx context.Context, userID string) (int64, error)
+	CountAllDevicesByUser(ctx context.Context, userID string) (int64, error)
+}
+
+// assertDeviceQuota enforces both device ceilings for a write that is about to
+// add `incomingActive` active rows and `incomingTotal` rows in total.
+// FEATURE_IDEAS #14.
+//
+// Two independent ceilings, because "sold devices are free" on its own is
+// gameable (mark sold → add → un-sell → repeat):
+//
+//   - active ≤ MaxDevicesPerUser      (50)  — rows with status <> 'SOLD'
+//   - total  ≤ MaxDevicesTotalPerUser (500) — every row, sold ones included
+//
+// A write that adds no active rows skips the active count entirely: a 500-row
+// archive import must not be slowed down (or refused) for a set it cannot affect.
+//
+// Reversal ("đánh dấu đã bán nhầm rồi bỏ đánh dấu") is deliberately NOT blocked
+// here. Un-selling frees no slot, it takes one back, and this rule is only
+// consulted on writes that ADD rows — so an account can sit at 51 active devices
+// after a reversal. That is bounded by the total ceiling, and it is far better
+// than refusing to undo a mistaken sale, which is precisely the trap this
+// feature exists to remove. Clients must therefore treat `status` (not the
+// quota) as the source of truth for "how many devices do I have".
+func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal int64) error {
+	if incomingTotal <= 0 {
+		return nil
+	}
+	total, err := q.CountAllDevicesByUser(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("count all devices: %w", err)
+	}
+	if incomingActive <= 0 {
+		return enforceDeviceQuota(0, total, 0, incomingTotal)
+	}
+	active, err := q.CountActiveDevicesByUser(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("count active devices: %w", err)
+	}
+	return enforceDeviceQuota(active, total, incomingActive, incomingTotal)
+}
+
+// enforceDeviceQuota is the pure ceiling arithmetic shared by CreateDevice
+// (which counts the user's existing rows) and the backup importer (which knows
+// its own base: `replace` wipes first, so its base is zero). Split out so the
+// boundary cases are unit-testable without a database.
+func enforceDeviceQuota(active, total, incomingActive, incomingTotal int64) error {
+	if incomingTotal <= 0 {
+		return nil
+	}
+	if total+incomingTotal > MaxDevicesTotalPerUser {
+		return ErrLimit(fmt.Sprintf(
+			"Đã đạt giới hạn %d thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại.",
+			MaxDevicesTotalPerUser))
+	}
+	if incomingActive > 0 && active+incomingActive > MaxDevicesPerUser {
+		return ErrLimit(fmt.Sprintf(
+			"Đã đạt giới hạn %d thiết bị chưa bán. Thiết bị đã đánh dấu \"Đã bán\" không chiếm suất — đánh dấu đã bán một thiết bị rồi thử lại.",
+			MaxDevicesPerUser))
+	}
+	return nil
+}
+
+// deviceActiveIncoming maps a device status to its contribution to the ACTIVE
+// quota: 0 for SOLD, 1 for everything else.
+//
+// The comparison is LITERAL (`status == "SOLD"`, no trimming) on purpose: the
+// database predicate is literal too (`status <> 'SOLD'` in
+// CountActiveDevicesByUser), so the two must agree on every byte. A stray
+// ' SOLD ' is therefore counted as active by both — the strict direction, and the
+// one that cannot be used to slip past the ceiling. The API's own write path
+// already trims and normalises `status` in ValidateDeviceInput, so this only ever
+// concerns legacy or hand-edited rows.
+func deviceActiveIncoming(status string) int64 {
+	if status == "SOLD" {
+		return 0
+	}
+	return 1
 }
 
 // parseDate accepts both "YYYY-MM-DD" (the Zod schema's expected shape, since

@@ -88,6 +88,8 @@ func main() {
 	handlers.RegisterReturnWindows(mux, deps)
 	handlers.RegisterActions(mux, deps)
 	handlers.RegisterAttachments(mux, deps)
+	handlers.RegisterDirectory(mux, deps)
+	handlers.RegisterShares(mux, deps)
 	handlers.RegisterSubscriptions(mux, deps)
 	handlers.RegisterWishlist(mux, deps)
 	handlers.RegisterCatalog(mux, deps)

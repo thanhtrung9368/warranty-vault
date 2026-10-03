@@ -352,6 +352,16 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 	// Status transition → PURCHASED: spawn a Device row + back-link.
 	transitioningToPurchased := in.Status == "PURCHASED" && owned.Status != "PURCHASED"
 	if transitioningToPurchased {
+		// Device ceiling (FEATURE_IDEAS #14). This is a THIRD write path into
+		// "Device" (the others are CreateDevice and the backup import) and it used
+		// to bypass the quota entirely — which, now that sold devices are free,
+		// would also be a way around the 500-row storage backstop: create a
+		// wishlist item, mark it PURCHASED, repeat. Checked here, before the insert,
+		// so a refused transition leaves the item exactly as it was (the deferred
+		// rollback discards the update above).
+		if qerr := assertDeviceQuota(ctx, q, userID, 1, 1); qerr != nil {
+			return store.WishlistItem{}, qerr
+		}
 		// Map wishlist fields → device. Use currentPrice ?? initialPrice as
 		// purchasePrice; today as purchaseDate; category if it maps.
 		var price int32

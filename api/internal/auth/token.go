@@ -16,6 +16,16 @@ func NewTokenAndHash() (token, hash string, err error) {
 	return newTokenAndHash()
 }
 
+// HashToken returns the sha256-hex digest of a raw token, i.e. the value stored
+// in a `tokenHash` column. Exported for callers that hold a token which arrived
+// from somewhere other than an Authorization header — today that is the public
+// share link (services.ViewSharedCertificate), whose token travels in the URL
+// path. Same scheme as PasswordReset/Session: the raw value is never stored, so
+// a database leak is not a credential leak.
+func HashToken(raw string) string {
+	return hashTokenString(raw)
+}
+
 func newTokenAndHash() (token, hash string, err error) {
 	var b [32]byte
 	if _, err = rand.Read(b[:]); err != nil {

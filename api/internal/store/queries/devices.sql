@@ -118,7 +118,38 @@ RETURNING *;
 DELETE FROM "Device"
 WHERE id = $1 AND "userId" = $2;
 
--- name: CountDevicesByUser :one
+-- name: CountActiveDevicesByUser :one
+-- QUOTA count (FEATURE_IDEAS #14): a device the user has SOLD is history, not a
+-- slot in the working set. Before this predicate existed the count included
+-- `status = 'SOLD'`, so a user who had owned phones for five years hit the
+-- 50-device ceiling and the only way to add the next one was to DELETE a sold
+-- device — destroying the invoice, the sale date and the profit/loss record the
+-- app exists to keep.
+--
+-- What "counts" is deliberately `status <> 'SOLD'` and NOT `"soldAt" IS NULL`:
+-- `status` is the field the user sets (and the field every client/UI filters on),
+-- while `soldAt` is the optional resale pair of migration 0006 that a user may
+-- leave empty ("đã bán, không ghi chi tiết"). Keying the quota on `soldAt` would
+-- make the limit depend on a field the user never sees in the list, and would
+-- count a device as active while the UI shows "Đã bán".
+--
+-- This query is the QUOTA rule only. Reporting is untouched on purpose: the
+-- device list, `GET /api/v1/stats` and the action queue keep using
+-- ListDevicesByUserSimple / ListDevicesByUser, so a sold device still appears in
+-- history and still counts in spend totals.
+SELECT COUNT(*)::bigint AS count
+FROM "Device"
+WHERE "userId" = $1
+  AND status <> 'SOLD';
+
+-- name: CountAllDevicesByUser :one
+-- Storage backstop (FEATURE_IDEAS #14, hazard 1). Relaxing the quota to "sold
+-- devices are free" without a second ceiling would let an account accumulate
+-- unbounded rows by repeatedly marking a device sold, creating another, and
+-- un-selling the first. This count is the hard stop on TOTAL rows per user
+-- (MAX_DEVICES_TOTAL_PER_USER = 500 = 10× the active cap) and is enforced on
+-- BOTH write paths (CreateDevice and the backup import) so neither can be used
+-- to walk around the other.
 SELECT COUNT(*)::bigint AS count
 FROM "Device"
 WHERE "userId" = $1;
