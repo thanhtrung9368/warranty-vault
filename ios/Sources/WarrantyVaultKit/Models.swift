@@ -240,6 +240,16 @@ public struct DraftDevice: Decodable, Sendable {
     public let warrantyProviderId: String?
     public let confidence: String
     public let unmatched: [String]
+    /// Advisories about values that were **kept** in the draft (openapi:
+    /// `draft.warnings`, always present, `[]` when nothing looks wrong).
+    ///
+    /// Not to be confused with `unmatched`, which lists fields the extractor
+    /// could not use. Optional only so a server that omits the array can't fail
+    /// the whole scan; read it through `warningsOrEmpty`.
+    public let warnings: [DeviceWarning]?
+
+    /// Never-nil view for the scan result UI.
+    public var warningsOrEmpty: [DeviceWarning] { warnings ?? [] }
 }
 
 // MARK: - Warranty

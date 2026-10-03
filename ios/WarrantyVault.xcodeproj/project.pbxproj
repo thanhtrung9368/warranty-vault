@@ -12,6 +12,7 @@
 		075528076B8A6FE939C0F423 /* WarrantiesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6B007469F655782FC84C25 /* WarrantiesStore.swift */; };
 		081AFBE901C196AC6449F4B7 /* ChangePasswordSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3F17674EABA0114000A947 /* ChangePasswordSheet.swift */; };
 		0E4A1691A287D1098848C313 /* EmailChangeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BD8EFB5A2B6E354DD6BEAC /* EmailChangeSheet.swift */; };
+		14F2684BE5B4E980108198D1 /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D3E8B53D9556F096B152F8 /* SessionsView.swift */; };
 		166E111F7BEB9CF1161CA73D /* RemindersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7FBAD0D43AB1C8B49947CF /* RemindersView.swift */; };
 		16C3E0CEDAF1AE2FA7FA65B1 /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CAF04638E1D1F55D0B9506 /* AuthStore.swift */; };
 		2134378BD4951A03366DD28C /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CED85D2A836A81602152C5 /* StatsView.swift */; };
@@ -69,6 +70,7 @@
 		46158D8EA71511893CBEE9B9 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		4D51951900CD3FF4D601AAF1 /* WarrantyVault.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WarrantyVault.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		52FE90877E6408CF4A68DD9A /* SearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchScreen.swift; sourceTree = "<group>"; };
+		55D3E8B53D9556F096B152F8 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		55F4E2D7F35FB1C280CC8F69 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5B4A7C50590B1E487E8EAB6A /* SubscriptionsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsScreen.swift; sourceTree = "<group>"; };
 		6A7FBAD0D43AB1C8B49947CF /* RemindersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersView.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				CC3F17674EABA0114000A947 /* ChangePasswordSheet.swift */,
 				42BD8EFB5A2B6E354DD6BEAC /* EmailChangeSheet.swift */,
 				E261920E537271E2DED771A9 /* PushDevicesView.swift */,
+				55D3E8B53D9556F096B152F8 /* SessionsView.swift */,
 				94B998712AA011363D2304F8 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -404,6 +407,7 @@
 				166E111F7BEB9CF1161CA73D /* RemindersView.swift in Sources */,
 				F9B680AC74B2C3AD8B41C698 /* RootView.swift in Sources */,
 				AB6F13D08037E08EBF816EE9 /* SearchScreen.swift in Sources */,
+				14F2684BE5B4E980108198D1 /* SessionsView.swift in Sources */,
 				286634EA8CF7330257DD629B /* SettingsView.swift in Sources */,
 				871386809869675D58D16E4A /* StatsStore.swift in Sources */,
 				2134378BD4951A03366DD28C /* StatsView.swift in Sources */,

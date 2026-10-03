@@ -42,6 +42,19 @@ public final class StatsStore: ObservableObject {
         /// money totals below may be under-reported. Mirrors the web's amber
         /// "Không tải được gói bảo hành của một vài thiết bị" banner.
         public var warrantiesComplete: Bool = true
+
+        // MARK: Spending forecast (GET /api/v1/forecast)
+
+        /// The forward-looking window. Loaded separately from the historical
+        /// rollup and `nil` until it arrives (or when it failed — see
+        /// `forecastError`, which never blanks the rest of the screen).
+        public var forecast: Forecast? = nil
+        /// Window length currently requested/returned, 1–24.
+        public var forecastMonths: Int = ForecastRules.defaultMonths
+        /// Vietnamese message when the forecast read failed. The historical
+        /// numbers above stay valid — the two reads are independent.
+        public var forecastError: String? = nil
+        public var forecastLoading: Bool = false
     }
 
     @Published public private(set) var snapshot = Snapshot()
@@ -65,6 +78,8 @@ public final class StatsStore: ObservableObject {
     }
 
     public func load() async {
+        // Keep whatever window the user picked before a refresh/pull-to-refresh.
+        let months = snapshot.forecastMonths
         state = .loading
         do {
             async let statsTask = client.getStats()
@@ -135,10 +150,36 @@ public final class StatsStore: ObservableObject {
 
             snapshot = snap
             state = .loaded
+            // Second round trip, on purpose: `/forecast` is its own endpoint and
+            // a failure here must not blank the historical rollup.
+            await loadForecast(months: months)
         } catch let err as APIError {
             state = .error(err.localizedDescription)
         } catch {
             state = .error(error.localizedDescription)
+        }
+    }
+
+    /// Loads the forward-looking window (`GET /api/v1/forecast`).
+    ///
+    /// Kept out of the `state` machine: `state` describes the historical rollup
+    /// the whole screen is built on, while the forecast is one section. A failed
+    /// forecast therefore sets `forecastError` and leaves everything else
+    /// readable.
+    public func loadForecast(months: Int) async {
+        let window = ForecastRules.clampedMonths(months)
+        snapshot.forecastMonths = window
+        snapshot.forecastLoading = true
+        defer { snapshot.forecastLoading = false }
+        do {
+            snapshot.forecast = try await client.forecast(months: window)
+            snapshot.forecastError = nil
+        } catch let err as APIError {
+            snapshot.forecast = nil
+            snapshot.forecastError = err.localizedDescription
+        } catch {
+            snapshot.forecast = nil
+            snapshot.forecastError = error.localizedDescription
         }
     }
 

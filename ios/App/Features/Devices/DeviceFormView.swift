@@ -59,6 +59,15 @@ struct DeviceFormView: View {
     @State private var topError: String?
     @State private var fieldErrors: [String: [String]] = [:]
 
+    /// Serial advisories from the last **successful** save (openapi:
+    /// `{device, warnings}` on POST/PATCH). Non-empty means the device IS saved
+    /// and this screen is only still open so the note can be read — never an
+    /// error, and never a reason to clear the value that was flagged.
+    @State private var savedWarnings: [DeviceWarning] = []
+    /// True once a save has succeeded: blocks a second save (which would create
+    /// a duplicate in create mode) and swaps the CTAs for a single "Xong".
+    @State private var didSave = false
+
     // OCR receipt scan (create flow only, gated on the per-user AI opt-in).
     // Two sources: the photo library (JPEG/PNG/WEBP/HEIC) and Files (PDF).
     @State private var scanPhotoItem: PhotosPickerItem?
@@ -68,7 +77,14 @@ struct DeviceFormView: View {
     @State private var scanInfo: ScanInfo?
     @State private var aiEnabled = false
 
-    struct ScanInfo { let confidence: String; let unmatched: [String] }
+    struct ScanInfo {
+        let confidence: String
+        /// Fields the extractor could **not** use — the user types them.
+        let unmatched: [String]
+        /// Advisories about values it **did** use (`draft.warnings`). A different
+        /// thing from `unmatched`, and shown as such.
+        let warnings: [DeviceWarning]
+    }
 
     private var isEditing: Bool { device != nil }
 
@@ -120,9 +136,31 @@ struct DeviceFormView: View {
     // MARK: - Body
 
     var body: some View {
+        ScrollViewReader { proxy in
+            formBody
+                // The advisory sits at the top of the form; the save button is at
+                // the bottom, so without this the user would be told nothing.
+                .onChange(of: didSave) { _, saved in
+                    guard saved else { return }
+                    withAnimation { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
+                }
+        }
+    }
+
+    /// Anchor for "scroll back to the advisory after a save".
+    private static let topAnchorID = "deviceFormTop"
+
+    private var formBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Spacer().frame(height: 8)
+                Spacer().frame(height: 8).id(Self.topAnchorID)
+
+                // Saved, but the server flagged the serial. Shown first, above
+                // everything else, and stated as a success.
+                if didSave && !savedWarnings.isEmpty {
+                    saveWarningsCard
+                    Spacer().frame(height: 12)
+                }
 
                 // OCR receipt scan — create flow only, gated on AI opt-in.
                 // The endpoint accepts JPEG/PNG/WEBP **and PDF**, so the menu
@@ -165,7 +203,7 @@ struct DeviceFormView: View {
                         .background(WVColor.tint.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .disabled(scanning)
+                    .disabled(scanning || didSave)
                     .padding(.horizontal, 16)
 
                     if let info = scanInfo {
@@ -175,10 +213,23 @@ struct DeviceFormView: View {
                                  : "Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(WVColor.label2)
+                            // Used, but it looks wrong (e.g. an IMEI that fails
+                            // its checksum). The value stays in the form.
+                            if !info.warnings.isEmpty {
+                                Text(DeviceWarningCopy.draftWarningsNote + " "
+                                     + info.warnings.map { "\($0.fieldLabel): \($0.displayMessage)" }
+                                        .joined(separator: " · "))
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(WVColor.orange)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            // Not used at all — the user has to fill these in.
                             if !info.unmatched.isEmpty {
-                                Text("Cần xem lại: " + info.unmatched.map(Self.unmatchedLabel).joined(separator: ", "))
+                                Text(DeviceWarningCopy.draftUnmatchedNote + " "
+                                     + info.unmatched.map(Self.unmatchedLabel).joined(separator: ", "))
                                     .font(.system(size: 12))
                                     .foregroundStyle(WVColor.label3)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -358,16 +409,24 @@ struct DeviceFormView: View {
 
                 // CTA button
                 VStack(spacing: 0) {
-                    WVButton(
-                        isEditing ? "Lưu thay đổi" : "Thêm thiết bị",
-                        icon: isEditing ? "save" : "plus",
-                        kind: isValid ? .primary : .secondary
-                    ) {
-                        Task { await submit() }
+                    if didSave {
+                        // The save already happened; the only thing left is to
+                        // leave the screen.
+                        WVButton("Xong", icon: "check", kind: .primary) { dismiss() }
+                            .padding(.horizontal, WVSpacing.gutter)
+                            .padding(.vertical, 20)
+                    } else {
+                        WVButton(
+                            isEditing ? "Lưu thay đổi" : "Thêm thiết bị",
+                            icon: isEditing ? "save" : "plus",
+                            kind: isValid ? .primary : .secondary
+                        ) {
+                            Task { await submit() }
+                        }
+                        .disabled(!isValid || isSubmitting)
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .padding(.vertical, 20)
                     }
-                    .disabled(!isValid || isSubmitting)
-                    .padding(.horizontal, WVSpacing.gutter)
-                    .padding(.vertical, 20)
                 }
 
                 Spacer().frame(height: 24)
@@ -378,12 +437,21 @@ struct DeviceFormView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Huỷ") { showDiscardAlert = true }
-                    .foregroundStyle(WVColor.tint)
+                if didSave {
+                    Button("Đóng") { dismiss() }
+                        .foregroundStyle(WVColor.tint)
+                } else {
+                    Button("Huỷ") { showDiscardAlert = true }
+                        .foregroundStyle(WVColor.tint)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if isSubmitting {
                     ProgressView()
+                } else if didSave {
+                    Button("Xong") { dismiss() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
                 } else {
                     Button(isEditing ? "Lưu" : "Thêm") {
                         Task { await submit() }
@@ -501,7 +569,9 @@ struct DeviceFormView: View {
                 fileName: fileName, fileType: fileType, data: data
             )
             applyDraft(draft)
-            scanInfo = ScanInfo(confidence: draft.confidence, unmatched: draft.unmatched)
+            scanInfo = ScanInfo(confidence: draft.confidence,
+                                unmatched: draft.unmatched,
+                                warnings: draft.warningsOrEmpty)
         } catch let err as APIError {
             topError = err.localizedDescription
         } catch {
@@ -534,6 +604,10 @@ struct DeviceFormView: View {
         case "brand": return "Hãng"
         case "purchasePlace": return "Nơi mua"
         case "category": return "Loại thiết bị"
+        // The extractor drops these when the value is unusable (>120 bytes of
+        // junk, or a warranty length outside 0–120) — see `DraftDevice.unmatched`.
+        case "serialNumber": return "Serial / IMEI"
+        case "warrantyMonths": return "Số tháng bảo hành"
         default: return key
         }
     }
@@ -593,18 +667,66 @@ struct DeviceFormView: View {
         }
 
         do {
+            let result: DeviceSaveResult
             if let device {
-                _ = try await store.update(id: device.id, input)
+                result = try await store.update(id: device.id, input)
             } else {
-                _ = try await store.create(input)
+                result = try await store.create(input)
             }
-            dismiss()
+
+            // Nothing is blocked: if the server flagged the serial, the device
+            // was still created/updated. Keep the screen up just long enough to
+            // read the note instead of flashing a toast that the next screen
+            // covers.
+            let warnings = result.warningsOrEmpty
+            if warnings.isEmpty {
+                dismiss()
+            } else {
+                savedWarnings = warnings
+                didSave = true
+            }
         } catch let err as APIError {
             topError = err.localizedDescription
             fieldErrors = err.fieldErrors
         } catch {
             topError = error.localizedDescription
         }
+    }
+
+    // MARK: - Post-save advisories
+
+    /// "Saved, but this looks wrong" — deliberately green (a success) carrying
+    /// amber lines, never the red error styling.
+    private var saveWarningsCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                WVIcon("checkCircle", size: 14)
+                Text(DeviceWarningCopy.savedHeading)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(WVColor.green)
+
+            ForEach(Array(savedWarnings.enumerated()), id: \.offset) { _, warning in
+                HStack(alignment: .top, spacing: 6) {
+                    WVIcon("alert", size: 12)
+                        .foregroundStyle(WVColor.orange)
+                    Text("\(warning.fieldLabel): \(warning.displayMessage)")
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Text(DeviceWarningCopy.savedNote)
+                .font(.system(size: 12))
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WVColor.green.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+        .padding(.horizontal, WVSpacing.gutter)
     }
 
     // MARK: - Fallback categories

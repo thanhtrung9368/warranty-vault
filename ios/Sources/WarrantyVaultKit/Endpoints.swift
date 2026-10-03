@@ -74,6 +74,30 @@ extension APIClient {
         )
     }
 
+    // MARK: - Device sessions
+
+    /// The caller's own **active** login sessions, most recently used first
+    /// (at most 100). Revoked and expired rows are filtered out server-side, so
+    /// an empty array means "nothing else is signed in", not "we didn't ask".
+    ///
+    /// Unrelated to `listPushSubscriptions()`: that one lists notification
+    /// targets, and deleting one only stops pushes.
+    public func listSessions() async throws -> [SessionSummary] {
+        let body: SessionList = try await request("GET", "/api/v1/auth/sessions")
+        return body.sessions ?? []
+    }
+
+    /// Revokes one session by its `Session` row id (never a token).
+    ///
+    /// Idempotent: a second call is a 200 with `alreadyRevoked = true`. Revoking
+    /// the **current** session is allowed and returns `current = true` — the
+    /// stored bearer is dead from that moment, so the caller must clear the
+    /// Keychain and send the user back to login (`EmailChangeSheet` does the
+    /// same after an email change revokes every session).
+    public func revokeSession(id: String) async throws -> SessionRevokeResult {
+        try await request("DELETE", "/api/v1/auth/sessions/\(id)")
+    }
+
     // MARK: - Backup
 
     /// Downloads the full account backup as raw JSON bytes (v5 payload).
@@ -137,16 +161,19 @@ extension APIClient {
         return w.device
     }
 
-    public func createDevice(_ input: DeviceInput) async throws -> Device {
-        struct Wrapper: Decodable { let device: Device }
-        let w: Wrapper = try await request("POST", "/api/v1/devices", body: input)
-        return w.device
+    /// Creates a device and returns it **together with the serial advisories**
+    /// the server attached. The create is never rejected because of a warning —
+    /// the device exists by the time this returns; the caller only has to show
+    /// the yellow note (and must not present it as a failure).
+    public func createDevice(_ input: DeviceInput) async throws -> DeviceSaveResult {
+        try await request("POST", "/api/v1/devices", body: input)
     }
 
-    public func updateDevice(id: String, _ input: DeviceInput) async throws -> Device {
-        struct Wrapper: Decodable { let device: Device }
-        let w: Wrapper = try await request("PATCH", "/api/v1/devices/\(id)", body: input)
-        return w.device
+    /// Same contract as `createDevice`, including `warnings`. The device being
+    /// edited is excluded from the duplicate-serial probe server-side, so
+    /// saving an unchanged serial does not warn about "duplicating itself".
+    public func updateDevice(id: String, _ input: DeviceInput) async throws -> DeviceSaveResult {
+        try await request("PATCH", "/api/v1/devices/\(id)", body: input)
     }
 
     public func deleteDevice(id: String) async throws {
@@ -370,6 +397,21 @@ extension APIClient {
     public func getStats() async throws -> UserStats {
         let stats: UserStats = try await request("GET", "/api/v1/stats")
         return stats
+    }
+
+    /// The forward-looking counterpart of `getStats()`: subscription renewals,
+    /// warranty expiries and wishlist target dates over the next `months`
+    /// months (1–24), split per calendar month.
+    ///
+    /// `months` is clamped client-side before the request is built
+    /// (`ForecastRules.clampedMonths`) because an out-of-range value is a 400 on
+    /// the server, not a silent default. The response's own `buckets` normally
+    /// hold `months + 1` entries — the screen iterates whatever comes back
+    /// rather than assuming a length.
+    public func forecast(months: Int = ForecastRules.defaultMonths) async throws -> Forecast {
+        try await request("GET", "/api/v1/forecast", query: [
+            .init(name: "months", value: String(ForecastRules.clampedMonths(months))),
+        ])
     }
 
     // MARK: - Reminders

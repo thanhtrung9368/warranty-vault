@@ -114,6 +114,7 @@ struct SettingsView: View {
 
     @State private var showChangePassword = false
     @State private var showPushDevices = false
+    @State private var showSessions = false
 
     // AI receipt-scan opt-in.
     @State private var aiOptIn = false
@@ -144,6 +145,11 @@ struct SettingsView: View {
                 WVSectionFooter("Khi gói bảo hành sắp hết, hệ thống đẩy thông báo tự động trước 7 ngày và 30 ngày. Mốc nhắc do máy chủ quy định — ứng dụng chưa hỗ trợ tuỳ chỉnh.")
                 notificationsSection
 
+                // Sign-in sessions (who can reach the data)
+                WVSectionHeader("Bảo mật")
+                sessionsSection
+                WVSectionFooter("“Thiết bị đăng nhập” là các phiên còn quyền truy cập dữ liệu của bạn. Khác với “Thiết bị nhận thông báo” ở trên — xoá một đích push chỉ ngừng gửi thông báo, không thu hồi quyền truy cập.")
+
                 // AI receipt scan
                 WVSectionHeader("Quét hoá đơn (AI)")
                 WVSectionFooter("Khi bật, ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền thông tin. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt.")
@@ -168,6 +174,11 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showPushDevices) {
             PushDevicesView(client: client)
                 .navigationTitle("Thiết bị nhận thông báo")
+                .navigationBarTitleDisplayMode(.inline)
+        }
+        .navigationDestination(isPresented: $showSessions) {
+            SessionsView(client: client)
+                .navigationTitle("Thiết bị đăng nhập")
                 .navigationBarTitleDisplayMode(.inline)
         }
         .task {
@@ -249,6 +260,19 @@ struct SettingsView: View {
             } catch {
                 // Revert the toggle on failure.
                 aiOptIn = !enabled
+            }
+        }
+    }
+
+    // MARK: - Sessions section
+
+    private var sessionsSection: some View {
+        WVGroup {
+            WVRow(icon: "shieldCheck", iconColor: WVColor.green,
+                  title: "Thiết bị đăng nhập",
+                  subtitle: "Xem và thu hồi các phiên đang hoạt động",
+                  chevron: true) {
+                showSessions = true
             }
         }
     }

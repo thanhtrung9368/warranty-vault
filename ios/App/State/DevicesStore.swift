@@ -27,20 +27,22 @@ public final class DevicesStore: ObservableObject {
         }
     }
 
-    public func create(_ input: DeviceInput) async throws -> Device {
-        let device = try await client.createDevice(input)
-        devices.insert(device, at: 0)
+    /// Creates the device and hands back the server's advisory `warnings`
+    /// together with it. A warning never means the save failed.
+    public func create(_ input: DeviceInput) async throws -> DeviceSaveResult {
+        let result = try await client.createDevice(input)
+        devices.insert(result.device, at: 0)
         await refreshProjection()
-        return device
+        return result
     }
 
-    public func update(id: String, _ input: DeviceInput) async throws -> Device {
-        let updated = try await client.updateDevice(id: id, input)
+    public func update(id: String, _ input: DeviceInput) async throws -> DeviceSaveResult {
+        let result = try await client.updateDevice(id: id, input)
         if let idx = devices.firstIndex(where: { $0.id == id }) {
-            devices[idx] = updated
+            devices[idx] = result.device
         }
         await refreshProjection()
-        return updated
+        return result
     }
 
     public func delete(_ id: String) async throws {

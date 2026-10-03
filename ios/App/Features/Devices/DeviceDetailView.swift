@@ -23,6 +23,9 @@ struct DeviceDetailView: View {
     @State private var actionError: String?
     @State private var deviceStatus: DeviceStatus
     @State private var statusSaving = false
+    /// Advisory `warnings` returned by the status PATCH. Non-blocking: the
+    /// status change did happen, this only says the serial looks odd.
+    @State private var statusWarnings: [DeviceWarning] = []
 
     @Environment(\.dismiss) private var dismiss
 
@@ -150,6 +153,29 @@ struct DeviceDetailView: View {
                 .onChange(of: deviceStatus) { _, newStatus in
                     guard newStatus != currentDevice.status else { return }
                     Task { await saveStatus(newStatus) }
+                }
+
+                // Serial advisories from the PATCH — amber, never an error: the
+                // status change went through.
+                if !statusWarnings.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(statusWarnings.enumerated()), id: \.offset) { _, warning in
+                            HStack(alignment: .top, spacing: 6) {
+                                WVIcon("alert", size: 12)
+                                    .foregroundStyle(WVColor.orange)
+                                Text("\(warning.fieldLabel): \(warning.displayMessage)")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(WVColor.label2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Text(DeviceWarningCopy.savedNote)
+                            .font(.system(size: 11))
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, WVSpacing.titleGutter)
+                    .padding(.top, 6)
                 }
 
                 // Delete row
@@ -322,9 +348,14 @@ struct DeviceDetailView: View {
         input.status = status
         input.notes = d.notes
         do {
-            _ = try await devicesStore.update(id: d.id, input)
+            let result = try await devicesStore.update(id: d.id, input)
+            // PATCH /devices/{id} carries the same advisory array as create. The
+            // device being edited is excluded from the duplicate probe, so an
+            // unchanged serial does not warn about duplicating itself.
+            statusWarnings = result.warningsOrEmpty
         } catch {
             actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            statusWarnings = []
             // Revert
             deviceStatus = d.status
         }

@@ -245,10 +245,12 @@ final class EndpointsTests: KitTestCase {
 
         StubURLProtocol.install(.json(#"""
         {"device": {"id": "dev_new", "name": "iPhone 16", "category": "PHONE",
-                    "purchaseDate": "2025-05-20", "purchasePrice": 22990000, "status": "ACTIVE"}}
+                    "purchaseDate": "2025-05-20", "purchasePrice": 22990000, "status": "ACTIVE"},
+         "warnings": []}
         """#))
         let created = try await client.createDevice(input)
-        XCTAssertEqual(created.id, "dev_new")
+        XCTAssertEqual(created.device.id, "dev_new")
+        XCTAssertTrue(created.warningsOrEmpty.isEmpty)
         var request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.url?.path, "/api/v1/devices")
@@ -256,10 +258,13 @@ final class EndpointsTests: KitTestCase {
 
         StubURLProtocol.install(.json(#"""
         {"device": {"id": "dev_new", "name": "iPhone 16 Pro", "category": "PHONE",
-                    "purchaseDate": "2025-05-20", "purchasePrice": 22990000, "status": "ACTIVE"}}
+                    "purchaseDate": "2025-05-20", "purchasePrice": 22990000, "status": "ACTIVE"},
+         "warnings": [{"code": "IMEI_LENGTH", "field": "serialNumber",
+                       "message": "Chuỗi số này không phải IMEI 15 chữ số."}]}
         """#))
         let updated = try await client.updateDevice(id: "dev_new", input)
-        XCTAssertEqual(updated.name, "iPhone 16 Pro")
+        XCTAssertEqual(updated.device.name, "iPhone 16 Pro")
+        XCTAssertEqual(updated.warningsOrEmpty.map(\.code), ["IMEI_LENGTH"])
         request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.httpMethod, "PATCH")
         XCTAssertEqual(request.url?.path, "/api/v1/devices/dev_new")
@@ -269,6 +274,146 @@ final class EndpointsTests: KitTestCase {
         request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.httpMethod, "DELETE")
         XCTAssertEqual(request.url?.path, "/api/v1/devices/dev_new")
+    }
+
+    /// `POST`/`PATCH /api/v1/devices` answer `{device, warnings}` and **nothing
+    /// is blocked**: the save succeeded, the warned-about value was kept, and a
+    /// client must not turn the payload into an error.
+    func testDeviceSaveCarriesNonBlockingWarningsNextToTheDevice() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"device": {"id": "dev_7", "name": "iPhone 16", "category": "PHONE",
+                    "purchaseDate": "2025-05-20", "purchasePrice": 22990000,
+                    "status": "ACTIVE", "serialNumber": "356938035643809"},
+         "warnings": [{"code": "IMEI_CHECKSUM", "field": "serialNumber",
+                       "message": "IMEI đủ 15 chữ số nhưng sai số kiểm tra — có thể gõ nhầm một chữ số."}]}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+        var input = DeviceInput(name: "iPhone 16", category: "PHONE", purchaseDate: "2025-05-20")
+        input.serialNumber = "356938035643809"
+
+        let result = try await client.createDevice(input)
+
+        XCTAssertEqual(result.device.id, "dev_7")
+        XCTAssertEqual(result.device.serialNumber, "356938035643809")
+        XCTAssertEqual(result.warningsOrEmpty.first?.codeKind, .IMEI_CHECKSUM)
+        XCTAssertEqual(result.warningsOrEmpty.first?.field, "serialNumber")
+        XCTAssertEqual(result.warningsOrEmpty.first?.fieldLabel, "Serial / IMEI")
+        XCTAssertEqual(result.warningsOrEmpty.first?.displayMessage,
+                       "IMEI đủ 15 chữ số nhưng sai số kiểm tra — có thể gõ nhầm một chữ số.")
+    }
+
+    // MARK: - Device sessions
+
+    func testSessionListAndRevokeUseTheExactContract() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+
+        StubURLProtocol.install(.json(#"""
+        {"sessions": [
+          {"id": "ses_now", "deviceLabel": "iPhone 16 Pro", "platform": "ios",
+           "current": true, "lastSeenAt": "2026-03-01T08:00:00Z",
+           "createdAt": "2026-02-01T08:00:00Z", "expiresAt": "2026-04-01T08:00:00Z"},
+          {"id": "ses_old", "deviceLabel": null, "platform": null,
+           "current": false, "lastSeenAt": "2026-02-20T08:00:00Z",
+           "createdAt": "2026-01-20T08:00:00Z", "expiresAt": "2026-03-20T08:00:00Z"}
+        ]}
+        """#))
+        let sessions = try await client.listSessions()
+
+        XCTAssertEqual(sessions.map(\.id), ["ses_now", "ses_old"])
+        XCTAssertEqual(sessions.first?.current, true)
+        XCTAssertEqual(SessionLabels.deviceLabel(sessions[0]), "iPhone 16 Pro")
+        XCTAssertEqual(SessionLabels.deviceLabel(sessions[1]), "Không rõ thiết bị",
+                       "a null deviceLabel renders the documented fallback, not a blank row")
+        XCTAssertEqual(SessionLabels.platformLabel(sessions[1]), "Không rõ nền tảng")
+
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/sessions")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+
+        // Revoking a *different* device: the local token keeps working.
+        StubURLProtocol.install(.json(#"""
+        {"ok": true, "current": false, "alreadyRevoked": false,
+         "message": "Đã thu hồi phiên đăng nhập."}
+        """#))
+        let other = try await client.revokeSession(id: "ses_old")
+        XCTAssertEqual(SessionRevokeOutcome.of(other), .revoked)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/sessions/ses_old")
+        XCTAssertNil(request.url?.query)
+        XCTAssertTrue(request.capturedBody.isEmpty)
+
+        // Revoking the *current* session: same call, but the bearer is dead from
+        // here on, so the caller must clear the Keychain and return to login.
+        StubURLProtocol.install(.json(#"""
+        {"ok": true, "current": true, "alreadyRevoked": true,
+         "message": "Đã thu hồi phiên hiện tại. Hãy đăng nhập lại."}
+        """#))
+        let selfRevoke = try await client.revokeSession(id: "ses_now")
+        XCTAssertEqual(SessionRevokeOutcome.of(selfRevoke), .signedOutLocally,
+                       "current beats alreadyRevoked — the local token is dead either way")
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/sessions/ses_now")
+    }
+
+    // MARK: - Forecast
+
+    func testForecastRequestsTheWindowAndDecodesBuckets() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"generatedAt": "2026-03-15T00:00:00Z", "windowStart": "2026-03-15T00:00:00Z",
+         "windowEnd": "2027-03-15T00:00:00Z", "months": 12, "currency": "VND",
+         "subscriptionTotalVnd": 1059000, "subscriptionAutoRenewTotalVnd": 708000,
+         "subscriptionMonthlyAverageVnd": 353000, "subscriptionsCount": 3, "chargesCount": 5,
+         "buckets": [{"month": "2026-03", "subscriptionVnd": 118000,
+                      "subscriptionAutoRenewVnd": 118000, "subscriptionCount": 1,
+                      "warrantyExpiringVnd": 0, "warrantyExpiringCount": 0,
+                      "wishlistTargetVnd": 0, "wishlistTargetCount": 0}],
+         "upcomingWarranties": [], "upcomingWishlist": [],
+         "note": "Chỉ các kỳ gia hạn subscription là khoản chắc chắn bị trừ."}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let forecast = try await client.forecast(months: 12)
+
+        XCTAssertEqual(forecast.months, 12)
+        XCTAssertEqual(forecast.buckets.count, 1, "the bucket array is taken as sent")
+        XCTAssertEqual(forecast.subscriptionAutoRenewTotalVnd, 708_000)
+        XCTAssertTrue(forecast.note.contains("chắc chắn bị trừ"))
+
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/forecast")
+        XCTAssertEqual(queryItems(of: request)["months"], "12")
+        XCTAssertEqual(queryItems(of: request).count, 1, "exactly one query parameter")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+
+        let emptyBody = #"""
+        {"generatedAt": "2026-03-15T00:00:00Z", "windowStart": "2026-03-15T00:00:00Z",
+         "windowEnd": "2027-03-15T00:00:00Z", "months": 1, "currency": "VND",
+         "subscriptionTotalVnd": 0, "subscriptionAutoRenewTotalVnd": 0,
+         "subscriptionMonthlyAverageVnd": 0, "subscriptionsCount": 0, "chargesCount": 0,
+         "buckets": [], "upcomingWarranties": [], "upcomingWishlist": [], "note": "n"}
+        """#
+
+        // Out-of-range windows are clamped client-side, so they can never turn
+        // into the server's documented 400.
+        StubURLProtocol.install(.json(emptyBody))
+        _ = try await client.forecast(months: 0)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(queryItems(of: request)["months"], "1")
+
+        StubURLProtocol.install(.json(emptyBody))
+        _ = try await client.forecast(months: 99)
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(queryItems(of: request)["months"], "24")
+
+        StubURLProtocol.install(.json(emptyBody))
+        _ = try await client.forecast()
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(queryItems(of: request)["months"], "12", "default window is 12 months")
     }
 
     // MARK: - Warranties + reminders

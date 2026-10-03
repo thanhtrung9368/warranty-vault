@@ -48,7 +48,8 @@ struct StatsView: View {
                 .wvScreen()
 
             case .loaded:
-                if store.snapshot.totalDevices == 0 && store.snapshot.totalSubs == 0 {
+                if store.snapshot.totalDevices == 0 && store.snapshot.totalSubs == 0
+                    && store.snapshot.totalWishlist == 0 {
                     ScrollView {
                         WVEmpty(icon: "chart",
                                 title: "Chưa có gì để thống kê",
@@ -114,6 +115,11 @@ struct StatsView: View {
                     )
                 }
 
+                // Spending forecast — the forward-looking half of this screen
+                // (`GET /api/v1/forecast`), deliberately separate from the
+                // historical rollup above it.
+                forecastSection
+
                 // Category donut
                 WVSectionHeader("Phân bổ theo loại")
                 WVSectionFooter("Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ.")
@@ -153,6 +159,290 @@ struct StatsView: View {
             }
         }
         .wvScreen()
+    }
+
+    // MARK: - Spending forecast (GET /api/v1/forecast)
+
+    /// The forward-looking section: expected subscription charges month by
+    /// month, plus the warranty and wishlist milestones in the same window.
+    ///
+    /// Three things this section refuses to do:
+    ///   * it never shows one "you will spend" number — money that *will* be
+    ///     charged automatically and money the user must decide about are two
+    ///     different figures (`subscriptionAutoRenewVnd`);
+    ///   * it never adds warranty or wishlist money to the subscription total:
+    ///     the API documents `warrantyExpiringVnd` as the old package's price
+    ///     (a savings reference) and `wishlistTargetVnd` as a last-recorded
+    ///     price — both "may happen", not "will be charged";
+    ///   * it never hides the API's own `note`, which says exactly that.
+    @ViewBuilder
+    private var forecastSection: some View {
+        WVSectionHeader("Dự báo chi tiêu")
+
+        if let forecast = store.snapshot.forecast {
+            WVSectionFooter(windowDescription(forecast))
+            forecastNoteCard(forecast.note)
+            forecastWindowPicker
+
+            // Keeps `subscriptionVnd` honest: the sum the user sees below is
+            // the API's own total, not a re-add of the buckets.
+            forecastSummaryCard(forecast)
+            forecastChartCard(forecast)
+            forecastMonthList(forecast)
+            forecastWarrantyCard(forecast)
+            forecastWishlistCard(forecast)
+        } else if let error = store.snapshot.forecastError {
+            WVCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        WVIcon("alert", size: 14)
+                        Text("Không tải được dự báo")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundStyle(WVColor.orange)
+                    Text(error)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                    Text("Các số liệu phía trên vẫn đúng — chỉ phần dự báo này bị thiếu.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                    WVButton("Thử lại", kind: .secondary) {
+                        Task { await store.loadForecast(months: store.snapshot.forecastMonths) }
+                    }
+                }
+            }
+            forecastWindowPicker
+        } else {
+            WVSectionFooter("Đang tính các khoản sắp tới…")
+            WVCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(height: 14)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(width: 200, height: 14)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(width: 140, height: 14)
+                }
+                .redacted(reason: .placeholder)
+            }
+        }
+    }
+
+    /// The server's own explanation of the model, shown verbatim and **before**
+    /// the numbers, because it is what stops them being read as a bill.
+    private func forecastNoteCard(_ note: String) -> some View {
+        WVCard {
+            HStack(alignment: .top, spacing: 8) {
+                WVIcon("info", size: 14)
+                    .foregroundStyle(WVColor.blue)
+                Text(note)
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// 6 / 12 / 24 months. `months` is clamped before it leaves the client, and
+    /// the number of buckets is whatever the API returns — normally `months + 1`.
+    private var forecastWindowPicker: some View {
+        WVSegmented(
+            options: ForecastRules.monthOptions.map {
+                (value: $0, label: ForecastRules.monthsLabel($0))
+            },
+            selection: Binding(
+                get: { store.snapshot.forecastMonths },
+                // Window change → one new `/forecast` read. The generic is
+                // spelled out because a bare `Task {}` here is ambiguous.
+                set: { months in
+                    Task<Void, Never> { await store.loadForecast(months: months) }
+                }
+            )
+        )
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, 10)
+        .disabled(store.snapshot.forecastLoading)
+    }
+
+    private func windowDescription(_ forecast: Forecast) -> String {
+        "Cửa sổ \(ForecastRules.monthsLabel(forecast.months)): "
+            + "\(WVFormat.date(forecast.windowStart)) → \(WVFormat.date(forecast.windowEnd)) "
+            + "(\(forecast.buckets.count) tháng lịch)."
+    }
+
+    /// Certain spend vs. spend the user has to decide about. Never a single sum.
+    private func forecastSummaryCard(_ forecast: Forecast) -> some View {
+        let summary = ForecastRules.summary(forecast)
+        return WVCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(WVFormat.vnd(summary.autoRenewTotalVnd))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(WVColor.label)
+                Text("\(ForecastCopy.autoRenewHeading) · \(summary.chargesCount) kỳ gia hạn · \(summary.subscriptionsCount) gói")
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label3)
+
+                HStack(spacing: 6) {
+                    WVIcon("refresh", size: 12)
+                    Text("\(ForecastCopy.manualRenewHeading): \(WVFormat.vnd(summary.manualRenewTotalVnd))")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(WVColor.orange)
+
+                Text(ForecastCopy.autoRenewNote)
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                WVDivider()
+
+                Text("Trung bình theo tháng: \(WVFormat.vnd(summary.monthlyAverageVnd)) — bằng con số “Phí định kỳ mỗi tháng” ở trên.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if summary.referenceOnlyTotalVnd > 0 {
+                    Text("Ngoài ra còn \(WVFormat.vnd(summary.referenceOnlyTotalVnd)) tiền tham khảo (bảo hành + wishlist) — KHÔNG cộng vào các con số trên.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    /// Month-by-month subscription charges. The bars are the *total* renewals in
+    /// each month; the auto-renew split is spelled out in the list underneath.
+    private func forecastChartCard(_ forecast: Forecast) -> some View {
+        let labels = ForecastRules.chartLabels(forecast.buckets)
+        let points = zip(forecast.buckets, labels).map { bucket, label in
+            WVChartPoint(label: label, value: Double(bucket.subscriptionVnd))
+        }
+        return VStack(spacing: 0) {
+            WVSectionFooter("Kỳ gia hạn subscription theo từng tháng trong cửa sổ (không gồm tiền bảo hành hay wishlist).")
+            WVCard {
+                WVBarChart(
+                    data: points,
+                    height: 160,
+                    color: WVColor.brand,
+                    formatY: { v in
+                        if v >= 1_000_000 { return "\(Int(v / 1_000_000))M" }
+                        if v >= 1_000     { return "\(Int(v / 1_000))k" }
+                        return "\(Int(v))"
+                    }
+                )
+            }
+        }
+    }
+
+    /// The month list. Zero-filled months are dropped (`activeBuckets`) so a
+    /// 24-month window doesn't print two years of `0 ₫`.
+    @ViewBuilder
+    private func forecastMonthList(_ forecast: Forecast) -> some View {
+        let months = ForecastRules.activeBuckets(forecast.buckets)
+        if months.isEmpty {
+            WVCard {
+                Text(ForecastCopy.emptyWindow(months: forecast.months))
+                    .font(.system(size: 14))
+                    .foregroundStyle(WVColor.label3)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 12)
+            }
+        } else {
+            WVGroup {
+                ForEach(Array(months.enumerated()), id: \.element.id) { idx, bucket in
+                    if idx > 0 { WVDivider(inset: 16) }
+                    ForecastMonthRow(bucket: bucket)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func forecastWarrantyCard(_ forecast: Forecast) -> some View {
+        if !forecast.upcomingWarranties.isEmpty {
+            WVCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        WVIcon("shieldCheck", size: 14)
+                            .foregroundStyle(WVColor.orange)
+                        Text("Bảo hành sắp hết trong cửa sổ")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(WVColor.label)
+                    }
+                    Text(ForecastCopy.warrantySavingsNote)
+                        .font(.system(size: 12))
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ForEach(forecast.upcomingWarranties) { warranty in
+                        HStack(alignment: .top, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(warranty.deviceName)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(WVColor.label)
+                                    .lineLimit(1)
+                                Text("\(warranty.type.label)\(warranty.provider.map { " · \($0)" } ?? "") · hết hạn \(WVFormat.date(warranty.endDate))")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(WVColor.label3)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 6)
+                            Text(warranty.costVnd.map(WVFormat.compactVnd) ?? ForecastCopy.noPriceRecorded)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(warranty.costVnd == nil ? WVColor.label4 : WVColor.label)
+                                .lineLimit(1)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func forecastWishlistCard(_ forecast: Forecast) -> some View {
+        if !forecast.upcomingWishlist.isEmpty {
+            WVCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        WVIcon("heart", size: 14)
+                            .foregroundStyle(WVColor.pink)
+                        Text("Wishlist tới mốc trong cửa sổ")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(WVColor.label)
+                    }
+                    Text(ForecastCopy.wishlistNote)
+                        .font(.system(size: 12))
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ForEach(forecast.upcomingWishlist) { item in
+                        HStack(alignment: .top, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.name)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(WVColor.label)
+                                    .lineLimit(1)
+                                Text("\(item.priority.label) · \(item.status.label) · \(WVFormat.date(item.targetDate))")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(WVColor.label3)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 6)
+                            Text(item.currentPriceVnd.map(WVFormat.compactVnd) ?? ForecastCopy.noPriceRecorded)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(item.currentPriceVnd == nil ? WVColor.label4 : WVColor.label)
+                                .lineLimit(1)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Hero gradient card
@@ -511,6 +801,63 @@ struct StatsView: View {
 }
 
 // MARK: - Supporting views
+
+/// One month of the spending forecast.
+///
+/// Keeps the auto-renew split visible per month (`tự động X`) and tags the
+/// warranty / wishlist money as reference-only, so no single number in the row
+/// can be mistaken for "this much will be charged".
+private struct ForecastMonthRow: View {
+    let bucket: ForecastBucket
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(ForecastRules.monthLabel(bucket.month))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(WVColor.label)
+
+                Spacer(minLength: 6)
+
+                if bucket.subscriptionCount > 0 {
+                    Text(WVFormat.vnd(bucket.subscriptionVnd))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(WVColor.label)
+                        .lineLimit(1)
+                } else {
+                    Text("Không có kỳ gia hạn")
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                }
+            }
+
+            if bucket.subscriptionCount > 0 {
+                Text("\(bucket.subscriptionCount) kỳ · \(ForecastCopy.autoRenewHeading) \(WVFormat.vnd(bucket.subscriptionAutoRenewVnd))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label3)
+                if bucket.manualRenewVnd > 0 {
+                    Text("\(ForecastCopy.manualRenewHeading): \(WVFormat.vnd(bucket.manualRenewVnd))")
+                        .font(.system(size: 12))
+                        .foregroundStyle(WVColor.orange)
+                }
+            }
+
+            HStack(spacing: 6) {
+                if bucket.warrantyExpiringCount > 0 {
+                    WVChip("BH hết hạn: \(bucket.warrantyExpiringCount) · \(WVFormat.compactVnd(bucket.warrantyExpiringVnd))",
+                           tone: .orange)
+                }
+                if bucket.wishlistTargetCount > 0 {
+                    WVChip("Wishlist: \(bucket.wishlistTargetCount) · \(WVFormat.compactVnd(bucket.wishlistTargetVnd))",
+                           tone: .blue)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
 
 private struct StatsSummaryRow: View {
     let label: String
