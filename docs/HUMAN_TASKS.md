@@ -7,14 +7,15 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-03 (lần 5) — **0.1, 0.2 và 0.3 đã xong**; phần còn lại vẫn kiểm lại
+**Cập nhật:** 2026-10-03 (lần 6) — **0.1, 0.2, 0.3 và 0.4 đã xong**; phần còn lại vẫn kiểm lại
 từng mục (không tin bản cũ). Mục nào đã hết việc thì ghi rõ là **HẾT VIỆC** chứ không xoá, để mày
 biết là tao đã kiểm chứ không phải bỏ sót.
 
 > **Nhóm 0 chỉ còn 0.5 (VAPID)** — miễn phí, ~2 phút. 0.2 xong kéo theo việc bỏ được **cả hai**
-> workaround chạy test iOS (`DEVELOPER_DIR` lẫn `--disable-sandbox`) và mở khoá `xcrun simctl` cho
-> mục 0.4. 0.3 xong nghĩa là **`.env` ở gốc repo đã có đủ 4 biến compose bắt buộc**, nên
-> `docker compose up` đã chạy được (VAPID/APNS/FCM đều tuỳ chọn, thiếu chỉ tắt push).
+> workaround chạy test iOS (`DEVELOPER_DIR` lẫn `--disable-sandbox`) và mở khoá `xcrun simctl`.
+> 0.3 xong nghĩa là **`.env` ở gốc repo đã có đủ 4 biến compose bắt buộc**, nên `docker compose up`
+> đã chạy được (VAPID/APNS/FCM đều tuỳ chọn, thiếu chỉ tắt push). 0.4 xong lấy lại **22G** (61 → 83Gi)
+> và để lại **20 simulator** khả dụng.
 
 > Kiểm ở HEAD `794b35a` **+ working tree** (backend agent còn đang commit). Thay đổi so với bản 2026-10-02:
 > **(a)** 0.1 (quyền `~/.npm`) **hết việc** — không cần `sudo` nữa;
@@ -118,29 +119,47 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | pb
 
 - **Mất:** 1 phút. **Xong thì:** đủ secret để dựng stack ở nhóm 2.
 
-### [ ] 0.4 — Quyết định dọn 24G simulator
+### [x] 0.4 — Dọn simulator — ✅ **XONG 2026-10-03, lấy lại 22G**
 
-`~/Library/Developer/CoreSimulator` chiếm 24G nhưng **không phải rác** — đó là
-simulator thật kèm dữ liệu app (iPhone 17 6.6G, ToanThang iPhone 17 3.0G,
-iPad Pro 13" 2.9G, ToanThang iPhone SE 2.6G, Sim-iOS27 2.2G…).
+**Kết quả: ổ trống 61Gi → 83Gi.** Cây `Devices` 24G → **350M**; cây
+`/Library/Developer/CoreSimulator` 65G → **36G**. Còn **20 simulator** khả dụng.
 
-*(Kiểm lại 2026-10-03: vẫn đúng **24G**, chưa có gì thay đổi.)*
+> ⚠️ **Bài học quan trọng: "dung lượng" của simulator KHÔNG phải chỗ lấy lại được.**
+> Ban đầu tao chỉ nhìn `~/Library/Developer/CoreSimulator/Devices` = **24G**, nhưng đó
+> **không phải chỗ chiếm nhiều nhất**. Chỗ thật là **runtime** ở
+> `/Library/Developer/CoreSimulator/Volumes/` = **50G** (3 runtime iOS, mỗi cái 16–18G).
+> Và `du` trên volume đã mount **đếm phần đã bung**, không phải chỗ thật.
 
-Tao **không tự xoá** vì mất state app của mày. Chọn một:
+> ⚠️ **APFS chia sẻ block giữa các volume cùng container, nên "used" của một volume
+> là con số phóng đại.** Runtime iOS 18.3 báo `df` là **18Gi used**; xoá nó chỉ trả lại
+> **~3G** thật, vì 3 runtime iOS có hàng loạt file hệ thống giống nhau và APFS dùng chung
+> block. Ngược lại, xoá **dữ liệu device** (app, log — không dùng chung) trả lại **đúng
+> như báo**. **Đừng hứa theo `df` của một volume APFS.**
 
-```bash
-# Cách A — reset 1 máy cụ thể (giữ máy, xoá sạch dữ liệu app)
-xcrun simctl erase <udid>
+> ⚠️ **APFS thu hồi chỗ BẤT ĐỒNG BỘ và chậm.** Ngay sau khi xoá, `df` gần như **không đổi**.
+> Phải chờ **~5–6 phút** mới thấy đủ: 61 → 64 → 73 → 80 → 84 → ổn định **83Gi**. Ai đo sau
+> 10 giây sẽ tưởng việc xoá không có tác dụng.
 
-# Cách B — xoá hẳn máy không dùng nữa (không hoàn tác)
-xcrun simctl delete <udid>
+**Đã xoá — cả hai nhóm, theo xác nhận của chủ repo:**
 
-# Cách C — xem máy nào nặng nhất trước khi quyết
-du -sh ~/Library/Developer/CoreSimulator/Devices/* | sort -rh | head
-```
+| Nhóm | Simulator | Ghi chú |
+|---|---|---|
+| Toàn Thắng Car/Bus | `iPhone 17` (6.8G), `ToanThang iPhone 17` (3.0G), `ToanThang iPhone SE` (2.6G), `iPhone 17 Pro Max` (2.6G) | app `com.toanthang.bus` + UI test runner |
+| Stavely | `iPad Pro 13-inch (M5)` (2.9G), `Shot-17ProMax` (2.4G), `Sim-iOS27` (2.2G), `iPhone 16e` (1.4G) | app `com.stavely.app` |
+| Runtime | **iOS 18.3** (`181BC49C-…`) | **0 device dùng** — xoá bằng `xcrun simctl runtime delete` |
 
-- **Lưu ý:** `xcrun simctl delete unavailable` **không xoá được gì** — máy mày hiện
-  có 0 simulator rác. Đừng phí thời gian.
+**Một phát hiện đáng nhớ: KHÔNG simulator nào chứa warranty-vault.** App trong đó là
+`com.toanthang.bus`, `com.stavely.app`, `vn.daytro.app`, `app.notch.win3`, `host.exp.Exponent`.
+Nên việc dọn này **không đụng gì tới dự án này** — nhưng nó **có** xoá state app của hai dự án
+khác, và đó là lý do phải hỏi chủ repo trước chứ không tự quyết.
+
+- **Kiểm lại 2026-10-03 trước khi xoá:** 0 simulator đang boot, 0 simulator `unavailable`,
+  0 device dùng runtime iOS 18.3, và cả 8 máy đều `Shutdown`. Xoá lúc mọi thứ đã tắt.
+- **Còn lại:** 20 simulator khả dụng (iPhone 17e, iPhone Air, iPhone 18 Pro/Pro Max,
+  iPad các cỡ, iOS 26.3 + 27.0) — quá đủ để test dự án này. Máy mới tạo bằng
+  `xcrun simctl create` trong vài giây và chỉ nặng ~17M khi chưa boot.
+- **Cách đo cho lần sau:** `df -h /` **trước và sau**, đợi ổn định — đừng tin `du` trên
+  volume APFS, và đừng tin `simctl runtime list` (nó báo 23.4G trong khi volume thật là 50G).
 
 ### [ ] 0.5 — Sinh cặp khoá VAPID cho web push
 
@@ -355,7 +374,7 @@ Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, 
 ## Thứ tự tao đề xuất
 
 ```
-0.5                        (miễn phí, 2 phút; 0.1, 0.2, 0.3 đã xong — nhóm 0 gần hết)
+0.5                        (miễn phí, 2 phút; 0.1–0.4 đã xong — nhóm 0 chỉ còn mục này)
    ↓
 2.1 domain → 2.2 VPS       (bắt đầu tốn tiền ~$6/tháng)
    ↓
@@ -416,7 +435,7 @@ nhất nên để sau cùng, khi mọi thứ khác đã sẵn sàng.
 |---|---|---|
 | 0.1 quyền npm | `ls -ld ~/.npm` + `npm view left-pad version` | ✅ hết việc (chủ sở hữu uid 501, npm chạy được) |
 | 0.2 `xcode-select` | `xcode-select -p` | ✅ xong — ra Xcode thật; `swift test` chạy trơn, bỏ được cả `DEVELOPER_DIR` lẫn `--disable-sandbox` |
-| 0.4 simulator | `du -sh ~/Library/Developer/CoreSimulator` | ❌ vẫn 24G |
+| 0.4 simulator | `df -h /` (KHÔNG dùng `du` — xem cảnh báo ở mục 0.4) | ✅ xong — lấy lại 22G (61 → 83Gi), còn 20 simulator |
 | 1.1 Firebase | đọc `android/app/google-services.json` | ❌ vẫn stub |
 | 1.4 Anthropic | grep `ANTHROPIC` trong `docker-compose.yml` | ✅ đã forward đủ 2 biến |
 | 2.2 port publish | grep `ports:` trong `docker-compose.yml` | ❌ vẫn `3000:3000` + `4000:4000` |
