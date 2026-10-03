@@ -18,6 +18,8 @@ import {
   TrendingDown,
   TrendingUp,
   Coins,
+  MapPin,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +36,8 @@ import { DeleteDeviceButton } from '@/components/delete-device-button';
 import { AttachmentGallery } from '@/components/attachment-gallery';
 import { AttachmentUploader } from '@/components/attachment-uploader';
 import { DeviceWarningsBanner } from '@/components/device-warnings-banner';
+import { DeviceShares } from '@/components/device-shares';
+import { ServiceDirectoryCard } from '@/components/service-directory-card';
 import { api } from '@/lib/api';
 import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
@@ -102,12 +106,22 @@ export default async function DeviceDetailPage({
   // them here through a short-lived cookie scoped to this device id; empty for a
   // normal page view.
   const deviceWarnings = await readDeviceWarningsFlash(id);
-  const res = await api.devices.get(id);
+  // Three independent reads in one round trip: the device itself (404 decides
+  // notFound below), its share links (FEATURE_IDEAS #2) and its warranty
+  // directory (FEATURE_IDEAS #15). Both extra reads are allowed to fail without
+  // taking the page down — each section says so in its own words.
+  const [res, sharesRes, directoryRes] = await Promise.all([
+    api.devices.get(id),
+    api.shares.list(id),
+    api.directory.get(id),
+  ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
     throw new Error(res.message ?? 'Không tải được thiết bị');
   }
   const device = res.data;
+  const shares = sharesRes.ok ? sharesRes.data : [];
+  const directory = directoryRes.ok ? directoryRes.data : null;
 
   const categoryLabel =
     CATEGORY_LABELS[device.category as Category] ?? device.category;
@@ -328,6 +342,45 @@ export default async function DeviceDetailPage({
                   phone: w.phone,
                   notes: w.notes,
                 }))}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Danh bạ bảo hành (FEATURE_IDEAS #15): the question actually asked
+              at the counter — "giờ tôi mang máy đi đâu". Sits directly under the
+              warranty packages because it answers per package, and it is honest
+              about what the app does not know (see @/lib/service-directory). */}
+          <Card className="rounded-2xl border-[1.5px]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MapPin className="h-5 w-5 text-sky-ink" />
+                Đi bảo hành ở đâu
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ServiceDirectoryCard
+                directory={directory}
+                unavailable={!directoryRes.ok}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Phiếu bàn giao + link chia sẻ (FEATURE_IDEAS #2). The certificate
+              itself is an HTML page served by the API on its own origin; this
+              section only manages links to it. */}
+          <Card className="rounded-2xl border-[1.5px]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Share2 className="h-5 w-5 text-primary" />
+                Phiếu bàn giao &amp; link chia sẻ
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DeviceShares
+                deviceId={device.id}
+                deviceName={device.name}
+                shares={shares}
+                unavailable={!sharesRes.ok}
               />
             </CardContent>
           </Card>

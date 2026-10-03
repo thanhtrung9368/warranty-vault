@@ -26,8 +26,9 @@ import type {
   StoreOption,
   WarrantyProviderOption,
 } from '@/lib/api/catalog';
+import type { BrandServiceInfo } from '@/lib/service-directory';
 
-export type { CategoryOption, BrandOption, StoreOption, WarrantyProviderOption };
+export type { CategoryOption, BrandOption, StoreOption, WarrantyProviderOption, BrandServiceInfo };
 
 const fetchCatalog = cache(async () => {
   const res = await api.catalog.get();
@@ -40,6 +41,7 @@ const fetchCatalog = cache(async () => {
       brands: [] as BrandOption[],
       stores: [] as StoreOption[],
       warrantyProviders: [] as WarrantyProviderOption[],
+      brandServiceInfo: [] as BrandServiceInfo[],
     };
   }
   return res.data;
@@ -47,6 +49,17 @@ const fetchCatalog = cache(async () => {
 
 export async function getCategories(): Promise<CategoryOption[]> {
   return (await fetchCatalog()).categories;
+}
+
+/**
+ * Brand → official service-locator rows (FEATURE_IDEAS #15). Additive on
+ * `GET /v1/catalog`; `api.catalog.get()` normalises a missing array to `[]`, so
+ * this is safe against an older Go build. The device card itself uses the
+ * service-directory endpoint (matching rule in Go) — this accessor is for
+ * surfaces that already hold a brand code and only need the link.
+ */
+export async function getBrandServiceInfo(): Promise<BrandServiceInfo[]> {
+  return (await fetchCatalog()).brandServiceInfo;
 }
 
 export async function getDeviceFormCatalog() {
