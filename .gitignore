@@ -59,6 +59,9 @@ api/coverage.html
 ios/.build/
 ios/.swiftpm/
 ios/DerivedData/
+# SwiftPM also drops a .build/ in whatever directory it is invoked from, so
+# running `swift test` at the repo root leaves one here instead of under ios/.
+/.build/
 ios/*.xcodeproj/xcuserdata/
 ios/*.xcworkspace/xcuserdata/
 ios/*.xcodeproj/project.xcworkspace/xcuserdata/
