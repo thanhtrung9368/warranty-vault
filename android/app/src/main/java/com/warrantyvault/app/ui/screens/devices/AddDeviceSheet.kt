@@ -118,6 +118,15 @@ fun AddDeviceSheet(
     // give-away (0đ) are distinguishable.
     var soldDate by remember { mutableStateOf(soldDateInput(existing?.soldAt)) }
     var soldPrice by remember { mutableStateOf(existing?.soldPrice?.toString().orEmpty()) }
+    // Exchange/return window (migration 0010) — PRESERVED, never edited here.
+    //
+    // `PATCH /api/v1/devices/{id}` replaces every field, so a save that omits
+    // `returnWindowDays`/`receivedAt` DELETES a window recorded by the web or iOS
+    // client. These two hold whatever was loaded, purely so the request can send
+    // it straight back; there is intentionally no input bound to them (see
+    // DeviceReturnWindow.kt). Blank means "chưa biết" and stays `null`.
+    var returnWindowDays by remember { mutableStateOf(returnWindowDaysInput(existing?.returnWindowDays)) }
+    var receivedAt by remember { mutableStateOf(receivedAtInput(existing?.receivedAt)) }
 
     var categoryOptions by remember { mutableStateOf<List<CategoryOption>>(emptyList()) }
     var brandOptions by remember { mutableStateOf<List<BrandOption>>(emptyList()) }
@@ -455,6 +464,12 @@ fun AddDeviceSheet(
                             // as nil exactly like an explicit null).
                             soldAt = soldDateRequest(soldDate),
                             soldPrice = soldPriceRequest(soldPrice),
+                            // Round-tripped verbatim so an edit here can never
+                            // clear a window another client recorded. On create
+                            // both are blank ⇒ null ⇒ nothing was recorded, and
+                            // nothing can be erased.
+                            returnWindowDays = returnWindowDaysRequest(returnWindowDays),
+                            receivedAt = receivedAtRequest(receivedAt),
                             warrantyMonths = if (isEdit) 0 else (months.toIntOrNull() ?: 0),
                         )
                         try {

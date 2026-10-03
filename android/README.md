@@ -100,6 +100,9 @@ cd android
 | Đổi mật khẩu | ✅ — `ChangePasswordSheet.kt` từ Settings, surface fieldErrors qua `Errors.kt` |
 | Tìm kiếm xuyên thực thể | ✅ — `ui/screens/search/`, `GET /api/v1/search` một lượt trả cả thiết bị / gói / wishlist, mở từ icon kính lúp ở top bar, debounce 300 ms |
 | Quét hoá đơn AI (ảnh + PDF) | ✅ — `ReceiptFiles.kt` sniff magic bytes, PDF gửi nguyên byte (không giải mã thành ảnh), HEIC/GIF transcode JPEG phía client |
+| Hàng đợi "Việc cần xử lý" | ✅ — `ui/screens/actions/`, `GET /api/v1/actions` + hoãn/bỏ hoãn theo `itemKey` (`POST`/`DELETE …/snooze`). Badge lấy từ `counts` (luôn là tập đang cần xử lý, không tính việc đang hoãn); mở từ thẻ ở tab Tổng quan |
+| Soát gói đăng ký | ✅ — `ui/screens/subscriptions/SubscriptionAuditScreen.kt`, `GET /api/v1/subscriptions/audit`. **Chỉ tư vấn**: hiện nguyên văn `note`/`title`/`detail` của server, nêu `thresholds` đã tạo ra kết luận, `material: false` đọc là thay đổi nhỏ — không có nút huỷ, không câu nào nói gói "không dùng" |
+| Hạn đổi/trả "1 đổi 1" (migration 0010) | ⏸️ **Chỉ giữ nguyên** — `Device`/`DeviceInput` có `returnWindowDays`/`receivedAt` và form gửi lại đúng giá trị đã tải (PATCH thay thế toàn bộ, thiếu là xoá). `returnDeadline` chỉ hiển thị read-only ở chi tiết thiết bị; **chưa có ô nhập** cho tới khi cả ba client cùng ship |
 
 ### FCM setup TODO
 

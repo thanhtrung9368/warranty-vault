@@ -203,6 +203,45 @@ data class Device(
     val soldAt: String? = null,
     /** Sale price in VND. `null` = not sold; `0` is a real price (give-away). */
     val soldPrice: Int? = null,
+    /**
+     * Exchange / return window ("1 đổi 1") length in days, recorded by the user
+     * for **this** device (migration 0010). Three states, and they are all
+     * different:
+     *
+     *  * `null` — **chưa biết**. The API has no default and never infers one.
+     *  * `0` — the shop offers no exchange at all.
+     *  * `> 0` — that many days counted from [receivedAt] (or [purchaseDate]).
+     *
+     * This is a shop policy the user wrote down, **not** a legal right.
+     *
+     * ⚠️ `PATCH /api/v1/devices/{id}` replaces every field: a save that does not
+     * send this back **clears** a recorded window (the same trap `soldAt` /
+     * `soldPrice` had, and why [DeviceInput] carries it too — see
+     * `ui/screens/devices/DeviceReturnWindow.kt`).
+     */
+    val returnWindowDays: Int? = null,
+    /**
+     * The day the user **actually received** the device, as a naive-UTC
+     * timestamp (`"2026-03-02T00:00:00"`, no `Z`) — the very same wire shape as
+     * [soldAt] / [purchaseDate], so only the date half is ever used.
+     *
+     * `null` means "not recorded", which is deliberately different from
+     * "arrived on the purchase date": the deadline then falls back to
+     * [purchaseDate], but the app must not claim the device was received then.
+     */
+    val receivedAt: String? = null,
+    /**
+     * The derived exchange-window deadline,
+     * `COALESCE(receivedAt, purchaseDate) + returnWindowDays days` (openapi
+     * `DeviceListItem.returnDeadline` / `DeviceDetail.returnDeadline`).
+     *
+     * Computed **server-side** on the list and detail reads only — it is not a
+     * stored column, so a write response (POST/PATCH) omits it and this stays
+     * `null` there. Null also means "no window": unknown days, `0` days, or no
+     * date to count from. Never recompute it locally: three clients dividing
+     * days three ways is exactly what this field exists to prevent.
+     */
+    val returnDeadline: String? = null,
     val warranties: List<Warranty> = emptyList(),
     /**
      * `GET /api/v1/devices` only (see Go `DeviceListItem`): `max(endDate)` over
@@ -326,6 +365,28 @@ data class DeviceInput(
     val soldAt: String? = null,
     /** Sale price in VND. Negative is a 400; `0` is a valid give-away price. */
     val soldPrice: Int? = null,
+    /**
+     * Exchange-window length in days (openapi `DeviceInput.returnWindowDays`).
+     * Independent of [receivedAt] — sending one without the other is valid.
+     *
+     * `null` (the key is then dropped from the JSON, which Go decodes as nil
+     * exactly like an explicit null) means **chưa biết**; `0` is a real value
+     * meaning "cửa hàng không cho đổi trả" and must be sent as `0`, never
+     * collapsed into "absent". Out of `0–3650` → 400
+     * `fieldErrors.returnWindowDays`.
+     *
+     * ⚠️ **Full-replacement warning.** `PATCH /api/v1/devices/{id}` replaces the
+     * whole row, so omitting this key **erases** a window recorded by another
+     * client. The device form therefore loads the existing value and sends it
+     * straight back; see `ui/screens/devices/DeviceReturnWindow.kt`.
+     */
+    val returnWindowDays: Int? = null,
+    /**
+     * The day the device was actually received (`YYYY-MM-DD` or full ISO).
+     * `null` clears it. Independent of [returnWindowDays]. Unparseable → 400
+     * `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp lệ"]`.
+     */
+    val receivedAt: String? = null,
     val warrantyMonths: Int = 0,
     val warrantyProvider: String? = null,
     val warrantyAddress: String? = null,
@@ -904,3 +965,213 @@ data class ReminderDevice(
     val name: String,
     val category: String,
 )
+
+// ---- "Việc cần xử lý" — GET /api/v1/actions ----
+//
+// The queue of things the app can DERIVE from rows that already exist but cannot
+// decide on its own. Nothing here is a new stored state: an item is a conclusion
+// drawn from data the user typed, which is why the list can shrink without
+// anything being deleted.
+//
+// Two contract details drive the UI and are easy to get wrong:
+//  * `snoozed=true` only ADDS rows; it never removes one. `counts` always counts
+//    the ACTIONABLE subset, so a badge built from `counts` cannot change meaning
+//    with the flag. `snoozedCount` is the separate "đang hoãn" number.
+//  * `itemKey` (`<KIND>:<entityId>`) is the identity used to snooze — the row's
+//    own id, never a position in the list.
+
+/**
+ * How many items are in the set being counted. Shared by the action queue and
+ * the subscription audit — two different sets, one way of counting them.
+ *
+ * No defaults on purpose: this drives a badge, and a missing count must fail
+ * loudly rather than render as a confident "0 việc".
+ */
+@Serializable
+data class ActionCounts(
+    /** For the queue: items **đang cần xử lý**, never the snoozed ones. */
+    val total: Int,
+    val high: Int,
+    val medium: Int,
+    val low: Int,
+)
+
+/**
+ * One derived thing that needs the user to decide something (openapi
+ * `ActionItem`).
+ *
+ * [title] and [detail] are display-ready Vietnamese written by the server, and
+ * they are rendered verbatim — the client must not re-word them, because each
+ * sentence names the actual dates and amounts that produced the item.
+ *
+ * [kind] and [severity] are raw codes (deliberately `String`, not enums: a kind
+ * this build has never heard of must degrade, not throw away the whole queue).
+ * The client switches on [kind] only to pick an icon and a destination.
+ */
+@Serializable
+data class ActionItem(
+    /** `<KIND>:<entityId>` — passed back verbatim to the snooze endpoints. */
+    val itemKey: String,
+    /** One of the ten documented kinds, e.g. `WARRANTY_EXPIRED`. */
+    val kind: String,
+    /** `HIGH | MEDIUM | LOW`. */
+    val severity: String,
+    val title: String,
+    val detail: String,
+    val deviceId: String? = null,
+    val warrantyId: String? = null,
+    val subscriptionId: String? = null,
+    val wishlistItemId: String? = null,
+    /** The date the item is about; absent when it has no single date. */
+    val dueDate: String? = null,
+    /** Money involved (VND). **`Long`**: the server sends int64. */
+    val amountVnd: Long? = null,
+    /**
+     * Present **only** on `?snoozed=true` rows that are currently hidden — the
+     * exact set [ActionCounts] excludes from the badge. Absent = actionable now.
+     */
+    val snoozedUntil: String? = null,
+) {
+    /** `true` when this row is hidden by a snooze rather than waiting for work. */
+    val isSnoozed: Boolean
+        get() = !snoozedUntil.isNullOrBlank()
+}
+
+/** `GET /api/v1/actions` response (openapi `ActionQueue`). */
+@Serializable
+data class ActionQueue(
+    /** When the server built the queue; every day count in it is relative to this. */
+    val generatedAt: String = "",
+    /** Already sorted by the server; the client re-sorts so its own grouping is stable. */
+    val items: List<ActionItem> = emptyList(),
+    /** Always the actionable subset — see [ActionCounts]. Required, never defaulted. */
+    val counts: ActionCounts,
+    /** How many items a snooze is currently hiding, even when not in [items]. */
+    val snoozedCount: Int = 0,
+    /**
+     * The server's own sentence about what this queue is and is **not** (not a
+     * push feed; snoozing here does not touch warranty reminders). Shown as-is;
+     * the UI hides the card when it is blank rather than inventing a substitute.
+     */
+    val note: String = "",
+)
+
+/**
+ * Body of `POST /api/v1/actions/{itemKey}/snooze`.
+ *
+ * Non-nullable [days]: the UI always offers an explicit duration, so the client
+ * never relies on the server's 90-day default. Valid range is `1–365`; anything
+ * else is a 400 carrying `fieldErrors.days`, which is surfaced as-is.
+ */
+@Serializable
+data class SnoozeInput(val days: Int)
+
+/**
+ * `POST /api/v1/actions/{itemKey}/snooze` response (openapi `SnoozeResult`).
+ *
+ * [days] is what the server actually applied — echoed into the confirmation so
+ * the UI never claims a duration it did not ask for.
+ */
+@Serializable
+data class SnoozeResult(
+    val itemKey: String,
+    val snoozedUntil: String = "",
+    val days: Int = 0,
+)
+
+// ---- Tự soát gói đăng ký — GET /api/v1/subscriptions/audit ----
+//
+// ⚠️ The honesty rules this payload exists to enforce, kept next to the model so
+// a future UI cannot quietly break them:
+//  * The app has NO usage telemetry and cannot read bank transactions. A finding
+//    is never "bạn không dùng gói này"; the server's phrase is "lâu rồi không
+//    thấy ghi nhận gì", about RECORDING, not usage.
+//  * `advisory` is always true and there is no write path: nothing is cancelled,
+//    no price edited. Hence no "huỷ gói" affordance anywhere on this screen.
+//  * `material = false` on a small price rise means "minor", not an alert.
+//
+// Every money field is int64 on the wire → `Long` (an out-of-range `Int` throws
+// inside kotlinx.serialization and would blank the whole screen).
+
+/** The constants that produced the findings, so a verdict is explainable. */
+@Serializable
+data class SubscriptionAuditThresholds(
+    /** Minimum number of machine charges before `QUIET_AUTO_RENEW` (3). */
+    val quietMinAutoCharges: Int = 0,
+    /** The FIRST machine charge must be at least this many months old (6). */
+    val quietMinMonths: Int = 0,
+    /** Horizon in which a finding is still actionable before money moves (14). */
+    val upcomingRenewalDays: Int = 0,
+    /** Rise (%) from which `material` becomes true (5). Every rise is still reported. */
+    val priceRiseMinPercent: Int = 0,
+    /** Always true: duplicate name matching strips diacritics and case. */
+    val duplicateNormalized: Boolean = false,
+)
+
+/** One advisory conclusion (openapi `SubscriptionAuditFinding`). */
+@Serializable
+data class SubscriptionAuditFinding(
+    /** `<KIND>:<id-or-id-pair>` — stable across calls. */
+    val findingKey: String,
+    /** `QUIET_AUTO_RENEW | PRICE_INCREASED | DUPLICATE` (raw: may grow). */
+    val kind: String,
+    val severity: String,
+    /** Server-written Vietnamese; rendered verbatim. */
+    val title: String,
+    /** The server's own sentence with the numbers behind it; rendered verbatim. */
+    val detail: String,
+    /** One id for the first two rules, two ids for `DUPLICATE`. */
+    val subscriptionIds: List<String> = emptyList(),
+    val names: List<String> = emptyList(),
+    /** Month-equivalent total of the involved plans (VND, int64). `0` for LIFETIME. */
+    val monthlyVnd: Long = 0,
+    /** `QUIET_AUTO_RENEW`: total the MACHINE charged — not every payment. */
+    val chargedTotalVnd: Long = 0,
+    /** `QUIET_AUTO_RENEW`: how many machine charges there were. */
+    val chargeCount: Long = 0,
+    /**
+     * Newest payment RECORDED. ⚠️ Deliberately **not** "last used" — the app has
+     * no way to know that, and no label may imply otherwise.
+     */
+    val lastRecordedAt: String? = null,
+    val nextRenewalAt: String? = null,
+    val daysUntilRenewal: Int? = null,
+    /** `PRICE_INCREASED`: previous period's amount. */
+    val previousAmountVnd: Long? = null,
+    /** `PRICE_INCREASED`: this period's amount. */
+    val amountVnd: Long? = null,
+    val increaseVnd: Long? = null,
+    /** Rounded percent; `null` when the previous amount was 0 (not divisible). */
+    val increasePercent: Int? = null,
+    /**
+     * `false` when the rise is below `priceRiseMinPercent`. The finding is still
+     * reported — only its prominence is up to the client, and `false` must read
+     * as minor rather than as an alert.
+     */
+    val material: Boolean? = null,
+    /** `DUPLICATE`: which signal matched — `SAME_NAME` / `SAME_BRAND_CATEGORY`. */
+    val reason: String? = null,
+)
+
+/**
+ * `GET /api/v1/subscriptions/audit` response (openapi `SubscriptionAudit`).
+ *
+ * [thresholds] is nullable even though the contract marks it required: with no
+ * thresholds there is no honest way to say which rule fired, and the UI then
+ * omits the rule line instead of inventing a threshold. [advisory] defaults to
+ * `false` so the "không có gì bị sửa hay huỷ tự động" reassurance is only ever
+ * shown when the server actually asserted it.
+ */
+@Serializable
+data class SubscriptionAudit(
+    val generatedAt: String = "",
+    /** Always an array, never null. Sorted server-side; the client re-sorts. */
+    val findings: List<SubscriptionAuditFinding> = emptyList(),
+    /** Required: it drives the "N phát hiện" badge, so it is never defaulted. */
+    val counts: ActionCounts,
+    val advisory: Boolean = false,
+    val thresholds: SubscriptionAuditThresholds? = null,
+    /** The server's sentence about what the analysis cannot know. Rendered verbatim. */
+    val note: String = "",
+)
+

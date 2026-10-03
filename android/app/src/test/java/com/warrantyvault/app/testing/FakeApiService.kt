@@ -2,6 +2,7 @@ package com.warrantyvault.app.testing
 
 import com.warrantyvault.app.network.AIOptInRequest
 import com.warrantyvault.app.network.AIOptInResponse
+import com.warrantyvault.app.network.ActionQueue
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.AttachmentDescriptionInput
 import com.warrantyvault.app.network.AttachmentListResponse
@@ -30,6 +31,9 @@ import com.warrantyvault.app.network.RemindersResponse
 import com.warrantyvault.app.network.SearchResults
 import com.warrantyvault.app.network.SessionListResponse
 import com.warrantyvault.app.network.SessionRevokeResult
+import com.warrantyvault.app.network.SnoozeInput
+import com.warrantyvault.app.network.SnoozeResult
+import com.warrantyvault.app.network.SubscriptionAudit
 import com.warrantyvault.app.network.SubscriptionInput
 import com.warrantyvault.app.network.SubscriptionListResponse
 import com.warrantyvault.app.network.SubscriptionResponse
@@ -167,4 +171,14 @@ open class FakeApiService : ApiService {
 
     override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse =
         notStubbed("listUpcomingReminders")
+
+    override suspend fun listActionItems(snoozed: Boolean?): ActionQueue = notStubbed("listActionItems")
+
+    override suspend fun snoozeActionItem(itemKey: String, body: SnoozeInput): SnoozeResult =
+        notStubbed("snoozeActionItem")
+
+    override suspend fun unsnoozeActionItem(itemKey: String): OkResponse =
+        notStubbed("unsnoozeActionItem")
+
+    override suspend fun getSubscriptionAudit(): SubscriptionAudit = notStubbed("getSubscriptionAudit")
 }

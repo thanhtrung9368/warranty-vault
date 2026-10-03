@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.network.ActionQueue
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
@@ -74,6 +75,7 @@ import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.ErrorState
 import com.warrantyvault.app.ui.components.SectionHeader
 import com.warrantyvault.app.ui.components.pressScale
+import com.warrantyvault.app.ui.screens.actions.actionBadgeCount
 import com.warrantyvault.app.ui.theme.WVAccent
 import com.warrantyvault.app.ui.viewModelFactory
 import kotlinx.coroutines.async
@@ -111,6 +113,17 @@ data class DashboardData(
      * `effectiveWarrantyEnd` (same source as the web dashboard).
      */
     val devices: List<Device> = emptyList(),
+    /**
+     * The derived action queue, fetched **only** for its badge — the row that
+     * opens "Việc cần xử lý" shows `counts.total`, which always counts the
+     * actionable items and never the snoozed ones.
+     *
+     * Nullable because this one call is allowed to fail without taking the whole
+     * dashboard down; see [DashboardViewModel.load]. `null` means "no number to
+     * show", which is honest — unlike a default of zero, which would claim there
+     * is no work to do.
+     */
+    val actions: ActionQueue? = null,
 )
 
 class DashboardViewModel(private val api: ApiService) : ViewModel() {
@@ -133,12 +146,20 @@ class DashboardViewModel(private val api: ApiService) : ViewModel() {
                     val subs = async { api.listSubscriptions().subscriptions }
                     val wish = async { api.listWishlist().items }
                     val devices = async { api.listDevices().devices }
+                    // The queue badge is the one optional part of this screen.
+                    // The five sources above must fail loudly (a silently empty
+                    // warranty grid reads as "0 đã hết hạn" — a lie), but a queue
+                    // this build cannot read degrades to a row with no number,
+                    // which claims nothing. Hence `runCatching` here and nowhere
+                    // else in this method.
+                    val actions = async { runCatching { api.listActionItems() }.getOrNull() }
                     DashboardData(
                         stats = stats.await(),
                         reminders = reminders.await(),
                         subscriptions = subs.await(),
                         wishlist = wish.await(),
                         devices = devices.await(),
+                        actions = actions.await(),
                     )
                 }
                 _state.value = State.Loaded(data)
@@ -158,6 +179,7 @@ fun DashboardScreen(
     userName: String,
     onOpenDevice: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onOpenActions: () -> Unit = {},
 ) {
     val vm: DashboardViewModel = viewModel(
         factory = viewModelFactory { DashboardViewModel(api) },
@@ -220,6 +242,7 @@ fun DashboardScreen(
                         userName = userName,
                         data = s.data,
                         onOpenDevice = onOpenDevice,
+                        onOpenActions = onOpenActions,
                     )
                 }
             }
@@ -232,6 +255,7 @@ private fun DashboardBody(
     userName: String,
     data: DashboardData,
     onOpenDevice: (String) -> Unit,
+    onOpenActions: () -> Unit,
 ) {
     val stats = data.stats
 
@@ -313,6 +337,15 @@ private fun DashboardBody(
             }
         }
 
+        // "Việc cần xử lý" — the derived queue (GET /api/v1/actions), one tap
+        // away. The badge is `counts.total`, which the server always computes over
+        // the ACTIONABLE subset: `?snoozed=true` only adds rows and can never
+        // inflate this number. A queue that failed to load shows no badge at all
+        // rather than a confident "0".
+        item {
+            ActionQueueRow(queue = data.actions, onClick = onOpenActions)
+        }
+
         // Upcoming warranties
         item {
             Spacer(Modifier.height(4.dp))
@@ -358,8 +391,106 @@ private fun DashboardBody(
     }
 }
 
-// MARK: - Greeting
+// MARK: - Action queue entry
 
+/**
+ * The dashboard's door into "Việc cần xử lý".
+ *
+ * The number comes from `counts.total` — the server's count of the items that are
+ * ACTIONABLE right now. It is never `items.size` (which grows when the queue is
+ * read with `?snoozed=true`) and never a local sum of the rows on screen, so a
+ * snooze can move a row without moving the badge's meaning.
+ *
+ * `queue == null` means the extra fetch failed: the row still opens the queue but
+ * shows no number, because "0 việc" would be a claim this screen cannot support.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActionQueueRow(queue: ActionQueue?, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    val total = queue?.let { actionBadgeCount(it) }
+    val high = queue?.counts?.high ?: 0
+    val urgent = (total ?: 0) > 0
+
+    val subtitle = when {
+        total == null -> "Mở hàng đợi việc app tự suy ra từ dữ liệu của mày"
+        total == 0 -> "Không có việc nào đang chờ xử lý"
+        high > 0 -> "$total việc cần xử lý · $high mức cao"
+        else -> "$total việc cần xử lý"
+    }
+
+    Card(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        colors = CardDefaults.cardColors(
+            containerColor = if (urgent) cs.errorContainer else cs.surface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (urgent) 0.dp else 2.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (urgent) {
+                            cs.error.copy(alpha = 0.18f)
+                        } else {
+                            cs.primary.copy(alpha = 0.14f)
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (urgent) Icons.Filled.WarningAmber else Icons.Filled.CheckCircle,
+                    null,
+                    tint = if (urgent) cs.error else cs.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Việc cần xử lý",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = cs.onSurface,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            // The badge itself. Only drawn when the count is real, and only for
+            // a non-zero workload — a "0" pill would read as a task.
+            if (total != null && total > 0) {
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier
+                        .clip(CircleShape)
+                        .background(cs.error)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        "$total",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = cs.onError,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Greeting
 @Composable
 private fun GreetingHeader(userName: String) {
     val cs = MaterialTheme.colorScheme

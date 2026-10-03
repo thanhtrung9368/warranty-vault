@@ -104,10 +104,19 @@ class DeviceDetailViewModel(
      * Applies a locally-edited device without refetching.
      *
      * `PATCH /api/v1/devices/{id}` answers with a bare `store.Device` row — no
-     * `warranties`, no `attachments`, no `effectiveWarrantyEnd`. Assigning that
-     * straight into the Loaded state used to blank the whole "Bảo hành" and
+     * `warranties`, no `attachments`, no `effectiveWarrantyEnd` and no
+     * `returnDeadline` (both are read-side projections, not columns). Assigning
+     * that straight into the Loaded state used to blank the whole "Bảo hành" and
      * "Hoá đơn" sections of the detail screen until the user pulled to refresh,
      * so anything the response omits is carried over from what we already have.
+     *
+     * `returnWindowDays` / `receivedAt` are NOT carried over here: they are real
+     * columns, so the write response does carry them — and it must, because they
+     * are what proves the round trip in AddDeviceSheet kept them.
+     *
+     * `returnDeadline` is the one projection with a trap: see
+     * [keptReturnDeadline] for why an unconditional carry-over would put a stale
+     * date on screen.
      */
     fun replaceDevice(device: Device) {
         val current = (_state.value as? State.Loaded)?.device
@@ -116,6 +125,9 @@ class DeviceDetailViewModel(
                 warranties = device.warranties.ifEmpty { current?.warranties ?: emptyList() },
                 effectiveWarrantyEnd = device.effectiveWarrantyEnd
                     ?: current?.effectiveWarrantyEnd,
+                // Derived server-side, so a write response never carries it — but
+                // it is only kept while the inputs it derives from are unchanged.
+                returnDeadline = current?.let { keptReturnDeadline(it, device) },
                 attachmentCount = if (device.attachmentCount != 0) {
                     device.attachmentCount
                 } else {
@@ -493,6 +505,16 @@ private fun DeviceSummaryCard(device: Device) {
             DetailRow("Mua ngày", device.purchaseDate.take(10))
             if (device.purchasePrice > 0) {
                 DetailRow("Giá", formatVnd(device.purchasePrice))
+            }
+            // Exchange/return window — READ-ONLY display of the server's derived
+            // `returnDeadline` (migration 0010). Shown only when the server says
+            // there is a deadline: `null` means "chưa biết số ngày", "0 ngày" or
+            // no date to count from, and the app must not compute one itself.
+            // There is deliberately no input or picker here — three clients ship
+            // migration 0010 together, and only then may any of them SET a window.
+            // This pass only guarantees an edit on Android cannot erase one.
+            returnDeadlineLabel(device.returnDeadline)?.let { deadline ->
+                DetailRow("Hạn đổi trả", deadline)
             }
             if (!device.purchasePlace.isNullOrBlank()) {
                 DetailRow("Nơi mua", device.purchasePlace)

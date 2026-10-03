@@ -1,10 +1,12 @@
 package com.warrantyvault.app.ui.screens
 
 import com.warrantyvault.app.network.BillingCycle
+import com.warrantyvault.app.ui.screens.actions.formatVndLong as actionsFormatVndLong
 import com.warrantyvault.app.ui.screens.devices.formatVnd as devicesFormatVnd
 import com.warrantyvault.app.ui.screens.devices.todayUtcIso
 import com.warrantyvault.app.ui.screens.subscriptions.formatPriceCycle
 import com.warrantyvault.app.ui.screens.subscriptions.formatVnd as subscriptionsFormatVnd
+import com.warrantyvault.app.ui.screens.subscriptions.formatVndLong as subscriptionsFormatVndLong
 import com.warrantyvault.app.ui.screens.wishlist.formatVnd as wishlistFormatVnd
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -48,6 +50,24 @@ class VietnameseFormatterTest {
     fun formatPriceCycle_leavesLifetimeAndCustomWithoutARecurringSuffix() {
         assertEquals("99.000đ (trọn đời)", formatPriceCycle(99_000, BillingCycle.LIFETIME))
         assertEquals("99.000đ", formatPriceCycle(99_000, BillingCycle.CUSTOM))
+    }
+
+    /**
+     * The two `Long` copies added for the int64 money on the action queue and the
+     * subscription audit: identical output to the `Int` formatter for every value
+     * an `Int` can hold, and correct past it — narrowing those fields to `Int` is
+     * what throws inside kotlinx.serialization and blanks a whole screen.
+     */
+    @Test
+    fun formatVndLong_matchesTheIntFormatterAndSurvivesInt64Magnitudes() {
+        listOf(0L, 999L, 1_000L, 12_500_000L, Int.MAX_VALUE.toLong()).forEach { amount ->
+            val expected = subscriptionsFormatVnd(amount.toInt())
+            assertEquals("audit screen drifted for $amount", expected, subscriptionsFormatVndLong(amount))
+            assertEquals("actions screen drifted for $amount", expected, actionsFormatVndLong(amount))
+        }
+
+        assertEquals("3.000.000.000đ", subscriptionsFormatVndLong(3_000_000_000L))
+        assertEquals("3.000.000.000đ", actionsFormatVndLong(3_000_000_000L))
     }
 
     @Test

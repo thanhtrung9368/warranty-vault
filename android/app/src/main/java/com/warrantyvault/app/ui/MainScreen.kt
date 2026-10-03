@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.auth.AuthStore
+import com.warrantyvault.app.ui.screens.actions.ActionQueueScreen
 import com.warrantyvault.app.ui.screens.dashboard.DashboardScreen
 import com.warrantyvault.app.ui.screens.devices.DeviceDetailScreen
 import com.warrantyvault.app.ui.screens.devices.DevicesScreen
@@ -48,6 +49,7 @@ import com.warrantyvault.app.ui.screens.settings.PushDevicesScreen
 import com.warrantyvault.app.ui.screens.settings.SessionsScreen
 import com.warrantyvault.app.ui.screens.settings.SettingsScreen
 import com.warrantyvault.app.ui.screens.stats.StatsScreen
+import com.warrantyvault.app.ui.screens.subscriptions.SubscriptionAuditScreen
 import com.warrantyvault.app.ui.screens.subscriptions.SubscriptionDetailScreen
 import com.warrantyvault.app.ui.screens.subscriptions.SubscriptionsScreen
 import com.warrantyvault.app.ui.screens.wishlist.WishlistDetailScreen
@@ -94,6 +96,15 @@ fun MainScreen(auth: AuthStore) {
     // back empty after opening a result.
     var openSearch by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    // "Việc cần xử lý" (GET /api/v1/actions) — the derived work queue. A
+    // full-screen route of the shell rather than an eighth tab: the bar already
+    // carries seven destinations, and the Dashboard is where a workload is
+    // noticed, so that is where the entry point (and its badge) lives.
+    var openActions by rememberSaveable { mutableStateOf(false) }
+    // "Soát gói đăng ký" (GET /api/v1/subscriptions/audit) — hung off the
+    // Subscriptions tab. Checked after the detail routes as well, so tapping a
+    // finding pushes the subscription on top of the report and Back returns here.
+    var openAudit by rememberSaveable { mutableStateOf(false) }
 
     val devId = openDeviceId
     if (devId != null) {
@@ -152,6 +163,24 @@ fun MainScreen(auth: AuthStore) {
         )
         return
     }
+    if (openActions) {
+        ActionQueueScreen(
+            api = App.instance.api,
+            onBack = { openActions = false },
+            onOpenDevice = { openDeviceId = it },
+            onOpenSubscription = { openSubscriptionId = it },
+            onOpenWishlistItem = { openWishlistId = it },
+        )
+        return
+    }
+    if (openAudit) {
+        SubscriptionAuditScreen(
+            api = App.instance.api,
+            onBack = { openAudit = false },
+            onOpenSubscription = { openSubscriptionId = it },
+        )
+        return
+    }
 
     Scaffold(
         bottomBar = {
@@ -201,6 +230,7 @@ fun MainScreen(auth: AuthStore) {
                         userName = userName,
                         onOpenDevice = { openDeviceId = it },
                         onOpenSearch = { openSearch = true },
+                        onOpenActions = { openActions = true },
                     )
                     Tab.Devices       -> DevicesScreen(
                         api = App.instance.api,
@@ -215,6 +245,7 @@ fun MainScreen(auth: AuthStore) {
                         api = App.instance.api,
                         onOpenSubscription = { openSubscriptionId = it },
                         onOpenSearch = { openSearch = true },
+                        onOpenAudit = { openAudit = true },
                     )
                     Tab.Wishlist      -> WishlistScreen(
                         api = App.instance.api,

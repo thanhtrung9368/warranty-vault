@@ -20,9 +20,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.FilterAltOff
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
@@ -134,6 +136,7 @@ fun SubscriptionsScreen(
     api: ApiService,
     onOpenSubscription: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    onOpenAudit: () -> Unit = {},
 ) {
     val vm: SubscriptionsViewModel = viewModel(
         factory = viewModelFactory { SubscriptionsViewModel(api) },
@@ -240,6 +243,7 @@ fun SubscriptionsScreen(
                                 sort = sort,
                                 onSortChange = { sortKey = it.name },
                                 onClick = onOpenSubscription,
+                                onOpenAudit = onOpenAudit,
                             )
                         }
                     }
@@ -277,6 +281,7 @@ private fun SubscriptionList(
     sort: SubscriptionSort,
     onSortChange: (SubscriptionSort) -> Unit,
     onClick: (String) -> Unit,
+    onOpenAudit: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -290,6 +295,13 @@ private fun SubscriptionList(
                 else "$total gói đang theo dõi",
             )
         }
+        // "Soát gói đăng ký" — GET /api/v1/subscriptions/audit, one tap away.
+        //
+        // A plain entry row with no count on purpose: the report is a separate
+        // endpoint with its own `note` and `thresholds`, and fetching it here just
+        // to print a number would double this tab's requests and give this list a
+        // second failure mode. The audit screen owns its own badge.
+        item { AuditEntryRow(onClick = onOpenAudit) }
         item {
             ListFilterBar(
                 query = query,
@@ -326,6 +338,55 @@ private fun SubscriptionList(
 
 private val subscriptionStatusOptions: List<FilterOption> =
     SubscriptionStatusFilter.entries.map { FilterOption(it.key, it.label) }
+
+/**
+ * The way into "Soát gói đăng ký" (`GET /api/v1/subscriptions/audit`).
+ *
+ * Deliberately a row rather than a section: the audit is advisory and read-only,
+ * and it carries its own explanatory copy, so it opens its own screen. The text
+ * here describes what it reads (payment history) and never pre-judges the result
+ * — no "gói bỏ quên", no "bạn không dùng".
+ */
+@Composable
+private fun AuditEntryRow(onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    Card(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        colors = CardDefaults.cardColors(containerColor = cs.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Lightbulb, null, tint = cs.primary)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    AUDIT_ENTRY_TITLE,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = cs.onSurface,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    AUDIT_ENTRY_SUBTITLE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForwardIos, null,
+                tint = cs.onSurfaceVariant,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

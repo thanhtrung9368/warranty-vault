@@ -249,4 +249,36 @@ interface ApiService {
     // ---- Reminders ----
     @GET("api/v1/reminders")
     suspend fun listUpcomingReminders(@Query("withinDays") withinDays: Int = 30): RemindersResponse
+
+    // ---- "Việc cần xử lý" (action queue) ----
+    // `snoozed = true` only ADDS the rows a snooze is currently hiding; `counts`
+    // in the response keeps counting the actionable subset either way. Omitting
+    // the parameter is the default queue, so it is nullable and sent only when
+    // true — never `?snoozed=false`.
+    @GET("api/v1/actions")
+    suspend fun listActionItems(@Query("snoozed") snoozed: Boolean? = null): ActionQueue
+
+    // `itemKey` is `<KIND>:<entityId>`. OkHttp's path-segment encode set leaves
+    // ':' alone (it is not one of ` " <>^`{}|/\?#`), so the key reaches the
+    // server verbatim — which is what the server documents. The body always
+    // carries an explicit `days`; the client never leans on the 90-day default.
+    @POST("api/v1/actions/{itemKey}/snooze")
+    suspend fun snoozeActionItem(
+        @Path("itemKey") itemKey: String,
+        @Body body: SnoozeInput,
+    ): SnoozeResult
+
+    // Un-snooze is a DELETE on the same path. The server answers 404 when the
+    // item was not actually snoozed (never a silent 200), so the UI can say the
+    // state had drifted instead of pretending it worked.
+    @DELETE("api/v1/actions/{itemKey}/snooze")
+    suspend fun unsnoozeActionItem(@Path("itemKey") itemKey: String): OkResponse
+
+    // ---- Subscription self-audit ----
+    // Read-only by construction: the endpoint has no write path, cancels nothing
+    // and edits no price (`advisory` is always true). It reads PAYMENT HISTORY,
+    // never usage — the app has no usage telemetry, which is why the copy says
+    // "lâu rồi không thấy ghi nhận gì" and never "không dùng".
+    @GET("api/v1/subscriptions/audit")
+    suspend fun getSubscriptionAudit(): SubscriptionAudit
 }

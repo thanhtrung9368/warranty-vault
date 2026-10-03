@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.dashboard
 
+import com.warrantyvault.app.network.ActionQueue
 import com.warrantyvault.app.network.DeviceListResponse
 import com.warrantyvault.app.network.RemindersResponse
 import com.warrantyvault.app.network.SubscriptionListResponse
@@ -17,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -38,6 +40,7 @@ class DashboardViewModelTest {
         private val subscriptions: suspend () -> SubscriptionListResponse = { SubscriptionListResponse(emptyList()) },
         private val wishlist: suspend () -> WishlistListResponse = { WishlistListResponse(emptyList()) },
         private val devices: suspend () -> DeviceListResponse = { DeviceListResponse(emptyList()) },
+        private val actions: suspend () -> ActionQueue = { Fixtures.actionQueue(items = emptyList()) },
     ) : FakeApiService() {
         override suspend fun getStats(): UserStats = stats()
         override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse = reminders()
@@ -50,15 +53,23 @@ class DashboardViewModelTest {
             sort: String?,
             dir: String?,
         ): DeviceListResponse = devices()
+
+        override suspend fun listActionItems(snoozed: Boolean?): ActionQueue = actions()
     }
 
     @Test
-    fun load_mergesStatsRemindersSubscriptionsWishlistAndDevices() = runTest(dispatcher) {
+    fun load_mergesStatsRemindersSubscriptionsWishlistDevicesAndTheActionQueue() = runTest(dispatcher) {
         val stats = Fixtures.stats(devices = 4)
         val reminders = listOf(Fixtures.upcomingReminder(id = "war-1"))
         val subs = listOf(Fixtures.subscription())
         val wishlist = listOf(Fixtures.wishlistItem())
         val devices = listOf(Fixtures.device(id = "dev-1", effectiveWarrantyEnd = "2026-01-01"))
+        val queue = Fixtures.actionQueue(
+            items = listOf(
+                Fixtures.actionItem(itemKey = "WARRANTY_EXPIRED:war-9", severity = "HIGH"),
+                Fixtures.actionItem(itemKey = "DEVICE_MISSING_SERIAL:dev-9", severity = "LOW"),
+            ),
+        )
         val vm = DashboardViewModel(
             FakeDashboardApi(
                 stats = { stats },
@@ -66,6 +77,7 @@ class DashboardViewModelTest {
                 subscriptions = { SubscriptionListResponse(subs) },
                 wishlist = { WishlistListResponse(wishlist) },
                 devices = { DeviceListResponse(devices) },
+                actions = { queue },
             ),
         )
 
@@ -80,10 +92,34 @@ class DashboardViewModelTest {
                     subscriptions = subs,
                     wishlist = wishlist,
                     devices = devices,
+                    actions = queue,
                 ),
             ),
             vm.state.value,
         )
+    }
+
+    /**
+     * The queue badge is the dashboard's only optional datum: the other five
+     * sources must fail loudly (a silently empty warranty grid reads as "0 đã hết
+     * hạn"), but a queue this build cannot read degrades to a row with no number.
+     * `actions = null` is therefore "no badge", never "0 việc".
+     */
+    @Test
+    fun load_keepsTheDashboardWhenOnlyTheActionQueueFails() = runTest(dispatcher) {
+        val vm = DashboardViewModel(
+            FakeDashboardApi(
+                actions = {
+                    throw httpError(503, """{"error":"unavailable","message":"Tạm thời không có"}""")
+                },
+            ),
+        )
+
+        vm.load()
+        advanceUntilIdle()
+
+        val loaded = vm.state.value as DashboardViewModel.State.Loaded
+        assertNull("a failed queue must not invent a count", loaded.data.actions)
     }
 
     @Test
