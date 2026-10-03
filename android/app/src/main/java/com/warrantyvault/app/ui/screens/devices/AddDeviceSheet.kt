@@ -57,11 +57,13 @@ import com.warrantyvault.app.network.CategoryOption
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceInput
 import com.warrantyvault.app.network.DeviceStatus
+import com.warrantyvault.app.network.DeviceWarning
 import com.warrantyvault.app.network.StoreOption
 import com.warrantyvault.app.network.fieldErrors
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.SheetGroup
+import com.warrantyvault.app.ui.theme.WVAccent
 import com.warrantyvault.app.network.DraftDevice
 import com.warrantyvault.app.ui.screens.common.StoreAutocompleteField
 import kotlinx.coroutines.Dispatchers
@@ -80,7 +82,13 @@ import java.util.Locale
 fun AddDeviceSheet(
     api: ApiService,
     onDismiss: () -> Unit,
-    onCreated: (Device) -> Unit,
+    /**
+     * Called after a **successful** save with the device plus the advisory
+     * `warnings` the write returned. The device is already saved when this runs;
+     * warnings are "đã lưu, nhưng trông sai", so the host shows them
+     * non-blockingly (the sheet is closing) rather than treating them as errors.
+     */
+    onSaved: (Device, List<DeviceWarning>) -> Unit,
     existing: Device? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -128,6 +136,10 @@ fun AddDeviceSheet(
     val context = LocalContext.current
     var scanning by remember { mutableStateOf(false) }
     var scanInfo by remember { mutableStateOf<DraftDevice?>(null) }
+    // Warnings from the AI draft (values it KEPT but flagged), kept apart from
+    // `unmatched` (values it could not use and dropped). Both come off the same
+    // draft; only the second one means "you must type this yourself".
+    var scanWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
     var aiOptIn by remember { mutableStateOf(false) }
 
     // Seeds the form from an extracted draft. Category only applied when it
@@ -155,10 +167,12 @@ fun AddDeviceSheet(
             scanning = true
             error = null
             scanInfo = null
+            scanWarnings = emptyList()
             try {
                 val draft = extractReceiptFromUri(context, api, uri)
                 applyDraft(draft)
                 scanInfo = draft
+                scanWarnings = draft.warnings
             } catch (e: Exception) {
                 error = e.toUserMessage(ApiClient.json)
             } finally {
@@ -255,15 +269,29 @@ fun AddDeviceSheet(
                     } else {
                         "Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé."
                     }
-                    val unmatched = d.unmatched.mapNotNull { unmatchedLabel(it) }
-                    val tail = if (unmatched.isNotEmpty()) {
-                        " Cần xem lại: " + unmatched.joinToString(", ") + "."
-                    } else ""
                     Text(
-                        head + tail,
+                        head,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // Two different meanings, two different lines:
+                    //   unmatched = we could not use it (you must enter it),
+                    //   warnings  = we used it but it looks wrong (still saved).
+                    val review = draftReview(d)
+                    review.unmatched?.let {
+                        Text(
+                            it,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    review.warnings?.let {
+                        Text(
+                            it,
+                            fontSize = 12.sp,
+                            color = WVAccent.current.warning,
+                        )
+                    }
                 }
             }
 
@@ -289,9 +317,25 @@ fun AddDeviceSheet(
                     label = { Text("Model") },
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Amber advisory under the serial box when the scan flagged the
+                // value it kept. Not `isError`: the serial is legitimate until
+                // proven otherwise and the save must not look blocked.
+                val serialWarning = deviceWarningsForField(scanWarnings).firstOrNull()
                 OutlinedTextField(
-                    value = serial, onValueChange = { serial = it },
+                    value = serial,
+                    onValueChange = {
+                        serial = it
+                        scanWarnings = emptyList()
+                    },
                     label = { Text("Số serial") },
+                    supportingText = serialWarning?.let {
+                        {
+                            Text(
+                                deviceWarningMessage(it),
+                                color = WVAccent.current.warning,
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -419,7 +463,9 @@ fun AddDeviceSheet(
                             } else {
                                 api.createDevice(input)
                             }
-                            onCreated(res.device)
+                            // Success: hand the host the device AND the advisories
+                            // it came back with, so they survive the dismiss.
+                            onSaved(res.device, res.warnings)
                         } catch (e: Exception) {
                             val fe = e.fieldErrors(ApiClient.json)
                             fieldErrors = fe
@@ -629,11 +675,4 @@ private suspend fun extractReceiptFromUri(
 private fun receiptPart(bytes: ByteArray, mime: String, fileName: String): MultipartBody.Part {
     val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
     return MultipartBody.Part.createFormData("file", fileName, body)
-}
-
-private fun unmatchedLabel(key: String): String? = when (key) {
-    "brand" -> "Hãng"
-    "purchasePlace" -> "Nơi mua"
-    "category" -> "Loại thiết bị"
-    else -> null
 }

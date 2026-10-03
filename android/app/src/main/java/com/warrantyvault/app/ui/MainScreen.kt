@@ -45,6 +45,7 @@ import com.warrantyvault.app.ui.screens.devices.DevicesScreen
 import com.warrantyvault.app.ui.screens.reminders.RemindersScreen
 import com.warrantyvault.app.ui.screens.search.SearchScreen
 import com.warrantyvault.app.ui.screens.settings.PushDevicesScreen
+import com.warrantyvault.app.ui.screens.settings.SessionsScreen
 import com.warrantyvault.app.ui.screens.settings.SettingsScreen
 import com.warrantyvault.app.ui.screens.stats.StatsScreen
 import com.warrantyvault.app.ui.screens.subscriptions.SubscriptionDetailScreen
@@ -77,6 +78,11 @@ fun MainScreen(auth: AuthStore) {
     var openSubscriptionId by rememberSaveable { mutableStateOf<String?>(null) }
     var openWishlistId by rememberSaveable { mutableStateOf<String?>(null) }
     var openPushDevices by rememberSaveable { mutableStateOf(false) }
+    // Device sessions (GET/DELETE /api/v1/auth/sessions) — the other leaf route
+    // of Settings, next to the push-target list. Revoking the CURRENT session
+    // kills the token this app is holding, so the host answers by dropping to
+    // login (AuthStore.endLocalSession), the same route delete-account takes.
+    var openSessions by rememberSaveable { mutableStateOf(false) }
     // Global search (GET /api/v1/search) is a full-screen surface of the shell
     // rather than a tab: the tab bar already carries seven destinations, and a
     // search is a detour you come back from, not a place you live in. Checked
@@ -120,6 +126,17 @@ fun MainScreen(auth: AuthStore) {
         PushDevicesScreen(
             api = App.instance.api,
             onBack = { openPushDevices = false },
+        )
+        return
+    }
+    if (openSessions) {
+        SessionsScreen(
+            api = App.instance.api,
+            onCurrentSessionRevoked = {
+                openSessions = false
+                auth.endLocalSession()
+            },
+            onBack = { openSessions = false },
         )
         return
     }
@@ -210,6 +227,7 @@ fun MainScreen(auth: AuthStore) {
                         themeStore = App.instance.themeStore,
                         api = App.instance.api,
                         onOpenPushDevices = { openPushDevices = true },
+                        onOpenSessions = { openSessions = true },
                     )
                 }
             }

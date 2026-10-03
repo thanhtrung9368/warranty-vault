@@ -86,6 +86,66 @@ data class ChangePasswordResponse(
     val message: String? = null,
 )
 
+// ---- Device sessions (GET/DELETE /api/v1/auth/sessions) ----
+//
+// The revocation surface that used to be missing: before it, the only ways to
+// kill a login were "the exact token being sent" (POST /auth/logout) and
+// "everything at once" (password reset). A sliding 7-day TTL means a session
+// never expires while the app is opened weekly, so handing the phone to someone
+// was a silent, one-way act.
+//
+// `id` is the Session row's surrogate key (a cuid) — NOT the bearer token and
+// not its hash; `tokenHash` never leaves the server. It is only ever used as the
+// path parameter of the revoke call.
+
+@Serializable
+data class SessionSummary(
+    val id: String,
+    /**
+     * The label the client sent at login (≤80 chars). **Nullable by contract**:
+     * sessions issued by an older client that sent no label carry `null`, which
+     * the openapi documents as "Không rõ thiết bị" — render that fallback rather
+     * than an empty row. Never authoritative (it is user-agent-ish free text).
+     */
+    val deviceLabel: String? = null,
+    /**
+     * Raw platform code. `ios | android | web` for sessions (the login/register
+     * enum); `apns | fcm` are the *push* platform codes and only appear here on
+     * legacy rows. Also nullable — unknown/unset is normal, not an error.
+     */
+    val platform: String? = null,
+    /** `true` = the session that issued this request — "Thiết bị này". */
+    val current: Boolean = false,
+    /** RFC3339, UTC. Refreshed at most once every 5 minutes. */
+    val lastSeenAt: String = "",
+    val createdAt: String = "",
+    /** Sliding TTL: +30 days on use after 7 days. */
+    val expiresAt: String = "",
+)
+
+@Serializable
+data class SessionListResponse(val sessions: List<SessionSummary> = emptyList())
+
+/**
+ * `DELETE /api/v1/auth/sessions/{id}` (openapi `SessionRevokeResult`).
+ *
+ * `alreadyRevoked = true` is **success**, not an error: a retry on a session that
+ * was already killed changes nothing and still answers 200. The server's
+ * `message` is Vietnamese and is shown as-is.
+ *
+ * `current = true` means the caller just revoked the session it is holding: the
+ * token is dead and the next request is a 401, so the client MUST clear its
+ * token store and return to login (the same route the delete-account flow
+ * takes). That is the documented answer to "đăng xuất khỏi thiết bị này".
+ */
+@Serializable
+data class SessionRevokeResult(
+    val ok: Boolean = true,
+    val current: Boolean = false,
+    val alreadyRevoked: Boolean = false,
+    val message: String = "",
+)
+
 // ---- Devices ----
 
 @Serializable
@@ -158,8 +218,46 @@ data class Device(
 @Serializable
 data class DeviceListResponse(val devices: List<Device>)
 
+/**
+ * One **advisory** finding about a value that was already saved (openapi
+ * `DeviceWarning`, FEATURE_IDEAS #6).
+ *
+ * `POST /api/v1/devices` and `PATCH /api/v1/devices/{id}` return
+ * `{device, warnings}` — nothing is blocked, the device row exists, and the
+ * status is still 201/200. The meaning is "đã lưu, nhưng giá trị này có vẻ sai",
+ * never "thất bại". A client must not delete or rewrite the value on its own.
+ *
+ * `code` is a stable machine-readable string (`IMEI_CHECKSUM`, `IMEI_LENGTH`,
+ * `SERIAL_DUPLICATE`); `message` is the Vietnamese sentence to show as-is, and
+ * [com.warrantyvault.app.ui.screens.devices.deviceWarningMessage] falls back to
+ * a code-specific Vietnamese sentence when it is blank (an older server).
+ */
 @Serializable
-data class DeviceResponse(val device: Device)
+data class DeviceWarning(
+    val code: String,
+    /** Request/draft field the warning points at; always `serialNumber` today. */
+    val field: String = SERIAL_FIELD,
+    val message: String = "",
+) {
+    companion object {
+        const val SERIAL_FIELD = "serialNumber"
+    }
+}
+
+/**
+ * `{"device": {...}, "warnings": [...]}` — the envelope of device create, update
+ * **and** the single-device read.
+ *
+ * `warnings` only ever has content on the write responses; `GET /devices/{id}`
+ * omits the key entirely, hence the default. It was silently dropped before this
+ * field existed because `ApiClient.json` sets `ignoreUnknownKeys = true` — which
+ * is exactly why no one had seen a single warning.
+ */
+@Serializable
+data class DeviceResponse(
+    val device: Device,
+    val warnings: List<DeviceWarning> = emptyList(),
+)
 
 // ---- Warranties ----
 
@@ -257,6 +355,18 @@ data class DraftDevice(
     val warrantyProviderId: String? = null,
     val confidence: String = "medium",
     val unmatched: List<String> = emptyList(),
+    /**
+     * Advisory findings about values the draft **kept** — the sibling of
+     * [unmatched], not a duplicate of it. `unmatched` = "we could not use this
+     * value" (it was dropped, e.g. an OCR serial longer than 120 bytes);
+     * `warnings` = "we used this value but it looks wrong" (a 15-digit IMEI with
+     * a bad Luhn digit, a serial that already exists on another device). The UI
+     * must show them on separate lines and must still let the user save.
+     *
+     * Always present in the payload (`[]` when clean); defaulted here only for a
+     * pre-warnings server.
+     */
+    val warnings: List<DeviceWarning> = emptyList(),
 )
 
 @Serializable
@@ -668,6 +778,107 @@ data class WishlistStats(
     val total: Int,
     val byStatus: Map<String, Int> = emptyMap(),
     val totalCurrentPriceWatching: Long = 0,
+)
+
+// ---- Spending forecast (GET /api/v1/forecast) ----
+//
+// The forward-looking half of the app. A subscription charge is `price` charged
+// ONCE per occurrence — never a monthly equivalent; LIFETIME contributes 0 and
+// never appears as a charge; CUSTOM without a positive intervalDays is skipped
+// entirely; only ACTIVE subscriptions count.
+//
+// Two honesty rules the UI must keep, straight from the API docs:
+//  * `warrantyExpiringVnd` (the old package's cost) and `wishlistTargetVnd`
+//    (the last recorded price) are "có thể phát sinh" — savings references, NOT
+//    commitments. Never add them into the subscription total on screen.
+//  * `subscriptionAutoRenewVnd` is the part that WILL be auto-charged; the rest
+//    of `subscriptionVnd` is money the user still has to decide about. The
+//    distinction is the point of the field.
+//
+// Every money/count field is int64 on the wire (the SUM is never narrowed to
+// int32), so they are `Long` here — an out-of-range `Int` would throw inside
+// kotlinx.serialization and blank the whole tab.
+
+@Serializable
+data class ForecastBucket(
+    /** `YYYY-MM`, UTC. */
+    val month: String,
+    val subscriptionVnd: Long = 0,
+    val subscriptionAutoRenewVnd: Long = 0,
+    val subscriptionCount: Long = 0,
+    /** Cost of packages expiring this month — a reference, NOT a charge. */
+    val warrantyExpiringVnd: Long = 0,
+    val warrantyExpiringCount: Long = 0,
+    /** Last recorded price of wishlist items targeting this month — NOT a charge. */
+    val wishlistTargetVnd: Long = 0,
+    val wishlistTargetCount: Long = 0,
+)
+
+@Serializable
+data class ForecastWarranty(
+    val id: String,
+    val deviceId: String = "",
+    val deviceName: String = "",
+    /**
+     * Raw `STANDARD | EXTENDED | THIRD_PARTY`. Deliberately a String, like
+     * [UpcomingReminder.type]: an enum member the app has never heard of must
+     * degrade to the raw code, not throw away the whole forecast.
+     */
+    val type: String = "STANDARD",
+    val provider: String? = null,
+    val endDate: String = "",
+    /** Bucket this row was counted in. */
+    val month: String = "",
+    val months: Int = 0,
+    /** `null` = no recorded price (≠ 0đ). Never a charge. */
+    val costVnd: Long? = null,
+)
+
+@Serializable
+data class ForecastWishlistItem(
+    val id: String,
+    val name: String,
+    val targetDate: String = "",
+    val month: String = "",
+    val priority: String = "WANT",
+    val status: String = "WATCHING",
+    /** Last recorded price; `null` = never entered. Never a charge. */
+    val currentPriceVnd: Long? = null,
+)
+
+@Serializable
+data class Forecast(
+    val generatedAt: String = "",
+    /** Inclusive start = `generatedAt`. */
+    val windowStart: String = "",
+    /** Exclusive end: a charge exactly here belongs to no bucket. */
+    val windowEnd: String = "",
+    /** Requested horizon, 1–24. */
+    val months: Int = 0,
+    val currency: String = "VND",
+    val subscriptionTotalVnd: Long = 0,
+    val subscriptionAutoRenewTotalVnd: Long = 0,
+    /**
+     * Canonical monthly equivalent — EQUAL to
+     * `subscriptions.totalMonthlyVnd` of `GET /stats` for the same data, so the
+     * "~X/tháng" line can never disagree with the tiles above. Do not use it to
+     * compute a 12-month total.
+     */
+    val subscriptionMonthlyAverageVnd: Long = 0,
+    /** Packages contributing ≥1 charge in the window. */
+    val subscriptionsCount: Long = 0,
+    /** Charges themselves (one QUARTERLY package contributes 4). */
+    val chargesCount: Long = 0,
+    /**
+     * Calendar months the window touches — normally `months + 1` (the partial
+     * current month plus `months` full ones), or exactly `months` when the call
+     * lands on 00:00 of the 1st. Never assume 12.
+     */
+    val buckets: List<ForecastBucket> = emptyList(),
+    val upcomingWarranties: List<ForecastWarranty> = emptyList(),
+    val upcomingWishlist: List<ForecastWishlistItem> = emptyList(),
+    /** Vietnamese honesty line about the model — rendered as-is. */
+    val note: String = "",
 )
 
 // ---- Upcoming reminders ----

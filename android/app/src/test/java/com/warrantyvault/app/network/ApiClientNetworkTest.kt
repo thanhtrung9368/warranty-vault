@@ -161,4 +161,118 @@ class ApiClientNetworkTest {
         assertTrue(thrown.isUnauthorized)
         assertEquals("Phiên đăng nhập đã hết hạn", thrown.toUserMessage(ApiClient.json))
     }
+
+    // ---- device sessions (GET/DELETE /api/v1/auth/sessions) ----
+
+    @Test
+    fun listSessions_hitsTheAuthSessionsPathAndReadsTheNullableLabel() = runBlocking {
+        enqueueJson(
+            """
+                {
+                  "sessions": [
+                    {"id": "sess-1", "deviceLabel": null, "platform": "android", "current": true,
+                     "lastSeenAt": "2026-03-01T09:30:00Z", "createdAt": "2026-02-01T09:30:00Z",
+                     "expiresAt": "2026-04-01T09:30:00Z"}
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        val res = api().listSessions()
+
+        assertNull(res.sessions.single().deviceLabel)
+        assertTrue(res.sessions.single().current)
+
+        val recorded = server.takeRequest()
+        assertEquals("GET", recorded.method)
+        assertEquals("/api/v1/auth/sessions", recorded.path)
+        assertEquals("Bearer tok-123", recorded.getHeader("Authorization"))
+    }
+
+    @Test
+    fun revokeSession_isADeleteOnTheSessionIdAndDecodesCurrent() = runBlocking {
+        enqueueJson(
+            """
+                {"ok": true, "current": true, "alreadyRevoked": false,
+                 "message": "Đã thu hồi phiên đăng nhập. Đây là phiên bạn đang dùng — hãy đăng nhập lại."}
+            """.trimIndent(),
+        )
+
+        val res = api().revokeSession("sess-1")
+
+        assertTrue(res.current)
+        assertTrue(!res.alreadyRevoked)
+
+        val recorded = server.takeRequest()
+        assertEquals("DELETE", recorded.method)
+        assertEquals("/api/v1/auth/sessions/sess-1", recorded.path)
+    }
+
+    // ---- spending forecast (GET /api/v1/forecast) ----
+
+    @Test
+    fun forecast_sendsTheMonthsQueryAndDecodesTheSplit() = runBlocking {
+        enqueueJson(
+            """
+                {
+                  "months": 12,
+                  "subscriptionTotalVnd": 3120000,
+                  "subscriptionAutoRenewTotalVnd": 2000000,
+                  "buckets": [
+                    {"month": "2026-03", "subscriptionVnd": 260000, "subscriptionAutoRenewVnd": 200000,
+                     "subscriptionCount": 1, "warrantyExpiringVnd": 0, "warrantyExpiringCount": 0,
+                     "wishlistTargetVnd": 0, "wishlistTargetCount": 0}
+                  ],
+                  "note": "Chỉ tính các gói đang ACTIVE; gói LIFETIME không bao giờ bị trừ."
+                }
+            """.trimIndent(),
+        )
+
+        val f = api().getForecast(months = 12)
+
+        assertEquals(3_120_000L, f.subscriptionTotalVnd)
+        assertEquals(200_000L, f.buckets.single().subscriptionAutoRenewVnd)
+        assertEquals(1, f.buckets.size)
+        assertEquals("/api/v1/forecast?months=12", server.takeRequest().path)
+
+        // No explicit window → the parameter is omitted and the server default
+        // (12) applies; never a hardcoded client-side 12 sent as `months=12`.
+        enqueueJson("""{"months": 12, "buckets": [], "note": ""}""")
+        api().getForecast()
+        assertEquals("/api/v1/forecast", server.takeRequest().path)
+    }
+
+    // ---- warnings on device save ----
+
+    @Test
+    fun createDevice_surfacesTheAdvisoryWarningsAlongsideTheCreatedDevice() = runBlocking {
+        enqueueJson(
+            """
+                {
+                  "device": {
+                    "id": "dev-1", "name": "iPhone 15 Pro", "category": "PHONE",
+                    "purchaseDate": "2024-03-01T00:00:00", "purchasePrice": 30000000,
+                    "status": "ACTIVE", "serialNumber": "356938035643809"
+                  },
+                  "warnings": [
+                    {"code": "IMEI_CHECKSUM", "field": "serialNumber",
+                     "message": "15 số này không đúng checksum IMEI (Luhn) — có thể sai một chữ số."}
+                  ]
+                }
+            """.trimIndent(),
+            code = 201,
+        )
+
+        val res = api().createDevice(
+            DeviceInput(name = "iPhone 15 Pro", category = "PHONE", purchaseDate = "2024-03-01"),
+        )
+
+        // Saved, not rejected — the warning rides along with the created row.
+        assertEquals("dev-1", res.device.id)
+        assertEquals("IMEI_CHECKSUM", res.warnings.single().code)
+
+        val recorded = server.takeRequest()
+        assertEquals("POST", recorded.method)
+        assertEquals("/api/v1/devices", recorded.path)
+    }
 }

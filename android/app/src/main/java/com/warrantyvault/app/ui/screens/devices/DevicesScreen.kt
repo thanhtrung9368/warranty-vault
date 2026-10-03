@@ -65,6 +65,7 @@ import com.warrantyvault.app.ui.viewModelFactory
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceStatus
+import com.warrantyvault.app.network.DeviceWarning
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.EmptyState
 import com.warrantyvault.app.ui.components.ErrorState
@@ -156,6 +157,10 @@ fun DevicesScreen(
     val state by vm.state.collectAsState()
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    // Advisories from the last successful save ("đã lưu, nhưng…"). Held here
+    // rather than in the sheet because the sheet closes on success — a warning
+    // that vanishes with it is a warning nobody reads.
+    var savedWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
     // Filter state — mirrors the web `devices-filter-bar.tsx` (search box, status
     // pills, sort dropdown). Values are persisted across rotation.
     var query by rememberSaveable { mutableStateOf("") }
@@ -233,7 +238,13 @@ fun DevicesScreen(
                         body = s.message,
                         onRetry = { reload() },
                     )
-                    is DevicesViewModel.State.Loaded -> {
+                    is DevicesViewModel.State.Loaded -> Column {
+                        DeviceWarningsCard(
+                            warnings = savedWarnings,
+                            isEdit = false,
+                            onDismiss = { savedWarnings = emptyList() },
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                        )
                         DeviceList(
                             devices = s.devices,
                             isFiltered = isFiltered,
@@ -256,13 +267,16 @@ fun DevicesScreen(
         AddDeviceSheet(
             api = api,
             onDismiss = { showAdd = false },
-            onCreated = { device ->
+            onSaved = { device, warnings ->
                 // Optimistic insert for instant feedback, then reconcile: POST
                 // answers with a bare device row, so `effectiveWarrantyEnd` /
                 // `attachmentCount` (list-row projection only) would otherwise
                 // read as "no warranty, no files" until the next refresh.
                 vm.prepend(device)
                 showAdd = false
+                // Non-blocking: the save already succeeded, so the advisory is
+                // shown above the list and can be dismissed whenever.
+                savedWarnings = warnings
                 reload()
             },
         )

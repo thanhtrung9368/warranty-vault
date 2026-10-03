@@ -63,6 +63,7 @@ import androidx.lifecycle.viewModelScope
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
+import com.warrantyvault.app.network.DeviceWarning
 import com.warrantyvault.app.network.Warranty
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.theme.WVAccent
@@ -160,6 +161,9 @@ fun DeviceDetailScreen(
     var showDeleteDevice by rememberSaveable { mutableStateOf(false) }
     var deletingDevice by remember { mutableStateOf(false) }
     var actionError by remember { mutableStateOf<String?>(null) }
+    // Advisories from the last successful edit ("đã sửa, nhưng…"); the device is
+    // saved, so they are informational and dismissible.
+    var savedWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
 
     LaunchedEffect(deviceId) { vm.load() }
 
@@ -223,7 +227,13 @@ fun DeviceDetailScreen(
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = { vm.load() }) { Text("Thử lại") }
                 }
-                is DeviceDetailViewModel.State.Loaded -> {
+                is DeviceDetailViewModel.State.Loaded -> Column {
+                    DeviceWarningsCard(
+                        warnings = savedWarnings,
+                        isEdit = true,
+                        onDismiss = { savedWarnings = emptyList() },
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    )
                     DeviceDetailBody(
                         api = api,
                         device = s.device,
@@ -270,9 +280,10 @@ fun DeviceDetailScreen(
             api = api,
             existing = deviceLoaded,
             onDismiss = { showEditDevice = false },
-            onCreated = { updated ->
+            onSaved = { updated, warnings ->
                 showEditDevice = false
                 vm.replaceDevice(updated)
+                savedWarnings = warnings
             },
         )
     }

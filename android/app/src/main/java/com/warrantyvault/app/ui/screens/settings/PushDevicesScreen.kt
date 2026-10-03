@@ -376,7 +376,13 @@ private fun labelFor(sub: PushSubscriptionMeta): String {
     return "Thiết bị …$tail"
 }
 
-private fun relativeVi(iso: String): String {
+/**
+ * "3 ngày trước" for an RFC3339 timestamp. Shared with [SessionsScreen] — both
+ * settings surfaces show the same "when did I last see this device" line, so the
+ * wording lives in one place. Unparseable input degrades to "vừa rồi" rather
+ * than throwing on a list row.
+ */
+internal fun relativeVi(iso: String): String {
     val past = try {
         OffsetDateTime.parse(iso)
     } catch (_: DateTimeParseException) {

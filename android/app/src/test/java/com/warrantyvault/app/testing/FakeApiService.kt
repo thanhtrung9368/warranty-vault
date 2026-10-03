@@ -15,6 +15,7 @@ import com.warrantyvault.app.network.DeviceInput
 import com.warrantyvault.app.network.DeviceListResponse
 import com.warrantyvault.app.network.DeviceResponse
 import com.warrantyvault.app.network.DraftDeviceResponse
+import com.warrantyvault.app.network.Forecast
 import com.warrantyvault.app.network.ForgotRequest
 import com.warrantyvault.app.network.ImportResultResponse
 import com.warrantyvault.app.network.LoginInput
@@ -27,6 +28,8 @@ import com.warrantyvault.app.network.PushSubscriptionListResponse
 import com.warrantyvault.app.network.RegisterInput
 import com.warrantyvault.app.network.RemindersResponse
 import com.warrantyvault.app.network.SearchResults
+import com.warrantyvault.app.network.SessionListResponse
+import com.warrantyvault.app.network.SessionRevokeResult
 import com.warrantyvault.app.network.SubscriptionInput
 import com.warrantyvault.app.network.SubscriptionListResponse
 import com.warrantyvault.app.network.SubscriptionResponse
@@ -70,6 +73,9 @@ open class FakeApiService : ApiService {
         notStubbed("updateProfile")
 
     override suspend fun deleteAccount(body: DeleteAccountRequest): OkResponse = notStubbed("deleteAccount")
+
+    override suspend fun listSessions(): SessionListResponse = notStubbed("listSessions")
+    override suspend fun revokeSession(id: String): SessionRevokeResult = notStubbed("revokeSession")
     override suspend fun exportBackup(): ResponseBody = notStubbed("exportBackup")
     override suspend fun importBackup(mode: String, body: RequestBody): ImportResultResponse =
         notStubbed("importBackup")
@@ -155,6 +161,7 @@ open class FakeApiService : ApiService {
     override suspend fun setAIOptIn(body: AIOptInRequest): AIOptInResponse = notStubbed("setAIOptIn")
 
     override suspend fun getStats(): UserStats = notStubbed("getStats")
+    override suspend fun getForecast(months: Int?): Forecast = notStubbed("getForecast")
 
     override suspend fun search(q: String?, limit: Int?): SearchResults = notStubbed("search")
 

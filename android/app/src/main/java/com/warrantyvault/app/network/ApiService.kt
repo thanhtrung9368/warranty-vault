@@ -47,6 +47,20 @@ interface ApiService {
     @HTTP(method = "DELETE", path = "api/v1/auth/me", hasBody = true)
     suspend fun deleteAccount(@Body body: DeleteAccountRequest): OkResponse
 
+    // ---- Device sessions ----
+    // Active (not revoked, not expired) sessions only, most recently used first,
+    // at most 100 rows; `sessions` is always `[]`, never null. The id here is the
+    // Session row key — NOT the bearer token.
+    @GET("api/v1/auth/sessions")
+    suspend fun listSessions(): SessionListResponse
+
+    // Revoking the CURRENT session is allowed and is what "đăng xuất khỏi thiết
+    // bị này" means: the answer carries `current = true` plus a Vietnamese
+    // message, and the holding client must drop its token (the next request is a
+    // 401). A second call on the same id is still 200 with `alreadyRevoked`.
+    @DELETE("api/v1/auth/sessions/{id}")
+    suspend fun revokeSession(@Path("id") id: String): SessionRevokeResult
+
     // ---- Backup ----
     @Streaming
     @GET("api/v1/backup/export")
@@ -224,6 +238,13 @@ interface ApiService {
     // ---- Stats ----
     @GET("api/v1/stats")
     suspend fun getStats(): UserStats
+
+    // Forward-looking half of the stats screen. Separate endpoint on purpose:
+    // `/stats` is a round trip all three clients already make and its shape must
+    // not change. `months` is 1–24 (server default 12) and a non-numeric /
+    // out-of-range value is a 400 — never a silent default.
+    @GET("api/v1/forecast")
+    suspend fun getForecast(@Query("months") months: Int? = null): Forecast
 
     // ---- Reminders ----
     @GET("api/v1/reminders")

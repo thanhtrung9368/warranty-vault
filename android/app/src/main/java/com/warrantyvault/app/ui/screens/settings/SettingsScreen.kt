@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhonelinkLock
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.TableChart
@@ -93,6 +94,7 @@ fun SettingsScreen(
     themeStore: ThemeStore,
     api: ApiService,
     onOpenPushDevices: () -> Unit = {},
+    onOpenSessions: () -> Unit = {},
 ) {
     val status by auth.status.collectAsState()
     val themePref by themeStore.preference.collectAsState()
@@ -391,6 +393,16 @@ fun SettingsScreen(
                         title = "Thiết bị nhận thông báo",
                         subtitle = "Quản lý các thiết bị đăng ký push notification.",
                         onClick = onOpenPushDevices,
+                        showDivider = true,
+                    )
+                    // Device sessions are NOT the push list above: revoking here
+                    // ends a login (data access), removing a push target only
+                    // stops notifications. Different rows on purpose.
+                    SettingsRow(
+                        icon = Icons.Filled.PhonelinkLock,
+                        title = "Phiên đăng nhập",
+                        subtitle = "Xem các thiết bị đang đăng nhập và thu hồi từng phiên.",
+                        onClick = onOpenSessions,
                         showDivider = false,
                     )
                 }

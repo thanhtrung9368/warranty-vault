@@ -113,6 +113,21 @@ class AuthStore(
         _status.value = Status.Unauthenticated
     }
 
+    /**
+     * Drops the local session for the one case where the token is **already
+     * dead**: the user revoked the CURRENT login session from the sessions
+     * screen (`DELETE /api/v1/auth/sessions/{id}` → `current = true`). Same end
+     * state as [logout] / [deleteAccount] — token cleared, back to the login
+     * screen — but deliberately without a request, because the next
+     * authenticated call would answer 401.
+     *
+     * Synchronous so a Compose click handler can call it directly.
+     */
+    fun endLocalSession() {
+        tokenStore.clear()
+        _status.value = Status.Unauthenticated
+    }
+
     private fun deviceLabel(): String {
         return "${Build.MANUFACTURER} ${Build.MODEL}".trim()
     }
