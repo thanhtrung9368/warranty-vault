@@ -6,6 +6,7 @@ import com.warrantyvault.app.auth.TokenStore
 import com.warrantyvault.app.core.push.PushRegistrar
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
+import com.warrantyvault.app.share.ShareIntake
 import com.warrantyvault.app.ui.theme.ThemeStore
 
 /**
@@ -25,6 +26,15 @@ class App : Application() {
     lateinit var themeStore: ThemeStore
         private set
 
+    /**
+     * Share target (#10) mailbox. Lives on `App` (process scope) rather than on
+     * the Activity because the share arrives before the user is necessarily
+     * signed in, and the Activity can be recreated in between: a link shared on
+     * the login screen must survive until the wishlist form can show it.
+     */
+    lateinit var shareIntake: ShareIntake
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -34,6 +44,7 @@ class App : Application() {
         pushRegistrar = PushRegistrar(api, tokenStore, auth)
         pushRegistrar.start()
         themeStore = ThemeStore(this)
+        shareIntake = ShareIntake()
     }
 
     companion object {

@@ -16,13 +16,32 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
 
+        <!-- launchMode="singleTop": a share delivered while the app is already
+             running has to reach onNewIntent on the existing instance. With the
+             default ("standard") Android would stack a SECOND MainActivity —
+             two Compose shells, and Back would land on a stale copy of the app.
+             It is also what the notification PendingIntent already assumes
+             (it sets FLAG_ACTIVITY_SINGLE_TOP). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.WarrantyVault">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Share target (FEATURE_IDEAS #10): "Chia sẻ" on a product page
+                 in Shopee / Lazada / Chrome → WarrantyVault → the link lands in
+                 the wishlist form prefilled. text/plain only: an image/file
+                 share is the attachment flow, not this one. No ACTION_VIEW
+                 http/https filter on purpose — that would offer this app as a
+                 *browser* for every link on the phone. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 

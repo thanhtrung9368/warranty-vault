@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +50,7 @@ import com.warrantyvault.app.network.WishlistItem
 import com.warrantyvault.app.network.WishlistPriority
 import com.warrantyvault.app.network.WishlistStatus
 import com.warrantyvault.app.network.toUserMessage
+import com.warrantyvault.app.share.ShareTarget
 import com.warrantyvault.app.ui.components.SheetGroup
 import kotlinx.coroutines.launch
 
@@ -60,12 +62,20 @@ fun WishlistEditSheet(
     onDismiss: () -> Unit,
     onSaved: (WishlistItem) -> Unit,
     onDeleted: (String) -> Unit,
+    /**
+     * Prefilled **create** (share target #10): the link captured from another
+     * app's share sheet, plus whatever the sender wrote next to it. Read
+     * exactly like [existing] — as the initial value of the two fields it can
+     * fill — and ignored when [existing] is set, because an edit must show the
+     * saved item, not a share.
+     */
+    prefill: ShareTarget.Product? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val isEdit = existing != null
 
-    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var name by remember { mutableStateOf(existing?.name ?: prefill?.name ?: "") }
     var brand by remember { mutableStateOf(existing?.brand ?: "") }
     var category by remember { mutableStateOf(existing?.category ?: "") }
     var initialPrice by remember {
@@ -74,7 +84,7 @@ fun WishlistEditSheet(
     var currentPrice by remember {
         mutableStateOf(existing?.currentPrice?.toString() ?: "")
     }
-    var buyUrl by remember { mutableStateOf(existing?.buyUrl ?: "") }
+    var buyUrl by remember { mutableStateOf(existing?.buyUrl ?: prefill?.buyUrl ?: "") }
     var imageUrl by remember { mutableStateOf(existing?.imageUrl ?: "") }
     var targetDate by remember { mutableStateOf(existing?.targetDate?.take(10) ?: "") }
     var priority by remember { mutableStateOf(existing?.priority ?: WishlistPriority.WANT) }
@@ -99,6 +109,27 @@ fun WishlistEditSheet(
                 if (isEdit) "Sửa sản phẩm" else "Thêm vào wishlist",
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
+
+            // Why the fields are already filled. Without this the prefilled
+            // form looks like leftover state from a previous edit, and a share
+            // taken on the login screen (held until sign-in) would have no
+            // visible explanation at all.
+            if (!isEdit && prefill != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Outlined.Link,
+                        null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.height(16.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Điền sẵn từ link bạn chia sẻ — kiểm tra lại rồi lưu.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             SheetGroup {
                 OutlinedTextField(

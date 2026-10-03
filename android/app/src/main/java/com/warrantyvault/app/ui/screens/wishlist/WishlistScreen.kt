@@ -42,9 +42,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,6 +65,7 @@ import com.warrantyvault.app.network.WishlistItem
 import com.warrantyvault.app.network.WishlistPriority
 import com.warrantyvault.app.network.WishlistStatus
 import com.warrantyvault.app.network.toUserMessage
+import com.warrantyvault.app.share.ShareTarget
 import com.warrantyvault.app.ui.components.EmptyState
 import com.warrantyvault.app.ui.components.ErrorState
 import com.warrantyvault.app.ui.components.FilterOption
@@ -135,12 +139,27 @@ fun WishlistScreen(
     api: ApiService,
     onOpenItem: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    /**
+     * Share target (#10): a product link captured from another app's share
+     * sheet, handed over by `MainScreen` once the user is signed in. Arriving
+     * here means "open the create form prefilled" — see the effect below.
+     */
+    sharedLink: ShareTarget.Product? = null,
+    /** Called once [sharedLink] has been taken in, so the shell does not hand
+     * the same link over again on the next recomposition. */
+    onSharedLinkShown: () -> Unit = {},
 ) {
     val vm: WishlistViewModel = viewModel(
         factory = viewModelFactory { WishlistViewModel(api) },
     )
     val state by vm.state.collectAsState()
     var creating by rememberSaveable { mutableStateOf(false) }
+    // The share prefill lives here, not in the shell, and it is saveable: the
+    // shell's hand-off value is consumed immediately, so without this a
+    // rotation would reopen the sheet empty and look like the share was lost.
+    var sharedDraft by rememberSaveable(stateSaver = SharedProductSaver) {
+        mutableStateOf<ShareTarget.Product?>(null)
+    }
     var refreshing by remember { mutableStateOf(false) }
     // Filter state — mirrors the web `wishlist-filter-bar.tsx` (search box,
     // "Đang theo dõi / Watching / …" pills, priority + sort dropdowns).
@@ -151,6 +170,23 @@ fun WishlistScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { vm.load() }
+
+    // A share is a request to add *this* link: open the create form, prefilled,
+    // right away. The hand-off is acknowledged immediately — `sharedDraft` is
+    // what the form actually reads from now on.
+    LaunchedEffect(sharedLink) {
+        val product = sharedLink ?: return@LaunchedEffect
+        sharedDraft = product
+        creating = true
+        onSharedLinkShown()
+    }
+
+    fun closeSheet() {
+        creating = false
+        // Dropped with the sheet: a later tap on "+" must open a blank form,
+        // not resurrect the link from a previous share.
+        sharedDraft = null
+    }
 
     Scaffold(
         topBar = {
@@ -257,21 +293,48 @@ fun WishlistScreen(
     }
 
     if (creating) {
-        WishlistEditSheet(
-            api = api,
-            existing = null,
-            onDismiss = { creating = false },
-            onSaved = { item ->
-                vm.upsert(item)
-                creating = false
-            },
-            onDeleted = { id ->
-                vm.remove(id)
-                creating = false
-            },
-        )
+        // Keyed on the draft so a SECOND share arriving while this sheet is
+        // open re-initialises the form with the new link instead of silently
+        // keeping the old one (the sheet's fields are `remember`ed from the
+        // prefill, like every other edit sheet in this app).
+        key(sharedDraft) {
+            WishlistEditSheet(
+                api = api,
+                existing = null,
+                prefill = sharedDraft,
+                onDismiss = { closeSheet() },
+                onSaved = { item ->
+                    vm.upsert(item)
+                    closeSheet()
+                },
+                onDeleted = { id ->
+                    vm.remove(id)
+                    closeSheet()
+                },
+            )
+        }
     }
 }
+
+/**
+ * Keeps the shared link across a configuration change. A nullable data class of
+ * two strings is not saveable by default, and without this the create form
+ * would come back blank after a rotation — the share would look lost even
+ * though it was captured.
+ *
+ * `null` is stored as an empty list, which is also what an absent entry
+ * restores to.
+ */
+private val SharedProductSaver: Saver<ShareTarget.Product?, Any> = listSaver(
+    save = { product ->
+        if (product == null) emptyList() else listOf(product.buyUrl, product.name.orEmpty())
+    },
+    restore = { saved ->
+        saved.firstOrNull()?.let { url ->
+            ShareTarget.Product(url, saved.getOrNull(1)?.takeIf { it.isNotEmpty() })
+        }
+    },
+)
 
 @Composable
 private fun WishlistList(

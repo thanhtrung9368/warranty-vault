@@ -92,6 +92,7 @@ cd android
 | FCM service + auto-register on login | ✅ — code hoàn chỉnh, cần `google-services.json` để bật |
 | Subscriptions | ✅ — list / detail / edit sheet, billing cycle + custom interval |
 | Wishlist | ✅ — list / detail / edit sheet, log price + mark-as-purchased |
+| Chia sẻ link → wishlist (share target, #10) | ✅ — `share/ShareTarget.kt` (thuần Kotlin, có unit test) tách URL http(s) + tên sản phẩm từ `ACTION_SEND`/`text/plain`, `MainActivity` đẩy vào `ShareIntake`, `MainScreen` mở form wishlist điền sẵn `buyUrl`/`name`. Share lúc chưa đăng nhập được **giữ lại** và áp dụng ngay sau khi login; share không có link http(s) thì báo Toast tiếng Việt chứ không mở form rỗng. **Không** đọc/parse trang sản phẩm (scraping giá đã bị loại ở roadmap §5) |
 | Attachments upload (PhotoPicker + DocumentPicker) | ✅ — image + PDF, multipart upload, FileProvider preview |
 | Catalog autocomplete đầy đủ | ✅ — category, brand, store, warranty provider (auto-fill phone+địa chỉ); subscription brand cũng dùng catalog |
 | Edit device | ✅ — `AddDeviceSheet` reuse với `existing: Device?`, mở từ `DeviceDetailScreen` action bar |

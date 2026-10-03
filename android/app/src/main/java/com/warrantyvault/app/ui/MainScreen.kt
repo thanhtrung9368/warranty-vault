@@ -27,6 +27,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.auth.AuthStore
+import com.warrantyvault.app.share.ShareTarget
 import com.warrantyvault.app.ui.screens.actions.ActionQueueScreen
 import com.warrantyvault.app.ui.screens.dashboard.DashboardScreen
 import com.warrantyvault.app.ui.screens.devices.DeviceDetailScreen
@@ -105,6 +107,36 @@ fun MainScreen(auth: AuthStore) {
     // Subscriptions tab. Checked after the detail routes as well, so tapping a
     // finding pushes the subscription on top of the report and Back returns here.
     var openAudit by rememberSaveable { mutableStateOf(false) }
+
+    // Share target (#10). The Activity parks a captured product link in
+    // ShareIntake; this screen is the first one that only exists *after* the
+    // user is signed in, so a share taken on the login screen is applied the
+    // moment they get through instead of being dropped. Applying it means:
+    // close whatever route was open (a share is a top-level entry point — it
+    // must not land buried under a detail screen), switch to the Wishlist tab,
+    // and hand the link over for the create form to prefill.
+    //
+    // `sharedLink` is intentionally *not* rememberSaveable: it is a one-frame
+    // event for WishlistScreen, and that screen keeps its own saved copy of the
+    // prefill (see `sharedDraft` there) so a rotation cannot blank the form.
+    val pendingShare by App.instance.shareIntake.pending.collectAsState()
+    var sharedLink by remember { mutableStateOf<ShareTarget.Product?>(null) }
+    LaunchedEffect(pendingShare) {
+        val product = pendingShare ?: return@LaunchedEffect
+        openDeviceId = null
+        openSubscriptionId = null
+        openWishlistId = null
+        openPushDevices = false
+        openSessions = false
+        openSearch = false
+        openActions = false
+        openAudit = false
+        sharedLink = product
+        selected = Tab.Wishlist
+        // Emptied last: clearing the mailbox re-keys this effect, and the work
+        // above has no suspension point to be cancelled at.
+        App.instance.shareIntake.consume(product)
+    }
 
     val devId = openDeviceId
     if (devId != null) {
@@ -251,6 +283,8 @@ fun MainScreen(auth: AuthStore) {
                         api = App.instance.api,
                         onOpenItem = { openWishlistId = it },
                         onOpenSearch = { openSearch = true },
+                        sharedLink = sharedLink,
+                        onSharedLinkShown = { sharedLink = null },
                     )
                     Tab.Stats         -> StatsScreen(api = App.instance.api)
                     Tab.Settings      -> SettingsScreen(
