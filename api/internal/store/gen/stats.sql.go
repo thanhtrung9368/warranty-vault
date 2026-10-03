@@ -11,6 +11,155 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const listWarrantiesExpiringBetween = `-- name: ListWarrantiesExpiringBetween :many
+
+SELECT
+    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt",
+    d.name AS device_name
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE d."userId" = $1
+  AND d.status = 'ACTIVE'
+  AND w."endDate" >= $2
+  AND w."endDate" <  $3
+ORDER BY w."endDate" ASC
+`
+
+type ListWarrantiesExpiringBetweenParams struct {
+	UserId    string           `json:"userId"`
+	EndDate   pgtype.Timestamp `json:"endDate"`
+	EndDate_2 pgtype.Timestamp `json:"endDate_2"`
+}
+
+type ListWarrantiesExpiringBetweenRow struct {
+	ID         string           `json:"id"`
+	DeviceId   string           `json:"deviceId"`
+	Type       string           `json:"type"`
+	Provider   *string          `json:"provider"`
+	StartDate  pgtype.Timestamp `json:"startDate"`
+	EndDate    pgtype.Timestamp `json:"endDate"`
+	Months     int32            `json:"months"`
+	Cost       *int32           `json:"cost"`
+	Address    *string          `json:"address"`
+	Phone      *string          `json:"phone"`
+	Notes      *string          `json:"notes"`
+	CreatedAt  pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt  pgtype.Timestamp `json:"updatedAt"`
+	DeviceName string           `json:"device_name"`
+}
+
+// ─── Spending forecast (GET /api/v1/forecast) ─────────────────────────────
+//
+// The forecast is a forward-looking read, so these two queries only fetch the
+// candidate rows inside the caller's window; every bucket is computed in Go by
+// services.Forecast so the arithmetic is a pure, testable function of a
+// deterministic "now" (no NOW() in the maths, no wall-clock test).
+//
+// Subscriptions need no new query: ListSubscriptionsByUser(status='ACTIVE')
+// already returns exactly the rows the forecast walks (LIFETIME is filtered in
+// Go, where MonthlyEquivalent also treats it as 0).
+// Warranties whose endDate lands in [from, to) on a device that is still ACTIVE.
+// A warranty on a SOLD/BROKEN/LOST device is not an upcoming milestone — the same
+// `d.status = 'ACTIVE'` predicate the reminder feed and StatsWarrantyExpiring use.
+//
+// The Reminder dismissal gate is deliberately NOT applied: `isDismissed` is a
+// push-suppression flag (see docs/SPEC-MAINTENANCE-SCHEDULES.md §2.3), while this
+// is a money plan the user asked to look at.
+func (q *Queries) ListWarrantiesExpiringBetween(ctx context.Context, arg ListWarrantiesExpiringBetweenParams) ([]ListWarrantiesExpiringBetweenRow, error) {
+	rows, err := q.db.Query(ctx, listWarrantiesExpiringBetween, arg.UserId, arg.EndDate, arg.EndDate_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListWarrantiesExpiringBetweenRow
+	for rows.Next() {
+		var i ListWarrantiesExpiringBetweenRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.Type,
+			&i.Provider,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Months,
+			&i.Cost,
+			&i.Address,
+			&i.Phone,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeviceName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWishlistTargetsBetween = `-- name: ListWishlistTargetsBetween :many
+SELECT id, "userId", name, category, brand, "initialPrice", "currentPrice", "buyUrl", "imageUrl", "targetDate", priority, status, notes, "reminderIntervalDays", "lastNotifiedAt", "purchasedDeviceId", "createdAt", "updatedAt"
+FROM "WishlistItem"
+WHERE "userId" = $1
+  AND status IN ('WATCHING', 'DECIDED')
+  AND "targetDate" IS NOT NULL
+  AND "targetDate" >= $2
+  AND "targetDate" <  $3
+ORDER BY "targetDate" ASC
+`
+
+type ListWishlistTargetsBetweenParams struct {
+	UserId       string           `json:"userId"`
+	TargetDate   pgtype.Timestamp `json:"targetDate"`
+	TargetDate_2 pgtype.Timestamp `json:"targetDate_2"`
+}
+
+// Wishlist items with a targetDate in [from, to), restricted to the "still
+// interesting" statuses (WATCHING|DECIDED) — exactly the set the cron target-date
+// push and StatsWishlistActiveValue treat as active. A PURCHASED or SKIPPED item
+// is not an upcoming spend.
+func (q *Queries) ListWishlistTargetsBetween(ctx context.Context, arg ListWishlistTargetsBetweenParams) ([]WishlistItem, error) {
+	rows, err := q.db.Query(ctx, listWishlistTargetsBetween, arg.UserId, arg.TargetDate, arg.TargetDate_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WishlistItem
+	for rows.Next() {
+		var i WishlistItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserId,
+			&i.Name,
+			&i.Category,
+			&i.Brand,
+			&i.InitialPrice,
+			&i.CurrentPrice,
+			&i.BuyUrl,
+			&i.ImageUrl,
+			&i.TargetDate,
+			&i.Priority,
+			&i.Status,
+			&i.Notes,
+			&i.ReminderIntervalDays,
+			&i.LastNotifiedAt,
+			&i.PurchasedDeviceId,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const statsActiveAssetValue = `-- name: StatsActiveAssetValue :one
 SELECT
     COUNT(DISTINCT d.id)::bigint                 AS count,

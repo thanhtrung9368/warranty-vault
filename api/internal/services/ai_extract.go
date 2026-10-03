@@ -60,21 +60,27 @@ type ExtractInput struct {
 // the existing "Thêm thiết bị" form. It is NEVER persisted — purely a draft for
 // the user to confirm. Matched catalog rows populate the *Id fields; unmatched
 // free-text stays in the plain fields and is listed in Unmatched.
+//
+// Warnings is the advisory sibling of Unmatched (FEATURE_IDEAS #6): Unmatched
+// means "we could not use this value", Warnings means "we kept it, but it looks
+// wrong — review before saving". Both are non-blocking; neither empties a field
+// on its own. Always `[]`, never null.
 type DraftDevice struct {
-	Name               *string  `json:"name"`
-	Category           *string  `json:"category"` // catalog code when matched
-	Brand              *string  `json:"brand"`
-	BrandID            *string  `json:"brandId"`
-	Model              *string  `json:"model"`
-	SerialNumber       *string  `json:"serialNumber"`
-	PurchaseDate       *string  `json:"purchaseDate"`
-	PurchasePrice      *int64   `json:"purchasePrice"`
-	PurchasePlace      *string  `json:"purchasePlace"`
-	StoreID            *string  `json:"storeId"`
-	WarrantyMonths     *int     `json:"warrantyMonths"`
-	WarrantyProviderID *string  `json:"warrantyProviderId"`
-	Confidence         string   `json:"confidence"`
-	Unmatched          []string `json:"unmatched"`
+	Name               *string   `json:"name"`
+	Category           *string   `json:"category"` // catalog code when matched
+	Brand              *string   `json:"brand"`
+	BrandID            *string   `json:"brandId"`
+	Model              *string   `json:"model"`
+	SerialNumber       *string   `json:"serialNumber"`
+	PurchaseDate       *string   `json:"purchaseDate"`
+	PurchasePrice      *int64    `json:"purchasePrice"`
+	PurchasePlace      *string   `json:"purchasePlace"`
+	StoreID            *string   `json:"storeId"`
+	WarrantyMonths     *int      `json:"warrantyMonths"`
+	WarrantyProviderID *string   `json:"warrantyProviderId"`
+	Confidence         string    `json:"confidence"`
+	Unmatched          []string  `json:"unmatched"`
+	Warnings           []Warning `json:"warnings"`
 }
 
 // ExtractReceipt resolves the image bytes (attachment or upload), calls the AI
@@ -140,7 +146,16 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 		return DraftDevice{}, internalErr("Lỗi tải danh mục")
 	}
 
-	return buildDraft(extracted, cat), nil
+	draft := buildDraft(extracted, cat)
+
+	// Post-check on the serial the model returned (FEATURE_IDEAS #6). Purely
+	// advisory: the value stays in the draft so the form is still pre-filled, and
+	// the client shows the warnings in yellow next to it. The DB-backed half is the
+	// duplicate lookup across this user's other devices — the draft has no device
+	// id yet, so there is nothing to exclude.
+	draft.Warnings = DeviceSerialWarnings(ctx, db, userID, draft.SerialNumber, "")
+
+	return draft, nil
 }
 
 // SetAIOptIn flips the per-user AI opt-in flag.
@@ -168,6 +183,9 @@ func buildDraft(e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
 		PurchasePrice: e.PurchasePrice,
 		Confidence:    "medium",
 		Unmatched:     []string{},
+		// Local (no-database) advisories are applied here so the draft is already
+		// useful on its own; ExtractReceipt then adds the duplicate-serial lookup.
+		Warnings: []Warning{},
 	}
 	if e.Confidence != nil && *e.Confidence != "" {
 		d.Confidence = *e.Confidence
@@ -177,6 +195,9 @@ func buildDraft(e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
 	// that is empty or implausibly long (OCR noise) is dropped and flagged.
 	if sn, ok := sanitizeSerialNumber(e.SerialNumber); ok {
 		d.SerialNumber = sn
+		if sn != nil {
+			d.Warnings = append(d.Warnings, SerialWarnings(*sn, 0)...)
+		}
 	} else {
 		d.Unmatched = append(d.Unmatched, "serialNumber")
 	}

@@ -57,3 +57,52 @@ WHERE "userId" = $1
 DELETE FROM "Session"
 WHERE "expiresAt" < NOW()
    OR ("revokedAt" IS NOT NULL AND "revokedAt" < NOW() - INTERVAL '1 day');
+
+-- ─── Per-session management (GET/DELETE /api/v1/auth/sessions) ────────────
+
+-- name: ListActiveSessionsForUser :many
+-- "Active" = not revoked and not expired at $2.
+--
+-- The expiry boundary is a parameter, not NOW(), on purpose: every timestamp
+-- column here is `timestamp without time zone` and the app writes it from Go's
+-- wall clock, so comparing against the database clock can be off by the server's
+-- UTC offset. The caller passes its own now — the same clock VerifyBearer uses.
+--
+-- "tokenHash" is deliberately NOT selected: it is credential material and must
+-- never leave the server. The exposed id is the row's surrogate key (cuid), which
+-- is not derived from the token and appears nowhere else.
+--
+-- LIMIT 100 bounds the response: PruneExpiredSessions drops rows a day after
+-- revocation, so only live sessions accumulate, and 100 live sessions already
+-- means something is wrong.
+SELECT
+    id,
+    "deviceLabel",
+    platform,
+    "lastSeenAt",
+    "expiresAt",
+    "createdAt"
+FROM "Session"
+WHERE "userId" = $1
+  AND "revokedAt" IS NULL
+  AND "expiresAt" > $2
+ORDER BY "lastSeenAt" DESC, "createdAt" DESC
+LIMIT 100;
+
+-- name: GetSessionByIDForUser :one
+-- Ownership-scoped lookup for the per-session revoke path. A miss means "unknown
+-- id OR someone else's id" and the handler answers 404 for both, so a foreign id
+-- cannot be told apart from a non-existent one.
+--
+-- No expiry filter on purpose: an expired-but-owned row is still the caller's own
+-- row, and the handler — not this query — decides what to say about a row that is
+-- already revoked.
+SELECT * FROM "Session" WHERE id = $1 AND "userId" = $2 LIMIT 1;
+
+-- name: RevokeSessionByID :execrows
+-- Ownership-scoped revoke. `"revokedAt" IS NULL` makes a repeated call a no-op
+-- (0 rows, not a second revocation timestamp), which is what makes the endpoint
+-- idempotent.
+UPDATE "Session"
+SET "revokedAt" = NOW()
+WHERE id = $1 AND "userId" = $2 AND "revokedAt" IS NULL;

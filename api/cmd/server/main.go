@@ -80,6 +80,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/change-email", handlers.RequestEmailChange(deps))
 	mux.HandleFunc("POST /api/v1/auth/confirm-email-change", handlers.ConfirmEmailChange(deps))
 	handlers.RegisterProfile(mux, deps)
+	handlers.RegisterSessions(mux, deps)
 
 	handlers.RegisterDevices(mux, deps)
 	handlers.RegisterWarranties(mux, deps)
@@ -90,6 +91,7 @@ func main() {
 	handlers.RegisterCatalog(mux, deps)
 	handlers.RegisterSearch(mux, deps)
 	handlers.RegisterStats(mux, deps)
+	handlers.RegisterForecast(mux, deps)
 	handlers.RegisterPush(mux, deps)
 	mux.HandleFunc("POST /api/v1/push/test", handlers.TestPush(deps))
 	handlers.RegisterCron(mux, deps)

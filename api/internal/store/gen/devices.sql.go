@@ -24,6 +24,37 @@ func (q *Queries) CountDevicesByUser(ctx context.Context, userid string) (int64,
 	return count, err
 }
 
+const countOtherDevicesBySerial = `-- name: CountOtherDevicesBySerial :one
+SELECT COUNT(*)::bigint AS count
+FROM "Device"
+WHERE "userId" = $1
+  AND "serialNumber" IS NOT NULL
+  AND lower("serialNumber") = lower($2::text)
+  AND ($3::text = '' OR id <> $3::text)
+`
+
+type CountOtherDevicesBySerialParams struct {
+	UserId    string `json:"userId"`
+	Serial    string `json:"serial"`
+	ExcludeId string `json:"excludeId"`
+}
+
+// Advisory duplicate-serial lookup (FEATURE_IDEAS #6). Device."serialNumber"
+// has no unique index anywhere on purpose: legacy rows exist, a serial is not
+// globally unique, and VN warranty is keyed to the IMEI/serial — so a duplicate
+// is something to SHOW the user, never something to reject.
+//
+// Case-insensitive: "abc123" and "ABC123" are the same identifier on a sticker.
+// exclude_id ($3) is the device being edited; ” (create / AI draft) matches
+// nothing, so the caller can always pass the id it already has and a device can
+// never collide with itself.
+func (q *Queries) CountOtherDevicesBySerial(ctx context.Context, arg CountOtherDevicesBySerialParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOtherDevicesBySerial, arg.UserId, arg.Serial, arg.ExcludeId)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createDevice = `-- name: CreateDevice :one
 INSERT INTO "Device" (
     id,

@@ -169,3 +169,47 @@ SELECT
 FROM "WishlistItem"
 WHERE "userId" = $1
   AND status IN ('WATCHING', 'DECIDED');
+
+-- ─── Spending forecast (GET /api/v1/forecast) ─────────────────────────────
+--
+-- The forecast is a forward-looking read, so these two queries only fetch the
+-- candidate rows inside the caller's window; every bucket is computed in Go by
+-- services.Forecast so the arithmetic is a pure, testable function of a
+-- deterministic "now" (no NOW() in the maths, no wall-clock test).
+--
+-- Subscriptions need no new query: ListSubscriptionsByUser(status='ACTIVE')
+-- already returns exactly the rows the forecast walks (LIFETIME is filtered in
+-- Go, where MonthlyEquivalent also treats it as 0).
+
+-- name: ListWarrantiesExpiringBetween :many
+-- Warranties whose endDate lands in [from, to) on a device that is still ACTIVE.
+-- A warranty on a SOLD/BROKEN/LOST device is not an upcoming milestone — the same
+-- `d.status = 'ACTIVE'` predicate the reminder feed and StatsWarrantyExpiring use.
+--
+-- The Reminder dismissal gate is deliberately NOT applied: `isDismissed` is a
+-- push-suppression flag (see docs/SPEC-MAINTENANCE-SCHEDULES.md §2.3), while this
+-- is a money plan the user asked to look at.
+SELECT
+    w.*,
+    d.name AS device_name
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE d."userId" = $1
+  AND d.status = 'ACTIVE'
+  AND w."endDate" >= $2
+  AND w."endDate" <  $3
+ORDER BY w."endDate" ASC;
+
+-- name: ListWishlistTargetsBetween :many
+-- Wishlist items with a targetDate in [from, to), restricted to the "still
+-- interesting" statuses (WATCHING|DECIDED) — exactly the set the cron target-date
+-- push and StatsWishlistActiveValue treat as active. A PURCHASED or SKIPPED item
+-- is not an upcoming spend.
+SELECT *
+FROM "WishlistItem"
+WHERE "userId" = $1
+  AND status IN ('WATCHING', 'DECIDED')
+  AND "targetDate" IS NOT NULL
+  AND "targetDate" >= $2
+  AND "targetDate" <  $3
+ORDER BY "targetDate" ASC;

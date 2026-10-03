@@ -28,6 +28,7 @@ tags:
   - { name: wishlist }
   - { name: push }
   - { name: catalog }
+  - { name: stats }
   - { name: ai }
 
 security:
@@ -165,6 +166,75 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/auth/sessions:
+    get:
+      tags: [auth]
+      summary: List the caller's active login sessions
+      description: |
+        Trả về các phiên đăng nhập **đang hoạt động** của chính người gọi (chưa bị
+        thu hồi và chưa hết hạn tại thời điểm gọi), mới dùng gần nhất trước, tối đa
+        100 dòng.
+
+        Vì sao có endpoint này: trước đây chỉ có đúng hai đường thu hồi — đúng token
+        đang gửi lên (`POST /api/v1/auth/logout`) và thu hồi **tất cả**
+        (`POST /api/v1/auth/reset-password` / `confirm-email-change`). TTL trượt 7
+        ngày nghĩa là chỉ cần mở app mỗi tuần thì một phiên không bao giờ hết hạn,
+        nên đưa máy cho người khác là hành động một chiều, âm thầm và không quan sát
+        được.
+
+        `id` là khoá chính của hàng `Session` (cuid) — **không phải** token và không
+        phải hash của token. `tokenHash` không bao giờ được trả về; chỉ token thô
+        mới xác thực được và nó không được lưu ở đâu cả.
+
+        `current = true` đánh dấu phiên đang gọi request này, để client gắn nhãn
+        "thiết bị này". `deviceLabel` có thể là `null` với client cũ không gửi nhãn
+        lúc đăng nhập.
+
+        Không liên quan tới `GET /api/v1/push` — đó là danh sách **đích nhận thông
+        báo**, xoá nó chỉ ngừng push chứ không thu hồi quyền truy cập dữ liệu.
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/auth/sessions/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    delete:
+      tags: [auth]
+      summary: Revoke one of the caller's own sessions
+      description: |
+        Thu hồi **một** phiên của chính người gọi (theo `id` lấy từ
+        `GET /api/v1/auth/sessions`). Các phiên khác giữ nguyên.
+
+        **Kiểm tra sở hữu, và 404 chứ không 403.** Id không tồn tại và id thuộc
+        người dùng khác trả về **cùng một** 404 với cùng một body, nên không thể
+        dùng endpoint này để dò xem một id lạ có tồn tại hay không — đúng quy ước
+        của `GET /api/files/{id}` và `DELETE /api/v1/attachments/{id}`.
+
+        **Idempotent.** Gọi lần thứ hai trên cùng một phiên vẫn là 200, với
+        `alreadyRevoked = true`; `revokedAt` không bị ghi đè.
+
+        **Phiên hiện tại CÓ thể thu hồi qua đường này** và đó là chủ ý: nó tương
+        đương `POST /api/v1/auth/logout`, và là câu trả lời đúng cho "đăng xuất
+        khỏi thiết bị này" khi thiết bị đó là máy đang cầm. Khi đó response có
+        `current = true` kèm `message` nhắc đăng nhập lại — client **phải** xoá
+        token đang giữ, vì request kế tiếp sẽ 401.
+
+        Rate-limited per user như mọi write đã xác thực (60 req/60s).
+      responses:
+        '200':
+          description: Revoked (or already revoked)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionRevokeResult' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/auth/reset-password:
     post:
       tags: [auth]
@@ -214,6 +284,94 @@ paths:
                   message: { type: string }
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/auth/change-email:
+    post:
+      tags: [auth]
+      summary: Yêu cầu đổi email — bước 1/2 (gửi token xác nhận tới địa chỉ mới)
+      description: |
+        Bước đầu của luồng đổi email. Body gồm **địa chỉ mới** và **mật khẩu hiện
+        tại** (mật khẩu để một bearer token bị đánh cắp không thể tự chuyển tài
+        khoản sang địa chỉ khác).
+
+        Endpoint này **không** sửa `User.email`. Địa chỉ cũ vẫn đăng nhập / nhận
+        thông báo bình thường cho tới khi bước 2 xác nhận thành công. Server tạo
+        một token dùng-một-lần, hết hạn sau **30 phút** (cùng hạ tầng
+        `PasswordReset` với luồng quên mật khẩu, cột `pendingEmail`) và gửi email
+        tới **địa chỉ mới** — nhận được email ở đó chính là bằng chứng sở hữu địa
+        chỉ. Email chứa cả link (`{APP_URL}/confirm-email/{token}`) và mã token
+        thô để client native gọi thẳng bước 2.
+
+        **Không tiết lộ địa chỉ đã tồn tại:** nếu địa chỉ mới đã thuộc một tài
+        khoản khác, phản hồi vẫn là 200 với *cùng một* `message` trung tính như
+        khi thành công, và **không** có email nào được gửi (giống cách
+        `POST /api/v1/auth/register` xử lý email đã tồn tại). Chỉ khi địa chỉ mới
+        trùng với chính email hiện tại của bạn thì mới trả 400.
+
+        Yêu cầu bearer token. Rate limit theo user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeEmailRequest' }
+      responses:
+        '200':
+          description: |
+            Đã ghi nhận yêu cầu (hoặc địa chỉ đã được dùng — hai trường hợp trả
+            cùng một thông báo trung tính).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/auth/confirm-email-change:
+    post:
+      tags: [auth]
+      summary: Xác nhận đổi email — bước 2/2 (tiêu thụ token)
+      description: |
+        Bước cuối của luồng đổi email. Body chỉ có `token` (token thô trong email
+        gửi tới địa chỉ mới). **Không yêu cầu bearer token**: token là chứng thực,
+        và link thường được mở trên thiết bị khác.
+
+        Khi thành công, trong một transaction: cập nhật `User.email` sang địa chỉ
+        mới, đánh dấu token đã dùng **và** huỷ mọi token còn treo khác của user
+        (cả token đặt lại mật khẩu lẫn token đổi email), rồi **thu hồi toàn bộ
+        session** — giống hệt luồng đặt lại mật khẩu. Vì vậy client phải đăng nhập
+        lại bằng địa chỉ mới; các thiết bị khác cũng bị đăng xuất.
+
+        Token dùng một lần và hết hạn sau 30 phút. Token đã dùng, token hết hạn,
+        token không tồn tại, **và token đặt lại mật khẩu** đều trả 400
+        `invalid_email_change_token` (hai loại token được phân biệt bằng cột
+        `pendingEmail`, migration 0009 — token đổi email không thể dùng để đặt lại
+        mật khẩu và ngược lại). Nếu địa chỉ mới bị người khác đăng ký trong lúc
+        chờ xác nhận: 400 `email_in_use`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: 'Token thô trong email xác nhận.' }
+      responses:
+        '200':
+          description: Đã đổi email (mọi session đã bị thu hồi)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadInput' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/catalog:
@@ -277,12 +435,21 @@ paths:
             schema: { $ref: '#/components/schemas/DeviceInput' }
       responses:
         '201':
-          description: Created
+          description: |
+            Created. `warnings` là các cảnh báo **không chặn** (advisory) về
+            `serialNumber` — IMEI sai checksum Luhn, sai độ dài IMEI, hoặc serial đã
+            có ở thiết bị khác của cùng người dùng (FEATURE_IDEAS #6). Thiết bị **đã
+            được tạo**; client chỉ nên hiện cảnh báo vàng, không được coi là thất bại.
+            Mảng luôn có mặt, rỗng khi không có gì đáng lưu ý.
           content:
             application/json:
               schema:
                 type: object
-                properties: { device: { $ref: '#/components/schemas/Device' } }
+                properties:
+                  device: { $ref: '#/components/schemas/Device' }
+                  warnings:
+                    type: array
+                    items: { $ref: '#/components/schemas/DeviceWarning' }
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -312,12 +479,19 @@ paths:
             schema: { $ref: '#/components/schemas/DeviceInput' }
       responses:
         '200':
-          description: Updated
+          description: |
+            Updated. `warnings` giống `POST /api/v1/devices`; thiết bị đang sửa được
+            loại trừ khỏi phép dò trùng, nên lưu lại chính serial cũ không tạo cảnh
+            báo "trùng với chính nó".
           content:
             application/json:
               schema:
                 type: object
-                properties: { device: { $ref: '#/components/schemas/Device' } }
+                properties:
+                  device: { $ref: '#/components/schemas/Device' }
+                  warnings:
+                    type: array
+                    items: { $ref: '#/components/schemas/DeviceWarning' }
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -701,6 +875,55 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/Ok' }
 
+  /api/v1/search:
+    get:
+      tags: [search]
+      summary: Tìm kiếm xuyên thực thể (thiết bị, subscription, wishlist)
+      description: |
+        Roadmap #7. Trước endpoint này, `q` chỉ tồn tại trên `GET /api/v1/devices`,
+        nên gõ "samsung" không tìm được subscription "Samsung Cloud" hay món
+        wishlist "Galaxy Buds".
+
+        **Vì sao thêm endpoint mới thay vì mở rộng 3 endpoint danh sách:** một
+        truy vấn trả cả ba nhóm (client không phải gọi 3 lần rồi tự trộn), không
+        đụng vào hành vi `q` hiện có của từng danh sách (không rủi ro hồi quy cho
+        web/iOS/Android đang chạy), và hợp đồng rõ ràng cho màn hình "Tìm kiếm"
+        chung. Ba endpoint danh sách giữ nguyên `q`/`status` như cũ.
+
+        **Khớp không dấu:** dùng đúng biểu thức của migration 0007 —
+        `lower(public.wv_unaccent(x))` — nên `dien thoai` khớp `Điện thoại`, và
+        hoạt động giống nhau trên database locale C lẫn UTF-8. KHÔNG dùng ILIKE
+        trần (ILIKE không bỏ dấu tiếng Việt).
+
+        Các trường được tìm (không dấu, không phân biệt hoa thường):
+          * `devices`: `name`, `brand`, `model`, `serialNumber` (giống `GET /api/v1/devices?q=`)
+          * `subscriptions`: `name`, `brand`, `plan`, `accountEmail`
+          * `wishlist`: `name`, `brand`, `notes`
+
+        `q` rỗng hoặc chỉ có khoảng trắng trả về 200 với ba mảng rỗng (không phải
+        400) — người dùng xoá hết chữ trong ô tìm kiếm không phải là lỗi. `q` dài
+        hơn 200 ký tự trả 400. Mỗi nhóm bị chặn bởi `limit` (mặc định 20, tối đa
+        50) và luôn nằm trong tài khoản đang đăng nhập.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Từ khoá. Không dấu vẫn khớp có dấu. Rỗng ⇒ ba mảng rỗng. Tối đa 200 ký tự.
+          schema: { type: string, maxLength: 200 }
+        - name: limit
+          in: query
+          required: false
+          description: Số dòng tối đa cho MỖI nhóm (thiết bị / subscription / wishlist). Mặc định 20, tối đa 50.
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Kết quả đã nhóm
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResults' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/v1/push:
     get:
       tags: [push]
@@ -788,32 +1011,175 @@ paths:
               schema: { $ref: '#/components/schemas/UserStats' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/forecast:
+    get:
+      tags: [stats]
+      summary: Dự báo chi tiêu các tháng tới (subscription + mốc bảo hành + wishlist)
+      description: |
+        Nửa **nhìn về phía trước** của app. Trả về một cửa sổ `months` tháng kể từ
+        hôm nay, chia theo từng tháng, gồm: các kỳ gia hạn subscription sắp bị trừ,
+        các gói bảo hành sắp hết hạn, và các mốc ngày của wishlist.
+
+        **Endpoint riêng, không nhét vào `/api/v1/stats`.** `/stats` là một round
+        trip mà cả ba client đang dùng và hình dạng của nó không được đổi; phép tính
+        ở đây cần thêm ba query và một vòng lặp theo từng kỳ gia hạn, nên client nào
+        không mở thẻ dự báo thì không phải trả giá cho nó.
+
+        ### Quy tắc tiền tệ
+
+        * Một kỳ gia hạn tính đúng `price` **một lần**, không quy đổi ra tháng. Nhịp
+          gia hạn lấy từ `nextRenewalDate` — cùng một hàm mà cron và cả ba client
+          dùng.
+        * `LIFETIME` đóng góp **0** và không bao giờ xuất hiện như một khoản bị trừ
+          (kể cả khoản 0) — đúng như `MonthlyEquivalent` và `stats.sql`.
+        * `CUSTOM` thiếu `intervalDays` (hoặc <= 0) bị **bỏ hoàn toàn**: không có
+          lịch thì không có khoản nào, kể cả kỳ hiện tại.
+        * Chỉ subscription `ACTIVE` được tính.
+        * `subscriptionTotalVnd` là tổng **int64** (giá từng hàng là int32, tổng
+          không bao giờ bị thu hẹp).
+        * `subscriptionMonthlyAverageVnd` là con số **quy đổi tháng** theo đúng công
+          thức canonical — nó **bằng** `subscriptions.totalMonthlyVnd` của
+          `GET /api/v1/stats` với cùng dữ liệu. Dùng nó cho dòng "~X/tháng"; **không**
+          dùng nó để tính tổng 12 tháng.
+
+        ### Quy tắc chia tháng (bucket)
+
+        * Cửa sổ là `[windowStart, windowEnd)` = `[hôm nay, hôm nay + months tháng]`
+          theo đúng phép cộng tháng của `nextRenewalDate` (cuối tháng tràn ngày giống
+          nhau ở cả ba client).
+        * `buckets` gồm **các tháng lịch (UTC) mà cửa sổ chạm tới**, bắt đầu từ tháng
+          hiện tại: thường là `months + 1` phần tử (tháng hiện tại tính một phần, cộng
+          `months` tháng đủ), và đúng `months` phần tử khi thời điểm gọi rơi đúng
+          00:00 ngày 1. Tháng lẻ phía cuối được liệt kê có chủ ý: nếu cắt ở mốc
+          `startOfMonth + months` thì một gói MONTHLY gia hạn ngày 1 sẽ chỉ hiện 11
+          trong 12 kỳ.
+        * Mỗi bucket là **nửa khoảng** `[đầu tháng, đầu tháng sau)`: một khoản rơi
+          đúng 00:00 ngày 1 thuộc **tháng đó**, không phải tháng trước.
+        * Khoản rơi đúng `windowEnd` **không thuộc bucket nào** (cửa sổ đóng ở bên
+          phải).
+        * **Tháng hiện tại là một phần**: chỉ tính từ `windowStart` trở đi, nên một
+          khoản đã trừ hôm mùng 1 là quá khứ, không phải dự báo. Tháng cuối cũng là
+          một phần nếu `windowEnd` rơi giữa tháng.
+        * `renewalDate` đã ở quá khứ được **cuộn tới kỳ kế tiếp** (giống cron khi
+          auto-charge), nên khoản đầu tiên luôn là khoản sắp xảy ra.
+
+        ### Chắc chắn trả hay có thể phát sinh
+
+        `subscriptionAutoRenewVnd` là phần **sẽ bị trừ tự động**
+        (`autoRenew = true`); chênh lệch so với `subscriptionVnd` là các gói người
+        dùng phải tự gia hạn. `warrantyExpiringVnd` (giá gói cũ, tham chiếu để dành
+        tiền) và `wishlistTargetVnd` (giá ghi nhận gần nhất) là **có thể phát sinh**,
+        không phải khoản chắc chắn trả — đừng cộng chúng vào tổng subscription khi
+        hiển thị.
+      parameters:
+        - name: months
+          in: query
+          required: false
+          description: |
+            Độ dài cửa sổ tính bằng tháng, `1`–`24`. Mặc định `12`. Giá trị không
+            phải số, ngoài khoảng, hoặc có phần thập phân → 400 kèm `fieldErrors.months`
+            (không âm thầm dùng mặc định).
+          schema: { type: integer, minimum: 1, maximum: 24, default: 12 }
+      responses:
+        '200':
+          description: Forecast window with per-month buckets and upcoming milestones
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Forecast' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/v1/backup/export:
     get:
       tags: [backup]
-      summary: Download the authenticated user's full data graph as JSON
+      summary: Download the authenticated user's full data graph (JSON, or .zip kèm ảnh)
       description: |
-        Streams a single JSON file containing devices, warranties, reminders,
-        attachments (metadata + base64 IV / wrapped key), wishlist + price
-        history, subscriptions + payment history. Schema version 5.
-        Response sets `Content-Disposition: attachment; filename=...`.
+        Mặc định (`includeBlobs` vắng mặt hoặc `false`): stream **một file JSON**
+        chứa devices, warranties, reminders, attachments (metadata + IV /
+        wrappedKey base64), wishlist + lịch sử giá, subscriptions + lịch sử thanh
+        toán. Phiên bản schema **5** — không đổi so với trước. Response có
+        `Content-Disposition: attachment; filename=...`.
 
-        The attachment BLOBS are not in the file — only metadata. The payload
-        says so explicitly via `includesAttachmentBytes: false` and
-        `attachmentBytesNote` (Vietnamese), so a client can warn the user that
-        restoring onto a new server will not bring invoice images back.
+        Với `includeBlobs=true`: stream **một file .zip** (`application/zip`,
+        filename `.zip`) chứa:
+          * `attachments/<storagePath>` — nội dung **đã mã hoá** (AES-256-GCM) của
+            từng file đính kèm, đúng byte như trên đĩa (không base64, không nén);
+          * `data.json` — envelope phiên bản **6** với
+            `includesAttachmentBytes: true` và `attachmentBytesNote` tiếng Việt.
+        Nhờ vậy khôi phục sang máy chủ mới mang theo được ảnh hoá đơn — thứ mà bản
+        JSON chỉ có metadata không làm được.
+
+        **Sự thật không đổi:** blob là ciphertext, khoá riêng của từng file được
+        bọc bằng `FILE_MASTER_KEY`. Khôi phục sang máy chủ thiếu hoặc khác
+        `FILE_MASTER_KEY` vẫn ghi lại được dòng dữ liệu và byte, nhưng **không giải
+        mã được** — `attachmentBytesNote` nói rõ điều này và kết quả import trả về
+        `attachmentsUnreadable`. Đừng hứa với người dùng rằng file backup là tự đủ.
+
+        Nếu một blob không còn trên đĩa lúc export, nó **không** được đưa vào
+        archive; id của nó nằm trong `missingAttachmentIds` (và được nhắc trong
+        `attachmentBytesNote`) thay vì âm thầm biến mất.
+      parameters:
+        - name: includeBlobs
+          in: query
+          required: false
+          description: |
+            `true` để nhận file `.zip` kèm nội dung ảnh/hoá đơn đã mã hoá thay vì
+            JSON chỉ có metadata. Mặc định `false` — hành vi và định dạng JSON y
+            như trước. Chỉ nhận `true`/`false` (và `1`/`0`); giá trị khác trả 400.
+          schema: { type: boolean, default: false }
       responses:
         '200':
-          description: Backup payload
+          description: |
+            `includeBlobs` vắng/false ⇒ JSON (BackupV1, version 5).
+            `includeBlobs=true` ⇒ ZIP: `data.json` (version 6) + các entry
+            `attachments/...`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BackupV1' }
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/backup/import:
     post:
       tags: [backup]
-      summary: Restore a backup JSON into the authenticated user's account
+      summary: Restore a backup (JSON metadata, hoặc .zip kèm nội dung ảnh)
+      description: |
+        Nhận **một trong hai** định dạng, phân biệt bằng magic bytes (`PK\x03\x04`)
+        chứ không bằng Content-Type (client hay gửi `application/octet-stream`):
+
+          * **JSON** (`BackupV1`, version 5 hoặc 6) — như trước, chỉ metadata.
+            Giới hạn body **50 MB**.
+          * **ZIP** do `GET /api/v1/backup/export?includeBlobs=true` tạo ra —
+            `data.json` + các entry `attachments/<storagePath>`. Giới hạn body
+            **110 MB** (trần upload mỗi người dùng là 100 MB + manifest).
+
+        Import **riêng file `data.json`** của một archive như vậy bị từ chối 400
+        kèm hướng dẫn chọn chính file `.zip`: envelope đó khai báo
+        `includesAttachmentBytes: true`, nên nhận nó một mình sẽ khôi phục dòng dữ
+        liệu mà mất hết ảnh — đúng thứ định dạng blob sinh ra để tránh.
+
+        ZIP được kiểm tra trước khi ghi bất cứ thứ gì: tên entry phải là
+        `data.json` hoặc một `storagePath` hợp lệ, mỗi blob ≤ 5 MB, tổng blob
+        ≤ 100 MB, `data.json` ≤ 16 MB, và mọi attachment khai báo trong manifest
+        phải có entry tương ứng. Ràng buộc của write path được tôn trọng:
+        **tối đa 5 file đính kèm / thiết bị** và **tổng 100 MB / người dùng** —
+        file bị sửa vượt các ngưỡng này bị từ chối 400 chứ không tạo ra trạng thái
+        mà upload thường không cho phép.
+
+        **Id xung đột với tài khoản khác ⇒ 400, không phải 500.** Mọi bảng dùng
+        khoá chính text **toàn cục**; file của tài khoản khác sẽ đụng khoá chính.
+        Endpoint từ chối trước khi mở transaction, kèm message tiếng Việt nêu rõ
+        id và loại thực thể. (Id thuộc chính người đang import được bỏ qua ở chế
+        độ `merge` và bị xoá trước ở chế độ `replace`, nên không bị coi là xung
+        đột.) Chọn **từ chối** thay vì **đổi id**: đổi id phải viết lại toàn bộ đồ
+        thị id (device → warranty → reminder, attachment, wishlist → price,
+        subscription → payment) và cả `storagePath` trên đĩa vốn chứa device id —
+        sai một cạnh là hỏng âm thầm; đồng thời nó phá tính idempotent của `merge`
+        (import lại cùng file sẽ nhân đôi dữ liệu).
       parameters:
         - name: mode
           in: query
@@ -827,6 +1193,10 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/BackupV1' }
+          application/zip:
+            schema:
+              type: string
+              format: binary
       responses:
         '200':
           description: Import succeeded
@@ -840,7 +1210,7 @@ paths:
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '413':
-          description: Body exceeded the 50 MB upload cap
+          description: Body exceeded the cap (50 MB for JSON, 110 MB for a .zip)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
@@ -851,15 +1221,42 @@ paths:
       tags: [reminders]
       summary: Upcoming warranty reminders for the current user
       description: |
-        Returns warranties whose `endDate` is within `[today, today + withinDays]`,
-        whose owning device has `status = ACTIVE`, and which have not been
-        dismissed via `Reminder.isDismissed`. Sorted by `endDate asc`.
+        Mặc định (`includeDismissed` vắng mặt hoặc `false`): trả về các gói bảo
+        hành có `endDate` trong `[hôm nay, hôm nay + withinDays]`, thuộc thiết bị
+        `status = ACTIVE`, và chưa bị ẩn qua `Reminder.isDismissed`. Sắp xếp theo
+        `endDate asc`. Đây đúng là hành vi cũ, không đổi.
+
+        Với `includeDismissed=true`, các reminder **đã ẩn** được trả thêm vào cùng
+        mảng `reminders[]`:
+          * **Không áp dụng `withinDays`** cho reminder đã ẩn — một reminder ẩn từ
+            nhiều năm trước vẫn nằm trong danh sách "Đã ẩn". Kích thước phản hồi
+            vẫn bị chặn bởi giới hạn ghi (50 thiết bị × 5 bảo hành = tối đa 250
+            gói bảo hành / người dùng).
+          * **Không áp dụng điều kiện `status = ACTIVE`** cho reminder đã ẩn — một
+            reminder bị ẩn trên thiết bị sau đó đã bán / hỏng / mất vẫn hiển thị,
+            kèm `device.status` để client vẽ badge.
+        Các dòng KHÔNG bị ẩn vẫn giữ nguyên điều kiện cửa sổ thời gian + thiết bị
+        ACTIVE ở cả hai chế độ, nên cờ này chỉ *thêm* dòng, không bao giờ làm mất
+        dòng.
+
+        Phân biệt dòng ẩn: mỗi dòng có `isDismissed` (top-level). Trường này chỉ
+        xuất hiện khi `true`; client đọc thiếu trường thì hiểu là `false`. Vì vậy
+        phản hồi của chế độ mặc định giữ nguyên hình dạng cũ (không có khoá
+        `isDismissed`).
       parameters:
         - name: withinDays
           in: query
           required: false
-          description: Lookahead horizon in days. Default 30, max 365.
+          description: Lookahead horizon in days. Default 30, max 365. Chỉ áp dụng cho reminder CHƯA bị ẩn.
           schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+        - name: includeDismissed
+          in: query
+          required: false
+          description: |
+            `true` để trả thêm reminder đã ẩn (mục "Đã ẩn"). Mặc định `false` —
+            hành vi và hình dạng phản hồi y như trước. Chỉ nhận `true`/`false`
+            (và `1`/`0`); giá trị khác trả 400.
+          schema: { type: boolean, default: false }
       responses:
         '200':
           description: Reminder list
@@ -912,15 +1309,25 @@ paths:
   /api/v1/ai/extract-receipt:
     post:
       tags: [ai]
-      summary: OCR một ảnh hoá đơn / phiếu bảo hành, trả về DRAFT để người dùng xác nhận (không tự lưu)
+      summary: OCR ảnh hoặc PDF hoá đơn / phiếu bảo hành, trả về DRAFT để người dùng xác nhận (không tự lưu)
       description: >
-        Nhận ảnh (multipart file HOẶC attachmentId của ảnh đã upload), gửi qua
-        dịch vụ AI để trích xuất thông tin thiết bị + bảo hành, trả về bản nháp.
-        KHÔNG bao giờ tạo Device — client tự điền form và người dùng xác nhận.
-        Cần ANTHROPIC_API_KEY trên server; nếu chưa cấu hình trả về 503.
-        CHỈ hỗ trợ ảnh JPEG/PNG/WEBP (tối đa 5MB): file đính kèm có thể là PDF,
-        GIF hoặc HEIC nhưng OCR các định dạng đó KHÔNG được hỗ trợ trong phiên
-        bản này — gửi lên sẽ nhận 400 "Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP".
+        Nhận tài liệu (multipart file HOẶC attachmentId của file đã upload), gửi
+        qua dịch vụ AI để trích xuất thông tin thiết bị + bảo hành, trả về bản
+        nháp. KHÔNG bao giờ tạo Device — client tự điền form và người dùng xác
+        nhận. Cần ANTHROPIC_API_KEY trên server; nếu chưa cấu hình trả về 503.
+
+        Hỗ trợ **JPEG/PNG/WEBP và PDF** (mỗi file tối đa 5MB theo giới hạn
+        attachment). PDF được gửi dưới dạng `document` block của Anthropic
+        Messages API — mọi model đang hoạt động (kể cả model mặc định
+        `claude-haiku-4-5-20251001`) đều đọc được PDF, gồm cả ảnh scan từng
+        trang; giới hạn phía Anthropic là 32MB và 100 trang mỗi request, và
+        attachment 5MB của app luôn nằm trong ngưỡng đó. Số trang KHÔNG được
+        kiểm trước (đếm trang phải parse PDF); PDF quá lớn bị phía Anthropic từ
+        chối và trả về 502 `ai_upstream`.
+
+        GIF và HEIC vẫn KHÔNG hỗ trợ OCR: upload/đính kèm được nhưng không có
+        block type tương ứng, nên bị từ chối sớm bằng 400
+        "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF" trước khi tốn một lượt gọi AI.
       requestBody:
         required: true
         content:
@@ -929,13 +1336,13 @@ paths:
               type: object
               required: [attachmentId]
               properties:
-                attachmentId: { type: string, description: 'ID ảnh đã upload (reuse decrypt path). Nếu file không phải JPEG/PNG/WEBP ⇒ 400.' }
+                attachmentId: { type: string, description: 'ID file đã upload (reuse decrypt path). Nếu không phải JPEG/PNG/WEBP/PDF ⇒ 400.' }
           multipart/form-data:
             schema:
               type: object
               required: [file]
               properties:
-                file: { type: string, format: binary, description: 'Ảnh JPEG/PNG/WEBP, tối đa 5MB' }
+                file: { type: string, format: binary, description: 'Ảnh JPEG/PNG/WEBP hoặc PDF, tối đa 5MB' }
       responses:
         '200':
           description: Bản nháp (chưa lưu)
@@ -1068,7 +1475,7 @@ components:
         DeviceInput để client điền thẳng vào form. Mọi trường đều nullable. Các
         *Id chỉ được set khi map chắc chắn với danh mục; còn lại giữ free-text và
         liệt kê trong `unmatched`. Bản nháp KHÔNG bao giờ được lưu tự động.
-      required: [confidence, unmatched]
+      required: [confidence, unmatched, warnings]
       properties:
         name: { type: string, nullable: true }
         category: { type: string, nullable: true, description: 'Mã danh mục nếu map được, ngược lại free-text' }
@@ -1107,6 +1514,17 @@ components:
             Tên các trường cần người dùng tự kiểm tra: free-text không khớp danh
             mục (`brand`, `purchasePlace`, `category`), hoặc giá trị bị loại vì vô
             lý (`serialNumber`, `warrantyMonths`).
+        warnings:
+          type: array
+          description: |
+            Cảnh báo **không chặn** về giá trị *vẫn được giữ* trong bản nháp — khác
+            với `unmatched` (giá trị bị bỏ). Hiện chỉ có các cảnh báo quanh
+            `serialNumber`: IMEI 15 số sai checksum Luhn, chuỗi toàn số dài 14/16/17
+            (không phải IMEI 15 số), và serial đã tồn tại ở thiết bị khác của cùng
+            người dùng. Form nên hiện cảnh báo vàng cạnh ô serial và **vẫn cho lưu**:
+            serial không phải lúc nào cũng là IMEI, từ chối một serial hợp lệ còn tệ
+            hơn lỗi gõ mà nó ngăn. Luôn có mặt, `[]` khi không có gì.
+          items: { $ref: '#/components/schemas/DeviceWarning' }
 
     User:
       type: object
@@ -1146,9 +1564,10 @@ components:
     UpdateProfileInput:
       type: object
       description: |
-        Chỉ `displayName` được chấp nhận. Đổi email chưa được hỗ trợ (cần luồng
-        xác minh 2 bước) — gửi thêm `email`/`newEmail` sẽ trả 400 kèm
-        `fieldErrors`.
+        Chỉ `displayName` được chấp nhận. Đổi email **không** gửi ở đây — có luồng
+        riêng hai bước (`POST /api/v1/auth/change-email` rồi
+        `POST /api/v1/auth/confirm-email-change`). Gửi thêm `email`/`newEmail` vào
+        endpoint này sẽ trả 400 kèm `fieldErrors` chỉ đúng hai endpoint đó.
       required: [displayName]
       properties:
         displayName:
@@ -1160,6 +1579,23 @@ components:
             (`User.name` trở thành null). Giới hạn 80 **byte** UTF-8, đúng bằng
             giới hạn của bước đăng ký (tên tiếng Việt có dấu tốn nhiều byte hơn
             số ký tự). Giá trị được trim trước khi lưu.
+
+    # Body of POST /api/v1/auth/change-email (step 1 of 2).
+    ChangeEmailRequest:
+      type: object
+      required: [newEmail, currentPassword]
+      properties:
+        newEmail:
+          type: string
+          format: email
+          description: |
+            Địa chỉ muốn chuyển sang. Được trim + hạ chữ thường trước khi lưu.
+            Nếu đã thuộc tài khoản khác, phản hồi vẫn là 200 trung tính và không
+            có email nào được gửi (không tiết lộ địa chỉ tồn tại hay không).
+        currentPassword:
+          type: string
+          minLength: 1
+          description: 'Mật khẩu hiện tại của tài khoản. Sai ⇒ 400 với `fieldErrors.currentPassword`.'
 
     ChangePasswordRequest:
       type: object
@@ -1185,42 +1621,63 @@ components:
     BackupV1:
       type: object
       description: |
-        Schema version 5 of the user-data backup. Round-trip stable: an
-        export can be re-imported on a fresh account in `replace` mode to
-        get an identical row set.
+        Envelope dữ liệu người dùng. Hai định dạng cùng tồn tại:
 
-        **Honesty about attachments (roadmap #2).** The export carries
-        attachment *metadata* only — never the encrypted blob bytes. Restoring
-        onto a fresh server therefore does NOT bring invoice images back; the
-        blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need
-        `FILE_MASTER_KEY` to decrypt. `includesAttachmentBytes` /
-        `attachmentBytesNote` state this inside the payload itself so a client
-        can warn accurately instead of hardcoding the assumption. Both fields
-        are export-only metadata: the import endpoint ignores them, and a
-        payload that omits them still imports (older exports stay restorable).
+          * **version 5** — file JSON của `GET /api/v1/backup/export` (mặc định)
+            **và** mọi file người dùng đã tải trước đây. Chỉ có metadata của file
+            đính kèm, `includesAttachmentBytes: false`.
+          * **version 6** — `data.json` **bên trong file .zip** của
+            `GET /api/v1/backup/export?includeBlobs=true`, với
+            `includesAttachmentBytes: true`; nội dung ảnh nằm ở các entry
+            `attachments/<storagePath>` cạnh nó trong archive.
+
+        Round-trip ổn định: export rồi import lại trên tài khoản/database sạch
+        (chế độ `replace`) cho cùng tập dòng dữ liệu.
+
+        **Sự thật về file đính kèm.** Bản JSON (v5) KHÔNG chứa nội dung ảnh, nên
+        khôi phục sang máy chủ mới sẽ mất ảnh hoá đơn. Bản ZIP (v6) CÓ chứa nội
+        dung đã mã hoá, nhưng blob là ciphertext AES-256-GCM với khoá riêng từng
+        file được bọc bằng `FILE_MASTER_KEY`: thiếu hoặc sai khoá thì byte vẫn còn
+        mà ảnh không mở được. `includesAttachmentBytes` / `attachmentBytesNote`
+        nói đúng điều đó ngay trong payload để client cảnh báo chính xác thay vì
+        hardcode. Hai trường này là metadata của bản export: import bỏ qua chúng
+        khi quyết định, và payload cũ thiếu chúng vẫn import được.
+
+        Import chấp nhận **mọi** phiên bản trong khoảng
+        [MinBackupVersion, BackupVersion] (hiện tại 5-6) thay vì so bằng đúng, nên
+        việc nâng lên v6 không làm file v5 của người dùng thành rác. Payload mới
+        hơn (ví dụ 7) bị từ chối với thông báo tiếng Việt nói rõ phiên bản nhận
+        được; payload quá cũ (≤4) cũng vậy.
       required: [version, exportedAt, devices, wishlist, subscriptions]
       properties:
         version:
           type: integer
-          enum: [5]
+          enum: [5, 6]
           description: |
-            Phiên bản định dạng. Import chấp nhận **mọi** phiên bản trong khoảng
-            [MinBackupVersion, BackupVersion] (hiện tại 5-5) thay vì so bằng đúng,
-            nên một lần tăng version sau này không làm file cũ của người dùng
-            thành không đọc được. Payload mới hơn (ví dụ 6) bị từ chối với thông
-            báo tiếng Việt nói rõ phiên bản nhận được; payload quá cũ cũng vậy.
+            `5` = JSON chỉ metadata (định dạng cũ, vẫn được ghi cho tới khi client
+            đổi). `6` = envelope trong file .zip có kèm nội dung ảnh. Import chấp
+            nhận cả hai.
         exportedAt: { type: string, format: date-time }
         includesAttachmentBytes:
           type: boolean
-          enum: [false]
           description: |
-            Luôn `false` ở định dạng v5: payload KHÔNG chứa nội dung ảnh/hoá đơn,
-            chỉ có metadata (`fileName`, `fileType`, `fileSize`, `iv`,
-            `wrappedKey`) và `storagePath` của thiết bị. Đổi thành `true` là thay
-            đổi định dạng (zip kèm blob) — chưa làm.
+            `false` ở bản JSON v5: payload KHÔNG chứa nội dung ảnh/hoá đơn, chỉ có
+            metadata (`fileName`, `fileType`, `fileSize`, `iv`, `wrappedKey`) và
+            `storagePath`. `true` ở `data.json` bên trong file .zip v6: nội dung
+            đã mã hoá của từng attachment nằm ở entry
+            `attachments/<storagePath>` trong cùng archive.
         attachmentBytesNote:
           type: string
-          description: 'Câu tiếng Việt giải thích `includesAttachmentBytes` để client hiển thị thẳng cho người dùng.'
+          description: 'Câu tiếng Việt giải thích `includesAttachmentBytes` (và, với bản ZIP, cả yêu cầu `FILE_MASTER_KEY`) để client hiển thị thẳng cho người dùng.'
+        missingAttachmentIds:
+          type: array
+          items: { type: string }
+          description: |
+            Chỉ có ở bản ZIP: id của những attachment mà **blob không còn trên đĩa**
+            lúc export, nên không thể đưa vào archive. Dòng dữ liệu vẫn được export
+            và import lại (khôi phục metadata, thiếu byte); trường này để client
+            nói thật với người dùng thay vì để họ phát hiện lúc mở hoá đơn. Vắng
+            mặt khi mọi blob đều có.
         subscriptions:
           type: array
           items: { $ref: '#/components/schemas/BackupSubscription' }
@@ -1383,7 +1840,7 @@ components:
 
     ImportResult:
       type: object
-      required: [imported, skipped, wishlistImported, wishlistSkipped, subImported, subSkipped]
+      required: [imported, skipped, wishlistImported, wishlistSkipped, subImported, subSkipped, attachmentsImported, attachmentsSkipped, attachmentsUnreadable]
       properties:
         imported: { type: integer }
         skipped: { type: integer }
@@ -1391,6 +1848,25 @@ components:
         wishlistSkipped: { type: integer }
         subImported: { type: integer }
         subSkipped: { type: integer }
+        attachmentsImported:
+          type: integer
+          description: |
+            Số file đính kèm đã ghi ra `PRIVATE_UPLOAD_ROOT` (chỉ khác 0 khi import
+            file .zip có kèm nội dung ảnh). Import JSON chỉ metadata luôn trả 0.
+        attachmentsSkipped:
+          type: integer
+          description: |
+            Số file đính kèm bị bỏ qua cùng thiết bị của chúng (chế độ `merge`,
+            thiết bị đã tồn tại trong tài khoản) — byte cũng không được ghi, nên
+            không sinh file mồ côi.
+        attachmentsUnreadable:
+          type: integer
+          description: |
+            Số file đính kèm **không dùng được**: hoặc không giải mã được bằng
+            `FILE_MASTER_KEY` của máy chủ đang import (kể cả khi máy chủ chưa cấu
+            hình khoá — bản backup đến từ máy chủ khác), hoặc manifest đã đánh dấu
+            là thiếu blob từ lúc export (`missingAttachmentIds`). Dòng dữ liệu và
+            byte vẫn được khôi phục; con số này để client cảnh báo người dùng.
 
     DeviceStatus:
       type: string
@@ -1822,6 +2298,165 @@ components:
               websiteUrl: { type: string, nullable: true }
               notes: { type: string, nullable: true }
 
+    # ─── Session management (GET/DELETE /api/v1/auth/sessions) ──────────────
+
+    SessionSummary:
+      type: object
+      description: |
+        Một phiên đăng nhập đang hoạt động. `id` là khoá chính của hàng `Session`
+        (cuid) — KHÔNG phải bearer token và không phải hash của nó; `tokenHash`
+        không bao giờ rời server.
+      required: [id, current, lastSeenAt, createdAt, expiresAt]
+      properties:
+        id: { type: string, description: 'Dùng cho DELETE /api/v1/auth/sessions/{id}' }
+        deviceLabel:
+          type: string
+          nullable: true
+          description: 'Nhãn do client gửi lúc đăng nhập (tối đa 80 ký tự). `null` với client cũ không gửi nhãn — hiện "Không rõ thiết bị".'
+        platform: { type: string, nullable: true, enum: [web, ios, android, null] }
+        current:
+          type: boolean
+          description: 'true = phiên đang gọi request này ("thiết bị này").'
+        lastSeenAt: { type: string, format: date-time, description: 'Lần hoạt động cuối (RFC3339, UTC). Được cập nhật tối đa 5 phút một lần.' }
+        createdAt: { type: string, format: date-time, description: 'Thời điểm đăng nhập.' }
+        expiresAt: { type: string, format: date-time, description: 'Hết hạn hiện tại. TTL trượt: mỗi lần dùng sau 7 ngày lại đẩy thêm 30 ngày.' }
+
+    SessionList:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          description: 'Chỉ các phiên chưa thu hồi và chưa hết hạn, mới dùng gần nhất trước, tối đa 100 dòng. Luôn là `[]`, không bao giờ `null`.'
+          items: { $ref: '#/components/schemas/SessionSummary' }
+
+    SessionRevokeResult:
+      type: object
+      required: [ok, current, alreadyRevoked, message]
+      properties:
+        ok: { type: boolean }
+        current:
+          type: boolean
+          description: 'true = phiên bị thu hồi chính là phiên đang gọi. Client PHẢI xoá token đang giữ: request kế tiếp sẽ 401.'
+        alreadyRevoked:
+          type: boolean
+          description: 'true = phiên đã bị thu hồi từ trước; lần gọi này không đổi gì (idempotent).'
+        message: { type: string, description: 'Câu tiếng Việt hiển thị thẳng cho người dùng.' }
+
+    # ─── Serial/IMEI advisories (FEATURE_IDEAS #6) ───────────────────────────
+
+    DeviceWarning:
+      type: object
+      description: |
+        Cảnh báo **không chặn** kèm theo một giá trị đã được lưu. Client hiện cảnh
+        báo vàng cạnh ô tương ứng; KHÔNG được coi là thất bại và KHÔNG được tự ý
+        xoá giá trị.
+      required: [code, field, message]
+      properties:
+        code:
+          type: string
+          enum: [IMEI_CHECKSUM, IMEI_LENGTH, SERIAL_DUPLICATE]
+          description: |
+            `IMEI_CHECKSUM` — 15 chữ số nhưng sai checksum Luhn (thường là gõ sai
+            một số). `IMEI_LENGTH` — chuỗi toàn số dài 14/16/17, không phải IMEI 15
+            số. `SERIAL_DUPLICATE` — đã có ở thiết bị KHÁC của cùng người dùng
+            (`Device.serialNumber` không có unique index nên đây chỉ là cảnh báo).
+        field: { type: string, description: 'Tên trường trong request/draft, hiện luôn là `serialNumber`.' }
+        message: { type: string, description: 'Câu tiếng Việt hiển thị thẳng cho người dùng.' }
+
+    # ─── Spending forecast (GET /api/v1/forecast) ────────────────────────────
+
+    ForecastBucket:
+      type: object
+      description: |
+        Một tháng lịch (UTC) trong cửa sổ dự báo. Mọi trường tiền là tổng VND
+        (int64); mọi trường đếm là int64. Tháng không có gì vẫn có mặt với các giá
+        trị 0.
+      required:
+        - month
+        - subscriptionVnd
+        - subscriptionAutoRenewVnd
+        - subscriptionCount
+        - warrantyExpiringVnd
+        - warrantyExpiringCount
+        - wishlistTargetVnd
+        - wishlistTargetCount
+      properties:
+        month: { type: string, description: '`YYYY-MM` theo UTC.' }
+        subscriptionVnd: { type: integer, format: int64, description: 'Tổng các kỳ gia hạn rơi vào tháng này.' }
+        subscriptionAutoRenewVnd: { type: integer, format: int64, description: 'Phần sẽ bị trừ TỰ ĐỘNG (autoRenew = true). Chênh lệch so với `subscriptionVnd` là các gói phải tự gia hạn.' }
+        subscriptionCount: { type: integer, format: int64, description: 'Số kỳ gia hạn trong tháng (một gói QUARTERLY có thể góp 1 kỳ ở đây).' }
+        warrantyExpiringVnd: { type: integer, format: int64, description: 'Tổng giá các gói bảo hành hết hạn trong tháng — tiền CÓ THỂ phát sinh, không phải khoản chắc chắn trả.' }
+        warrantyExpiringCount: { type: integer, format: int64 }
+        wishlistTargetVnd: { type: integer, format: int64, description: 'Tổng giá ghi nhận gần nhất của các món wishlist tới mốc trong tháng — tiền CÓ THỂ phát sinh.' }
+        wishlistTargetCount: { type: integer, format: int64 }
+
+    ForecastWarranty:
+      type: object
+      required: [id, deviceId, deviceName, type, endDate, month, months]
+      properties:
+        id: { type: string }
+        deviceId: { type: string }
+        deviceName: { type: string }
+        type: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
+        provider: { type: string, nullable: true }
+        endDate: { type: string, format: date-time }
+        month: { type: string, description: 'Bucket mà khoản này được tính vào.' }
+        months: { type: integer }
+        costVnd: { type: integer, format: int64, nullable: true, description: 'Giá gói bảo hành đang hết hạn, để tham chiếu khi để dành tiền. `null` = chưa ghi giá (khác 0đ). Đây KHÔNG phải một khoản bị trừ.' }
+
+    ForecastWishlistItem:
+      type: object
+      required: [id, name, targetDate, month, priority, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        targetDate: { type: string, format: date-time }
+        month: { type: string }
+        priority: { type: string, enum: [MUST, WANT, MAYBE] }
+        status: { type: string, enum: [WATCHING, DECIDED] }
+        currentPriceVnd: { type: integer, format: int64, nullable: true, description: 'Giá ghi nhận gần nhất. `null` = chưa từng nhập giá.' }
+
+    Forecast:
+      type: object
+      required:
+        - generatedAt
+        - windowStart
+        - windowEnd
+        - months
+        - currency
+        - subscriptionTotalVnd
+        - subscriptionAutoRenewTotalVnd
+        - subscriptionMonthlyAverageVnd
+        - subscriptionsCount
+        - chargesCount
+        - buckets
+        - upcomingWarranties
+        - upcomingWishlist
+        - note
+      properties:
+        generatedAt: { type: string, format: date-time, description: 'Thời điểm `now` mà phép tính dùng (UTC). Mọi mốc khác trong payload đều tương đối với nó.' }
+        windowStart: { type: string, format: date-time, description: 'Bằng `generatedAt`; bao gồm (left-closed).' }
+        windowEnd: { type: string, format: date-time, description: 'Không bao gồm (right-open): một khoản rơi đúng mốc này không thuộc bucket nào.' }
+        months: { type: integer, description: 'Độ dài cửa sổ theo tháng (1–24).' }
+        currency: { type: string, enum: [VND] }
+        subscriptionTotalVnd: { type: integer, format: int64, description: 'Tổng các kỳ gia hạn trong cửa sổ (int64, không bao giờ bị thu hẹp về int32).' }
+        subscriptionAutoRenewTotalVnd: { type: integer, format: int64 }
+        subscriptionMonthlyAverageVnd: { type: integer, format: int64, description: 'Quy đổi tháng theo công thức canonical — BẰNG `subscriptions.totalMonthlyVnd` của `GET /api/v1/stats` với cùng dữ liệu.' }
+        subscriptionsCount: { type: integer, format: int64, description: 'Số gói đóng góp ít nhất một kỳ trong cửa sổ.' }
+        chargesCount: { type: integer, format: int64, description: 'Số kỳ gia hạn (một gói QUARTERLY góp 4).' }
+        buckets:
+          type: array
+          description: 'Các tháng lịch mà cửa sổ chạm tới: thường `months + 1` phần tử, đúng `months` khi gọi đúng 00:00 ngày 1. Xem mô tả endpoint.'
+          items: { $ref: '#/components/schemas/ForecastBucket' }
+        upcomingWarranties:
+          type: array
+          items: { $ref: '#/components/schemas/ForecastWarranty' }
+        upcomingWishlist:
+          type: array
+          items: { $ref: '#/components/schemas/ForecastWishlistItem' }
+        note: { type: string, description: 'Câu tiếng Việt giải thích mô hình (LIFETIME không bị trừ, tháng đầu/cuối là một phần, đâu là tiền chắc chắn trả). Hiển thị thẳng.' }
+
     UserStats:
       type: object
       required: [devices, subscriptions, wishlist]
@@ -1877,16 +2512,55 @@ components:
               type: integer
               description: 'Sum of currentPrice for items in WATCHING or DECIDED'
 
+    # GET /api/v1/search — cross-entity search (roadmap #7). Each group is a plain
+    # projection of the same rows the per-entity list endpoints return, capped at
+    # the `limit` query parameter.
+    SearchResults:
+      type: object
+      required: [query, devices, subscriptions, wishlist]
+      properties:
+        query:
+          type: string
+          description: 'Từ khoá đã trim, đúng như server đã dùng để khớp. Chuỗi rỗng khi client không truyền `q`.'
+        devices:
+          type: array
+          description: 'Thiết bị khớp, sắp xếp theo `createdAt` giảm dần. Luôn là mảng, không bao giờ null.'
+          items: { $ref: '#/components/schemas/Device' }
+        subscriptions:
+          type: array
+          description: 'Subscription khớp (name/brand/plan/accountEmail), sắp xếp theo `renewalDate` tăng dần. Luôn là mảng.'
+          items: { $ref: '#/components/schemas/Subscription' }
+        wishlist:
+          type: array
+          description: 'Món wishlist khớp (name/brand/notes), sắp xếp theo `createdAt` giảm dần. Luôn là mảng.'
+          items: { $ref: '#/components/schemas/WishlistItem' }
+
     ReminderWarranty:
       allOf:
         - $ref: '#/components/schemas/Warranty'
         - type: object
           required: [device]
           properties:
+            isDismissed:
+              type: boolean
+              description: |
+                `true` khi reminder này đã bị ẩn (`Reminder.isDismissed`). Chỉ
+                xuất hiện khi `true` — trường vắng mặt nghĩa là `false`. Chỉ có
+                dòng `true` khi gọi `GET /api/v1/reminders?includeDismissed=true`;
+                ở chế độ mặc định mọi dòng đều đang hoạt động nên khoá này không
+                bao giờ xuất hiện (giữ nguyên hình dạng phản hồi cũ).
             device:
               type: object
-              required: [id, name, category]
+              required: [id, name, category, status]
               properties:
                 id: { type: string }
                 name: { type: string }
                 category: { type: string }
+                status:
+                  type: string
+                  enum: [ACTIVE, EXPIRED, SOLD, BROKEN, LOST]
+                  description: |
+                    Trạng thái thiết bị. Có mặt để client vẽ badge "Đã bán" /
+                    "Hỏng" / "Mất" cho reminder đã ẩn trên thiết bị không còn
+                    ACTIVE (những dòng này được trả về khi
+                    `includeDismissed=true`).

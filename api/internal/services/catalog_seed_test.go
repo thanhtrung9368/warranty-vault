@@ -29,32 +29,6 @@ const (
 
 // ---- static parsing of the migration ---------------------------------------
 
-type seededBrand struct {
-	ID       string
-	Name     string
-	Slug     string
-	IsActive bool
-}
-
-type seededStore struct {
-	ID       string
-	Name     string
-	Slug     string
-	Type     string
-	IsActive bool
-}
-
-type seededProvider struct {
-	ID         string
-	Name       string
-	Slug       string
-	Phone      string // "" = NULL
-	Address    string // "" = NULL
-	WebsiteURL string // "" = NULL
-	Notes      string
-	IsActive   bool
-}
-
 const (
 	// Unique markers for the up (INSERT ... VALUES) and down (DELETE ... USING
 	// (VALUES)) forms of each seeded table.
@@ -151,19 +125,6 @@ func parseCatalogSeedMigration(t *testing.T) (up, down string) {
 		t.Fatalf("%s: expected both a '-- +goose Up' and a '-- +goose Down' section", path)
 	}
 	return src[upIdx:downIdx], src[downIdx:]
-}
-
-func parseSeededBrands(t *testing.T) []seededBrand {
-	t.Helper()
-	up, _ := parseCatalogSeedMigration(t)
-	var out []seededBrand
-	for _, f := range parseSeedTuples(up, insertBrands) {
-		if len(f) != 4 {
-			t.Fatalf("brand tuple %v: want 4 fields", f)
-		}
-		out = append(out, seededBrand{ID: f[0], Name: f[1], Slug: f[2], IsActive: f[3] == "true"})
-	}
-	return out
 }
 
 // ---- DB-free assertions -----------------------------------------------------

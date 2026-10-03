@@ -118,3 +118,20 @@ WHERE id = $1 AND "userId" = $2;
 SELECT COUNT(*)::bigint AS count
 FROM "Device"
 WHERE "userId" = $1;
+
+-- name: CountOtherDevicesBySerial :one
+-- Advisory duplicate-serial lookup (FEATURE_IDEAS #6). Device."serialNumber"
+-- has no unique index anywhere on purpose: legacy rows exist, a serial is not
+-- globally unique, and VN warranty is keyed to the IMEI/serial — so a duplicate
+-- is something to SHOW the user, never something to reject.
+--
+-- Case-insensitive: "abc123" and "ABC123" are the same identifier on a sticker.
+-- exclude_id ($3) is the device being edited; '' (create / AI draft) matches
+-- nothing, so the caller can always pass the id it already has and a device can
+-- never collide with itself.
+SELECT COUNT(*)::bigint AS count
+FROM "Device"
+WHERE "userId" = $1
+  AND "serialNumber" IS NOT NULL
+  AND lower("serialNumber") = lower(sqlc.arg('serial')::text)
+  AND (sqlc.arg('excludeId')::text = '' OR id <> sqlc.arg('excludeId')::text);

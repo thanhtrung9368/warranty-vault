@@ -77,7 +77,12 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 			writeDevicesErr(w, err, "create device")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"device": device})
+		// Serial/IMEI advisory post-check (FEATURE_IDEAS #6). It runs AFTER the
+		// write and excludes the new row, so a device can never look like a
+		// duplicate of itself and a rejected create costs no extra query. The
+		// field is additive: the device WAS created, the status stays 201.
+		warnings := services.DeviceSerialWarnings(r.Context(), deps.DB, us.UserID, device.SerialNumber, device.ID)
+		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"device": device, "warnings": warnings})
 	}
 }
 
@@ -119,7 +124,9 @@ func updateDeviceHandler(deps Deps) http.HandlerFunc {
 			writeDevicesErr(w, err, "update device")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device})
+		// Same advisory post-check as create, excluding the row just edited.
+		warnings := services.DeviceSerialWarnings(r.Context(), deps.DB, us.UserID, device.SerialNumber, device.ID)
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device, "warnings": warnings})
 	}
 }
 

@@ -67,6 +67,39 @@ func (q *Queries) ExtendSession(ctx context.Context, arg ExtendSessionParams) er
 	return err
 }
 
+const getSessionByIDForUser = `-- name: GetSessionByIDForUser :one
+SELECT id, "userId", "tokenHash", "deviceLabel", platform, "lastSeenAt", "expiresAt", "revokedAt", "createdAt" FROM "Session" WHERE id = $1 AND "userId" = $2 LIMIT 1
+`
+
+type GetSessionByIDForUserParams struct {
+	ID     string `json:"id"`
+	UserId string `json:"userId"`
+}
+
+// Ownership-scoped lookup for the per-session revoke path. A miss means "unknown
+// id OR someone else's id" and the handler answers 404 for both, so a foreign id
+// cannot be told apart from a non-existent one.
+//
+// No expiry filter on purpose: an expired-but-owned row is still the caller's own
+// row, and the handler — not this query — decides what to say about a row that is
+// already revoked.
+func (q *Queries) GetSessionByIDForUser(ctx context.Context, arg GetSessionByIDForUserParams) (Session, error) {
+	row := q.db.QueryRow(ctx, getSessionByIDForUser, arg.ID, arg.UserId)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserId,
+		&i.TokenHash,
+		&i.DeviceLabel,
+		&i.Platform,
+		&i.LastSeenAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
 SELECT
     s.id           AS session_id,
@@ -125,6 +158,79 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenhash string) (
 	return i, err
 }
 
+const listActiveSessionsForUser = `-- name: ListActiveSessionsForUser :many
+
+SELECT
+    id,
+    "deviceLabel",
+    platform,
+    "lastSeenAt",
+    "expiresAt",
+    "createdAt"
+FROM "Session"
+WHERE "userId" = $1
+  AND "revokedAt" IS NULL
+  AND "expiresAt" > $2
+ORDER BY "lastSeenAt" DESC, "createdAt" DESC
+LIMIT 100
+`
+
+type ListActiveSessionsForUserParams struct {
+	UserId    string           `json:"userId"`
+	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
+}
+
+type ListActiveSessionsForUserRow struct {
+	ID          string           `json:"id"`
+	DeviceLabel *string          `json:"deviceLabel"`
+	Platform    *string          `json:"platform"`
+	LastSeenAt  pgtype.Timestamp `json:"lastSeenAt"`
+	ExpiresAt   pgtype.Timestamp `json:"expiresAt"`
+	CreatedAt   pgtype.Timestamp `json:"createdAt"`
+}
+
+// ─── Per-session management (GET/DELETE /api/v1/auth/sessions) ────────────
+// "Active" = not revoked and not expired at $2.
+//
+// The expiry boundary is a parameter, not NOW(), on purpose: every timestamp
+// column here is `timestamp without time zone` and the app writes it from Go's
+// wall clock, so comparing against the database clock can be off by the server's
+// UTC offset. The caller passes its own now — the same clock VerifyBearer uses.
+//
+// "tokenHash" is deliberately NOT selected: it is credential material and must
+// never leave the server. The exposed id is the row's surrogate key (cuid), which
+// is not derived from the token and appears nowhere else.
+//
+// LIMIT 100 bounds the response: PruneExpiredSessions drops rows a day after
+// revocation, so only live sessions accumulate, and 100 live sessions already
+// means something is wrong.
+func (q *Queries) ListActiveSessionsForUser(ctx context.Context, arg ListActiveSessionsForUserParams) ([]ListActiveSessionsForUserRow, error) {
+	rows, err := q.db.Query(ctx, listActiveSessionsForUser, arg.UserId, arg.ExpiresAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveSessionsForUserRow
+	for rows.Next() {
+		var i ListActiveSessionsForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceLabel,
+			&i.Platform,
+			&i.LastSeenAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneExpiredSessions = `-- name: PruneExpiredSessions :execrows
 DELETE FROM "Session"
 WHERE "expiresAt" < NOW()
@@ -151,6 +257,28 @@ WHERE "userId" = $1
 func (q *Queries) RevokeAllSessionsForUser(ctx context.Context, userid string) error {
 	_, err := q.db.Exec(ctx, revokeAllSessionsForUser, userid)
 	return err
+}
+
+const revokeSessionByID = `-- name: RevokeSessionByID :execrows
+UPDATE "Session"
+SET "revokedAt" = NOW()
+WHERE id = $1 AND "userId" = $2 AND "revokedAt" IS NULL
+`
+
+type RevokeSessionByIDParams struct {
+	ID     string `json:"id"`
+	UserId string `json:"userId"`
+}
+
+// Ownership-scoped revoke. `"revokedAt" IS NULL` makes a repeated call a no-op
+// (0 rows, not a second revocation timestamp), which is what makes the endpoint
+// idempotent.
+func (q *Queries) RevokeSessionByID(ctx context.Context, arg RevokeSessionByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeSessionByID, arg.ID, arg.UserId)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const revokeSessionByTokenHash = `-- name: RevokeSessionByTokenHash :exec
