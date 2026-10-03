@@ -11,10 +11,13 @@ import com.warrantyvault.app.network.AuthSuccess
 import com.warrantyvault.app.network.Catalog
 import com.warrantyvault.app.network.ChangePasswordRequest
 import com.warrantyvault.app.network.ChangePasswordResponse
+import com.warrantyvault.app.network.CreateShareInput
+import com.warrantyvault.app.network.CreateShareResponse
 import com.warrantyvault.app.network.DeleteAccountRequest
 import com.warrantyvault.app.network.DeviceInput
 import com.warrantyvault.app.network.DeviceListResponse
 import com.warrantyvault.app.network.DeviceResponse
+import com.warrantyvault.app.network.DeviceShareListResponse
 import com.warrantyvault.app.network.DraftDeviceResponse
 import com.warrantyvault.app.network.Forecast
 import com.warrantyvault.app.network.ForgotRequest
@@ -29,6 +32,7 @@ import com.warrantyvault.app.network.PushSubscriptionListResponse
 import com.warrantyvault.app.network.RegisterInput
 import com.warrantyvault.app.network.RemindersResponse
 import com.warrantyvault.app.network.SearchResults
+import com.warrantyvault.app.network.ServiceDirectoryResponse
 import com.warrantyvault.app.network.SessionListResponse
 import com.warrantyvault.app.network.SessionRevokeResult
 import com.warrantyvault.app.network.SnoozeInput
@@ -181,4 +185,14 @@ open class FakeApiService : ApiService {
         notStubbed("unsnoozeActionItem")
 
     override suspend fun getSubscriptionAudit(): SubscriptionAudit = notStubbed("getSubscriptionAudit")
+
+    override suspend fun listShares(deviceId: String): DeviceShareListResponse = notStubbed("listShares")
+
+    override suspend fun createShare(deviceId: String, body: CreateShareInput): CreateShareResponse =
+        notStubbed("createShare")
+
+    override suspend fun revokeShare(id: String): OkResponse = notStubbed("revokeShare")
+
+    override suspend fun getServiceDirectory(deviceId: String): ServiceDirectoryResponse =
+        notStubbed("getServiceDirectory")
 }

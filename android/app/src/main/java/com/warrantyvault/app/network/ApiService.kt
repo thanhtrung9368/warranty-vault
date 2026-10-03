@@ -219,6 +219,37 @@ interface ApiService {
         @Part file: MultipartBody.Part,
     ): DraftDeviceResponse
 
+    // ---- Handover certificate / share links (FEATURE_IDEAS #2) ----
+    //
+    // Owner-side list. Never carries `token` — the server keeps only its sha256,
+    // so a previously created link is unrecoverable by design. A device that
+    // belongs to someone else answers `[]`, not 404.
+    @GET("api/v1/devices/{id}/shares")
+    suspend fun listShares(@Path("id") deviceId: String): DeviceShareListResponse
+
+    // The ONLY response in the whole API that carries a share token, and the
+    // only chance to hand it to the user. Max 10 live links per device (409 on
+    // the 11th). An unknown body field is a 400 rather than a silent default, so
+    // CreateShareInput spells every field it sends.
+    @POST("api/v1/devices/{id}/shares")
+    suspend fun createShare(
+        @Path("id") deviceId: String,
+        @Body body: CreateShareInput,
+    ): CreateShareResponse
+
+    // Idempotent: revoking an already-revoked link is still 200. A link that
+    // belongs to someone else is a 404 — indistinguishable from a missing id,
+    // which is the point.
+    @DELETE("api/v1/shares/{id}")
+    suspend fun revokeShare(@Path("id") id: String): OkResponse
+
+    // ---- Warranty directory (#15) ----
+    // One device's answer to "mang máy đi bảo hành ở đâu". `brand` and each
+    // `centres[].provider` are nullable ON PURPOSE: null means the app does not
+    // know (nothing seeded, or an ambiguous free-text match) — never a guess.
+    @GET("api/v1/devices/{id}/service-directory")
+    suspend fun getServiceDirectory(@Path("id") deviceId: String): ServiceDirectoryResponse
+
     @GET("api/v1/ai/opt-in")
     suspend fun getAIOptIn(): AIOptInResponse
 

@@ -1,6 +1,7 @@
 package com.warrantyvault.app.ui.screens.devices
 
 import com.warrantyvault.app.network.Device
+import com.warrantyvault.app.ui.screens.vietnamDate
 
 /**
  * Exchange / return window ("1 đổi 1") — openapi `Device.returnWindowDays` /
@@ -78,16 +79,11 @@ internal fun receivedAtRequest(raw: String): String? = raw.trim().ifBlank { null
  * to show. Read-only by design — the client never derives this date itself, it
  * only formats what `DeviceListItem.returnDeadline` / `DeviceDetail.returnDeadline`
  * already decided.
+ *
+ * Delegates to [com.warrantyvault.app.ui.screens.vietnamDate]; the name is kept
+ * because it is what the detail card and its tests call.
  */
-internal fun returnDeadlineLabel(wire: String?): String? {
-    val date = wire?.trim()?.take(10).orEmpty()
-    val parts = date.split("-")
-    if (parts.size != 3) return null
-    val (year, month, day) = parts
-    if (year.length != 4 || month.length != 2 || day.length != 2) return null
-    if (parts.any { part -> part.any { !it.isDigit() } }) return null
-    return "$day/$month/$year"
-}
+internal fun returnDeadlineLabel(wire: String?): String? = vietnamDate(wire)
 
 /**
  * `true` when a window length was ever recorded, including the meaningful `0`.

@@ -447,6 +447,19 @@ data class Catalog(
     val brands: List<BrandOption>,
     val stores: List<StoreOption>,
     val warrantyProviders: List<WarrantyProviderOption>,
+    /**
+     * Warranty directory per brand (openapi `Catalog.brandServiceInfo`,
+     * FEATURE_IDEAS #15, migration 0012) — **additive**: the field is required by
+     * the contract, but defaulted here so a response from a server that predates
+     * it still decodes instead of throwing away all four existing catalogs.
+     *
+     * ⚠️ This is lookup data, **not** picker data. Reading the array directly
+     * means re-implementing the server's free-text → row matching, whose rule is
+     * "a tie does not match" — see
+     * [com.warrantyvault.app.network.ServiceDirectory], which is the endpoint
+     * that owns that rule. Nothing on the device form may offer these as choices.
+     */
+    val brandServiceInfo: List<BrandServiceInfo> = emptyList(),
 )
 
 @Serializable
@@ -1175,3 +1188,224 @@ data class SubscriptionAudit(
     val note: String = "",
 )
 
+
+// ---- Phiếu bàn giao bảo hành / link chia sẻ — FEATURE_IDEAS #2 ----
+//
+// ⚠️ The single most important rule in this block, kept next to the model:
+// **the token is returned exactly once**, by `POST /api/v1/devices/{id}/shares`.
+// The server stores only its sha256, so `GET .../shares` can never return it and
+// there is no "show my link again" call to add later. A client that lets the user
+// dismiss the create response without copying is asking them to mint a new link.
+
+/**
+ * One share link as its **owner** sees it (openapi `DeviceShare`).
+ *
+ * Deliberately without `token`: this shape is what the list endpoint returns and
+ * no amount of client code can turn it into a usable URL. Only
+ * [CreatedDeviceShare] carries the credential, and only on create.
+ */
+@Serializable
+data class DeviceShare(
+    val id: String,
+    val deviceId: String,
+    /** RFC3339 with `Z`. There is no such thing as a permanent link (1–90 days). */
+    val expiresAt: String,
+    /** Non-null once revoked; a revoked row stays in the list until deleted. */
+    val revokedAt: String? = null,
+    /** `true` = the certificate also carries the full serial/IMEI, not just the masked one. */
+    val includeSerial: Boolean = false,
+    /** How many times the certificate was opened. Owner-only. */
+    val viewCount: Int = 0,
+    val lastViewedAt: String? = null,
+    val createdAt: String = "",
+)
+
+/**
+ * The **create** response (openapi `CreatedDeviceShare`) — the only place
+ * [token] ever exists outside the server's hash.
+ *
+ * [sharePath] is a **path**, not an absolute URL: the server does not know which
+ * host the client reaches it through. Pair it with `BuildConfig.BASE_URL` via
+ * [com.warrantyvault.app.ui.screens.devices.shareUrl].
+ */
+@Serializable
+data class CreatedDeviceShare(
+    val id: String,
+    val deviceId: String,
+    val expiresAt: String,
+    val revokedAt: String? = null,
+    val includeSerial: Boolean = false,
+    val viewCount: Int = 0,
+    val lastViewedAt: String? = null,
+    val createdAt: String = "",
+    /** **Credential. Shown once.** Never persisted by this client. */
+    val token: String = "",
+    /** e.g. `/api/v1/public/shares/<token>`. Relative to the API base URL. */
+    val sharePath: String = "",
+)
+
+/**
+ * Body of `POST /api/v1/devices/{id}/shares`.
+ *
+ * Both fields are non-nullable and always sent, so the client never leans on the
+ * server's defaults and the user can see exactly what was requested. An unknown
+ * field is a 400 (`expiresInDay` must not silently become a 30-day link), which
+ * is why the property names mirror openapi exactly.
+ *
+ * [expiresInDays] is bounded 1–90 server-side; there is no "never expires".
+ */
+@Serializable
+data class CreateShareInput(
+    val expiresInDays: Int = DEFAULT_EXPIRES_IN_DAYS,
+    val includeSerial: Boolean = false,
+) {
+    companion object {
+        const val DEFAULT_EXPIRES_IN_DAYS = 30
+        const val MIN_EXPIRES_IN_DAYS = 1
+        const val MAX_EXPIRES_IN_DAYS = 90
+    }
+}
+
+@Serializable
+data class CreateShareResponse(val share: CreatedDeviceShare)
+
+/**
+ * `GET /api/v1/devices/{id}/shares`.
+ *
+ * `shares` is always `[]`, never `null`, and a device belonging to someone else
+ * answers `[]` rather than 404 — hence the default, which keeps the "no links"
+ * rendering path the same shape as the empty one.
+ */
+@Serializable
+data class DeviceShareListResponse(val shares: List<DeviceShare> = emptyList())
+
+// ---- Danh bạ bảo hành — FEATURE_IDEAS #15 ----
+//
+// ⚠️ The honesty rule this payload exists to enforce: the app does **not** store
+// hotlines or service-centre addresses. `phoneSource` says where a number came
+// from and `null` means "app không biết". A client must never render a phone the
+// user did not type, and must never imply a hotline exists when there is none.
+
+/**
+ * One brand's directory row (openapi `BrandServiceInfo`, table `BrandServiceInfo`,
+ * migration 0012). Also the element type of `Catalog.brandServiceInfo`.
+ *
+ * **There is no `phone` and no `address`** — the table has no such columns,
+ * because this repo cannot verify a hotline and "a wrong hotline is worse than an
+ * empty one" (migration 0008's decision, kept by 0012). Only URLs.
+ */
+@Serializable
+data class BrandServiceInfo(
+    /** `Brand.id`, e.g. `samsung`. */
+    val brandId: String,
+    /** Display name, from the `Brand` table. */
+    val name: String,
+    /** The brand's own authorised-service-centre locator. `null` = none verified. */
+    val serviceLocatorUrl: String? = null,
+    /** The brand's general support page. */
+    val supportUrl: String? = null,
+    /** Vietnamese note about what the links are for. Rendered verbatim. */
+    val notes: String? = null,
+)
+
+/**
+ * A `WarrantyProvider` catalog row (openapi `WarrantyProviderRef`).
+ *
+ * ⚠️ `phone`/`address` are `null` on every seeded row (migration 0008). Show
+ * [WarrantyCentre.phone] / [WarrantyCentre.address] instead — those are what the
+ * **user** wrote.
+ */
+@Serializable
+data class WarrantyProviderRef(
+    val id: String,
+    val name: String,
+    val phone: String? = null,
+    val address: String? = null,
+    val websiteUrl: String? = null,
+    val notes: String? = null,
+)
+
+/**
+ * Where a [WarrantyCentre.phone] came from. There is deliberately no third value.
+ *
+ * ⚠️ The wire values are **lowercase** (`"user"` / `"none"`, openapi
+ * `WarrantyCentre.phoneSource`) while every other enum in this API is SCREAMING
+ * CASE, so the serial names are pinned explicitly. Do not drop them "for
+ * consistency" with the enums above: kotlinx.serialization matches enum names
+ * case-**sensitively**, and without these annotations the entire directory fails
+ * to decode with "does not contain element with name 'none'" — this field is the
+ * one place where a wrong guess decides whether a phone number is shown at all.
+ */
+@Serializable
+enum class PhoneSource {
+    /** The user typed this number. The app is never the source of a phone number. */
+    @SerialName("user")
+    USER,
+
+    /** There is no number. Render "chưa có số", never a hotline and never a guess. */
+    @SerialName("none")
+    NONE,
+    ;
+
+    val label: String
+        get() = when (this) {
+            USER -> "Số do bạn tự ghi"
+            NONE -> "Chưa có số điện thoại"
+        }
+}
+
+/**
+ * One warranty's contact row (openapi `WarrantyCentre`) — **one per warranty of
+ * the device, including warranties that match no catalog row**.
+ *
+ * [provider] being `null` is normal, not an error: either no catalog row exists
+ * for the free-text brand, or the match was **ambiguous** and the server refused
+ * to guess. [providerInput] is what the user actually typed and is **always**
+ * shown next to it, because a null [provider] is only meaningful beside the text
+ * it failed to match.
+ */
+@Serializable
+data class WarrantyCentre(
+    val warrantyId: String,
+    val warrantyType: WarrantyType = WarrantyType.STANDARD,
+    val endDate: String? = null,
+    /** Computed server-side: is [endDate] still in the future. */
+    val isActive: Boolean = false,
+    /** `Warranty.provider` verbatim. Always rendered, even when [provider] is null. */
+    val providerInput: String? = null,
+    val provider: WarrantyProviderRef? = null,
+    /** `Warranty.address` — written by **the user**. The app never fills this in. */
+    val address: String? = null,
+    /** `Warranty.phone` — written by **the user**. See [phoneSource]. */
+    val phone: String? = null,
+    val phoneSource: PhoneSource = PhoneSource.NONE,
+)
+
+/**
+ * `GET /api/v1/devices/{id}/service-directory` (openapi `ServiceDirectory`).
+ *
+ * [brand] is `null` when the app has **no information for that brand** — either
+ * because only 16 brands are seeded (migration 0012) or because the free-text
+ * match **tied** and the server refuses to guess. That is a valid answer, not an
+ * empty box: the UI shows [brandInput] plus a Vietnamese sentence saying the app
+ * has nothing for it. The client must **not** invent a URL.
+ *
+ * [disclaimer] is the server's own Vietnamese explanation of why so many fields
+ * are `null`; it is rendered verbatim.
+ */
+@Serializable
+data class ServiceDirectory(
+    val deviceId: String = "",
+    val deviceName: String = "",
+    /** Category **code**; the Vietnamese label comes from `CategoryLabels.kt`. */
+    val category: String = "",
+    /** `Device.brand` verbatim. `null` when the user never recorded one. */
+    val brandInput: String? = null,
+    val brand: BrandServiceInfo? = null,
+    /** One row per warranty. Always an array, never null. */
+    val centres: List<WarrantyCentre> = emptyList(),
+    val disclaimer: String = "",
+)
+
+@Serializable
+data class ServiceDirectoryResponse(val directory: ServiceDirectory)

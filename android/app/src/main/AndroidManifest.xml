@@ -37,7 +37,18 @@
                  the wishlist form prefilled. text/plain only: an image/file
                  share is the attachment flow, not this one. No ACTION_VIEW
                  http/https filter on purpose — that would offer this app as a
-                 *browser* for every link on the phone. -->
+                 *browser* for every link on the phone.
+
+                 ⚠️ This is the mirror of the OUTGOING share added with the
+                 handover certificate (#2): `ShareCertificatesSection` sends the
+                 same ACTION_SEND + text/plain, so without care this app appears
+                 in its own chooser and picking it re-enters the wishlist intake
+                 with a certificate URL. That one component is excluded from that
+                 chooser by package name — see `excludedShareTargets` in
+                 `ui/screens/devices/ShareLinks.kt`, unit-tested. Nothing changes
+                 here to keep both directions working: this filter is what the
+                 *sending* user picked, and incoming shares behave exactly as
+                 before. Both rely on `launchMode="singleTop"` above. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

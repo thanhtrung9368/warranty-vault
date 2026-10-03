@@ -5,10 +5,15 @@ import com.warrantyvault.app.network.ActionItem
 import com.warrantyvault.app.network.ActionQueue
 import com.warrantyvault.app.network.Attachment
 import com.warrantyvault.app.network.BillingCycle
+import com.warrantyvault.app.network.BrandServiceInfo
+import com.warrantyvault.app.network.CreatedDeviceShare
 import com.warrantyvault.app.network.Device
+import com.warrantyvault.app.network.DeviceShare
 import com.warrantyvault.app.network.DeviceStats
 import com.warrantyvault.app.network.DeviceStatus
+import com.warrantyvault.app.network.PhoneSource
 import com.warrantyvault.app.network.ReminderDevice
+import com.warrantyvault.app.network.ServiceDirectory
 import com.warrantyvault.app.network.Subscription
 import com.warrantyvault.app.network.SubscriptionAudit
 import com.warrantyvault.app.network.SubscriptionAuditFinding
@@ -18,6 +23,8 @@ import com.warrantyvault.app.network.SubscriptionStatus
 import com.warrantyvault.app.network.UpcomingReminder
 import com.warrantyvault.app.network.UserStats
 import com.warrantyvault.app.network.Warranty
+import com.warrantyvault.app.network.WarrantyCentre
+import com.warrantyvault.app.network.WarrantyProviderRef
 import com.warrantyvault.app.network.WarrantyType
 import com.warrantyvault.app.network.WishlistItem
 import com.warrantyvault.app.network.WishlistPriority
@@ -356,5 +363,108 @@ object Fixtures {
         advisory = advisory,
         thresholds = thresholds,
         note = note,
+    )
+
+    // ---- Phiếu bàn giao / link chia sẻ (#2) ----
+
+    /**
+     * An owner-side share row. Defaults are deliberately **live far in the
+     * future**: `isShareLive` compares against the wall clock, so a fixture
+     * expiring "soon" would make its own test flaky.
+     */
+    fun share(
+        id: String = "share-1",
+        deviceId: String = "dev-1",
+        expiresAt: String = "2099-06-01T00:00:00Z",
+        revokedAt: String? = null,
+        includeSerial: Boolean = false,
+        viewCount: Int = 0,
+        lastViewedAt: String? = null,
+        createdAt: String = "2026-03-01T00:00:00Z",
+    ) = DeviceShare(
+        id = id,
+        deviceId = deviceId,
+        expiresAt = expiresAt,
+        revokedAt = revokedAt,
+        includeSerial = includeSerial,
+        viewCount = viewCount,
+        lastViewedAt = lastViewedAt,
+        createdAt = createdAt,
+    )
+
+    /** The create response — the one shape that carries a token. */
+    fun createdShare(
+        token: String = "abc123TOKEN",
+        sharePath: String = "/api/v1/public/shares/$token",
+        expiresAt: String = "2099-06-01T00:00:00Z",
+        includeSerial: Boolean = false,
+    ) = CreatedDeviceShare(
+        id = "share-new",
+        deviceId = "dev-1",
+        expiresAt = expiresAt,
+        revokedAt = null,
+        includeSerial = includeSerial,
+        viewCount = 0,
+        lastViewedAt = null,
+        createdAt = "2026-03-01T00:00:00Z",
+        token = token,
+        sharePath = sharePath,
+    )
+
+    // ---- Danh bạ bảo hành (#15) ----
+
+    fun brandServiceInfo(
+        brandId: String = "samsung",
+        name: String = "Samsung",
+        serviceLocatorUrl: String? = "https://www.samsung.com/vn/support/service-center/",
+        supportUrl: String? = "https://www.samsung.com/vn/support/",
+        notes: String? = "Trang tra cứu trung tâm uỷ quyền do hãng tự duy trì.",
+    ) = BrandServiceInfo(
+        brandId = brandId,
+        name = name,
+        serviceLocatorUrl = serviceLocatorUrl,
+        supportUrl = supportUrl,
+        notes = notes,
+    )
+
+    fun warrantyCentre(
+        warrantyId: String = "war-1",
+        warrantyType: WarrantyType = WarrantyType.STANDARD,
+        endDate: String? = "2026-03-01T00:00:00",
+        isActive: Boolean = true,
+        providerInput: String? = "Samsung",
+        provider: WarrantyProviderRef? = WarrantyProviderRef(id = "samsung", name = "Samsung"),
+        address: String? = null,
+        phone: String? = null,
+        phoneSource: PhoneSource = PhoneSource.NONE,
+    ) = WarrantyCentre(
+        warrantyId = warrantyId,
+        warrantyType = warrantyType,
+        endDate = endDate,
+        isActive = isActive,
+        providerInput = providerInput,
+        provider = provider,
+        address = address,
+        phone = phone,
+        phoneSource = phoneSource,
+    )
+
+    fun serviceDirectory(
+        deviceId: String = "dev-1",
+        deviceName: String = "iPhone 15 Pro",
+        category: String = "PHONE",
+        brandInput: String? = "Apple",
+        brand: BrandServiceInfo? = brandServiceInfo(brandId = "apple", name = "Apple"),
+        centres: List<WarrantyCentre> = listOf(warrantyCentre()),
+        disclaimer: String = "App không lưu hotline hay địa chỉ trung tâm bảo hành: số và địa " +
+            "chỉ hiện ra là do bạn tự ghi, nên hãy kiểm tra lại trước khi đi.",
+    ) = ServiceDirectory(
+        deviceId = deviceId,
+        deviceName = deviceName,
+        category = category,
+        brandInput = brandInput,
+        brand = brand,
+        centres = centres,
+        disclaimer = disclaimer,
     )
 }

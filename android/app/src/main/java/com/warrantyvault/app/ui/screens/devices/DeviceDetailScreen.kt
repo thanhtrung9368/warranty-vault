@@ -403,6 +403,18 @@ private fun DeviceDetailBody(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { DeviceSummaryCard(device) }
+        // "Đi bảo hành ở đâu" (#15) sits directly under the summary: when the
+        // question is "where do I take this", it is the answer being looked for.
+        item { ServiceDirectorySection(api = api, deviceId = device.id) }
+        // Handover certificate (#2) — the artifact handed to a buyer. Placed
+        // before the warranty list because the list is what it summarises.
+        item {
+            ShareCertificatesSection(
+                api = api,
+                deviceId = device.id,
+                deviceName = device.name,
+            )
+        }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.VerifiedUser, null,
