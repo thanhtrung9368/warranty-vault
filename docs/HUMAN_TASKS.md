@@ -7,9 +7,13 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-03 (lần 3) — **chủ repo đã xác nhận 0.1 xong**; phần còn lại vẫn kiểm lại
+**Cập nhật:** 2026-10-03 (lần 4) — **0.1 và 0.2 đều đã xong**; phần còn lại vẫn kiểm lại
 từng mục (không tin bản cũ). Mục nào đã hết việc thì ghi rõ là **HẾT VIỆC** chứ không xoá, để mày
 biết là tao đã kiểm chứ không phải bỏ sót.
+
+> **Nhóm 0 còn lại 0.3 và 0.5** — cả hai đều miễn phí và chỉ mất vài phút. 0.2 xong kéo theo việc
+> bỏ được **cả hai** workaround chạy test iOS (`DEVELOPER_DIR` lẫn `--disable-sandbox`), và mở khoá
+> luôn `xcrun simctl` cho mục 0.4.
 
 > Kiểm ở HEAD `794b35a` **+ working tree** (backend agent còn đang commit). Thay đổi so với bản 2026-10-02:
 > **(a)** 0.1 (quyền `~/.npm`) **hết việc** — không cần `sudo` nữa;
@@ -41,7 +45,7 @@ sudo chown -R 501:20 ~/.npm
   `npm_config_cache=/tmp/wv-npm-cache` như thói quen vô hại, không phải vì mục này.
 - ~~Xong thì: npm chạy bình thường, CI local khớp với CI GitHub.~~ → đã đạt.
 
-### [ ] 0.2 — Trỏ `xcode-select` về Xcode thật (cần `sudo`) — **vẫn còn nguyên**
+### [x] 0.2 — Trỏ `xcode-select` về Xcode thật — ✅ **XONG 2026-10-03**
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -51,14 +55,18 @@ xcode-select -p   # phải ra /Applications/Xcode.app/Contents/Developer
 - **Vì sao:** đang trỏ vào `/Library/Developer/CommandLineTools` nên `swift build`,
   `swift test` và `xcodebuild` **đều fail**. Tao đã phải ép `DEVELOPER_DIR` mỗi lần
   chạy test iOS.
-- **Kiểm lại 2026-10-03:** `xcode-select -p` vẫn ra `/Library/Developer/CommandLineTools`. **Chưa sửa.**
-  Cách chạy test tạm thời (đã kiểm, xanh — **324** test ở lần đếm mới nhất; con số này đang tăng nhanh
-  vì client iOS còn đang được sửa):
-  `cd ios && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`
-  (`--disable-sandbox` là bắt buộc vì máy này bật sandbox cho SwiftPM.)
-- **Mất:** 5 giây.
-- **Xong thì:** `cd ios && swift test` chạy được trực tiếp, **không cần** `DEVELOPER_DIR` lẫn
-  `--disable-sandbox`; mở được project trong Xcode; `xcrun simctl` hoạt động (mở khoá luôn mục 0.4).
+- **Chủ repo đã chạy** `sudo xcode-select -s ...`. Dòng `xcode-select -p` kèm comment trong hướng dẫn
+  báo `invalid argument '#'` — **vô hại và không phải lỗi của lệnh thứ nhất**: `zsh` (shell mặc định
+  của macOS) **không coi `#` là comment** trong shell tương tác, khác `bash`. Lệnh `sudo` đã chạy xong
+  trước đó.
+- **Kiểm lại 2026-10-03 sau khi sửa:** `xcode-select -p` → `/Applications/Xcode.app/Contents/Developer`.
+  `cd ios && swift test` chạy được **không cần `DEVELOPER_DIR`** → **324 test, 0 fail**.
+  `swift test` **không cần `--disable-sandbox`** cũng xanh, và `swift build` sạch.
+  **Cả hai workaround đều đã bỏ được**, không chỉ cái thứ nhất.
+- ~~Mất: 5 giây.~~
+- ~~Xong thì: `cd ios && swift test` chạy được trực tiếp, không cần `DEVELOPER_DIR` lẫn
+  `--disable-sandbox`; mở được project trong Xcode; `xcrun simctl` hoạt động.~~ → **đã đạt**.
+  Điều này cũng mở khoá mục **0.4** (quyết định dọn 24G simulator) vì `xcrun simctl` nay dùng được.
 
 ### [ ] 0.3 — Sinh bộ secret cho production
 
@@ -331,7 +339,7 @@ Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, 
 ## Thứ tự tao đề xuất
 
 ```
-0.2 → 0.3 → 0.5            (miễn phí, 10 phút, mở khoá dev local; 0.1 đã hết việc)
+0.3 → 0.5                  (miễn phí, 10 phút, mở khoá dev local; 0.1 và 0.2 đã xong)
    ↓
 2.1 domain → 2.2 VPS       (bắt đầu tốn tiền ~$6/tháng)
    ↓
@@ -391,7 +399,7 @@ nhất nên để sau cùng, khi mọi thứ khác đã sẵn sàng.
 | Mục | Cách kiểm | Kết quả |
 |---|---|---|
 | 0.1 quyền npm | `ls -ld ~/.npm` + `npm view left-pad version` | ✅ hết việc (chủ sở hữu uid 501, npm chạy được) |
-| 0.2 `xcode-select` | `xcode-select -p` | ❌ vẫn trỏ CommandLineTools |
+| 0.2 `xcode-select` | `xcode-select -p` | ✅ xong — ra Xcode thật; `swift test` chạy trơn, bỏ được cả `DEVELOPER_DIR` lẫn `--disable-sandbox` |
 | 0.4 simulator | `du -sh ~/Library/Developer/CoreSimulator` | ❌ vẫn 24G |
 | 1.1 Firebase | đọc `android/app/google-services.json` | ❌ vẫn stub |
 | 1.4 Anthropic | grep `ANTHROPIC` trong `docker-compose.yml` | ✅ đã forward đủ 2 biến |

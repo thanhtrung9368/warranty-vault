@@ -117,8 +117,7 @@ Chi tiết phase plan: [BACKEND_GO_PLAN.md](BACKEND_GO_PLAN.md). Công việc k�
 ```bash
 bash api/scripts/check_openapi_drift.sh    # Go routes ↔ openapi.yaml → "in sync (67 endpoints)"; 48 path
 cd website && npm test                      # 430 test / 21 file (vitest)
-cd ios && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  swift test --disable-sandbox              # 324 test (WarrantyVaultKit; đang tăng nhanh)
+cd ios && swift test                        # 324 test (WarrantyVaultKit; đang tăng nhanh)
 cd android && ./gradlew :app:testDebugUnitTest --no-daemon   # 419 test / 41 class
 ```
 

@@ -61,8 +61,7 @@ dưới đây kèm lý do.
 ```bash
 bash api/scripts/check_openapi_drift.sh          # → "in sync (67 endpoints)"; 48 path
 cd website && npm test                            # → 430 test / 21 file
-cd ios && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  swift test --disable-sandbox                   # → 324 test (đang tăng nhanh — iOS agent còn đang thêm test)
+cd ios && swift test                             # → 324 test (đang tăng nhanh — iOS agent còn đang thêm test)
 cd android && ./gradlew :app:testDebugUnitTest --no-daemon   # → 419 test / 41 class
 ls api/migrations/                                # → 0001…0013 (13 file)
 ```
