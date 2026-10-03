@@ -44,6 +44,7 @@ import {
 } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
+import { returnDeadlineNote } from '@/lib/device-return-window';
 import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 
 export const dynamic = 'force-dynamic';
@@ -269,6 +270,26 @@ export default async function DeviceDetailPage({
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Thiết bị chưa có gói bảo hành nào.
+                </p>
+              )}
+
+              {/* Hạn đổi/trả (migration 0010) — the derived deadline the server
+                  computed (`COALESCE(receivedAt, purchaseDate) +
+                  returnWindowDays ngày`). Read-only on purpose: no client may
+                  expose a way to SET a window yet, so this only echoes what is
+                  already recorded. Rendered only when the server derived one. */}
+              {device.returnDeadline && (
+                <p className="border-t border-dashed border-border pt-2 text-sm text-ink-2">
+                  Hạn đổi/trả:{' '}
+                  <span className="font-semibold text-ink">
+                    {formatDate(device.returnDeadline)}
+                  </span>{' '}
+                  <span className="text-muted-foreground">
+                    ({returnDeadlineNote(device.returnDeadline)})
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Chính sách của cửa hàng do bạn ghi lại, không phải quy định pháp luật.
+                  </span>
                 </p>
               )}
             </CardContent>

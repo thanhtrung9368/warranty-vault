@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { DeviceInput } from '@/lib/api/devices';
+import { returnWindowFieldsFromFormData } from '@/lib/device-return-window';
 import {
   clearDeviceWarningsFlash,
   setDeviceWarningsFlash,
@@ -46,6 +47,13 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     notes: str(formData, 'notes') ?? null,
     soldAt: str(formData, 'soldAt') ?? null,
     soldPrice: num(formData, 'soldPrice') ?? null,
+    // Return window (migration 0010). PATCH is a full replacement, so these two
+    // keys are ALWAYS sent — the form keeps them in always-mounted hidden inputs
+    // and this spreads the parsed pair through. A device edited from the web
+    // therefore cannot silently erase a window recorded on another client:
+    // `{returnWindowDays: null, receivedAt: null}` only ever means "there is no
+    // window to preserve". See `lib/device-return-window.ts`.
+    ...returnWindowFieldsFromFormData(formData),
     warrantyMonths: num(formData, 'warrantyMonths') ?? 0,
     warrantyProvider: str(formData, 'warrantyProvider') ?? null,
     warrantyAddress: str(formData, 'warrantyAddress') ?? null,

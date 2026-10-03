@@ -53,6 +53,17 @@ export type DeviceInput = {
   // Independent of `status` — `status: 'SOLD'` needs no figures.
   soldAt?: string | null;
   soldPrice?: number | null;
+  // Return window (migration 0010). Independent of each other — a user may know
+  // one and not the other. `returnWindowDays: null` = chưa biết, `0` = cửa hàng
+  // không cho đổi trả (the two are NOT the same answer), `> 0` = số ngày.
+  // `receivedAt` accepts `YYYY-MM-DD` or full ISO.
+  //
+  // ⚠️ PATCH is a FULL REPLACEMENT: omitting either key CLEARS a recorded
+  // window. Every save from the web must therefore send both keys, which is what
+  // `lib/device-return-window.ts` + `app/actions/devices.ts` do — see the note
+  // there. This pass adds no input that sets a window.
+  returnWindowDays?: number | null;
+  receivedAt?: string | null;
   warrantyMonths?: number;
   warrantyProvider?: string | null;
   warrantyAddress?: string | null;
@@ -86,6 +97,16 @@ export type Device = {
   // recorded, and the write path refuses half a record.
   soldAt: string | null;
   soldPrice: number | null;
+  // Return window (migration 0010). `returnWindowDays` is per-device store
+  // policy, not a server default: `null` = chưa biết, `0` = không cho đổi trả.
+  // `receivedAt` is the day the device actually arrived — when set it, not
+  // `purchaseDate`, anchors the window. Both round-trip through the device form
+  // unchanged (see `lib/device-return-window.ts`).
+  returnWindowDays: number | null;
+  receivedAt: string | null;
+  // Cron de-duplication stamp for the "sắp hết hạn đổi trả" push. Operational
+  // detail with no web surface, so it is optional here.
+  returnWindowNotifiedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -96,6 +117,10 @@ export type DeviceListItem = Device & {
   attachmentCount: number;
   // Null when no warranties exist on the device.
   effectiveWarrantyEnd: string | null;
+  // Return-window deadline, computed server-side:
+  // `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`. Null when the
+  // day count is unknown, is 0, or there is no purchase date at all.
+  returnDeadline: string | null;
 };
 
 export type WarrantyType = 'STANDARD' | 'EXTENDED' | 'THIRD_PARTY';
@@ -147,6 +172,9 @@ export type AttachmentMeta = {
 // `GET /v1/devices/{id}` returns `{ device: DeviceDetail }`.
 // Go embeds the Device fields directly + appends warranties + attachments.
 export type DeviceDetail = Device & {
+  // Same derived value as `DeviceListItem.returnDeadline`; null when the window
+  // is unknown / not applicable.
+  returnDeadline: string | null;
   warranties: WarrantyWithReminders[];
   attachments: AttachmentMeta[];
 };

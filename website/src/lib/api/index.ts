@@ -11,6 +11,10 @@
 import * as authApi from './auth';
 // Cross-entity search (roadmap #7) — read-only, backs the topbar dropdown.
 import * as searchApi from './search';
+// AGENT_ACTIONS_IMPORTS_BEGIN
+// "Việc cần xử lý" — derived action queue + server-side snooze.
+import * as actionsApi from './actions';
+// AGENT_ACTIONS_IMPORTS_END
 // AGENT_B_IMPORTS_BEGIN
 import * as devicesApi from './devices';
 import * as warrantiesApi from './warranties';
@@ -30,6 +34,9 @@ import * as aiApi from './ai';
 export const api = {
   auth: authApi,
   search: searchApi,
+  // AGENT_ACTIONS_NAMESPACES_BEGIN
+  actions: actionsApi,
+  // AGENT_ACTIONS_NAMESPACES_END
   // AGENT_B_NAMESPACES_BEGIN
   devices: devicesApi,
   warranties: warrantiesApi,

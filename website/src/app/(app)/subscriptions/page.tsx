@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { EmptyState } from '@/components/empty-state';
 import { SubscriptionFilterBar } from '@/components/subscription-filter-bar';
+import { SubscriptionAuditPanel } from '@/components/subscription-audit-panel';
 import { api } from '@/lib/api';
 import type { Subscription } from '@/lib/api/subscriptions';
 import { getCategories } from '@/app/actions/catalog';
@@ -158,9 +159,13 @@ export default async function SubscriptionsPage({
     dir: (sp.dir as 'asc' | 'desc') ?? 'asc',
   };
 
-  const [listRes, categories] = await Promise.all([
+  // The audit is its own endpoint (`GET /v1/subscriptions/audit`) because the
+  // detection needs `wv_unaccent` + a LAG over the whole payment history. Failed
+  // read → `null` → the panel says so, instead of rendering as "nothing found".
+  const [listRes, categories, auditRes] = await Promise.all([
     api.subscriptions.list(),
     getCategories(),
+    api.subscriptions.audit(),
   ]);
   if (!listRes.ok) {
     return (
@@ -242,6 +247,11 @@ export default async function SubscriptionsPage({
           </div>
         </div>
       )}
+
+      {/* Advisory audit of the whole account. It sits above the filter bar on
+          purpose: it is not a view of the list below (a duplicate pair can
+          straddle a filter), and it never changes anything — see the panel. */}
+      <SubscriptionAuditPanel audit={auditRes.ok ? auditRes.data : null} />
 
       <SubscriptionFilterBar categories={categories} />
 

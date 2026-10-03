@@ -68,6 +68,12 @@ export default async function EditDevicePage({
           // for the date input via `soldAtToInputValue`.
           soldAt: device.soldAt,
           soldPrice: device.soldPrice,
+          // Return window (migration 0010) — passed through so the form's hidden
+          // inputs can send the recorded values back on save. PATCH replaces the
+          // whole device, so dropping these would silently erase a window set on
+          // another client. The form has no input for them in this pass.
+          returnWindowDays: device.returnWindowDays,
+          receivedAt: device.receivedAt,
         }}
       />
     </div>

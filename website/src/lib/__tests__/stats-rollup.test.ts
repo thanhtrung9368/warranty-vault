@@ -27,10 +27,14 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     // Resale pair — defaults to "not sold"; the spend rollups ignore it.
     soldAt: null,
     soldPrice: null,
+    // Return window (migration 0010) — defaults to "chưa ghi"; ignored here.
+    returnWindowDays: null,
+    receivedAt: null,
     createdAt: '2026-03-15T00:00:00Z',
     updatedAt: '2026-03-15T00:00:00Z',
     attachmentCount: 0,
     effectiveWarrantyEnd: null,
+    returnDeadline: null,
     ...over,
   };
 }

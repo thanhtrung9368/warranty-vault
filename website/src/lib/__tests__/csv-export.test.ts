@@ -43,10 +43,14 @@ function device(over: Partial<DeviceListItem> = {}): DeviceListItem {
     // carry sold columns, so these stay at the "not sold" defaults.
     soldAt: null,
     soldPrice: null,
+    // Return window (migration 0010) — same idea: no CSV columns for it (yet).
+    returnWindowDays: null,
+    receivedAt: null,
     createdAt: '2024-03-08T10:00:00Z',
     updatedAt: '2024-03-08T10:00:00Z',
     attachmentCount: 0,
     effectiveWarrantyEnd: '2026-03-08T00:00:00Z',
+    returnDeadline: null,
     ...over,
   };
 }

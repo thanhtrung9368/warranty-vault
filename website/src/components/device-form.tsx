@@ -48,6 +48,10 @@ import {
   validateSaleToggled,
 } from '@/lib/device-resale';
 import {
+  receivedAtInputValue,
+  returnWindowDaysInputValue,
+} from '@/lib/device-return-window';
+import {
   createDevice,
   updateDevice,
   type DeviceFormState,
@@ -83,6 +87,11 @@ type Initial = {
   // Resale record (read back from the Go wire shape, no `Z`/offset on soldAt).
   soldAt?: string | null;
   soldPrice?: number | null;
+  // Return window (migration 0010). Read-only here: there is deliberately no
+  // input for these in this pass (three clients, one contract — see
+  // `lib/device-return-window.ts`). They are carried through an edit untouched.
+  returnWindowDays?: number | null;
+  receivedAt?: string | null;
 };
 
 type Catalog = {
@@ -1146,6 +1155,25 @@ export function DeviceForm({
       {/* Always-mounted fields that don't belong to a visible step on the create flow.
           When editing, status lives on step 4; otherwise it gets a default. */}
       {!isEdit && <input type="hidden" name="status" value={status} />}
+
+      {/* Return window (migration 0010) — round-tripped, never edited here.
+          `PATCH /v1/devices/{id}` replaces every field, so a save that omits
+          these two keys CLEARS a window recorded on another client (same trap as
+          soldAt/soldPrice above). Both are therefore mounted unconditionally,
+          outside the step divs, so they ship with every submit — including the
+          create flow, where they are blank and mean "chưa ghi". The action parses
+          them with `returnWindowFieldsFromFormData`, the same helper the tests
+          round-trip through. */}
+      <input
+        type="hidden"
+        name="returnWindowDays"
+        value={returnWindowDaysInputValue(initial?.returnWindowDays)}
+      />
+      <input
+        type="hidden"
+        name="receivedAt"
+        value={receivedAtInputValue(initial?.receivedAt)}
+      />
     </form>
   );
 }

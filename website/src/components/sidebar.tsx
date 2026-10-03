@@ -12,6 +12,7 @@ import {
   Vault,
   Heart,
   RefreshCw,
+  ListChecks,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,12 @@ const items: NavItem[] = [
     label: 'Tổng quan',
     icon: LayoutDashboard,
     match: (p) => p === '/dashboard',
+  },
+  {
+    href: '/actions',
+    label: 'Việc cần xử lý',
+    icon: ListChecks,
+    match: (p) => p.startsWith('/actions'),
   },
   {
     href: '/devices',
@@ -67,7 +74,27 @@ const items: NavItem[] = [
   },
 ];
 
-export function Sidebar({ reminderCount = 0 }: { reminderCount?: number }) {
+// Per-item badge. The reminders count is "gói bảo hành sắp hết"; the actions
+// count is `ActionQueue.counts.total`, i.e. the ACTIONABLE subset — the server
+// keeps snoozed rows out of it on purpose, so a snooze never inflates the badge.
+function navBadge(href: string, reminderCount: number, actionCount: number): number {
+  if (href === '/reminders') return reminderCount;
+  if (href === '/actions') return actionCount;
+  return 0;
+}
+
+const BADGE_CLASS: Record<string, string> = {
+  '/reminders': 'bg-primary text-primary-foreground',
+  '/actions': 'bg-amber-soft text-amber-ink',
+};
+
+export function Sidebar({
+  reminderCount = 0,
+  actionCount = 0,
+}: {
+  reminderCount?: number;
+  actionCount?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -90,7 +117,7 @@ export function Sidebar({ reminderCount = 0 }: { reminderCount?: number }) {
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.match(pathname);
-          const showBadge = item.href === '/reminders' && reminderCount > 0;
+          const badge = navBadge(item.href, reminderCount, actionCount);
           return (
             <Link
               key={item.href}
@@ -115,9 +142,14 @@ export function Sidebar({ reminderCount = 0 }: { reminderCount?: number }) {
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               <span className="wv-sidebar-label flex-1 truncate">{item.label}</span>
-              {showBadge && (
-                <span className="wv-sidebar-badge ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                  {reminderCount}
+              {badge > 0 && (
+                <span
+                  className={cn(
+                    'wv-sidebar-badge ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
+                    BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
+                  )}
+                >
+                  {badge}
                 </span>
               )}
             </Link>
@@ -130,14 +162,16 @@ export function Sidebar({ reminderCount = 0 }: { reminderCount?: number }) {
 
 /**
  * Mobile pill-shaped bottom navigation. Renders every section (same order +
- * labels as the desktop sidebar) in a horizontally scrollable strip — all 7
+ * labels as the desktop sidebar) in a horizontally scrollable strip — all 8
  * entries don't fit on a phone at once, so the active one is scrolled into
  * view. Hidden on desktop (sidebar takes over from md: up).
  */
 export function MobileBottomNav({
   reminderCount = 0,
+  actionCount = 0,
 }: {
   reminderCount?: number;
+  actionCount?: number;
 }) {
   const pathname = usePathname();
   const navRef = React.useRef<HTMLElement>(null);
@@ -156,7 +190,7 @@ export function MobileBottomNav({
       {items.map((item) => {
         const Icon = item.icon;
         const active = item.match(pathname);
-        const showBadge = item.href === '/reminders' && reminderCount > 0;
+        const badge = navBadge(item.href, reminderCount, actionCount);
         return (
           <Link
             key={item.href}
@@ -172,9 +206,14 @@ export function MobileBottomNav({
           >
             <Icon className="h-5 w-5" />
             <span className="whitespace-nowrap leading-none">{item.label}</span>
-            {showBadge && (
-              <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                {reminderCount}
+            {badge > 0 && (
+              <span
+                className={cn(
+                  'absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold',
+                  BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
+                )}
+              >
+                {badge}
               </span>
             )}
           </Link>

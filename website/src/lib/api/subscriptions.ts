@@ -154,3 +154,80 @@ export async function renew(id: string): Promise<ApiResult<{ ok: boolean }>> {
     `/v1/subscriptions/${encodeURIComponent(id)}/renew`,
   );
 }
+
+// ---- Soát gói đăng ký (GET /v1/subscriptions/audit) ---------------------------
+
+// Mirrors services.SubscriptionAuditThresholds. The payload carries its own
+// thresholds precisely so a client can show the rule that produced a verdict.
+export type SubscriptionAuditThresholds = {
+  quietMinAutoCharges: number;
+  quietMinMonths: number;
+  upcomingRenewalDays: number;
+  priceRiseMinPercent: number;
+  duplicateNormalized: boolean;
+};
+
+export type SubscriptionAuditKind =
+  | 'QUIET_AUTO_RENEW'
+  | 'PRICE_INCREASED'
+  | 'DUPLICATE';
+
+export type SubscriptionAuditReason = 'SAME_NAME' | 'SAME_BRAND_CATEGORY';
+
+// Mirrors services.AuditFinding. `omitempty` fields are absent (not null) when
+// the rule does not produce them.
+export type SubscriptionAuditFinding = {
+  findingKey: string;
+  kind: SubscriptionAuditKind | string;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  title: string;
+  detail: string;
+  // One id for the single-subscription rules, two for DUPLICATE.
+  subscriptionIds: string[];
+  names: string[];
+  monthlyVnd: number;
+  // Automatic charges already taken (QUIET_AUTO_RENEW). NOT a total of every
+  // payment, and never a usage signal.
+  chargedTotalVnd: number;
+  chargeCount: number;
+  // Newest recorded payment — explicitly NOT the last day of use; the app has no
+  // such data.
+  lastRecordedAt?: string | null;
+  nextRenewalAt?: string | null;
+  daysUntilRenewal?: number | null;
+  previousAmountVnd?: number | null;
+  amountVnd?: number | null;
+  increaseVnd?: number | null;
+  increasePercent?: number | null;
+  // false for a rise below `priceRiseMinPercent` — the finding is still
+  // reported, only its prominence is the client's call.
+  material?: boolean | null;
+  reason?: SubscriptionAuditReason | string | null;
+};
+
+export type SubscriptionAudit = {
+  generatedAt: string;
+  findings: SubscriptionAuditFinding[];
+  // Same counter shape as the action queue — here it counts findings.
+  counts: SubscriptionAuditCounts;
+  // Always true: the endpoint has no write path at all.
+  advisory: boolean;
+  thresholds: SubscriptionAuditThresholds;
+  note: string;
+};
+
+// Local copy of the shared `ActionCounts` shape so this module stays free of a
+// runtime cross-import with `./actions`.
+export type SubscriptionAuditCounts = {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+};
+
+// Advisory only. Nothing here (or downstream) cancels, disables auto-renew or
+// changes a price — turning a finding into an action stays a user click on the
+// existing subscription endpoints.
+export async function audit(): Promise<ApiResult<SubscriptionAudit>> {
+  return apiFetch<SubscriptionAudit>('GET', '/v1/subscriptions/audit');
+}
