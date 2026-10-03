@@ -1162,6 +1162,10 @@ paths:
               schema:
                 type: object
                 properties: { item: { $ref: '#/components/schemas/WishlistItem' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/wishlist/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -1544,6 +1548,17 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: |
+            The payload would break the per-user device ceiling. Importing adds
+            device rows, so `services.assertBackupDeviceQuota` refuses a file that
+            would push the account past 50 active or 500 stored devices. In
+            `replace` mode the base count is zero, so restoring an at-the-limit
+            account onto itself is allowed; in `merge` mode ids already owned by
+            this user are not counted twice.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/reminders:
@@ -1560,8 +1575,9 @@ paths:
         mảng `reminders[]`:
           * **Không áp dụng `withinDays`** cho reminder đã ẩn — một reminder ẩn từ
             nhiều năm trước vẫn nằm trong danh sách "Đã ẩn". Kích thước phản hồi
-            vẫn bị chặn bởi giới hạn ghi (50 thiết bị × 5 bảo hành = tối đa 250
-            gói bảo hành / người dùng).
+            vẫn bị chặn bởi giới hạn ghi (500 thiết bị lưu trữ, tính cả đã bán, ×
+            5 bảo hành = tối đa 2500 gói bảo hành / người dùng — trần 500 mới là
+            trần ràng buộc ở đây, vì thiết bị đã bán vẫn giữ bảo hành).
           * **Không áp dụng điều kiện `status = ACTIVE`** cho reminder đã ẩn — một
             reminder bị ẩn trên thiết bị sau đó đã bán / hỏng / mất vẫn hiển thị,
             kèm `device.status` để client vẽ badge.

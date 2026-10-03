@@ -53,7 +53,9 @@ type ReminderDeviceRef struct {
 // filters do not apply — no endDate window, no ACTIVE-device requirement — so a
 // reminder hidden long ago, or hidden on a device that was later sold, stays
 // visible instead of silently disappearing. The extra rows are bounded by the
-// write-path caps (50 devices × 5 warranties = at most 250 warranties per user).
+// write-path caps: 500 stored devices × 5 warranties = at most 2500 warranties
+// per user. The 500-row total ceiling is the one that binds here, not the
+// 50-active one, because a sold device keeps its warranties.
 func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string, withinDays int, includeDismissed bool) ([]ReminderRow, error) {
 	if withinDays <= 0 {
 		withinDays = 30

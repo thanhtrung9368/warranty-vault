@@ -25,8 +25,9 @@ const (
 	// wishlist items.
 	DefaultSearchLimit = 20
 	// MaxSearchLimit caps the per-group limit so one request cannot pull a whole
-	// account (the hard ceilings are 50 devices / 100 subscriptions / 200 wishlist
-	// items per user).
+	// account (the hard ceilings are 500 stored devices / 100 subscriptions /
+	// 200 wishlist items per user — devices count sold ones too, and the tighter
+	// 50 applies only to devices that are still active).
 	MaxSearchLimit = 50
 	// MaxSearchQueryRunes bounds the pattern handed to LIKE. 200 runes is longer
 	// than any real product name; beyond that the input is a paste accident and
