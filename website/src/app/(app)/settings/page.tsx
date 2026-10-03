@@ -6,6 +6,7 @@ import { PushSettings } from '@/components/push-settings';
 import { PushDevices } from '@/components/push-devices';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { DeleteAccountForm } from '@/components/delete-account-form';
+import { EmailChangeForm } from '@/components/email-change-form';
 import { AISettings } from '@/components/ai-settings';
 import { ProfileForm } from '@/components/profile-form';
 import { listMySubscriptions } from '@/app/actions/push';
@@ -26,7 +27,13 @@ export default async function SettingsPage() {
       </div>
 
       <Section icon={<UserRound className="h-4 w-4" />} tint="tint-violet" title="Hồ sơ">
-        <ProfileForm email={user.email} initialName={user.name} />
+        <div className="space-y-4">
+          <ProfileForm email={user.email} initialName={user.name} />
+          {/* Step 1 of the email-change flow. The mailed link lands on
+              /confirm-email/<token>, which is public (the token is the
+              credential). */}
+          <EmailChangeForm currentEmail={user.email} />
+        </div>
       </Section>
 
       <Section icon={<Palette className="h-4 w-4" />} tint="tint-violet" title="Giao diện">

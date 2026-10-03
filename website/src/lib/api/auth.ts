@@ -150,6 +150,39 @@ export async function changePassword(
   });
 }
 
+// Step 1 of the email-change flow (roadmap #10). Body = the NEW address + the
+// current password (so a stolen bearer token alone cannot move the account).
+// The account email is NOT touched here: the old address keeps working until
+// step 2 confirms. Go mails a single-use, 30-minute token to the new address.
+//
+// The response `message` is deliberately the SAME whether the address is free
+// or already belongs to another account (no enumeration), so callers must pass
+// it through and never branch on it.
+export async function changeEmail(
+  newEmail: string,
+  currentPassword: string,
+): Promise<ApiResult<{ ok: boolean; message?: string }>> {
+  return apiFetch<{ ok: boolean; message?: string }>('POST', '/v1/auth/change-email', {
+    newEmail,
+    currentPassword,
+  });
+}
+
+// Step 2 — consumes the token from the link mailed to the new address. Goes out
+// with `auth: false` on purpose: the endpoint requires NO bearer token (the
+// token IS the credential, and the link is usually opened on another device).
+// On success Go moves the account to the new address and revokes every session.
+export async function confirmEmailChange(
+  token: string,
+): Promise<ApiResult<{ ok: boolean; message?: string }>> {
+  return apiFetch<{ ok: boolean; message?: string }>(
+    'POST',
+    '/v1/auth/confirm-email-change',
+    { token },
+    { auth: false },
+  );
+}
+
 // Confirms a password-reset request. Posts the raw token + new password to
 // Go; the service hashes the token, locates the PasswordReset row, swaps
 // the user's password hash, marks every outstanding reset row used, and

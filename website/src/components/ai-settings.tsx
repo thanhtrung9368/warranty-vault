@@ -36,9 +36,9 @@ export function AISettings({ initialEnabled }: { initialEnabled: boolean }) {
         <div className="space-y-1 text-sm text-muted-foreground">
           <p className="font-medium text-ink">Quét hoá đơn bằng AI</p>
           <p>
-            Khi bật, bạn có thể chụp/chọn ảnh hoá đơn hoặc phiếu bảo hành để tự điền thông tin
-            thiết bị. Ảnh sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để trích xuất —
-            bạn luôn kiểm tra lại bản nháp trước khi lưu. Mặc định tắt.
+            Khi bật, bạn có thể chụp/chọn ảnh (JPEG, PNG, WEBP) hoặc file PDF hoá đơn / phiếu bảo
+            hành để tự điền thông tin thiết bị. File sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ
+            ba để trích xuất — bạn luôn kiểm tra lại bản nháp trước khi lưu. Mặc định tắt.
           </p>
         </div>
       </div>

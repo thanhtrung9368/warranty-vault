@@ -9,6 +9,8 @@
 // conflicts.
 
 import * as authApi from './auth';
+// Cross-entity search (roadmap #7) — read-only, backs the topbar dropdown.
+import * as searchApi from './search';
 // AGENT_B_IMPORTS_BEGIN
 import * as devicesApi from './devices';
 import * as warrantiesApi from './warranties';
@@ -27,6 +29,7 @@ import * as aiApi from './ai';
 
 export const api = {
   auth: authApi,
+  search: searchApi,
   // AGENT_B_NAMESPACES_BEGIN
   devices: devicesApi,
   warranties: warrantiesApi,

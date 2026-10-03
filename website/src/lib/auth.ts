@@ -37,3 +37,18 @@ export async function requireUser(): Promise<CurrentUser> {
   if (!user) redirect('/login');
   return user;
 }
+
+// Guest-only pages (login / register / forgot / reset): a signed-in visitor is
+// sent to the dashboard instead of being shown the form again.
+//
+// This used to live in the `(auth)` layout, which made every route under it
+// guest-only — including `/confirm-email/<token>`, the link the email-change
+// flow mails to the NEW address. That link is routinely opened in the browser
+// where the user is still signed in (they requested the change from Cài đặt),
+// and the layout would bounce them to /dashboard with the token never consumed.
+// Keeping the check on the guest-only pages instead lets the confirm page be
+// public for both audiences while preserving the old behaviour everywhere else.
+export async function requireGuest(): Promise<void> {
+  const user = await getCurrentUser();
+  if (user) redirect('/dashboard');
+}

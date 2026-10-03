@@ -568,8 +568,13 @@ export function DeviceForm({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
+                // OCR accepts JPEG/PNG/WEBP + PDF (api: ai.IsSupportedReceiptType).
+                // No `capture="environment"`: on Android that forces the camera
+                // app and makes a PDF impossible to pick. Without it the chooser
+                // still offers "Camera" (plus Files/Photos), so taking a photo
+                // stays one tap away. GIF/HEIC are not pre-filtered here — the
+                // server rejects them with its own Vietnamese message.
+                accept="image/jpeg,image/png,image/webp,application/pdf"
                 className="hidden"
                 onChange={handleScanFile}
               />
@@ -589,7 +594,8 @@ export function DeviceForm({
                     {scanning ? 'Đang quét hoá đơn…' : 'Quét hoá đơn / phiếu bảo hành'}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    Chụp hoặc chọn ảnh để tự điền thông tin — bạn vẫn kiểm tra lại trước khi lưu
+                    Chụp hoặc chọn ảnh (JPEG/PNG/WEBP) hoặc file PDF hoá đơn để tự điền thông tin —
+                    bạn vẫn kiểm tra lại trước khi lưu
                   </span>
                 </span>
               </button>

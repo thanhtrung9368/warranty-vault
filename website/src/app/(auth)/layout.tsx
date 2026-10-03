@@ -1,17 +1,18 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { Vault } from 'lucide-react';
-import { getCurrentUser } from '@/lib/auth';
 import { ThemeToggle } from '@/components/theme-toggle';
 
-export default async function AuthLayout({
+// Chrome for the public auth flows. The "already signed in → /dashboard" guard
+// deliberately does NOT live here: `/confirm-email/<token>` belongs to this
+// group and must stay reachable for a signed-in visitor too — that link is
+// mailed to the NEW address and is routinely opened in the browser where the
+// user is still signed in. The guest-only pages call `requireGuest()`
+// themselves (`@/lib/auth`), which is the exact check this layout used to run.
+export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
-  if (user) redirect('/dashboard');
-
   return (
     <div className="auth-gradient flex min-h-screen flex-col">
       <header className="flex items-center justify-between px-4 py-5 md:px-8">

@@ -29,10 +29,11 @@ function SubmitButton() {
   );
 }
 
-// Profile editor for the display name. The only mutable field: the account
-// email is the login identifier and there is no verified change-email flow
-// yet, so it is rendered read-only with an explicit note instead of an input
-// that would look editable (and be rejected with a 400 by the server).
+// Profile editor for the display name. `PATCH /v1/auth/me` accepts that field
+// and nothing else, so the account email is rendered read-only here — changing
+// it is a separate two-step flow (`change-email` → token mailed to the NEW
+// address → `confirm-email-change`) whose request form is `EmailChangeForm`,
+// rendered next to this one in the Hồ sơ section.
 //
 // The name cap is 80 *bytes* of UTF-8 (~26 Vietnamese characters), enforced in
 // Go. We intentionally do not pre-validate a character count here — the
@@ -97,7 +98,9 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
           />
         </div>
         <p id="profileEmailHint" className="text-xs text-muted-foreground">
-          Email dùng để đăng nhập và <strong className="font-semibold">chưa thể đổi</strong> ở đây.
+          Email dùng để đăng nhập. Đổi được bằng mục <strong className="font-semibold">Đổi email
+          đăng nhập</strong> ngay bên dưới — cần mật khẩu hiện tại và một bước xác nhận qua email
+          gửi tới địa chỉ mới.
         </p>
       </div>
 

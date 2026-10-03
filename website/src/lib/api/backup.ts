@@ -1,17 +1,33 @@
 // Typed client for the Go service's backup endpoints. The export endpoint
-// streams a JSON file (Content-Disposition: attachment); we surface it as a
-// raw text blob so the server action can parse it back into the typed
+// streams a file (Content-Disposition: attachment); we surface the JSON one as
+// a raw text blob so the server action can parse it back into the typed
 // `BackupExport` for callers that want to inspect it or re-serialise.
+//
+// The blob-carrying export (`?includeBlobs=true`, a real .zip) does NOT go
+// through this module: it is streamed by `src/app/api/backup/export/route.ts`,
+// and imports — JSON or zip, the server sniffs — are streamed by
+// `src/app/api/backup/import/route.ts`. Server actions cap their request body at
+// 10 MB, which an archive with invoice images blows past.
 
-import { apiFetch, type ApiResult } from './client';
 import { bearerHeader } from '@/lib/auth-cookie';
+import { filenameFromDisposition } from '@/lib/backup-media';
 
 const BASE_URL = (process.env.GO_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
-// Shape mirrors api/internal/services/backup.go::BackupExport (version 5).
+// Shape mirrors api/internal/services/backup.go::BackupExport.
+// Version 5 = the JSON export (metadata only); version 6 = the `data.json`
+// inside the .zip (`includesAttachmentBytes: true`, blobs beside it under
+// `attachments/<storagePath>`).
 export type BackupExport = {
-  version: 5;
+  version: 5 | 6;
   exportedAt: string;
+  // Self-describing honesty fields. `attachmentBytesNote` is the server's own
+  // Vietnamese warning and is what the UI surfaces — see `@/lib/backup-media`
+  // for the mirrored constants used before a download.
+  includesAttachmentBytes?: boolean;
+  attachmentBytesNote?: string;
+  // Only in the .zip export, and only when a blob was absent from disk.
+  missingAttachmentIds?: string[];
   subscriptions: Array<{
     id: string;
     name: string;
@@ -104,6 +120,13 @@ export type BackupExport = {
   }>;
 };
 
+// Mirrors services.ImportResult (openapi `ImportResult`). The three attachment
+// counters are only non-zero for a .zip import: `attachmentsImported` counts
+// blobs written to PRIVATE_UPLOAD_ROOT, `attachmentsSkipped` counts blobs
+// skipped together with an already-existing device (merge mode), and
+// `attachmentsUnreadable` counts blobs that were restored but cannot be
+// decrypted with this server's FILE_MASTER_KEY (or were already missing when
+// the archive was written). The last one must be shown to the user.
 export type ImportResult = {
   imported: number;
   skipped: number;
@@ -111,6 +134,9 @@ export type ImportResult = {
   wishlistSkipped: number;
   subImported: number;
   subSkipped: number;
+  attachmentsImported: number;
+  attachmentsSkipped: number;
+  attachmentsUnreadable: number;
 };
 
 // Streams the raw JSON file (preserves Content-Disposition / filename). The
@@ -152,25 +178,6 @@ export async function exportRaw(): Promise<
     };
   }
   const body = await res.text();
-  const disposition = res.headers.get('Content-Disposition');
-  let filename: string | null = null;
-  if (disposition) {
-    const m = disposition.match(/filename="?([^";]+)"?/i);
-    if (m) filename = m[1];
-  }
+  const filename = filenameFromDisposition(res.headers.get('Content-Disposition'));
   return { ok: true, body, filename };
-}
-
-// Imports a payload object. The Go service expects raw JSON; pass the parsed
-// object and it will be re-serialized. Mode is encoded as a query parameter
-// (?mode=merge|replace) to match the handler.
-export async function importJson(
-  payload: unknown,
-  mode: 'merge' | 'replace' = 'merge',
-): Promise<ApiResult<{ ok: boolean; result: ImportResult }>> {
-  return apiFetch<{ ok: boolean; result: ImportResult }>(
-    'POST',
-    `/v1/backup/import?mode=${encodeURIComponent(mode)}`,
-    payload,
-  );
 }
