@@ -7,7 +7,7 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-03 (lần 6) — **0.1, 0.2, 0.3 và 0.4 đã xong**; phần còn lại vẫn kiểm lại
+**Cập nhật:** 2026-10-03 (lần 7) — **cả nhóm 0 (0.1–0.5) đã xong**; phần còn lại vẫn kiểm lại
 từng mục (không tin bản cũ). Mục nào đã hết việc thì ghi rõ là **HẾT VIỆC** chứ không xoá, để mày
 biết là tao đã kiểm chứ không phải bỏ sót.
 
@@ -161,7 +161,7 @@ khác, và đó là lý do phải hỏi chủ repo trước chứ không tự qu
 - **Cách đo cho lần sau:** `df -h /` **trước và sau**, đợi ổn định — đừng tin `du` trên
   volume APFS, và đừng tin `simctl runtime list` (nó báo 23.4G trong khi volume thật là 50G).
 
-### [ ] 0.5 — Sinh cặp khoá VAPID cho web push
+### [x] 0.5 — Sinh cặp khoá VAPID cho web push — ✅ **XONG 2026-10-03**
 
 ```bash
 npx web-push generate-vapid-keys
@@ -170,6 +170,36 @@ npx web-push generate-vapid-keys
 - Lấy `Public Key` → `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (website) **và** `VAPID_PUBLIC_KEY` (Go).
 - Lấy `Private Key` → `VAPID_PRIVATE_KEY` (Go).
 - **Mất:** 1 phút. **Xong thì:** bật được thông báo đẩy trên web.
+
+> ⚠️ **Public key thì CÔNG KHAI, private key thì không** — ngược với 4 secret ở 0.3. Public key
+> nằm trong JS gửi xuống trình duyệt (nó *phải* công khai); private key ký tin nhắn nên lộ là
+> người khác gửi push giả danh được. `VAPID_SUBJECT` chỉ là địa chỉ liên hệ, không phải secret.
+
+> ⚠️ **`NEXT_PUBLIC_VAPID_PUBLIC_KEY` phải có ở BUILD time, không phải runtime.** Next.js inline
+> mọi biến `NEXT_PUBLIC_*` vào client bundle lúc build — compose khai nó ở `build.args` (dòng 130)
+> chứ không phải `environment`, kèm comment ngay đó. Nên đổi key rồi **phải `docker compose build web`**,
+> chỉ `restart` thì trình duyệt vẫn giữ key cũ → đăng ký bằng key A, server ký bằng key B → push fail im lặng.
+
+> ℹ️ **Docker chỉ cần MỘT tên cho public key.** `docker-compose.yml` map
+> `VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}` ở cả `api` (dòng 81) lẫn `cron` (dòng 199),
+> và Go cũng có fallback `firstEnv("VAPID_PUBLIC_KEY", "NEXT_PUBLIC_VAPID_PUBLIC_KEY")`
+> (`push/webpush.go:74`) — nên viết `VAPID_PUBLIC_KEY` trong `.env` gốc là **thừa**.
+
+> ℹ️ **Thiếu VAPID thì KHÔNG crash** — khác 4 secret ở 0.3. Các biến này đều `${...:-}` trong compose,
+> và `WebPusher.Configured()` trả `false` → chỉ tắt push web, mọi thứ khác chạy bình thường.
+> `VAPID_SUBJECT` có default `mailto:admin@example.com`.
+
+- **Đã làm 2026-10-03.** Verify bằng mật mã chứ không đoán: **derive public key từ private key**
+  rồi so với public key khai báo (EC P-256) → **khớp**. Định dạng: public 65 byte với byte đầu `0x04`
+  (điểm uncompressed), private 32 byte, cả hai base64url không padding.
+- **Cả 3 file đã đồng bộ** — `.env` gốc, `website/.env`, `api/.env` giờ cùng một cặp (fingerprint
+  SHA-256 trùng nhau). Trước đó `website/.env` còn giữ **cặp dev cũ** và `api/.env` **không có VAPID
+  nào**, nghĩa là chạy local thì Go không gửi được push — và nếu chỉ sửa một bên thì trình duyệt
+  đăng ký bằng key cũ còn server ký bằng key mới, **fail im lặng**.
+- **Đã `chmod 600` cả `website/.env` và `api/.env`** — chúng là `644` trong khi vừa được chép private
+  key production vào. Giờ cả 3 file env đều `600` và đều đã được gitignore (`git check-ignore` xác nhận).
+- **5 chỗ dùng biến này trong compose:** `api` (81), `web` build arg (130), `web` runtime (165),
+  `cron` (199). Tất cả lấy từ **cùng một biến ở `.env` gốc**, nên Docker luôn nhất quán.
 
 ---
 
@@ -435,7 +465,9 @@ nhất nên để sau cùng, khi mọi thứ khác đã sẵn sàng.
 |---|---|---|
 | 0.1 quyền npm | `ls -ld ~/.npm` + `npm view left-pad version` | ✅ hết việc (chủ sở hữu uid 501, npm chạy được) |
 | 0.2 `xcode-select` | `xcode-select -p` | ✅ xong — ra Xcode thật; `swift test` chạy trơn, bỏ được cả `DEVELOPER_DIR` lẫn `--disable-sandbox` |
+| 0.3 secret production | độ dài + định dạng, và so với giá trị dev | ✅ xong — 4 biến đúng dạng, khác hẳn giá trị dev |
 | 0.4 simulator | `df -h /` (KHÔNG dùng `du` — xem cảnh báo ở mục 0.4) | ✅ xong — lấy lại 22G (61 → 83Gi), còn 20 simulator |
+| 0.5 VAPID | **derive public key từ private** rồi so (EC P-256) | ✅ xong — cặp khớp thật; 3 file env cùng fingerprint |
 | 1.1 Firebase | đọc `android/app/google-services.json` | ❌ vẫn stub |
 | 1.4 Anthropic | grep `ANTHROPIC` trong `docker-compose.yml` | ✅ đã forward đủ 2 biến |
 | 2.2 port publish | grep `ports:` trong `docker-compose.yml` | ❌ vẫn `3000:3000` + `4000:4000` |
@@ -443,8 +475,8 @@ nhất nên để sau cùng, khi mọi thứ khác đã sẵn sàng.
 | 3.4 5 control iOS | đọc `MoreScreen`/`AccountView`/`SettingsView`/`AppLock.swift` | ✅ đã xử lý xong |
 | 1.3 nay chặn mấy luồng | đọc `auth.go` (`change-email` / `confirm-email-change`) + `0009_email_change.sql` | ⚠️ **2 luồng** cùng phụ thuộc Resend: reset mật khẩu **và** xác nhận đổi email |
 | Backup có ảnh chưa | đọc `services/backup.go` + `handlers/backup.go` | ✅ có: `?includeBlobs=true` → .zip version 6; JSON mặc định vẫn không có ảnh |
-| Migration mới | `ls api/migrations/` | 9 file (`0001`…`0009`); `PRODUCTION_CHECKLIST.md` §2 mới liệt kê tới `0007` — **cần cập nhật** |
-| Biến env mới cần mày cấp | `git diff` trên `api/.env.example` + grep `os.Getenv` toàn bộ `api/` | ⚪ **không có biến mới nào bắt buộc** — chỉ thêm dòng `VAPID_PUBLIC_KEY` cho tường minh (0.5 đã bao) |
+| Migration mới | `ls api/migrations/` | ✅ 13 file (`0001`…`0013`); `PRODUCTION_CHECKLIST.md` §2 **đã khớp** ở 13 |
+| Biến env mới cần mày cấp | `git diff` trên `api/.env.example` + grep `os.Getenv` toàn bộ `api/` | ⚪ không có biến mới nào bắt buộc ngoài bộ ở 0.3; VAPID (0.5) là **tuỳ chọn** — thiếu chỉ tắt push web |
 
 **Hai thứ tao phát hiện thêm nhưng không sửa được (không nằm trong file của tao):**
 `website/.env.example` vẫn ghi *"Docker (root compose): hiện set `http://api:4000` — cần thêm `/api`"*
