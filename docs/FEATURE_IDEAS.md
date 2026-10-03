@@ -5,9 +5,51 @@
 > & tích hợp, chia sẻ & vòng đời thiết bị, AI nâng cao), đã lọc trùng, đã đối chiếu với danh sách
 > "ĐÃ CÓ" và với `docs/FEATURE_ROADMAP.md` §5 "Đã cân nhắc và loại".
 >
-> Trạng thái repo khi viết: migration mới nhất là `0009`, 17 bảng, 54 endpoint. Hai agent khác đang sửa
-> `api/internal/` và `docs/` cùng lúc, nên mọi con số về dòng code dưới đây lấy từ bản đọc tại thời điểm
-> viết.
+> Trạng thái repo **tại thời điểm viết** (đã lỗi thời, giữ làm mốc lịch sử): migration mới nhất là `0009`,
+> 17 bảng, 54 endpoint. Hai agent khác đang sửa `api/internal/` và `docs/` cùng lúc, nên mọi con số về
+> dòng code dưới đây lấy từ bản đọc tại thời điểm viết. **Số hiện tại** (xem banner ngay dưới):
+> migration `0013`, **67 endpoint / 48 path** — `bash api/scripts/check_openapi_drift.sh`.
+
+---
+
+## 0. ⚠️ Trạng thái triển khai — đọc trước §2 (cập nhật 2026-10-03)
+
+> **Danh sách 20 ý dưới đây KHÔNG còn là "20 việc đang chờ".** Phần lớn đã được build trong đợt
+> 2026-10-02 → 10-03. §1–§5 giữ nguyên văn bản nghiên cứu ban đầu để làm lịch sử và **không đánh số lại**
+> (số thứ tự được trích trong commit message và trong `api/migrations/0010`–`0013`). Cột "Trạng thái" ở
+> bảng này là bản kiểm chứng mới nhất; cột "Khu vực" trong §2.0 là **phạm vi đề xuất ban đầu**, không
+> phải phạm vi đã làm.
+>
+> **Ký hiệu:** ✅ xong · 🟡 xong một phần · ⬜ chưa bắt đầu.
+
+| # | Tên | Trạng thái | Bằng chứng / còn thiếu gì |
+|---|---|---|---|
+| 1 | Hạn đổi trả ("1 đổi 1") | ✅ **xong cả 4 client** | `api/migrations/0010_return_window.sql`; web `lib/device-return-window.ts`, iOS `DeviceReturnWindowTests.swift`, Android `ui/screens/devices/DeviceReturnWindow.kt` (dùng ở `DeviceDetailScreen` + `AddDeviceSheet`) |
+| 2 | Phiếu bàn giao + link chia sẻ | 🟡 **backend + web + Android xong; iOS đang được viết** | `0013_device_share.sql`, `services/shares.go`; web `components/device-shares.tsx`, Android `ShareLinks.kt` + `ShareCertificatesSection.kt`. iOS: `Sources/WarrantyVaultKit/ShareLinks.swift` (model + luật token dùng một lần) đã xong, và `ios/App/Features/Devices/ShareCertificatesSection.swift` **đang được viết** — ở thời điểm kiểm nó **chưa được gắn vào màn hình nào** (không file nào trong `ios/App/` tham chiếu tới nó). Mục này đang di chuyển; kiểm lại trước khi tin. |
+| 3 | Hàng đợi "Việc cần xử lý" | ✅ **xong cả 4 client** | `0011_decision_snooze.sql`, `services/actions.go`; web `app/(app)/actions/`, iOS `ActionQueueScreen.swift`, Android `ActionQueueScreen.kt` |
+| 4 | Soát subscription | ✅ **xong cả 4 client** | `services/subscription_audit.go` + `handlers/subscriptions.go`; web `lib/subscription-audit.ts`, iOS `SubscriptionAuditScreen.swift`, Android `SubscriptionAuditScreen.kt` |
+| 5 | Xem & thu hồi phiên đăng nhập | ✅ **xong cả 4 client** | web `lib/__tests__/sessions.test.ts`, iOS `SessionsView.swift`, Android `SessionsScreen.kt` |
+| 6 | Hậu kiểm nháp AI (IMEI Luhn + trùng serial) | ✅ | `services/serial_validation.go` + `handlers/devices_serial_test.go`; cảnh báo hiện ở cả 3 client (`DeviceWarnings`) |
+| 7 | Chi phí sở hữu mỗi ngày | ✅ (đúng phạm vi "web") | `website/src/lib/stats-rollup.ts` (`perDay`), dùng ở `/stats` + `/devices` |
+| 8 | Dự báo chi tiêu 12 tháng | ✅ **xong cả 4 client** | `services/forecast.go`; web `components/forecast-panel.tsx`, iOS `StatsView.swift`, Android `ui/screens/stats/ForecastFormat.kt` (dùng trong `StatsScreen`) |
+| 9 | Sổ sự kiện + "Có gì mới" | ⬜ **chưa bắt đầu** | Không có bảng event log, không endpoint |
+| 10 | Share sheet → wishlist | ⬜ **chưa bắt đầu** | `website/public/manifest.webmanifest` **không** có `share_target` |
+| 11 | Hộp thư vào: forward hoá đơn → AI | ⬜ **chưa bắt đầu** | Không có inbound/webhook trong `api/internal/` |
+| 12 | Tự động sao lưu định kỳ lên cloud | ⬜ **chưa bắt đầu** | Không có code iCloud/Drive. ⚠️ iOS `MoreScreen.swift:259` vẫn hiện row "Đồng bộ iCloud — Bật" **trang trí** (không nối vào đâu); đó là copy nói dối, không phải tính năng |
+| 13 | Dán bảng để nhập nhiều thiết bị | ✅ (đúng phạm vi "web") | `website/src/lib/device-paste.ts` + `app/(app)/devices/import/page.tsx` |
+| 14 | Thiết bị đã bán không chiếm suất 50 | ✅ | `services/devices.go`: `MaxDevicesPerUser = 50` đếm `status <> 'SOLD'`, cộng trần lưu trữ `MaxDevicesTotalPerUser = 500` |
+| 15 | Danh bạ bảo hành theo hãng | ✅ **xong cả 4 client** | `0012_brand_service_info.sql`, `services/directory.go`; web `components/service-directory-card.tsx`, iOS `ServiceDirectoryInfo.swift`, Android `ServiceDirectorySection.kt` |
+| 16 | Tìm chữ nằm trong ảnh hoá đơn | ⬜ **chưa bắt đầu** | Không có cột text OCR nào được lưu hay index |
+| 17 | Tổng kết tháng | ⬜ **chưa bắt đầu** | Không có gì tên `monthlySummary` ở api/web/ios/android |
+| 18 | Sổ linh kiện thay thế | ⬜ **chưa bắt đầu** | Không có bảng/model nào biểu diễn được |
+| 19 | Đưa ngày hết hạn vào lịch (ICS) | ⬜ **chưa bắt đầu** | Không có `VCALENDAR`/`text/calendar` ngoài chính tài liệu này |
+| 20 | Lối tắt ứng dụng + widget | ⬜ **chưa bắt đầu** (đúng phạm vi "ios + android") | Không có widget/App Intent. Ghi chú: PWA **web** đã có 2 shortcut trong `manifest.webmanifest`, nhưng đó không phải phạm vi đề xuất của mục này |
+
+**Tóm lại:** **10/20 xong** (#1, #3, #4, #5, #6, #7, #8, #13, #14, #15), **1 xong một phần** (#2 — iOS thiếu UI),
+**9 chưa bắt đầu** (#9, #10, #11, #12, #16, #17, #18, #19, #20).
+Ngoài 20 ý này, đợt vừa rồi còn làm thêm **OCR hoá đơn PDF** (roadmap #15, không nằm trong danh sách 20)
+— `api/internal/ai/extract.go::IsSupportedReceiptType` nay nhận `application/pdf` và gửi nó dưới dạng
+`document` block.
 
 ---
 

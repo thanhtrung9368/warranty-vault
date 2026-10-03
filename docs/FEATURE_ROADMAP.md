@@ -19,63 +19,72 @@
 > **Đọc mục này trước §1.** §1–§6 giữ nguyên văn bản ngày 2026-10-02 để làm lịch sử; phần dưới
 > đây là trạng thái **đã kiểm lại bằng code**, không phải bằng lời kể.
 >
-> **Mốc kiểm chứng:** HEAD `794b35a` (2026-10-03) **+ working tree** — đợt này nhiều thứ vừa landed
-> nhưng **chưa commit** (backend agent còn đang chạy: đổi email, backup kèm blob, seed Brand/Store).
-> Dòng nào thuộc nhóm đó được đánh dấu **🆕 chưa commit**; đừng coi là đã chốt trong git.
+> **Mốc kiểm chứng:** HEAD `898d96f` (2026-10-03). Bản §0 trước lấy mốc `794b35a` **+ working tree** và
+> đánh dấu **🆕 chưa commit** cho những gì khi đó còn ngoài git (đổi email, backup kèm blob, seed
+> Brand/Store, search xuyên thực thể, feed `includeDismissed`). **Cả nhóm đó nay đã commit** — nhãn 🆕
+> còn lại dưới đây chỉ là dấu vết của lần kiểm trước, đừng đọc như "chưa chốt trong git".
 > Mọi dòng "đã xong" dưới đây đều chỉ tới file **còn tồn tại trong repo** ở mốc đó.
+>
+> **Hai dòng đã đổi kể từ bản trước:** **#15 xong trọn vẹn** (OCR nay nhận cả PDF) và **#10 đã nối được
+> client trên web + iOS** (Android còn thiếu).
 
 **Ký hiệu:** ✅ xong · 🟡 xong một phần (nói rõ phần nào) · 📄 mới có spec, chưa có code.
 
 | # | Việc | Trạng thái | Làm khác gì so với đề xuất / còn lại gì |
 |---|---|---|---|
-| 1 | Seed catalog + đường quản trị | ✅ **lỗi chặn đã hết** · 🟡 không thêm admin | `api/migrations/0004_seed_category_catalog.sql` seed đủ 20 category (idempotent, `ON CONFLICT (code) DO NOTHING`). **🆕 chưa commit:** `0008_seed_brand_store_warranty_provider.sql` seed nốt Brand/Store/WarrantyProvider — thứ mà 0004 cố ý bỏ qua; lý do đổi ý ghi trong header 0008 (picker rỗng trên DB mới là form trông hỏng ngay thiết bị đầu tiên, `BrandCategory` sẽ là join chết, và `matchBrand` của OCR chỉ bind được khi catalog có brand). **Không** có route/trang admin nào được thêm; 2 comment nói dối về Prisma Studio trong `catalog.go` đã được sửa thành "không có admin UI, sửa SQL trực tiếp". |
-| 2 | Backup gồm ảnh, và copy hướng dẫn đang sai | ✅ **đã xong** (phần zip 🆕 chưa commit) | Copy trong `backup-tools.tsx` đã nói thật từ trước, và Go đã tự khai báo qua `includesAttachmentBytes` + `attachmentBytesNote`. **Mới:** `GET /api/v1/backup/export?includeBlobs=true` trả **.zip** mang cả blob đã mã hoá (envelope version 6, `includesAttachmentBytes: true`, note tiếng Việt đổi thành "CÓ chứa … cần đúng `FILE_MASTER_KEY`"), còn export JSON giữ nguyên version 5 y như cũ. `POST /api/v1/backup/import` **sniff magic `PK\x03\x04`** nên nhận cả hai định dạng trên cùng endpoint, và `missingAttachmentIds` nói rõ blob nào thiếu trên đĩa thay vì im lặng xuất một backup nhỏ hơn. ⚠️ `openapi.yaml` mục `/backup/export` **chưa** mô tả `includeBlobs` — cần bổ sung. |
+| 1 | Seed catalog + đường quản trị | ✅ **lỗi chặn đã hết** · 🟡 không thêm admin | `api/migrations/0004_seed_category_catalog.sql` seed đủ 20 category (idempotent, `ON CONFLICT (code) DO NOTHING`). `0008_seed_brand_store_warranty_provider.sql` seed nốt Brand/Store/WarrantyProvider — thứ mà 0004 cố ý bỏ qua; lý do đổi ý ghi trong header 0008 (picker rỗng trên DB mới là form trông hỏng ngay thiết bị đầu tiên, `BrandCategory` sẽ là join chết, và `matchBrand` của OCR chỉ bind được khi catalog có brand). **Không** có route/trang admin nào được thêm; 2 comment nói dối về Prisma Studio trong `catalog.go` đã được sửa thành "không có admin UI, sửa SQL trực tiếp". |
+| 2 | Backup gồm ảnh, và copy hướng dẫn đang sai | ✅ **đã xong** | Copy trong `backup-tools.tsx` đã nói thật từ trước, và Go đã tự khai báo qua `includesAttachmentBytes` + `attachmentBytesNote`. **Mới:** `GET /api/v1/backup/export?includeBlobs=true` trả **.zip** mang cả blob đã mã hoá (envelope version 6, `includesAttachmentBytes: true`, note tiếng Việt đổi thành "CÓ chứa … cần đúng `FILE_MASTER_KEY`"), còn export JSON giữ nguyên version 5 y như cũ. `POST /api/v1/backup/import` **sniff magic `PK\x03\x04`** nên nhận cả hai định dạng trên cùng endpoint, và `missingAttachmentIds` nói rõ blob nào thiếu trên đĩa thay vì im lặng xuất một backup nhỏ hơn. ✅ **Đã bổ sung:** `openapi.yaml` mục `/backup/export` **nay đã mô tả** `includeBlobs` (cả trong `description` lẫn khai báo query parameter) — cảnh báo "chưa mô tả" ở bản trước không còn đúng. Điểm còn hở duy nhất: openapi liệt kê `400`/`401` cho import mà **không** liệt kê `409`, trong khi importer trả 409 khi payload vượt trần thiết bị. |
 | 3 | `/stats` tính đúng chi phí | ✅ số đúng ở cả 3 client · 🟡 làm khác đề xuất | Go **đã** có `devices.totalWarrantyCost` (`api/internal/services/stats.go:30`) — nhưng **chỉ Android dùng** (`StatsScreen.kt:225`). Web vẫn rollup trong RSC (`website/src/lib/stats-rollup.ts`, có test) và chỉ lấy phần subscription từ Go; iOS rollup on-device (`ios/Sources/WarrantyVaultKit/StatsRollup.swift`). Cả 3 nay đều cộng `Warranty.cost`. |
 | 4 | Web: quản lý thiết bị push | ✅ | `website/src/components/push-devices.tsx`, gọi `listMySubscriptions()` trong `settings/page.tsx`. |
-| 5 | Nhắc nhở đã ẩn: xem lại + khôi phục (cần sửa API) | ✅ web + iOS (🆕 chưa commit) · 🟡 Android | Làm **đúng như đề xuất**: `GET /api/v1/reminders?includeDismissed=true` (`api/internal/handlers/reminders.go` + `services/reminders.go` + query + test). Hành vi đã chốt: `withinDays` **không** áp cho row đã ẩn (ẩn từ lâu vẫn hiện), lọc theo status thiết bị cũng không áp (thiết bị đã bán vẫn thấy), số row bị chặn cấu trúc bởi 50 thiết bị × 5 gói = 250, và `isDismissed` dùng `omitempty` nên **chỉ xuất hiện khi `true`** — nhờ vậy `includeDismissed=false` giống y response cũ. Web (`lib/api/reminders.ts`, `lib/dismissed-reminders.ts`) và iOS (`Endpoints.swift`, `DismissedReminders.swift`) nay đọc feed nhẹ này thay vì parse cả backup export. Android vẫn chỉ có "Hoàn tác" ngay sau khi ẩn. |
+| 5 | Nhắc nhở đã ẩn: xem lại + khôi phục (cần sửa API) | ✅ web + iOS · 🟡 Android | Làm **đúng như đề xuất**: `GET /api/v1/reminders?includeDismissed=true` (`api/internal/handlers/reminders.go` + `services/reminders.go` + query + test). Hành vi đã chốt: `withinDays` **không** áp cho row đã ẩn (ẩn từ lâu vẫn hiện), lọc theo status thiết bị cũng không áp (thiết bị đã bán vẫn thấy), số row bị chặn cấu trúc bởi 50 thiết bị × 5 gói = 250, và `isDismissed` dùng `omitempty` nên **chỉ xuất hiện khi `true`** — nhờ vậy `includeDismissed=false` giống y response cũ. Web (`lib/api/reminders.ts`, `lib/dismissed-reminders.ts`) và iOS (`Endpoints.swift`, `DismissedReminders.swift`) nay đọc feed nhẹ này thay vì parse cả backup export. Android vẫn chỉ có "Hoàn tác" ngay sau khi ẩn. |
 | 6 | `/offline` hứa sai | ✅ hết nói dối · 🟡 chưa cache dữ liệu | `website/src/app/offline/page.tsx` nay nói thẳng "chưa lưu dữ liệu để xem offline". Chọn phương án "nói thật" của đề xuất; stale-while-revalidate trong `sw.js` **chưa làm**. |
-| 7 | Tìm kiếm tiếng Việt không dấu + tìm kiếm xuyên thực thể | ✅ **cả hai vế** (vế 2 🆕 chưa commit) | Vế thiết bị: `0005_device_search_unaccent.sql` + `0007_locale_safe_unaccent.sql` (đảo thành `lower(wv_unaccent(x))` để không phụ thuộc collation) + 4 index GIN trigram. **Mới:** `GET /api/v1/search?q=&limit=` trả `{query, devices[], subscriptions[], wishlist[]}` — nhóm rỗng luôn là `[]` (không bao giờ `null`), `limit` tính **mỗi nhóm** (default 20, max 50), `q` rỗng/chỉ khoảng trắng → 200 với nhóm rỗng, `q` > 200 ký tự → 400. `q` của từng endpoint list **không đổi**. |
+| 7 | Tìm kiếm tiếng Việt không dấu + tìm kiếm xuyên thực thể | ✅ **cả hai vế** | Vế thiết bị: `0005_device_search_unaccent.sql` + `0007_locale_safe_unaccent.sql` (đảo thành `lower(wv_unaccent(x))` để không phụ thuộc collation) + 4 index GIN trigram. **Mới:** `GET /api/v1/search?q=&limit=` trả `{query, devices[], subscriptions[], wishlist[]}` — nhóm rỗng luôn là `[]` (không bao giờ `null`), `limit` tính **mỗi nhóm** (default 20, max 50), `q` rỗng/chỉ khoảng trắng → 200 với nhóm rỗng, `q` > 200 ký tự → 400. `q` của từng endpoint list **không đổi**. |
 | 8 | Sửa mô tả file đính kèm | ✅ | `PATCH /api/v1/attachments/{id}` (`api/internal/handlers/attachments.go:54`, chỉ nhận `description`), sửa inline trong `website/src/components/attachment-gallery.tsx`. |
 | 9 | Parity điều hướng mobile + badge | ✅ | `MobileBottomNav` render **đủ 7 mục** (kể cả `/reminders`, `/stats`) và badge so `item.href === '/reminders'` — đúng như đề xuất "cách rẻ nhất". |
-| 10 | Sửa hồ sơ: tên hiển thị + đổi email | 🟡 **API xong cả hai** · client email chưa nối | Tên: `PATCH /api/v1/auth/me` chỉ nhận `displayName` (≤80 byte, `""`/`null` = xoá) — web/iOS/Android đều có form. Email (**🆕 chưa commit**): `POST /api/v1/auth/change-email` (bắt buộc mật khẩu hiện tại) + `POST /api/v1/auth/confirm-email-change`, migration `0009_email_change.sql` mở rộng bảng `PasswordReset` bằng cột `pendingEmail` — token gửi tới **địa chỉ mới**, hash + TTL + dùng một lần, và tách tuyệt đối khỏi token reset mật khẩu (query của hai luồng loại trừ nhau qua `pendingEmail IS NULL` / `IS NOT NULL`). Còn thiếu: web **chưa** có trang `/confirm-email/<token>` (link trong mail trỏ tới đó) lẫn form đổi email; iOS/Android cũng chưa. |
+| 10 | Sửa hồ sơ: tên hiển thị + đổi email | ✅ **API xong cả hai** · **web + iOS đã nối** · 🟡 Android chưa | Tên: `PATCH /api/v1/auth/me` chỉ nhận `displayName` (≤80 byte, `""`/`null` = xoá) — web/iOS/Android đều có form. Email: `POST /api/v1/auth/change-email` (bắt buộc mật khẩu hiện tại) + `POST /api/v1/auth/confirm-email-change`, migration `0009_email_change.sql` mở rộng bảng `PasswordReset` bằng cột `pendingEmail` — token gửi tới **địa chỉ mới**, hash + TTL + dùng một lần, và tách tuyệt đối khỏi token reset mật khẩu (query của hai luồng loại trừ nhau qua `pendingEmail IS NULL` / `IS NOT NULL`). **Đã nối client:** web có trang `website/src/app/(auth)/confirm-email/[token]/page.tsx` + form `components/email-change-form.tsx` (gắn trong `settings/page.tsx`); iOS có `EmailChangeSheet.swift` (không mở được link trong mail nên cho dán mã hoặc dán cả link). **Còn thiếu: Android** — `ProfileEditSheet.kt:45` vẫn ghi "email change is not supported by the contract at all", câu đó nay sai. |
 | 11 | `WarrantyClaim` + lịch sử sửa chữa | 📄 spec xong, chưa code | `docs/SPEC-WARRANTY-CLAIM.md`. Trang landing cũng đã bị sửa để **thôi hứa** tính năng này (commit `0e4664f`). |
 | 12 | Bán lại / khấu hao | ✅ | `0006_device_resale.sql` (`soldAt` + `soldPrice`, nullable, không ràng buộc DB — validate ở write path). Cả 3 client hiện "Ngày bán / Giá bán / lãi-lỗ". |
 | 13 | Lịch bảo trì định kỳ | 📄 spec xong · **khuyến nghị HOÃN build** | `docs/SPEC-MAINTENANCE-SCHEDULES.md`: vế "cung" có thật, vế "cầu" (hộ gia đình có muốn app nhắc) **không có bằng chứng nào**. |
 | 14 | Export CSV | ✅ cả 3 client · **không** thêm endpoint Go | Web: server action `website/src/app/actions/csv.ts` + `lib/csv.ts`/`lib/csv-export.ts` (devices, subscriptions, wishlist). iOS `DeviceCSVExport`, Android `android/.../export/CsvExport.kt`. Đúng "cách 2" (rẻ hơn) của đề xuất. |
-| 15 | OCR: trích xuất IMEI/serial + số tháng bảo hành, nhận cả hoá đơn PDF | 🟡 serial + số tháng xong · **PDF vẫn KHÔNG hỗ trợ** | `api/internal/ai/extract.go` có `serialNumber` + `warrantyMonths` (chặn 0–120) trong cả tool schema lẫn system prompt, có test. Câu hỏi treo ở "Bước đầu" đã có đáp án: magic-byte whitelist **cho phép** PDF (`api/internal/files/mime.go` — PDF không bị resize), nhưng đường OCR **từ chối** PDF bằng 400 rõ ràng thay vì để rơi vào 502 — comment ở `api/internal/services/ai_extract.go:121-128` vẫn ghi thẳng "PDF OCR is NOT supported". Muốn có thì phải làm thật, không phải bật cờ. |
+| 15 | OCR: trích xuất IMEI/serial + số tháng bảo hành, nhận cả hoá đơn PDF | ✅ **xong cả hai vế** | `api/internal/ai/extract.go` có `serialNumber` + `warrantyMonths` (chặn 0–120) trong cả tool schema lẫn system prompt, có test. **PDF nay ĐƯỢC hỗ trợ:** `ai.IsSupportedReceiptType` trả `true` cho `application/pdf`, và `ExtractReceipt` gửi nó dưới dạng **`document` block** (`media_type: application/pdf`) chứ không phải image block — xem `api/internal/ai/extract_test.go` (`TestIsSupportedReceiptType`, và test khoá wire shape). Comment cũ "PDF OCR is NOT supported" trong `services/ai_extract.go` đã được viết lại: GIF/HEIC mới là thứ bị từ chối 400 (không có block type), PDF thì không. |
 
-**Tóm lại (sau đợt 🆕):** **11/15 mục đã xong** — #2, #3, #4, #5, #6, #7, #8, #9, #12, #14 trọn vẹn,
-cộng **#1 xong phần chặn** (đường quản trị admin **cố ý không làm**, đã ghi rõ trong code).
-2 mục xong một nửa: **#10** (API đổi email xong, client chưa nối) và **#15** (serial/số tháng xong,
-PDF chưa). 2 mục dừng ở spec: **#11**, **#13**.
+**Tóm lại (kiểm lại 2026-10-03, sau khi #10 nối web+iOS và #15 xong PDF):** **12/15 mục đã xong** —
+#2, #3, #4, #5, #6, #7, #8, #9, #12, #14, **#15** trọn vẹn, cộng **#1 xong phần chặn** (đường quản trị
+admin **cố ý không làm**, đã ghi rõ trong code).
+**#10 xong phần lớn**: API xong, web + iOS đã nối, **chỉ còn Android**. 2 mục dừng ở spec: **#11**, **#13**.
+(#5 và #6 vẫn mang ghi chú 🟡 riêng: Android chưa có danh sách "Đã ẩn"; `sw.js` chưa cache dữ liệu.)
 Điều đáng chú ý: **không mục nào trong 15 mục bị xoá hay lặng lẽ bỏ qua** — mục nào chưa xong vẫn nằm
 dưới đây kèm lý do.
 
-**Kiểm lại bằng gì (chạy ở mốc `794b35a` + working tree):**
+**Kiểm lại bằng gì (số lấy ở HEAD `898d96f`, 2026-10-03):**
 
 ```bash
-bash api/scripts/check_openapi_drift.sh          # → 54 endpoints / 37 path, khớp openapi
-cd website && npm test                            # → 116 test / 7 file
+bash api/scripts/check_openapi_drift.sh          # → "in sync (67 endpoints)"; 48 path
+cd website && npm test                            # → 430 test / 21 file
 cd ios && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  swift test --disable-sandbox                   # → 125 test (đếm hàm test; lần chạy thật ở 5b04306 ra 123/123)
-cd android && ./gradlew :app:testDebugUnitTest    # → 143 test / 19 class
-ls api/migrations/                                # → 0001…0009
+  swift test --disable-sandbox                   # → 324 test (đang tăng nhanh — iOS agent còn đang thêm test)
+cd android && ./gradlew :app:testDebugUnitTest --no-daemon   # → 419 test / 41 class
+ls api/migrations/                                # → 0001…0013 (13 file)
 ```
+
+Android đếm từ XML trong `app/build/test-results/`; nếu task báo `UP-TO-DATE` thì thêm `--rerun-tasks`
+để chắc chắn con số thuộc về cây nguồn hiện tại — đó là cách 419/41 ở trên được đo.
 
 ⚠️ **Số endpoint là thứ trôi nhanh nhất trong tài liệu này** — backend agent còn đang thêm route. Nếu
 con số trên lệch với output thật thì **tin cái script**, không tin tài liệu này.
 
-**Việc còn lại thật sự làm được ngay hôm nay:** nối client cho đổi email (trang `/confirm-email/[token]`
-+ form), #15 PDF OCR (quyết định sản phẩm), #11 build `WarrantyClaim` sau khi spec được duyệt, #13 chỉ
-nên làm sau khi phỏng vấn người dùng, #6 cache dữ liệu trong `sw.js` nếu muốn offline thật. Toàn bộ việc
-**không** code được nằm ở `docs/HUMAN_TASKS.md`.
+**Việc còn lại thật sự làm được ngay hôm nay:** nối client đổi email cho **Android** (web + iOS đã xong),
+#11 build `WarrantyClaim` sau khi spec được duyệt, #13 chỉ nên làm sau khi phỏng vấn người dùng, #6 cache
+dữ liệu trong `sw.js` nếu muốn offline thật. (#15 PDF OCR nay **đã xong** — bỏ khỏi danh sách này.)
+Toàn bộ việc **không** code được nằm ở `docs/HUMAN_TASKS.md`.
 
 ---
 
 ## 1. Tóm tắt
 
 **Hiện trạng.** Về mặt kỹ thuật, repo này đã ở trạng thái rất tốt và hiếm gặp: Go là backend duy nhất
-sở hữu Postgres, `openapi.yaml` là hợp đồng thật (33 path / **51** cặp method+path, khớp với route
+sở hữu Postgres, `openapi.yaml` là hợp đồng thật (33 path / **51** cặp method+path *— số đo ngày
+2026-10-02; nay là **48 path / 67 endpoint**, xem §0 —*, khớp với route
 đăng ký trong `api/cmd/server/main.go` + `api/internal/handlers/*.go` — `api/scripts/check_openapi_drift.sh`
 so hai bên và CI chạy script này), web là UI mỏng proxy toàn bộ read/write qua `website/src/lib/api/*`,
 và hai client native (iOS/Android) nói cùng một REST API. Các tính năng khó đã xong: OCR hoá đơn bằng
@@ -178,7 +187,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #1 — Seed catalog + mở một đường quản trị catalog thật
 | | |
 |---|---|
-| **Trạng thái** | ✅ **Lỗi chặn đã hết** — `0004_seed_category_catalog.sql` seed đủ 20 category, và **🆕 chưa commit** `0008_seed_brand_store_warranty_provider.sql` seed nốt Brand/Store/WarrantyProvider. 🟡 **Đường quản trị admin: KHÔNG làm** (cố ý; `catalog.go` nay ghi rõ "no admin UI", sửa SQL trực tiếp). |
+| **Trạng thái** | ✅ **Lỗi chặn đã hết** — `0004_seed_category_catalog.sql` seed đủ 20 category, và `0008_seed_brand_store_warranty_provider.sql` seed nốt Brand/Store/WarrantyProvider. 🟡 **Đường quản trị admin: KHÔNG làm** (cố ý; `catalog.go` nay ghi rõ "no admin UI", sửa SQL trực tiếp). |
 | **Khu vực** | `api` (+ `deploy`, `web`) |
 | **Vì sao** | `[repo]` Đây là **lỗi chặn**: bảng `Category` rỗng trên DB mới → `CreateDevice`/`UpdateDevice` (`api/internal/services/devices.go:302,397`) và wishlist (`api/internal/services/wishlist.go:181,280`) trả 400 "Loại thiết bị không hợp lệ"; combobox loại ở `website/src/components/device-form.tsx:342` rỗng. Đường quản trị được tài liệu hoá (Prisma Studio — `api/internal/services/catalog.go:18,124`) đã bị gỡ cùng Prisma và không có route/trang admin thay thế. |
 | **Tác động** | **Nghiêm trọng.** Không có mục này thì mọi mục còn lại đều vô nghĩa trên production. |
@@ -188,7 +197,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #2 — Backup phải bao gồm ảnh, và copy hướng dẫn đang sai
 | | |
 |---|---|
-| **Trạng thái** | ✅ **Đã xong** (phần zip: 🆕 chưa commit). Copy đã nói thật; `includesAttachmentBytes` + `attachmentBytesNote` khiến payload tự khai báo. **Mới:** `?includeBlobs=true` trả .zip chứa cả blob đã mã hoá (version 6), JSON export vẫn version 5; import sniff ZIP magic nên đọc được cả hai; `missingAttachmentIds` nêu rõ blob thiếu. ⚠️ `openapi.yaml` chưa mô tả `includeBlobs`. |
+| **Trạng thái** | ✅ **Đã xong.** Copy đã nói thật; `includesAttachmentBytes` + `attachmentBytesNote` khiến payload tự khai báo. `?includeBlobs=true` trả .zip chứa cả blob đã mã hoá (version 6), JSON export vẫn version 5; import sniff ZIP magic nên đọc được cả hai; `missingAttachmentIds` nêu rõ blob thiếu. ✅ `openapi.yaml` **nay đã mô tả** `includeBlobs`. |
 | **Khu vực** | `api` + `web` |
 | **Vì sao** | `[repo]` `website/src/components/backup-tools.tsx` nói với người dùng 2 lần rằng ảnh nằm ở `public/uploads` (dòng 44, 70-72) và "sao chép lại folder `public/uploads`" (dòng 108). **Điều này sai**: attachment là blob mã hoá AES-256-GCM do Go sở hữu dưới `PRIVATE_UPLOAD_ROOT`; `Attachment` lưu `iv` + `wrappedKey` trong DB (`api/migrations/0001_initial.sql:158-172`) nên **copy thư mục ảnh là vô nghĩa** — thiếu `FILE_MASTER_KEY` thì blob không giải mã được. Nghiêm trọng hơn: JSON backup chỉ chứa metadata attachment, nên **restore sang máy mới = mất toàn bộ ảnh hoá đơn vĩnh viễn**, đúng thứ tài liệu hứa sẽ bảo vệ. |
 | **Tác động** | **Cao.** Rủi ro mất dữ liệu thật + copy sai làm người dùng tin nhầm là đã an toàn. |
@@ -218,7 +227,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #5 — Nhắc nhở đã ẩn: xem lại + khôi phục (cần sửa API)
 | | |
 |---|---|
-| **Trạng thái** | ✅ **Đã làm đúng như đề xuất** (🆕 chưa commit phần API): `GET /api/v1/reminders?includeDismissed=true` tồn tại, `withinDays` + lọc status **không** áp cho row đã ẩn, `isDismissed` chỉ xuất hiện khi `true` (nhờ `omitempty`, nên hành vi cũ không đổi), số row bị chặn cấu trúc 250. Web và iOS nay đọc feed nhẹ này thay vì parse backup export. 🟡 Android vẫn chỉ có "Hoàn tác", chưa có danh sách "Đã ẩn". |
+| **Trạng thái** | ✅ **Đã làm đúng như đề xuất**: `GET /api/v1/reminders?includeDismissed=true` tồn tại, `withinDays` + lọc status **không** áp cho row đã ẩn, `isDismissed` chỉ xuất hiện khi `true` (nhờ `omitempty`, nên hành vi cũ không đổi), số row bị chặn cấu trúc 250. Web và iOS nay đọc feed nhẹ này thay vì parse backup export. 🟡 Android vẫn chỉ có "Hoàn tác", chưa có danh sách "Đã ẩn". |
 | **Khu vực** | `api` + `web` + `ios` + `android` |
 | **Vì sao** | `[repo]` Ẩn nhắc nhở hiện là hành động **một chiều**. `website/src/app/(app)/reminders/page.tsx:179` hardcode `isDismissed={false}`. Nhưng sửa ở web là **không đủ**: `services.ListUpcomingReminders` (`api/internal/services/reminders.go:31-60`) loại reminder đã ẩn **trong SQL** và **không nhận tham số nào** để bao gồm chúng — comment ở `reminders/page.tsx:19-22` ghi rõ section "Đã ẩn" đã biến mất từ lúc chuyển sang Go. Nghĩa là **API hiện không có khả năng trả về reminder đã ẩn**. Điểm sáng: UI khôi phục đã được viết sẵn và bỏ không — `components/dismiss-button.tsx:38,56,61` đã có nhánh `isDismissed ? 'Hiện lại' : 'Đã xem, ẩn đi'`, chỉ chưa bao giờ nhận `true`. |
 | **Tác động** | **Trung bình–cao.** Người dùng ẩn nhầm là mất thông tin vĩnh viễn trên UI. |
@@ -238,7 +247,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #7 — Tìm kiếm tiếng Việt không dấu + tìm kiếm xuyên thực thể
 | | |
 |---|---|
-| **Trạng thái** | ✅ **Cả hai vế** (vế xuyên thực thể 🆕 chưa commit). Thiết bị: `0005` + `0007` + 4 index GIN trigram, test theo cả locale C lẫn UTF-8. **Mới:** `GET /api/v1/search?q=&limit=` (`services/search.go`) gom 3 nhóm trong 1 round trip, `limit` mỗi nhóm 20/50, `q` rỗng → 200 nhóm rỗng, > 200 ký tự → 400. |
+| **Trạng thái** | ✅ **Cả hai vế.** Thiết bị: `0005` + `0007` + 4 index GIN trigram, test theo cả locale C lẫn UTF-8. **Mới:** `GET /api/v1/search?q=&limit=` (`services/search.go`) gom 3 nhóm trong 1 round trip, `limit` mỗi nhóm 20/50, `q` rỗng → 200 nhóm rỗng, > 200 ký tự → 400. |
 | **Khu vực** | `api` (+ `web`, `ios`, `android`) |
 | **Vì sao** | `[repo]` Tìm kiếm thiết bị dùng `ILIKE '%' || $4 || '%'` trên `name/brand/model/serialNumber` (`api/internal/store/queries/devices.sql:20-23`). `ILIKE` của Postgres **không** bỏ dấu: gõ `dien thoai` **không** khớp `Điện thoại`, `samsung galaxy` không khớp tên có dấu. Và `grep -rniE "unaccent\|tsvector\|pg_trgm\|CREATE EXTENSION" api/migrations/` → **0 kết quả**, nên không có extension nào hỗ trợ. Ngoài ra `q` chỉ áp dụng cho `Device`: không tìm được đồng thời subscription/wishlist. `[suy luận]` Với người dùng Việt gõ không dấu rất phổ biến, đây là ma sát hàng ngày chứ không phải chi tiết nhỏ. |
 | **Tác động** | **Trung bình–cao** (UX lõi cho thị trường mục tiêu). |
@@ -268,7 +277,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #10 — Sửa hồ sơ: tên hiển thị + đổi email
 | | |
 |---|---|
-| **Trạng thái** | 🟡 **API xong cả hai vế, client đổi email chưa nối.** Tên: `PATCH /api/v1/auth/me` chỉ nhận `displayName` (≤80 byte; `""`/`null` = xoá) — web/iOS/Android đều có form. Email (**🆕 chưa commit**): `POST /api/v1/auth/change-email` + `POST /api/v1/auth/confirm-email-change`, migration `0009_email_change.sql` (cột `pendingEmail` trên `PasswordReset`; token gửi tới địa chỉ **mới**, hash + TTL + dùng một lần, không thể lẫn với token reset mật khẩu). Link trong mail trỏ `/confirm-email/<token>` nhưng **web chưa có route đó** — đây là việc kế tiếp rõ ràng nhất. |
+| **Trạng thái** | ✅ **API xong cả hai vế; web + iOS đã nối client; 🟡 Android chưa.** Tên: `PATCH /api/v1/auth/me` chỉ nhận `displayName` (≤80 byte; `""`/`null` = xoá) — web/iOS/Android đều có form. Email: `POST /api/v1/auth/change-email` + `POST /api/v1/auth/confirm-email-change`, migration `0009_email_change.sql` (cột `pendingEmail` trên `PasswordReset`; token gửi tới địa chỉ **mới**, hash + TTL + dùng một lần, không thể lẫn với token reset mật khẩu). Link trong mail trỏ `/confirm-email/<token>` và **web nay đã có route đó** (`website/src/app/(auth)/confirm-email/[token]/page.tsx`) cùng form `components/email-change-form.tsx`; iOS có `EmailChangeSheet.swift` (cho dán mã/link vì app không mở được link mail). Việc còn lại: **Android**. |
 | **Khu vực** | `api` + `web` + `ios` + `android` |
 | **Vì sao** | `[repo]` Không tồn tại đường nào để sửa hồ sơ. `grep -rniE "displayName\|updateProfile\|PATCH /api/v1/auth"` trên `api/internal/handlers/auth.go` và `website/src/app/actions/auth.ts` → **0 kết quả**. Trang cài đặt chỉ có 6 mục: Giao diện, Thông báo, Đổi mật khẩu, Quét hoá đơn (AI), Sao lưu & khôi phục, Xoá tài khoản (`website/src/app/(app)/settings/page.tsx:23-49`). Nghĩa là **đổi email là không thể** — cách duy nhất là xoá tài khoản và làm lại, kéo theo mất toàn bộ dữ liệu và ảnh. |
 | **Tác động** | **Trung bình.** |
@@ -278,7 +287,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #11 — Entity "lần đi bảo hành" (`WarrantyClaim`) + lịch sử sửa chữa
 | | |
 |---|---|
-| **Trạng thái** | 📄 **Spec xong, chưa có code** — `docs/SPEC-WARRANTY-CLAIM.md`. Schema vẫn **không** có bảng claim/repair (17 bảng, không bảng nào liên quan). Trang landing cũng đã thôi hứa tính năng này (commit `0e4664f`: "khi cần claim" → "khi cần đi bảo hành"). |
+| **Trạng thái** | 📄 **Spec xong, chưa có code** — `docs/SPEC-WARRANTY-CLAIM.md`. Schema vẫn **không** có bảng claim/repair (**20 bảng** tính đến `0013` — 17 của `0001` + `DecisionSnooze` + `BrandServiceInfo` + `DeviceShare`; không bảng nào liên quan claim/repair). Trang landing cũng đã thôi hứa tính năng này (commit `0e4664f`: "khi cần claim" → "khi cần đi bảo hành"). |
 | **Khu vực** | `api` + `web` + `ios` + `android` |
 | **Vì sao** | `[repo]` Không có khái niệm này trong schema: 16 bảng trong `api/migrations/0001_initial.sql` không có bảng nào cho claim/repair. `[suy luận]` Đây là **lỗ hổng sản phẩm lớn nhất**: app nhắc "sắp hết bảo hành" rồi dừng — đúng lúc người dùng cần hành động. `[ngoài]` Việc chứng minh yêu cầu bảo hành là bài toán "có đủ giấy tờ trong tay hay không" — cần hoá đơn có ngày mua, nơi bán và số serial/IMEI (`unstore.io` — nguồn yếu, xem §6). Một claim entity biến app từ *sổ ghi chú* thành *công cụ xử lý*. |
 | **Tác động** | **Cao về giá trị sản phẩm**, thấp về mức khẩn cấp. |
@@ -318,7 +327,7 @@ Xếp hạng theo thứ tự ưu tiên sau, **không** theo độ "hay" của t�
 ### #15 — OCR: trích xuất IMEI/serial + số tháng bảo hành, nhận cả hoá đơn PDF
 | | |
 |---|---|
-| **Trạng thái** | 🟡 **serial + số tháng: xong. PDF: vẫn KHÔNG hỗ trợ.** `api/internal/ai/extract.go` có `serialNumber` + `warrantyMonths` (chặn 0–120) trong cả tool schema lẫn system prompt, có test. Magic-byte whitelist **cho phép** PDF (`api/internal/files/mime.go`), nhưng đường OCR **từ chối** PDF bằng 400 rõ ràng (`services/ai_extract.go:121-128`, comment vẫn ghi "PDF OCR is NOT supported"). Muốn có thì phải làm thật, không phải bật cờ. |
+| **Trạng thái** | ✅ **serial + số tháng: xong. PDF: nay ĐÃ hỗ trợ.** `api/internal/ai/extract.go` có `serialNumber` + `warrantyMonths` (chặn 0–120) trong cả tool schema lẫn system prompt, có test. `ai.IsSupportedReceiptType` nhận `application/pdf`, và PDF được gửi dưới dạng **`document` block** (`media_type: application/pdf`) — `api/internal/ai/extract_test.go` khoá cả gate lẫn wire shape. Thứ còn bị từ chối 400 là GIF/HEIC (không có block type), không phải PDF. |
 | **Khu vực** | `ai` + `api` |
 | **Vì sao** | `[repo]` Pipeline OCR đã tồn tại và trả draft (`api/internal/services/ai_extract.go`, `POST /api/v1/ai/extract-receipt`), map fuzzy về catalog. Nhưng `Device.serialNumber` đã có sẵn trong schema (`api/migrations/0001_initial.sql:120`) và đang **không được OCR điền**. `[ngoài]` Theo hướng dẫn tra cứu bảo hành của FPT Shop, bảo hành điện tử ở VN được lưu **theo IMEI hoặc số serial**, một số sản phẩm **vẫn yêu cầu hoá đơn** để xác minh thời điểm mua, và thời hạn có thể tính từ **ngày kích hoạt, ngày mua hoặc ngày xuất kho** tuỳ hãng (`fptshop.com.vn`, đã fetch — xem §6). Điều này khiến serial/IMEI trở thành **định danh bảo hành thật**, không phải ghi chú phụ. |
 | **Tác động** | **Trung bình.** Tăng độ chính xác draft, giảm gõ tay — và đúng với cách bảo hành ở VN vận hành. |

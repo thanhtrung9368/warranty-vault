@@ -47,7 +47,8 @@ xcode-select -p   # phải ra /Applications/Xcode.app/Contents/Developer
   `swift test` và `xcodebuild` **đều fail**. Tao đã phải ép `DEVELOPER_DIR` mỗi lần
   chạy test iOS.
 - **Kiểm lại 2026-10-03:** `xcode-select -p` vẫn ra `/Library/Developer/CommandLineTools`. **Chưa sửa.**
-  Cách chạy test tạm thời (đã kiểm, xanh — 125 test ở lần đếm mới nhất):
+  Cách chạy test tạm thời (đã kiểm, xanh — **324** test ở lần đếm mới nhất; con số này đang tăng nhanh
+  vì client iOS còn đang được sửa):
   `cd ios && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --disable-sandbox`
   (`--disable-sandbox` là bắt buộc vì máy này bật sandbox cho SwiftPM.)
 - **Mất:** 5 giây.
