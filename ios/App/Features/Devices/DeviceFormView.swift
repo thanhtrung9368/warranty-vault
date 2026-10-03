@@ -63,6 +63,21 @@ struct DeviceFormView: View {
     /// encoder drops, i.e. exactly what the server already has.
     @State private var returnWindow: ReturnWindowFields
 
+    /// Resale ("Bán lại", migration 0006): whether a sale is being recorded, the
+    /// day it happened and what it went for.
+    ///
+    /// The pair is loaded from the device being edited and sent straight back on
+    /// every save — `PATCH /api/v1/devices/{id}` replaces the whole device, so a
+    /// save that omitted it would erase a sale recorded on the web or on Android.
+    /// Unlike the return window this screen *does* expose the input, because all
+    /// three clients now send the fields: any of them may set a sale.
+    ///
+    /// `soldPrice` is `Int?` on purpose: blank means "chưa bán" (the key is
+    /// dropped) while `0` is a real price — a give-away — and must be sent as `0`.
+    @State private var saleRecorded: Bool
+    @State private var soldDate: Date
+    @State private var soldPrice: Int?
+
     // UI state
     @State private var showCategoryPicker = false
     @State private var showDiscardAlert = false
@@ -119,12 +134,52 @@ struct DeviceFormView: View {
         _notes = State(initialValue: device?.notes ?? "")
         // Load the recorded window once; `submit()` writes it back unchanged.
         _returnWindow = State(initialValue: device.map(DeviceReturnWindow.carried(from:)) ?? .unknown)
+        // Same for the sale. `carried` reduces `soldAt` (a Z-less naive-UTC
+        // timestamp) to its `YYYY-MM-DD` day without parsing an instant, and keeps
+        // a `0₫` give-away as `0` rather than as "not recorded".
+        let sale = device.map(DeviceResale.carried(from:)) ?? .none
+        _saleRecorded = State(initialValue: DeviceResale.hasSaleRecorded(sale))
+        // The picker holds a `Date`, so the stored day is turned into one in the
+        // device's own zone — the same zone the picker draws it in, and the same
+        // one `saleFields` writes back from. Nothing here parses the wire value as
+        // an instant: that is what would move the calendar day.
+        _soldDate = State(initialValue: DeviceResale.dayDate(sale.soldAt) ?? Date())
+        _soldPrice = State(initialValue: sale.soldPrice)
     }
 
     // MARK: - Validation
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    // MARK: - Resale (derived)
+
+    /// The pair as the form currently holds it. Both halves come from the same
+    /// "Ghi nhận đã bán" switch, so the form can never build one without the
+    /// other when the switch is off; when it is on, `pairErrors` catches a half
+    /// the user has not filled in yet.
+    ///
+    /// The day is written back in the picker's own zone, which is what keeps the
+    /// day the user sees identical to the day the server stores.
+    private var saleFields: ResaleFields {
+        ResaleFields(soldAt: saleRecorded ? DeviceResale.dayString(soldDate) : nil,
+                     soldPrice: saleRecorded ? soldPrice : nil)
+    }
+
+    /// Lãi/lỗ so với giá mua, live as the user types. `nil` until a sale price
+    /// exists — the API never returns this (the client computes it on purpose).
+    private var liveProfitLoss: SaleProfitLoss? {
+        DeviceResale.profitLoss(purchasePrice: price ?? 0, soldPrice: saleFields.soldPrice)
+    }
+
+    /// Colour for a profit/loss line: green gains, red losses, neutral break-even.
+    static func saleToneColor(_ tone: SaleTone) -> Color {
+        switch tone {
+        case .profit: return WVColor.green
+        case .loss:   return WVColor.red
+        case .even:   return WVColor.label2
+        }
     }
 
     // MARK: - Category options
@@ -411,6 +466,108 @@ struct DeviceFormView: View {
                         .padding(.vertical, 10)
                 }
 
+                // Resale ("Bán lại", migration 0006). Independent of `status`: the
+                // server accepts SOLD with no figures, and figures without SOLD.
+                // What it does *not* accept is half a pair — the form checks the
+                // server's own rule before it sends, and shows the server's own
+                // Vietnamese copy when it refuses.
+                WVSectionHeader("Bán lại")
+                WVSectionFooter("Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán.")
+                WVGroup {
+                    Button {
+                        saleRecorded.toggle()
+                        fieldErrors["soldAt"] = nil
+                        fieldErrors["soldPrice"] = nil
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(saleRecorded ? "Bỏ ghi nhận" : "Ghi nhận đã bán")
+                                .font(.system(size: 17))
+                                .foregroundStyle(WVColor.tint)
+                            Spacer(minLength: 0)
+                            if saleRecorded {
+                                WVIcon("check", size: 15)
+                                    .foregroundStyle(WVColor.tint)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(WVRowButtonStyle())
+
+                    if saleRecorded {
+                        WVDivider()
+
+                        HStack(spacing: 12) {
+                            Text("Ngày bán")
+                                .font(.system(size: 17))
+                                .foregroundStyle(WVColor.label)
+                            Spacer()
+                            DatePicker("", selection: $soldDate, displayedComponents: .date)
+                                .labelsHidden()
+                                .onChange(of: soldDate) { _, _ in fieldErrors["soldAt"] = nil }
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, 7)
+                        // The server's own message, never a paraphrase of it.
+                        fieldErrorRow("soldAt")
+
+                        WVDivider()
+
+                        HStack(spacing: 12) {
+                            Text("Giá bán")
+                                .font(.system(size: 17))
+                                .foregroundStyle(WVColor.label)
+                            Spacer(minLength: 8)
+                            // Blank ⇒ nil ("chưa bán"), `0` ⇒ a real price
+                            // ("cho tặng"). The field is digit-only, so the
+                            // server's negative-price rule cannot be typed here.
+                            WVMoneyField(value: $soldPrice, placeholder: "0 ₫")
+                                .onChange(of: soldPrice) { _, _ in fieldErrors["soldPrice"] = nil }
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, 7)
+                        fieldErrorRow("soldPrice")
+
+                        WVDivider()
+
+                        HStack(spacing: 8) {
+                            Text("Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(WVColor.label3)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+
+                        // Lãi/lỗ so với giá mua, updated as the user types — the
+                        // same wording the web and Android clients render.
+                        if let profit = liveProfitLoss {
+                            WVDivider()
+                            HStack(spacing: 10) {
+                                WVIcon(profit.tone == .loss ? "trendingDown" : "trendingUp", size: 15)
+                                    .foregroundStyle(Self.saleToneColor(profit.tone))
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(profit.label)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(Self.saleToneColor(profit.tone))
+                                    Text("so với giá mua \(WVFormat.vnd(price ?? 0))")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(WVColor.label3)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 7)
+                        }
+                    }
+                }
+
                 // Error
                 if let topError {
                     Text(topError)
@@ -652,6 +809,23 @@ struct DeviceFormView: View {
         .padding(.vertical, 7)
     }
 
+    /// The server's own field message under a sale input — shown verbatim, in
+    /// red, or not at all. `PATCH` answers a half-filled pair with its Vietnamese
+    /// copy (`Thiếu ngày bán` / `Thiếu giá bán` / `Giá bán không hợp lệ`) and the
+    /// user must read exactly that, not a paraphrase.
+    @ViewBuilder
+    private func fieldErrorRow(_ key: String) -> some View {
+        if let message = fieldErrors[key]?.first {
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(WVColor.red)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+        }
+    }
+
     // MARK: - Submit
 
     private func submit() async {
@@ -675,6 +849,20 @@ struct DeviceFormView: View {
         // which the encoder omits). There is no UI for this and deliberately so:
         // no client may *set* a window until all three ship the fields.
         DeviceReturnWindow.apply(returnWindow, to: &input)
+
+        // Resale (migration 0006) — same full-replacement rule, but here the
+        // screen owns the input too. The server's pair rule is checked locally
+        // first so a half-filled sale is never sent at all; the copy it reports
+        // is the server's own (see `DeviceResale`), and whatever the server
+        // rejects beyond that still lands in `fieldErrors` below.
+        let sale = saleFields
+        let saleErrors = DeviceResale.pairErrors(sale, recording: saleRecorded)
+        if !saleErrors.isEmpty {
+            fieldErrors = saleErrors
+            topError = saleErrors["soldAt"]?.first ?? saleErrors["soldPrice"]?.first
+            return
+        }
+        DeviceResale.apply(sale, to: &input)
 
         if !isEditing {
             input.warrantyMonths = Int(warrantyMonths) ?? 0

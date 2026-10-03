@@ -198,6 +198,25 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// exactly what this field exists to prevent.
     public let returnDeadline: String?
 
+    /// The day the user sold the device (resale pair, migration `0006`), as the
+    /// server's **Z-less** naive-UTC timestamp — verified by marshalling the real
+    /// `store.Device`: `pgtype.Timestamp` emits `"2026-03-02T00:00:00"`, with no
+    /// `Z` and no offset (`openapi.yaml` documents the same shape).
+    ///
+    /// Kept as the raw `String` so only the leading `YYYY-MM-DD` is ever read —
+    /// parsing it as an instant would move the calendar day in a negative-offset
+    /// zone. `nil` = no sale recorded.
+    ///
+    /// ⚠️ `PATCH /api/v1/devices/{id}` replaces every field: a save that does not
+    /// send this back **erases** a sale recorded on the web or on Android.
+    /// `DeviceInput` carries it too for exactly that reason — see `DeviceResale`.
+    public let soldAt: String?
+
+    /// What the device was sold for, in VND. `0` is a real answer — a give-away —
+    /// and is deliberately different from `nil` ("chưa bán"). The server enforces
+    /// the pair rule: `soldAt` and `soldPrice` travel together or not at all.
+    public let soldPrice: Int?
+
     // List-row projection only (`GET /api/v1/devices`). The Go service returns
     // `DeviceListItem` = `store.Device` + these two counts — see
     // `api/internal/services/devices.go` and `website/src/lib/api/devices.ts`.
@@ -238,6 +257,12 @@ public struct DeviceDetailBody: Decodable, Sendable {
     public let returnWindowDays: Int?
     public let receivedAt: String?
     public let returnDeadline: String?
+
+    // The resale pair, on the detail read. `DeviceDetail` embeds the whole
+    // `store.Device`, so both halves are at the top level of `device` here —
+    // same wire shape and same rules as `Device.soldAt` / `Device.soldPrice`.
+    public let soldAt: String?
+    public let soldPrice: Int?
 }
 
 public struct DeviceInput: Encodable, Sendable {
@@ -276,6 +301,29 @@ public struct DeviceInput: Encodable, Sendable {
     /// `nil` to clear it. Independent of `returnWindowDays`. Unparseable → 400
     /// `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp lệ"]`.
     public var receivedAt: String?
+
+    /// The day the device was sold (`YYYY-MM-DD`; the wire read is a Z-less
+    /// naive-UTC timestamp, see `Device.soldAt`), or `nil` when no sale is
+    /// recorded.
+    ///
+    /// The server enforces a **pair rule** (`services.ValidateDeviceInput`):
+    /// supplying exactly one of `soldAt`/`soldPrice` is a 400 with
+    /// `fieldErrors.soldAt = ["Thiếu ngày bán"]` (date missing) or
+    /// `fieldErrors.soldPrice = ["Thiếu giá bán"]` (price missing); a negative
+    /// price is `fieldErrors.soldPrice = ["Giá bán không hợp lệ"]`. Both `nil`
+    /// clears a previously recorded sale, which is independent of `status` — a
+    /// device may be `SOLD` with no figures at all.
+    ///
+    /// ⚠️ **Full-replacement warning.** `PATCH /api/v1/devices/{id}` replaces the
+    /// whole row, so omitting these keys **erases** a sale recorded by another
+    /// client. Every save path loads the stored pair and sends it straight back —
+    /// see `DeviceResale`.
+    public var soldAt: String?
+
+    /// What the device was sold for, in VND. `nil` is "chưa bán", while `0` is a
+    /// real price (a give-away) that must be sent as `0`, never collapsed into
+    /// "absent". Travels with `soldAt` or not at all — see the pair rule above.
+    public var soldPrice: Int?
 
     public init(name: String, category: String, purchaseDate: String) {
         self.name = name; self.category = category; self.purchaseDate = purchaseDate

@@ -71,6 +71,27 @@ struct DeviceDetailView: View {
         return nil
     }
 
+    /// The recorded sale as **read-only** rows, or `nil` when the device was never
+    /// sold — an unsold device shows no empty money rows (the web renders its
+    /// "Bán lại" card under exactly the same condition, Android its rows).
+    ///
+    /// Each half is rendered if it is there: the server enforces the pair, so both
+    /// normally arrive together, but a legacy half-record must not be hidden.
+    /// `soldAt` is the server's Z-less naive-UTC timestamp (`"2026-03-02T00:00:00"`),
+    /// so only its calendar day is read. Lãi/lỗ is derived here because the API
+    /// deliberately returns `soldPrice − purchasePrice` to nobody.
+    private var saleDisplay: (day: String?, price: Int?, profit: SaleProfitLoss?)? {
+        let day = DeviceResale.dayLabel(currentDevice.soldAt)
+        let price = currentDevice.soldPrice
+        // Only what can actually be drawn: a date that reads as a calendar day, or
+        // a price. Anything else would render an empty section.
+        guard day != nil || price != nil else { return nil }
+        return (day,
+                price,
+                DeviceResale.profitLoss(purchasePrice: currentDevice.purchasePrice,
+                                        soldPrice: price))
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -114,6 +135,46 @@ struct DeviceDetailView: View {
                     WVRow(icon: "hash", iconColor: WVColor.blue,
                           title: "Serial / IMEI",
                           detail: currentDevice.serialNumber ?? "—")
+                }
+
+                // Resale ("Bán lại", migration 0006). Read-only here; the pair is
+                // edited in the device form. Shown only when a sale was recorded.
+                if let sale = saleDisplay {
+                    WVSectionHeader("Bán lại")
+                    WVGroup {
+                        if let day = sale.day {
+                            WVRow(icon: "calendar", iconColor: WVColor.blue,
+                                  title: "Ngày bán",
+                                  detail: day)
+                        }
+                        if let price = sale.price {
+                            if sale.day != nil { WVDivider(inset: 60) }
+                            WVRow(icon: "wallet", iconColor: WVColor.green,
+                                  title: "Giá bán",
+                                  detail: WVFormat.vnd(price))
+                        }
+                        if let profit = sale.profit {
+                            WVDivider(inset: 60)
+                            WVRowContainer {
+                                HStack(spacing: 12) {
+                                    WVLeadingIcon(
+                                        icon: profit.tone == .loss ? "trendingDown" : "trendingUp",
+                                        color: DeviceFormView.saleToneColor(profit.tone),
+                                        size: 30
+                                    )
+                                    Text("Lãi/lỗ so với giá mua")
+                                        .font(.system(size: 17))
+                                        .foregroundStyle(WVColor.label)
+                                    Spacer(minLength: 8)
+                                    // "Lãi 2.000.000 ₫" / "Lỗ 500.000 ₫" / "Hoà vốn"
+                                    // — the same wording web and Android render.
+                                    Text(profit.label)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(DeviceFormView.saleToneColor(profit.tone))
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Warranty list group
@@ -383,6 +444,11 @@ struct DeviceDetailView: View {
         // erase a window the user recorded elsewhere just because they tapped
         // "Đã bán".
         DeviceReturnWindow.apply(DeviceReturnWindow.carried(from: d), to: &input)
+        // …and the same is true of the resale pair (migration 0006): tapping a
+        // status is not a reason to lose a sale recorded on the web or Android.
+        // Both halves travel together, or — for a device that was never sold —
+        // neither does, which the encoder omits.
+        DeviceResale.apply(DeviceResale.carried(from: d), to: &input)
         do {
             let result = try await devicesStore.update(id: d.id, input)
             // PATCH /devices/{id} carries the same advisory array as create. The
