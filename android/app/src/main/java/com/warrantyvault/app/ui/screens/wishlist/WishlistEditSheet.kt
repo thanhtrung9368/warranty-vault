@@ -39,10 +39,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.WishlistInput
@@ -106,7 +108,7 @@ fun WishlistEditSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                if (isEdit) "Sửa sản phẩm" else "Thêm vào wishlist",
+                if (isEdit) stringResource(R.string.wish_edit_item) else stringResource(R.string.wish_add_to_wishlist),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
 
@@ -124,7 +126,7 @@ fun WishlistEditSheet(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        "Điền sẵn từ link bạn chia sẻ — kiểm tra lại rồi lưu.",
+                        stringResource(R.string.wish_prefilled_from_the_link_you_shared),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -134,17 +136,17 @@ fun WishlistEditSheet(
             SheetGroup {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Tên sản phẩm *") },
+                    label = { Text(stringResource(R.string.wish_item_name)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = brand, onValueChange = { brand = it },
-                    label = { Text("Hãng") },
+                    label = { Text(stringResource(R.string.devadd_brand)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = category, onValueChange = { category = it },
-                    label = { Text("Loại (tuỳ chọn)") },
+                    label = { Text(stringResource(R.string.subs_category_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -153,25 +155,25 @@ fun WishlistEditSheet(
                 OutlinedTextField(
                     value = initialPrice,
                     onValueChange = { initialPrice = it.filter { c -> c.isDigit() } },
-                    label = { Text("Giá ban đầu (VND)") },
+                    label = { Text(stringResource(R.string.wish_initial_price_vnd)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = currentPrice,
                     onValueChange = { currentPrice = it.filter { c -> c.isDigit() } },
-                    label = { Text("Giá hiện tại (VND)") },
+                    label = { Text(stringResource(R.string.wish_current_price_vnd)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = buyUrl, onValueChange = { buyUrl = it },
-                    label = { Text("URL mua hàng") },
+                    label = { Text(stringResource(R.string.wish_purchase_url)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = imageUrl, onValueChange = { imageUrl = it },
-                    label = { Text("URL ảnh") },
+                    label = { Text(stringResource(R.string.wish_image_url)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -179,7 +181,7 @@ fun WishlistEditSheet(
             SheetGroup {
                 OutlinedTextField(
                     value = targetDate, onValueChange = { targetDate = it },
-                    label = { Text("Ngày dự định mua (YYYY-MM-DD)") },
+                    label = { Text(stringResource(R.string.wish_target_purchase_date_yyyy_mm_dd)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 PriorityDropdown(selected = priority, onSelected = { priority = it })
@@ -187,13 +189,13 @@ fun WishlistEditSheet(
                 OutlinedTextField(
                     value = reminderDays,
                     onValueChange = { reminderDays = it.filter { c -> c.isDigit() } },
-                    label = { Text("Nhắc lại sau N ngày (tuỳ chọn)") },
+                    label = { Text(stringResource(R.string.wish_remind_me_again_after_n_days)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = notes, onValueChange = { notes = it },
-                    label = { Text("Ghi chú") },
+                    label = { Text(stringResource(R.string.devadd_note)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -254,7 +256,7 @@ fun WishlistEditSheet(
                     )
                 } else {
                     Text(
-                        if (isEdit) "Cập nhật" else "Lưu",
+                        if (isEdit) stringResource(R.string.devadd_update) else stringResource(R.string.action_save),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -279,7 +281,7 @@ fun WishlistEditSheet(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        if (deleting) "Đang xoá..." else "Xoá",
+                        if (deleting) stringResource(R.string.subs_deleting) else stringResource(R.string.action_delete),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -302,10 +304,10 @@ private fun PriorityDropdown(
         onExpandedChange = { expanded = it },
     ) {
         TextField(
-            value = selected.label,
+            value = stringResource(selected.labelRes),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Mức ưu tiên") },
+            label = { Text(stringResource(R.string.wish_priority_2)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,7 +319,7 @@ private fun PriorityDropdown(
         ) {
             WishlistPriority.entries.forEach { p ->
                 DropdownMenuItem(
-                    text = { Text(p.label) },
+                    text = { Text(stringResource(p.labelRes)) },
                     onClick = { onSelected(p); expanded = false },
                 )
             }
@@ -337,10 +339,10 @@ private fun StatusDropdown(
         onExpandedChange = { expanded = it },
     ) {
         TextField(
-            value = selected.label,
+            value = stringResource(selected.labelRes),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Trạng thái") },
+            label = { Text(stringResource(R.string.devadd_status)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -352,7 +354,7 @@ private fun StatusDropdown(
         ) {
             WishlistStatus.entries.forEach { s ->
                 DropdownMenuItem(
-                    text = { Text(s.label) },
+                    text = { Text(stringResource(s.labelRes)) },
                     onClick = { onSelected(s); expanded = false },
                 )
             }

@@ -1,5 +1,6 @@
 package com.warrantyvault.app.network
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.ui.screens.devices.dialablePhone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -171,7 +172,7 @@ class SharesAndDirectorySerializationTest {
         // The whole point of this test: the lowercase wire value becomes USER, and
         // USER is what makes the number dialable and attributed.
         assertEquals(PhoneSource.USER, centre.phoneSource)
-        assertEquals("Số do bạn tự ghi", dialablePhone(centre)?.attribution)
+        assertEquals("Số do bạn tự ghi", dialablePhone(centre)?.attribution(ResCatalog.vietnamese()))
         assertEquals("tel:0912345678", dialablePhone(centre)?.dialUri)
     }
 

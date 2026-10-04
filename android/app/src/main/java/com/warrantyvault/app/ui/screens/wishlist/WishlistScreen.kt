@@ -53,12 +53,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.warrantyvault.app.ui.viewModelFactory
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.appLocale
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.WishlistItem
@@ -76,13 +80,12 @@ import com.warrantyvault.app.ui.components.SkeletonList
 import com.warrantyvault.app.ui.components.SortMenuButton
 import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.pressScale
+import com.warrantyvault.app.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
 
 class WishlistViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -195,7 +198,7 @@ fun WishlistScreen(
                 actions = {
                     // Global search — the box below only filters this list.
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, "Tìm kiếm tất cả")
+                        Icon(Icons.Filled.Search, stringResource(R.string.dash_search_everything))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -210,7 +213,7 @@ fun WishlistScreen(
                 contentColor = MaterialTheme.colorScheme.onTertiary,
                 shape = RoundedCornerShape(28.dp),
                 icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text("Thèm thêm cái nữa", fontWeight = FontWeight.SemiBold) },
+                text = { Text(stringResource(R.string.wish_add_another_one), fontWeight = FontWeight.SemiBold) },
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -233,12 +236,12 @@ fun WishlistScreen(
             ) { s ->
                 when (s) {
                     is WishlistViewModel.State.Loading -> Column {
-                        PageHeader("Wishlist", "Đang tải…")
+                        PageHeader("Wishlist", stringResource(R.string.state_loading))
                         SkeletonList(count = 4)
                     }
                     is WishlistViewModel.State.Error -> ErrorState(
                         icon = Icons.Outlined.WarningAmber,
-                        title = "Tải không được rồi",
+                        title = stringResource(R.string.dash_could_not_load_it),
                         body = s.message,
                         onRetry = { vm.load() },
                     )
@@ -257,13 +260,13 @@ fun WishlistScreen(
                             Column(Modifier.fillMaxSize()) {
                                 PageHeader(
                                     "Wishlist",
-                                    "Cái mày đang thèm",
+                                    stringResource(R.string.wish_what_you_want),
                                 )
                                 EmptyState(
                                     icon = Icons.Filled.FavoriteBorder,
-                                    title = "Mày chưa thèm cái nào? Lạ thật.",
-                                    body = "Thêm sản phẩm vào để theo dõi giá và quyết định mua đúng lúc.",
-                                    ctaLabel = "Thêm cái đầu tiên",
+                                    title = stringResource(R.string.wish_nothing_on_your_wishlist_yet),
+                                    body = stringResource(R.string.wish_add_an_item_to_track_its),
+                                    ctaLabel = stringResource(R.string.wish_add_the_first_one),
                                     onCta = { creating = true },
                                     tone = MaterialTheme.colorScheme.tertiary,
                                 )
@@ -359,27 +362,27 @@ private fun WishlistList(
         item {
             PageHeader(
                 "Wishlist",
-                if (isFiltered) "${items.size}/$total món khớp bộ lọc"
-                else "$total món đang thèm",
+                if (isFiltered) stringResource(R.string.wish_items_match_the_filter, items.size, total)
+                else pluralStringResource(R.plurals.wish_items_on_your_wishlist, total, total),
             )
         }
         item {
             ListFilterBar(
                 query = query,
                 onQueryChange = onQueryChange,
-                placeholder = "Tìm tên, hãng, ghi chú...",
-                options = wishlistStatusOptions,
+                placeholder = stringResource(R.string.wish_search_name_brand_note),
+                options = wishlistStatusOptions(),
                 selectedKey = statusKey,
                 onSelect = onStatusChange,
                 modifier = Modifier.padding(horizontal = 4.dp),
-                secondaryOptions = wishlistPriorityOptions,
+                secondaryOptions = wishlistPriorityOptions(),
                 secondarySelectedKey = priorityKey,
                 onSecondarySelect = onPriorityChange,
                 trailing = {
                     SortMenuButton(
                         options = WishlistSort.entries,
                         current = sort,
-                        label = { it.label },
+                        label = { stringResource(it.labelRes) },
                         onSelect = onSortChange,
                     )
                 },
@@ -389,8 +392,8 @@ private fun WishlistList(
             item {
                 EmptyState(
                     icon = Icons.Filled.FilterAltOff,
-                    title = "Không có gì khớp bộ lọc",
-                    body = "Thử nới bộ lọc hoặc chọn \"Tất cả\" xem sao.",
+                    title = stringResource(R.string.dev_nothing_matches_the_filter),
+                    body = stringResource(R.string.subs_try_loosening_the_filter_or_choosing),
                 )
             }
         }
@@ -400,11 +403,13 @@ private fun WishlistList(
     }
 }
 
-private val wishlistStatusOptions: List<FilterOption> =
-    WishlistStatusFilter.entries.map { FilterOption(it.key, it.label) }
+@Composable
+private fun wishlistStatusOptions(): List<FilterOption> =
+    WishlistStatusFilter.entries.map { FilterOption(it.key, stringResource(it.labelRes)) }
 
-private val wishlistPriorityOptions: List<FilterOption> =
-    WishlistPriorityFilter.entries.map { FilterOption(it.key, it.label) }
+@Composable
+private fun wishlistPriorityOptions(): List<FilterOption> =
+    WishlistPriorityFilter.entries.map { FilterOption(it.key, stringResource(it.labelRes)) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -486,7 +491,7 @@ private fun WishStatusPill(status: WishlistStatus) {
         WishlistStatus.SKIPPED -> PillKind.Neutral
         WishlistStatus.PURCHASED -> PillKind.Accent
     }
-    StatusPill(label = status.label, kind = kind)
+    StatusPill(label = stringResource(status.labelRes), kind = kind)
 }
 
 @Composable
@@ -496,10 +501,14 @@ private fun PriorityPill(priority: WishlistPriority) {
         WishlistPriority.WANT -> PillKind.Warning
         WishlistPriority.MAYBE -> PillKind.Neutral
     }
-    StatusPill(label = priority.label, kind = kind)
+    StatusPill(label = stringResource(priority.labelRes), kind = kind)
 }
 
-internal fun formatVnd(amount: Int): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
-}
+/**
+ * Money in the UI language: `1.000.000 ₫` in Vietnamese — the canonical shape
+ * `i18n/Money.kt` shares with Go's `FormatMoney` and the web, pinned by
+ * `VietnameseFormatterTest` — and `₫1,000,000` in English. Follows [appLocale], not the phone locale, so the in-app switcher
+ * moves the digits too.
+ */
+@Composable
+internal fun formatVnd(amount: Int): String = Money.of(amount.toLong(), appLocale())

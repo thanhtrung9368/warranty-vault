@@ -58,18 +58,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.warrantyvault.app.App
 import com.warrantyvault.app.BuildConfig
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Attachment
 import com.warrantyvault.app.network.AttachmentDescriptionInput
 import com.warrantyvault.app.network.fieldErrors
 import com.warrantyvault.app.network.toUserMessage
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,7 +81,6 @@ import okhttp3.MultipartBody
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
 
 @Composable
 fun AttachmentsSection(api: ApiService, deviceId: String) {
@@ -148,7 +150,7 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
             Icon(Icons.Filled.Description, null,
                 tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
-            Text("Tài liệu / Ảnh đính kèm",
+            Text(stringResource(R.string.att_documents_attached_photos),
                 fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             Text("${items.size}/5",
@@ -170,7 +172,7 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
             ) {
                 Icon(Icons.Filled.Image, null)
                 Spacer(Modifier.width(6.dp))
-                Text("Thêm ảnh")
+                Text(stringResource(R.string.att_add_photo))
             }
             OutlinedButton(
                 onClick = { pdfPicker.launch(arrayOf("application/pdf")) },
@@ -179,7 +181,7 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
             ) {
                 Icon(Icons.Filled.PictureAsPdf, null)
                 Spacer(Modifier.width(6.dp))
-                Text("Thêm PDF")
+                Text(stringResource(R.string.att_add_pdf))
             }
         }
 
@@ -190,7 +192,7 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Đang tải lên...", fontSize = 13.sp)
+                Text(stringResource(R.string.att_uploading), fontSize = 13.sp)
             }
         }
 
@@ -208,12 +210,12 @@ fun AttachmentsSection(api: ApiService, deviceId: String) {
                         modifier = Modifier.size(16.dp),
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Đang tải...", fontSize = 13.sp)
+                    Text(stringResource(R.string.state_loading), fontSize = 13.sp)
                 }
             }
             items.isEmpty() -> {
                 Text(
-                    "Chưa có tài liệu đính kèm.",
+                    stringResource(R.string.att_no_attachments_yet),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -294,7 +296,7 @@ private fun AttachmentDescriptionSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Sửa mô tả",
+                stringResource(R.string.att_edit_description),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
             Text(
@@ -309,12 +311,12 @@ private fun AttachmentDescriptionSheet(
                     description = it
                     fieldErrors = fieldErrors - "description"
                 },
-                label = { Text("Mô tả") },
+                label = { Text(stringResource(R.string.att_description)) },
                 enabled = !submitting,
                 isError = descriptionError != null,
                 supportingText = {
                     Text(
-                        descriptionError ?: "Để trống để xoá mô tả.",
+                        descriptionError ?: stringResource(R.string.att_leave_it_empty_to_clear_the),
                         color = if (descriptionError != null) {
                             MaterialTheme.colorScheme.error
                         } else {
@@ -376,7 +378,7 @@ private fun AttachmentDescriptionSheet(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text("Lưu", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.action_save), fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -435,13 +437,13 @@ private fun AttachmentRow(
                 }
             }
             IconButton(onClick = onEditDescription) {
-                Icon(Icons.Filled.Edit, "Sửa mô tả", tint = cs.primary)
+                Icon(Icons.Filled.Edit, stringResource(R.string.att_edit_description), tint = cs.primary)
             }
             IconButton(onClick = onOpen) {
-                Icon(Icons.AutoMirrored.Filled.OpenInNew, "Mở", tint = cs.primary)
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, stringResource(R.string.att_open), tint = cs.primary)
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, "Xoá", tint = cs.error)
+                Icon(Icons.Filled.Delete, stringResource(R.string.action_delete), tint = cs.error)
             }
         }
     }
@@ -467,7 +469,7 @@ private suspend fun uploadFromUri(
     val name = queryDisplayName(context, uri) ?: "file"
     val bytes = withContext(Dispatchers.IO) {
         resolver.openInputStream(uri)?.use { it.readBytes() }
-    } ?: throw IllegalStateException("Không đọc được file")
+    } ?: throw IllegalStateException(context.getString(R.string.att_could_not_read_file))
 
     val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
     val part = MultipartBody.Part.createFormData("file", name, body)
@@ -488,7 +490,7 @@ private fun queryDisplayName(context: Context, uri: Uri): String? {
 // needs a Bearer token and the system Intent.ACTION_VIEW can't carry headers.
 private suspend fun openAttachment(context: Context, att: Attachment) {
     val token = App.instance.tokenStore.read()
-        ?: throw IllegalStateException("Chưa đăng nhập")
+        ?: throw IllegalStateException(context.getString(R.string.att_not_signed_in))
     val url = "${BuildConfig.BASE_URL.trimEnd('/')}/api/files/${att.id}"
 
     val cacheDir = File(context.cacheDir, "attachments").apply { mkdirs() }
@@ -502,11 +504,11 @@ private suspend fun openAttachment(context: Context, att: Attachment) {
             .build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) {
-                throw IllegalStateException("Tải về thất bại (${resp.code})")
+                throw IllegalStateException(context.getString(R.string.att_download_failed, resp.code))
             }
             resp.body?.byteStream()?.use { input ->
                 outFile.outputStream().use { out -> input.copyTo(out) }
-            } ?: throw IllegalStateException("Không có dữ liệu")
+            } ?: throw IllegalStateException(context.getString(R.string.att_no_data))
         }
     }
 
@@ -520,9 +522,11 @@ private suspend fun openAttachment(context: Context, att: Attachment) {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
         Log.w("Attachments", "no viewer", e)
-        Toast.makeText(context,
-            "Không có ứng dụng mở file ${att.fileType}",
-            Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            context,
+            context.getString(R.string.att_no_app_for_file_type, att.fileType),
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 }
 

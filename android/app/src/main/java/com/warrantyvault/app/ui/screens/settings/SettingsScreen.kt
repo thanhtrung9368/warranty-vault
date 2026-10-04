@@ -17,8 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Badge
@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.PhonelinkLock
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -66,15 +67,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
 import com.warrantyvault.app.BuildConfig
+import com.warrantyvault.app.R
 import com.warrantyvault.app.auth.AuthStore
 import com.warrantyvault.app.export.csvFileName
 import com.warrantyvault.app.export.devicesCsvBytes
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.AIOptInRequest
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
@@ -83,9 +88,9 @@ import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.SectionHeader
 import com.warrantyvault.app.ui.theme.ThemePreference
 import com.warrantyvault.app.ui.theme.ThemeStore
+import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +106,8 @@ fun SettingsScreen(
     val cs = MaterialTheme.colorScheme
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
     var showProfileEdit by rememberSaveable { mutableStateOf(false) }
+    var showLanguage by rememberSaveable { mutableStateOf(false) }
+    var showEmailChange by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -149,9 +156,9 @@ fun SettingsScreen(
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     body.byteStream().use { it.copyTo(out) }
                 } ?: throw IllegalStateException("no stream")
-                snack("Đã sao lưu ra file JSON")
+                snack(context.getString(R.string.set_backed_up_to_a_json_file))
             } catch (e: Exception) {
-                snack("Không sao lưu được: ${e.toUserMessage(ApiClient.json)}")
+                snack(context.getString(R.string.set_backup_failed, e.toUserMessage(ApiClient.json, context)))
             } finally {
                 backupBusy = false
             }
@@ -172,9 +179,9 @@ fun SettingsScreen(
             try {
                 context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                     ?: throw IllegalStateException("no stream")
-                snack("Đã xuất $pendingCsvCount thiết bị ra file CSV")
+                snack(context.resources.getQuantityString(R.plurals.set_exported_devices_to_a_csv_file, pendingCsvCount, pendingCsvCount))
             } catch (e: Exception) {
-                snack("Không xuất được CSV: ${e.toUserMessage(ApiClient.json)}")
+                snack(context.getString(R.string.set_csv_export_failed, e.toUserMessage(ApiClient.json, context)))
             } finally {
                 csvBusy = false
             }
@@ -188,17 +195,17 @@ fun SettingsScreen(
             try {
                 val devices = api.listDevices().devices
                 if (devices.isEmpty()) {
-                    snack("Không có thiết bị nào để xuất")
+                    snack(context.getString(R.string.set_there_are_no_devices_to_export))
                     return@launch
                 }
                 // Fetch + serialise before opening the picker: an empty list or a
                 // network error then costs the user nothing, and the bytes carry
                 // the UTF-8 BOM Excel needs (see CsvExport.kt).
-                pendingCsv = devicesCsvBytes(devices)
+                pendingCsv = devicesCsvBytes(context.appStrings(), devices)
                 pendingCsvCount = devices.size
                 csvLauncher.launch(csvFileName())
             } catch (e: Exception) {
-                snack("Không xuất được CSV: ${e.toUserMessage(ApiClient.json)}")
+                snack(context.getString(R.string.set_csv_export_failed, e.toUserMessage(ApiClient.json, context)))
             } finally {
                 csvBusy = false
             }
@@ -215,12 +222,20 @@ fun SettingsScreen(
                 val res = api.importBackup(mode, reqBody).result
                 val skipped = res.skipped + res.subSkipped + res.wishlistSkipped
                 snack(
-                    "Đã nhập ${res.imported} thiết bị, ${res.subImported} gói, " +
-                        "${res.wishlistImported} mục" +
-                        if (skipped > 0) " · bỏ qua $skipped bản trùng" else "",
+                    if (skipped > 0) {
+                        context.getString(
+                            R.string.set_import_summary_skipped,
+                            res.imported, res.subImported, res.wishlistImported, skipped,
+                        )
+                    } else {
+                        context.getString(
+                            R.string.set_import_summary,
+                            res.imported, res.subImported, res.wishlistImported,
+                        )
+                    },
                 )
             } catch (e: Exception) {
-                snack("Nhập thất bại: ${e.toUserMessage(ApiClient.json)}")
+                snack(context.getString(R.string.set_import_failed, e.toUserMessage(ApiClient.json, context)))
             } finally {
                 backupBusy = false
             }
@@ -252,7 +267,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
         ) {
-            PageHeader("Cài đặt", "Cá nhân hoá tài khoản & giao diện của mày")
+            PageHeader(stringResource(R.string.nav_settings), stringResource(R.string.set_personalise_your_account_and_appearance))
 
             // Profile card
             currentUser?.let { user ->
@@ -298,12 +313,15 @@ fun SettingsScreen(
                 }
             }
 
-            // Profile editing. Only the display name is mutable: email change is
-            // not supported by the API at all (an explicit 400), so the email row
-            // is rendered as plain, non-clickable information.
+            // Profile editing. The display name is edited in place; the email is
+            // NOT frozen — it is changed by its own two-step flow
+            // (`POST /auth/change-email` → `/confirm-email-change`), which this
+            // row opens. An earlier version of this comment claimed the API had
+            // no email change at all; that was wrong and cost Android the feature
+            // for a release (web and iOS both had it).
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionHeader("Hồ sơ")
+                SectionHeader(stringResource(R.string.set_profile))
             }
             Spacer(Modifier.height(8.dp))
             Card(
@@ -317,20 +335,20 @@ fun SettingsScreen(
                 Column {
                     SettingsRow(
                         icon = Icons.Filled.Badge,
-                        title = "Tên hiển thị",
+                        title = stringResource(R.string.set_display_name),
                         subtitle = currentUser?.name?.takeIf { it.isNotBlank() }
-                            ?: "Chưa đặt tên — bấm để thêm.",
+                            ?: stringResource(R.string.set_no_name_yet_tap_to_add),
                         onClick = { showProfileEdit = true },
                         showDivider = true,
                     )
                     SettingsRow(
                         icon = Icons.Filled.MailOutline,
                         title = "Email",
-                        subtitle = buildString {
-                            currentUser?.email?.let { append(it).append(" · ") }
-                            append("không thể thay đổi")
-                        },
-                        onClick = null,
+                        subtitle = stringResource(
+                            R.string.settings_email_row_subtitle,
+                            currentUser?.email.orEmpty(),
+                        ),
+                        onClick = { showEmailChange = true },
                         showDivider = false,
                     )
                 }
@@ -338,7 +356,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionHeader("Giao diện")
+                SectionHeader(stringResource(R.string.set_appearance))
             }
             Spacer(Modifier.height(8.dp))
             Card(
@@ -350,10 +368,10 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp),
             ) {
                 Column {
-                    ThemePreference.entries.forEachIndexed { index, pref ->
+                    ThemePreference.entries.forEach { pref ->
                         SettingsRow(
                             icon = iconFor(pref),
-                            title = pref.label,
+                            title = stringResource(pref.labelRes),
                             onClick = { themeStore.set(pref) },
                             trailing = {
                                 RadioButton(
@@ -361,15 +379,27 @@ fun SettingsScreen(
                                     onClick = { themeStore.set(pref) },
                                 )
                             },
-                            showDivider = index < ThemePreference.entries.size - 1,
+                            showDivider = true,
                         )
                     }
+                    // Language (docs/I18N_PLAN.md phase 2). Sits in "Giao diện"
+                    // next to the theme because it is the same kind of choice —
+                    // except this one is also PATCHed to the account, since push
+                    // notifications and emails are rendered server-side with no
+                    // request context to take an `Accept-Language` from (§2.3).
+                    SettingsRow(
+                        icon = Icons.Filled.Translate,
+                        title = stringResource(R.string.settings_lang_row_title),
+                        subtitle = stringResource(R.string.settings_lang_row_subtitle),
+                        onClick = { showLanguage = true },
+                        showDivider = false,
+                    )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionHeader("Tài khoản")
+                SectionHeader(stringResource(R.string.subs_account))
             }
             Spacer(Modifier.height(8.dp))
             Card(
@@ -383,15 +413,15 @@ fun SettingsScreen(
                 Column {
                     SettingsRow(
                         icon = Icons.Filled.Lock,
-                        title = "Đổi mật khẩu",
-                        subtitle = "Cập nhật mật khẩu đăng nhập của mày.",
+                        title = stringResource(R.string.set_change_password),
+                        subtitle = stringResource(R.string.set_update_the_password_you_sign_in),
                         onClick = { showChangePassword = true },
                         showDivider = true,
                     )
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
-                        title = "Thiết bị nhận thông báo",
-                        subtitle = "Quản lý các thiết bị đăng ký push notification.",
+                        title = stringResource(R.string.set_notification_devices),
+                        subtitle = stringResource(R.string.set_manage_the_devices_registered_for_push),
                         onClick = onOpenPushDevices,
                         showDivider = true,
                     )
@@ -400,8 +430,8 @@ fun SettingsScreen(
                     // stops notifications. Different rows on purpose.
                     SettingsRow(
                         icon = Icons.Filled.PhonelinkLock,
-                        title = "Phiên đăng nhập",
-                        subtitle = "Xem các thiết bị đang đăng nhập và thu hồi từng phiên.",
+                        title = stringResource(R.string.set_sign_in_sessions),
+                        subtitle = stringResource(R.string.set_see_which_devices_are_signed_in),
                         onClick = onOpenSessions,
                         showDivider = false,
                     )
@@ -410,7 +440,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionHeader("Quét hoá đơn (AI)")
+                SectionHeader(stringResource(R.string.set_invoice_scanning_ai))
             }
             Spacer(Modifier.height(8.dp))
             Card(
@@ -425,12 +455,12 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "Quét hoá đơn bằng AI",
+                                stringResource(R.string.set_scan_invoices_with_ai),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                "Ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền. Luôn kiểm tra lại trước khi lưu. Mặc định tắt.",
+                                stringResource(R.string.set_the_invoice_image_is_sent_decrypted),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = cs.onSurfaceVariant,
                             )
@@ -446,16 +476,20 @@ fun SettingsScreen(
                                         val res = api.setAIOptIn(AIOptInRequest(next))
                                         aiOptIn = res.aiOptIn
                                         snack(
-                                            if (res.aiOptIn) "Đã bật quét hoá đơn AI"
-                                            else "Đã tắt quét hoá đơn AI",
+                                            context.getString(
+                                                if (res.aiOptIn) R.string.set_ai_invoice_scanning_is_on
+                                                else R.string.set_ai_invoice_scanning_is_off,
+                                            ),
                                         )
                                     } catch (e: Exception) {
                                         // Never fail silently here: flipping back
                                         // with no explanation reads as a bug, and
                                         // the web toasts the server message.
                                         snack(
-                                            "Không cập nhật được cài đặt: " +
-                                                e.toUserMessage(ApiClient.json),
+                                            context.getString(
+                                                R.string.set_could_not_update_the_setting,
+                                                e.toUserMessage(ApiClient.json, context),
+                                            ),
                                         )
                                     } finally {
                                         aiBusy = false
@@ -469,7 +503,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionHeader("Dữ liệu")
+                SectionHeader(stringResource(R.string.set_data))
             }
             Spacer(Modifier.height(8.dp))
             Card(
@@ -483,8 +517,8 @@ fun SettingsScreen(
                 Column {
                     SettingsRow(
                         icon = Icons.Filled.CloudDownload,
-                        title = if (backupBusy) "Đang xử lý…" else "Sao lưu (xuất JSON)",
-                        subtitle = "Tải toàn bộ thiết bị, gói & wishlist ra 1 file JSON.",
+                        title = if (backupBusy) stringResource(R.string.set_working) else stringResource(R.string.set_back_up_export_json),
+                        subtitle = stringResource(R.string.set_download_every_device_plan_and_wishlist),
                         onClick = {
                             if (!backupBusy) exportLauncher.launch("warrantyvault-backup.json")
                         },
@@ -492,15 +526,15 @@ fun SettingsScreen(
                     )
                     SettingsRow(
                         icon = Icons.Filled.TableChart,
-                        title = if (csvBusy) "Đang xử lý…" else "Xuất CSV (Excel)",
-                        subtitle = "Tải danh sách thiết bị ra file CSV (UTF-8) để mở bằng Excel / Google Sheets.",
+                        title = if (csvBusy) stringResource(R.string.set_working) else stringResource(R.string.set_export_csv_excel),
+                        subtitle = stringResource(R.string.set_download_the_device_list_as_a),
                         onClick = { startCsvExport() },
                         showDivider = true,
                     )
                     SettingsRow(
                         icon = Icons.Filled.Restore,
-                        title = "Khôi phục từ sao lưu",
-                        subtitle = "Nhập lại dữ liệu từ file JSON đã xuất.",
+                        title = stringResource(R.string.set_restore_from_a_backup),
+                        subtitle = stringResource(R.string.set_import_your_data_back_from_an),
                         onClick = { if (!backupBusy) showImportModeDialog = true },
                         showDivider = false,
                     )
@@ -509,7 +543,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
-                SectionHeader("Hệ thống")
+                SectionHeader(stringResource(R.string.set_system))
             }
             Spacer(Modifier.height(8.dp))
             Card(
@@ -553,7 +587,7 @@ fun SettingsScreen(
                 Icon(Icons.AutoMirrored.Filled.Logout, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(8.dp))
                 Text(
-                    "Đăng xuất",
+                    stringResource(R.string.set_sign_out),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -573,7 +607,7 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.size(8.dp))
                 Text(
-                    "Xoá tài khoản",
+                    stringResource(R.string.set_delete_account),
                     color = cs.error,
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -585,26 +619,23 @@ fun SettingsScreen(
     if (showImportModeDialog) {
         AlertDialog(
             onDismissRequest = { showImportModeDialog = false },
-            title = { Text("Khôi phục từ sao lưu") },
+            title = { Text(stringResource(R.string.set_restore_from_a_backup)) },
             text = {
-                Text(
-                    "“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. " +
-                        "“Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.",
-                )
+                Text(stringResource(R.string.set_import_mode_body))
             },
             confirmButton = {
                 TextButton(onClick = {
                     pendingImportMode = "merge"
                     showImportModeDialog = false
                     importLauncher.launch(arrayOf("application/json"))
-                }) { Text("Gộp (merge)") }
+                }) { Text(stringResource(R.string.set_merge)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     pendingImportMode = "replace"
                     showImportModeDialog = false
                     importLauncher.launch(arrayOf("application/json"))
-                }) { Text("Thay thế", color = cs.error) }
+                }) { Text(stringResource(R.string.set_replace), color = cs.error) }
             },
         )
     }
@@ -613,18 +644,15 @@ fun SettingsScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { if (!deleteBusy) showDeleteDialog = false },
-            title = { Text("Xoá tài khoản?") },
+            title = { Text(stringResource(R.string.set_delete_your_account)) },
             text = {
                 Column {
-                    Text(
-                        "Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — " +
-                            "không thể hoàn tác. Nhập mật khẩu để xác nhận.",
-                    )
+                    Text(stringResource(R.string.set_delete_account_body))
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = deletePassword,
                         onValueChange = { deletePassword = it },
-                        label = { Text("Mật khẩu hiện tại") },
+                        label = { Text(stringResource(R.string.set_current_password)) },
                         singleLine = true,
                         enabled = !deleteBusy,
                         visualTransformation = PasswordVisualTransformation(),
@@ -653,18 +681,18 @@ fun SettingsScreen(
                                 // returns to the login screen automatically.
                                 auth.deleteAccount(deletePassword)
                             } catch (e: Exception) {
-                                deleteError = e.toUserMessage(ApiClient.json)
+                                deleteError = e.toUserMessage(ApiClient.json, context)
                             } finally {
                                 deleteBusy = false
                                 if (deleteError == null) showDeleteDialog = false
                             }
                         }
                     },
-                ) { Text(if (deleteBusy) "Đang xoá…" else "Xoá vĩnh viễn", color = cs.error) }
+                ) { Text(if (deleteBusy) stringResource(R.string.devdetail_deleting) else stringResource(R.string.set_delete_permanently), color = cs.error) }
             },
             dismissButton = {
                 TextButton(enabled = !deleteBusy, onClick = { showDeleteDialog = false }) {
-                    Text("Huỷ")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -677,7 +705,7 @@ fun SettingsScreen(
             onSuccess = {
                 showChangePassword = false
                 scope.launch {
-                    snackbarHostState.showSnackbar("Đã đổi mật khẩu thành công")
+                    snackbarHostState.showSnackbar(context.getString(R.string.set_password_changed_successfully))
                 }
             },
         )
@@ -693,6 +721,30 @@ fun SettingsScreen(
             onSuccess = { message ->
                 showProfileEdit = false
                 snack(message)
+            },
+        )
+    }
+
+    if (showLanguage) {
+        LanguageSheet(
+            auth = auth,
+            languageStore = App.instance.languageStore,
+            onDismiss = { showLanguage = false },
+        )
+    }
+
+    // Step 2 of the email change revokes EVERY session server-side, so the local
+    // bearer token is dead the moment `onConfirmed` fires. `endLocalSession`
+    // drops it without a request (the next call would be a 401) and RootScreen
+    // shows the login screen — the same route delete-account takes.
+    if (showEmailChange && currentUser != null) {
+        EmailChangeSheet(
+            auth = auth,
+            currentEmail = currentUser.email,
+            onDismiss = { showEmailChange = false },
+            onConfirmed = {
+                showEmailChange = false
+                auth.endLocalSession()
             },
         )
     }

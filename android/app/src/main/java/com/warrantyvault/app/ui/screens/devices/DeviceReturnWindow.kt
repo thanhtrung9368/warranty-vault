@@ -35,7 +35,7 @@ import com.warrantyvault.app.ui.screens.vietnamDate
  *    unrecorded).
  *
  * So `0` must survive the round trip as `0` and never collapse into "absent" —
- * the same distinction `soldPrice`'s `0đ` give-away relies on.
+ * the same distinction `soldPrice`'s `0 ₫` give-away relies on.
  *
  * ## Wire format
  *

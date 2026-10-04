@@ -1,5 +1,6 @@
 package com.warrantyvault.app.export
 
+import com.warrantyvault.app.i18n.AppStrings
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.ui.components.CategoryLabels
 import java.time.LocalDateTime
@@ -39,7 +40,7 @@ import java.time.format.DateTimeFormatter
 //    `bytes[0..2] == EF BB BF` on the *actual* bytes, not just the string.
 //
 // 3. MONEY — `csvNumber()` writes a bare number (`15000000`), never
-//    `15.000.000đ`. A spreadsheet must see a number to sum or sort it; the
+//    `15.000.000 ₫`. A spreadsheet must see a number to sum or sort it; the
 //    Vietnamese currency formatting stays in the UI (`formatVnd`).
 //
 // 4. QUOTING — RFC 4180 minimal quoting: a field is wrapped in `"` (inner `"`
@@ -205,10 +206,16 @@ val DEVICE_CSV_HEADER: List<String> = listOf(
  *
  * The category goes through [CategoryLabels] (the single Android copy of the
  * web's `CATEGORY_LABELS`, which a Go test keeps in sync) — never a local
- * label map — and the status comes from [com.warrantyvault.app.network.DeviceStatus.label],
- * so the spreadsheet says "Điện thoại" / "Đang dùng" exactly like the list does.
+ * label map — and the status comes from `DeviceStatus.labelRes`, resolved
+ * through the [AppStrings] seam, so an English export says "In use" where the
+ * Vietnamese one says "Đang dùng". That seam is why this stays a pure function:
+ * a JVM test passes `ResCatalog.vietnamese()` / `.english()` and reads the same
+ * resource table the UI does.
+ *
+ * (`DEVICE_CSV_HEADER` itself is still the Vietnamese column set the web export
+ * uses — translating the header is a separate change; see the module docs.)
  */
-fun deviceCsvRow(device: Device): List<String> = listOf(
+fun deviceCsvRow(s: AppStrings, device: Device): List<String> = listOf(
     csvText(device.name),
     CategoryLabels.label(device.category),
     csvText(device.brand),
@@ -217,28 +224,30 @@ fun deviceCsvRow(device: Device): List<String> = listOf(
     csvDate(device.purchaseDate),
     csvNumber(device.purchasePrice),
     csvText(device.purchasePlace),
-    device.status.label,
+    s.get(device.status.labelRes),
     csvDate(device.effectiveWarrantyEnd),
     csvText(device.notes),
 )
 
 /** The devices table, header first. */
-fun devicesCsvTable(devices: List<Device>): CsvTable = CsvTable(
+fun devicesCsvTable(s: AppStrings, devices: List<Device>): CsvTable = CsvTable(
     header = DEVICE_CSV_HEADER,
-    rows = devices.map(::deviceCsvRow),
+    rows = devices.map { deviceCsvRow(s, it) },
 )
 
 /** Ready-to-write CSV text for the device list (BOM included). */
 fun devicesCsv(
+    s: AppStrings,
     devices: List<Device>,
     delimiter: CsvDelimiter = Csv.DEFAULT_DELIMITER,
-): String = devicesCsvTable(devices).toCsv(delimiter, bom = true)
+): String = devicesCsvTable(s, devices).toCsv(delimiter, bom = true)
 
 /** Ready-to-write UTF-8 bytes for the device list — what the SAF row writes. */
 fun devicesCsvBytes(
+    s: AppStrings,
     devices: List<Device>,
     delimiter: CsvDelimiter = Csv.DEFAULT_DELIMITER,
-): ByteArray = csvBytes(devicesCsv(devices, delimiter))
+): ByteArray = csvBytes(devicesCsv(s, devices, delimiter))
 
 /**
  * Export file name, e.g. `warrantyvault-thiet-bi-20250115-1030.csv`.

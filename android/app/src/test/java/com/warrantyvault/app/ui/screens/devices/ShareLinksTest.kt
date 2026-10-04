@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.testing.Fixtures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,6 +18,9 @@ import org.junit.Test
  */
 class ShareLinksTest {
 
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
+
     /** 2026-01-01T00:00:00Z, so the expiry comparisons never touch the wall clock. */
     private val now = 1_767_225_600_000L
 
@@ -24,7 +28,7 @@ class ShareLinksTest {
 
     @Test
     fun theOneTimeWarningSaysAllThreeThingsAUserNeedsBeforeDismissing() {
-        val warning = ONE_TIME_WARNING
+        val warning = vi.get(ONE_TIME_WARNING)
 
         // 1. that it is a single showing, and 2. that the app keeps no copy —
         //    without which "shown once" reads as a UI quirk rather than data loss.
@@ -49,15 +53,15 @@ class ShareLinksTest {
 
     @Test
     fun theDialogTitleStatesTheStakesAndTheCopyConfirmationRepeatsThem() {
-        assertTrue(ONE_TIME_TITLE.contains("một lần"))
+        assertTrue(vi.get(ONE_TIME_TITLE).contains("một lần"))
         // The rule survives the dialog closing: a bare "Đã sao chép" would leave
         // the user with no reason to believe the link is not retrievable later.
-        assertTrue(COPIED_MESSAGE.contains("một lần"))
+        assertTrue(vi.get(COPIED_MESSAGE).contains("một lần"))
     }
 
     @Test
     fun theProjectionExplanationNamesWhatIsExposedAndWhatIsNeverExposed() {
-        val copy = CERTIFICATE_PROJECTION_EXPLANATION
+        val copy = vi.get(CERTIFICATE_PROJECTION_EXPLANATION)
         // The three things openapi's `SharedCertificate` promises are absent —
         // asserted by name so a future edit cannot quietly soften the promise.
         assertTrue("giá mua: $copy", copy.contains("giá mua"))
@@ -68,12 +72,12 @@ class ShareLinksTest {
 
     @Test
     fun serialCopySaysWhatEachStateExposesAndNeitherOversells() {
-        assertTrue("mặc định phải nói rõ là tắt", SERIAL_OFF_EXPLANATION.contains("mặc định"))
-        assertTrue("phải nói che giữa", SERIAL_OFF_EXPLANATION.contains("che giữa"))
-        assertTrue("phải nói IMEI đầy đủ", SERIAL_ON_EXPLANATION.contains("IMEI"))
+        assertTrue("mặc định phải nói rõ là tắt", vi.get(SERIAL_OFF_EXPLANATION).contains("mặc định"))
+        assertTrue("phải nói che giữa", vi.get(SERIAL_OFF_EXPLANATION).contains("che giữa"))
+        assertTrue("phải nói IMEI đầy đủ", vi.get(SERIAL_ON_EXPLANATION).contains("IMEI"))
         assertTrue(
             "phải nói rủi ro khi link bị chuyển tiếp",
-            SERIAL_ON_EXPLANATION.contains("chuyển tiếp"),
+            vi.get(SERIAL_ON_EXPLANATION).contains("chuyển tiếp"),
         )
     }
 
@@ -119,14 +123,14 @@ class ShareLinksTest {
     @Test
     fun aLiveShareIsNotRevokedAndNotPastItsExpiry() {
         assertTrue(isShareLive(Fixtures.share(expiresAt = "2026-01-01T00:00:01Z"), now))
-        assertEquals("Đang hiệu lực", shareStateLabel(Fixtures.share(), now))
+        assertEquals("Đang hiệu lực", shareStateLabel(vi, Fixtures.share(), now))
     }
 
     @Test
     fun anExpiredShareIsNotLiveAndSaysSo() {
         val expired = Fixtures.share(expiresAt = "2025-12-31T23:59:59Z")
         assertFalse(isShareLive(expired, now))
-        assertEquals("Đã hết hạn", shareStateLabel(expired, now))
+        assertEquals("Đã hết hạn", shareStateLabel(vi, expired, now))
     }
 
     @Test
@@ -136,7 +140,7 @@ class ShareLinksTest {
             revokedAt = "2026-01-02T00:00:00Z",
         )
         assertFalse("thu hồi phải thắng hạn còn xa", isShareLive(revoked, now))
-        assertEquals("Đã thu hồi", shareStateLabel(revoked, now))
+        assertEquals("Đã thu hồi", shareStateLabel(vi, revoked, now))
     }
 
     @Test
@@ -169,23 +173,23 @@ class ShareLinksTest {
 
     @Test
     fun theExpiryRowIsRenderedInTheHouseDateFormat() {
-        assertEquals("Hết hạn 01/06/2099", shareExpiryLabel(Fixtures.share()))
+        assertEquals("Hết hạn 01/06/2099", shareExpiryLabel(vi, Fixtures.share()))
         // No parsable date: the row shows its state instead of an invented date.
-        assertNull(shareExpiryLabel(Fixtures.share(expiresAt = "không rõ")))
+        assertNull(shareExpiryLabel(vi, Fixtures.share(expiresAt = "không rõ")))
     }
 
     @Test
     fun viewCountIsPhrasedAsOpensNotAsWhatTheBuyerDid() {
         // The app can only observe fetches. "Người mua đã xem" would claim
         // knowledge of a person the link has no identity for.
-        assertEquals("Chưa mở lần nào", shareViewLabel(Fixtures.share(viewCount = 0)))
-        assertEquals("Đã mở 1 lần", shareViewLabel(Fixtures.share(viewCount = 1)))
-        assertEquals("Đã mở 7 lần", shareViewLabel(Fixtures.share(viewCount = 7)))
+        assertEquals("Chưa mở lần nào", shareViewLabel(vi, Fixtures.share(viewCount = 0)))
+        assertEquals("Đã mở 1 lần", shareViewLabel(vi, Fixtures.share(viewCount = 1)))
+        assertEquals("Đã mở 7 lần", shareViewLabel(vi, Fixtures.share(viewCount = 7)))
     }
 
     @Test
     fun theRevokeConfirmationSaysTheLinkDiesImmediatelyAndCarriesTheOldExpiry() {
-        val copy = revokeConfirmMessage(Fixtures.share(expiresAt = "2099-06-01T00:00:00Z"))
+        val copy = revokeConfirmMessage(vi, Fixtures.share(expiresAt = "2099-06-01T00:00:00Z"))
         assertTrue(copy.contains("ngừng mở được ngay"))
         assertTrue("phải nói cả link chưa hết hạn cũng chết", copy.contains("chưa hết hạn"))
         assertTrue("hạn cũ theo dd/MM/yyyy", copy.contains("01/06/2099"))
@@ -193,15 +197,15 @@ class ShareLinksTest {
 
     @Test
     fun theLimitMessagePointsAtTheOnlyWayOut() {
-        assertTrue(SHARE_LIMIT_MESSAGE.contains("10 link"))
-        assertTrue(SHARE_LIMIT_MESSAGE.contains("Thu hồi"))
+        assertTrue(vi.get(SHARE_LIMIT_MESSAGE).contains("10 link"))
+        assertTrue(vi.get(SHARE_LIMIT_MESSAGE).contains("Thu hồi"))
     }
 
     // ---- outgoing share payload ----
 
     @Test
     fun theShareSheetMessageCarriesTheLinkTheDeviceNameAndTheExpiryExpectation() {
-        val message = shareMessage("iPhone 15 Pro", "https://v.example/api/v1/public/shares/tok")
+        val message = shareMessage(vi, "iPhone 15 Pro", "https://v.example/api/v1/public/shares/tok")
         assertTrue(message.contains("iPhone 15 Pro"))
         assertTrue(message.contains("https://v.example/api/v1/public/shares/tok"))
         assertTrue("người nhận phải biết link có hạn", message.contains("có hạn"))
@@ -259,7 +263,7 @@ class ShareLinksTest {
             listOf(ResolvedTarget("com.warrantyvault.app/.MainActivity", isSelfTarget = true)),
         )
         assertEquals(listOf("com.warrantyvault.app/.MainActivity"), excluded)
-        assertTrue(NO_SHARE_TARGET_MESSAGE.contains("sao chép"))
+        assertTrue(vi.get(NO_SHARE_TARGET_MESSAGE).contains("sao chép"))
     }
 
     @Test
@@ -274,7 +278,10 @@ class ShareLinksTest {
         // being true this test is the reminder to revisit the filter too.
         assertEquals("text/plain", outgoingShare("m").mimeType)
         assertEquals("android.intent.action.SEND", outgoingShare("m").action)
-        assertTrue("tiêu đề chooser phải nói rõ đang gửi gì", CHOOSER_TITLE.contains("phiếu bàn giao"))
+        assertTrue(
+            "tiêu đề chooser phải nói rõ đang gửi gì",
+            vi.get(CHOOSER_TITLE).contains("phiếu bàn giao"),
+        )
     }
 
     // ---- the create request ----

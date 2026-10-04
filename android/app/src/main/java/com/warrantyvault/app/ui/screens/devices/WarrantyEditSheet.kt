@@ -36,10 +36,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Warranty
@@ -79,7 +81,7 @@ fun WarrantyEditSheet(
     val catalog = rememberCatalog(api)
     val providerOptions: List<WarrantyProviderOption> = catalog?.warrantyProviders ?: emptyList()
 
-    val title = if (existing == null) "Thêm gói bảo hành" else "Sửa gói bảo hành"
+    val title = if (existing == null) stringResource(R.string.warr_add_a_warranty_plan) else stringResource(R.string.warr_edit_warranty_plan)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -103,20 +105,20 @@ fun WarrantyEditSheet(
                 )
                 OutlinedTextField(
                     value = startDate, onValueChange = { startDate = it },
-                    label = { Text("Ngày bắt đầu (YYYY-MM-DD) *") },
+                    label = { Text(stringResource(R.string.warr_start_date_yyyy_mm_dd)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = months,
                     onValueChange = { months = it.filter { c -> c.isDigit() } },
-                    label = { Text("Số tháng *") },
+                    label = { Text(stringResource(R.string.warr_months)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = cost,
                     onValueChange = { cost = it.filter { c -> c.isDigit() } },
-                    label = { Text("Chi phí (VND)") },
+                    label = { Text(stringResource(R.string.warr_cost_vnd)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -125,18 +127,18 @@ fun WarrantyEditSheet(
             SheetGroup {
                 OutlinedTextField(
                     value = phone, onValueChange = { phone = it },
-                    label = { Text("Điện thoại liên hệ") },
+                    label = { Text(stringResource(R.string.devadd_contact_phone)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = address, onValueChange = { address = it },
-                    label = { Text("Địa chỉ") },
+                    label = { Text(stringResource(R.string.warr_address)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = notes, onValueChange = { notes = it },
-                    label = { Text("Ghi chú") },
+                    label = { Text(stringResource(R.string.warr_note)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -195,7 +197,7 @@ fun WarrantyEditSheet(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text("Lưu", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.action_save), fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -216,10 +218,10 @@ private fun WarrantyTypeDropdown(
         onExpandedChange = { expanded = it },
     ) {
         TextField(
-            value = selected.label,
+            value = stringResource(selected.labelRes),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Loại bảo hành") },
+            label = { Text(stringResource(R.string.warr_warranty_type)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -231,7 +233,7 @@ private fun WarrantyTypeDropdown(
         ) {
             WarrantyType.entries.forEach { t ->
                 DropdownMenuItem(
-                    text = { Text(t.label) },
+                    text = { Text(stringResource(t.labelRes)) },
                     onClick = {
                         onSelected(t)
                         expanded = false

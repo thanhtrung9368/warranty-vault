@@ -51,10 +51,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.warrantyvault.app.BuildConfig
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.CreateShareInput
@@ -94,6 +98,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: String) {
+    val s = appStrings()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -138,21 +143,20 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Link, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
-            Text("Phiếu bàn giao bảo hành",
+            Text(stringResource(R.string.share_warranty_handover_certificate),
                 fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             if (loading) {
                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
             } else {
-                Text("${shares.count { isShareLive(it, now) }} đang hiệu lực",
+                Text(stringResource(R.string.share_live_count, shares.count { isShareLive(it, now) }),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
         Text(
-            "Gửi người mua một link chỉ-đọc, không cần đăng nhập, để họ tự xem phần " +
-                "bảo hành còn lại. Link luôn có hạn và thu hồi được.",
+            stringResource(R.string.share_section_body),
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -178,10 +182,14 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
                 // link is entitled to know exactly what it exposes.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Kèm số máy/IMEI đầy đủ",
+                        Text(stringResource(R.string.share_include_the_full_serial_imei),
                             fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (includeSerial) SERIAL_ON_EXPLANATION else SERIAL_OFF_EXPLANATION,
+                            if (includeSerial) {
+                                stringResource(SERIAL_ON_EXPLANATION)
+                            } else {
+                                stringResource(SERIAL_OFF_EXPLANATION)
+                            },
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -193,7 +201,7 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
                     )
                 }
 
-                Text(CERTIFICATE_PROJECTION_EXPLANATION,
+                Text(stringResource(CERTIFICATE_PROJECTION_EXPLANATION),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -235,7 +243,7 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
                     } else {
                         Icon(Icons.Filled.Add, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Tạo link chia sẻ", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.share_create_a_share_link), fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -247,7 +255,7 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
 
         // ---- Live + past links ----
         if (!loading && shares.isEmpty()) {
-            Text(NO_LINKS_MESSAGE,
+            Text(stringResource(NO_LINKS_MESSAGE),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -267,9 +275,9 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
             deviceName = deviceName,
             onCopy = { url ->
                 copyToClipboard(context, url)
-                Toast.makeText(context, COPIED_MESSAGE, Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(COPIED_MESSAGE), Toast.LENGTH_LONG).show()
             },
-            onShare = { url -> openShareSheet(context, deviceName, url) },
+            onShare = { url -> openShareSheet(s, context, deviceName, url) },
             onDismiss = { created = null },
         )
     }
@@ -277,8 +285,8 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
     revoking?.let { share ->
         AlertDialog(
             onDismissRequest = { revoking = null },
-            title = { Text("Thu hồi link này?") },
-            text = { Text(revokeConfirmMessage(share)) },
+            title = { Text(stringResource(R.string.share_revoke_this_link)) },
+            text = { Text(revokeConfirmMessage(s, share)) },
             confirmButton = {
                 TextButton(onClick = {
                     val id = share.id
@@ -291,10 +299,10 @@ fun ShareCertificatesSection(api: ApiService, deviceId: String, deviceName: Stri
                             error = e.toUserMessage(ApiClient.json)
                         }
                     }
-                }) { Text("Thu hồi", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.sess_revoke), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { revoking = null }) { Text("Huỷ") }
+                TextButton(onClick = { revoking = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -329,21 +337,21 @@ private fun OneTimeLinkDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(ONE_TIME_TITLE, fontWeight = FontWeight.SemiBold) },
+        title = { Text(stringResource(ONE_TIME_TITLE), fontWeight = FontWeight.SemiBold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     Icon(Icons.Outlined.WarningAmber, null, tint = cs.error)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        ONE_TIME_WARNING,
+                        stringResource(ONE_TIME_WARNING),
                         color = cs.error,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
 
-                Text("Link của \"$deviceName\":",
+                Text(stringResource(R.string.share_link_for, deviceName),
                     fontSize = 12.sp,
                     color = cs.onSurfaceVariant)
 
@@ -354,19 +362,24 @@ private fun OneTimeLinkDialog(
                     Text(url, fontSize = 13.sp, color = cs.onSurface)
                 } else {
                     Text(
-                        "Máy chủ không trả về đường dẫn cho link này. Hãy thu hồi và tạo lại.",
+                        stringResource(R.string.share_the_server_did_not_return_a),
                         fontSize = 13.sp,
                         color = cs.error,
                     )
                 }
 
+                // One line, assembled from three resources: the date prefix, the
+                // separator and the serial state. Each part is translated; the
+                // joining is layout, not copy.
+                val serialNote = stringResource(
+                    if (share.includeSerial) R.string.share_serial_full_short
+                    else R.string.share_serial_masked_short,
+                )
                 Text(
-                    "Hạn: ${vietnamDate(share.expiresAt) ?: "—"} · " +
-                        if (share.includeSerial) {
-                            "có số máy đầy đủ"
-                        } else {
-                            "số máy đã che giữa"
-                        },
+                    stringResource(
+                        R.string.share_expiry_prefix,
+                        vietnamDate(share.expiresAt) ?: "—",
+                    ) + " · " + serialNote,
                     fontSize = 12.sp,
                     color = cs.onSurfaceVariant,
                 )
@@ -383,7 +396,7 @@ private fun OneTimeLinkDialog(
                     ) {
                         Icon(Icons.Filled.Share, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Chia sẻ")
+                        Text(stringResource(R.string.share_share))
                     }
                     OutlinedButton(
                         onClick = { url?.let(onCopy) },
@@ -393,13 +406,13 @@ private fun OneTimeLinkDialog(
                     ) {
                         Icon(Icons.Filled.ContentCopy, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Sao chép")
+                        Text(stringResource(R.string.share_copy))
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Đóng") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         },
     )
 }
@@ -409,7 +422,7 @@ private fun OneTimeLinkDialog(
 private fun ExpiryPicker(days: Int, enabled: Boolean, onPick: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Column {
-        Text("Link có hiệu lực trong", fontSize = 12.sp,
+        Text(stringResource(R.string.share_valid_for), fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(
             onClick = { open = true },
@@ -417,12 +430,12 @@ private fun ExpiryPicker(days: Int, enabled: Boolean, onPick: (Int) -> Unit) {
             shape = CircleShape,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("$days ngày")
+            Text(appStrings().quantity(R.plurals.share_days, days, days))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             EXPIRY_CHOICES.forEach { choice ->
                 DropdownMenuItem(
-                    text = { Text("$choice ngày") },
+                    text = { Text(appStrings().quantity(R.plurals.share_days, choice, choice)) },
                     onClick = {
                         onPick(choice)
                         open = false
@@ -450,6 +463,7 @@ private fun ShareRow(
     nowMillis: Long,
     onRevoke: () -> Unit,
 ) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = cs.surface),
@@ -461,30 +475,30 @@ private fun ShareRow(
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        shareStateLabel(share, nowMillis),
+                        shareStateLabel(s, share, nowMillis),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (live) cs.primary else cs.onSurfaceVariant,
                     )
                     if (share.includeSerial) {
                         Spacer(Modifier.width(6.dp))
-                        Text("· có số máy đầy đủ",
+                        Text(stringResource(R.string.share_bullet_full),
                             fontSize = 12.sp, color = cs.onSurfaceVariant)
                     } else {
                         Spacer(Modifier.width(6.dp))
-                        Text("· số máy che giữa",
+                        Text(stringResource(R.string.share_bullet_masked),
                             fontSize = 12.sp, color = cs.onSurfaceVariant)
                     }
                 }
-                shareExpiryLabel(share)?.let {
+                shareExpiryLabel(s, share)?.let {
                     Text(it, fontSize = 12.sp, color = cs.onSurfaceVariant)
                 }
-                Text(shareViewLabel(share),
+                Text(shareViewLabel(s, share),
                     fontSize = 12.sp, color = cs.onSurfaceVariant)
             }
             if (live) {
                 IconButton(onClick = onRevoke) {
-                    Icon(Icons.Filled.Delete, "Thu hồi link", tint = cs.error)
+                    Icon(Icons.Filled.Delete, stringResource(R.string.share_revoke_link), tint = cs.error)
                 }
             }
         }
@@ -495,7 +509,11 @@ private fun ShareRow(
 
 private fun copyToClipboard(context: Context, url: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("Link phiếu bàn giao", url))
+    // The clip label is what Android shows in the paste preview — user-visible,
+    // so it is translated too.
+    clipboard.setPrimaryClip(
+        ClipData.newPlainText(context.getString(R.string.share_clip_label), url),
+    )
 }
 
 /**
@@ -511,8 +529,8 @@ private fun copyToClipboard(context: Context, url: String) {
  * matching the package keeps the rule correct if that activity is ever renamed,
  * while still leaving every other app in the sheet untouched.
  */
-private fun openShareSheet(context: Context, deviceName: String, url: String) {
-    val message = shareMessage(deviceName, url)
+private fun openShareSheet(s: AppStrings, context: Context, deviceName: String, url: String) {
+    val message = shareMessage(s, deviceName, url)
     val outgoing = outgoingShare(message)
     val send = Intent(outgoing.action).apply {
         type = outgoing.mimeType
@@ -530,7 +548,7 @@ private fun openShareSheet(context: Context, deviceName: String, url: String) {
         }
     val excluded = excludedShareTargets(resolved)
 
-    val chooser = Intent.createChooser(send, CHOOSER_TITLE).apply {
+    val chooser = Intent.createChooser(send, context.getString(CHOOSER_TITLE)).apply {
         if (excluded.isNotEmpty()) {
             putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, excluded.toTypedArray())
         }
@@ -539,6 +557,6 @@ private fun openShareSheet(context: Context, deviceName: String, url: String) {
         context.startActivity(chooser)
     } catch (e: ActivityNotFoundException) {
         Log.w("ShareLinks", "no share target", e)
-        Toast.makeText(context, NO_SHARE_TARGET_MESSAGE, Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(NO_SHARE_TARGET_MESSAGE), Toast.LENGTH_LONG).show()
     }
 }

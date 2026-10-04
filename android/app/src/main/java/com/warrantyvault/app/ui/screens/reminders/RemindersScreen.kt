@@ -48,10 +48,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.UpcomingReminder
@@ -65,12 +70,12 @@ import com.warrantyvault.app.ui.components.PillKind
 import com.warrantyvault.app.ui.components.SkeletonList
 import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.pressScale
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeParseException
 
 class RemindersViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -133,8 +138,8 @@ private fun daysLeftFromIso(raw: String): Long? {
     return java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), end)
 }
 
-private fun warrantyTypeLabel(raw: String): String =
-    runCatching { WarrantyType.valueOf(raw).label }.getOrDefault(raw)
+private fun warrantyTypeLabel(s: AppStrings, raw: String): String =
+    WarrantyType.entries.firstOrNull { it.name == raw }?.let { s.get(it.labelRes) } ?: raw
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,6 +154,11 @@ fun RemindersScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Hoisted out of the coroutine below: `scope.launch { }` is not a
+    // composable scope, so stringResource() cannot be called inside it.
+    val hiddenMessage = stringResource(R.string.rem_reminder_hidden)
+    val undoLabel = stringResource(R.string.action_undo)
+
     fun onDismiss(warrantyId: String) {
         vm.dismiss(
             warrantyId,
@@ -156,8 +166,8 @@ fun RemindersScreen(
             onSuccess = {
                 scope.launch {
                     val res = snackbarHostState.showSnackbar(
-                        message = "Đã ẩn nhắc nhở",
-                        actionLabel = "Hoàn tác",
+                        message = hiddenMessage,
+                        actionLabel = undoLabel,
                     )
                     if (res == SnackbarResult.ActionPerformed) {
                         vm.restore(warrantyId) { actionError = it }
@@ -199,12 +209,12 @@ fun RemindersScreen(
             ) { s ->
                 when (s) {
                     is RemindersViewModel.State.Loading -> Column {
-                        PageHeader("Sắp hết bảo hành", "Đang tải…")
+                        PageHeader(stringResource(R.string.dash_warranty_expiring_soon), stringResource(R.string.state_loading))
                         SkeletonList(count = 3)
                     }
                     is RemindersViewModel.State.Error -> ErrorState(
                         icon = Icons.Outlined.WarningAmber,
-                        title = "Tải không được rồi",
+                        title = stringResource(R.string.dash_could_not_load_it),
                         body = s.message,
                         onRetry = { vm.load() },
                     )
@@ -212,13 +222,13 @@ fun RemindersScreen(
                         if (s.items.isEmpty()) {
                             Column(Modifier.fillMaxSize()) {
                                 PageHeader(
-                                    "Sắp hết bảo hành",
-                                    "Tao sẽ ping mày khi gần hết hạn",
+                                    stringResource(R.string.dash_warranty_expiring_soon),
+                                    stringResource(R.string.rem_we_will_ping_you_when_it),
                                 )
                                 EmptyState(
                                     icon = Icons.Filled.NotificationsActive,
-                                    title = "Chill, chưa có gì sắp hết",
-                                    body = "Tất cả thiết bị của mày đang trong hạn an toàn.",
+                                    title = stringResource(R.string.rem_relax_nothing_is_expiring_yet),
+                                    body = stringResource(R.string.rem_all_of_your_devices_are_safely),
                                     tone = MaterialTheme.colorScheme.primary,
                                 )
                             }
@@ -246,7 +256,7 @@ fun RemindersScreen(
                                                 modifier = Modifier.weight(1f),
                                             )
                                             TextButton(onClick = { actionError = null }) {
-                                                Text("Đóng")
+                                                Text(stringResource(R.string.action_close))
                                             }
                                         }
                                     }
@@ -257,8 +267,8 @@ fun RemindersScreen(
                                 ) {
                                     item {
                                         PageHeader(
-                                            "Sắp hết bảo hành",
-                                            "${s.items.size} món cần để ý",
+                                            stringResource(R.string.dash_warranty_expiring_soon),
+                                            pluralStringResource(R.plurals.rem_items_to_look_at, s.items.size, s.items.size),
                                         )
                                     }
                                     items(s.items, key = { it.id }) { r ->
@@ -285,6 +295,7 @@ private fun ReminderCard(
     onOpenDevice: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val days = daysLeftFromIso(reminder.endDate) ?: 0L
     val pillKind = when {
@@ -293,10 +304,10 @@ private fun ReminderCard(
         else -> PillKind.Info
     }
     val pillLabel = when {
-        days < 0L -> "Đã hết hạn"
-        days == 0L -> "Hết hôm nay"
-        days == 1L -> "Còn 1 ngày"
-        else -> "Còn $days ngày"
+        days < 0L -> stringResource(R.string.dash_expired)
+        days == 0L -> stringResource(R.string.dash_expires_today)
+        days == 1L -> stringResource(R.string.dash_1_day_left)
+        else -> pluralStringResource(R.plurals.dash_days_left, days.toInt(), days)
     }
     val interactionSource = remember { MutableInteractionSource() }
     Card(
@@ -314,7 +325,7 @@ private fun ReminderCard(
                 StatusPill(label = pillLabel, kind = pillKind)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    warrantyTypeLabel(reminder.type),
+                    warrantyTypeLabel(s, reminder.type),
                     style = MaterialTheme.typography.labelMedium,
                     color = cs.onSurfaceVariant,
                 )
@@ -335,13 +346,13 @@ private fun ReminderCard(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "Hết hạn: ${reminder.endDate.take(10)}",
+                stringResource(R.string.rem_expires, reminder.endDate.take(10)),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
             reminder.provider?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    "Đơn vị bảo hành: $it",
+                    stringResource(R.string.rem_warranty_provider, it),
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
@@ -351,7 +362,7 @@ private fun ReminderCard(
                 TextButton(onClick = onDismiss) {
                     Icon(Icons.Filled.NotificationsOff, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Đã xem", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.rem_seen), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }

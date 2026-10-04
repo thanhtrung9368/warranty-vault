@@ -39,10 +39,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.BillingCycle
@@ -53,11 +55,11 @@ import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.SheetGroup
 import com.warrantyvault.app.ui.screens.common.BrandAutocompleteField
 import com.warrantyvault.app.ui.screens.common.rememberCatalog
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,14 +114,14 @@ fun SubscriptionEditSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                if (isEdit) "Sửa gói" else "Thêm gói",
+                if (isEdit) stringResource(R.string.subs_edit_plan) else stringResource(R.string.subs_add_plan),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
 
             SheetGroup {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Tên gói *") },
+                    label = { Text(stringResource(R.string.subs_plan_name)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 BrandAutocompleteField(
@@ -127,16 +129,16 @@ fun SubscriptionEditSheet(
                     categoryCode = null,
                     value = brand,
                     onValueChange = { brand = it },
-                    label = "Hãng / nhà cung cấp",
+                    label = stringResource(R.string.subs_brand_provider),
                 )
                 OutlinedTextField(
                     value = plan, onValueChange = { plan = it },
-                    label = { Text("Gói / Plan") },
+                    label = { Text(stringResource(R.string.subs_plan)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = category, onValueChange = { category = it },
-                    label = { Text("Loại (tuỳ chọn)") },
+                    label = { Text(stringResource(R.string.subs_category_optional)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -147,29 +149,29 @@ fun SubscriptionEditSheet(
                     OutlinedTextField(
                         value = intervalDays,
                         onValueChange = { intervalDays = it.filter { c -> c.isDigit() } },
-                        label = { Text("Chu kỳ (số ngày) *") },
+                        label = { Text(stringResource(R.string.subs_cycle_length_days)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 OutlinedTextField(
                     value = price, onValueChange = { price = it.filter { c -> c.isDigit() } },
-                    label = { Text("Giá (VND)") },
+                    label = { Text(stringResource(R.string.devadd_price_vnd)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = startedAt, onValueChange = { startedAt = it },
-                    label = { Text("Ngày bắt đầu * (YYYY-MM-DD)") },
+                    label = { Text(stringResource(R.string.subs_start_date_yyyy_mm_dd)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = renewalDate, onValueChange = { renewalDate = it },
-                    label = { Text("Ngày gia hạn kế (YYYY-MM-DD)") },
+                    label = { Text(stringResource(R.string.subs_next_renewal_date_yyyy_mm_dd)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Tự động gia hạn", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.subs_auto_renew), modifier = Modifier.weight(1f))
                     Switch(checked = autoRenew, onCheckedChange = { autoRenew = it })
                 }
                 StatusDropdown(selected = status, onSelected = { status = it })
@@ -178,27 +180,27 @@ fun SubscriptionEditSheet(
             SheetGroup {
                 OutlinedTextField(
                     value = accountEmail, onValueChange = { accountEmail = it },
-                    label = { Text("Email tài khoản") },
+                    label = { Text(stringResource(R.string.subs_account_email)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = paymentMethod, onValueChange = { paymentMethod = it },
-                    label = { Text("Phương thức thanh toán") },
+                    label = { Text(stringResource(R.string.subs_payment_method)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = manageUrl, onValueChange = { manageUrl = it },
-                    label = { Text("URL quản lý") },
+                    label = { Text(stringResource(R.string.subs_manage_url)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = cancelUrl, onValueChange = { cancelUrl = it },
-                    label = { Text("URL huỷ") },
+                    label = { Text(stringResource(R.string.subs_cancel_url)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = notes, onValueChange = { notes = it },
-                    label = { Text("Ghi chú") },
+                    label = { Text(stringResource(R.string.devadd_note)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -265,7 +267,7 @@ fun SubscriptionEditSheet(
                     )
                 } else {
                     Text(
-                        if (isEdit) "Cập nhật" else "Lưu",
+                        if (isEdit) stringResource(R.string.devadd_update) else stringResource(R.string.action_save),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -290,7 +292,7 @@ fun SubscriptionEditSheet(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        if (deleting) "Đang xoá..." else "Xoá gói",
+                        if (deleting) stringResource(R.string.subs_deleting) else stringResource(R.string.subs_delete_plan),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -313,10 +315,10 @@ private fun BillingCycleDropdown(
         onExpandedChange = { expanded = it },
     ) {
         TextField(
-            value = selected.label,
+            value = stringResource(selected.labelRes),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Chu kỳ") },
+            label = { Text(stringResource(R.string.subs_billing_cycle)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -328,7 +330,7 @@ private fun BillingCycleDropdown(
         ) {
             BillingCycle.entries.forEach { c ->
                 DropdownMenuItem(
-                    text = { Text(c.label) },
+                    text = { Text(stringResource(c.labelRes)) },
                     onClick = { onSelected(c); expanded = false },
                 )
             }
@@ -348,10 +350,10 @@ private fun StatusDropdown(
         onExpandedChange = { expanded = it },
     ) {
         TextField(
-            value = selected.label,
+            value = stringResource(selected.labelRes),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Trạng thái") },
+            label = { Text(stringResource(R.string.devadd_status)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -363,7 +365,7 @@ private fun StatusDropdown(
         ) {
             SubscriptionStatus.entries.forEach { s ->
                 DropdownMenuItem(
-                    text = { Text(s.label) },
+                    text = { Text(stringResource(s.labelRes)) },
                     onClick = { onSelected(s); expanded = false },
                 )
             }

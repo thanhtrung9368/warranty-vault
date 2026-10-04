@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.theme
 
+import com.warrantyvault.app.i18n.ResCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -8,6 +9,9 @@ import org.junit.Test
  * to SharedPreferences — the stored values are a contract with existing installs.
  */
 class ThemePreferenceTest {
+
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     @Test
     fun from_mapsEveryStoredValue() {
@@ -27,10 +31,15 @@ class ThemePreferenceTest {
     @Test
     fun storedValuesAndVietnameseLabels_areStable() {
         assertEquals("system", ThemePreference.System.storedValue)
-        assertEquals("Theo hệ thống", ThemePreference.System.label)
+        assertEquals("Theo hệ thống", vi.get(ThemePreference.System.labelRes))
         assertEquals("light", ThemePreference.Light.storedValue)
-        assertEquals("Sáng", ThemePreference.Light.label)
+        assertEquals("Sáng", vi.get(ThemePreference.Light.labelRes))
         assertEquals("dark", ThemePreference.Dark.storedValue)
-        assertEquals("Tối", ThemePreference.Dark.label)
+        assertEquals("Tối", vi.get(ThemePreference.Dark.labelRes))
+
+        // …and the English column, which is the whole point of the change.
+        assertEquals("System default", en.get(ThemePreference.System.labelRes))
+        assertEquals("Light", en.get(ThemePreference.Light.labelRes))
+        assertEquals("Dark", en.get(ThemePreference.Dark.labelRes))
     }
 }

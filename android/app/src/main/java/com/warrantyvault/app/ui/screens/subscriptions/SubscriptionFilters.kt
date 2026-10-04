@@ -1,5 +1,7 @@
 package com.warrantyvault.app.ui.screens.subscriptions
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.BillingCycle
 import com.warrantyvault.app.network.Subscription
 import com.warrantyvault.app.network.SubscriptionStatus
@@ -8,17 +10,22 @@ import kotlin.math.roundToInt
 
 /**
  * Status facets of the web `subscription-filter-bar.tsx`, same keys and same
- * Vietnamese copy. `ACTIVE_PAUSED` is the web's default: "Đang dùng" means the
- * subscription still costs money, so CANCELED/EXPIRED rows are hidden until the
- * user asks for them.
+ * copy. `ACTIVE_PAUSED` is the web's default: "Đang dùng" means the subscription
+ * still costs money, so CANCELED/EXPIRED rows are hidden until the user asks for
+ * them.
+ *
+ * The label is a `@StringRes` id, not a sentence: this enum is a *facet*, and a
+ * facet rendered in Vietnamese inside an otherwise English filter bar is the
+ * silent-fallback bug the resource split exists to prevent. Call sites resolve it
+ * with `stringResource(filter.labelRes)` or `s.get(filter.labelRes)`.
  */
-enum class SubscriptionStatusFilter(val key: String, val label: String) {
-    ActivePaused("ACTIVE_PAUSED", "Đang dùng"),
-    Active("ACTIVE", "Hoạt động"),
-    Paused("PAUSED", "Tạm dừng"),
-    Canceled("CANCELED", "Đã huỷ"),
-    Expired("EXPIRED", "Hết hạn"),
-    All("ALL", "Tất cả");
+enum class SubscriptionStatusFilter(val key: String, @StringRes val labelRes: Int) {
+    ActivePaused("ACTIVE_PAUSED", R.string.subfilter_active_paused),
+    Active("ACTIVE", R.string.subfilter_active),
+    Paused("PAUSED", R.string.subfilter_paused),
+    Canceled("CANCELED", R.string.subfilter_canceled),
+    Expired("EXPIRED", R.string.subfilter_expired),
+    All("ALL", R.string.subfilter_all);
 
     /** The statuses this facet keeps (`null` = keep everything). */
     val statuses: Set<SubscriptionStatus>?
@@ -38,13 +45,13 @@ enum class SubscriptionStatusFilter(val key: String, val label: String) {
 }
 
 /** Sort choices from the web dropdown, same order and same labels. */
-enum class SubscriptionSort(val label: String) {
-    RenewalAsc("Sắp gia hạn trước"),
-    RenewalDesc("Lâu gia hạn nhất"),
-    MonthlyDesc("Tốn nhiều/tháng nhất"),
-    MonthlyAsc("Ít nhất/tháng"),
-    PriceDesc("Giá/cycle cao"),
-    RecentDesc("Mới thêm"),
+enum class SubscriptionSort(@StringRes val labelRes: Int) {
+    RenewalAsc(R.string.subsort_renewal_asc),
+    RenewalDesc(R.string.subsort_renewal_desc),
+    MonthlyDesc(R.string.subsort_monthly_desc),
+    MonthlyAsc(R.string.subsort_monthly_asc),
+    PriceDesc(R.string.subsort_price_desc),
+    RecentDesc(R.string.sort_recent_desc),
 }
 
 /**

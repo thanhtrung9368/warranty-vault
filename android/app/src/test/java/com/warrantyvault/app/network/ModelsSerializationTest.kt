@@ -1,5 +1,6 @@
 package com.warrantyvault.app.network
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.testing.Fixtures
 import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
@@ -20,6 +21,10 @@ import org.junit.Test
 class ModelsSerializationTest {
 
     private val json = ApiClient.json
+
+    /** The two real resource tables, read off disk — see the label section below. */
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     // ---- Auth ----
 
@@ -243,45 +248,91 @@ class ModelsSerializationTest {
         )
     }
 
-    // ---- Vietnamese display labels (must match website/src/lib/types.ts) ----
+    // ---- Display labels: resource-backed, pinned in BOTH languages --------
+    //
+    // These used to assert `DeviceStatus.ACTIVE.label` — a hardcoded Vietnamese
+    // literal on the enum, which is why an English-mode device row still read
+    // "Đang dùng". The enums now carry `@StringRes labelRes` and the copy lives
+    // in `res/values/` + `res/values-vi/`, so the pin moved onto the resource
+    // table itself (`ResCatalog` reads the XML off disk).
+    //
+    // The Vietnamese expectations are byte-for-byte the literals that were here
+    // before — this change added an English column and was not allowed to touch
+    // a Vietnamese character. The English ones are copied from the Go catalog
+    // (`api/internal/i18n/catalog.go`) and the web dictionary
+    // (`website/src/lib/i18n/messages/`): the words the other two clients
+    // already print for the same enum member. Pinning both languages here is the
+    // point — an English label nobody asserts is the bug this file hunts.
 
     @Test
-    fun deviceStatusAndWarrantyType_labelsAreExactVietnamese() {
-        assertEquals("Đang dùng", DeviceStatus.ACTIVE.label)
-        assertEquals("Hết bảo hành", DeviceStatus.EXPIRED.label)
-        assertEquals("Đã bán", DeviceStatus.SOLD.label)
-        assertEquals("Hỏng", DeviceStatus.BROKEN.label)
-        assertEquals("Mất", DeviceStatus.LOST.label)
+    fun deviceStatusAndWarrantyType_labelsAreExactInBothLanguages() {
+        assertLabel(DeviceStatus.ACTIVE.labelRes, "Đang dùng", "In use")
+        assertLabel(DeviceStatus.EXPIRED.labelRes, "Hết bảo hành", "Out of warranty")
+        assertLabel(DeviceStatus.SOLD.labelRes, "Đã bán", "Sold")
+        assertLabel(DeviceStatus.BROKEN.labelRes, "Hỏng", "Broken")
+        assertLabel(DeviceStatus.LOST.labelRes, "Mất", "Lost")
 
-        assertEquals("Tiêu chuẩn", WarrantyType.STANDARD.label)
-        assertEquals("Mở rộng", WarrantyType.EXTENDED.label)
-        assertEquals("Bên thứ ba", WarrantyType.THIRD_PARTY.label)
+        assertLabel(WarrantyType.STANDARD.labelRes, "Tiêu chuẩn", "Standard")
+        assertLabel(WarrantyType.EXTENDED.labelRes, "Mở rộng", "Extended")
+        assertLabel(WarrantyType.THIRD_PARTY.labelRes, "Bên thứ ba", "Third party")
     }
 
     @Test
-    fun subscriptionStatusAndBillingCycle_labelsAreExactVietnamese() {
-        assertEquals("Đang hoạt động", SubscriptionStatus.ACTIVE.label)
-        assertEquals("Tạm dừng", SubscriptionStatus.PAUSED.label)
-        assertEquals("Đã huỷ", SubscriptionStatus.CANCELED.label)
-        assertEquals("Hết hạn", SubscriptionStatus.EXPIRED.label)
+    fun subscriptionStatusAndBillingCycle_labelsAreExactInBothLanguages() {
+        assertLabel(SubscriptionStatus.ACTIVE.labelRes, "Đang hoạt động", "Active")
+        assertLabel(SubscriptionStatus.PAUSED.labelRes, "Tạm dừng", "Paused")
+        assertLabel(SubscriptionStatus.CANCELED.labelRes, "Đã huỷ", "Cancelled")
+        assertLabel(SubscriptionStatus.EXPIRED.labelRes, "Hết hạn", "Expired")
 
-        assertEquals("Hàng tháng", BillingCycle.MONTHLY.label)
-        assertEquals("Hàng quý", BillingCycle.QUARTERLY.label)
-        assertEquals("Hàng năm", BillingCycle.YEARLY.label)
-        assertEquals("Lifetime / Trọn đời", BillingCycle.LIFETIME.label)
-        assertEquals("Tuỳ chỉnh", BillingCycle.CUSTOM.label)
+        assertLabel(BillingCycle.MONTHLY.labelRes, "Hàng tháng", "Monthly")
+        assertLabel(BillingCycle.QUARTERLY.labelRes, "Hàng quý", "Quarterly")
+        assertLabel(BillingCycle.YEARLY.labelRes, "Hàng năm", "Yearly")
+        assertLabel(BillingCycle.LIFETIME.labelRes, "Lifetime / Trọn đời", "Lifetime")
+        assertLabel(BillingCycle.CUSTOM.labelRes, "Tuỳ chỉnh", "Custom")
     }
 
     @Test
-    fun wishlist_labelsAreExactVietnamese() {
-        assertEquals("Phải mua", WishlistPriority.MUST.label)
-        assertEquals("Muốn", WishlistPriority.WANT.label)
-        assertEquals("Cân nhắc", WishlistPriority.MAYBE.label)
+    fun wishlist_labelsAreExactInBothLanguages() {
+        assertLabel(WishlistPriority.MUST.labelRes, "Phải mua", "Must buy")
+        assertLabel(WishlistPriority.WANT.labelRes, "Muốn", "Want")
+        assertLabel(WishlistPriority.MAYBE.labelRes, "Cân nhắc", "Considering")
 
-        assertEquals("Đang theo dõi", WishlistStatus.WATCHING.label)
-        assertEquals("Quyết mua", WishlistStatus.DECIDED.label)
-        assertEquals("Bỏ qua", WishlistStatus.SKIPPED.label)
-        assertEquals("Đã mua", WishlistStatus.PURCHASED.label)
+        assertLabel(WishlistStatus.WATCHING.labelRes, "Đang theo dõi", "Being tracked")
+        assertLabel(WishlistStatus.DECIDED.labelRes, "Quyết mua", "Decided")
+        assertLabel(WishlistStatus.SKIPPED.labelRes, "Bỏ qua", "Skipped")
+        assertLabel(WishlistStatus.PURCHASED.labelRes, "Đã mua", "Purchased")
+    }
+
+    /**
+     * Every enum member resolves in **both** catalogs. `StringResourceParityTest`
+     * proves the two files have the same keys; this proves the Kotlin side
+     * actually points at them — a member left without a `labelRes`, or a
+     * `labelRes` pointing at a key that only one language declares, fails here
+     * instead of rendering the other language mid-screen.
+     */
+    @Test
+    fun everyEnumLabelResolvesInBothLanguages() {
+        val ids = DeviceStatus.entries.map { it.labelRes } +
+            WarrantyType.entries.map { it.labelRes } +
+            SubscriptionStatus.entries.map { it.labelRes } +
+            BillingCycle.entries.map { it.labelRes } +
+            WishlistPriority.entries.map { it.labelRes } +
+            WishlistStatus.entries.map { it.labelRes } +
+            PhoneSource.entries.map { it.labelRes }
+
+        assertEquals("one resource per enum member, and no duplicate ids", ids.size, ids.toSet().size)
+        for (id in ids) {
+            val vi = vi.get(id)
+            val en = en.get(id)
+            assertTrue("Vietnamese label for id $id is blank", vi.isNotBlank())
+            assertTrue("English label for id $id is blank", en.isNotBlank())
+        }
+    }
+
+    /** One enum member: the same Vietnamese bytes as before, plus its English. */
+    private fun assertLabel(id: Int, vietnamese: String, english: String) {
+        assertEquals("Vietnamese moved — it is the original, not the translation", vietnamese, vi.get(id))
+        assertEquals("English wording must match the Go catalog / web dictionary", english, en.get(id))
     }
 
     // ---- Subscriptions / wishlist ----
@@ -465,7 +516,7 @@ class ModelsSerializationTest {
     /**
      * …and must NOT blow up on a server that has not shipped it yet: the field
      * decodes to null, and the UI hides the warranty tiles instead of printing
-     * a fabricated 0đ.
+     * a fabricated 0 ₫.
      */
     @Test
     fun userStats_survivesAMissingWarrantyCostField() {

@@ -41,10 +41,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
 import com.warrantyvault.app.auth.AuthStore
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.fieldErrors
@@ -83,11 +85,11 @@ fun ForgotPasswordScreen(auth: AuthStore, onBack: () -> Unit) {
             Icon(Icons.Filled.MailOutline, null, tint = cs.primary, modifier = Modifier.size(64.dp))
             Spacer(Modifier.height(8.dp))
             Text(
-                "Quên mật khẩu",
+                stringResource(R.string.forgot_forgot_password),
                 fontSize = 26.sp, fontWeight = FontWeight.Bold, color = cs.onBackground,
             )
             Text(
-                "Nhập email để nhận link đặt lại mật khẩu",
+                stringResource(R.string.forgot_enter_your_email_to_get_a),
                 fontSize = 13.sp, color = cs.onSurfaceVariant,
             )
 
@@ -112,20 +114,20 @@ fun ForgotPasswordScreen(auth: AuthStore, onBack: () -> Unit) {
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Đã gửi yêu cầu",
+                                stringResource(R.string.forgot_request_sent),
                                 fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                                 color = cs.onSurface,
                             )
                         }
                         Text(
-                            "Nếu email đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.",
+                            stringResource(R.string.forgot_if_that_email_is_registered_a),
                             fontSize = 13.sp, color = cs.onSurfaceVariant,
                         )
                         Button(
                             onClick = onBack,
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth().height(50.dp),
-                        ) { Text("Quay lại đăng nhập") }
+                        ) { Text(stringResource(R.string.forgot_back_to_sign_in)) }
                     } else {
                         OutlinedTextField(
                             value = email,
@@ -177,7 +179,7 @@ fun ForgotPasswordScreen(auth: AuthStore, onBack: () -> Unit) {
                                     color = cs.onPrimary,
                                 )
                             } else {
-                                Text("Gửi")
+                                Text(stringResource(R.string.forgot_send))
                             }
                         }
 
@@ -187,7 +189,7 @@ fun ForgotPasswordScreen(auth: AuthStore, onBack: () -> Unit) {
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                             Spacer(Modifier.width(6.dp))
-                            Text("Quay lại đăng nhập")
+                            Text(stringResource(R.string.forgot_back_to_sign_in))
                         }
                     }
                 }

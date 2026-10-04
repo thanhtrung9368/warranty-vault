@@ -37,10 +37,32 @@ interface ApiService {
     @GET("api/v1/auth/me")
     suspend fun me(): MeResponse
 
-    // Partial profile update — `displayName` only; email change is 400 by
-    // contract (see UpdateProfileInput).
+    // Partial profile update. `displayName` and `locale` are two INDEPENDENT
+    // tri-state fields (absent = unchanged, ""/null = clear, value = set), and a
+    // body must carry at least one of them. Changing the email is a SEPARATE
+    // two-step flow — see `changeEmail` / `confirmEmailChange` below, which are
+    // part of the contract.
     @PATCH("api/v1/auth/me")
     suspend fun updateProfile(@Body body: UpdateProfileInput): UpdateProfileResponse
+
+    // Same endpoint, body carrying ONLY `locale`. Split from `updateProfile` so
+    // saving a name can never clear a stored language (or the reverse): the
+    // server treats the two keys independently, and so does this client.
+    @PATCH("api/v1/auth/me")
+    suspend fun updateLocale(@Body body: UpdateLocaleInput): UpdateProfileResponse
+
+    // ---- Email change (two steps) ----
+    // Step 1 requires the current password and mails a single-use, 30-minute
+    // token to the NEW address; `User.email` is unchanged until step 2. The
+    // answer is deliberately NEUTRAL — the same message whether the token was
+    // mailed or the address already belongs to another account — and carries no
+    // token. Step 2 takes the raw token (or the whole mailed link) and needs NO
+    // bearer token: the token itself is the credential.
+    @POST("api/v1/auth/change-email")
+    suspend fun changeEmail(@Body body: ChangeEmailRequest): ChangeEmailResult
+
+    @POST("api/v1/auth/confirm-email-change")
+    suspend fun confirmEmailChange(@Body body: ConfirmEmailChangeRequest): ConfirmEmailChangeResult
 
     // DELETE with a body — Retrofit's @DELETE forbids @Body, so use @HTTP.
     // The server requires the current password to confirm the deletion.

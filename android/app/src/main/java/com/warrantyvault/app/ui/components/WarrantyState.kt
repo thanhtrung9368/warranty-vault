@@ -4,6 +4,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
@@ -38,16 +41,29 @@ data class WarrantyState(
  * Returns `null` for a blank/unparseable date instead of guessing — the caller
  * renders "Không có" rather than a bogus countdown.
  */
-fun warrantyState(endIso: String?, today: LocalDate = LocalDate.now()): WarrantyState? {
+fun warrantyState(
+    s: AppStrings,
+    endIso: String?,
+    today: LocalDate = LocalDate.now(),
+): WarrantyState? {
     val end = parseIsoDate(endIso) ?: return null
     val days = ChronoUnit.DAYS.between(today, end)
+    val daysLeft = s.quantity(R.plurals.comp_warranty_days_left, days.toInt(), days)
     return when {
-        days < 0L -> WarrantyState(days, "Đã hết ${-days} ngày", WarrantyTone.Expired)
-        days == 0L -> WarrantyState(0L, "Hết hôm nay", WarrantyTone.Danger)
-        days <= 15L -> WarrantyState(days, "Còn $days ngày", WarrantyTone.Danger)
-        days <= 30L -> WarrantyState(days, "Còn $days ngày", WarrantyTone.Warn)
-        days <= 90L -> WarrantyState(days, "Còn $days ngày", WarrantyTone.Safe)
-        else -> WarrantyState(days, "Còn ${days / 30} tháng", WarrantyTone.Safe)
+        days < 0L -> WarrantyState(
+            days,
+            s.quantity(R.plurals.comp_warranty_expired_days, (-days).toInt(), -days),
+            WarrantyTone.Expired,
+        )
+        days == 0L -> WarrantyState(0L, s.get(R.string.comp_warranty_expires_today), WarrantyTone.Danger)
+        days <= 15L -> WarrantyState(days, daysLeft, WarrantyTone.Danger)
+        days <= 30L -> WarrantyState(days, daysLeft, WarrantyTone.Warn)
+        days <= 90L -> WarrantyState(days, daysLeft, WarrantyTone.Safe)
+        else -> WarrantyState(
+            days,
+            s.quantity(R.plurals.comp_warranty_months_left, (days / 30).toInt(), days / 30),
+            WarrantyTone.Safe,
+        )
     }
 }
 
@@ -77,7 +93,7 @@ private fun pillKindFor(tone: WarrantyTone): PillKind = when (tone) {
 fun WarrantyPill(state: WarrantyState?, modifier: Modifier = Modifier) {
     if (state == null) {
         Text(
-            "Không có",
+            stringResource(R.string.comp_warranty_none),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = modifier,

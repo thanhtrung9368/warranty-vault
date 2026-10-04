@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -54,14 +55,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.appLocale
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
-import com.warrantyvault.app.ui.viewModelFactory
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceStatus
@@ -79,13 +86,12 @@ import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.WarrantyPill
 import com.warrantyvault.app.ui.components.pressScale
 import com.warrantyvault.app.ui.components.warrantyState
+import com.warrantyvault.app.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
 
 /**
  * Sort choices in the device list — the web dropdown in
@@ -93,14 +99,14 @@ import java.util.Locale
  * The values map 1:1 onto the `sort` / `dir` query params of `GET /v1/devices`
  * (openapi enum: purchaseDate | warrantyEndDate | price | name).
  */
-enum class DeviceSort(val sort: String, val dir: String, val label: String) {
-    PurchaseDateDesc("purchaseDate", "desc", "Ngày mua mới nhất"),
-    PurchaseDateAsc("purchaseDate", "asc", "Ngày mua cũ nhất"),
-    WarrantyEndAsc("warrantyEndDate", "asc", "BH sắp hết trước"),
-    WarrantyEndDesc("warrantyEndDate", "desc", "BH lâu hết trước"),
-    PriceDesc("price", "desc", "Giá cao nhất"),
-    PriceAsc("price", "asc", "Giá thấp nhất"),
-    NameAsc("name", "asc", "Tên A-Z"),
+enum class DeviceSort(val sort: String, val dir: String, @StringRes val labelRes: Int) {
+    PurchaseDateDesc("purchaseDate", "desc", R.string.dev_newest_purchase),
+    PurchaseDateAsc("purchaseDate", "asc", R.string.dev_oldest_purchase),
+    WarrantyEndAsc("warrantyEndDate", "asc", R.string.dev_warranty_ending_soonest),
+    WarrantyEndDesc("warrantyEndDate", "desc", R.string.dev_warranty_ending_last),
+    PriceDesc("price", "desc", R.string.dev_highest_price),
+    PriceAsc("price", "asc", R.string.dev_lowest_price),
+    NameAsc("name", "asc", R.string.dev_name_a_z),
 }
 
 class DevicesViewModel(private val api: ApiService) : ViewModel() {
@@ -188,7 +194,7 @@ fun DevicesScreen(
                     // box below: that one narrows this list server-side, this one
                     // looks across devices, subscriptions and wishlist.
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, "Tìm kiếm tất cả")
+                        Icon(Icons.Filled.Search, stringResource(R.string.dash_search_everything))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -203,7 +209,7 @@ fun DevicesScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(28.dp),
                 icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text("Thêm thiết bị", fontWeight = FontWeight.SemiBold) },
+                text = { Text(stringResource(R.string.dev_add_device), fontWeight = FontWeight.SemiBold) },
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -227,14 +233,14 @@ fun DevicesScreen(
                 when (s) {
                     is DevicesViewModel.State.Loading -> Column {
                         PageHeader(
-                            "Thiết bị",
-                            "Đang tải danh sách của mày…",
+                            stringResource(R.string.nav_devices),
+                            stringResource(R.string.dev_loading_your_list),
                         )
                         SkeletonList(count = 5)
                     }
                     is DevicesViewModel.State.Error -> ErrorState(
                         icon = Icons.Outlined.WarningAmber,
-                        title = "Tải không được rồi",
+                        title = stringResource(R.string.dash_could_not_load_it),
                         body = s.message,
                         onRetry = { reload() },
                     )
@@ -296,6 +302,7 @@ private fun DeviceList(
     onClick: (String) -> Unit,
     onAddFirst: () -> Unit,
 ) {
+    val s = appStrings()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 96.dp),
@@ -303,8 +310,9 @@ private fun DeviceList(
     ) {
         item {
             PageHeader(
-                "Thiết bị",
-                "${devices.size} món đang theo dõi" + if (isFiltered) " (đã lọc)" else "",
+                stringResource(R.string.nav_devices),
+                pluralStringResource(R.plurals.dev_items_tracked, devices.size, devices.size) +
+                    if (isFiltered) stringResource(R.string.dev_filtered_suffix) else "",
                 modifier = Modifier.padding(horizontal = 0.dp),
             )
         }
@@ -312,8 +320,8 @@ private fun DeviceList(
             ListFilterBar(
                 query = query,
                 onQueryChange = onQueryChange,
-                placeholder = "Tìm theo tên, hãng, model, serial...",
-                options = statusOptions,
+                placeholder = stringResource(R.string.dev_search_by_name_brand_model_serial),
+                options = statusOptions(s, stringResource(R.string.dev_all)),
                 selectedKey = statusKey,
                 onSelect = onStatusChange,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -321,7 +329,7 @@ private fun DeviceList(
                     SortMenuButton(
                         options = DeviceSort.entries,
                         current = sort,
-                        label = { it.label },
+                        label = { stringResource(it.labelRes) },
                         onSelect = onSortChange,
                     )
                 },
@@ -331,13 +339,13 @@ private fun DeviceList(
             item {
                 EmptyState(
                     icon = if (isFiltered) Icons.Filled.SearchOff else Icons.Filled.Inventory2,
-                    title = if (isFiltered) "Không có gì khớp bộ lọc" else "Chưa có thiết bị nào, mày",
+                    title = if (isFiltered) stringResource(R.string.dev_nothing_matches_the_filter) else stringResource(R.string.dev_no_devices_yet),
                     body = if (isFiltered) {
-                        "Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao."
+                        stringResource(R.string.dev_try_loosening_the_filters_or_clearing)
                     } else {
-                        "Thêm cái đầu tiên để bắt đầu theo dõi bảo hành nha."
+                        stringResource(R.string.dev_add_the_first_one_to_start)
                     },
-                    ctaLabel = if (isFiltered) null else "Thêm thiết bị đầu tiên",
+                    ctaLabel = if (isFiltered) null else stringResource(R.string.dev_add_your_first_device),
                     onCta = if (isFiltered) null else onAddFirst,
                 )
             }
@@ -349,15 +357,16 @@ private fun DeviceList(
 }
 
 /** The status facet row: "Tất cả" + the five `DeviceStatus` labels. */
-private val statusOptions: List<FilterOption> =
-    listOf(FilterOption(ALL_STATUSES, "Tất cả")) +
-        DeviceStatus.entries.map { FilterOption(it.name, it.label) }
+private fun statusOptions(s: AppStrings, allLabel: String): List<FilterOption> =
+    listOf(FilterOption(ALL_STATUSES, allLabel)) +
+        DeviceStatus.entries.map { FilterOption(it.name, s.get(it.labelRes)) }
 
 internal const val ALL_STATUSES = "ALL"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeviceCard(device: Device, onClick: () -> Unit) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     Card(
@@ -407,7 +416,7 @@ private fun DeviceCard(device: Device, onClick: () -> Unit) {
                         if (device.attachmentCount > 0) {
                             Spacer(Modifier.width(8.dp))
                             Icon(
-                                Icons.Filled.AttachFile, "Tệp đính kèm",
+                                Icons.Filled.AttachFile, stringResource(R.string.dev_attachments),
                                 tint = cs.onSurfaceVariant,
                                 modifier = Modifier.size(14.dp),
                             )
@@ -422,7 +431,7 @@ private fun DeviceCard(device: Device, onClick: () -> Unit) {
                 // Warranty state of the device (max endDate across its
                 // warranties) — the web table's "Bảo hành" column.
                 Spacer(Modifier.height(6.dp))
-                WarrantyPill(warrantyState(device.effectiveWarrantyEnd))
+                WarrantyPill(warrantyState(s, device.effectiveWarrantyEnd))
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -451,10 +460,14 @@ private fun DeviceStatusPill(status: DeviceStatus) {
         DeviceStatus.BROKEN  -> PillKind.Danger
         DeviceStatus.LOST    -> PillKind.Warning
     }
-    StatusPill(label = status.label, kind = kind)
+    StatusPill(label = stringResource(status.labelRes), kind = kind)
 }
 
-internal fun formatVnd(amount: Int): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
-}
+/**
+ * Money in the UI language: `1.000.000 ₫` in Vietnamese — the canonical shape
+ * `i18n/Money.kt` shares with Go's `FormatMoney` and the web, pinned by
+ * `VietnameseFormatterTest` — and `₫1,000,000` in English. Follows [appLocale], not the phone locale, so the in-app switcher
+ * moves the digits too.
+ */
+@Composable
+internal fun formatVnd(amount: Int): String = Money.of(amount.toLong(), appLocale())

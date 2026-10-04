@@ -36,12 +36,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.ChangePasswordRequest
@@ -58,6 +61,9 @@ fun ChangePasswordSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    // Used where a string has to be resolved OUTSIDE a composable scope (inside
+    // `scope.launch { }`, which is a coroutine, not a composable lambda).
+    val context = LocalContext.current
 
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
@@ -87,7 +93,7 @@ fun ChangePasswordSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Đổi mật khẩu",
+                stringResource(R.string.pwd_change_password),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
 
@@ -97,7 +103,7 @@ fun ChangePasswordSheet(
                     currentPassword = it
                     fieldErrors = fieldErrors - "currentPassword"
                 },
-                label = "Mật khẩu hiện tại *",
+                label = stringResource(R.string.pwd_current_password),
                 visible = showCurrent,
                 onToggleVisible = { showCurrent = !showCurrent },
                 error = firstFieldError("currentPassword"),
@@ -109,7 +115,7 @@ fun ChangePasswordSheet(
                     newPassword = it
                     fieldErrors = fieldErrors - "newPassword"
                 },
-                label = "Mật khẩu mới (≥ 8 ký tự) *",
+                label = stringResource(R.string.pwd_new_password_8_characters),
                 visible = showNew,
                 onToggleVisible = { showNew = !showNew },
                 error = firstFieldError("newPassword"),
@@ -121,7 +127,7 @@ fun ChangePasswordSheet(
                     confirmPassword = it
                     fieldErrors = fieldErrors - "confirmPassword"
                 },
-                label = "Xác nhận mật khẩu mới *",
+                label = stringResource(R.string.pwd_confirm_the_new_password),
                 visible = showConfirm,
                 onToggleVisible = { showConfirm = !showConfirm },
                 error = firstFieldError("confirmPassword"),
@@ -164,7 +170,9 @@ fun ChangePasswordSheet(
                                     confirmPassword = confirmPassword,
                                 )
                             )
-                            successMessage = res.message ?: "Đã đổi mật khẩu thành công"
+                            // Non-composable scope (a coroutine): resolve through the Context.
+                            successMessage = res.message
+                                ?: context.getString(R.string.pwd_password_changed_successfully)
                             currentPassword = ""
                             newPassword = ""
                             confirmPassword = ""
@@ -196,7 +204,7 @@ fun ChangePasswordSheet(
                     )
                 } else {
                     Text(
-                        "Cập nhật mật khẩu",
+                        stringResource(R.string.pwd_update_password),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -231,7 +239,7 @@ private fun PasswordField(
             IconButton(onClick = onToggleVisible) {
                 Icon(
                     if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                    contentDescription = if (visible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                    contentDescription = if (visible) stringResource(R.string.pwd_hide_password) else stringResource(R.string.pwd_show_password),
                 )
             }
         },

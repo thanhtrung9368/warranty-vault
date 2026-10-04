@@ -34,12 +34,28 @@ object ApiClient {
             .build()
     }
 
-    fun build(baseUrl: String, tokenProvider: () -> String?): ApiService {
+    /**
+     * [languageProvider] is the BCP-47 tag the UI is currently rendering in
+     * (`"vi"` / `"en"`), attached as `Accept-Language` on every call so the Go
+     * API's error copy comes back in the language on screen. It defaults to
+     * `null` so the network tests can build a client without one.
+     *
+     * It deliberately sits BEFORE [tokenProvider] so that the long-standing
+     * trailing-lambda form `ApiClient.build(url) { token }` keeps binding to the
+     * token provider — a defaulted parameter appended at the end would silently
+     * steal the lambda instead (it did, and the compiler caught it, but the
+     * ordering is what keeps every existing call site unchanged).
+     */
+    fun build(
+        baseUrl: String,
+        languageProvider: () -> String? = { null },
+        tokenProvider: () -> String?,
+    ): ApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
         val ok = baseClient.newBuilder()
-            .addInterceptor(AuthInterceptor(tokenProvider))
+            .addInterceptor(AuthInterceptor(tokenProvider, languageProvider))
             .addInterceptor(logging)
             .build()
 

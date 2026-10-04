@@ -53,10 +53,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ActionCounts
 import com.warrantyvault.app.network.ActionItem
 import com.warrantyvault.app.network.ActionQueue
@@ -72,11 +75,11 @@ import com.warrantyvault.app.ui.components.PillKind
 import com.warrantyvault.app.ui.components.SkeletonList
 import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.pressScale
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
@@ -183,6 +186,7 @@ fun ActionQueueScreen(
     // `remember`, not `viewModel()`: the route leaves the tree on Back, and a VM
     // retained in the Activity store would come back with a stale queue — the
     // same reason SessionsScreen does this.
+    val s = appStrings()
     val vm = remember { ActionQueueViewModel(api) }
     val state by vm.state.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -198,18 +202,21 @@ fun ActionQueueScreen(
             itemKey = itemKey,
             days = days,
             onSnoozed = { result ->
-                scope.launch { snackbarHost.showSnackbar(snoozeConfirmation(result)) }
+                scope.launch { snackbarHost.showSnackbar(snoozeConfirmation(s, result)) }
             },
             onError = { actionError = it },
         )
     }
+
+    // Hoisted: `scope.launch { }` is not a composable scope.
+    val unsnoozedMessage = stringResource(R.string.act_un_snoozed_this_item_is_back)
 
     fun unsnooze(itemKey: String) {
         actionError = null
         vm.unsnooze(
             itemKey = itemKey,
             onDone = {
-                scope.launch { snackbarHost.showSnackbar("Đã bỏ hoãn — việc này quay lại hàng đợi") }
+                scope.launch { snackbarHost.showSnackbar(unsnoozedMessage) }
             },
             onError = { actionError = it },
         )
@@ -218,10 +225,10 @@ fun ActionQueueScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Việc cần xử lý") },
+                title = { Text(stringResource(R.string.dash_action_items)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -243,21 +250,21 @@ fun ActionQueueScreen(
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) {
-            when (val s = state) {
+            when (val st = state) {
                 is ActionQueueViewModel.State.Loading -> Column {
-                    PageHeader("Việc cần xử lý", "Đang tải…")
+                    PageHeader(stringResource(R.string.dash_action_items), stringResource(R.string.state_loading))
                     SkeletonList(count = 4)
                 }
 
                 is ActionQueueViewModel.State.Error -> ErrorState(
                     icon = Icons.Outlined.WarningAmber,
-                    title = "Tải không được rồi",
-                    body = s.message,
+                    title = stringResource(R.string.dash_could_not_load_it),
+                    body = st.message,
                     onRetry = { vm.load() },
                 )
 
                 is ActionQueueViewModel.State.Loaded -> {
-                    val queue = s.queue
+                    val queue = st.queue
                     val actionable = actionableItems(queue.items)
                     val snoozed = snoozedItems(queue.items)
                     val sections = actionSections(actionable)
@@ -272,8 +279,8 @@ fun ActionQueueScreen(
                     ) {
                         item {
                             PageHeader(
-                                "Việc cần xử lý",
-                                actionQueueSubtitle(queue.counts.total, queue.snoozedCount),
+                                stringResource(R.string.dash_action_items),
+                                actionQueueSubtitle(s, queue.counts.total, queue.snoozedCount),
                             )
                         }
 
@@ -284,7 +291,7 @@ fun ActionQueueScreen(
                         }
 
                         // The server's sentence about what this queue is NOT.
-                        item { NoteCard(actionQueueNote(queue)) }
+                        item { NoteCard(actionQueueNote(s, queue)) }
 
                         actionError?.let { message ->
                             item {
@@ -295,11 +302,11 @@ fun ActionQueueScreen(
                         // Snoozed rows exist only behind `?snoozed=true`; the chip
                         // is the way in, and its number is `snoozedCount`, which
                         // is never part of `counts`.
-                        if (queue.snoozedCount > 0 || s.includeSnoozed) {
+                        if (queue.snoozedCount > 0 || st.includeSnoozed) {
                             item {
                                 SnoozedToggle(
                                     count = queue.snoozedCount,
-                                    active = s.includeSnoozed,
+                                    active = st.includeSnoozed,
                                     onToggle = { vm.toggleSnoozed() },
                                 )
                             }
@@ -310,15 +317,19 @@ fun ActionQueueScreen(
                                 EmptyState(
                                     icon = Icons.Filled.CheckCircle,
                                     title = if (queue.snoozedCount > 0) {
-                                        "Không còn việc nào đang chờ"
+                                        stringResource(R.string.act_nothing_left_waiting)
                                     } else {
-                                        "Không có việc nào cần xử lý"
+                                        stringResource(R.string.act_nothing_needs_your_attention)
                                     },
                                     body = if (queue.snoozedCount > 0) {
-                                        "${queue.snoozedCount} việc đang được hoãn. " +
-                                            "Mở mục \"Đang hoãn\" nếu muốn xem lại."
+                                        s.quantity(
+                                            R.plurals.act_snoozed_note,
+                                            queue.snoozedCount,
+                                            queue.snoozedCount,
+                                        ) + " " +
+                                            stringResource(R.string.act_open_the_snoozed_section_to_look)
                                     } else {
-                                        "App không suy ra được việc nào từ dữ liệu hiện có."
+                                        stringResource(R.string.act_the_app_could_not_infer_anything)
                                     },
                                     tone = MaterialTheme.colorScheme.primary,
                                 )
@@ -327,7 +338,7 @@ fun ActionQueueScreen(
                             sections.forEach { section ->
                                 item(key = "header-${section.severity.name}") {
                                     Text(
-                                        section.severity.sectionLabel,
+                                        stringResource(section.severity.sectionLabelRes),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onBackground,
@@ -357,10 +368,10 @@ fun ActionQueueScreen(
                             }
                         }
 
-                        if (s.includeSnoozed && snoozed.isNotEmpty()) {
+                        if (st.includeSnoozed && snoozed.isNotEmpty()) {
                             item(key = "header-snoozed") {
                                 Text(
-                                    "Đang hoãn (${snoozed.size})",
+                                    stringResource(R.string.act_snoozed, snoozed.size),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onBackground,
@@ -398,10 +409,10 @@ fun ActionQueueScreen(
 @Composable
 private fun CountsRow(counts: ActionCounts) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (counts.high > 0) StatusPill("${counts.high} mức cao", PillKind.Danger)
-        if (counts.medium > 0) StatusPill("${counts.medium} trung bình", PillKind.Warning)
-        if (counts.low > 0) StatusPill("${counts.low} nhắc nhẹ", PillKind.Info)
-        if (counts.total == 0) StatusPill("Không có việc nào", PillKind.Success)
+        if (counts.high > 0) StatusPill(stringResource(R.string.act_high, counts.high), PillKind.Danger)
+        if (counts.medium > 0) StatusPill(stringResource(R.string.act_medium, counts.medium), PillKind.Warning)
+        if (counts.low > 0) StatusPill(stringResource(R.string.act_low, counts.low), PillKind.Info)
+        if (counts.total == 0) StatusPill(stringResource(R.string.act_no_items), PillKind.Success)
     }
 }
 
@@ -446,7 +457,7 @@ private fun ErrorCard(message: String, onDismiss: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onDismiss) { Text("Đóng") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
         }
     }
 }
@@ -462,14 +473,14 @@ private fun SnoozedToggle(count: Int, active: Boolean, onToggle: () -> Unit) {
         FilterChip(
             selected = active,
             onClick = onToggle,
-            label = { Text(if (count > 0) "Đang hoãn ($count)" else "Đang hoãn") },
+            label = { Text(if (count > 0) stringResource(R.string.act_snoozed_2, count) else stringResource(R.string.act_snoozed_3)) },
             leadingIcon = {
                 Icon(Icons.Filled.Schedule, null, modifier = Modifier.size(16.dp))
             },
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            if (active) "Đang hiện cả việc bị hoãn" else "Chỉ hiện việc đang cần xử lý",
+            if (active) stringResource(R.string.act_snoozed_items_are_shown_too) else stringResource(R.string.act_show_only_actionable_items),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -485,10 +496,11 @@ private fun ActionCard(
     onSnooze: (Int) -> Unit,
     onUnsnooze: () -> Unit,
 ) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val severity = actionSeverityOf(item.severity)
     val target = actionTarget(item)
-    val pill = actionDuePill(item.dueDate, today)
+    val pill = actionDuePill(s, item.dueDate, today)
     val interactionSource = remember { MutableInteractionSource() }
 
     Card(
@@ -518,10 +530,10 @@ private fun ActionCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                StatusPill(severity.sectionLabel, severity.pill)
+                StatusPill(stringResource(severity.sectionLabelRes), severity.pill)
                 if (item.isSnoozed) {
                     Spacer(Modifier.width(6.dp))
-                    StatusPill("Đang hoãn", PillKind.Neutral)
+                    StatusPill(stringResource(R.string.act_snoozed_3), PillKind.Neutral)
                 }
                 Spacer(Modifier.weight(1f))
                 if (pill != null) StatusPill(pill.label, pill.kind)
@@ -560,7 +572,7 @@ private fun ActionCard(
                 actionDateLabel(item.snoozedUntil)?.let { until ->
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Hiện lại $until",
+                        stringResource(R.string.act_show_again, until),
                         style = MaterialTheme.typography.bodySmall,
                         color = cs.onSurfaceVariant,
                     )
@@ -573,7 +585,7 @@ private fun ActionCard(
                     TextButton(onClick = onUnsnooze) {
                         Icon(Icons.Filled.NotificationsOff, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Bỏ hoãn", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.act_un_snooze), style = MaterialTheme.typography.labelLarge)
                     }
                 } else {
                     SnoozeMenu(onSnooze = onSnooze)
@@ -581,7 +593,7 @@ private fun ActionCard(
                 Spacer(Modifier.weight(1f))
                 if (target != null) {
                     Text(
-                        "Mở chi tiết",
+                        stringResource(R.string.act_open_details),
                         style = MaterialTheme.typography.labelMedium,
                         color = cs.primary,
                     )
@@ -602,19 +614,19 @@ private fun SnoozeMenu(onSnooze: (Int) -> Unit) {
         TextButton(onClick = { expanded = true }) {
             Icon(Icons.Filled.Schedule, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Hoãn", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.act_snooze), style = MaterialTheme.typography.labelLarge)
             Icon(Icons.Filled.MoreVert, null, modifier = Modifier.size(16.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             Text(
-                "Hoãn việc này trong…",
+                stringResource(R.string.act_snooze_this_for),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             )
             snoozeChoices.forEach { choice ->
                 DropdownMenuItem(
-                    text = { Text(choice.label) },
+                    text = { Text(stringResource(choice.labelRes)) },
                     onClick = {
                         expanded = false
                         onSnooze(choice.days)

@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.settings
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.SessionListResponse
 import com.warrantyvault.app.network.SessionRevokeResult
 import com.warrantyvault.app.network.SessionSummary
@@ -23,6 +24,8 @@ import java.io.IOException
 /** `SessionsViewModel` + the pure copy/decision helpers behind the screen. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionsViewModelTest {
+
+    private val vi = ResCatalog.vietnamese()
 
     private val dispatcher = StandardTestDispatcher()
 
@@ -147,7 +150,7 @@ class SessionsViewModelTest {
 
     @Test
     fun revokeOutcome_currentSession_signsOutAndPrefersTheServerMessage() {
-        val outcome = sessionRevokeOutcome(
+        val outcome = sessionRevokeOutcome(vi, 
             SessionRevokeResult(
                 current = true,
                 message = "Đã thu hồi phiên đăng nhập. Đây là phiên bạn đang dùng — hãy đăng nhập lại.",
@@ -163,7 +166,7 @@ class SessionsViewModelTest {
 
     @Test
     fun revokeOutcome_siblingSession_keepsThisDeviceSignedIn() {
-        val outcome = sessionRevokeOutcome(
+        val outcome = sessionRevokeOutcome(vi, 
             SessionRevokeResult(current = false, message = "Đã thu hồi phiên đăng nhập."),
         )
 
@@ -173,7 +176,7 @@ class SessionsViewModelTest {
 
     @Test
     fun revokeOutcome_alreadyRevoked_isSuccessNotAnError() {
-        val outcome = sessionRevokeOutcome(
+        val outcome = sessionRevokeOutcome(vi, 
             SessionRevokeResult(
                 current = false,
                 alreadyRevoked = true,
@@ -189,13 +192,13 @@ class SessionsViewModelTest {
     fun revokeOutcome_blankServerMessage_fallsBackToVietnameseCopy() {
         assertEquals(
             "Đã thu hồi phiên đăng nhập.",
-            sessionRevokeOutcome(SessionRevokeResult(message = "  ")).message,
+            sessionRevokeOutcome(vi, SessionRevokeResult(message = "  ")).message,
         )
         assertEquals(
             "Phiên đăng nhập này đã được thu hồi trước đó.",
-            sessionRevokeOutcome(SessionRevokeResult(alreadyRevoked = true)).message,
+            sessionRevokeOutcome(vi, SessionRevokeResult(alreadyRevoked = true)).message,
         )
         // A current-session revoke with no copy still has to sign the caller out.
-        assertTrue(sessionRevokeOutcome(SessionRevokeResult(current = true)).signOut)
+        assertTrue(sessionRevokeOutcome(vi, SessionRevokeResult(current = true)).signOut)
     }
 }

@@ -1,5 +1,7 @@
 package com.warrantyvault.app.ui.screens.actions
 
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.ActionCounts
 import com.warrantyvault.app.network.SnoozeResult
 import com.warrantyvault.app.testing.Fixtures
@@ -20,6 +22,10 @@ import java.time.LocalDate
  * decides *what the user reads* is pinned here instead.
  */
 class ActionQueueFormatTest {
+
+    /** The Vietnamese original and the English translation, off disk. */
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     // ---- severity ----
 
@@ -240,21 +246,21 @@ class ActionQueueFormatTest {
         // instant-based parse in +07:00 would have shifted it to the 2nd.
         assertEquals(
             ActionDuePill("Quá hạn 3 ngày", PillKind.Danger),
-            actionDuePill("2026-03-01T00:00:00", today),
+            actionDuePill(vi, "2026-03-01T00:00:00", today),
         )
-        assertEquals(ActionDuePill("Hôm nay", PillKind.Danger), actionDuePill("2026-03-04", today))
-        assertEquals(ActionDuePill("Còn 1 ngày", PillKind.Warning), actionDuePill("2026-03-05", today))
-        assertEquals(ActionDuePill("Còn 7 ngày", PillKind.Warning), actionDuePill("2026-03-11", today))
-        assertEquals(ActionDuePill("Còn 8 ngày", PillKind.Info), actionDuePill("2026-03-12", today))
+        assertEquals(ActionDuePill("Hôm nay", PillKind.Danger), actionDuePill(vi, "2026-03-04", today))
+        assertEquals(ActionDuePill("Còn 1 ngày", PillKind.Warning), actionDuePill(vi, "2026-03-05", today))
+        assertEquals(ActionDuePill("Còn 7 ngày", PillKind.Warning), actionDuePill(vi, "2026-03-11", today))
+        assertEquals(ActionDuePill("Còn 8 ngày", PillKind.Info), actionDuePill(vi, "2026-03-12", today))
     }
 
     @Test
     fun duePill_isAbsentForAMissingOrMalformedDate() {
         val today = LocalDate.of(2026, 3, 4)
-        assertNull(actionDuePill(null, today))
-        assertNull(actionDuePill("", today))
-        assertNull(actionDuePill("không-phải-ngày", today))
-        assertNull(actionDuePill("2026-3-4", today))
+        assertNull(actionDuePill(vi, null, today))
+        assertNull(actionDuePill(vi, "", today))
+        assertNull(actionDuePill(vi, "không-phải-ngày", today))
+        assertNull(actionDuePill(vi, "2026-3-4", today))
     }
 
     // ---- copy ----
@@ -268,12 +274,23 @@ class ActionQueueFormatTest {
         assertNull(actionDateLabel("2026/03/01"))
     }
 
+    /**
+     * `formatVndLong` is the `@Composable` entry point now (it needs the selected
+     * language), so the bytes are pinned one level down at `Money`, which is the
+     * single implementation behind it and behind every screen's money.
+     *
+     * Vietnamese is `260.000 ₫` — space, `₫` U+20AB — matching Go's `FormatMoney`
+     * and the web; see `VietnameseFormatterTest`'s header for why the expected
+     * strings moved from the old `260.000đ`.
+     */
     @Test
     fun vndFormatting_handlesInt64MagnitudesAndVietnameseGrouping() {
-        assertEquals("260.000đ", formatVndLong(260_000))
-        assertEquals("0đ", formatVndLong(0))
+        assertEquals("260.000 ₫", Money.vietnamese(260_000))
+        assertEquals("0 ₫", Money.vietnamese(0))
         // Larger than Int.MAX_VALUE: an Int field would have thrown on the wire.
-        assertEquals("3.000.000.000đ", formatVndLong(3_000_000_000L))
+        assertEquals("3.000.000.000 ₫", Money.vietnamese(3_000_000_000L))
+        // …and the English shape the same formatter produces for an en catalog.
+        assertEquals("₫3,000,000,000", Money.english(3_000_000_000L))
     }
 
     @Test
@@ -283,10 +300,10 @@ class ActionQueueFormatTest {
             snoozedUntil = "2026-06-02T00:00:00Z",
             days = 90,
         )
-        assertEquals("Đã hoãn 90 ngày — việc này hiện lại 02/06/2026", snoozeConfirmation(result))
+        assertEquals("Đã hoãn 90 ngày — việc này hiện lại 02/06/2026", snoozeConfirmation(vi, result))
         assertEquals(
             "Đã hoãn 7 ngày",
-            snoozeConfirmation(SnoozeResult(itemKey = "A:1", snoozedUntil = "", days = 7)),
+            snoozeConfirmation(vi, SnoozeResult(itemKey = "A:1", snoozedUntil = "", days = 7)),
         )
     }
 
@@ -295,7 +312,7 @@ class ActionQueueFormatTest {
         assertTrue(snoozeChoices.isNotEmpty())
         snoozeChoices.forEach { choice ->
             assertTrue("${choice.days} is outside 1–365", choice.days in 1..365)
-            assertTrue(choice.label.isNotBlank())
+            assertTrue(vi.get(choice.labelRes).isNotBlank())
         }
         assertEquals(90, SNOOZE_DAYS_DEFAULT)
         assertTrue(snoozeChoices.any { it.days == SNOOZE_DAYS_DEFAULT })
@@ -304,18 +321,18 @@ class ActionQueueFormatTest {
     @Test
     fun note_prefersTheServersSentenceAndOnlyFallsBackWhenItIsBlank() {
         val served = Fixtures.actionQueue(note = "Câu của máy chủ.")
-        assertEquals("Câu của máy chủ.", actionQueueNote(served))
+        assertEquals("Câu của máy chủ.", actionQueueNote(vi, served))
 
         val blank = Fixtures.actionQueue(note = "   ")
-        assertEquals(ACTION_QUEUE_NOTE_FALLBACK, actionQueueNote(blank))
-        assertTrue(actionQueueNote(blank).contains("không phải thông báo đẩy"))
+        assertEquals(vi.get(ACTION_QUEUE_NOTE_FALLBACK), actionQueueNote(vi, blank))
+        assertTrue(actionQueueNote(vi, blank).contains("không phải thông báo đẩy"))
     }
 
     @Test
     fun subtitle_countsTheWorkloadAndKeepsSnoozedSeparate() {
-        assertEquals("Không còn việc nào", actionQueueSubtitle(counts = 0, snoozed = 0))
-        assertEquals("3 việc cần xử lý", actionQueueSubtitle(counts = 3, snoozed = 0))
-        assertEquals("3 việc cần xử lý · 2 việc đang hoãn", actionQueueSubtitle(counts = 3, snoozed = 2))
-        assertEquals("Không còn việc nào · 2 việc đang hoãn", actionQueueSubtitle(counts = 0, snoozed = 2))
+        assertEquals("Không còn việc nào", actionQueueSubtitle(vi, counts = 0, snoozed = 0))
+        assertEquals("3 việc cần xử lý", actionQueueSubtitle(vi, counts = 3, snoozed = 0))
+        assertEquals("3 việc cần xử lý · 2 việc đang hoãn", actionQueueSubtitle(vi, counts = 3, snoozed = 2))
+        assertEquals("Không còn việc nào · 2 việc đang hoãn", actionQueueSubtitle(vi, counts = 0, snoozed = 2))
     }
 }

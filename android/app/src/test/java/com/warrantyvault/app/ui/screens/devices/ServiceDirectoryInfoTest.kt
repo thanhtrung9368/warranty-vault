@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.PhoneSource
 import com.warrantyvault.app.network.WarrantyProviderRef
 import com.warrantyvault.app.network.WarrantyType
@@ -21,23 +22,26 @@ import org.junit.Test
  */
 class ServiceDirectoryInfoTest {
 
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
+
     // ---- brand: null means "app không biết" ----
 
     @Test
     fun aNullBrandIsExplainedNotRenderedAsAnEmptyBox() {
         // Covers BOTH server-side reasons: no seeded row, or a tied match.
-        assertTrue(NULL_BRAND_EXPLANATION.contains("không có thông tin"))
-        assertTrue("phải nói cả trường hợp khớp hoà", NULL_BRAND_EXPLANATION.contains("ngang nhau"))
-        assertTrue("phải nói app không đoán", NULL_BRAND_EXPLANATION.contains("không đoán bừa"))
-        assertFalse("không được rỗng", NULL_BRAND_EXPLANATION.isBlank())
+        assertTrue(vi.get(NULL_BRAND_EXPLANATION).contains("không có thông tin"))
+        assertTrue("phải nói cả trường hợp khớp hoà", vi.get(NULL_BRAND_EXPLANATION).contains("ngang nhau"))
+        assertTrue("phải nói app không đoán", vi.get(NULL_BRAND_EXPLANATION).contains("không đoán bừa"))
+        assertFalse("không được rỗng", vi.get(NULL_BRAND_EXPLANATION).isBlank())
     }
 
     @Test
     fun withNoBrandRecordedTheExplanationSaysThatInstead() {
         // A different cause needs a different sentence: there is nothing to match
         // against, so telling the user about ties would be misleading.
-        assertTrue(NO_BRAND_EXPLANATION.contains("chưa ghi hãng"))
-        assertFalse(NO_BRAND_EXPLANATION.contains("ngang nhau"))
+        assertTrue(vi.get(NO_BRAND_EXPLANATION).contains("chưa ghi hãng"))
+        assertFalse(vi.get(NO_BRAND_EXPLANATION).contains("ngang nhau"))
     }
 
     @Test
@@ -53,22 +57,22 @@ class ServiceDirectoryInfoTest {
     @Test
     fun aMatchedBrandCarriesItsLinksAndTheRightLabelForEach() {
         val brand = Fixtures.brandServiceInfo()
-        val links = brandDirectoryLinks(brand)
+        val links = brandDirectoryLinks(vi, brand)
 
         assertEquals(2, links.size)
         // The locator IS the authorised-centre page; the support page merely might
         // be. Labelling the second one "trung tâm bảo hành" would send someone
         // across town to a contact form.
-        assertEquals(SERVICE_LOCATOR_LABEL, links[0].label)
+        assertEquals(vi.get(SERVICE_LOCATOR_LABEL), links[0].label)
         assertEquals(brand.serviceLocatorUrl, links[0].url)
-        assertEquals(SUPPORT_URL_LABEL, links[1].label)
+        assertEquals(vi.get(SUPPORT_URL_LABEL), links[1].label)
         assertEquals(brand.supportUrl, links[1].url)
     }
 
     @Test
     fun aBrandWithNoVerifiedUrlOffersNoButtonAtAll() {
         val brand = Fixtures.brandServiceInfo(serviceLocatorUrl = null, supportUrl = null)
-        assertTrue(brandDirectoryLinks(brand).isEmpty())
+        assertTrue(brandDirectoryLinks(vi, brand).isEmpty())
     }
 
     @Test
@@ -77,11 +81,11 @@ class ServiceDirectoryInfoTest {
             serviceLocatorUrl = "javascript:alert(1)",
             supportUrl = "  ",
         )
-        assertTrue(brandDirectoryLinks(brand).isEmpty())
+        assertTrue(brandDirectoryLinks(vi, brand).isEmpty())
 
         // A partially-usable row keeps the usable half.
         val half = Fixtures.brandServiceInfo(serviceLocatorUrl = null, supportUrl = "https://x.vn/")
-        assertEquals(listOf(SUPPORT_URL_LABEL), brandDirectoryLinks(half).map { it.label })
+        assertEquals(listOf(vi.get(SUPPORT_URL_LABEL)), brandDirectoryLinks(vi, half).map { it.label })
     }
 
     @Test
@@ -96,7 +100,7 @@ class ServiceDirectoryInfoTest {
     @Test
     fun aMatchedProviderShowsTheCatalogName() {
         val centre = Fixtures.warrantyCentre(providerInput = "samsung", provider = WarrantyProviderRef("samsung", "Samsung"))
-        assertEquals("Samsung", centreProviderLine(centre))
+        assertEquals("Samsung", centreProviderLine(vi, centre))
         assertFalse(isUnmatchedProvider(centre))
     }
 
@@ -105,18 +109,18 @@ class ServiceDirectoryInfoTest {
         // `provider: null` is the server declining to guess between several equal
         // candidates. Blanking the line would hide the only useful information.
         val centre = Fixtures.warrantyCentre(providerInput = "Trung tâm bảo hành", provider = null)
-        assertEquals("Trung tâm bảo hành", centreProviderLine(centre))
+        assertEquals("Trung tâm bảo hành", centreProviderLine(vi, centre))
         assertTrue("phải đánh dấu là chưa khớp", isUnmatchedProvider(centre))
     }
 
     @Test
     fun aWarrantyThatNeverRecordedAProviderSaysSoRatherThanShowingNothing() {
         val centre = Fixtures.warrantyCentre(providerInput = null, provider = null)
-        assertEquals(NO_PROVIDER_MESSAGE, centreProviderLine(centre))
+        assertEquals(vi.get(NO_PROVIDER_MESSAGE), centreProviderLine(vi, centre))
         assertTrue(isUnmatchedProvider(centre))
 
         val blank = Fixtures.warrantyCentre(providerInput = "   ", provider = null)
-        assertEquals(NO_PROVIDER_MESSAGE, centreProviderLine(blank))
+        assertEquals(vi.get(NO_PROVIDER_MESSAGE), centreProviderLine(vi, blank))
     }
 
     @Test
@@ -125,15 +129,15 @@ class ServiceDirectoryInfoTest {
         // to match and fix it.
         assertEquals(
             "\"Trung tâm bảo hành\" chưa khớp danh bạ nào — app không đoán.",
-            unmatchedProviderNote(Fixtures.warrantyCentre(providerInput = " Trung tâm bảo hành ", provider = null)),
+            unmatchedProviderNote(vi, Fixtures.warrantyCentre(providerInput = " Trung tâm bảo hành ", provider = null)),
         )
         // Nothing typed means nothing to explain: quoting an empty string would
         // claim the user wrote something they did not.
-        assertNull(unmatchedProviderNote(Fixtures.warrantyCentre(providerInput = null, provider = null)))
-        assertNull(unmatchedProviderNote(Fixtures.warrantyCentre(providerInput = "  ", provider = null)))
+        assertNull(unmatchedProviderNote(vi, Fixtures.warrantyCentre(providerInput = null, provider = null)))
+        assertNull(unmatchedProviderNote(vi, Fixtures.warrantyCentre(providerInput = "  ", provider = null)))
         // A matched provider needs no note at all.
         assertNull(
-            unmatchedProviderNote(
+            unmatchedProviderNote(vi, 
                 Fixtures.warrantyCentre(providerInput = "samsung", provider = WarrantyProviderRef("samsung", "Samsung")),
             ),
         )
@@ -144,17 +148,17 @@ class ServiceDirectoryInfoTest {
     @Test
     fun theCoverageEndDateUsesTheAppsDdMmYyyyConvention() {
         val centre = Fixtures.warrantyCentre(endDate = "2027-01-15T00:00:00", isActive = true)
-        assertEquals("Hết hạn 15/01/2027", centreEndDateLabel(centre))
-        assertEquals("Còn hiệu lực", centreStatusLabel(centre))
+        assertEquals("Hết hạn 15/01/2027", centreEndDateLabel(vi, centre))
+        assertEquals("Còn hiệu lực", centreStatusLabel(vi, centre))
     }
 
     @Test
     fun anExpiredOrUndatedWarrantyIsLabelledWithoutInventingADate() {
-        assertEquals("Đã hết hạn", centreStatusLabel(Fixtures.warrantyCentre(isActive = false)))
-        assertNull(centreEndDateLabel(Fixtures.warrantyCentre(endDate = null)))
-        assertNull(centreEndDateLabel(Fixtures.warrantyCentre(endDate = "không rõ")))
+        assertEquals("Đã hết hạn", centreStatusLabel(vi, Fixtures.warrantyCentre(isActive = false)))
+        assertNull(centreEndDateLabel(vi, Fixtures.warrantyCentre(endDate = null)))
+        assertNull(centreEndDateLabel(vi, Fixtures.warrantyCentre(endDate = "không rõ")))
         // An expired warranty with no recorded end still shows a status line.
-        assertEquals("Đã hết hạn", centreStatusLabel(Fixtures.warrantyCentre(endDate = null, isActive = false)))
+        assertEquals("Đã hết hạn", centreStatusLabel(vi, Fixtures.warrantyCentre(endDate = null, isActive = false)))
     }
 
     @Test
@@ -164,8 +168,8 @@ class ServiceDirectoryInfoTest {
         // only context. (Third-party coverage can be voided; the client may not
         // second-guess that.)
         val centre = Fixtures.warrantyCentre(endDate = "2099-01-01T00:00:00", isActive = false)
-        assertEquals("Đã hết hạn", centreStatusLabel(centre))
-        assertEquals("Hết hạn 01/01/2099", centreEndDateLabel(centre))
+        assertEquals("Đã hết hạn", centreStatusLabel(vi, centre))
+        assertEquals("Hết hạn 01/01/2099", centreEndDateLabel(vi, centre))
     }
 
     // ---- phoneSource: the honesty mechanism ----
@@ -176,10 +180,13 @@ class ServiceDirectoryInfoTest {
         val phone = dialablePhone(centre)
 
         assertEquals("0912 345 678", phone?.number)
-        assertEquals("Số do bạn tự ghi", phone?.attribution)
+        // The attribution is a resource on `PhoneSource.USER` now, resolved
+        // through the same seam the UI uses.
+        assertEquals("Số do bạn tự ghi", phone?.attribution(vi))
+        assertEquals("Recorded by you", phone?.attribution(en))
         // Attribution must never read as verification by the app.
-        assertFalse(phone!!.attribution.contains("xác minh"))
-        assertFalse(phone.attribution.contains("chính hãng"))
+        assertFalse(phone!!.attribution(vi).contains("xác minh"))
+        assertFalse(phone.attribution(vi).contains("chính hãng"))
     }
 
     @Test
@@ -213,9 +220,14 @@ class ServiceDirectoryInfoTest {
         // A blank row next to "call the hotline" expectations is how a user ends up
         // assuming a number exists. The app stores no hotline at all (migrations
         // 0008 / 0012), so there is nothing to fall back on.
-        assertEquals("Chưa có số điện thoại", NO_PHONE_MESSAGE)
-        assertEquals(PhoneSource.NONE.label, NO_PHONE_MESSAGE)
-        assertFalse(NO_PHONE_MESSAGE.contains("hotline"))
+        //
+        // The sentence lives in the resource table now (`PhoneSource.NONE`'s
+        // `labelRes`), so this reads the real catalogs instead of comparing the
+        // constant to itself.
+        assertEquals("Chưa có số điện thoại", vi.get(NO_PHONE_MESSAGE))
+        assertEquals("No phone number recorded", en.get(NO_PHONE_MESSAGE))
+        assertEquals(PhoneSource.NONE.labelRes, NO_PHONE_MESSAGE)
+        assertFalse(vi.get(NO_PHONE_MESSAGE).contains("hotline"))
     }
 
     @Test
@@ -239,11 +251,11 @@ class ServiceDirectoryInfoTest {
 
     @Test
     fun theCentreCountSpeaksVietnameseForZeroOneAndMany() {
-        assertEquals("Thiết bị chưa có gói bảo hành nào", centreCountLabel(emptyList()))
-        assertEquals("1 gói bảo hành", centreCountLabel(listOf(Fixtures.warrantyCentre())))
+        assertEquals("Thiết bị chưa có gói bảo hành nào", centreCountLabel(vi, emptyList()))
+        assertEquals("1 gói bảo hành", centreCountLabel(vi, listOf(Fixtures.warrantyCentre())))
         assertEquals(
             "3 gói bảo hành",
-            centreCountLabel(List(3) { Fixtures.warrantyCentre(warrantyId = "war-$it") }),
+            centreCountLabel(vi, List(3) { Fixtures.warrantyCentre(warrantyId = "war-$it") }),
         )
     }
 
@@ -258,17 +270,22 @@ class ServiceDirectoryInfoTest {
                 Fixtures.warrantyCentre(warrantyId = "w3", providerInput = null, provider = null),
             ),
         )
-        assertEquals("3 gói bảo hành", centreCountLabel(directory.centres))
-        assertEquals(listOf("Apple", "Bảo hành Sao Việt", NO_PROVIDER_MESSAGE), directory.centres.map { centreProviderLine(it) })
+        assertEquals("3 gói bảo hành", centreCountLabel(vi, directory.centres))
+        assertEquals(listOf("Apple", "Bảo hành Sao Việt", vi.get(NO_PROVIDER_MESSAGE)), directory.centres.map { centreProviderLine(vi, it) })
         assertEquals(listOf(false, true, true), directory.centres.map { isUnmatchedProvider(it) })
     }
 
     @Test
-    fun warrantyTypeKeepsItsExistingVietnameseLabels() {
-        // Parity guard: the catalogue is unchanged, and the directory must not be
-        // the screen where a "Mở rộng" quietly becomes "Extended".
-        assertEquals("Tiêu chuẩn", WarrantyType.STANDARD.label)
-        assertEquals("Mở rộng", WarrantyType.EXTENDED.label)
-        assertEquals("Bên thứ ba", WarrantyType.THIRD_PARTY.label)
+    fun warrantyTypeLabelsComeFromTheSharedResourceTable() {
+        // The directory is not a second source for these three words: it reads
+        // `WarrantyType.labelRes`. Vietnamese stays byte-identical to the old
+        // hardcoded literals; English is the wording the Go catalog and the web
+        // already use.
+        assertEquals("Tiêu chuẩn", vi.get(WarrantyType.STANDARD.labelRes))
+        assertEquals("Mở rộng", vi.get(WarrantyType.EXTENDED.labelRes))
+        assertEquals("Bên thứ ba", vi.get(WarrantyType.THIRD_PARTY.labelRes))
+        assertEquals("Standard", en.get(WarrantyType.STANDARD.labelRes))
+        assertEquals("Extended", en.get(WarrantyType.EXTENDED.labelRes))
+        assertEquals("Third party", en.get(WarrantyType.THIRD_PARTY.labelRes))
     }
 }

@@ -1,14 +1,18 @@
 package com.warrantyvault.app.ui.screens.actions
 
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.appLocale
 import com.warrantyvault.app.network.ActionItem
 import com.warrantyvault.app.network.ActionQueue
 import com.warrantyvault.app.network.SnoozeResult
 import com.warrantyvault.app.ui.components.PillKind
-import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 /**
  * "Việc cần xử lý" — the pure half of the action queue (openapi
@@ -41,32 +45,39 @@ import java.util.Locale
 internal const val SNOOZE_DAYS_DEFAULT = 90
 
 /** One "hoãn bao lâu" choice. Bounds are the server's: 1–365 days. */
-internal data class SnoozeChoice(val days: Int, val label: String)
+internal data class SnoozeChoice(val days: Int, @StringRes val labelRes: Int)
 
 /**
- * A few Vietnamese durations rather than a free number field: the decision is
- * "để đó một thời gian", and every option here is inside the server's `1–365`
- * window, so no choice can produce a 400.
+ * A few fixed durations rather than a free number field: the decision is "để đó
+ * một thời gian", and every option here is inside the server's `1–365` window, so
+ * no choice can produce a 400.
+ *
+ * The labels are resource ids, so the menu is in the same language as the screen
+ * that opened it.
  */
 internal val snoozeChoices: List<SnoozeChoice> = listOf(
-    SnoozeChoice(7, "1 tuần"),
-    SnoozeChoice(30, "1 tháng"),
-    SnoozeChoice(SNOOZE_DAYS_DEFAULT, "3 tháng (mặc định)"),
-    SnoozeChoice(365, "1 năm"),
+    SnoozeChoice(7, R.string.act_snooze_1w),
+    SnoozeChoice(30, R.string.act_snooze_1m),
+    SnoozeChoice(SNOOZE_DAYS_DEFAULT, R.string.act_snooze_3m),
+    SnoozeChoice(365, R.string.act_snooze_1y),
 )
 
 /** Display order of the three severities — `HIGH` first, exactly like the server. */
-internal enum class ActionSeverity(val rank: Int, val sectionLabel: String, val pill: PillKind) {
-    HIGH(0, "Cần xử lý ngay", PillKind.Danger),
-    MEDIUM(1, "Nên xử lý", PillKind.Warning),
-    LOW(2, "Nhắc nhẹ", PillKind.Info),
+internal enum class ActionSeverity(
+    val rank: Int,
+    @StringRes val sectionLabelRes: Int,
+    val pill: PillKind,
+) {
+    HIGH(0, R.string.act_severity_high, PillKind.Danger),
+    MEDIUM(1, R.string.act_severity_medium, PillKind.Warning),
+    LOW(2, R.string.act_severity_low, PillKind.Info),
 
     /**
      * A severity code this build has never seen. It still renders (data, not a
      * broken row) and sorts last — the alternative, throwing inside
      * kotlinx.serialization, would blank the whole queue over one new code.
      */
-    UNKNOWN(3, "Khác", PillKind.Neutral),
+    UNKNOWN(3, R.string.act_severity_unknown, PillKind.Neutral),
 }
 
 /** Raw `severity` code → enum, unknown codes degrading to [ActionSeverity.UNKNOWN]. */
@@ -165,7 +176,7 @@ internal data class ActionDuePill(val label: String, val kind: PillKind)
  * Only the date half of the timestamp is read: the server sends naive UTC
  * (`"2026-03-01T00:00:00"`), so an instant-based parse would shift the day.
  */
-internal fun actionDuePill(dueDate: String?, today: LocalDate): ActionDuePill? {
+internal fun actionDuePill(s: AppStrings, dueDate: String?, today: LocalDate): ActionDuePill? {
     val raw = dueDate?.trim()?.take(10) ?: return null
     val date = try {
         LocalDate.parse(raw)
@@ -174,11 +185,22 @@ internal fun actionDuePill(dueDate: String?, today: LocalDate): ActionDuePill? {
     }
     val days = ChronoUnit.DAYS.between(today, date)
     return when {
-        days < 0 -> ActionDuePill("Quá hạn ${-days} ngày", PillKind.Danger)
-        days == 0L -> ActionDuePill("Hôm nay", PillKind.Danger)
-        days == 1L -> ActionDuePill("Còn 1 ngày", PillKind.Warning)
-        days <= 7 -> ActionDuePill("Còn $days ngày", PillKind.Warning)
-        else -> ActionDuePill("Còn $days ngày", PillKind.Info)
+        days < 0 -> ActionDuePill(
+            s.quantity(R.plurals.act_due_overdue, (-days).toInt(), -days),
+            PillKind.Danger,
+        )
+        days == 0L -> ActionDuePill(s.get(R.string.act_due_today), PillKind.Danger)
+        // One branch, not two: `days == 1L` used to be special-cased, but the
+        // plural resource now supplies the English singular ("1 day left"), and
+        // both branches always produced the same Warning pill anyway.
+        days <= 7 -> ActionDuePill(
+            s.quantity(R.plurals.act_due_in_days, days.toInt(), days),
+            PillKind.Warning,
+        )
+        else -> ActionDuePill(
+            s.quantity(R.plurals.act_due_in_days, days.toInt(), days),
+            PillKind.Info,
+        )
     }
 }
 
@@ -198,14 +220,13 @@ internal fun actionDateLabel(iso: String?): String? {
 }
 
 /**
- * Money for the queue rows and headings. `Long` because every money field on the
- * wire is int64: `Int` would throw inside kotlinx.serialization on a large value
- * and blank the screen (Android has been bitten by exactly that before).
+ * Money for the queue rows and headings, in the UI language (`i18n/Money.kt`).
+ * `Long` because every money field on the wire is int64: `Int` would throw inside
+ * kotlinx.serialization on a large value and blank the screen (Android has been
+ * bitten by exactly that before).
  */
-internal fun formatVndLong(amount: Long): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
-}
+@Composable
+internal fun formatVndLong(amount: Long): String = Money.of(amount, appLocale())
 
 /**
  * What the snackbar says after a successful snooze. [SnoozeResult.days] is the
@@ -213,34 +234,40 @@ internal fun formatVndLong(amount: Long): String {
  * for, so the confirmation can never claim a different number than the queue
  * will actually show.
  */
-internal fun snoozeConfirmation(result: SnoozeResult): String {
+internal fun snoozeConfirmation(s: AppStrings, result: SnoozeResult): String {
     val until = actionDateLabel(result.snoozedUntil)
     return if (until != null) {
-        "Đã hoãn ${result.days} ngày — việc này hiện lại ${until}"
+        s.quantity(R.plurals.act_snoozed_until, result.days, result.days, until)
     } else {
-        "Đã hoãn ${result.days} ngày"
+        s.quantity(R.plurals.act_snoozed, result.days, result.days)
     }
 }
 
 /**
- * The queue's own Vietnamese sentence when the server sent none. It states the
- * two things the payload's `note` always states and a user would otherwise
- * assume wrongly: this is not a push feed, and snoozing here does not silence
- * warranty reminders. Used **only** as a fallback — the server's copy wins.
+ * The queue's own sentence when the server sent none. It states the two things
+ * the payload's `note` always states and a user would otherwise assume wrongly:
+ * this is not a push feed, and snoozing here does not silence warranty reminders.
+ *
+ * Used **only** as a fallback — the server's copy wins, and because the Go
+ * catalog translates that copy, the fallback is the only part that has to come
+ * from the client's own resource table.
  */
-internal const val ACTION_QUEUE_NOTE_FALLBACK =
-    "Danh sách này chỉ gồm những việc app tự suy ra từ dữ liệu bạn đã nhập. " +
-        "Nó không phải thông báo đẩy, và hoãn một việc ở đây không ảnh hưởng tới nhắc bảo hành."
+@StringRes
+internal val ACTION_QUEUE_NOTE_FALLBACK = R.string.act_note_fallback
 
 /** `queue.note` when present, otherwise the fallback above. */
-internal fun actionQueueNote(queue: ActionQueue): String =
-    queue.note.trim().ifBlank { ACTION_QUEUE_NOTE_FALLBACK }
+internal fun actionQueueNote(s: AppStrings, queue: ActionQueue): String =
+    queue.note.trim().ifBlank { s.get(ACTION_QUEUE_NOTE_FALLBACK) }
 
 /**
  * The subtitle under the screen title: the actionable workload, split by
  * severity, built from `counts` — never from the visible rows.
  */
-internal fun actionQueueSubtitle(counts: Int, snoozed: Int): String {
-    val head = if (counts == 0) "Không còn việc nào" else "$counts việc cần xử lý"
-    return if (snoozed > 0) "$head · $snoozed việc đang hoãn" else head
+internal fun actionQueueSubtitle(s: AppStrings, counts: Int, snoozed: Int): String {
+    val head = if (counts == 0) {
+        s.get(R.string.act_nothing_left)
+    } else {
+        s.quantity(R.plurals.act_items_to_handle, counts, counts)
+    }
+    return if (snoozed > 0) s.get(R.string.act_snoozed_suffix, head, snoozed) else head
 }

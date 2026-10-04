@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.subscriptions
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -51,12 +52,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.warrantyvault.app.ui.viewModelFactory
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.appLocale
+import com.warrantyvault.app.i18n.appStrings
+import com.warrantyvault.app.i18n.money
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.BillingCycle
@@ -73,13 +82,12 @@ import com.warrantyvault.app.ui.components.SkeletonList
 import com.warrantyvault.app.ui.components.SortMenuButton
 import com.warrantyvault.app.ui.components.StatusPill
 import com.warrantyvault.app.ui.components.pressScale
+import com.warrantyvault.app.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
 
 class SubscriptionsViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -160,7 +168,7 @@ fun SubscriptionsScreen(
                 actions = {
                     // Global search — the box below only filters this list.
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, "Tìm kiếm tất cả")
+                        Icon(Icons.Filled.Search, stringResource(R.string.dash_search_everything))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -175,7 +183,7 @@ fun SubscriptionsScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(28.dp),
                 icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text("Thêm gói", fontWeight = FontWeight.SemiBold) },
+                text = { Text(stringResource(R.string.subs_add_plan), fontWeight = FontWeight.SemiBold) },
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -198,12 +206,12 @@ fun SubscriptionsScreen(
             ) { s ->
                 when (s) {
                     is SubscriptionsViewModel.State.Loading -> Column {
-                        PageHeader("Gói dịch vụ", "Đang tải…")
+                        PageHeader(stringResource(R.string.subs_subscriptions), stringResource(R.string.state_loading))
                         SkeletonList(count = 4)
                     }
                     is SubscriptionsViewModel.State.Error -> ErrorState(
                         icon = Icons.Outlined.WarningAmber,
-                        title = "Tải không được rồi",
+                        title = stringResource(R.string.dash_could_not_load_it),
                         body = s.message,
                         onRetry = { vm.load() },
                     )
@@ -219,14 +227,14 @@ fun SubscriptionsScreen(
                         if (s.items.isEmpty()) {
                             Column(Modifier.fillMaxSize()) {
                                 PageHeader(
-                                    "Gói dịch vụ",
-                                    "Theo dõi chi phí định kỳ",
+                                    stringResource(R.string.subs_subscriptions),
+                                    stringResource(R.string.subs_track_your_recurring_costs),
                                 )
                                 EmptyState(
                                     icon = Icons.Filled.CreditCard,
-                                    title = "Chưa có gói nào",
-                                    body = "Thêm gói đầu tiên để biết tháng này tốn bao nhiêu nha.",
-                                    ctaLabel = "Thêm gói đầu tiên",
+                                    title = stringResource(R.string.subs_no_plans_yet),
+                                    body = stringResource(R.string.subs_add_your_first_plan_to_see),
+                                    ctaLabel = stringResource(R.string.subs_add_your_first_plan),
                                     onCta = { editing = true },
                                 )
                             }
@@ -290,9 +298,9 @@ private fun SubscriptionList(
     ) {
         item {
             PageHeader(
-                "Gói dịch vụ",
-                if (isFiltered) "${items.size}/$total gói khớp bộ lọc"
-                else "$total gói đang theo dõi",
+                stringResource(R.string.subs_subscriptions),
+                if (isFiltered) stringResource(R.string.subs_plans_match_the_filter, items.size, total)
+                else pluralStringResource(R.plurals.subs_plans_tracked, total, total),
             )
         }
         // "Soát gói đăng ký" — GET /api/v1/subscriptions/audit, one tap away.
@@ -306,8 +314,8 @@ private fun SubscriptionList(
             ListFilterBar(
                 query = query,
                 onQueryChange = onQueryChange,
-                placeholder = "Tìm tên, hãng, plan...",
-                options = subscriptionStatusOptions,
+                placeholder = stringResource(R.string.subs_search_name_brand_plan),
+                options = subscriptionStatusOptions(),
                 selectedKey = statusKey,
                 onSelect = onStatusChange,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -315,7 +323,7 @@ private fun SubscriptionList(
                     SortMenuButton(
                         options = SubscriptionSort.entries,
                         current = sort,
-                        label = { it.label },
+                        label = { stringResource(it.labelRes) },
                         onSelect = onSortChange,
                     )
                 },
@@ -325,8 +333,8 @@ private fun SubscriptionList(
             item {
                 EmptyState(
                     icon = Icons.Filled.FilterAltOff,
-                    title = "Không có gói nào khớp",
-                    body = "Thử nới bộ lọc hoặc chọn \"Tất cả\" xem sao.",
+                    title = stringResource(R.string.subs_no_plans_match),
+                    body = stringResource(R.string.subs_try_loosening_the_filter_or_choosing),
                 )
             }
         }
@@ -336,8 +344,9 @@ private fun SubscriptionList(
     }
 }
 
-private val subscriptionStatusOptions: List<FilterOption> =
-    SubscriptionStatusFilter.entries.map { FilterOption(it.key, it.label) }
+@Composable
+private fun subscriptionStatusOptions(): List<FilterOption> =
+    SubscriptionStatusFilter.entries.map { FilterOption(it.key, stringResource(it.labelRes)) }
 
 /**
  * The way into "Soát gói đăng ký" (`GET /api/v1/subscriptions/audit`).
@@ -366,14 +375,14 @@ private fun AuditEntryRow(onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    AUDIT_ENTRY_TITLE,
+                    stringResource(AUDIT_ENTRY_TITLE),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurface,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    AUDIT_ENTRY_SUBTITLE,
+                    stringResource(AUDIT_ENTRY_SUBTITLE),
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
@@ -392,6 +401,7 @@ private fun AuditEntryRow(onClick: () -> Unit) {
 @Composable
 private fun SubscriptionCard(sub: Subscription, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
+    val s = appStrings()
     val interactionSource = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
@@ -436,7 +446,7 @@ private fun SubscriptionCard(sub: Subscription, onClick: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        formatPriceCycle(sub.price, sub.billingCycle),
+                        formatPriceCycle(s, sub.price, sub.billingCycle),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = cs.primary,
@@ -444,7 +454,7 @@ private fun SubscriptionCard(sub: Subscription, onClick: () -> Unit) {
                     Spacer(Modifier.weight(1f))
                     sub.renewalDate?.take(10)?.let {
                         Text(
-                            "Gia hạn $it",
+                            stringResource(R.string.subs_renew, it),
                             style = MaterialTheme.typography.labelMedium,
                             color = cs.onSurfaceVariant,
                         )
@@ -463,21 +473,36 @@ private fun SubStatusPill(status: SubscriptionStatus) {
         SubscriptionStatus.CANCELED -> PillKind.Neutral
         SubscriptionStatus.EXPIRED -> PillKind.Danger
     }
-    StatusPill(label = status.label, kind = kind)
+    StatusPill(label = stringResource(status.labelRes), kind = kind)
 }
 
-internal fun formatVnd(amount: Int): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
+/**
+ * Money in the UI language. The Vietnamese half is
+ * `i18n/Money.kt::Money.vietnamese` — the frozen bytes `VietnameseFormatterTest`
+ * pins — and this is the one the screens call, following [appLocale] rather than
+ * the phone's system locale so an in-app language switch moves the digits too.
+ */
+@Composable
+internal fun formatVnd(amount: Int): String = Money.of(amount.toLong(), appLocale())
+
+/**
+ * `99.000 ₫ / tháng` in Vietnamese, the same line in English.
+ *
+ * The cycle suffixes are existing resources (`subs_per_month` …) that already
+ * carry their leading space, so the Vietnamese output is byte-identical to the
+ * literal version this replaced — which is also why there is now one function
+ * instead of a Vietnamese one plus a `Context` twin.
+ */
+internal fun formatPriceCycle(s: AppStrings, price: Int, cycle: BillingCycle): String {
+    val id = cycleSuffixRes(cycle)
+    return s.money(price.toLong()) + if (id == 0) "" else s.get(id)
 }
 
-internal fun formatPriceCycle(price: Int, cycle: BillingCycle): String {
-    val suffix = when (cycle) {
-        BillingCycle.MONTHLY -> " / tháng"
-        BillingCycle.QUARTERLY -> " / quý"
-        BillingCycle.YEARLY -> " / năm"
-        BillingCycle.LIFETIME -> " (trọn đời)"
-        BillingCycle.CUSTOM -> ""
-    }
-    return formatVnd(price) + suffix
+@StringRes
+internal fun cycleSuffixRes(cycle: BillingCycle): Int = when (cycle) {
+    BillingCycle.MONTHLY -> R.string.subs_per_month
+    BillingCycle.QUARTERLY -> R.string.subs_per_quarter
+    BillingCycle.YEARLY -> R.string.subs_per_year
+    BillingCycle.LIFETIME -> R.string.subs_lifetime
+    BillingCycle.CUSTOM -> 0
 }

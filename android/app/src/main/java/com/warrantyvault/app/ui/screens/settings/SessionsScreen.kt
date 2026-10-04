@@ -56,11 +56,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.SessionRevokeResult
@@ -85,11 +91,31 @@ import kotlinx.coroutines.launch
  * A blank (rather than null) label is treated the same way: an empty row tells
  * the user nothing, and "Không rõ thiết bị" at least says why.
  */
-const val UNKNOWN_DEVICE_LABEL = "Không rõ thiết bị"
+/**
+     * The pure Vietnamese mirror, pinned by `SessionsViewModelTest` — the same
+     * shape `ShareTarget.MESSAGE_*` uses. The UI does NOT read it: it renders
+     * `sessionDeviceLabelOrNull(...) ?: stringResource(R.string.sess_unknown_device)`,
+     * so the row follows the language setting while this constant keeps the
+     * JVM-testable original.
+     */
+    const val UNKNOWN_DEVICE_LABEL = "Không rõ thiết bị"
+
+/** Never-empty device name for a session row, in the UI language. */
+@Composable
+fun sessionDeviceLabelText(deviceLabel: String?): String =
+    sessionDeviceLabelOrNull(deviceLabel) ?: stringResource(R.string.sess_unknown_device)
 
 /** Never-empty device name for a session row. */
 fun sessionDeviceLabel(deviceLabel: String?): String =
-    deviceLabel?.trim()?.takeIf { it.isNotEmpty() } ?: UNKNOWN_DEVICE_LABEL
+    sessionDeviceLabelOrNull(deviceLabel) ?: UNKNOWN_DEVICE_LABEL
+
+/**
+ * The same rule without the Vietnamese fallback, so the UI can render
+ * `sess_unknown_device` in the current language. The pure [sessionDeviceLabel]
+ * stays as the JVM-testable mirror (`SessionsViewModelTest` pins it).
+ */
+fun sessionDeviceLabelOrNull(deviceLabel: String?): String? =
+    deviceLabel?.trim()?.takeIf { it.isNotEmpty() }
 
 /**
  * Readable Vietnamese for the session platform code, or `null` when the server
@@ -141,11 +167,11 @@ fun sessionDateLabel(iso: String?): String {
  */
 data class SessionRevokeOutcome(val message: String, val signOut: Boolean)
 
-fun sessionRevokeOutcome(result: SessionRevokeResult): SessionRevokeOutcome {
+fun sessionRevokeOutcome(s: AppStrings, result: SessionRevokeResult): SessionRevokeOutcome {
     val fallback = if (result.alreadyRevoked) {
-        "Phiên đăng nhập này đã được thu hồi trước đó."
+        s.get(R.string.sess_already_revoked)
     } else {
-        "Đã thu hồi phiên đăng nhập."
+        s.get(R.string.sess_revoked)
     }
     return SessionRevokeOutcome(
         message = result.message.takeIf { it.isNotBlank() } ?: fallback,
@@ -210,6 +236,7 @@ fun SessionsScreen(
     onCurrentSessionRevoked: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val s = appStrings()
     // `remember`, not `viewModel()`: this route is removed from the tree on
     // Back, and a VM retained in the Activity store would come back with a
     // stale list on the next visit.
@@ -226,10 +253,10 @@ fun SessionsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Phiên đăng nhập") },
+                title = { Text(stringResource(R.string.sess_sign_in_sessions)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -260,16 +287,16 @@ fun SessionsScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { vm.load() }) { Text("Thử lại") }
+                    Button(onClick = { vm.load() }) { Text(stringResource(R.string.action_retry)) }
                 }
 
                 is SessionsViewModel.State.Loaded -> {
                     if (s.sessions.isEmpty()) {
                         EmptyState(
                             icon = Icons.Outlined.Devices,
-                            title = "Chưa có phiên nào",
-                            body = "Không có phiên đăng nhập nào đang hoạt động. " +
-                                "Đăng nhập lại để tạo một phiên mới.",
+                            title = stringResource(R.string.sess_no_sessions_yet),
+                            body = stringResource(R.string.sess_none_active) + " " +
+                                stringResource(R.string.sess_sign_in_again_to_create_a),
                         )
                     } else {
                         LazyColumn(
@@ -279,9 +306,7 @@ fun SessionsScreen(
                         ) {
                             item {
                                 Text(
-                                    "Đây là các thiết bị đang đăng nhập vào tài khoản của mày. " +
-                                        "Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — " +
-                                        "các phiên khác giữ nguyên.",
+                                    stringResource(R.string.sess_list_body),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -305,16 +330,20 @@ fun SessionsScreen(
         AlertDialog(
             onDismissRequest = { confirm = null },
             title = {
-                Text(if (isCurrent) "Đăng xuất thiết bị này?" else "Thu hồi phiên này?")
+                Text(if (isCurrent) stringResource(R.string.sess_sign_this_device_out) else stringResource(R.string.sess_revoke_this_session))
             },
             text = {
                 Text(
                     if (isCurrent) {
-                        "“${sessionDeviceLabel(session.deviceLabel)}” là thiết bị bạn đang dùng. " +
-                            "Thu hồi xong bạn sẽ được đưa về màn hình đăng nhập."
+                        stringResource(
+                            R.string.sess_this_device_note,
+                            sessionDeviceLabelText(session.deviceLabel),
+                        ) + " " + stringResource(R.string.sess_once_revoked_you_will_be_sent)
                     } else {
-                        "“${sessionDeviceLabel(session.deviceLabel)}” sẽ bị đăng xuất ngay. " +
-                            "Thiết bị bạn đang dùng không bị ảnh hưởng."
+                        stringResource(
+                            R.string.sess_other_device_note,
+                            sessionDeviceLabelText(session.deviceLabel),
+                        ) + " " + stringResource(R.string.sess_the_device_you_are_using_is)
                     },
                 )
             },
@@ -325,7 +354,7 @@ fun SessionsScreen(
                     scope.launch {
                         revokingId = id
                         try {
-                            val outcome = sessionRevokeOutcome(api.revokeSession(id))
+                            val outcome = sessionRevokeOutcome(s, api.revokeSession(id))
                             if (outcome.signOut) {
                                 // The token is dead as of this response; the host
                                 // clears the store and returns to login.
@@ -342,13 +371,13 @@ fun SessionsScreen(
                     }
                 }) {
                     Text(
-                        if (isCurrent) "Đăng xuất" else "Thu hồi",
+                        if (isCurrent) stringResource(R.string.sess_sign_out) else stringResource(R.string.sess_revoke),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text("Huỷ") }
+                TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -387,7 +416,8 @@ private fun SessionRow(
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        sessionDeviceLabel(session.deviceLabel),
+                        sessionDeviceLabelOrNull(session.deviceLabel)
+                            ?: stringResource(R.string.sess_unknown_device),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = cs.onSurface,
@@ -407,7 +437,7 @@ private fun SessionRow(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            "Thiết bị này",
+                            stringResource(R.string.sess_this_device),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = cs.primary,
@@ -416,13 +446,18 @@ private fun SessionRow(
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Hoạt động ${relativeVi(session.lastSeenAt)}",
+                    stringResource(
+                        R.string.sess_active,
+                        relativeVi(session.lastSeenAt, LocalContext.current),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
                 Text(
-                    "Đăng nhập ${sessionDateLabel(session.createdAt)} · " +
-                        "Hết hạn ${sessionDateLabel(session.expiresAt)}",
+                    stringResource(
+                        R.string.sess_signed_in_at,
+                        sessionDateLabel(session.createdAt),
+                    ) + " · " + stringResource(R.string.sess_expires, sessionDateLabel(session.expiresAt)),
                     style = MaterialTheme.typography.labelSmall,
                     color = cs.onSurfaceVariant,
                 )
@@ -438,9 +473,9 @@ private fun SessionRow(
                             Icons.Filled.Delete
                         },
                         contentDescription = if (session.current) {
-                            "Đăng xuất thiết bị này"
+                            stringResource(R.string.sess_sign_this_device_out_2)
                         } else {
-                            "Thu hồi phiên"
+                            stringResource(R.string.sess_revoke_session)
                         },
                         tint = cs.error,
                     )

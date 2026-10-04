@@ -54,12 +54,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.appLocale
 import com.warrantyvault.app.network.ActionQueue
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
@@ -78,18 +83,16 @@ import com.warrantyvault.app.ui.components.pressScale
 import com.warrantyvault.app.ui.screens.actions.actionBadgeCount
 import com.warrantyvault.app.ui.theme.WVAccent
 import com.warrantyvault.app.ui.viewModelFactory
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeParseException
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeParseException
-import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 // ============================================================
 // DashboardScreen — "Tổng quan" tab (mirrors iOS DashboardView)
@@ -198,7 +201,7 @@ fun DashboardScreen(
                     // The landing tab is where a global search has to be
                     // reachable from — one query covers all three lists.
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Filled.Search, "Tìm kiếm tất cả")
+                        Icon(Icons.Filled.Search, stringResource(R.string.dash_search_everything))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -234,7 +237,7 @@ fun DashboardScreen(
                     }
                     is DashboardViewModel.State.Error -> ErrorState(
                         icon = Icons.Outlined.WarningAmber,
-                        title = "Tải không được rồi",
+                        title = stringResource(R.string.dash_could_not_load_it),
                         body = s.message,
                         onRetry = { vm.load() },
                     )
@@ -301,16 +304,16 @@ private fun DashboardBody(
                 StatTile(
                     icon = Icons.Filled.Inventory2,
                     value = "$totalDevices",
-                    label = "Thiết bị",
-                    sub = "đang theo dõi",
+                    label = stringResource(R.string.nav_devices),
+                    sub = stringResource(R.string.dash_sub_tracking),
                     tone = StatTone.Primary,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     icon = Icons.Filled.Shield,
                     value = "$safeActive",
-                    label = "Còn bảo hành",
-                    sub = "được bảo vệ",
+                    label = stringResource(R.string.dash_under_warranty),
+                    sub = stringResource(R.string.dash_sub_protected),
                     tone = StatTone.Success,
                     modifier = Modifier.weight(1f),
                 )
@@ -321,16 +324,18 @@ private fun DashboardBody(
                 StatTile(
                     icon = Icons.Filled.WarningAmber,
                     value = "$expiringSoon",
-                    label = "Sắp hết ≤30 ngày",
-                    sub = if (expiringSoon > 0) "để ý nha" else "không có",
+                    label = stringResource(R.string.dash_expiring_in_30_days),
+                    sub = stringResource(
+                        if (expiringSoon > 0) R.string.dash_sub_watch_out else R.string.dash_sub_none,
+                    ),
                     tone = StatTone.Warning,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     icon = Icons.Outlined.GppBad,
                     value = "$expired",
-                    label = "Đã hết hạn",
-                    sub = "hết kèo",
+                    label = stringResource(R.string.dash_expired),
+                    sub = stringResource(R.string.dash_sub_over),
                     tone = StatTone.Danger,
                     modifier = Modifier.weight(1f),
                 )
@@ -349,7 +354,7 @@ private fun DashboardBody(
         // Upcoming warranties
         item {
             Spacer(Modifier.height(4.dp))
-            SectionHeader("Sắp hết bảo hành")
+            SectionHeader(stringResource(R.string.dash_warranty_expiring_soon))
         }
         if (upcoming.isEmpty()) {
             item { AllGoodCard() }
@@ -367,7 +372,7 @@ private fun DashboardBody(
         if (activeSubs.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(4.dp))
-                SectionHeader("Gói đăng ký")
+                SectionHeader(stringResource(R.string.dash_subscriptions))
             }
             item {
                 SubsCostCard(
@@ -382,7 +387,7 @@ private fun DashboardBody(
         if (wishItems.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(4.dp))
-                SectionHeader("Đang thèm")
+                SectionHeader(stringResource(R.string.dash_wishlist))
             }
             items(wishItems, key = { it.id }) { item ->
                 WishPreviewRow(item)
@@ -414,10 +419,10 @@ private fun ActionQueueRow(queue: ActionQueue?, onClick: () -> Unit) {
     val urgent = (total ?: 0) > 0
 
     val subtitle = when {
-        total == null -> "Mở hàng đợi việc app tự suy ra từ dữ liệu của mày"
-        total == 0 -> "Không có việc nào đang chờ xử lý"
-        high > 0 -> "$total việc cần xử lý · $high mức cao"
-        else -> "$total việc cần xử lý"
+        total == null -> stringResource(R.string.dash_open_the_queue_of_things_the)
+        total == 0 -> stringResource(R.string.dash_nothing_waiting_to_be_handled)
+        high > 0 -> pluralStringResource(R.plurals.dash_items_need_attention_high, total, total, high)
+        else -> pluralStringResource(R.plurals.dash_items_need_attention, total, total)
     }
 
     Card(
@@ -456,7 +461,7 @@ private fun ActionQueueRow(queue: ActionQueue?, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Việc cần xử lý",
+                    stringResource(R.string.dash_action_items),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurface,
@@ -496,9 +501,9 @@ private fun GreetingHeader(userName: String) {
     val cs = MaterialTheme.colorScheme
     val hour = remember { LocalTime.now().hour }
     val greeting = when {
-        hour < 12 -> "Chào buổi sáng,"
-        hour < 18 -> "Chào buổi chiều,"
-        else -> "Chào buổi tối,"
+        hour < 12 -> stringResource(R.string.dash_good_morning)
+        hour < 18 -> stringResource(R.string.dash_good_afternoon)
+        else -> stringResource(R.string.dash_good_evening)
     }
     Column(
         Modifier
@@ -591,9 +596,9 @@ private fun WarrantyPreviewRow(
         else -> cs.primary
     }
     val pillLabel = when {
-        days == 0L -> "Hết hôm nay"
-        days == 1L -> "Còn 1 ngày"
-        else -> "Còn $days ngày"
+        days == 0L -> stringResource(R.string.dash_expires_today)
+        days == 1L -> stringResource(R.string.dash_1_day_left)
+        else -> pluralStringResource(R.plurals.dash_days_left, days.toInt(), days)
     }
     val interactionSource = remember { MutableInteractionSource() }
     Card(
@@ -672,13 +677,13 @@ private fun AllGoodCard() {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Tất cả đều ngon",
+                    stringResource(R.string.dash_everything_looks_fine),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurface,
                 )
                 Text(
-                    "Không có gói nào sắp hết trong 30 ngày",
+                    stringResource(R.string.dash_no_plans_expiring_in_the_next),
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
@@ -713,14 +718,14 @@ private fun SubsCostCard(
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    "/ tháng",
+                    stringResource(R.string.dash_month),
                     style = MaterialTheme.typography.bodyMedium,
                     color = cs.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 3.dp),
                 )
             }
             Text(
-                "~ ${formatVnd(monthlyTotal * 12)}/năm · $activeCount gói đang chạy",
+                stringResource(R.string.dash_year_plans_running, formatVnd(monthlyTotal * 12), activeCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
@@ -729,7 +734,7 @@ private fun SubsCostCard(
                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(cs.outlineVariant))
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "SẮP GIA HẠN",
+                    stringResource(R.string.dash_renewing_soon),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurfaceVariant,
@@ -832,8 +837,7 @@ private fun daysLeftFromIso(raw: String): Long? {
     return ChronoUnit.DAYS.between(LocalDate.now(), end)
 }
 
-private fun formatVnd(amount: Long): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
-}
+/** Money in the UI language — see `i18n/Money.kt`. */
+@Composable
+private fun formatVnd(amount: Long): String = Money.of(amount, appLocale())
 

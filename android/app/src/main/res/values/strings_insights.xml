@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the translation.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in ActionQueueScreen.kt, RemindersScreen.kt, StatsScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="stats_crunching_your_numbers">Crunching your numbers…</string>
+    <string name="stats_a_quick_look_at_your_digital">A quick look at your digital assets</string>
+    <string name="stats_total_devices">Total devices</string>
+    <string name="stats_of_which_are_in_use">of which %1$s are in use</string>
+    <string name="stats_no_devices_yet">No devices yet</string>
+    <string name="stats_in_use">In use</string>
+    <string name="stats_total_value">Total value</string>
+    <string name="stats_warranty_costs">Warranty costs</string>
+    <string name="stats_total_spent">Total spent</string>
+    <string name="stats_active">Active / %1$s</string>
+    <string name="stats_per_month">Per month</string>
+    <string name="stats_wishlist">Wishlist / %1$s</string>
+    <string name="stats_projected_total">Projected total</string>
+    <string name="stats_spending_forecast">Spending forecast</string>
+    <string name="stats_month_by_month">Month by month</string>
+    <string name="stats_warranty_expiring_soon">Warranty expiring soon</string>
+    <string name="stats_wishlist_hitting_its_target_date">Wishlist hitting its target date</string>
+    <string name="stats_projected">Projected %1$s</string>
+    <string name="stats_every_subscription_renewal_inside_the_window">Every subscription renewal inside the window</string>
+    <string name="stats_charged_automatically">Charged automatically</string>
+    <string name="stats_you_renew_these_yourself">You renew these yourself</string>
+    <string name="stats_converted_not_used_in_the_total">(converted, not used in the total)</string>
+    <plurals name="stats_nothing_is_projected_for_the_next">
+        <item quantity="one">Nothing is projected for the next %1$s month.</item>
+        <item quantity="other">Nothing is projected for the next %1$s months.</item>
+    </plurals>
+    <string name="stats_reference_may_happen">reference %1$s — may happen</string>
+    <string name="stats_recorded_price_may_happen">recorded price %1$s — may happen</string>
+    <string name="stats_old_plan_price_a_reference_for">Old plan price %1$s — a reference for saving up, not a charge you will pay</string>
+    <string name="stats_no_price_recorded_for_the_old">No price recorded for the old plan — not a charge you will pay</string>
+    <string name="stats_target">target %1$s</string>
+    <string name="stats_last_recorded_price_may_happen_not">Last recorded price %1$s — may happen, not a charge you are certain to pay</string>
+    <string name="stats_no_price_ever_entered_not_a">No price ever entered — not a charge you are certain to pay</string>
+    <string name="rem_reminder_hidden">Reminder hidden</string>
+    <string name="rem_we_will_ping_you_when_it">We will ping you when it is about to expire</string>
+    <string name="rem_relax_nothing_is_expiring_yet">Relax — nothing is expiring yet</string>
+    <string name="rem_all_of_your_devices_are_safely">All of your devices are safely within warranty.</string>
+    <plurals name="rem_items_to_look_at">
+        <item quantity="one">%1$s item to look at</item>
+        <item quantity="other">%1$s items to look at</item>
+    </plurals>
+    <string name="rem_expires">Expires: %1$s</string>
+    <string name="rem_warranty_provider">Warranty provider: %1$s</string>
+    <string name="rem_seen">Seen</string>
+    <string name="act_un_snoozed_this_item_is_back">Un-snoozed — this item is back in the queue</string>
+    <string name="act_nothing_left_waiting">Nothing left waiting</string>
+    <string name="act_nothing_needs_your_attention">Nothing needs your attention</string>
+    <string name="act_open_the_snoozed_section_to_look">Open the "Snoozed" section to look at it again.</string>
+    <string name="act_the_app_could_not_infer_anything">The app could not infer anything to do from the data you already have.</string>
+    <string name="act_snoozed">Snoozed (%1$s)</string>
+    <string name="act_high">%1$s high</string>
+    <string name="act_medium">%1$s medium</string>
+    <string name="act_low">%1$s low</string>
+    <string name="act_no_items">No items</string>
+    <string name="act_snoozed_2">Snoozed (%1$s)</string>
+    <string name="act_snoozed_3">Snoozed</string>
+    <string name="act_snoozed_items_are_shown_too">Snoozed items are shown too</string>
+    <string name="act_show_only_actionable_items">Show only actionable items</string>
+    <string name="act_show_again">Show again %1$s</string>
+    <string name="act_un_snooze">Un-snooze</string>
+    <string name="act_open_details">Open details</string>
+    <string name="act_snooze">Snooze</string>
+    <string name="act_snooze_this_for">Snooze this for…</string>
+    <string name="search_search_devices_plans_wishlist">Search devices, plans, wishlist…</string>
+    <string name="search_search_for_anything">Search for anything</string>
+    <string name="search_search_failed">Search failed</string>
+    <plurals name="search_results_for">
+        <item quantity="one">%1$s result for "%2$s"</item>
+        <item quantity="other">%1$s results for "%2$s"</item>
+    </plurals>
+    <string name="search_blank_body">Type a device name, brand, model, serial, plan or wishlist item — accents are optional ("dien thoai" matches "Điện thoại").</string>
+    <string name="search_empty_body">No device, plan or wishlist item matches "%1$s". Try a shorter keyword.</string>
+    <string name="search_nothing_matches">Nothing matches</string>
+    <!-- ===== Action queue (ActionQueueFormat.kt, ActionQueueScreen.kt). A few
+         fixed durations rather than a free number field: the decision is "leave it
+         for a while", and every option is inside the server's 1-365 day window. -->
+    <string name="act_snooze_1w">1 week</string>
+    <string name="act_snooze_1m">1 month</string>
+    <string name="act_snooze_3m">3 months (default)</string>
+    <string name="act_snooze_1y">1 year</string>
+
+    <!-- The queue's own words for a severity. Phrased as work items, because
+         that is what they are. -->
+    <string name="act_severity_high">Handle now</string>
+    <string name="act_severity_medium">Should handle</string>
+    <string name="act_severity_low">Gentle nudge</string>
+    <string name="act_severity_unknown">Other</string>
+
+    <plurals name="act_due_overdue">
+        <item quantity="one">%1$d day overdue</item>
+        <item quantity="other">%1$d days overdue</item>
+    </plurals>
+    <string name="act_due_today">Today</string>
+    <plurals name="act_due_in_days">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+
+    <!-- `%1$d` is the duration the SERVER applied, echoed rather than assumed. -->
+    <plurals name="act_snoozed_until">
+        <item quantity="one">Snoozed for %1$d day — this comes back on %2$s</item>
+        <item quantity="other">Snoozed for %1$d days — this comes back on %2$s</item>
+    </plurals>
+    <plurals name="act_snoozed">
+        <item quantity="one">Snoozed for %1$d day</item>
+        <item quantity="other">Snoozed for %1$d days</item>
+    </plurals>
+
+    <string name="act_note_fallback">This list only holds things the app inferred from the data you entered. It is not a push feed, and snoozing something here does not affect warranty reminders.</string>
+
+    <string name="act_nothing_left">Nothing left to handle</string>
+    <plurals name="act_items_to_handle">
+        <item quantity="one">%1$d item to handle</item>
+        <item quantity="other">%1$d items to handle</item>
+    </plurals>
+    <string name="act_snoozed_suffix">%1$s · %2$d snoozed</string>
+
+    <!-- ===== Spending forecast (ForecastFormat.kt) and search. The two
+         honesty sentences reuse `api/internal/i18n/catalog.go` wording verbatim
+         where the concept is the same. ===== -->
+    <string name="stats_forecast_month">Month %1$d, %2$d</string>
+    <string name="stats_forecast_note_fallback">Only ACTIVE plans are counted; LIFETIME plans are never charged. Warranty and wishlist money is spending that may happen, not a charge you are certain to pay.</string>
+    <plurals name="stats_forecast_window">
+        <item quantity="one">%1$d month ahead</item>
+        <item quantity="other">%1$d months ahead</item>
+    </plurals>
+    <string name="stats_forecast_window_unknown">the coming months</string>
+
+    <plurals name="act_snoozed_note">
+        <item quantity="one">%1$d item is snoozed.</item>
+        <item quantity="other">%1$d items are snoozed.</item>
+    </plurals>
+
+    <!-- ===== Spending forecast: the assembled lines (StatsScreen.kt). Each is ONE
+         template, so a line can never be half-translated. ===== -->
+    <string name="stats_forecast_summary">%1$d renewals · %2$d plans · average ~%3$s/month</string>
+    <string name="stats_forecast_bucket_split">Auto-charged %1$s · self-renewed %2$s · %3$d periods</string>
+    <string name="stats_forecast_warranty_line">Warranties expiring: %1$d plans</string>
+    <string name="stats_forecast_wishlist_line">Wishlist milestones: %1$d items</string>
+    <string name="stats_forecast_expires_on"> · expires %1$s</string>
+
+</resources>

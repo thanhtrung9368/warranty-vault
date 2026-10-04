@@ -52,26 +52,30 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Payment
 import com.warrantyvault.app.network.PaymentInput
 import com.warrantyvault.app.network.Subscription
 import com.warrantyvault.app.network.toUserMessage
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class SubscriptionDetailViewModel(
     private val api: ApiService,
@@ -129,16 +133,16 @@ fun SubscriptionDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(loaded?.name ?: "Chi tiết") },
+                title = { Text(loaded?.name ?: stringResource(R.string.devdetail_details)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (loaded != null) {
                         IconButton(onClick = { showEdit = true }) {
-                            Icon(Icons.Filled.Edit, "Sửa")
+                            Icon(Icons.Filled.Edit, stringResource(R.string.action_edit))
                         }
                     }
                 },
@@ -156,7 +160,7 @@ fun SubscriptionDetailScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { vm.load() }) { Text("Thử lại") }
+                    Button(onClick = { vm.load() }) { Text(stringResource(R.string.action_retry)) }
                 }
                 is SubscriptionDetailViewModel.State.Loaded -> Body(
                     sub = s.subscription,
@@ -195,8 +199,8 @@ fun SubscriptionDetailScreen(
     if (showRenewConfirm && loaded != null) {
         AlertDialog(
             onDismissRequest = { showRenewConfirm = false },
-            title = { Text("Gia hạn ngay?") },
-            text = { Text("Tạo bản ghi thanh toán và đẩy ngày gia hạn kế tiếp.") },
+            title = { Text(stringResource(R.string.subs_renew_now)) },
+            text = { Text(stringResource(R.string.subs_record_a_payment_and_push_the)) },
             confirmButton = {
                 TextButton(onClick = {
                     showRenewConfirm = false
@@ -212,10 +216,10 @@ fun SubscriptionDetailScreen(
                             actionLoading = false
                         }
                     }
-                }) { Text("Gia hạn") }
+                }) { Text(stringResource(R.string.subs_renew_2)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRenewConfirm = false }) { Text("Huỷ") }
+                TextButton(onClick = { showRenewConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -269,7 +273,7 @@ private fun Body(
                 ) {
                     Icon(Icons.Filled.Payments, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("Ghi thanh toán")
+                    Text(stringResource(R.string.subs_log_payment))
                 }
                 OutlinedButton(
                     onClick = onRenew,
@@ -278,14 +282,14 @@ private fun Body(
                 ) {
                     Icon(Icons.Filled.Autorenew, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("Gia hạn ngay")
+                    Text(stringResource(R.string.subs_renew_now_2))
                 }
             }
         }
 
         item {
             Text(
-                "Lịch sử thanh toán (${sub.payments.size})",
+                stringResource(R.string.subs_payment_history, sub.payments.size),
                 fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
             )
         }
@@ -304,10 +308,10 @@ private fun Body(
                         Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("Chưa có thanh toán nào", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.subs_no_payments_yet), fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Bấm \"Ghi thanh toán\" để thêm bản ghi đầu tiên.",
+                            stringResource(R.string.subs_tap_log_a_payment_to_add),
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -322,6 +326,7 @@ private fun Body(
 
 @Composable
 private fun SummaryCard(sub: Subscription) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = cs.surface),
@@ -339,17 +344,23 @@ private fun SummaryCard(sub: Subscription) {
                 Text(sub2, fontSize = 13.sp, color = cs.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
-            DetailRow("Trạng thái", sub.status.label)
-            DetailRow("Chu kỳ", sub.billingCycle.label)
-            DetailRow("Giá", formatPriceCycle(sub.price, sub.billingCycle))
-            DetailRow("Bắt đầu", sub.startedAt.take(10))
-            sub.renewalDate?.let { DetailRow("Gia hạn", it.take(10)) }
-            DetailRow("Auto-renew", if (sub.autoRenew) "Có" else "Không")
+            DetailRow(stringResource(R.string.devadd_status), stringResource(sub.status.labelRes))
+            DetailRow(
+                stringResource(R.string.subs_billing_cycle),
+                stringResource(sub.billingCycle.labelRes),
+            )
+            DetailRow(
+                stringResource(R.string.devdetail_price),
+                formatPriceCycle(s, sub.price, sub.billingCycle),
+            )
+            DetailRow(stringResource(R.string.devdetail_starts), sub.startedAt.take(10))
+            sub.renewalDate?.let { DetailRow(stringResource(R.string.subs_renew_2), it.take(10)) }
+            DetailRow("Auto-renew", if (sub.autoRenew) stringResource(R.string.subs_yes) else stringResource(R.string.subs_no))
             if (!sub.accountEmail.isNullOrBlank()) {
-                DetailRow("Tài khoản", sub.accountEmail)
+                DetailRow(stringResource(R.string.subs_account), sub.accountEmail)
             }
             if (!sub.paymentMethod.isNullOrBlank()) {
-                DetailRow("Thanh toán", sub.paymentMethod)
+                DetailRow(stringResource(R.string.subs_payments), sub.paymentMethod)
             }
             if (!sub.notes.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
@@ -423,7 +434,7 @@ private fun ErrorBanner(message: String, onClose: () -> Unit) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 fontSize = 13.sp, modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onClose) { Text("Đóng") }
+            TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
         }
     }
 }
@@ -461,23 +472,23 @@ private fun LogPaymentSheet(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Ghi nhận thanh toán",
+            Text(stringResource(R.string.subs_log_a_payment),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 value = amount,
                 onValueChange = { amount = it.filter { c -> c.isDigit() } },
-                label = { Text("Số tiền (VND) *") },
+                label = { Text(stringResource(R.string.subs_amount_vnd)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = paidAt, onValueChange = { paidAt = it },
-                label = { Text("Ngày thanh toán (YYYY-MM-DD) *") },
+                label = { Text(stringResource(R.string.subs_payment_date_yyyy_mm_dd)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
-                label = { Text("Ghi chú") },
+                label = { Text(stringResource(R.string.devadd_note)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
@@ -493,7 +504,7 @@ private fun LogPaymentSheet(
                 },
                 enabled = (amount.toIntOrNull() ?: 0) > 0 && paidAt.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-            ) { Text("Lưu") }
+            ) { Text(stringResource(R.string.action_save)) }
             Spacer(Modifier.height(20.dp))
         }
     }

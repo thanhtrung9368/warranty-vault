@@ -1,5 +1,7 @@
 package com.warrantyvault.app.ui.screens.wishlist
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.WishlistItem
 import com.warrantyvault.app.network.WishlistPriority
 import com.warrantyvault.app.network.WishlistStatus
@@ -10,12 +12,12 @@ import com.warrantyvault.app.ui.components.parseIsoDate
  * same default (`ACTIVE` = "Đang theo dõi", i.e. WATCHING + DECIDED, mirroring
  * `WISHLIST_ACTIVE_STATUSES` in `website/src/lib/wishlist-types.ts`).
  */
-enum class WishlistStatusFilter(val key: String, val label: String) {
-    Active("ACTIVE", "Đang theo dõi"),
-    Watching("WATCHING", "Watching"),
-    Decided("DECIDED", "Quyết mua"),
-    Purchased("PURCHASED", "Đã mua"),
-    All("ALL", "Tất cả");
+enum class WishlistStatusFilter(val key: String, @StringRes val labelRes: Int) {
+    Active("ACTIVE", R.string.wishfilter_active),
+    Watching("WATCHING", R.string.wishfilter_watching),
+    Decided("DECIDED", R.string.wishfilter_decided),
+    Purchased("PURCHASED", R.string.wishfilter_purchased),
+    All("ALL", R.string.wishfilter_all);
 
     /** The statuses this facet keeps (`null` = keep everything). */
     val statuses: Set<WishlistStatus>?
@@ -34,11 +36,11 @@ enum class WishlistStatusFilter(val key: String, val label: String) {
 }
 
 /** Priority facet (web `priority` select). */
-enum class WishlistPriorityFilter(val key: String, val label: String) {
-    All("ALL", "Tất cả mức"),
-    Must("MUST", "Phải mua"),
-    Want("WANT", "Muốn"),
-    Maybe("MAYBE", "Cân nhắc");
+enum class WishlistPriorityFilter(val key: String, @StringRes val labelRes: Int) {
+    All("ALL", R.string.wishfilter_all_tiers),
+    Must("MUST", R.string.wishfilter_must),
+    Want("WANT", R.string.wishfilter_want),
+    Maybe("MAYBE", R.string.wishfilter_maybe);
 
     val priority: WishlistPriority?
         get() = when (this) {
@@ -55,13 +57,13 @@ enum class WishlistPriorityFilter(val key: String, val label: String) {
 }
 
 /** Sort choices from the web dropdown, same order and same labels. */
-enum class WishlistSort(val label: String) {
-    PriorityAsc("Mức độ thèm cao trước"),
-    TargetAsc("Target gần nhất trước"),
-    TargetDesc("Target xa nhất trước"),
-    RecentDesc("Mới thêm"),
-    PriceDesc("Giá cao trước"),
-    PriceAsc("Giá thấp trước"),
+enum class WishlistSort(@StringRes val labelRes: Int) {
+    PriorityAsc(R.string.wishsort_priority_asc),
+    TargetAsc(R.string.wishsort_target_asc),
+    TargetDesc(R.string.wishsort_target_desc),
+    RecentDesc(R.string.sort_recent_desc),
+    PriceDesc(R.string.wishsort_price_desc),
+    PriceAsc(R.string.wishsort_price_asc),
 }
 
 /**

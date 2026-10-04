@@ -1,5 +1,9 @@
 package com.warrantyvault.app.ui.screens.subscriptions
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.money
 import com.warrantyvault.app.network.ActionCounts
 import com.warrantyvault.app.network.SubscriptionAudit
 import com.warrantyvault.app.network.SubscriptionAuditFinding
@@ -7,8 +11,6 @@ import com.warrantyvault.app.network.SubscriptionAuditThresholds
 import com.warrantyvault.app.ui.screens.actions.ActionSeverity
 import com.warrantyvault.app.ui.screens.actions.actionDateLabel
 import com.warrantyvault.app.ui.screens.actions.actionSeverityOf
-import java.text.NumberFormat
-import java.util.Locale
 
 /**
  * "Soát gói đăng ký" — the pure half of `GET /api/v1/subscriptions/audit`.
@@ -44,11 +46,11 @@ internal fun auditSeverityOf(raw: String): ActionSeverity = actionSeverityOf(raw
  * phrased for work items; here nothing is being asked of the user, so the pill
  * only grades how much a finding deserves a look.
  */
-internal fun auditSeverityLabel(severity: ActionSeverity): String = when (severity) {
-    ActionSeverity.HIGH -> "Đáng chú ý"
-    ActionSeverity.MEDIUM -> "Nên xem lại"
-    ActionSeverity.LOW -> "Nhắc nhẹ"
-    ActionSeverity.UNKNOWN -> "Khác"
+internal fun auditSeverityLabel(s: AppStrings, severity: ActionSeverity): String = when (severity) {
+    ActionSeverity.HIGH -> s.get(R.string.audit_severity_high)
+    ActionSeverity.MEDIUM -> s.get(R.string.audit_severity_medium)
+    ActionSeverity.LOW -> s.get(R.string.audit_severity_low)
+    ActionSeverity.UNKNOWN -> s.get(R.string.audit_severity_unknown)
 }
 
 /**
@@ -61,26 +63,24 @@ internal fun auditSeverityLabel(severity: ActionSeverity): String = when (severi
  * explanation is better than a fabricated one.
  */
 internal fun auditRuleLabel(
+    s: AppStrings,
     finding: SubscriptionAuditFinding,
     thresholds: SubscriptionAuditThresholds?,
 ): String? = when (finding.kind.trim().uppercase()) {
     KIND_QUIET -> thresholds?.takeIf { it.quietMinAutoCharges > 0 && it.quietMinMonths > 0 }?.let {
-        "Luật: gói đang hoạt động, không có khoản nào do bạn tự ghi, " +
-            "máy đã tự trừ ít nhất ${it.quietMinAutoCharges} lần " +
-            "và khoản tự trừ đầu tiên cách đây ít nhất ${it.quietMinMonths} tháng."
+        s.get(R.string.audit_rule_quiet, it.quietMinAutoCharges, it.quietMinMonths)
     }
 
     KIND_PRICE -> thresholds?.takeIf { it.priceRiseMinPercent > 0 }?.let {
-        "Luật: so hai kỳ thanh toán liền kề; mọi mức tăng đều được báo, " +
-            "từ ${it.priceRiseMinPercent}% trở lên mới coi là đáng kể."
+        s.get(R.string.audit_rule_price, it.priceRiseMinPercent)
     }
 
     KIND_DUPLICATE -> when (finding.reason?.trim()?.uppercase()) {
-        REASON_SAME_BRAND -> "Luật: hai gói đang hoạt động cùng hãng và cùng loại."
+        REASON_SAME_BRAND -> s.get(R.string.audit_rule_duplicate_same_brand)
         REASON_SAME_NAME -> if (thresholds?.duplicateNormalized == true) {
-            "Luật: hai gói đang hoạt động trùng tên sau khi bỏ dấu và không phân biệt hoa/thường."
+            s.get(R.string.audit_rule_duplicate_same_name_normalized)
         } else {
-            "Luật: hai gói đang hoạt động trùng tên."
+            s.get(R.string.audit_rule_duplicate_same_name)
         }
         else -> null
     }
@@ -97,21 +97,22 @@ internal fun auditRuleLabel(
  * (`null`) produces no claim either way.
  */
 internal fun auditMaterialNote(
+    s: AppStrings,
     finding: SubscriptionAuditFinding,
     thresholds: SubscriptionAuditThresholds?,
 ): String? {
     if (finding.material != false) return null
     val percent = thresholds?.priceRiseMinPercent ?: 0
     return if (percent > 0) {
-        "Mức tăng này dưới $percent% nên chỉ là thay đổi nhỏ — không phải cảnh báo."
+        s.get(R.string.audit_material_note_small_below, percent)
     } else {
-        "Mức tăng này được đánh giá là nhỏ — không phải cảnh báo."
+        s.get(R.string.audit_material_note_small)
     }
 }
 
 /** Short pill text for a finding whose rise the server judged immaterial. */
-internal fun auditMinorPillLabel(finding: SubscriptionAuditFinding): String? =
-    if (finding.material == false) "Thay đổi nhỏ" else null
+internal fun auditMinorPillLabel(s: AppStrings, finding: SubscriptionAuditFinding): String? =
+    if (finding.material == false) s.get(R.string.audit_minor_pill) else null
 
 /**
  * The money line for one finding, straight from the payload's own figures:
@@ -119,32 +120,40 @@ internal fun auditMinorPillLabel(finding: SubscriptionAuditFinding): String? =
  *  * `QUIET_AUTO_RENEW` — what the MACHINE charged in total and how many times
  *    (never "total spent": user-logged payments are deliberately excluded);
  *  * `PRICE_INCREASED` — the absolute rise plus the percentage when it is
- *    computable (a previous period of 0đ cannot be a percentage, and the server
+ *    computable (a previous period of 0 ₫ cannot be a percentage, and the server
  *    says so by sending `increasePercent = null`);
  *  * `DUPLICATE` — the combined monthly equivalent of both plans.
  */
-internal fun auditMoneyLine(finding: SubscriptionAuditFinding): String? =
+internal fun auditMoneyLine(s: AppStrings, finding: SubscriptionAuditFinding): String? =
     when (finding.kind.trim().uppercase()) {
         KIND_QUIET -> {
             if (finding.chargeCount <= 0) {
                 null
             } else {
-                "Máy đã tự trừ: ${formatVndLong(finding.chargedTotalVnd)} · " +
-                    "${finding.chargeCount} lần"
+                s.quantity(
+                    R.plurals.audit_money_autocharged,
+                    // `chargeCount` is int64 on the wire. Only the plural *bucket*
+                    // is narrowed — anything but 1 selects `other`, and Vietnamese
+                    // has no `one` form at all — while the rendered number stays a
+                    // Long, so a count past Int.MAX_VALUE still prints in full.
+                    finding.chargeCount.toInt(),
+                    s.money(finding.chargedTotalVnd),
+                    finding.chargeCount,
+                )
             }
         }
 
         KIND_PRICE -> finding.increaseVnd?.let { rise ->
             val percent = finding.increasePercent
             if (percent != null) {
-                "Tăng ${formatVndLong(rise)} (+$percent%)"
+                s.get(R.string.audit_money_rise_percent, s.money(rise), percent)
             } else {
-                "Tăng ${formatVndLong(rise)} (kỳ trước 0đ nên không tính được %)"
+                s.get(R.string.audit_money_rise_no_percent, s.money(rise))
             }
         }
 
         KIND_DUPLICATE -> if (finding.monthlyVnd > 0) {
-            "Quy đổi tháng của cả hai: ~${formatVndLong(finding.monthlyVnd)}"
+            s.get(R.string.audit_money_monthly_both, s.money(finding.monthlyVnd))
         } else {
             null
         }
@@ -162,12 +171,18 @@ internal fun auditMoneyLine(finding: SubscriptionAuditFinding): String? =
  *  * "Kỳ gia hạn tới" plus the server's own day count, which is the window in
  *    which the finding is still actionable.
  */
-internal fun auditTimelineNote(finding: SubscriptionAuditFinding): String? {
+internal fun auditTimelineNote(s: AppStrings, finding: SubscriptionAuditFinding): String? {
     val parts = mutableListOf<String>()
-    actionDateLabel(finding.lastRecordedAt)?.let { parts += "Khoản ghi nhận gần nhất: $it" }
+    actionDateLabel(finding.lastRecordedAt)?.let {
+        parts += s.get(R.string.audit_timeline_last_recorded, it)
+    }
     actionDateLabel(finding.nextRenewalAt)?.let { date ->
         val days = finding.daysUntilRenewal
-        parts += if (days != null) "Kỳ gia hạn tới: $date (còn $days ngày)" else "Kỳ gia hạn tới: $date"
+        parts += if (days != null) {
+            s.quantity(R.plurals.audit_timeline_renewal_with_days, days, date, days)
+        } else {
+            s.get(R.string.audit_timeline_renewal, date)
+        }
     }
     return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
@@ -177,30 +192,35 @@ internal fun auditTimelineNote(finding: SubscriptionAuditFinding): String? {
  * payload without it must not be described as harmless — that is a claim about
  * the server's behaviour, not a decoration.
  */
-internal fun auditAdvisoryNote(advisory: Boolean): String? =
-    if (advisory) "Chỉ tư vấn: không có gì bị sửa, bị huỷ hay bị tắt tự động." else null
+internal fun auditAdvisoryNote(s: AppStrings, advisory: Boolean): String? =
+    if (advisory) s.get(R.string.audit_advisory) else null
 
 /**
  * The "Luật đang áp dụng" card: one line per rule, built from the payload's
  * thresholds. Empty when the server sent none — the card is then hidden instead
  * of showing an empty box.
  */
-internal fun auditThresholdLines(thresholds: SubscriptionAuditThresholds?): List<String> {
+internal fun auditThresholdLines(
+    s: AppStrings,
+    thresholds: SubscriptionAuditThresholds?,
+): List<String> {
     if (thresholds == null) return emptyList()
     val lines = mutableListOf<String>()
     if (thresholds.quietMinAutoCharges > 0 && thresholds.quietMinMonths > 0) {
-        lines += "Tự trừ lâu không ghi nhận: ≥ ${thresholds.quietMinAutoCharges} khoản máy tự trừ " +
-            "và khoản đầu cách đây ≥ ${thresholds.quietMinMonths} tháng."
+        lines += s.get(
+            R.string.audit_threshold_quiet,
+            thresholds.quietMinAutoCharges,
+            thresholds.quietMinMonths,
+        )
     }
     if (thresholds.priceRiseMinPercent > 0) {
-        lines += "Tăng giá: mọi mức tăng đều được báo; " +
-            "từ ${thresholds.priceRiseMinPercent}% trở lên là đáng kể."
+        lines += s.get(R.string.audit_threshold_price, thresholds.priceRiseMinPercent)
     }
     if (thresholds.upcomingRenewalDays > 0) {
-        lines += "Còn kịp xử lý trước khi bị trừ tiền: ${thresholds.upcomingRenewalDays} ngày."
+        lines += s.get(R.string.audit_threshold_renewal, thresholds.upcomingRenewalDays)
     }
     if (thresholds.duplicateNormalized) {
-        lines += "Trùng nhau: so tên có bỏ dấu, không phân biệt hoa/thường, chỉ giữa các gói đang hoạt động."
+        lines += s.get(R.string.audit_threshold_duplicate)
     }
     return lines
 }
@@ -240,28 +260,18 @@ internal fun auditSortFindings(
  * The subtitle under the screen title, built from `counts` — the server's own
  * tally of every finding, not `findings.size`.
  */
-internal fun auditSubtitle(counts: ActionCounts): String = when {
-    counts.total == 0 -> "Không có gì đáng lưu ý"
-    counts.total == 1 -> "1 phát hiện cần xem lại"
-    else -> "${counts.total} phát hiện cần xem lại"
+internal fun auditSubtitle(s: AppStrings, counts: ActionCounts): String = when (counts.total) {
+    0 -> s.get(R.string.audit_nothing_worth_flagging)
+    else -> s.quantity(R.plurals.audit_findings, counts.total, counts.total)
 }
 
-/** `GET /api/v1/subscriptions/audit` — short Vietnamese label for the entry row. */
-internal const val AUDIT_ENTRY_TITLE = "Soát gói đăng ký"
+/** `GET /api/v1/subscriptions/audit` — short label for the entry row. */
+@StringRes
+internal val AUDIT_ENTRY_TITLE = R.string.audit_entry_title
 
 /** One honest sentence about what the entry row opens. No verdict, no numbers. */
-internal const val AUDIT_ENTRY_SUBTITLE =
-    "Đọc lịch sử thanh toán để tìm gói tự trừ lâu không thấy ghi nhận, gói tăng giá và gói trùng nhau."
-
-/**
- * Money for the audit screen. `Long`, because every amount on the wire is int64:
- * an `Int` would throw inside kotlinx.serialization on a large value and blank
- * the whole screen — a trap this app has already been caught by.
- */
-internal fun formatVndLong(amount: Long): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
-}
+@StringRes
+internal val AUDIT_ENTRY_SUBTITLE = R.string.audit_entry_subtitle
 
 /** Finding kinds, as raw codes (a kind this build has not seen degrades). */
 internal const val KIND_QUIET = "QUIET_AUTO_RENEW"

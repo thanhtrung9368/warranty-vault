@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Share target (FEATURE_IDEAS #10) — the two rejection messages the Activity
+  shows as a `Toast` when a shared item carries no usable link.
+
+  The Vietnamese text is copied VERBATIM from `ShareTarget.MESSAGE_*`, which
+  stays in that file as the pure-Kotlin mirror
+  (`app/src/test/.../share/ShareTargetTest.kt` pins it, and `ShareTarget.kt`
+  deliberately imports nothing from Android). `MainActivity` maps a
+  `ShareTarget.Reason` onto these keys, so the two copies cannot drift without
+  one of them failing: the test pins the mirror, the UI renders these.
+-->
+<resources>
+
+    <string name="share_rejected_no_link">No product link found in what you shared. Open the Wishlist tab and paste the link into the “Purchase URL” box.</string>
+    <string name="share_rejected_unsupported_scheme">Only http/https links are accepted. The link you shared uses a different protocol, so it cannot be opened.</string>
+
+    <!-- Android notification channels (WVMessagingService.kt). -->
+    <string name="push_channel_warranty_name">Warranty notifications</string>
+    <string name="push_channel_warranty_desc">Warranty, plan and wishlist reminders</string>
+
+</resources>

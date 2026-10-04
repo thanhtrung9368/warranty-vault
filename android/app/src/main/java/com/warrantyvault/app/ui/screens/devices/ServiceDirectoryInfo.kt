@@ -3,6 +3,9 @@ package com.warrantyvault.app.ui.screens.devices
 import com.warrantyvault.app.network.BrandServiceInfo
 import com.warrantyvault.app.network.PhoneSource
 import com.warrantyvault.app.network.ServiceDirectory
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
 import com.warrantyvault.app.network.WarrantyCentre
 import com.warrantyvault.app.ui.screens.vietnamDate
 
@@ -47,21 +50,21 @@ internal fun directoryBrandInput(directory: ServiceDirectory): String? =
  * suggestion — inventing a URL for a brand is exactly what the server declined to
  * do.
  */
-internal const val NULL_BRAND_EXPLANATION: String =
-    "App không có thông tin cho hãng này: chưa có dòng danh bạ nào khớp, hoặc có nhiều " +
-        "dòng khớp ngang nhau nên app không đoán bừa. Ghi rõ hãng trong thiết bị để lần " +
-        "sau tra được."
+@StringRes
+internal val NULL_BRAND_EXPLANATION: Int = R.string.dir_null_brand
 
 /** When there is no brand recorded at all, the same honesty, worded for that case. */
-internal const val NO_BRAND_EXPLANATION: String =
-    "Thiết bị này chưa ghi hãng nên app không tra được danh bạ. Thêm hãng trong thiết bị " +
-        "để lần sau tra được."
+@StringRes
+internal val NO_BRAND_EXPLANATION: Int = R.string.dir_no_brand
 
 /** A directory URL this client is willing to open, with the label approved for it. */
 internal data class DirectoryLink(val label: String, val url: String)
 
-internal const val SERVICE_LOCATOR_LABEL: String = "Tra cứu trung tâm bảo hành uỷ quyền"
-internal const val SUPPORT_URL_LABEL: String = "Trang hỗ trợ của hãng"
+@StringRes
+internal val SERVICE_LOCATOR_LABEL: Int = R.string.dir_service_locator_label
+
+@StringRes
+internal val SUPPORT_URL_LABEL: Int = R.string.dir_support_url_label
 
 /**
  * The links of a brand row, filtered to ones worth showing.
@@ -75,10 +78,10 @@ internal const val SUPPORT_URL_LABEL: String = "Trang hỗ trợ của hãng"
  * Only well-formed `http(s)` URLs survive: an entry this client cannot open does
  * not become a button that fails silently on tap.
  */
-internal fun brandDirectoryLinks(brand: BrandServiceInfo): List<DirectoryLink> =
+internal fun brandDirectoryLinks(s: AppStrings, brand: BrandServiceInfo): List<DirectoryLink> =
     listOfNotNull(
-        brand.serviceLocatorUrl.toDirectoryLink(SERVICE_LOCATOR_LABEL),
-        brand.supportUrl.toDirectoryLink(SUPPORT_URL_LABEL),
+        brand.serviceLocatorUrl.toDirectoryLink(s.get(SERVICE_LOCATOR_LABEL)),
+        brand.supportUrl.toDirectoryLink(s.get(SUPPORT_URL_LABEL)),
     )
 
 private fun String?.toDirectoryLink(label: String): DirectoryLink? {
@@ -103,13 +106,14 @@ internal fun brandNote(brand: BrandServiceInfo): String? =
  * sentence says the app could not match it rather than pretending there is no
  * provider.
  */
-internal fun centreProviderLine(centre: WarrantyCentre): String {
+internal fun centreProviderLine(s: AppStrings, centre: WarrantyCentre): String {
     centre.provider?.name?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
     val typed = centre.providerInput?.trim().orEmpty()
-    return typed.ifEmpty { NO_PROVIDER_MESSAGE }
+    return typed.ifEmpty { s.get(NO_PROVIDER_MESSAGE) }
 }
 
-internal const val NO_PROVIDER_MESSAGE: String = "Chưa ghi nơi bảo hành"
+@StringRes
+internal val NO_PROVIDER_MESSAGE: Int = R.string.dir_no_provider
 
 /**
  * The line under an unmatched provider row, saying the app refused to guess.
@@ -121,11 +125,11 @@ internal const val NO_PROVIDER_MESSAGE: String = "Chưa ghi nơi bảo hành"
  * user wrote something they did not. When there *is* text, it is quoted back
  * verbatim, because the near-miss is the useful information.
  */
-internal fun unmatchedProviderNote(centre: WarrantyCentre): String? {
+internal fun unmatchedProviderNote(s: AppStrings, centre: WarrantyCentre): String? {
     if (!isUnmatchedProvider(centre)) return null
     val typed = centre.providerInput?.trim().orEmpty()
     if (typed.isEmpty()) return null
-    return "\"$typed\" chưa khớp danh bạ nào — app không đoán."
+    return s.get(R.string.dir_unmatched_provider, typed)
 }
 
 /**
@@ -137,16 +141,16 @@ internal fun isUnmatchedProvider(centre: WarrantyCentre): Boolean =
     centre.provider?.name?.trim().isNullOrEmpty()
 
 /** `"Còn hiệu lực"` / `"Đã hết hạn"` — server-computed, never re-derived here. */
-internal fun centreStatusLabel(centre: WarrantyCentre): String =
-    if (centre.isActive) "Còn hiệu lực" else "Đã hết hạn"
+internal fun centreStatusLabel(s: AppStrings, centre: WarrantyCentre): String =
+    if (centre.isActive) s.get(R.string.dir_centre_active) else s.get(R.string.dash_expired)
 
 /**
  * `"Hết hạn 15/01/2027"`, or `null` when `endDate` is absent or not a shape this
  * client will render. A warranty with no `endDate` still shows its status line; it
  * just does not get a date the app made up.
  */
-internal fun centreEndDateLabel(centre: WarrantyCentre): String? =
-    vietnamDate(centre.endDate)?.let { "Hết hạn $it" }
+internal fun centreEndDateLabel(s: AppStrings, centre: WarrantyCentre): String? =
+    vietnamDate(centre.endDate)?.let { s.get(R.string.sess_expires, it) }
 
 /**
  * The phone row, as the two states [PhoneSource] can be in.
@@ -178,9 +182,11 @@ internal fun dialablePhone(centre: WarrantyCentre): DialablePhone? {
 internal data class DialablePhone(val number: String) {
     /**
      * Shown next to the number. States the source, not a verification: the app
-     * never checked this number and must not look like it did.
+     * never checked this number and must not look like it did. Resolved from the
+     * enum's own `labelRes`, so the attribution cannot drift from the sentence
+     * the directory screen uses for the other source.
      */
-    val attribution: String get() = PhoneSource.USER.label
+    fun attribution(s: AppStrings): String = s.get(PhoneSource.USER.labelRes)
 
     /** The `tel:` URI for `Intent.ACTION_DIAL`. */
     val dialUri: String get() = "tel:${number.filter { !it.isWhitespace() }}"
@@ -188,10 +194,11 @@ internal data class DialablePhone(val number: String) {
 
 /**
  * `"Chưa có số điện thoại"` — the absence, said rather than left blank. Sourced
- * from the enum's own label so the two can never drift apart; that is why it is a
- * `val` and not a `const`.
+ * from the enum's own label ([PhoneSource.NONE]'s `labelRes`) so the two can
+ * never drift apart.
  */
-internal val NO_PHONE_MESSAGE: String = PhoneSource.NONE.label
+@StringRes
+internal val NO_PHONE_MESSAGE: Int = PhoneSource.NONE.labelRes
 
 /**
  * The address row, or `null` when there is none. Same rule as the phone: this is
@@ -206,11 +213,12 @@ internal fun directoryDisclaimer(directory: ServiceDirectory): String? =
     directory.disclaimer.trim().takeIf { it.isNotEmpty() }
 
 /** `"3 gói bảo hành"` — the count of rows, which is the count of the device's warranties. */
-internal fun centreCountLabel(centres: List<WarrantyCentre>): String = when (centres.size) {
-    0 -> "Thiết bị chưa có gói bảo hành nào"
-    1 -> "1 gói bảo hành"
-    else -> "${centres.size} gói bảo hành"
-}
+internal fun centreCountLabel(s: AppStrings, centres: List<WarrantyCentre>): String =
+    if (centres.isEmpty()) {
+        s.get(R.string.dir_no_centres)
+    } else {
+        s.quantity(R.plurals.dir_centre_count, centres.size, centres.size)
+    }
 
 // ---- Dial intent ----
 

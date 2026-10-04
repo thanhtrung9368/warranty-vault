@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.components
 
+import com.warrantyvault.app.i18n.ResCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,9 +13,17 @@ import java.time.LocalDate
  */
 class WarrantyStateTest {
 
+    /**
+     * The Vietnamese catalog, read off `res/values-vi/`. Every expected sentence
+     * in this file is unchanged from before the conversion — which is what proves
+     * moving them into the resource table moved no bytes.
+     */
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
+
     private val today = LocalDate.of(2025, 1, 1)
 
-    private fun stateFor(end: String?) = warrantyState(end, today)
+    private fun stateFor(end: String?) = warrantyState(vi, end, today)
 
     @Test
     fun pastEnd_rendersHowLongItHasBeenExpired() {
@@ -65,5 +74,19 @@ class WarrantyStateTest {
         assertNull("blank", stateFor("   "))
         assertNull("garbage", stateFor("not-a-date"))
         assertNull("truncated", stateFor("2025-1"))
+    }
+    /**
+     * The same boundaries in English. The catalog is the only difference — if a
+     * key were missing from `values/`, the parity test would fail; if it were
+     * wired to the wrong key, these assertions would.
+     */
+    @Test
+    fun english_rendersTheSameBoundariesInEnglish() {
+        assertEquals("Expired 2 days ago", warrantyState(en, "2024-12-30", today)!!.label)
+        assertEquals("Expires today", warrantyState(en, "2025-01-01", today)!!.label)
+        assertEquals("1 day left", warrantyState(en, "2025-01-02", today)!!.label)
+        assertEquals("14 days left", warrantyState(en, "2025-01-15", today)!!.label)
+        assertEquals("90 days left", warrantyState(en, "2025-04-01", today)!!.label)
+        assertEquals("3 months left", warrantyState(en, "2025-04-02", today)!!.label)
     }
 }

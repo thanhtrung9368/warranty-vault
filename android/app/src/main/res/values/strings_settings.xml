@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings tab, profile sheet, email-change sheet, sessions, push devices and
+  the change-password sheet.
+
+  RESERVED PREFIXES — already defined and owned by the i18n scaffolding, do not
+  re-add or rename:
+    settings_lang_*     the language switcher row + sheet
+    settings_email_*    the (now clickable) email row
+    profile_*           ProfileEditSheet
+    email_change_*      EmailChangeSheet
+  Everything else in this file is fair game.
+-->
+<resources>
+
+    <!-- ===== Language switcher (ui/screens/settings/LanguageSheet.kt). ===== -->
+    <string name="settings_lang_row_title">Language</string>
+    <string name="settings_lang_row_subtitle">The language of the app and of its notifications.</string>
+    <string name="settings_lang_sheet_title">Choose a language</string>
+    <string name="settings_lang_english">English</string>
+    <string name="settings_lang_vietnamese">Vietnamese</string>
+    <string name="settings_lang_footer">The choice is saved to your account so push notifications and emails arrive in the right language, not only the screens here.</string>
+    <string name="settings_lang_saving">Saving…</string>
+
+    <!-- ===== Profile row / email change entry point (SettingsScreen.kt). ===== -->
+    <string name="settings_email_row_subtitle">%1$s · tap to change</string>
+
+    <!-- ===== ProfileEditSheet.kt ===== -->
+    <string name="profile_title">Edit profile</string>
+    <string name="profile_display_name">Display name</string>
+    <string name="profile_name_hint">Leave it empty to clear the name. At most 80 bytes (~26 Vietnamese characters).</string>
+    <string name="profile_saved">Profile updated</string>
+
+    <!-- ===== EmailChangeSheet.kt (POST /auth/change-email → /confirm-email-change).
+         The wording mirrors ios/Sources/WarrantyVaultKit/EmailChangeSheet.swift,
+         which is the same screen on the other native client. ===== -->
+    <string name="email_change_title">Change email</string>
+    <string name="email_change_intro">Current sign-in email: %1$s. Once you confirm, every device is signed out and you have to sign in again with the new address.</string>
+    <string name="email_change_intro_empty">—</string>
+    <string name="email_change_step1_header">Step 1 — Send a code to the new address</string>
+    <string name="email_change_new_email">New email address</string>
+    <string name="email_change_current_password">Current password</string>
+    <string name="email_change_requesting">Sending…</string>
+    <string name="email_change_request">Send confirmation code</string>
+    <string name="email_change_step2_header">Step 2 — Enter the confirmation code</string>
+    <string name="email_change_token">Confirmation code from the email</string>
+    <string name="email_change_confirming">Confirming…</string>
+    <string name="email_change_confirm">Confirm email change</string>
+    <string name="email_change_footer">The app cannot open the link in the email (it is a web page), so paste the code — or the whole link — into the box above. The code is single use and expires in %1$d minutes.</string>
+    <string name="email_change_requested">Request received</string>
+    <string name="email_change_check_inbox">Open the inbox of the NEW address%1$s — Spam included — then paste the confirmation code into Step 2.</string>
+    <string name="email_change_check_inbox_address"> (%1$s)</string>
+    <string name="email_change_old_address_note">The old address keeps working until you confirm.</string>
+    <string name="email_change_enter_token">Enter the confirmation code from the email.</string>
+    <string name="email_change_done_title">Email changed</string>
+    <string name="email_change_done_body">Your sign-in email has been changed%1$s. Every device — this one included — has been signed out. Sign in again with the new address.</string>
+    <string name="email_change_done_body_address"> to %1$s</string>
+    <string name="email_change_sign_in_again">Sign in again</string>
+
+    <!-- Appearance (ThemePreference.kt). -->
+    <string name="settings_theme_system">System default</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+
+</resources>

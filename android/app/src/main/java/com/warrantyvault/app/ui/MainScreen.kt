@@ -2,6 +2,7 @@ package com.warrantyvault.app.ui
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -36,9 +37,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.warrantyvault.app.App
+import com.warrantyvault.app.R
 import com.warrantyvault.app.auth.AuthStore
 import com.warrantyvault.app.share.ShareTarget
 import com.warrantyvault.app.ui.screens.actions.ActionQueueScreen
@@ -58,26 +61,30 @@ import com.warrantyvault.app.ui.screens.wishlist.WishlistDetailScreen
 import com.warrantyvault.app.ui.screens.wishlist.WishlistScreen
 
 private enum class Tab(
-    val label: String,
+    @StringRes val labelRes: Int,
     val outlined: ImageVector,
     val filled: ImageVector,
 ) {
-    Dashboard("Tổng quan", Icons.Outlined.GridView, Icons.Filled.GridView),
-    Devices("Thiết bị", Icons.Outlined.Devices, Icons.Filled.Devices),
-    Reminders("Nhắc", Icons.Outlined.Notifications, Icons.Filled.Notifications),
-    Subscriptions("Gói", Icons.Outlined.CreditCard, Icons.Filled.CreditCard),
-    Wishlist("Thèm", Icons.Outlined.StarBorder, Icons.Filled.Star),
-    Stats("Thống kê", Icons.Outlined.BarChart, Icons.Filled.BarChart),
-    Settings("Cài đặt", Icons.Outlined.Settings, Icons.Filled.Settings),
+    Dashboard(R.string.nav_overview, Icons.Outlined.GridView, Icons.Filled.GridView),
+    Devices(R.string.nav_devices, Icons.Outlined.Devices, Icons.Filled.Devices),
+    Reminders(R.string.nav_reminders, Icons.Outlined.Notifications, Icons.Filled.Notifications),
+    Subscriptions(R.string.nav_plans, Icons.Outlined.CreditCard, Icons.Filled.CreditCard),
+    Wishlist(R.string.nav_wishlist, Icons.Outlined.StarBorder, Icons.Filled.Star),
+    Stats(R.string.nav_stats, Icons.Outlined.BarChart, Icons.Filled.BarChart),
+    Settings(R.string.nav_settings, Icons.Outlined.Settings, Icons.Filled.Settings),
 }
 
 @Composable
 fun MainScreen(auth: AuthStore) {
     var selected by remember { mutableStateOf(Tab.Dashboard) }
     val authStatus by auth.status.collectAsState()
+    // The label is a resource ID, not a String: an `enum class` is not a
+    // composable scope, so it cannot call stringResource() itself — resolving it
+    // at the render site is what makes the tab bar follow the language switch.
+    val defaultUser = stringResource(R.string.shell_default_user)
     val userName = (authStatus as? AuthStore.Status.Authenticated)?.user?.let { u ->
         u.name?.takeIf { it.isNotBlank() } ?: u.email.substringBefore("@")
-    } ?: "Bạn"
+    } ?: defaultUser
     var openDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var openSubscriptionId by rememberSaveable { mutableStateOf<String?>(null) }
     var openWishlistId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -233,7 +240,7 @@ fun MainScreen(auth: AuthStore) {
                         },
                         label = {
                             Text(
-                                tab.label,
+                                stringResource(tab.labelRes),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                             )

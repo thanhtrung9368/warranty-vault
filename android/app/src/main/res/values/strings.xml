@@ -1,4 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the product default (docs/I18N_PLAN.md §2.4).
+
+  `values-vi/strings.xml` holds the Vietnamese side. Vietnamese is the ORIGINAL
+  of this app (every literal in the Kotlin sources was Vietnamese before this
+  effort); the English column was added, never the other way round.
+
+  Two rules for this pair of files, both enforced by
+  `app/src/test/.../i18n/StringResourceParityTest.kt` rather than by review:
+
+    1. THE KEY SETS MUST BE IDENTICAL across `values*/strings*.xml` and
+       `values-vi/strings*.xml`. A key that exists in only one language silently
+       falls back to the other language, which is the exact failure this whole
+       exercise exists to prevent.
+    2. THE FORMAT VERBS MUST MATCH per key (`%1$s` / `%2$d` …). A translation
+       that drops a placeholder fails at runtime, not at build time.
+
+  Why the strings are split across several files (`strings.xml`,
+  `strings_devices.xml`, …): the catalog is ~900 keys and was converted by
+  several agents in parallel. One file per domain meant one writer per file.
+  Android merges every `values*/` file into the same resource table, so the
+  split is invisible to the code — `R.string.dash_title` is `R.string.dash_title`
+  wherever it is declared.
+
+  Android escaping inside <string>: apostrophe `\'`, quote `\"`, ampersand
+  `&amp;`, and a literal percent sign `%%` in any string that also carries
+  format arguments.
+-->
 <resources>
+
     <string name="app_name">Warranty Vault</string>
+
+    <!-- ===== Bottom navigation (MainScreen.kt). Short on purpose: seven
+         destinations share one phone-width bar. "Gói" is rendered "Plans"
+         because the API's own English for a subscription is "plan" (see
+         api/internal/i18n/catalog.go, "The %s plan for …"). ===== -->
+    <string name="nav_overview">Overview</string>
+    <string name="nav_devices">Devices</string>
+    <string name="nav_reminders">Reminders</string>
+    <string name="nav_plans">Plans</string>
+    <string name="nav_wishlist">Wishlist</string>
+    <string name="nav_stats">Stats</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- ===== Shell fallbacks (MainScreen.kt). ===== -->
+    <!-- Greeting used when the signed-in user has neither a name nor an email
+         local part we can show. -->
+    <string name="shell_default_user">there</string>
+
+    <!-- ===== Actions shared by more than one screen. =====
+         `action_add`, `action_clear`, `state_none` and `state_unknown` are the
+         shared vocabulary for screens the conversion has NOT reached yet (see
+         the count in the phase-2 report), so they are declared here and are not
+         referenced from Kotlin today. They are kept rather than deleted because
+         they are generic words, not screen-specific copy. -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_close">Close</string>
+    <string name="action_back">Back</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_add">Add</string>
+    <string name="action_search">Search</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_undo">Undo</string>
+    <string name="state_loading">Loading…</string>
+    <string name="state_none">None</string>
+    <string name="state_unknown">Unknown</string>
+
+    <!-- ===== Transport failures (network/Errors.kt). The API's own `message`
+         is preferred whenever the body carries one; these two are only the
+         fallback for a body that does not. ===== -->
+    <string name="error_server_code">Server error (%1$d)</string>
+    <string name="error_network">Network error</string>
+
+    <string name="sort_recent_desc">Recently added</string>
+
 </resources>

@@ -14,6 +14,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.warrantyvault.app.R
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.BrandOption
 import com.warrantyvault.app.network.Catalog
@@ -40,7 +42,10 @@ fun BrandAutocompleteField(
     categoryCode: String?,
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "Hãng",
+    // `null` means "use the catalog's own word for this field", so a caller with
+    // nothing screen-specific to say gets a translated label without having to
+    // pass a Vietnamese literal.
+    label: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val filtered = remember(brands, categoryCode, value) {
@@ -66,7 +71,7 @@ fun BrandAutocompleteField(
                 onValueChange(it)
                 expanded = true
             },
-            label = { Text(label) },
+            label = { Text(label ?: stringResource(R.string.devadd_brand)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryEditable),
@@ -96,7 +101,7 @@ fun StoreAutocompleteField(
     stores: List<StoreOption>,
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "Nơi mua",
+    label: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val filtered = remember(stores, value) {
@@ -117,7 +122,7 @@ fun StoreAutocompleteField(
                 onValueChange(it)
                 expanded = true
             },
-            label = { Text(label) },
+            label = { Text(label ?: stringResource(R.string.devdetail_purchased_at)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryEditable),
@@ -151,7 +156,7 @@ fun WarrantyProviderAutocompleteField(
     value: String,
     onValueChange: (String) -> Unit,
     onProviderPicked: (WarrantyProviderOption) -> Unit = {},
-    label: String = "Đơn vị bảo hành",
+    label: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val filtered = remember(providers, value) {
@@ -172,7 +177,7 @@ fun WarrantyProviderAutocompleteField(
                 onValueChange(it)
                 expanded = true
             },
-            label = { Text(label) },
+            label = { Text(label ?: stringResource(R.string.devadd_brand_other)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryEditable),

@@ -54,12 +54,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
@@ -67,13 +71,13 @@ import com.warrantyvault.app.network.DeviceWarning
 import com.warrantyvault.app.network.Warranty
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.theme.WVAccent
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class DeviceDetailViewModel(
     private val api: ApiService,
@@ -184,20 +188,20 @@ fun DeviceDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(deviceLoaded?.name ?: "Chi tiết") },
+                title = { Text(deviceLoaded?.name ?: stringResource(R.string.devdetail_details)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (deviceLoaded != null) {
                         IconButton(onClick = { showEditDevice = true }) {
-                            Icon(Icons.Filled.Edit, "Sửa thiết bị")
+                            Icon(Icons.Filled.Edit, stringResource(R.string.devadd_edit_device))
                         }
                         IconButton(onClick = { showDeleteDevice = true }) {
                             Icon(
-                                Icons.Filled.DeleteOutline, "Xoá thiết bị",
+                                Icons.Filled.DeleteOutline, stringResource(R.string.devdetail_delete_device),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -211,7 +215,7 @@ fun DeviceDetailScreen(
                     onClick = { showAddSheet = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                 ) {
-                    Icon(Icons.Filled.Add, "Thêm bảo hành",
+                    Icon(Icons.Filled.Add, stringResource(R.string.devdetail_add_a_warranty_plan),
                         tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
@@ -237,7 +241,7 @@ fun DeviceDetailScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { vm.load() }) { Text("Thử lại") }
+                    Button(onClick = { vm.load() }) { Text(stringResource(R.string.action_retry)) }
                 }
                 is DeviceDetailViewModel.State.Loaded -> Column {
                     DeviceWarningsCard(
@@ -322,9 +326,14 @@ fun DeviceDetailScreen(
     if (deleting != null) {
         AlertDialog(
             onDismissRequest = { deletingWarrantyId = null },
-            title = { Text("Xoá gói bảo hành?") },
+            title = { Text(stringResource(R.string.devdetail_delete_this_warranty_plan)) },
             text = {
-                Text("Hành động này không thể hoàn tác. Gói \"${deleting.type.label}\" sẽ bị xoá khỏi thiết bị.")
+                Text(
+                    stringResource(
+                        R.string.devdetail_this_cannot_be_undone_the_plan,
+                        stringResource(deleting.type.labelRes),
+                    ),
+                )
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -338,10 +347,10 @@ fun DeviceDetailScreen(
                             actionError = e.toUserMessage(ApiClient.json)
                         }
                     }
-                }) { Text("Xoá", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { deletingWarrantyId = null }) { Text("Huỷ") }
+                TextButton(onClick = { deletingWarrantyId = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -350,12 +359,9 @@ fun DeviceDetailScreen(
     if (showDeleteDevice && deviceLoaded != null) {
         AlertDialog(
             onDismissRequest = { if (!deletingDevice) showDeleteDevice = false },
-            title = { Text("Xóa thiết bị?") },
+            title = { Text(stringResource(R.string.devdetail_delete_this_device)) },
             text = {
-                Text(
-                    "Hành động này sẽ xóa vĩnh viễn \"${deviceLoaded.name}\" cùng toàn bộ " +
-                        "file đính kèm và nhắc nhở. Không thể khôi phục.",
-                )
+                Text(stringResource(R.string.devdetail_delete_body, deviceLoaded.name))
             },
             confirmButton = {
                 TextButton(
@@ -376,11 +382,11 @@ fun DeviceDetailScreen(
                             },
                         )
                     },
-                ) { Text(if (deletingDevice) "Đang xoá…" else "Xoá", color = MaterialTheme.colorScheme.error) }
+                ) { Text(if (deletingDevice) stringResource(R.string.devdetail_deleting) else stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(enabled = !deletingDevice, onClick = { showDeleteDevice = false }) {
-                    Text("Huỷ")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -420,7 +426,7 @@ private fun DeviceDetailBody(
                 Icon(Icons.Filled.VerifiedUser, null,
                     tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
-                Text("Bảo hành",
+                Text(stringResource(R.string.devdetail_warranty),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
@@ -450,7 +456,7 @@ private fun DeviceDetailBody(
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             fontSize = 13.sp,
                             modifier = Modifier.weight(1f))
-                        TextButton(onClick = onClearError) { Text("Đóng") }
+                        TextButton(onClick = onClearError) { Text(stringResource(R.string.action_close)) }
                     }
                 }
             }
@@ -469,11 +475,11 @@ private fun DeviceDetailBody(
                         Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("Chưa có gói bảo hành nào",
+                        Text(stringResource(R.string.devdetail_no_warranty_plan_yet),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
-                        Text("Bấm nút + để thêm gói đầu tiên.",
+                        Text(stringResource(R.string.devdetail_tap_to_add_the_first_plan),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -496,6 +502,7 @@ private fun DeviceDetailBody(
 
 @Composable
 private fun DeviceSummaryCard(device: Device) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = cs.surface),
@@ -513,10 +520,10 @@ private fun DeviceSummaryCard(device: Device) {
                 Text(sub, fontSize = 13.sp, color = cs.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
-            DetailRow("Trạng thái", device.status.label)
-            DetailRow("Mua ngày", device.purchaseDate.take(10))
+            DetailRow(stringResource(R.string.devadd_status), stringResource(device.status.labelRes))
+            DetailRow(stringResource(R.string.devdetail_bought_on), device.purchaseDate.take(10))
             if (device.purchasePrice > 0) {
-                DetailRow("Giá", formatVnd(device.purchasePrice))
+                DetailRow(stringResource(R.string.devdetail_price), formatVnd(device.purchasePrice))
             }
             // Exchange/return window — READ-ONLY display of the server's derived
             // `returnDeadline` (migration 0010). Shown only when the server says
@@ -526,13 +533,13 @@ private fun DeviceSummaryCard(device: Device) {
             // migration 0010 together, and only then may any of them SET a window.
             // This pass only guarantees an edit on Android cannot erase one.
             returnDeadlineLabel(device.returnDeadline)?.let { deadline ->
-                DetailRow("Hạn đổi trả", deadline)
+                DetailRow(stringResource(R.string.devdetail_return_window), deadline)
             }
             if (!device.purchasePlace.isNullOrBlank()) {
-                DetailRow("Nơi mua", device.purchasePlace)
+                DetailRow(stringResource(R.string.devdetail_purchased_at), device.purchasePlace)
             }
             if (!device.serialNumber.isNullOrBlank()) {
-                DetailRow("Số serial", device.serialNumber)
+                DetailRow(stringResource(R.string.devadd_serial_number), device.serialNumber)
             }
             // Resale (roadmap #12) — only when a sale is actually recorded.
             // `soldAt` is a naive-UTC timestamp like `purchaseDate`, so only the
@@ -540,21 +547,21 @@ private fun DeviceSummaryCard(device: Device) {
             // detail page's "Bán lại" card.
             if (hasSaleRecord(device.soldAt, device.soldPrice)) {
                 Spacer(Modifier.height(8.dp))
-                Text("Bán lại",
+                Text(stringResource(R.string.devdetail_resale),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurface)
                 val soldDate = soldDateInput(device.soldAt)
                 if (soldDate.isNotBlank()) {
-                    DetailRow("Ngày bán", soldDate)
+                    DetailRow(stringResource(R.string.devdetail_sale_date), soldDate)
                 }
                 val soldPrice = device.soldPrice
                 if (soldPrice != null) {
-                    DetailRow("Giá bán", formatVnd(soldPrice))
+                    DetailRow(stringResource(R.string.devdetail_sale_price), formatVnd(soldPrice))
                     saleProfit(soldPrice, device.purchasePrice)?.let { profit ->
                         DetailRow(
-                            "Lãi/lỗ",
-                            saleProfitLabel(profit),
+                            stringResource(R.string.devdetail_profit_loss),
+                            saleProfitLabel(s, profit),
                             valueColor = when {
                                 profit > 0 -> WVAccent.current.success
                                 profit < 0 -> cs.error
@@ -601,7 +608,7 @@ private fun WarrantyCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TypeChip(warranty.type.label)
+                TypeChip(stringResource(warranty.type.labelRes))
                 Spacer(Modifier.width(8.dp))
                 if (warranty.isDismissed) {
                     Box(
@@ -610,7 +617,7 @@ private fun WarrantyCard(
                             .background(cs.onSurfaceVariant.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
-                        Text("Đã tắt nhắc",
+                        Text(stringResource(R.string.devdetail_reminder_turned_off),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = cs.onSurfaceVariant)
@@ -618,10 +625,10 @@ private fun WarrantyCard(
                 }
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, "Sửa", tint = cs.onSurfaceVariant)
+                    Icon(Icons.Filled.Edit, stringResource(R.string.action_edit), tint = cs.onSurfaceVariant)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, "Xoá", tint = cs.error)
+                    Icon(Icons.Filled.Delete, stringResource(R.string.action_delete), tint = cs.error)
                 }
             }
             if (!warranty.provider.isNullOrBlank()) {
@@ -631,15 +638,15 @@ private fun WarrantyCard(
                     color = cs.onSurface)
             }
             Spacer(Modifier.height(6.dp))
-            DetailRow("Bắt đầu", warranty.startDate.take(10))
-            DetailRow("Kết thúc", warranty.endDate.take(10))
-            DetailRow("Số tháng", "${warranty.months} tháng")
-            warranty.cost?.let { if (it > 0) DetailRow("Chi phí", formatVnd(it)) }
+            DetailRow(stringResource(R.string.devdetail_starts), warranty.startDate.take(10))
+            DetailRow(stringResource(R.string.devdetail_ends), warranty.endDate.take(10))
+            DetailRow(stringResource(R.string.devdetail_months), pluralStringResource(R.plurals.devdetail_months_2, warranty.months, warranty.months))
+            warranty.cost?.let { if (it > 0) DetailRow(stringResource(R.string.devdetail_cost), formatVnd(it)) }
             if (!warranty.address.isNullOrBlank()) {
-                DetailRow("Địa chỉ", warranty.address)
+                DetailRow(stringResource(R.string.devdetail_address), warranty.address)
             }
             if (!warranty.phone.isNullOrBlank()) {
-                DetailRow("Điện thoại", warranty.phone)
+                DetailRow(stringResource(R.string.devdetail_phone), warranty.phone)
             }
             if (!warranty.notes.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
@@ -654,11 +661,11 @@ private fun WarrantyCard(
                     if (warranty.isDismissed) {
                         Icon(Icons.Filled.NotificationsActive, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Bật lại nhắc")
+                        Text(stringResource(R.string.devdetail_turn_the_reminder_back_on))
                     } else {
                         Icon(Icons.Filled.NotificationsOff, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Tắt nhắc")
+                        Text(stringResource(R.string.devdetail_turn_the_reminder_off))
                     }
                 }
             }

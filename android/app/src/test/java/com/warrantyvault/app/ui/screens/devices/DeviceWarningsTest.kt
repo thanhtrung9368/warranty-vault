@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.DeviceWarning
 import com.warrantyvault.app.network.DraftDevice
 import org.junit.Assert.assertEquals
@@ -17,6 +18,9 @@ import org.junit.Test
  */
 class DeviceWarningsTest {
 
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
+
     private fun warning(
         code: String = "IMEI_CHECKSUM",
         field: String = "serialNumber",
@@ -33,7 +37,7 @@ class DeviceWarningsTest {
 
         assertEquals(
             "15 số này không đúng checksum IMEI (Luhn) — có thể sai một chữ số.",
-            deviceWarningMessage(fromServer),
+            deviceWarningMessage(vi, fromServer),
         )
     }
 
@@ -41,16 +45,16 @@ class DeviceWarningsTest {
     fun message_fallsBackPerCodeWhenTheServerSendsNone() {
         // A yellow box with nothing in it is worse than no box: every known code
         // has its own sentence.
-        assertTrue(deviceWarningMessage(warning("IMEI_CHECKSUM")).contains("checksum"))
-        assertTrue(deviceWarningMessage(warning("IMEI_LENGTH")).contains("IMEI 15 số"))
-        assertTrue(deviceWarningMessage(warning("SERIAL_DUPLICATE")).contains("thiết bị khác"))
-        assertTrue(deviceWarningMessage(warning("")).isNotBlank())
+        assertTrue(deviceWarningMessage(vi, warning("IMEI_CHECKSUM")).contains("checksum"))
+        assertTrue(deviceWarningMessage(vi, warning("IMEI_LENGTH")).contains("IMEI 15 số"))
+        assertTrue(deviceWarningMessage(vi, warning("SERIAL_DUPLICATE")).contains("thiết bị khác"))
+        assertTrue(deviceWarningMessage(vi, warning("")).isNotBlank())
     }
 
     @Test
     fun message_neverReadsAsAFailure() {
         listOf("IMEI_CHECKSUM", "IMEI_LENGTH", "SERIAL_DUPLICATE", "SOMETHING_NEW").forEach { code ->
-            val text = deviceWarningMessage(warning(code))
+            val text = deviceWarningMessage(vi, warning(code))
             assertTrue("must not claim failure for $code: $text", !text.contains("thất bại"))
             assertTrue("must not claim failure for $code: $text", !text.contains("Không lưu"))
         }
@@ -58,8 +62,8 @@ class DeviceWarningsTest {
 
     @Test
     fun title_isAboutASaveThatAlreadyHappened() {
-        assertEquals("Đã lưu, nhưng nên xem lại", deviceWarningsTitle(isEdit = false))
-        assertEquals("Đã cập nhật, nhưng nên xem lại", deviceWarningsTitle(isEdit = true))
+        assertEquals("Đã lưu, nhưng nên xem lại", deviceWarningsTitle(vi, isEdit = false))
+        assertEquals("Đã cập nhật, nhưng nên xem lại", deviceWarningsTitle(vi, isEdit = true))
     }
 
     // ---- field filter ----
@@ -80,7 +84,7 @@ class DeviceWarningsTest {
 
     @Test
     fun draftReview_keepsTheTwoChannelsDistinct() {
-        val review = draftReview(
+        val review = draftReview(vi, 
             DraftDevice(
                 confidence = "medium",
                 unmatched = listOf("brand", "purchasePlace"),
@@ -101,7 +105,7 @@ class DeviceWarningsTest {
 
     @Test
     fun draftReview_isSilentWhenThereIsNothingToReview() {
-        val review = draftReview(DraftDevice(confidence = "high"))
+        val review = draftReview(vi, DraftDevice(confidence = "high"))
 
         assertNull(review.unmatched)
         assertNull(review.warnings)
@@ -110,7 +114,7 @@ class DeviceWarningsTest {
 
     @Test
     fun draftReview_mapsOnlyKnownUnmatchedFieldsAndKeepsWarningsTextual() {
-        val review = draftReview(
+        val review = draftReview(vi, 
             DraftDevice(
                 unmatched = listOf("brand", "somethingInternal"),
                 warnings = listOf(warning("IMEI_LENGTH")),
@@ -125,11 +129,11 @@ class DeviceWarningsTest {
 
     @Test
     fun unmatchedLabel_coversTheFieldsTheApiCanReport() {
-        assertEquals("Hãng", unmatchedLabel("brand"))
-        assertEquals("Nơi mua", unmatchedLabel("purchasePlace"))
-        assertEquals("Loại thiết bị", unmatchedLabel("category"))
-        assertEquals("Số serial", unmatchedLabel("serialNumber"))
-        assertEquals("Số tháng bảo hành", unmatchedLabel("warrantyMonths"))
-        assertNull(unmatchedLabel("internalThing"))
+        assertEquals("Hãng", unmatchedLabel(vi, "brand"))
+        assertEquals("Nơi mua", unmatchedLabel(vi, "purchasePlace"))
+        assertEquals("Loại thiết bị", unmatchedLabel(vi, "category"))
+        assertEquals("Số serial", unmatchedLabel(vi, "serialNumber"))
+        assertEquals("Số tháng bảo hành", unmatchedLabel(vi, "warrantyMonths"))
+        assertNull(unmatchedLabel(vi, "internalThing"))
     }
 }

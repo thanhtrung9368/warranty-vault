@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc, chép nguyên văn.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in ListFilterBar.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="comp_clear_search">Xoá tìm kiếm</string>
+    <string name="comp_sort">Sắp xếp</string>
+    <!-- Shared warranty countdown pill (WarrantyState.kt) — the same words the
+         web's `warrantyState()` in website/src/lib/format.ts uses. `%1$d` is a
+         day count, `%2$d` a month count. -->
+    <plurals name="comp_warranty_expired_days">
+        <item quantity="other">Đã hết %1$d ngày</item>
+    </plurals>
+    <string name="comp_warranty_expires_today">Hết hôm nay</string>
+    <plurals name="comp_warranty_days_left">
+        <item quantity="other">Còn %1$d ngày</item>
+    </plurals>
+    <plurals name="comp_warranty_months_left">
+        <item quantity="other">Còn %1$d tháng</item>
+    </plurals>
+    <string name="comp_warranty_none">Không có</string>
+    <string name="comp_retry">Thử lại</string>
+
+</resources>

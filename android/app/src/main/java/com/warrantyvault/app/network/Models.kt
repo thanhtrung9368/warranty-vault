@@ -1,7 +1,32 @@
 package com.warrantyvault.app.network
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+// ---- Display labels on the domain enums ----
+//
+// Every enum below carries `@StringRes labelRes` instead of a hardcoded
+// `val label: String`. The labels used to be 26 Vietnamese literals — so the
+// device / subscription / wishlist status pills, the edit-sheet dropdowns, the
+// detail rows and the CSV status column all stayed Vietnamese in English mode,
+// while the labels around them switched. A resource id is what the rest of this
+// app already does for a display label (`ui/theme/ThemePreference.kt`,
+// `ui/screens/subscriptions/SubscriptionFilters.kt`), and it is resolvable from
+// both worlds the labels are read in:
+//
+//   * a composable → `stringResource(status.labelRes)`
+//   * a pure formatter that was handed the `i18n/AppStrings.kt` seam →
+//     `s.get(status.labelRes)` (so `CsvExport`, `ForecastFormat`, … stay pure
+//     and stay testable in either language without Robolectric).
+//
+// The Vietnamese wording in `res/values-vi/` is byte-for-byte what these
+// literals were; the English in `res/values/` reuses the wording the Go catalog
+// and the web dictionary already print for the same enum member. No Go, Swift or
+// TypeScript test parses this file (only `ui/components/CategoryLabels.kt` is
+// cross-repo-pinned — see `api/internal/services/category_seed_test.go`); the
+// Android-side pin is `ModelsSerializationTest`, which reads the catalogs.
 
 // ---- Auth ----
 
@@ -14,6 +39,19 @@ data class User(
     val email: String,
     val name: String? = null,
     val aiOptIn: Boolean = false,
+    /**
+     * `User.locale` — `"vi"`, `"en"`, or `null` for "never chosen"
+     * (docs/I18N_PLAN.md §2.3). `omitempty` on the server, so an account that
+     * has never opened the language switcher sends no byte at all and an older
+     * client keeps decoding.
+     *
+     * This is what the cron push fan-out and the transactional emails read: they
+     * run with no request context, so `Accept-Language` is not available to them.
+     * The device keeps its own copy for the UI
+     * ([com.warrantyvault.app.i18n.LanguageStore]); the two are reconciled on
+     * sign-in and on every change (see `AuthStore.updateLocale`).
+     */
+    val locale: String? = null,
 ) {
     /**
      * What the profile card shows: the saved display name, or the account email
@@ -48,25 +86,100 @@ data class MeResponse(val user: User)
 /**
  * Body of `PATCH /api/v1/auth/me` (openapi `UpdateProfileInput`).
  *
- * `displayName` is the ONLY accepted field and the key is **required**: a body
- * without it is 400 `fieldErrors.displayName = ["Thiếu displayName"]`, while an
- * empty (or whitespace-only) string clears the stored name (`User.name` → null).
+ * `displayName` is one of TWO accepted fields and the key is **required**: a
+ * body without it is 400 `fieldErrors.displayName = ["Thiếu displayName"]`,
+ * while an empty (or whitespace-only) string clears the stored name
+ * (`User.name` → null).
  *
  * Deliberately non-nullable: `ApiClient.json` sets `explicitNulls = false`, so a
  * `null` would drop the key entirely and turn "clear my name" into a 400.
  * `""` is the documented clear value, so it is what the UI sends.
  *
- * There is no `email` / `newEmail` property because email change is NOT part of
- * the contract — sending one is an explicit 400, and the Settings UI must not
- * look like it can be edited.
+ * ## The other accepted field
+ *
+ * `locale` is tri-state and independent of `displayName`: absent = leave the
+ * stored language alone, `""`/`null` = clear it, `"vi"`/`"en"` = set it. It is
+ * NOT a property here — a body that carries `displayName` must not be able to
+ * wipe a stored language by accident, so the two live in separate request types
+ * ([UpdateProfileInput] and [UpdateLocaleInput]) and the UI sends exactly one of
+ * them per intent.
+ *
+ * There is no `email` / `newEmail` property either: `PATCH /auth/me` rejects
+ * those with an explicit 400 and a Vietnamese explanation, because moving an
+ * account to a new address is its own two-step flow — see
+ * [ChangeEmailRequest] and [ConfirmEmailChangeRequest], which ARE in the
+ * contract.
  */
 @Serializable
 data class UpdateProfileInput(val displayName: String)
 
-/** Response of `PATCH /api/v1/auth/me` — the fresh user plus a Vietnamese note. */
+/**
+ * Body of `PATCH /api/v1/auth/me` when only the language changes.
+ *
+ * `locale` is non-nullable for the same serialization reason as `displayName`
+ * above — with `explicitNulls = false` a null would drop the key and the body
+ * would carry neither accepted field, which the server answers 400. This client
+ * never clears a language (the switcher has exactly two values), so the tri-state
+ * "clear" branch is intentionally not modelled.
+ */
+@Serializable
+data class UpdateLocaleInput(val locale: String)
+
+/** Response of `PATCH /api/v1/auth/me` — the fresh user plus a translated note. */
 @Serializable
 data class UpdateProfileResponse(
     val user: User,
+    val message: String? = null,
+)
+
+// ---- Email change: POST /api/v1/auth/change-email → /confirm-email-change ----
+//
+// Two steps, because moving an account to a new address has to prove control of
+// that address:
+//
+//   1. [ChangeEmailRequest] — new address + the CURRENT PASSWORD, so a stolen
+//      bearer token alone cannot move the account. The server mails a
+//      single-use, 30-minute token to the *new* address. `User.email` is
+//      untouched: the old address keeps working until step 2 succeeds.
+//   2. [ConfirmEmailChangeRequest] — the raw token only, and **no bearer
+//      token**: the token is the credential, and the mailed link is usually
+//      opened on another device. On success the server updates the address and
+//      revokes every session, so the client must sign in again.
+//
+// The mailed link points at `<APP_URL>/confirm-email/<token>`, which is a *web*
+// page a native client cannot open as a session. The email therefore also
+// carries the raw token as text ("Hoặc nhập mã xác nhận trong ứng dụng"), which
+// is what this client consumes — see `EmailChangeRules`.
+
+/** Body of step 1. Both fields are required by the contract. */
+@Serializable
+data class ChangeEmailRequest(
+    val newEmail: String,
+    val currentPassword: String,
+)
+
+/**
+ * Response of step 1 — **neutral by construction**: the same `message` comes
+ * back whether the token was mailed or the address already belongs to another
+ * account, so the endpoint cannot be used to enumerate accounts. There is no
+ * token field (the raw token only ever travels in the email) and nothing says
+ * whether the mail provider accepted the message. The UI must not try to tell
+ * those cases apart, and must not claim the mail was delivered.
+ */
+@Serializable
+data class ChangeEmailResult(
+    val ok: Boolean = true,
+    val message: String? = null,
+)
+
+/** Body of step 2 — the raw token from the email, or the whole mailed link. */
+@Serializable
+data class ConfirmEmailChangeRequest(val token: String)
+
+/** Response of step 2. Every session, including this one, has been revoked. */
+@Serializable
+data class ConfirmEmailChangeResult(
+    val ok: Boolean = true,
     val message: String? = null,
 )
 
@@ -149,29 +262,19 @@ data class SessionRevokeResult(
 // ---- Devices ----
 
 @Serializable
-enum class DeviceStatus {
-    ACTIVE, EXPIRED, SOLD, BROKEN, LOST;
-
-    val label: String
-        get() = when (this) {
-            ACTIVE -> "Đang dùng"
-            EXPIRED -> "Hết bảo hành"
-            SOLD -> "Đã bán"
-            BROKEN -> "Hỏng"
-            LOST -> "Mất"
-        }
+enum class DeviceStatus(@StringRes val labelRes: Int) {
+    ACTIVE(R.string.enum_device_status_active),
+    EXPIRED(R.string.enum_device_status_expired),
+    SOLD(R.string.enum_device_status_sold),
+    BROKEN(R.string.enum_device_status_broken),
+    LOST(R.string.enum_device_status_lost),
 }
 
 @Serializable
-enum class WarrantyType {
-    STANDARD, EXTENDED, THIRD_PARTY;
-
-    val label: String
-        get() = when (this) {
-            STANDARD -> "Tiêu chuẩn"
-            EXTENDED -> "Mở rộng"
-            THIRD_PARTY -> "Bên thứ ba"
-        }
+enum class WarrantyType(@StringRes val labelRes: Int) {
+    STANDARD(R.string.enum_warranty_type_standard),
+    EXTENDED(R.string.enum_warranty_type_extended),
+    THIRD_PARTY(R.string.enum_warranty_type_third_party),
 }
 
 @Serializable
@@ -482,30 +585,20 @@ data class WarrantyProviderOption(
 
 // Server enum: ACTIVE | PAUSED | CANCELED | EXPIRED. Note single-L "CANCELED".
 @Serializable
-enum class SubscriptionStatus {
-    ACTIVE, PAUSED, CANCELED, EXPIRED;
-
-    val label: String
-        get() = when (this) {
-            ACTIVE -> "Đang hoạt động"
-            PAUSED -> "Tạm dừng"
-            CANCELED -> "Đã huỷ"
-            EXPIRED -> "Hết hạn"
-        }
+enum class SubscriptionStatus(@StringRes val labelRes: Int) {
+    ACTIVE(R.string.enum_subscription_status_active),
+    PAUSED(R.string.enum_subscription_status_paused),
+    CANCELED(R.string.enum_subscription_status_canceled),
+    EXPIRED(R.string.enum_subscription_status_expired),
 }
 
 @Serializable
-enum class BillingCycle {
-    MONTHLY, QUARTERLY, YEARLY, LIFETIME, CUSTOM;
-
-    val label: String
-        get() = when (this) {
-            MONTHLY -> "Hàng tháng"
-            QUARTERLY -> "Hàng quý"
-            YEARLY -> "Hàng năm"
-            LIFETIME -> "Lifetime / Trọn đời"
-            CUSTOM -> "Tuỳ chỉnh"
-        }
+enum class BillingCycle(@StringRes val labelRes: Int) {
+    MONTHLY(R.string.enum_billing_cycle_monthly),
+    QUARTERLY(R.string.enum_billing_cycle_quarterly),
+    YEARLY(R.string.enum_billing_cycle_yearly),
+    LIFETIME(R.string.enum_billing_cycle_lifetime),
+    CUSTOM(R.string.enum_billing_cycle_custom),
 }
 
 @Serializable
@@ -581,29 +674,19 @@ data class PaymentInput(
 
 // Server enum: MUST | WANT | MAYBE.
 @Serializable
-enum class WishlistPriority {
-    MUST, WANT, MAYBE;
-
-    val label: String
-        get() = when (this) {
-            MUST -> "Phải mua"
-            WANT -> "Muốn"
-            MAYBE -> "Cân nhắc"
-        }
+enum class WishlistPriority(@StringRes val labelRes: Int) {
+    MUST(R.string.enum_wishlist_priority_must),
+    WANT(R.string.enum_wishlist_priority_want),
+    MAYBE(R.string.enum_wishlist_priority_maybe),
 }
 
 // Server enum: WATCHING | DECIDED | SKIPPED | PURCHASED.
 @Serializable
-enum class WishlistStatus {
-    WATCHING, DECIDED, SKIPPED, PURCHASED;
-
-    val label: String
-        get() = when (this) {
-            WATCHING -> "Đang theo dõi"
-            DECIDED -> "Quyết mua"
-            SKIPPED -> "Bỏ qua"
-            PURCHASED -> "Đã mua"
-        }
+enum class WishlistStatus(@StringRes val labelRes: Int) {
+    WATCHING(R.string.enum_wishlist_status_watching),
+    DECIDED(R.string.enum_wishlist_status_decided),
+    SKIPPED(R.string.enum_wishlist_status_skipped),
+    PURCHASED(R.string.enum_wishlist_status_purchased),
 }
 
 @Serializable
@@ -831,7 +914,7 @@ data class DeviceStats(
      * Added to `GET /api/v1/stats` as a *new* field (`devices.totalWarrantyCost`,
      * see docs/FEATURE_ROADMAP.md item #3). Nullable + defaulted so a server
      * that has not shipped the field yet decodes fine and the UI simply hides
-     * the warranty tiles — never a crash, and never a misleading "0đ".
+     * the warranty tiles — never a crash, and never a misleading "0 ₫".
      */
     val totalWarrantyCost: Long? = null,
 ) {
@@ -904,7 +987,7 @@ data class ForecastWarranty(
     /** Bucket this row was counted in. */
     val month: String = "",
     val months: Int = 0,
-    /** `null` = no recorded price (≠ 0đ). Never a charge. */
+    /** `null` = no recorded price (≠ 0 ₫). Never a charge. */
     val costVnd: Long? = null,
 )
 
@@ -1337,21 +1420,14 @@ data class WarrantyProviderRef(
  * one place where a wrong guess decides whether a phone number is shown at all.
  */
 @Serializable
-enum class PhoneSource {
+enum class PhoneSource(@StringRes val labelRes: Int) {
     /** The user typed this number. The app is never the source of a phone number. */
     @SerialName("user")
-    USER,
+    USER(R.string.enum_phone_source_user),
 
     /** There is no number. Render "chưa có số", never a hotline and never a guess. */
     @SerialName("none")
-    NONE,
-    ;
-
-    val label: String
-        get() = when (this) {
-            USER -> "Số do bạn tự ghi"
-            NONE -> "Chưa có số điện thoại"
-        }
+    NONE(R.string.enum_phone_source_none),
 }
 
 /**

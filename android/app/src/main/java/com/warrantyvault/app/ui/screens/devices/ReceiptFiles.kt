@@ -1,5 +1,8 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import kotlinx.coroutines.Dispatchers
@@ -65,7 +68,15 @@ object ReceiptFiles {
      * own wording from `services/ai_extract.go`, so the user sees one message
      * whether the client or the server was the one to refuse.
      */
-    const val UNSUPPORTED_MESSAGE = "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF"
+    /**
+     * The refusal shown when a picked file is not an accepted receipt type.
+     *
+     * A resource id, not a sentence: `ReceiptFiles` is called from the add-device
+     * sheet, which has a `Context` and knows the UI language; a constant here
+     * could only ever be Vietnamese.
+     */
+    @StringRes
+    val UNSUPPORTED_MESSAGE = R.string.receipt_unsupported_type
 
     /** Longest header the sniffers inspect (ISO-BMFF `ftyp` box). */
     private const val SNIFF_LENGTH = 12
@@ -163,16 +174,16 @@ object ReceiptFiles {
  *   are not a decodable image after all (a `.docx` cannot reach here — the
  *   planner calls it unsupported first).
  */
-internal suspend fun transcodeReceiptToJpeg(bytes: ByteArray): ByteArray =
+internal suspend fun transcodeReceiptToJpeg(s: AppStrings, bytes: ByteArray): ByteArray =
     withContext(Dispatchers.Default) {
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: throw IllegalStateException(ReceiptFiles.UNSUPPORTED_MESSAGE)
+            ?: throw IllegalStateException(s.get(ReceiptFiles.UNSUPPORTED_MESSAGE))
         try {
             ByteArrayOutputStream().use { out ->
                 // Quality 90 keeps receipt text (the whole point of the scan)
                 // legible to the model while staying far under the 5 MB cap.
                 if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)) {
-                    throw IllegalStateException(ReceiptFiles.UNSUPPORTED_MESSAGE)
+                    throw IllegalStateException(s.get(ReceiptFiles.UNSUPPORTED_MESSAGE))
                 }
                 out.toByteArray()
             }

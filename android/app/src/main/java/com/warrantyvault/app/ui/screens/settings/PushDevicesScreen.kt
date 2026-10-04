@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.settings
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,23 +56,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.PushSubscriptionMeta
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.EmptyState
+import java.time.Duration
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.Duration
-import java.time.OffsetDateTime
-import java.time.format.DateTimeParseException
 
 class PushDevicesViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -113,6 +119,9 @@ fun PushDevicesScreen(
     val state by vm.state.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // Used where a string has to be resolved OUTSIDE a composable scope (inside
+    // `scope.launch { }`, which is a coroutine, not a composable lambda).
+    val context = LocalContext.current
 
     var confirmDelete by remember { mutableStateOf<PushSubscriptionMeta?>(null) }
     var sendingTest by rememberSaveable { mutableStateOf(false) }
@@ -123,10 +132,10 @@ fun PushDevicesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Thiết bị nhận thông báo") },
+                title = { Text(stringResource(R.string.push_notification_devices)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -160,16 +169,20 @@ fun PushDevicesScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { vm.load() }) { Text("Thử lại") }
+                    Button(onClick = { vm.load() }) { Text(stringResource(R.string.action_retry)) }
                 }
 
                 is PushDevicesViewModel.State.Loaded -> {
                     if (s.subs.isEmpty()) {
                         EmptyState(
                             icon = Icons.Outlined.NotificationsNone,
-                            title = "Chưa có thiết bị nào",
-                            body = "Mày chưa đăng ký nhận thông báo trên thiết bị nào. " +
-                                "Mở app trên điện thoại/máy tính khác để đăng ký thêm.",
+                            title = stringResource(R.string.push_no_devices_yet),
+                            // Two sentences, each already in the catalog — the
+                            // second one is shared with the "register more" copy,
+                            // so a template with a placeholder would only add a
+                            // second key for the same sentence.
+                            body = stringResource(R.string.push_no_devices_registered) + " " +
+                                stringResource(R.string.push_open_the_app_on_another_phone),
                         )
                     } else {
                         LazyColumn(
@@ -185,7 +198,10 @@ fun PushDevicesScreen(
                                             try {
                                                 val res = api.sendTestPush()
                                                 snackbarHost.showSnackbar(
-                                                    "Đã gửi thử: ${res.sent} thành công, ${res.failed} lỗi"
+                                                    context.getString(
+                                                        R.string.push_test_sent_delivered_failed,
+                                                        res.sent, res.failed,
+                                                    )
                                                 )
                                             } catch (e: Exception) {
                                                 snackbarHost.showSnackbar(
@@ -208,7 +224,7 @@ fun PushDevicesScreen(
                                         Icon(Icons.Filled.NotificationsActive, null)
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            "Gửi thông báo thử",
+                                            stringResource(R.string.push_send_a_test_notification),
                                             fontWeight = FontWeight.SemiBold,
                                         )
                                     }
@@ -232,10 +248,10 @@ fun PushDevicesScreen(
     confirmDelete?.let { sub ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Xoá đăng ký?") },
+            title = { Text(stringResource(R.string.push_remove_this_registration)) },
             text = {
                 Text(
-                    "Thiết bị này sẽ không còn nhận thông báo từ WarrantyVault.",
+                    stringResource(R.string.push_this_device_will_no_longer_receive),
                 )
             },
             confirmButton = {
@@ -247,7 +263,7 @@ fun PushDevicesScreen(
                         try {
                             api.unregisterPush(id)
                             vm.removeLocally(id)
-                            snackbarHost.showSnackbar("Đã xoá thiết bị")
+                            snackbarHost.showSnackbar(context.getString(R.string.push_device_removed))
                         } catch (e: Exception) {
                             snackbarHost.showSnackbar(e.toUserMessage(ApiClient.json))
                         } finally {
@@ -256,13 +272,13 @@ fun PushDevicesScreen(
                     }
                 }) {
                     Text(
-                        "Xoá",
+                        stringResource(R.string.action_delete),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) { Text("Huỷ") }
+                TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -274,6 +290,7 @@ private fun PushDeviceRow(
     deleting: Boolean,
     onDelete: () -> Unit,
 ) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = cs.surface),
@@ -301,7 +318,7 @@ private fun PushDeviceRow(
                     PlatformPill(sub.platform)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        labelFor(sub),
+                        labelFor(s, sub),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = cs.onSurface,
@@ -309,7 +326,10 @@ private fun PushDeviceRow(
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Đăng ký ${relativeVi(sub.createdAt)}",
+                    stringResource(
+                        R.string.push_registered,
+                        relativeVi(sub.createdAt, LocalContext.current),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
@@ -325,7 +345,7 @@ private fun PushDeviceRow(
                     )
                 } else {
                     Icon(
-                        Icons.Filled.Delete, "Xoá",
+                        Icons.Filled.Delete, stringResource(R.string.action_delete),
                         tint = cs.error,
                     )
                 }
@@ -365,7 +385,7 @@ private fun iconFor(platform: String) =
         else -> Icons.Filled.Public to androidx.compose.ui.graphics.Color(0xFF6B7280)
     }
 
-private fun labelFor(sub: PushSubscriptionMeta): String {
+private fun labelFor(s: AppStrings, sub: PushSubscriptionMeta): String {
     val ua = sub.userAgent?.trim().orEmpty()
     if (ua.isNotEmpty()) {
         // Pick a short hint — trim long UA strings to first chunk.
@@ -373,7 +393,7 @@ private fun labelFor(sub: PushSubscriptionMeta): String {
         return short.take(28)
     }
     val tail = sub.endpoint.takeLast(8)
-    return "Thiết bị …$tail"
+    return s.get(R.string.push_device_tail, tail)
 }
 
 /**
@@ -382,23 +402,27 @@ private fun labelFor(sub: PushSubscriptionMeta): String {
  * wording lives in one place. Unparseable input degrades to "vừa rồi" rather
  * than throwing on a list row.
  */
-internal fun relativeVi(iso: String): String {
+internal fun relativeVi(iso: String, context: Context): String {
     val past = try {
         OffsetDateTime.parse(iso)
     } catch (_: DateTimeParseException) {
-        return "vừa rồi"
+        return context.getString(R.string.push_just_now)
     } catch (_: Exception) {
-        return "vừa rồi"
+        return context.getString(R.string.push_just_now)
     }
     val now = OffsetDateTime.now()
     val d = Duration.between(past, now)
     val secs = d.seconds
     return when {
-        secs < 60 -> "vừa rồi"
-        secs < 3600 -> "${secs / 60} phút trước"
-        secs < 86_400 -> "${secs / 3600} giờ trước"
-        secs < 30L * 86_400 -> "${secs / 86_400} ngày trước"
-        secs < 365L * 86_400 -> "${secs / (30L * 86_400)} tháng trước"
-        else -> "${secs / (365L * 86_400)} năm trước"
+        secs < 60 -> context.getString(R.string.push_just_now)
+        secs < 3600 -> ago(context, R.plurals.push_minutes_ago, secs / 60)
+        secs < 86_400 -> ago(context, R.plurals.push_hours_ago, secs / 3600)
+        secs < 30L * 86_400 -> ago(context, R.plurals.push_days_ago, secs / 86_400)
+        secs < 365L * 86_400 -> ago(context, R.plurals.push_months_ago, secs / (30L * 86_400))
+        else -> ago(context, R.plurals.push_years_ago, secs / (365L * 86_400))
     }
 }
+
+/** `N <unit> ago`, with English singular/plural handled by the plural rules. */
+private fun ago(context: Context, id: Int, count: Long): String =
+    context.resources.getQuantityString(id, count.toInt(), count)

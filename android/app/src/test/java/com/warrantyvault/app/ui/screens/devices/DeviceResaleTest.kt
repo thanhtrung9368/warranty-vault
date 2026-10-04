@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceInput
@@ -18,6 +19,8 @@ import org.junit.Test
 class DeviceResaleTest {
 
     private val json = ApiClient.json
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     // ---- soldAt: naive-UTC timestamp, exactly like purchaseDate ----
 
@@ -56,7 +59,7 @@ class DeviceResaleTest {
 
     @Test
     fun soldPriceRequest_keepsZeroAndBlanksToNull() {
-        assertNull("blank is 'chưa bán', not 0đ", soldPriceRequest(""))
+        assertNull("blank is 'chưa bán', not 0 ₫", soldPriceRequest(""))
         assertNull(soldPriceRequest("   "))
         assertEquals(0, soldPriceRequest("0"))
         assertEquals(7_500_000, soldPriceRequest("7500000"))
@@ -90,7 +93,7 @@ class DeviceResaleTest {
         assertEquals(5_000_000, saleProfit(soldPrice = 35_000_000, purchasePrice = 30_000_000))
         assertEquals(-5_000_000, saleProfit(soldPrice = 25_000_000, purchasePrice = 30_000_000))
         assertEquals(0, saleProfit(soldPrice = 30_000_000, purchasePrice = 30_000_000))
-        // A give-away (0đ) is a real, recorded loss of the whole purchase price.
+        // A give-away (0 ₫) is a real, recorded loss of the whole purchase price.
         assertEquals(-30_000_000, saleProfit(soldPrice = 0, purchasePrice = 30_000_000))
     }
 
@@ -101,9 +104,23 @@ class DeviceResaleTest {
 
     @Test
     fun saleProfitLabel_isVietnameseAndUsesTheSharedVndFormatter() {
-        assertEquals("Lãi 5.000.000đ", saleProfitLabel(5_000_000))
-        assertEquals("Lỗ 5.000.000đ", saleProfitLabel(-5_000_000))
-        assertEquals("Hoà vốn", saleProfitLabel(0))
+        // `5.000.000 ₫` (space + U+20AB) is Go's canonical Vietnamese shape; the
+        // old `5.000.000đ` was Android's own third dialect — see
+        // `VietnameseFormatterTest`'s header for why the pin moved.
+        assertEquals("Lãi 5.000.000 ₫", saleProfitLabel(vi, 5_000_000))
+        assertEquals("Lỗ 5.000.000 ₫", saleProfitLabel(vi, -5_000_000))
+        assertEquals("Hoà vốn", saleProfitLabel(vi, 0))
+    }
+
+    /**
+     * The same three sentences in English. The amount follows the language too
+     * (`i18n/Money.kt`), which is the part a string table cannot express.
+     */
+    @Test
+    fun saleProfitLabel_isEnglishToo() {
+        assertEquals("Gained ₫5,000,000", saleProfitLabel(en, 5_000_000))
+        assertEquals("Lost ₫5,000,000", saleProfitLabel(en, -5_000_000))
+        assertEquals("Broke even", saleProfitLabel(en, 0))
     }
 
     @Test
@@ -141,7 +158,7 @@ class DeviceResaleTest {
             ),
         )
 
-        assertTrue("0đ is a give-away, not 'absent': $encoded", encoded.contains("\"soldPrice\":0"))
+        assertTrue("0 ₫ is a give-away, not 'absent': $encoded", encoded.contains("\"soldPrice\":0"))
         assertTrue(encoded.contains("\"soldAt\":\"2026-03-01\""))
     }
 

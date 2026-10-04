@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.stats
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.Forecast
 import com.warrantyvault.app.network.ForecastBucket
 import com.warrantyvault.app.network.ForecastWarranty
@@ -21,6 +22,9 @@ import org.junit.Test
  * constant 12.
  */
 class ForecastFormatTest {
+
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     private fun bucket(
         month: String = "2026-03",
@@ -46,18 +50,18 @@ class ForecastFormatTest {
 
     @Test
     fun monthLabel_rendersVietnameseMonths() {
-        assertEquals("Tháng 1/2026", forecastMonthLabel("2026-01"))
-        assertEquals("Tháng 3/2026", forecastMonthLabel("2026-03"))
-        assertEquals("Tháng 12/2026", forecastMonthLabel("2026-12"))
+        assertEquals("Tháng 1/2026", forecastMonthLabel(vi, "2026-01"))
+        assertEquals("Tháng 3/2026", forecastMonthLabel(vi, "2026-03"))
+        assertEquals("Tháng 12/2026", forecastMonthLabel(vi, "2026-12"))
     }
 
     @Test
     fun monthLabel_keepsSomethingUnparseableReadable() {
         // Never invent "Tháng 0/0" — showing the server's own string is honest.
-        assertEquals("2026-13", forecastMonthLabel("2026-13"))
-        assertEquals("2026-00", forecastMonthLabel("2026-00"))
-        assertEquals("nope", forecastMonthLabel("nope"))
-        assertEquals("", forecastMonthLabel(""))
+        assertEquals("2026-13", forecastMonthLabel(vi, "2026-13"))
+        assertEquals("2026-00", forecastMonthLabel(vi, "2026-00"))
+        assertEquals("nope", forecastMonthLabel(vi, "nope"))
+        assertEquals("", forecastMonthLabel(vi, ""))
     }
 
     // ---- dates ----
@@ -99,7 +103,7 @@ class ForecastFormatTest {
 
     @Test
     fun manualRenew_neverGoesNegativeOnAnInconsistentPayload() {
-        // Defensive: a payload where the split overshoots must not render "−50.000đ".
+        // Defensive: a payload where the split overshoots must not render "−50.000 ₫".
         assertEquals(0L, forecastManualRenewVnd(bucket(subscriptionVnd = 100_000, autoRenewVnd = 150_000)))
     }
 
@@ -173,39 +177,45 @@ class ForecastFormatTest {
 
         assertEquals(
             "Chỉ tính các gói đang ACTIVE; gói LIFETIME không bao giờ bị trừ.",
-            forecastNoteText(f),
+            forecastNoteText(vi, f),
         )
     }
 
     @Test
     fun note_fallsBackToTheSameCaveatsWhenTheServerSendsNone() {
-        assertEquals(FORECAST_NOTE_FALLBACK, forecastNoteText(forecast(note = "")))
-        assertEquals(FORECAST_NOTE_FALLBACK, forecastNoteText(forecast(note = "   ")))
+        assertEquals(vi.get(FORECAST_NOTE_FALLBACK), forecastNoteText(vi, forecast(note = "")))
+        assertEquals(vi.get(FORECAST_NOTE_FALLBACK), forecastNoteText(vi, forecast(note = "   ")))
         // The fallback still refuses to call possible spend a commitment.
-        assertTrue(FORECAST_NOTE_FALLBACK.contains("có thể phát sinh"))
-        assertTrue(FORECAST_NOTE_FALLBACK.contains("LIFETIME"))
+        assertTrue(vi.get(FORECAST_NOTE_FALLBACK).contains("có thể phát sinh"))
+        assertTrue(vi.get(FORECAST_NOTE_FALLBACK).contains("LIFETIME"))
     }
 
     @Test
     fun windowLabel_usesThePayloadMonthsNotAHardcodedTwelve() {
-        assertEquals("12 tháng tới", forecastWindowLabel(forecast(months = 12)))
-        assertEquals("3 tháng tới", forecastWindowLabel(forecast(months = 3)))
-        assertEquals("24 tháng tới", forecastWindowLabel(forecast(months = 24)))
-        assertEquals("các tháng tới", forecastWindowLabel(forecast(months = 0)))
+        assertEquals("12 tháng tới", forecastWindowLabel(vi, forecast(months = 12)))
+        assertEquals("3 tháng tới", forecastWindowLabel(vi, forecast(months = 3)))
+        assertEquals("24 tháng tới", forecastWindowLabel(vi, forecast(months = 24)))
+        assertEquals("các tháng tới", forecastWindowLabel(vi, forecast(months = 0)))
     }
 
-    // ---- code → shared Vietnamese label ----
+    // ---- code → shared label, in the catalog's language ----
 
     @Test
     fun codeLabels_reuseTheEnumCopyAndSurviveAnUnknownCode() {
-        assertEquals("Tiêu chuẩn", forecastWarrantyTypeLabel("STANDARD"))
-        assertEquals("Mở rộng", forecastWarrantyTypeLabel("EXTENDED"))
-        assertEquals("Bên thứ ba", forecastWarrantyTypeLabel("THIRD_PARTY"))
-        assertEquals("Muốn", forecastPriorityLabel("WANT"))
-        assertEquals("Phải mua", forecastPriorityLabel("MUST"))
-        assertEquals("Đang theo dõi", forecastWishlistStatusLabel("WATCHING"))
+        assertEquals("Tiêu chuẩn", forecastWarrantyTypeLabel(vi, "STANDARD"))
+        assertEquals("Mở rộng", forecastWarrantyTypeLabel(vi, "EXTENDED"))
+        assertEquals("Bên thứ ba", forecastWarrantyTypeLabel(vi, "THIRD_PARTY"))
+        assertEquals("Muốn", forecastPriorityLabel(vi, "WANT"))
+        assertEquals("Phải mua", forecastPriorityLabel(vi, "MUST"))
+        assertEquals("Đang theo dõi", forecastWishlistStatusLabel(vi, "WATCHING"))
         // An unseen enum member is data: show it rather than throw the screen away.
-        assertEquals("SOMETHING_NEW", forecastWarrantyTypeLabel("SOMETHING_NEW"))
+        assertEquals("SOMETHING_NEW", forecastWarrantyTypeLabel(vi, "SOMETHING_NEW"))
+
+        // The same codes in English — the point of moving the labels to resources.
+        assertEquals("Standard", forecastWarrantyTypeLabel(en, "STANDARD"))
+        assertEquals("Want", forecastPriorityLabel(en, "WANT"))
+        assertEquals("Being tracked", forecastWishlistStatusLabel(en, "WATCHING"))
+        assertEquals("SOMETHING_NEW", forecastWarrantyTypeLabel(en, "SOMETHING_NEW"))
     }
 
     // ---- the payload's own shape ----
@@ -234,8 +244,8 @@ class ForecastFormatTest {
             ),
         )
 
-        // The headline figure is subscription money only — 1.000.000đ, not
-        // 21.000.000đ of "possible" spend dressed up as a commitment.
+        // The headline figure is subscription money only — 1.000.000 ₫, not
+        // 21.000.000 ₫ of "possible" spend dressed up as a commitment.
         assertEquals(1_000_000L, f.subscriptionTotalVnd)
         assertEquals(8_000_000L, f.upcomingWarranties.single().costVnd)
         assertEquals(12_000_000L, f.upcomingWishlist.single().currentPriceVnd)

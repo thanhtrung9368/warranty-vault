@@ -54,13 +54,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.warrantyvault.app.ui.viewModelFactory
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.appLocale
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.DeviceStatus
@@ -76,13 +81,12 @@ import com.warrantyvault.app.ui.components.ErrorState
 import com.warrantyvault.app.ui.components.PageHeader
 import com.warrantyvault.app.ui.components.SectionHeader
 import com.warrantyvault.app.ui.theme.WVAccent
+import com.warrantyvault.app.ui.viewModelFactory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
 
 class StatsViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -181,7 +185,7 @@ fun StatsScreen(api: ApiService) {
             ) { s ->
                 when (s) {
                     is StatsViewModel.State.Loading -> Column {
-                        PageHeader("Thống kê", "Đang tổng kết của mày…")
+                        PageHeader(stringResource(R.string.nav_stats), stringResource(R.string.stats_crunching_your_numbers))
                         Spacer(Modifier.height(24.dp))
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             androidx.compose.material3.CircularProgressIndicator()
@@ -189,7 +193,7 @@ fun StatsScreen(api: ApiService) {
                     }
                     is StatsViewModel.State.Error -> ErrorState(
                         icon = Icons.Outlined.WarningAmber,
-                        title = "Tải không được rồi",
+                        title = stringResource(R.string.dash_could_not_load_it),
                         body = s.message,
                         onRetry = { vm.load() },
                     )
@@ -202,6 +206,7 @@ fun StatsScreen(api: ApiService) {
 
 @Composable
 private fun StatsBody(stats: UserStats, forecast: Forecast?) {
+    val s = appStrings()
     val devices = stats.devices
     val subs = stats.subscriptions
     val wish = stats.wishlist
@@ -218,8 +223,8 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
     ) {
         item {
             PageHeader(
-                "Thống kê",
-                "Cái nhìn nhanh về tài sản số của mày",
+                stringResource(R.string.nav_stats),
+                stringResource(R.string.stats_a_quick_look_at_your_digital),
             )
         }
 
@@ -228,32 +233,32 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
             HeroStatCard(
                 icon = Icons.Filled.Devices,
                 value = "${devices.total}",
-                label = "Tổng số thiết bị",
+                label = stringResource(R.string.stats_total_devices),
                 subtitle = if (devices.total > 0)
-                    "Trong đó $activeDevices đang dùng"
+                    stringResource(R.string.stats_of_which_are_in_use, activeDevices)
                 else
-                    "Chưa có thiết bị nào",
+                    stringResource(R.string.stats_no_devices_yet),
                 tone = StatTone.Primary,
             )
         }
 
         item {
             Spacer(Modifier.height(4.dp))
-            SectionHeader("Thiết bị")
+            SectionHeader(stringResource(R.string.nav_devices))
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile(
                     icon = Icons.Filled.Schedule,
                     value = "$activeDevices",
-                    label = "Đang dùng",
+                    label = stringResource(R.string.stats_in_use),
                     tone = StatTone.Warning,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     icon = Icons.Filled.MonetizationOn,
                     value = formatVndShort(devices.totalPurchasePrice),
-                    label = "Tổng giá trị",
+                    label = stringResource(R.string.stats_total_value),
                     tone = StatTone.Primary,
                     modifier = Modifier.weight(1f),
                 )
@@ -268,14 +273,14 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
                     StatTile(
                         icon = Icons.Filled.VerifiedUser,
                         value = formatVndShort(warrantyCost),
-                        label = "Phí bảo hành",
+                        label = stringResource(R.string.stats_warranty_costs),
                         tone = StatTone.Success,
                         modifier = Modifier.weight(1f),
                     )
                     StatTile(
                         icon = Icons.Filled.AccountBalanceWallet,
                         value = formatVndShort(devices.totalSpend),
-                        label = "Tổng chi mua sắm",
+                        label = stringResource(R.string.stats_total_spent),
                         tone = StatTone.Primary,
                         modifier = Modifier.weight(1f),
                     )
@@ -285,21 +290,21 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
 
         item {
             Spacer(Modifier.height(4.dp))
-            SectionHeader("Gói dịch vụ")
+            SectionHeader(stringResource(R.string.subs_subscriptions))
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatTile(
                     icon = Icons.Filled.CreditCard,
                     value = "$activeSubs",
-                    label = "Đang chạy / ${subs.total}",
+                    label = stringResource(R.string.stats_active, subs.total),
                     tone = StatTone.Primary,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     icon = Icons.Filled.MonetizationOn,
                     value = formatVndShort(subs.totalMonthlyVnd),
-                    label = "Mỗi tháng",
+                    label = stringResource(R.string.stats_per_month),
                     tone = StatTone.Success,
                     modifier = Modifier.weight(1f),
                 )
@@ -315,14 +320,14 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
                 StatTile(
                     icon = Icons.Filled.Star,
                     value = "$watchingWish",
-                    label = "Đang thèm / ${wish.total}",
+                    label = stringResource(R.string.stats_wishlist, wish.total),
                     tone = StatTone.Tertiary,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     icon = Icons.Filled.FavoriteBorder,
                     value = formatVndShort(wish.totalCurrentPriceWatching),
-                    label = "Tổng dự kiến",
+                    label = stringResource(R.string.stats_projected_total),
                     tone = StatTone.Tertiary,
                     modifier = Modifier.weight(1f),
                 )
@@ -338,12 +343,12 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
         forecast?.let { f ->
             item {
                 Spacer(Modifier.height(4.dp))
-                SectionHeader("Dự báo chi tiêu")
+                SectionHeader(stringResource(R.string.stats_spending_forecast))
             }
             item { ForecastHeadlineCard(f) }
             // The API's own Vietnamese honesty line, shown verbatim: the warranty
             // and wishlist figures are savings references, not commitments.
-            item { ForecastNoteCard(forecastNoteText(f)) }
+            item { ForecastNoteCard(forecastNoteText(s, f)) }
 
             val buckets = forecastActiveBuckets(f)
             val nothingComing =
@@ -352,7 +357,7 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
                 item { ForecastEmptyCard(f) }
             }
             if (buckets.isNotEmpty()) {
-                item { ForecastSubHeader("Theo từng tháng") }
+                item { ForecastSubHeader(stringResource(R.string.stats_month_by_month)) }
                 // Scale of the bars comes from the payload, never from a fixed
                 // 12: the window is normally `months + 1` buckets wide.
                 val maxCharge = buckets.maxOf { it.subscriptionVnd }
@@ -361,11 +366,11 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
                 }
             }
             if (f.upcomingWarranties.isNotEmpty()) {
-                item { ForecastSubHeader("Bảo hành sắp hết hạn") }
+                item { ForecastSubHeader(stringResource(R.string.stats_warranty_expiring_soon)) }
                 items(f.upcomingWarranties, key = { "w-${it.id}" }) { ForecastWarrantyRow(it) }
             }
             if (f.upcomingWishlist.isNotEmpty()) {
-                item { ForecastSubHeader("Wishlist tới mốc") }
+                item { ForecastSubHeader(stringResource(R.string.stats_wishlist_hitting_its_target_date)) }
                 items(f.upcomingWishlist, key = { "wl-${it.id}" }) { ForecastWishlistRow(it) }
             }
         }
@@ -390,6 +395,7 @@ private fun ForecastSubHeader(text: String) {
  */
 @Composable
 private fun ForecastHeadlineCard(f: Forecast) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = cs.surface),
@@ -399,7 +405,7 @@ private fun ForecastHeadlineCard(f: Forecast) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                "Dự kiến ${forecastWindowLabel(f)}",
+                stringResource(R.string.stats_projected, forecastWindowLabel(s, f)),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = cs.onSurface,
@@ -413,7 +419,7 @@ private fun ForecastHeadlineCard(f: Forecast) {
                 letterSpacing = (-0.5).sp,
             )
             Text(
-                "Tổng các kỳ gia hạn subscription trong cửa sổ",
+                stringResource(R.string.stats_every_subscription_renewal_inside_the_window),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
@@ -422,23 +428,26 @@ private fun ForecastHeadlineCard(f: Forecast) {
                 StatTile(
                     icon = Icons.Filled.Autorenew,
                     value = formatVnd(f.subscriptionAutoRenewTotalVnd),
-                    label = "Tự động trừ",
+                    label = stringResource(R.string.stats_charged_automatically),
                     tone = StatTone.Success,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     icon = Icons.Filled.EventRepeat,
                     value = formatVnd(forecastManualRenewTotalVnd(f)),
-                    label = "Bạn phải tự gia hạn",
+                    label = stringResource(R.string.stats_you_renew_these_yourself),
                     tone = StatTone.Warning,
                     modifier = Modifier.weight(1f),
                 )
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "${f.chargesCount} kỳ gia hạn · ${f.subscriptionsCount} gói · " +
-                    "trung bình ~${formatVnd(f.subscriptionMonthlyAverageVnd)}/tháng " +
-                    "(quy đổi, không dùng để tính tổng)",
+                stringResource(
+                    R.string.stats_forecast_summary,
+                    f.chargesCount,
+                    f.subscriptionsCount,
+                    formatVnd(f.subscriptionMonthlyAverageVnd),
+                ) + " " + stringResource(R.string.stats_converted_not_used_in_the_total),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
@@ -486,7 +495,7 @@ private fun ForecastEmptyCard(f: Forecast) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
-            "Không có khoản nào được dự kiến trong ${f.months} tháng tới.",
+            pluralStringResource(R.plurals.stats_nothing_is_projected_for_the_next, f.months, f.months),
             style = MaterialTheme.typography.bodyMedium,
             color = cs.onSurfaceVariant,
             modifier = Modifier.padding(16.dp),
@@ -501,6 +510,7 @@ private fun ForecastEmptyCard(f: Forecast) {
  */
 @Composable
 private fun ForecastBucketCard(bucket: ForecastBucket, maxCharge: Long) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val accent = WVAccent.current
     Card(
@@ -512,7 +522,7 @@ private fun ForecastBucketCard(bucket: ForecastBucket, maxCharge: Long) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    forecastMonthLabel(bucket.month),
+                    forecastMonthLabel(s, bucket.month),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurface,
@@ -553,9 +563,12 @@ private fun ForecastBucketCard(bucket: ForecastBucket, maxCharge: Long) {
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Tự động trừ ${formatVnd(bucket.subscriptionAutoRenewVnd)} · " +
-                        "tự gia hạn ${formatVnd(forecastManualRenewVnd(bucket))} · " +
-                        "${bucket.subscriptionCount} kỳ",
+                    stringResource(
+                        R.string.stats_forecast_bucket_split,
+                        formatVnd(bucket.subscriptionAutoRenewVnd),
+                        formatVnd(forecastManualRenewVnd(bucket)),
+                        bucket.subscriptionCount,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = cs.onSurfaceVariant,
                 )
@@ -565,16 +578,26 @@ private fun ForecastBucketCard(bucket: ForecastBucket, maxCharge: Long) {
             if (bucket.warrantyExpiringCount > 0) {
                 Spacer(Modifier.height(6.dp))
                 ForecastAdvisoryLine(
-                    text = "Bảo hành hết hạn: ${bucket.warrantyExpiringCount} gói · " +
-                        "tham chiếu ${formatVnd(bucket.warrantyExpiringVnd)} — có thể phát sinh",
+                    text = stringResource(
+                        R.string.stats_forecast_warranty_line,
+                        bucket.warrantyExpiringCount,
+                    ) + " · " + stringResource(
+                        R.string.stats_reference_may_happen,
+                        formatVnd(bucket.warrantyExpiringVnd),
+                    ),
                     tint = accent.warning,
                 )
             }
             if (bucket.wishlistTargetCount > 0) {
                 Spacer(Modifier.height(6.dp))
                 ForecastAdvisoryLine(
-                    text = "Wishlist tới mốc: ${bucket.wishlistTargetCount} món · " +
-                        "giá ghi nhận ${formatVnd(bucket.wishlistTargetVnd)} — có thể phát sinh",
+                    text = stringResource(
+                        R.string.stats_forecast_wishlist_line,
+                        bucket.wishlistTargetCount,
+                    ) + " · " + stringResource(
+                        R.string.stats_recorded_price_may_happen,
+                        formatVnd(bucket.wishlistTargetVnd),
+                    ),
                     tint = cs.tertiary,
                 )
             }
@@ -597,6 +620,7 @@ private fun ForecastAdvisoryLine(text: String, tint: Color) {
 
 @Composable
 private fun ForecastWarrantyRow(w: ForecastWarranty) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val accent = WVAccent.current
     Card(
@@ -614,20 +638,24 @@ private fun ForecastWarrantyRow(w: ForecastWarranty) {
             )
             Text(
                 buildString {
-                    append(forecastWarrantyTypeLabel(w.type))
-                    append(" · hết hạn ")
-                    append(forecastDateLabel(w.endDate))
+                    append(forecastWarrantyTypeLabel(s, w.type))
+                    append(
+                        stringResource(
+                            R.string.stats_forecast_expires_on,
+                            forecastDateLabel(w.endDate),
+                        ),
+                    )
                     w.provider?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
-            // `null` means "no price recorded", which is NOT 0đ — say so.
+            // `null` means "no price recorded", which is NOT 0 ₫ — say so.
             ForecastAdvisoryLine(
                 text = w.costVnd?.let {
-                    "Giá gói cũ ${formatVnd(it)} — tham chiếu để dành tiền, không phải khoản sẽ bị trừ"
-                } ?: "Chưa ghi giá gói cũ — không phải khoản sẽ bị trừ",
+                    stringResource(R.string.stats_old_plan_price_a_reference_for, formatVnd(it))
+                } ?: stringResource(R.string.stats_no_price_recorded_for_the_old),
                 tint = accent.warning,
             )
         }
@@ -636,6 +664,7 @@ private fun ForecastWarrantyRow(w: ForecastWarranty) {
 
 @Composable
 private fun ForecastWishlistRow(item: ForecastWishlistItem) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     Card(
         colors = CardDefaults.cardColors(containerColor = cs.surface),
@@ -651,17 +680,17 @@ private fun ForecastWishlistRow(item: ForecastWishlistItem) {
                 color = cs.onSurface,
             )
             Text(
-                "${forecastPriorityLabel(item.priority)} · " +
-                    "${forecastWishlistStatusLabel(item.status)} · " +
-                    "mốc ${forecastDateLabel(item.targetDate)}",
+                "${forecastPriorityLabel(s, item.priority)} · " +
+                    "${forecastWishlistStatusLabel(s, item.status)} · " +
+                    stringResource(R.string.stats_target, forecastDateLabel(item.targetDate)),
                 style = MaterialTheme.typography.bodySmall,
                 color = cs.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
             ForecastAdvisoryLine(
                 text = item.currentPriceVnd?.let {
-                    "Giá ghi nhận gần nhất ${formatVnd(it)} — có thể phát sinh, không phải khoản chắc chắn trả"
-                } ?: "Chưa từng nhập giá — không phải khoản chắc chắn trả",
+                    stringResource(R.string.stats_last_recorded_price_may_happen_not, formatVnd(it))
+                } ?: stringResource(R.string.stats_no_price_ever_entered_not_a),
                 tint = cs.tertiary,
             )
         }
@@ -779,12 +808,16 @@ private fun toneColors(tone: StatTone): Pair<Color, Color> {
     }
 }
 
-private fun formatVnd(amount: Long): String {
-    val nf = NumberFormat.getNumberInstance(Locale("vi", "VN"))
-    return nf.format(amount) + "đ"
-}
+/**
+ * Money in the UI language (see `i18n/Money.kt`). `@Composable` because the
+ * amount, unlike the sentence around it, follows the *selected* language rather
+ * than the phone's.
+ */
+@Composable
+private fun formatVnd(amount: Long): String = Money.of(amount, appLocale())
 
 /** Compact VND formatter — keeps stat tiles readable on phones. */
+@Composable
 private fun formatVndShort(amount: Long): String {
     if (amount < 1_000_000) return formatVnd(amount)
     if (amount < 1_000_000_000) {

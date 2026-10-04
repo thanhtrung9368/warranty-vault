@@ -46,11 +46,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.Device
@@ -122,6 +127,9 @@ class SearchViewModel(private val api: ApiService) : ViewModel() {
             _state.value = State.Blank
             return
         }
+        // The limit is enforced here so a 400 is never sent, but the sentence is
+        // resolved by the screen (which has the catalog) — a ViewModel must not
+        // hold a finished Vietnamese sentence.
         SearchQuery.error(query)?.let { tooLong ->
             _state.value = State.Error(tooLong, query)
             return
@@ -189,10 +197,10 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tìm kiếm") },
+                title = { Text(stringResource(R.string.action_search)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -211,7 +219,7 @@ fun SearchScreen(
             SearchField(
                 query = query,
                 onQueryChange = onQueryChange,
-                placeholder = "Tìm thiết bị, gói dịch vụ, wishlist…",
+                placeholder = stringResource(R.string.search_search_devices_plans_wishlist),
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .focusRequester(focusRequester),
@@ -220,23 +228,21 @@ fun SearchScreen(
             when (val s = state) {
                 SearchViewModel.State.Blank -> EmptyState(
                     icon = Icons.Filled.Search,
-                    title = "Tìm gì cũng được",
-                    body = "Gõ tên thiết bị, hãng, model, serial, gói dịch vụ hoặc món trong wishlist — " +
-                        "không dấu vẫn ra (\"dien thoai\" khớp \"Điện thoại\").",
+                    title = stringResource(R.string.search_search_for_anything),
+                    body = stringResource(R.string.search_blank_body),
                 )
 
                 SearchViewModel.State.Loading -> SkeletonList(count = 4)
 
                 is SearchViewModel.State.Empty -> EmptyState(
                     icon = Icons.Filled.SearchOff,
-                    title = "Không tìm thấy gì khớp",
-                    body = "Không có thiết bị, gói dịch vụ hay món wishlist nào khớp " +
-                        "\"${s.query}\". Thử một từ khoá ngắn hơn xem sao.",
+                    title = stringResource(R.string.search_nothing_matches),
+                    body = stringResource(R.string.search_empty_body, s.query),
                 )
 
                 is SearchViewModel.State.Error -> ErrorState(
                     icon = Icons.Outlined.WarningAmber,
-                    title = "Tìm không được rồi",
+                    title = stringResource(R.string.search_search_failed),
                     body = s.message,
                     onRetry = { vm.search(s.query) },
                 )
@@ -259,6 +265,13 @@ private fun SearchResultsList(
     onOpenSubscription: (String) -> Unit,
     onOpenWishlistItem: (String) -> Unit,
 ) {
+    val context = LocalContext.current
+    val s = appStrings()
+    // Hoisted into the composable scope: the LazyColumn `item { }` content
+    // lambda is a composable scope, but the surrounding function body is not.
+    val summary = pluralStringResource(
+        R.plurals.search_results_for, results.total, results.total, results.query,
+    )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
@@ -266,7 +279,7 @@ private fun SearchResultsList(
     ) {
         item(key = "summary") {
             Text(
-                "${results.total} kết quả cho \"${results.query}\"",
+                summary,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -274,7 +287,12 @@ private fun SearchResultsList(
         }
         if (results.devices.isNotEmpty()) {
             item(key = "header-devices") {
-                SectionHeader(SearchGroups.header(SearchGroups.DEVICES, results.devices.size))
+                SectionHeader(
+                    SearchGroups.header(
+                        stringResource(SearchGroups.DEVICES),
+                        results.devices.size,
+                    ),
+                )
             }
             items(results.devices, key = { "device-${it.id}" }) { device ->
                 ResultCard(
@@ -290,15 +308,18 @@ private fun SearchResultsList(
         if (results.subscriptions.isNotEmpty()) {
             item(key = "header-subscriptions") {
                 SectionHeader(
-                    SearchGroups.header(SearchGroups.SUBSCRIPTIONS, results.subscriptions.size),
+                    SearchGroups.header(
+                        stringResource(SearchGroups.SUBSCRIPTIONS),
+                        results.subscriptions.size,
+                    ),
                 )
             }
             items(results.subscriptions, key = { "sub-${it.id}" }) { sub ->
                 ResultCard(
                     icon = Icons.Filled.CreditCard,
                     title = sub.name,
-                    subtitle = subscriptionSubtitle(sub),
-                    meta = formatPriceCycle(sub.price, sub.billingCycle),
+                    subtitle = subscriptionSubtitle(s, sub),
+                    meta = formatPriceCycle(s, sub.price, sub.billingCycle),
                     trailing = { SubscriptionStatusPill(sub.status) },
                     onClick = { onOpenSubscription(sub.id) },
                 )
@@ -316,7 +337,7 @@ private fun SearchResultsList(
                     // Priority first (it is what the "Thèm" list sorts on), then
                     // the watched price — or the target date when there is none.
                     meta = listOfNotNull(
-                        item.priority.label,
+                        stringResource(item.priority.labelRes),
                         item.currentPrice?.let { formatVnd(it) } ?: item.targetDate?.take(10),
                     ).joinToString(" • "),
                     trailing = { WishlistStatusPill(item.status) },
@@ -389,9 +410,9 @@ private fun ResultCard(
 }
 
 // The three status pills below repeat the mappings the list screens keep
-// private. They are label-mapped in one place per status enum (`DeviceStatus`,
-// `SubscriptionStatus`, `WishlistStatus` carry the Vietnamese copy), so only
-// the colour bucket is duplicated here.
+// private. Their label comes from the status enum's own `labelRes` — one label
+// per enum, in `network/Models.kt` — so only the colour bucket is duplicated
+// here.
 
 @Composable
 private fun DeviceStatusPill(status: DeviceStatus) {
@@ -402,7 +423,7 @@ private fun DeviceStatusPill(status: DeviceStatus) {
         DeviceStatus.BROKEN -> PillKind.Danger
         DeviceStatus.LOST -> PillKind.Warning
     }
-    StatusPill(label = status.label, kind = kind)
+    StatusPill(label = stringResource(status.labelRes), kind = kind)
 }
 
 @Composable
@@ -413,7 +434,7 @@ private fun SubscriptionStatusPill(status: SubscriptionStatus) {
         SubscriptionStatus.CANCELED -> PillKind.Neutral
         SubscriptionStatus.EXPIRED -> PillKind.Danger
     }
-    StatusPill(label = status.label, kind = kind)
+    StatusPill(label = stringResource(status.labelRes), kind = kind)
 }
 
 @Composable
@@ -424,5 +445,5 @@ private fun WishlistStatusPill(status: WishlistStatus) {
         WishlistStatus.SKIPPED -> PillKind.Neutral
         WishlistStatus.PURCHASED -> PillKind.Accent
     }
-    StatusPill(label = status.label, kind = kind)
+    StatusPill(label = stringResource(status.labelRes), kind = kind)
 }

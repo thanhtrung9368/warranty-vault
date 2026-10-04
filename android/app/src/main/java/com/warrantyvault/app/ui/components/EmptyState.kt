@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import com.warrantyvault.app.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -103,7 +105,10 @@ fun ErrorState(
     icon: ImageVector,
     title: String,
     body: String,
-    retryLabel: String = "Thử lại",
+    // `null` means "use the catalog's own word for this button" — a caller with
+    // nothing screen-specific to say should not have to pass a Vietnamese
+    // literal to get a translated button.
+    retryLabel: String? = null,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -154,7 +159,10 @@ fun ErrorState(
                     .fillMaxWidth()
                     .height(48.dp),
             ) {
-                Text(retryLabel, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    retryLabel ?: stringResource(R.string.comp_retry),
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
     }

@@ -31,9 +31,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
 import com.warrantyvault.app.auth.AuthStore
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.fieldErrors
@@ -41,10 +44,25 @@ import com.warrantyvault.app.network.toUserMessage
 import kotlinx.coroutines.launch
 
 /**
- * `PATCH /api/v1/auth/me` — edit the display name (the only editable profile
- * field; email change is not supported by the contract at all).
+ * `PATCH /api/v1/auth/me` — edit the display name. The account EMAIL is not
+ * editable here, and never was — but not because the contract cannot do it.
  *
- * Serverside rules this sheet deliberately does NOT re-implement:
+ * ## About the email (the old comment here was wrong)
+ *
+ * This screen used to say "email change is not supported by the contract at
+ * all". That is false: changing the address is its own two-step flow —
+ * `POST /api/v1/auth/change-email` (current password required, rate-limited,
+ * mails a single-use token to the NEW address) and
+ * `POST /api/v1/auth/confirm-email-change` (consumes it, then revokes every
+ * session). Web has it (`/confirm-email/[token]` plus a request form) and iOS
+ * has it (`EmailChangeSheet.swift`); Android now has it too — see
+ * [EmailChangeSheet], which is where the Settings "Email" row leads.
+ *
+ * What IS true is narrower: `PATCH /auth/me` itself accepts only `displayName`
+ * and `locale`, and a body carrying `email` / `newEmail` is a 400 with a
+ * translated explanation. That is the only reason this sheet has no email field.
+ *
+ * Server-side rules this sheet deliberately does NOT re-implement:
  *  - the 80 **byte** UTF-8 cap (~26 Vietnamese characters) — no client-side
  *    character count, the 400 `fieldErrors.displayName` copy is displayed
  *    verbatim under the field instead of a guessed local limit,
@@ -61,6 +79,7 @@ fun ProfileEditSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var displayName by remember { mutableStateOf(initialName) }
     var submitting by remember { mutableStateOf(false) }
@@ -77,7 +96,7 @@ fun ProfileEditSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Sửa hồ sơ",
+                stringResource(R.string.profile_title),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
 
@@ -87,14 +106,13 @@ fun ProfileEditSheet(
                     displayName = it
                     fieldErrors = fieldErrors - "displayName"
                 },
-                label = { Text("Tên hiển thị") },
+                label = { Text(stringResource(R.string.profile_display_name)) },
                 singleLine = true,
                 enabled = !submitting,
                 isError = nameError != null,
                 supportingText = {
                     Text(
-                        nameError
-                            ?: "Để trống để xoá tên. Tối đa 80 byte (~26 ký tự tiếng Việt).",
+                        nameError ?: stringResource(R.string.profile_name_hint),
                         color = if (nameError != null) {
                             MaterialTheme.colorScheme.error
                         } else {
@@ -125,13 +143,13 @@ fun ProfileEditSheet(
                         try {
                             // "" clears; the server trims and maps blank → NULL.
                             val res = auth.updateDisplayName(displayName)
-                            onSuccess(res.message ?: "Đã cập nhật hồ sơ")
+                            onSuccess(res.message ?: context.getString(R.string.profile_saved))
                         } catch (e: Exception) {
                             val fe = e.fieldErrors(ApiClient.json)
                             if (fe.isNotEmpty()) {
                                 fieldErrors = fe
                             } else {
-                                generalError = e.toUserMessage(ApiClient.json)
+                                generalError = e.toUserMessage(ApiClient.json, context)
                             }
                         } finally {
                             submitting = false
@@ -152,7 +170,7 @@ fun ProfileEditSheet(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text("Lưu", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.action_save), fontWeight = FontWeight.SemiBold)
                 }
             }
 

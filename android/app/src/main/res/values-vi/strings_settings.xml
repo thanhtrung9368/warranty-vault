@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bản gốc tiếng Việt của tab Cài đặt + sheet hồ sơ + sheet đổi email.
+     Các tiền tố đã bị "khoá" (settings_lang_*, settings_email_*, profile_*,
+     email_change_*) — xem chú thích ở `values/strings_settings.xml`. -->
+<resources>
+
+    <!-- ===== Chọn ngôn ngữ (ui/screens/settings/LanguageSheet.kt). ===== -->
+    <string name="settings_lang_row_title">Ngôn ngữ</string>
+    <string name="settings_lang_row_subtitle">Ngôn ngữ của ứng dụng và của thông báo.</string>
+    <string name="settings_lang_sheet_title">Chọn ngôn ngữ</string>
+    <string name="settings_lang_english">Tiếng Anh</string>
+    <string name="settings_lang_vietnamese">Tiếng Việt</string>
+    <string name="settings_lang_footer">Lựa chọn được lưu vào tài khoản để thông báo đẩy và email gửi đúng ngôn ngữ, không chỉ riêng màn hình trong app.</string>
+    <string name="settings_lang_saving">Đang lưu…</string>
+
+    <!-- ===== Dòng email trong Cài đặt (SettingsScreen.kt). ===== -->
+    <string name="settings_email_row_subtitle">%1$s · bấm để đổi</string>
+
+    <!-- ===== ProfileEditSheet.kt ===== -->
+    <string name="profile_title">Sửa hồ sơ</string>
+    <string name="profile_display_name">Tên hiển thị</string>
+    <string name="profile_name_hint">Để trống để xoá tên. Tối đa 80 byte (~26 ký tự tiếng Việt).</string>
+    <string name="profile_saved">Đã cập nhật hồ sơ</string>
+
+    <!-- ===== EmailChangeSheet.kt — chép nguyên văn từ
+         ios/Sources/WarrantyVaultKit/EmailChangeSheet.swift. ===== -->
+    <string name="email_change_title">Đổi email</string>
+    <string name="email_change_intro">Email đăng nhập hiện tại: %1$s. Sau khi xác nhận, mọi thiết bị sẽ bị đăng xuất và bạn phải đăng nhập lại bằng địa chỉ mới.</string>
+    <string name="email_change_intro_empty">—</string>
+    <string name="email_change_step1_header">Bước 1 — Gửi mã tới địa chỉ mới</string>
+    <string name="email_change_new_email">Địa chỉ email mới</string>
+    <string name="email_change_current_password">Mật khẩu hiện tại</string>
+    <string name="email_change_requesting">Đang gửi…</string>
+    <string name="email_change_request">Gửi mã xác nhận</string>
+    <string name="email_change_step2_header">Bước 2 — Nhập mã xác nhận</string>
+    <string name="email_change_token">Mã xác nhận trong email</string>
+    <string name="email_change_confirming">Đang xác nhận…</string>
+    <string name="email_change_confirm">Xác nhận đổi email</string>
+    <string name="email_change_footer">Ứng dụng không mở được link trong email (đó là trang web), nên hãy dán mã — hoặc dán cả link — vào ô trên. Mã dùng một lần và hết hạn sau %1$d phút.</string>
+    <string name="email_change_requested">Đã ghi nhận yêu cầu</string>
+    <string name="email_change_check_inbox">Mở hộp thư của địa chỉ MỚI%1$s — kể cả mục Spam/Quảng cáo — rồi dán mã xác nhận vào Bước 2.</string>
+    <string name="email_change_check_inbox_address"> (%1$s)</string>
+    <string name="email_change_old_address_note">Địa chỉ cũ vẫn dùng được cho tới khi xác nhận xong.</string>
+    <string name="email_change_enter_token">Nhập mã xác nhận trong email.</string>
+    <string name="email_change_done_title">Đã đổi email</string>
+    <string name="email_change_done_body">Email đăng nhập đã được đổi%1$s. Mọi thiết bị — kể cả thiết bị này — đã bị đăng xuất. Hãy đăng nhập lại bằng địa chỉ mới.</string>
+    <string name="email_change_done_body_address"> sang %1$s</string>
+    <string name="email_change_sign_in_again">Đăng nhập lại</string>
+
+    <!-- Giao diện (ThemePreference.kt). -->
+    <string name="settings_theme_system">Theo hệ thống</string>
+    <string name="settings_theme_light">Sáng</string>
+    <string name="settings_theme_dark">Tối</string>
+
+</resources>

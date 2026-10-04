@@ -1,5 +1,6 @@
 package com.warrantyvault.app.export
 
+import com.warrantyvault.app.i18n.ResCatalog
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceStatus
 import org.junit.Assert.assertEquals
@@ -16,6 +17,14 @@ import java.time.LocalDateTime
  * newline). Each of those regressions has an explicit test below.
  */
 class CsvExportTest {
+
+    /**
+     * The device row is serialised through the `AppStrings` seam now: the status
+     * column is `DeviceStatus.labelRes`, so the export speaks the UI's language
+     * instead of always printing the Vietnamese label.
+     */
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     private fun device(
         name: String = "iPhone 15 Pro",
@@ -59,7 +68,7 @@ class CsvExportTest {
 
     @Test
     fun delimiterInsideANameDoesNotSplitTheRow() {
-        val csv = devicesCsv(listOf(device(name = "Loa; 2 loa")), CsvDelimiter.SEMICOLON)
+        val csv = devicesCsv(vi, listOf(device(name = "Loa; 2 loa")), CsvDelimiter.SEMICOLON)
 
         // The name's own `;` stays inside the quotes, so the record still has
         // exactly 11 columns when a reader that honours RFC 4180 parses it.
@@ -105,7 +114,7 @@ class CsvExportTest {
 
     @Test
     fun theProducedBytesStartWithTheUtf8Bom() {
-        val bytes = devicesCsvBytes(listOf(device()))
+        val bytes = devicesCsvBytes(vi, listOf(device()))
 
         // Raw bytes, not the string: this is literally what Excel sniffs.
         assertEquals(0xEF, bytes[0].toInt() and 0xFF)
@@ -118,7 +127,7 @@ class CsvExportTest {
         // Byte 4 is 'T' of "Tên thiết bị" — UTF-8, no other preamble.
         assertEquals('T'.code, bytes[3].toInt())
         // And the string form puts U+FEFF exactly once, at index 0.
-        val text = devicesCsv(listOf(device()))
+        val text = devicesCsv(vi, listOf(device()))
         assertEquals(0, text.indexOf(Csv.BOM))
         assertEquals(0, text.lastIndexOf(Csv.BOM))
 
@@ -129,7 +138,7 @@ class CsvExportTest {
 
     @Test
     fun vietnameseDiacriticsSurviveTheUtf8RoundTrip() {
-        val bytes = devicesCsvBytes(listOf(device(name = "Máy giặt")))
+        val bytes = devicesCsvBytes(vi, listOf(device(name = "Máy giặt")))
         val decoded = String(bytes.copyOfRange(3, bytes.size), Charsets.UTF_8)
         assertTrue(decoded.startsWith("Tên thiết bị;Danh mục;Hãng;Model;Số seri;Ngày mua"))
         assertTrue(decoded.contains("Máy giặt"))
@@ -143,7 +152,7 @@ class CsvExportTest {
     fun zeroIsWrittenAsTheDigitZeroNotAnEmptyCell() {
         assertEquals("0", csvNumber(0))
         assertEquals("0", csvNumber(0L))
-        val row = deviceCsvRow(device(purchasePrice = 0))
+        val row = deviceCsvRow(vi, device(purchasePrice = 0))
         assertEquals("0", row[DEVICE_CSV_HEADER.indexOf("Giá mua")])
     }
 
@@ -152,7 +161,7 @@ class CsvExportTest {
         assertEquals("30000000", csvNumber(30_000_000))
         assertEquals("1500000", csvNumber(1_500_000L))
         // No "đ", no "15.000.000", no "15,000,000" anywhere in the file.
-        val csv = devicesCsv(listOf(device(purchasePrice = 30_000_000)))
+        val csv = devicesCsv(vi, listOf(device(purchasePrice = 30_000_000)))
         assertTrue(csv.contains(";30000000;"))
         assertTrue(!csv.contains("30.000.000"))
         assertTrue(!csv.contains("đ"))
@@ -168,6 +177,7 @@ class CsvExportTest {
     @Test
     fun nullableDeviceFieldsBecomeEmptyCellsNotTheStringNull() {
         val row = deviceCsvRow(
+            vi,
             device(brand = null, model = null, serialNumber = null, notes = null),
         )
         assertEquals("", row[DEVICE_CSV_HEADER.indexOf("Hãng")])
@@ -176,6 +186,7 @@ class CsvExportTest {
         assertEquals("", row[DEVICE_CSV_HEADER.indexOf("Ghi chú")])
 
         val csv = devicesCsv(
+            vi,
             listOf(device(brand = null, model = null, serialNumber = null, notes = null)),
         )
         assertTrue("must not leak the literal word: $csv", !csv.contains("null"))
@@ -185,7 +196,7 @@ class CsvExportTest {
     fun aDeviceWithNoWarrantyShowsAnEmptyWarrantyEnd() {
         // `effectiveWarrantyEnd == null` means "no warranty row at all", which is
         // NOT the same as expired — the cell stays empty instead of guessing.
-        val row = deviceCsvRow(device(effectiveWarrantyEnd = null))
+        val row = deviceCsvRow(vi, device(effectiveWarrantyEnd = null))
         assertEquals("", row[DEVICE_CSV_HEADER.indexOf("Hết bảo hành")])
     }
 
@@ -212,22 +223,24 @@ class CsvExportTest {
 
     @Test
     fun categoryComesFromTheSharedCategoryLabelsTable() {
-        assertEquals("Điện thoại", deviceCsvRow(device(category = "PHONE"))[1])
-        assertEquals("Máy ảnh / Quay phim", deviceCsvRow(device(category = "CAMERA"))[1])
-        assertEquals("Tivi", deviceCsvRow(device(category = "TV"))[1])
+        assertEquals("Điện thoại", deviceCsvRow(vi, device(category = "PHONE"))[1])
+        assertEquals("Máy ảnh / Quay phim", deviceCsvRow(vi, device(category = "CAMERA"))[1])
+        assertEquals("Tivi", deviceCsvRow(vi, device(category = "TV"))[1])
         // No private label map: unknown / blank codes degrade exactly like the UI.
-        assertEquals("DRONE", deviceCsvRow(device(category = "DRONE"))[1])
-        assertEquals("Khác", deviceCsvRow(device(category = ""))[1])
+        assertEquals("DRONE", deviceCsvRow(vi, device(category = "DRONE"))[1])
+        assertEquals("Khác", deviceCsvRow(vi, device(category = ""))[1])
         // Legacy lowercase codes still resolve (the drift regression).
-        assertEquals("Laptop", deviceCsvRow(device(category = "laptop"))[1])
+        assertEquals("Laptop", deviceCsvRow(vi, device(category = "laptop"))[1])
     }
 
     @Test
-    fun statusUsesTheVietnameseLabelTheListShows() {
+    fun statusUsesTheSameLabelAsTheListInTheExportsLanguage() {
         for (status in DeviceStatus.entries) {
-            assertEquals(status.label, deviceCsvRow(device(status = status))[8])
+            assertEquals(vi.get(status.labelRes), deviceCsvRow(vi, device(status = status))[8])
+            assertEquals(en.get(status.labelRes), deviceCsvRow(en, device(status = status))[8])
         }
-        assertEquals("Đang dùng", deviceCsvRow(device())[8])
+        assertEquals("Đang dùng", deviceCsvRow(vi, device())[8])
+        assertEquals("In use", deviceCsvRow(en, device())[8])
     }
 
     @Test
@@ -248,7 +261,7 @@ class CsvExportTest {
             device(name = "Loa; 2 loa", brand = null, category = ""),
             device(name = "Màn 15\"", model = null, effectiveWarrantyEnd = null),
         )
-        val table = devicesCsvTable(devices)
+        val table = devicesCsvTable(vi, devices)
         assertEquals(3, table.rows.size)
         for ((i, row) in table.rows.withIndex()) {
             assertEquals("row $i", DEVICE_CSV_HEADER.size, row.size)
@@ -257,9 +270,9 @@ class CsvExportTest {
 
     @Test
     fun emptyDeviceListStillProducesABomAndHeaderOnlyFile() {
-        val csv = devicesCsv(emptyList())
+        val csv = devicesCsv(vi, emptyList())
         assertEquals(Csv.BOM + DEVICE_CSV_HEADER.joinToString(";") + "\r\n", csv)
-        val table = devicesCsvTable(emptyList())
+        val table = devicesCsvTable(vi, emptyList())
         assertEquals(DEVICE_CSV_HEADER, table.header)
         assertTrue(table.rows.isEmpty())
     }
@@ -269,6 +282,7 @@ class CsvExportTest {
     @Test
     fun trickyValuesLandInExactlyThisEscapedCsv() {
         val csv = devicesCsv(
+            vi,
             listOf(
                 device(
                     // delimiter + double quote + newline in one value
@@ -301,7 +315,7 @@ class CsvExportTest {
 
     @Test
     fun recordsAreCrlfTerminatedIncludingTheLastOne() {
-        val csv = devicesCsv(listOf(device(), device(name = "Tủ lạnh")))
+        val csv = devicesCsv(vi, listOf(device(), device(name = "Tủ lạnh")))
         assertTrue(csv.endsWith("\r\n"))
         assertEquals(3, csv.split("\r\n").size - 1) // header + 2 rows, trailing empty
         // The only bare LFs would be ones embedded in quoted values; none here.
@@ -310,7 +324,7 @@ class CsvExportTest {
 
     @Test
     fun commaDelimiterIsAvailableForSpreadsheetsThatWantRfc4180() {
-        val csv = devicesCsv(listOf(device(name = "Chuột, không dây")), CsvDelimiter.COMMA)
+        val csv = devicesCsv(vi, listOf(device(name = "Chuột, không dây")), CsvDelimiter.COMMA)
         assertEquals(
             "\uFEFF" +
                 "Tên thiết bị,Danh mục,Hãng,Model,Số seri,Ngày mua,Giá mua,Nơi mua," +

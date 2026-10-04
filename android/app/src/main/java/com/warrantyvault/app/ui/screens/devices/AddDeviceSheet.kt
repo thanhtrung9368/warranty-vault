@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -46,10 +46,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.BrandOption
@@ -58,14 +62,17 @@ import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.DeviceInput
 import com.warrantyvault.app.network.DeviceStatus
 import com.warrantyvault.app.network.DeviceWarning
+import com.warrantyvault.app.network.DraftDevice
 import com.warrantyvault.app.network.StoreOption
 import com.warrantyvault.app.network.fieldErrors
 import com.warrantyvault.app.network.toUserMessage
 import com.warrantyvault.app.ui.components.CategoryLabels
 import com.warrantyvault.app.ui.components.SheetGroup
-import com.warrantyvault.app.ui.theme.WVAccent
-import com.warrantyvault.app.network.DraftDevice
 import com.warrantyvault.app.ui.screens.common.StoreAutocompleteField
+import com.warrantyvault.app.ui.theme.WVAccent
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,9 +80,6 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +119,7 @@ fun AddDeviceSheet(
     // Resale (roadmap #12). `soldAt` is read exactly like `purchaseDate` above:
     // a naive-UTC timestamp whose first 10 chars are the calendar date. A blank
     // price stays blank rather than becoming 0 so "chưa bán" (null) and a
-    // give-away (0đ) are distinguishable.
+    // give-away (0 ₫) are distinguishable.
     var soldDate by remember { mutableStateOf(soldDateInput(existing?.soldAt)) }
     var soldPrice by remember { mutableStateOf(existing?.soldPrice?.toString().orEmpty()) }
     // Exchange/return window (migration 0010) — PRESERVED, never edited here.
@@ -143,6 +147,7 @@ fun AddDeviceSheet(
 
     // OCR receipt scan (create flow only, gated on the per-user AI opt-in).
     val context = LocalContext.current
+    val s = appStrings()
     var scanning by remember { mutableStateOf(false) }
     var scanInfo by remember { mutableStateOf<DraftDevice?>(null) }
     // Warnings from the AI draft (values it KEPT but flagged), kept apart from
@@ -178,7 +183,7 @@ fun AddDeviceSheet(
             scanInfo = null
             scanWarnings = emptyList()
             try {
-                val draft = extractReceiptFromUri(context, api, uri)
+                val draft = extractReceiptFromUri(context, s, api, uri)
                 applyDraft(draft)
                 scanInfo = draft
                 scanWarnings = draft.warnings
@@ -230,7 +235,7 @@ fun AddDeviceSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                if (isEdit) "Sửa thiết bị" else "Thêm thiết bị",
+                if (isEdit) stringResource(R.string.devadd_edit_device) else stringResource(R.string.dev_add_device),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
             )
 
@@ -253,7 +258,7 @@ fun AddDeviceSheet(
                         Icon(Icons.Outlined.DocumentScanner, contentDescription = null)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(if (scanning) "Đang quét hoá đơn…" else "Quét hoá đơn / phiếu bảo hành")
+                    Text(if (scanning) stringResource(R.string.devadd_scanning_the_invoice) else stringResource(R.string.devadd_scan_an_invoice_warranty_slip))
                 }
                 // PDF receipts: the Go endpoint takes a PDF as a `document`
                 // block, which the photo picker can't hand over.
@@ -264,19 +269,18 @@ fun AddDeviceSheet(
                 ) {
                     Icon(Icons.Filled.PictureAsPdf, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Chọn hoá đơn PDF")
+                    Text(stringResource(R.string.devadd_choose_a_pdf_invoice))
                 }
                 Text(
-                    "Chụp hoặc chọn ảnh, hoặc chọn hoá đơn PDF để tự điền — " +
-                        "vẫn kiểm tra lại trước khi lưu.",
+                    stringResource(R.string.devadd_scan_hint),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 scanInfo?.let { d ->
                     val head = if (d.confidence == "high") {
-                        "Đã điền nháp từ hoá đơn."
+                        stringResource(R.string.devadd_draft_filled_in_from_the_invoice)
                     } else {
-                        "Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé."
+                        stringResource(R.string.devadd_draft_filled_in_the_confidence_is)
                     }
                     Text(
                         head,
@@ -286,7 +290,7 @@ fun AddDeviceSheet(
                     // Two different meanings, two different lines:
                     //   unmatched = we could not use it (you must enter it),
                     //   warnings  = we used it but it looks wrong (still saved).
-                    val review = draftReview(d)
+                    val review = draftReview(s, d)
                     review.unmatched?.let {
                         Text(
                             it,
@@ -307,7 +311,7 @@ fun AddDeviceSheet(
             SheetGroup {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Tên thiết bị *") },
+                    label = { Text(stringResource(R.string.devadd_device_name)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 CategoryDropdown(
@@ -336,11 +340,11 @@ fun AddDeviceSheet(
                         serial = it
                         scanWarnings = emptyList()
                     },
-                    label = { Text("Số serial") },
+                    label = { Text(stringResource(R.string.devadd_serial_number)) },
                     supportingText = serialWarning?.let {
                         {
                             Text(
-                                deviceWarningMessage(it),
+                                deviceWarningMessage(s, it),
                                 color = WVAccent.current.warning,
                             )
                         }
@@ -352,13 +356,13 @@ fun AddDeviceSheet(
             SheetGroup {
                 OutlinedTextField(
                     value = price, onValueChange = { price = it.filter { c -> c.isDigit() } },
-                    label = { Text("Giá (VND)") },
+                    label = { Text(stringResource(R.string.devadd_price_vnd)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = purchaseDate, onValueChange = { purchaseDate = it },
-                    label = { Text("Ngày mua (YYYY-MM-DD) *") },
+                    label = { Text(stringResource(R.string.devadd_purchase_date_yyyy_mm_dd)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 StoreAutocompleteField(
@@ -373,7 +377,7 @@ fun AddDeviceSheet(
                     OutlinedTextField(
                         value = months,
                         onValueChange = { months = it.filter { c -> c.isDigit() } },
-                        label = { Text("Số tháng bảo hành") },
+                        label = { Text(stringResource(R.string.devadd_warranty_length_months)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -385,7 +389,7 @@ fun AddDeviceSheet(
             // instead of being pre-empted by a local check.
             SheetGroup {
                 Text(
-                    "Thông tin bán lại (tuỳ chọn)",
+                    stringResource(R.string.devadd_resale_details_optional),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -396,7 +400,7 @@ fun AddDeviceSheet(
                         soldPrice = it.filter { c -> c.isDigit() }
                         fieldErrors = fieldErrors - "soldPrice"
                     },
-                    label = { Text("Giá bán (VND)") },
+                    label = { Text(stringResource(R.string.devadd_sale_price_vnd)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = firstFieldError("soldPrice") != null,
                     supportingText = firstFieldError("soldPrice")?.let {
@@ -410,7 +414,7 @@ fun AddDeviceSheet(
                         soldDate = it
                         fieldErrors = fieldErrors - "soldAt"
                     },
-                    label = { Text("Ngày bán (YYYY-MM-DD)") },
+                    label = { Text(stringResource(R.string.devadd_sale_date_yyyy_mm_dd)) },
                     isError = firstFieldError("soldAt") != null,
                     supportingText = firstFieldError("soldAt")?.let {
                         { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -418,7 +422,7 @@ fun AddDeviceSheet(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Nhập cả hai để ghi nhận đã bán (0đ = cho tặng). Để trống cả hai nếu chưa bán.",
+                    stringResource(R.string.devadd_fill_in_both_to_record_a),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -430,7 +434,7 @@ fun AddDeviceSheet(
                 }
                 OutlinedTextField(
                     value = notes, onValueChange = { notes = it },
-                    label = { Text("Ghi chú") },
+                    label = { Text(stringResource(R.string.devadd_note)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -512,7 +516,7 @@ fun AddDeviceSheet(
                     )
                 } else {
                     Text(
-                        if (isEdit) "Cập nhật" else "Lưu",
+                        if (isEdit) stringResource(R.string.devadd_update) else stringResource(R.string.action_save),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -541,7 +545,7 @@ private fun CategoryDropdown(
             value = selectedLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Loại") },
+            label = { Text(stringResource(R.string.devadd_category)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -576,10 +580,10 @@ private fun StatusDropdown(
         onExpandedChange = { expanded = it },
     ) {
         TextField(
-            value = selected.label,
+            value = stringResource(selected.labelRes),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Trạng thái") },
+            label = { Text(stringResource(R.string.devadd_status)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -591,7 +595,7 @@ private fun StatusDropdown(
         ) {
             DeviceStatus.entries.forEach { s ->
                 DropdownMenuItem(
-                    text = { Text(s.label) },
+                    text = { Text(stringResource(s.labelRes)) },
                     onClick = { onSelected(s); expanded = false },
                 )
             }
@@ -627,7 +631,7 @@ private fun BrandAutocomplete(
                 onValueChange(it)
                 expanded = true
             },
-            label = { Text("Hãng") },
+            label = { Text(stringResource(R.string.devadd_brand)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryEditable),
@@ -669,20 +673,21 @@ private fun today(): String =
 // only HEIC/GIF take the client-side JPEG transcode.
 private suspend fun extractReceiptFromUri(
     context: android.content.Context,
+    s: AppStrings,
     api: ApiService,
     uri: Uri,
 ): DraftDevice {
     val resolver = context.contentResolver
     val bytes = withContext(Dispatchers.IO) {
         resolver.openInputStream(uri)?.use { it.readBytes() }
-    } ?: throw IllegalStateException("Không đọc được tệp")
+    } ?: throw IllegalStateException(context.getString(R.string.devadd_could_not_read_file))
     val part = when (val plan = ReceiptFiles.plan(bytes)) {
         is ReceiptPlan.SendAsIs -> receiptPart(bytes, plan.mime, plan.fileName)
         ReceiptPlan.TranscodeToJpeg -> {
-            val jpeg = transcodeReceiptToJpeg(bytes)
+            val jpeg = transcodeReceiptToJpeg(s, bytes)
             receiptPart(jpeg, "image/jpeg", "receipt.jpg")
         }
-        ReceiptPlan.Unsupported -> throw IllegalStateException(ReceiptFiles.UNSUPPORTED_MESSAGE)
+        ReceiptPlan.Unsupported -> throw IllegalStateException(context.getString(ReceiptFiles.UNSUPPORTED_MESSAGE))
     }
     return api.extractReceipt(part).draft
 }

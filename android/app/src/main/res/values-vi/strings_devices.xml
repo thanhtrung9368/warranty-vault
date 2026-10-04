@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc, chép nguyên văn.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in AddDeviceSheet.kt, DashboardScreen.kt, DeviceDetailScreen.kt, DevicesScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="dash_search_everything">Tìm kiếm tất cả</string>
+    <string name="dash_could_not_load_it">Tải không được rồi</string>
+    <string name="dash_under_warranty">Còn bảo hành</string>
+    <string name="dash_expiring_in_30_days">Sắp hết ≤30 ngày</string>
+    <string name="dash_expired">Đã hết hạn</string>
+    <string name="dash_warranty_expiring_soon">Sắp hết bảo hành</string>
+    <string name="dash_subscriptions">Gói đăng ký</string>
+    <string name="dash_wishlist">Đang thèm</string>
+    <string name="dash_open_the_queue_of_things_the">Mở hàng đợi việc app tự suy ra từ dữ liệu của mày</string>
+    <string name="dash_nothing_waiting_to_be_handled">Không có việc nào đang chờ xử lý</string>
+    <plurals name="dash_items_need_attention_high">
+        <item quantity="other">%1$s việc cần xử lý · %2$s mức cao</item>
+    </plurals>
+    <plurals name="dash_items_need_attention">
+        <item quantity="other">%1$s việc cần xử lý</item>
+    </plurals>
+    <string name="dash_action_items">Việc cần xử lý</string>
+    <string name="dash_good_morning">Chào buổi sáng,</string>
+    <string name="dash_good_afternoon">Chào buổi chiều,</string>
+    <string name="dash_good_evening">Chào buổi tối,</string>
+    <string name="dash_expires_today">Hết hôm nay</string>
+    <string name="dash_1_day_left">Còn 1 ngày</string>
+    <plurals name="dash_days_left">
+        <item quantity="other">Còn %1$s ngày</item>
+    </plurals>
+    <string name="dash_everything_looks_fine">Tất cả đều ngon</string>
+    <string name="dash_no_plans_expiring_in_the_next">Không có gói nào sắp hết trong 30 ngày</string>
+    <string name="dash_month">/ tháng</string>
+    <string name="dash_year_plans_running">~ %1$s/năm · %2$s gói đang chạy</string>
+    <string name="dash_renewing_soon">SẮP GIA HẠN</string>
+    <string name="dev_add_device">Thêm thiết bị</string>
+    <string name="dev_loading_your_list">Đang tải danh sách của mày…</string>
+    <plurals name="dev_items_tracked">
+        <item quantity="other">%1$s món đang theo dõi</item>
+    </plurals>
+    <string name="dev_search_by_name_brand_model_serial">Tìm theo tên, hãng, model, serial...</string>
+    <string name="dev_nothing_matches_the_filter">Không có gì khớp bộ lọc</string>
+    <string name="dev_no_devices_yet">Chưa có thiết bị nào, mày</string>
+    <string name="dev_try_loosening_the_filters_or_clearing">Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.</string>
+    <string name="dev_add_the_first_one_to_start">Thêm cái đầu tiên để bắt đầu theo dõi bảo hành nha.</string>
+    <string name="dev_add_your_first_device">Thêm thiết bị đầu tiên</string>
+    <string name="dev_attachments">Tệp đính kèm</string>
+    <string name="devadd_edit_device">Sửa thiết bị</string>
+    <string name="devadd_scanning_the_invoice">Đang quét hoá đơn…</string>
+    <string name="devadd_scan_an_invoice_warranty_slip">Quét hoá đơn / phiếu bảo hành</string>
+    <string name="devadd_choose_a_pdf_invoice">Chọn hoá đơn PDF</string>
+    <string name="devadd_draft_filled_in_from_the_invoice">Đã điền nháp từ hoá đơn.</string>
+    <string name="devadd_draft_filled_in_the_confidence_is">Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé.</string>
+    <string name="devadd_device_name">Tên thiết bị *</string>
+    <string name="devadd_serial_number">Số serial</string>
+    <string name="devadd_price_vnd">Giá (VND)</string>
+    <string name="devadd_purchase_date_yyyy_mm_dd">Ngày mua (YYYY-MM-DD) *</string>
+    <string name="devadd_warranty_length_months">Số tháng bảo hành</string>
+    <string name="devadd_resale_details_optional">Thông tin bán lại (tuỳ chọn)</string>
+    <string name="devadd_sale_price_vnd">Giá bán (VND)</string>
+    <string name="devadd_sale_date_yyyy_mm_dd">Ngày bán (YYYY-MM-DD)</string>
+    <string name="devadd_fill_in_both_to_record_a">Nhập cả hai để ghi nhận đã bán (0 ₫ = cho tặng). Để trống cả hai nếu chưa bán.</string>
+    <string name="devadd_note">Ghi chú</string>
+    <string name="devadd_update">Cập nhật</string>
+    <string name="devadd_category">Loại</string>
+    <string name="devadd_status">Trạng thái</string>
+    <string name="devadd_brand">Hãng</string>
+    <string name="devdetail_details">Chi tiết</string>
+    <string name="devdetail_delete_device">Xoá thiết bị</string>
+    <string name="devdetail_add_a_warranty_plan">Thêm bảo hành</string>
+    <string name="devdetail_delete_this_warranty_plan">Xoá gói bảo hành?</string>
+    <string name="devdetail_this_cannot_be_undone_the_plan">Hành động này không thể hoàn tác. Gói "%1$s" sẽ bị xoá khỏi thiết bị.</string>
+    <string name="devdetail_delete_this_device">Xóa thiết bị?</string>
+    <string name="devdetail_deleting">Đang xoá…</string>
+    <string name="devdetail_warranty">Bảo hành</string>
+    <string name="devdetail_no_warranty_plan_yet">Chưa có gói bảo hành nào</string>
+    <string name="devdetail_tap_to_add_the_first_plan">Bấm nút + để thêm gói đầu tiên.</string>
+    <string name="devdetail_bought_on">Mua ngày</string>
+    <string name="devdetail_price">Giá</string>
+    <string name="devdetail_return_window">Hạn đổi trả</string>
+    <string name="devdetail_purchased_at">Nơi mua</string>
+    <string name="devdetail_resale">Bán lại</string>
+    <string name="devdetail_sale_date">Ngày bán</string>
+    <string name="devdetail_sale_price">Giá bán</string>
+    <string name="devdetail_profit_loss">Lãi/lỗ</string>
+    <string name="devdetail_reminder_turned_off">Đã tắt nhắc</string>
+    <string name="devdetail_starts">Bắt đầu</string>
+    <string name="devdetail_ends">Kết thúc</string>
+    <string name="devdetail_months">Số tháng</string>
+    <plurals name="devdetail_months_2">
+        <item quantity="other">%1$s tháng</item>
+    </plurals>
+    <string name="devdetail_cost">Chi phí</string>
+    <string name="devdetail_address">Địa chỉ</string>
+    <string name="devdetail_phone">Điện thoại</string>
+    <string name="devdetail_turn_the_reminder_back_on">Bật lại nhắc</string>
+    <string name="devdetail_turn_the_reminder_off">Tắt nhắc</string>
+    <string name="att_documents_attached_photos">Tài liệu / Ảnh đính kèm</string>
+    <string name="att_add_photo">Thêm ảnh</string>
+    <string name="att_add_pdf">Thêm PDF</string>
+    <string name="att_uploading">Đang tải lên...</string>
+    <string name="att_no_attachments_yet">Chưa có tài liệu đính kèm.</string>
+    <string name="att_edit_description">Sửa mô tả</string>
+    <string name="att_description">Mô tả</string>
+    <string name="att_leave_it_empty_to_clear_the">Để trống để xoá mô tả.</string>
+    <string name="att_open">Mở</string>
+    <string name="warr_add_a_warranty_plan">Thêm gói bảo hành</string>
+    <string name="warr_edit_warranty_plan">Sửa gói bảo hành</string>
+    <string name="warr_start_date_yyyy_mm_dd">Ngày bắt đầu (YYYY-MM-DD) *</string>
+    <string name="warr_months">Số tháng *</string>
+    <string name="warr_cost_vnd">Chi phí (VND)</string>
+    <string name="warr_address">Địa chỉ</string>
+    <string name="warr_note">Ghi chú</string>
+    <string name="warr_warranty_type">Loại bảo hành</string>
+    <string name="dir_where_to_get_warranty_service">Đi bảo hành ở đâu</string>
+    <string name="dir_checking_the_directory">Đang tra danh bạ...</string>
+    <string name="dir_the_brand_s_authorised_service_centres">Trung tâm uỷ quyền của hãng</string>
+    <string name="dir_brand_you_typed">Hãng bạn ghi: "%1$s"</string>
+    <string name="dir_no_brand_recorded_for_this_device">Chưa ghi hãng cho thiết bị này</string>
+    <string name="dir_you_typed">Bạn ghi: "%1$s"</string>
+    <string name="dir_this_brand_has_no_verified_lookup">Hãng này chưa có link tra cứu nào được kiểm chứng.</string>
+    <string name="share_warranty_handover_certificate">Phiếu bàn giao bảo hành</string>
+    <string name="share_include_the_full_serial_imei">Kèm số máy/IMEI đầy đủ</string>
+    <string name="share_create_a_share_link">Tạo link chia sẻ</string>
+    <string name="share_revoke_this_link">Thu hồi link này?</string>
+    <string name="share_link_for">Link của "%1$s":</string>
+    <string name="share_the_server_did_not_return_a">Máy chủ không trả về đường dẫn cho link này. Hãy thu hồi và tạo lại.</string>
+    <string name="share_share">Chia sẻ</string>
+    <string name="share_copy">Sao chép</string>
+    <string name="share_revoke_link">Thu hồi link</string>
+    <string name="dev_all">Tất cả</string>
+    <string name="dev_newest_purchase">Ngày mua mới nhất</string>
+    <string name="dev_oldest_purchase">Ngày mua cũ nhất</string>
+    <string name="dev_warranty_ending_soonest">BH sắp hết trước</string>
+    <string name="dev_warranty_ending_last">BH lâu hết trước</string>
+    <string name="dev_highest_price">Giá cao nhất</string>
+    <string name="dev_lowest_price">Giá thấp nhất</string>
+    <string name="dev_name_a_z">Tên A-Z</string>
+    <!-- Resale P/L (DeviceResale.kt). "Lãi"/"Lỗ" is the everyday Vietnamese for a
+         resale gain/loss; the amount comes from i18n/Money.kt. -->
+    <string name="dev_sale_profit">Lãi %1$s</string>
+    <string name="dev_sale_loss">Lỗ %1$s</string>
+    <string name="dev_sale_breakeven">Hoà vốn</string>
+
+    <!-- ===== Danh bạ bảo hành, hoá đơn, file đính kèm. ===== -->
+    <string name="dir_no_app_for_link">Không có ứng dụng mở link này</string>
+    <string name="dir_cannot_open_dialer">Không mở được trình gọi điện</string>
+    <string name="receipt_unsupported_type">Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF</string>
+    <string name="devadd_could_not_read_file">Không đọc được tệp</string>
+    <string name="devadd_contact_phone">Điện thoại liên hệ</string>
+    <string name="dev_filtered_suffix"> (đã lọc)</string>
+    <string name="att_could_not_read_file">Không đọc được file</string>
+    <string name="att_not_signed_in">Chưa đăng nhập</string>
+    <string name="att_download_failed">Tải về thất bại (%1$d)</string>
+    <string name="att_no_data">Không có dữ liệu</string>
+    <string name="att_no_app_for_file_type">Không có ứng dụng mở file %1$s</string>
+    <string name="devadd_brand_other">Đơn vị bảo hành</string>
+
+    <string name="devdetail_delete_body">Hành động này sẽ xóa vĩnh viễn \"%1$s\" cùng toàn bộ file đính kèm và nhắc nhở. Không thể khôi phục.</string>
+
+    <string name="devadd_scan_hint">Chụp hoặc chọn ảnh, hoặc chọn hoá đơn PDF để tự điền — vẫn kiểm tra lại trước khi lưu.</string>
+
+    <!-- ===== Phiếu bàn giao / link chia sẻ (ShareLinks.kt,
+         ShareCertificatesSection.kt). ===== -->
+    <string name="share_one_time_warning">Link chỉ hiện đúng MỘT LẦN và app không lưu lại. Nếu đóng mà chưa sao chép, bạn phải tạo link mới.</string>
+    <string name="share_one_time_title">Link chỉ hiện một lần</string>
+    <string name="share_copied">Đã sao chép link. Lưu ý: link chỉ hiện một lần.</string>
+    <string name="share_no_links">Chưa có link chia sẻ nào. Tạo link để gửi người mua bằng chứng còn bảo hành.</string>
+    <string name="share_message">Phiếu bàn giao bảo hành cho \"%1$s\": %2$s\nLink chỉ-đọc, có hạn, không cần đăng nhập.</string>
+    <string name="share_state_revoked">Đã thu hồi</string>
+    <string name="share_state_live">Đang hiệu lực</string>
+    <string name="share_views_none">Chưa mở lần nào</string>
+    <plurals name="share_views">
+        <item quantity="other">Đã mở %1$d lần</item>
+    </plurals>
+    <string name="share_serial_off">Tắt (mặc định): phiếu chỉ hiện số máy đã che giữa, ví dụ \"35•••••••89\".</string>
+    <string name="share_serial_on">Bật: phiếu hiện đầy đủ số máy/IMEI — cần khi trung tâm bảo hành tra cứu theo IMEI, nhưng nếu link bị chuyển tiếp thì máy bị nhận diện đầy đủ.</string>
+    <string name="share_projection">Người nhận link chỉ thấy: tên máy, loại, hãng/model, ngày mua, nơi mua, trạng thái, số máy (đã che giữa, hoặc đầy đủ nếu bạn bật ở trên), các gói bảo hành kèm hạn và địa chỉ/số điện thoại do bạn ghi. Không bao giờ có: giá mua, giá bán, ghi chú, ảnh hoá đơn hay bất kỳ thiết bị nào khác của bạn.</string>
+    <string name="share_limit">Mỗi thiết bị chỉ giữ được 10 link còn hiệu lực. Thu hồi bớt một link rồi tạo lại.</string>
+    <string name="share_revoke_confirm">Link này sẽ ngừng mở được ngay. Người đã nhận link sẽ thấy lỗi, kể cả khi link chưa hết hạn.</string>
+    <string name="share_revoke_confirm_dated">Link này sẽ ngừng mở được ngay. Người đã nhận link sẽ thấy lỗi, kể cả khi link chưa hết hạn (hạn cũ %1$s).</string>
+    <string name="share_chooser_title">Gửi phiếu bàn giao qua</string>
+    <string name="share_no_target">Không có ứng dụng nào nhận chia sẻ văn bản trên máy này. Bạn vẫn có thể sao chép link.</string>
+
+    <string name="share_live_count">%1$d đang hiệu lực</string>
+    <string name="share_section_body">Gửi người mua một link chỉ-đọc, không cần đăng nhập, để họ tự xem phần bảo hành còn lại. Link luôn có hạn và thu hồi được.</string>
+    <string name="share_expiry_prefix">Hạn: %1$s</string>
+    <string name="share_serial_full_short">có số máy đầy đủ</string>
+    <string name="share_serial_masked_short">số máy đã che giữa</string>
+    <string name="share_valid_for">Link có hiệu lực trong</string>
+    <plurals name="share_days">
+        <item quantity="other">%1$d ngày</item>
+    </plurals>
+    <string name="share_bullet_full">· có số máy đầy đủ</string>
+    <string name="share_bullet_masked">· số máy che giữa</string>
+    <string name="share_clip_label">Link phiếu bàn giao</string>
+
+    <!-- ===== Cảnh báo sau khi lưu (DeviceWarnings.kt). Không câu nào được nói
+         "thất bại": thiết bị ĐÃ được lưu, đây chỉ là lời nhắc. ===== -->
+    <string name="warn_imei_checksum">IMEI 15 số này không đúng checksum (Luhn) — có thể sai một chữ số. Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn.</string>
+    <string name="warn_imei_length">Chuỗi số này không phải IMEI 15 số. Vẫn lưu được, nhưng nên kiểm tra lại.</string>
+    <string name="warn_serial_duplicate">Serial này đã có ở một thiết bị khác của mày. Vẫn lưu được — chỉ là cảnh báo.</string>
+    <string name="warn_generic">Giá trị này có thể không đúng. Thiết bị vẫn được lưu — chỉ là cảnh báo.</string>
+    <string name="warn_title_saved">Đã lưu, nhưng nên xem lại</string>
+    <string name="warn_title_updated">Đã cập nhật, nhưng nên xem lại</string>
+    <string name="warn_still_saved">Thiết bị vẫn được lưu — đây là cảnh báo, không phải lỗi.</string>
+    <string name="warn_unmatched">Cần xem lại: %1$s.</string>
+    <string name="warn_draft_filled">Đã điền nhưng có thể sai: %1$s</string>
+    <string name="warn_field_brand">Hãng</string>
+    <string name="warn_field_purchase_place">Nơi mua</string>
+    <string name="warn_field_category">Loại thiết bị</string>
+    <string name="warn_field_serial">Số serial</string>
+    <string name="warn_field_warranty_months">Số tháng bảo hành</string>
+
+    <!-- ===== Nhãn enum miền (`network/Models.kt`). =====
+         Mỗi nhãn `DeviceStatus` / `WarrantyType` / `PhoneSource` là một
+         `@StringRes labelRes` trên enum, đọc bằng `stringResource(...)` trong
+         composable và `s.get(...)` trong hàm thuần — đúng cách
+         `ThemePreference.labelRes` đang làm. Chữ tiếng Việt ở đây **nguyên bản**,
+         byte-for-byte như app vẫn hiện từ trước; bản tiếng Anh nằm ở `values/`. -->
+    <string name="enum_device_status_active">Đang dùng</string>
+    <string name="enum_device_status_expired">Hết bảo hành</string>
+    <string name="enum_device_status_sold">Đã bán</string>
+    <string name="enum_device_status_broken">Hỏng</string>
+    <string name="enum_device_status_lost">Mất</string>
+
+    <string name="enum_warranty_type_standard">Tiêu chuẩn</string>
+    <string name="enum_warranty_type_extended">Mở rộng</string>
+    <string name="enum_warranty_type_third_party">Bên thứ ba</string>
+
+    <!-- Nguồn số điện thoại của `WarrantyCentre.phoneSource`. -->
+    <string name="enum_phone_source_user">Số do bạn tự ghi</string>
+    <string name="enum_phone_source_none">Chưa có số điện thoại</string>
+
+    <!-- ===== Danh bạ trung tâm bảo hành (ServiceDirectoryInfo.kt). ===== -->
+    <string name="dir_null_brand">App không có thông tin cho hãng này: chưa có dòng danh bạ nào khớp, hoặc có nhiều dòng khớp ngang nhau nên app không đoán bừa. Ghi rõ hãng trong thiết bị để lần sau tra được.</string>
+    <string name="dir_no_brand">Thiết bị này chưa ghi hãng nên app không tra được danh bạ. Thêm hãng trong thiết bị để lần sau tra được.</string>
+    <string name="dir_service_locator_label">Tra cứu trung tâm bảo hành uỷ quyền</string>
+    <string name="dir_support_url_label">Trang hỗ trợ của hãng</string>
+    <string name="dir_no_provider">Chưa ghi nơi bảo hành</string>
+    <string name="dir_unmatched_provider">\"%1$s\" chưa khớp danh bạ nào — app không đoán.</string>
+    <string name="dir_centre_active">Còn hiệu lực</string>
+    <string name="dir_no_centres">Thiết bị chưa có gói bảo hành nào</string>
+    <plurals name="dir_centre_count">
+        <item quantity="other">%1$d gói bảo hành</item>
+    </plurals>
+
+    <!-- Nhãn phụ của 4 ô số liệu trên Tổng quan (DashboardScreen.kt). -->
+    <string name="dash_sub_tracking">đang theo dõi</string>
+    <string name="dash_sub_protected">được bảo vệ</string>
+    <string name="dash_sub_watch_out">để ý nha</string>
+    <string name="dash_sub_none">không có</string>
+    <string name="dash_sub_over">hết kèo</string>
+
+</resources>

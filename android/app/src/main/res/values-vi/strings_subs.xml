@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc, chép nguyên văn.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in SubscriptionDetailScreen.kt, SubscriptionEditSheet.kt, SubscriptionsScreen.kt, WishlistDetailScreen.kt, WishlistEditSheet.kt, WishlistScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="subs_add_plan">Thêm gói</string>
+    <string name="subs_subscriptions">Gói dịch vụ</string>
+    <string name="subs_track_your_recurring_costs">Theo dõi chi phí định kỳ</string>
+    <string name="subs_no_plans_yet">Chưa có gói nào</string>
+    <string name="subs_add_your_first_plan_to_see">Thêm gói đầu tiên để biết tháng này tốn bao nhiêu nha.</string>
+    <string name="subs_add_your_first_plan">Thêm gói đầu tiên</string>
+    <string name="subs_plans_match_the_filter">%1$s/%2$s gói khớp bộ lọc</string>
+    <plurals name="subs_plans_tracked">
+        <item quantity="other">%1$s gói đang theo dõi</item>
+    </plurals>
+    <string name="subs_search_name_brand_plan">Tìm tên, hãng, plan...</string>
+    <string name="subs_no_plans_match">Không có gói nào khớp</string>
+    <string name="subs_try_loosening_the_filter_or_choosing">Thử nới bộ lọc hoặc chọn "Tất cả" xem sao.</string>
+    <string name="subs_renew">Gia hạn %1$s</string>
+    <string name="subs_renew_now">Gia hạn ngay?</string>
+    <string name="subs_record_a_payment_and_push_the">Tạo bản ghi thanh toán và đẩy ngày gia hạn kế tiếp.</string>
+    <string name="subs_renew_2">Gia hạn</string>
+    <string name="subs_log_payment">Ghi thanh toán</string>
+    <string name="subs_renew_now_2">Gia hạn ngay</string>
+    <string name="subs_payment_history">Lịch sử thanh toán (%1$s)</string>
+    <string name="subs_no_payments_yet">Chưa có thanh toán nào</string>
+    <string name="subs_tap_log_a_payment_to_add">Bấm "Ghi thanh toán" để thêm bản ghi đầu tiên.</string>
+    <string name="subs_billing_cycle">Chu kỳ</string>
+    <string name="subs_yes">Có</string>
+    <string name="subs_no">Không</string>
+    <string name="subs_account">Tài khoản</string>
+    <string name="subs_payments">Thanh toán</string>
+    <string name="subs_log_a_payment">Ghi nhận thanh toán</string>
+    <string name="subs_amount_vnd">Số tiền (VND) *</string>
+    <string name="subs_payment_date_yyyy_mm_dd">Ngày thanh toán (YYYY-MM-DD) *</string>
+    <string name="subs_edit_plan">Sửa gói</string>
+    <string name="subs_plan_name">Tên gói *</string>
+    <string name="subs_brand_provider">Hãng / nhà cung cấp</string>
+    <string name="subs_plan">Gói / Plan</string>
+    <string name="subs_category_optional">Loại (tuỳ chọn)</string>
+    <string name="subs_cycle_length_days">Chu kỳ (số ngày) *</string>
+    <string name="subs_start_date_yyyy_mm_dd">Ngày bắt đầu * (YYYY-MM-DD)</string>
+    <string name="subs_next_renewal_date_yyyy_mm_dd">Ngày gia hạn kế (YYYY-MM-DD)</string>
+    <string name="subs_auto_renew">Tự động gia hạn</string>
+    <string name="subs_account_email">Email tài khoản</string>
+    <string name="subs_payment_method">Phương thức thanh toán</string>
+    <string name="subs_manage_url">URL quản lý</string>
+    <string name="subs_cancel_url">URL huỷ</string>
+    <string name="subs_deleting">Đang xoá...</string>
+    <string name="subs_delete_plan">Xoá gói</string>
+    <string name="wish_add_another_one">Thèm thêm cái nữa</string>
+    <string name="wish_what_you_want">Cái mày đang thèm</string>
+    <string name="wish_nothing_on_your_wishlist_yet">Mày chưa thèm cái nào? Lạ thật.</string>
+    <string name="wish_add_an_item_to_track_its">Thêm sản phẩm vào để theo dõi giá và quyết định mua đúng lúc.</string>
+    <string name="wish_add_the_first_one">Thêm cái đầu tiên</string>
+    <string name="wish_items_match_the_filter">%1$s/%2$s món khớp bộ lọc</string>
+    <plurals name="wish_items_on_your_wishlist">
+        <item quantity="other">%1$s món đang thèm</item>
+    </plurals>
+    <string name="wish_search_name_brand_note">Tìm tên, hãng, ghi chú...</string>
+    <string name="wish_mark_as_purchased">Đánh dấu đã mua?</string>
+    <string name="wish_the_item_moves_to_the_purchased">Mục sẽ chuyển sang trạng thái Đã mua.</string>
+    <string name="wish_confirm">Xác nhận</string>
+    <string name="wish_log_a_new_price">Ghi giá mới</string>
+    <string name="wish_purchased">Đã mua</string>
+    <string name="wish_price_history">Lịch sử giá (%1$s)</string>
+    <string name="wish_priority">Ưu tiên</string>
+    <string name="wish_initial_price">Giá ban đầu</string>
+    <string name="wish_current_price">Giá hiện tại</string>
+    <string name="wish_planned_purchase">Dự định mua</string>
+    <string name="wish_remind_me_again">Nhắc lại</string>
+    <string name="wish_log_a_new_price_2">Ghi nhận giá mới</string>
+    <string name="wish_price_vnd">Giá (VND) *</string>
+    <string name="wish_edit_item">Sửa sản phẩm</string>
+    <string name="wish_add_to_wishlist">Thêm vào wishlist</string>
+    <string name="wish_prefilled_from_the_link_you_shared">Điền sẵn từ link bạn chia sẻ — kiểm tra lại rồi lưu.</string>
+    <string name="wish_item_name">Tên sản phẩm *</string>
+    <string name="wish_initial_price_vnd">Giá ban đầu (VND)</string>
+    <string name="wish_current_price_vnd">Giá hiện tại (VND)</string>
+    <string name="wish_purchase_url">URL mua hàng</string>
+    <string name="wish_image_url">URL ảnh</string>
+    <string name="wish_target_purchase_date_yyyy_mm_dd">Ngày dự định mua (YYYY-MM-DD)</string>
+    <string name="wish_remind_me_again_after_n_days">Nhắc lại sau N ngày (tuỳ chọn)</string>
+    <string name="wish_priority_2">Mức ưu tiên</string>
+    <string name="audit_reading_your_payment_history">Đang đọc lịch sử thanh toán…</string>
+    <string name="audit_the_audit_failed">Soát không được rồi</string>
+    <string name="audit_what_this_analysis_does_and_does">Phân tích này biết gì và không biết gì</string>
+    <string name="audit_nothing_worth_flagging">Không có gì đáng lưu ý</string>
+    <string name="audit_rules_in_effect">Luật đang áp dụng</string>
+    <string name="audit_open_the_plan">Mở gói</string>
+    <string name="subs_per_month"> / tháng</string>
+    <string name="subs_per_quarter"> / quý</string>
+    <string name="subs_per_year"> / năm</string>
+    <string name="subs_lifetime"> (trọn đời)</string>
+    <!-- ===== Filter facets and sort menus (SubscriptionFilters.kt,
+         WishlistFilters.kt). Same keys, same order, same copy as the web filter
+         bars (`website/src/components/{subscription,wishlist}-filter-bar.tsx`).
+         ===== -->
+    <string name="subfilter_active_paused">Đang dùng</string>
+    <string name="subfilter_active">Hoạt động</string>
+    <string name="subfilter_paused">Tạm dừng</string>
+    <string name="subfilter_canceled">Đã huỷ</string>
+    <string name="subfilter_expired">Hết hạn</string>
+    <string name="subfilter_all">Tất cả</string>
+
+    <string name="subsort_renewal_asc">Sắp gia hạn trước</string>
+    <string name="subsort_renewal_desc">Lâu gia hạn nhất</string>
+    <string name="subsort_monthly_desc">Tốn nhiều/tháng nhất</string>
+    <string name="subsort_monthly_asc">Ít nhất/tháng</string>
+    <string name="subsort_price_desc">Giá/cycle cao</string>
+
+    <string name="wishfilter_active">Đang theo dõi</string>
+    <!-- Deliberately the same word in both languages, exactly like the web
+         (`wishlist-filter-bar.tsx`: "'Watching' is identical in both languages,
+         so it needs no catalog entry"). It exists here so the facet has a key
+         like every other one — a missing key falls back silently. -->
+    <string name="wishfilter_watching">Watching</string>
+    <string name="wishfilter_decided">Quyết mua</string>
+    <string name="wishfilter_purchased">Đã mua</string>
+    <string name="wishfilter_all">Tất cả</string>
+
+    <string name="wishfilter_all_tiers">Tất cả mức</string>
+    <string name="wishfilter_must">Phải mua</string>
+    <string name="wishfilter_want">Muốn</string>
+    <string name="wishfilter_maybe">Cân nhắc</string>
+
+    <!-- ===== Nhãn enum miền (`network/Models.kt`). =====
+         Nhãn `SubscriptionStatus` / `BillingCycle` / `WishlistPriority` /
+         `WishlistStatus` trước đây là chuỗi tiếng Việt hardcode trên enum nên
+         mọi pill trạng thái vẫn tiếng Việt ở chế độ English. Giờ chúng là
+         `@StringRes labelRes` trên enum, đọc bằng `stringResource(...)` hoặc
+         `s.get(...)`. Chữ ở đây **nguyên bản**, byte-for-byte như trước; bản
+         tiếng Anh nằm ở `values/` và lấy đúng từ ngữ web đang dùng cho cùng một
+         giá trị enum. Đây là nhãn TRẠNG THÁI; các facet lọc ở trên
+         (`subfilter_*` / `wishfilter_*`) là bộ chữ riêng, cố ý khác.
+         ===== -->
+    <string name="enum_subscription_status_active">Đang hoạt động</string>
+    <string name="enum_subscription_status_paused">Tạm dừng</string>
+    <string name="enum_subscription_status_canceled">Đã huỷ</string>
+    <string name="enum_subscription_status_expired">Hết hạn</string>
+
+    <string name="enum_billing_cycle_monthly">Hàng tháng</string>
+    <string name="enum_billing_cycle_quarterly">Hàng quý</string>
+    <string name="enum_billing_cycle_yearly">Hàng năm</string>
+    <string name="enum_billing_cycle_lifetime">Lifetime / Trọn đời</string>
+    <string name="enum_billing_cycle_custom">Tuỳ chỉnh</string>
+
+    <string name="enum_wishlist_priority_must">Phải mua</string>
+    <string name="enum_wishlist_priority_want">Muốn</string>
+    <string name="enum_wishlist_priority_maybe">Cân nhắc</string>
+
+    <string name="enum_wishlist_status_watching">Đang theo dõi</string>
+    <string name="enum_wishlist_status_decided">Quyết mua</string>
+    <string name="enum_wishlist_status_skipped">Bỏ qua</string>
+    <string name="enum_wishlist_status_purchased">Đã mua</string>
+
+    <string name="wishsort_priority_asc">Mức độ thèm cao trước</string>
+    <string name="wishsort_target_asc">Target gần nhất trước</string>
+    <string name="wishsort_target_desc">Target xa nhất trước</string>
+    <string name="wishsort_price_desc">Giá cao trước</string>
+    <string name="wishsort_price_asc">Giá thấp trước</string>
+
+    <!-- Số ngày còn lại của một món wishlist (WishlistDetailScreen.kt). -->
+    <plurals name="wish_days">
+        <item quantity="other">%1$d ngày</item>
+    </plurals>
+
+</resources>

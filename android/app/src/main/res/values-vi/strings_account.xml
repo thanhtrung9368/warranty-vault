@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc, chép nguyên văn.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in SettingsScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="set_backed_up_to_a_json_file">Đã sao lưu ra file JSON</string>
+    <string name="set_backup_failed">Không sao lưu được: %1$s</string>
+    <plurals name="set_exported_devices_to_a_csv_file">
+        <item quantity="other">Đã xuất %1$s thiết bị ra file CSV</item>
+    </plurals>
+    <string name="set_csv_export_failed">Không xuất được CSV: %1$s</string>
+    <string name="set_there_are_no_devices_to_export">Không có thiết bị nào để xuất</string>
+    <string name="set_import_failed">Nhập thất bại: %1$s</string>
+    <string name="set_personalise_your_account_and_appearance">Cá nhân hoá tài khoản &amp; giao diện của mày</string>
+    <string name="set_profile">Hồ sơ</string>
+    <string name="set_display_name">Tên hiển thị</string>
+    <string name="set_no_name_yet_tap_to_add">Chưa đặt tên — bấm để thêm.</string>
+    <string name="set_appearance">Giao diện</string>
+    <string name="set_change_password">Đổi mật khẩu</string>
+    <string name="set_update_the_password_you_sign_in">Cập nhật mật khẩu đăng nhập của mày.</string>
+    <string name="set_notification_devices">Thiết bị nhận thông báo</string>
+    <string name="set_manage_the_devices_registered_for_push">Quản lý các thiết bị đăng ký push notification.</string>
+    <string name="set_sign_in_sessions">Phiên đăng nhập</string>
+    <string name="set_see_which_devices_are_signed_in">Xem các thiết bị đang đăng nhập và thu hồi từng phiên.</string>
+    <string name="set_invoice_scanning_ai">Quét hoá đơn (AI)</string>
+    <string name="set_scan_invoices_with_ai">Quét hoá đơn bằng AI</string>
+    <string name="set_the_invoice_image_is_sent_decrypted">Ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền. Luôn kiểm tra lại trước khi lưu. Mặc định tắt.</string>
+    <string name="set_ai_invoice_scanning_is_on">Đã bật quét hoá đơn AI</string>
+    <string name="set_ai_invoice_scanning_is_off">Đã tắt quét hoá đơn AI</string>
+    <string name="set_data">Dữ liệu</string>
+    <string name="set_working">Đang xử lý…</string>
+    <string name="set_back_up_export_json">Sao lưu (xuất JSON)</string>
+    <string name="set_download_every_device_plan_and_wishlist">Tải toàn bộ thiết bị, gói &amp; wishlist ra 1 file JSON.</string>
+    <string name="set_export_csv_excel">Xuất CSV (Excel)</string>
+    <string name="set_download_the_device_list_as_a">Tải danh sách thiết bị ra file CSV (UTF-8) để mở bằng Excel / Google Sheets.</string>
+    <string name="set_restore_from_a_backup">Khôi phục từ sao lưu</string>
+    <string name="set_import_your_data_back_from_an">Nhập lại dữ liệu từ file JSON đã xuất.</string>
+    <string name="set_system">Hệ thống</string>
+    <string name="set_sign_out">Đăng xuất</string>
+    <string name="set_delete_account">Xoá tài khoản</string>
+    <string name="set_merge">Gộp (merge)</string>
+    <string name="set_replace">Thay thế</string>
+    <string name="set_delete_your_account">Xoá tài khoản?</string>
+    <string name="set_current_password">Mật khẩu hiện tại</string>
+    <string name="set_delete_permanently">Xoá vĩnh viễn</string>
+    <string name="set_password_changed_successfully">Đã đổi mật khẩu thành công</string>
+    <string name="sess_sign_in_sessions">Phiên đăng nhập</string>
+    <string name="sess_no_sessions_yet">Chưa có phiên nào</string>
+    <string name="sess_sign_in_again_to_create_a">Đăng nhập lại để tạo một phiên mới.</string>
+    <string name="sess_sign_this_device_out">Đăng xuất thiết bị này?</string>
+    <string name="sess_revoke_this_session">Thu hồi phiên này?</string>
+    <string name="sess_once_revoked_you_will_be_sent">Thu hồi xong bạn sẽ được đưa về màn hình đăng nhập.</string>
+    <string name="sess_the_device_you_are_using_is">Thiết bị bạn đang dùng không bị ảnh hưởng.</string>
+    <string name="sess_sign_out">Đăng xuất</string>
+    <string name="sess_revoke">Thu hồi</string>
+    <string name="sess_this_device">Thiết bị này</string>
+    <string name="sess_active">Hoạt động %1$s</string>
+    <string name="sess_expires">Hết hạn %1$s</string>
+    <string name="sess_sign_this_device_out_2">Đăng xuất thiết bị này</string>
+    <string name="sess_revoke_session">Thu hồi phiên</string>
+    <string name="push_notification_devices">Thiết bị nhận thông báo</string>
+    <string name="push_no_devices_yet">Chưa có thiết bị nào</string>
+    <string name="push_open_the_app_on_another_phone">Mở app trên điện thoại/máy tính khác để đăng ký thêm.</string>
+    <string name="push_test_sent_delivered_failed">Đã gửi thử: %1$s thành công, %2$s lỗi</string>
+    <string name="push_send_a_test_notification">Gửi thông báo thử</string>
+    <string name="push_remove_this_registration">Xoá đăng ký?</string>
+    <string name="push_this_device_will_no_longer_receive">Thiết bị này sẽ không còn nhận thông báo từ WarrantyVault.</string>
+    <string name="push_device_removed">Đã xoá thiết bị</string>
+    <string name="push_registered">Đăng ký %1$s</string>
+    <string name="pwd_change_password">Đổi mật khẩu</string>
+    <string name="pwd_current_password">Mật khẩu hiện tại *</string>
+    <string name="pwd_new_password_8_characters">Mật khẩu mới (≥ 8 ký tự) *</string>
+    <string name="pwd_confirm_the_new_password">Xác nhận mật khẩu mới *</string>
+    <string name="pwd_password_changed_successfully">Đã đổi mật khẩu thành công</string>
+    <string name="pwd_update_password">Cập nhật mật khẩu</string>
+    <string name="pwd_hide_password">Ẩn mật khẩu</string>
+    <string name="pwd_show_password">Hiện mật khẩu</string>
+    <string name="login_welcome_back">Chào mừng quay lại</string>
+    <string name="login_create_a_new_account">Tạo tài khoản mới</string>
+    <string name="login_sign_in_to_keep_tracking_your">Đăng nhập để tiếp tục theo dõi bảo hành &amp; gói dịch vụ</string>
+    <string name="login_sign_up_to_start_keeping_your">Đăng ký để bắt đầu lưu giữ bảo hành &amp; wishlist của mày</string>
+    <string name="login_sign_in">Đăng nhập</string>
+    <string name="login_register">Đăng ký</string>
+    <string name="login_name">Tên</string>
+    <string name="login_jane_doe">Nguyễn Văn A</string>
+    <string name="login_password">Mật khẩu</string>
+    <string name="login_at_least_8_characters">Tối thiểu 8 ký tự</string>
+    <string name="login_create_account">Tạo tài khoản</string>
+    <string name="login_forgot_password">Quên mật khẩu?</string>
+    <string name="forgot_forgot_password">Quên mật khẩu</string>
+    <string name="forgot_enter_your_email_to_get_a">Nhập email để nhận link đặt lại mật khẩu</string>
+    <string name="forgot_request_sent">Đã gửi yêu cầu</string>
+    <string name="forgot_if_that_email_is_registered_a">Nếu email đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.</string>
+    <string name="forgot_back_to_sign_in">Quay lại đăng nhập</string>
+    <string name="forgot_send">Gửi</string>
+    <string name="sess_unknown_device">Không rõ thiết bị</string>
+    <string name="push_just_now">vừa rồi</string>
+    <plurals name="push_minutes_ago">
+        <item quantity="other">%1$s phút trước</item>
+    </plurals>
+    <plurals name="push_hours_ago">
+        <item quantity="other">%1$s giờ trước</item>
+    </plurals>
+    <plurals name="push_days_ago">
+        <item quantity="other">%1$s ngày trước</item>
+    </plurals>
+    <plurals name="push_months_ago">
+        <item quantity="other">%1$s tháng trước</item>
+    </plurals>
+    <plurals name="push_years_ago">
+        <item quantity="other">%1$s năm trước</item>
+    </plurals>
+    <string name="set_import_summary">Đã nhập %1$s thiết bị, %2$s gói, %3$s mục</string>
+    <string name="set_import_summary_skipped">Đã nhập %1$s thiết bị, %2$s gói, %3$s mục · bỏ qua %4$s bản trùng</string>
+    <string name="set_could_not_update_the_setting">Không cập nhật được cài đặt: %1$s</string>
+    <string name="set_import_mode_body">“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.</string>
+    <string name="set_delete_account_body">Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác. Nhập mật khẩu để xác nhận.</string>
+    <!-- Thiết bị nhận thông báo đẩy (PushDevicesScreen.kt). -->
+    <string name="push_no_devices_registered">Mày chưa đăng ký nhận thông báo trên thiết bị nào.</string>
+    <string name="push_device_tail">Thiết bị …%1$s</string>
+
+    <!-- Phiên đăng nhập (SessionsScreen.kt). -->
+    <string name="sess_already_revoked">Phiên đăng nhập này đã được thu hồi trước đó.</string>
+    <string name="sess_revoked">Đã thu hồi phiên đăng nhập.</string>
+    <string name="sess_none_active">Không có phiên đăng nhập nào đang hoạt động.</string>
+    <string name="sess_list_body">Đây là các thiết bị đang đăng nhập vào tài khoản của mày. Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — các phiên khác giữ nguyên.</string>
+    <string name="sess_this_device_note">“%1$s” là thiết bị bạn đang dùng.</string>
+    <string name="sess_other_device_note">“%1$s” sẽ bị đăng xuất ngay.</string>
+    <string name="sess_signed_in_at">Đăng nhập %1$s</string>
+
+</resources>

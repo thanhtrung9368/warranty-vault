@@ -3,6 +3,8 @@ package com.warrantyvault.app.ui.screens.search
 import com.warrantyvault.app.network.BillingCycle
 import com.warrantyvault.app.network.WishlistItem
 import com.warrantyvault.app.testing.Fixtures
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.ResCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -15,6 +17,9 @@ import org.junit.Test
  *  - the group headers reuse the exact copy of the screens the rows lead to.
  */
 class SearchResultTextTest {
+
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     @Test
     fun deviceSubtitleReadsCategoryBrandModelFromTheSharedTable() {
@@ -48,16 +53,19 @@ class SearchResultTextTest {
     @Test
     fun subscriptionSubtitleJoinsBrandAndPlan() {
         val sub = Fixtures.subscription(brand = "Samsung", plan = "Cloud 200GB")
-        assertEquals("Samsung • Cloud 200GB", subscriptionSubtitle(sub))
+        assertEquals("Samsung • Cloud 200GB", subscriptionSubtitle(vi, sub))
 
         val brandOnly = Fixtures.subscription(brand = "Samsung", plan = "  ")
-        assertEquals("Samsung", subscriptionSubtitle(brandOnly))
+        assertEquals("Samsung", subscriptionSubtitle(vi, brandOnly))
     }
 
     @Test
     fun subscriptionSubtitleFallsBackToTheBillingCycle() {
+        // The cycle is the enum's `labelRes` now, so the fallback line follows the
+        // UI language like everything around it.
         val yearly = Fixtures.subscription(brand = null, plan = null, cycle = BillingCycle.YEARLY)
-        assertEquals("Hàng năm", subscriptionSubtitle(yearly))
+        assertEquals("Hàng năm", subscriptionSubtitle(vi, yearly))
+        assertEquals("Yearly", subscriptionSubtitle(en, yearly))
     }
 
     @Test
@@ -75,12 +83,20 @@ class SearchResultTextTest {
     @Test
     fun groupHeadersUseTheSameCopyAsTheScreensTheyLeadTo() {
         // "Thiết bị" is the Devices tab + its PageHeader, "Gói dịch vụ" the
-        // Subscriptions one, "Wishlist" the wishlist page.
-        assertEquals("Thiết bị", SearchGroups.DEVICES)
-        assertEquals("Gói dịch vụ", SearchGroups.SUBSCRIPTIONS)
+        // Subscriptions one, "Wishlist" the wishlist page. The first two are now
+        // the destination screens' OWN keys rather than a second copy of the same
+        // sentence — so this asserts the resolved text is unchanged, in both
+        // languages, and that it really is the shared key.
+        assertEquals("Thiết bị", vi.get(SearchGroups.DEVICES))
+        assertEquals("Gói dịch vụ", vi.get(SearchGroups.SUBSCRIPTIONS))
         assertEquals("Wishlist", SearchGroups.WISHLIST)
+        assertEquals(R.string.nav_devices, SearchGroups.DEVICES)
+        assertEquals(R.string.subs_subscriptions, SearchGroups.SUBSCRIPTIONS)
 
-        assertEquals("Thiết bị (3)", SearchGroups.header(SearchGroups.DEVICES, 3))
+        assertEquals("Devices", en.get(SearchGroups.DEVICES))
+        assertEquals("Subscriptions", en.get(SearchGroups.SUBSCRIPTIONS))
+
+        assertEquals("Thiết bị (3)", SearchGroups.header(vi.get(SearchGroups.DEVICES), 3))
         assertEquals("Wishlist (0)", SearchGroups.header(SearchGroups.WISHLIST, 0))
     }
 }

@@ -42,10 +42,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.SubscriptionAudit
@@ -125,10 +128,10 @@ fun SubscriptionAuditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(AUDIT_ENTRY_TITLE) },
+                title = { Text(stringResource(AUDIT_ENTRY_TITLE)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -149,23 +152,24 @@ fun SubscriptionAuditScreen(
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) {
-            when (val s = state) {
+            val s = appStrings()
+            when (val st = state) {
                 is SubscriptionAuditViewModel.State.Loading -> Column {
-                    PageHeader(AUDIT_ENTRY_TITLE, "Đang đọc lịch sử thanh toán…")
+                    PageHeader(stringResource(AUDIT_ENTRY_TITLE), stringResource(R.string.audit_reading_your_payment_history))
                     SkeletonList(count = 3)
                 }
 
                 is SubscriptionAuditViewModel.State.Error -> ErrorState(
                     icon = Icons.Outlined.WarningAmber,
-                    title = "Soát không được rồi",
-                    body = s.message,
+                    title = stringResource(R.string.audit_the_audit_failed),
+                    body = st.message,
                     onRetry = { vm.load() },
                 )
 
                 is SubscriptionAuditViewModel.State.Loaded -> {
-                    val audit = s.audit
+                    val audit = st.audit
                     val findings = auditSortFindings(audit.findings)
-                    val thresholdLines = auditThresholdLines(audit.thresholds)
+                    val thresholdLines = auditThresholdLines(s, audit.thresholds)
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -175,7 +179,7 @@ fun SubscriptionAuditScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         item {
-                            PageHeader(AUDIT_ENTRY_TITLE, auditSubtitle(audit.counts))
+                            PageHeader(stringResource(AUDIT_ENTRY_TITLE), auditSubtitle(s, audit.counts))
                         }
 
                         // The server's own limits, rendered verbatim: it already
@@ -185,7 +189,7 @@ fun SubscriptionAuditScreen(
                             item {
                                 InfoCard(
                                     icon = Icons.Filled.Info,
-                                    title = "Phân tích này biết gì và không biết gì",
+                                    title = stringResource(R.string.audit_what_this_analysis_does_and_does),
                                     body = audit.note,
                                 )
                             }
@@ -193,7 +197,7 @@ fun SubscriptionAuditScreen(
 
                         // `advisory` is a claim about the server's behaviour, so
                         // it is only repeated when the payload actually made it.
-                        auditAdvisoryNote(audit.advisory)?.let { advisory ->
+                        auditAdvisoryNote(s, audit.advisory)?.let { advisory ->
                             item { AdvisoryChip(advisory) }
                         }
 
@@ -207,9 +211,8 @@ fun SubscriptionAuditScreen(
                             item {
                                 EmptyState(
                                     icon = Icons.Filled.CreditCard,
-                                    title = "Không có gì đáng lưu ý",
-                                    body = "Ba luật đang chạy không phát hiện gì từ lịch sử " +
-                                        "thanh toán bạn đã ghi.",
+                                    title = stringResource(R.string.audit_nothing_worth_flagging),
+                                    body = stringResource(R.string.audit_empty),
                                     tone = MaterialTheme.colorScheme.primary,
                                 )
                             }
@@ -287,7 +290,7 @@ private fun ThresholdCard(lines: List<String>) {
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    "Luật đang áp dụng",
+                    stringResource(R.string.audit_rules_in_effect),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = cs.onSurface,
@@ -312,6 +315,7 @@ private fun FindingCard(
     onOpenSubscription: (String) -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
+    val s = appStrings()
     val severity = auditSeverityOf(finding.severity)
     val links = auditLinks(finding)
 
@@ -323,8 +327,8 @@ private fun FindingCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusPill(auditSeverityLabel(severity), severity.pill)
-                auditMinorPillLabel(finding)?.let {
+                StatusPill(auditSeverityLabel(s, severity), severity.pill)
+                auditMinorPillLabel(s, finding)?.let {
                     Spacer(Modifier.width(6.dp))
                     StatusPill(it, PillKind.Neutral)
                 }
@@ -346,7 +350,7 @@ private fun FindingCard(
                 color = cs.onSurfaceVariant,
             )
 
-            auditMoneyLine(finding)?.let { money ->
+            auditMoneyLine(s, finding)?.let { money ->
                 Spacer(Modifier.height(6.dp))
                 Text(
                     money,
@@ -356,7 +360,7 @@ private fun FindingCard(
                 )
             }
 
-            auditTimelineNote(finding)?.let { timeline ->
+            auditTimelineNote(s, finding)?.let { timeline ->
                 Spacer(Modifier.height(4.dp))
                 Text(
                     timeline,
@@ -365,7 +369,7 @@ private fun FindingCard(
                 )
             }
 
-            auditMaterialNote(finding, thresholds)?.let { minor ->
+            auditMaterialNote(s, finding, thresholds)?.let { minor ->
                 Spacer(Modifier.height(6.dp))
                 Text(
                     minor,
@@ -374,7 +378,7 @@ private fun FindingCard(
                 )
             }
 
-            auditRuleLabel(finding, thresholds)?.let { rule ->
+            auditRuleLabel(s, finding, thresholds)?.let { rule ->
                 Spacer(Modifier.height(6.dp))
                 Text(
                     rule,
@@ -395,7 +399,7 @@ private fun FindingCard(
                     links.forEach { link ->
                         AssistChip(
                             onClick = { onOpenSubscription(link.subscriptionId) },
-                            label = { Text(link.name ?: "Mở gói") },
+                            label = { Text(link.name ?: stringResource(R.string.audit_open_the_plan)) },
                             leadingIcon = {
                                 Icon(
                                     Icons.Filled.CreditCard, null,

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc, chép nguyên văn.
+
+  Phase 2 of the bilingual rollout (docs/I18N_PLAN.md): "Soát gói đăng ký"
+  (`GET /api/v1/subscriptions/audit`). Every Vietnamese sentence below is the
+  literal that used to sit inline in SubscriptionAuditFormat.kt /
+  SubscriptionAuditScreen.kt, byte for byte. The English column is new; the two
+  files must keep identical key sets and identical format verbs
+  (`StringResourceParityTest`).
+
+  "Không có gì đáng lưu ý" is NOT re-declared here — the existing
+  `audit_nothing_worth_flagging` (strings_insights.xml) is the same sentence, and a
+  second key for one sentence is how the two translations drift.
+
+  The server's own `title`/`detail` for a finding are NOT here: they arrive
+  already written and are rendered verbatim. These keys are only the client's own
+  additions — the rule line, the severity grading, the money/timeline notes.
+  Nothing here may claim the app knows whether a subscription is USED.
+-->
+<resources>
+    <string name="audit_severity_high">Đáng chú ý</string>
+    <string name="audit_severity_medium">Nên xem lại</string>
+    <string name="audit_severity_low">Nhắc nhẹ</string>
+    <string name="audit_severity_unknown">Khác</string>
+
+    <string name="audit_rule_quiet">Luật: gói đang hoạt động, không có khoản nào do bạn tự ghi, máy đã tự trừ ít nhất %1$d lần và khoản tự trừ đầu tiên cách đây ít nhất %2$d tháng.</string>
+    <string name="audit_rule_price">Luật: so hai kỳ thanh toán liền kề; mọi mức tăng đều được báo, từ %1$d%% trở lên mới coi là đáng kể.</string>
+    <string name="audit_rule_duplicate_same_brand">Luật: hai gói đang hoạt động cùng hãng và cùng loại.</string>
+    <string name="audit_rule_duplicate_same_name_normalized">Luật: hai gói đang hoạt động trùng tên sau khi bỏ dấu và không phân biệt hoa/thường.</string>
+    <string name="audit_rule_duplicate_same_name">Luật: hai gói đang hoạt động trùng tên.</string>
+
+    <string name="audit_material_note_small_below">Mức tăng này dưới %1$d%% nên chỉ là thay đổi nhỏ — không phải cảnh báo.</string>
+    <string name="audit_material_note_small">Mức tăng này được đánh giá là nhỏ — không phải cảnh báo.</string>
+    <string name="audit_minor_pill">Thay đổi nhỏ</string>
+
+    <plurals name="audit_money_autocharged">
+        <item quantity="other">Máy đã tự trừ: %1$s · %2$d lần</item>
+    </plurals>
+    <string name="audit_money_rise_percent">Tăng %1$s (+%2$d%%)</string>
+    <!-- `0 ₫` (cách ra, U+20AB) chứ không phải `0đ`: số tiền trong câu phải cùng
+         một dạng với `i18n/Money.kt`, tức dạng chuẩn của Go `FormatMoney`. -->
+    <string name="audit_money_rise_no_percent">Tăng %1$s (kỳ trước 0 ₫ nên không tính được %%)</string>
+    <string name="audit_money_monthly_both">Quy đổi tháng của cả hai: ~%1$s</string>
+
+    <string name="audit_timeline_last_recorded">Khoản ghi nhận gần nhất: %1$s</string>
+    <plurals name="audit_timeline_renewal_with_days">
+        <item quantity="other">Kỳ gia hạn tới: %1$s (còn %2$d ngày)</item>
+    </plurals>
+    <string name="audit_timeline_renewal">Kỳ gia hạn tới: %1$s</string>
+    <string name="audit_advisory">Chỉ tư vấn: không có gì bị sửa, bị huỷ hay bị tắt tự động.</string>
+
+    <string name="audit_threshold_quiet">Tự trừ lâu không ghi nhận: ≥ %1$d khoản máy tự trừ và khoản đầu cách đây ≥ %2$d tháng.</string>
+    <string name="audit_threshold_price">Tăng giá: mọi mức tăng đều được báo; từ %1$d%% trở lên là đáng kể.</string>
+    <string name="audit_threshold_renewal">Còn kịp xử lý trước khi bị trừ tiền: %1$d ngày.</string>
+    <string name="audit_threshold_duplicate">Trùng nhau: so tên có bỏ dấu, không phân biệt hoa/thường, chỉ giữa các gói đang hoạt động.</string>
+
+    <plurals name="audit_findings">
+        <item quantity="other">%1$d phát hiện cần xem lại</item>
+    </plurals>
+
+    <string name="audit_entry_title">Soát gói đăng ký</string>
+    <string name="audit_entry_subtitle">Đọc lịch sử thanh toán để tìm gói tự trừ lâu không thấy ghi nhận, gói tăng giá và gói trùng nhau.</string>
+
+    <string name="audit_empty">Ba luật đang chạy không phát hiện gì từ lịch sử thanh toán bạn đã ghi.</string>
+</resources>

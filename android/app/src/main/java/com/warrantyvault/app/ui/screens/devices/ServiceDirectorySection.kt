@@ -34,9 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.ServiceDirectory
@@ -64,6 +67,7 @@ import com.warrantyvault.app.ui.components.CategoryLabels
  */
 @Composable
 fun ServiceDirectorySection(api: ApiService, deviceId: String) {
+    val s = appStrings()
     val context = LocalContext.current
 
     var directory by remember { mutableStateOf<ServiceDirectory?>(null) }
@@ -88,7 +92,7 @@ fun ServiceDirectorySection(api: ApiService, deviceId: String) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Build, null, tint = cs.primary)
             Spacer(Modifier.width(8.dp))
-            Text("Đi bảo hành ở đâu",
+            Text(stringResource(R.string.dir_where_to_get_warranty_service),
                 fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
 
@@ -97,7 +101,7 @@ fun ServiceDirectorySection(api: ApiService, deviceId: String) {
             loading && current == null -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Đang tra danh bạ...", fontSize = 13.sp)
+                Text(stringResource(R.string.dir_checking_the_directory), fontSize = 13.sp)
             }
 
             current == null -> error?.let {
@@ -107,7 +111,7 @@ fun ServiceDirectorySection(api: ApiService, deviceId: String) {
             else -> {
                 BrandLocatorCard(current)
                 Spacer(Modifier.height(2.dp))
-                Text(centreCountLabel(current.centres),
+                Text(centreCountLabel(s, current.centres),
                     fontSize = 12.sp, color = cs.onSurfaceVariant)
                 current.centres.forEach { centre ->
                     CentreCard(
@@ -139,6 +143,7 @@ fun ServiceDirectorySection(api: ApiService, deviceId: String) {
  */
 @Composable
 private fun BrandLocatorCard(directory: ServiceDirectory) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
     val brand = directory.brand
@@ -151,12 +156,12 @@ private fun BrandLocatorCard(directory: ServiceDirectory) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Trung tâm uỷ quyền của hãng",
+            Text(stringResource(R.string.dir_the_brand_s_authorised_service_centres),
                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = cs.onSurface)
 
             if (brand == null) {
                 Text(
-                    brandInput?.let { "Hãng bạn ghi: \"$it\"" } ?: "Chưa ghi hãng cho thiết bị này",
+                    brandInput?.let { stringResource(R.string.dir_brand_you_typed, it) } ?: stringResource(R.string.dir_no_brand_recorded_for_this_device),
                     fontSize = 13.sp,
                     color = cs.onSurface,
                 )
@@ -166,7 +171,11 @@ private fun BrandLocatorCard(directory: ServiceDirectory) {
                         modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        if (brandInput == null) NO_BRAND_EXPLANATION else NULL_BRAND_EXPLANATION,
+                        if (brandInput == null) {
+                            stringResource(NO_BRAND_EXPLANATION)
+                        } else {
+                            stringResource(NULL_BRAND_EXPLANATION)
+                        },
                         fontSize = 12.sp,
                         color = cs.onSurfaceVariant,
                     )
@@ -182,14 +191,14 @@ private fun BrandLocatorCard(directory: ServiceDirectory) {
             if (brandInput != null && brandInput != brand.name) {
                 // The match is fuzzy, so the user's own words stay visible next to
                 // the row that was matched — the way `providerInput` does below.
-                Text("Bạn ghi: \"$brandInput\"", fontSize = 12.sp, color = cs.onSurfaceVariant)
+                Text(stringResource(R.string.dir_you_typed, brandInput), fontSize = 12.sp, color = cs.onSurfaceVariant)
             }
             brandNote(brand)?.let {
                 Text(it, fontSize = 12.sp, color = cs.onSurfaceVariant)
             }
             // Computed once: the same list decides both the buttons and the
             // "no verified link" line, so they can never contradict each other.
-            val links = brandDirectoryLinks(brand)
+            val links = brandDirectoryLinks(s, brand)
             links.forEach { link ->
                 TextButton(
                     onClick = { openDirectoryLink(context, link.url) },
@@ -202,7 +211,7 @@ private fun BrandLocatorCard(directory: ServiceDirectory) {
                 }
             }
             if (links.isEmpty()) {
-                Text("Hãng này chưa có link tra cứu nào được kiểm chứng.",
+                Text(stringResource(R.string.dir_this_brand_has_no_verified_lookup),
                     fontSize = 12.sp, color = cs.onSurfaceVariant)
             }
         }
@@ -225,6 +234,7 @@ private fun BrandLocatorCard(directory: ServiceDirectory) {
  */
 @Composable
 private fun CentreCard(centre: WarrantyCentre, onDial: (DialablePhone) -> Unit) {
+    val s = appStrings()
     val cs = MaterialTheme.colorScheme
     val phone = dialablePhone(centre)
 
@@ -236,29 +246,29 @@ private fun CentreCard(centre: WarrantyCentre, onDial: (DialablePhone) -> Unit) 
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(centreProviderLine(centre),
+                Text(centreProviderLine(s, centre),
                     fontSize = 14.sp,
                     fontWeight = if (isUnmatchedProvider(centre)) FontWeight.Normal
                     else FontWeight.SemiBold,
                     color = if (isUnmatchedProvider(centre)) cs.onSurfaceVariant else cs.onSurface,
                     modifier = Modifier.weight(1f))
-                Text(centre.warrantyType.label,
+                Text(stringResource(centre.warrantyType.labelRes),
                     fontSize = 11.sp, color = cs.onSurfaceVariant)
             }
 
             // Why this row is not a matched catalog entry — omitted entirely when
             // the user never recorded a provider, so the fallback line above is
             // never followed by a quote of nothing.
-            unmatchedProviderNote(centre)?.let { note ->
+            unmatchedProviderNote(s, centre)?.let { note ->
                 Text(note, fontSize = 12.sp, color = cs.onSurfaceVariant)
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(centreStatusLabel(centre),
+                Text(centreStatusLabel(s, centre),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (centre.isActive) cs.primary else cs.onSurfaceVariant)
-                centreEndDateLabel(centre)?.let {
+                centreEndDateLabel(s, centre)?.let {
                     Spacer(Modifier.width(6.dp))
                     Text("· $it", fontSize = 12.sp, color = cs.onSurfaceVariant)
                 }
@@ -271,7 +281,7 @@ private fun CentreCard(centre: WarrantyCentre, onDial: (DialablePhone) -> Unit) 
             if (phone == null) {
                 // The absence itself, said out loud: `phoneSource: "none"` means
                 // there is nothing, and this app has no hotline to fall back on.
-                Text(NO_PHONE_MESSAGE, fontSize = 12.sp, color = cs.onSurfaceVariant)
+                Text(stringResource(NO_PHONE_MESSAGE), fontSize = 12.sp, color = cs.onSurfaceVariant)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(
@@ -285,7 +295,7 @@ private fun CentreCard(centre: WarrantyCentre, onDial: (DialablePhone) -> Unit) 
                     Spacer(Modifier.width(8.dp))
                     // Attribution, always: the app never verified this number and
                     // must not look as though it did.
-                    Text(phone.attribution, fontSize = 11.sp, color = cs.onSurfaceVariant)
+                    Text(phone.attribution(s), fontSize = 11.sp, color = cs.onSurfaceVariant)
                 }
             }
         }

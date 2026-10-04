@@ -21,9 +21,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.DeviceWarning
 import com.warrantyvault.app.network.DraftDevice
 import com.warrantyvault.app.ui.theme.WVAccent
@@ -52,18 +56,13 @@ import com.warrantyvault.app.ui.theme.WVAccent
  * the field is blank — a warning without text would be a yellow box with nothing
  * in it, which is worse than no box.
  */
-fun deviceWarningMessage(warning: DeviceWarning): String {
+fun deviceWarningMessage(s: AppStrings, warning: DeviceWarning): String {
     warning.message.takeIf { it.isNotBlank() }?.let { return it }
     return when (warning.code) {
-        "IMEI_CHECKSUM" ->
-            "IMEI 15 số này không đúng checksum (Luhn) — có thể sai một chữ số. " +
-                "Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn."
-        "IMEI_LENGTH" ->
-            "Chuỗi số này không phải IMEI 15 số. Vẫn lưu được, nhưng nên kiểm tra lại."
-        "SERIAL_DUPLICATE" ->
-            "Serial này đã có ở một thiết bị khác của mày. Vẫn lưu được — chỉ là cảnh báo."
-        else ->
-            "Giá trị này có thể không đúng. Thiết bị vẫn được lưu — chỉ là cảnh báo."
+        "IMEI_CHECKSUM" -> s.get(R.string.warn_imei_checksum)
+        "IMEI_LENGTH" -> s.get(R.string.warn_imei_length)
+        "SERIAL_DUPLICATE" -> s.get(R.string.warn_serial_duplicate)
+        else -> s.get(R.string.warn_generic)
     }
 }
 
@@ -74,8 +73,8 @@ fun deviceWarningsForField(
 ): List<DeviceWarning> = warnings.filter { it.field == field }
 
 /** Card title. "Đã lưu" first: the save succeeded, the remark is secondary. */
-fun deviceWarningsTitle(isEdit: Boolean): String =
-    if (isEdit) "Đã cập nhật, nhưng nên xem lại" else "Đã lưu, nhưng nên xem lại"
+fun deviceWarningsTitle(s: AppStrings, isEdit: Boolean): String =
+    if (isEdit) s.get(R.string.warn_title_updated) else s.get(R.string.warn_title_saved)
 
 /**
  * The AI draft's two review channels, formatted for the sheet — and kept in two
@@ -88,23 +87,28 @@ data class DraftReview(
     val warnings: String?,
 )
 
-fun draftReview(draft: DraftDevice): DraftReview {
-    val labels = draft.unmatched.mapNotNull { unmatchedLabel(it) }
+fun draftReview(s: AppStrings, draft: DraftDevice): DraftReview {
+    val labels = draft.unmatched.mapNotNull { unmatchedLabel(s, it) }
     return DraftReview(
         unmatched = labels.takeIf { it.isNotEmpty() }
-            ?.let { "Cần xem lại: " + it.joinToString(", ") + "." },
+            ?.let { s.get(R.string.warn_unmatched, it.joinToString(", ")) },
         warnings = draft.warnings.takeIf { it.isNotEmpty() }
-            ?.let { "Đã điền nhưng có thể sai: " + it.joinToString(" ") { w -> deviceWarningMessage(w) } },
+            ?.let {
+                s.get(
+                    R.string.warn_draft_filled,
+                    it.joinToString(" ") { w -> deviceWarningMessage(s, w) },
+                )
+            },
     )
 }
 
 /** Vietnamese name of a draft field the AI could not bind — `null` = not user-facing. */
-fun unmatchedLabel(key: String): String? = when (key) {
-    "brand" -> "Hãng"
-    "purchasePlace" -> "Nơi mua"
-    "category" -> "Loại thiết bị"
-    "serialNumber" -> "Số serial"
-    "warrantyMonths" -> "Số tháng bảo hành"
+fun unmatchedLabel(s: AppStrings, key: String): String? = when (key) {
+    "brand" -> s.get(R.string.warn_field_brand)
+    "purchasePlace" -> s.get(R.string.warn_field_purchase_place)
+    "category" -> s.get(R.string.warn_field_category)
+    "serialNumber" -> s.get(R.string.warn_field_serial)
+    "warrantyMonths" -> s.get(R.string.warn_field_warranty_months)
     else -> null
 }
 
@@ -125,6 +129,7 @@ fun DeviceWarningsCard(
     modifier: Modifier = Modifier,
 ) {
     if (warnings.isEmpty()) return
+    val s = appStrings()
     val accent = WVAccent.current
     Card(
         colors = CardDefaults.cardColors(containerColor = accent.warningContainer),
@@ -141,16 +146,16 @@ fun DeviceWarningsCard(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    deviceWarningsTitle(isEdit),
+                    deviceWarningsTitle(s, isEdit),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = accent.onWarningContainer,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = onDismiss) { Text("Đóng") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
             }
             Text(
-                "Thiết bị vẫn được lưu — đây là cảnh báo, không phải lỗi.",
+                stringResource(R.string.warn_still_saved),
                 style = MaterialTheme.typography.bodySmall,
                 color = accent.onWarningContainer,
             )
@@ -167,7 +172,7 @@ fun DeviceWarningsCard(
                         modifier = Modifier.padding(end = 6.dp),
                     )
                     Text(
-                        deviceWarningMessage(warning),
+                        deviceWarningMessage(s, warning),
                         style = MaterialTheme.typography.bodySmall,
                         color = accent.onWarningContainer,
                     )

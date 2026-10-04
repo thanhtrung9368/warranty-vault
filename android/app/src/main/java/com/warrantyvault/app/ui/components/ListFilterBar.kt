@@ -32,8 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.warrantyvault.app.R
 
 /**
  * One pill in a [ListFilterBar]'s facet row. `key` is what the screen stores;
@@ -118,7 +120,7 @@ fun SearchField(
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Filled.Clear, "Xoá tìm kiếm", Modifier.size(18.dp))
+                    Icon(Icons.Filled.Clear, stringResource(R.string.comp_clear_search), Modifier.size(18.dp))
                 }
             }
         },
@@ -162,13 +164,15 @@ private fun FilterChipRow(
 fun <T> SortMenuButton(
     options: List<T>,
     current: T,
-    label: (T) -> String,
+    // A COMPOSABLE lambda: the labels are string resources, and only a
+    // composable scope may resolve one.
+    label: @Composable (T) -> String,
     onSelect: (T) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }) {
-            Icon(Icons.Filled.SwapVert, "Sắp xếp", modifier = Modifier.size(16.dp))
+            Icon(Icons.Filled.SwapVert, stringResource(R.string.comp_sort), modifier = Modifier.size(16.dp))
             Spacer(Modifier.size(4.dp))
             Text(label(current), style = MaterialTheme.typography.labelLarge)
         }

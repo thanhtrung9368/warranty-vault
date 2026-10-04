@@ -28,6 +28,16 @@ object SearchQuery {
      * (`services.Search`: "Từ khoá tìm kiếm quá dài (tối đa %d ký tự)").
      * Surfaced before firing a request that is known to 400.
      */
+    /**
+     * The client-side mirror of the server's own 400 (`services.Search`).
+     *
+     * Still a Vietnamese literal, and deliberately so: it travels through
+     * `SearchViewModel.State.Error`, which carries a finished `String` because the
+     * other arm of that state is the API's own `message` (already translated).
+     * Turning this one sentence into a resource id would mean a second field on
+     * the state to keep the two arms apart. Until that is worth doing, the whole
+     * sentence stays Vietnamese rather than half of it.
+     */
     const val TOO_LONG_MESSAGE = "Từ khoá tìm kiếm quá dài (tối đa $MAX_RUNES ký tự)"
 
     /** The keyword as it goes on the wire — the server trims too. */

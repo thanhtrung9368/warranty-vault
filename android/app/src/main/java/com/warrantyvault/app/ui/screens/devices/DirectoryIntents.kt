@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.R
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -24,7 +25,7 @@ internal fun openDirectoryLink(context: Context, url: String) {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     } catch (e: ActivityNotFoundException) {
         Log.w("ServiceDirectory", "no browser", e)
-        Toast.makeText(context, "Không có ứng dụng mở link này", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.dir_no_app_for_link), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -44,6 +45,6 @@ internal fun openDialer(context: Context, phone: DialablePhone) {
         context.startActivity(Intent(dial.action, Uri.parse(dial.uri)))
     } catch (e: ActivityNotFoundException) {
         Log.w("ServiceDirectory", "no dialer", e)
-        Toast.makeText(context, "Không mở được trình gọi điện", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.dir_cannot_open_dialer), Toast.LENGTH_SHORT).show()
     }
 }

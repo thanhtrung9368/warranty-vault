@@ -52,12 +52,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.appStrings
 import com.warrantyvault.app.network.ApiClient
 import com.warrantyvault.app.network.ApiService
 import com.warrantyvault.app.network.PriceLogInput
@@ -128,16 +131,16 @@ fun WishlistDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(loaded?.name ?: "Chi tiết") },
+                title = { Text(loaded?.name ?: stringResource(R.string.devdetail_details)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (loaded != null) {
                         IconButton(onClick = { showEdit = true }) {
-                            Icon(Icons.Filled.Edit, "Sửa")
+                            Icon(Icons.Filled.Edit, stringResource(R.string.action_edit))
                         }
                     }
                 },
@@ -155,7 +158,7 @@ fun WishlistDetailScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Button(onClick = { vm.load() }) { Text("Thử lại") }
+                    Button(onClick = { vm.load() }) { Text(stringResource(R.string.action_retry)) }
                 }
                 is WishlistDetailViewModel.State.Loaded -> Body(
                     item = s.item,
@@ -195,8 +198,8 @@ fun WishlistDetailScreen(
     if (showPurchaseConfirm && loaded != null) {
         AlertDialog(
             onDismissRequest = { showPurchaseConfirm = false },
-            title = { Text("Đánh dấu đã mua?") },
-            text = { Text("Mục sẽ chuyển sang trạng thái Đã mua.") },
+            title = { Text(stringResource(R.string.wish_mark_as_purchased)) },
+            text = { Text(stringResource(R.string.wish_the_item_moves_to_the_purchased)) },
             confirmButton = {
                 TextButton(onClick = {
                     showPurchaseConfirm = false
@@ -228,10 +231,10 @@ fun WishlistDetailScreen(
                             actionLoading = false
                         }
                     }
-                }) { Text("Xác nhận") }
+                }) { Text(stringResource(R.string.wish_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showPurchaseConfirm = false }) { Text("Huỷ") }
+                TextButton(onClick = { showPurchaseConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -286,7 +289,7 @@ private fun Body(
                 ) {
                     Icon(Icons.Filled.PriceChange, null)
                     Spacer(Modifier.width(6.dp))
-                    Text("Ghi giá mới")
+                    Text(stringResource(R.string.wish_log_a_new_price))
                 }
                 if (item.status != WishlistStatus.PURCHASED) {
                     OutlinedButton(
@@ -296,7 +299,7 @@ private fun Body(
                     ) {
                         Icon(Icons.Filled.AddShoppingCart, null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Đã mua")
+                        Text(stringResource(R.string.wish_purchased))
                     }
                 }
             }
@@ -305,7 +308,7 @@ private fun Body(
         if (prices.isNotEmpty()) {
             item {
                 Text(
-                    "Lịch sử giá (${prices.size})",
+                    stringResource(R.string.wish_price_history, prices.size),
                     fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -332,12 +335,17 @@ private fun SummaryCard(item: WishlistItem) {
                 Text(item.brand, fontSize = 13.sp, color = cs.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
-            DetailRow("Trạng thái", item.status.label)
-            DetailRow("Ưu tiên", item.priority.label)
-            item.initialPrice?.let { DetailRow("Giá ban đầu", formatVnd(it)) }
-            item.currentPrice?.let { DetailRow("Giá hiện tại", formatVnd(it)) }
-            item.targetDate?.let { DetailRow("Dự định mua", it.take(10)) }
-            item.reminderIntervalDays?.let { DetailRow("Nhắc lại", "$it ngày") }
+            DetailRow(stringResource(R.string.devadd_status), stringResource(item.status.labelRes))
+            DetailRow(stringResource(R.string.wish_priority), stringResource(item.priority.labelRes))
+            item.initialPrice?.let { DetailRow(stringResource(R.string.wish_initial_price), formatVnd(it)) }
+            item.currentPrice?.let { DetailRow(stringResource(R.string.wish_current_price), formatVnd(it)) }
+            item.targetDate?.let { DetailRow(stringResource(R.string.wish_planned_purchase), it.take(10)) }
+            item.reminderIntervalDays?.let {
+                DetailRow(
+                    stringResource(R.string.wish_remind_me_again),
+                    appStrings().quantity(R.plurals.wish_days, it, it),
+                )
+            }
             if (!item.buyUrl.isNullOrBlank()) {
                 DetailRow("URL mua", item.buyUrl)
             }
@@ -411,7 +419,7 @@ private fun ErrorBanner(message: String, onClose: () -> Unit) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 fontSize = 13.sp, modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onClose) { Text("Đóng") }
+            TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
         }
     }
 }
@@ -443,18 +451,18 @@ private fun LogPriceSheet(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Ghi nhận giá mới",
+            Text(stringResource(R.string.wish_log_a_new_price_2),
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             OutlinedTextField(
                 value = price,
                 onValueChange = { price = it.filter { c -> c.isDigit() } },
-                label = { Text("Giá (VND) *") },
+                label = { Text(stringResource(R.string.wish_price_vnd)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = note, onValueChange = { note = it },
-                label = { Text("Ghi chú") },
+                label = { Text(stringResource(R.string.devadd_note)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
@@ -464,7 +472,7 @@ private fun LogPriceSheet(
                 },
                 enabled = (price.toIntOrNull() ?: 0) > 0,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-            ) { Text("Lưu") }
+            ) { Text(stringResource(R.string.action_save)) }
             Spacer(Modifier.height(20.dp))
         }
     }

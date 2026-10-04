@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the translation.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in ListFilterBar.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="comp_clear_search">Clear search</string>
+    <string name="comp_sort">Sort</string>
+    <!-- Shared warranty countdown pill (WarrantyState.kt). `%1$d` is a day count,
+         `%2$d` a month count. "Đã hết N ngày" is a warranty that ended N days ago,
+         so the English counts backwards from today rather than saying "expired
+         for N days". -->
+    <plurals name="comp_warranty_expired_days">
+        <item quantity="one">Expired %1$d day ago</item>
+        <item quantity="other">Expired %1$d days ago</item>
+    </plurals>
+    <string name="comp_warranty_expires_today">Expires today</string>
+    <plurals name="comp_warranty_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+    <plurals name="comp_warranty_months_left">
+        <item quantity="one">%1$d month left</item>
+        <item quantity="other">%1$d months left</item>
+    </plurals>
+    <string name="comp_warranty_none">None</string>
+    <string name="comp_retry">Try again</string>
+
+</resources>

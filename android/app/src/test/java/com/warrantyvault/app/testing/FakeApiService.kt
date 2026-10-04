@@ -9,8 +9,12 @@ import com.warrantyvault.app.network.AttachmentListResponse
 import com.warrantyvault.app.network.AttachmentResponse
 import com.warrantyvault.app.network.AuthSuccess
 import com.warrantyvault.app.network.Catalog
+import com.warrantyvault.app.network.ChangeEmailRequest
+import com.warrantyvault.app.network.ChangeEmailResult
 import com.warrantyvault.app.network.ChangePasswordRequest
 import com.warrantyvault.app.network.ChangePasswordResponse
+import com.warrantyvault.app.network.ConfirmEmailChangeRequest
+import com.warrantyvault.app.network.ConfirmEmailChangeResult
 import com.warrantyvault.app.network.CreateShareInput
 import com.warrantyvault.app.network.CreateShareResponse
 import com.warrantyvault.app.network.DeleteAccountRequest
@@ -42,6 +46,7 @@ import com.warrantyvault.app.network.SubscriptionInput
 import com.warrantyvault.app.network.SubscriptionListResponse
 import com.warrantyvault.app.network.SubscriptionResponse
 import com.warrantyvault.app.network.TestPushResponse
+import com.warrantyvault.app.network.UpdateLocaleInput
 import com.warrantyvault.app.network.UpdateProfileInput
 import com.warrantyvault.app.network.UpdateProfileResponse
 import com.warrantyvault.app.network.UserStats
@@ -79,6 +84,18 @@ open class FakeApiService : ApiService {
     override suspend fun me(): MeResponse = notStubbed("me")
     override suspend fun updateProfile(body: UpdateProfileInput): UpdateProfileResponse =
         notStubbed("updateProfile")
+
+    // `PATCH /auth/me` with only `locale` — the language switch. Separate from
+    // updateProfile so saving a name cannot wipe a stored language.
+    override suspend fun updateLocale(body: UpdateLocaleInput): UpdateProfileResponse =
+        notStubbed("updateLocale")
+
+    // The two-step email change (the flow Android was missing).
+    override suspend fun changeEmail(body: ChangeEmailRequest): ChangeEmailResult =
+        notStubbed("changeEmail")
+
+    override suspend fun confirmEmailChange(body: ConfirmEmailChangeRequest): ConfirmEmailChangeResult =
+        notStubbed("confirmEmailChange")
 
     override suspend fun deleteAccount(body: DeleteAccountRequest): OkResponse = notStubbed("deleteAccount")
 

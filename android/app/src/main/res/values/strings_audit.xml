@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the product default (docs/I18N_PLAN.md §2.4).
+
+  "Soát gói đăng ký" (`GET /api/v1/subscriptions/audit`). `values-vi/strings_audit.xml`
+  holds the Vietnamese, which is the ORIGINAL: every sentence here is a
+  translation of a literal that used to sit inline in SubscriptionAuditFormat.kt.
+
+  The wording rule for this screen (docs/I18N_PLAN.md §4.4) is that these lines
+  are READ ALOUD, not substituted word for word: the audit's only claim is about
+  what you *recorded*, never about whether you *use* a subscription. So "Máy đã
+  tự trừ" is "Charged automatically" (the machine did it) and never "you spent".
+
+  `Không có gì đáng lưu ý` is not declared here: `audit_nothing_worth_flagging`
+  (strings_insights.xml) already carries that sentence, and one sentence gets one
+  key.
+-->
+<resources>
+    <!-- Severity grading. The queue's own labels ("Cần xử lý ngay") are phrased
+         for work items; nothing here is being asked of the user, so the pill only
+         grades how much a finding deserves a look. -->
+    <string name="audit_severity_high">Needs attention</string>
+    <string name="audit_severity_medium">Worth another look</string>
+    <string name="audit_severity_low">Minor</string>
+    <string name="audit_severity_unknown">Other</string>
+
+    <!-- The rule behind a finding, built from the payload's own thresholds. -->
+    <string name="audit_rule_quiet">Rule: an active subscription, nothing logged by you, at least %1$d automatic charges, and the first one at least %2$d months ago.</string>
+    <string name="audit_rule_price">Rule: two adjacent billing periods are compared; every increase is reported, and %1$d%% or more counts as significant.</string>
+    <string name="audit_rule_duplicate_same_brand">Rule: two active subscriptions from the same brand and in the same category.</string>
+    <string name="audit_rule_duplicate_same_name_normalized">Rule: two active subscriptions with the same name once diacritics and letter case are ignored.</string>
+    <string name="audit_rule_duplicate_same_name">Rule: two active subscriptions with the same name.</string>
+
+    <!-- `material = false` must read as a minor change, never as an alert. -->
+    <string name="audit_material_note_small_below">This increase is under %1$d%%, so it is a small change — not a warning.</string>
+    <string name="audit_material_note_small">This increase was judged to be small — not a warning.</string>
+    <string name="audit_minor_pill">Small change</string>
+
+    <!-- Money, straight from the payload's own figures. The count of automatic
+         charges is what makes the sentence singular, so the English `one` form
+         spells it out; the Vietnamese `other` is quantity-agnostic. -->
+    <plurals name="audit_money_autocharged">
+        <item quantity="one">Charged automatically: %1$s · 1 time</item>
+        <item quantity="other">Charged automatically: %1$s · %2$d times</item>
+    </plurals>
+    <string name="audit_money_rise_percent">Up %1$s (+%2$d%%)</string>
+    <!-- `₫0` — the English money shape leads with the symbol (`Money.english`,
+         Go's `FormatMoney(en)`), and the sentence used to carry the Vietnamese
+         `0đ`, which no client emits in either language. -->
+    <string name="audit_money_rise_no_percent">Up %1$s (the previous period was ₫0, so no percentage is computable)</string>
+    <string name="audit_money_monthly_both">Combined monthly equivalent: ~%1$s</string>
+
+    <!-- Dates. "Most recent record" is a RECORDING date and must never be
+         labelled as a last-used date: the app cannot know that. -->
+    <string name="audit_timeline_last_recorded">Most recent record: %1$s</string>
+    <plurals name="audit_timeline_renewal_with_days">
+        <item quantity="one">Next renewal: %1$s (1 day left)</item>
+        <item quantity="other">Next renewal: %1$s (%2$d days left)</item>
+    </plurals>
+    <string name="audit_timeline_renewal">Next renewal: %1$s</string>
+    <string name="audit_advisory">Advisory only: nothing was changed, cancelled or switched off automatically.</string>
+
+    <!-- "Luật đang áp dụng" — one line per rule, from the payload's thresholds. -->
+    <string name="audit_threshold_quiet">Auto-charging with nothing recorded: ≥ %1$d automatic charges, the first one ≥ %2$d months ago.</string>
+    <string name="audit_threshold_price">Price rise: every increase is reported; %1$d%% or more is significant.</string>
+    <string name="audit_threshold_renewal">Still time to act before the next charge: %1$d days.</string>
+    <string name="audit_threshold_duplicate">Duplicates: names are compared with diacritics and letter case ignored, and only between active subscriptions.</string>
+
+    <!-- The subtitle, built from the server's own tally of every finding. -->
+    <plurals name="audit_findings">
+        <item quantity="one">%1$d finding to review</item>
+        <item quantity="other">%1$d findings to review</item>
+    </plurals>
+
+    <!-- The entry row on the Plans tab. No verdict, no numbers. -->
+    <string name="audit_entry_title">Subscription audit</string>
+    <string name="audit_entry_subtitle">Reads your payment history to find subscriptions that auto-charge with nothing recorded, subscriptions that went up in price, and duplicates.</string>
+
+    <string name="audit_empty">All three rules ran and found nothing in the payment history you recorded.</string>
+</resources>

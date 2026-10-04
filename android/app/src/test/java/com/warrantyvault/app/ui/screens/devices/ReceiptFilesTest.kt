@@ -1,5 +1,6 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.i18n.ResCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -141,7 +142,10 @@ class ReceiptFilesTest {
     @Test
     fun theUnsupportedMessageIsTheServerCopy() {
         // services/ai_extract.go: badInput("Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF")
-        assertEquals("Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF", ReceiptFiles.UNSUPPORTED_MESSAGE)
+        assertEquals(
+            "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF",
+            ResCatalog.vietnamese().get(ReceiptFiles.UNSUPPORTED_MESSAGE),
+        )
     }
 
     @Test

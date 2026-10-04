@@ -1,5 +1,9 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
+import com.warrantyvault.app.i18n.money
+
 /**
  * Device resale helpers — openapi `Device.soldAt` / `Device.soldPrice`
  * (roadmap #12 / migration 0006).
@@ -45,12 +49,16 @@ internal fun saleProfit(soldPrice: Int?, purchasePrice: Int): Int? =
     soldPrice?.let { it - purchasePrice }
 
 /**
- * Vietnamese profit/loss copy for the device detail card, built with the
- * screen's existing [formatVnd] helper: `"Lãi 5.000.000đ"`, `"Lỗ 2.000.000đ"`,
- * or `"Hoà vốn"` when the sale broke even.
+ * Profit/loss copy for the device detail card, built with the shared money
+ * formatter: `"Lãi 5.000.000 ₫"`, `"Lỗ 2.000.000 ₫"`, or `"Hoà vốn"` when the sale
+ * broke even — and the English equivalents when the app is in English.
+ *
+ * The three sentences live in `strings_devices.xml` rather than here, so the
+ * card is no longer the one thing on the screen that ignores the language
+ * setting.
  */
-internal fun saleProfitLabel(profit: Int): String = when {
-    profit > 0 -> "Lãi ${formatVnd(profit)}"
-    profit < 0 -> "Lỗ ${formatVnd(-profit)}"
-    else -> "Hoà vốn"
+internal fun saleProfitLabel(s: AppStrings, profit: Int): String = when {
+    profit > 0 -> s.get(R.string.dev_sale_profit, s.money(profit.toLong()))
+    profit < 0 -> s.get(R.string.dev_sale_loss, s.money(-profit.toLong()))
+    else -> s.get(R.string.dev_sale_breakeven)
 }

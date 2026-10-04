@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bản gốc tiếng Việt của hai câu từ chối link chia sẻ — xem chú thích ở
+     `values/strings_shell.xml`. Chép nguyên văn từ `ShareTarget.MESSAGE_*`. -->
+<resources>
+
+    <string name="share_rejected_no_link">Không thấy link sản phẩm trong nội dung bạn chia sẻ. Mở tab Thèm và dán link vào ô “URL mua hàng” nhé.</string>
+    <string name="share_rejected_unsupported_scheme">Chỉ nhận link http/https. Link bạn chia sẻ dùng giao thức khác nên không mở được.</string>
+
+    <!-- Kênh thông báo của Android (WVMessagingService.kt). -->
+    <string name="push_channel_warranty_name">Thông báo bảo hành</string>
+    <string name="push_channel_warranty_desc">Nhắc bảo hành, gói dịch vụ và wishlist</string>
+
+</resources>

@@ -1,5 +1,8 @@
 package com.warrantyvault.app.core.push
 
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.LanguageStore
+import com.warrantyvault.app.i18n.LocaleSupport
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -12,7 +15,6 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.warrantyvault.app.App
 import com.warrantyvault.app.MainActivity
-import com.warrantyvault.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,12 +52,17 @@ class WVMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // IMPORTANCE_HIGH so heads-up banner shows even while app is in
             // foreground.
+            // A Service is NOT wrapped by MainActivity.attachBaseContext, so the
+            // app's chosen language has to be resolved here explicitly — otherwise
+            // the channel would follow the phone's system locale and an in-app
+            // switch to English would leave this one surface Vietnamese.
+            val strings = LocaleSupport.wrap(this, LanguageStore.current(this))
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Thông báo bảo hành",
+                strings.getString(R.string.push_channel_warranty_name),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Nhắc bảo hành, gói dịch vụ và wishlist"
+                description = strings.getString(R.string.push_channel_warranty_desc)
             }
             mgr.createNotificationChannel(channel)
         }

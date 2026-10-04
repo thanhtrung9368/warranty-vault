@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc. Xem chú thích ở `values/strings.xml` để biết hai luật
+  (khoá phải trùng nhau, và các `%` phải trùng nhau) cùng lý do tách thành nhiều
+  file. Đừng sửa chữ ở đây cho "khớp" tiếng Anh: tiếng Việt là nguồn, tiếng Anh
+  là bản dịch thêm (docs/I18N_PLAN.md §2.4 và §4.2).
+-->
+<resources>
+
+    <string name="app_name">Warranty Vault</string>
+
+    <!-- ===== Điều hướng dưới cùng (MainScreen.kt). ===== -->
+    <string name="nav_overview">Tổng quan</string>
+    <string name="nav_devices">Thiết bị</string>
+    <string name="nav_reminders">Nhắc</string>
+    <string name="nav_plans">Gói</string>
+    <string name="nav_wishlist">Thèm</string>
+    <string name="nav_stats">Thống kê</string>
+    <string name="nav_settings">Cài đặt</string>
+
+    <!-- ===== Vỏ ứng dụng (MainScreen.kt). ===== -->
+    <string name="shell_default_user">bạn</string>
+
+    <!-- ===== Hành động dùng chung. ===== -->
+    <string name="action_save">Lưu</string>
+    <string name="action_cancel">Huỷ</string>
+    <string name="action_delete">Xoá</string>
+    <string name="action_edit">Sửa</string>
+    <string name="action_close">Đóng</string>
+    <string name="action_back">Quay lại</string>
+    <string name="action_retry">Thử lại</string>
+    <string name="action_add">Thêm</string>
+    <string name="action_search">Tìm kiếm</string>
+    <string name="action_clear">Xoá lọc</string>
+    <string name="action_undo">Hoàn tác</string>
+    <string name="state_loading">Đang tải…</string>
+    <string name="state_none">Không có</string>
+    <string name="state_unknown">Không rõ</string>
+
+    <!-- ===== Lỗi đường truyền (network/Errors.kt). ===== -->
+    <string name="error_server_code">Lỗi máy chủ (%1$d)</string>
+    <string name="error_network">Lỗi mạng</string>
+
+    <string name="sort_recent_desc">Mới thêm</string>
+
+</resources>

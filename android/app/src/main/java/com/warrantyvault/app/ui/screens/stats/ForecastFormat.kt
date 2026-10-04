@@ -1,5 +1,8 @@
 package com.warrantyvault.app.ui.screens.stats
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
 import com.warrantyvault.app.network.Forecast
 import com.warrantyvault.app.network.ForecastBucket
 import com.warrantyvault.app.network.WarrantyType
@@ -27,7 +30,7 @@ import com.warrantyvault.app.network.WishlistStatus
  * not a well-formed `YYYY-MM` month is returned untouched: showing the server's
  * own string beats inventing "Tháng 0/0".
  */
-fun forecastMonthLabel(month: String): String {
+fun forecastMonthLabel(s: AppStrings, month: String): String {
     val parts = month.trim().split("-")
     if (parts.size != 2) return month
     val (year, rawMonth) = parts
@@ -35,7 +38,7 @@ fun forecastMonthLabel(month: String): String {
     if (!year.all { it.isDigit() } || !rawMonth.all { it.isDigit() }) return month
     val index = rawMonth.toIntOrNull() ?: return month
     if (index !in 1..12) return month
-    return "Tháng $index/$year"
+    return s.get(R.string.stats_forecast_month, index, year.toInt())
 }
 
 /**
@@ -106,28 +109,36 @@ fun forecastAutoShare(bucket: ForecastBucket): Float =
  * back when the field is missing/blank — an older server must not silently cost
  * the user the caveats.
  */
-const val FORECAST_NOTE_FALLBACK =
-    "Chỉ tính các gói đang hoạt động; gói LIFETIME không bao giờ bị trừ. " +
-        "Tiền bảo hành và wishlist là khoản có thể phát sinh, không phải khoản chắc chắn trả."
+@StringRes
+val FORECAST_NOTE_FALLBACK: Int = R.string.stats_forecast_note_fallback
 
-fun forecastNoteText(forecast: Forecast): String =
-    forecast.note.takeIf { it.isNotBlank() } ?: FORECAST_NOTE_FALLBACK
+fun forecastNoteText(s: AppStrings, forecast: Forecast): String =
+    forecast.note.takeIf { it.isNotBlank() } ?: s.get(FORECAST_NOTE_FALLBACK)
 
 /**
  * "12 tháng tới" — reads `months` from the payload instead of hardcoding 12, so
  * the header cannot disagree with the server window it describes.
  */
-fun forecastWindowLabel(forecast: Forecast): String =
-    if (forecast.months > 0) "${forecast.months} tháng tới" else "các tháng tới"
+fun forecastWindowLabel(s: AppStrings, forecast: Forecast): String =
+    if (forecast.months > 0) {
+        s.quantity(R.plurals.stats_forecast_window, forecast.months, forecast.months)
+    } else {
+        s.get(R.string.stats_forecast_window_unknown)
+    }
 
-/** Warranty-type code → the shared Vietnamese label (raw code when unknown). */
-fun forecastWarrantyTypeLabel(raw: String): String =
-    WarrantyType.entries.firstOrNull { it.name == raw }?.label ?: raw
+/**
+ * Warranty-type code → the shared label (raw code when unknown). The three
+ * `raw`-code helpers below mirror what an enum-typed payload would do, and the
+ * label itself is the enum's `labelRes` — one resource per member, so the
+ * forecast rows cannot drift from the device screens.
+ */
+fun forecastWarrantyTypeLabel(s: AppStrings, raw: String): String =
+    WarrantyType.entries.firstOrNull { it.name == raw }?.let { s.get(it.labelRes) } ?: raw
 
-/** Wishlist priority code → the shared Vietnamese label (raw code when unknown). */
-fun forecastPriorityLabel(raw: String): String =
-    WishlistPriority.entries.firstOrNull { it.name == raw }?.label ?: raw
+/** Wishlist priority code → the shared label (raw code when unknown). */
+fun forecastPriorityLabel(s: AppStrings, raw: String): String =
+    WishlistPriority.entries.firstOrNull { it.name == raw }?.let { s.get(it.labelRes) } ?: raw
 
-/** Wishlist status code → the shared Vietnamese label (raw code when unknown). */
-fun forecastWishlistStatusLabel(raw: String): String =
-    WishlistStatus.entries.firstOrNull { it.name == raw }?.label ?: raw
+/** Wishlist status code → the shared label (raw code when unknown). */
+fun forecastWishlistStatusLabel(s: AppStrings, raw: String): String =
+    WishlistStatus.entries.firstOrNull { it.name == raw }?.let { s.get(it.labelRes) } ?: raw

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc, chép nguyên văn.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in ActionQueueScreen.kt, RemindersScreen.kt, StatsScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="stats_crunching_your_numbers">Đang tổng kết của mày…</string>
+    <string name="stats_a_quick_look_at_your_digital">Cái nhìn nhanh về tài sản số của mày</string>
+    <string name="stats_total_devices">Tổng số thiết bị</string>
+    <string name="stats_of_which_are_in_use">Trong đó %1$s đang dùng</string>
+    <string name="stats_no_devices_yet">Chưa có thiết bị nào</string>
+    <string name="stats_in_use">Đang dùng</string>
+    <string name="stats_total_value">Tổng giá trị</string>
+    <string name="stats_warranty_costs">Phí bảo hành</string>
+    <string name="stats_total_spent">Tổng chi mua sắm</string>
+    <string name="stats_active">Đang chạy / %1$s</string>
+    <string name="stats_per_month">Mỗi tháng</string>
+    <string name="stats_wishlist">Đang thèm / %1$s</string>
+    <string name="stats_projected_total">Tổng dự kiến</string>
+    <string name="stats_spending_forecast">Dự báo chi tiêu</string>
+    <string name="stats_month_by_month">Theo từng tháng</string>
+    <string name="stats_warranty_expiring_soon">Bảo hành sắp hết hạn</string>
+    <string name="stats_wishlist_hitting_its_target_date">Wishlist tới mốc</string>
+    <string name="stats_projected">Dự kiến %1$s</string>
+    <string name="stats_every_subscription_renewal_inside_the_window">Tổng các kỳ gia hạn subscription trong cửa sổ</string>
+    <string name="stats_charged_automatically">Tự động trừ</string>
+    <string name="stats_you_renew_these_yourself">Bạn phải tự gia hạn</string>
+    <string name="stats_converted_not_used_in_the_total">(quy đổi, không dùng để tính tổng)</string>
+    <plurals name="stats_nothing_is_projected_for_the_next">
+        <item quantity="other">Không có khoản nào được dự kiến trong %1$s tháng tới.</item>
+    </plurals>
+    <string name="stats_reference_may_happen">tham chiếu %1$s — có thể phát sinh</string>
+    <string name="stats_recorded_price_may_happen">giá ghi nhận %1$s — có thể phát sinh</string>
+    <string name="stats_old_plan_price_a_reference_for">Giá gói cũ %1$s — tham chiếu để dành tiền, không phải khoản sẽ bị trừ</string>
+    <string name="stats_no_price_recorded_for_the_old">Chưa ghi giá gói cũ — không phải khoản sẽ bị trừ</string>
+    <string name="stats_target">mốc %1$s</string>
+    <string name="stats_last_recorded_price_may_happen_not">Giá ghi nhận gần nhất %1$s — có thể phát sinh, không phải khoản chắc chắn trả</string>
+    <string name="stats_no_price_ever_entered_not_a">Chưa từng nhập giá — không phải khoản chắc chắn trả</string>
+    <string name="rem_reminder_hidden">Đã ẩn nhắc nhở</string>
+    <string name="rem_we_will_ping_you_when_it">Tao sẽ ping mày khi gần hết hạn</string>
+    <string name="rem_relax_nothing_is_expiring_yet">Chill, chưa có gì sắp hết</string>
+    <string name="rem_all_of_your_devices_are_safely">Tất cả thiết bị của mày đang trong hạn an toàn.</string>
+    <plurals name="rem_items_to_look_at">
+        <item quantity="other">%1$s món cần để ý</item>
+    </plurals>
+    <string name="rem_expires">Hết hạn: %1$s</string>
+    <string name="rem_warranty_provider">Đơn vị bảo hành: %1$s</string>
+    <string name="rem_seen">Đã xem</string>
+    <string name="act_un_snoozed_this_item_is_back">Đã bỏ hoãn — việc này quay lại hàng đợi</string>
+    <string name="act_nothing_left_waiting">Không còn việc nào đang chờ</string>
+    <string name="act_nothing_needs_your_attention">Không có việc nào cần xử lý</string>
+    <string name="act_open_the_snoozed_section_to_look">Mở mục "Đang hoãn" nếu muốn xem lại.</string>
+    <string name="act_the_app_could_not_infer_anything">App không suy ra được việc nào từ dữ liệu hiện có.</string>
+    <string name="act_snoozed">Đang hoãn (%1$s)</string>
+    <string name="act_high">%1$s mức cao</string>
+    <string name="act_medium">%1$s trung bình</string>
+    <string name="act_low">%1$s nhắc nhẹ</string>
+    <string name="act_no_items">Không có việc nào</string>
+    <string name="act_snoozed_2">Đang hoãn (%1$s)</string>
+    <string name="act_snoozed_3">Đang hoãn</string>
+    <string name="act_snoozed_items_are_shown_too">Đang hiện cả việc bị hoãn</string>
+    <string name="act_show_only_actionable_items">Chỉ hiện việc đang cần xử lý</string>
+    <string name="act_show_again">Hiện lại %1$s</string>
+    <string name="act_un_snooze">Bỏ hoãn</string>
+    <string name="act_open_details">Mở chi tiết</string>
+    <string name="act_snooze">Hoãn</string>
+    <string name="act_snooze_this_for">Hoãn việc này trong…</string>
+    <string name="search_search_devices_plans_wishlist">Tìm thiết bị, gói dịch vụ, wishlist…</string>
+    <string name="search_search_for_anything">Tìm gì cũng được</string>
+    <string name="search_search_failed">Tìm không được rồi</string>
+    <plurals name="search_results_for">
+        <item quantity="other">%1$s kết quả cho "%2$s"</item>
+    </plurals>
+    <string name="search_blank_body">Gõ tên thiết bị, hãng, model, serial, gói dịch vụ hoặc món trong wishlist — không dấu vẫn ra ("dien thoai" khớp "Điện thoại").</string>
+    <string name="search_empty_body">Không có thiết bị, gói dịch vụ hay món wishlist nào khớp "%1$s". Thử một từ khoá ngắn hơn xem sao.</string>
+    <string name="search_nothing_matches">Không tìm thấy gì khớp</string>
+    <!-- ===== Việc cần xử lý / action queue (ActionQueueFormat.kt,
+         ActionQueueScreen.kt). ===== -->
+    <string name="act_snooze_1w">1 tuần</string>
+    <string name="act_snooze_1m">1 tháng</string>
+    <string name="act_snooze_3m">3 tháng (mặc định)</string>
+    <string name="act_snooze_1y">1 năm</string>
+
+    <string name="act_severity_high">Cần xử lý ngay</string>
+    <string name="act_severity_medium">Nên xử lý</string>
+    <string name="act_severity_low">Nhắc nhẹ</string>
+    <string name="act_severity_unknown">Khác</string>
+
+    <plurals name="act_due_overdue">
+        <item quantity="other">Quá hạn %1$d ngày</item>
+    </plurals>
+    <string name="act_due_today">Hôm nay</string>
+    <plurals name="act_due_in_days">
+        <item quantity="other">Còn %1$d ngày</item>
+    </plurals>
+
+    <plurals name="act_snoozed_until">
+        <item quantity="other">Đã hoãn %1$d ngày — việc này hiện lại %2$s</item>
+    </plurals>
+    <plurals name="act_snoozed">
+        <item quantity="other">Đã hoãn %1$d ngày</item>
+    </plurals>
+
+    <string name="act_note_fallback">Danh sách này chỉ gồm những việc app tự suy ra từ dữ liệu bạn đã nhập. Nó không phải thông báo đẩy, và hoãn một việc ở đây không ảnh hưởng tới nhắc bảo hành.</string>
+
+    <string name="act_nothing_left">Không còn việc nào</string>
+    <plurals name="act_items_to_handle">
+        <item quantity="other">%1$d việc cần xử lý</item>
+    </plurals>
+    <string name="act_snoozed_suffix">%1$s · %2$d việc đang hoãn</string>
+
+    <!-- ===== Dự báo chi tiêu (ForecastFormat.kt) và tìm kiếm. ===== -->
+    <string name="stats_forecast_month">Tháng %1$d/%2$d</string>
+    <string name="stats_forecast_note_fallback">Chỉ tính các gói đang hoạt động; gói LIFETIME không bao giờ bị trừ. Tiền bảo hành và wishlist là khoản có thể phát sinh, không phải khoản chắc chắn trả.</string>
+    <plurals name="stats_forecast_window">
+        <item quantity="other">%1$d tháng tới</item>
+    </plurals>
+    <string name="stats_forecast_window_unknown">các tháng tới</string>
+
+    <plurals name="act_snoozed_note">
+        <item quantity="other">%1$d việc đang được hoãn.</item>
+    </plurals>
+
+    <!-- ===== Dự báo chi tiêu: các dòng ghép (StatsScreen.kt). ===== -->
+    <string name="stats_forecast_summary">%1$d kỳ gia hạn · %2$d gói · trung bình ~%3$s/tháng</string>
+    <string name="stats_forecast_bucket_split">Tự động trừ %1$s · tự gia hạn %2$s · %3$d kỳ</string>
+    <string name="stats_forecast_warranty_line">Bảo hành hết hạn: %1$d gói</string>
+    <string name="stats_forecast_wishlist_line">Wishlist tới mốc: %1$d món</string>
+    <string name="stats_forecast_expires_on"> · hết hạn %1$s</string>
+
+</resources>

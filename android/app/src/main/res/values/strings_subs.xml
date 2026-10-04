@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the translation.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in SubscriptionDetailScreen.kt, SubscriptionEditSheet.kt, SubscriptionsScreen.kt, WishlistDetailScreen.kt, WishlistEditSheet.kt, WishlistScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="subs_add_plan">Add plan</string>
+    <string name="subs_subscriptions">Subscriptions</string>
+    <string name="subs_track_your_recurring_costs">Track your recurring costs</string>
+    <string name="subs_no_plans_yet">No plans yet</string>
+    <string name="subs_add_your_first_plan_to_see">Add your first plan to see what this month costs.</string>
+    <string name="subs_add_your_first_plan">Add your first plan</string>
+    <string name="subs_plans_match_the_filter">%1$s/%2$s plans match the filter</string>
+    <plurals name="subs_plans_tracked">
+        <item quantity="one">%1$s plan tracked</item>
+        <item quantity="other">%1$s plans tracked</item>
+    </plurals>
+    <string name="subs_search_name_brand_plan">Search name, brand, plan…</string>
+    <string name="subs_no_plans_match">No plans match</string>
+    <string name="subs_try_loosening_the_filter_or_choosing">Try loosening the filter or choosing "All".</string>
+    <string name="subs_renew">Renew %1$s</string>
+    <string name="subs_renew_now">Renew now?</string>
+    <string name="subs_record_a_payment_and_push_the">Record a payment and push the next renewal date forward.</string>
+    <string name="subs_renew_2">Renew</string>
+    <string name="subs_log_payment">Log payment</string>
+    <string name="subs_renew_now_2">Renew now</string>
+    <string name="subs_payment_history">Payment history (%1$s)</string>
+    <string name="subs_no_payments_yet">No payments yet</string>
+    <string name="subs_tap_log_a_payment_to_add">Tap "Log a payment" to add the first record.</string>
+    <string name="subs_billing_cycle">Billing cycle</string>
+    <string name="subs_yes">Yes</string>
+    <string name="subs_no">No</string>
+    <string name="subs_account">Account</string>
+    <string name="subs_payments">Payments</string>
+    <string name="subs_log_a_payment">Log a payment</string>
+    <string name="subs_amount_vnd">Amount (VND) *</string>
+    <string name="subs_payment_date_yyyy_mm_dd">Payment date (YYYY-MM-DD) *</string>
+    <string name="subs_edit_plan">Edit plan</string>
+    <string name="subs_plan_name">Plan name *</string>
+    <string name="subs_brand_provider">Brand / provider</string>
+    <string name="subs_plan">Plan</string>
+    <string name="subs_category_optional">Category (optional)</string>
+    <string name="subs_cycle_length_days">Cycle length (days) *</string>
+    <string name="subs_start_date_yyyy_mm_dd">Start date * (YYYY-MM-DD)</string>
+    <string name="subs_next_renewal_date_yyyy_mm_dd">Next renewal date (YYYY-MM-DD)</string>
+    <string name="subs_auto_renew">Auto-renew</string>
+    <string name="subs_account_email">Account email</string>
+    <string name="subs_payment_method">Payment method</string>
+    <string name="subs_manage_url">Manage URL</string>
+    <string name="subs_cancel_url">Cancel URL</string>
+    <string name="subs_deleting">Deleting…</string>
+    <string name="subs_delete_plan">Delete plan</string>
+    <string name="wish_add_another_one">Add another one</string>
+    <string name="wish_what_you_want">What you want</string>
+    <string name="wish_nothing_on_your_wishlist_yet">Nothing on your wishlist yet?</string>
+    <string name="wish_add_an_item_to_track_its">Add an item to track its price and buy at the right moment.</string>
+    <string name="wish_add_the_first_one">Add the first one</string>
+    <string name="wish_items_match_the_filter">%1$s/%2$s items match the filter</string>
+    <plurals name="wish_items_on_your_wishlist">
+        <item quantity="one">%1$s item on your wishlist</item>
+        <item quantity="other">%1$s items on your wishlist</item>
+    </plurals>
+    <string name="wish_search_name_brand_note">Search name, brand, note…</string>
+    <string name="wish_mark_as_purchased">Mark as purchased?</string>
+    <string name="wish_the_item_moves_to_the_purchased">The item moves to the Purchased state.</string>
+    <string name="wish_confirm">Confirm</string>
+    <string name="wish_log_a_new_price">Log a new price</string>
+    <string name="wish_purchased">Purchased</string>
+    <string name="wish_price_history">Price history (%1$s)</string>
+    <string name="wish_priority">Priority</string>
+    <string name="wish_initial_price">Initial price</string>
+    <string name="wish_current_price">Current price</string>
+    <string name="wish_planned_purchase">Planned purchase</string>
+    <string name="wish_remind_me_again">Remind me again</string>
+    <string name="wish_log_a_new_price_2">Log a new price</string>
+    <string name="wish_price_vnd">Price (VND) *</string>
+    <string name="wish_edit_item">Edit item</string>
+    <string name="wish_add_to_wishlist">Add to wishlist</string>
+    <string name="wish_prefilled_from_the_link_you_shared">Prefilled from the link you shared — check it, then save.</string>
+    <string name="wish_item_name">Item name *</string>
+    <string name="wish_initial_price_vnd">Initial price (VND)</string>
+    <string name="wish_current_price_vnd">Current price (VND)</string>
+    <string name="wish_purchase_url">Purchase URL</string>
+    <string name="wish_image_url">Image URL</string>
+    <string name="wish_target_purchase_date_yyyy_mm_dd">Target purchase date (YYYY-MM-DD)</string>
+    <string name="wish_remind_me_again_after_n_days">Remind me again after N days (optional)</string>
+    <string name="wish_priority_2">Priority</string>
+    <string name="audit_reading_your_payment_history">Reading your payment history…</string>
+    <string name="audit_the_audit_failed">The audit failed</string>
+    <string name="audit_what_this_analysis_does_and_does">What this analysis does and does not know</string>
+    <string name="audit_nothing_worth_flagging">Nothing worth flagging</string>
+    <string name="audit_rules_in_effect">Rules in effect</string>
+    <string name="audit_open_the_plan">Open the plan</string>
+    <string name="subs_per_month"> / month</string>
+    <string name="subs_per_quarter"> / quarter</string>
+    <string name="subs_per_year"> / year</string>
+    <string name="subs_lifetime"> (lifetime)</string>
+    <!-- ===== Filter facets and sort menus (SubscriptionFilters.kt,
+         WishlistFilters.kt). ===== -->
+    <string name="subfilter_active_paused">In use</string>
+    <string name="subfilter_active">Active</string>
+    <string name="subfilter_paused">Paused</string>
+    <string name="subfilter_canceled">Cancelled</string>
+    <string name="subfilter_expired">Expired</string>
+    <string name="subfilter_all">All</string>
+
+    <string name="subsort_renewal_asc">Renewing soonest</string>
+    <string name="subsort_renewal_desc">Renewing latest</string>
+    <string name="subsort_monthly_desc">Most per month</string>
+    <string name="subsort_monthly_asc">Least per month</string>
+    <string name="subsort_price_desc">Highest price per cycle</string>
+
+    <string name="wishfilter_active">Tracking</string>
+    <!-- Identical in both languages on purpose — see the Vietnamese file. -->
+    <string name="wishfilter_watching">Watching</string>
+    <string name="wishfilter_decided">Decided to buy</string>
+    <string name="wishfilter_purchased">Purchased</string>
+    <string name="wishfilter_all">All</string>
+
+    <string name="wishfilter_all_tiers">All levels</string>
+    <string name="wishfilter_must">Must buy</string>
+    <string name="wishfilter_want">Want</string>
+    <string name="wishfilter_maybe">Maybe</string>
+
+    <!-- ===== Domain-enum labels (`network/Models.kt`). =====
+         `SubscriptionStatus` / `BillingCycle` / `WishlistPriority` /
+         `WishlistStatus` labels used to be Vietnamese literals on the enums, so
+         every status pill stayed Vietnamese in English mode. They are resource
+         ids on the enum now (`@StringRes labelRes`), resolved by
+         `stringResource(...)` or `s.get(...)`. English is copied from
+         `website/src/lib/i18n/messages/{subscriptions,wishlist}.ts` — the same
+         words the web's `labelOf(...)` prints for the same enum member. These are
+         the STATUS labels; the filter facets above (`subfilter_*` /
+         `wishfilter_*`) are a separate, deliberately different set.
+         ===== -->
+    <string name="enum_subscription_status_active">Active</string>
+    <string name="enum_subscription_status_paused">Paused</string>
+    <string name="enum_subscription_status_canceled">Cancelled</string>
+    <string name="enum_subscription_status_expired">Expired</string>
+
+    <string name="enum_billing_cycle_monthly">Monthly</string>
+    <string name="enum_billing_cycle_quarterly">Quarterly</string>
+    <string name="enum_billing_cycle_yearly">Yearly</string>
+    <string name="enum_billing_cycle_lifetime">Lifetime</string>
+    <string name="enum_billing_cycle_custom">Custom</string>
+
+    <string name="enum_wishlist_priority_must">Must buy</string>
+    <string name="enum_wishlist_priority_want">Want</string>
+    <string name="enum_wishlist_priority_maybe">Considering</string>
+
+    <string name="enum_wishlist_status_watching">Being tracked</string>
+    <string name="enum_wishlist_status_decided">Decided</string>
+    <string name="enum_wishlist_status_skipped">Skipped</string>
+    <string name="enum_wishlist_status_purchased">Purchased</string>
+
+    <string name="wishsort_priority_asc">Highest priority first</string>
+    <string name="wishsort_target_asc">Nearest target date first</string>
+    <string name="wishsort_target_desc">Farthest target date first</string>
+    <string name="wishsort_price_desc">Highest price first</string>
+    <string name="wishsort_price_asc">Lowest price first</string>
+
+    <!-- Days remaining for a wishlist item (WishlistDetailScreen.kt). -->
+    <plurals name="wish_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+
+</resources>

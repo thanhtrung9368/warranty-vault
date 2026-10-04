@@ -1,5 +1,8 @@
 package com.warrantyvault.app.ui.screens.search
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
 import com.warrantyvault.app.network.Device
 import com.warrantyvault.app.network.Subscription
 import com.warrantyvault.app.network.WishlistItem
@@ -13,8 +16,19 @@ import com.warrantyvault.app.ui.components.CategoryLabels
  * land on a screen that calls itself the same thing.
  */
 object SearchGroups {
-    const val DEVICES = "Thiết bị"
-    const val SUBSCRIPTIONS = "Gói dịch vụ"
+    /**
+     * One key per group, and the first two REUSE the destination screen's own
+     * title (`nav_devices`, `subs_subscriptions`) rather than declaring a second
+     * sentence with the same meaning — two keys for one sentence is how the two
+     * translations drift apart. "Wishlist" is identical in both languages, so it
+     * is a plain constant, exactly like the web's facet labels.
+     */
+    @StringRes
+    val DEVICES = R.string.nav_devices
+
+    @StringRes
+    val SUBSCRIPTIONS = R.string.subs_subscriptions
+
     const val WISHLIST = "Wishlist"
 
     /** `"Thiết bị (3)"` — the section header text. */
@@ -39,13 +53,15 @@ fun deviceSubtitle(device: Device): String =
 /**
  * Brand + plan for a subscription result ("Samsung • Cloud 200GB"). A
  * subscription with neither falls back to its billing cycle, which is always
- * set (the enum is non-nullable), so the line is never empty.
+ * set (the enum is non-nullable), so the line is never empty. The cycle name is
+ * a resource on the enum, hence the [AppStrings] parameter — same seam every
+ * other pure formatter in this app takes.
  */
-fun subscriptionSubtitle(sub: Subscription): String {
+fun subscriptionSubtitle(s: AppStrings, sub: Subscription): String {
     val parts = listOfNotNull(sub.brand, sub.plan)
         .map { it.trim() }
         .filter { it.isNotEmpty() }
-    return if (parts.isEmpty()) sub.billingCycle.label else parts.joinToString(" • ")
+    return if (parts.isEmpty()) s.get(sub.billingCycle.labelRes) else parts.joinToString(" • ")
 }
 
 /**

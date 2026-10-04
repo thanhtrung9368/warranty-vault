@@ -1,5 +1,8 @@
 package com.warrantyvault.app.ui.screens.devices
 
+import androidx.annotation.StringRes
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.AppStrings
 import com.warrantyvault.app.network.DeviceShare
 import com.warrantyvault.app.ui.screens.vietnamDate
 
@@ -34,19 +37,20 @@ import com.warrantyvault.app.ui.screens.vietnamDate
  * verbatim on the copy confirmation, so a user who copies and then dismisses
  * still ends with the same statement rather than a bare "Đã sao chép".
  */
-const val ONE_TIME_WARNING: String =
-    "Link chỉ hiện đúng MỘT LẦN và app không lưu lại. Nếu đóng mà chưa sao chép, " +
-        "bạn phải tạo link mới."
+@StringRes
+val ONE_TIME_WARNING: Int = R.string.share_one_time_warning
 
 /** Title of the create-result dialog — states the stakes before the body does. */
-const val ONE_TIME_TITLE: String = "Link chỉ hiện một lần"
+@StringRes
+val ONE_TIME_TITLE: Int = R.string.share_one_time_title
 
 /** Shown on the copy confirmation, so the rule survives the dialog being closed. */
-const val COPIED_MESSAGE: String = "Đã sao chép link. Lưu ý: link chỉ hiện một lần."
+@StringRes
+val COPIED_MESSAGE: Int = R.string.share_copied
 
 /** Empty-state line: not an error, just no live links yet. */
-const val NO_LINKS_MESSAGE: String =
-    "Chưa có link chia sẻ nào. Tạo link để gửi người mua bằng chứng còn bảo hành."
+@StringRes
+val NO_LINKS_MESSAGE: Int = R.string.share_no_links
 
 /**
  * The share-sheet message. Sent **instead of** a bare URL so the recipient knows
@@ -56,9 +60,8 @@ const val NO_LINKS_MESSAGE: String =
  * No price, no account name, nothing the certificate itself does not already
  * expose: this text travels further than the certificate does.
  */
-internal fun shareMessage(deviceName: String, url: String): String =
-    "Phiếu bàn giao bảo hành cho \"$deviceName\": $url\n" +
-        "Link chỉ-đọc, có hạn, không cần đăng nhập."
+internal fun shareMessage(s: AppStrings, deviceName: String, url: String): String =
+    s.get(R.string.share_message, deviceName, url)
 
 /**
  * The certificate URL handed to the buyer.
@@ -108,10 +111,10 @@ internal fun isShareLive(share: DeviceShare, nowMillis: Long): Boolean {
  * works. Revoked and expired are told apart because they need different actions —
  * an expired link is housekeeping, a revoked one was a decision.
  */
-internal fun shareStateLabel(share: DeviceShare, nowMillis: Long): String = when {
-    share.revokedAt != null -> "Đã thu hồi"
-    !isShareLive(share, nowMillis) -> "Đã hết hạn"
-    else -> "Đang hiệu lực"
+internal fun shareStateLabel(s: AppStrings, share: DeviceShare, nowMillis: Long): String = when {
+    share.revokedAt != null -> s.get(R.string.share_state_revoked)
+    !isShareLive(share, nowMillis) -> s.get(R.string.dash_expired)
+    else -> s.get(R.string.share_state_live)
 }
 
 /**
@@ -119,8 +122,8 @@ internal fun shareStateLabel(share: DeviceShare, nowMillis: Long): String = when
  * not pretend to understand — the row then reads `Đã hết hạn` / `Đang hiệu lực`
  * without a date it made up.
  */
-internal fun shareExpiryLabel(share: DeviceShare): String? =
-    vietnamDate(share.expiresAt)?.let { "Hết hạn $it" }
+internal fun shareExpiryLabel(s: AppStrings, share: DeviceShare): String? =
+    vietnamDate(share.expiresAt)?.let { s.get(R.string.sess_expires, it) }
 
 /**
  * `"Đã mở 3 lần"` / `"Chưa mở lần nào"`.
@@ -129,10 +132,9 @@ internal fun shareExpiryLabel(share: DeviceShare): String? =
  * the only thing the app can observe. It is never phrased as "người mua đã xem":
  * the link has no identity behind it and may have been forwarded.
  */
-internal fun shareViewLabel(share: DeviceShare): String = when (share.viewCount) {
-    0 -> "Chưa mở lần nào"
-    1 -> "Đã mở 1 lần"
-    else -> "Đã mở ${share.viewCount} lần"
+internal fun shareViewLabel(s: AppStrings, share: DeviceShare): String = when (share.viewCount) {
+    0 -> s.get(R.string.share_views_none)
+    else -> s.quantity(R.plurals.share_views, share.viewCount, share.viewCount)
 }
 
 /**
@@ -145,12 +147,11 @@ internal fun shareViewLabel(share: DeviceShare): String = when (share.viewCount)
  * identifier. Both sentences say what is exposed; neither implies a warning that
  * is not there.
  */
-const val SERIAL_OFF_EXPLANATION: String =
-    "Tắt (mặc định): phiếu chỉ hiện số máy đã che giữa, ví dụ \"35•••••••89\"."
+@StringRes
+val SERIAL_OFF_EXPLANATION: Int = R.string.share_serial_off
 
-const val SERIAL_ON_EXPLANATION: String =
-    "Bật: phiếu hiện đầy đủ số máy/IMEI — cần khi trung tâm bảo hành tra cứu theo IMEI, " +
-        "nhưng nếu link bị chuyển tiếp thì máy bị nhận diện đầy đủ."
+@StringRes
+val SERIAL_ON_EXPLANATION: Int = R.string.share_serial_on
 
 /**
  * What the recipient of the certificate can see — the seller's side of the
@@ -163,20 +164,22 @@ const val SERIAL_ON_EXPLANATION: String =
  * certificate *does* show the serial if asked, and the device name, so it is not
  * anonymous.
  */
-const val CERTIFICATE_PROJECTION_EXPLANATION: String =
-    "Người nhận link chỉ thấy: tên máy, loại, hãng/model, ngày mua, nơi mua, trạng thái, " +
-        "số máy (đã che giữa, hoặc đầy đủ nếu bạn bật ở trên), các gói bảo hành kèm hạn " +
-        "và địa chỉ/số điện thoại do bạn ghi. Không bao giờ có: giá mua, giá bán, ghi " +
-        "chú, ảnh hoá đơn hay bất kỳ thiết bị nào khác của bạn."
+@StringRes
+val CERTIFICATE_PROJECTION_EXPLANATION: Int = R.string.share_projection
 
 /** Said when the device already holds the maximum of 10 live links. */
-const val SHARE_LIMIT_MESSAGE: String =
-    "Mỗi thiết bị chỉ giữ được 10 link còn hiệu lực. Thu hồi bớt một link rồi tạo lại."
+@StringRes
+val SHARE_LIMIT_MESSAGE: Int = R.string.share_limit
 
 /** Confirm-button copy for revocation; revocation is immediate and irreversible. */
-internal fun revokeConfirmMessage(share: DeviceShare): String =
-    "Link này sẽ ngừng mở được ngay. Người đã nhận link sẽ thấy lỗi, kể cả khi link " +
-        "chưa hết hạn${vietnamDate(share.expiresAt)?.let { " (hạn cũ $it)" }.orEmpty()}."
+internal fun revokeConfirmMessage(s: AppStrings, share: DeviceShare): String {
+    val expiry = vietnamDate(share.expiresAt)
+    return if (expiry != null) {
+        s.get(R.string.share_revoke_confirm_dated, expiry)
+    } else {
+        s.get(R.string.share_revoke_confirm)
+    }
+}
 
 // ---- Outgoing share (`Intent.ACTION_SEND`) ----
 
@@ -219,11 +222,12 @@ internal fun excludedShareTargets(targets: List<ResolvedTarget>): List<String> =
     targets.filter { it.isSelfTarget }.map { it.component }
 
 /** What `Intent.createChooser` shows above the app list. */
-internal const val CHOOSER_TITLE: String = "Gửi phiếu bàn giao qua"
+@StringRes
+internal val CHOOSER_TITLE: Int = R.string.share_chooser_title
 
 /** No app can send a plain-text share on this device. Said out loud, never silent. */
-internal const val NO_SHARE_TARGET_MESSAGE: String =
-    "Không có ứng dụng nào nhận chia sẻ văn bản trên máy này. Bạn vẫn có thể sao chép link."
+@StringRes
+internal val NO_SHARE_TARGET_MESSAGE: Int = R.string.share_no_target
 
 /**
  * `expiresAt` (`"2026-03-02T17:04:05Z"`) → epoch millis, or `null` when it is not

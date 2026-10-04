@@ -1,5 +1,9 @@
 package com.warrantyvault.app.ui.screens.subscriptions
 
+import com.warrantyvault.app.R
+import com.warrantyvault.app.i18n.Money
+import com.warrantyvault.app.i18n.ResCatalog
+import com.warrantyvault.app.i18n.money
 import com.warrantyvault.app.network.ActionCounts
 import com.warrantyvault.app.testing.Fixtures
 import com.warrantyvault.app.ui.components.PillKind
@@ -19,6 +23,16 @@ import org.junit.Test
  * into an alert, and never claim nothing was changed unless the server said so.
  */
 class SubscriptionAuditFormatTest {
+
+    /**
+     * The two catalogs, read off `res/values-vi/` and `res/values/`. Every
+     * expected sentence below is the SAME string this test asserted against a
+     * hardcoded literal before the conversion — that is what proves the move into
+     * the resource table changed no bytes. [en] is asserted too, so a key that
+     * only resolves in one language cannot pass.
+     */
+    private val vi = ResCatalog.vietnamese()
+    private val en = ResCatalog.english()
 
     // ---- the honesty line ----
 
@@ -40,15 +54,15 @@ class SubscriptionAuditFormatTest {
             listOfNotNull(
                 finding.title,
                 finding.detail,
-                auditRuleLabel(finding, thresholds),
-                auditMaterialNote(finding, thresholds),
-                auditMoneyLine(finding),
-                auditTimelineNote(finding),
-                auditMinorPillLabel(finding),
+                auditRuleLabel(vi, finding, thresholds),
+                auditMaterialNote(vi, finding, thresholds),
+                auditMoneyLine(vi, finding),
+                auditTimelineNote(vi, finding),
+                auditMinorPillLabel(vi, finding),
             )
-        } + auditAdvisoryNote(advisory = true)!! +
-            auditThresholdLines(thresholds) +
-            AUDIT_ENTRY_SUBTITLE
+        } + auditAdvisoryNote(vi, advisory = true)!! +
+            auditThresholdLines(vi, thresholds) +
+            vi.get(AUDIT_ENTRY_SUBTITLE)
 
         val forbidden = listOf("không dùng", "chưa dùng", "bỏ quên", "vô dụng", "lãng phí")
         forbidden.forEach { phrase ->
@@ -65,33 +79,33 @@ class SubscriptionAuditFormatTest {
      */
     @Test
     fun advisoryNote_appearsOnlyWhenTheServerAssertedIt() {
-        val note = auditAdvisoryNote(advisory = true)
+        val note = auditAdvisoryNote(vi, advisory = true)
         assertEquals("Chỉ tư vấn: không có gì bị sửa, bị huỷ hay bị tắt tự động.", note)
         assertTrue(note!!.contains("không có gì bị sửa"))
-        assertNull(auditAdvisoryNote(advisory = false))
+        assertNull(auditAdvisoryNote(vi, advisory = false))
     }
 
     /** `material = false` must read as minor — never as an alert. */
     @Test
     fun materialFalse_isRenderedAsAMinorChangeWithTheThresholdNamed() {
         val minor = Fixtures.priceAuditFinding(material = false, increasePercent = 2)
-        val note = auditMaterialNote(minor, Fixtures.auditThresholds(priceRiseMinPercent = 5))
+        val note = auditMaterialNote(vi, minor, Fixtures.auditThresholds(priceRiseMinPercent = 5))
 
         assertEquals("Mức tăng này dưới 5% nên chỉ là thay đổi nhỏ — không phải cảnh báo.", note)
         assertTrue(note!!.contains("không phải cảnh báo"))
-        assertEquals("Thay đổi nhỏ", auditMinorPillLabel(minor))
+        assertEquals("Thay đổi nhỏ", auditMinorPillLabel(vi, minor))
     }
 
     @Test
     fun materialTrueOrAbsent_producesNoSofteningNote() {
-        assertNull(auditMaterialNote(Fixtures.priceAuditFinding(material = true), Fixtures.auditThresholds()))
-        assertNull(auditMaterialNote(Fixtures.priceAuditFinding(material = null), Fixtures.auditThresholds()))
-        assertNull(auditMinorPillLabel(Fixtures.priceAuditFinding(material = true)))
+        assertNull(auditMaterialNote(vi, Fixtures.priceAuditFinding(material = true), Fixtures.auditThresholds()))
+        assertNull(auditMaterialNote(vi, Fixtures.priceAuditFinding(material = null), Fixtures.auditThresholds()))
+        assertNull(auditMinorPillLabel(vi, Fixtures.priceAuditFinding(material = true)))
         // Still honest without thresholds: the server's own verdict is repeated,
         // no number is invented.
         assertEquals(
             "Mức tăng này được đánh giá là nhỏ — không phải cảnh báo.",
-            auditMaterialNote(Fixtures.priceAuditFinding(material = false), thresholds = null),
+            auditMaterialNote(vi, Fixtures.priceAuditFinding(material = false), thresholds = null),
         )
     }
 
@@ -102,12 +116,12 @@ class SubscriptionAuditFormatTest {
      */
     @Test
     fun timeline_labelsTheLastPaymentAsARecordingAndNeverAsUsage() {
-        val line = auditTimelineNote(Fixtures.quietAuditFinding())!!
+        val line = auditTimelineNote(vi, Fixtures.quietAuditFinding())!!
 
         assertEquals("Khoản ghi nhận gần nhất: 01/02/2026 · Kỳ gia hạn tới: 10/03/2026 (còn 6 ngày)", line)
         assertTrue(line.contains("Khoản ghi nhận gần nhất"))
         assertFalse(line.contains("dùng lần cuối"))
-        assertNull(auditTimelineNote(Fixtures.duplicateAuditFinding()))
+        assertNull(auditTimelineNote(vi, Fixtures.duplicateAuditFinding()))
     }
 
     // ---- the rule behind a verdict ----
@@ -120,25 +134,25 @@ class SubscriptionAuditFormatTest {
             priceRiseMinPercent = 5,
         )
 
-        val quiet = auditRuleLabel(Fixtures.quietAuditFinding(), thresholds)!!
+        val quiet = auditRuleLabel(vi, Fixtures.quietAuditFinding(), thresholds)!!
         assertTrue(quiet, quiet.contains("ít nhất 3 lần"))
         assertTrue(quiet, quiet.contains("ít nhất 6 tháng"))
         assertTrue(quiet, quiet.contains("không có khoản nào do bạn tự ghi"))
 
-        val price = auditRuleLabel(Fixtures.priceAuditFinding(material = true), thresholds)!!
+        val price = auditRuleLabel(vi, Fixtures.priceAuditFinding(material = true), thresholds)!!
         assertTrue(price, price.contains("hai kỳ thanh toán liền kề"))
         assertTrue(price, price.contains("từ 5% trở lên mới coi là đáng kể"))
     }
 
     @Test
     fun ruleLabel_namesTheDuplicateSignalThatMatched() {
-        val sameName = auditRuleLabel(
+        val sameName = auditRuleLabel(vi, 
             Fixtures.duplicateAuditFinding(reason = "SAME_NAME"),
             Fixtures.auditThresholds(duplicateNormalized = true),
         )!!
         assertTrue(sameName, sameName.contains("bỏ dấu"))
 
-        val sameBrand = auditRuleLabel(
+        val sameBrand = auditRuleLabel(vi, 
             Fixtures.duplicateAuditFinding(reason = "SAME_BRAND_CATEGORY"),
             Fixtures.auditThresholds(),
         )!!
@@ -146,7 +160,7 @@ class SubscriptionAuditFormatTest {
 
         // Without the normalisation flag the weaker claim is the honest one.
         assertFalse(
-            auditRuleLabel(
+            auditRuleLabel(vi, 
                 Fixtures.duplicateAuditFinding(reason = "SAME_NAME"),
                 Fixtures.auditThresholds(duplicateNormalized = false),
             )!!.contains("bỏ dấu"),
@@ -157,17 +171,17 @@ class SubscriptionAuditFormatTest {
     @Test
     fun ruleLabel_isAbsentWhenThePayloadCarriesNoThresholds() {
         val thresholds = null
-        assertNull(auditRuleLabel(Fixtures.quietAuditFinding(), thresholds))
-        assertNull(auditRuleLabel(Fixtures.priceAuditFinding(), thresholds))
+        assertNull(auditRuleLabel(vi, Fixtures.quietAuditFinding(), thresholds))
+        assertNull(auditRuleLabel(vi, Fixtures.priceAuditFinding(), thresholds))
         // A duplicate rule that needs no threshold can still be stated.
-        assertTrue(auditRuleLabel(Fixtures.duplicateAuditFinding(), thresholds)!!.isNotBlank())
+        assertTrue(auditRuleLabel(vi, Fixtures.duplicateAuditFinding(), thresholds)!!.isNotBlank())
     }
 
     @Test
     fun ruleLabel_isAbsentForAKindThisBuildDoesNotKnow() {
         val unknown = Fixtures.priceAuditFinding().copy(kind = "SOMETHING_NEW")
-        assertNull(auditRuleLabel(unknown, Fixtures.auditThresholds()))
-        assertNull(auditMoneyLine(unknown))
+        assertNull(auditRuleLabel(vi, unknown, Fixtures.auditThresholds()))
+        assertNull(auditMoneyLine(vi, unknown))
     }
 
     // ---- money, as int64 ----
@@ -175,20 +189,20 @@ class SubscriptionAuditFormatTest {
     @Test
     fun moneyLine_restatesTheServersOwnFiguresPerKind() {
         assertEquals(
-            "Máy đã tự trừ: 4.680.000đ · 18 lần",
-            auditMoneyLine(Fixtures.quietAuditFinding()),
+            "Máy đã tự trừ: 4.680.000 ₫ · 18 lần",
+            auditMoneyLine(vi, Fixtures.quietAuditFinding()),
         )
         assertEquals(
-            "Tăng 10.000đ (+17%)",
-            auditMoneyLine(Fixtures.priceAuditFinding(increaseVnd = 10_000, increasePercent = 17)),
+            "Tăng 10.000 ₫ (+17%)",
+            auditMoneyLine(vi, Fixtures.priceAuditFinding(increaseVnd = 10_000, increasePercent = 17)),
         )
         assertEquals(
-            "Tăng 10.000đ (kỳ trước 0đ nên không tính được %)",
-            auditMoneyLine(Fixtures.priceAuditFinding(increaseVnd = 10_000, increasePercent = null)),
+            "Tăng 10.000 ₫ (kỳ trước 0 ₫ nên không tính được %)",
+            auditMoneyLine(vi, Fixtures.priceAuditFinding(increaseVnd = 10_000, increasePercent = null)),
         )
         assertEquals(
-            "Quy đổi tháng của cả hai: ~40.000đ",
-            auditMoneyLine(Fixtures.duplicateAuditFinding(monthlyVnd = 40_000)),
+            "Quy đổi tháng của cả hai: ~40.000 ₫",
+            auditMoneyLine(vi, Fixtures.duplicateAuditFinding(monthlyVnd = 40_000)),
         )
     }
 
@@ -199,21 +213,21 @@ class SubscriptionAuditFormatTest {
             chargedTotalVnd = 12_000_000_000L,
             chargeCount = 4_000_000_000L,
         )
-        assertEquals("Máy đã tự trừ: 12.000.000.000đ · 4000000000 lần", auditMoneyLine(big))
+        assertEquals("Máy đã tự trừ: 12.000.000.000 ₫ · 4000000000 lần", auditMoneyLine(vi, big))
     }
 
     @Test
     fun moneyLine_isAbsentWhenThereIsNoFigureToShow() {
-        assertNull(auditMoneyLine(Fixtures.quietAuditFinding(chargeCount = 0)))
-        assertNull(auditMoneyLine(Fixtures.priceAuditFinding(increaseVnd = null)))
-        assertNull(auditMoneyLine(Fixtures.duplicateAuditFinding(monthlyVnd = 0)))
+        assertNull(auditMoneyLine(vi, Fixtures.quietAuditFinding(chargeCount = 0)))
+        assertNull(auditMoneyLine(vi, Fixtures.priceAuditFinding(increaseVnd = null)))
+        assertNull(auditMoneyLine(vi, Fixtures.duplicateAuditFinding(monthlyVnd = 0)))
     }
 
     // ---- thresholds card, links, ordering ----
 
     @Test
     fun thresholdLines_describeEveryRuleThatIsActuallyOn() {
-        val lines = auditThresholdLines(Fixtures.auditThresholds())
+        val lines = auditThresholdLines(vi, Fixtures.auditThresholds())
 
         assertEquals(4, lines.size)
         assertTrue(lines[0], lines[0].contains("≥ 3 khoản máy tự trừ"))
@@ -225,9 +239,9 @@ class SubscriptionAuditFormatTest {
 
     @Test
     fun thresholdLines_omitUnsetRulesAndTheWholeCardWhenThereIsNothingToSay() {
-        assertTrue(auditThresholdLines(null).isEmpty())
+        assertTrue(auditThresholdLines(vi, null).isEmpty())
         // The normalisation rule is a real flag, so turning it off drops its line.
-        assertEquals(3, auditThresholdLines(Fixtures.auditThresholds(duplicateNormalized = false)).size)
+        assertEquals(3, auditThresholdLines(vi, Fixtures.auditThresholds(duplicateNormalized = false)).size)
         val zeros = Fixtures.auditThresholds(
             quietMinAutoCharges = 0,
             quietMinMonths = 0,
@@ -235,7 +249,7 @@ class SubscriptionAuditFormatTest {
             priceRiseMinPercent = 0,
             duplicateNormalized = false,
         )
-        assertTrue(auditThresholdLines(zeros).isEmpty())
+        assertTrue(auditThresholdLines(vi, zeros).isEmpty())
     }
 
     @Test
@@ -278,18 +292,18 @@ class SubscriptionAuditFormatTest {
     fun severity_isGradedInTheAuditsOwnWords() {
         assertEquals(ActionSeverity.HIGH, auditSeverityOf("HIGH"))
         assertEquals(ActionSeverity.UNKNOWN, auditSeverityOf("WHATEVER"))
-        assertEquals("Đáng chú ý", auditSeverityLabel(ActionSeverity.HIGH))
-        assertEquals("Nên xem lại", auditSeverityLabel(ActionSeverity.MEDIUM))
-        assertEquals("Nhắc nhẹ", auditSeverityLabel(ActionSeverity.LOW))
+        assertEquals("Đáng chú ý", auditSeverityLabel(vi, ActionSeverity.HIGH))
+        assertEquals("Nên xem lại", auditSeverityLabel(vi, ActionSeverity.MEDIUM))
+        assertEquals("Nhắc nhẹ", auditSeverityLabel(vi, ActionSeverity.LOW))
         assertEquals(PillKind.Danger, auditSeverityOf("HIGH").pill)
         assertEquals(PillKind.Neutral, auditSeverityOf("WHATEVER").pill)
     }
 
     @Test
     fun subtitle_countsTheFindingsTheServerCounted() {
-        assertEquals("Không có gì đáng lưu ý", auditSubtitle(ActionCounts(0, 0, 0, 0)))
-        assertEquals("1 phát hiện cần xem lại", auditSubtitle(ActionCounts(1, 1, 0, 0)))
-        assertEquals("4 phát hiện cần xem lại", auditSubtitle(ActionCounts(4, 1, 1, 2)))
+        assertEquals("Không có gì đáng lưu ý", auditSubtitle(vi, ActionCounts(0, 0, 0, 0)))
+        assertEquals("1 phát hiện cần xem lại", auditSubtitle(vi, ActionCounts(1, 1, 0, 0)))
+        assertEquals("4 phát hiện cần xem lại", auditSubtitle(vi, ActionCounts(4, 1, 1, 2)))
     }
 
     @Test
@@ -298,11 +312,26 @@ class SubscriptionAuditFormatTest {
         assertFalse(auditIsEmpty(Fixtures.subscriptionAudit()))
     }
 
-    /** The shared VND formatter: Vietnamese grouping, `đ` suffix, `Long` input. */
+    /**
+     * The shared VND formatter: Vietnamese grouping, `₫` suffix, `Long` input.
+     *
+     * `formatVndLong` used to be a private copy here; it is now `Money` (the one
+     * implementation all six screens delegate to), so this asserts the same thing
+     * one level down, and adds the English shape the audit screen renders when the
+     * app is in English.
+     *
+     * The Vietnamese shape is `1.000.000 ₫` (space, U+20AB), which is what Go's
+     * `FormatMoney` and the web emit — see the header of `VietnameseFormatterTest`
+     * for why these assertions moved.
+     */
     @Test
-    fun formatVndLong_matchesTheRestOfTheAppForInRangeValues() {
+    fun money_matchesTheRestOfTheAppInRangeAndGivesEnglishItsOwnShape() {
         listOf(0, 999, 1_000, 12_500_000).forEach { amount ->
-            assertEquals(formatVnd(amount.toInt()), formatVndLong(amount.toLong()))
+            assertEquals(Money.vietnamese(amount.toInt().toLong()), Money.vietnamese(amount.toLong()))
+            assertEquals(Money.vietnamese(amount.toLong()), vi.money(amount.toLong()))
         }
+        assertEquals("1.000.000 ₫", vi.money(1_000_000))
+        assertEquals("₫1,000,000", en.money(1_000_000))
+        assertEquals("-₫5,000", en.money(-5_000))
     }
 }

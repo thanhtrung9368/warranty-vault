@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the translation.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in SettingsScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="set_backed_up_to_a_json_file">Backed up to a JSON file</string>
+    <string name="set_backup_failed">Backup failed: %1$s</string>
+    <plurals name="set_exported_devices_to_a_csv_file">
+        <item quantity="one">Exported %1$s device to a CSV file</item>
+        <item quantity="other">Exported %1$s devices to a CSV file</item>
+    </plurals>
+    <string name="set_csv_export_failed">CSV export failed: %1$s</string>
+    <string name="set_there_are_no_devices_to_export">There are no devices to export</string>
+    <string name="set_import_failed">Import failed: %1$s</string>
+    <string name="set_personalise_your_account_and_appearance">Personalise your account and appearance</string>
+    <string name="set_profile">Profile</string>
+    <string name="set_display_name">Display name</string>
+    <string name="set_no_name_yet_tap_to_add">No name yet — tap to add one.</string>
+    <string name="set_appearance">Appearance</string>
+    <string name="set_change_password">Change password</string>
+    <string name="set_update_the_password_you_sign_in">Update the password you sign in with.</string>
+    <string name="set_notification_devices">Notification devices</string>
+    <string name="set_manage_the_devices_registered_for_push">Manage the devices registered for push notifications.</string>
+    <string name="set_sign_in_sessions">Sign-in sessions</string>
+    <string name="set_see_which_devices_are_signed_in">See which devices are signed in and revoke sessions one by one.</string>
+    <string name="set_invoice_scanning_ai">Invoice scanning (AI)</string>
+    <string name="set_scan_invoices_with_ai">Scan invoices with AI</string>
+    <string name="set_the_invoice_image_is_sent_decrypted">The invoice image is sent (decrypted) to a third-party AI service so it can fill the form in. Always check it before saving. Off by default.</string>
+    <string name="set_ai_invoice_scanning_is_on">AI invoice scanning is on</string>
+    <string name="set_ai_invoice_scanning_is_off">AI invoice scanning is off</string>
+    <string name="set_data">Data</string>
+    <string name="set_working">Working…</string>
+    <string name="set_back_up_export_json">Back up (export JSON)</string>
+    <string name="set_download_every_device_plan_and_wishlist">Download every device, plan and wishlist item as one JSON file.</string>
+    <string name="set_export_csv_excel">Export CSV (Excel)</string>
+    <string name="set_download_the_device_list_as_a">Download the device list as a UTF-8 CSV for Excel / Google Sheets.</string>
+    <string name="set_restore_from_a_backup">Restore from a backup</string>
+    <string name="set_import_your_data_back_from_an">Import your data back from an exported JSON file.</string>
+    <string name="set_system">System</string>
+    <string name="set_sign_out">Sign out</string>
+    <string name="set_delete_account">Delete account</string>
+    <string name="set_merge">Merge</string>
+    <string name="set_replace">Replace</string>
+    <string name="set_delete_your_account">Delete your account?</string>
+    <string name="set_current_password">Current password</string>
+    <string name="set_delete_permanently">Delete permanently</string>
+    <string name="set_password_changed_successfully">Password changed successfully</string>
+    <string name="sess_sign_in_sessions">Sign-in sessions</string>
+    <string name="sess_no_sessions_yet">No sessions yet</string>
+    <string name="sess_sign_in_again_to_create_a">Sign in again to create a new session.</string>
+    <string name="sess_sign_this_device_out">Sign this device out?</string>
+    <string name="sess_revoke_this_session">Revoke this session?</string>
+    <string name="sess_once_revoked_you_will_be_sent">Once revoked you will be sent back to the sign-in screen.</string>
+    <string name="sess_the_device_you_are_using_is">The device you are using is not affected.</string>
+    <string name="sess_sign_out">Sign out</string>
+    <string name="sess_revoke">Revoke</string>
+    <string name="sess_this_device">This device</string>
+    <string name="sess_active">Active %1$s</string>
+    <string name="sess_expires">Expires %1$s</string>
+    <string name="sess_sign_this_device_out_2">Sign this device out</string>
+    <string name="sess_revoke_session">Revoke session</string>
+    <string name="push_notification_devices">Notification devices</string>
+    <string name="push_no_devices_yet">No devices yet</string>
+    <string name="push_open_the_app_on_another_phone">Open the app on another phone or computer to register more.</string>
+    <string name="push_test_sent_delivered_failed">Test sent: %1$s delivered, %2$s failed</string>
+    <string name="push_send_a_test_notification">Send a test notification</string>
+    <string name="push_remove_this_registration">Remove this registration?</string>
+    <string name="push_this_device_will_no_longer_receive">This device will no longer receive notifications from WarrantyVault.</string>
+    <string name="push_device_removed">Device removed</string>
+    <string name="push_registered">Registered %1$s</string>
+    <string name="pwd_change_password">Change password</string>
+    <string name="pwd_current_password">Current password *</string>
+    <string name="pwd_new_password_8_characters">New password (≥ 8 characters) *</string>
+    <string name="pwd_confirm_the_new_password">Confirm the new password *</string>
+    <string name="pwd_password_changed_successfully">Password changed successfully</string>
+    <string name="pwd_update_password">Update password</string>
+    <string name="pwd_hide_password">Hide password</string>
+    <string name="pwd_show_password">Show password</string>
+    <string name="login_welcome_back">Welcome back</string>
+    <string name="login_create_a_new_account">Create a new account</string>
+    <string name="login_sign_in_to_keep_tracking_your">Sign in to keep tracking your warranties and plans</string>
+    <string name="login_sign_up_to_start_keeping_your">Sign up to start keeping your warranties and wishlist</string>
+    <string name="login_sign_in">Sign in</string>
+    <string name="login_register">Register</string>
+    <string name="login_name">Name</string>
+    <string name="login_jane_doe">Jane Doe</string>
+    <string name="login_password">Password</string>
+    <string name="login_at_least_8_characters">At least 8 characters</string>
+    <string name="login_create_account">Create account</string>
+    <string name="login_forgot_password">Forgot password?</string>
+    <string name="forgot_forgot_password">Forgot password</string>
+    <string name="forgot_enter_your_email_to_get_a">Enter your email to get a password reset link</string>
+    <string name="forgot_request_sent">Request sent</string>
+    <string name="forgot_if_that_email_is_registered_a">If that email is registered, a password reset link has been sent. Check your inbox.</string>
+    <string name="forgot_back_to_sign_in">Back to sign in</string>
+    <string name="forgot_send">Send</string>
+    <string name="sess_unknown_device">Unknown device</string>
+    <string name="push_just_now">just now</string>
+    <plurals name="push_minutes_ago">
+        <item quantity="one">%1$s minute ago</item>
+        <item quantity="other">%1$s minutes ago</item>
+    </plurals>
+    <plurals name="push_hours_ago">
+        <item quantity="one">%1$s hour ago</item>
+        <item quantity="other">%1$s hours ago</item>
+    </plurals>
+    <plurals name="push_days_ago">
+        <item quantity="one">%1$s day ago</item>
+        <item quantity="other">%1$s days ago</item>
+    </plurals>
+    <plurals name="push_months_ago">
+        <item quantity="one">%1$s month ago</item>
+        <item quantity="other">%1$s months ago</item>
+    </plurals>
+    <plurals name="push_years_ago">
+        <item quantity="one">%1$s year ago</item>
+        <item quantity="other">%1$s years ago</item>
+    </plurals>
+    <string name="set_import_summary">Imported %1$s devices, %2$s plans and %3$s wishlist items</string>
+    <string name="set_import_summary_skipped">Imported %1$s devices, %2$s plans and %3$s wishlist items · skipped %4$s duplicates</string>
+    <string name="set_could_not_update_the_setting">Could not update the setting: %1$s</string>
+    <string name="set_import_mode_body">“Merge” adds the file\'s data to what you already have. “Replace” DELETES ALL current data before loading — this cannot be undone.</string>
+    <string name="set_delete_account_body">Every device, invoice, warranty photo and setting is deleted permanently — this cannot be undone. Enter your password to confirm.</string>
+    <!-- Push notification devices (PushDevicesScreen.kt). -->
+    <string name="push_no_devices_registered">You have not registered for notifications on any device.</string>
+    <string name="push_device_tail">Device …%1$s</string>
+
+    <!-- Sign-in sessions (SessionsScreen.kt). -->
+    <string name="sess_already_revoked">This session had already been revoked.</string>
+    <string name="sess_revoked">Session revoked.</string>
+    <string name="sess_none_active">No sessions are active.</string>
+    <string name="sess_list_body">These are the devices signed in to your account. Revoking a session signs that device out immediately — the other sessions are left alone.</string>
+    <string name="sess_this_device_note">“%1$s” is the device you are using.</string>
+    <string name="sess_other_device_note">“%1$s” will be signed out immediately.</string>
+    <string name="sess_signed_in_at">Signed in %1$s</string>
+
+</resources>

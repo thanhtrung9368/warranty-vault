@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the translation.
+
+  Part of the bilingual rollout (docs/I18N_PLAN.md phase 2). Vietnamese is the
+  ORIGINAL: every Vietnamese string below is the literal that used to sit inline
+  in AddDeviceSheet.kt, DashboardScreen.kt, DeviceDetailScreen.kt, DevicesScreen.kt.  The English column is new.  See `values/strings.xml` for the two
+  rules this pair must satisfy — identical key sets, identical format verbs —
+  which `StringResourceParityTest` enforces over the whole values/ pair.
+-->
+<resources>
+    <string name="dash_search_everything">Search everything</string>
+    <string name="dash_could_not_load_it">Could not load it</string>
+    <string name="dash_under_warranty">Under warranty</string>
+    <string name="dash_expiring_in_30_days">Expiring in ≤30 days</string>
+    <string name="dash_expired">Expired</string>
+    <string name="dash_warranty_expiring_soon">Warranty expiring soon</string>
+    <string name="dash_subscriptions">Subscriptions</string>
+    <string name="dash_wishlist">Wishlist</string>
+    <string name="dash_open_the_queue_of_things_the">Open the queue of things the app inferred from your data</string>
+    <string name="dash_nothing_waiting_to_be_handled">Nothing waiting to be handled</string>
+    <plurals name="dash_items_need_attention_high">
+        <item quantity="one">%1$s item needs attention · %2$s high</item>
+        <item quantity="other">%1$s items need attention · %2$s high</item>
+    </plurals>
+    <plurals name="dash_items_need_attention">
+        <item quantity="one">%1$s item needs attention</item>
+        <item quantity="other">%1$s items need attention</item>
+    </plurals>
+    <string name="dash_action_items">Action items</string>
+    <string name="dash_good_morning">Good morning,</string>
+    <string name="dash_good_afternoon">Good afternoon,</string>
+    <string name="dash_good_evening">Good evening,</string>
+    <string name="dash_expires_today">Expires today</string>
+    <string name="dash_1_day_left">1 day left</string>
+    <plurals name="dash_days_left">
+        <item quantity="one">%1$s day left</item>
+        <item quantity="other">%1$s days left</item>
+    </plurals>
+    <string name="dash_everything_looks_fine">Everything looks fine</string>
+    <string name="dash_no_plans_expiring_in_the_next">No plans expiring in the next 30 days</string>
+    <string name="dash_month">/ month</string>
+    <string name="dash_year_plans_running">~ %1$s/year · %2$s plans running</string>
+    <string name="dash_renewing_soon">RENEWING SOON</string>
+    <string name="dev_add_device">Add device</string>
+    <string name="dev_loading_your_list">Loading your list…</string>
+    <plurals name="dev_items_tracked">
+        <item quantity="one">%1$s item tracked</item>
+        <item quantity="other">%1$s items tracked</item>
+    </plurals>
+    <string name="dev_search_by_name_brand_model_serial">Search by name, brand, model, serial…</string>
+    <string name="dev_nothing_matches_the_filter">Nothing matches the filter</string>
+    <string name="dev_no_devices_yet">No devices yet</string>
+    <string name="dev_try_loosening_the_filters_or_clearing">Try loosening the filters or clearing the search box.</string>
+    <string name="dev_add_the_first_one_to_start">Add the first one to start tracking warranties.</string>
+    <string name="dev_add_your_first_device">Add your first device</string>
+    <string name="dev_attachments">Attachments</string>
+    <string name="devadd_edit_device">Edit device</string>
+    <string name="devadd_scanning_the_invoice">Scanning the invoice…</string>
+    <string name="devadd_scan_an_invoice_warranty_slip">Scan an invoice / warranty slip</string>
+    <string name="devadd_choose_a_pdf_invoice">Choose a PDF invoice</string>
+    <string name="devadd_draft_filled_in_from_the_invoice">Draft filled in from the invoice.</string>
+    <string name="devadd_draft_filled_in_the_confidence_is">Draft filled in — the confidence is low, please check it carefully.</string>
+    <string name="devadd_device_name">Device name *</string>
+    <string name="devadd_serial_number">Serial number</string>
+    <string name="devadd_price_vnd">Price (VND)</string>
+    <string name="devadd_purchase_date_yyyy_mm_dd">Purchase date (YYYY-MM-DD) *</string>
+    <string name="devadd_warranty_length_months">Warranty length (months)</string>
+    <string name="devadd_resale_details_optional">Resale details (optional)</string>
+    <string name="devadd_sale_price_vnd">Sale price (VND)</string>
+    <string name="devadd_sale_date_yyyy_mm_dd">Sale date (YYYY-MM-DD)</string>
+    <string name="devadd_fill_in_both_to_record_a">Fill in both to record a sale (0 = given away). Leave both empty if it is not sold.</string>
+    <string name="devadd_note">Note</string>
+    <string name="devadd_update">Update</string>
+    <string name="devadd_category">Category</string>
+    <string name="devadd_status">Status</string>
+    <string name="devadd_brand">Brand</string>
+    <string name="devdetail_details">Details</string>
+    <string name="devdetail_delete_device">Delete device</string>
+    <string name="devdetail_add_a_warranty_plan">Add a warranty plan</string>
+    <string name="devdetail_delete_this_warranty_plan">Delete this warranty plan?</string>
+    <string name="devdetail_this_cannot_be_undone_the_plan">This cannot be undone. The "%1$s" plan will be removed from the device.</string>
+    <string name="devdetail_delete_this_device">Delete this device?</string>
+    <string name="devdetail_deleting">Deleting…</string>
+    <string name="devdetail_warranty">Warranty</string>
+    <string name="devdetail_no_warranty_plan_yet">No warranty plan yet</string>
+    <string name="devdetail_tap_to_add_the_first_plan">Tap + to add the first plan.</string>
+    <string name="devdetail_bought_on">Bought on</string>
+    <string name="devdetail_price">Price</string>
+    <string name="devdetail_return_window">Return window</string>
+    <string name="devdetail_purchased_at">Purchased at</string>
+    <string name="devdetail_resale">Resale</string>
+    <string name="devdetail_sale_date">Sale date</string>
+    <string name="devdetail_sale_price">Sale price</string>
+    <string name="devdetail_profit_loss">Profit/loss</string>
+    <string name="devdetail_reminder_turned_off">Reminder turned off</string>
+    <string name="devdetail_starts">Starts</string>
+    <string name="devdetail_ends">Ends</string>
+    <string name="devdetail_months">Months</string>
+    <plurals name="devdetail_months_2">
+        <item quantity="one">%1$s month</item>
+        <item quantity="other">%1$s months</item>
+    </plurals>
+    <string name="devdetail_cost">Cost</string>
+    <string name="devdetail_address">Address</string>
+    <string name="devdetail_phone">Phone</string>
+    <string name="devdetail_turn_the_reminder_back_on">Turn the reminder back on</string>
+    <string name="devdetail_turn_the_reminder_off">Turn the reminder off</string>
+    <string name="att_documents_attached_photos">Documents / attached photos</string>
+    <string name="att_add_photo">Add photo</string>
+    <string name="att_add_pdf">Add PDF</string>
+    <string name="att_uploading">Uploading…</string>
+    <string name="att_no_attachments_yet">No attachments yet.</string>
+    <string name="att_edit_description">Edit description</string>
+    <string name="att_description">Description</string>
+    <string name="att_leave_it_empty_to_clear_the">Leave it empty to clear the description.</string>
+    <string name="att_open">Open</string>
+    <string name="warr_add_a_warranty_plan">Add a warranty plan</string>
+    <string name="warr_edit_warranty_plan">Edit warranty plan</string>
+    <string name="warr_start_date_yyyy_mm_dd">Start date (YYYY-MM-DD) *</string>
+    <string name="warr_months">Months *</string>
+    <string name="warr_cost_vnd">Cost (VND)</string>
+    <string name="warr_address">Address</string>
+    <string name="warr_note">Note</string>
+    <string name="warr_warranty_type">Warranty type</string>
+    <string name="dir_where_to_get_warranty_service">Where to get warranty service</string>
+    <string name="dir_checking_the_directory">Checking the directory…</string>
+    <string name="dir_the_brand_s_authorised_service_centres">The brand\'s authorised service centres</string>
+    <string name="dir_brand_you_typed">Brand you typed: "%1$s"</string>
+    <string name="dir_no_brand_recorded_for_this_device">No brand recorded for this device</string>
+    <string name="dir_you_typed">You typed: "%1$s"</string>
+    <string name="dir_this_brand_has_no_verified_lookup">This brand has no verified lookup link yet.</string>
+    <string name="share_warranty_handover_certificate">Warranty handover certificate</string>
+    <string name="share_include_the_full_serial_imei">Include the full serial/IMEI</string>
+    <string name="share_create_a_share_link">Create a share link</string>
+    <string name="share_revoke_this_link">Revoke this link?</string>
+    <string name="share_link_for">Link for "%1$s":</string>
+    <string name="share_the_server_did_not_return_a">The server did not return a URL for this link. Revoke it and create a new one.</string>
+    <string name="share_share">Share</string>
+    <string name="share_copy">Copy</string>
+    <string name="share_revoke_link">Revoke link</string>
+    <string name="dev_all">All</string>
+    <string name="dev_newest_purchase">Newest purchase</string>
+    <string name="dev_oldest_purchase">Oldest purchase</string>
+    <string name="dev_warranty_ending_soonest">Warranty ending soonest</string>
+    <string name="dev_warranty_ending_last">Warranty ending last</string>
+    <string name="dev_highest_price">Highest price</string>
+    <string name="dev_lowest_price">Lowest price</string>
+    <string name="dev_name_a_z">Name A-Z</string>
+    <!-- Resale P/L (DeviceResale.kt). -->
+    <string name="dev_sale_profit">Gained %1$s</string>
+    <string name="dev_sale_loss">Lost %1$s</string>
+    <string name="dev_sale_breakeven">Broke even</string>
+
+    <!-- ===== Service directory, receipts, attachments. "Không đọc được tệp" and
+         "Không đọc được file" are two keys on purpose: the Vietnamese words differ
+         ("tệp" / "file") and the bytes are frozen. ===== -->
+    <string name="dir_no_app_for_link">No app can open this link</string>
+    <string name="dir_cannot_open_dialer">Could not open the dialer</string>
+    <string name="receipt_unsupported_type">Only JPEG, PNG, WEBP images or PDF are supported</string>
+    <string name="devadd_could_not_read_file">Could not read the file</string>
+    <string name="devadd_contact_phone">Contact phone</string>
+    <string name="dev_filtered_suffix"> (filtered)</string>
+    <string name="att_could_not_read_file">Could not read the file</string>
+    <string name="att_not_signed_in">Not signed in</string>
+    <string name="att_download_failed">Download failed (%1$d)</string>
+    <string name="att_no_data">No data</string>
+    <string name="att_no_app_for_file_type">No app can open a %1$s file</string>
+    <string name="devadd_brand_other">Warranty provider</string>
+
+    <string name="devdetail_delete_body">This permanently deletes \"%1$s\", along with every attachment and reminder. It cannot be undone.</string>
+
+    <string name="devadd_scan_hint">Take or pick a photo, or pick a PDF invoice, to fill the form in — still check it before saving.</string>
+
+    <!-- ===== Handover certificate / share links (ShareLinks.kt,
+         ShareCertificatesSection.kt). These travel further than the app does: the
+         share-sheet text goes to a stranger, so it must not claim more than the
+         certificate shows. ===== -->
+    <string name="share_one_time_warning">The link is shown exactly ONCE and the app does not keep it. If you close this without copying, you will have to create a new link.</string>
+    <string name="share_one_time_title">The link is shown only once</string>
+    <string name="share_copied">Link copied. Remember: the link is shown only once.</string>
+    <string name="share_no_links">No share links yet. Create one to send the buyer proof that the warranty is still valid.</string>
+    <string name="share_message">Warranty handover certificate for \"%1$s\": %2$s\nRead-only link, time-limited, no sign-in needed.</string>
+    <string name="share_state_revoked">Revoked</string>
+    <string name="share_state_live">Live</string>
+    <string name="share_views_none">Never opened</string>
+    <plurals name="share_views">
+        <item quantity="one">Opened %1$d time</item>
+        <item quantity="other">Opened %1$d times</item>
+    </plurals>
+    <string name="share_serial_off">Off (default): the certificate shows only the masked serial, for example \"35•••••••89\".</string>
+    <string name="share_serial_on">On: the certificate shows the full serial/IMEI — needed when a service centre looks the device up by IMEI, but if the link is forwarded the device becomes fully identifiable.</string>
+    <string name="share_projection">The recipient sees only: device name, category, brand/model, purchase date, place of purchase, status, the serial (masked, or full if you switch it on above), the warranty plans with their end dates, and any address/phone number you entered. Never included: purchase price, sale price, notes, invoice images, or any other device of yours.</string>
+    <string name="share_limit">Each device keeps at most 10 live links. Revoke one and create it again.</string>
+    <string name="share_revoke_confirm">This link will stop working immediately. Anyone who already has it will see an error, even before it expires.</string>
+    <string name="share_revoke_confirm_dated">This link will stop working immediately. Anyone who already has it will see an error, even before it expires (old expiry %1$s).</string>
+    <string name="share_chooser_title">Send the handover certificate via</string>
+    <string name="share_no_target">No app on this device can receive a text share. You can still copy the link.</string>
+
+    <string name="share_live_count">%1$d live</string>
+    <string name="share_section_body">Send the buyer a read-only link that needs no sign-in, so they can check the remaining warranty themselves. The link always expires and can be revoked.</string>
+    <string name="share_expiry_prefix">Expires: %1$s</string>
+    <string name="share_serial_full_short">full serial shown</string>
+    <string name="share_serial_masked_short">serial masked</string>
+    <string name="share_valid_for">The link is valid for</string>
+    <plurals name="share_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <string name="share_bullet_full">· full serial shown</string>
+    <string name="share_bullet_masked">· serial masked</string>
+    <string name="share_clip_label">Handover certificate link</string>
+
+    <!-- ===== Post-save advisories (DeviceWarnings.kt). None of these may say
+         "failed": the device WAS saved, this is only a remark. ===== -->
+    <string name="warn_imei_checksum">This 15-digit IMEI fails the Luhn checksum — one digit may be wrong. It is still saved, but check it against the label on the device or the invoice.</string>
+    <string name="warn_imei_length">This is not a 15-digit IMEI. It is still saved, but check it again.</string>
+    <string name="warn_serial_duplicate">This serial already appears on another device in your account. It is still saved — this is only a warning.</string>
+    <string name="warn_generic">This value may be wrong. The device is still saved — this is only a warning.</string>
+    <string name="warn_title_saved">Saved, but worth a look</string>
+    <string name="warn_title_updated">Updated, but worth a look</string>
+    <string name="warn_still_saved">The device is still saved — this is a warning, not an error.</string>
+    <string name="warn_unmatched">Could not use: %1$s.</string>
+    <string name="warn_draft_filled">Filled in but possibly wrong: %1$s</string>
+    <string name="warn_field_brand">Brand</string>
+    <string name="warn_field_purchase_place">Place of purchase</string>
+    <string name="warn_field_category">Device category</string>
+    <string name="warn_field_serial">Serial number</string>
+    <string name="warn_field_warranty_months">Warranty months</string>
+
+    <!-- ===== Domain-enum labels (`network/Models.kt`). =====
+         Every `DeviceStatus` / `WarrantyType` / `PhoneSource` label is a
+         `@StringRes labelRes` on the enum, resolved with `stringResource(...)`
+         in a composable and `s.get(...)` in a pure formatter — the same seam
+         `ThemePreference.labelRes` uses. English wording is copied from the Go
+         catalog (`api/internal/i18n/catalog.go`) and
+         `website/src/lib/i18n/messages/common.ts`, which translate these same
+         Vietnamese words for the status badge and the share certificate; the
+         Vietnamese is byte-for-byte what the app has always shown. -->
+    <string name="enum_device_status_active">In use</string>
+    <string name="enum_device_status_expired">Out of warranty</string>
+    <string name="enum_device_status_sold">Sold</string>
+    <string name="enum_device_status_broken">Broken</string>
+    <string name="enum_device_status_lost">Lost</string>
+
+    <string name="enum_warranty_type_standard">Standard</string>
+    <string name="enum_warranty_type_extended">Extended</string>
+    <string name="enum_warranty_type_third_party">Third party</string>
+
+    <!-- `WarrantyCentre.phoneSource`. The English copies the web's directory
+         copy (`website/src/lib/i18n/messages/system.ts`,
+         `website/src/lib/service-directory.ts`). -->
+    <string name="enum_phone_source_user">Recorded by you</string>
+    <string name="enum_phone_source_none">No phone number recorded</string>
+
+    <!-- ===== Brand service directory (ServiceDirectoryInfo.kt). ===== -->
+    <string name="dir_null_brand">The app has no information for this brand: either no directory row matched, or several matched equally well and the app will not guess. Record the brand on the device so the next lookup can find it.</string>
+    <string name="dir_no_brand">This device has no brand recorded, so the app cannot look anything up. Add the brand to the device so the next lookup can find it.</string>
+    <string name="dir_service_locator_label">Look up an authorised service centre</string>
+    <string name="dir_support_url_label">The brand\'s support page</string>
+    <string name="dir_no_provider">No warranty provider recorded</string>
+    <string name="dir_unmatched_provider">\"%1$s\" did not match any directory entry — the app will not guess.</string>
+    <string name="dir_centre_active">Still valid</string>
+    <string name="dir_no_centres">This device has no warranty plans yet</string>
+    <plurals name="dir_centre_count">
+        <item quantity="one">%1$d warranty plan</item>
+        <item quantity="other">%1$d warranty plans</item>
+    </plurals>
+
+    <!-- Sub-labels of the four Overview stat tiles (DashboardScreen.kt). -->
+    <string name="dash_sub_tracking">tracking</string>
+    <string name="dash_sub_protected">protected</string>
+    <string name="dash_sub_watch_out">watch out</string>
+    <string name="dash_sub_none">none</string>
+    <string name="dash_sub_over">over</string>
+
+</resources>
