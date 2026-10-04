@@ -271,6 +271,61 @@ npx web-push generate-vapid-keys
   env. Nhược điểm: reset khi restart và **không dùng chung giữa nhiều instance**.
 - **Mở khoá:** rate limit bền, chống brute-force auth đúng nghĩa.
 
+> ⚠️ **`RATE_LIMITER=redis` KHÔNG có nghĩa là Redis thường.** Cả hai giá trị `redis` và `upstash`
+> đều dẫn tới `NewUpstashLimiter`, và nó đọc `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
+> (`ratelimit/factory.go:19-27`). `go.mod` **không có client Redis TCP nào** (không `go-redis`,
+> không `rueidis`). Nên đặt `RATE_LIMITER=redis` kèm một `REDIS_URL=redis://…` thường sẽ
+> **âm thầm rơi về memory** — chỉ có **một dòng `slog.Warn`** trong log. Tưởng đã bật, thực ra chưa.
+
+> ⚠️ **Upstash FAIL-OPEN, không phải fail-closed.** Mọi nhánh lỗi trong `upstash.go` trả
+> `Result{Ok: true}` kèm log *"failing open"* (dòng 50, 56, 64, 70, 76, 82). Nghĩa là nếu Upstash
+> chết/chậm/sai token thì **rate limit tắt hoàn toàn**, chứ không phải chặn hết. Đó là lựa chọn ưu
+> tiên availability, nhưng hệ quả là **bật 1.2 = thêm một dependency mà chế độ hỏng của nó là mất
+> bảo vệ**. In-memory không có chế độ hỏng đó.
+
+> ⚠️ **Thêm 1 HTTP round-trip cho mỗi request bị limit.** `Check` gọi `POST /pipeline`. Upstash ở
+> Singapore thì mỗi lần login chậm thêm ~30–50ms. In-memory là mutex + map, gần như 0.
+
+### 1.2b — Lựa chọn MIỄN PHÍ tốt hơn: tự host SRH + Redis
+
+Upstash tự giới thiệu trong docs: [Serverless Redis HTTP (SRH)](https://github.com/hiett/serverless-redis-http)
+— proxy HTTP **"hoàn toàn tương thích với Upstash"** (Upstash hợp tác với tác giả để giữ đồng bộ).
+
+```yaml
+# thêm vào docker-compose.yml ở gốc
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:latest
+    restart: unless-stopped
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN:?SRH_TOKEN must be set}
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+```
+
+Rồi trong `.env` gốc:
+```
+RATE_LIMITER=upstash
+UPSTASH_REDIS_REST_URL=http://serverless-redis-http:80
+UPSTASH_REDIS_REST_TOKEN=<trùng SRH_TOKEN>
+```
+
+**Đúng tên biến code đang đọc → KHÔNG sửa một dòng Go nào.** Đổi lại được cả 3 điểm yếu của Upstash:
+miễn phí thật, không dependency ngoài, và Redis ở localhost cùng Docker network nên **không có
+chế độ "bên thứ ba chết thì mất bảo vệ"**.
+
+| Cách | Sửa code? | Điểm yếu |
+|---|---|---|
+| **SRH + Redis trong compose** | **Không** | Tự vận hành (nhưng đã có VPS) |
+| Upstash free tier | Không | Bên ngoài · **fail-open** · +30–50ms |
+| Redis Cloud / Aiven / Redis thuần | **CÓ** | Phải viết client TCP |
+| Cloudflare KV / Durable Objects | **CÓ** | API khác hẳn |
+
+*(Chưa test được SRH ở máy này — Docker daemon không dùng được. Docs Upstash nói tương thích hoàn
+toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trước khi tin.)*
+
 ### [ ] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email
 
 **Tốn:** 0đ ở free tier (giới hạn số email/ngày — kiểm tra lại khi đăng ký).
