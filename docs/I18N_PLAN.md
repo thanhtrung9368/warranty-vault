@@ -94,7 +94,7 @@ build fail, rồi có thể đi "sửa" file của con đầu. Nên **mỗi th�
 | 4 | ai + shares + search + directory | ✅ xong — 82 chuỗi |
 | 5 | cron + email + `actions.go` + `forecast.go` + **500 dùng chung** + 401 + ratelimit | ✅ xong — 77 chuỗi |
 
-**Catalog:** 72 (hết pha 0) → **101** (hết wave 1) → **140** (hết wave 2) → **202** (hết wave 3).
+**Catalog:** 72 (hết pha 0) → **101** → **140** → **202** → **256** → **333** (hết pha 1).
 
 ### 3.2. Hai file wave 2 KHÔNG chuyển nhưng CÓ chứa copy subscription/wishlist
 
