@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -130,6 +131,13 @@ type SharedCertificate struct {
 // SharedCertificateDisclaimer is shown on every certificate (JSON and HTML). It
 // says what the document is NOT, because the recipient has no other way to know:
 // no prices, no invoice images, no identity of the seller.
+//
+// It is the Vietnamese SOURCE text and doubles as the catalog key
+// (internal/i18n/catalog.go). The constant keeps the Vietnamese sentence because
+// the constant IS the Vietnamese sentence; what varies is the language it is
+// RENDERED in, which is decided per request (see ViewSharedCertificate and
+// handlers/publicShareHandler for the certificate's language rule — the recipient
+// is a third party who never chose one).
 const SharedCertificateDisclaimer = "Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa " +
 	"thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không " +
 	"kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận."
@@ -137,9 +145,16 @@ const SharedCertificateDisclaimer = "Phiếu này do chủ máy tạo từ ứng
 // ---- owner half ------------------------------------------------------------
 
 // CreateDeviceShare mints a link for one device the caller owns.
+//
+// i18n (docs/I18N_PLAN.md §3, Phase 1): every message below is the EXISTING
+// Vietnamese literal wrapped in `i18n.Text`/`i18n.T`, so the ctx must be the
+// REQUEST's. The codes do not move: the not-found stays NOT_FOUND (404) and the
+// per-device ceiling stays LIMIT_REACHED (409) — `ErrLimit` keys its own message,
+// which is how the headline reaches the client in the request's language without
+// this function having to know which language that is.
 func CreateDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, deviceID string, in CreateShareInput) (*CreatedDeviceShare, error) {
 	if !isSafeID(deviceID) {
-		return nil, ErrNotFound("Không tìm thấy thiết bị")
+		return nil, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 	}
 	q := store.New(db)
 
@@ -148,12 +163,12 @@ func CreateDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, deviceID s
 	// before it is written into the share row.
 	if _, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: deviceID, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound("Không tìm thấy thiết bị")
+			return nil, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
 		return nil, fmt.Errorf("get device: %w", err)
 	}
 
-	ttl, err := shareTTL(in.ExpiresInDays)
+	ttl, err := shareTTL(ctx, in.ExpiresInDays)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +182,7 @@ func CreateDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, deviceID s
 		return nil, fmt.Errorf("count shares: %w", err)
 	}
 	if active >= MaxActiveSharesPerDevice {
-		return nil, ErrLimit(fmt.Sprintf(
+		return nil, ErrLimit(i18n.T(ctx,
 			"Đã đạt giới hạn %d link chia sẻ còn hiệu lực cho thiết bị này. Thu hồi bớt rồi thử lại.",
 			MaxActiveSharesPerDevice))
 	}
@@ -235,7 +250,7 @@ func ListDeviceShares(ctx context.Context, db *pgxpool.Pool, userID, deviceID st
 // foreign and non-existent are indistinguishable.
 func RevokeDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, shareID string) error {
 	if strings.TrimSpace(shareID) == "" {
-		return ErrNotFound("Không tìm thấy link chia sẻ")
+		return ErrNotFound(i18n.Text(ctx, "Không tìm thấy link chia sẻ"))
 	}
 	q := store.New(db)
 	// A second revoke affects 0 rows, so distinguish "already mine and revoked"
@@ -245,7 +260,7 @@ func RevokeDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, shareID st
 		UserId: userID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound("Không tìm thấy link chia sẻ")
+			return ErrNotFound(i18n.Text(ctx, "Không tìm thấy link chia sẻ"))
 		}
 		return fmt.Errorf("get share: %w", err)
 	}
@@ -267,6 +282,20 @@ func RevokeDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, shareID st
 // returns the same ErrShareNotFound, and the handler renders it as one
 // byte-identical 404. That is a hard requirement, not a nicety: distinguishing
 // "expired" from "wrong" tells an attacker which guesses were once valid.
+//
+// # i18n
+//
+// The disclaimer is rendered in the request's language. This is the one place a
+// language is chosen with NO `User.locale` to fall back on: the recipient is a
+// third party holding a forwarded link and has never had a chance to set a
+// preference, so the language comes from what their own client sends —
+// `?lang=` first, then Accept-Language, and a documented Vietnamese fallback
+// (see handlers.publicShareLanguage). The context is built by that handler.
+//
+// Every FAILURE stays language-independent in an important sense: whichever
+// language is chosen, the four failure cases render the same bytes as each other,
+// which is what keeps this route from being an enumeration oracle. The language
+// itself is client-supplied and carries no information about the token.
 func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) (*SharedCertificate, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
@@ -305,7 +334,10 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 		ExpiresAt:     tsString(row.ShareExpiresAt),
 		IssuedAt:      tsString(row.ShareCreatedAt),
 		Warranties:    make([]SharedWarranty, 0, len(warranties)),
-		Disclaimer:    SharedCertificateDisclaimer,
+		// Rendered through `i18n.Text` rather than `i18n.T` because the sentence
+		// travels as DATA (a named constant) and `go vet`'s printf analyzer rejects
+		// a non-constant key for the variadic form.
+		Disclaimer: i18n.Text(ctx, SharedCertificateDisclaimer),
 	}
 	if row.DeviceSerialNumber != nil && strings.TrimSpace(*row.DeviceSerialNumber) != "" {
 		masked := MaskSerial(*row.DeviceSerialNumber)
@@ -365,14 +397,21 @@ func MaskSerial(s string) string {
 
 // ---- helpers ---------------------------------------------------------------
 
-func shareTTL(days *int32) (time.Duration, error) {
+// shareTTL validates the client-supplied lifetime.
+//
+// i18n: the refusal is a field-level failure — the whole story is the one field,
+// which is exactly what `ErrValidationKeyed` exists for — so the `expiresInDays`
+// entry is rendered AT THE CALL SITE (the map holds finished strings) and the
+// headline carries the same catalog key so the envelope is not half-translated.
+// `i18n.T` because the sentence names both bounds.
+func shareTTL(ctx context.Context, days *int32) (time.Duration, error) {
 	if days == nil {
 		return ShareTTLDefault, nil
 	}
 	ttl := time.Duration(*days) * 24 * time.Hour
 	if ttl < ShareTTLMin || ttl > ShareTTLMax {
-		return 0, ErrValidation(FieldErrors{"expiresInDays": {fmt.Sprintf(
-			"Số ngày hiệu lực phải từ %d tới %d",
+		key := "Số ngày hiệu lực phải từ %d tới %d"
+		return 0, ErrValidationKeyed(key, FieldErrors{"expiresInDays": {i18n.T(ctx, key,
 			int(ShareTTLMin/(24*time.Hour)), int(ShareTTLMax/(24*time.Hour)))}})
 	}
 	return ttl, nil
@@ -427,6 +466,14 @@ func tsPtrString(ts pgtype.Timestamp) *string {
 }
 
 // ErrShareNotFound is the single error every public failure maps to.
+//
+// It takes no context and stays Vietnamese on purpose. The four failure cases
+// (unknown / expired / revoked / deleted device) must render as one
+// indistinguishable answer, and the handler chooses the language once, at the
+// request edge, where it already knows which language the recipient asked for —
+// `handlers.writeShareLookupFailure`. Threading a context in here would put a
+// per-call-site language decision in the one function whose whole job is that
+// there is only ever ONE answer.
 func ErrShareNotFound() *Error {
 	return ErrNotFound("Link chia sẻ không tồn tại, đã hết hạn hoặc đã bị thu hồi")
 }

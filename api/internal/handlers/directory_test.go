@@ -83,9 +83,17 @@ func nullable(s string) any {
 	return s
 }
 
+// getDirectory fetches the directory bundle for one device.
+//
+// PINNED to Vietnamese: the disclaimer and the not-found headline now travel
+// through the catalog, and the assertion-heavy tests below read the VIETNAMESE
+// source sentence (`services.DirectoryDisclaimer`). Pinning the language here
+// keeps those assertions independent of the machine's default locale — the rule
+// docs/I18N_PLAN.md §4.3 lays down. Both languages are asserted deliberately in
+// directory_i18n_test.go.
 func getDirectory(t *testing.T, mux *http.ServeMux, token, deviceID string) (*httptest.ResponseRecorder, services.ServiceDirectory) {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+deviceID+"/service-directory", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+deviceID+"/service-directory?lang=vi", nil)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}

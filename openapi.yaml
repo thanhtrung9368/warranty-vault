@@ -813,6 +813,10 @@ paths:
         required: true
         description: 'Token 32 byte ngẫu nhiên (base64url) do `POST /api/v1/devices/{id}/shares` trả về. Không đoán được, không dò được.'
         schema: { type: string }
+      # Level 1 of this path's OWN precedence chain — see the "Ngôn ngữ" block in
+      # the description. It is the shared `Lang` parameter because the meaning is
+      # the same one (`vi`/`en` only, anything else falls through, never a 400).
+      - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [shares]
       summary: Public handover certificate (NO authentication)
@@ -855,10 +859,30 @@ paths:
 
         **Nội dung trả về chọn theo `Accept`:**
         * mặc định (trình duyệt, `Accept: text/html,...`) → **một trang HTML in được**,
-          tự chứa (không script, không CSS/ảnh ngoài), có `@media print`, tiếng Việt.
+          tự chứa (không script, không CSS/ảnh ngoài), có `@media print`.
           Không cần web app, nên link vẫn mở được kể cả khi web đổi phiên bản.
         * `Accept: application/json` (và không có `text/html`) → JSON
           `{"certificate": …}` cho client lập trình.
+
+        **Ngôn ngữ của phiếu — chuỗi riêng, KHÔNG dùng `User.locale`.** Người nhận
+        là bên thứ ba được chuyển tiếp link: họ chưa từng chọn ngôn ngữ trong app
+        này, và `User.locale` là lựa chọn của **chủ máy**, không phải của họ. Nên
+        thứ tự ở đây là:
+        1. `?lang=vi|en` — thắng tất cả, và là cách duy nhất để một người nhận có
+           trình duyệt không gửi gì yêu cầu được;
+        2. `Accept-Language` — chính trình duyệt của người nhận (điện thoại tiếng
+           Việt gửi `vi`);
+        3. **`vi`** — khác với mặc định `en` của phần còn lại của API, và có chủ ý:
+           phiếu này ra đời trước i18n với lời miễn trừ tiếng Việt, nó là tài liệu
+           in/lưu PDF, và mọi link cũ hay công cụ không phải trình duyệt đều không
+           gửi `Accept-Language`. Đổi mặc định sẽ lật ngôn ngữ của một phiếu người
+           nhận đã in ra — thứ không ai sửa lại được.
+        Ngôn ngữ không hỗ trợ **rơi xuống mức kế tiếp**, không bao giờ là 400.
+        `Content-Language` trên response nói đúng ngôn ngữ đã render.
+
+        **Ngôn ngữ KHÔNG phải một oracle.** Bốn kiểu hỏng (token sai / hết hạn / đã
+        thu hồi / thiết bị đã xoá) trả body **giống hệt nhau trong cùng một ngôn
+        ngữ**, và ngôn ngữ là do client gửi nên không nói lên điều gì về token.
       responses:
         '200':
           description: |
@@ -875,9 +899,10 @@ paths:
                   certificate: { $ref: '#/components/schemas/SharedCertificate' }
         '404':
           description: |
-            Token không tồn tại, đã hết hạn hoặc đã bị thu hồi — **không phân biệt
-            được** (cùng status, cùng body). HTML: một trang lỗi tiếng Việt; JSON:
-            envelope `ApiError`.
+            Token không tồn tại, đã hết hạn, đã bị thu hồi, hoặc thiết bị của nó đã
+            bị xoá — **không phân biệt được** (cùng status, cùng body). HTML: một
+            trang lỗi; JSON: envelope `ApiError`. Câu trả lời giống hệt nhau trong
+            **cùng một ngôn ngữ**; ngôn ngữ theo chuỗi ở trên.
           content:
             text/html:
               schema: { type: string }
@@ -2085,6 +2110,11 @@ components:
         Ngôn ngữ của phần chữ trong response (`message`, `fieldErrors`). Thắng cả
         header `Accept-Language` lẫn lựa chọn đã lưu. Giá trị khác `vi`/`en` bị
         bỏ qua (rơi xuống mức kế tiếp), **không** phải lỗi 400.
+
+        Ở `GET /api/v1/public/shares/{token}` nó còn chọn ngôn ngữ của **cả tài
+        liệu** (các nhãn và lời miễn trừ của phiếu), vì endpoint đó không có người
+        dùng đã đăng nhập để hỏi — xem mục "Ngôn ngữ của phiếu" trong mô tả path đó,
+        nơi mức dự phòng là `vi` chứ không phải `en`.
 
   responses:
     Ok:

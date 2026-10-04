@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -52,6 +53,11 @@ type SearchResults struct {
 // An empty / whitespace-only query is not an error: it returns empty groups.
 // Search boxes are cleared by deleting characters, and a 400 on that keystroke
 // would only make the UI show an error for a non-event.
+//
+// i18n: the one refusal below is the existing Vietnamese sentence wrapped in
+// `i18n.T`, so the ctx must be the REQUEST's. The error keeps its VALIDATION code
+// — only the words move — and the count is a `%d` in both languages, so the one
+// argument list serves both.
 func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limit int) (*SearchResults, error) {
 	query := strings.TrimSpace(rawQuery)
 	out := &SearchResults{
@@ -61,7 +67,11 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 		Wishlist:      []store.WishlistItem{},
 	}
 	if utf8.RuneCountInString(query) > MaxSearchQueryRunes {
-		return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+		// The CODE stays VALIDATION and the status stays 400; only the sentence
+		// follows the request's language. `i18n.T` because the message carries the
+		// limit, and the key is a literal at the call site (what `go vet`'s printf
+		// analyzer requires).
+		return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 			"Từ khoá tìm kiếm quá dài (tối đa %d ký tự)", MaxSearchQueryRunes)}
 	}
 	if query == "" {

@@ -725,4 +725,203 @@ var messages = map[string]message{
 	"Thiếu description":                {vi: "Thiếu description", en: "Missing description"},
 	"Mô tả không hợp lệ":               {vi: "Mô tả không hợp lệ", en: "Invalid description"},
 	"Không tìm thấy file":              {vi: "Không tìm thấy file", en: "File not found"},
+
+	// ── Wave 4: AI receipt extraction, shares, search and the service directory
+	// (docs/I18N_PLAN.md §3.1).
+	//
+	// Three of these entries are the interesting ones:
+	//
+	//  1. The SHARE CERTIFICATE is an HTML document with no authenticated user
+	//     behind it, so its copy is rendered for the RECIPIENT (see
+	//     handlers.publicShareLanguage for the rule and why the fallback is
+	//     Vietnamese, not the product default). The labels are separate entries
+	//     from the equivalent device-form fields on purpose: "Trạng thái" is a
+	//     table header here and a validation subject there, and the two English
+	//     sentences are not the same.
+	//  2. The AI upstream errors are the source text of internal/ai, a package
+	//     with no request context. Its message IS the catalog key, so these entries
+	//     are what turn a 502 body into English without touching that package.
+	//     "Dịch vụ AI lỗi (%d)" is deliberately ABSENT: it carries an upstream
+	//     status code, so it can never be a key, and `i18n.Text` returns it
+	//     verbatim — see services.mapAIError.
+	//  3. "Lỗi hệ thống" is still absent, exactly as the wave-3 note below says.
+	//     The AI, share, search and directory handlers keep sending it in
+	//     Vietnamese on their 500 branch; it moves with the last domain.
+
+	// ── AI receipt extraction (internal/services/ai_extract.go, handlers/ai.go).
+	//
+	// `feature_disabled` and `ai_optin_required` are the two sentences a user
+	// meets BEFORE any model call, so they are the ones worth reading aloud: the
+	// first says the server has no key configured, the second says the user has not
+	// switched the feature on yet, and conflating them would send someone to the
+	// wrong fix.
+	"Tính năng quét hoá đơn chưa được bật": {
+		vi: "Tính năng quét hoá đơn chưa được bật",
+		en: "Receipt scanning is not enabled",
+	},
+	"Cần bật tính năng quét hoá đơn (AI) trong Cài đặt trước khi dùng": {
+		vi: "Cần bật tính năng quét hoá đơn (AI) trong Cài đặt trước khi dùng",
+		en: "Turn on AI receipt scanning in Settings before using this",
+	},
+	"Thiếu ảnh": {vi: "Thiếu ảnh", en: "Missing image"},
+	"Thiếu attachmentId": {
+		vi: "Thiếu attachmentId",
+		en: "Missing attachmentId",
+	},
+	"Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF": {
+		vi: "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF",
+		en: "Only JPEG, PNG, WEBP images or PDF files are supported",
+	},
+	"Content-Type phải là application/json hoặc multipart/form-data": {
+		vi: "Content-Type phải là application/json hoặc multipart/form-data",
+		en: "Content-Type must be application/json or multipart/form-data",
+	},
+	"Người dùng không tồn tại": {
+		vi: "Người dùng không tồn tại",
+		en: "User not found",
+	},
+	"Lỗi tải người dùng": {vi: "Lỗi tải người dùng", en: "Could not load the user"},
+	"Lỗi trích xuất ảnh": {vi: "Lỗi trích xuất ảnh", en: "Could not read the image"},
+	"Lỗi tải danh mục":   {vi: "Lỗi tải danh mục", en: "Could not load the catalog"},
+	// internal/ai's own messages. Keys are that package's Vietnamese source text;
+	// only the sentence moves, never the Error.Code the handler maps to a status.
+	"Định dạng tài liệu không hỗ trợ": {
+		vi: "Định dạng tài liệu không hỗ trợ",
+		en: "That document format is not supported",
+	},
+	"Lỗi tạo yêu cầu": {vi: "Lỗi tạo yêu cầu", en: "Could not build the request"},
+	"Không kết nối được dịch vụ AI": {
+		vi: "Không kết nối được dịch vụ AI",
+		en: "Could not reach the AI service",
+	},
+	"Dịch vụ AI đang quá tải, thử lại sau": {
+		vi: "Dịch vụ AI đang quá tải, thử lại sau",
+		en: "The AI service is overloaded. Try again later",
+	},
+	"Không đọc được kết quả AI": {
+		vi: "Không đọc được kết quả AI",
+		en: "Could not read the AI response",
+	},
+	"Kết quả AI không hợp lệ": {
+		vi: "Kết quả AI không hợp lệ",
+		en: "The AI response was not valid",
+	},
+	"AI không trả về dữ liệu trích xuất": {
+		vi: "AI không trả về dữ liệu trích xuất",
+		en: "The AI returned no extracted data",
+	},
+
+	// ── Shares (internal/services/shares.go, handlers/shares.go).
+	//
+	// The owner half first. "Không tìm thấy thiết bị" already exists above (device
+	// reads use the same sentence) — it is reused rather than duplicated.
+	"Không tìm thấy link chia sẻ": {
+		vi: "Không tìm thấy link chia sẻ",
+		en: "Share link not found",
+	},
+	"Đã đạt giới hạn %d link chia sẻ còn hiệu lực cho thiết bị này. Thu hồi bớt rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d link chia sẻ còn hiệu lực cho thiết bị này. Thu hồi bớt rồi thử lại.",
+		en: "This device already has the maximum of %d active share links. Revoke some and try again.",
+	},
+	"Số ngày hiệu lực phải từ %d tới %d": {
+		vi: "Số ngày hiệu lực phải từ %d tới %d",
+		en: "The validity period must be between %d and %d days",
+	},
+	// The one sentence the four public failure cases all render. It is ONE entry
+	// read by one call site (handlers.writeShareLookupFailure), which is what makes
+	// the four answers byte-identical in each language as well as across them.
+	"Link chia sẻ không tồn tại, đã hết hạn hoặc đã bị thu hồi": {
+		vi: "Link chia sẻ không tồn tại, đã hết hạn hoặc đã bị thu hồi",
+		en: "This share link does not exist, has expired, or has been revoked",
+	},
+	// The certificate's own statement of what it is not. Translated faithfully and
+	// at full length: it is the only thing standing between a buyer and the
+	// assumption that this page is an invoice.
+	"Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận.": {
+		vi: "Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận.",
+		en: "This certificate was created by the device owner in the Warranty Vault app and contains the warranty information of one device only. It is not an invoice, it does not replace the original invoice, and it carries no photos of the paperwork. The recipient should check the serial/IMEI printed on the device against this certificate before accepting it.",
+	},
+	// Certificate page labels.
+	"Phiếu bàn giao bảo hành": {vi: "Phiếu bàn giao bảo hành", en: "Warranty handover certificate"},
+	"Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warranty Vault.": {
+		vi: "Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warranty Vault.",
+		en: "The warranty information of one device, created by its owner in Warranty Vault.",
+	},
+	"Bảo hành còn lại tới": {vi: "Bảo hành còn lại tới", en: "Warranty covered until"},
+	"Số máy (IMEI/serial)": {vi: "Số máy (IMEI/serial)", en: "Serial number (IMEI/serial)"},
+	// `%s` is interpolated by the page (handlers.safeNote), which escapes the value
+	// and keeps the surrounding markup, so the parenthesis stays in the template.
+	"đầy đủ: %s": {vi: "đầy đủ: %s", en: "full: %s"},
+	"Ngày mua":   {vi: "Ngày mua", en: "Purchase date"},
+	"Nơi mua":    {vi: "Nơi mua", en: "Purchased at"},
+	"Trạng thái": {vi: "Trạng thái", en: "Status"},
+	"Ngày bán / bàn giao": {
+		vi: "Ngày bán / bàn giao",
+		en: "Sold / handed over on",
+	},
+	"Gói bảo hành": {vi: "Gói bảo hành", en: "Warranty plan"},
+	"Thời gian":    {vi: "Thời gian", en: "Period"},
+	"Nơi bảo hành": {vi: "Nơi bảo hành", en: "Warranty centre"},
+	"ĐT: %s":       {vi: "ĐT: %s", en: "Phone: %s"},
+	"Chưa ghi số điện thoại": {
+		vi: "Chưa ghi số điện thoại",
+		en: "No phone number recorded",
+	},
+	"Không có ngày hết hạn": {vi: "Không có ngày hết hạn", en: "No expiry date"},
+	"Còn hiệu lực":          {vi: "Còn hiệu lực", en: "Still covered"},
+	"Đã hết hạn":            {vi: "Đã hết hạn", en: "Expired"},
+	// Device status labels. Mirrors STATUS_LABELS in website/src/lib/types.ts; a
+	// printed certificate carries words, not the enum codes the API stores.
+	"Đang dùng":    {vi: "Đang dùng", en: "In use"},
+	"Hết bảo hành": {vi: "Hết bảo hành", en: "Out of warranty"},
+	"Đã bán":       {vi: "Đã bán", en: "Sold"},
+	"Hỏng":         {vi: "Hỏng", en: "Broken"},
+	"Mất":          {vi: "Mất", en: "Lost"},
+	// The link's own lifetime. Two `%s`, both dates, in the order the page passes
+	// them; the English phrasing keeps the same order so the one argument list
+	// serves both languages (catalog_test.go pins the verb sets).
+	"Link này hết hiệu lực sau ngày %s (tạo ngày %s) và có thể bị chủ máy thu hồi bất kỳ lúc nào.": {
+		vi: "Link này hết hiệu lực sau ngày %s (tạo ngày %s) và có thể bị chủ máy thu hồi bất kỳ lúc nào.",
+		en: "This link stops working after %s (created on %s) and the owner can revoke it at any time.",
+	},
+	"%d tháng": {vi: "%d tháng", en: "%d months"},
+	"1 tháng":  {vi: "1 tháng", en: "1 month"},
+	"Không mở được phiếu": {
+		vi: "Không mở được phiếu",
+		en: "This certificate could not be opened",
+	},
+	"Link chia sẻ có thời hạn và có thể đã bị chủ máy thu hồi. Hãy liên hệ người gửi link để lấy link mới.": {
+		vi: "Link chia sẻ có thời hạn và có thể đã bị chủ máy thu hồi. Hãy liên hệ người gửi link để lấy link mới.",
+		en: "Share links expire and the owner may have revoked this one. Ask whoever sent you the link for a new one.",
+	},
+
+	// ── Shares: request-shape copy in handlers/shares.go. "Trường không được hỗ trợ"
+	// already exists above (the attachments PATCH path added it in wave 3) and is
+	// reused rather than duplicated — one field-level sentence, one English
+	// translation, two endpoints that refuse an unknown key the same way.
+	"Body quá lớn": {vi: "Body quá lớn", en: "Request body is too large"},
+
+	// ── Search (internal/services/search.go, handlers/search.go).
+	"Từ khoá tìm kiếm quá dài (tối đa %d ký tự)": {
+		vi: "Từ khoá tìm kiếm quá dài (tối đa %d ký tự)",
+		en: "The search query is too long (at most %d characters)",
+	},
+	"Tham số limit không hợp lệ": {
+		vi: "Tham số limit không hợp lệ",
+		en: "Invalid limit parameter",
+	},
+	"Phải là số nguyên từ 1 tới %d": {
+		vi: "Phải là số nguyên từ 1 tới %d",
+		en: "Must be an integer from 1 to %d",
+	},
+
+	// ── Service directory (internal/services/directory.go).
+	//
+	// The disclaimer is the reason the response has so many nulls, so it is
+	// translated in full rather than trimmed: an English reader has to come away
+	// understanding that the app deliberately carries no hotline of its own.
+	"App không lưu sẵn hotline hay địa chỉ trung tâm bảo hành: những thông tin đó thay đổi liên tục và app không kiểm chứng được, nên một hotline sai còn tệ hơn không có. Số điện thoại và địa chỉ hiện ở đây là do bạn tự ghi cho gói bảo hành. Link bên dưới là trang tra cứu chính thức của hãng.": {
+		vi: "App không lưu sẵn hotline hay địa chỉ trung tâm bảo hành: những thông tin đó thay đổi liên tục và app không kiểm chứng được, nên một hotline sai còn tệ hơn không có. Số điện thoại và địa chỉ hiện ở đây là do bạn tự ghi cho gói bảo hành. Link bên dưới là trang tra cứu chính thức của hãng.",
+		en: "The app does not ship hotlines or service-centre addresses: those change constantly and the app cannot verify them, so a wrong hotline would be worse than none. Any phone number or address shown here is one you recorded yourself for a warranty plan. The link below is the manufacturer's own official lookup page.",
+	},
 }

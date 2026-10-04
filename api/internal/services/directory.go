@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 // Warranty directory — "giờ tôi mang máy đi đâu?" (FEATURE_IDEAS #15).
@@ -86,14 +87,23 @@ type ServiceDirectory struct {
 	// Centres always has one entry per warranty package on the device, in
 	// Warranty order, including packages whose provider matched nothing.
 	Centres []WarrantyCentre `json:"centres"`
-	// Disclaimer is Vietnamese and always present: it is the reason the response
-	// has so many nulls, stated where the user can read it.
+	// Disclaimer is always present: it is the reason the response has so many
+	// nulls, stated where the user can read it. Rendered in the language of the
+	// REQUEST (docs/I18N_PLAN.md §3, Phase 1) — the sentence is the app explaining
+	// its own limits, so it has to be in the language the reader asked for.
 	Disclaimer string `json:"disclaimer"`
 }
 
 // DirectoryDisclaimer states the app's limits in the response itself. Kept as a
 // constant (not assembled per request) so every client shows the same sentence
 // and so a test can assert it verbatim.
+//
+// It is the Vietnamese SOURCE text and doubles as the catalog key
+// (internal/i18n/catalog.go), which is why it is a named constant: the sentence
+// reaches `i18n.Text` as DATA in BuildServiceDirectory, and the same wording has
+// to stay reviewable in one place. The constant keeps the Vietnamese sentence
+// because the constant IS the Vietnamese sentence — what varies is the language
+// it is rendered in, which is the language of the directory request.
 const DirectoryDisclaimer = "App không lưu sẵn hotline hay địa chỉ trung tâm bảo hành: " +
 	"những thông tin đó thay đổi liên tục và app không kiểm chứng được, nên một hotline sai còn tệ hơn " +
 	"không có. Số điện thoại và địa chỉ hiện ở đây là do bạn tự ghi cho gói bảo hành. " +
@@ -105,6 +115,13 @@ const DirectoryDisclaimer = "App không lưu sẵn hotline hay địa chỉ trun
 // Ownership is not re-implemented here: it goes through GetDevice, the audited
 // path used by GET /api/v1/devices/{id}, so a device belonging to someone else is
 // a NOT_FOUND exactly as it is there.
+//
+// i18n: only the disclaimer is translated here, and it is rendered through
+// `i18n.Text(ctx, DirectoryDisclaimer)` because the sentence travels as DATA
+// (a named constant) rather than as a literal at this call site — `i18n.T` is the
+// printf-shaped call and `go vet` rejects a non-constant key for it. Everything
+// else in the response is the user's own text or a vendor URL, which is not
+// translatable by definition.
 func BuildServiceDirectory(ctx context.Context, db *pgxpool.Pool, userID, deviceID string) (*ServiceDirectory, error) {
 	detail, err := GetDevice(ctx, db, userID, deviceID)
 	if err != nil {
@@ -121,7 +138,7 @@ func BuildServiceDirectory(ctx context.Context, db *pgxpool.Pool, userID, device
 		Category:   detail.Category,
 		BrandInput: detail.Brand,
 		Centres:    make([]WarrantyCentre, 0, len(detail.Warranties)),
-		Disclaimer: DirectoryDisclaimer,
+		Disclaimer: i18n.Text(ctx, DirectoryDisclaimer),
 	}
 
 	if detail.Brand != nil {

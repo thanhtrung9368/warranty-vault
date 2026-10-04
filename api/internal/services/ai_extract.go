@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -86,9 +87,31 @@ type DraftDevice struct {
 // ExtractReceipt resolves the image bytes (attachment or upload), calls the AI
 // extractor, maps free-text to the curated catalog, and returns a draft. It
 // never writes a Device row.
+//
+// i18n (docs/I18N_PLAN.md §3, Phase 1): every message below is the EXISTING
+// Vietnamese literal wrapped in `i18n.Text(ctx, …)`, so the ctx must be the
+// REQUEST's and the English column in internal/i18n/catalog.go is the only new
+// text. Three of them are the interesting part of this wave:
+//
+//   - `feature_disabled` is reachable from BOTH this service and the handler
+//     (handlers/ai.go checks d.AI before calling in), and both sides render the
+//     same catalog key, so the two paths cannot drift into two sentences.
+//   - the two `ai.AsError` families (mapAIError) carry messages produced by
+//     internal/ai, which is a package with no request context — its error TEXT is
+//     therefore the Vietnamese source and doubles as the catalog key, exactly the
+//     arrangement internal/files has with services.filesText. Because
+//     `i18n.Text` returns the key verbatim for an unknown key, a dynamic message
+//     such as "Dịch vụ AI lỗi (529)" still reaches the client byte-for-byte: it
+//     was never a catalog key and does not become one.
+//   - the ATTACHMENT not-found ("Không tìm thấy file") is NOT here on purpose. It
+//     belongs to the attachments domain and was already converted by wave 3, so
+//     this path inherits it (see decryptAttachment's i18n note).
+//
+// No Code changes: an extraction that refused with `bad_input` before still
+// refuses with `bad_input`, in either language.
 func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtractor, userID string, in ExtractInput) (DraftDevice, error) {
 	if client == nil || !client.Enabled() {
-		return DraftDevice{}, &AttachmentError{Code: "feature_disabled", Message: "Tính năng quét hoá đơn chưa được bật"}
+		return DraftDevice{}, &AttachmentError{Code: "feature_disabled", Message: i18n.Text(ctx, "Tính năng quét hoá đơn chưa được bật")}
 	}
 
 	// Privacy gate: the user must explicitly opt in, since the (decrypted)
@@ -97,14 +120,14 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 	user, uerr := q.GetUserByID(ctx, userID)
 	if uerr != nil {
 		if errors.Is(uerr, pgx.ErrNoRows) {
-			return DraftDevice{}, notFound("Người dùng không tồn tại")
+			return DraftDevice{}, notFound(i18n.Text(ctx, "Người dùng không tồn tại"))
 		}
-		return DraftDevice{}, internalErr("Lỗi tải người dùng")
+		return DraftDevice{}, internalErr(i18n.Text(ctx, "Lỗi tải người dùng"))
 	}
 	if !user.AiOptIn {
 		return DraftDevice{}, &AttachmentError{
 			Code:    "ai_optin_required",
-			Message: "Cần bật tính năng quét hoá đơn (AI) trong Cài đặt trước khi dùng",
+			Message: i18n.Text(ctx, "Cần bật tính năng quét hoá đơn (AI) trong Cài đặt trước khi dùng"),
 		}
 	}
 
@@ -119,7 +142,7 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 		imgBytes, mediaType = plain, mime
 	} else {
 		if len(in.Body) == 0 {
-			return DraftDevice{}, badInput("Thiếu ảnh")
+			return DraftDevice{}, badInput(i18n.Text(ctx, "Thiếu ảnh"))
 		}
 		imgBytes, mediaType = in.Body, in.MediaType
 	}
@@ -130,20 +153,20 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 	// ai.IsSupportedReceiptType. GIF and HEIC still have no block type, so they get
 	// a clear 400 here instead of a 502 "Dịch vụ AI lỗi" after a paid round-trip.
 	if !ai.IsSupportedReceiptType(mediaType) {
-		return DraftDevice{}, badInput("Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF")
+		return DraftDevice{}, badInput(i18n.Text(ctx, "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF"))
 	}
 
 	extracted, err := client.ExtractReceipt(ctx, imgBytes, mediaType)
 	if err != nil {
 		if ae, ok := ai.AsError(err); ok {
-			return DraftDevice{}, mapAIError(ae)
+			return DraftDevice{}, mapAIError(ctx, ae)
 		}
-		return DraftDevice{}, internalErr("Lỗi trích xuất ảnh")
+		return DraftDevice{}, internalErr(i18n.Text(ctx, "Lỗi trích xuất ảnh"))
 	}
 
 	cat, err := ListCatalog(ctx, db)
 	if err != nil {
-		return DraftDevice{}, internalErr("Lỗi tải danh mục")
+		return DraftDevice{}, internalErr(i18n.Text(ctx, "Lỗi tải danh mục"))
 	}
 
 	draft := buildDraft(ctx, extracted, cat)
@@ -168,9 +191,9 @@ func GetAIOptIn(ctx context.Context, db *pgxpool.Pool, userID string) (bool, err
 	u, err := store.New(db).GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, notFound("Người dùng không tồn tại")
+			return false, notFound(i18n.Text(ctx, "Người dùng không tồn tại"))
 		}
-		return false, internalErr("Lỗi tải người dùng")
+		return false, internalErr(i18n.Text(ctx, "Lỗi tải người dùng"))
 	}
 	return u.AiOptIn, nil
 }
@@ -319,15 +342,24 @@ func matchCategory(text string, cats []CategoryOption) (string, bool) {
 
 // mapAIError translates an ai.Error code into the AttachmentError codes the
 // handler already knows how to map to HTTP statuses.
-func mapAIError(e *ai.Error) error {
+//
+// The CODE is ai's and is passed through untouched — only the sentence is
+// rendered. `e.Message` is a Vietnamese literal produced by internal/ai, a package
+// with no request context, so it is also the catalog key; `i18n.Text` returns it
+// verbatim when the catalog does not know it, which is the case for the one
+// message that carries a number ("Dịch vụ AI lỗi (%d)"). That is deliberate
+// rather than a gap: interpolating it here would need the argument list, and the
+// sentence already renders correctly in the language the model call was made in —
+// it is the raw upstream status, not app copy.
+func mapAIError(ctx context.Context, e *ai.Error) error {
 	switch e.Code {
 	case "disabled":
-		return &AttachmentError{Code: "feature_disabled", Message: e.Message}
+		return &AttachmentError{Code: "feature_disabled", Message: i18n.Text(ctx, e.Message)}
 	case "rate_limited":
-		return &AttachmentError{Code: "ai_rate_limited", Message: e.Message}
+		return &AttachmentError{Code: "ai_rate_limited", Message: i18n.Text(ctx, e.Message)}
 	case "upstream", "bad_output":
-		return &AttachmentError{Code: "ai_upstream", Message: e.Message}
+		return &AttachmentError{Code: "ai_upstream", Message: i18n.Text(ctx, e.Message)}
 	default:
-		return internalErr(e.Message)
+		return internalErr(i18n.Text(ctx, e.Message))
 	}
 }

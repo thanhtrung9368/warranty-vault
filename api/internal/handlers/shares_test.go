@@ -121,6 +121,13 @@ func seedShareFixture(t *testing.T, pool *pgxpool.Pool) {
 }
 
 // createShare POSTs to the owner endpoint and returns the raw token.
+//
+// PINNED to Vietnamese: this helper builds the request for the assertion-heavy
+// security tests below, and two of them read a message whose text travels through
+// the catalog (`Thu hồi bớt` in the per-device limit answer). Pinning the language
+// here keeps those assertions about the SENTENCE the server has always sent
+// instead of about the machine's default locale — the rule docs/I18N_PLAN.md §4.3
+// lays down. Both languages are asserted, over the wire, in shares_i18n_test.go.
 func createShare(t *testing.T, env shareTestEnv, deviceID, body string) (string, *httptest.ResponseRecorder) {
 	t.Helper()
 	var reader *bytes.Reader
@@ -129,7 +136,7 @@ func createShare(t *testing.T, env shareTestEnv, deviceID, body string) (string,
 	} else {
 		reader = bytes.NewReader([]byte(body))
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices/"+deviceID+"/shares", reader)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices/"+deviceID+"/shares?lang=vi", reader)
 	req.Header.Set("Content-Type", "application/json")
 	if env.token != "" {
 		req.Header.Set("Authorization", "Bearer "+env.token)
@@ -174,9 +181,17 @@ func shareIDFrom(t *testing.T, rr *httptest.ResponseRecorder) string {
 
 // getPublic fetches the certificate. `accept` selects HTML ("" = browser default)
 // or the JSON projection.
+//
+// PINNED to Vietnamese with `?lang=vi`, and that pin is now load-bearing rather
+// than decorative: the certificate page chooses its own language (see
+// handlers.publicShareLanguage), the default is `vi`, and several tests below
+// assert Vietnamese SENTENCES — the combined 404 message and the certificate's own
+// labels. Relying on the fallback would make those assertions depend on a default
+// that exists for print durability, not for tests. The two-language behaviour is
+// asserted deliberately in shares_i18n_test.go, which passes `?lang=` explicitly.
 func getPublic(t *testing.T, env shareTestEnv, token, accept string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/public/shares/"+token, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/public/shares/"+token+"?lang=vi", nil)
 	if accept == "" {
 		accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 	}
@@ -872,30 +887,38 @@ func TestPublicShareMalformedPathsNeverReachTheDatabaseOr500(t *testing.T) {
 	env := setupShareTest(t)
 	seedShareFixture(t, env.pool)
 
+	// Each case names the body it must produce, so adding a path cannot silently
+	// skip an assertion. The two paths the HANDLER answers (the whitespace token
+	// and the 43-character one) must produce the standard envelope byte for byte;
+	// the two the MUX never routes fall through to net/http's plain 404.
+	//
+	// `?lang=vi` is pinned on the two handler paths: the expected body below is an
+	// equality against `services.ErrShareNotFound().Message`, which is the
+	// Vietnamese SOURCE sentence, so the test has to say which language it is
+	// reading instead of following a default (docs/I18N_PLAN.md §4.3).
 	want := `{"error":"not_found","message":"` + services.ErrShareNotFound().Message + `"}` + "\n"
-	for _, path := range []string{
-		"/api/v1/public/shares/",
-		"/api/v1/public/shares",
-		"/api/v1/public/shares/%20",
-		"/api/v1/public/shares/" + strings.Repeat("a", 43),
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		// The wildcard does not match an empty segment or a missing one.
+		{"/api/v1/public/shares/", "404 page not found\n"},
+		{"/api/v1/public/shares", "404 page not found\n"},
+		// A whitespace token is answered by the service's single not-found error.
+		{"/api/v1/public/shares/%20?lang=vi", want},
+		// A syntactically plausible but unknown token, same answer.
+		{"/api/v1/public/shares/" + strings.Repeat("a", 43) + "?lang=vi", want},
 	} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
 		req.Header.Set("Accept", "application/json")
 		rr := httptest.NewRecorder()
 		env.mux.ServeHTTP(rr, req)
 		if rr.Code != http.StatusNotFound {
-			t.Errorf("%s -> %d, want 404", path, rr.Code)
+			t.Errorf("%s -> %d, want 404", tc.path, rr.Code)
 			continue
 		}
-		// The two paths handled by the handler (as opposed to the mux) must produce
-		// the standard envelope, byte for byte.
-		if strings.HasSuffix(path, "/") && rr.Body.String() != "404 page not found\n" {
-			t.Errorf("%s -> body %q, want the mux's plain 404", path, rr.Body.String())
-		}
-		if strings.HasSuffix(path, "%20") || strings.HasSuffix(path, strings.Repeat("a", 43)) {
-			if rr.Body.String() != want {
-				t.Errorf("%s -> body %q, want %q", path, rr.Body.String(), want)
-			}
+		if rr.Body.String() != tc.want {
+			t.Errorf("%s -> body %q, want %q", tc.path, rr.Body.String(), tc.want)
 		}
 	}
 }

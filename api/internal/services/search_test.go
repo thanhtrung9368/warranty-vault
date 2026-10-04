@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 // ---- DB-free: empty query, over-long query, empty-group shape --------------
@@ -42,7 +44,13 @@ func TestSearchBlankQueryReturnsEmptyGroupsWithoutDatabase(t *testing.T) {
 
 func TestSearchRejectsOverlongQueryBeforeTouchingDatabase(t *testing.T) {
 	long := strings.Repeat("a", MaxSearchQueryRunes+1)
-	_, err := Search(context.Background(), nil, "u1", long, 0)
+	// PINNED to Vietnamese. This assertion is about the Vietnamese message text —
+	// which is the source sentence and the catalog key — so the test has to say
+	// which language it is reading, or it would follow the machine default and turn
+	// into the flakiest test in the package (docs/I18N_PLAN.md §4.3). The English
+	// rendering is asserted in internal/handlers/search_i18n_test.go, over the wire.
+	ctx := i18n.WithTag(context.Background(), i18n.VI)
+	_, err := Search(ctx, nil, "u1", long, 0)
 	if err == nil {
 		t.Fatal("Search(over-long q) = nil, want a VALIDATION error")
 	}
@@ -53,6 +61,27 @@ func TestSearchRejectsOverlongQueryBeforeTouchingDatabase(t *testing.T) {
 	if !strings.Contains(svc.Message, "quá dài") {
 		t.Errorf("message %q is not the Vietnamese 'quá dài' message", svc.Message)
 	}
+	// The CODE and the status do not move with the language: an English caller gets
+	// the same 400 with the same `validation` code and an English sentence.
+	enSvc, _ := As(mustSearchErr(t, i18n.WithTag(context.Background(), i18n.EN)))
+	if enSvc.Code != svc.Code || enSvc.HTTPStatus() != svc.HTTPStatus() {
+		t.Errorf("English code/status = %s/%d, want %s/%d",
+			enSvc.Code, enSvc.HTTPStatus(), svc.Code, svc.HTTPStatus())
+	}
+	if enSvc.Message == svc.Message {
+		t.Errorf("English message %q is identical to the Vietnamese one — the wave did not translate it", enSvc.Message)
+	}
+}
+
+// mustSearchErr runs the over-long-query refusal in a given context and returns the
+// error, so the language-independence assertions above read as one statement.
+func mustSearchErr(t *testing.T, ctx context.Context) error {
+	t.Helper()
+	_, err := Search(ctx, nil, "u1", strings.Repeat("a", MaxSearchQueryRunes+1), 0)
+	if err == nil {
+		t.Fatal("over-long q = nil, want a VALIDATION error")
+	}
+	return err
 }
 
 // ---- real-database: cross-entity, diacritic-insensitive, scoped ------------

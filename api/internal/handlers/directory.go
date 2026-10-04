@@ -5,6 +5,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -20,6 +21,12 @@ import (
 // client-side; this endpoint exists so the MATCHING rule (free text → brand /
 // provider row, including the "ambiguous ⇒ no match" case) lives in one place
 // instead of being re-implemented by three clients.
+//
+// i18n (docs/I18N_PLAN.md §3, Phase 1): the only copy this handler owns is the
+// missing-id refusal, and the only copy the SERVICE owns is the disclaimer —
+// every other string in the payload is the user's own text (`brandInput`,
+// `providerInput`, address, phone) or a vendor URL. A vendor URL is deliberately
+// NOT translated: it is an address, not a sentence.
 func RegisterDirectory(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 	mux.Handle("GET /api/v1/devices/{id}/service-directory",
@@ -28,18 +35,20 @@ func RegisterDirectory(mux *http.ServeMux, deps Deps) {
 
 func serviceDirectoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		// i18n.Attach at the top: the tests build their own mux without the
+		// middleware chain, so this is what makes `?lang=` reach the catalog.
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id thiết bị"), nil)
 			return
 		}
-		dir, err := services.BuildServiceDirectory(r.Context(), deps.DB, us.UserID, id)
+		dir, err := services.BuildServiceDirectory(ctx, deps.DB, us.UserID, id)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "service directory")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"directory": dir})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"directory": dir})
 	}
 }
