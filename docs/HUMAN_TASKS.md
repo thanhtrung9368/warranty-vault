@@ -7,9 +7,13 @@
 > Cách dùng: làm từ trên xuống. Mỗi mục ghi rõ **tốn gì** → **lấy gì** → **quăng vào đâu**
 > → **mở khoá được gì**. Xong mục nào tick `[x]` rồi báo tao.
 
-**Cập nhật:** 2026-10-03 (lần 7) — **cả nhóm 0 (0.1–0.5) đã xong**; phần còn lại vẫn kiểm lại
+**Cập nhật:** 2026-10-04 (lần 8) — **nhóm 0 xong hết; 1.1 Firebase/FCM cũng xong**; phần còn lại vẫn kiểm lại
 từng mục (không tin bản cũ). Mục nào đã hết việc thì ghi rõ là **HẾT VIỆC** chứ không xoá, để mày
 biết là tao đã kiểm chứ không phải bỏ sót.
+
+> **1.1 (Firebase/FCM) đã xong 2026-10-04.** Nhóm 1 còn 1.2 (Upstash), 1.3 (Resend), 1.4 (Anthropic).
+> **1.3 vẫn là thứ chặn nặng nhất** — không có nó thì reset mật khẩu và đổi email đều không chạy
+> trong production (link chỉ ghi vào log).
 
 > **Nhóm 0 chỉ còn 0.5 (VAPID)** — miễn phí, ~2 phút. 0.2 xong kéo theo việc bỏ được **cả hai**
 > workaround chạy test iOS (`DEVELOPER_DIR` lẫn `--disable-sandbox`) và mở khoá `xcrun simctl`.
@@ -205,26 +209,53 @@ npx web-push generate-vapid-keys
 
 ## Nhóm 1 — Tài khoản miễn phí (chỉ cần đăng ký)
 
-### [ ] 1.1 — Firebase project → FCM cho Android
+### [x] 1.1 — Firebase project → FCM cho Android — ✅ **XONG 2026-10-04**
 
 **Tốn:** 0đ. FCM không tính phí. Gói Spark (miễn phí) là đủ.
 
-1. Vào <https://console.firebase.google.com> → tạo project.
-2. Thêm app Android, package name **`app.warrantyvault`** (phải khớp
-   `applicationId` trong `android/app/build.gradle.kts`).
-3. Tải `google-services.json` → chép vào `android/app/google-services.json`.
-   File hiện tại chỉ là **stub** (`project_number: "000"`, `api_key: "placeholder"`)
-   nên build xanh nhưng push thật **không chạy**.
-   *(Kiểm lại 2026-10-03: vẫn **y nguyên stub**, chưa thay.)*
-4. Project Settings → Service accounts → **Generate new private key** → tải JSON.
-   Nội dung JSON đó → biến `FCM_SERVICE_ACCOUNT_JSON` của Go.
-5. `FCM_PROJECT_ID` = project ID.
+**Project:** `daring-tracer-277502` (display name `WarrantyVault`).
+**Package Android:** `app.warrantyvault`.
 
-> ⚠️ `android/app/google-services.json` **đang bị gitignore** (đúng — nó chứa API key).
-> Nên đừng ngạc nhiên khi `git status` không thấy nó.
+- **Đã cài `android/app/google-services.json`** (687 byte, `package_name: app.warrantyvault`).
+  Plugin Google Services đã bật và **sinh resource thật** — kiểm bằng bằng chứng chứ không chỉ
+  "build không lỗi": `app/build/generated/res/processDebugGoogleServices/values/values.xml` có
+  `google_app_id = 1:181364876291:android:2055795a0ec9a5660fda36`, `project_id`, `google_api_key` thật.
+- **Đã thêm `FCM_SERVICE_ACCOUNT_JSON`** vào `.env` gốc (2354 ký tự, **một dòng**).
+  Verify end-to-end bằng chương trình Go đọc chính `.env` đó qua `godotenv` rồi `json.Unmarshal`
+  vào struct `serviceAccount` của `push/fcm.go` → đủ `client_email` + `private_key` + `project_id`.
+- **`FCM_PROJECT_ID` KHÔNG cần điền** — Go tự lấy `project_id` từ JSON (`push/fcm.go:86-88`).
+- Compose **đã forward sẵn** cả hai biến: `docker-compose.yml:89-90` (api) và `:207-208` (cron).
+
+> ⚠️ **Hai file khác nhau, đừng lẫn.** `google-services.json` là **app config** — app dùng để
+> **đăng ký NHẬN** push; nó **công khai** (nằm trong APK). Service account JSON là **chìa khoá
+> server dùng để GỬI** push; nó **tuyệt mật**. Cần **cả hai**: thiếu file 1 thì app không có token,
+> thiếu file 2 thì server không gửi được.
+> Nhận diện: service account **luôn có** `"type": "service_account"` + `private_key`;
+> `google-services.json` **không bao giờ có** hai thứ đó.
+
+> ⚠️ **Kiểm `project_id` trước khi ghi service account.** Trong `~/Downloads` từng có 2 file
+> service account của **dự án khác** (`my-project-1572426829740` = Stavely,
+> `toanthangcar-499913` = Toàn Thắng Car). Dùng nhầm là server gửi push qua project khác — **hỏng im lặng**.
+> Luôn chạy `jq -r .project_id <file>` và đối chiếu trước.
+
+> ⚠️ **`.env` KHÔNG kết thúc bằng dòng mới**, nên `printf ... >> .env` **nối thẳng vào dòng cuối** và
+> làm hỏng `VAPID_SUBJECT`. Đã xảy ra thật một lần. Và bẫy phụ: `[ -n "$(tail -c 1 .env)" ]`
+> **luôn báo sai** vì command substitution ăn mất ký tự newline — **đừng dùng cách đó để kiểm**.
+> Ghi bằng Python (`rstrip('\n') + '\n'`) hoặc kiểm bằng `open('.env','rb').read().endswith(b'\n')`.
+
+> ⚠️ `android/app/google-services.json` **bị gitignore** (đúng — nó chứa API key),
+> nên `git status` không thấy nó. File tải về ở `~/Downloads` là **644** (ai cũng đọc được) và
+> chứa private key → **xoá sau khi ghi vào `.env`** (cần lại thì tải từ Firebase Console).
+
+> ℹ️ **Project từng nằm trong diện "pending deletion"** và đã được chủ repo **restore**. Nếu sau này
+> push đột nhiên ngừng chạy, kiểm lại **IAM & Admin → Settings**: nút phải là `SHUTDOWN` (đang hoạt
+> động), không phải `RESTORE` (vẫn chờ xoá).
 
 - **Mở khoá:** push notification trên Android.
-- **Gửi lại tao:** xác nhận đã đặt file + đã có service account JSON (đừng dán JSON vào chat).
+- ~~**Gửi lại tao:** xác nhận đã đặt file + đã có service account JSON.~~ → **đã xong.**
+- **Còn lại để push chạy thật:** khởi động lại API (biến env đọc lúc khởi động), rồi mở app Android
+  đã đăng nhập để nó đăng ký token. Token chỉ được đăng ký khi có bearer hợp lệ
+  (`PushRegistrar.kt` short-circuit khi thiếu token).
 
 ### [ ] 1.2 — Upstash Redis → rate limit production
 
