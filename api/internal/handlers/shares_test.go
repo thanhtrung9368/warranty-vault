@@ -148,6 +148,30 @@ func createShare(t *testing.T, env shareTestEnv, deviceID, body string) (string,
 	return out.Share.Token, rr
 }
 
+// shareIDFrom reads the id the create endpoint returned.
+//
+// Use this rather than "the newest row" whenever a test has to act on one
+// specific link. DeviceShare.createdAt is timestamp(3), so two links minted
+// inside the same millisecond tie, and `ORDER BY "createdAt" DESC LIMIT 1` then
+// returns an arbitrary one of them — which made the revoked-token case fail
+// roughly once in eight full-package runs while passing in isolation. The create
+// response already carries the id, so the test can name the row it means instead
+// of inferring it from a timestamp that does not have the resolution to support
+// the inference.
+func shareIDFrom(t *testing.T, rr *httptest.ResponseRecorder) string {
+	t.Helper()
+	var out struct {
+		Share services.CreatedDeviceShare `json:"share"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode create-share: %v", err)
+	}
+	if out.Share.ID == "" {
+		t.Fatalf("create-share returned no id: %s", rr.Body.String())
+	}
+	return out.Share.ID
+}
+
 // getPublic fetches the certificate. `accept` selects HTML ("" = browser default)
 // or the JSON projection.
 func getPublic(t *testing.T, env shareTestEnv, token, accept string) *httptest.ResponseRecorder {
@@ -355,12 +379,8 @@ func TestPublicCertificateForeignExpiredRevokedAllFailIdentically(t *testing.T) 
 	}
 
 	// (c) REVOKED: through the real endpoint, not SQL — that is the path clients use.
-	revokedToken, _ := createShare(t, env, "share_dev", "")
-	var shareID string
-	if err := env.pool.QueryRow(ctx,
-		`SELECT id FROM "DeviceShare" ORDER BY "createdAt" DESC LIMIT 1`).Scan(&shareID); err != nil {
-		t.Fatalf("find newest share: %v", err)
-	}
+	revokedToken, revokedRR := createShare(t, env, "share_dev", "")
+	shareID := shareIDFrom(t, revokedRR)
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/shares/"+shareID, nil)
 	req.Header.Set("Authorization", "Bearer "+env.token)
 	rec := httptest.NewRecorder()
@@ -799,29 +819,19 @@ func TestPruneExpiredSharesRemovesOnlyLongDeadLinks(t *testing.T) {
 	seedShareFixture(t, env.pool)
 	ctx := context.Background()
 
-	liveToken, _ := createShare(t, env, "share_dev", "")
-	recentlyExpired, _ := createShare(t, env, "share_dev", "")
-	longDead, _ := createShare(t, env, "share_dev", "")
+	liveToken, liveRR := createShare(t, env, "share_dev", "")
+	recentlyExpired, expiredRR := createShare(t, env, "share_dev", "")
+	longDead, deadRR := createShare(t, env, "share_dev", "")
 	if liveToken == "" || recentlyExpired == "" || longDead == "" {
 		t.Fatal("could not mint the three links")
 	}
-	// Order is createdAt DESC, so the newest row is `longDead`.
-	rows, err := env.pool.Query(ctx, `SELECT id FROM "DeviceShare" ORDER BY "createdAt" DESC`)
-	if err != nil {
-		t.Fatalf("list shares: %v", err)
-	}
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			t.Fatalf("scan: %v", err)
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
-	if len(ids) != 3 {
-		t.Fatalf("shares = %d, want 3", len(ids))
-	}
+	// Name each row by the id its own create response returned. Ordering by
+	// createdAt cannot identify them: the column is millisecond-precision and
+	// these three are minted in a tight loop, so ties are the normal case.
+	longDeadID := shareIDFrom(t, deadRR)
+	recentlyExpiredID := shareIDFrom(t, expiredRR)
+	liveID := shareIDFrom(t, liveRR)
+	ids := []string{longDeadID, recentlyExpiredID, liveID}
 	if _, err := env.pool.Exec(ctx,
 		`UPDATE "DeviceShare" SET "expiresAt" = $2 WHERE id = $1`,
 		ids[0], time.Now().Add(-40*24*time.Hour)); err != nil { // longDead
