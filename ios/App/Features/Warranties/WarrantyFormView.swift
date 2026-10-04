@@ -74,9 +74,9 @@ struct WarrantyFormView: View {
 
     private func typeLabel(_ t: WarrantyType) -> String {
         switch t {
-        case .STANDARD:    return "BH chính hãng"
-        case .EXTENDED:    return "BH mở rộng"
-        case .THIRD_PARTY: return "BH bên thứ 3"
+        case .STANDARD:    return L.t("BH chính hãng")
+        case .EXTENDED:    return L.t("BH mở rộng")
+        case .THIRD_PARTY: return L.t("BH bên thứ 3")
         }
     }
 
@@ -88,7 +88,7 @@ struct WarrantyFormView: View {
                 Spacer().frame(height: 8)
 
                 // Warranty type picker
-                WVSectionHeader("Loại bảo hành")
+                WVSectionHeader(L.t("Loại bảo hành"))
                 WVGroup {
                     ForEach(Array(WarrantyType.allCases.enumerated()), id: \.element) { idx, t in
                         if idx > 0 { WVDivider() }
@@ -114,15 +114,15 @@ struct WarrantyFormView: View {
                 }
 
                 // Package details
-                WVSectionHeader("Thông tin gói")
+                WVSectionHeader(L.t("Thông tin gói"))
                 WVGroup {
                     // Provider with autocomplete
                     HStack(spacing: 12) {
-                        Text("Hãng BH")
+                        Text(L.t("Hãng BH"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
-                        TextField("Apple Việt Nam...", text: $provider)
+                        TextField(L.t("Apple Việt Nam..."), text: $provider)
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .multilineTextAlignment(.trailing)
@@ -170,7 +170,7 @@ struct WarrantyFormView: View {
 
                     // Start date
                     HStack(spacing: 12) {
-                        Text("Ngày BĐ")
+                        Text(L.t("Ngày BĐ"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
@@ -186,7 +186,7 @@ struct WarrantyFormView: View {
 
                     // Months
                     HStack(spacing: 12) {
-                        Text("Số tháng")
+                        Text(L.t("Số tháng"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
@@ -213,11 +213,11 @@ struct WarrantyFormView: View {
 
                     // Cost
                     HStack(spacing: 12) {
-                        Text("Phí gói")
+                        Text(L.t("Phí gói"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
-                        WVMoneyField(value: $cost, placeholder: "Tuỳ chọn")
+                        WVMoneyField(value: $cost, placeholder: L.t("Tuỳ chọn"))
                     }
                     .padding(.horizontal, 16)
                     .frame(minHeight: 44)
@@ -225,10 +225,10 @@ struct WarrantyFormView: View {
                 }
 
                 // Contact
-                WVSectionHeader("Liên hệ")
+                WVSectionHeader(L.t("Liên hệ"))
                 WVGroup {
                     HStack(spacing: 12) {
-                        Text("SĐT")
+                        Text(L.t("SĐT"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
@@ -244,7 +244,7 @@ struct WarrantyFormView: View {
 
                     WVDivider()
 
-                    TextField("Địa chỉ trung tâm", text: $address, axis: .vertical)
+                    TextField(L.t("Địa chỉ trung tâm"), text: $address, axis: .vertical)
                         .font(.system(size: 17))
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1...4)
@@ -254,9 +254,9 @@ struct WarrantyFormView: View {
                 }
 
                 // Notes
-                WVSectionHeader("Ghi chú")
+                WVSectionHeader(L.t("Ghi chú"))
                 WVGroup {
-                    TextField("Ghi chú (tuỳ chọn)", text: $notes, axis: .vertical)
+                    TextField(L.t("Ghi chú (tuỳ chọn)"), text: $notes, axis: .vertical)
                         .font(.system(size: 17))
                         .foregroundStyle(WVColor.label)
                         .lineLimit(2...6)
@@ -277,7 +277,7 @@ struct WarrantyFormView: View {
                 // CTA
                 VStack(spacing: 0) {
                     WVButton(
-                        isEditing ? "Lưu thay đổi" : "Thêm bảo hành",
+                        isEditing ? L.t("Lưu thay đổi") : L.t("Thêm bảo hành"),
                         icon: isEditing ? "save" : "plus",
                         kind: isValid ? .primary : .secondary
                     ) {
@@ -292,18 +292,18 @@ struct WarrantyFormView: View {
             }
         }
         .wvScreen()
-        .navigationTitle(isEditing ? "Sửa bảo hành" : "Thêm bảo hành")
+        .navigationTitle(isEditing ? L.t("Sửa bảo hành") : L.t("Thêm bảo hành"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Huỷ") { showDiscardAlert = true }
+                Button(L.t("Huỷ")) { showDiscardAlert = true }
                     .foregroundStyle(WVColor.tint)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if isSubmitting {
                     ProgressView()
                 } else {
-                    Button(isEditing ? "Lưu" : "Thêm") {
+                    Button(isEditing ? L.t("Lưu") : L.t("Thêm")) {
                         Task { await submit() }
                     }
                     .font(.system(size: 17, weight: .semibold))
@@ -312,11 +312,11 @@ struct WarrantyFormView: View {
                 }
             }
         }
-        .alert("Bỏ thay đổi?", isPresented: $showDiscardAlert) {
-            Button("Tiếp tục sửa", role: .cancel) {}
-            Button("Bỏ", role: .destructive) { dismiss() }
+        .alert(L.t("Bỏ thay đổi?"), isPresented: $showDiscardAlert) {
+            Button(L.t("Tiếp tục sửa"), role: .cancel) {}
+            Button(L.t("Bỏ"), role: .destructive) { dismiss() }
         } message: {
-            Text("Tất cả thông tin đã nhập sẽ mất.")
+            Text(L.t("Tất cả thông tin đã nhập sẽ mất."))
         }
         .task { await catalog.loadIfNeeded() }
     }

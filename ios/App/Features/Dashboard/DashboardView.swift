@@ -128,7 +128,7 @@ struct DashboardView: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Tổng quan")
+        .navigationTitle(L.t("Tổng quan"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             // Global search lives on the landing tab: it spans three other tabs
@@ -142,7 +142,7 @@ struct DashboardView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                 }
-                .accessibilityLabel("Tìm kiếm")
+                .accessibilityLabel(L.t("Tìm kiếm"))
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showQuickAdd = true } label: {
@@ -178,7 +178,7 @@ struct DashboardView: View {
                 DeviceDetailView(client: client, devicesStore: devicesStore, device: device)
             } else {
                 // Device not in store yet — navigate anyway with a loading placeholder.
-                ProgressView("Đang tải...")
+                ProgressView(L.t("Đang tải..."))
                     .navigationTitle(nav.name)
                     .task { await devicesStore.load() }
             }
@@ -221,16 +221,16 @@ struct DashboardView: View {
 
     private var userName: String {
         if case .authenticated(let user) = auth.status {
-            return user.name ?? user.email.components(separatedBy: "@").first ?? "Bạn"
+            return user.name ?? user.email.components(separatedBy: "@").first ?? L.t("Bạn")
         }
-        return "Bạn"
+        return L.t("Bạn")
     }
 
     private var greetingTitle: String {
         let h = Calendar.current.component(.hour, from: Date())
-        if h < 12 { return "Chào buổi sáng," }
-        if h < 18 { return "Chào buổi chiều," }
-        return "Chào buổi tối,"
+        if h < 12 { return L.t("Chào buổi sáng,") }
+        if h < 18 { return L.t("Chào buổi chiều,") }
+        return L.t("Chào buổi tối,")
     }
 
     private var greetingSection: some View {
@@ -243,28 +243,28 @@ struct DashboardView: View {
         let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
         return LazyVGrid(columns: cols, spacing: 12) {
             WVWidget(
-                eyebrow: "Thiết bị",
+                eyebrow: L.t("Thiết bị"),
                 value: "\(totalDevices)",
-                sub: "đang theo dõi",
+                sub: L.t("đang theo dõi"),
                 icon: "package",
                 brand: true
             )
             WVWidget(
-                eyebrow: "Còn BH",
+                eyebrow: L.t("Còn BH"),
                 value: "\(safeActive)",
-                sub: "được bảo vệ",
+                sub: L.t("được bảo vệ"),
                 icon: "shieldCheck"
             )
             WVWidget(
-                eyebrow: "Sắp hết ≤30d",
+                eyebrow: L.t("Sắp hết ≤30d"),
                 value: "\(expiringSoon)",
-                sub: expiringSoon > 0 ? "để ý nha" : "không có",
+                sub: expiringSoon > 0 ? L.t("để ý nha") : L.t("không có"),
                 icon: "alert"
             )
             WVWidget(
-                eyebrow: "Đã hết",
+                eyebrow: L.t("Đã hết"),
                 value: "\(expiredDevices)",
-                sub: "hết kèo",
+                sub: L.t("hết kèo"),
                 icon: "shieldX"
             )
         }
@@ -281,7 +281,7 @@ struct DashboardView: View {
     /// so a snooze can move a row without moving the badge's meaning.
     private var actionQueueSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVDashSectionHead("Việc cần xử lý")
+            WVDashSectionHead(L.t("Việc cần xử lý"))
 
             WVGroup {
                 NavigationLink {
@@ -305,7 +305,7 @@ struct DashboardView: View {
                           size: 34)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Việc cần xử lý")
+                Text(L.t("Việc cần xử lý"))
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(WVColor.label)
                 // A failed read shows no number at all: "0 việc" would be a claim
@@ -342,7 +342,7 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var upcomingWarrantiesSection: some View {
-        WVDashSectionHead("Sắp hết bảo hành")
+        WVDashSectionHead(L.t("Sắp hết bảo hành"))
             .padding(.top, 8)
 
         if upcomingFromReminders.isEmpty {
@@ -350,8 +350,8 @@ struct DashboardView: View {
                 WVRow(
                     icon: "checkCircle",
                     iconColor: WVColor.green,
-                    title: "Tất cả đều ngon",
-                    subtitle: "Không có gói nào sắp hết trong 30 ngày"
+                    title: L.t("Tất cả đều ngon"),
+                    subtitle: L.t("Không có gói nào sắp hết trong 30 ngày")
                 )
             }
             .padding(.bottom, 4)
@@ -377,7 +377,7 @@ struct DashboardView: View {
 
     private var subsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVDashSectionHead("Gói đăng ký")
+            WVDashSectionHead(L.t("Gói đăng ký"))
 
             WVCard(padding: 16) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -386,11 +386,12 @@ struct DashboardView: View {
                         Text(WVFormat.vnd(monthlyTotal))
                             .font(.system(size: 28, weight: .bold))
                             .foregroundStyle(WVColor.label)
-                        Text("/ tháng")
+                        Text(L.t("/ tháng"))
                             .font(.system(size: 13))
                             .foregroundStyle(WVColor.label3)
                     }
-                    Text("~ \(WVFormat.vnd(monthlyTotal * 12))/năm · \(activeSubs.count) gói đang chạy")
+                    Text(L.t("~ %@/năm", WVFormat.vnd(monthlyTotal * 12))
+                                + " · " + L.p("%d gói đang chạy", activeSubs.count))
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
                         .padding(.top, 2)
@@ -400,7 +401,7 @@ struct DashboardView: View {
                         .frame(height: 0.5)
                         .padding(.vertical, 12)
 
-                    Text("SẮP GIA HẠN")
+                    Text(L.t("SẮP GIA HẠN"))
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(WVColor.label3)
                         .padding(.bottom, 6)
@@ -418,7 +419,7 @@ struct DashboardView: View {
 
     private var wishlistSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVDashSectionHead("Đang thèm")
+            WVDashSectionHead(L.t("Đang thèm"))
             WVGroup {
                 ForEach(Array(wishItems.enumerated()), id: \.element.id) { idx, item in
                     if idx > 0 { WVDivider(inset: 60) }
@@ -519,8 +520,8 @@ enum DashQuickAdd: String, Identifiable, CaseIterable {
 
     var title: String {
         switch self {
-        case .device:       return "Thiết bị"
-        case .subscription: return "Gói đăng ký"
+        case .device:       return L.t("Thiết bị")
+        case .subscription: return L.t("Gói đăng ký")
         case .wishlist:     return "Wishlist"
         }
     }
@@ -560,10 +561,10 @@ private struct DashQuickAddSheet: View {
                         }
                     }
                 } header: {
-                    Text("Thêm nhanh")
+                    Text(L.t("Thêm nhanh"))
                 }
             }
-            .navigationTitle("Thêm nhanh")
+            .navigationTitle(L.t("Thêm nhanh"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium])

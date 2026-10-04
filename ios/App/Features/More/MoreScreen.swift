@@ -47,20 +47,20 @@ struct MoreScreen: View {
                 // MARK: Main actions — Nhắc nhở / Thống kê / Báo cáo
                 moreActionsSection
 
-                WVSectionHeader("Tài khoản")
+                WVSectionHeader(L.t("Tài khoản"))
                 accountSection
 
-                WVSectionHeader("Ứng dụng")
+                WVSectionHeader(L.t("Ứng dụng"))
                 appSection
 
-                WVSectionHeader("Trợ giúp")
+                WVSectionHeader(L.t("Trợ giúp"))
                 helpSection
 
                 Spacer().frame(height: 16)
 
                 // Logout button
                 WVGroup {
-                    WVRow(title: "Đăng xuất", role: .tint) {
+                    WVRow(title: L.t("Đăng xuất"), role: .tint) {
                         Task { await auth.logout() }
                     }
                 }
@@ -73,7 +73,7 @@ struct MoreScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Thêm")
+        .navigationTitle(L.t("Thêm"))
         .navigationBarTitleDisplayMode(.large)
         .task { await remindersStore.load() }
         .backupImportFlow(
@@ -88,9 +88,9 @@ struct MoreScreen: View {
             contentType: .commaSeparatedText,
             defaultFilename: "warrantyvault-thiet-bi"
         ) { result in
-            if case .failure = result { fileMessage = "Không lưu được file CSV." }
+            if case .failure = result { fileMessage = L.t("Không lưu được file CSV.") }
         }
-        .alert("Dữ liệu", isPresented: Binding(
+        .alert(L.t("Dữ liệu"), isPresented: Binding(
             get: { fileMessage != nil },
             set: { if !$0 { fileMessage = nil } }
         )) {
@@ -114,7 +114,7 @@ struct MoreScreen: View {
                 exportDoc = ExportFileDocument(data: DeviceCSVExport.data(for: devices))
                 showExporter = true
             } catch {
-                fileMessage = "Không xuất được dữ liệu. Kiểm tra kết nối và thử lại."
+                fileMessage = L.t("Không xuất được dữ liệu. Kiểm tra kết nối và thử lại.")
             }
         }
     }
@@ -131,7 +131,7 @@ struct MoreScreen: View {
                 } label: {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "search", color: WVColor.indigo)
-                        Text("Tìm kiếm")
+                        Text(L.t("Tìm kiếm"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
@@ -149,12 +149,12 @@ struct MoreScreen: View {
 
                 NavigationLink {
                     RemindersView(client: client)
-                        .navigationTitle("Nhắc nhở")
+                        .navigationTitle(L.t("Nhắc nhở"))
                         .navigationBarTitleDisplayMode(.inline)
                 } label: {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "bell", color: WVColor.red)
-                        Text("Nhắc nhở")
+                        Text(L.t("Nhắc nhở"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
@@ -175,12 +175,12 @@ struct MoreScreen: View {
 
                 NavigationLink {
                     StatsView(client: client)
-                        .navigationTitle("Thống kê")
+                        .navigationTitle(L.t("Thống kê"))
                         .navigationBarTitleDisplayMode(.inline)
                 } label: {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "chart", color: WVColor.indigo)
-                        Text("Thống kê")
+                        Text(L.t("Thống kê"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
@@ -198,12 +198,12 @@ struct MoreScreen: View {
 
                 NavigationLink {
                     StatsView(client: client)
-                        .navigationTitle("Báo cáo chi phí")
+                        .navigationTitle(L.t("Báo cáo chi phí"))
                         .navigationBarTitleDisplayMode(.inline)
                 } label: {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "bar", color: WVColor.purple)
-                        Text("Báo cáo chi phí")
+                        Text(L.t("Báo cáo chi phí"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
@@ -224,13 +224,13 @@ struct MoreScreen: View {
         WVGroup {
             NavigationLink {
                 AccountView(client: client)
-                    .navigationTitle("Hồ sơ")
+                    .navigationTitle(L.t("Hồ sơ"))
                     .navigationBarTitleDisplayMode(.inline)
             } label: {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "user", color: WVColor.blue)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Hồ sơ")
+                        Text(L.t("Hồ sơ"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         if !userEmail.isEmpty {
@@ -252,11 +252,11 @@ struct MoreScreen: View {
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "lock", iconColor: WVColor.gray, title: "Bảo mật & quyền riêng tư", chevron: true)
+            WVRow(icon: "lock", iconColor: WVColor.gray, title: L.t("Bảo mật & quyền riêng tư"), chevron: true)
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "cloud", iconColor: WVColor.teal, title: "Đồng bộ iCloud", detail: "Bật", chevron: true)
+            WVRow(icon: "cloud", iconColor: WVColor.teal, title: L.t("Đồng bộ iCloud"), detail: L.t("Bật"), chevron: true)
         }
     }
 
@@ -264,12 +264,12 @@ struct MoreScreen: View {
         WVGroup {
             NavigationLink {
                 SettingsView(client: client)
-                    .navigationTitle("Cài đặt")
+                    .navigationTitle(L.t("Cài đặt"))
                     .navigationBarTitleDisplayMode(.inline)
             } label: {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "settings", color: WVColor.gray)
-                    Text("Cài đặt")
+                    Text(L.t("Cài đặt"))
                         .font(.system(size: 17))
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 8)
@@ -286,7 +286,7 @@ struct MoreScreen: View {
             WVDivider(inset: 60)
 
             WVRow(icon: "download", iconColor: WVColor.green,
-                  title: fileBusy ? "Đang xử lý…" : "Xuất dữ liệu CSV", chevron: true) {
+                  title: fileBusy ? L.t("Đang xử lý…") : L.t("Xuất dữ liệu CSV"), chevron: true) {
                 guard !fileBusy else { return }
                 exportDevicesCSV()
             }
@@ -296,7 +296,7 @@ struct MoreScreen: View {
             // Same importer as Cài đặt → "Khôi phục từ sao lưu"; this row is a
             // shortcut into that one flow, not a second implementation.
             WVRow(icon: "upload", iconColor: WVColor.orange,
-                  title: fileBusy ? "Đang xử lý…" : "Import từ file", chevron: true) {
+                  title: fileBusy ? L.t("Đang xử lý…") : L.t("Import từ file"), chevron: true) {
                 guard !fileBusy else { return }
                 showImporter = true
             }
@@ -305,15 +305,15 @@ struct MoreScreen: View {
 
     private var helpSection: some View {
         WVGroup {
-            WVRow(icon: "info", iconColor: WVColor.blue, title: "Hướng dẫn", chevron: true)
+            WVRow(icon: "info", iconColor: WVColor.blue, title: L.t("Hướng dẫn"), chevron: true)
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "mail", iconColor: WVColor.green, title: "Liên hệ hỗ trợ", chevron: true)
+            WVRow(icon: "mail", iconColor: WVColor.green, title: L.t("Liên hệ hỗ trợ"), chevron: true)
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "heart", iconColor: WVColor.pink, title: "Đánh giá WarrantyVault ⭐️", chevron: true)
+            WVRow(icon: "heart", iconColor: WVColor.pink, title: L.t("Đánh giá WarrantyVault ⭐️"), chevron: true)
         }
     }
 }

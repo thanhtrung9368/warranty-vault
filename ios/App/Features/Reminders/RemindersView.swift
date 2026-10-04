@@ -24,8 +24,8 @@ struct RemindersView: View {
         Group {
             if store.entries.isEmpty, case .error(let msg) = store.state {
                 ScrollView {
-                    WVEmpty(icon: "alert", title: "Không tải được nhắc", description: msg) {
-                        WVButton("Thử lại") { Task { await store.load() } }
+                    WVEmpty(icon: "alert", title: L.t("Không tải được nhắc"), description: msg) {
+                        WVButton(L.t("Thử lại")) { Task { await store.load() } }
                             .padding(.horizontal, 32)
                     }
                 }
@@ -63,7 +63,7 @@ struct RemindersView: View {
                 if let dismissed = recentlyDismissed {
                     HStack(spacing: 8) {
                         WVIcon("checkCircle", size: 14)
-                        Text("Đã ẩn “\(dismissed.device.name)”")
+                        Text(L.t("Đã ẩn “%@”", dismissed.device.name))
                             .font(.system(size: 13))
                             .lineLimit(1)
                         Spacer(minLength: 8)
@@ -73,7 +73,7 @@ struct RemindersView: View {
                             if pendingRestore == dismissed.id {
                                 ProgressView().scaleEffect(0.7)
                             } else {
-                                Text("Hoàn tác")
+                                Text(L.t("Hoàn tác"))
                                     .font(.system(size: 13, weight: .semibold))
                             }
                         }
@@ -88,8 +88,8 @@ struct RemindersView: View {
 
                 if store.entries.isEmpty {
                     WVEmpty(icon: "checkCircle",
-                            title: "Không có nhắc nào, ngon!",
-                            description: "Tất cả gói bảo hành đều an toàn.")
+                            title: L.t("Không có nhắc nào, ngon!"),
+                            description: L.t("Tất cả gói bảo hành đều an toàn."))
                         .padding(.top, 24)
                 }
 
@@ -162,7 +162,7 @@ struct RemindersView: View {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 WVIcon("x", size: 10, weight: .bold)
-                                Text("Đã xem, ẩn đi")
+                                Text(L.t("Đã xem, ẩn đi"))
                             }
                         }
                         .font(.system(size: 12, weight: .semibold))
@@ -195,7 +195,7 @@ struct RemindersView: View {
         let count = store.dismissedUnavailable ? "?" : "\(store.dismissed.count)"
 
         HStack {
-            Text("Đã ẩn · \(count)")
+            Text(L.t("Đã ẩn · %d", count))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(WVColor.label3)
             Spacer()
@@ -207,13 +207,13 @@ struct RemindersView: View {
         WVGroup {
             if store.dismissedUnavailable {
                 WVRowContainer {
-                    Text("Không tải được danh sách nhắc nhở đã ẩn — kéo xuống để tải lại nhé.")
+                    Text(L.t("Không tải được danh sách nhắc nhở đã ẩn — kéo xuống để tải lại nhé."))
                         .font(.system(size: 14))
                         .foregroundStyle(WVColor.label3)
                 }
             } else if store.dismissed.isEmpty {
                 WVRowContainer {
-                    Text("Chưa ẩn gói bảo hành nào. Gói nào bạn bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại.")
+                    Text(L.t("Chưa ẩn gói bảo hành nào. Gói nào bạn bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại."))
                         .font(.system(size: 14))
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -266,7 +266,7 @@ struct RemindersView: View {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 WVIcon("rotateCcw", size: 10, weight: .bold)
-                                Text("Khôi phục")
+                                Text(L.t("Khôi phục"))
                             }
                         }
                         .font(.system(size: 12, weight: .semibold))
@@ -297,9 +297,9 @@ struct RemindersView: View {
 
     private var buckets: [Bucket] {
         [
-            Bucket(label: "Sắp hết trong 30 ngày", color: WVColor.red)   { $0.daysRemaining <= 30 },
-            Bucket(label: "Sắp hết trong 60 ngày", color: WVColor.orange) { $0.daysRemaining > 30 && $0.daysRemaining <= 60 },
-            Bucket(label: "Sắp hết trong 90 ngày", color: WVColor.green)  { $0.daysRemaining > 60 && $0.daysRemaining <= 90 },
+            Bucket(label: L.t("Sắp hết trong 30 ngày"), color: WVColor.red)   { $0.daysRemaining <= 30 },
+            Bucket(label: L.t("Sắp hết trong 60 ngày"), color: WVColor.orange) { $0.daysRemaining > 30 && $0.daysRemaining <= 60 },
+            Bucket(label: L.t("Sắp hết trong 90 ngày"), color: WVColor.green)  { $0.daysRemaining > 60 && $0.daysRemaining <= 90 },
         ]
     }
 
@@ -343,7 +343,7 @@ struct RemindersView: View {
 private struct RemindersSkeleton: View {
     var body: some View {
         VStack(spacing: 0) {
-            WVSectionHeader("Đang tải…")
+            WVSectionHeader(L.t("Đang tải…"))
             WVGroup {
                 ForEach(0..<3) { i in
                     if i > 0 { WVDivider(inset: 60) }

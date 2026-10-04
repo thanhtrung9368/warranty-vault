@@ -25,9 +25,9 @@ struct PushDevicesView: View {
                     .wvScreen()
             } else if let errorMessage, subscriptions.isEmpty {
                 ScrollView {
-                    WVEmpty(icon: "alert", title: "Không tải được danh sách",
+                    WVEmpty(icon: "alert", title: L.t("Không tải được danh sách"),
                             description: errorMessage) {
-                        WVButton("Thử lại") { Task { await reload() } }
+                        WVButton(L.t("Thử lại")) { Task { await reload() } }
                             .padding(.horizontal, 32)
                     }
                 }
@@ -35,8 +35,8 @@ struct PushDevicesView: View {
             } else if subscriptions.isEmpty {
                 ScrollView {
                     WVEmpty(icon: "bellOff",
-                            title: "Chưa có thiết bị nào đăng ký",
-                            description: "Bật thông báo ở Cài đặt để nhận nhắc bảo hành, gia hạn và wishlist.")
+                            title: L.t("Chưa có thiết bị nào đăng ký"),
+                            description: L.t("Bật thông báo ở Cài đặt để nhận nhắc bảo hành, gia hạn và wishlist."))
                 }
                 .wvScreen()
             } else {
@@ -44,7 +44,7 @@ struct PushDevicesView: View {
                     VStack(spacing: 0) {
                         Spacer().frame(height: 8)
                         testCard
-                        WVSectionHeader("Đã đăng ký")
+                        WVSectionHeader(L.t("Đã đăng ký"))
                         deviceList
                         Spacer().frame(height: 24)
                     }
@@ -65,17 +65,17 @@ struct PushDevicesView: View {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "send", color: WVColor.brand)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Gửi thông báo thử")
+                        Text(L.t("Gửi thông báo thử"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(WVColor.label)
-                        Text("Bắn 1 push đến tất cả \(subscriptions.count) thiết bị bên dưới.")
+                        Text(L.p("Bắn 1 push đến tất cả %d thiết bị bên dưới.", subscriptions.count))
                             .font(.system(size: 12))
                             .foregroundStyle(WVColor.label3)
                     }
                     Spacer()
                 }
                 WVButton(
-                    isSendingTest ? "Đang gửi…" : "Gửi thử",
+                    isSendingTest ? L.t("Đang gửi…") : L.t("Gửi thử"),
                     icon: "send",
                     kind: .primary
                 ) {
@@ -121,7 +121,7 @@ struct PushDevicesView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
-                Text("Đăng ký lúc \(WVFormat.date(sub.createdAt))")
+                Text(L.t("Đăng ký lúc %@", WVFormat.date(sub.createdAt)))
                     .font(.system(size: 11))
                     .foregroundStyle(WVColor.label3)
             }
@@ -208,7 +208,7 @@ struct PushDevicesView: View {
         switch p {
         case .apns: return "iPhone / iPad"
         case .fcm:  return "Android"
-        case .web:  return "Trình duyệt web"
+        case .web:  return L.t("Trình duyệt web")
         }
     }
 
@@ -265,7 +265,7 @@ struct PushDevicesView: View {
         do {
             try await client.unregisterPush(id: sub.id)
             subscriptions.removeAll { $0.id == sub.id }
-            showToast("Đã gỡ thiết bị", error: false)
+            showToast(L.t("Đã gỡ thiết bị"), error: false)
         } catch let err as APIError {
             showToast(err.localizedDescription, error: true)
         } catch {
@@ -280,11 +280,11 @@ struct PushDevicesView: View {
         do {
             let r = try await client.sendTestPush()
             if r.failed == 0 {
-                showToast("Đã gửi \(r.sent) thông báo", error: false)
+                showToast(L.p("Đã gửi %d thông báo", r.sent), error: false)
             } else if r.sent == 0 {
-                showToast("Tất cả \(r.failed) thiết bị gửi thất bại", error: true)
+                showToast(L.p("Tất cả %d thiết bị gửi thất bại", r.failed), error: true)
             } else {
-                showToast("Gửi \(r.sent), lỗi \(r.failed)", error: true)
+                showToast(L.t("Gửi %d, lỗi %d", r.sent, r.failed), error: true)
             }
             await reload()
         } catch let err as APIError {

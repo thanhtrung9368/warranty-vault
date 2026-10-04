@@ -52,7 +52,10 @@ public enum SearchQueryRules {
 
     /// Vietnamese copy for input the server would reject with 400
     /// (mirrors `services.Search`'s message).
-    public static let tooLongMessage = "Từ khoá tìm kiếm quá dài (tối đa 200 ký tự)."
+    /// A `let`, not a function: the message is static, and the caller can
+    /// render it once. It goes through the catalog so it follows the selected
+    /// language like every other user-visible line.
+    public static var tooLongMessage: String { L.t("Từ khoá tìm kiếm quá dài (tối đa 200 ký tự).") }
 }
 
 /// Payload of `GET /api/v1/search`. Groups are always arrays — `[]`, never
@@ -100,8 +103,8 @@ public struct SearchSection: Identifiable, Equatable, Sendable {
         /// "that other tab's row".
         public var title: String {
             switch self {
-            case .devices:       return "Thiết bị"
-            case .subscriptions: return "Đăng ký"
+            case .devices:       return L.t("Thiết bị")
+            case .subscriptions: return L.t("Đăng ký")
             case .wishlist:      return "Wishlist"
             }
         }

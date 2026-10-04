@@ -50,9 +50,9 @@ struct SessionsView: View {
                     .wvScreen()
             } else if let errorMessage, sessions.isEmpty {
                 ScrollView {
-                    WVEmpty(icon: "alert", title: "Không tải được danh sách",
+                    WVEmpty(icon: "alert", title: L.t("Không tải được danh sách"),
                             description: errorMessage) {
-                        WVButton("Thử lại") { Task { await reload() } }
+                        WVButton(L.t("Thử lại")) { Task { await reload() } }
                             .padding(.horizontal, 32)
                     }
                 }
@@ -60,8 +60,8 @@ struct SessionsView: View {
             } else if sessions.isEmpty {
                 ScrollView {
                     WVEmpty(icon: "shieldX",
-                            title: "Không có phiên nào đang hoạt động",
-                            description: "Kể cả phiên của thiết bị này cũng không còn — hãy đăng nhập lại.")
+                            title: L.t("Không có phiên nào đang hoạt động"),
+                            description: L.t("Kể cả phiên của thiết bị này cũng không còn — hãy đăng nhập lại."))
                 }
                 .wvScreen()
             } else {
@@ -85,15 +85,15 @@ struct SessionsView: View {
                     Task { await revoke(target) }
                 }
             }
-            Button("Huỷ", role: .cancel) { confirmTarget = nil }
+            Button(L.t("Huỷ"), role: .cancel) { confirmTarget = nil }
         } message: {
             Text(confirmMessage)
         }
-        .alert("Đã đăng xuất thiết bị này", isPresented: Binding(
+        .alert(L.t("Đã đăng xuất thiết bị này"), isPresented: Binding(
             get: { signedOutMessage != nil },
             set: { if !$0 { signedOutMessage = nil } }
         )) {
-            Button("Đăng nhập lại") {
+            Button(L.t("Đăng nhập lại")) {
                 Task {
                     // The bearer the app holds is already dead (the server said
                     // so): clearing it is what sends RootView back to login.
@@ -113,7 +113,7 @@ struct SessionsView: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: 8)
 
-                WVSectionHeader("Phiên đang hoạt động")
+                WVSectionHeader(L.t("Phiên đang hoạt động"))
                 WVGroup {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { idx, session in
                         if idx > 0 { WVDivider(inset: 60) }
@@ -121,8 +121,8 @@ struct SessionsView: View {
                     }
                 }
 
-                WVSectionFooter("Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Thiết bị nhận thông báo”: xoá một đích nhận thông báo chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu.")
-                WVSectionFooter("Phiên tự hết hạn sau \(expiryNote). Mở app thường xuyên sẽ tự gia hạn thêm.")
+                WVSectionFooter(L.t("Thu hồi một phiên sẽ đăng xuất thiết bị đó ngay lập tức — lần mở app kế tiếp trên máy đó phải đăng nhập lại. Danh sách này khác “Thiết bị nhận thông báo”: xoá một đích nhận thông báo chỉ ngừng gửi push, không thu hồi quyền truy cập dữ liệu."))
+                WVSectionFooter(L.t("Phiên tự hết hạn sau %@. Mở app thường xuyên sẽ tự gia hạn thêm.", expiryNote))
 
                 Spacer().frame(height: 24)
             }
@@ -150,12 +150,13 @@ struct SessionsView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
 
-                Text("Hoạt động \(WVFormat.date(session.lastSeenAt)) · Đăng nhập \(WVFormat.date(session.createdAt))")
+                Text(L.t("Hoạt động %@ · Đăng nhập %@",
+                         WVFormat.date(session.lastSeenAt), WVFormat.date(session.createdAt)))
                     .font(.system(size: 11))
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
 
-                Text("Hết hạn \(WVFormat.date(session.expiresAt))")
+                Text(L.t("Hết hạn %@", WVFormat.date(session.expiresAt)))
                     .font(.system(size: 11))
                     .foregroundStyle(WVColor.label4)
             }
@@ -178,8 +179,8 @@ struct SessionsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(session.current
-                                    ? "Đăng xuất thiết bị này"
-                                    : "Thu hồi phiên \(SessionLabels.deviceLabel(session))")
+                                    ? L.t("Đăng xuất thiết bị này")
+                                    : L.t("Thu hồi phiên %@", SessionLabels.deviceLabel(session)))
             }
         }
         .padding(.horizontal, 16)
@@ -220,22 +221,22 @@ struct SessionsView: View {
     // MARK: - Confirmation copy
 
     private var confirmTitle: String {
-        guard let target = confirmTarget else { return "Thu hồi phiên đăng nhập?" }
+        guard let target = confirmTarget else { return L.t("Thu hồi phiên đăng nhập?") }
         return target.current
-            ? "Đăng xuất thiết bị này?"
-            : "Thu hồi phiên của “\(SessionLabels.deviceLabel(target))”?"
+            ? L.t("Đăng xuất thiết bị này?")
+            : L.t("Thu hồi phiên của “%@”?", SessionLabels.deviceLabel(target))
     }
 
     private var confirmButtonTitle: String {
-        (confirmTarget?.current ?? false) ? "Đăng xuất ngay" : "Thu hồi phiên"
+        (confirmTarget?.current ?? false) ? L.t("Đăng xuất ngay") : L.t("Thu hồi phiên")
     }
 
     private var confirmMessage: String {
         guard let target = confirmTarget else { return "" }
         if target.current {
-            return "Đây chính là thiết bị bạn đang cầm. Thu hồi xong bạn sẽ bị đăng xuất ngay và phải đăng nhập lại bằng email + mật khẩu."
+            return L.t("Đây chính là thiết bị bạn đang cầm. Thu hồi xong bạn sẽ bị đăng xuất ngay và phải đăng nhập lại bằng email + mật khẩu.")
         }
-        return "Thiết bị đó sẽ bị đăng xuất ngay lập tức. Các phiên khác — kể cả thiết bị này — giữ nguyên."
+        return L.t("Thiết bị đó sẽ bị đăng xuất ngay lập tức. Các phiên khác — kể cả thiết bị này — giữ nguyên.")
     }
 
     // MARK: - Toast
@@ -287,7 +288,7 @@ struct SessionsView: View {
 
     /// The sliding TTL is a server constant (30 days); the screen states it as a
     /// fact rather than pretending it is configurable.
-    private var expiryNote: String { "30 ngày kể từ lần dùng cuối" }
+    private var expiryNote: String { L.t("30 ngày kể từ lần dùng cuối") }
 
     // MARK: - Actions
 
@@ -330,7 +331,7 @@ struct SessionsView: View {
             // revoke worked.
             if case .server(let status, _) = err, status == 404 {
                 sessions.removeAll { $0.id == session.id }
-                showToast("Phiên này không còn trong danh sách.", error: false)
+                showToast(L.t("Phiên này không còn trong danh sách."), error: false)
                 await reload()
             } else {
                 showToast(err.localizedDescription, error: true)

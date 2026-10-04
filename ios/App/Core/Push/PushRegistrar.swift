@@ -84,7 +84,7 @@ public final class PushRegistrar: ObservableObject {
 #if canImport(UIKit)
         UIApplication.shared.registerForRemoteNotifications()
 #else
-        status = .failed("APNs chỉ hỗ trợ trên thiết bị iOS")
+        status = .failed(L.t("APNs chỉ hỗ trợ trên thiết bị iOS"))
 #endif
     }
 
@@ -100,7 +100,7 @@ public final class PushRegistrar: ObservableObject {
 
     private func uploadToken(_ token: String) async {
         guard let client else {
-            status = .failed("APIClient chưa sẵn sàng")
+            status = .failed(L.t("APIClient chưa sẵn sàng"))
             return
         }
         let ua: String?

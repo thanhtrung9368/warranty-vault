@@ -138,7 +138,7 @@ public enum ForecastRules {
     }
 
     /// A label for the picker: `6 → "6 tháng"`.
-    public static func monthsLabel(_ months: Int) -> String { "\(months) tháng" }
+    public static func monthsLabel(_ months: Int) -> String { L.p("%d tháng", months) }
 
     /// The bucket sums a screen shows, with the guaranteed and the
     /// discretionary money kept apart.
@@ -224,7 +224,7 @@ public enum ForecastRules {
     /// unchanged, so a payload surprise prints as-is instead of crashing.
     public static func monthLabel(_ month: String) -> String {
         guard let parts = parseMonth(month) else { return month }
-        return "Tháng \(parts.month)/\(parts.year)"
+        return L.t("Tháng %d/%d", parts.month, parts.year)
     }
 
     /// `"2026-03"` → `"03/26"`, matching the `MM/yy` labels of the historical
@@ -251,23 +251,24 @@ public enum ForecastRules {
 public enum ForecastCopy {
 
     /// Heading over the money that will be charged automatically.
-    public static let autoRenewHeading = "Sẽ tự động trừ"
+    public static let autoRenewHeading = L.t("Sẽ tự động trừ")
     /// Heading over the renewals the user must decide about.
-    public static let manualRenewHeading = "Bạn phải tự gia hạn"
+    public static let manualRenewHeading = L.t("Bạn phải tự gia hạn")
     /// Explanation of the split.
     public static let autoRenewNote =
-        "Chỉ phần “\(autoRenewHeading)” là khoản chắc chắn bị trừ. Phần còn lại là các gói bạn phải tự gia hạn."
+        L.t("Chỉ phần “%@” là khoản chắc chắn bị trừ. Phần còn lại là các gói bạn phải tự gia hạn.",
+                    autoRenewHeading)
 
     /// Warranty money is a savings reference, not a bill.
     public static let warrantySavingsNote =
-        "Giá gói bảo hành cũ — chỉ để tham khảo khi để dành tiền, KHÔNG phải khoản chắc chắn phải trả."
+        L.t("Giá gói bảo hành cũ — chỉ để tham khảo khi để dành tiền, KHÔNG phải khoản chắc chắn phải trả.")
     /// Wishlist money is a last-recorded price, not a bill.
     public static let wishlistNote =
-        "Giá ghi nhận gần nhất của món trong wishlist — không phải cam kết chi tiêu."
+        L.t("Giá ghi nhận gần nhất của món trong wishlist — không phải cam kết chi tiêu.")
     /// Printed when a package/item has no recorded price at all.
-    public static let noPriceRecorded = "Chưa ghi giá"
+    public static let noPriceRecorded = L.t("Chưa ghi giá")
     /// Shown when no bucket in the window has anything in it.
     public static func emptyWindow(months: Int) -> String {
-        "Không có khoản nào sắp tới trong \(months) tháng tới."
+        L.p("Không có khoản nào sắp tới trong %d tháng tới.", months)
     }
 }

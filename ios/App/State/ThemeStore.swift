@@ -1,4 +1,5 @@
 import SwiftUI
+import WarrantyVaultKit
 
 enum ThemePreference: String, CaseIterable, Identifiable {
     case system, light, dark
@@ -7,9 +8,9 @@ enum ThemePreference: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .system: return "Theo hệ thống"
-        case .light:  return "Sáng"
-        case .dark:   return "Tối"
+        case .system: return L.t("Theo hệ thống")
+        case .light:  return L.t("Sáng")
+        case .dark:   return L.t("Tối")
         }
     }
 

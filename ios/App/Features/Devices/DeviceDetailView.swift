@@ -66,7 +66,7 @@ struct DeviceDetailView: View {
             return (label, DeviceReturnWindow.deadlineNote(detail.returnDeadline))
         }
         if DeviceReturnWindow.isNoExchange(detail.returnWindowDays) {
-            return ("Không cho đổi trả", "cửa hàng không áp dụng đổi/trả")
+            return (L.t("Không cho đổi trả"), L.t("cửa hàng không áp dụng đổi/trả"))
         }
         return nil
     }
@@ -107,10 +107,10 @@ struct DeviceDetailView: View {
                 }
 
                 // Info group — purchase
-                WVSectionHeader("Mua hàng")
+                WVSectionHeader(L.t("Mua hàng"))
                 WVGroup {
                     WVRow(icon: "calendar", iconColor: WVColor.red,
-                          title: "Ngày mua",
+                          title: L.t("Ngày mua"),
                           detail: WVFormat.date(currentDevice.purchaseDate))
                     if let window = returnWindowDisplay {
                         WVDivider(inset: 60)
@@ -119,17 +119,17 @@ struct DeviceDetailView: View {
                         // never recomputed here. There is no input for the window
                         // length on purpose — see `DeviceReturnWindow`.
                         WVRow(icon: "arrowDown", iconColor: WVColor.purple,
-                              title: "Hạn đổi/trả",
+                              title: L.t("Hạn đổi/trả"),
                               subtitle: window.note,
                               detail: window.value)
                     }
                     WVDivider(inset: 60)
                     WVRow(icon: "wallet", iconColor: WVColor.green,
-                          title: "Giá mua",
+                          title: L.t("Giá mua"),
                           detail: WVFormat.vnd(currentDevice.purchasePrice))
                     WVDivider(inset: 60)
                     WVRow(icon: "store", iconColor: WVColor.orange,
-                          title: "Nơi mua",
+                          title: L.t("Nơi mua"),
                           detail: currentDevice.purchasePlace ?? "—")
                     WVDivider(inset: 60)
                     WVRow(icon: "hash", iconColor: WVColor.blue,
@@ -140,17 +140,17 @@ struct DeviceDetailView: View {
                 // Resale ("Bán lại", migration 0006). Read-only here; the pair is
                 // edited in the device form. Shown only when a sale was recorded.
                 if let sale = saleDisplay {
-                    WVSectionHeader("Bán lại")
+                    WVSectionHeader(L.t("Bán lại"))
                     WVGroup {
                         if let day = sale.day {
                             WVRow(icon: "calendar", iconColor: WVColor.blue,
-                                  title: "Ngày bán",
+                                  title: L.t("Ngày bán"),
                                   detail: day)
                         }
                         if let price = sale.price {
                             if sale.day != nil { WVDivider(inset: 60) }
                             WVRow(icon: "wallet", iconColor: WVColor.green,
-                                  title: "Giá bán",
+                                  title: L.t("Giá bán"),
                                   detail: WVFormat.vnd(price))
                         }
                         if let profit = sale.profit {
@@ -162,7 +162,7 @@ struct DeviceDetailView: View {
                                         color: DeviceFormView.saleToneColor(profit.tone),
                                         size: 30
                                     )
-                                    Text("Lãi/lỗ so với giá mua")
+                                    Text(L.t("Lãi/lỗ so với giá mua"))
                                         .font(.system(size: 17))
                                         .foregroundStyle(WVColor.label)
                                     Spacer(minLength: 8)
@@ -178,13 +178,13 @@ struct DeviceDetailView: View {
                 }
 
                 // Warranty list group
-                WVSectionHeader("Bảo hành (\(warranties.count)/5)")
+                WVSectionHeader(L.t("Bảo hành (%d/5)", warranties.count))
                 warrantyListGroup
 
                 // Warranty contact group (if phones/addresses present)
                 let contactWarranties = warranties.filter { $0.phone != nil || $0.address != nil }
                 if !contactWarranties.isEmpty {
-                    WVSectionHeader("Liên hệ bảo hành")
+                    WVSectionHeader(L.t("Liên hệ bảo hành"))
                     WVGroup {
                         ForEach(Array(contactWarranties.enumerated()), id: \.element.id) { _, w in
                             if let phone = w.phone {
@@ -225,7 +225,7 @@ struct DeviceDetailView: View {
                 )
 
                 // Attachments
-                WVSectionHeader("File đính kèm (\(attachments.count)/5)")
+                WVSectionHeader(L.t("File đính kèm (%d/5)", attachments.count))
                 DeviceAttachmentsSection(
                     client: client,
                     deviceId: currentDevice.id,
@@ -234,7 +234,7 @@ struct DeviceDetailView: View {
 
                 // Note
                 if let note = currentDevice.notes, !note.isEmpty {
-                    WVSectionHeader("Ghi chú")
+                    WVSectionHeader(L.t("Ghi chú"))
                     WVGroup {
                         Text(note)
                             .font(.system(size: 15))
@@ -248,12 +248,12 @@ struct DeviceDetailView: View {
                 }
 
                 // Status quick-change
-                WVSectionHeader("Trạng thái")
+                WVSectionHeader(L.t("Trạng thái"))
                 WVSegmented(
                     options: [
-                        (value: DeviceStatus.ACTIVE, label: "Đang dùng"),
-                        (value: DeviceStatus.BROKEN, label: "Hỏng"),
-                        (value: DeviceStatus.SOLD,   label: "Đã bán"),
+                        (value: DeviceStatus.ACTIVE, label: L.t("Đang dùng")),
+                        (value: DeviceStatus.BROKEN, label: L.t("Hỏng")),
+                        (value: DeviceStatus.SOLD,   label: L.t("Đã bán")),
                     ],
                     selection: $deviceStatus
                 )
@@ -290,7 +290,7 @@ struct DeviceDetailView: View {
                 // Delete row
                 WVGroup {
                     WVRow(icon: "trash", iconColor: WVColor.red,
-                          title: "Xoá thiết bị",
+                          title: L.t("Xoá thiết bị"),
                           role: .destructive,
                           action: { showDeleteAlert = true })
                 }
@@ -314,19 +314,19 @@ struct DeviceDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     NavigationLink(value: DeviceFormNav.edit(currentDevice)) {
-                        Label("Sửa thông tin", systemImage: "pencil")
+                        Label(L.t("Sửa thông tin"), systemImage: "pencil")
                     }
                     Button {
                         UIPasteboard.general.string = currentDevice.serialNumber ?? ""
                     } label: {
-                        Label("Sao chép Serial", systemImage: "doc.on.doc")
+                        Label(L.t("Sao chép Serial"), systemImage: "doc.on.doc")
                     }
                     .disabled(currentDevice.serialNumber == nil)
                     Divider()
                     Button(role: .destructive) {
                         showDeleteAlert = true
                     } label: {
-                        Label("Xoá thiết bị", systemImage: "trash")
+                        Label(L.t("Xoá thiết bị"), systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -346,11 +346,11 @@ struct DeviceDetailView: View {
         .navigationDestination(for: WarrantyFormNav.self) { nav in
             WarrantyFormView(store: store, warranty: nav.warranty)
         }
-        .alert("Xoá thiết bị?", isPresented: $showDeleteAlert) {
-            Button("Huỷ", role: .cancel) {}
-            Button("Xoá", role: .destructive) { Task { await deleteDevice() } }
+        .alert(L.t("Xoá thiết bị?"), isPresented: $showDeleteAlert) {
+            Button(L.t("Huỷ"), role: .cancel) {}
+            Button(L.t("Xoá"), role: .destructive) { Task { await deleteDevice() } }
         } message: {
-            Text("\"\(currentDevice.name)\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành.")
+            Text(L.t("\"%@\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành.", currentDevice.name))
         }
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -395,7 +395,7 @@ struct DeviceDetailView: View {
     private var warrantyTimelineCard: some View {
         WVCard(padding: 16) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Tổng quan bảo hành")
+                Text(L.t("Tổng quan bảo hành"))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WVColor.label)
                 ForEach(Array(warranties.enumerated()), id: \.element.id) { idx, w in
@@ -424,7 +424,7 @@ struct DeviceDetailView: View {
                 if !warranties.isEmpty { WVDivider(inset: 60) }
                 NavigationLink(value: WarrantyFormNav(warranty: nil)) {
                     WVRow(icon: "plus", iconColor: WVColor.tint,
-                          title: "Thêm gói bảo hành",
+                          title: L.t("Thêm gói bảo hành"),
                           role: .tint)
                 }
                 .buttonStyle(WVRowButtonStyle())
@@ -519,11 +519,11 @@ private struct DeviceStatusBadge: View {
 
     private var label: String {
         switch status {
-        case .ACTIVE:  return "Đang dùng"
-        case .EXPIRED: return "Hết BH"
-        case .SOLD:    return "Đã bán"
-        case .BROKEN:  return "Hỏng"
-        case .LOST:    return "Mất"
+        case .ACTIVE:  return L.t("Đang dùng")
+        case .EXPIRED: return L.t("Hết BH")
+        case .SOLD:    return L.t("Đã bán")
+        case .BROKEN:  return L.t("Hỏng")
+        case .LOST:    return L.t("Mất")
         }
     }
 
@@ -563,9 +563,9 @@ private struct WarrantyTimelineRow: View {
 
     private var typeLabel: String {
         switch warranty.type {
-        case .STANDARD:    return "BH chính hãng"
-        case .EXTENDED:    return "BH mở rộng"
-        case .THIRD_PARTY: return "BH bên thứ 3"
+        case .STANDARD:    return L.t("BH chính hãng")
+        case .EXTENDED:    return L.t("BH mở rộng")
+        case .THIRD_PARTY: return L.t("BH bên thứ 3")
         }
     }
 
@@ -621,9 +621,9 @@ private struct WarrantyListRow: View {
 
     private var typeLabel: String {
         switch warranty.type {
-        case .STANDARD:    return "BH chính hãng"
-        case .EXTENDED:    return "BH mở rộng"
-        case .THIRD_PARTY: return "BH bên thứ 3"
+        case .STANDARD:    return L.t("BH chính hãng")
+        case .EXTENDED:    return L.t("BH mở rộng")
+        case .THIRD_PARTY: return L.t("BH bên thứ 3")
         }
     }
 
@@ -635,7 +635,14 @@ private struct WarrantyListRow: View {
                     .font(.system(size: 17))
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
-                Text("\(typeLabel) · \(warranty.months) tháng · Hết \(WVFormat.date(warranty.endDate))")
+                // Joined from three fragments rather than one template: the
+                // English month count inflects ("1 month" / "24 months") and a
+                // `%d` inside a whole sentence could not do that. Vietnamese
+                // renders exactly as before.
+                Text([typeLabel,
+                      L.p("%d tháng", warranty.months),
+                      L.t("Hết %@", WVFormat.date(warranty.endDate))]
+                        .joined(separator: " · "))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)

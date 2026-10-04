@@ -49,7 +49,7 @@ public enum BiometricKind: String, Sendable, Equatable {
         case .faceID:  return "Face ID"
         case .touchID: return "Touch ID"
         case .opticID: return "Optic ID"
-        case .none:    return "Sinh trắc học"
+        case .none:    return L.t("Sinh trắc học")
         }
     }
 }
@@ -87,16 +87,16 @@ public struct AppLockAvailability: Equatable, Sendable {
     /// Vietnamese reason shown under the switch when it is disabled.
     public var unavailableReason: String? {
         if passcodeNotSet {
-            return "Thiết bị chưa đặt mã mở khoá — hãy đặt mã trong Cài đặt iOS trước."
+            return L.t("Thiết bị chưa đặt mã mở khoá — hãy đặt mã trong Cài đặt iOS trước.")
         }
         if !biometricsAvailable {
             if biometry == .none {
-                return "Thiết bị này không hỗ trợ Face ID/Touch ID."
+                return L.t("Thiết bị này không hỗ trợ Face ID/Touch ID.")
             }
-            return "Chưa cài đặt \(biometry.label) trên thiết bị — hãy bật trong Cài đặt iOS."
+            return L.t("Chưa cài đặt %@ trên thiết bị — hãy bật trong Cài đặt iOS.", biometry.label)
         }
         if !deviceOwnerAuthAvailable {
-            return "Thiết bị chưa đặt mã mở khoá — hãy đặt mã trong Cài đặt iOS trước."
+            return L.t("Thiết bị chưa đặt mã mở khoá — hãy đặt mã trong Cài đặt iOS trước.")
         }
         return nil
     }
@@ -116,7 +116,7 @@ public enum AppLockError: Error, Equatable, Sendable {
     public var message: String {
         switch self {
         case .userCancelled:
-            return "Đã huỷ xác thực."
+            return L.t("Đã huỷ xác thực.")
         case .unavailable(let m), .failed(let m):
             return m
         }
@@ -169,8 +169,8 @@ public struct LocalAuthenticationAuthenticator: BiometricAuthenticating {
     public func authenticate(reason: String) async throws {
         let context = LAContext()
         // Shown on the passcode fallback button of the system sheet.
-        context.localizedFallbackTitle = "Dùng mã mở khoá"
-        context.localizedCancelTitle = "Huỷ"
+        context.localizedFallbackTitle = L.t("Dùng mã mở khoá")
+        context.localizedCancelTitle = L.t("Huỷ")
 
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
@@ -205,23 +205,23 @@ public struct LocalAuthenticationAuthenticator: BiometricAuthenticating {
 
     static func appLockError(from error: Error?) -> AppLockError {
         guard let error = error as NSError? else {
-            return .failed("Không xác thực được. Thử lại.")
+            return .failed(L.t("Không xác thực được. Thử lại."))
         }
         switch LAError.Code(rawValue: error.code) {
         case .userCancel, .appCancel, .systemCancel:
             return .userCancelled
         case .biometryNotAvailable:
-            return .unavailable("Thiết bị không hỗ trợ sinh trắc học.")
+            return .unavailable(L.t("Thiết bị không hỗ trợ sinh trắc học."))
         case .biometryNotEnrolled:
-            return .unavailable("Chưa cài đặt Face ID/Touch ID trên thiết bị.")
+            return .unavailable(L.t("Chưa cài đặt Face ID/Touch ID trên thiết bị."))
         case .biometryLockout:
-            return .unavailable("Sinh trắc học đang tạm bị khoá. Dùng mã mở khoá để tiếp tục.")
+            return .unavailable(L.t("Sinh trắc học đang tạm bị khoá. Dùng mã mở khoá để tiếp tục."))
         case .passcodeNotSet:
-            return .unavailable("Thiết bị chưa đặt mã mở khoá.")
+            return .unavailable(L.t("Thiết bị chưa đặt mã mở khoá."))
         case .authenticationFailed:
-            return .failed("Xác thực không thành công. Thử lại.")
+            return .failed(L.t("Xác thực không thành công. Thử lại."))
         default:
-            return .failed("Không xác thực được. Thử lại.")
+            return .failed(L.t("Không xác thực được. Thử lại."))
         }
     }
 }
@@ -258,7 +258,7 @@ public final class UserDefaultsAppLockStorage: AppLockStorage {
 /// Vietnamese prompt shown inside the system biometric sheet. Top-level rather
 /// than a `static let` on the `@MainActor` store so it can be a default
 /// argument from a nonisolated context.
-public let appLockPromptReason = "Mở khoá WarrantyVault để xem dữ liệu bảo hành."
+public let appLockPromptReason = L.t("Mở khoá WarrantyVault để xem dữ liệu bảo hành.")
 
 /// The app lock's state machine. Owned by the app (`@StateObject` in
 /// `WarrantyVaultApp`) and rendered by `AppLockScreen`.
@@ -355,7 +355,7 @@ public final class AppLockStore: ObservableObject {
         } catch let error as AppLockError {
             lastError = error.isCancellation ? nil : error.message
         } catch {
-            lastError = "Không xác thực được. Thử lại."
+            lastError = L.t("Không xác thực được. Thử lại.")
         }
     }
 
@@ -406,7 +406,7 @@ public final class AppLockStore: ObservableObject {
             lastError = error.isCancellation ? nil : error.message
             return false
         } catch {
-            lastError = "Không xác thực được. Thử lại."
+            lastError = L.t("Không xác thực được. Thử lại.")
             return false
         }
     }
@@ -426,5 +426,5 @@ public final class AppLockStore: ObservableObject {
     }
 
     static let passcodeLostNotice =
-        "Đã tắt khoá ứng dụng vì thiết bị không còn mã mở khoá để xác thực."
+        L.t("Đã tắt khoá ứng dụng vì thiết bị không còn mã mở khoá để xác thực.")
 }

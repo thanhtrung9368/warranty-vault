@@ -222,12 +222,12 @@ struct DeviceFormView: View {
                         Button {
                             showPhotoPicker = true
                         } label: {
-                            Label("Chụp hoặc chọn ảnh", systemImage: "photo.on.rectangle")
+                            Label(L.t("Chụp hoặc chọn ảnh"), systemImage: "photo.on.rectangle")
                         }
                         Button {
                             showPDFImporter = true
                         } label: {
-                            Label("Chọn tệp PDF", systemImage: "doc")
+                            Label(L.t("Chọn tệp PDF"), systemImage: "doc")
                         }
                     } label: {
                         HStack(spacing: 12) {
@@ -238,10 +238,10 @@ struct DeviceFormView: View {
                                     .foregroundStyle(WVColor.tint)
                             }
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(scanning ? "Đang quét hoá đơn…" : "Quét hoá đơn / phiếu bảo hành")
+                                Text(scanning ? L.t("Đang quét hoá đơn…") : L.t("Quét hoá đơn / phiếu bảo hành"))
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(WVColor.label)
-                                Text("Chọn ảnh (JPG/PNG/WEBP/HEIC) hoặc tệp PDF để tự điền — vẫn kiểm tra lại trước khi lưu")
+                                Text(L.t("Chọn ảnh (JPG/PNG/WEBP/HEIC) hoặc tệp PDF để tự điền — vẫn kiểm tra lại trước khi lưu"))
                                     .font(.system(size: 12))
                                     .foregroundStyle(WVColor.label3)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -261,8 +261,8 @@ struct DeviceFormView: View {
                     if let info = scanInfo {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(info.confidence == "high"
-                                 ? "Đã điền nháp từ hoá đơn"
-                                 : "Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé")
+                                 ? L.t("Đã điền nháp từ hoá đơn")
+                                 : L.t("Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé"))
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(WVColor.label2)
                             // Used, but it looks wrong (e.g. an IMEI that fails
@@ -294,9 +294,9 @@ struct DeviceFormView: View {
 
                 // Basic info
                 WVGroup {
-                    inputRow(label: "Tên", placeholder: "MacBook Pro M3...", text: $name)
+                    inputRow(label: L.t("Tên"), placeholder: "MacBook Pro M3...", text: $name)
                     WVDivider()
-                    inputRow(label: "Hãng", placeholder: "Apple, Samsung...", text: $brand)
+                    inputRow(label: L.t("Hãng"), placeholder: "Apple, Samsung...", text: $brand)
                     if !brandSuggestions.isEmpty {
                         WVDivider()
                         AutocompleteRow(suggestions: brandSuggestions, text: $brand)
@@ -307,7 +307,7 @@ struct DeviceFormView: View {
                     // Category picker row
                     Button { showCategoryPicker = true } label: {
                         HStack(spacing: 12) {
-                            Text("Loại")
+                            Text(L.t("Loại"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer(minLength: 8)
@@ -331,16 +331,16 @@ struct DeviceFormView: View {
                     }
                     .buttonStyle(WVRowButtonStyle())
                     WVDivider()
-                    inputRow(label: "Serial / IMEI", placeholder: "Không bắt buộc",
+                    inputRow(label: "Serial / IMEI", placeholder: L.t("Không bắt buộc"),
                              text: $serial, autocapitalize: .characters)
                 }
 
                 // Purchase info
-                WVSectionHeader("Mua hàng")
+                WVSectionHeader(L.t("Mua hàng"))
                 WVGroup {
                     // Date picker
                     HStack(spacing: 12) {
-                        Text("Ngày mua")
+                        Text(L.t("Ngày mua"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer()
@@ -355,7 +355,7 @@ struct DeviceFormView: View {
 
                     // Price field
                     HStack(spacing: 12) {
-                        Text("Giá mua")
+                        Text(L.t("Giá mua"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
@@ -366,7 +366,7 @@ struct DeviceFormView: View {
                     .padding(.vertical, 7)
 
                     WVDivider()
-                    inputRow(label: "Nơi mua", placeholder: "CellphoneS, TopZone...", text: $purchasePlace)
+                    inputRow(label: L.t("Nơi mua"), placeholder: "CellphoneS, TopZone...", text: $purchasePlace)
                     if !storeSuggestions.isEmpty {
                         WVDivider()
                         AutocompleteRow(suggestions: storeSuggestions, text: $purchasePlace)
@@ -375,11 +375,11 @@ struct DeviceFormView: View {
 
                 // Default warranty (create mode only)
                 if !isEditing {
-                    WVSectionHeader("Bảo hành mặc định")
-                    WVSectionFooter("Mày có thể thêm nhiều gói khác trong chi tiết thiết bị.")
+                    WVSectionHeader(L.t("Bảo hành mặc định"))
+                    WVSectionFooter(L.t("Mày có thể thêm nhiều gói khác trong chi tiết thiết bị."))
                     WVGroup {
                         HStack(spacing: 12) {
-                            Text("Số tháng")
+                            Text(L.t("Số tháng"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer(minLength: 8)
@@ -393,24 +393,24 @@ struct DeviceFormView: View {
                         .frame(minHeight: 44)
                         .padding(.vertical, 7)
                         WVDivider()
-                        inputRow(label: "Hãng BH", placeholder: "Apple Việt Nam...", text: $warrantyProvider)
+                        inputRow(label: L.t("Hãng BH"), placeholder: L.t("Apple Việt Nam..."), text: $warrantyProvider)
                         WVDivider()
-                        inputRow(label: "SĐT BH", placeholder: "1800-...", text: $warrantyPhone, keyboard: .phonePad)
+                        inputRow(label: L.t("SĐT BH"), placeholder: "1800-...", text: $warrantyPhone, keyboard: .phonePad)
                         WVDivider()
-                        inputRow(label: "Địa chỉ", placeholder: "Bitexco, Q.1, TP.HCM", text: $warrantyAddress)
+                        inputRow(label: L.t("Địa chỉ"), placeholder: "Bitexco, Q.1, TP.HCM", text: $warrantyAddress)
                     }
                 }
 
                 // Status (edit mode only)
                 if isEditing {
-                    WVSectionHeader("Trạng thái")
+                    WVSectionHeader(L.t("Trạng thái"))
                     WVGroup {
                         let statusOptions: [(DeviceStatus, String)] = [
-                            (.ACTIVE, "Đang dùng"),
-                            (.BROKEN, "Ngừng dùng"),
-                            (.SOLD, "Đã bán"),
-                            (.LOST, "Mất"),
-                            (.EXPIRED, "Đã lưu trữ"),
+                            (.ACTIVE, L.t("Đang dùng")),
+                            (.BROKEN, L.t("Ngừng dùng")),
+                            (.SOLD, L.t("Đã bán")),
+                            (.LOST, L.t("Mất")),
+                            (.EXPIRED, L.t("Đã lưu trữ")),
                         ]
                         ForEach(Array(statusOptions.enumerated()), id: \.offset) { idx, pair in
                             if idx > 0 { WVDivider() }
@@ -439,9 +439,9 @@ struct DeviceFormView: View {
                 }
 
                 // Notes
-                WVSectionHeader("Ghi chú")
+                WVSectionHeader(L.t("Ghi chú"))
                 WVGroup {
-                    TextField("Ghi chú thêm...", text: $notes, axis: .vertical)
+                    TextField(L.t("Ghi chú thêm..."), text: $notes, axis: .vertical)
                         .font(.system(size: 17))
                         .foregroundStyle(WVColor.label)
                         .lineLimit(2...8)
@@ -455,8 +455,8 @@ struct DeviceFormView: View {
                 // What it does *not* accept is half a pair — the form checks the
                 // server's own rule before it sends, and shows the server's own
                 // Vietnamese copy when it refuses.
-                WVSectionHeader("Bán lại")
-                WVSectionFooter("Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán.")
+                WVSectionHeader(L.t("Bán lại"))
+                WVSectionFooter(L.t("Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán."))
                 WVGroup {
                     Button {
                         saleRecorded.toggle()
@@ -464,7 +464,7 @@ struct DeviceFormView: View {
                         fieldErrors["soldPrice"] = nil
                     } label: {
                         HStack(spacing: 12) {
-                            Text(saleRecorded ? "Bỏ ghi nhận" : "Ghi nhận đã bán")
+                            Text(saleRecorded ? L.t("Bỏ ghi nhận") : L.t("Ghi nhận đã bán"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.tint)
                             Spacer(minLength: 0)
@@ -484,7 +484,7 @@ struct DeviceFormView: View {
                         WVDivider()
 
                         HStack(spacing: 12) {
-                            Text("Ngày bán")
+                            Text(L.t("Ngày bán"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer()
@@ -501,7 +501,7 @@ struct DeviceFormView: View {
                         WVDivider()
 
                         HStack(spacing: 12) {
-                            Text("Giá bán")
+                            Text(L.t("Giá bán"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer(minLength: 8)
@@ -519,7 +519,7 @@ struct DeviceFormView: View {
                         WVDivider()
 
                         HStack(spacing: 8) {
-                            Text("Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán.")
+                            Text(L.t("Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán."))
                                 .font(.system(size: 12))
                                 .foregroundStyle(WVColor.label3)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -539,7 +539,7 @@ struct DeviceFormView: View {
                                     Text(profit.label)
                                         .font(.system(size: 15, weight: .semibold))
                                         .foregroundStyle(Self.saleToneColor(profit.tone))
-                                    Text("so với giá mua \(WVFormat.vnd(price ?? 0))")
+                                    Text(L.t("so với giá mua %@", WVFormat.vnd(price ?? 0)))
                                         .font(.system(size: 12))
                                         .foregroundStyle(WVColor.label3)
                                 }
@@ -571,7 +571,7 @@ struct DeviceFormView: View {
                             .padding(.vertical, 20)
                     } else {
                         WVButton(
-                            isEditing ? "Lưu thay đổi" : "Thêm thiết bị",
+                            isEditing ? L.t("Lưu thay đổi") : L.t("Thêm thiết bị"),
                             icon: isEditing ? "save" : "plus",
                             kind: isValid ? .primary : .secondary
                         ) {
@@ -587,15 +587,15 @@ struct DeviceFormView: View {
             }
         }
         .wvScreen()
-        .navigationTitle(isEditing ? "Sửa thiết bị" : "Thiết bị mới")
+        .navigationTitle(isEditing ? L.t("Sửa thiết bị") : L.t("Thiết bị mới"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 if didSave {
-                    Button("Đóng") { dismiss() }
+                    Button(L.t("Đóng")) { dismiss() }
                         .foregroundStyle(WVColor.tint)
                 } else {
-                    Button("Huỷ") { showDiscardAlert = true }
+                    Button(L.t("Huỷ")) { showDiscardAlert = true }
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -607,7 +607,7 @@ struct DeviceFormView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                 } else {
-                    Button(isEditing ? "Lưu" : "Thêm") {
+                    Button(isEditing ? L.t("Lưu") : L.t("Thêm")) {
                         Task { await submit() }
                     }
                     .font(.system(size: 17, weight: .semibold))
@@ -619,11 +619,11 @@ struct DeviceFormView: View {
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerSheet(selected: $category, options: categoryOptions)
         }
-        .alert("Bỏ thay đổi?", isPresented: $showDiscardAlert) {
-            Button("Tiếp tục sửa", role: .cancel) {}
-            Button("Bỏ", role: .destructive) { dismiss() }
+        .alert(L.t("Bỏ thay đổi?"), isPresented: $showDiscardAlert) {
+            Button(L.t("Tiếp tục sửa"), role: .cancel) {}
+            Button(L.t("Bỏ"), role: .destructive) { dismiss() }
         } message: {
-            Text("Tất cả thông tin đã nhập sẽ mất.")
+            Text(L.t("Tất cả thông tin đã nhập sẽ mất."))
         }
         .task { await catalog.loadIfNeeded() }
         .task {
@@ -679,7 +679,7 @@ struct DeviceFormView: View {
                 topError = AttachmentFileType.ocrUnsupportedMessage
             }
         } catch {
-            topError = "Không đọc được ảnh, thử lại sau"
+            topError = L.t("Không đọc được ảnh, thử lại sau")
         }
     }
 
@@ -689,7 +689,7 @@ struct DeviceFormView: View {
         topError = nil
         scanInfo = nil
         guard case let .success(urls) = result, let url = urls.first else {
-            if case .failure = result { topError = "Không mở được file." }
+            if case .failure = result { topError = L.t("Không mở được file.") }
             return
         }
         let scoped = url.startAccessingSecurityScopedResource()
@@ -709,7 +709,7 @@ struct DeviceFormView: View {
             }
             await scan(fileName: "receipt-\(Self.stamp()).pdf", fileType: mimeType, data: data)
         } catch {
-            topError = "Không đọc được file."
+            topError = L.t("Không đọc được file.")
         }
     }
 
@@ -729,7 +729,7 @@ struct DeviceFormView: View {
         } catch let err as APIError {
             topError = err.localizedDescription
         } catch {
-            topError = "Không quét được hoá đơn, thử lại sau"
+            topError = L.t("Không quét được hoá đơn, thử lại sau")
         }
     }
 
@@ -759,13 +759,13 @@ struct DeviceFormView: View {
 
     private static func unmatchedLabel(_ key: String) -> String {
         switch key {
-        case "brand": return "Hãng"
-        case "purchasePlace": return "Nơi mua"
-        case "category": return "Loại thiết bị"
+        case "brand": return L.t("Hãng")
+        case "purchasePlace": return L.t("Nơi mua")
+        case "category": return L.t("Loại thiết bị")
         // The extractor drops these when the value is unusable (>120 bytes of
         // junk, or a warranty length outside 0–120) — see `DraftDevice.unmatched`.
         case "serialNumber": return "Serial / IMEI"
-        case "warrantyMonths": return "Số tháng bảo hành"
+        case "warrantyMonths": return L.t("Số tháng bảo hành")
         default: return key
         }
     }
@@ -930,15 +930,15 @@ struct DeviceFormView: View {
     // MARK: - Fallback categories
 
     private static let fallbackCategories: [CategoryOption] = [
-        .init(code: "phone",   name: "Điện thoại"),
+        .init(code: "phone",   name: L.t("Điện thoại")),
         .init(code: "laptop",  name: "Laptop"),
-        .init(code: "tablet",  name: "Máy tính bảng"),
-        .init(code: "watch",   name: "Đồng hồ"),
+        .init(code: "tablet",  name: L.t("Máy tính bảng")),
+        .init(code: "watch",   name: L.t("Đồng hồ")),
         .init(code: "tv",      name: "TV"),
         .init(code: "audio",   name: "Tai nghe / Loa"),
-        .init(code: "appliance", name: "Gia dụng"),
-        .init(code: "console", name: "Máy game"),
-        .init(code: "other",   name: "Khác"),
+        .init(code: "appliance", name: L.t("Gia dụng")),
+        .init(code: "console", name: L.t("Máy game")),
+        .init(code: "other",   name: L.t("Khác")),
     ]
 }
 
@@ -1006,7 +1006,7 @@ private struct CategoryPickerSheet: View {
                     }
                 }
             }
-            .navigationTitle("Chọn loại")
+            .navigationTitle(L.t("Chọn loại"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

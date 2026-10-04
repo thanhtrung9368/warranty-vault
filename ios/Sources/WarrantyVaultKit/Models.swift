@@ -13,10 +13,81 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     public let email: String
     public let name: String?
     public let aiOptIn: Bool?
+    /// The language the user picked in Settings (`User.locale`, migration 0014).
+    ///
+    /// `nil` means **"never chosen"**, which is NOT the same as `"en"`: the
+    /// request still decides via `?lang=` → `Accept-Language` → `en`. The server
+    /// omits the key entirely while it is null, so old clients see no change.
+    ///
+    /// Kept as the raw two-letter code rather than an `AppLanguage` so a value
+    /// this build does not know (a future third language) cannot fail decoding
+    /// and lock the user out of their own account.
+    public let locale: String?
 
-    public init(id: String, email: String, name: String?, aiOptIn: Bool? = nil) {
-        self.id = id; self.email = email; self.name = name; self.aiOptIn = aiOptIn
+    public init(id: String, email: String, name: String?, aiOptIn: Bool? = nil,
+                locale: String? = nil) {
+        self.id = id; self.email = email; self.name = name
+        self.aiOptIn = aiOptIn; self.locale = locale
     }
+
+    /// `locale` resolved against the languages this build actually ships.
+    public var preferredLanguage: AppLanguage? { AppLanguage.parse(locale) }
+}
+
+// MARK: - Profile update (PATCH /auth/me)
+
+/// Body of `PATCH /api/v1/auth/me`.
+///
+/// Both fields are **tri-state and independent** (see `openapi.yaml`): an absent
+/// key leaves the stored value alone, `nil`/`""` CLEARS it, and a value sets it.
+/// Sending `{"locale": "vi"}` on its own is a valid body, which is exactly what
+/// the language switcher needs — and it means a client that only knows about
+/// `displayName` cannot wipe a stored language by editing a name.
+///
+/// Modelled as `String?` + an explicit "was it set" flag rather than
+/// `String??`, because `JSONEncoder` collapses the two `nil`s.
+public struct UpdateProfileInput: Encodable, Sendable {
+    /// Sentinel for "key absent". A plain `String?` cannot express three states.
+    public enum Field: Sendable, Equatable {
+        /// Key absent — keep whatever is stored.
+        case unchanged
+        /// `null` — clear the stored value.
+        case clear
+        /// A new value.
+        case set(String)
+
+        var isSet: Bool { if case .unchanged = self { return false }; return true }
+        var value: String? { if case let .set(v) = self { return v }; return nil }
+    }
+
+    public var displayName: Field
+    public var locale: Field
+
+    public init(displayName: Field = .unchanged, locale: Field = .unchanged) {
+        self.displayName = displayName
+        self.locale = locale
+    }
+
+    enum CodingKeys: String, CodingKey { case displayName, locale }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if displayName.isSet {
+            try container.encode(displayName.value, forKey: .displayName)
+        }
+        if locale.isSet {
+            try container.encode(locale.value, forKey: .locale)
+        }
+    }
+}
+
+/// Response of `PATCH /api/v1/auth/me`: the same shape as `GET /auth/me` plus a
+/// server-translated `message`, so the caller can replace its cached user
+/// directly instead of re-fetching. The `message` is NOT re-translated here —
+/// it already arrives in the language `Accept-Language` asked for.
+public struct UpdateProfileResult: Decodable, Sendable {
+    public let user: User
+    public let message: String?
 }
 
 public struct RegisterInput: Encodable, Sendable {
@@ -70,11 +141,11 @@ public enum DeviceStatus: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .ACTIVE:  return "Đang dùng"
-        case .EXPIRED: return "Hết bảo hành"
-        case .SOLD:    return "Đã bán"
-        case .BROKEN:  return "Hỏng"
-        case .LOST:    return "Mất"
+        case .ACTIVE:  return L.t("Đang dùng")
+        case .EXPIRED: return L.t("Hết bảo hành")
+        case .SOLD:    return L.t("Đã bán")
+        case .BROKEN:  return L.t("Hỏng")
+        case .LOST:    return L.t("Mất")
         }
     }
 }
@@ -84,9 +155,9 @@ public enum WarrantyType: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .STANDARD:    return "Tiêu chuẩn"
-        case .EXTENDED:    return "Mở rộng"
-        case .THIRD_PARTY: return "Bên thứ ba"
+        case .STANDARD:    return L.t("Tiêu chuẩn")
+        case .EXTENDED:    return L.t("Mở rộng")
+        case .THIRD_PARTY: return L.t("Bên thứ ba")
         }
     }
 }
@@ -96,11 +167,11 @@ public enum BillingCycle: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .MONTHLY:   return "Hàng tháng"
-        case .QUARTERLY: return "Hàng quý"
-        case .YEARLY:    return "Hàng năm"
-        case .LIFETIME:  return "Lifetime / Trọn đời"
-        case .CUSTOM:    return "Tuỳ chỉnh"
+        case .MONTHLY:   return L.t("Hàng tháng")
+        case .QUARTERLY: return L.t("Hàng quý")
+        case .YEARLY:    return L.t("Hàng năm")
+        case .LIFETIME:  return L.t("Lifetime / Trọn đời")
+        case .CUSTOM:    return L.t("Tuỳ chỉnh")
         }
     }
 }
@@ -110,10 +181,10 @@ public enum SubscriptionStatus: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .ACTIVE:   return "Đang hoạt động"
-        case .PAUSED:   return "Tạm dừng"
-        case .CANCELED: return "Đã huỷ"
-        case .EXPIRED:  return "Hết hạn"
+        case .ACTIVE:   return L.t("Đang hoạt động")
+        case .PAUSED:   return L.t("Tạm dừng")
+        case .CANCELED: return L.t("Đã huỷ")
+        case .EXPIRED:  return L.t("Hết hạn")
         }
     }
 }
@@ -123,9 +194,9 @@ public enum WishlistPriority: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .MUST:  return "Phải mua"
-        case .WANT:  return "Muốn"
-        case .MAYBE: return "Cân nhắc"
+        case .MUST:  return L.t("Phải mua")
+        case .WANT:  return L.t("Muốn")
+        case .MAYBE: return L.t("Cân nhắc")
         }
     }
 }
@@ -135,10 +206,10 @@ public enum WishlistStatus: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .WATCHING:  return "Đang theo dõi"
-        case .DECIDED:   return "Quyết mua"
-        case .SKIPPED:   return "Bỏ qua"
-        case .PURCHASED: return "Đã mua"
+        case .WATCHING:  return L.t("Đang theo dõi")
+        case .DECIDED:   return L.t("Quyết mua")
+        case .SKIPPED:   return L.t("Bỏ qua")
+        case .PURCHASED: return L.t("Đã mua")
         }
     }
 }

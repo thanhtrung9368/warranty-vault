@@ -63,13 +63,13 @@ public enum AttachmentFileType {
 
     /// Vietnamese message for a rejected payload, mirroring the server's
     /// `"Chỉ chấp nhận JPG/PNG/WEBP/GIF/HEIC hoặc PDF"`.
-    public static let unsupportedMessage = "Chỉ chấp nhận ảnh JPG/PNG/WEBP/GIF/HEIC hoặc PDF."
+    public static let unsupportedMessage = L.t("Chỉ chấp nhận ảnh JPG/PNG/WEBP/GIF/HEIC hoặc PDF.")
 
     /// Per-file cap the server enforces (`services.MaxAttachmentBytes`).
     public static let maxBytes = 5 * 1024 * 1024
 
     /// Vietnamese message for an oversized payload.
-    public static let tooLargeMessage = "File vượt quá 5MB."
+    public static let tooLargeMessage = L.t("File vượt quá 5MB.")
 
     // MARK: - OCR (receipt scan) acceptance
     //
@@ -90,7 +90,7 @@ public enum AttachmentFileType {
 
     /// Vietnamese message for a payload the OCR endpoint can't take
     /// (mirrors the server's `Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF`).
-    public static let ocrUnsupportedMessage = "Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF."
+    public static let ocrUnsupportedMessage = L.t("Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc PDF.")
 
     /// What the receipt scan has to do with `data` before uploading it.
     public enum OCRPayload: Equatable, Sendable {

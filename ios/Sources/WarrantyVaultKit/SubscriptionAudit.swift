@@ -192,10 +192,10 @@ public enum SubscriptionAuditRules {
     /// pill only grades how much a finding deserves a look.
     public static func severityLabel(_ raw: String) -> String {
         switch severity(raw) {
-        case .HIGH: return "Đáng chú ý"
-        case .MEDIUM: return "Nên xem lại"
-        case .LOW: return "Nhắc nhẹ"
-        case .UNKNOWN: return "Khác"
+        case .HIGH: return L.t("Đáng chú ý")
+        case .MEDIUM: return L.t("Nên xem lại")
+        case .LOW: return L.t("Nhắc nhẹ")
+        case .UNKNOWN: return L.t("Khác")
         }
     }
 
@@ -207,7 +207,7 @@ public enum SubscriptionAuditRules {
 
     /// Short pill for a finding whose rise the server judged immaterial.
     public static func minorPillLabel(_ finding: SubscriptionAuditFinding) -> String? {
-        isMinorPriceRise(finding) ? "Thay đổi nhỏ" : nil
+        isMinorPriceRise(finding) ? L.t("Thay đổi nhỏ") : nil
     }
 
     /// The "mức tăng nhỏ" line, or `nil` when there is nothing to soften.
@@ -218,9 +218,9 @@ public enum SubscriptionAuditRules {
         guard finding.material == false else { return nil }
         let percent = thresholds?.priceRiseMinPercent ?? 0
         if percent > 0 {
-            return "Mức tăng này dưới \(percent)% nên chỉ là thay đổi nhỏ — không phải cảnh báo."
+            return L.t("Mức tăng này dưới %d%% nên chỉ là thay đổi nhỏ — không phải cảnh báo.", percent)
         }
-        return "Mức tăng này được đánh giá là nhỏ — không phải cảnh báo."
+        return L.t("Mức tăng này được đánh giá là nhỏ — không phải cảnh báo.")
     }
 
     // MARK: The rule behind a verdict
@@ -237,23 +237,22 @@ public enum SubscriptionAuditRules {
         switch normalizedKind(finding) {
         case kindQuietAutoRenew:
             guard let t = thresholds, t.quietMinAutoCharges > 0, t.quietMinMonths > 0 else { return nil }
-            return "Luật: gói đang hoạt động, không có khoản nào do bạn tự ghi, "
-                + "máy đã tự trừ ít nhất \(t.quietMinAutoCharges) lần "
-                + "và khoản tự trừ đầu tiên cách đây ít nhất \(t.quietMinMonths) tháng."
+            return L.t("Luật: gói đang hoạt động, không có khoản nào do bạn tự ghi, máy đã tự trừ ít nhất %d lần và khoản tự trừ đầu tiên cách đây ít nhất %d tháng.",
+                       t.quietMinAutoCharges, t.quietMinMonths)
 
         case kindPriceIncreased:
             guard let t = thresholds, t.priceRiseMinPercent > 0 else { return nil }
-            return "Luật: so hai kỳ thanh toán liền kề; mọi mức tăng đều được báo, "
-                + "từ \(t.priceRiseMinPercent)% trở lên mới coi là đáng kể."
+            return L.t("Luật: so hai kỳ thanh toán liền kề; mọi mức tăng đều được báo, từ %d%% trở lên mới coi là đáng kể.",
+                       t.priceRiseMinPercent)
 
         case kindDuplicate:
             switch finding.reason?.trimmingCharacters(in: .whitespaces).uppercased() {
             case reasonSameBrandCategory:
-                return "Luật: hai gói đang hoạt động cùng hãng và cùng loại."
+                return L.t("Luật: hai gói đang hoạt động cùng hãng và cùng loại.")
             case reasonSameName:
                 return thresholds?.duplicateNormalized == true
-                    ? "Luật: hai gói đang hoạt động trùng tên sau khi bỏ dấu và không phân biệt hoa/thường."
-                    : "Luật: hai gói đang hoạt động trùng tên."
+                    ? L.t("Luật: hai gói đang hoạt động trùng tên sau khi bỏ dấu và không phân biệt hoa/thường.")
+                    : L.t("Luật: hai gói đang hoạt động trùng tên.")
             default:
                 return nil
             }
@@ -277,18 +276,19 @@ public enum SubscriptionAuditRules {
         switch normalizedKind(finding) {
         case kindQuietAutoRenew:
             guard finding.chargeCount > 0 else { return nil }
-            return "Máy đã tự trừ: \(formatVnd(finding.chargedTotalVnd)) · \(finding.chargeCount) lần"
+            return L.t("Máy đã tự trừ: %@ · %@", formatVnd(finding.chargedTotalVnd),
+                                          L.p("%d lần", Int(finding.chargeCount)))
 
         case kindPriceIncreased:
             guard let rise = finding.increaseVnd else { return nil }
             if let percent = finding.increasePercent {
-                return "Tăng \(formatVnd(rise)) (+\(percent)%)"
+                return L.t("Tăng %@ (+%d%%)", formatVnd(rise), percent)
             }
-            return "Tăng \(formatVnd(rise)) (kỳ trước 0đ nên không tính được %)"
+            return L.t("Tăng %@ (kỳ trước 0đ nên không tính được %%)", formatVnd(rise))
 
         case kindDuplicate:
             return finding.monthlyVnd > 0
-                ? "Quy đổi tháng của cả hai: ~\(formatVnd(finding.monthlyVnd))"
+                ? L.t("Quy đổi tháng của cả hai: ~%@", formatVnd(finding.monthlyVnd))
                 : nil
 
         default:
@@ -305,13 +305,13 @@ public enum SubscriptionAuditRules {
     public static func timelineNote(_ finding: SubscriptionAuditFinding) -> String? {
         var parts: [String] = []
         if let recorded = ActionQueueRules.dateLabel(finding.lastRecordedAt) {
-            parts.append("Khoản ghi nhận gần nhất: \(recorded)")
+            parts.append(L.t("Khoản ghi nhận gần nhất: %@", recorded))
         }
         if let renewal = ActionQueueRules.dateLabel(finding.nextRenewalAt) {
             if let days = finding.daysUntilRenewal {
-                parts.append("Kỳ gia hạn tới: \(renewal) (còn \(days) ngày)")
+                parts.append(L.t("Kỳ gia hạn tới: %@ (%@)", renewal, L.p("còn %d ngày", days)))
             } else {
-                parts.append("Kỳ gia hạn tới: \(renewal)")
+                parts.append(L.t("Kỳ gia hạn tới: %@", renewal))
             }
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
@@ -321,7 +321,7 @@ public enum SubscriptionAuditRules {
     /// payload without it must not be described as harmless — that is a claim
     /// about the server's behaviour, not a decoration.
     public static func advisoryNote(_ advisory: Bool) -> String? {
-        advisory ? "Chỉ tư vấn: không có gì bị sửa, bị huỷ hay bị tắt tự động." : nil
+        advisory ? L.t("Chỉ tư vấn: không có gì bị sửa, bị huỷ hay bị tắt tự động.") : nil
     }
 
     /// The "Luật đang áp dụng" lines: one per rule, built from the payload's
@@ -331,18 +331,18 @@ public enum SubscriptionAuditRules {
         guard let t = thresholds else { return [] }
         var lines: [String] = []
         if t.quietMinAutoCharges > 0 && t.quietMinMonths > 0 {
-            lines.append("Tự trừ lâu không ghi nhận: ≥ \(t.quietMinAutoCharges) khoản máy tự trừ "
-                + "và khoản đầu cách đây ≥ \(t.quietMinMonths) tháng.")
+            lines.append(L.t("Tự trừ lâu không ghi nhận: ≥ %d khoản máy tự trừ và khoản đầu cách đây ≥ %d tháng.",
+                              t.quietMinAutoCharges, t.quietMinMonths))
         }
         if t.priceRiseMinPercent > 0 {
-            lines.append("Tăng giá: mọi mức tăng đều được báo; "
-                + "từ \(t.priceRiseMinPercent)% trở lên là đáng kể.")
+            lines.append(L.t("Tăng giá: mọi mức tăng đều được báo; từ %d%% trở lên là đáng kể.",
+                              t.priceRiseMinPercent))
         }
         if t.upcomingRenewalDays > 0 {
-            lines.append("Còn kịp xử lý trước khi bị trừ tiền: \(t.upcomingRenewalDays) ngày.")
+            lines.append(L.p("Còn kịp xử lý trước khi bị trừ tiền: %d ngày.", t.upcomingRenewalDays))
         }
         if t.duplicateNormalized {
-            lines.append("Trùng nhau: so tên có bỏ dấu, không phân biệt hoa/thường, chỉ giữa các gói đang hoạt động.")
+            lines.append(L.t("Trùng nhau: so tên có bỏ dấu, không phân biệt hoa/thường, chỉ giữa các gói đang hoạt động."))
         }
         return lines
     }
@@ -388,19 +388,19 @@ public enum SubscriptionAuditRules {
     /// The subtitle under the screen title, built from `counts`.
     public static func subtitle(_ counts: ActionCounts) -> String {
         switch counts.total {
-        case 0: return "Không có gì đáng lưu ý"
-        case 1: return "1 phát hiện cần xem lại"
-        default: return "\(counts.total) phát hiện cần xem lại"
+        case 0: return L.t("Không có gì đáng lưu ý")
+        case 1: return L.t("1 phát hiện cần xem lại")
+        default: return L.p("%d phát hiện cần xem lại", counts.total)
         }
     }
 
     /// The entry row's title — `GET /api/v1/subscriptions/audit`.
-    public static let entryTitle = "Soát gói đăng ký"
+    public static let entryTitle = L.t("Soát gói đăng ký")
 
     /// One honest sentence about what the entry row opens. No verdict, no numbers:
     /// the screen itself is where the server's note and findings live.
     public static let entrySubtitle =
-        "Đọc lịch sử thanh toán để tìm gói tự trừ lâu không thấy ghi nhận, gói tăng giá và gói trùng nhau."
+        L.t("Đọc lịch sử thanh toán để tìm gói tự trừ lâu không thấy ghi nhận, gói tăng giá và gói trùng nhau.")
 
     // MARK: Money
 

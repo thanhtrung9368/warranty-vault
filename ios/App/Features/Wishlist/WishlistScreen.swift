@@ -19,10 +19,10 @@ private enum WishSort: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .priorityDesc: return "Mức độ thèm cao"
-        case .targetAsc:    return "Target gần nhất"
-        case .priceDesc:    return "Giá cao"
-        case .priceAsc:     return "Giá thấp"
+        case .priorityDesc: return L.t("Mức độ thèm cao")
+        case .targetAsc:    return L.t("Target gần nhất")
+        case .priceDesc:    return L.t("Giá cao")
+        case .priceAsc:     return L.t("Giá thấp")
         }
     }
 }
@@ -102,9 +102,9 @@ struct WishlistScreen: View {
 
                 WVSegmented(
                     options: [
-                        (WishFilter.watchingDecided, "Đang ngó"),
-                        (WishFilter.purchased,       "Đã mua"),
-                        (WishFilter.all,             "Tất cả"),
+                        (WishFilter.watchingDecided, L.t("Đang ngó")),
+                        (WishFilter.purchased,       L.t("Đã mua")),
+                        (WishFilter.all,             L.t("Tất cả")),
                     ],
                     selection: $filter
                 )
@@ -115,13 +115,13 @@ struct WishlistScreen: View {
                 if filtered.isEmpty {
                     WVEmpty(
                         icon: query.isEmpty ? "heart" : "search",
-                        title: query.isEmpty ? "Wishlist trống" : "Không có gì khớp",
+                        title: query.isEmpty ? L.t("Wishlist trống") : L.t("Không có gì khớp"),
                         description: query.isEmpty
-                            ? "Note đồ đang thèm — giá, link, deadline."
-                            : "Thử từ khoá khác"
+                            ? L.t("Note đồ đang thèm — giá, link, deadline.")
+                            : L.t("Thử từ khoá khác")
                     ) {
                         if query.isEmpty {
-                            WVButton("Thêm món", icon: "plus") { pushCreate = true }
+                            WVButton(L.t("Thêm món"), icon: "plus") { pushCreate = true }
                                 .padding(.horizontal, WVSpacing.gutter)
                         }
                     }
@@ -135,7 +135,7 @@ struct WishlistScreen: View {
         .wvScreen()
         .navigationTitle("Wishlist")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $query, prompt: "Tìm món...")
+        .searchable(text: $query, prompt: L.t("Tìm món..."))
         .toolbar { toolbarContent }
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -170,14 +170,14 @@ struct WishlistScreen: View {
 
     private var wishSummaryCard: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("ĐANG THÈM \(watching.count) MÓN")
+            Text(L.p("ĐANG THÈM %d MÓN", watching.count))
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1)
                 .foregroundStyle(.white.opacity(0.85))
             Text(WVFormat.vnd(watchingTotal))
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(.white)
-            Text("Tổng (theo giá hiện tại)")
+            Text(L.t("Tổng (theo giá hiện tại)"))
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.85))
         }
@@ -211,7 +211,7 @@ struct WishlistScreen: View {
                     .buttonStyle(WVRowButtonStyle())
                 }
             }
-            WVSectionFooter("\(filtered.count) món")
+            WVSectionFooter(L.p("%d món", filtered.count))
         }
     }
 
@@ -250,7 +250,7 @@ struct WishlistScreen: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Sắp xếp")
+            .navigationTitle(L.t("Sắp xếp"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -30,7 +30,7 @@ struct ServiceDirectorySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVSectionHeader("Đi bảo hành ở đâu")
+            WVSectionHeader(L.t("Đi bảo hành ở đâu"))
             WVSectionFooter(DirectoryCopy.sectionHint)
 
             if loading && directory == nil {
@@ -120,7 +120,7 @@ struct ServiceDirectorySection: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(WVColor.orange)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Hãng bạn ghi trên thiết bị: “\(brandInput)”")
+                    Text(L.t("Hãng bạn ghi trên thiết bị: “%@”", brandInput))
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
@@ -196,7 +196,7 @@ private struct CentreRowView: View {
                     .foregroundStyle(WVColor.label)
                     .fixedSize(horizontal: false, vertical: true)
                 if case .unmatched(_, let input, let note) = provider {
-                    Text("Bạn ghi: “\(input)”")
+                    Text(L.t("Bạn ghi: “%@”", input))
                         .font(.system(size: 12))
                         .foregroundStyle(WVColor.label3)
                     Text(note)

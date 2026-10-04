@@ -82,17 +82,17 @@ struct EmailChangeSheet: View {
                     }
 
                     // ---- Bước 1 ----
-                    WVSectionHeader("Bước 1 — Gửi mã tới địa chỉ mới")
+                    WVSectionHeader(L.t("Bước 1 — Gửi mã tới địa chỉ mới"))
                     WVGroup {
-                        EmailField("Địa chỉ email mới", text: $newEmail)
+                        EmailField(L.t("Địa chỉ email mới"), text: $newEmail)
                         WVDivider(inset: 16)
-                        ECPSecureRow("Mật khẩu hiện tại", text: $currentPassword)
+                        ECPSecureRow(L.t("Mật khẩu hiện tại"), text: $currentPassword)
                     }
                     inlineError(stepOneErrors["newEmail"]?.first)
                     inlineError(stepOneErrors["currentPassword"]?.first)
 
                     WVButton(
-                        isRequesting ? "Đang gửi…" : "Gửi mã xác nhận",
+                        isRequesting ? L.t("Đang gửi…") : L.t("Gửi mã xác nhận"),
                         icon: isRequesting ? nil : "mail",
                         kind: .primary
                     ) {
@@ -105,14 +105,14 @@ struct EmailChangeSheet: View {
                     if requestedEmail != nil { checkInboxState }
 
                     // ---- Bước 2 ----
-                    WVSectionHeader("Bước 2 — Nhập mã xác nhận")
+                    WVSectionHeader(L.t("Bước 2 — Nhập mã xác nhận"))
                     WVGroup {
-                        ECPTokenRow("Mã xác nhận trong email", text: $token)
+                        ECPTokenRow(L.t("Mã xác nhận trong email"), text: $token)
                     }
                     inlineError(stepTwoError)
 
                     WVButton(
-                        isConfirming ? "Đang xác nhận…" : "Xác nhận đổi email",
+                        isConfirming ? L.t("Đang xác nhận…") : L.t("Xác nhận đổi email"),
                         icon: isConfirming ? nil : "checkCircle",
                         kind: .primary
                     ) {
@@ -122,22 +122,22 @@ struct EmailChangeSheet: View {
                     .padding(.top, 12)
                     .disabled(isConfirming || EmailChangeRules.token(fromPasted: token).isEmpty)
 
-                    WVSectionFooter("Ứng dụng không mở được link trong email (đó là trang web), nên hãy dán mã — hoặc dán cả link — vào ô trên. Mã dùng một lần và hết hạn sau \(EmailChangeRules.tokenTTLMinutes) phút.")
+                    WVSectionFooter(L.t("Ứng dụng không mở được link trong email (đó là trang web), nên hãy dán mã — hoặc dán cả link — vào ô trên. Mã dùng một lần và hết hạn sau %d phút.", EmailChangeRules.tokenTTLMinutes))
 
                     Spacer().frame(height: 24)
                 }
             }
             .wvScreen()
-            .navigationTitle("Đổi email")
+            .navigationTitle(L.t("Đổi email"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { dismiss() }
+                    Button(L.t("Huỷ")) { dismiss() }
                         .foregroundStyle(WVColor.tint)
                 }
             }
-            .alert("Đã đổi email", isPresented: $showConfirmedAlert) {
-                Button("Đăng nhập lại") {
+            .alert(L.t("Đã đổi email"), isPresented: $showConfirmedAlert) {
+                Button(L.t("Đăng nhập lại")) {
                     Task {
                         // The server revoked every session in the same
                         // transaction, so the local token is already dead:
@@ -155,7 +155,8 @@ struct EmailChangeSheet: View {
     // MARK: - Sections
 
     private var intro: some View {
-        WVSectionFooter("Email đăng nhập hiện tại: \(currentEmail.isEmpty ? "—" : currentEmail). Sau khi xác nhận, mọi thiết bị sẽ bị đăng xuất và bạn phải đăng nhập lại bằng địa chỉ mới.")
+        WVSectionFooter(L.t("Email đăng nhập hiện tại: %@. Sau khi xác nhận, mọi thiết bị sẽ bị đăng xuất và bạn phải đăng nhập lại bằng địa chỉ mới.",
+                             currentEmail.isEmpty ? "—" : currentEmail))
     }
 
     /// The "check the new inbox" state. Never says the mail *arrived* — only
@@ -164,7 +165,7 @@ struct EmailChangeSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 WVIcon("checkCircle", size: 14)
-                Text("Đã ghi nhận yêu cầu")
+                Text(L.t("Đã ghi nhận yêu cầu"))
                     .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(WVColor.green)
@@ -174,10 +175,11 @@ struct EmailChangeSheet: View {
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label2)
             }
-            Text("Mở hộp thư của địa chỉ MỚI\(requestedEmail.map { " (\($0))" } ?? "") — kể cả mục Spam/Quảng cáo — rồi dán mã xác nhận vào Bước 2.")
+            Text(L.t("Mở hộp thư của địa chỉ MỚI (%@) — kể cả mục Spam/Quảng cáo — rồi dán mã xác nhận vào Bước 2.",
+                         requestedEmail ?? "—"))
                 .font(.system(size: 13))
                 .foregroundStyle(WVColor.label3)
-            Text("Địa chỉ cũ vẫn dùng được cho tới khi xác nhận xong.")
+            Text(L.t("Địa chỉ cũ vẫn dùng được cho tới khi xác nhận xong."))
                 .font(.system(size: 13))
                 .foregroundStyle(WVColor.label3)
         }
@@ -204,8 +206,8 @@ struct EmailChangeSheet: View {
     }
 
     private var confirmSuccessMessage: String {
-        let address = requestedEmail.map { " sang \($0)" } ?? ""
-        return "Email đăng nhập đã được đổi\(address). Mọi thiết bị — kể cả thiết bị này — đã bị đăng xuất. Hãy đăng nhập lại bằng địa chỉ mới."
+        return L.t("Email đăng nhập đã được đổi sang %@. Mọi thiết bị — kể cả thiết bị này — đã bị đăng xuất. Hãy đăng nhập lại bằng địa chỉ mới.",
+                    requestedEmail ?? "—")
     }
 
     private func requestChange() async {
@@ -228,7 +230,7 @@ struct EmailChangeSheet: View {
             stepOneErrors = error.fieldErrors
             if stepOneErrors.isEmpty { topError = error.localizedDescription }
         } catch {
-            topError = "Không kết nối được máy chủ."
+            topError = L.t("Không kết nối được máy chủ.")
         }
     }
 
@@ -241,7 +243,7 @@ struct EmailChangeSheet: View {
         // Accepts the bare token or the whole confirm-email link.
         let raw = EmailChangeRules.token(fromPasted: token)
         guard !raw.isEmpty else {
-            stepTwoError = "Nhập mã xác nhận trong email."
+            stepTwoError = L.t("Nhập mã xác nhận trong email.")
             return
         }
 
@@ -251,7 +253,7 @@ struct EmailChangeSheet: View {
         } catch let error as APIError {
             stepTwoError = error.localizedDescription
         } catch {
-            topError = "Không kết nối được máy chủ."
+            topError = L.t("Không kết nối được máy chủ.")
         }
     }
 }

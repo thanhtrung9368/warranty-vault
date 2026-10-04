@@ -25,11 +25,11 @@ struct AccountView: View {
                     .padding(.top, 8)
 
                 // Info section (read-only for now)
-                WVSectionHeader("Thông tin")
+                WVSectionHeader(L.t("Thông tin"))
                 WVGroup {
                     // Display name
                     HStack(spacing: 16) {
-                        Text("Tên hiển thị")
+                        Text(L.t("Tên hiển thị"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer()
@@ -66,26 +66,26 @@ struct AccountView: View {
                 // current password (a stolen bearer token must not be able to
                 // move the account) and the old address keeps working until the
                 // mailed token is confirmed.
-                WVSectionHeader("Bảo mật")
+                WVSectionHeader(L.t("Bảo mật"))
                 WVGroup {
                     WVRow(icon: "key", iconColor: WVColor.orange,
-                          title: "Đổi mật khẩu", chevron: true) {
+                          title: L.t("Đổi mật khẩu"), chevron: true) {
                         showChangePassword = true
                     }
                     WVDivider(inset: 60)
                     WVRow(icon: "mail", iconColor: WVColor.blue,
-                          title: "Đổi email",
+                          title: L.t("Đổi email"),
                           subtitle: userEmail, chevron: true) {
                         showChangeEmail = true
                     }
                     WVDivider(inset: 60)
                     appLockRow
                 }
-                WVSectionFooter("Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại.")
-                WVSectionFooter("Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng.")
+                WVSectionFooter(L.t("Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại."))
+                WVSectionFooter(L.t("Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng."))
 
                 // Linked accounts section
-                WVSectionHeader("Liên kết")
+                WVSectionHeader(L.t("Liên kết"))
                 WVGroup {
                     // Sign in with Apple is deliberately NOT implemented: it
                     // needs a paid Apple Developer account, server-side
@@ -93,16 +93,16 @@ struct AccountView: View {
                     // flow. The row stays honest instead of offering a login
                     // that cannot work.
                     WVRow(icon: "mail", iconColor: WVColor.red,
-                          title: "Apple ID", detail: "Chưa khả dụng")
+                          title: "Apple ID", detail: L.t("Chưa khả dụng"))
                     WVDivider(inset: 60)
                     WVRow(icon: "users", iconColor: WVColor.blue,
-                          title: "Google", detail: "Chưa khả dụng")
+                          title: "Google", detail: L.t("Chưa khả dụng"))
                 }
-                WVSectionFooter("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản WarrantyVault dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật.")
+                WVSectionFooter(L.t("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản WarrantyVault dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật."))
 
                 // Delete account
                 Spacer().frame(height: 20)
-                WVButton(isDeleting ? "Đang xoá…" : "Yêu cầu xoá tài khoản",
+                WVButton(isDeleting ? L.t("Đang xoá…") : L.t("Yêu cầu xoá tài khoản"),
                          kind: .destructiveGhost) {
                     deletePassword = ""
                     showDeleteAlert = true
@@ -120,14 +120,14 @@ struct AccountView: View {
         .sheet(isPresented: $showChangeEmail) {
             EmailChangeSheet(client: client)
         }
-        .alert("Xoá tài khoản?", isPresented: $showDeleteAlert) {
-            SecureField("Mật khẩu hiện tại", text: $deletePassword)
-            Button("Huỷ", role: .cancel) { deletePassword = "" }
-            Button("Xoá vĩnh viễn", role: .destructive) { performDelete() }
+        .alert(L.t("Xoá tài khoản?"), isPresented: $showDeleteAlert) {
+            SecureField(L.t("Mật khẩu hiện tại"), text: $deletePassword)
+            Button(L.t("Huỷ"), role: .cancel) { deletePassword = "" }
+            Button(L.t("Xoá vĩnh viễn"), role: .destructive) { performDelete() }
         } message: {
-            Text("Nhập mật khẩu để xác nhận. Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác.")
+            Text(L.t("Nhập mật khẩu để xác nhận. Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác."))
         }
-        .alert("Không xoá được", isPresented: Binding(
+        .alert(L.t("Không xoá được"), isPresented: Binding(
             get: { deleteError != nil },
             set: { if !$0 { deleteError = nil } }
         )) {
@@ -141,7 +141,7 @@ struct AccountView: View {
         let pw = deletePassword
         deletePassword = ""
         guard !pw.isEmpty else {
-            deleteError = "Nhập mật khẩu để xác nhận."
+            deleteError = L.t("Nhập mật khẩu để xác nhận.")
             return
         }
         isDeleting = true
@@ -154,9 +154,9 @@ struct AccountView: View {
             } catch let APIError.server(_, envelope) {
                 deleteError = envelope.message
                     ?? envelope.fieldErrors?.values.first?.first
-                    ?? "Mật khẩu không đúng hoặc lỗi máy chủ."
+                    ?? L.t("Mật khẩu không đúng hoặc lỗi máy chủ.")
             } catch {
-                deleteError = "Không kết nối được máy chủ."
+                deleteError = L.t("Không kết nối được máy chủ.")
             }
         }
     }
@@ -204,10 +204,11 @@ struct AccountView: View {
         if let error = appLock.lastError { return error }
         if let notice = appLock.autoDisabledNotice { return notice }
         if appLock.isEnabled {
-            return "Đang bật — mở khoá bằng \(appLock.availability.biometry.label) hoặc mã mở khoá"
+            return L.t("Đang bật — mở khoá bằng %@ hoặc mã mở khoá",
+                        appLock.availability.biometry.label)
         }
         if let reason = appLock.availability.unavailableReason { return reason }
-        return "Đang tắt"
+        return L.t("Đang tắt")
     }
 
     // MARK: - Avatar header

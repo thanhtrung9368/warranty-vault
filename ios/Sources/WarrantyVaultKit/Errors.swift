@@ -14,9 +14,9 @@ public enum APIError: Error, LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidURL:                 return "URL không hợp lệ"
+        case .invalidURL:                 return L.t("URL không hợp lệ")
         case .transport(let m):           return m
-        case .decoding(let m):            return "Lỗi giải mã: \(m)"
+        case .decoding(let m):            return L.t("Lỗi giải mã: %@", m)
         case .server(_, let envelope):    return envelope.message ?? envelope.error
         }
     }

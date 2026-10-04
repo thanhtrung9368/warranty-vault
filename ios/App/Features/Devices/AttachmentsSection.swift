@@ -79,10 +79,10 @@ struct DeviceAttachmentsSection: View {
                             HStack(spacing: 12) {
                                 WVLeadingIcon(icon: "upload", color: WVColor.blue, size: 30)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text("Tải file mới lên")
+                                    Text(L.t("Tải file mới lên"))
                                         .font(.system(size: 17))
                                         .foregroundStyle(WVColor.tint)
-                                    Text("Ảnh hoặc PDF, ≤5MB")
+                                    Text(L.t("Ảnh hoặc PDF, ≤5MB"))
                                         .font(.system(size: 13))
                                         .foregroundStyle(WVColor.label3)
                                 }
@@ -110,7 +110,7 @@ struct DeviceAttachmentsSection: View {
                         } label: {
                             HStack(spacing: 12) {
                                 WVLeadingIcon(icon: "paperclip", color: WVColor.orange, size: 30)
-                                Text("Thêm PDF")
+                                Text(L.t("Thêm PDF"))
                                     .font(.system(size: 17))
                                     .foregroundStyle(WVColor.tint)
                                 Spacer()

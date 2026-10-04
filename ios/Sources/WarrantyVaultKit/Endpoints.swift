@@ -25,6 +25,21 @@ extension APIClient {
         return w.user
     }
 
+    /// Updates the profile — display name and/or language.
+    ///
+    /// Only the fields whose `Field` is not `.unchanged` are sent, which is the
+    /// tri-state the contract asks for: `locale: .set("vi")` stores Vietnamese,
+    /// `.clear` drops back to "decide per request", and `.unchanged` cannot
+    /// accidentally erase an unrelated field.
+    ///
+    /// The server stores `locale` because its **cron** has no request to read a
+    /// language from: push notifications and email are rendered long after the
+    /// app is gone, so "which language does this person want" has to live in the
+    /// database, not just in this process (docs/I18N_PLAN.md §2.3).
+    public func updateProfile(_ input: UpdateProfileInput) async throws -> UpdateProfileResult {
+        try await request("PATCH", "/api/v1/auth/me", body: input)
+    }
+
     public func forgotPassword(email: String) async throws {
         struct Body: Encodable { let email: String }
         let _: EmptyResponse = try await request(

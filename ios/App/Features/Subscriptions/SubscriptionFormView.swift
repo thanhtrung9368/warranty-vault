@@ -79,13 +79,13 @@ struct SubscriptionFormView: View {
 
                 // Basic info
                 WVGroup {
-                    fieldRow("Tên") {
+                    fieldRow(L.t("Tên")) {
                         TextField("Apple One, ChatGPT Plus...", text: $name)
                             .font(.system(size: 17))
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
-                    fieldRow("Hãng") {
+                    fieldRow(L.t("Hãng")) {
                         TextField("Apple, OpenAI...", text: $brand)
                             .font(.system(size: 17))
                             .multilineTextAlignment(.trailing)
@@ -100,7 +100,7 @@ struct SubscriptionFormView: View {
                     // Category picker trigger
                     Button { showCatPicker = true } label: {
                         HStack {
-                            Text("Loại")
+                            Text(L.t("Loại"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer()
@@ -126,16 +126,16 @@ struct SubscriptionFormView: View {
                 }
 
                 // Cost
-                WVSectionHeader("Chi phí")
+                WVSectionHeader(L.t("Chi phí"))
                 WVGroup {
-                    fieldRow("Giá / chu kỳ") {
+                    fieldRow(L.t("Giá / chu kỳ")) {
                         WVMoneyField(value: $price)
                             .frame(width: 150)
                     }
                     WVDivider()
                     Button { showCyclePicker = true } label: {
                         HStack {
-                            Text("Chu kỳ")
+                            Text(L.t("Chu kỳ"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer()
@@ -153,20 +153,20 @@ struct SubscriptionFormView: View {
                     .buttonStyle(WVRowButtonStyle())
                     WVDivider()
                     WVRowContainer {
-                        DatePicker("Bắt đầu", selection: $startedAt,
+                        DatePicker(L.t("Bắt đầu"), selection: $startedAt,
                                    displayedComponents: .date)
                             .font(.system(size: 17))
                     }
                     if billingCycle != .LIFETIME {
                         WVDivider()
                         WVRowContainer {
-                            Toggle("Có ngày gia hạn", isOn: $hasRenewal)
+                            Toggle(L.t("Có ngày gia hạn"), isOn: $hasRenewal)
                                 .font(.system(size: 17))
                         }
                         if hasRenewal {
                             WVDivider()
                             WVRowContainer {
-                                DatePicker("Gia hạn kế", selection: $renewalDate,
+                                DatePicker(L.t("Gia hạn kế"), selection: $renewalDate,
                                            displayedComponents: .date)
                                     .font(.system(size: 17))
                             }
@@ -174,12 +174,12 @@ struct SubscriptionFormView: View {
                     }
                     WVDivider()
                     WVRowContainer {
-                        Toggle("Tự gia hạn", isOn: $autoRenew)
+                        Toggle(L.t("Tự gia hạn"), isOn: $autoRenew)
                             .font(.system(size: 17))
                     }
                     if billingCycle == .CUSTOM {
                         WVDivider()
-                        fieldRow("Số ngày / chu kỳ") {
+                        fieldRow(L.t("Số ngày / chu kỳ")) {
                             TextField("30", text: $intervalDays)
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 17))
@@ -189,7 +189,7 @@ struct SubscriptionFormView: View {
                 }
 
                 // Account
-                WVSectionHeader("Tài khoản")
+                WVSectionHeader(L.t("Tài khoản"))
                 WVGroup {
                     fieldRow("Email") {
                         TextField("account@example.com", text: $accountEmail)
@@ -199,13 +199,13 @@ struct SubscriptionFormView: View {
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
-                    fieldRow("Thanh toán") {
+                    fieldRow(L.t("Thanh toán")) {
                         TextField("Visa **4242, Momo...", text: $paymentMethod)
                             .font(.system(size: 17))
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
-                    fieldRow("Quản lý URL") {
+                    fieldRow(L.t("Quản lý URL")) {
                         TextField("https://...", text: $manageUrl)
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
@@ -213,7 +213,7 @@ struct SubscriptionFormView: View {
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
-                    fieldRow("Huỷ URL") {
+                    fieldRow(L.t("Huỷ URL")) {
                         TextField("https://...", text: $cancelUrl)
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
@@ -223,10 +223,10 @@ struct SubscriptionFormView: View {
                 }
 
                 // Notes
-                WVSectionHeader("Ghi chú")
+                WVSectionHeader(L.t("Ghi chú"))
                 WVGroup {
                     WVRowContainer {
-                        TextField("Ghi chú thêm...", text: $notes, axis: .vertical)
+                        TextField(L.t("Ghi chú thêm..."), text: $notes, axis: .vertical)
                             .font(.system(size: 17))
                             .lineLimit(3...6)
                     }
@@ -245,7 +245,7 @@ struct SubscriptionFormView: View {
                 VStack(spacing: 0) {
                     Spacer().frame(height: WVSpacing.lg)
                     WVButton(
-                        isEditing ? "Lưu thay đổi" : "Thêm gói",
+                        isEditing ? L.t("Lưu thay đổi") : L.t("Thêm gói"),
                         icon: isEditing ? "save" : "plus"
                     ) {
                         Task { await submit() }
@@ -257,24 +257,24 @@ struct SubscriptionFormView: View {
             }
         }
         .wvScreen()
-        .navigationTitle(isEditing ? "Sửa gói" : "Gói mới")
+        .navigationTitle(isEditing ? L.t("Sửa gói") : L.t("Gói mới"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await catalog.loadIfNeeded() }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Huỷ") { showDiscard = true }
+                Button(L.t("Huỷ")) { showDiscard = true }
                     .foregroundStyle(WVColor.tint)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button(isEditing ? "Lưu" : "Thêm") { Task { await submit() } }
+                Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(isValid ? WVColor.tint : WVColor.label4)
                     .disabled(!isValid || isBusy)
             }
         }
-        .alert("Bỏ thay đổi?", isPresented: $showDiscard) {
-            Button("Tiếp tục", role: .cancel) {}
-            Button("Bỏ", role: .destructive) { dismiss() }
+        .alert(L.t("Bỏ thay đổi?"), isPresented: $showDiscard) {
+            Button(L.t("Tiếp tục"), role: .cancel) {}
+            Button(L.t("Bỏ"), role: .destructive) { dismiss() }
         }
         // Category picker sheet
         .sheet(isPresented: $showCatPicker) {
@@ -337,10 +337,10 @@ struct SubscriptionFormView: View {
         do {
             if let subscription {
                 try await store.update(id: subscription.id, input)
-                toast.show("Đã lưu")
+                toast.show(L.t("Đã lưu"))
             } else {
                 _ = try await store.create(input)
-                toast.show("Đã thêm gói 🎉")
+                toast.show(L.t("Đã thêm gói 🎉"))
             }
             dismiss()
         } catch {
@@ -358,7 +358,7 @@ private struct SubCategoryPickerSheet: View {
 
     private let subCategories = [
         ("streaming", "Streaming"), ("ai", "AI"), ("cloud", "Cloud"),
-        ("music", "Nhạc"), ("work", "Công việc"), ("domain", "Domain"),
+        ("music", L.t("Nhạc")), ("work", L.t("Công việc")), ("domain", "Domain"),
     ]
 
     var body: some View {
@@ -383,7 +383,7 @@ private struct SubCategoryPickerSheet: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Loại")
+            .navigationTitle(L.t("Loại"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -461,7 +461,7 @@ private struct SubCyclePickerSheet: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Chu kỳ")
+            .navigationTitle(L.t("Chu kỳ"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

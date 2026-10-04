@@ -40,8 +40,8 @@ struct StatsView: View {
 
             case .error(let msg):
                 ScrollView {
-                    WVEmpty(icon: "alert", title: "Không tải được số liệu", description: msg) {
-                        WVButton("Thử lại") { Task { await loadAll() } }
+                    WVEmpty(icon: "alert", title: L.t("Không tải được số liệu"), description: msg) {
+                        WVButton(L.t("Thử lại")) { Task { await loadAll() } }
                             .padding(.horizontal, 32)
                     }
                 }
@@ -52,8 +52,8 @@ struct StatsView: View {
                     && store.snapshot.totalWishlist == 0 {
                     ScrollView {
                         WVEmpty(icon: "chart",
-                                title: "Chưa có gì để thống kê",
-                                description: "Thêm thiết bị xong quay lại nhé.")
+                                title: L.t("Chưa có gì để thống kê"),
+                                description: L.t("Thêm thiết bị xong quay lại nhé."))
                     }
                     .wvScreen()
                 } else {
@@ -67,7 +67,7 @@ struct StatsView: View {
             if let device = devicesStore.devices.first(where: { $0.id == nav.id }) {
                 DeviceDetailView(client: client, devicesStore: devicesStore, device: device)
             } else {
-                ProgressView("Đang tải...")
+                ProgressView(L.t("Đang tải..."))
                     .navigationTitle(nav.name)
                     .task { await devicesStore.load() }
             }
@@ -96,12 +96,12 @@ struct StatsView: View {
                 }
 
                 // KPI row — same four numbers as the web stats page.
-                WVSectionHeader("Chi phí & tài sản")
+                WVSectionHeader(L.t("Chi phí & tài sản"))
                 kpiGrid
 
                 // 12-month bar chart
-                WVSectionHeader("Chi phí 12 tháng gần nhất")
-                WVSectionFooter("Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói).")
+                WVSectionHeader(L.t("Chi phí 12 tháng gần nhất"))
+                WVSectionFooter(L.t("Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói)."))
                 WVCard {
                     WVBarChart(
                         data: monthBarData,
@@ -121,8 +121,8 @@ struct StatsView: View {
                 forecastSection
 
                 // Category donut
-                WVSectionHeader("Phân bổ theo loại")
-                WVSectionFooter("Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ.")
+                WVSectionHeader(L.t("Phân bổ theo loại"))
+                WVSectionFooter(L.t("Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ."))
                 WVCard {
                     HStack(spacing: 16) {
                         WVDonut(data: donutSlices, size: 120)
@@ -152,7 +152,7 @@ struct StatsView: View {
                 topDevicesSection
 
                 // Summary section cards
-                WVSectionHeader("Theo trạng thái")
+                WVSectionHeader(L.t("Theo trạng thái"))
                 summaryCards
 
                 Spacer().frame(height: 24)
@@ -177,7 +177,7 @@ struct StatsView: View {
     ///   * it never hides the API's own `note`, which says exactly that.
     @ViewBuilder
     private var forecastSection: some View {
-        WVSectionHeader("Dự báo chi tiêu")
+        WVSectionHeader(L.t("Dự báo chi tiêu"))
 
         if let forecast = store.snapshot.forecast {
             WVSectionFooter(windowDescription(forecast))
@@ -196,24 +196,24 @@ struct StatsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         WVIcon("alert", size: 14)
-                        Text("Không tải được dự báo")
+                        Text(L.t("Không tải được dự báo"))
                             .font(.system(size: 15, weight: .semibold))
                     }
                     .foregroundStyle(WVColor.orange)
                     Text(error)
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
-                    Text("Các số liệu phía trên vẫn đúng — chỉ phần dự báo này bị thiếu.")
+                    Text(L.t("Các số liệu phía trên vẫn đúng — chỉ phần dự báo này bị thiếu."))
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
-                    WVButton("Thử lại", kind: .secondary) {
+                    WVButton(L.t("Thử lại"), kind: .secondary) {
                         Task { await store.loadForecast(months: store.snapshot.forecastMonths) }
                     }
                 }
             }
             forecastWindowPicker
         } else {
-            WVSectionFooter("Đang tính các khoản sắp tới…")
+            WVSectionFooter(L.t("Đang tính các khoản sắp tới…"))
             WVCard {
                 VStack(alignment: .leading, spacing: 8) {
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -268,9 +268,9 @@ struct StatsView: View {
     }
 
     private func windowDescription(_ forecast: Forecast) -> String {
-        "Cửa sổ \(ForecastRules.monthsLabel(forecast.months)): "
+        L.t("Cửa sổ %@: ", ForecastRules.monthsLabel(forecast.months))
             + "\(WVFormat.date(forecast.windowStart)) → \(WVFormat.date(forecast.windowEnd)) "
-            + "(\(forecast.buckets.count) tháng lịch)."
+            + L.p("(%d tháng lịch).", forecast.buckets.count)
     }
 
     /// Certain spend vs. spend the user has to decide about. Never a single sum.
@@ -281,7 +281,8 @@ struct StatsView: View {
                 Text(WVFormat.vnd(summary.autoRenewTotalVnd))
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(WVColor.label)
-                Text("\(ForecastCopy.autoRenewHeading) · \(summary.chargesCount) kỳ gia hạn · \(summary.subscriptionsCount) gói")
+                Text(L.t("%@ · %d kỳ gia hạn · %d gói",
+                          ForecastCopy.autoRenewHeading, summary.chargesCount, summary.subscriptionsCount))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
 
@@ -299,13 +300,15 @@ struct StatsView: View {
 
                 WVDivider()
 
-                Text("Trung bình theo tháng: \(WVFormat.vnd(summary.monthlyAverageVnd)) — bằng con số “Phí định kỳ mỗi tháng” ở trên.")
+                Text(L.t("Trung bình theo tháng: %@ — bằng con số “Phí định kỳ mỗi tháng” ở trên.",
+                             WVFormat.vnd(summary.monthlyAverageVnd)))
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if summary.referenceOnlyTotalVnd > 0 {
-                    Text("Ngoài ra còn \(WVFormat.vnd(summary.referenceOnlyTotalVnd)) tiền tham khảo (bảo hành + wishlist) — KHÔNG cộng vào các con số trên.")
+                    Text(L.t("Ngoài ra còn %@ tiền tham khảo (bảo hành + wishlist) — KHÔNG cộng vào các con số trên.",
+                                 WVFormat.vnd(summary.referenceOnlyTotalVnd)))
                         .font(.system(size: 12))
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -322,7 +325,7 @@ struct StatsView: View {
             WVChartPoint(label: label, value: Double(bucket.subscriptionVnd))
         }
         return VStack(spacing: 0) {
-            WVSectionFooter("Kỳ gia hạn subscription theo từng tháng trong cửa sổ (không gồm tiền bảo hành hay wishlist).")
+            WVSectionFooter(L.t("Kỳ gia hạn subscription theo từng tháng trong cửa sổ (không gồm tiền bảo hành hay wishlist)."))
             WVCard {
                 WVBarChart(
                     data: points,
@@ -369,7 +372,7 @@ struct StatsView: View {
                     HStack(spacing: 8) {
                         WVIcon("shieldCheck", size: 14)
                             .foregroundStyle(WVColor.orange)
-                        Text("Bảo hành sắp hết trong cửa sổ")
+                        Text(L.t("Bảo hành sắp hết trong cửa sổ"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(WVColor.label)
                     }
@@ -385,7 +388,9 @@ struct StatsView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(WVColor.label)
                                     .lineLimit(1)
-                                Text("\(warranty.type.label)\(warranty.provider.map { " · \($0)" } ?? "") · hết hạn \(WVFormat.date(warranty.endDate))")
+                                Text(L.t("%@ · hết hạn %@",
+                                          warranty.type.label + (warranty.provider.map { " · \($0)" } ?? ""),
+                                          WVFormat.date(warranty.endDate)))
                                     .font(.system(size: 12))
                                     .foregroundStyle(WVColor.label3)
                                     .lineLimit(1)
@@ -411,7 +416,7 @@ struct StatsView: View {
                     HStack(spacing: 8) {
                         WVIcon("heart", size: 14)
                             .foregroundStyle(WVColor.pink)
-                        Text("Wishlist tới mốc trong cửa sổ")
+                        Text(L.t("Wishlist tới mốc trong cửa sổ"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(WVColor.label)
                     }
@@ -450,14 +455,14 @@ struct StatsView: View {
     private var heroCard: some View {
         let snap = store.snapshot
         return VStack(alignment: .leading, spacing: 6) {
-            Text("TỔNG GIÁ TRỊ THIẾT BỊ")
+            Text(L.t("TỔNG GIÁ TRỊ THIẾT BỊ"))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
                 .tracking(1)
             Text(WVFormat.vnd(snap.totalDevicesValue))
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(.white)
-            Text("\(snap.totalDevices) thiết bị · \(snap.activeSubs) đăng ký đang hoạt động")
+            Text(L.t("%d thiết bị · %d đăng ký đang hoạt động", snap.totalDevices, snap.activeSubs))
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.85))
         }
@@ -484,7 +489,7 @@ struct StatsView: View {
     private var incompleteWarrantiesBanner: some View {
         HStack(alignment: .top, spacing: 8) {
             WVIcon("alert", size: 14)
-            Text("Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu.")
+            Text(L.t("Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu."))
                 .font(.system(size: 13))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -503,15 +508,15 @@ struct StatsView: View {
         let snap = store.snapshot
         return HStack(spacing: 12) {
             WVWidget(
-                eyebrow: "Bảo hành sắp hết",
+                eyebrow: L.t("Bảo hành sắp hết"),
                 value: "\(snap.expiringIn30Days)",
-                sub: "trong 30 ngày",
+                sub: L.t("trong 30 ngày"),
                 icon: "shieldCheck"
             )
             WVWidget(
-                eyebrow: "Sub mỗi tháng",
+                eyebrow: L.t("Sub mỗi tháng"),
                 value: WVFormat.compactVnd(snap.monthlyEquivalent),
-                sub: "\(snap.activeSubs) gói đang chạy",
+                sub: L.p("%d gói đang chạy", snap.activeSubs),
                 icon: "refresh"
             )
         }
@@ -527,24 +532,25 @@ struct StatsView: View {
 
         return LazyVGrid(columns: columns, spacing: 12) {
             WVStatCard(
-                eyebrow: "Tổng chi \(year)",
+                eyebrow: L.t("Tổng chi %d", year),
                 value: WVFormat.compactVnd(yearTotals.total),
-                sub: "\(yearTotals.deviceCount) thiết bị • \(yearTotals.warrantyCount) gói BH"
+                sub: L.t("%d thiết bị • %d gói BH", yearTotals.deviceCount, yearTotals.warrantyCount)
             )
             WVStatCard(
-                eyebrow: "Tổng chi mua sắm",
+                eyebrow: L.t("Tổng chi mua sắm"),
                 value: WVFormat.compactVnd(snap.allTimeTotals.total),
-                sub: "\(snap.allTimeTotals.deviceCount) thiết bị • \(snap.allTimeTotals.warrantyCount) gói BH"
+                sub: L.t("%d thiết bị • %d gói BH",
+                         snap.allTimeTotals.deviceCount, snap.allTimeTotals.warrantyCount)
             )
             WVStatCard(
-                eyebrow: "Tài sản còn bảo hành",
+                eyebrow: L.t("Tài sản còn bảo hành"),
                 value: WVFormat.compactVnd(snap.assetValue.total),
-                sub: "\(snap.assetValue.count)/\(snap.totalDevices) thiết bị"
+                sub: L.t("%d/%d thiết bị", snap.assetValue.count, snap.totalDevices)
             )
             WVStatCard(
-                eyebrow: "Phí định kỳ mỗi tháng",
+                eyebrow: L.t("Phí định kỳ mỗi tháng"),
                 value: WVFormat.compactVnd(snap.monthlyEquivalent),
-                sub: "~\(WVFormat.compactVnd(snap.monthlyEquivalent * 12))/năm"
+                sub: L.t("~%@/năm", WVFormat.compactVnd(snap.monthlyEquivalent * 12))
             )
         }
         .padding(.horizontal, WVSpacing.gutter)
@@ -565,7 +571,7 @@ struct StatsView: View {
 
         return VStack(spacing: 0) {
             HStack {
-                Text("TỔNG CHI THEO NĂM")
+                Text(L.t("TỔNG CHI THEO NĂM"))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                 Spacer()
@@ -580,12 +586,12 @@ struct StatsView: View {
                     Text(WVFormat.vnd(totals.total))
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(WVColor.label)
-                    Text("\(totals.deviceCount) thiết bị • \(totals.warrantyCount) gói trong \(year)")
+                    Text(L.t("%d thiết bị • %d gói trong %d", totals.deviceCount, totals.warrantyCount, year))
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
 
                     if byCategory.isEmpty {
-                        Text("Chưa có chi phí nào trong năm \(year).")
+                        Text(L.t("Chưa có chi phí nào trong năm %d.", year))
                             .font(.system(size: 13))
                             .foregroundStyle(WVColor.label3)
                             .padding(.top, 10)
@@ -647,12 +653,12 @@ struct StatsView: View {
     private var topDevicesSection: some View {
         let top = store.snapshot.topDevices
         return VStack(spacing: 0) {
-            WVSectionHeader("Top 5 thiết bị đắt nhất")
-            WVSectionFooter("Xếp theo giá mua thiết bị (chưa gồm gói bảo hành).")
+            WVSectionHeader(L.t("Top 5 thiết bị đắt nhất"))
+            WVSectionFooter(L.t("Xếp theo giá mua thiết bị (chưa gồm gói bảo hành)."))
 
             if top.isEmpty {
                 WVCard {
-                    Text("Chưa có dữ liệu.")
+                    Text(L.t("Chưa có dữ liệu."))
                         .font(.system(size: 14))
                         .foregroundStyle(WVColor.label3)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -680,7 +686,7 @@ struct StatsView: View {
             WVCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Label {
-                        Text("Theo trạng thái thiết bị")
+                        Text(L.t("Theo trạng thái thiết bị"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(WVColor.label)
                     } icon: {
@@ -702,7 +708,7 @@ struct StatsView: View {
             WVCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Label {
-                        Text("Theo trạng thái đăng ký")
+                        Text(L.t("Theo trạng thái đăng ký"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(WVColor.label)
                     } icon: {
@@ -724,7 +730,7 @@ struct StatsView: View {
             WVCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Label {
-                        Text("Theo trạng thái wishlist")
+                        Text(L.t("Theo trạng thái wishlist"))
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(WVColor.label)
                     } icon: {
@@ -780,7 +786,7 @@ struct StatsView: View {
             }
 
         if slices.isEmpty {
-            return [WVDonutSlice(label: "Trống", value: 1, color: WVColor.fill3)]
+            return [WVDonutSlice(label: L.t("Trống"), value: 1, color: WVColor.fill3)]
         }
         return slices
     }
@@ -825,14 +831,15 @@ private struct ForecastMonthRow: View {
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1)
                 } else {
-                    Text("Không có kỳ gia hạn")
+                    Text(L.t("Không có kỳ gia hạn"))
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
                 }
             }
 
             if bucket.subscriptionCount > 0 {
-                Text("\(bucket.subscriptionCount) kỳ · \(ForecastCopy.autoRenewHeading) \(WVFormat.vnd(bucket.subscriptionAutoRenewVnd))")
+                Text(L.t("%d kỳ · %@ %@", bucket.subscriptionCount,
+                             ForecastCopy.autoRenewHeading, WVFormat.vnd(bucket.subscriptionAutoRenewVnd)))
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
                 if bucket.manualRenewVnd > 0 {
@@ -844,7 +851,8 @@ private struct ForecastMonthRow: View {
 
             HStack(spacing: 6) {
                 if bucket.warrantyExpiringCount > 0 {
-                    WVChip("BH hết hạn: \(bucket.warrantyExpiringCount) · \(WVFormat.compactVnd(bucket.warrantyExpiringVnd))",
+                    WVChip(L.t("BH hết hạn: %d · %@", bucket.warrantyExpiringCount,
+                                       WVFormat.compactVnd(bucket.warrantyExpiringVnd)),
                            tone: .orange)
                 }
                 if bucket.wishlistTargetCount > 0 {

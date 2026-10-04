@@ -34,10 +34,10 @@ private enum SubSort: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .renewalAsc:  return "Sắp gia hạn trước"
-        case .monthlyDesc: return "Tốn nhiều / tháng"
-        case .priceDesc:   return "Giá / chu kỳ cao"
-        case .nameAsc:     return "Tên A → Z"
+        case .renewalAsc:  return L.t("Sắp gia hạn trước")
+        case .monthlyDesc: return L.t("Tốn nhiều / tháng")
+        case .priceDesc:   return L.t("Giá / chu kỳ cao")
+        case .nameAsc:     return L.t("Tên A → Z")
         }
     }
 }
@@ -122,9 +122,9 @@ struct SubscriptionsScreen: View {
 
                 WVSegmented(
                     options: [
-                        (SubFilter.activePaused, "Đang dùng"),
-                        (SubFilter.cancelled,    "Đã huỷ"),
-                        (SubFilter.all,          "Tất cả"),
+                        (SubFilter.activePaused, L.t("Đang dùng")),
+                        (SubFilter.cancelled,    L.t("Đã huỷ")),
+                        (SubFilter.all,          L.t("Tất cả")),
                     ],
                     selection: $filter
                 )
@@ -135,13 +135,13 @@ struct SubscriptionsScreen: View {
                 if filtered.isEmpty {
                     WVEmpty(
                         icon: query.isEmpty ? "refresh" : "search",
-                        title: query.isEmpty ? "Chưa có gói nào" : "Không có gì khớp",
+                        title: query.isEmpty ? L.t("Chưa có gói nào") : L.t("Không có gì khớp"),
                         description: query.isEmpty
-                            ? "Note lại Apple One, ChatGPT, Spotify, hosting..."
-                            : "Thử từ khoá khác"
+                            ? L.t("Note lại Apple One, ChatGPT, Spotify, hosting...")
+                            : L.t("Thử từ khoá khác")
                     ) {
                         if query.isEmpty {
-                            WVButton("Thêm gói", icon: "plus") { pushCreate = true }
+                            WVButton(L.t("Thêm gói"), icon: "plus") { pushCreate = true }
                                 .padding(.horizontal, WVSpacing.gutter)
                         }
                     }
@@ -153,9 +153,9 @@ struct SubscriptionsScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Đăng ký")
+        .navigationTitle(L.t("Đăng ký"))
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $query, prompt: "Tìm gói...")
+        .searchable(text: $query, prompt: L.t("Tìm gói..."))
         .toolbar { toolbarContent }
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -228,14 +228,15 @@ struct SubscriptionsScreen: View {
 
     private var subCostCard: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("CHI MỖI THÁNG")
+            Text(L.t("CHI MỖI THÁNG"))
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(1)
                 .foregroundStyle(.white.opacity(0.85))
             Text(WVFormat.vnd(Int(monthly.rounded())))
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(.white)
-            Text("~ \(WVFormat.vnd(Int(yearly.rounded()))) / năm · \(activeSubs.count) gói chạy")
+            Text(L.t("~ %@ / năm", WVFormat.vnd(Int(yearly.rounded())))
+                 + " · " + L.p("%d gói chạy", activeSubs.count))
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.85))
         }
@@ -269,7 +270,7 @@ struct SubscriptionsScreen: View {
                     .buttonStyle(WVRowButtonStyle())
                 }
             }
-            WVSectionFooter("\(filtered.count) gói")
+            WVSectionFooter(L.p("%d gói", filtered.count))
         }
     }
 
@@ -308,7 +309,7 @@ struct SubscriptionsScreen: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Sắp xếp")
+            .navigationTitle(L.t("Sắp xếp"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -356,7 +357,7 @@ private struct SubRowContent: View {
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     if sub.billingCycle != .LIFETIME {
-                        Text(overdue ? "Quá hạn \(abs(days))d" : "\(days)d nữa")
+                        Text(overdue ? L.t("Quá hạn %dd", abs(days)) : L.t("%dd nữa", days))
                             .font(.system(size: 13))
                             .foregroundStyle(overdue ? WVColor.red : WVColor.label3)
                     }
@@ -373,11 +374,11 @@ private struct SubRowContent: View {
 extension BillingCycle {
     var shortLabel: String {
         switch self {
-        case .MONTHLY:   return "Hàng tháng"
-        case .QUARTERLY: return "Hàng quý"
-        case .YEARLY:    return "Hàng năm"
-        case .LIFETIME:  return "Trọn đời"
-        case .CUSTOM:    return "Tuỳ chỉnh"
+        case .MONTHLY:   return L.t("Hàng tháng")
+        case .QUARTERLY: return L.t("Hàng quý")
+        case .YEARLY:    return L.t("Hàng năm")
+        case .LIFETIME:  return L.t("Trọn đời")
+        case .CUSTOM:    return L.t("Tuỳ chỉnh")
         }
     }
 }

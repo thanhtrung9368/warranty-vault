@@ -84,11 +84,11 @@ public enum SessionRevokeOutcome: Equatable, Sendable {
 public enum SessionLabels {
 
     /// The API's documented fallback for a `null` `deviceLabel`.
-    public static let unknownDevice = "Không rõ thiết bị"
+    public static let unknownDevice = L.t("Không rõ thiết bị")
     /// Marker for the session doing the calling.
-    public static let thisDevice = "Thiết bị này"
+    public static let thisDevice = L.t("Thiết bị này")
     /// Fallback when `platform` is missing or unknown.
-    public static let unknownPlatform = "Không rõ nền tảng"
+    public static let unknownPlatform = L.t("Không rõ nền tảng")
 
     /// Human label for a row's title. A `null` label **and** a blank/whitespace
     /// one both fall back, so the row can never render as an empty line.
@@ -113,7 +113,7 @@ public enum SessionLabels {
     public static func platformLabel(raw: String?) -> String {
         let value = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         switch value.lowercased() {
-        case "web":     return "Trình duyệt web"
+        case "web":     return L.t("Trình duyệt web")
         case "ios":     return "iPhone / iPad"
         case "android": return "Android"
         case "":        return unknownPlatform
@@ -132,9 +132,9 @@ public enum SessionLabels {
         let trimmed = result.message.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
         switch SessionRevokeOutcome.of(result) {
-        case .signedOutLocally: return "Đã đăng xuất thiết bị này. Hãy đăng nhập lại."
-        case .alreadyRevoked:   return "Phiên này đã được thu hồi trước đó."
-        case .revoked:          return "Đã thu hồi phiên đăng nhập."
+        case .signedOutLocally: return L.t("Đã đăng xuất thiết bị này. Hãy đăng nhập lại.")
+        case .alreadyRevoked:   return L.t("Phiên này đã được thu hồi trước đó.")
+        case .revoked:          return L.t("Đã thu hồi phiên đăng nhập.")
         }
     }
 }

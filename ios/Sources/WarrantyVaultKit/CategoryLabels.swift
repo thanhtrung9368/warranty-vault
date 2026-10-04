@@ -37,10 +37,18 @@ public enum CategoryLabels {
     /// Label for a category code. Case-insensitive on lookup, matching the
     /// permissive behaviour of the web's `categoryLabel()` helper when a
     /// legacy lowercase code (e.g. `laptop`) is on the wire.
+    ///
+    /// The Vietnamese label from `table` is rendered through the catalog, so
+    /// the table above stays a plain `[String: String]` of Vietnamese source
+    /// text — which is exactly what
+    /// `api/internal/services/category_seed_test.go` parses to keep the web,
+    /// iOS, Android and migration `0004` label sets in step. That test fails CI
+    /// on a *structural* change to those 20 lines, so the table is deliberately
+    /// NOT rewritten into `L.t(...)` calls.
     public static func label(for code: String?) -> String {
-        guard let code, !code.isEmpty else { return "Khác" }
-        if let hit = table[code] { return hit }
-        if let hit = table[code.uppercased()] { return hit }
+        guard let code, !code.isEmpty else { return L.t("Khác") }
+        if let hit = table[code] { return L.t(hit) }
+        if let hit = table[code.uppercased()] { return L.t(hit) }
         return code
     }
 }

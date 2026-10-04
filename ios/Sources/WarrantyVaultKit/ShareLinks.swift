@@ -101,128 +101,130 @@ public enum ShareCopy {
     /// The stakes, as the title of the surface that shows the token (Android
     /// `ONE_TIME_TITLE`): stated before the body is read, impossible to scroll
     /// past.
-    public static let oneTimeTitle = "Link chỉ hiện một lần"
+    public static let oneTimeTitle = L.t("Link chỉ hiện một lần")
 
     /// The sentence the UI states **before** the link exists and again while it is
     /// on screen. The server stores only a hash, so a lost token is
     /// unrecoverable and the only remedy is a new link.
     public static let oneTimeWarning =
-        "Link chỉ hiện MỘT LẦN, ngay sau khi bạn bấm tạo. Máy chủ chỉ lưu mã băm của token nên không ai — kể cả bạn — xem lại được link này. Hãy sao chép và gửi cho người nhận trước khi đóng; nếu lỡ đóng mà chưa sao chép, bạn phải tạo link mới."
+        L.t("Link chỉ hiện MỘT LẦN, ngay sau khi bạn bấm tạo. Máy chủ chỉ lưu mã băm của token nên không ai — kể cả bạn — xem lại được link này. Hãy sao chép và gửi cho người nhận trước khi đóng; nếu lỡ đóng mà chưa sao chép, bạn phải tạo link mới.")
 
     /// Secondary heading on the one-time surface.
-    public static let oneTimeHeading = "Đây là lần duy nhất link hiện ra"
+    public static let oneTimeHeading = L.t("Đây là lần duy nhất link hiện ra")
 
     /// Why the dismiss control is refused. Rendered next to it while the link has
     /// been neither copied nor acknowledged.
     public static let closeBlockedHint =
-        "Link chưa được lưu. Hãy bấm “Sao chép link”, hoặc tick xác nhận rằng bạn đã lưu, rồi mới đóng."
+        L.t("Link chưa được lưu. Hãy bấm “Sao chép link”, hoặc tick xác nhận rằng bạn đã lưu, rồi mới đóng.")
 
     /// The acknowledgement that satisfies the close gate without copying.
     public static let ackLabel =
-        "Tôi đã sao chép hoặc lưu link này và hiểu rằng không xem lại được."
+        L.t("Tôi đã sao chép hoặc lưu link này và hiểu rằng không xem lại được.")
 
     /// Short version for the section itself, before any dialog is opened.
     public static let sectionHint =
-        "Link chia sẻ là phiếu bàn giao cho người mua: mở được không cần đăng nhập, không có giá, ghi chú hay ảnh hoá đơn. Token chỉ hiện một lần lúc tạo."
+        L.t("Link chia sẻ là phiếu bàn giao cho người mua: mở được không cần đăng nhập, không có giá, ghi chú hay ảnh hoá đơn. Token chỉ hiện một lần lúc tạo.")
 
     /// Button label for the create action. A verb, not a noun, because the button
     /// creates a credential that is shown once.
-    public static let createAction = "Tạo link chia sẻ"
+    public static let createAction = L.t("Tạo link chia sẻ")
 
     /// Short label for the create button once the cap is reached (the long
     /// explanation is `limitReached`, rendered next to it).
-    public static let limitReachedShort = "Đã đạt giới hạn link"
+    public static let limitReachedShort = L.t("Đã đạt giới hạn link")
 
     /// The 10-live-link cap and the "no permanent link" rule, in one sentence.
     public static let limitNote =
-        "Tối đa \(ShareLinks.maxActivePerDevice) link còn hiệu lực cho mỗi thiết bị. Link luôn có hạn (\(ShareLinks.ttlMinDays)–\(ShareLinks.ttlMaxDays) ngày) và thu hồi được — không có link vĩnh viễn."
+        L.t("Tối đa %d link còn hiệu lực cho mỗi thiết bị. Link luôn có hạn (%d–%d ngày) và thu hồi được — không có link vĩnh viễn.",
+                 ShareLinks.maxActivePerDevice, ShareLinks.ttlMinDays, ShareLinks.ttlMaxDays)
 
     /// What the server says when the 11th live link is attempted (`409`), said
     /// locally too so the user does not need the round trip to understand.
     public static let limitReached =
-        "Mỗi thiết bị chỉ giữ được \(ShareLinks.maxActivePerDevice) link còn hiệu lực. Thu hồi bớt một link rồi tạo lại."
+        L.t("Mỗi thiết bị chỉ giữ được %d link còn hiệu lực. Thu hồi bớt một link rồi tạo lại.",
+                              ShareLinks.maxActivePerDevice)
 
     /// Serial off (the default) — what the buyer still gets.
     public static let serialOffNote =
-        "Mặc định TẮT: phiếu chỉ hiện serial che giữa (giữ đầu và cuối, che phần giữa) — vẫn đủ để người mua đối chiếu tem trên máy."
+        L.t("Mặc định TẮT: phiếu chỉ hiện serial che giữa (giữ đầu và cuối, che phần giữa) — vẫn đủ để người mua đối chiếu tem trên máy.")
 
     /// Serial on — exactly what turning it on exposes.
     public static let serialOnNote =
-        "BẬT: phiếu hiện serial/IMEI đầy đủ. Cần khi trung tâm bảo hành tra cứu theo IMEI, nhưng nghĩa là bất kỳ ai có link (kể cả khi bị chuyển tiếp) đều thấy định danh đầy đủ của máy."
+        L.t("BẬT: phiếu hiện serial/IMEI đầy đủ. Cần khi trung tâm bảo hành tra cứu theo IMEI, nhưng nghĩa là bất kỳ ai có link (kể cả khi bị chuyển tiếp) đều thấy định danh đầy đủ của máy.")
 
-    public static let serialLabel = "Kèm serial/IMEI đầy đủ trong phiếu"
+    public static let serialLabel = L.t("Kèm serial/IMEI đầy đủ trong phiếu")
 
     /// Headline of the "what am I handing over" block.
-    public static let projectionTitle = "Người nhận đọc được gì"
+    public static let projectionTitle = L.t("Người nhận đọc được gì")
 
     /// What the buyer can read in the certificate. Only claims the server's own
     /// SQL projection enforces (openapi `SharedCertificate`).
     public static let certificateShows: [String] = [
-        "Tên máy, loại, hãng, model",
-        "Ngày mua, nơi mua, trạng thái thiết bị (kể cả ngày bán nếu bạn có ghi)",
-        "Serial che giữa — hoặc serial đầy đủ nếu bạn bật lựa chọn bên trên",
-        "Từng gói bảo hành: loại, nhà bảo hành, thời hạn, địa chỉ/số điện thoại do bạn tự ghi cho gói đó",
-        "Ngày hết hạn bảo hành xa nhất và ngày hết hạn của chính link",
+        L.t("Tên máy, loại, hãng, model"),
+        L.t("Ngày mua, nơi mua, trạng thái thiết bị (kể cả ngày bán nếu bạn có ghi)"),
+        L.t("Serial che giữa — hoặc serial đầy đủ nếu bạn bật lựa chọn bên trên"),
+        L.t("Từng gói bảo hành: loại, nhà bảo hành, thời hạn, địa chỉ/số điện thoại do bạn tự ghi cho gói đó"),
+        L.t("Ngày hết hạn bảo hành xa nhất và ngày hết hạn của chính link"),
     ]
 
     /// What the certificate **never** contains — the reason a seller can send it.
     public static let certificateNeverShown: [String] = [
-        "Giá mua, giá bán, lãi/lỗ",
-        "Chi phí từng gói bảo hành",
-        "Ghi chú của thiết bị và ghi chú của gói bảo hành",
-        "Ảnh hoá đơn và mọi file đính kèm",
-        "Các thiết bị khác trong tài khoản của bạn",
+        L.t("Giá mua, giá bán, lãi/lỗ"),
+        L.t("Chi phí từng gói bảo hành"),
+        L.t("Ghi chú của thiết bị và ghi chú của gói bảo hành"),
+        L.t("Ảnh hoá đơn và mọi file đính kèm"),
+        L.t("Các thiết bị khác trong tài khoản của bạn"),
     ]
 
-    public static let neverShownTitle = "Không bao giờ có trong phiếu"
+    public static let neverShownTitle = L.t("Không bao giờ có trong phiếu")
 
     public static let previewNote =
-        "Phiếu do máy chủ API dựng và mở trong trình duyệt — không cần đăng nhập. Đây cũng là thứ người nhận sẽ thấy, nên hãy mở xem trước khi gửi."
+        L.t("Phiếu do máy chủ API dựng và mở trong trình duyệt — không cần đăng nhập. Đây cũng là thứ người nhận sẽ thấy, nên hãy mở xem trước khi gửi.")
 
-    public static let expiryLabel = "Link sống trong bao lâu"
+    public static let expiryLabel = L.t("Link sống trong bao lâu")
     public static let expiryNote =
-        "Hết hạn là link ngừng hoạt động. Không có lựa chọn vĩnh viễn, và bạn luôn thu hồi được trước hạn."
+        L.t("Hết hạn là link ngừng hoạt động. Không có lựa chọn vĩnh viễn, và bạn luôn thu hồi được trước hạn.")
 
-    public static let createdTitle = "Đã tạo link chia sẻ"
-    public static let createdSubtitle = "Gửi link dưới đây cho người nhận. Họ mở được ngay, không cần đăng nhập."
-    public static let linkLabel = "Link gửi cho người nhận"
-    public static let copyAction = "Sao chép link"
-    public static let copiedAction = "Đã sao chép"
-    public static let shareAction = "Chia sẻ"
-    public static let closeAction = "Đóng"
-    public static let cancelAction = "Huỷ"
+    public static let createdTitle = L.t("Đã tạo link chia sẻ")
+    public static let createdSubtitle = L.t("Gửi link dưới đây cho người nhận. Họ mở được ngay, không cần đăng nhập.")
+    public static let linkLabel = L.t("Link gửi cho người nhận")
+    public static let copyAction = L.t("Sao chép link")
+    public static let copiedAction = L.t("Đã sao chép")
+    public static let shareAction = L.t("Chia sẻ")
+    public static let closeAction = L.t("Đóng")
+    public static let cancelAction = L.t("Huỷ")
 
-    public static let copiedToast = "Đã sao chép link. Lưu ý: link chỉ hiện một lần."
+    public static let copiedToast = L.t("Đã sao chép link. Lưu ý: link chỉ hiện một lần.")
     public static let copyFailed =
-        "Không tự sao chép được. Hãy chọn link và sao chép thủ công rồi gửi ngay."
+        L.t("Không tự sao chép được. Hãy chọn link và sao chép thủ công rồi gửi ngay.")
     /// Shown when the server sent no usable `sharePath` — the credential exists
     /// but this client cannot build a URL for it, which is said out loud.
     public static let missingPath =
-        "Máy chủ không trả về đường dẫn cho link này. Hãy thu hồi và tạo lại."
+        L.t("Máy chủ không trả về đường dẫn cho link này. Hãy thu hồi và tạo lại.")
 
     public static let emptyState =
-        "Chưa có link chia sẻ nào. Tạo link khi bạn cần đưa phiếu bàn giao bảo hành cho người mua."
+        L.t("Chưa có link chia sẻ nào. Tạo link khi bạn cần đưa phiếu bàn giao bảo hành cho người mua.")
     public static let unavailableState =
-        "Không tải được danh sách link chia sẻ — thử tải lại nhé."
+        L.t("Không tải được danh sách link chia sẻ — thử tải lại nhé.")
     public static let noLiveLinks =
-        "Không còn link nào đang hoạt động. Người nhận cũ mở link cũ sẽ thấy thông báo link không còn hiệu lực."
+        L.t("Không còn link nào đang hoạt động. Người nhận cũ mở link cũ sẽ thấy thông báo link không còn hiệu lực.")
 
     /// `"Link đã hết hạn hoặc đã thu hồi (3)"`.
     public static func deadGroupLabel(_ count: Int) -> String {
-        "Link đã hết hạn hoặc đã thu hồi (\(count))"
+        L.t("Link đã hết hạn hoặc đã thu hồi (%d)", count)
     }
 
-    public static let revokeTitle = "Thu hồi link này?"
-    public static let revokeAction = "Thu hồi"
+    public static let revokeTitle = L.t("Thu hồi link này?")
+    public static let revokeAction = L.t("Thu hồi")
     public static let revokeConfirm =
-        "Người đang giữ link sẽ không mở được phiếu nữa. Không thể hoàn tác."
+        L.t("Người đang giữ link sẽ không mở được phiếu nữa. Không thể hoàn tác.")
 
-    public static let createFailed = "Không tạo được link chia sẻ, thử lại sau."
-    public static let revokeFailed = "Không thu hồi được link chia sẻ, thử lại sau."
+    public static let createFailed = L.t("Không tạo được link chia sẻ, thử lại sau.")
+    public static let revokeFailed = L.t("Không thu hồi được link chia sẻ, thử lại sau.")
 
     /// The share-sheet subject: what the recipient is being handed.
     public static func shareSubject(deviceName: String) -> String {
-        "Phiếu bàn giao bảo hành cho \"\(deviceName)\""
+        L.t("Phiếu bàn giao bảo hành cho \"%@\"", deviceName)
     }
 
     /// The share-sheet body. The URL travels as the shared item, so it is not
@@ -231,7 +233,7 @@ public enum ShareCopy {
     /// certificate itself does not already expose, because this text travels
     /// further than the certificate does.
     public static let shareMessage =
-        "Link chỉ-đọc, có hạn, không cần đăng nhập. Mở để xem phần bảo hành còn lại."
+        L.t("Link chỉ-đọc, có hạn, không cần đăng nhập. Mở để xem phần bảo hành còn lại.")
 }
 
 // MARK: - Rules
@@ -254,9 +256,9 @@ public enum ShareLinks {
     /// decision, and a free-text field is deliberately not offered: a value out of
     /// range is a 400 and "0" cannot mean "forever".
     public static let expiryChoices: [(days: Int, label: String)] = [
-        (7, "7 ngày"),
-        (ttlDefaultDays, "30 ngày (mặc định)"),
-        (90, "90 ngày"),
+        (7, L.t("7 ngày")),
+        (ttlDefaultDays, L.t("30 ngày (mặc định)")),
+        (90, L.t("90 ngày")),
     ]
 
     /// Whatever a caller carries into `expiresInDays` becomes a value the server
@@ -342,9 +344,9 @@ public enum ShareLinks {
 
         public var label: String {
             switch self {
-            case .live:    return "Đang hoạt động"
-            case .expired: return "Đã hết hạn"
-            case .revoked: return "Đã thu hồi"
+            case .live:    return L.t("Đang hoạt động")
+            case .expired: return L.t("Đã hết hạn")
+            case .revoked: return L.t("Đã thu hồi")
             }
         }
     }
@@ -391,8 +393,8 @@ public enum ShareLinks {
         guard isLive(share, now: now) else { return nil }
         let left = share.expiresAt.timeIntervalSince(now)
         if left <= 0 { return nil }
-        if left < daySeconds { return "Còn dưới 1 ngày" }
-        return "Còn \(Int(left / daySeconds)) ngày"
+        if left < daySeconds { return L.t("Còn dưới 1 ngày") }
+        return L.p("Còn %d ngày", Int(left / daySeconds))
     }
 
     /// `viewCount` counts fetches, which is the only thing the app can observe. It
@@ -400,13 +402,13 @@ public enum ShareLinks {
     /// have been forwarded.
     public static func viewLabel(_ viewCount: Int) -> String {
         let n = max(0, viewCount)
-        if n == 0 { return "Chưa ai mở" }
-        return "Đã mở \(n) lần"
+        if n == 0 { return L.t("Chưa ai mở") }
+        return L.p("Đã mở %d lần", n)
     }
 
     /// What the link exposes about the serial, in the owner's own words.
     public static func serialExposureLabel(_ includeSerial: Bool) -> String {
-        includeSerial ? "Kèm serial/IMEI đầy đủ" : "Chỉ serial che giữa"
+        includeSerial ? L.t("Kèm serial/IMEI đầy đủ") : L.t("Chỉ serial che giữa")
     }
 
     /// `"3/10 link còn hiệu lực"` plus the reason when full — one line for the
@@ -414,9 +416,10 @@ public enum ShareLinks {
     public static func capacityLine(_ shares: [DeviceShare], now: Date = Date()) -> String {
         let cap = capacity(shares, now: now)
         if cap.full {
-            return "\(cap.live)/\(maxActivePerDevice) link còn hiệu lực — đã đạt giới hạn, thu hồi bớt để tạo thêm"
+            return L.t("%d/%d link còn hiệu lực — đã đạt giới hạn, thu hồi bớt để tạo thêm",
+                                                               cap.live, maxActivePerDevice)
         }
-        return "\(cap.live)/\(maxActivePerDevice) link còn hiệu lực"
+        return L.t("%d/%d link còn hiệu lực", cap.live, maxActivePerDevice)
     }
 
     // MARK: Failures

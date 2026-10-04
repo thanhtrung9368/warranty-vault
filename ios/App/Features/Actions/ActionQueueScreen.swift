@@ -73,7 +73,7 @@ struct ActionQueueScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Việc cần xử lý")
+        .navigationTitle(L.t("Việc cần xử lý"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -96,7 +96,7 @@ struct ActionQueueScreen: View {
 
             WVSegmented(
                 options: [
-                    (Mode.active, "Cần xử lý"),
+                    (Mode.active, L.t("Cần xử lý")),
                     (Mode.snoozed, snoozeTabLabel),
                 ],
                 selection: $mode
@@ -116,13 +116,13 @@ struct ActionQueueScreen: View {
     /// Built from `counts` — the server's tally of the actionable set — never from
     /// the rows on screen.
     private var subtitle: String {
-        guard let counts = store.queue?.counts else { return "Đang tải…" }
+        guard let counts = store.queue?.counts else { return L.t("Đang tải…") }
         return ActionQueueRules.subtitle(counts: counts.total, snoozed: store.queue?.snoozedCount ?? 0)
     }
 
     private var snoozeTabLabel: String {
         let count = store.queue?.snoozedCount ?? 0
-        return count > 0 ? "Đang hoãn (\(count))" : "Đang hoãn"
+        return count > 0 ? L.t("Đang hoãn (%d)", count) : L.t("Đang hoãn")
     }
 
     // MARK: - Content
@@ -134,9 +134,9 @@ struct ActionQueueScreen: View {
             // queue would read as "no work to do", which is a claim this screen
             // cannot support.
             if case let .error(message) = store.state {
-                WVEmpty(icon: "alert", title: "Không tải được việc cần xử lý",
+                WVEmpty(icon: "alert", title: L.t("Không tải được việc cần xử lý"),
                         description: message) {
-                    WVButton("Thử lại") { Task { await store.load() } }
+                    WVButton(L.t("Thử lại")) { Task { await store.load() } }
                         .padding(.horizontal, WVSpacing.gutter)
                 }
             } else {
@@ -154,8 +154,8 @@ struct ActionQueueScreen: View {
     @ViewBuilder
     private var activeList: some View {
         if actionable.isEmpty {
-            WVEmpty(icon: "checkCircle", title: "Không còn việc nào",
-                    description: "App không suy ra được việc nào cần bạn quyết định từ dữ liệu hiện có.")
+            WVEmpty(icon: "checkCircle", title: L.t("Không còn việc nào"),
+                    description: L.t("App không suy ra được việc nào cần bạn quyết định từ dữ liệu hiện có."))
         } else {
             ForEach(Array(ActionQueueRules.sections(actionable).enumerated()), id: \.offset) { _, section in
                 WVSectionHeader(section.severity.sectionLabel)
@@ -172,11 +172,11 @@ struct ActionQueueScreen: View {
     @ViewBuilder
     private var snoozedList: some View {
         if snoozed.isEmpty {
-            WVEmpty(icon: "clock", title: "Không có việc nào đang hoãn",
-                    description: "Hoãn một việc để nó tạm rời hàng đợi — việc vẫn còn nguyên và hiện lại khi tới hạn.")
+            WVEmpty(icon: "clock", title: L.t("Không có việc nào đang hoãn"),
+                    description: L.t("Hoãn một việc để nó tạm rời hàng đợi — việc vẫn còn nguyên và hiện lại khi tới hạn."))
         } else {
-            WVSectionHeader("Đang hoãn")
-            WVSectionFooter("Việc bị hoãn không được tính vào số việc cần xử lý.")
+            WVSectionHeader(L.t("Đang hoãn"))
+            WVSectionFooter(L.t("Việc bị hoãn không được tính vào số việc cần xử lý."))
             WVGroup {
                 ForEach(Array(ActionQueueRules.sorted(snoozed).enumerated()), id: \.element.id) { idx, item in
                     if idx > 0 { WVDivider(inset: 60) }
@@ -246,7 +246,7 @@ struct ActionQueueScreen: View {
                             .foregroundStyle(WVColor.label2)
                     }
                     if isSnoozedRow, let until = ActionQueueRules.dateLabel(item.snoozedUntil) {
-                        Text("Hiện lại \(until)")
+                        Text(L.t("Hiện lại %@", until))
                             .font(.system(size: 12))
                             .foregroundStyle(WVColor.label3)
                     }
@@ -276,13 +276,13 @@ struct ActionQueueScreen: View {
                 Button {
                     Task { await unsnooze(item) }
                 } label: {
-                    snoozeLabel(icon: "rotateCcw", text: "Bỏ hoãn", busy: pendingKey == item.itemKey)
+                    snoozeLabel(icon: "rotateCcw", text: L.t("Bỏ hoãn"), busy: pendingKey == item.itemKey)
                 }
                 .buttonStyle(.plain)
                 .disabled(pendingKey != nil)
             } else {
                 Menu {
-                    Section("Hoãn việc này trong") {
+                    Section(L.t("Hoãn việc này trong")) {
                         ForEach(ActionQueueRules.snoozeChoices) { choice in
                             Button(choice.label) {
                                 Task { await snooze(item, days: choice.days) }
@@ -290,7 +290,7 @@ struct ActionQueueScreen: View {
                         }
                     }
                 } label: {
-                    snoozeLabel(icon: "clock", text: "Hoãn", busy: pendingKey == item.itemKey)
+                    snoozeLabel(icon: "clock", text: L.t("Hoãn"), busy: pendingKey == item.itemKey)
                 }
                 .disabled(pendingKey != nil)
             }
@@ -340,7 +340,7 @@ struct ActionQueueScreen: View {
         defer { pendingKey = nil }
         do {
             try await store.unsnooze(item.itemKey)
-            toast.show("Đã bỏ hoãn — việc này quay lại hàng đợi.")
+            toast.show(L.t("Đã bỏ hoãn — việc này quay lại hàng đợi."))
         } catch let err as APIError {
             // 404 = another device already un-snoozed it. The server's message
             // says so; showing it is more useful than a silent success.
@@ -419,7 +419,7 @@ struct ActionDeviceDestination: View {
         if let device = store.devices.first(where: { $0.id == deviceId }) {
             DeviceDetailView(client: client, devicesStore: store, device: device)
         } else {
-            ProgressView("Đang tải…")
+            ProgressView(L.t("Đang tải…"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .task { await store.load() }
         }

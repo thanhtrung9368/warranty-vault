@@ -38,11 +38,11 @@ struct DevicesScreen: View {
 
         var label: String {
             switch self {
-            case .purchaseDesc: return "Mới mua nhất"
-            case .warrantyAsc:  return "BH sắp hết trước"
-            case .priceDesc:    return "Giá cao nhất"
-            case .priceAsc:     return "Giá thấp nhất"
-            case .name:         return "Tên A → Z"
+            case .purchaseDesc: return L.t("Mới mua nhất")
+            case .warrantyAsc:  return L.t("BH sắp hết trước")
+            case .priceDesc:    return L.t("Giá cao nhất")
+            case .priceAsc:     return L.t("Giá thấp nhất")
+            case .name:         return L.t("Tên A → Z")
             }
         }
     }
@@ -112,7 +112,7 @@ struct DevicesScreen: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15))
                         .foregroundStyle(WVColor.label3)
-                    TextField("Tìm thiết bị...", text: $searchQuery)
+                    TextField(L.t("Tìm thiết bị..."), text: $searchQuery)
                         .font(.system(size: 16))
                         .foregroundStyle(WVColor.label)
                         .autocorrectionDisabled()
@@ -138,14 +138,14 @@ struct DevicesScreen: View {
             deviceList
         }
         .wvScreen()
-        .navigationTitle("Thiết bị")
+        .navigationTitle(L.t("Thiết bị"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     showFilterSheet = true
                 } label: {
-                    Label("Lọc", systemImage: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+                    Label(L.t("Lọc"), systemImage: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -188,14 +188,14 @@ struct DevicesScreen: View {
             let isFiltering = !searchQuery.isEmpty || hasActiveFilters
             WVEmpty(
                 icon: isFiltering ? "search" : "package",
-                title: isFiltering ? "Không có gì khớp" : "Chưa có thiết bị nào",
+                title: isFiltering ? L.t("Không có gì khớp") : L.t("Chưa có thiết bị nào"),
                 description: isFiltering
-                    ? "Thử nới bộ lọc xem sao."
-                    : "Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được."
+                    ? L.t("Thử nới bộ lọc xem sao.")
+                    : L.t("Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.")
             ) {
                 if !isFiltering {
                     NavigationLink(value: DeviceFormNav.create) {
-                        WVButton("Thêm thiết bị", icon: "plus") {}
+                        WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
                     }
                 }
             }
@@ -204,7 +204,7 @@ struct DevicesScreen: View {
                 LazyVStack(spacing: 0) {
                     if let categoryFilterLabel {
                         HStack(spacing: 6) {
-                            Text("Loại: \(categoryFilterLabel)")
+                            Text(L.t("Loại: %@", categoryFilterLabel))
                                 .font(.system(size: 13))
                                 .foregroundStyle(WVColor.label3)
                             Spacer()
@@ -224,7 +224,7 @@ struct DevicesScreen: View {
                     }
                     .padding(.top, 16)
 
-                    Text("\(items.count) thiết bị")
+                    Text(L.p("%d thiết bị", items.count))
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -296,11 +296,11 @@ private struct DeviceStatusChip: View {
 
     private var label: String {
         switch status {
-        case .ACTIVE:  return "Đang dùng"
-        case .EXPIRED: return "Hết BH"
-        case .SOLD:    return "Đã bán"
-        case .BROKEN:  return "Hỏng"
-        case .LOST:    return "Mất"
+        case .ACTIVE:  return L.t("Đang dùng")
+        case .EXPIRED: return L.t("Hết BH")
+        case .SOLD:    return L.t("Đã bán")
+        case .BROKEN:  return L.t("Hỏng")
+        case .LOST:    return L.t("Mất")
         }
     }
 
@@ -349,7 +349,7 @@ private struct DeviceFilterSheet: View {
                         }
                     }
                 } header: {
-                    Text("Sắp xếp")
+                    Text(L.t("Sắp xếp"))
                 }
 
                 Section {
@@ -357,7 +357,7 @@ private struct DeviceFilterSheet: View {
                         statusFilter = nil
                     } label: {
                         HStack {
-                            Text("Tất cả").foregroundStyle(WVColor.label)
+                            Text(L.t("Tất cả")).foregroundStyle(WVColor.label)
                             Spacer()
                             if statusFilter == nil {
                                 Image(systemName: "checkmark")
@@ -382,7 +382,7 @@ private struct DeviceFilterSheet: View {
                         }
                     }
                 } header: {
-                    Text("Trạng thái")
+                    Text(L.t("Trạng thái"))
                 }
 
                 // Category filter — mirrors the web's `DevicesFilterBar`,
@@ -392,7 +392,7 @@ private struct DeviceFilterSheet: View {
                         categoryFilter = nil
                     } label: {
                         HStack {
-                            Text("Tất cả").foregroundStyle(WVColor.label)
+                            Text(L.t("Tất cả")).foregroundStyle(WVColor.label)
                             Spacer()
                             if categoryFilter == nil {
                                 Image(systemName: "checkmark")
@@ -417,14 +417,14 @@ private struct DeviceFilterSheet: View {
                         }
                     }
                 } header: {
-                    Text("Loại")
+                    Text(L.t("Loại"))
                 }
             }
-            .navigationTitle("Lọc & Sắp xếp")
+            .navigationTitle(L.t("Lọc & Sắp xếp"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Xoá") {
+                    Button(L.t("Xoá")) {
                         statusFilter = nil
                         categoryFilter = nil
                         sortOrder = .purchaseDesc

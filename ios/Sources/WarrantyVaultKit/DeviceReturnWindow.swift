@@ -182,8 +182,8 @@ public enum DeviceReturnWindow {
                                     now: Date = Date(),
                                     calendar: Calendar = .current) -> String? {
         guard let days = daysLeft(wire, now: now, calendar: calendar) else { return nil }
-        if days > 0 { return "còn \(days) ngày" }
-        if days == 0 { return "hôm nay là ngày cuối" }
-        return "đã qua \(abs(days)) ngày"
+        if days > 0 { return L.p("còn %d ngày", days) }
+        if days == 0 { return L.t("hôm nay là ngày cuối") }
+        return L.p("đã qua %d ngày", abs(days))
     }
 }

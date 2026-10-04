@@ -64,7 +64,7 @@ struct ShareCertificatesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVSectionHeader("Phiếu bàn giao & link chia sẻ")
+            WVSectionHeader(L.t("Phiếu bàn giao & link chia sẻ"))
             WVSectionFooter(ShareCopy.sectionHint)
 
             createCard
@@ -174,7 +174,7 @@ struct ShareCertificatesSection: View {
                 if creating {
                     HStack(spacing: 8) {
                         ProgressView()
-                        Text("Đang tạo link…")
+                        Text(L.t("Đang tạo link…"))
                             .font(.system(size: 13))
                             .foregroundStyle(WVColor.label3)
                     }
@@ -335,7 +335,7 @@ private struct ShareRowView: View {
     }
 
     private var termsLine: String {
-        var parts = ["Hết hạn \(WVFormat.date(share.expiresAt))"]
+        var parts = [L.t("Hết hạn %@", WVFormat.date(share.expiresAt))]
         if let remaining = ShareLinks.remainingLabel(share, now: now) { parts.append("(\(remaining))") }
         parts.append(ShareLinks.viewLabel(share.viewCount))
         parts.append(ShareLinks.serialExposureLabel(share.includeSerial))
@@ -349,7 +349,7 @@ private struct ShareRowView: View {
                           size: 30)
             VStack(alignment: .leading, spacing: 3) {
                 WVChip(status.label, tone: tone)
-                Text("Tạo ngày \(WVFormat.date(share.createdAt))")
+                Text(L.t("Tạo ngày %@", WVFormat.date(share.createdAt)))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WVColor.label)
                 Text(termsLine)
@@ -357,7 +357,7 @@ private struct ShareRowView: View {
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
                 if let lastViewed = share.lastViewedAt {
-                    Text("Mở lần cuối \(WVFormat.date(lastViewed))")
+                    Text(L.t("Mở lần cuối %@", WVFormat.date(lastViewed)))
                         .font(.system(size: 12))
                         .foregroundStyle(WVColor.label3)
                 }
@@ -374,7 +374,7 @@ private struct ShareRowView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(WVPressableStyle())
-                .accessibilityLabel("\(ShareCopy.revokeAction) link tạo ngày \(WVFormat.date(share.createdAt))")
+                .accessibilityLabel(L.t("%@ link tạo ngày %@", ShareCopy.revokeAction, WVFormat.date(share.createdAt)))
             }
         }
         .padding(.horizontal, 16)
@@ -454,7 +454,8 @@ private struct OneTimeTokenSheet: View {
                 }
 
                 // 4. What the link is, in the owner's own terms.
-                Text("Hạn \(WVFormat.date(link.created.share.expiresAt)) • \(ShareLinks.serialExposureLabel(link.created.share.includeSerial))")
+                Text(L.t("Hạn %@ • %@", WVFormat.date(link.created.share.expiresAt),
+                                     ShareLinks.serialExposureLabel(link.created.share.includeSerial)))
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
 
@@ -489,7 +490,7 @@ private struct OneTimeTokenSheet: View {
                     } label: {
                         HStack(spacing: 6) {
                             WVIcon("externalLink", size: 14)
-                            Text("Mở phiếu (xem trước)")
+                            Text(L.t("Mở phiếu (xem trước)"))
                         }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(WVColor.tint)

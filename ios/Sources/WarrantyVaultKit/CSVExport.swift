@@ -35,15 +35,15 @@ public enum DeviceCSVExport {
     /// string in the app. `Giá mua (VND)` names the unit so the value itself
     /// can stay a bare number.
     public static let header: [String] = [
-        "Tên",
-        "Danh mục",
-        "Hãng",
+        L.t("Tên"),
+        L.t("Danh mục"),
+        L.t("Hãng"),
         "Model",
-        "Số seri",
-        "Ngày mua",
-        "Giá mua (VND)",
-        "Hết bảo hành",
-        "Trạng thái",
+        L.t("Số seri"),
+        L.t("Ngày mua"),
+        L.t("Giá mua (VND)"),
+        L.t("Hết bảo hành"),
+        L.t("Trạng thái"),
     ]
 
     // MARK: Field escaping

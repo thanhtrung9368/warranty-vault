@@ -41,7 +41,7 @@ struct WishlistDetailView: View {
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                WVEmpty(icon: "alert", title: "Không tìm thấy")
+                WVEmpty(icon: "alert", title: L.t("Không tìm thấy"))
             }
         }
         .navigationTitle(item?.name ?? "")
@@ -66,19 +66,19 @@ struct WishlistDetailView: View {
             }
         }
         .confirmationDialog("", isPresented: $showMore, titleVisibility: .hidden) {
-            Button("Sửa") { pushEdit = true }
-            Button("Update giá") { showUpdatePrice = true }
+            Button(L.t("Sửa")) { pushEdit = true }
+            Button(L.t("Update giá")) { showUpdatePrice = true }
             if item?.status != .PURCHASED {
-                Button("Đã mua → tạo thiết bị") { Task { await markPurchased() } }
+                Button(L.t("Đã mua → tạo thiết bị")) { Task { await markPurchased() } }
             }
-            Button("Xoá", role: .destructive) { showDelete = true }
-            Button("Huỷ", role: .cancel) {}
+            Button(L.t("Xoá"), role: .destructive) { showDelete = true }
+            Button(L.t("Huỷ"), role: .cancel) {}
         }
-        .alert("Xoá khỏi wishlist?", isPresented: $showDelete) {
-            Button("Huỷ", role: .cancel) {}
-            Button("Xoá", role: .destructive) { Task { await deleteItem() } }
+        .alert(L.t("Xoá khỏi wishlist?"), isPresented: $showDelete) {
+            Button(L.t("Huỷ"), role: .cancel) {}
+            Button(L.t("Xoá"), role: .destructive) { Task { await deleteItem() } }
         } message: {
-            Text("\"\(item?.name ?? "")\" và lịch sử giá sẽ bị xoá.")
+            Text(L.t("\"%@\" và lịch sử giá sẽ bị xoá.", item?.name ?? ""))
         }
         .navigationDestination(isPresented: $pushEdit) {
             if let w = item {
@@ -89,7 +89,7 @@ struct WishlistDetailView: View {
             if let device = devicesStore.devices.first(where: { $0.id == nav.id }) {
                 DeviceDetailView(client: client, devicesStore: devicesStore, device: device)
             } else {
-                ProgressView("Đang tải...")
+                ProgressView(L.t("Đang tải..."))
                     .navigationTitle(nav.name)
                     .task { await devicesStore.load() }
             }
@@ -158,7 +158,7 @@ struct WishlistDetailView: View {
             NavigationLink(value: DashDeviceNav(id: deviceId, name: w.name)) {
                 HStack(spacing: 8) {
                     WVIcon("shoppingBag", size: 14)
-                    Text("Đã mua → Xem thiết bị")
+                    Text(L.t("Đã mua → Xem thiết bị"))
                         .font(.system(size: 14, weight: .semibold))
                     Spacer(minLength: 4)
                     WVIcon("arrowRight", size: 12, weight: .semibold)
@@ -200,7 +200,8 @@ struct WishlistDetailView: View {
                 let pVals = prices.map { $0.price }
                 let minP = pVals.min() ?? 0
                 let maxP = pVals.max() ?? 0
-                Text("Giá ban đầu \(WVFormat.vnd(w.initialPrice ?? 0)) · Min \(WVFormat.vnd(minP)) · Max \(WVFormat.vnd(maxP))")
+                Text(L.t("Giá ban đầu %@ · Min %@ · Max %@",
+                             WVFormat.vnd(w.initialPrice ?? 0), WVFormat.vnd(minP), WVFormat.vnd(maxP)))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .padding(.top, 2)
@@ -227,11 +228,11 @@ struct WishlistDetailView: View {
 
     private func quickActions(_ w: WishlistItem) -> some View {
         HStack(spacing: WVSpacing.sm) {
-            WVButton("Update giá", icon: "wallet", kind: .secondary, size: .small,
+            WVButton(L.t("Update giá"), icon: "wallet", kind: .secondary, size: .small,
                      fullWidth: true) { showUpdatePrice = true }
 
             if w.status != .PURCHASED {
-                WVButton("Đã mua", icon: "shoppingBag", kind: .primary, size: .small,
+                WVButton(L.t("Đã mua"), icon: "shoppingBag", kind: .primary, size: .small,
                          fullWidth: true) { Task { await markPurchased() } }
             }
         }
@@ -246,22 +247,22 @@ struct WishlistDetailView: View {
         // `var`/`append` statements), then render it.
         var rows: [(icon: String, color: Color, title: String, detail: String)] = []
         if let td = w.targetDate {
-            rows.append(("calendar", WVColor.orange, "Ngày dự kiến", WVFormat.date(td)))
+            rows.append(("calendar", WVColor.orange, L.t("Ngày dự kiến"), WVFormat.date(td)))
         }
         if let n = w.reminderIntervalDays, n > 0 {
-            rows.append(("bell", WVColor.red, "Nhắc lại", "Mỗi \(n) ngày"))
+            rows.append(("bell", WVColor.red, L.t("Nhắc lại"), L.p("Mỗi %d ngày", n)))
         }
         if let cat = w.category, !cat.isEmpty {
-            rows.append(("tag", WVColor.purple, "Loại", CategoryLabels.label(for: cat)))
+            rows.append(("tag", WVColor.purple, L.t("Loại"), CategoryLabels.label(for: cat)))
         }
         let buyURL = w.buyUrl.flatMap { $0.isEmpty ? nil : URL(string: $0) }
 
         return VStack(spacing: 0) {
-            WVSectionHeader("Thông tin")
+            WVSectionHeader(L.t("Thông tin"))
             WVGroup {
                 if rows.isEmpty && buyURL == nil {
                     WVRowContainer {
-                        Text("Không có thông tin bổ sung")
+                        Text(L.t("Không có thông tin bổ sung"))
                             .font(.system(size: 15))
                             .foregroundStyle(WVColor.label3)
                     }
@@ -274,7 +275,7 @@ struct WishlistDetailView: View {
                     if let url = buyURL {
                         if !rows.isEmpty { WVDivider(inset: 60) }
                         WVRow(icon: "externalLink", iconColor: WVColor.blue,
-                              title: "Mua ở đâu", chevron: true, role: .tint) {
+                              title: L.t("Mua ở đâu"), chevron: true, role: .tint) {
                             UIApplication.shared.open(url)
                         }
                     }
@@ -288,11 +289,11 @@ struct WishlistDetailView: View {
 
     private var priceHistorySection: some View {
         VStack(spacing: 0) {
-            WVSectionHeader("Lịch sử giá (\(prices.count))")
+            WVSectionHeader(L.t("Lịch sử giá (%d)", prices.count))
             WVGroup {
                 if prices.isEmpty {
                     WVRowContainer {
-                        Text("Chưa có lịch sử giá nào")
+                        Text(L.t("Chưa có lịch sử giá nào"))
                             .font(.system(size: 15))
                             .foregroundStyle(WVColor.label3)
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -320,7 +321,7 @@ struct WishlistDetailView: View {
 
     private func statusSection(_ w: WishlistItem) -> some View {
         VStack(alignment: .leading, spacing: WVSpacing.sm) {
-            WVSectionHeader("Đổi trạng thái")
+            WVSectionHeader(L.t("Đổi trạng thái"))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: WVSpacing.sm) {
                     ForEach(WishlistStatus.allCases, id: \.self) { s in
@@ -349,7 +350,7 @@ struct WishlistDetailView: View {
 
     private func noteSection(_ text: String) -> some View {
         VStack(spacing: 0) {
-            WVSectionHeader("Ghi chú")
+            WVSectionHeader(L.t("Ghi chú"))
             WVGroup {
                 WVRowContainer {
                     Text(text)
@@ -371,7 +372,7 @@ struct WishlistDetailView: View {
             Spacer().frame(height: WVSpacing.md)
             WVGroup {
                 WVRow(icon: "trash", iconColor: WVColor.red,
-                      title: "Xoá khỏi wishlist", role: .destructive) {
+                      title: L.t("Xoá khỏi wishlist"), role: .destructive) {
                     showDelete = true
                 }
             }
@@ -407,7 +408,7 @@ struct WishlistDetailView: View {
         do {
             try await store.update(id: w.id, input)
             await reload()
-            toast.show("Đổi sang \"\(newStatus.wishChipLabel)\"")
+            toast.show(L.t("Đổi sang \"%@\"", newStatus.wishChipLabel))
         } catch {
             localStatus = prev
             toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
@@ -421,7 +422,7 @@ struct WishlistDetailView: View {
         do {
             try await store.update(id: w.id, input)
             await reload()
-            toast.show("Tạo thiết bị từ wishlist")
+            toast.show(L.t("Tạo thiết bị từ wishlist"))
         } catch {
             toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
         }
@@ -458,9 +459,9 @@ struct WishlistDetailView: View {
 extension WishlistPriority {
     var chipLabel: String {
         switch self {
-        case .MUST:  return "Cực thèm"
-        case .WANT:  return "Khá thèm"
-        case .MAYBE: return "Hơi thèm"
+        case .MUST:  return L.t("Cực thèm")
+        case .WANT:  return L.t("Khá thèm")
+        case .MAYBE: return L.t("Hơi thèm")
         }
     }
     var chipTone: WVChipTone {
@@ -477,10 +478,10 @@ extension WishlistPriority {
 extension WishlistStatus {
     var wishChipLabel: String {
         switch self {
-        case .WATCHING:  return "Đang ngó"
-        case .DECIDED:   return "Quyết mua"
-        case .SKIPPED:   return "Bỏ qua"
-        case .PURCHASED: return "Đã mua"
+        case .WATCHING:  return L.t("Đang ngó")
+        case .DECIDED:   return L.t("Quyết mua")
+        case .SKIPPED:   return L.t("Bỏ qua")
+        case .PURCHASED: return L.t("Đã mua")
         }
     }
     var wishChipTone: WVChipTone {
@@ -517,7 +518,7 @@ struct WishUpdatePriceSheet: View {
                     WVGroup {
                         WVRowContainer {
                             HStack {
-                                Text("Giá")
+                                Text(L.t("Giá"))
                                     .font(.system(size: 17))
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
@@ -528,7 +529,7 @@ struct WishUpdatePriceSheet: View {
                         WVDivider()
                         WVRowContainer {
                             HStack {
-                                Text("Ghi chú")
+                                Text(L.t("Ghi chú"))
                                     .font(.system(size: 17))
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
@@ -551,14 +552,14 @@ struct WishUpdatePriceSheet: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Cập nhật giá")
+            .navigationTitle(L.t("Cập nhật giá"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { dismiss() }.foregroundStyle(WVColor.tint)
+                    Button(L.t("Huỷ")) { dismiss() }.foregroundStyle(WVColor.tint)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Lưu") { Task { await submit() } }
+                    Button(L.t("Lưu")) { Task { await submit() } }
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                         .disabled(isBusy || (price ?? 0) <= 0)
@@ -579,7 +580,7 @@ struct WishUpdatePriceSheet: View {
         do {
             try await store.logPrice(id: itemId, input)
             onUpdated()
-            toast.show("Đã cập nhật giá 💸")
+            toast.show(L.t("Đã cập nhật giá 💸"))
             dismiss()
         } catch {
             topError = (error as? APIError)?.localizedDescription ?? error.localizedDescription

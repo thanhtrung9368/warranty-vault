@@ -12,15 +12,34 @@ public actor APIClient {
     public nonisolated let baseURL: URL
     private let session: URLSession
     private let tokenProvider: @Sendable () async -> String?
+    private let languageProvider: @Sendable () -> AppLanguage?
 
     public init(
         baseURL: URL,
         session: URLSession = .shared,
-        tokenProvider: @escaping @Sendable () async -> String? = { nil }
+        tokenProvider: @escaping @Sendable () async -> String? = { nil },
+        languageProvider: @escaping @Sendable () -> AppLanguage? = { L.language }
     ) {
         self.baseURL = baseURL
         self.session = session
         self.tokenProvider = tokenProvider
+        self.languageProvider = languageProvider
+    }
+
+    /// Attaches `Accept-Language` so the Go server answers in the language the
+    /// UI is currently rendering.
+    ///
+    /// Without this header the server would fall back to `User.locale` and then
+    /// to English, so a Vietnamese user on a Vietnamese phone would read
+    /// Vietnamese labels with English validation errors attached.
+    ///
+    /// A `nil` language sends **no header at all** rather than `en`: that leaves
+    /// the server's own chain intact (`?lang=` → `Accept-Language` →
+    /// `User.locale` → `en`), which is what the library and its tests want. The
+    /// app always has a language by the time it makes a request.
+    private func applyLanguage(to req: inout URLRequest) {
+        guard let language = languageProvider() else { return }
+        req.setValue(language.rawValue, forHTTPHeaderField: "Accept-Language")
     }
 
     // MARK: - JSON encoders/decoders (shared, ISO-8601 with fractional seconds)
@@ -155,6 +174,7 @@ public actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        applyLanguage(to: &req)
 
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -199,6 +219,7 @@ public actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        applyLanguage(to: &req)
         if let rawBody {
             req.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = rawBody
@@ -237,6 +258,7 @@ public actor APIClient {
         let boundary = "----WV-\(UUID().uuidString)"
         req.setValue("multipart/form-data; boundary=\(boundary)",
                      forHTTPHeaderField: "Content-Type")
+        applyLanguage(to: &req)
         if let token = await tokenProvider() {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

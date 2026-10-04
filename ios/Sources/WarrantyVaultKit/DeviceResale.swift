@@ -94,11 +94,11 @@ public enum DeviceResale {
     // MARK: - The server's own copy for the pair rule
 
     /// `fieldErrors.soldAt` when a price was given without a date.
-    public static let soldAtRequiredMessage = "Thiếu ngày bán"
+    public static let soldAtRequiredMessage = L.t("Thiếu ngày bán")
     /// `fieldErrors.soldPrice` when a date was given without a price.
-    public static let soldPriceRequiredMessage = "Thiếu giá bán"
+    public static let soldPriceRequiredMessage = L.t("Thiếu giá bán")
     /// `fieldErrors.soldPrice` for a negative price.
-    public static let soldPriceInvalidMessage = "Giá bán không hợp lệ"
+    public static let soldPriceInvalidMessage = L.t("Giá bán không hợp lệ")
 
     // MARK: - The round trip
 
@@ -255,12 +255,12 @@ public enum DeviceResale {
         let amount = soldPrice - purchasePrice
         if amount > 0 {
             return SaleProfitLoss(amount: amount, tone: .profit,
-                                  label: "Lãi \(VndFormat.string(Int64(amount)))")
+                                  label: L.t("Lãi %@", VndFormat.string(Int64(amount))))
         }
         if amount < 0 {
             return SaleProfitLoss(amount: amount, tone: .loss,
-                                  label: "Lỗ \(VndFormat.string(Int64(-amount)))")
+                                  label: L.t("Lỗ %@", VndFormat.string(Int64(-amount))))
         }
-        return SaleProfitLoss(amount: 0, tone: .even, label: "Hoà vốn")
+        return SaleProfitLoss(amount: 0, tone: .even, label: L.t("Hoà vốn"))
     }
 }

@@ -54,7 +54,7 @@ struct SubscriptionAuditScreen: View {
                     if findings.isEmpty {
                         emptyCard
                     } else {
-                        WVSectionHeader("Phát hiện")
+                        WVSectionHeader(L.t("Phát hiện"))
                         VStack(spacing: 8) {
                             ForEach(findings) { finding in
                                 findingCard(finding, thresholds: audit.thresholds)
@@ -65,9 +65,9 @@ struct SubscriptionAuditScreen: View {
 
                     rulesCard(audit)
                 } else if case let .error(message) = store.state {
-                    WVEmpty(icon: "alert", title: "Không tải được phần soát gói",
+                    WVEmpty(icon: "alert", title: L.t("Không tải được phần soát gói"),
                             description: message) {
-                        WVButton("Thử lại") { Task { await store.load() } }
+                        WVButton(L.t("Thử lại")) { Task { await store.load() } }
                             .padding(.horizontal, WVSpacing.gutter)
                     }
                 } else {
@@ -80,7 +80,7 @@ struct SubscriptionAuditScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Soát gói đăng ký")
+        .navigationTitle(L.t("Soát gói đăng ký"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -116,7 +116,7 @@ struct SubscriptionAuditScreen: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text("Soát từ lịch sử thanh toán bạn đã ghi, tính tới \(generatedAtLabel(audit)).")
+                Text(L.t("Soát từ lịch sử thanh toán bạn đã ghi, tính tới %@.", generatedAtLabel(audit)))
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
 
@@ -136,7 +136,7 @@ struct SubscriptionAuditScreen: View {
 
     private var emptyCard: some View {
         WVGroup {
-            Text("Không có phát hiện nào từ dữ liệu bạn đã ghi. Các luật bên dưới vẫn được chạy lại mỗi lần bạn mở màn hình này.")
+            Text(L.t("Không có phát hiện nào từ dữ liệu bạn đã ghi. Các luật bên dưới vẫn được chạy lại mỗi lần bạn mở màn hình này."))
                 .font(.system(size: 14))
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -209,7 +209,7 @@ struct SubscriptionAuditScreen: View {
                     ForEach(links) { link in
                         NavigationLink(value: AuditSubscriptionNav(subscriptionId: link.subscriptionId)) {
                             HStack(spacing: 4) {
-                                Text(link.name ?? "Gói đăng ký")
+                                Text(link.name ?? L.t("Gói đăng ký"))
                                     .font(.system(size: 12, weight: .semibold))
                                     .lineLimit(1)
                                 WVIcon("arrowRight", size: 10, weight: .bold)
@@ -251,7 +251,7 @@ struct SubscriptionAuditScreen: View {
     private func rulesCard(_ audit: SubscriptionAudit) -> some View {
         let lines = SubscriptionAuditRules.thresholdLines(audit.thresholds)
         if !lines.isEmpty {
-            WVSectionHeader("Luật đang áp dụng")
+            WVSectionHeader(L.t("Luật đang áp dụng"))
             WVGroup {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
@@ -268,7 +268,7 @@ struct SubscriptionAuditScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
             }
-            WVSectionFooter("Các luật này chạy lại mỗi lần bạn mở màn hình, từ chính dữ liệu bạn đã ghi.")
+            WVSectionFooter(L.t("Các luật này chạy lại mỗi lần bạn mở màn hình, từ chính dữ liệu bạn đã ghi."))
         }
     }
 }

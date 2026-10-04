@@ -10,11 +10,14 @@ struct WarrantyVaultApp: App {
     @StateObject private var toasts = WVToastCenter()
     /// Face ID / Touch ID app lock. Off unless the user turns it on in Hồ sơ.
     @StateObject private var appLock = AppLockStore()
+    /// Which language the app renders in — and what `Accept-Language` carries.
+    @StateObject private var localization: LocalizationStore
 
     init() {
         let authStore = AuthStore(baseURL: AppConfig.baseURL)
         _auth = StateObject(wrappedValue: authStore)
         _catalog = StateObject(wrappedValue: CatalogStore(client: authStore.client))
+        _localization = StateObject(wrappedValue: LocalizationStore(client: authStore.client))
     }
 #if canImport(UIKit)
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -29,18 +32,35 @@ struct WarrantyVaultApp: App {
                 .environmentObject(catalog)
                 .environmentObject(toasts)
                 .environmentObject(appLock)
+                .environmentObject(localization)
                 .wvToastHost(toasts)
                 .preferredColorScheme(theme.preference.colorScheme)
+                // `L.t(...)` is a plain function call, so SwiftUI cannot see
+                // that a view depends on the selected language. Rebuilding the
+                // tree on a switch is what makes every label follow — and it
+                // also drops any half-filled form, which is the honest thing to
+                // do when the copy under the user's cursor changes language.
+                .id(localization.language)
                 .task(id: authIdentity) {
                     // Wire APIClient into the push registrar whenever the
                     // authenticated identity changes. Don't auto-prompt for
                     // permission here — Settings has the explicit toggle.
                     push.configure(client: auth.client)
-                    if case .authenticated = auth.status {
+                    switch auth.status {
+                    case .authenticated(let user):
+                        // The account's stored language wins over the device's:
+                        // it is the one the server uses for push and email.
+                        localization.adopt(user: user)
                         // Eagerly preload the catalog and re-register push if
                         // the user already granted permission previously.
                         await catalog.loadIfNeeded()
                         await push.refreshIfAlreadyAuthorized()
+                    case .unauthenticated:
+                        // Never let the next account on this device inherit a
+                        // language it did not choose.
+                        localization.reset()
+                    case .idle:
+                        break
                     }
                 }
         }

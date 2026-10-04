@@ -43,11 +43,11 @@ struct RegisterView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Đăng ký")
+            .navigationTitle(L.t("Đăng ký"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Đóng") { dismiss() }
+                    Button(L.t("Đóng")) { dismiss() }
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -69,11 +69,11 @@ struct RegisterView: View {
             .shadow(color: WVColor.brand.opacity(0.2), radius: 18, y: 8)
 
             VStack(spacing: 6) {
-                Text("Tạo tài khoản miễn phí")
+                Text(L.t("Tạo tài khoản miễn phí"))
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
-                Text("Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.")
+                Text(L.t("Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo."))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
@@ -88,7 +88,7 @@ struct RegisterView: View {
         VStack(spacing: 0) {
             WVGroup {
                 AuthTextField(
-                    label: "Tên",
+                    label: L.t("Tên"),
                     placeholder: "vd: Trung",
                     text: $name,
                     contentType: .name,
@@ -105,8 +105,8 @@ struct RegisterView: View {
                 )
                 WVDivider(inset: 16)
                 AuthTextField(
-                    label: "Mật khẩu",
-                    placeholder: "Tối thiểu 8 ký tự",
+                    label: L.t("Mật khẩu"),
+                    placeholder: L.t("Tối thiểu 8 ký tự"),
                     text: $password,
                     contentType: .newPassword,
                     isSecure: true,
@@ -128,7 +128,7 @@ struct RegisterView: View {
             Spacer().frame(height: 16)
 
             WVButton(
-                isSubmitting ? "Đang tạo tài khoản…" : "Tạo tài khoản",
+                isSubmitting ? L.t("Đang tạo tài khoản…") : L.t("Tạo tài khoản"),
                 kind: .primary
             ) {
                 Task { await submit() }
@@ -143,8 +143,8 @@ struct RegisterView: View {
         Button {
             dismiss()
         } label: {
-            (Text("Đã có tài khoản? ") +
-             Text("Đăng nhập").foregroundColor(WVColor.tint).bold())
+            (Text(L.t("Đã có tài khoản? ")) +
+             Text(L.t("Đăng nhập")).foregroundColor(WVColor.tint).bold())
                 .font(.system(size: 14))
                 .foregroundStyle(WVColor.label3)
         }

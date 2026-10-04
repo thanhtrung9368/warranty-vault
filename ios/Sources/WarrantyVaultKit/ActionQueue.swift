@@ -149,10 +149,10 @@ public enum ActionSeverity: String, Sendable, CaseIterable {
     /// and openapi documents `HIGH` as "mốc thời gian hoặc tiền sắp mất".
     public var sectionLabel: String {
         switch self {
-        case .HIGH: return "Cần xử lý ngay"
-        case .MEDIUM: return "Nên xử lý"
-        case .LOW: return "Nhắc nhẹ"
-        case .UNKNOWN: return "Khác"
+        case .HIGH: return L.t("Cần xử lý ngay")
+        case .MEDIUM: return L.t("Nên xử lý")
+        case .LOW: return L.t("Nhắc nhẹ")
+        case .UNKNOWN: return L.t("Khác")
         }
     }
 
@@ -203,11 +203,11 @@ public enum ActionQueueRules {
     /// is "để đó một thời gian", and every option is inside the server's `1–365`
     /// window, so no choice can produce a 400.
     public static let snoozeChoices: [SnoozeChoice] = [
-        SnoozeChoice(days: 7, label: "1 tuần"),
-        SnoozeChoice(days: 30, label: "1 tháng"),
-        SnoozeChoice(days: snoozeDaysDefault, label: "3 tháng (mặc định)"),
-        SnoozeChoice(days: 180, label: "6 tháng"),
-        SnoozeChoice(days: snoozeDaysMax, label: "1 năm"),
+        SnoozeChoice(days: 7, label: L.t("1 tuần")),
+        SnoozeChoice(days: 30, label: L.t("1 tháng")),
+        SnoozeChoice(days: snoozeDaysDefault, label: L.t("3 tháng (mặc định)")),
+        SnoozeChoice(days: 180, label: L.t("6 tháng")),
+        SnoozeChoice(days: snoozeDaysMax, label: L.t("1 năm")),
     ]
 
     /// The choices are a client-side convenience; the server still owns the range.
@@ -301,10 +301,10 @@ public enum ActionQueueRules {
         guard let days = DeviceReturnWindow.daysLeft(dueDate, now: now, calendar: calendar) else {
             return nil
         }
-        if days < 0 { return ActionDueNote(label: "Quá hạn \(abs(days)) ngày", urgency: .overdue) }
-        if days == 0 { return ActionDueNote(label: "Hôm nay", urgency: .today) }
-        if days <= 7 { return ActionDueNote(label: "Còn \(days) ngày", urgency: .soon) }
-        return ActionDueNote(label: "Còn \(days) ngày", urgency: .later)
+        if days < 0 { return ActionDueNote(label: L.p("Quá hạn %d ngày", abs(days)), urgency: .overdue) }
+        if days == 0 { return ActionDueNote(label: L.t("Hôm nay"), urgency: .today) }
+        if days <= 7 { return ActionDueNote(label: L.p("Còn %d ngày", days), urgency: .soon) }
+        return ActionDueNote(label: L.p("Còn %d ngày", days), urgency: .later)
     }
 
     /// `dd/MM/yyyy` for a naive-UTC timestamp, or `nil` when there is nothing
@@ -322,25 +322,25 @@ public enum ActionQueueRules {
     /// the duration the server applied, echoed rather than assumed.
     public static func snoozeConfirmation(_ result: SnoozeResult) -> String {
         if let until = DeviceReturnWindow.deadlineLabel(result.snoozedUntil) {
-            return "Đã hoãn \(result.days) ngày — việc này hiện lại \(until)"
+            return L.t("Đã hoãn %d ngày — việc này hiện lại %@", result.days, until)
         }
-        return "Đã hoãn \(result.days) ngày"
+        return L.t("Đã hoãn %d ngày", result.days)
     }
 
     /// The subtitle under the screen title: the actionable workload, split by
     /// severity, built from `counts` — never from the visible rows.
     public static func subtitle(counts: Int, snoozed: Int) -> String {
-        let head = counts == 0 ? "Không còn việc nào" : "\(counts) việc cần xử lý"
-        return snoozed > 0 ? "\(head) · \(snoozed) việc đang hoãn" : head
+        let head = counts == 0 ? L.t("Không còn việc nào") : L.p("%d việc cần xử lý", counts)
+        return snoozed > 0 ? L.t("%@ · %d việc đang hoãn", head, snoozed) : head
     }
 
     /// The subtitle on the dashboard's door into the queue. `total == nil` means
     /// the extra read failed: the row claims nothing rather than "0 việc".
     public static func entrySubtitle(counts: ActionCounts?) -> String {
-        guard let counts else { return "Mở hàng đợi việc app tự suy ra từ dữ liệu của bạn" }
-        if counts.total == 0 { return "Không có việc nào đang chờ xử lý" }
+        guard let counts else { return L.t("Mở hàng đợi việc app tự suy ra từ dữ liệu của bạn") }
+        if counts.total == 0 { return L.t("Không có việc nào đang chờ xử lý") }
         return counts.high > 0
-            ? "\(counts.total) việc cần xử lý · \(counts.high) mức cao"
-            : "\(counts.total) việc cần xử lý"
+            ? L.t("%d việc cần xử lý · %d mức cao", counts.total, counts.high)
+            : L.p("%d việc cần xử lý", counts.total)
     }
 }

@@ -91,11 +91,12 @@ struct AppLockScreen: View {
                     .foregroundStyle(WVColor.tint)
                     .padding(.bottom, 4)
 
-                Text("WarrantyVault đang khoá")
+                Text(L.t("WarrantyVault đang khoá"))
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(WVColor.label)
 
-                Text("Mở khoá bằng \(appLock.availability.biometry.label) hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành.")
+                Text(L.t("Mở khoá bằng %@ hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành.",
+                         appLock.availability.biometry.label))
                     .font(.system(size: 15))
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
@@ -105,7 +106,7 @@ struct AppLockScreen: View {
                     ProgressView()
                         .padding(.top, 10)
                 } else {
-                    WVButton("Mở khoá", icon: "faceid", fullWidth: false) {
+                    WVButton(L.t("Mở khoá"), icon: "faceid", fullWidth: false) {
                         Task { await appLock.unlock() }
                     }
                     .padding(.top, 10)
@@ -125,13 +126,13 @@ struct AppLockScreen: View {
                         appLock.clearLock()
                     }
                 } label: {
-                    Text("Đăng xuất")
+                    Text(L.t("Đăng xuất"))
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                 }
                 .padding(.top, 6)
 
-                Text("Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu.")
+                Text(L.t("Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu."))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label4)
                     .multilineTextAlignment(.center)
@@ -182,19 +183,19 @@ struct MainTabView: View {
             NavigationStack {
                 DashboardView(client: auth.client)
             }
-            .tabItem { Label("Tổng quan", systemImage: "house.fill") }
+            .tabItem { Label(L.t("Tổng quan"), systemImage: "house.fill") }
             .tag(0)
 
             NavigationStack {
                 DevicesScreen(client: auth.client)
             }
-            .tabItem { Label("Thiết bị", systemImage: "shippingbox.fill") }
+            .tabItem { Label(L.t("Thiết bị"), systemImage: "shippingbox.fill") }
             .tag(1)
 
             NavigationStack {
                 SubscriptionsScreen(client: auth.client)
             }
-            .tabItem { Label("Đăng ký", systemImage: "arrow.triangle.2.circlepath") }
+            .tabItem { Label(L.t("Đăng ký"), systemImage: "arrow.triangle.2.circlepath") }
             .tag(2)
 
             NavigationStack {
@@ -206,7 +207,7 @@ struct MainTabView: View {
             NavigationStack {
                 MoreScreen(client: auth.client)
             }
-            .tabItem { Label("Thêm", systemImage: "ellipsis") }
+            .tabItem { Label(L.t("Thêm"), systemImage: "ellipsis") }
             .tag(4)
         }
         .tint(WVColor.tint)

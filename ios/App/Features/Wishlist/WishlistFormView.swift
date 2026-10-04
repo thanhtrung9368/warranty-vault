@@ -66,13 +66,13 @@ struct WishlistFormView: View {
 
                 // Basic info
                 WVGroup {
-                    fieldRow("Tên") {
+                    fieldRow(L.t("Tên")) {
                         TextField("iPhone 16 Pro...", text: $name)
                             .font(.system(size: 17))
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
-                    fieldRow("Hãng") {
+                    fieldRow(L.t("Hãng")) {
                         TextField("Apple...", text: $brand)
                             .font(.system(size: 17))
                             .multilineTextAlignment(.trailing)
@@ -80,7 +80,7 @@ struct WishlistFormView: View {
                     WVDivider()
                     Button { showCatPicker = true } label: {
                         HStack {
-                            Text("Loại")
+                            Text(L.t("Loại"))
                                 .font(.system(size: 17))
                                 .foregroundStyle(WVColor.label)
                             Spacer()
@@ -106,13 +106,13 @@ struct WishlistFormView: View {
                 }
 
                 // Price
-                WVSectionHeader("Giá")
+                WVSectionHeader(L.t("Giá"))
                 WVGroup {
-                    fieldRow("Giá ban đầu") {
+                    fieldRow(L.t("Giá ban đầu")) {
                         WVMoneyField(value: $initialPrice).frame(width: 150)
                     }
                     WVDivider()
-                    fieldRow("Giá hiện tại") {
+                    fieldRow(L.t("Giá hiện tại")) {
                         WVMoneyField(value: $currentPrice).frame(width: 150)
                     }
                     WVDivider()
@@ -126,22 +126,22 @@ struct WishlistFormView: View {
                 }
 
                 // Schedule & priority
-                WVSectionHeader("Lịch & ưu tiên")
+                WVSectionHeader(L.t("Lịch & ưu tiên"))
                 WVGroup {
                     WVRowContainer {
-                        Toggle("Có ngày dự kiến", isOn: $hasTargetDate)
+                        Toggle(L.t("Có ngày dự kiến"), isOn: $hasTargetDate)
                             .font(.system(size: 17))
                     }
                     if hasTargetDate {
                         WVDivider()
                         WVRowContainer {
-                            DatePicker("Ngày dự kiến", selection: $targetDate,
+                            DatePicker(L.t("Ngày dự kiến"), selection: $targetDate,
                                        displayedComponents: .date)
                                 .font(.system(size: 17))
                         }
                     }
                     WVDivider()
-                    fieldRow("Nhắc lại (ngày)") {
+                    fieldRow(L.t("Nhắc lại (ngày)")) {
                         TextField("14", text: $reminderDays)
                             .keyboardType(.numberPad)
                             .font(.system(size: 17))
@@ -150,7 +150,7 @@ struct WishlistFormView: View {
                 }
 
                 // Priority picker
-                WVSectionHeader("Mức độ thèm")
+                WVSectionHeader(L.t("Mức độ thèm"))
                 WVGroup {
                     ForEach(Array(WishlistPriority.allCases.enumerated()), id: \.element) { idx, p in
                         if idx > 0 { WVDivider() }
@@ -173,10 +173,10 @@ struct WishlistFormView: View {
                 }
 
                 // Notes
-                WVSectionHeader("Ghi chú")
+                WVSectionHeader(L.t("Ghi chú"))
                 WVGroup {
                     WVRowContainer {
-                        TextField("Ghi chú thêm...", text: $notes, axis: .vertical)
+                        TextField(L.t("Ghi chú thêm..."), text: $notes, axis: .vertical)
                             .font(.system(size: 17))
                             .lineLimit(3...6)
                     }
@@ -193,7 +193,7 @@ struct WishlistFormView: View {
                 VStack(spacing: 0) {
                     Spacer().frame(height: WVSpacing.lg)
                     WVButton(
-                        isEditing ? "Lưu thay đổi" : "Thêm vào wishlist",
+                        isEditing ? L.t("Lưu thay đổi") : L.t("Thêm vào wishlist"),
                         icon: isEditing ? "save" : "heart"
                     ) {
                         Task { await submit() }
@@ -205,24 +205,24 @@ struct WishlistFormView: View {
             }
         }
         .wvScreen()
-        .navigationTitle(isEditing ? "Sửa món" : "Thêm món")
+        .navigationTitle(isEditing ? L.t("Sửa món") : L.t("Thêm món"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await catalog.loadIfNeeded() }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Huỷ") { showDiscard = true }
+                Button(L.t("Huỷ")) { showDiscard = true }
                     .foregroundStyle(WVColor.tint)
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button(isEditing ? "Lưu" : "Thêm") { Task { await submit() } }
+                Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(isValid ? WVColor.tint : WVColor.label4)
                     .disabled(!isValid || isBusy)
             }
         }
-        .alert("Bỏ thay đổi?", isPresented: $showDiscard) {
-            Button("Tiếp tục", role: .cancel) {}
-            Button("Bỏ", role: .destructive) { dismiss() }
+        .alert(L.t("Bỏ thay đổi?"), isPresented: $showDiscard) {
+            Button(L.t("Tiếp tục"), role: .cancel) {}
+            Button(L.t("Bỏ"), role: .destructive) { dismiss() }
         }
         .sheet(isPresented: $showCatPicker) {
             WishCategoryPickerSheet(selected: $category)
@@ -271,10 +271,10 @@ struct WishlistFormView: View {
         do {
             if let item {
                 try await store.update(id: item.id, input)
-                toast.show("Đã lưu")
+                toast.show(L.t("Đã lưu"))
             } else {
                 _ = try await store.create(input)
-                toast.show("Đã thêm vào wishlist 💖")
+                toast.show(L.t("Đã thêm vào wishlist 💖"))
             }
             dismiss()
         } catch {
@@ -333,7 +333,7 @@ private struct WishCategoryPickerSheet: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Loại")
+            .navigationTitle(L.t("Loại"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -349,9 +349,9 @@ private struct WishCategoryPickerSheet: View {
     @ViewBuilder
     private var staticCategoryFallback: some View {
         let cats = [
-            ("phone", "Điện thoại"), ("laptop", "Laptop"), ("tablet", "Máy tính bảng"),
-            ("watch", "Đồng hồ"), ("audio", "Tai nghe"), ("camera", "Máy ảnh"),
-            ("tv", "TV"), ("appliance", "Đồ gia dụng"),
+            ("phone", L.t("Điện thoại")), ("laptop", "Laptop"), ("tablet", L.t("Máy tính bảng")),
+            ("watch", L.t("Đồng hồ")), ("audio", "Tai nghe"), ("camera", L.t("Máy ảnh")),
+            ("tv", "TV"), ("appliance", L.t("Đồ gia dụng")),
         ]
         ForEach(Array(cats.enumerated()), id: \.element.0) { idx, cat in
             WVDivider(inset: 60)

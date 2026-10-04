@@ -44,11 +44,11 @@ struct ForgotPasswordView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Quên mật khẩu")
+            .navigationTitle(L.t("Quên mật khẩu"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Đóng") { dismiss() }
+                    Button(L.t("Đóng")) { dismiss() }
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -67,10 +67,10 @@ struct ForgotPasswordView: View {
                     .font(.system(size: 36, weight: .regular))
                     .foregroundStyle(WVColor.brand)
             }
-            Text("Đặt lại mật khẩu")
+            Text(L.t("Đặt lại mật khẩu"))
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(WVColor.label)
-            Text("Nhập email đã đăng ký để nhận link đặt lại.")
+            Text(L.t("Nhập email đã đăng ký để nhận link đặt lại."))
                 .font(.system(size: 13))
                 .foregroundStyle(WVColor.label3)
                 .multilineTextAlignment(.center)
@@ -107,7 +107,7 @@ struct ForgotPasswordView: View {
             Spacer().frame(height: 16)
 
             WVButton(
-                isSubmitting ? "Đang gửi…" : "Gửi",
+                isSubmitting ? L.t("Đang gửi…") : L.t("Gửi"),
                 kind: .primary
             ) {
                 Task { await submit() }
@@ -116,7 +116,7 @@ struct ForgotPasswordView: View {
 
             Spacer().frame(height: 10)
 
-            WVButton("Quay lại đăng nhập", kind: .secondary) {
+            WVButton(L.t("Quay lại đăng nhập"), kind: .secondary) {
                 dismiss()
             }
         }
@@ -129,7 +129,7 @@ struct ForgotPasswordView: View {
             WVGroup {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "mail", color: WVColor.green)
-                    Text("Nếu email đã đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.")
+                    Text(L.t("Nếu email đã đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư."))
                         .font(.system(size: 14))
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
@@ -138,7 +138,7 @@ struct ForgotPasswordView: View {
                 .padding(.vertical, 14)
             }
 
-            WVButton("Quay lại đăng nhập", kind: .primary) {
+            WVButton(L.t("Quay lại đăng nhập"), kind: .primary) {
                 dismiss()
             }
         }

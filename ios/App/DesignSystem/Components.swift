@@ -1,4 +1,5 @@
 import SwiftUI
+import WarrantyVaultKit
 
 // ============================================================
 // WarrantyVault iOS — shared UI components
@@ -388,11 +389,14 @@ struct WarrantyPill: View {
     }
     private var label: String {
         guard let d = daysLeft else { return "—" }
-        if d < 0 { return "Hết \(abs(d))d" }
-        if d == 0 { return "Hết hôm nay" }
-        if d <= 90 { return "Còn \(d)d" }
-        if d <= 365 { return "Còn ~\(Int((Double(d) / 30).rounded()))th" }
-        return "Còn \(String(format: "%.1f", Double(d) / 365)) năm"
+        // "Hết 3d" / "Còn 12d" are compact on purpose — this is a chip on a
+        // card, not a sentence. The English side keeps the same abbreviation
+        // ("3d left") so the chip does not grow under one language only.
+        if d < 0 { return L.t("Hết %dd", abs(d)) }
+        if d == 0 { return L.t("Hết hôm nay") }
+        if d <= 90 { return L.t("Còn %dd", d) }
+        if d <= 365 { return L.t("Còn ~%dth", Int((Double(d) / 30).rounded())) }
+        return L.t("Còn %@ năm", String(format: "%.1f", Double(d) / 365))
     }
     private var color: Color {
         switch status {

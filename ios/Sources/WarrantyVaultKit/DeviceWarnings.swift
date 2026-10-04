@@ -52,8 +52,8 @@ public enum DeviceWarningCode: String, Sendable, CaseIterable {
     public var label: String {
         switch self {
         case .IMEI_CHECKSUM:   return "IMEI sai checksum"
-        case .IMEI_LENGTH:     return "Độ dài IMEI"
-        case .SERIAL_DUPLICATE: return "Serial trùng"
+        case .IMEI_LENGTH:     return L.t("Độ dài IMEI")
+        case .SERIAL_DUPLICATE: return L.t("Serial trùng")
         }
     }
 
@@ -61,11 +61,11 @@ public enum DeviceWarningCode: String, Sendable, CaseIterable {
     public var fallbackMessage: String {
         switch self {
         case .IMEI_CHECKSUM:
-            return "IMEI đủ 15 chữ số nhưng sai số kiểm tra — có thể bạn gõ nhầm một chữ số."
+            return L.t("IMEI đủ 15 chữ số nhưng sai số kiểm tra — có thể bạn gõ nhầm một chữ số.")
         case .IMEI_LENGTH:
-            return "Chuỗi số này không phải IMEI 15 chữ số."
+            return L.t("Chuỗi số này không phải IMEI 15 chữ số.")
         case .SERIAL_DUPLICATE:
-            return "Serial này đã có ở một thiết bị khác của bạn."
+            return L.t("Serial này đã có ở một thiết bị khác của bạn.")
         }
     }
 }
@@ -75,7 +75,7 @@ public enum DeviceWarningRules {
     public static func fieldLabel(_ field: String) -> String {
         switch field {
         case "serialNumber": return "Serial / IMEI"
-        case "":             return "Thiết bị"
+        case "":             return L.t("Thiết bị")
         default:             return field
         }
     }
@@ -99,15 +99,15 @@ public struct DeviceSaveResult: Decodable, Sendable {
 public enum DeviceWarningCopy {
 
     /// Heading shown after a successful save that produced advisories.
-    public static let savedHeading = "Đã lưu thiết bị"
+    public static let savedHeading = L.t("Đã lưu thiết bị")
     /// The line that makes "non-blocking" explicit.
     public static let savedNote =
-        "Thiết bị đã được lưu. Đây là cảnh báo, không phải lỗi — bạn không cần sửa gì cả."
+        L.t("Thiết bị đã được lưu. Đây là cảnh báo, không phải lỗi — bạn không cần sửa gì cả.")
     /// Dismiss button on the advisory card.
     public static let savedDismiss = "Xong"
 
     /// Draft-scan counterpart: values that were kept.
-    public static let draftWarningsNote = "Đã điền, nhưng có vẻ sai — kiểm tra lại."
+    public static let draftWarningsNote = L.t("Đã điền, nhưng có vẻ sai — kiểm tra lại.")
     /// Draft-scan counterpart: values that were thrown away.
-    public static let draftUnmatchedNote = "Không đọc được, bạn tự nhập."
+    public static let draftUnmatchedNote = L.t("Không đọc được, bạn tự nhập.")
 }

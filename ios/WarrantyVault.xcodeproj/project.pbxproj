@@ -30,6 +30,7 @@
 		544E4DDC74EC4ADCA6E6EAD5 /* DeviceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B64D656AFFBB2A82DFBFC12 /* DeviceDetailView.swift */; };
 		5A48FF84CEF5E8FCCAE4700F /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F328F74EB569D9AC38242843 /* PushRegistrar.swift */; };
 		5EA2953F7C2817646E51A2F7 /* ShareCertificatesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12ED118C7C97FD93F0EB4B9 /* ShareCertificatesSection.swift */; };
+		62D3CA5016B8D9E72CFF069E /* LocalizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 604B0C028FABD3988F3DDB00 /* LocalizationStore.swift */; };
 		62DFB4202083D3689225D744 /* RemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A363E257968B6F55DCDE2265 /* RemindersStore.swift */; };
 		688C4894B526315EE139ED52 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5DE588B298BE90EA3C601F /* Formatters.swift */; };
 		6E070B20602A56DE1359DB3C /* SubscriptionAuditScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54038389878514FCDEE56CAF /* SubscriptionAuditScreen.swift */; };
@@ -80,6 +81,7 @@
 		55D3E8B53D9556F096B152F8 /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		55F4E2D7F35FB1C280CC8F69 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5B4A7C50590B1E487E8EAB6A /* SubscriptionsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsScreen.swift; sourceTree = "<group>"; };
+		604B0C028FABD3988F3DDB00 /* LocalizationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationStore.swift; sourceTree = "<group>"; };
 		6A7FBAD0D43AB1C8B49947CF /* RemindersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersView.swift; sourceTree = "<group>"; };
 		6B686B336D76CD40CEC983A5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		7D5DE588B298BE90EA3C601F /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
@@ -150,6 +152,7 @@
 				32CAF04638E1D1F55D0B9506 /* AuthStore.swift */,
 				88E631B9D6944853E1DB7069 /* CatalogStore.swift */,
 				2B619D8E807A35AACF6317AA /* DevicesStore.swift */,
+				604B0C028FABD3988F3DDB00 /* LocalizationStore.swift */,
 				A363E257968B6F55DCDE2265 /* RemindersStore.swift */,
 				92BFB67BAFC3C7D10FBB62F6 /* StatsStore.swift */,
 				915E29A582DCD6E591EA5A1C /* SubscriptionAuditStore.swift */,
@@ -426,6 +429,7 @@
 				0E4A1691A287D1098848C313 /* EmailChangeSheet.swift in Sources */,
 				031104C7488298B47DB85160 /* ForgotPasswordView.swift in Sources */,
 				688C4894B526315EE139ED52 /* Formatters.swift in Sources */,
+				62D3CA5016B8D9E72CFF069E /* LocalizationStore.swift in Sources */,
 				79D4798C3B96746BD94FDEFB /* LoginView.swift in Sources */,
 				A06511C6CADE2FB1A8BFF2BA /* MoreScreen.swift in Sources */,
 				055A0E96098278F34B7E6F88 /* PushDevicesView.swift in Sources */,

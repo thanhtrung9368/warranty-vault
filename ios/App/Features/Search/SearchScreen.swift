@@ -62,12 +62,12 @@ struct SearchScreen: View {
             }
         }
         .wvScreen()
-        .navigationTitle("Tìm kiếm")
+        .navigationTitle(L.t("Tìm kiếm"))
         .navigationBarTitleDisplayMode(.inline)
         .searchable(
             text: $query,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Thiết bị, gói đăng ký, wishlist..."
+            prompt: L.t("Thiết bị, gói đăng ký, wishlist...")
         )
         .autocorrectionDisabled()
         .textInputAutocapitalization(.never)
@@ -88,21 +88,21 @@ struct SearchScreen: View {
         case .idle:
             WVEmpty(
                 icon: "search",
-                title: "Tìm mọi thứ",
-                description: "Gõ tên thiết bị, gói đăng ký hoặc món trong wishlist. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”."
+                title: L.t("Tìm mọi thứ"),
+                description: L.t("Gõ tên thiết bị, gói đăng ký hoặc món trong wishlist. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”.")
             )
 
         case .tooLong:
             WVEmpty(
                 icon: "alert",
-                title: "Từ khoá quá dài",
+                title: L.t("Từ khoá quá dài"),
                 description: SearchQueryRules.tooLongMessage
             )
 
         case .loading:
             HStack(spacing: 8) {
                 ProgressView()
-                Text("Đang tìm…")
+                Text(L.t("Đang tìm…"))
                     .font(.system(size: 15))
                     .foregroundStyle(WVColor.label3)
             }
@@ -115,14 +115,14 @@ struct SearchScreen: View {
         case .noResults:
             WVEmpty(
                 icon: "search",
-                title: "Không có gì khớp",
-                description: "Không tìm thấy thiết bị, gói đăng ký hay món wishlist nào. Thử từ khoá ngắn hơn."
+                title: L.t("Không có gì khớp"),
+                description: L.t("Không tìm thấy thiết bị, gói đăng ký hay món wishlist nào. Thử từ khoá ngắn hơn.")
             )
 
         case .failed(let message):
             WVEmpty(
                 icon: "alert",
-                title: "Không tìm được",
+                title: L.t("Không tìm được"),
                 description: message
             )
         }
@@ -132,7 +132,7 @@ struct SearchScreen: View {
 
     private func resultList(_ results: SearchResults) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(results.totalCount == 1 ? "1 kết quả" : "\(results.totalCount) kết quả")
+            Text(L.p("%d kết quả", results.totalCount))
                 .font(.system(size: 13))
                 .foregroundStyle(WVColor.label3)
                 .padding(.horizontal, WVSpacing.titleGutter)
@@ -148,7 +148,7 @@ struct SearchScreen: View {
             // Each group is capped by `limit`, so say it rather than let the
             // list look complete when it isn't.
             if results.sections.contains(where: { $0.count >= Self.limit }) {
-                WVSectionFooter("Mỗi nhóm hiện tối đa \(Self.limit) kết quả. Gõ cụ thể hơn để thu hẹp.")
+                WVSectionFooter(L.t("Mỗi nhóm hiện tối đa %d kết quả. Gõ cụ thể hơn để thu hẹp.", Self.limit))
             }
         }
     }
@@ -248,7 +248,7 @@ struct SearchScreen: View {
             }
             isLoading = false
             errorMessage = (error as? APIError)?.localizedDescription
-                ?? "Không kết nối được máy chủ."
+                ?? L.t("Không kết nối được máy chủ.")
         }
     }
 }

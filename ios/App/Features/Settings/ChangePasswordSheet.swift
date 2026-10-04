@@ -28,9 +28,9 @@ struct ChangePasswordSheet: View {
                     Spacer().frame(height: 12)
 
                     // Current password
-                    WVSectionHeader("Mật khẩu hiện tại")
+                    WVSectionHeader(L.t("Mật khẩu hiện tại"))
                     WVGroup {
-                        CPSecureRow("Mật khẩu hiện tại", text: $currentPassword)
+                        CPSecureRow(L.t("Mật khẩu hiện tại"), text: $currentPassword)
                     }
                     if let msg = fieldErrors["currentPassword"]?.first {
                         WVSectionFooter(msg)
@@ -38,11 +38,11 @@ struct ChangePasswordSheet: View {
                     }
 
                     // New password
-                    WVSectionHeader("Mật khẩu mới")
+                    WVSectionHeader(L.t("Mật khẩu mới"))
                     WVGroup {
-                        CPSecureRow("Mật khẩu mới (≥8 ký tự)", text: $newPassword)
+                        CPSecureRow(L.t("Mật khẩu mới (≥8 ký tự)"), text: $newPassword)
                         WVDivider(inset: 16)
-                        CPSecureRow("Xác nhận mật khẩu mới", text: $confirmPassword)
+                        CPSecureRow(L.t("Xác nhận mật khẩu mới"), text: $confirmPassword)
                     }
                     if let msg = fieldErrors["newPassword"]?.first {
                         WVSectionFooter(msg)
@@ -78,7 +78,7 @@ struct ChangePasswordSheet: View {
                     Spacer().frame(height: 20)
 
                     WVButton(
-                        isSubmitting ? "Đang lưu…" : "Lưu mật khẩu",
+                        isSubmitting ? L.t("Đang lưu…") : L.t("Lưu mật khẩu"),
                         icon: isSubmitting ? nil : "save",
                         kind: .primary
                     ) {
@@ -91,11 +91,11 @@ struct ChangePasswordSheet: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Đổi mật khẩu")
+            .navigationTitle(L.t("Đổi mật khẩu"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { dismiss() }
+                    Button(L.t("Huỷ")) { dismiss() }
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -116,7 +116,7 @@ struct ChangePasswordSheet: View {
         defer { isSubmitting = false }
 
         if newPassword != confirmPassword {
-            fieldErrors["confirmPassword"] = ["Xác nhận mật khẩu không khớp"]
+            fieldErrors["confirmPassword"] = [L.t("Xác nhận mật khẩu không khớp")]
             return
         }
 
@@ -127,7 +127,7 @@ struct ChangePasswordSheet: View {
                 confirmPassword: confirmPassword
             )
             let result = try await client.changePassword(input)
-            successMessage = result.message ?? "Đã đổi mật khẩu thành công"
+            successMessage = result.message ?? L.t("Đã đổi mật khẩu thành công")
             try? await Task.sleep(nanoseconds: 800_000_000)
             dismiss()
         } catch let err as APIError {

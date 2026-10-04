@@ -2,6 +2,27 @@
 
 Native iOS app — SwiftUI + async/await, talks to the Go backend (`../api`) via REST.
 
+## Song ngữ (Anh + Việt)
+
+Xem [docs/I18N_PLAN.md](../docs/I18N_PLAN.md) §3 pha 3. Tóm tắt:
+
+- **Tiếng Việt là bản gốc.** Chuỗi tiếng Việt đang có là **khoá** của catalog; bản tiếng Anh
+  là bản dịch thêm. Cách này giống hệt `api/internal/i18n/catalog.go`.
+- Catalog là một **String Catalog** thật — `Sources/WarrantyVaultKit/Resources/Localizable.xcstrings`
+  — mở/sửa được bằng String Catalog editor của Xcode. Nó được khai báo `.copy` trong
+  `Package.swift`: thiếu khai báo đó thì file **không** vào `Bundle.module` và mọi chuỗi
+  lặng lẽ rơi về tiếng Việt, không có lỗi nào.
+- Gọi chuỗi qua `L.t("…")` (có tham số thì `%d` / `%@`) và `L.p("…", n)` khi câu đếm số
+  lượng — tiếng Việt không biến đổi, tiếng Anh có (`1 day` / `3 days`).
+- Ngôn ngữ chọn ở **Cài đặt → Ngôn ngữ**, lưu bằng `PATCH /api/v1/auth/me {locale}` vì cron
+  của server cần biết để dựng push/email. `Accept-Language` được gắn trong `APIClient` cho
+  **mọi** request nên lỗi validate của Go về cùng ngôn ngữ với UI.
+- Test trong `Tests/…/LocalizationTests.swift` ghim hai điều: **hai bảng en/vi trùng tập khoá**
+  và **mọi `L.t` literal trong `Sources/` + `App/` đều có entry đủ hai ngôn ngữ** (quét source,
+  không cần build app).
+- Công cụ: `Tools/catalog.py` (thêm entry / `check` / `stats`) và
+  `Tools/wrap_strings.py` (bọc literal cũ thành `L.t`, **không** đụng literal có `\(…)`).
+
 ## Cấu trúc
 
 ```
@@ -37,23 +58,33 @@ cd ios
 swift build
 ```
 
-## Mở trong Xcode (lần đầu)
+## Mở trong Xcode
 
-Chưa có file `.xcodeproj` — tự tạo trong Xcode để tránh commit project format mỗi lần Xcode bump version. Một lần thôi:
+`WarrantyVault.xcodeproj` được **sinh ra** từ `project.yml` bằng [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+— đừng sửa tay file project, sửa `project.yml` rồi sinh lại:
 
-1. Mở Xcode → **File → New → Project**
-2. Chọn **iOS → App** → **Next**
-3. Product Name: **WarrantyVault**
-4. Organization Identifier: **com.warrantyvault** (matches `applicationId` của Android + APNs bundle ID sau này)
-5. Interface: **SwiftUI**, Language: **Swift**, Storage: **None**
-6. Save vào `ios/` (cùng folder với `Package.swift` này)
-7. Khi Xcode hỏi git, chọn **không tạo git repo riêng** — repo này đã là git
-8. Xcode tự tạo `WarrantyVault.xcodeproj` + thư mục `WarrantyVault/` chứa `WarrantyVaultApp.swift` mặc định
-9. **Xoá** thư mục `WarrantyVault/` mà Xcode vừa tạo (cùng `ContentView.swift`, `Assets.xcassets`, …) — mình dùng sources trong `App/` thay
-10. **Drag** thư mục `App/` vào Xcode project navigator → chọn **"Create folder references"** (KHÔNG phải groups) → **Finish**
-11. **File → Add Package Dependencies** → click **Add Local…** → chọn folder `ios/` (cái có `Package.swift`) → **Add Package** → tick library `WarrantyVaultKit` cho target `WarrantyVault` → **Add Package**
-12. Click target **WarrantyVault** → **Info** tab → thêm key **App Transport Security Settings** → **Allow Arbitrary Loads** = **YES** *(chỉ để dev — gọi `http://localhost:3000`. Khi deploy prod thì gỡ ra)*
-13. Run trên Simulator → đăng nhập / đăng ký bằng tài khoản backend dev đang chạy
+```
+cd ios
+xcodegen generate
+open WarrantyVault.xcodeproj
+```
+
+**Thêm file mới dưới `App/` thì BẮT BUỘC chạy `xcodegen generate`** — project liệt kê source
+theo đường dẫn, file mới không tự xuất hiện. File mới trong `Sources/WarrantyVaultKit/` thì
+không cần: SwiftPM tự thấy.
+
+Build kiểm tra không cần Xcode GUI:
+
+```
+cd ios
+xcodebuild build -project WarrantyVault.xcodeproj -scheme WarrantyVault \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/wv-ios-dd CODE_SIGNING_ALLOWED=NO
+rm -rf /tmp/wv-ios-dd
+```
+
+CI chỉ build thư viện (`swift build` + `swift test`), **không** build app — nên một lỗi biên
+dịch trong `App/` sẽ không làm đỏ CI, phải tự chạy `xcodebuild` ở trên.
 
 ## Chạy thử
 

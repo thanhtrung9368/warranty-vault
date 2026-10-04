@@ -65,8 +65,8 @@ public enum PhoneSource: String, Codable, Sendable, CaseIterable {
     /// never checked the number and must not look like it did.
     public var label: String {
         switch self {
-        case .user: return "Số do bạn tự ghi"
-        case .none: return "Chưa có số điện thoại"
+        case .user: return L.t("Số do bạn tự ghi")
+        case .none: return L.t("Chưa có số điện thoại")
         }
     }
 }
@@ -194,62 +194,62 @@ public enum DirectoryCopy {
 
     /// Section-level line: the app ships no hotline and no address of its own.
     public static let sectionHint =
-        "App không lưu sẵn hotline hay địa chỉ trung tâm bảo hành — một hotline sai còn tệ hơn không có. Link của hãng bên dưới là nguồn duy nhất app dám chỉ; số điện thoại và địa chỉ còn lại là do bạn tự ghi."
+        L.t("App không lưu sẵn hotline hay địa chỉ trung tâm bảo hành — một hotline sai còn tệ hơn không có. Link của hãng bên dưới là nguồn duy nhất app dám chỉ; số điện thoại và địa chỉ còn lại là do bạn tự ghi.")
 
     /// `brand: null` with no brand text either: nothing to look up yet.
-    public static let noBrandInputTitle = "Thiết bị chưa ghi hãng"
+    public static let noBrandInputTitle = L.t("Thiết bị chưa ghi hãng")
     public static let noBrandInputDetail =
-        "Thêm hãng cho thiết bị (nút “Sửa” ở đầu trang) để app tra danh bạ trung tâm bảo hành uỷ quyền của hãng đó."
+        L.t("Thêm hãng cho thiết bị (nút “Sửa” ở đầu trang) để app tra danh bạ trung tâm bảo hành uỷ quyền của hãng đó.")
 
     /// `brand: null` with brand text present. **Both** honest causes are named —
     /// no seeded row, and a tie in the free-text match — and so is the limit of
     /// the claim: the app will not guess and will not invent a URL.
-    public static let noEntryTitle = "App không có thông tin đã kiểm chứng cho hãng này"
+    public static let noEntryTitle = L.t("App không có thông tin đã kiểm chứng cho hãng này")
     public static let noEntryDetail =
-        "App chỉ có danh bạ cho một số hãng. Không có dòng nào khớp hãng bạn ghi, hoặc nhiều dòng khớp ngang nhau (chuỗi mơ hồ) nên app không đoán bừa. App cũng không tự tạo URL — bạn tra trang hỗ trợ chính thức của hãng để tìm trung tâm uỷ quyền gần nhất."
+        L.t("App chỉ có danh bạ cho một số hãng. Không có dòng nào khớp hãng bạn ghi, hoặc nhiều dòng khớp ngang nhau (chuỗi mơ hồ) nên app không đoán bừa. App cũng không tự tạo URL — bạn tra trang hỗ trợ chính thức của hãng để tìm trung tâm uỷ quyền gần nhất.")
 
     /// A brand row exists but carries no link this client can open.
-    public static let noVerifiedLink = "App không có link nào đã kiểm chứng cho hãng này."
+    public static let noVerifiedLink = L.t("App không có link nào đã kiểm chứng cho hãng này.")
 
     /// Shown above the links of a brand row that *does* have one.
     public static let verifiedLinkNote =
-        "Link dưới đây do chính hãng duy trì — app chỉ dẫn lại, không chép hotline."
+        L.t("Link dưới đây do chính hãng duy trì — app chỉ dẫn lại, không chép hotline.")
 
-    public static let linkServiceLocatorLabel = "Tra cứu trung tâm bảo hành uỷ quyền"
-    public static let linkSupportLabel = "Trang hỗ trợ của hãng"
+    public static let linkServiceLocatorLabel = L.t("Tra cứu trung tâm bảo hành uỷ quyền")
+    public static let linkSupportLabel = L.t("Trang hỗ trợ của hãng")
 
     /// The line that must accompany every phone number, present or absent.
     public static let phoneHonesty =
-        "App không phải nguồn của số điện thoại nào: số hiện ra là do bạn tự ghi cho gói bảo hành, còn “chưa có số” nghĩa là app không biết — không phải hotline."
+        L.t("App không phải nguồn của số điện thoại nào: số hiện ra là do bạn tự ghi cho gói bảo hành, còn “chưa có số” nghĩa là app không biết — không phải hotline.")
 
-    public static let phoneUserLabel = "Do bạn tự ghi"
-    public static let phoneUserHint = "Số này bạn tự nhập cho gói bảo hành; app không kiểm chứng."
+    public static let phoneUserLabel = L.t("Do bạn tự ghi")
+    public static let phoneUserHint = L.t("Số này bạn tự nhập cho gói bảo hành; app không kiểm chứng.")
 
-    public static let phoneNoneLabel = "Chưa có số điện thoại"
+    public static let phoneNoneLabel = L.t("Chưa có số điện thoại")
     public static let phoneNoneHint =
-        "App không lưu hotline của hãng hay trung tâm nên không có số nào để hiện."
+        L.t("App không lưu hotline của hãng hay trung tâm nên không có số nào để hiện.")
 
     /// Only for a value this client cannot attribute. Never upgraded to "user".
-    public static let phoneUnverifiedLabel = "Nguồn số chưa rõ"
+    public static let phoneUnverifiedLabel = L.t("Nguồn số chưa rõ")
     public static let phoneUnverifiedHint =
-        "Máy chủ không nói số này từ đâu tới, nên app không coi nó là số đã kiểm chứng."
+        L.t("Máy chủ không nói số này từ đâu tới, nên app không coi nó là số đã kiểm chứng.")
 
-    public static let addressUserLabel = "Địa chỉ do bạn tự ghi"
-    public static let addressNone = "Chưa ghi địa chỉ cho gói này."
+    public static let addressUserLabel = L.t("Địa chỉ do bạn tự ghi")
+    public static let addressNone = L.t("Chưa ghi địa chỉ cho gói này.")
 
     public static let providerUnmatched =
-        "Chưa khớp danh bạ nhà bảo hành — app hiện đúng chữ bạn đã ghi và không đoán."
-    public static let providerMatchedNote = "Khớp danh bạ nhà bảo hành."
-    public static let providerNone = "Chưa ghi nhà bảo hành cho gói này."
-    public static let noProvider = "Chưa ghi nơi bảo hành"
+        L.t("Chưa khớp danh bạ nhà bảo hành — app hiện đúng chữ bạn đã ghi và không đoán.")
+    public static let providerMatchedNote = L.t("Khớp danh bạ nhà bảo hành.")
+    public static let providerNone = L.t("Chưa ghi nhà bảo hành cho gói này.")
+    public static let noProvider = L.t("Chưa ghi nơi bảo hành")
 
     public static let noCentres =
-        "Thiết bị chưa có gói bảo hành nào nên chưa có nơi bảo hành nào để hiện. Thêm gói bảo hành rồi ghi nơi bạn sẽ mang máy tới."
+        L.t("Thiết bị chưa có gói bảo hành nào nên chưa có nơi bảo hành nào để hiện. Thêm gói bảo hành rồi ghi nơi bạn sẽ mang máy tới.")
 
     public static let unavailableState =
-        "Không tải được danh bạ bảo hành — thử tải lại nhé."
+        L.t("Không tải được danh bạ bảo hành — thử tải lại nhé.")
 
-    public static let unknownWarrantyType = "Không rõ loại"
+    public static let unknownWarrantyType = L.t("Không rõ loại")
 }
 
 // MARK: - Rules
@@ -427,9 +427,9 @@ public enum ServiceDirectoryInfo {
 
         public var label: String {
             switch self {
-            case .active:  return "Còn hạn"
-            case .expired: return "Đã hết hạn"
-            case .undated: return "Chưa ghi hạn"
+            case .active:  return L.t("Còn hạn")
+            case .expired: return L.t("Đã hết hạn")
+            case .undated: return L.t("Chưa ghi hạn")
             }
         }
     }
@@ -455,9 +455,9 @@ public enum ServiceDirectoryInfo {
     /// `"3 gói bảo hành"` — the row count, which is the device's warranty count.
     public static func centreCountLabel(_ centres: [WarrantyCentre]) -> String {
         switch centres.count {
-        case 0:  return "Thiết bị chưa có gói bảo hành nào"
-        case 1:  return "1 gói bảo hành"
-        default: return "\(centres.count) gói bảo hành"
+        case 0:  return L.t("Thiết bị chưa có gói bảo hành nào")
+        case 1:  return L.t("1 gói bảo hành")
+        default: return L.p("%d gói bảo hành", centres.count)
         }
     }
 
@@ -472,11 +472,11 @@ public enum ServiceDirectoryInfo {
         /// `"1/3 gói có số điện thoại do bạn tự ghi · 2 gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó."`
         public var line: String {
             guard centres > 0 else { return DirectoryCopy.noCentres }
-            var parts = ["\(withUserPhone)/\(centres) gói có số điện thoại do bạn tự ghi"]
+            var parts = [L.t("%d/%d gói có số điện thoại do bạn tự ghi", withUserPhone, centres)]
             if unmatchedProviders > 0 {
-                parts.append("\(unmatchedProviders) gói chưa khớp danh bạ nhà bảo hành")
+                parts.append(L.p("%d gói chưa khớp danh bạ nhà bảo hành", unmatchedProviders))
             }
-            return parts.joined(separator: " · ") + ". App không có hotline nào trong hai con số đó."
+            return parts.joined(separator: " · ") + L.t(". App không có hotline nào trong hai con số đó.")
         }
     }
 

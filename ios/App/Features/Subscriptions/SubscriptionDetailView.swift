@@ -31,7 +31,7 @@ struct SubscriptionDetailView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                WVEmpty(icon: "alert", title: "Không tìm thấy")
+                WVEmpty(icon: "alert", title: L.t("Không tìm thấy"))
             }
         }
         .navigationTitle(subscription?.name ?? "")
@@ -61,19 +61,19 @@ struct SubscriptionDetailView: View {
             }
         }
         .confirmationDialog("", isPresented: $showMore, titleVisibility: .hidden) {
-            Button("Sửa") { pushEdit = true }
-            Button("Ghi nhận thanh toán") { showLogPayment = true }
+            Button(L.t("Sửa")) { pushEdit = true }
+            Button(L.t("Ghi nhận thanh toán")) { showLogPayment = true }
             if subscription?.billingCycle != .LIFETIME {
-                Button("Gia hạn ngay") { Task { await renewNow() } }
+                Button(L.t("Gia hạn ngay")) { Task { await renewNow() } }
             }
-            Button("Xoá", role: .destructive) { showDelete = true }
-            Button("Huỷ", role: .cancel) {}
+            Button(L.t("Xoá"), role: .destructive) { showDelete = true }
+            Button(L.t("Huỷ"), role: .cancel) {}
         }
-        .alert("Xoá gói đăng ký?", isPresented: $showDelete) {
-            Button("Huỷ", role: .cancel) {}
-            Button("Xoá", role: .destructive) { Task { await deleteSub() } }
+        .alert(L.t("Xoá gói đăng ký?"), isPresented: $showDelete) {
+            Button(L.t("Huỷ"), role: .cancel) {}
+            Button(L.t("Xoá"), role: .destructive) { Task { await deleteSub() } }
         } message: {
-            Text("\"\(subscription?.name ?? "")\" và lịch sử thanh toán sẽ bị xoá.")
+            Text(L.t("\"%@\" và lịch sử thanh toán sẽ bị xoá.", subscription?.name ?? ""))
         }
         .navigationDestination(isPresented: $pushEdit) {
             if let sub = subscription {
@@ -129,7 +129,7 @@ struct SubscriptionDetailView: View {
                 WVChip(sub.status.chipLabel, tone: sub.status.chipTone)
                 let days = WVFormat.daysUntil(sub.renewalDate)
                 if days < 0 && sub.status == .ACTIVE {
-                    WVChip("Quá hạn \(abs(days))d", tone: .red, icon: "alert")
+                    WVChip(L.t("Quá hạn %dd", abs(days)), tone: .red, icon: "alert")
                 }
             }
         }
@@ -154,7 +154,8 @@ struct SubscriptionDetailView: View {
                 if sub.billingCycle != .LIFETIME {
                     let monthly = subMonthlyEquivalent(sub)
                     let total   = payments.reduce(0) { $0 + $1.amount }
-                    Text("~ \(WVFormat.vnd(Int(monthly.rounded()))) / tháng · Đã chi tổng \(WVFormat.vnd(total))")
+                    Text(L.t("~ %@ / tháng · Đã chi tổng %@",
+                         WVFormat.vnd(Int(monthly.rounded())), WVFormat.vnd(total)))
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
                         .padding(.top, 2)
@@ -165,7 +166,7 @@ struct SubscriptionDetailView: View {
 
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(sub.billingCycle == .LIFETIME ? "LIFETIME" : "GIA HẠN TỚI")
+                        Text(sub.billingCycle == .LIFETIME ? "LIFETIME" : L.t("GIA HẠN TỚI"))
                             .font(.system(size: 12, weight: .semibold))
                             .tracking(0.5)
                             .foregroundStyle(WVColor.label3)
@@ -182,7 +183,7 @@ struct SubscriptionDetailView: View {
                     }
                     Spacer(minLength: 0)
                     if sub.billingCycle != .LIFETIME {
-                        WVButton("Gia hạn", icon: "refresh", kind: .secondary, size: .small,
+                        WVButton(L.t("Gia hạn"), icon: "refresh", kind: .secondary, size: .small,
                                  fullWidth: false) {
                             Task { await renewNow() }
                         }
@@ -196,14 +197,14 @@ struct SubscriptionDetailView: View {
 
     private func quickActions(_ sub: Subscription) -> some View {
         HStack(spacing: WVSpacing.sm) {
-            WVButton("Ghi nhận thanh toán", icon: "wallet", kind: .secondary, size: .small,
+            WVButton(L.t("Ghi nhận thanh toán"), icon: "wallet", kind: .secondary, size: .small,
                      fullWidth: true) { showLogPayment = true }
 
             if let urlStr = sub.manageUrl, !urlStr.isEmpty, let url = URL(string: urlStr) {
                 Link(destination: url) {
                     HStack(spacing: 6) {
                         WVIcon("externalLink", size: 14)
-                        Text("Quản lý").font(.system(size: 15, weight: .semibold))
+                        Text(L.t("Quản lý")).font(.system(size: 15, weight: .semibold))
                     }
                     .foregroundStyle(WVColor.tint)
                     .frame(maxWidth: .infinity, minHeight: 34)
@@ -221,9 +222,9 @@ struct SubscriptionDetailView: View {
     private func statusSegmented(_ sub: Subscription) -> some View {
         WVSegmented(
             options: [
-                (.ACTIVE,   "Đang dùng"),
-                (.PAUSED,   "Tạm dừng"),
-                (.CANCELED, "Đã huỷ"),
+                (.ACTIVE,   L.t("Đang dùng")),
+                (.PAUSED,   L.t("Tạm dừng")),
+                (.CANCELED, L.t("Đã huỷ")),
             ],
             selection: $status
         )
@@ -238,7 +239,7 @@ struct SubscriptionDetailView: View {
 
     private var paymentChart: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVSectionHeader("Biểu đồ thanh toán")
+            WVSectionHeader(L.t("Biểu đồ thanh toán"))
             WVCard {
                 let pts = payments.reversed().map { p in
                     WVChartPoint(
@@ -260,12 +261,12 @@ struct SubscriptionDetailView: View {
         // Build the rows imperatively before the @ViewBuilder body.
         var rows: [(icon: String, color: Color, title: String, detail: String)] = []
         if let e = sub.accountEmail, !e.isEmpty { rows.append(("mail", WVColor.blue, "Email", e)) }
-        if let pm = sub.paymentMethod, !pm.isEmpty { rows.append(("creditCard", WVColor.purple, "Thanh toán", pm)) }
-        rows.append(("refresh", WVColor.green, "Tự gia hạn", sub.autoRenew ? "Bật" : "Tắt"))
-        rows.append(("calendar", WVColor.orange, "Bắt đầu", WVFormat.date(sub.startedAt)))
+        if let pm = sub.paymentMethod, !pm.isEmpty { rows.append(("creditCard", WVColor.purple, L.t("Thanh toán"), pm)) }
+        rows.append(("refresh", WVColor.green, L.t("Tự gia hạn"), sub.autoRenew ? L.t("Bật") : L.t("Tắt")))
+        rows.append(("calendar", WVColor.orange, L.t("Bắt đầu"), WVFormat.date(sub.startedAt)))
 
         return VStack(spacing: 0) {
-            WVSectionHeader("Tài khoản")
+            WVSectionHeader(L.t("Tài khoản"))
             WVGroup {
                 ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
                     if idx > 0 { WVDivider(inset: 60) }
@@ -285,18 +286,18 @@ struct SubscriptionDetailView: View {
         let cancelValid = sub.cancelUrl.map { !$0.isEmpty && URL(string: $0) != nil } ?? false
         if manageValid || cancelValid {
             VStack(spacing: 0) {
-                WVSectionHeader("Liên kết")
+                WVSectionHeader(L.t("Liên kết"))
                 WVGroup {
                     if manageValid, let url = URL(string: sub.manageUrl ?? "") {
                         WVRow(icon: "externalLink", iconColor: WVColor.blue,
-                              title: "Quản lý gói", chevron: true, role: .tint) {
+                              title: L.t("Quản lý gói"), chevron: true, role: .tint) {
                             UIApplication.shared.open(url)
                         }
                         if cancelValid { WVDivider(inset: 60) }
                     }
                     if cancelValid, let url = URL(string: sub.cancelUrl ?? "") {
                         WVRow(icon: "x", iconColor: WVColor.red,
-                              title: "Huỷ gói", chevron: true, role: .destructive) {
+                              title: L.t("Huỷ gói"), chevron: true, role: .destructive) {
                             UIApplication.shared.open(url)
                         }
                     }
@@ -310,11 +311,11 @@ struct SubscriptionDetailView: View {
 
     private var paymentsSection: some View {
         VStack(spacing: 0) {
-            WVSectionHeader("Lịch sử thanh toán (\(payments.count))")
+            WVSectionHeader(L.t("Lịch sử thanh toán (%d)", payments.count))
             WVGroup {
                 if payments.isEmpty {
                     WVRowContainer {
-                        Text("Chưa có thanh toán nào")
+                        Text(L.t("Chưa có thanh toán nào"))
                             .font(.system(size: 15))
                             .foregroundStyle(WVColor.label3)
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -340,7 +341,7 @@ struct SubscriptionDetailView: View {
 
     private func noteSection(_ text: String) -> some View {
         VStack(spacing: 0) {
-            WVSectionHeader("Ghi chú")
+            WVSectionHeader(L.t("Ghi chú"))
             WVGroup {
                 WVRowContainer {
                     Text(text)
@@ -362,7 +363,7 @@ struct SubscriptionDetailView: View {
             Spacer().frame(height: WVSpacing.md)
             WVGroup {
                 WVRow(icon: "trash", iconColor: WVColor.red,
-                      title: "Xoá gói đăng ký", role: .destructive) {
+                      title: L.t("Xoá gói đăng ký"), role: .destructive) {
                     showDelete = true
                 }
             }
@@ -394,7 +395,7 @@ struct SubscriptionDetailView: View {
         do {
             try await store.renewNow(id: subscriptionId)
             await reload()
-            toast.show("Đã gia hạn gói 🔁")
+            toast.show(L.t("Đã gia hạn gói 🔁"))
         } catch {
             toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
         }
@@ -403,7 +404,7 @@ struct SubscriptionDetailView: View {
     private func changeStatus(_ newStatus: SubscriptionStatus, sub: Subscription) async {
         do {
             try await store.setStatus(id: sub.id, status: newStatus)
-            toast.show("Đổi sang \(newStatus.chipLabel)")
+            toast.show(L.t("Đổi sang %@", newStatus.chipLabel))
         } catch {
             status = sub.status   // revert optimistic update
             toast.show((error as? APIError)?.localizedDescription ?? error.localizedDescription)
@@ -424,10 +425,10 @@ struct SubscriptionDetailView: View {
 extension SubscriptionStatus {
     var chipLabel: String {
         switch self {
-        case .ACTIVE:   return "Đang dùng"
-        case .PAUSED:   return "Tạm dừng"
-        case .CANCELED: return "Đã huỷ"
-        case .EXPIRED:  return "Hết hạn"
+        case .ACTIVE:   return L.t("Đang dùng")
+        case .PAUSED:   return L.t("Tạm dừng")
+        case .CANCELED: return L.t("Đã huỷ")
+        case .EXPIRED:  return L.t("Hết hạn")
         }
     }
     var chipTone: WVChipTone {
@@ -480,7 +481,7 @@ struct SubLogPaymentSheet: View {
                     WVGroup {
                         WVRowContainer {
                             HStack {
-                                Text("Số tiền")
+                                Text(L.t("Số tiền"))
                                     .font(.system(size: 17))
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
@@ -490,18 +491,18 @@ struct SubLogPaymentSheet: View {
                         }
                         WVDivider()
                         WVRowContainer {
-                            DatePicker("Ngày trả", selection: $paidAt,
+                            DatePicker(L.t("Ngày trả"), selection: $paidAt,
                                        displayedComponents: .date)
                                 .font(.system(size: 17))
                         }
                         WVDivider()
                         WVRowContainer {
                             HStack {
-                                Text("Ghi chú")
+                                Text(L.t("Ghi chú"))
                                     .font(.system(size: 17))
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
-                                TextField("vd: Tháng 4/2026", text: $note)
+                                TextField(L.t("vd: Tháng 4/2026"), text: $note)
                                     .multilineTextAlignment(.trailing)
                                     .font(.system(size: 17))
                                     .foregroundStyle(WVColor.label3)
@@ -520,15 +521,15 @@ struct SubLogPaymentSheet: View {
                 }
             }
             .wvScreen()
-            .navigationTitle("Log thanh toán")
+            .navigationTitle(L.t("Log thanh toán"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { dismiss() }
+                    Button(L.t("Huỷ")) { dismiss() }
                         .foregroundStyle(WVColor.tint)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Lưu") { Task { await submit() } }
+                    Button(L.t("Lưu")) { Task { await submit() } }
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                         .disabled(isBusy || (amount ?? 0) <= 0)
@@ -555,7 +556,7 @@ struct SubLogPaymentSheet: View {
         do {
             _ = try await client.logSubscriptionPayment(id: subscriptionId, input)
             onLogged()
-            toast.show("Đã log payment 💸")
+            toast.show(L.t("Đã log payment 💸"))
             dismiss()
         } catch {
             topError = (error as? APIError)?.localizedDescription ?? error.localizedDescription

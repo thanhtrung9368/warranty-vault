@@ -74,11 +74,11 @@ struct LoginView: View {
             .shadow(color: WVColor.brand.opacity(0.22), radius: 20, y: 8)
 
             VStack(spacing: 6) {
-                Text("Chào mừng quay lại")
+                Text(L.t("Chào mừng quay lại"))
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
-                Text("Đăng nhập để xem bảo hành, đăng ký và wishlist của mày.")
+                Text(L.t("Đăng nhập để xem bảo hành, đăng ký và wishlist của mày."))
                     .font(.system(size: 14))
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
@@ -104,7 +104,7 @@ struct LoginView: View {
                 )
                 WVDivider(inset: 16)
                 AuthTextField(
-                    label: "Mật khẩu",
+                    label: L.t("Mật khẩu"),
                     placeholder: "•••••",
                     text: $password,
                     keyboardType: .default,
@@ -131,7 +131,7 @@ struct LoginView: View {
 
             // Primary button
             WVButton(
-                isSubmitting ? "Đang đăng nhập…" : "Đăng nhập",
+                isSubmitting ? L.t("Đang đăng nhập…") : L.t("Đăng nhập"),
                 kind: .primary
             ) {
                 Task { await submit() }
@@ -142,7 +142,7 @@ struct LoginView: View {
             Button {
                 showForgot = true
             } label: {
-                Text("Quên mật khẩu?")
+                Text(L.t("Quên mật khẩu?"))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(WVColor.tint)
             }
@@ -159,8 +159,8 @@ struct LoginView: View {
             Button {
                 showRegister = true
             } label: {
-                Text("Chưa có tài khoản? ") +
-                Text("Đăng ký").foregroundColor(WVColor.tint).bold()
+                Text(L.t("Chưa có tài khoản? ")) +
+                Text(L.t("Đăng ký")).foregroundColor(WVColor.tint).bold()
             }
             .font(.system(size: 14))
             .foregroundStyle(WVColor.label3)
