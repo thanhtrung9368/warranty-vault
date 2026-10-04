@@ -257,7 +257,7 @@ npx web-push generate-vapid-keys
   đã đăng nhập để nó đăng ký token. Token chỉ được đăng ký khi có bearer hợp lệ
   (`PushRegistrar.kt` short-circuit khi thiếu token).
 
-### [ ] 1.2 — Upstash Redis → rate limit production
+### [~] 1.2 — Upstash Redis → rate limit production — ⏸️ **TẠM HOÃN (chủ repo, 2026-10-04)**
 
 **Tốn:** 0đ ở free tier (đủ cho quy mô cá nhân).
 
@@ -326,7 +326,7 @@ chế độ "bên thứ ba chết thì mất bảo vệ"**.
 *(Chưa test được SRH ở máy này — Docker daemon không dùng được. Docs Upstash nói tương thích hoàn
 toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trước khi tin.)*
 
-### [ ] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email
+### [~] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email — ⏸️ **TẠM HOÃN: CHẶN BỞI DOMAIN**
 
 **Tốn:** 0đ ở free tier (giới hạn số email/ngày — kiểm tra lại khi đăng ký).
 
@@ -343,7 +343,7 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
   Phần **code** còn thiếu (không phải việc của mày): web chưa có trang `/confirm-email/<token>` mà link
   trong mail trỏ tới. Việc của mày ở đây chỉ là **domain + API key**.
 
-### [ ] 1.4 — Anthropic API key → OCR hoá đơn (tuỳ chọn)
+### [~] 1.4 — Anthropic API key → OCR hoá đơn (tuỳ chọn) — ⏸️ **TẠM HOÃN (chủ repo, 2026-10-04)**
 
 **Tốn:** trả theo lượng dùng (không cố định). Mặc định model `claude-haiku-4-5-20251001`.
 
@@ -365,7 +365,7 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
 > Giá dưới đây là **giá niêm yết tham khảo** — tao không verify được bảng giá trực tiếp
 > từ trang chủ Apple (trang trả về menu, không có giá). **Mày xác nhận lại lúc đăng ký.**
 
-### [ ] 2.1 — Domain (cần trước mọi thứ khác ở nhóm này)
+### [ ] 2.1 — Domain — 🔴 **GIỜ LÀ THỨ CHẶN NHIỀU NHẤT, và rẻ nhất**
 
 - **Tốn:** ~$10–15/năm tuỳ đuôi.
 - **Lấy gì:** 1 domain, trỏ **3 A record** về IP VPS:
@@ -374,7 +374,30 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
   cookie `wv_session` hoạt động (cookie bật `secure` khi `NODE_ENV=production`,
   nên **test qua HTTP sẽ không giữ được session** — phải HTTPS).
 
-### [ ] 2.2 — VPS
+> 🔴 **Đây là món RẺ NHẤT danh sách (~$10/năm) mà chặn NHIỀU NHẤT.** Ba thứ phụ thuộc cứng vào nó:
+>
+> 1. **1.3 Resend — chặn cứng, đã kiểm chứng bằng docs của Resend.** Domain `resend.dev` chỉ
+>    gửi được **tới chính email của chủ tài khoản**: *"The `resend.dev` domain is only available
+>    for testing purposes and can only send emails to the email address associated with your Resend
+>    account."* Nghĩa là **không có domain thì reset mật khẩu cho người dùng thật KHÔNG chạy được**,
+>    dù đã có API key. ([nguồn](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain))
+> 2. **HTTPS trên VPS.** `deploy/caddy/Caddyfile` là **template** — nó ghi rõ phải thay
+>    `warrantyvault.tld` bằng domain thật, và Let's Encrypt **không cấp cert cho IP trần**.
+>    Không HTTPS thì cookie `wv_session` (bật `secure` ở production) **không hoạt động**.
+> 3. **3.3 tên miền thương hiệu** — cùng một quyết định.
+
+> ℹ️ **Có VPS + Apple Developer rồi thì 2.3 (APNs) KHÔNG cần domain.** Server Go kết nối tới
+> Apple, không cần tên miền công khai. Nên **2.3 mở được ngay** — chỉ cần tạo APNs key (.p8)
+> trong Apple Developer portal rồi điền `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY`.
+>
+> ℹ️ **2.4 Google Play cũng không cần domain** — chỉ cần package name `app.warrantyvault`.
+
+> 💡 **Đường miễn phí (không khuyến khích):** DuckDNS hoặc tương tự cho một subdomain có
+> quyền sửa DNS, đủ để Resend verify. Nhưng email gửi từ một subdomain miễn phí **rất dễ vào
+> spam**, và Let's Encrypt vẫn cấp cert được nên HTTPS sẽ chạy. Cân nhắc: $10/năm để email
+> người dùng thật không rơi vào spam là **rẻ hơn nhiều** so với thời gian debug deliverability.
+
+### [x] 2.2 — VPS — ✅ **CHỦ REPO ĐÃ CÓ VPS** (2026-10-04)
 
 - **Tốn:** ~$5–6/tháng (Hetzner CX22 / DigitalOcean $6 droplet / Vultr — `deploy/README.md`
   đã tính sẵn cho các loại này).
@@ -394,7 +417,7 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
   Cách kiểm hành vi: tạo thiết bị tên `Điện thoại SamSung` rồi tìm `dien thoai` không dấu.
 - **Mở khoá:** deploy thật. Trước đó mọi thứ chỉ là template.
 
-### [ ] 2.3 — Apple Developer Program → APNs + TestFlight
+### [x] 2.3 — Apple Developer Program → APNs + TestFlight — ✅ **CHỦ REPO ĐÃ CÓ TÀI KHOẢN** (2026-10-04)
 
 - **Tốn:** **$99 USD/năm** (Apple có miễn giảm cho tổ chức phi lợi nhuận/sinh viên ở
   một số khu vực — kiểm tra mục Fee waivers). Xác nhận giá tại
