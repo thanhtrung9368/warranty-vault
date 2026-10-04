@@ -6,6 +6,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -24,22 +25,26 @@ func RegisterForecast(mux *http.ServeMux, deps Deps) {
 
 func forecastHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, ok := auth.UserFromContext(r.Context())
+		// The forecast's `note` — and the refusal below — are server-generated
+		// copy, so the request's language has to be attached before either is
+		// produced. `?lang=` is read here, exactly as the other converted
+		// handlers do it.
+		ctx := i18n.Attach(r)
+		us, ok := auth.UserFromContext(ctx)
 		if !ok {
 			unauthorized(w, ctx)
 			return
 		}
-		months, err := services.ParseForecastMonths(r.URL.Query().Get("months"))
+		months, err := services.ParseForecastMonths(ctx, r.URL.Query().Get("months"))
 		if err != nil {
 			writeServiceError(w, ctx, err, "parse forecast months")
 			return
 		}
-		forecast, err := services.GetForecast(r.Context(), deps.DB, us.UserID, months, time.Now())
+		forecast, err := services.GetForecast(ctx, deps.DB, us.UserID, months, time.Now())
 		if err != nil {
 			writeServiceError(w, ctx, err, "forecast")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, forecast)
+		httpx.WriteJSONC(w, ctx, http.StatusOK, forecast)
 	}
 }

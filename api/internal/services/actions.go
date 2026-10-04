@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -30,7 +31,23 @@ import (
 //     state the schema cannot support. Where a rule the feature doc suggested
 //     could not be derived, the item was reformulated to what the data actually
 //     says (see SUBSCRIPTION_PAID_NOT_ADVANCED) instead of guessing.
-//  2. SNOOZES LIVE IN THEIR OWN TABLE, never in "Reminder".
+// # i18n
+//
+// Every sentence in this file is generated HERE, on the server, rather than by a
+// client: the derived rows carry `title` and `detail` as finished strings. The
+// language therefore comes from the request context, and it governs the DATES and
+// the MONEY inside those sentences as well as the words — "07/05/2026" is 7 May
+// to a Vietnamese reader and 5 July to an English one, so a queue rendered in the
+// request's words but the source language's date format would be actively
+// misleading.
+//
+// The formatters are the locale-aware pair wave 2 added for the subscription
+// audit (formatDate/formatMoney below, which delegate to i18n), NOT the
+// Vietnamese-only helpers that used to live at the bottom of this file. Those two
+// are gone: nothing should be able to reach for a date formatter that cannot
+// follow the language.
+//
+// Two design rules govern this file:
 //     "Reminder"."isDismissed" is the push gate for warranty notices: both
 //     ListWarrantiesInWindow and CountActiveReminders carry
 //     `NOT EXISTS (... isDismissed = true)`, so a generic snooze row written into
@@ -274,13 +291,18 @@ func ListActionItems(ctx context.Context, db *pgxpool.Pool, userID string, now t
 		Items:        visible,
 		Counts:       counts,
 		SnoozedCount: snoozedCount,
-		Note:         actionQueueNoteVN,
+		Note:         i18n.Text(ctx, actionQueueNoteKey),
 	}, nil
 }
 
-// actionQueueNoteVN is returned with every queue so no client has to guess what
+// actionQueueNoteKey is returned with every queue so no client has to guess what
 // the list is. It says plainly what the queue is NOT: a reminder feed, or advice.
-const actionQueueNoteVN = "Danh sách này chỉ gồm những việc app TỰ SUY RA từ dữ liệu bạn đã nhập và không tự quyết được. Nó không phải thông báo đẩy — bảo hiểm/bảo hành vẫn nhắc riêng theo mốc ngày. Hoãn một việc ở đây không ảnh hưởng tới nhắc bảo hành."
+//
+// It is the Vietnamese SOURCE text, unchanged, and it doubles as the catalog key
+// (internal/i18n/catalog.go) — a named constant rather than an inline literal
+// because the sentence is long, because it is rendered as DATA (see textIn), and
+// because it is the one string in this file that every client displays verbatim.
+const actionQueueNoteKey = "Danh sách này chỉ gồm những việc app TỰ SUY RA từ dữ liệu bạn đã nhập và không tự quyết được. Nó không phải thông báo đẩy — bảo hiểm/bảo hành vẫn nhắc riêng theo mốc ngày. Hoãn một việc ở đây không ảnh hưởng tới nhắc bảo hành."
 
 // SnoozeActionItem hides one derived item until now+days, for this user, on every
 // device. The key is validated against the caller's OWN derived items, which is
@@ -292,9 +314,13 @@ func SnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey str
 		days = SnoozeDaysDefault
 	}
 	if days < SnoozeDaysMin || days > SnoozeDaysMax {
-		return SnoozeResult{}, ErrValidation(FieldErrors{
-			"days": {fmt.Sprintf("Số ngày hoãn phải từ %d tới %d", SnoozeDaysMin, SnoozeDaysMax)},
-		})
+		// The headline and the field error are the SAME sentence here: this
+		// failure is the whole story (one bad field), so a generic "Dữ liệu không
+		// hợp lệ" headline above it would be a second, vaguer sentence in a
+		// second language if the generic constructor were used. Rendered once so
+		// the two cannot drift.
+		msg := i18n.T(ctx, "Số ngày hoãn phải từ %d tới %d", SnoozeDaysMin, SnoozeDaysMax)
+		return SnoozeResult{}, ErrValidationKeyed(msg, FieldErrors{"days": {msg}})
 	}
 
 	q := store.New(db)
@@ -303,7 +329,9 @@ func SnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey str
 		return SnoozeResult{}, err
 	}
 	if !containsItemKey(items, itemKey) {
-		return SnoozeResult{}, ErrNotFound("Không tìm thấy việc cần xử lý này")
+		// ErrNotFound has no keyed variant, so the sentence is rendered here,
+		// where the context is — the handler writes `Message` out verbatim.
+		return SnoozeResult{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy việc cần xử lý này"))
 	}
 
 	// Re-snoozing an already snoozed item is allowed and simply moves the
@@ -318,7 +346,10 @@ func SnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey str
 			return SnoozeResult{}, fmt.Errorf("count snoozes: %w", cerr)
 		}
 		if count >= MaxSnoozesPerUser {
-			return SnoozeResult{}, ErrLimit(fmt.Sprintf(
+			// No singular form: MaxSnoozesPerUser is a constant 500, so the only
+			// value this sentence can ever interpolate is 500. A "1 việc" key
+			// would be an entry nothing can produce.
+			return SnoozeResult{}, ErrLimit(i18n.T(ctx,
 				"Đã đạt giới hạn %d việc đang hoãn. Bỏ hoãn bớt rồi thử lại.", MaxSnoozesPerUser))
 		}
 	}
@@ -351,7 +382,7 @@ func UnSnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey s
 		return fmt.Errorf("delete snooze: %w", err)
 	}
 	if rows == 0 {
-		return ErrNotFound("Việc này không đang được hoãn")
+		return ErrNotFound(i18n.Text(ctx, "Việc này không đang được hoãn"))
 	}
 	return nil
 }
@@ -368,6 +399,14 @@ func UnSnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey s
 func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now time.Time) ([]ActionItem, error) {
 	startOfToday := startOfDay(now)
 	ts := func(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t.UTC(), Valid: true} }
+
+	// One language for the whole queue, read once. It drives the words AND the
+	// two value formats inside them; see the file header.
+	lang := i18n.From(ctx)
+	date := func(t time.Time) string { return formatDate(lang, t) }
+	// formatMoney takes an int64 and narrows to the int32 the column type uses —
+	// see its note on why that cannot truncate here.
+	money := func(v int64) string { return formatMoney(lang, v) }
 
 	items := make([]ActionItem, 0, 16)
 
@@ -391,12 +430,19 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		if r.EndDate.Valid {
 			days := -DaysUntil(r.EndDate.Time, now)
 			it.DueDate = tsPtrUTC(r.EndDate)
-			it.Title = "Bảo hành đã hết hạn"
-			it.Detail = fmt.Sprintf("Gói %s của «%s» đã hết hạn ngày %s (%d ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
-				warrantyTypeLabel(r.WarrantyType), r.DeviceName, formatViDate(r.EndDate.Time), days)
+			it.Title = textIn(lang, "Bảo hành đã hết hạn")
+			// A count-bearing sentence, so it is a singular/plural pair with a
+			// separate argument list per form: `days` is >= 1 by construction
+			// (the row is in the past), and "1 days ago" is not English.
+			typeLabel := warrantyTypeLabel(lang, r.WarrantyType)
+			it.Detail = pluralText(lang, days,
+				"Gói %s của «%s» đã hết hạn ngày %s (%d ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+				"Gói %s của «%s» đã hết hạn ngày %s (1 ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+				[]any{typeLabel, r.DeviceName, date(r.EndDate.Time), days},
+				[]any{typeLabel, r.DeviceName, date(r.EndDate.Time)})
 		} else {
-			it.Title = "Bảo hành đã hết hạn"
-			it.Detail = fmt.Sprintf("Một gói bảo hành của «%s» đã hết hạn.", r.DeviceName)
+			it.Title = textIn(lang, "Bảo hành đã hết hạn")
+			it.Detail = i18n.Translate(lang, "Một gói bảo hành của «%s» đã hết hạn.", r.DeviceName)
 		}
 		items = append(items, it)
 	}
@@ -411,8 +457,8 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:  ActionItemKey(ActionDeviceNoWarranty, r.DeviceID),
 			Kind:     ActionDeviceNoWarranty,
 			Severity: ActionSeverityMedium,
-			Title:    "Thiết bị chưa có gói bảo hành",
-			Detail: fmt.Sprintf("«%s» chưa có gói bảo hành nào, nên app không biết món này còn được bảo vệ hay không và không thể nhắc trước khi hết hạn.",
+			Title:    textIn(lang, "Thiết bị chưa có gói bảo hành"),
+			Detail: i18n.Translate(lang, "«%s» chưa có gói bảo hành nào, nên app không biết món này còn được bảo vệ hay không và không thể nhắc trước khi hết hạn.",
 				r.DeviceName),
 			DeviceID: ptrOf(r.DeviceID),
 		})
@@ -431,15 +477,15 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:  ActionItemKey(ActionDeviceStatusStale, r.DeviceID),
 			Kind:     ActionDeviceStatusStale,
 			Severity: ActionSeverityLow,
-			Title:    "Trạng thái thiết bị có thể đã cũ",
+			Title:    textIn(lang, "Trạng thái thiết bị có thể đã cũ"),
 			DeviceID: ptrOf(r.DeviceID),
 		}
 		if r.LastEndDate.Valid {
 			it.DueDate = tsPtrUTC(r.LastEndDate)
-			it.Detail = fmt.Sprintf("Bảo hành của «%s» đã hết từ %s nhưng trạng thái vẫn là đang dùng. Bộ lọc «Đã hết hạn» vì thế trả về một danh sách khác với «bảo hành đã hết».",
-				r.DeviceName, formatViDate(r.LastEndDate.Time))
+			it.Detail = i18n.Translate(lang, "Bảo hành của «%s» đã hết từ %s nhưng trạng thái vẫn là đang dùng. Bộ lọc «Đã hết hạn» vì thế trả về một danh sách khác với «bảo hành đã hết».",
+				r.DeviceName, date(r.LastEndDate.Time))
 		} else {
-			it.Detail = fmt.Sprintf("«%s» vẫn đang ở trạng thái đang dùng nhưng bảo hành đã hết từ lâu.", r.DeviceName)
+			it.Detail = i18n.Translate(lang, "«%s» vẫn đang ở trạng thái đang dùng nhưng bảo hành đã hết từ lâu.", r.DeviceName)
 		}
 		items = append(items, it)
 	}
@@ -454,8 +500,8 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:  ActionItemKey(ActionDeviceMissingSerial, r.DeviceID),
 			Kind:     ActionDeviceMissingSerial,
 			Severity: ActionSeverityLow,
-			Title:    "Thiếu số serial / IMEI",
-			Detail: fmt.Sprintf("«%s» chưa có số serial/IMEI. Trung tâm bảo hành tra máy theo số này, thiếu hoặc sai một ký tự là bị từ chối.",
+			Title:    textIn(lang, "Thiếu số serial / IMEI"),
+			Detail: i18n.Translate(lang, "«%s» chưa có số serial/IMEI. Trung tâm bảo hành tra máy theo số này, thiếu hoặc sai một ký tự là bị từ chối.",
 				r.DeviceName),
 			DeviceID: ptrOf(r.DeviceID),
 		})
@@ -471,8 +517,8 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:  ActionItemKey(ActionDeviceMissingReceipt, r.DeviceID),
 			Kind:     ActionDeviceMissingReceipt,
 			Severity: ActionSeverityLow,
-			Title:    "Chưa có ảnh hoá đơn",
-			Detail: fmt.Sprintf("«%s» chưa có ảnh hoá đơn hay giấy tờ nào đính kèm. Lúc cần bảo hành sẽ không có gì để đưa ra.",
+			Title:    textIn(lang, "Chưa có ảnh hoá đơn"),
+			Detail: i18n.Translate(lang, "«%s» chưa có ảnh hoá đơn hay giấy tờ nào đính kèm. Lúc cần bảo hành sẽ không có gì để đưa ra.",
 				r.DeviceName),
 			DeviceID: ptrOf(r.DeviceID),
 		})
@@ -492,16 +538,21 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:  ActionItemKey(ActionReturnWindowClosing, r.DeviceID),
 			Kind:     ActionReturnWindowClosing,
 			Severity: ActionSeverityHigh,
-			Title:    "Sắp hết hạn đổi trả",
+			Title:    textIn(lang, "Sắp hết hạn đổi trả"),
 			DeviceID: ptrOf(r.DeviceID),
 		}
 		if r.ReturnDeadline.Valid {
 			days := DaysUntil(r.ReturnDeadline.Time, now)
 			it.DueDate = tsPtrUTC(r.ReturnDeadline)
-			it.Detail = fmt.Sprintf("«%s» còn %d ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
-				r.DeviceName, days, formatViDate(r.ReturnDeadline.Time))
+			// `days` counts DOWN to the deadline and reaches 1 the day before it,
+			// so the pair is reachable rather than theoretical.
+			it.Detail = pluralText(lang, days,
+				"«%s» còn %d ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+				"«%s» còn 1 ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+				[]any{r.DeviceName, days, date(r.ReturnDeadline.Time)},
+				[]any{r.DeviceName, date(r.ReturnDeadline.Time)})
 		} else {
-			it.Detail = fmt.Sprintf("Cửa sổ đổi/trả của «%s» sắp hết.", r.DeviceName)
+			it.Detail = i18n.Translate(lang, "Cửa sổ đổi/trả của «%s» sắp hết.", r.DeviceName)
 		}
 		items = append(items, it)
 	}
@@ -520,15 +571,15 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:  ActionItemKey(ActionReturnWindowUnknown, r.DeviceID),
 			Kind:     ActionReturnWindowUnknown,
 			Severity: ActionSeverityMedium,
-			Title:    "Chưa ghi hạn đổi trả",
+			Title:    textIn(lang, "Chưa ghi hạn đổi trả"),
 			DeviceID: ptrOf(r.DeviceID),
 		}
 		if r.PurchaseDate.Valid {
 			it.DueDate = tsPtrUTC(r.PurchaseDate)
-			it.Detail = fmt.Sprintf("«%s» mua ngày %s nhưng chưa ghi hạn đổi trả, nên app không thể nhắc bạn trước khi hết hạn đổi/trả.",
-				r.DeviceName, formatViDate(r.PurchaseDate.Time))
+			it.Detail = i18n.Translate(lang, "«%s» mua ngày %s nhưng chưa ghi hạn đổi trả, nên app không thể nhắc bạn trước khi hết hạn đổi/trả.",
+				r.DeviceName, date(r.PurchaseDate.Time))
 		} else {
-			it.Detail = fmt.Sprintf("«%s» chưa ghi hạn đổi trả.", r.DeviceName)
+			it.Detail = i18n.Translate(lang, "«%s» chưa ghi hạn đổi trả.", r.DeviceName)
 		}
 		items = append(items, it)
 	}
@@ -547,16 +598,16 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:        ActionItemKey(ActionSubRenewingNoCancelURL, r.ID),
 			Kind:           ActionSubRenewingNoCancelURL,
 			Severity:       ActionSeverityMedium,
-			Title:          "Sắp bị trừ tiền nhưng chưa có link huỷ",
+			Title:          textIn(lang, "Sắp bị trừ tiền nhưng chưa có link huỷ"),
 			SubscriptionID: ptrOf(r.ID),
 			AmountVnd:      ptrOf(int64(r.Price)),
 		}
 		if r.RenewalDate.Valid {
 			it.DueDate = tsPtrUTC(r.RenewalDate)
-			it.Detail = fmt.Sprintf("«%s» sẽ tự gia hạn ngày %s (%s) và chưa có link huỷ — muốn dừng thì phải vào tận trang của nhà cung cấp.",
-				r.Name, formatViDate(r.RenewalDate.Time), formatVNDInt64(int64(r.Price)))
+			it.Detail = i18n.Translate(lang, "«%s» sẽ tự gia hạn ngày %s (%s) và chưa có link huỷ — muốn dừng thì phải vào tận trang của nhà cung cấp.",
+				r.Name, date(r.RenewalDate.Time), money(int64(r.Price)))
 		} else {
-			it.Detail = fmt.Sprintf("«%s» sẽ tự gia hạn và chưa có link huỷ.", r.Name)
+			it.Detail = i18n.Translate(lang, "«%s» sẽ tự gia hạn và chưa có link huỷ.", r.Name)
 		}
 		items = append(items, it)
 	}
@@ -574,17 +625,22 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:        ActionItemKey(ActionSubPaidNotAdvanced, r.ID),
 			Kind:           ActionSubPaidNotAdvanced,
 			Severity:       ActionSeverityMedium,
-			Title:          "Ngày gia hạn chưa được cập nhật",
+			Title:          textIn(lang, "Ngày gia hạn chưa được cập nhật"),
 			SubscriptionID: ptrOf(r.ID),
 			AmountVnd:      ptrOf(int64(r.LastPaidAmount)),
 		}
 		if r.RenewalDate.Valid && r.LastPaidAt.Valid {
 			it.DueDate = tsPtrUTC(r.RenewalDate)
-			it.Detail = fmt.Sprintf("«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
-				r.Name, formatViDate(r.LastPaidAt.Time), formatViDate(r.RenewalDate.Time),
-				-DaysUntil(r.RenewalDate.Time, now))
+			// The renewal date is strictly before today (the query says so), so
+			// the count reaches 1 and the singular form is reachable.
+			elapsed := -DaysUntil(r.RenewalDate.Time, now)
+			it.Detail = pluralText(lang, elapsed,
+				"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+				"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+				[]any{r.Name, date(r.LastPaidAt.Time), date(r.RenewalDate.Time), elapsed},
+				[]any{r.Name, date(r.LastPaidAt.Time), date(r.RenewalDate.Time)})
 		} else {
-			it.Detail = fmt.Sprintf("«%s» có thanh toán đã ghi nhận nhưng ngày gia hạn vẫn ở quá khứ.", r.Name)
+			it.Detail = i18n.Translate(lang, "«%s» có thanh toán đã ghi nhận nhưng ngày gia hạn vẫn ở quá khứ.", r.Name)
 		}
 		items = append(items, it)
 	}
@@ -602,7 +658,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			ItemKey:        ActionItemKey(ActionWishlistTargetPassed, r.ID),
 			Kind:           ActionWishlistTargetPassed,
 			Severity:       ActionSeverityLow,
-			Title:          "Đã qua ngày dự kiến mua",
+			Title:          textIn(lang, "Đã qua ngày dự kiến mua"),
 			WishlistItemID: ptrOf(r.ID),
 		}
 		if r.CurrentPrice != nil {
@@ -610,14 +666,22 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		}
 		if r.TargetDate.Valid {
 			it.DueDate = tsPtrUTC(r.TargetDate)
+			// The optional price is its own sentence appended after the base one
+			// rather than a `%s` slot inside it: a slot would force every
+			// translation to keep a trailing fragment's punctuation, and the
+			// Vietnamese output is identical either way.
 			price := ""
 			if r.CurrentPrice != nil {
-				price = fmt.Sprintf(" Giá ghi nhận gần nhất: %s.", formatVNDInt64(int64(*r.CurrentPrice)))
+				price = " " + i18n.Translate(lang, "Giá ghi nhận gần nhất: %s.", money(int64(*r.CurrentPrice)))
 			}
-			it.Detail = fmt.Sprintf("«%s» có ngày dự kiến mua %s, đã qua %d ngày.%s",
-				r.Name, formatViDate(r.TargetDate.Time), -DaysUntil(r.TargetDate.Time, now), price)
+			elapsed := -DaysUntil(r.TargetDate.Time, now)
+			it.Detail = pluralText(lang, elapsed,
+				"«%s» có ngày dự kiến mua %s, đã qua %d ngày.",
+				"«%s» có ngày dự kiến mua %s, đã qua 1 ngày.",
+				[]any{r.Name, date(r.TargetDate.Time), elapsed},
+				[]any{r.Name, date(r.TargetDate.Time)}) + price
 		} else {
-			it.Detail = fmt.Sprintf("«%s» đã qua ngày dự kiến mua.", r.Name)
+			it.Detail = i18n.Translate(lang, "«%s» đã qua ngày dự kiến mua.", r.Name)
 		}
 		items = append(items, it)
 	}
@@ -662,51 +726,35 @@ func startOfDay(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }
 
-// formatViDate renders dd/mm/yyyy — the Vietnamese short form, matching cron's
-// formatVi() so a push body and a queue row describe the same date identically.
-func formatViDate(t time.Time) string {
-	return fmt.Sprintf("%02d/%02d/%d", t.Day(), int(t.Month()), t.Year())
-}
+// The two Vietnamese-only formatters that used to live here — a dd/mm/yyyy date
+// and a hand-rolled "1.200.000 ₫" — are GONE. They were the reason wave 2 had to
+// add a second, locale-aware pair rather than reuse these, and leaving a
+// Vietnamese-only date formatter next to converted call sites is an invitation to
+// reintroduce the bug this file was converted to fix. The queue now calls
+// formatDate / formatMoney (subscription_audit.go), which delegate to
+// i18n.FormatDate / i18n.FormatMoney, so a push body, an audit finding and a
+// queue row describe the same date and the same amount identically in the same
+// language.
 
-// formatVNDInt64 mirrors cron's formatVND for the int64 money values in this
-// file. "." is the thousands separator in vi-VN.
-func formatVNDInt64(amount int64) string {
-	if amount == 0 {
-		return "0 ₫"
-	}
-	neg := amount < 0
-	if neg {
-		amount = -amount
-	}
-	s := ""
-	count := 0
-	for amount > 0 {
-		if count > 0 && count%3 == 0 {
-			s = "." + s
-		}
-		s = string(rune('0'+(amount%10))) + s
-		amount /= 10
-		count++
-	}
-	if neg {
-		s = "-" + s
-	}
-	return s + " ₫"
-}
-
-// warrantyTypeLabel mirrors cron's warrantyTypeLabels so the same package is
-// named the same way in a push and in the queue.
-func warrantyTypeLabel(t string) string {
+// warrantyTypeLabel names a Warranty.type code in `lang`, using the same three
+// catalog entries the cron's warrantyTypeLabels map resolves to — so the package
+// a push notification names and the package the queue names cannot drift.
+//
+// An unknown code (a hand-edited row) falls through to the raw code, exactly as
+// the cron does, rather than inventing a label.
+func warrantyTypeLabel(lang i18n.Tag, t string) string {
+	var key string
 	switch t {
 	case "STANDARD":
-		return "Tiêu chuẩn"
+		key = "Tiêu chuẩn"
 	case "EXTENDED":
-		return "Mở rộng"
+		key = "Mở rộng"
 	case "THIRD_PARTY":
-		return "Bên thứ ba"
+		key = "Bên thứ ba"
 	default:
 		return t
 	}
+	return textIn(lang, key)
 }
 
 // ptrOf returns a pointer to a copy — a small helper so the item builders above

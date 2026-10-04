@@ -5,15 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 const (
-	defaultFrom    = "AssetVault <onboarding@resend.dev>"
+	defaultFrom    = "Warranty Vault <onboarding@resend.dev>"
 	resetTTLMin    = 30
 	resendEndpoint = "https://api.resend.com/emails"
 )
@@ -52,30 +55,63 @@ type sendRequest struct {
 	Text    string   `json:"text"`
 }
 
-// SendPasswordReset emails the password-reset link. Mirrors the Vietnamese
-// template from website/src/lib/services/password-reset.ts.
-func (c *Client) SendPasswordReset(ctx context.Context, to, resetLink string) error {
-	subject := "Đặt lại mật khẩu AssetVault"
-	text := fmt.Sprintf(
-		"Chào %s,\n\n"+
-			"Có yêu cầu đặt lại mật khẩu cho tài khoản này.\n\n"+
-			"Bấm link dưới (hiệu lực %d phút):\n%s\n\n"+
-			"Nếu không phải bạn, bỏ qua email này.",
-		to, resetTTLMin, resetLink,
-	)
-	html := fmt.Sprintf(`<div style="font-family: -apple-system, Segoe UI, sans-serif; max-width: 480px; margin: auto; padding: 24px;">
-  <h2 style="color:#1e40af;">Đặt lại mật khẩu</h2>
-  <p>Chào <strong>%s</strong>,</p>
-  <p>Có yêu cầu đặt lại mật khẩu cho tài khoản AssetVault này.</p>
+// ── language ─────────────────────────────────────────────────────────────────
+//
+// Both templates below are rendered in the RECIPIENT's language, passed in by the
+// caller as `lang` rather than read from ctx.
+//
+// Why explicit, when the request context is right there: the two flows mail
+// different people from the person who triggered them in principle (and in
+// practice the send happens inside a DETACHED goroutine with
+// context.Background(), so a tag on the request would not even reach here). The
+// caller — handlers.Forgot / ChangeEmail — has the User row and resolves
+// `i18n.FromStored(user.Locale)`, which is the same "stored preference, else the
+// product default" rule the cron applies per recipient. A request signal
+// deliberately does NOT outrank it: the mail outlives the request that caused it,
+// and a password-reset link opened tomorrow should not be in a language the
+// recipient never chose.
+//
+// The keys are SENTENCES, never HTML. The skeleton, the newlines and the button
+// markup stay here, so a translation cannot break the layout — and every
+// interpolated value that lands in HTML is escaped HERE (html.EscapeString)
+// rather than trusted to a catalog entry. `to` is a user-supplied address and
+// `resetLink`/`confirmLink` are built from APP_URL, so neither is markup.
+
+// SendPasswordReset emails the password-reset link, in `lang`.
+func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, resetLink string) error {
+	subject := i18n.Translate(lang, "Đặt lại mật khẩu Warranty Vault")
+	heading := i18n.Translate(lang, "Đặt lại mật khẩu")
+
+	// Plain-text body. It is the same four sentences as the HTML in the same
+	// order; only the button becomes a bare URL.
+	text := i18n.Translate(lang, "Chào %s,", to) + "\n\n" +
+		i18n.Translate(lang, "Có yêu cầu đặt lại mật khẩu cho tài khoản này.") + "\n\n" +
+		i18n.Translate(lang, "Bấm link dưới (hiệu lực %d phút):", resetTTLMin) + "\n" + resetLink + "\n\n" +
+		i18n.Translate(lang, "Nếu không phải bạn, bỏ qua email này.")
+
+	htmlBody := fmt.Sprintf(`<div style="font-family: -apple-system, Segoe UI, sans-serif; max-width: 480px; margin: auto; padding: 24px;">
+  <h2 style="color:#1e40af;">%s</h2>
+  <p>%s</p>
+  <p>%s</p>
   <p style="margin: 24px 0;">
     <a href="%s" style="display:inline-block;padding:10px 20px;background:#1e40af;color:#fff;text-decoration:none;border-radius:6px;">
-      Đặt lại mật khẩu
+      %s
     </a>
   </p>
-  <p style="color:#666;font-size:13px;">Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.</p>
-</div>`, to, resetLink, resetTTLMin)
+  <p style="color:#666;font-size:13px;">%s</p>
+</div>`,
+		heading,
+		// The greeting wraps the address in <strong> in the HTML form only; that
+		// markup is added here and escaped here, so the catalog keeps one plain
+		// "Chào %s," shared by both bodies.
+		i18n.Translate(lang, "Chào %s,", "<strong>"+html.EscapeString(to)+"</strong>"),
+		i18n.Translate(lang, "Có yêu cầu đặt lại mật khẩu cho tài khoản Warranty Vault này."),
+		html.EscapeString(resetLink),
+		heading,
+		i18n.Translate(lang, "Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.", resetTTLMin),
+	)
 
-	return c.send(ctx, to, subject, text, html)
+	return c.send(ctx, to, subject, text, htmlBody)
 }
 
 // SendEmailChange emails the confirmation link for an email change (roadmap #10).
@@ -86,31 +122,49 @@ func (c *Client) SendPasswordReset(ctx context.Context, to, resetLink string) er
 //
 // `oldEmail` is rendered so the recipient can recognise an account they may not
 // have known was moving, and TTL matches the password-reset window (30 minutes).
-func (c *Client) SendEmailChange(ctx context.Context, to, oldEmail, confirmLink, token string) error {
-	subject := "Xác nhận đổi email AssetVault"
-	text := fmt.Sprintf(
-		"Chào bạn,\n\n"+
-			"Có yêu cầu đổi email của tài khoản AssetVault từ %s sang địa chỉ này.\n\n"+
-			"Bấm link dưới (hiệu lực %d phút):\n%s\n\n"+
-			"Hoặc nhập mã xác nhận trong ứng dụng:\n%s\n\n"+
-			"Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.",
-		oldEmail, resetTTLMin, confirmLink, token,
-	)
-	html := fmt.Sprintf(`<div style="font-family: -apple-system, Segoe UI, sans-serif; max-width: 480px; margin: auto; padding: 24px;">
-  <h2 style="color:#1e40af;">Xác nhận đổi email</h2>
-  <p>Chào bạn,</p>
-  <p>Có yêu cầu đổi email của tài khoản AssetVault từ <strong>%s</strong> sang địa chỉ này.</p>
+//
+// `lang` is the recipient's language and is the SAME account as the old address's
+// owner: the change is requested from inside an authenticated session, so the
+// stored preference on that row is the right one even though the mail is
+// addressed to an address that is not yet the account's.
+func (c *Client) SendEmailChange(ctx context.Context, lang i18n.Tag, to, oldEmail, confirmLink, token string) error {
+	subject := i18n.Translate(lang, "Xác nhận đổi email Warranty Vault")
+	heading := i18n.Translate(lang, "Xác nhận đổi email")
+	greeting := i18n.Translate(lang, "Chào bạn,")
+	changeLine := i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.", oldEmail)
+	orEnter := i18n.Translate(lang, "Hoặc nhập mã xác nhận trong ứng dụng:")
+
+	text := greeting + "\n\n" +
+		changeLine + "\n\n" +
+		i18n.Translate(lang, "Bấm link dưới (hiệu lực %d phút):", resetTTLMin) + "\n" + confirmLink + "\n\n" +
+		orEnter + "\n" + token + "\n\n" +
+		i18n.Translate(lang, "Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.")
+
+	htmlBody := fmt.Sprintf(`<div style="font-family: -apple-system, Segoe UI, sans-serif; max-width: 480px; margin: auto; padding: 24px;">
+  <h2 style="color:#1e40af;">%s</h2>
+  <p>%s</p>
+  <p>%s</p>
   <p style="margin: 24px 0;">
     <a href="%s" style="display:inline-block;padding:10px 20px;background:#1e40af;color:#fff;text-decoration:none;border-radius:6px;">
-      Xác nhận đổi email
+      %s
     </a>
   </p>
-  <p>Hoặc nhập mã xác nhận trong ứng dụng:</p>
+  <p>%s</p>
   <p style="font-family: monospace; word-break: break-all; background:#f3f4f6; padding:12px; border-radius:6px;">%s</p>
-  <p style="color:#666;font-size:13px;">Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.</p>
-</div>`, oldEmail, confirmLink, token, resetTTLMin)
+  <p style="color:#666;font-size:13px;">%s</p>
+</div>`,
+		heading,
+		greeting,
+		i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.",
+			"<strong>"+html.EscapeString(oldEmail)+"</strong>"),
+		html.EscapeString(confirmLink),
+		heading,
+		orEnter,
+		html.EscapeString(token),
+		i18n.Translate(lang, "Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.", resetTTLMin),
+	)
 
-	return c.send(ctx, to, subject, text, html)
+	return c.send(ctx, to, subject, text, htmlBody)
 }
 
 func (c *Client) send(ctx context.Context, to, subject, text, html string) error {

@@ -332,7 +332,7 @@ func writeAttachmentError(w http.ResponseWriter, ctx context.Context, err error)
 		return
 	}
 	slog.Error("attachment handler error", "err", err)
-	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 }
 
 func sanitizeFilename(s string) string {

@@ -926,3 +926,90 @@ func TestRunRendersPushInTheRecipientsStoredLanguage(t *testing.T) {
 		t.Errorf("NULL locale title = %q, want the default (%q)", got, want)
 	}
 }
+
+// ── wave 5: the notification BODY, in both languages ─────────────────────────
+//
+// `TestRunRendersPushInTheRecipientsStoredLanguage` above proves the TITLE (the
+// plural pair and the per-language argument order). This one proves the BODY,
+// which is the half a person actually reads first and the half that carries two
+// values whose FORMAT is language-dependent: the expiry date and, on the wishlist
+// and subscription buckets, the amount.
+//
+// "13/05/2026" and "05/13/2026" are the same day written two ways, and getting it
+// backwards tells a Vietnamese reader to act in August when the deadline is in
+// May. The assertion below is built from the same wall-clock midnight the fixture
+// uses, so it is exact rather than a substring that would pass either way.
+func TestRunRendersTheNotificationBodyInTheRecipientsLanguage(t *testing.T) {
+	ctx := context.Background()
+	pool := cronScratchDB(t)
+
+	now := time.Now()
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	// Noon of today+6 is inside the 7-day bucket: [today+6 00:00, today+7 00:00).
+	endDate := midnight.AddDate(0, 0, 6).Add(12 * time.Hour)
+
+	seed := func(userID string, locale any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "User" (id, email, "passwordHash", "updatedAt", locale)
+			VALUES ($1, $2, 'x', NOW(), $3)`, userID, userID+"@cron-body.test", locale); err != nil {
+			t.Fatalf("insert user %s: %v", userID, err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "PushSubscription" (id, "userId", endpoint, p256dh, auth, platform, "createdAt")
+			VALUES ($1, $2, $3, 'p', 'a', 'web', NOW())`,
+			uuid.NewString(), userID, "https://fake.local/"+userID); err != nil {
+			t.Fatalf("insert push sub %s: %v", userID, err)
+		}
+		deviceID := "dev_body_" + userID
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "Device" (id, "userId", name, category, "purchaseDate", "purchasePrice", status, "createdAt", "updatedAt")
+			VALUES ($1, $2, 'iPhone 15', 'PHONE', $3, 1000000, 'ACTIVE', NOW(), NOW())`,
+			deviceID, userID, midnight.AddDate(0, 0, -100)); err != nil {
+			t.Fatalf("insert device %s: %v", userID, err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "Warranty" (id, "deviceId", type, provider, "startDate", "endDate", months, "createdAt", "updatedAt")
+			VALUES ($1, $2, 'STANDARD', 'Apple Care', $3, $4, 12, NOW(), NOW())`,
+			"war_body_"+userID, deviceID, midnight.AddDate(-1, 0, 0), endDate); err != nil {
+			t.Fatalf("insert warranty %s: %v", userID, err)
+		}
+	}
+
+	seed("body_vi", "vi")
+	seed("body_en", "en")
+
+	mock := &mockDispatcher{}
+	if _, err := Run(ctx, pool, mock); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	bodies := map[string]string{}
+	for _, s := range mock.sends {
+		if strings.Contains(s.payload.URL, "body_") {
+			bodies[s.payload.URL] = s.payload.Body
+		}
+	}
+	if len(bodies) != 2 {
+		t.Fatalf("expected 2 warranty pushes, got %d: %v", len(bodies), bodies)
+	}
+
+	// The provider is the user's own text and must survive verbatim in both.
+	viWant := "Hết hạn: " + i18n.FormatDate(i18n.VI, endDate) + " • Apple Care"
+	enWant := "Expires: " + i18n.FormatDate(i18n.EN, endDate) + " • Apple Care"
+
+	if got := bodies["/devices/dev_body_body_vi"]; got != viWant {
+		t.Errorf("vi body = %q, want %q", got, viWant)
+	}
+	if got := bodies["/devices/dev_body_body_en"]; got != enWant {
+		t.Errorf("en body = %q, want %q", got, enWant)
+	}
+	// And the two are genuinely different renderings of the same deadline — not
+	// one language's format served to both recipients. (Skipped on the one day a
+	// year the two forms coincide.)
+	if i18n.FormatDate(i18n.VI, endDate) != i18n.FormatDate(i18n.EN, endDate) {
+		if bodies["/devices/dev_body_body_en"] == bodies["/devices/dev_body_body_vi"] {
+			t.Errorf("both recipients got the same body: %q", bodies["/devices/dev_body_body_en"])
+		}
+	}
+}

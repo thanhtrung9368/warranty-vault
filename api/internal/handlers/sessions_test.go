@@ -253,7 +253,12 @@ func TestRevokeOwnSessionIsIdempotentAndKillsOnlyThatToken(t *testing.T) {
 		t.Fatalf("issue victim token: %v", err)
 	}
 
-	first := doSessionReq(t, mux, http.MethodDelete, "/api/v1/auth/sessions/"+victim.SessionID, tokenA.AccessToken)
+	// The language is PINNED because this test asserts the Vietnamese confirmation
+	// text. Before wave 5 the message was a hardcoded Vietnamese literal, so an
+	// unpinned request got Vietnamese by accident; now that it goes through the
+	// catalog, no signal means the product default (English). The assertion text
+	// is unchanged — only the request says which language it is asserting.
+	first := doSessionReq(t, mux, http.MethodDelete, "/api/v1/auth/sessions/"+victim.SessionID+"?lang=vi", tokenA.AccessToken)
 	if first.Code != http.StatusOK {
 		t.Fatalf("first revoke = %d, want 200 (%s)", first.Code, first.Body.String())
 	}
@@ -286,7 +291,7 @@ func TestRevokeOwnSessionIsIdempotentAndKillsOnlyThatToken(t *testing.T) {
 	}
 
 	// Second DELETE: 200, alreadyRevoked=true, and the timestamp is untouched.
-	second := doSessionReq(t, mux, http.MethodDelete, "/api/v1/auth/sessions/"+victim.SessionID, tokenA.AccessToken)
+	second := doSessionReq(t, mux, http.MethodDelete, "/api/v1/auth/sessions/"+victim.SessionID+"?lang=vi", tokenA.AccessToken)
 	if second.Code != http.StatusOK {
 		t.Fatalf("second revoke = %d, want 200 (idempotent) (%s)", second.Code, second.Body.String())
 	}
@@ -311,7 +316,7 @@ func TestRevokeCurrentSessionIsAllowedAndSignsTheCallerOut(t *testing.T) {
 	pool, mux, tokenA := env.pool, env.mux, env.tokenA
 
 	current := decodeSessions(t, doSessionReq(t, mux, http.MethodGet, "/api/v1/auth/sessions", tokenA.AccessToken)).Sessions[0].ID
-	rr := doSessionReq(t, mux, http.MethodDelete, "/api/v1/auth/sessions/"+current, tokenA.AccessToken)
+	rr := doSessionReq(t, mux, http.MethodDelete, "/api/v1/auth/sessions/"+current+"?lang=vi", tokenA.AccessToken)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("revoking the current session = %d, want 200 (%s)", rr.Code, rr.Body.String())
 	}

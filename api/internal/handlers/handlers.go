@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -46,13 +47,14 @@ func domainErrorMessage(ctx context.Context, svc *services.Error) string {
 // while every out-of-scope caller keeps its Vietnamese text because its errors
 // carry no MessageKey.
 //
-// The 500 message stays a Vietnamese literal on purpose. This writer is shared by
-// every domain — subscriptions, wishlist, backup, attachments, AI, shares,
-// search, actions — and `Lỗi hệ thống` reaches the user through all of them. It is
-// added to the catalog when the last of those is converted, so that no endpoint
-// answers `?lang=en` with an English envelope around a Vietnamese headline.
-// The same applies to the 500 in writeDevicesErr and in the other per-domain
-// writers; those are marked for the wave that converts them.
+// The 500 message is `Lỗi hệ thống` rendered in the request's language. That
+// literal sat here untranslated through four waves on purpose — this writer is
+// shared by every domain (subscriptions, wishlist, backup, attachments, AI,
+// shares, search, the action queue, push), so translating it flips the generic
+// failure branch of ALL of them at once. It is the same sentence, from the same
+// catalog entry, as every other per-domain writer's 500 branch
+// (writeDevicesErr, writeAttachmentError, writeAIError, …), so the shared
+// fallback cannot become four different sentences in two languages.
 func writeServiceError(w http.ResponseWriter, ctx context.Context, err error, op string) {
 	var svc *services.Error
 	if errors.As(err, &svc) {
@@ -61,5 +63,5 @@ func writeServiceError(w http.ResponseWriter, ctx context.Context, err error, op
 		return
 	}
 	slog.Error(op+" failed", "err", err)
-	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 }

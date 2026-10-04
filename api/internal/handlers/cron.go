@@ -11,6 +11,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/cron"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 // RegisterCron wires POST /api/v1/cron/warranty-check.
@@ -19,17 +20,23 @@ import (
 // either `Authorization: Bearer <secret>` (Vercel Cron's format) or
 // `?secret=<secret>` (handy for `curl` smoke tests). Without CRON_SECRET set,
 // the endpoint hard-fails with 500 to avoid running unauthenticated in prod.
+//
+// This is an operator-facing endpoint, but its two configuration failures are
+// still sentences in a response body, so they go through the catalog like every
+// other one. The `cron_failed` body is deliberately NOT translated: it carries
+// `err.Error()` from cron.Run, which is an internal diagnostic ("list warranties
+// in window (7d): ...") written for whoever reads the log, not copy.
 func RegisterCron(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/v1/cron/warranty-check", warrantyCheckHandler(deps))
 }
 
 func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+		ctx := i18n.Attach(r)
 		secret := strings.TrimSpace(os.Getenv("CRON_SECRET"))
 		if secret == "" {
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
-				"cron_not_configured", "CRON_SECRET chưa set", nil)
+				"cron_not_configured", i18n.Text(ctx, "CRON_SECRET chưa set"), nil)
 			return
 		}
 		if !cronAuthorized(r, secret) {
@@ -40,12 +47,13 @@ func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 
 		if deps.Dispatcher == nil {
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
-				"cron_misconfigured", "Push dispatcher chưa khởi tạo", nil)
+				"cron_misconfigured", i18n.Text(ctx, "Push dispatcher chưa khởi tạo"), nil)
 			return
 		}
 
-		// Cron passes can run long; allow up to 5 minutes per call.
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+		// Cron passes can run long; allow up to 5 minutes per call. The language
+		// attached above survives the timeout: WithTimeout derives from it.
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
 
 		started := time.Now()
@@ -70,7 +78,7 @@ func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 			"pushes_gone", stats.PushesGone,
 		)
 
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{
 			"ok":        true,
 			"checkedAt": started.UTC().Format(time.RFC3339),
 			"stats":     stats,

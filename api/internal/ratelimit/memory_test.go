@@ -2,7 +2,10 @@ package ratelimit
 
 import (
 	"context"
+	"strings"
 	"testing"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"time"
 )
 
@@ -93,22 +96,53 @@ func TestMemoryLimiter_Concurrent(t *testing.T) {
 	}
 }
 
+// FormatRetry is language-dependent since wave 5, so every case pins the
+// language it is asserting: the Vietnamese column is byte-for-byte what this
+// function produced before i18n existed (it is the source text), and the English
+// column is the translation that fixes the two-language sentence
+// "Too many attempts. Try again in 2 phút".
 func TestFormatRetry(t *testing.T) {
 	cases := []struct {
-		in   int
-		want string
+		in      int
+		wantVI  string
+		wantEN  string
+		comment string
 	}{
-		{1, "1 giây"},
-		{59, "59 giây"},
-		{60, "1 phút"},
-		{61, "2 phút"},
-		{120, "2 phút"},
-		{121, "3 phút"},
+		{1, "1 giây", "1 second", "singular seconds"},
+		{59, "59 giây", "59 seconds", "plural seconds"},
+		{60, "1 phút", "1 minute", "ceil(60/60) == 1 — the singular minute IS reachable"},
+		{61, "2 phút", "2 minutes", "rounds up"},
+		{120, "2 phút", "2 minutes", "exact"},
+		{121, "3 phút", "3 minutes", "rounds up again"},
 	}
 	for _, c := range cases {
-		got := FormatRetry(c.in)
-		if got != c.want {
-			t.Errorf("FormatRetry(%d) = %q want %q", c.in, got, c.want)
+		if got := FormatRetry(i18n.VI, c.in); got != c.wantVI {
+			t.Errorf("FormatRetry(vi, %d) = %q want %q (%s)", c.in, got, c.wantVI, c.comment)
+		}
+		if got := FormatRetry(i18n.EN, c.in); got != c.wantEN {
+			t.Errorf("FormatRetry(en, %d) = %q want %q (%s)", c.in, got, c.wantEN, c.comment)
+		}
+	}
+}
+
+// The sentence the two 429 writers share must not contain a unit in the other
+// language — that is the exact defect wave 3 found and deferred ("Try again in
+// 2 phút"), and it is invisible to a test that only checks the leading words.
+func TestRetryMessageIsMonolingual(t *testing.T) {
+	for _, tc := range []struct {
+		tag     i18n.Tag
+		want    string
+		foreign string
+	}{
+		{i18n.VI, "Thao tác quá nhanh. Đợi 2 phút", "minutes"},
+		{i18n.EN, "Too many attempts. Try again in 2 minutes", "phút"},
+	} {
+		got := RetryMessage(tc.tag, 100)
+		if got != tc.want {
+			t.Errorf("RetryMessage(%s, 100) = %q, want %q", tc.tag, got, tc.want)
+		}
+		if strings.Contains(got, tc.foreign) {
+			t.Errorf("RetryMessage(%s, 100) = %q still contains the other language's %q", tc.tag, got, tc.foreign)
 		}
 	}
 }

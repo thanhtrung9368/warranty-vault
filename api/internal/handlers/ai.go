@@ -185,10 +185,10 @@ func extractReceiptHandler(d Deps) http.HandlerFunc {
 // renders its own copy, wave 3 converted the attachment half this path reuses,
 // and files/ai messages are keyed on their own Vietnamese source text.
 //
-// The 500 fallback stays the Vietnamese "Lỗi hệ thống" literal on purpose: it is
-// the shared generic failure, and it moves to the catalog with the last domain
-// (handlers.go). Same for the rate-limit branch, which goes through the shared
-// `rateLimited` helper.
+// The 500 fallback is `Lỗi hệ thống` from the shared catalog entry, like every
+// other per-domain 500 branch. So is the rate-limit branch, which goes through
+// the shared `rateLimited` helper — the two sentences a caller can hit on a path
+// that is otherwise fully translated.
 func writeAIError(w http.ResponseWriter, ctx context.Context, err error) {
 	if ae, ok := services.AsAttachmentError(err); ok {
 		switch ae.Code {
@@ -212,5 +212,5 @@ func writeAIError(w http.ResponseWriter, ctx context.Context, err error) {
 		return
 	}
 	slog.Error("ai handler error", "err", err)
-	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 }

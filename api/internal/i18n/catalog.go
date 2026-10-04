@@ -924,4 +924,314 @@ var messages = map[string]message{
 		vi: "App không lưu sẵn hotline hay địa chỉ trung tâm bảo hành: những thông tin đó thay đổi liên tục và app không kiểm chứng được, nên một hotline sai còn tệ hơn không có. Số điện thoại và địa chỉ hiện ở đây là do bạn tự ghi cho gói bảo hành. Link bên dưới là trang tra cứu chính thức của hãng.",
 		en: "The app does not ship hotlines or service-centre addresses: those change constantly and the app cannot verify them, so a wrong hotline would be worse than none. Any phone number or address shown here is one you recorded yourself for a warranty plan. The link below is the manufacturer's own official lookup page.",
 	},
+
+	// ── Wave 5: the shared machinery, plus the domains nobody had converted
+	// (docs/I18N_PLAN.md §3.1 and §3.4).
+	//
+	// This is the group that changes responses for EVERY endpoint at once, which
+	// is why it waited for the last wave. Three of them are worth reading before
+	// the rest:
+	//
+	//  1. "Lỗi hệ thống" — the 500 headline of every per-domain error writer. It
+	//     has been in the catalog since Phase 0 (the auth slice serves it) and was
+	//     deliberately left UNWRAPPED in writeServiceError / writeDevicesErr /
+	//     writeAttachmentError / writeAIError and the backup, session and share
+	//     handlers until every domain those writers serve had been converted.
+	//     There is no new entry for it here; the change is at the call sites.
+	//  2. The retry-after UNITS ("%d phút" / "%d giây") are separate keys rather
+	//     than part of "Thao tác quá nhanh. Đợi %s", because the same helper
+	//     renders the 429 in two packages (handlers.rateLimited and
+	//     ratelimit.Auth/UserWrite) and the number arrives as a value. The
+	//     singular forms are separate keys for the reason every pair in this
+	//     catalog is: `seconds == 60` really does produce "1 minute".
+	//  3. The transactional EMAIL templates (internal/email/resend.go) are the
+	//     last monolingual surface on the auth path. Their keys are the
+	//     SENTENCES only — the HTML skeleton, the newlines and the button markup
+	//     stay in Go — so a translation cannot break the layout, and the
+	//     recipient's address is escaped by the builder rather than trusted to a
+	//     catalog entry.
+
+	// ── The shared 429 retry window (internal/ratelimit/helpers.go).
+	//
+	// Vietnamese does not inflect, so "%d phút" is also the source text of the
+	// singular; both forms exist because English does inflect.
+	"%d phút": {vi: "%d phút", en: "%d minutes"},
+	"1 phút":  {vi: "1 phút", en: "1 minute"},
+	"%d giây": {vi: "%d giây", en: "%d seconds"},
+	"1 giây":  {vi: "1 giây", en: "1 second"},
+
+	// ── Push subscription registration (internal/services/push.go,
+	// internal/handlers/push.go).
+	"Bắt buộc":         {vi: "Bắt buộc", en: "Required"},
+	"Tối đa 500 ký tự": {vi: "Tối đa 500 ký tự", en: "At most 500 characters"},
+	"Token thiết bị không hợp lệ": {
+		vi: "Token thiết bị không hợp lệ",
+		en: "Invalid device token",
+	},
+	"Nền tảng không hợp lệ":  {vi: "Nền tảng không hợp lệ", en: "Invalid platform"},
+	"Không tìm thấy đăng ký": {vi: "Không tìm thấy đăng ký", en: "Subscription not found"},
+	"Thiếu id đăng ký":       {vi: "Thiếu id đăng ký", en: "Missing subscription id"},
+	"Push dispatcher chưa khởi tạo": {
+		vi: "Push dispatcher chưa khởi tạo",
+		en: "Push dispatcher is not configured",
+	},
+	"CRON_SECRET chưa set": {vi: "CRON_SECRET chưa set", en: "CRON_SECRET is not set"},
+
+	// ── Action queue (internal/services/actions.go, internal/handlers/actions.go).
+	//
+	// The queue is the one place where the service both DERIVES the rows and
+	// writes the sentences, so the whole body of copy is rendered from the
+	// request context in the service itself — including the dates and the money,
+	// which follow the language too (i18n.FormatDate / i18n.FormatMoney): the
+	// queue's dates used to come from a Vietnamese-only `formatViDate`, so an
+	// English reader was shown "07/05/2026" and left to guess whether that meant
+	// May or July.
+	"Bảo hành đã hết hạn":              {vi: "Bảo hành đã hết hạn", en: "Warranty has expired"},
+	"Thiết bị chưa có gói bảo hành":    {vi: "Thiết bị chưa có gói bảo hành", en: "Device has no warranty plan"},
+	"Trạng thái thiết bị có thể đã cũ": {vi: "Trạng thái thiết bị có thể đã cũ", en: "Device status may be out of date"},
+	"Thiếu số serial / IMEI":           {vi: "Thiếu số serial / IMEI", en: "Missing serial / IMEI"},
+	"Chưa có ảnh hoá đơn":              {vi: "Chưa có ảnh hoá đơn", en: "No receipt image yet"},
+	"Sắp hết hạn đổi trả":              {vi: "Sắp hết hạn đổi trả", en: "Return window closing soon"},
+	"Chưa ghi hạn đổi trả":             {vi: "Chưa ghi hạn đổi trả", en: "Return window not recorded"},
+	"Sắp bị trừ tiền nhưng chưa có link huỷ": {
+		vi: "Sắp bị trừ tiền nhưng chưa có link huỷ",
+		en: "About to be charged with no cancel link",
+	},
+	"Ngày gia hạn chưa được cập nhật": {
+		vi: "Ngày gia hạn chưa được cập nhật",
+		en: "Renewal date has not been updated",
+	},
+	"Đã qua ngày dự kiến mua": {vi: "Đã qua ngày dự kiến mua", en: "Target purchase date has passed"},
+
+	"Gói %s của «%s» đã hết hạn ngày %s (%d ngày trước). Máy vẫn đang ở trạng thái đang dùng.": {
+		vi: "Gói %s của «%s» đã hết hạn ngày %s (%d ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+		en: "The %s plan for «%s» expired on %s (%d days ago). The device is still marked as in use.",
+	},
+	"Gói %s của «%s» đã hết hạn ngày %s (1 ngày trước). Máy vẫn đang ở trạng thái đang dùng.": {
+		vi: "Gói %s của «%s» đã hết hạn ngày %s (1 ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+		en: "The %s plan for «%s» expired on %s (1 day ago). The device is still marked as in use.",
+	},
+	"Một gói bảo hành của «%s» đã hết hạn.": {
+		vi: "Một gói bảo hành của «%s» đã hết hạn.",
+		en: "A warranty plan for «%s» has expired.",
+	},
+	"«%s» chưa có gói bảo hành nào, nên app không biết món này còn được bảo vệ hay không và không thể nhắc trước khi hết hạn.": {
+		vi: "«%s» chưa có gói bảo hành nào, nên app không biết món này còn được bảo vệ hay không và không thể nhắc trước khi hết hạn.",
+		en: "«%s» has no warranty plan, so the app cannot tell whether it is still covered and cannot remind you before cover ends.",
+	},
+	"Bảo hành của «%s» đã hết từ %s nhưng trạng thái vẫn là đang dùng. Bộ lọc «Đã hết hạn» vì thế trả về một danh sách khác với «bảo hành đã hết».": {
+		vi: "Bảo hành của «%s» đã hết từ %s nhưng trạng thái vẫn là đang dùng. Bộ lọc «Đã hết hạn» vì thế trả về một danh sách khác với «bảo hành đã hết».",
+		en: "The warranty for «%s» ended on %s but the device is still marked as in use. That is why the “Expired” filter returns a different list from “warranty expired”.",
+	},
+	"«%s» vẫn đang ở trạng thái đang dùng nhưng bảo hành đã hết từ lâu.": {
+		vi: "«%s» vẫn đang ở trạng thái đang dùng nhưng bảo hành đã hết từ lâu.",
+		en: "«%s» is still marked as in use, but its warranty ended long ago.",
+	},
+	"«%s» chưa có số serial/IMEI. Trung tâm bảo hành tra máy theo số này, thiếu hoặc sai một ký tự là bị từ chối.": {
+		vi: "«%s» chưa có số serial/IMEI. Trung tâm bảo hành tra máy theo số này, thiếu hoặc sai một ký tự là bị từ chối.",
+		en: "«%s» has no serial/IMEI recorded. Service centres look a device up by this number, and one missing or wrong character is a refusal.",
+	},
+	"«%s» chưa có ảnh hoá đơn hay giấy tờ nào đính kèm. Lúc cần bảo hành sẽ không có gì để đưa ra.": {
+		vi: "«%s» chưa có ảnh hoá đơn hay giấy tờ nào đính kèm. Lúc cần bảo hành sẽ không có gì để đưa ra.",
+		en: "«%s» has no receipt photo or document attached. When you need warranty service there will be nothing to show.",
+	},
+	"«%s» còn %d ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.": {
+		vi: "«%s» còn %d ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+		en: "«%s» has %d days left to return or exchange (deadline %s). After that you can only send it for repair, not exchange it.",
+	},
+	"«%s» còn 1 ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.": {
+		vi: "«%s» còn 1 ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+		en: "«%s» has 1 day left to return or exchange (deadline %s). After that you can only send it for repair, not exchange it.",
+	},
+	"Cửa sổ đổi/trả của «%s» sắp hết.": {
+		vi: "Cửa sổ đổi/trả của «%s» sắp hết.",
+		en: "The return/exchange window for «%s» is closing soon.",
+	},
+	"«%s» mua ngày %s nhưng chưa ghi hạn đổi trả, nên app không thể nhắc bạn trước khi hết hạn đổi/trả.": {
+		vi: "«%s» mua ngày %s nhưng chưa ghi hạn đổi trả, nên app không thể nhắc bạn trước khi hết hạn đổi/trả.",
+		en: "«%s» was bought on %s but the return window was never recorded, so the app cannot remind you before it closes.",
+	},
+	"«%s» chưa ghi hạn đổi trả.": {
+		vi: "«%s» chưa ghi hạn đổi trả.",
+		en: "The return window for «%s» has not been recorded.",
+	},
+	"«%s» sẽ tự gia hạn ngày %s (%s) và chưa có link huỷ — muốn dừng thì phải vào tận trang của nhà cung cấp.": {
+		vi: "«%s» sẽ tự gia hạn ngày %s (%s) và chưa có link huỷ — muốn dừng thì phải vào tận trang của nhà cung cấp.",
+		en: "«%s» renews automatically on %s (%s) and has no cancel link — stopping it means going to the provider's own site.",
+	},
+	"«%s» sẽ tự gia hạn và chưa có link huỷ.": {
+		vi: "«%s» sẽ tự gia hạn và chưa có link huỷ.",
+		en: "«%s» renews automatically and has no cancel link.",
+	},
+	"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.": {
+		vi: "«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+		en: "A payment for «%s» was recorded on %s but the renewal date is still %s (%d days in the past). Renew it or fix the date so they match.",
+	},
+	"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.": {
+		vi: "«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+		en: "A payment for «%s» was recorded on %s but the renewal date is still %s (1 day in the past). Renew it or fix the date so they match.",
+	},
+	"«%s» có thanh toán đã ghi nhận nhưng ngày gia hạn vẫn ở quá khứ.": {
+		vi: "«%s» có thanh toán đã ghi nhận nhưng ngày gia hạn vẫn ở quá khứ.",
+		en: "«%s» has a recorded payment but its renewal date is still in the past.",
+	},
+	"Giá ghi nhận gần nhất: %s.": {
+		vi: "Giá ghi nhận gần nhất: %s.",
+		en: "Last recorded price: %s.",
+	},
+	"«%s» có ngày dự kiến mua %s, đã qua %d ngày.": {
+		vi: "«%s» có ngày dự kiến mua %s, đã qua %d ngày.",
+		en: "«%s» had a target purchase date of %s, which passed %d days ago.",
+	},
+	"«%s» có ngày dự kiến mua %s, đã qua 1 ngày.": {
+		vi: "«%s» có ngày dự kiến mua %s, đã qua 1 ngày.",
+		en: "«%s» had a target purchase date of %s, which passed 1 day ago.",
+	},
+	"«%s» đã qua ngày dự kiến mua.": {
+		vi: "«%s» đã qua ngày dự kiến mua.",
+		en: "«%s» is past its target purchase date.",
+	},
+	"Số ngày hoãn phải từ %d tới %d": {
+		vi: "Số ngày hoãn phải từ %d tới %d",
+		en: "Snooze days must be between %d and %d",
+	},
+	"Không tìm thấy việc cần xử lý này": {
+		vi: "Không tìm thấy việc cần xử lý này",
+		en: "Action item not found",
+	},
+	"Đã đạt giới hạn %d việc đang hoãn. Bỏ hoãn bớt rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d việc đang hoãn. Bỏ hoãn bớt rồi thử lại.",
+		en: "You have reached the limit of %d snoozed items. Un-snooze some and try again.",
+	},
+	"Việc này không đang được hoãn": {
+		vi: "Việc này không đang được hoãn",
+		en: "This item is not snoozed",
+	},
+	"Danh sách này chỉ gồm những việc app TỰ SUY RA từ dữ liệu bạn đã nhập và không tự quyết được. Nó không phải thông báo đẩy — bảo hiểm/bảo hành vẫn nhắc riêng theo mốc ngày. Hoãn một việc ở đây không ảnh hưởng tới nhắc bảo hành.": {
+		vi: "Danh sách này chỉ gồm những việc app TỰ SUY RA từ dữ liệu bạn đã nhập và không tự quyết được. Nó không phải thông báo đẩy — bảo hiểm/bảo hành vẫn nhắc riêng theo mốc ngày. Hoãn một việc ở đây không ảnh hưởng tới nhắc bảo hành.",
+		en: "This list contains only the things the app INFERS from the data you entered and cannot decide on its own. It is not a push feed — insurance and warranty reminders still fire separately on their own dates. Snoozing an item here does not affect warranty reminders.",
+	},
+
+	// Request-shape copy the two action-queue handlers own.
+	"Tham số snoozed không hợp lệ": {
+		vi: "Tham số snoozed không hợp lệ",
+		en: "Invalid snoozed parameter",
+	},
+	"Mã việc cần xử lý không hợp lệ": {
+		vi: "Mã việc cần xử lý không hợp lệ",
+		en: "Invalid action item key",
+	},
+	"Phải có dạng <LOẠI_VIỆC>:<id>": {
+		vi: "Phải có dạng <LOẠI_VIỆC>:<id>",
+		en: "Must be in the form <KIND>:<id>",
+	},
+
+	// ── Reminders query parameters (internal/handlers/reminders.go).
+	//
+	// The `withinDays` field error is the case §3.4 flagged: it used to be built
+	// by CONCATENATION ("Phải là số nguyên từ 1 tới " + strconv.Itoa(max)), which
+	// can never be a catalog key because no literal at any call site equals it.
+	// It now reuses the printf-shaped key wave 4 added for /search, which says the
+	// same thing about a different parameter.
+	"Tham số withinDays không hợp lệ": {
+		vi: "Tham số withinDays không hợp lệ",
+		en: "Invalid withinDays parameter",
+	},
+	"Tham số includeDismissed không hợp lệ": {
+		vi: "Tham số includeDismissed không hợp lệ",
+		en: "Invalid includeDismissed parameter",
+	},
+
+	// ── Sessions (internal/handlers/sessions.go).
+	//
+	// The revocation message is assembled from up to three sentences, so each is
+	// its own key and the caller joins them with a space — the Vietnamese output
+	// is byte-identical to the concatenation it replaces.
+	"Không tìm thấy phiên đăng nhập": {vi: "Không tìm thấy phiên đăng nhập", en: "Session not found"},
+	"Thiếu id phiên đăng nhập":       {vi: "Thiếu id phiên đăng nhập", en: "Missing session id"},
+	"Đã thu hồi phiên đăng nhập.":    {vi: "Đã thu hồi phiên đăng nhập.", en: "The session has been revoked."},
+	"Phiên đăng nhập này đã được thu hồi trước đó.": {
+		vi: "Phiên đăng nhập này đã được thu hồi trước đó.",
+		en: "That session had already been revoked.",
+	},
+	"Đây là phiên bạn đang dùng — hãy đăng nhập lại.": {
+		vi: "Đây là phiên bạn đang dùng — hãy đăng nhập lại.",
+		en: "This is the session you are using — sign in again.",
+	},
+
+	// ── Spending forecast (internal/services/forecast.go).
+	//
+	// The note is the honesty line that explains what the numbers do and do not
+	// include, so it is translated in full rather than summarised: an English
+	// reader has to come away knowing that LIFETIME never charges, that the window
+	// is partial at both ends, and that warranty/wishlist figures are potential
+	// spending rather than money already committed.
+	"Chỉ tính các gói đang ACTIVE; gói LIFETIME không bao giờ bị trừ. Cửa sổ tính từ hôm nay, nên tháng đầu và tháng cuối chỉ tính phần nằm trong cửa sổ. subscriptionAutoRenewVnd là tiền sẽ bị trừ tự động, phần còn lại là các gói bạn phải tự gia hạn. Tiền bảo hành và wishlist là khoản có thể phát sinh, không phải khoản chắc chắn trả.": {
+		vi: "Chỉ tính các gói đang ACTIVE; gói LIFETIME không bao giờ bị trừ. Cửa sổ tính từ hôm nay, nên tháng đầu và tháng cuối chỉ tính phần nằm trong cửa sổ. subscriptionAutoRenewVnd là tiền sẽ bị trừ tự động, phần còn lại là các gói bạn phải tự gia hạn. Tiền bảo hành và wishlist là khoản có thể phát sinh, không phải khoản chắc chắn trả.",
+		en: "Only ACTIVE plans are counted; LIFETIME plans are never charged. The window starts today, so the first and last months count only the part that falls inside it. subscriptionAutoRenewVnd is money that will be taken automatically; the rest is plans you have to renew yourself. Warranty and wishlist money is spending that may happen, not a charge you are certain to pay.",
+	},
+	"Số tháng phải trong khoảng %d–%d": {
+		vi: "Số tháng phải trong khoảng %d–%d",
+		en: "Months must be between %d and %d",
+	},
+	"Số tháng phải là số trong khoảng %d–%d": {
+		vi: "Số tháng phải là số trong khoảng %d–%d",
+		en: "Months must be a number between %d and %d",
+	},
+
+	// ── Transactional email (internal/email/resend.go).
+	//
+	// The keys are SENTENCES, never HTML. The two templates share the greeting,
+	// the link sentence and the button label; the skeleton (div, h2, a href) and
+	// the newlines stay in Go, so a translation cannot break the markup, and the
+	// builder escapes the recipient's address itself instead of trusting a
+	// catalog entry to do it.
+	//
+	// These are the last monolingual surface on the auth path: someone who cannot
+	// read Vietnamese cannot complete a password reset or confirm a new email
+	// address, so they are sent in the RECIPIENT's stored language
+	// (i18n.FromStored) rather than in the language of the request that happened
+	// to trigger them.
+	"Đặt lại mật khẩu Warranty Vault": {vi: "Đặt lại mật khẩu Warranty Vault", en: "Reset your Warranty Vault password"},
+	"Đặt lại mật khẩu":            {vi: "Đặt lại mật khẩu", en: "Reset password"},
+	"Chào %s,":                    {vi: "Chào %s,", en: "Hi %s,"},
+	"Có yêu cầu đặt lại mật khẩu cho tài khoản này.": {
+		vi: "Có yêu cầu đặt lại mật khẩu cho tài khoản này.",
+		en: "Someone asked to reset the password for this account.",
+	},
+	"Có yêu cầu đặt lại mật khẩu cho tài khoản Warranty Vault này.": {
+		vi: "Có yêu cầu đặt lại mật khẩu cho tài khoản Warranty Vault này.",
+		en: "Someone asked to reset the password for this Warranty Vault account.",
+	},
+	"Bấm link dưới (hiệu lực %d phút):": {
+		vi: "Bấm link dưới (hiệu lực %d phút):",
+		en: "Click the link below (valid for %d minutes):",
+	},
+	"Nếu không phải bạn, bỏ qua email này.": {
+		vi: "Nếu không phải bạn, bỏ qua email này.",
+		en: "If this was not you, you can ignore this email.",
+	},
+	"Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.": {
+		vi: "Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.",
+		en: "This link is valid for %d minutes. If this was not you, you can ignore this email.",
+	},
+	"Xác nhận đổi email Warranty Vault": {vi: "Xác nhận đổi email Warranty Vault", en: "Confirm your new Warranty Vault email"},
+	"Xác nhận đổi email":            {vi: "Xác nhận đổi email", en: "Confirm email change"},
+	"Chào bạn,":                     {vi: "Chào bạn,", en: "Hi,"},
+	"Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.": {
+		vi: "Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.",
+		en: "Someone asked to change this Warranty Vault account's email from %s to this address.",
+	},
+	"Hoặc nhập mã xác nhận trong ứng dụng:": {
+		vi: "Hoặc nhập mã xác nhận trong ứng dụng:",
+		en: "Or enter the confirmation code in the app:",
+	},
+	"Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.": {
+		vi: "Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.",
+		en: "The old address keeps working until you confirm. If this was not you, ignore this email — nothing has changed.",
+	},
+	"Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.": {
+		vi: "Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.",
+		en: "This link is valid for %d minutes. The old address keeps working until you confirm. If this was not you, ignore this email — nothing has changed.",
+	},
 }

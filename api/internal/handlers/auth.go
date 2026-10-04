@@ -112,7 +112,11 @@ func badInput(w http.ResponseWriter, ctx context.Context, fieldErrors map[string
 
 func rateLimited(w http.ResponseWriter, ctx context.Context, retryAfterSec int) {
 	w.Header().Set("Retry-After", strconvItoa(retryAfterSec))
-	msg := i18n.T(ctx, "Thao tác quá nhanh. Đợi %s", ratelimit.FormatRetry(retryAfterSec))
+	// Both halves of the sentence follow the language: the sentence itself from
+	// the catalog and the unit from ratelimit.RetryMessage, which is the same
+	// helper the two rate-limit middlewares use. Before wave 5 only the sentence
+	// did, so an English caller read "Too many attempts. Try again in 2 phút".
+	msg := ratelimit.RetryMessage(i18n.From(ctx), retryAfterSec)
 	httpx.WriteErrorC(w, ctx, http.StatusTooManyRequests, "rate_limited", msg, nil)
 }
 
@@ -651,10 +655,16 @@ func Forgot(d Deps) http.HandlerFunc {
 					}
 					link := strings.TrimRight(appURL, "/") + "/reset/" + rawToken
 					if d.Email != nil {
+						// The mail is rendered in the RECIPIENT's stored language,
+						// not the language of this request: it is read minutes
+						// later, possibly on another device (see the note in
+						// internal/email). Resolved out here, before the goroutine,
+						// because `user` is the row we just looked up.
+						mailLang := i18n.FromStored(user.Locale)
 						sendCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 						go func() {
 							defer cancel()
-							if e := d.Email.SendPasswordReset(sendCtx, user.Email, link); e != nil {
+							if e := d.Email.SendPasswordReset(sendCtx, mailLang, user.Email, link); e != nil {
 								slog.Error("send password-reset email failed", "err", e)
 							}
 						}()
@@ -1013,10 +1023,14 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 		}
 		link := strings.TrimRight(appURL, "/") + "/confirm-email/" + rawToken
 		if d.Email != nil {
+			// Same rule as the password-reset mail above, and explicitly NOT
+			// `newEmail`'s: the address is new, the account behind it is `user`, so
+			// the stored preference on that row is the only one that exists.
+			mailLang := i18n.FromStored(user.Locale)
 			sendCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 			go func() {
 				defer cancel()
-				if e := d.Email.SendEmailChange(sendCtx, newEmail, user.Email, link, rawToken); e != nil {
+				if e := d.Email.SendEmailChange(sendCtx, mailLang, newEmail, user.Email, link, rawToken); e != nil {
 					slog.Error("send email-change email failed", "err", e)
 				}
 			}()

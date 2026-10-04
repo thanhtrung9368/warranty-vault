@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -127,14 +128,20 @@ type Forecast struct {
 	Buckets            []ForecastBucket       `json:"buckets"`
 	UpcomingWarranties []ForecastWarranty     `json:"upcomingWarranties"`
 	UpcomingWishlist   []ForecastWishlistItem `json:"upcomingWishlist"`
-	// Note is the Vietnamese honesty line about what these numbers do and do not
-	// include. Clients render it as-is.
+	// Note is the honesty line about what these numbers do and do not include,
+	// rendered in the request's language. Clients render it as-is.
 	Note string `json:"note"`
 }
 
-// forecastNote explains the model in one sentence, in the user's language. It
+// forecastNoteKey is the honesty line about what the forecast counts. It
 // deliberately avoids naming a month count: `months` is a request parameter.
-const forecastNote = "Chỉ tính các gói đang ACTIVE; gói LIFETIME không bao giờ bị trừ. " +
+//
+// It is the Vietnamese SOURCE text, unchanged, concatenated the way it always
+// was, and it doubles as the catalog key (internal/i18n/catalog.go) — a named
+// constant because it reaches the renderer as DATA rather than as a literal at
+// the call site (BuildForecast has a `lang` and no request), so it travels
+// through textIn rather than the printf-shaped i18n.T.
+const forecastNoteKey = "Chỉ tính các gói đang ACTIVE; gói LIFETIME không bao giờ bị trừ. " +
 	"Cửa sổ tính từ hôm nay, nên tháng đầu và tháng cuối chỉ tính phần nằm trong cửa sổ. " +
 	"subscriptionAutoRenewVnd là tiền sẽ bị trừ tự động, phần còn lại là các gói bạn phải tự gia hạn. " +
 	"Tiền bảo hành và wishlist là khoản có thể phát sinh, không phải khoản chắc chắn trả."
@@ -195,9 +202,16 @@ func monthsBetween(a, b time.Time) int {
 // BuildForecast is the pure half of GetForecast: rows in, buckets out. It takes a
 // fixed `now` so the whole thing is deterministic and testable without a clock.
 //
+// `lang` is a parameter rather than something read from a context for the same
+// reason `now` is: this is the pure half, and the language is an INPUT to the one
+// sentence it produces (the note). The caller with a request resolves it with
+// i18n.From(ctx) — the same shape BuildSubscriptionAudit uses, so the two
+// generated read models in this package cannot disagree about where a language
+// comes from.
+//
 // Callers are expected to have fetched the rows for the window already (the two
 // *_Between queries); rows outside it are simply never bucketed.
-func BuildForecast(now time.Time, months int, subs []store.Subscription, warranties []store.ListWarrantiesExpiringBetweenRow, wishlist []store.WishlistItem) *Forecast {
+func BuildForecast(lang i18n.Tag, now time.Time, months int, subs []store.Subscription, warranties []store.ListWarrantiesExpiringBetweenRow, wishlist []store.WishlistItem) *Forecast {
 	start, end, keys := ForecastWindow(now, months)
 	n := len(keys)
 	first := monthStart(start)
@@ -211,7 +225,7 @@ func BuildForecast(now time.Time, months int, subs []store.Subscription, warrant
 		Buckets:            make([]ForecastBucket, n),
 		UpcomingWarranties: []ForecastWarranty{},
 		UpcomingWishlist:   []ForecastWishlistItem{},
-		Note:               forecastNote,
+		Note:               textIn(lang, forecastNoteKey),
 	}
 	for i, k := range keys {
 		f.Buckets[i] = ForecastBucket{Month: k}
@@ -380,9 +394,11 @@ func costPtr(v *int32) *int64 {
 // parameter (not time.Now() inside) so callers — and tests — control the clock.
 func GetForecast(ctx context.Context, db *pgxpool.Pool, userID string, months int, now time.Time) (*Forecast, error) {
 	if months < ForecastMonthsMin || months > ForecastMonthsMax {
-		return nil, ErrValidation(FieldErrors{
-			"months": {fmt.Sprintf("Số tháng phải trong khoảng %d–%d", ForecastMonthsMin, ForecastMonthsMax)},
-		})
+		// Keyed rather than generic: this failure is the whole story (one bad
+		// field), so the headline is the same sentence as the field error instead
+		// of a second, vaguer one that would need translating separately.
+		msg := i18n.T(ctx, "Số tháng phải trong khoảng %d–%d", ForecastMonthsMin, ForecastMonthsMax)
+		return nil, ErrValidationKeyed(msg, FieldErrors{"months": {msg}})
 	}
 	start, end, _ := ForecastWindow(now, months)
 	rng := pgtype.Timestamp{Time: start, Valid: true}
@@ -436,21 +452,24 @@ func GetForecast(ctx context.Context, db *pgxpool.Pool, userID string, months in
 		return nil, err
 	}
 
-	return BuildForecast(now, months, subs, warranties, wishlist), nil
+	return BuildForecast(i18n.From(ctx), now, months, subs, warranties, wishlist), nil
 }
 
 // ParseForecastMonths parses the optional `months` query parameter. An empty
 // value means the default; anything unparseable or out of range is an error, so a
 // typo cannot silently change the window.
-func ParseForecastMonths(raw string) (int, error) {
+//
+// It takes a context purely so the refusal can be written in the caller's
+// language: the parse itself needs nothing from the request, but the sentence it
+// returns on failure is user-facing copy like any other.
+func ParseForecastMonths(ctx context.Context, raw string) (int, error) {
 	if raw == "" {
 		return ForecastMonthsDefault, nil
 	}
 	n, err := strconv.Atoi(raw)
 	if err != nil || n < ForecastMonthsMin || n > ForecastMonthsMax {
-		return 0, ErrValidation(FieldErrors{
-			"months": {fmt.Sprintf("Số tháng phải là số trong khoảng %d–%d", ForecastMonthsMin, ForecastMonthsMax)},
-		})
+		msg := i18n.T(ctx, "Số tháng phải là số trong khoảng %d–%d", ForecastMonthsMin, ForecastMonthsMax)
+		return 0, ErrValidationKeyed(msg, FieldErrors{"months": {msg}})
 	}
 	return n, nil
 }

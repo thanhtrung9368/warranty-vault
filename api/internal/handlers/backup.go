@@ -88,7 +88,7 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 		out, err := services.ExportBackup(ctx, deps.DB, us.UserID)
 		if err != nil {
 			slog.Error("backup export failed", "err", err, "userId", us.UserID)
-			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
@@ -180,7 +180,7 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 				return
 			}
 			slog.Error("backup import failed", "err", ierr, "userId", us.UserID)
-			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 

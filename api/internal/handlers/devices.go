@@ -164,10 +164,16 @@ func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 
 // ensureUserWriteRate runs the per-user write limiter and writes a 429 when
 // the bucket is empty. Returns false if the request was already terminated.
+//
+// It calls i18n.Attach itself rather than trusting r.Context(): the caller's
+// handler has usually attached already, but Attach returns a NEW context instead
+// of mutating the request, so `r.Context()` here would carry only the
+// middleware's Accept-Language tag and the 429 would ignore `?lang=`.
 func ensureUserWriteRate(w http.ResponseWriter, r *http.Request, deps Deps, userID string) bool {
-	rl, _ := ratelimit.CheckUserWrite(r.Context(), deps.Limiter, userID)
+	ctx := i18n.Attach(r)
+	rl, _ := ratelimit.CheckUserWrite(ctx, deps.Limiter, userID)
 	if !rl.Ok {
-		rateLimited(w, r.Context(), rl.RetryAfterSec)
+		rateLimited(w, ctx, rl.RetryAfterSec)
 		return false
 	}
 	return true
@@ -195,5 +201,5 @@ func writeDevicesErr(w http.ResponseWriter, ctx context.Context, err error, op s
 		return
 	}
 	slog.Error(op+" failed", "err", err)
-	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 }

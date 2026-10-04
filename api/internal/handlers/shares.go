@@ -257,6 +257,7 @@ func publicShareHandler(deps Deps) http.HandlerFunc {
 		// page must be printable/saveable as PDF without the web app being in the
 		// loop. `Accept: application/json` opts into the JSON projection.
 		writeShareHTML(w, http.StatusOK, sharePage{
+			Lang:   lang,
 			Cert:   buildSharePageData(cert, time.Now(), lang),
 			Labels: newShareLabels(lang),
 		})
@@ -295,16 +296,23 @@ func writeShareLookupFailure(w http.ResponseWriter, ctx context.Context, r *http
 			httpx.WriteErrorC(w, ctx, http.StatusNotFound, "not_found", msg, nil)
 			return
 		}
-		writeShareHTML(w, http.StatusNotFound, sharePage{NotFound: true, Message: msg, Labels: newShareLabels(lang)})
+		writeShareHTML(w, http.StatusNotFound, sharePage{
+			NotFound: true, Message: msg, Labels: newShareLabels(lang), Lang: lang,
+		})
 		return
 	}
 	slog.Error("public share lookup failed", "err", err)
+	// The same catalog sentence every JSON writer's 500 branch uses, rendered in
+	// the certificate's language rather than a second Vietnamese literal: this is
+	// the last place in the service where a generic failure could have shipped in
+	// the source language to an English reader.
+	oops := i18n.Translate(lang, "Lỗi hệ thống")
 	if shareWantsJSON(r) {
-		httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+		httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", oops, nil)
 		return
 	}
 	writeShareHTML(w, http.StatusInternalServerError, sharePage{
-		NotFound: true, Message: "Lỗi hệ thống", Labels: newShareLabels(lang),
+		NotFound: true, Message: oops, Labels: newShareLabels(lang), Lang: lang,
 	})
 }
 
@@ -348,6 +356,10 @@ type sharePage struct {
 	// shareTemplateHTML would be the one string a `?lang=en` recipient still reads
 	// in Vietnamese, and the catalog test could not see it.
 	Labels shareLabels
+	// Lang is the page's language, carried so the one branch that runs with NO
+	// page data (the template failing to execute) can still answer in it. See
+	// writeShareHTML.
+	Lang i18n.Tag
 }
 
 // sharePageData is the view model for the printable certificate. Assembled in Go
@@ -710,7 +722,10 @@ func writeShareHTML(w http.ResponseWriter, status int, p sharePage) {
 	var buf bytes.Buffer
 	if err := shareTemplate.Execute(&buf, p); err != nil {
 		slog.Error("render share html", "err", err)
-		http.Error(w, "Lỗi hệ thống", http.StatusInternalServerError)
+		// A plain-text 500 from net/http, so it cannot go through the catalog
+		// renderer for a header — but the SENTENCE is still the shared one, in the
+		// page's language, because the recipient is a human holding the link.
+		http.Error(w, i18n.Translate(p.Lang, "Lỗi hệ thống"), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -50,7 +51,13 @@ type PushSubscriptionDTO struct {
 // ValidatePushInput hand-rolls the same validation as the Zod union. Trims
 // whitespace; populates Endpoint from a bare token for native rows; returns
 // an Error{VALIDATION} on bad input.
-func ValidatePushInput(in *PushInput) error {
+//
+// It takes a context because every field error below is a sentence a person
+// reads, and the envelope headline has to be in the same language as the
+// per-field hints under it (ErrValidationHeadline is what keeps those together —
+// the plain ErrValidation would leave "Dữ liệu không hợp lệ" in Vietnamese above
+// English field errors).
+func ValidatePushInput(ctx context.Context, in *PushInput) error {
 	in.Platform = strings.TrimSpace(in.Platform)
 	if in.Platform == "" {
 		in.Platform = PushPlatformWeb
@@ -64,33 +71,33 @@ func ValidatePushInput(in *PushInput) error {
 	switch in.Platform {
 	case PushPlatformWeb:
 		if in.Endpoint == "" {
-			fe["endpoint"] = []string{"Bắt buộc"}
+			fe["endpoint"] = []string{i18n.Text(ctx, "Bắt buộc")}
 		}
 		if in.P256dh == nil || *in.P256dh == "" {
-			fe["p256dh"] = []string{"Bắt buộc"}
+			fe["p256dh"] = []string{i18n.Text(ctx, "Bắt buộc")}
 		}
 		if in.Auth == nil || *in.Auth == "" {
-			fe["auth"] = []string{"Bắt buộc"}
+			fe["auth"] = []string{i18n.Text(ctx, "Bắt buộc")}
 		}
 	case PushPlatformAPNs, PushPlatformFCM:
 		// For native, `Endpoint` should already be `<platform>://<token>`
 		// (handler synthesizes it). Verify the token portion is non-empty.
 		prefix := in.Platform + "://"
 		if !strings.HasPrefix(in.Endpoint, prefix) || strings.TrimSpace(strings.TrimPrefix(in.Endpoint, prefix)) == "" {
-			fe["endpoint"] = []string{"Token thiết bị không hợp lệ"}
+			fe["endpoint"] = []string{i18n.Text(ctx, "Token thiết bị không hợp lệ")}
 		}
 		// Native rows must NOT carry crypto fields.
 		in.P256dh = nil
 		in.Auth = nil
 	default:
-		fe["platform"] = []string{"Nền tảng không hợp lệ"}
+		fe["platform"] = []string{i18n.Text(ctx, "Nền tảng không hợp lệ")}
 	}
 	if in.UserAgent != nil && len(*in.UserAgent) > 500 {
-		fe["userAgent"] = []string{"Tối đa 500 ký tự"}
+		fe["userAgent"] = []string{i18n.Text(ctx, "Tối đa 500 ký tự")}
 	}
 
 	if len(fe) > 0 {
-		return ErrValidation(fe)
+		return ErrValidationHeadline(fe)
 	}
 	return nil
 }
@@ -98,7 +105,7 @@ func ValidatePushInput(in *PushInput) error {
 // SubscribePush upserts the (userId, endpoint) row. Mirrors `subscribePush`
 // in website/src/lib/services/push.ts. Returns the resulting row.
 func SubscribePush(ctx context.Context, db *pgxpool.Pool, userID string, in PushInput) (store.PushSubscription, error) {
-	if err := ValidatePushInput(&in); err != nil {
+	if err := ValidatePushInput(ctx, &in); err != nil {
 		return store.PushSubscription{}, err
 	}
 
@@ -148,7 +155,7 @@ func ListPushSubscriptions(ctx context.Context, db *pgxpool.Pool, userID string)
 func DeletePushSubscriptionByID(ctx context.Context, db *pgxpool.Pool, userID, id string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return ErrNotFound("Không tìm thấy đăng ký")
+		return ErrNotFound(i18n.Text(ctx, "Không tìm thấy đăng ký"))
 	}
 	q := store.New(db)
 	// Ownership check via GetPushSubscriptionByID (id + userId). Returning
@@ -159,7 +166,7 @@ func DeletePushSubscriptionByID(ctx context.Context, db *pgxpool.Pool, userID, i
 		UserId: userID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound("Không tìm thấy đăng ký")
+			return ErrNotFound(i18n.Text(ctx, "Không tìm thấy đăng ký"))
 		}
 		return fmt.Errorf("get push subscription: %w", err)
 	}
@@ -178,7 +185,8 @@ func DeletePushSubscriptionByID(ctx context.Context, db *pgxpool.Pool, userID, i
 func DeletePushSubscriptionByEndpoint(ctx context.Context, db *pgxpool.Pool, userID, endpoint string) error {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
-		return ErrValidation(FieldErrors{"endpoint": {"Bắt buộc"}})
+		return ErrValidationKeyed(i18n.Text(ctx, "Bắt buộc"),
+			FieldErrors{"endpoint": {i18n.Text(ctx, "Bắt buộc")}})
 	}
 	q := store.New(db)
 	if _, err := q.DeletePushSubscriptionByEndpoint(ctx, store.DeletePushSubscriptionByEndpointParams{

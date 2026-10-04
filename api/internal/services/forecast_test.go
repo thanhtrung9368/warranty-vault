@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -161,7 +162,7 @@ func TestBuildForecastBucketBoundaries(t *testing.T) {
 		subFixture("before_now", BillingCycleYearly, 10000, now.Add(-time.Hour), true),
 	}
 
-	f := BuildForecast(now, 3, subs, nil, nil)
+	f := BuildForecast(i18n.VI, now, 3, subs, nil, nil)
 
 	if got, want := bucketMonths(f), []string{"2026-03", "2026-04", "2026-05", "2026-06"}; len(got) != len(want) {
 		t.Fatalf("buckets = %v, want %v", got, want)
@@ -278,7 +279,7 @@ func TestBuildForecastFixture(t *testing.T) {
 		},
 	}
 
-	f := BuildForecast(fixedNow, 12, subs, warranties, wishlist)
+	f := BuildForecast(i18n.VI, fixedNow, 12, subs, warranties, wishlist)
 
 	if got := bucketMonths(f); len(got) != 13 || got[0] != "2026-03" || got[12] != "2027-03" {
 		t.Fatalf("buckets = %v, want 13 buckets 2026-03 … 2027-03", got)
@@ -389,7 +390,7 @@ func TestBuildForecastIgnoresNonActiveStatuses(t *testing.T) {
 		t.Run(status, func(t *testing.T) {
 			s := subFixture("s", BillingCycleMonthly, 100_000, time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), true)
 			s.Status = status
-			f := BuildForecast(fixedNow, 12, []store.Subscription{s}, nil, nil)
+			f := BuildForecast(i18n.VI, fixedNow, 12, []store.Subscription{s}, nil, nil)
 			if f.SubscriptionTotalVnd != 0 || f.ChargesCount != 0 || f.SubscriptionsCount != 0 {
 				t.Errorf("%s contributed: total=%d charges=%d subs=%d",
 					status, f.SubscriptionTotalVnd, f.ChargesCount, f.SubscriptionsCount)
@@ -405,7 +406,7 @@ func TestBuildForecastIgnoresNonActiveStatuses(t *testing.T) {
 // A LIFETIME package is not a charge and must not be visible as a zero either.
 func TestBuildForecastLifetimeNeverCharges(t *testing.T) {
 	lifetime := subFixture("life", BillingCycleLifetime, 5_000_000, time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), true)
-	f := BuildForecast(fixedNow, 12, []store.Subscription{lifetime}, nil, nil)
+	f := BuildForecast(i18n.VI, fixedNow, 12, []store.Subscription{lifetime}, nil, nil)
 	for _, b := range f.Buckets {
 		if b.SubscriptionCount != 0 || b.SubscriptionVnd != 0 || b.SubscriptionAutoRenewVnd != 0 {
 			t.Fatalf("LIFETIME appeared in bucket %s: %+v", b.Month, b)
@@ -435,7 +436,7 @@ func TestParseForecastMonths(t *testing.T) {
 		{raw: "12.5", wantErr: true},
 	} {
 		t.Run(tc.raw, func(t *testing.T) {
-			got, err := ParseForecastMonths(tc.raw)
+			got, err := ParseForecastMonths(context.Background(), tc.raw)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("ParseForecastMonths(%q) = %d, want an error", tc.raw, got)

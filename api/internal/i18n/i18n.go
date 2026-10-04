@@ -199,6 +199,33 @@ func From(ctx context.Context) Tag {
 	return Default
 }
 
+// FromStored resolves a stored `User.locale` value on its own, with the same
+// fallback the cron uses for a recipient who has never chosen: the value when it
+// names a supported language, Default otherwise — including NULL, which is every
+// account that predates migration 0014.
+//
+// It exists for the two callers that must pick a language WITHOUT a request to
+// read it from: the cron (which builds text for hundreds of recipients in one
+// pass) and the transactional email templates (which are rendered inside a
+// detached goroutine precisely so a slow SMTP hop cannot hold the HTTP response).
+// Both need "the user's own preference, else the product default" and neither can
+// use the request precedence chain — the request belongs to whoever triggered the
+// mail, which for password reset is the person asking for it but for a future
+// admin-triggered mail would not be.
+//
+// It is deliberately NOT used by the request path: there the stored preference is
+// level 3 of the chain, attached by auth.RequireUser via WithUserLocale, so a
+// request signal can outrank it.
+func FromStored(stored *string) Tag {
+	if stored == nil {
+		return Default
+	}
+	if tag, ok := Normalize(*stored); ok {
+		return tag
+	}
+	return Default
+}
+
 // FromContext is From without the default: it reports whether ANY level of the
 // precedence chain produced a language, which is a different question from "what
 // language will be used".

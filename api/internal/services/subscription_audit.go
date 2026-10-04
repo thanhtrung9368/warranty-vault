@@ -255,12 +255,12 @@ func BuildSubscriptionAudit(
 			it.LastRecordedAt = tsPtrUTC(r.LastPaidAt)
 		}
 		attachRenewal(&it, r.RenewalDate, now)
-		it.Title = auditText(lang, quietAutoRenewTitle)
+		it.Title = textIn(lang, quietAutoRenewTitle)
 		// Singular/plural PAIR with a separate argument list per form: the count
 		// is what makes it singular, so the singular template has no `%d` slot.
 		// Handing one list to both forms is the bug wave 0 shipped
 		// (`... expires in 1 day%!(EXTRA int=7)`).
-		it.Detail = auditAutoChargeDetail(lang, int(r.AutoRenewCount),
+		it.Detail = pluralText(lang, int(r.AutoRenewCount),
 			"«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
 			"«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
 			[]any{r.Name, r.AutoRenewCount, formatMoney(lang, r.AutoChargedTotal), formatDate(lang, r.FirstPaidAt.Time)},
@@ -314,7 +314,7 @@ func BuildSubscriptionAudit(
 		if r.PaidAt.Valid {
 			it.LastRecordedAt = tsPtrUTC(r.PaidAt)
 		}
-		it.Title = auditText(lang, priceRaisedTitle)
+		it.Title = textIn(lang, priceRaisedTitle)
 		if percent != nil {
 			it.Detail = i18n.Translate(lang,
 				"«%s» tăng từ %s lên %s (+%s, +%d%%) ở kỳ thanh toán ngày %s.",
@@ -343,11 +343,11 @@ func BuildSubscriptionAudit(
 			Reason: &reason,
 		}
 		if reason == "SAME_NAME" {
-			it.Title = auditText(lang, duplicateNameTitle)
+			it.Title = textIn(lang, duplicateNameTitle)
 			it.Detail = i18n.Translate(lang, "«%s» và «%s» đang cùng hoạt động và trùng tên (khác cách viết). Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một thứ.",
 				p.NameA, p.NameB)
 		} else {
-			it.Title = auditText(lang, duplicateBrandCategoryTitle)
+			it.Title = textIn(lang, duplicateBrandCategoryTitle)
 			it.Detail = i18n.Translate(lang, "«%s» và «%s» đang cùng hoạt động, cùng hãng và cùng loại. Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một dịch vụ.",
 				p.NameA, p.NameB)
 		}
@@ -392,7 +392,7 @@ func BuildSubscriptionAudit(
 			PriceRiseMinPercent: AuditPriceRiseMinPercent,
 			DuplicateNormalized: true,
 		},
-		Note: auditText(lang, auditNoteKey),
+		Note: textIn(lang, auditNoteKey),
 	}
 }
 
@@ -429,7 +429,7 @@ const (
 //
 // Keyed on the Vietnamese source text like every other entry; an unknown key
 // degrades to the key itself, which IS the correct Vietnamese sentence.
-func auditText(lang i18n.Tag, key string) string {
+func textIn(lang i18n.Tag, key string) string {
 	text, ok := i18n.Lookup(lang, key)
 	if !ok {
 		return key
@@ -437,14 +437,14 @@ func auditText(lang i18n.Tag, key string) string {
 	return text
 }
 
-// auditAutoChargeDetail renders the "auto-charged N times" sentence, whose
-// singular and plural forms take DIFFERENT argument lists: the count is what
-// makes it singular, so the singular template has no slot for it. Passing the
-// plural's list to the singular template is the mistake that produced
+// pluralText renders one of a singular/plural KEY PAIR, taking a SEPARATE
+// argument list for each form: the count is what makes the singular form
+// singular, so its template has no slot for the number. Passing the plural's
+// list to the singular template is the mistake that produced
 // `... expires in 1 day%!(EXTRA int=7)` in wave 0, and
 // internal/i18n/catalog_test.go::TestSingularPluralPairsAgreeOnVerbCounts pins
 // the two templates against it.
-func auditAutoChargeDetail(lang i18n.Tag, n int, pluralKey, singularKey string, pluralArgs, singularArgs []any) string {
+func pluralText(lang i18n.Tag, n int, pluralKey, singularKey string, pluralArgs, singularArgs []any) string {
 	key, args := pluralKey, pluralArgs
 	if n == 1 {
 		key, args = singularKey, singularArgs

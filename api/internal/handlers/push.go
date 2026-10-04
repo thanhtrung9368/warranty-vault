@@ -40,9 +40,9 @@ type pushRegisterRequest struct {
 
 func listPushHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
-		subs, err := services.ListPushSubscriptions(r.Context(), deps.DB, us.UserID)
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
+		subs, err := services.ListPushSubscriptions(ctx, deps.DB, us.UserID)
 		if err != nil {
 			writeServiceError(w, ctx, err, "list push subscriptions")
 			return
@@ -50,14 +50,14 @@ func listPushHandler(deps Deps) http.HandlerFunc {
 		if subs == nil {
 			subs = []services.PushSubscriptionDTO{}
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"subscriptions": subs})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"subscriptions": subs})
 	}
 }
 
 func registerPushHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
@@ -89,31 +89,32 @@ func registerPushHandler(deps Deps) http.HandlerFunc {
 			}
 		}
 
-		if _, err := services.SubscribePush(r.Context(), deps.DB, us.UserID, input); err != nil {
+		if _, err := services.SubscribePush(ctx, deps.DB, us.UserID, input); err != nil {
 			writeServiceError(w, ctx, err, "subscribe push")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusCreated, map[string]bool{"ok": true})
+		httpx.WriteJSONC(w, ctx, http.StatusCreated, map[string]bool{"ok": true})
 	}
 }
 
 func deletePushHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := strings.TrimSpace(r.PathValue("id"))
 		if id == "" {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id đăng ký", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
+				i18n.Text(ctx, "Thiếu id đăng ký"), nil)
 			return
 		}
-		if err := services.DeletePushSubscriptionByID(r.Context(), deps.DB, us.UserID, id); err != nil {
+		if err := services.DeletePushSubscriptionByID(ctx, deps.DB, us.UserID, id); err != nil {
 			writeServiceError(w, ctx, err, "delete push subscription")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]bool{"ok": true})
 	}
 }
 
@@ -126,22 +127,22 @@ func deletePushHandler(deps Deps) http.HandlerFunc {
 // are deleted (matches the cron's gone-detection behavior).
 func TestPush(deps Deps) http.HandlerFunc {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		if deps.Dispatcher == nil {
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
-				"push_not_configured", "Push dispatcher chưa khởi tạo", nil)
+				"push_not_configured", i18n.Text(ctx, "Push dispatcher chưa khởi tạo"), nil)
 			return
 		}
 
 		q := store.New(deps.DB)
-		rows, err := q.ListPushSubscriptionsByUser(r.Context(), us.UserID)
+		rows, err := q.ListPushSubscriptionsByUser(ctx, us.UserID)
 		if err != nil {
 			slog.Error("test push: list subs failed", "user", us.UserID, "err", err)
-			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
@@ -159,7 +160,7 @@ func TestPush(deps Deps) http.HandlerFunc {
 			sent, failed int
 			countMu      sync.Mutex
 		)
-		g, gctx := errgroup.WithContext(r.Context())
+		g, gctx := errgroup.WithContext(ctx)
 		g.SetLimit(8)
 		for _, row := range rows {
 			row := row
@@ -197,7 +198,7 @@ func TestPush(deps Deps) http.HandlerFunc {
 		}
 		_ = g.Wait()
 
-		httpx.WriteJSON(w, http.StatusOK, map[string]int{
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]int{
 			"sent":   sent,
 			"failed": failed,
 		})

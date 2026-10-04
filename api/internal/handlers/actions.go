@@ -7,6 +7,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -38,8 +39,8 @@ func RegisterActions(mux *http.ServeMux, deps Deps) {
 
 func listActionsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, ok := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, ok := auth.UserFromContext(ctx)
 		if !ok {
 			unauthorized(w, ctx)
 			return
@@ -51,18 +52,21 @@ func listActionsHandler(deps Deps) http.HandlerFunc {
 		// it always counts the actionable subset.
 		includeSnoozed, valid := parseBoolQuery(r.URL.Query().Get("snoozed"))
 		if !valid {
+			// The headline AND the field error are translated at the call site:
+			// `fieldErrors` holds finished strings, so a key left in the map
+			// would be shipped verbatim.
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Tham số snoozed không hợp lệ",
-				map[string][]string{"snoozed": {"Phải là true hoặc false"}})
+				i18n.Text(ctx, "Tham số snoozed không hợp lệ"),
+				map[string][]string{"snoozed": {i18n.Text(ctx, "Phải là true hoặc false")}})
 			return
 		}
 
-		queue, err := services.ListActionItems(r.Context(), deps.DB, us.UserID, time.Now(), includeSnoozed)
+		queue, err := services.ListActionItems(ctx, deps.DB, us.UserID, time.Now(), includeSnoozed)
 		if err != nil {
 			writeServiceError(w, ctx, err, "list action items")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, queue)
+		httpx.WriteJSONC(w, ctx, http.StatusOK, queue)
 	}
 }
 
@@ -75,8 +79,8 @@ type snoozeRequest struct {
 
 func snoozeActionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, ok := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, ok := auth.UserFromContext(ctx)
 		if !ok {
 			unauthorized(w, ctx)
 			return
@@ -90,8 +94,8 @@ func snoozeActionHandler(deps Deps) http.HandlerFunc {
 		itemKey := strings.TrimSpace(r.PathValue("itemKey"))
 		if _, _, valid := services.ParseActionItemKey(itemKey); !valid {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Mã việc cần xử lý không hợp lệ",
-				map[string][]string{"itemKey": {"Phải có dạng <LOẠI_VIỆC>:<id>"}})
+				i18n.Text(ctx, "Mã việc cần xử lý không hợp lệ"),
+				map[string][]string{"itemKey": {i18n.Text(ctx, "Phải có dạng <LOẠI_VIỆC>:<id>")}})
 			return
 		}
 
@@ -108,19 +112,19 @@ func snoozeActionHandler(deps Deps) http.HandlerFunc {
 			}
 		}
 
-		res, err := services.SnoozeActionItem(r.Context(), deps.DB, us.UserID, itemKey, req.Days, time.Now())
+		res, err := services.SnoozeActionItem(ctx, deps.DB, us.UserID, itemKey, req.Days, time.Now())
 		if err != nil {
 			writeServiceError(w, ctx, err, "snooze action item")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, res)
+		httpx.WriteJSONC(w, ctx, http.StatusOK, res)
 	}
 }
 
 func unsnoozeActionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, ok := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, ok := auth.UserFromContext(ctx)
 		if !ok {
 			unauthorized(w, ctx)
 			return
@@ -132,14 +136,14 @@ func unsnoozeActionHandler(deps Deps) http.HandlerFunc {
 		itemKey := strings.TrimSpace(r.PathValue("itemKey"))
 		if _, _, valid := services.ParseActionItemKey(itemKey); !valid {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Mã việc cần xử lý không hợp lệ",
-				map[string][]string{"itemKey": {"Phải có dạng <LOẠI_VIỆC>:<id>"}})
+				i18n.Text(ctx, "Mã việc cần xử lý không hợp lệ"),
+				map[string][]string{"itemKey": {i18n.Text(ctx, "Phải có dạng <LOẠI_VIỆC>:<id>")}})
 			return
 		}
-		if err := services.UnSnoozeActionItem(r.Context(), deps.DB, us.UserID, itemKey); err != nil {
+		if err := services.UnSnoozeActionItem(ctx, deps.DB, us.UserID, itemKey); err != nil {
 			writeServiceError(w, ctx, err, "un-snooze action item")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "itemKey": itemKey})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"ok": true, "itemKey": itemKey})
 	}
 }

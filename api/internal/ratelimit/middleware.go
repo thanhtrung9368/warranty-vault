@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 // UserIDFromCtx is the contract the auth package must satisfy: given a
@@ -24,6 +25,12 @@ type IdentifierFromRequest func(r *http.Request) string
 // handler, then call CheckAuth there directly. This middleware is provided
 // for the IP-only case (pass identifierFromBody=nil) or when the caller has
 // already pre-buffered the body.
+//
+// The 429 goes to a real user, so it is rendered in the request's language —
+// both halves of it. `i18n.Attach` resolves `?lang=` and Accept-Language here
+// (the middleware chain may already have stored the header, but only the handler
+// reads the query parameter), and the sentence comes from ratelimit.RetryMessage
+// so this copy and handlers.rateLimited cannot drift.
 func Auth(limiter Limiter, action string, identifierFromBody IdentifierFromRequest) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -34,9 +41,10 @@ func Auth(limiter Limiter, action string, identifierFromBody IdentifierFromReque
 			}
 			res, _ := CheckAuth(r.Context(), limiter, action, ip, identifier)
 			if !res.Ok {
+				ctx := i18n.Attach(r)
 				w.Header().Set("Retry-After", itoa(res.RetryAfterSec))
-				httpx.WriteError(w, http.StatusTooManyRequests, "rate_limited",
-					"Thao tác quá nhanh. Đợi "+FormatRetry(res.RetryAfterSec), nil)
+				httpx.WriteErrorC(w, ctx, http.StatusTooManyRequests, "rate_limited",
+					RetryMessage(i18n.From(ctx), res.RetryAfterSec), nil)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -46,7 +54,7 @@ func Auth(limiter Limiter, action string, identifierFromBody IdentifierFromReque
 
 // UserWrite wraps a handler with the per-user 60/min write limiter. The
 // userIDFromCtx callback is supplied by the auth package so this middleware
-// stays decoupled.
+// stays decoupled. Language handling matches Auth above.
 func UserWrite(limiter Limiter, userIDFromCtx UserIDFromCtx) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,9 +65,10 @@ func UserWrite(limiter Limiter, userIDFromCtx UserIDFromCtx) func(http.Handler) 
 			}
 			res, _ := CheckUserWrite(r.Context(), limiter, userID)
 			if !res.Ok {
+				ctx := i18n.Attach(r)
 				w.Header().Set("Retry-After", itoa(res.RetryAfterSec))
-				httpx.WriteError(w, http.StatusTooManyRequests, "rate_limited",
-					"Thao tác quá nhanh. Đợi "+FormatRetry(res.RetryAfterSec), nil)
+				httpx.WriteErrorC(w, ctx, http.StatusTooManyRequests, "rate_limited",
+					RetryMessage(i18n.From(ctx), res.RetryAfterSec), nil)
 				return
 			}
 			next.ServeHTTP(w, r)

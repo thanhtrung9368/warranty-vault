@@ -7,6 +7,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -43,17 +44,24 @@ func parseBoolQuery(raw string) (value bool, ok bool) {
 
 func listRemindersHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 
 		withinDays := defaultRemindersWithinDays
 		if raw := r.URL.Query().Get("withinDays"); raw != "" {
 			n, err := strconv.Atoi(raw)
 			if err != nil || n < 1 || n > maxRemindersWithinDays {
+				// The field error used to be assembled by CONCATENATION
+				// ("Phải là số nguyên từ 1 tới " + strconv.Itoa(max)), which can
+				// never be a catalog key: no literal at any call site equals the
+				// result, so `i18n.Text` would always miss and the sentence stayed
+				// Vietnamese under ?lang=en. It is now the printf-shaped key
+				// wave 4 added for /search's `limit` — same sentence, same bound,
+				// different parameter name.
 				httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-					"Tham số withinDays không hợp lệ",
+					i18n.Text(ctx, "Tham số withinDays không hợp lệ"),
 					map[string][]string{
-						"withinDays": {"Phải là số nguyên từ 1 tới " + strconv.Itoa(maxRemindersWithinDays)},
+						"withinDays": {i18n.T(ctx, "Phải là số nguyên từ 1 tới %d", maxRemindersWithinDays)},
 					})
 				return
 			}
@@ -66,14 +74,14 @@ func listRemindersHandler(deps Deps) http.HandlerFunc {
 		includeDismissed, ok := parseBoolQuery(r.URL.Query().Get("includeDismissed"))
 		if !ok {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Tham số includeDismissed không hợp lệ",
+				i18n.Text(ctx, "Tham số includeDismissed không hợp lệ"),
 				map[string][]string{
-					"includeDismissed": {"Phải là true hoặc false"},
+					"includeDismissed": {i18n.Text(ctx, "Phải là true hoặc false")},
 				})
 			return
 		}
 
-		rows, err := services.ListUpcomingReminders(r.Context(), deps.DB, us.UserID, withinDays, includeDismissed)
+		rows, err := services.ListUpcomingReminders(ctx, deps.DB, us.UserID, withinDays, includeDismissed)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "list reminders")
 			return
@@ -81,6 +89,6 @@ func listRemindersHandler(deps Deps) http.HandlerFunc {
 		if rows == nil {
 			rows = []services.ReminderRow{}
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"reminders": rows})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"reminders": rows})
 	}
 }

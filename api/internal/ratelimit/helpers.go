@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 const (
@@ -63,14 +65,41 @@ func CheckShareView(ctx context.Context, limiter Limiter, ip string) (Result, er
 	return limiter.Check(ctx, "share:view:ip:"+ip, 60, authWindowMs)
 }
 
-// FormatRetry mirrors website/src/lib/rate-limit.ts::formatRetry.
-// >=60s -> "X phút" (ceil); else "X giây".
-func FormatRetry(seconds int) string {
+// FormatRetry mirrors website/src/lib/rate-limit.ts::formatRetry, and renders it
+// in `tag`: >=60s -> "X phút" / "X minutes" (ceil); else "X giây" / "X seconds".
+//
+// The tag is a PARAMETER rather than something read from a context because this
+// package has no request in two of its three callers: the 429 the middleware
+// writes has one, but the sentence is also composed by handlers.rateLimited from
+// a `RetryAfterSec` an endpoint already computed. Making the language explicit
+// keeps this a pure function of (language, seconds).
+//
+// It was Vietnamese-only until wave 5, which is what produced the two-language
+// sentence "Too many attempts. Try again in 2 phút" on every converted endpoint:
+// the surrounding sentence came from the catalog and the unit did not. Both the
+// unit and its singular form ("1 phút" / "1 minute" — reachable, because 60s
+// rounds up to exactly one minute) are ordinary catalog entries now.
+func FormatRetry(tag i18n.Tag, seconds int) string {
 	if seconds >= 60 {
 		minutes := (seconds + 59) / 60
-		return fmt.Sprintf("%d phút", minutes)
+		if minutes == 1 {
+			return i18n.Translate(tag, "1 phút")
+		}
+		return i18n.Translate(tag, "%d phút", minutes)
 	}
-	return fmt.Sprintf("%d giây", seconds)
+	if seconds == 1 {
+		return i18n.Translate(tag, "1 giây")
+	}
+	return i18n.Translate(tag, "%d giây", seconds)
+}
+
+// RetryMessage renders the whole 429 sentence — "Thao tác quá nhanh. Đợi X" —
+// so the middleware and the handlers' shared `rateLimited` helper cannot drift
+// into two different sentences for the same status. The context-taking wrapper
+// lives in internal/handlers (which imports this package, so the dependency only
+// runs one way).
+func RetryMessage(tag i18n.Tag, seconds int) string {
+	return i18n.Translate(tag, "Thao tác quá nhanh. Đợi %s", FormatRetry(tag, seconds))
 }
 
 // GetClientIP returns the best-effort client IP. Reads X-Forwarded-For first

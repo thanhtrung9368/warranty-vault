@@ -169,6 +169,32 @@ var singularPluralPairs = []struct {
 		"%s LƯU Ý: %d file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
 		"%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
 	},
+	// Wave 5: the shared 429 retry window. Both forms are reachable by arithmetic
+	// alone — FormatRetry switches to minutes at 60 s, and ceil(60/60) is 1 — so
+	// "1 minute" is not a hypothetical, and "1 minutes" is not English.
+	{"%d phút", "1 phút"},
+	{"%d giây", "1 giây"},
+	// Wave 5: the action queue's four count-bearing sentences. Each one's count is
+	// reachable at exactly 1 through the SQL the rule is built on (a warranty that
+	// expired yesterday, a return window closing tomorrow, a renewal date one day
+	// past, a target purchase date one day gone), so "1 days ago" would be a real
+	// string a real user reads.
+	{
+		"Gói %s của «%s» đã hết hạn ngày %s (%d ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+		"Gói %s của «%s» đã hết hạn ngày %s (1 ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+	},
+	{
+		"«%s» còn %d ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+		"«%s» còn 1 ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+	},
+	{
+		"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+		"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+	},
+	{
+		"«%s» có ngày dự kiến mua %s, đã qua %d ngày.",
+		"«%s» có ngày dự kiến mua %s, đã qua 1 ngày.",
+	},
 }
 
 func TestSingularPluralPairsAgreeOnVerbCounts(t *testing.T) {
@@ -278,6 +304,46 @@ func TestSingularRendersWithoutTheCountArgument(t *testing.T) {
 			singular:     "Hạn đổi/trả: %s (1 ngày kể từ ngày nhận)",
 			plainArgs:    []any{"07/10/2026", int32(30)},
 			singularArgs: []any{"07/10/2026"},
+		},
+		{
+			// Wave 5, the shared 429 window: the singular template has no verb at
+			// all, because the count IS what makes it singular.
+			plural:       "%d phút",
+			singular:     "1 phút",
+			plainArgs:    []any{2},
+			singularArgs: nil,
+		},
+		{
+			plural:       "%d giây",
+			singular:     "1 giây",
+			plainArgs:    []any{45},
+			singularArgs: nil,
+		},
+		{
+			// Wave 5, the action queue. The four arguments are the plan label,
+			// the device name, the rendered date and the day count.
+			plural:       "Gói %s của «%s» đã hết hạn ngày %s (%d ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+			singular:     "Gói %s của «%s» đã hết hạn ngày %s (1 ngày trước). Máy vẫn đang ở trạng thái đang dùng.",
+			plainArgs:    []any{"Standard", "iPhone", "07/05/2026", 1},
+			singularArgs: []any{"Standard", "iPhone", "07/05/2026"},
+		},
+		{
+			plural:       "«%s» còn %d ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+			singular:     "«%s» còn 1 ngày đổi/trả (hạn %s). Quá hạn này chỉ còn gửi bảo hành, không đổi mới.",
+			plainArgs:    []any{"iPhone", 1, "07/05/2026"},
+			singularArgs: []any{"iPhone", "07/05/2026"},
+		},
+		{
+			plural:       "«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+			singular:     "«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
+			plainArgs:    []any{"Netflix", "01/05/2026", "07/05/2026", 1},
+			singularArgs: []any{"Netflix", "01/05/2026", "07/05/2026"},
+		},
+		{
+			plural:       "«%s» có ngày dự kiến mua %s, đã qua %d ngày.",
+			singular:     "«%s» có ngày dự kiến mua %s, đã qua 1 ngày.",
+			plainArgs:    []any{"iPhone 16", "07/05/2026", 1},
+			singularArgs: []any{"iPhone 16", "07/05/2026"},
 		},
 	} {
 		for _, tag := range []Tag{VI, EN} {
