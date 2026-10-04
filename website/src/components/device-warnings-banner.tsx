@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { dismissDeviceWarnings } from '@/app/actions/devices';
 import type { DeviceWarning } from '@/lib/api/devices';
 import { deviceWarningFieldLabel, deviceWarningTitle } from '@/lib/device-warnings';
+import { useLocale, useT } from '@/lib/i18n/client';
 
 /**
  * "Chúng tôi đã lưu, nhưng giá trị này có vẻ sai" — the advisory warnings the Go
@@ -24,6 +25,8 @@ import { deviceWarningFieldLabel, deviceWarningTitle } from '@/lib/device-warnin
  */
 export function DeviceWarningsBanner({ warnings }: { warnings: DeviceWarning[] }) {
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
   const [hidden, setHidden] = React.useState(false);
 
   const clear = React.useCallback(() => {
@@ -51,11 +54,12 @@ export function DeviceWarningsBanner({ warnings }: { warnings: DeviceWarning[] }
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <div>
             <p className="text-sm font-semibold">
-              Đã lưu thiết bị — nhưng thông tin này có vẻ chưa đúng
+              {t('Đã lưu thiết bị — nhưng thông tin này có vẻ chưa đúng')}
             </p>
             <p className="mt-0.5 text-xs opacity-90">
-              Cảnh báo không chặn gì cả: thiết bị vẫn được lưu nguyên như bạn nhập. Kiểm tra lại rồi
-              sửa nếu cần.
+              {t(
+                'Cảnh báo không chặn gì cả: thiết bị vẫn được lưu nguyên như bạn nhập. Kiểm tra lại rồi sửa nếu cần.',
+              )}
             </p>
           </div>
         </div>
@@ -71,7 +75,7 @@ export function DeviceWarningsBanner({ warnings }: { warnings: DeviceWarning[] }
           }}
         >
           <X className="mr-1 h-3.5 w-3.5" />
-          Đóng
+          {t('Đóng')}
         </Button>
       </div>
 
@@ -82,7 +86,7 @@ export function DeviceWarningsBanner({ warnings }: { warnings: DeviceWarning[] }
             className="rounded-md border-[1.5px] border-amber-200/70 bg-card/60 p-3 dark:border-amber-900/70"
           >
             <p className="text-xs font-semibold uppercase tracking-wide">
-              {deviceWarningTitle(w.code)} · {deviceWarningFieldLabel(w.field)}
+              {deviceWarningTitle(w.code, locale)} · {deviceWarningFieldLabel(w.field, locale)}
             </p>
             <p className="mt-1 text-sm">{w.message}</p>
           </li>

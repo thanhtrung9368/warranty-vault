@@ -10,13 +10,12 @@ import type { ReminderRow as ApiReminder } from '@/lib/api/reminders';
 import { dismissedReminders, type DismissedReminder } from '@/lib/dismissed-reminders';
 import { requireUser } from '@/lib/auth';
 import {
-  CATEGORY_LABELS,
-  STATUS_LABELS,
-  WARRANTY_TYPE_LABELS,
   type Category,
   type Status,
   type WarrantyType,
 } from '@/lib/types';
+import { categoryLabel, statusLabel, warrantyTypeLabel } from '@/lib/i18n/labels';
+import { getI18n } from '@/lib/i18n/server';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +41,9 @@ type ReminderItem = {
 
 type SectionTone = 'rose' | 'amber' | 'emerald';
 
+// `title` is the Vietnamese section heading — which is also its dictionary key
+// (`src/lib/i18n/messages/warranties.ts`), so it is translated at render time
+// rather than here, where there is no locale yet.
 const SECTIONS: {
   key: Bucket;
   title: string;
@@ -92,6 +94,7 @@ function toItem(r: ApiReminder, now: Date): ReminderItem {
 
 export default async function RemindersPage() {
   await requireUser();
+  const { locale, t } = await getI18n();
   // 90-day horizon matches the previous UI's bucket coverage.
   // The “Đã ẩn” list comes from that same light feed, widened with
   // `includeDismissed=true`, instead of the whole-database export document it
@@ -121,11 +124,12 @@ export default async function RemindersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="eyebrow">Bảo hành sắp hết</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Nhắc nhở</h1>
+        <p className="eyebrow">{t('Bảo hành sắp hết')}</p>
+        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Nhắc nhở')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói — gói đã ẩn
-          luôn xem lại và khôi phục được ở mục “Đã ẩn” bên dưới.
+          {t(
+            'Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói — gói đã ẩn luôn xem lại và khôi phục được ở mục “Đã ẩn” bên dưới.',
+          )}
         </p>
       </div>
 
@@ -133,8 +137,8 @@ export default async function RemindersPage() {
         <EmptyState
           icon={Bell}
           tone="emerald"
-          title="Không có nhắc nhở nào, ngon!"
-          description="Tất cả gói bảo hành đều an toàn. Mày khỏi lo gì hết."
+          title={t('Không có nhắc nhở nào, ngon!')}
+          description={t('Tất cả gói bảo hành đều an toàn. Mày khỏi lo gì hết.')}
           cta={false}
         />
       ) : (
@@ -160,7 +164,7 @@ export default async function RemindersPage() {
                       TONE_TITLE[section.tone],
                     )}
                   >
-                    {section.title}
+                    {t(section.title)}
                   </span>
                 </div>
                 <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
@@ -190,13 +194,13 @@ export default async function RemindersPage() {
                                     WARRANTY_TYPE_TINT[r.warrantyType] ?? 'tint-primary',
                                   )}
                                 >
-                                  {WARRANTY_TYPE_LABELS[r.warrantyType] ?? r.warrantyType}
+                                  {warrantyTypeLabel(r.warrantyType, locale)}
                                 </span>
                               </div>
                               <p className="mt-0.5 text-xs text-muted-foreground">
-                                {CATEGORY_LABELS[r.category as Category] ?? r.category}
-                                {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • Hết{' '}
-                                {formatDate(r.endDate)}
+                                {categoryLabel(r.category, locale)}
+                                {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • {t('Hết')}{' '}
+                                {formatDate(r.endDate, locale)}
                               </p>
                             </div>
                           </Link>
@@ -223,19 +227,20 @@ export default async function RemindersPage() {
             {dismissedUnavailable ? '?' : dismissed.length}
           </span>
           <span className="font-display text-[15px] font-bold tracking-tight text-ink-2">
-            Đã ẩn
+            {t('Đã ẩn')}
           </span>
         </div>
         <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
           <CardContent className="p-4 sm:p-5">
             {dismissedUnavailable ? (
               <p className="py-3 text-sm text-muted-foreground">
-                Không tải được danh sách nhắc nhở đã ẩn — thử tải lại trang nhé.
+                {t('Không tải được danh sách nhắc nhở đã ẩn — thử tải lại trang nhé.')}
               </p>
             ) : dismissed.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">
-                Chưa ẩn gói bảo hành nào. Gói nào mày bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục
-                lại.
+                {t(
+                  'Chưa ẩn gói bảo hành nào. Gói nào mày bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại.',
+                )}
               </p>
             ) : (
               <ul>
@@ -263,19 +268,18 @@ export default async function RemindersPage() {
                               WARRANTY_TYPE_TINT[r.warrantyType as WarrantyType] ?? 'tint-primary',
                             )}
                           >
-                            {WARRANTY_TYPE_LABELS[r.warrantyType as WarrantyType] ??
-                              r.warrantyType}
+                            {warrantyTypeLabel(r.warrantyType as WarrantyType, locale)}
                           </span>
                           {r.deviceStatus !== 'ACTIVE' && (
                             <span className="inline-flex items-center rounded-pill bg-zinc-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-2">
-                              {STATUS_LABELS[r.deviceStatus as Status] ?? r.deviceStatus}
+                              {statusLabel(r.deviceStatus as Status, locale)}
                             </span>
                           )}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {CATEGORY_LABELS[r.deviceCategory as Category] ?? r.deviceCategory}
-                          {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • Hết{' '}
-                          {formatDate(r.endDate)}
+                          {categoryLabel(r.deviceCategory as Category, locale)}
+                          {r.warrantyProvider ? ` • ${r.warrantyProvider}` : ''} • {t('Hết')}{' '}
+                          {formatDate(r.endDate, locale)}
                         </p>
                       </div>
                     </Link>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DevicePasteImport } from '@/components/device-paste-import';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
 import { requireUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export const dynamic = 'force-dynamic';
 // to the same `PHONE` code the combobox would offer.
 export default async function ImportDevicesPage() {
   await requireUser();
+  const { t } = await getI18n();
   const catalog = await getDeviceFormCatalog();
 
   return (
@@ -22,16 +24,17 @@ export default async function ImportDevicesPage() {
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href="/devices">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Danh sách thiết bị
+            {t('Danh sách thiết bị')}
           </Link>
         </Button>
-        <p className="eyebrow">Nhập nhanh</p>
+        <p className="eyebrow">{t('Nhập nhanh')}</p>
         <h1 className="display mt-1 text-3xl text-ink">
-          Dán bảng để thêm nhiều thiết bị
+          {t('Dán bảng để thêm nhiều thiết bị')}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Copy một vùng ô từ Excel / Google Sheets (hoặc gõ tay, ngăn cách bằng tab,
-          dấu phẩy hay dấu chấm phẩy) rồi dán vào đây. Xem trước từng dòng trước khi tạo.
+          {t(
+            'Copy một vùng ô từ Excel / Google Sheets (hoặc gõ tay, ngăn cách bằng tab, dấu phẩy hay dấu chấm phẩy) rồi dán vào đây. Xem trước từng dòng trước khi tạo.',
+          )}
         </p>
       </div>
 

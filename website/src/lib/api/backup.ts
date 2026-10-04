@@ -10,6 +10,8 @@
 // 10 MB, which an archive with invoice images blows past.
 
 import { bearerHeader } from '@/lib/auth-cookie';
+import { translate } from '@/lib/i18n/catalog';
+import { getLocale } from '@/lib/i18n/server';
 import { filenameFromDisposition } from '@/lib/backup-media';
 
 const BASE_URL = (process.env.GO_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
@@ -160,7 +162,9 @@ export async function exportRaw(): Promise<
       ok: false,
       status: 0,
       error: 'network_error',
-      message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
+      // Our own sentence (Go never saw the request), so it is rendered in the
+      // request's language here.
+      message: translate(await getLocale(), 'Mất kết nối tới máy chủ, thử lại sau nhé.'),
     };
   }
   if (!res.ok) {

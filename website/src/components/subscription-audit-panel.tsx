@@ -10,6 +10,9 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { SubscriptionAudit, SubscriptionAuditFinding } from '@/lib/api/subscriptions';
+import type { Translator } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
+import { getI18n } from '@/lib/i18n/server';
 import {
   findingCount,
   findingSubjects,
@@ -63,9 +66,17 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function FindingRow({ finding }: { finding: SubscriptionAuditFinding }) {
+function FindingRow({
+  finding,
+  t,
+  locale,
+}: {
+  finding: SubscriptionAuditFinding;
+  t: Translator;
+  locale: Locale;
+}) {
   const tone = findingTone(finding);
-  const tag = findingTag(finding);
+  const tag = findingTag(finding, locale);
   const subjects = findingSubjects(finding);
   const Icon = KIND_ICON[finding.kind] ?? ShieldQuestion;
 
@@ -95,30 +106,39 @@ function FindingRow({ finding }: { finding: SubscriptionAuditFinding }) {
         {finding.kind === 'QUIET_AUTO_RENEW' && (
           <>
             <Metric
-              label="Máy đã tự trừ:"
-              value={`${finding.chargeCount} lần · ${formatVND(finding.chargedTotalVnd)}`}
+              label={t('Máy đã tự trừ:')}
+              value={`${t('{count} lần', { count: finding.chargeCount })} · ${formatVND(finding.chargedTotalVnd, locale)}`}
             />
             {finding.monthlyVnd > 0 && (
-              <Metric label="~" value={`${formatVND(finding.monthlyVnd)}/tháng`} />
+              <Metric
+                label="~"
+                value={t('{amount}/tháng', {
+                  amount: formatVND(finding.monthlyVnd, locale),
+                })}
+              />
             )}
             {finding.lastRecordedAt && (
               <span className="inline-flex flex-wrap items-baseline gap-1">
-                <span className="text-muted-foreground">Khoản ghi nhận mới nhất:</span>
+                <span className="text-muted-foreground">{t('Khoản ghi nhận mới nhất:')}</span>
                 <span className="font-semibold text-ink-2">
-                  {formatDate(finding.lastRecordedAt)}
+                  {formatDate(finding.lastRecordedAt, locale)}
                 </span>
                 <span className="text-muted-foreground">
-                  (ngày ghi nhận thanh toán — không phải ngày dùng cuối)
+                  {t('(ngày ghi nhận thanh toán — không phải ngày dùng cuối)')}
                 </span>
               </span>
             )}
             {finding.nextRenewalAt && (
               <Metric
-                label="Lần trừ tới:"
+                label={t('Lần trừ tới:')}
                 value={
                   finding.daysUntilRenewal != null
-                    ? `${formatDate(finding.nextRenewalAt)} · còn ${finding.daysUntilRenewal} ngày`
-                    : formatDate(finding.nextRenewalAt)
+                    ? t('{date} · còn {days} ngày', {
+                        date: formatDate(finding.nextRenewalAt, locale),
+                        days: finding.daysUntilRenewal,
+                        count: finding.daysUntilRenewal,
+                      })
+                    : formatDate(finding.nextRenewalAt, locale)
                 }
               />
             )}
@@ -130,25 +150,33 @@ function FindingRow({ finding }: { finding: SubscriptionAuditFinding }) {
           <>
             {finding.previousAmountVnd != null && finding.amountVnd != null && (
               <Metric
-                label="Giá:"
-                value={`${formatVND(finding.previousAmountVnd)} → ${formatVND(finding.amountVnd)}`}
+                label={t('Giá:')}
+                value={`${formatVND(finding.previousAmountVnd, locale)} → ${formatVND(finding.amountVnd, locale)}`}
               />
             )}
             {finding.increaseVnd != null && (
               <Metric
-                label="Tăng:"
+                label={t('Tăng:')}
                 value={
                   finding.increasePercent != null
-                    ? `${formatVND(finding.increaseVnd)} (+${finding.increasePercent}%)`
-                    : formatVND(finding.increaseVnd)
+                    ? `${formatVND(finding.increaseVnd, locale)} (+${finding.increasePercent}%)`
+                    : formatVND(finding.increaseVnd, locale)
                 }
               />
             )}
             {finding.monthlyVnd > 0 && (
-              <Metric label="~" value={`${formatVND(finding.monthlyVnd)}/tháng`} />
+              <Metric
+                label="~"
+                value={t('{amount}/tháng', {
+                  amount: formatVND(finding.monthlyVnd, locale),
+                })}
+              />
             )}
             {finding.lastRecordedAt && (
-              <Metric label="Kỳ ghi nhận:" value={formatDate(finding.lastRecordedAt)} />
+              <Metric
+                label={t('Kỳ ghi nhận:')}
+                value={formatDate(finding.lastRecordedAt, locale)}
+              />
             )}
           </>
         )}
@@ -156,8 +184,8 @@ function FindingRow({ finding }: { finding: SubscriptionAuditFinding }) {
         {/* DUPLICATE — the combined monthly equivalent of both packages. */}
         {finding.kind === 'DUPLICATE' && finding.monthlyVnd > 0 && (
           <Metric
-            label="Cộng lại:"
-            value={`${formatVND(finding.monthlyVnd)}/tháng`}
+            label={t('Cộng lại:')}
+            value={t('{amount}/tháng', { amount: formatVND(finding.monthlyVnd, locale) })}
           />
         )}
       </div>
@@ -180,20 +208,25 @@ function FindingRow({ finding }: { finding: SubscriptionAuditFinding }) {
   );
 }
 
-export function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAudit | null }) {
+export async function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAudit | null }) {
+  // A Server Component (the panel has no interactivity of its own), so the
+  // locale comes from `getI18n()` rather than `useLocale()` — the brief's
+  // `useLocale()` would require turning this into a Client Component and
+  // shipping the whole threshold table to the browser for nothing.
+  const { locale, t } = await getI18n();
+
   if (!audit) {
     return (
       <Card className="rounded-2xl border-[1.5px]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <SearchCheck className="h-5 w-5 text-primary" />
-            Soát gói đăng ký
+            {t('Soát gói đăng ký')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Không tải được phần soát gói đăng ký — thử tải lại trang nhé. Danh sách gói bên dưới
-            vẫn là dữ liệu thật.
+            {t('Không tải được phần soát gói đăng ký — thử tải lại trang nhé. Danh sách gói bên dưới vẫn là dữ liệu thật.')}
           </p>
         </CardContent>
       </Card>
@@ -208,14 +241,14 @@ export function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAudit | n
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
           <SearchCheck className="h-5 w-5 text-primary" />
-          Soát gói đăng ký
+          {t('Soát gói đăng ký')}
         </CardTitle>
         <div className="flex flex-wrap items-center gap-2">
           {/* `advisory` is a payload field, not an assumption: the panel only
               promises "no automatic changes" when the server says so. */}
           {audit.advisory && (
             <span className="inline-flex items-center rounded-pill px-2.5 py-1 text-[11px] font-semibold tint-emerald">
-              Chỉ tư vấn — không tự sửa hay huỷ gì
+              {t('Chỉ tư vấn — không tự sửa hay huỷ gì')}
             </span>
           )}
           <span
@@ -224,7 +257,9 @@ export function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAudit | n
               total > 0 ? 'tint-amber' : 'tint-zinc',
             )}
           >
-            {total > 0 ? `${total} phát hiện` : 'Không có phát hiện nào'}
+            {total > 0
+              ? t('{total} phát hiện', { total, count: total })
+              : t('Không có phát hiện nào')}
           </span>
         </div>
       </CardHeader>
@@ -237,20 +272,21 @@ export function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAudit | n
           <div className="space-y-1">
             <p className="text-sm text-ink-2">{audit.note}</p>
             <p className="text-xs text-muted-foreground">
-              Soát từ lịch sử thanh toán bạn đã ghi, tính tới {formatDate(audit.generatedAt)}.
+              {t('Soát từ lịch sử thanh toán bạn đã ghi, tính tới {date}.', {
+                date: formatDate(audit.generatedAt, locale),
+              })}
             </p>
           </div>
         </div>
 
         {findings.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Không có phát hiện nào từ dữ liệu bạn đã ghi. Các luật bên dưới vẫn được chạy lại mỗi
-            lần bạn mở trang này.
+            {t('Không có phát hiện nào từ dữ liệu bạn đã ghi. Các luật bên dưới vẫn được chạy lại mỗi lần bạn mở trang này.')}
           </p>
         ) : (
           <ul className="space-y-2.5">
             {findings.map((f) => (
-              <FindingRow key={f.findingKey} finding={f} />
+              <FindingRow key={f.findingKey} finding={f} t={t} locale={locale} />
             ))}
           </ul>
         )}
@@ -259,10 +295,10 @@ export function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAudit | n
             read out of the payload instead of hard-coded here. */}
         <details className="rounded-xl border-[1.5px] border-dashed border-border px-3.5 py-3">
           <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Luật đang áp dụng
+            {t('Luật đang áp dụng')}
           </summary>
           <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-            {thresholdLines(audit.thresholds).map((line) => (
+            {thresholdLines(audit.thresholds, locale).map((line) => (
               <li key={line} className="flex gap-2">
                 <span aria-hidden>•</span>
                 <span>{line}</span>

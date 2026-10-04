@@ -5,12 +5,21 @@
 // produced by the Go service — we don't rewrite them.
 
 import { apiFetch, type ApiResult } from './client';
+import { getLocale } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/catalog';
+import { withLangParam, type Locale } from '@/lib/i18n/locale';
+import { GO_API_URL } from './base-url';
 
 export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
   aiOptIn?: boolean;
+  // Stored language preference (migration 0014). `omitempty` on the Go side, so
+  // it is absent — not `null` — for a user who has never chosen one. The web
+  // reads it at sign-in to seed the `wv_locale` cookie, so a preference set on
+  // a phone carries into the browser on the first login.
+  locale?: string | null;
 };
 
 export type AuthSuccess = {
@@ -54,10 +63,17 @@ export async function register(
 ): Promise<ApiResult<RegisterResponse>> {
   // We need the raw status to discriminate 201 (created) from 200 (taken).
   // `apiFetch` swallows the status on success, so use a custom branch here.
-  const base = (process.env.GO_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
+  //
+  // This is the one call that does not go through `apiFetch`, so it also has to
+  // state its own language: `?lang=` is what makes Go answer in the language the
+  // form is rendered in. A `register` that fails validation returns the same
+  // `fieldErrors` sentences the other endpoints do, and they must not arrive in
+  // the server's English default on a Vietnamese form.
+  const base = GO_API_URL;
+  const locale: Locale = await getLocale();
   let res: Response;
   try {
-    res = await fetch(`${base}/v1/auth/register`, {
+    res = await fetch(withLangParam(`${base}/v1/auth/register`, locale), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -91,7 +107,12 @@ export async function register(
         kind: 'ambiguous',
         message:
           body.message ??
-          'Nếu email chưa đăng ký, tài khoản đã được tạo. Nếu đã có, vào đăng nhập hoặc quên mật khẩu.',
+          // Fallback only — Go normally sends this exact sentence in the
+          // request's language, and its wording is the one registered here.
+          translate(
+            locale,
+            'Nếu email chưa đăng ký, tài khoản đã được tạo. Nếu đã có, vào đăng nhập hoặc quên mật khẩu.',
+          ),
       },
     };
   }
@@ -132,6 +153,24 @@ export async function updateProfile(
 
 export async function me(): Promise<ApiResult<{ user: AuthUser }>> {
   return apiFetch<{ user: AuthUser }>('GET', '/v1/auth/me');
+}
+
+// `PATCH /v1/auth/me` again, but for the language preference.
+//
+// Kept separate from `updateProfile` rather than merged into one call because
+// the two fields are INDEPENDENT three-state fields on the Go side: a key that
+// is absent means "leave it alone", so sending `{ locale }` alone can never
+// disturb the display name and vice versa. Sending both every time would work
+// too, but it would make the language switcher responsible for restating the
+// user's name — and a stale name in that payload would silently overwrite a
+// rename done in another tab.
+//
+// Only `vi`/`en` reach here (the action validates first). Anything else is a
+// 400 `fieldErrors.locale` from Go, surfaced unchanged.
+export async function updateLocale(
+  locale: Locale,
+): Promise<ApiResult<{ user: AuthUser; message?: string }>> {
+  return apiFetch<{ user: AuthUser; message?: string }>('PATCH', '/v1/auth/me', { locale });
 }
 
 // ---- device sessions (openapi `SessionSummary` / `SessionRevokeResult`) ----

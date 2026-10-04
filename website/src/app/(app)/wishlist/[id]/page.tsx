@@ -27,10 +27,9 @@ import {
   DeleteWishlistButton,
 } from '@/components/wishlist-actions';
 import { api } from '@/lib/api';
-import { categoryLabel } from '@/lib/types';
+import { getI18n } from '@/lib/i18n/server';
+import { categoryLabel, wishlistPriorityLabel, wishlistStatusLabel } from '@/lib/i18n/labels';
 import {
-  WISHLIST_PRIORITY_LABELS,
-  WISHLIST_STATUS_LABELS,
   type WishlistPriority,
   type WishlistStatus,
 } from '@/lib/wishlist-types';
@@ -58,6 +57,7 @@ export default async function WishlistDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { locale, t } = await getI18n();
   const res = await api.wishlist.get(id);
   if (!res.ok) {
     if (res.status === 404) notFound();
@@ -70,7 +70,7 @@ export default async function WishlistDetailPage({
           </Link>
         </Button>
         <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          Lỗi tải món: {res.message ?? res.error}
+          {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
         </div>
       </div>
     );
@@ -116,7 +116,7 @@ export default async function WishlistDetailPage({
           >
             <Link href={`/wishlist/${item.id}/edit`}>
               <Pencil className="mr-2 h-4 w-4" />
-              Sửa
+              {t('Sửa')}
             </Link>
           </Button>
           <UpdatePriceDialog itemId={item.id} currentPrice={item.currentPrice} />
@@ -139,7 +139,7 @@ export default async function WishlistDetailPage({
               <p className="mt-1 text-sm text-muted-foreground">
                 {item.brand}
                 {item.brand && item.category ? ' • ' : ''}
-                {item.category ? categoryLabel(item.category) : ''}
+                {item.category ? categoryLabel(item.category, locale) : ''}
               </p>
             </div>
           </div>
@@ -150,7 +150,7 @@ export default async function WishlistDetailPage({
                 STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
               )}
             >
-              {WISHLIST_STATUS_LABELS[status] ?? item.status}
+              {wishlistStatusLabel(status, locale)}
             </span>
             <span
               className={cn(
@@ -158,7 +158,7 @@ export default async function WishlistDetailPage({
                 PRIORITY_PILL[priority] ?? 'bg-zinc-soft text-ink-2',
               )}
             >
-              {WISHLIST_PRIORITY_LABELS[priority] ?? item.priority}
+              {wishlistPriorityLabel(priority, locale)}
             </span>
           </div>
         </div>
@@ -166,21 +166,21 @@ export default async function WishlistDetailPage({
         {item.purchasedDeviceId && (
           <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-soft px-4 py-3 text-sm text-emerald-ink">
             <ShoppingBag className="h-4 w-4" />
-            Đã mua →{' '}
+            {t('Đã mua')} →{' '}
             <Link
               href={`/devices/${item.purchasedDeviceId}`}
               className="font-semibold underline"
             >
-              Xem thiết bị
+              {t('Xem thiết bị')}
             </Link>
           </div>
         )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-surface p-4">
-            <p className="eyebrow">Giá ban đầu</p>
+            <p className="eyebrow">{t('Giá ban đầu')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
-              {item.initialPrice ? formatVND(item.initialPrice) : '—'}
+              {item.initialPrice ? formatVND(item.initialPrice, locale) : '—'}
             </p>
           </div>
           <div
@@ -191,9 +191,9 @@ export default async function WishlistDetailPage({
                 : 'border-border bg-surface',
             )}
           >
-            <p className="eyebrow">Giá hiện tại</p>
+            <p className="eyebrow">{t('Giá hiện tại')}</p>
             <p className="display mt-1 text-2xl tabular-nums">
-              {item.currentPrice ? formatVND(item.currentPrice) : '—'}
+              {item.currentPrice ? formatVND(item.currentPrice, locale) : '—'}
               {delta && (
                 <span
                   className={cn(
@@ -213,30 +213,30 @@ export default async function WishlistDetailPage({
             {lastPriceAt && (
               <p
                 className="mt-0.5 text-xs opacity-80"
-                title={formatDate(lastPriceAt)}
+                title={formatDate(lastPriceAt, locale)}
               >
-                Cập nhật {formatRelativeDay(lastPriceAt)}
+                {t('Cập nhật {when}', { when: formatRelativeDay(lastPriceAt, locale) })}
               </p>
             )}
           </div>
           <div className="rounded-xl border border-border bg-surface p-4">
             <p className="eyebrow">Min / Max</p>
             <p className="mt-1 text-base font-bold tabular-nums">
-              <span className="text-emerald-ink">{min ? formatVND(min) : '—'}</span>
+              <span className="text-emerald-ink">{min ? formatVND(min, locale) : '—'}</span>
               <span className="mx-1 text-muted-foreground">/</span>
-              <span className="text-rose-ink">{max ? formatVND(max) : '—'}</span>
+              <span className="text-rose-ink">{max ? formatVND(max, locale) : '—'}</span>
             </p>
           </div>
           <div className="rounded-xl border border-border bg-surface p-4">
             <p className="eyebrow flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Ngày dự kiến
+              <Calendar className="h-3 w-3" /> {t('Ngày dự kiến')}
             </p>
             <p className="display mt-1 text-xl">
-              {item.targetDate ? formatDate(new Date(item.targetDate)) : 'Chưa đặt'}
+              {item.targetDate ? formatDate(new Date(item.targetDate), locale) : t('Chưa đặt')}
             </p>
             {item.targetDate && (
               <p className="text-xs text-muted-foreground">
-                {formatRelativeDay(new Date(item.targetDate))}
+                {formatRelativeDay(new Date(item.targetDate), locale)}
               </p>
             )}
           </div>
@@ -248,9 +248,9 @@ export default async function WishlistDetailPage({
           <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <LineChartIcon className="h-4 w-4" />
-              Lịch sử giá
+              {t('Lịch sử giá')}
               <span className="ml-auto inline-flex items-center rounded-pill bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-ink-2">
-                {prices.length} điểm
+                {t('{count} điểm', { count: prices.length })}
               </span>
             </h3>
             <PriceHistoryChart
@@ -267,13 +267,13 @@ export default async function WishlistDetailPage({
                     className="flex items-center justify-between gap-2 py-2.5"
                   >
                     <span className="min-w-[110px] font-semibold text-ink">
-                      {formatDate(new Date(p.recordedAt))}
+                      {formatDate(new Date(p.recordedAt), locale)}
                     </span>
                     <span className="flex-1 truncate text-muted-foreground">
                       {p.note ?? '—'}
                     </span>
                     <span className="font-display tabular-nums font-bold text-ink">
-                      {formatVND(p.price)}
+                      {formatVND(p.price, locale)}
                     </span>
                   </li>
                 ))}
@@ -285,7 +285,7 @@ export default async function WishlistDetailPage({
             <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
               <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-ink">
                 <StickyNote className="h-4 w-4" />
-                Ghi chú
+                {t('Ghi chú')}
               </h3>
               <p className="whitespace-pre-wrap text-sm text-ink-2">{item.notes}</p>
             </div>
@@ -294,7 +294,7 @@ export default async function WishlistDetailPage({
           <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <Zap className="h-4 w-4" />
-              Đổi trạng thái nhanh
+              {t('Đổi trạng thái nhanh')}
             </h3>
             <WishlistStatusButtons itemId={item.id} status={item.status} />
           </div>
@@ -305,12 +305,12 @@ export default async function WishlistDetailPage({
             <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
               <h3 className="mb-4 flex items-center gap-2 font-display text-base font-bold text-ink">
                 <ExternalLink className="h-4 w-4" />
-                Mua ở đâu
+                {t('Mua ở đâu')}
               </h3>
               <Button asChild className="w-full rounded-pill">
                 <a href={item.buyUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Mở link mua
+                  {t('Mở link mua')}
                 </a>
               </Button>
             </div>
@@ -319,16 +319,19 @@ export default async function WishlistDetailPage({
           <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
             <h3 className="mb-2 flex items-center gap-2 font-display text-base font-bold text-ink">
               <Info className="h-4 w-4" />
-              Thông tin
+              {t('Thông tin')}
             </h3>
             <div className="flex flex-col">
               {item.reminderIntervalDays && (
                 <div className="info-row">
                   <Bell className="info-row-icon h-4 w-4" />
                   <div className="min-w-0 flex-1">
-                    <div className="info-row-label">Nhắc lại</div>
+                    <div className="info-row-label">{t('Nhắc lại')}</div>
                     <div className="info-row-value">
-                      Mỗi {item.reminderIntervalDays} ngày
+                      {t('Mỗi {days} ngày', {
+                        days: item.reminderIntervalDays,
+                        count: item.reminderIntervalDays,
+                      })}
                     </div>
                   </div>
                 </div>
@@ -337,8 +340,8 @@ export default async function WishlistDetailPage({
                 <div className="info-row">
                   <Tag className="info-row-icon h-4 w-4" />
                   <div className="min-w-0 flex-1">
-                    <div className="info-row-label">Loại</div>
-                    <div className="info-row-value">{categoryLabel(item.category)}</div>
+                    <div className="info-row-label">{t('Loại')}</div>
+                    <div className="info-row-value">{categoryLabel(item.category, locale)}</div>
                   </div>
                 </div>
               )}

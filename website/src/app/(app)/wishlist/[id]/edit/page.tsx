@@ -5,6 +5,7 @@ import { WishlistForm } from '@/components/wishlist-form';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
+import { getI18n } from '@/lib/i18n/server';
 import type {
   WishlistPriority,
   WishlistStatus,
@@ -16,6 +17,7 @@ export default async function EditWishlistPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { t } = await getI18n();
   const [res, catalog] = await Promise.all([
     api.wishlist.get(id),
     getDeviceFormCatalog(),
@@ -24,7 +26,7 @@ export default async function EditWishlistPage({
     if (res.status === 404) notFound();
     return (
       <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-        Lỗi tải món: {res.message ?? res.error}
+        {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
       </div>
     );
   }
@@ -36,11 +38,11 @@ export default async function EditWishlistPage({
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href={`/wishlist/${item.id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Quay lại chi tiết
+            {t('Quay lại')} {t('chi tiết')}
           </Link>
         </Button>
-        <p className="eyebrow">Chỉnh sửa</p>
-        <h1 className="display mt-1 text-3xl text-ink">Sửa món thèm</h1>
+        <p className="eyebrow">{t('Chỉnh sửa')}</p>
+        <h1 className="display mt-1 text-3xl text-ink">{t('Sửa món thèm')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{item.name}</p>
       </div>
       <WishlistForm

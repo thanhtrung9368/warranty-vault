@@ -18,6 +18,12 @@ import type {
   SubscriptionAuditFinding,
   SubscriptionAuditThresholds,
 } from '@/lib/api/subscriptions';
+// Locale-aware copy. `locale` is a REQUIRED parameter on every function that
+// returns a sentence (docs/I18N.md): an optional parameter with a Vietnamese
+// default would let a missed call site render Vietnamese inside an English page
+// and report nothing.
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 
 export type AuditTone = 'rose' | 'amber' | 'zinc';
 
@@ -47,16 +53,17 @@ export function findingTone(
 // server sends (`material`, `reason`) — never from prose invented here.
 export function findingTag(
   finding: Pick<SubscriptionAuditFinding, 'kind' | 'material' | 'reason'>,
+  locale: Locale,
 ): string | null {
   switch (finding.kind) {
     case 'PRICE_INCREASED':
-      return finding.material === false ? 'Mức tăng nhỏ' : 'Đáng chú ý';
+      return translate(locale, finding.material === false ? 'Mức tăng nhỏ' : 'Đáng chú ý');
     case 'DUPLICATE':
-      if (finding.reason === 'SAME_NAME') return 'Trùng tên';
-      if (finding.reason === 'SAME_BRAND_CATEGORY') return 'Cùng hãng, cùng loại';
-      return 'Có thể trùng nhau';
+      if (finding.reason === 'SAME_NAME') return translate(locale, 'Trùng tên');
+      if (finding.reason === 'SAME_BRAND_CATEGORY') return translate(locale, 'Cùng hãng, cùng loại');
+      return translate(locale, 'Có thể trùng nhau');
     case 'QUIET_AUTO_RENEW':
-      return 'Chỉ tư vấn';
+      return translate(locale, 'Chỉ tư vấn');
     default:
       return null;
   }
@@ -82,7 +89,15 @@ export function findingSubjects(
 // The rule behind each verdict, spelled out with the numbers the server itself
 // applied. Driven entirely by `thresholds` — change a constant in Go and this
 // copy follows, rather than the UI describing a rule that is no longer running.
-export function thresholdLines(thresholds: SubscriptionAuditThresholds): string[] {
+//
+// The two counts are interpolated as whole phrases (`{count} lần` /
+// `{months} tháng`) rather than as bare numbers, because Vietnamese does not
+// inflect and English does: the phrase keys carry their own `enOne`, so
+// "1 lần" reads "1 time" and "6 tháng" reads "6 months" at the same time.
+export function thresholdLines(
+  thresholds: SubscriptionAuditThresholds,
+  locale: Locale,
+): string[] {
   const {
     quietMinAutoCharges,
     quietMinMonths,
@@ -92,15 +107,39 @@ export function thresholdLines(thresholds: SubscriptionAuditThresholds): string[
   } = thresholds;
 
   return [
-    `Gói tự trừ tiền: chỉ gắn cờ gói đang hoạt động, có bật tự gia hạn và không phải gói trọn đời, ` +
-      `khi đã tự trừ ít nhất ${quietMinAutoCharges} lần, khoản tự trừ đầu tiên cách đây ít nhất ` +
-      `${quietMinMonths} tháng, và bạn chưa từng tự ghi khoản thanh toán nào cho gói đó.`,
-    `Tăng giá: báo mọi mức tăng giữa hai kỳ thanh toán liền kề; từ ${priceRiseMinPercent}% trở lên ` +
-      `mới được coi là đáng chú ý.`,
-    `Trùng nhau: hai gói đang hoạt động trùng tên` +
-      (duplicateNormalized ? ' (bỏ dấu, không phân biệt hoa/thường)' : '') +
-      ` hoặc cùng hãng và cùng loại.`,
-    `Cửa sổ còn hành động được trước khi bị trừ tiền: ${upcomingRenewalDays} ngày.`,
+    translate(
+      locale,
+      'Gói tự trừ tiền: chỉ gắn cờ gói đang hoạt động, có bật tự gia hạn và không phải gói trọn đời, ' +
+        'khi đã tự trừ ít nhất {charges}, khoản tự trừ đầu tiên cách đây ít nhất ' +
+        '{months}, và bạn chưa từng tự ghi khoản thanh toán nào cho gói đó.',
+      {
+        charges: translate(locale, '{count} lần', { count: quietMinAutoCharges }),
+        months: translate(locale, '{months} tháng', {
+          months: quietMinMonths,
+          count: quietMinMonths,
+        }),
+      },
+    ),
+    translate(
+      locale,
+      'Tăng giá: báo mọi mức tăng giữa hai kỳ thanh toán liền kề; từ {percent}% trở lên ' +
+        'mới được coi là đáng chú ý.',
+      { percent: priceRiseMinPercent },
+    ),
+    translate(
+      locale,
+      'Trùng nhau: hai gói đang hoạt động trùng tên{normalized} hoặc cùng hãng và cùng loại.',
+      {
+        normalized: duplicateNormalized
+          ? translate(locale, ' (bỏ dấu, không phân biệt hoa/thường)')
+          : '',
+      },
+    ),
+    translate(
+      locale,
+      'Cửa sổ còn hành động được trước khi bị trừ tiền: {days} ngày.',
+      { days: upcomingRenewalDays, count: upcomingRenewalDays },
+    ),
   ];
 }
 

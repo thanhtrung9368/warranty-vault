@@ -16,12 +16,10 @@ import { DevicesFilterBar } from '@/components/devices-filter-bar';
 import { api } from '@/lib/api';
 import type { DeviceListFilter } from '@/lib/api/devices';
 import { requireUser } from '@/lib/auth';
+import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
+import { getI18n } from '@/lib/i18n/server';
 import { getCategories } from '@/app/actions/catalog';
-import {
-  CATEGORY_LABELS,
-  STATUS_LABELS,
-  type Status,
-} from '@/lib/types';
+import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +39,7 @@ export default async function DevicesPage({
   searchParams: Promise<{ q?: string; category?: string; status?: string; sort?: string; dir?: string }>;
 }) {
   await requireUser();
+  const { locale, t } = await getI18n();
   const sp = await searchParams;
   const filter: DeviceListFilter = {
     q: sp.q,
@@ -60,11 +59,16 @@ export default async function DevicesPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Kho thiết bị</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Thiết bị</h1>
+          <p className="eyebrow">{t('Kho thiết bị')}</p>
+          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Thiết bị')}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            Tổng {devices.length} thiết bị
-            {isFiltered ? ' (đã lọc)' : ''}. Bấm vào từng cái để xem chi tiết.
+            {isFiltered
+              ? t('Tổng {count} thiết bị (đã lọc). Bấm vào từng cái để xem chi tiết.', {
+                  count: devices.length,
+                })
+              : t('Tổng {count} thiết bị. Bấm vào từng cái để xem chi tiết.', {
+                  count: devices.length,
+                })}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -76,19 +80,19 @@ export default async function DevicesPage({
           <Button asChild size="lg" variant="outline" className="rounded-pill">
             <Link href="/stats#chi-phi-moi-ngay">
               <Coins className="mr-1 h-4 w-4" />
-              Chi phí mỗi ngày
+              {t('Chi phí mỗi ngày')}
             </Link>
           </Button>
           <Button asChild size="lg" variant="outline" className="rounded-pill">
             <Link href="/devices/import">
               <ClipboardPaste className="mr-1 h-4 w-4" />
-              Dán bảng
+              {t('Dán bảng')}
             </Link>
           </Button>
           <Button asChild size="lg" className="rounded-pill">
             <Link href="/devices/new">
               <Plus className="mr-1 h-4 w-4" />
-              Thêm thiết bị
+              {t('Thêm thiết bị')}
             </Link>
           </Button>
         </div>
@@ -102,12 +106,12 @@ export default async function DevicesPage({
             icon={isFiltered ? Search : Package}
             tone={isFiltered ? 'zinc' : 'primary'}
             title={
-              isFiltered ? 'Không có gì khớp bộ lọc' : 'Chưa có thiết bị nào, mày'
+              isFiltered ? t('Không có gì khớp bộ lọc') : t('Chưa có thiết bị nào, mày')
             }
             description={
               isFiltered
-                ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
-                : 'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.'
+                ? t('Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.')
+                : t('Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.')
             }
             cta={!isFiltered}
           />
@@ -115,12 +119,12 @@ export default async function DevicesPage({
               sitting in a spreadsheet. */}
           {!isFiltered && (
             <p className="text-center text-sm text-muted-foreground">
-              Đã có sẵn danh sách trong Excel/Google Sheets?{' '}
+              {t('Đã có sẵn danh sách trong Excel/Google Sheets?')}{' '}
               <Link
                 href="/devices/import"
                 className="font-semibold text-primary hover:underline"
               >
-                Dán bảng để nhập nhiều thiết bị một lúc
+                {t('Dán bảng để nhập nhiều thiết bị một lúc')}
               </Link>
               .
             </p>
@@ -132,22 +136,22 @@ export default async function DevicesPage({
             <TableHeader className="bg-surface-2">
               <TableRow>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Tên
+                  {t('Tên')}
                 </TableHead>
                 <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground sm:table-cell">
-                  Loại
+                  {t('Loại')}
                 </TableHead>
                 <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground lg:table-cell">
-                  Giá
+                  {t('Giá')}
                 </TableHead>
                 <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
-                  Ngày mua
+                  {t('Ngày mua')}
                 </TableHead>
                 <TableHead className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Bảo hành
+                  {t('Bảo hành')}
                 </TableHead>
                 <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
-                  Trạng thái
+                  {t('Trạng thái')}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -183,15 +187,14 @@ export default async function DevicesPage({
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <span className="inline-flex items-center rounded-pill bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-2">
-                        {CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] ??
-                          d.category}
+                        {categoryLabel(d.category, locale)}
                       </span>
                     </TableCell>
                     <TableCell className="hidden font-semibold tabular-nums lg:table-cell">
-                      {formatVND(d.purchasePrice)}
+                      {formatVND(d.purchasePrice, locale)}
                     </TableCell>
                     <TableCell className="hidden text-ink-2 md:table-cell">
-                      {formatDate(d.purchaseDate)}
+                      {formatDate(d.purchaseDate, locale)}
                     </TableCell>
                     <TableCell>
                       {d.effectiveWarrantyEnd ? (
@@ -200,7 +203,7 @@ export default async function DevicesPage({
                           variant="badge"
                         />
                       ) : (
-                        <span className="text-xs text-muted-foreground">Không có</span>
+                        <span className="text-xs text-muted-foreground">{t('Không có')}</span>
                       )}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
@@ -209,7 +212,7 @@ export default async function DevicesPage({
                           STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2'
                         }`}
                       >
-                        {STATUS_LABELS[status] ?? d.status}
+                        {statusLabel(status, locale)}
                       </span>
                     </TableCell>
                   </TableRow>

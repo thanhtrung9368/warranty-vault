@@ -16,12 +16,10 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import {
-  WARRANTY_TYPES,
-  WARRANTY_TYPE_LABELS,
-  type WarrantyType,
-} from '@/lib/types';
+import { WARRANTY_TYPES, type WarrantyType } from '@/lib/types';
 import { formatNumber, parseVNDInput } from '@/lib/format';
+import { warrantyTypeLabel } from '@/lib/i18n/labels';
+import { useLocale, useT } from '@/lib/i18n/client';
 import {
   createWarranty,
   updateWarranty,
@@ -56,8 +54,11 @@ function SubmitButton({ label }: { label: string }) {
 }
 
 function MoneyInput({ defaultValue, name }: { defaultValue?: number | null; name: string }) {
+  // `formatNumber` needs the locale (1.200.000 / 1,200,000), so the input reads
+  // it from the provider rather than taking a prop.
+  const locale = useLocale();
   const [value, setValue] = React.useState<string>(
-    defaultValue ? formatNumber(defaultValue) : '',
+    defaultValue ? formatNumber(defaultValue, locale) : '',
   );
   return (
     <div className="relative">
@@ -66,7 +67,7 @@ function MoneyInput({ defaultValue, name }: { defaultValue?: number | null; name
         value={value}
         onChange={(e) => {
           const n = parseVNDInput(e.target.value);
-          setValue(n ? formatNumber(n) : '');
+          setValue(n ? formatNumber(n, locale) : '');
         }}
         placeholder="0"
         className="pr-10"
@@ -93,6 +94,8 @@ export function WarrantyForm({
     ? updateWarranty.bind(null, initial!.id!)
     : createWarranty.bind(null, deviceId);
 
+  const t = useT();
+  const locale = useLocale();
   const [state, formAction] = useActionState<WarrantyFormState, FormData>(action, {});
   const errors = state?.errors ?? {};
 
@@ -105,16 +108,16 @@ export function WarrantyForm({
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="type">
-            Loại gói <span className="text-destructive">*</span>
+            {t('Loại gói')} <span className="text-destructive">*</span>
           </Label>
           <Select name="type" defaultValue={initial?.type ?? 'EXTENDED'}>
             <SelectTrigger id="type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {WARRANTY_TYPES.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {WARRANTY_TYPE_LABELS[t]}
+              {WARRANTY_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {warrantyTypeLabel(type, locale)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -123,18 +126,18 @@ export function WarrantyForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="provider">Đơn vị bảo hành</Label>
+          <Label htmlFor="provider">{t('Đơn vị bảo hành')}</Label>
           <Input
             id="provider"
             name="provider"
             defaultValue={initial?.provider ?? ''}
-            placeholder="vd: AppleCare+, FPT, ..."
+            placeholder={t('vd: AppleCare+, FPT, ...')}
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="startDate">
-            Ngày bắt đầu <span className="text-destructive">*</span>
+            {t('Ngày bắt đầu')} <span className="text-destructive">*</span>
           </Label>
           <Input
             id="startDate"
@@ -148,7 +151,7 @@ export function WarrantyForm({
 
         <div className="space-y-2">
           <Label htmlFor="months">
-            Số tháng <span className="text-destructive">*</span>
+            {t('Số tháng')} <span className="text-destructive">*</span>
           </Label>
           <Input
             id="months"
@@ -162,38 +165,38 @@ export function WarrantyForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cost">Giá gói (VND)</Label>
+          <Label htmlFor="cost">{t('Giá gói (VND)')}</Label>
           <MoneyInput defaultValue={initial?.cost} name="cost" />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">SĐT bảo hành</Label>
+          <Label htmlFor="phone">{t('SĐT bảo hành')}</Label>
           <Input
             id="phone"
             name="phone"
             type="tel"
             defaultValue={initial?.phone ?? ''}
-            placeholder="vd: 1800 1234"
+            placeholder={t('vd: 1800 1234')}
           />
         </div>
 
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="address">Địa chỉ trung tâm BH</Label>
+          <Label htmlFor="address">{t('Địa chỉ trung tâm BH')}</Label>
           <Input
             id="address"
             name="address"
             defaultValue={initial?.address ?? ''}
-            placeholder="vd: 123 Nguyễn Trãi, Q.1"
+            placeholder={t('vd: 123 Nguyễn Trãi, Q.1')}
           />
         </div>
 
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="notes">Ghi chú</Label>
+          <Label htmlFor="notes">{t('Ghi chú')}</Label>
           <Textarea
             id="notes"
             name="notes"
             defaultValue={initial?.notes ?? ''}
-            placeholder="Điều kiện gói, ngày kích hoạt..."
+            placeholder={t('Điều kiện gói, ngày kích hoạt...')}
             rows={3}
           />
         </div>
@@ -213,10 +216,10 @@ export function WarrantyForm({
             className="rounded-pill"
             onClick={onCancel}
           >
-            Hủy
+            {t('Hủy')}
           </Button>
         )}
-        <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Thêm gói'} />
+        <SubmitButton label={isEdit ? t('Lưu thay đổi') : t('Thêm gói')} />
       </div>
     </form>
   );

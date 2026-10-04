@@ -76,6 +76,8 @@ import type { CategoryOption } from '@/lib/api/catalog';
 // cookie through `./client`, and a value import would drag it into the client
 // bundle (same rule as `csv-export.ts`).
 import type { DeviceInput } from '@/lib/api/devices';
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 import { CATEGORY_LABELS } from '@/lib/types';
 
 export type PasteDelimiter = '\t' | ';' | ',';
@@ -106,6 +108,44 @@ export const PASTE_FIELD_LABELS: Record<PasteField, string> = {
   purchasePlace: 'Nơi mua',
   notes: 'Ghi chú',
 };
+
+/**
+ * The same labels, translated. The exported {@link PASTE_FIELD_LABELS} map is
+ * the Vietnamese source text (it stays the canonical spelling of each column);
+ * this is what a rendered screen shows. `translate` returns the key untouched
+ * in Vietnamese, so the `vi` column is never retyped.
+ */
+export function pasteFieldLabels(locale: Locale): Record<PasteField, string> {
+  const out = {} as Record<PasteField, string>;
+  for (const field of PASTE_FIELDS) {
+    out[field] = translate(locale, PASTE_FIELD_LABELS[field]);
+  }
+  return out;
+}
+
+/**
+ * Sample paste shown as the textarea placeholder, in the requested language.
+ *
+ * Every value is something the parser actually accepts (the delimiter is a tab,
+ * the category resolves through the static mirror or by code, the dates use the
+ * documented `dd/MM/yyyy` shape), so following the example always produces a
+ * valid preview. The header labels are the localised column names — the English
+ * ones are aliases in {@link HEADER_ALIASES}.
+ */
+export function pasteExample(locale: Locale): string {
+  if (locale === 'en') {
+    return [
+      'Device name\tCategory\tBrand\tModel\tSerial\tPurchase date\tPrice\tPurchased at\tNotes',
+      'iPhone 13\tPHONE\tApple\tA2633\tIMEI123\t15/03/2024\t15.000.000\tFPT Shop\tbought for my wife',
+      'Washing machine\tWASHING\tLG\tFC1409\t\t01/12/2023\t9tr\tFPT Shop\t',
+    ].join('\n');
+  }
+  return [
+    'Tên thiết bị\tLoại\tHãng\tModel\tSerial\tNgày mua\tGiá mua\tNơi mua\tGhi chú',
+    'iPhone 13\tĐiện thoại\tApple\tA2633\tIMEI123\t15/03/2024\t15.000.000\tFPT Shop\tmua cho vợ',
+    'Máy giặt\tMáy giặt / Sấy\tLG\tFC1409\t\t01/12/2023\t9tr\tĐiện Máy Xanh\t',
+  ].join('\n');
+}
 
 /**
  * Rows past the cap are not parsed at all (`truncated: true`). The device quota
@@ -152,7 +192,7 @@ export type PasteRow = {
 
 export type PasteImportPreview = {
   delimiter: PasteDelimiter;
-  /** Vietnamese, for the "đã tách bằng …" line. */
+  /** Delimiter name in the request's language, for the "đã tách bằng …" line. */
   delimiterLabel: string;
   headerDetected: boolean;
   headerCells: string[] | null;
@@ -193,6 +233,8 @@ const HEADER_ALIASES: Record<string, PasteField> = {
   'ten thiet bi': 'name',
   'thiet bi': 'name',
   name: 'name',
+  'device name': 'name',
+  device: 'name',
   'san pham': 'name',
   product: 'name',
   'do vat': 'name',
@@ -217,6 +259,7 @@ const HEADER_ALIASES: Record<string, PasteField> = {
   // serialNumber
   serial: 'serialNumber',
   serialnumber: 'serialNumber',
+  'serial number': 'serialNumber',
   'serial imei': 'serialNumber',
   'so seri': 'serialNumber',
   'so serial': 'serialNumber',
@@ -230,6 +273,7 @@ const HEADER_ALIASES: Record<string, PasteField> = {
   ngay: 'purchaseDate',
   date: 'purchaseDate',
   purchasedate: 'purchaseDate',
+  'purchase date': 'purchaseDate',
   // purchasePrice
   'gia mua': 'purchasePrice',
   gia: 'purchasePrice',
@@ -238,6 +282,7 @@ const HEADER_ALIASES: Record<string, PasteField> = {
   'so tien': 'purchasePrice',
   price: 'purchasePrice',
   purchaseprice: 'purchasePrice',
+  'purchase price': 'purchasePrice',
   // purchasePlace
   'noi mua': 'purchasePlace',
   'mua tai': 'purchasePlace',
@@ -246,6 +291,7 @@ const HEADER_ALIASES: Record<string, PasteField> = {
   shop: 'purchasePlace',
   store: 'purchasePlace',
   purchaseplace: 'purchasePlace',
+  'purchased at': 'purchasePlace',
   // notes
   'ghi chu': 'notes',
   note: 'notes',
@@ -257,6 +303,9 @@ const HEADER_ALIASES: Record<string, PasteField> = {
  * Columns we recognise deliberately and refuse to import (decision 8). Mapping
  * them to a label lets the preview say *"cột Trạng thái sẽ bị bỏ qua"* instead
  * of pretending the column is unknown.
+ *
+ * Values are Vietnamese catalog keys, translated at render time — the English
+ * names of the same columns are separate aliases pointing at the same key.
  */
 const IGNORED_HEADER_ALIASES: Record<string, string> = {
   'trang thai': 'Trạng thái',
@@ -265,11 +314,15 @@ const IGNORED_HEADER_ALIASES: Record<string, string> = {
   'het bao hanh': 'Hết bảo hành',
   'ngay het bao hanh': 'Hết bảo hành',
   'han bao hanh': 'Hết bảo hành',
+  'warranty expiry': 'Hết bảo hành',
+  'warranty end': 'Hết bảo hành',
   warranty: 'Bảo hành',
   'bao hanh': 'Bảo hành',
-  'so thang bao hanh': 'Số tháng bảo hành',
+  'so thang bao hanh': 'Số tháng bảo hành (cột)',
+  'warranty months': 'Số tháng bảo hành (cột)',
   'file dinh kem': 'File đính kèm',
   attachment: 'File đính kèm',
+  attachments: 'File đính kèm',
   id: 'ID',
   'ma thiet bi': 'ID',
 };
@@ -279,6 +332,11 @@ const DELIMITER_LABELS: Record<PasteDelimiter, string> = {
   ';': 'dấu chấm phẩy (;)',
   ',': 'dấu phẩy (,)',
 };
+
+/** The delimiter's display name in the requested language. */
+export function pasteDelimiterLabel(delimiter: PasteDelimiter, locale: Locale): string {
+  return translate(locale, DELIMITER_LABELS[delimiter]);
+}
 
 // ── Text splitting ──────────────────────────────────────────────────────────
 
@@ -392,9 +450,9 @@ export type DayParse = { ok: true; day: string } | { ok: false; error: string };
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/;
 const DAY_FIRST = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})(?:[T ]\d{1,2}:\d{2}(?::\d{2})?)?$/;
 
-function dayOf(year: number, month: number, day: number): DayParse {
+function dayOf(year: number, month: number, day: number, locale: Locale): DayParse {
   if (month < 1 || month > 12 || day < 1 || day > 31) {
-    return { ok: false, error: 'Ngày không hợp lệ' };
+    return { ok: false, error: translate(locale, 'Ngày không hợp lệ') };
   }
   const probe = new Date(Date.UTC(year, month - 1, day));
   if (
@@ -402,7 +460,7 @@ function dayOf(year: number, month: number, day: number): DayParse {
     probe.getUTCMonth() !== month - 1 ||
     probe.getUTCDate() !== day
   ) {
-    return { ok: false, error: 'Ngày không hợp lệ' };
+    return { ok: false, error: translate(locale, 'Ngày không hợp lệ') };
   }
   const pad = (n: number) => String(n).padStart(2, '0');
   return { ok: true, day: `${year}-${pad(month)}-${pad(day)}` };
@@ -412,24 +470,35 @@ function dayOf(year: number, month: number, day: number): DayParse {
  * Parse a pasted purchase date to `YYYY-MM-DD` (decision 5). Never guesses: an
  * unrecognised shape — including a two-digit year — is an error the user can
  * see, not a silently different calendar day.
+ *
+ * `locale` is optional only so that the pure helper stays callable without a
+ * request context; every production call site passes one. Omitting it renders
+ * the Vietnamese original, which is this app's documented fallback.
  */
-export function parsePasteDate(raw: string): DayParse {
+export function parsePasteDate(raw: string, locale: Locale = 'vi'): DayParse {
   const value = raw.trim();
-  if (value === '') return { ok: false, error: 'Thiếu ngày mua' };
+  if (value === '') return { ok: false, error: translate(locale, 'Thiếu ngày mua') };
 
   const iso = ISO_DAY.exec(value);
   if (iso) {
-    const parsed = dayOf(Number(iso[1]), Number(iso[2]), Number(iso[3]));
-    return parsed.ok ? parsed : { ok: false, error: `Ngày mua không hợp lệ: "${value}"` };
+    const parsed = dayOf(Number(iso[1]), Number(iso[2]), Number(iso[3]), locale);
+    return parsed.ok
+      ? parsed
+      : { ok: false, error: translate(locale, 'Ngày mua không hợp lệ: "{value}"', { value }) };
   }
 
   const dayFirst = DAY_FIRST.exec(value);
   if (dayFirst) {
-    const parsed = dayOf(Number(dayFirst[3]), Number(dayFirst[2]), Number(dayFirst[1]));
-    return parsed.ok ? parsed : { ok: false, error: `Ngày mua không hợp lệ: "${value}"` };
+    const parsed = dayOf(Number(dayFirst[3]), Number(dayFirst[2]), Number(dayFirst[1]), locale);
+    return parsed.ok
+      ? parsed
+      : { ok: false, error: translate(locale, 'Ngày mua không hợp lệ: "{value}"', { value }) };
   }
 
-  return { ok: false, error: `Ngày mua không hợp lệ: "${value}" (dùng dd/MM/yyyy)` };
+  return {
+    ok: false,
+    error: translate(locale, 'Ngày mua không hợp lệ: "{value}" (dùng dd/MM/yyyy)', { value }),
+  };
 }
 
 export type PriceParse = { value: number; warning?: string };
@@ -442,8 +511,11 @@ const PRICE_SUFFIXES: ReadonlyArray<[RegExp, number]> = [
 /**
  * Parse a pasted price into whole đồng (decision 6). `''` ⇒ 0 = "chưa ghi giá".
  * An unreadable or negative value is 0 **with a warning**, never an invention.
+ *
+ * `locale` is optional only so the pure helper stays callable without a request
+ * context; every production call site passes one.
  */
-export function parsePastePrice(raw: string): PriceParse {
+export function parsePastePrice(raw: string, locale: Locale = 'vi'): PriceParse {
   const original = raw.trim();
   if (original === '') return { value: 0 };
 
@@ -451,8 +523,14 @@ export function parsePastePrice(raw: string): PriceParse {
     .replace(/vnđ|vnd|₫|đ/gi, '')
     .replace(/[\s\u00a0]/g, '');
   if (cleaned === '') return { value: 0 };
+  const unreadable = translate(locale, 'Không đọc được giá "{value}" — tạm để 0', {
+    value: original,
+  });
   if (cleaned.startsWith('-')) {
-    return { value: 0, warning: `Giá không hợp lệ: "${original}" — tạm để 0` };
+    return {
+      value: 0,
+      warning: translate(locale, 'Giá không hợp lệ: "{value}" — tạm để 0', { value: original }),
+    };
   }
 
   let numberPart = cleaned;
@@ -463,14 +541,14 @@ export function parsePastePrice(raw: string): PriceParse {
     const suffix = trailingLetters[2];
     const match = PRICE_SUFFIXES.find(([re]) => re.test(suffix));
     if (!match) {
-      return { value: 0, warning: `Không đọc được giá "${original}" — tạm để 0` };
+      return { value: 0, warning: unreadable };
     }
     multiplier = match[1];
   }
 
   const digits = numberPart.replace(/[^\d]/g, '');
   if (digits === '') {
-    return { value: 0, warning: `Không đọc được giá "${original}" — tạm để 0` };
+    return { value: 0, warning: unreadable };
   }
 
   let amount: number;
@@ -488,7 +566,7 @@ export function parsePastePrice(raw: string): PriceParse {
   }
 
   if (!Number.isFinite(amount)) {
-    return { value: 0, warning: `Không đọc được giá "${original}" — tạm để 0` };
+    return { value: 0, warning: unreadable };
   }
 
   return { value: Math.round(amount * multiplier) };
@@ -531,16 +609,21 @@ export function matchCategory(
   return { kind: 'unknown' };
 }
 
-/** Vietnamese label for a code, falling back to the code for unknown catalogs. */
+/**
+ * Display label for a code, falling back to the code for unknown catalogs.
+ *
+ * The catalog's own `name` is already in the request's language (the Go service
+ * translates it), so it is used verbatim; the static `CATEGORY_LABELS` fallback
+ * is Vietnamese and goes through the dictionary.
+ */
 export function categoryLabelFor(
   code: string,
   categories: readonly CategoryOption[],
+  locale: Locale,
 ): string {
-  return (
-    categories.find((c) => c.code === code)?.name ??
-    CATEGORY_LABELS[code] ??
-    code
-  );
+  const fromCatalog = categories.find((c) => c.code === code)?.name;
+  if (fromCatalog) return fromCatalog;
+  return translate(locale, CATEGORY_LABELS[code] ?? code);
 }
 
 /**
@@ -574,6 +657,13 @@ export function pasteDraftToInput(draft: PasteDraft): DeviceInput {
 
 export type ParsePasteOptions = {
   categories: readonly CategoryOption[];
+  /**
+   * Language of every diagnostic this parser produces (row errors/warnings,
+   * table notes, the delimiter label). Required: the preview renders inside an
+   * already-localised screen, so a missing locale would silently print
+   * Vietnamese there.
+   */
+  locale: Locale;
   headerMode?: PasteHeaderMode;
   maxRows?: number;
 };
@@ -582,6 +672,11 @@ function headerField(label: string): PasteField | null {
   return HEADER_ALIASES[normalizeKey(label)] ?? null;
 }
 
+/**
+ * Display name for a recognised-but-not-imported column, or `null` when the
+ * column is simply unknown. The value is a VIETNAMESE catalog key (or the raw
+ * header when no alias matched) — callers translate it.
+ */
 function ignoredHeaderLabel(label: string): string | null {
   return IGNORED_HEADER_ALIASES[normalizeKey(label)] ?? null;
 }
@@ -622,7 +717,7 @@ export function parsePasteImport(
 ): PasteImportPreview {
   const empty: PasteImportPreview = {
     delimiter: '\t',
-    delimiterLabel: DELIMITER_LABELS['\t'],
+    delimiterLabel: translate(opts.locale, DELIMITER_LABELS['\t']),
     headerDetected: false,
     headerCells: null,
     columns: [],
@@ -661,19 +756,22 @@ export function parsePasteImport(
 
   if (headerRow) {
     const used = new Map<PasteField, number>();
+    const fieldLabels = pasteFieldLabels(opts.locale);
     columns = headerRow.cells.map((rawLabel, index) => {
       const header = rawLabel.trim();
       const field = headerField(rawLabel);
       if (field == null) {
         const ignored = ignoredHeaderLabel(rawLabel);
-        if (header !== '') ignoredColumns.push(ignored ?? header);
+        if (header !== '') ignoredColumns.push(translate(opts.locale, ignored ?? header));
         return { index, header, field: null };
       }
       if (used.has(field)) {
         notes.push(
-          `Cột "${header || PASTE_FIELD_LABELS[field]}" bị trùng — chỉ dùng cột đầu tiên.`,
+          translate(opts.locale, 'Cột "{header}" bị trùng — chỉ dùng cột đầu tiên.', {
+            header: header || fieldLabels[field],
+          }),
         );
-        ignoredColumns.push(header || PASTE_FIELD_LABELS[field]);
+        ignoredColumns.push(header || fieldLabels[field]);
         return { index, header, field: null };
       }
       used.set(field, index);
@@ -688,7 +786,10 @@ export function parsePasteImport(
     }));
     if (width <= 1) {
       notes.push(
-        'Không thấy dấu phân cách (tab, ; hoặc ,) — mỗi dòng đang chỉ có 1 cột.',
+        translate(
+          opts.locale,
+          'Không thấy dấu phân cách (tab, ; hoặc ,) — mỗi dòng đang chỉ có 1 cột.',
+        ),
       );
     }
   }
@@ -707,23 +808,29 @@ export function parsePasteImport(
     };
 
     const name = valueOf('name').trim();
-    if (name === '') errors.push('Thiếu tên thiết bị');
+    if (name === '') errors.push(translate(opts.locale, 'Thiếu tên thiết bị'));
 
     const dateRaw = valueOf('purchaseDate');
-    const date = parsePasteDate(dateRaw);
+    const date = parsePasteDate(dateRaw, opts.locale);
     if (!date.ok) errors.push(date.error);
 
     const categoryRaw = valueOf('category');
     const category = matchCategory(categoryRaw, opts.categories);
     if (category.kind === 'unknown') {
-      errors.push(`Loại không có trong danh mục: "${categoryRaw.trim()}"`);
+      errors.push(
+        translate(opts.locale, 'Loại không có trong danh mục: "{value}"', {
+          value: categoryRaw.trim(),
+        }),
+      );
     } else if (category.kind === 'blank') {
       warnings.push(
-        `Chưa ghi loại — dùng "${categoryLabelFor(category.code, opts.categories)}"`,
+        translate(opts.locale, 'Chưa ghi loại — dùng "{value}"', {
+          value: categoryLabelFor(category.code, opts.categories, opts.locale),
+        }),
       );
     }
 
-    const price = parsePastePrice(valueOf('purchasePrice'));
+    const price = parsePastePrice(valueOf('purchasePrice'), opts.locale);
     if (price.warning) warnings.push(price.warning);
 
     // Extra cells beyond the mapped columns are ignored, visibly (decision 4).
@@ -731,7 +838,11 @@ export function parsePasteImport(
     // first `PASTE_FIELDS.length` ones, so "beyond" is just the tail.)
     const extra = record.cells.filter((_, i) => i >= columns.length);
     if (extra.length > 0) {
-      warnings.push(`Thừa ${extra.length} ô so với bảng — phần thừa bị bỏ qua`);
+      warnings.push(
+        translate(opts.locale, 'Thừa {count} ô so với bảng — phần thừa bị bỏ qua', {
+          count: extra.length,
+        }),
+      );
     }
 
     const draft: PasteDraft | null =
@@ -754,7 +865,7 @@ export function parsePasteImport(
 
   return {
     delimiter,
-    delimiterLabel: DELIMITER_LABELS[delimiter],
+    delimiterLabel: translate(opts.locale, DELIMITER_LABELS[delimiter]),
     headerDetected: headerRow != null,
     headerCells: headerRow ? headerRow.cells.map((c) => c.trim()) : null,
     columns,

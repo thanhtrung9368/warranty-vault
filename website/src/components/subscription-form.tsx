@@ -20,11 +20,11 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { formatNumber, parseVNDInput } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
+import { billingCycleLabel, subscriptionStatusLabel } from '@/lib/i18n/labels';
 import {
   BILLING_CYCLES,
-  BILLING_CYCLE_LABELS,
   SUBSCRIPTION_STATUSES,
-  SUBSCRIPTION_STATUS_LABELS,
   type BillingCycle,
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
@@ -126,6 +126,7 @@ function MoneyInput({
   name: string;
   id?: string;
 }) {
+  const locale = useLocale();
   return (
     <div className="relative">
       <Input
@@ -134,7 +135,7 @@ function MoneyInput({
         value={value}
         onChange={(e) => {
           const n = parseVNDInput(e.target.value);
-          onChange(n ? formatNumber(n) : '');
+          onChange(n ? formatNumber(n, locale) : '');
         }}
         placeholder="0"
         className="pr-10"
@@ -177,6 +178,7 @@ function Stepper({
   current: number;
   onStepClick?: (i: number) => void;
 }) {
+  const t = useT();
   return (
     <div className="stepper">
       {STEPS.map((label, i) => {
@@ -193,7 +195,7 @@ function Stepper({
               <span className="stepper-bubble">
                 {state === 'done' ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
               </span>
-              <span className="stepper-label">{label}</span>
+              <span className="stepper-label">{t(label)}</span>
             </button>
             {i < STEPS.length - 1 && <span className="stepper-line" />}
           </React.Fragment>
@@ -213,6 +215,8 @@ export function SubscriptionForm({
   fromWishlistId?: string;
 }) {
   const isEdit = Boolean(initial?.id);
+  const t = useT();
+  const locale = useLocale();
   const action = isEdit
     ? updateSubscription.bind(null, initial!.id!)
     : createSubscription;
@@ -230,8 +234,8 @@ export function SubscriptionForm({
     const errs = state?.errors;
     if (errs && Object.keys(errs).length > 0) {
       const keys = Object.keys(errs);
-      const labels = keys.map((k) => FIELD_META[k]?.label ?? k);
-      toast.error('Vui lòng kiểm tra: ' + labels.join(', '));
+      const labels = keys.map((k) => t(FIELD_META[k]?.label ?? k));
+      toast.error(t('Vui lòng kiểm tra: {fields}', { fields: labels.join(', ') }));
       const stepOf = FIELD_META[keys[0]]?.step ?? 0;
       // Defer the step jump out of the effect body — lint flags synchronous
       // setState inside effects. We also need to wait a tick before focusing
@@ -243,7 +247,7 @@ export function SubscriptionForm({
     } else if (state?.ok === false && state.message) {
       toast.error(state.message);
     }
-  }, [state]);
+  }, [state, t]);
 
   const [name, setName] = React.useState<string>(initial?.name ?? '');
   const [category, setCategory] = React.useState<string>(initial?.category ?? '');
@@ -256,7 +260,7 @@ export function SubscriptionForm({
     initial?.intervalDays != null ? String(initial.intervalDays) : '',
   );
   const [price, setPrice] = React.useState<string>(
-    initial?.price ? formatNumber(initial.price) : '',
+    initial?.price ? formatNumber(initial.price, locale) : '',
   );
   const [startedAt, setStartedAt] = React.useState<string>(
     initial?.startedAt
@@ -290,9 +294,9 @@ export function SubscriptionForm({
     const others = catalog.brands.filter((b) => !seen.has(b.name));
     return [
       ...inCat.map((b) => ({ value: b.name, label: b.name })),
-      ...others.map((b) => ({ value: b.name, label: b.name, hint: 'khác loại' })),
+      ...others.map((b) => ({ value: b.name, label: b.name, hint: t('khác loại') })),
     ];
-  }, [catalog.brands, category]);
+  }, [catalog.brands, category, t]);
 
   // Step gate: validate locally before advancing. The server is still the
   // final authority — these are just friendly fast-fail checks per step.
@@ -314,7 +318,7 @@ export function SubscriptionForm({
     const v = validateStep(step);
     if (!v.ok) {
       const k = v.firstMissing!;
-      toast.error('Vui lòng nhập: ' + (FIELD_META[k]?.label ?? k));
+      toast.error(t('Vui lòng nhập: {field}', { field: t(FIELD_META[k]?.label ?? k) }));
       focusField(k);
       return;
     }
@@ -330,7 +334,7 @@ export function SubscriptionForm({
         e.preventDefault();
         setStep(i);
         const k = v.firstMissing!;
-        toast.error('Vui lòng nhập: ' + (FIELD_META[k]?.label ?? k));
+        toast.error(t('Vui lòng nhập: {field}', { field: t(FIELD_META[k]?.label ?? k) }));
         setTimeout(() => focusField(k), 50);
         return;
       }
@@ -357,61 +361,61 @@ export function SubscriptionForm({
         <div className={cn('grid gap-4 md:grid-cols-2', step !== 0 && 'hidden')}>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">
-              Tên gói <span className="text-destructive">*</span>
+              {t('Tên gói')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="name"
               name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="vd: Apple One Family, ChatGPT Plus"
+              placeholder={t('vd: Apple One Family, ChatGPT Plus')}
               required
             />
             <FieldError errors={errors.name} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Loại</Label>
+            <Label htmlFor="category">{t('Loại')}</Label>
             <Combobox
               triggerId="category"
               options={categoryOptions}
               value={category}
               onValueChange={setCategory}
-              placeholder="Chọn loại (tuỳ chọn)"
-              searchPlaceholder="Tìm loại..."
+              placeholder={t('Chọn loại (tuỳ chọn)')}
+              searchPlaceholder={t('Tìm loại...')}
             />
             <input type="hidden" name="category" value={category} />
             <FieldError errors={errors.category} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="brand">Hãng / Nhà cung cấp</Label>
+            <Label htmlFor="brand">{t('Hãng / Nhà cung cấp')}</Label>
             <Combobox
               triggerId="brand"
               options={brandOptions}
               value={brand}
               onValueChange={setBrand}
               placeholder="Apple, OpenAI, Google..."
-              searchPlaceholder="Tìm hãng..."
+              searchPlaceholder={t('Tìm hãng...')}
               allowCustom
-              customLabel={(v) => `Dùng hãng "${v}"`}
+              customLabel={(v) => t('Dùng hãng "{name}"', { name: v })}
             />
             <input type="hidden" name="brand" value={brand} />
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="plan">Plan / Gói</Label>
+            <Label htmlFor="plan">{t('Plan / Gói')}</Label>
             <Input
               id="plan"
               name="plan"
               value={plan}
               onChange={(e) => setPlan(e.target.value)}
-              placeholder="vd: Family, Pro, 200GB, Team-5 seats"
+              placeholder={t('vd: Family, Pro, 200GB, Team-5 seats')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="statusVisible">Trạng thái</Label>
+            <Label htmlFor="statusVisible">{t('Trạng thái')}</Label>
             <Select
               value={status}
               onValueChange={(v) => setStatus(v as SubscriptionStatus)}
@@ -422,7 +426,7 @@ export function SubscriptionForm({
               <SelectContent>
                 {SUBSCRIPTION_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {SUBSCRIPTION_STATUS_LABELS[s]}
+                    {subscriptionStatusLabel(s, locale)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -430,7 +434,7 @@ export function SubscriptionForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="autoRenew">Tự động gia hạn</Label>
+            <Label htmlFor="autoRenew">{t('Tự động gia hạn')}</Label>
             <div className="flex h-10 items-center gap-2 rounded-md border-[1.5px] border-border bg-surface px-3">
               <input
                 id="autoRenew"
@@ -442,8 +446,8 @@ export function SubscriptionForm({
               />
               <span className="text-sm text-muted-foreground">
                 {autoRenew
-                  ? 'Có — sẽ tự log payment + nhắc trước'
-                  : 'Không — chỉ nhắc, không tự gia hạn'}
+                  ? t('Có — sẽ tự log payment + nhắc trước')
+                  : t('Không — chỉ nhắc, không tự gia hạn')}
               </span>
             </div>
           </div>
@@ -453,7 +457,7 @@ export function SubscriptionForm({
         <div className={cn('grid gap-4 md:grid-cols-2', step !== 1 && 'hidden')}>
           <div className="space-y-2">
             <Label htmlFor="billingCycle">
-              Chu kỳ <span className="text-destructive">*</span>
+              {t('Chu kỳ')} <span className="text-destructive">*</span>
             </Label>
             <Select
               value={billingCycle}
@@ -465,7 +469,7 @@ export function SubscriptionForm({
               <SelectContent>
                 {BILLING_CYCLES.map((c) => (
                   <SelectItem key={c} value={c}>
-                    {BILLING_CYCLE_LABELS[c]}
+                    {billingCycleLabel(c, locale)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -473,7 +477,7 @@ export function SubscriptionForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="intervalDays">Số ngày (chỉ khi Tuỳ chỉnh)</Label>
+            <Label htmlFor="intervalDays">{t('Số ngày (chỉ khi Tuỳ chỉnh)')}</Label>
             <Input
               id="intervalDays"
               name="intervalDays"
@@ -483,14 +487,14 @@ export function SubscriptionForm({
               value={intervalDays}
               onChange={(e) => setIntervalDays(e.target.value)}
               disabled={billingCycle !== 'CUSTOM'}
-              placeholder="vd: 14, 90"
+              placeholder={t('vd: 14, 90')}
             />
             <FieldError errors={errors.intervalDays} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="price">
-              Giá / chu kỳ (VND) <span className="text-destructive">*</span>
+              {t('Giá / chu kỳ (VND)')} <span className="text-destructive">*</span>
             </Label>
             <MoneyInput id="price" value={price} onChange={setPrice} name="price" />
             <FieldError errors={errors.price} />
@@ -498,7 +502,7 @@ export function SubscriptionForm({
 
           <div className="space-y-2">
             <Label htmlFor="startedAt">
-              Ngày bắt đầu <span className="text-destructive">*</span>
+              {t('Ngày bắt đầu')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="startedAt"
@@ -512,7 +516,7 @@ export function SubscriptionForm({
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="renewalDate">Ngày gia hạn / charge tiếp theo</Label>
+            <Label htmlFor="renewalDate">{t('Ngày gia hạn / charge tiếp theo')}</Label>
             <Input
               id="renewalDate"
               name="renewalDate"
@@ -521,7 +525,7 @@ export function SubscriptionForm({
               onChange={(e) => setRenewalOverride(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Tự tính từ Ngày bắt đầu + Chu kỳ. Sửa nếu billing date của mày khác.
+              {t('Tự tính từ Ngày bắt đầu + Chu kỳ. Sửa nếu billing date của mày khác.')}
             </p>
           </div>
         </div>
@@ -530,30 +534,30 @@ export function SubscriptionForm({
         <div className={cn('space-y-6', step !== 2 && 'hidden')}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="accountEmail">Email tài khoản</Label>
+              <Label htmlFor="accountEmail">{t('Email tài khoản')}</Label>
               <Input
                 id="accountEmail"
                 name="accountEmail"
                 type="email"
                 value={accountEmail}
                 onChange={(e) => setAccountEmail(e.target.value)}
-                placeholder="vd: thanhtrung@..."
+                placeholder={t('vd: thanhtrung@...')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
+              <Label htmlFor="paymentMethod">{t('Phương thức thanh toán')}</Label>
               <Input
                 id="paymentMethod"
                 name="paymentMethod"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                placeholder="vd: Visa **4242, Apple ID, Momo"
+                placeholder={t('vd: Visa **4242, Apple ID, Momo')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="manageUrl">Link quản lý gói</Label>
+              <Label htmlFor="manageUrl">{t('Link quản lý gói')}</Label>
               <Input
                 id="manageUrl"
                 name="manageUrl"
@@ -566,26 +570,26 @@ export function SubscriptionForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cancelUrl">Link huỷ gói</Label>
+              <Label htmlFor="cancelUrl">{t('Link huỷ gói')}</Label>
               <Input
                 id="cancelUrl"
                 name="cancelUrl"
                 type="url"
                 value={cancelUrl}
                 onChange={(e) => setCancelUrl(e.target.value)}
-                placeholder="https://... (1-click cancel nếu có)"
+                placeholder={t('https://... (1-click cancel nếu có)')}
               />
               <FieldError errors={errors.cancelUrl} />
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="notes">Ghi chú</Label>
+              <Label htmlFor="notes">{t('Ghi chú')}</Label>
               <Textarea
                 id="notes"
                 name="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Lưu ý billing, mã coupon, người dùng chung gia đình..."
+                placeholder={t('Lưu ý billing, mã coupon, người dùng chung gia đình...')}
                 rows={3}
               />
             </div>
@@ -593,7 +597,7 @@ export function SubscriptionForm({
 
           {/* Mini recap card to make the confirm step feel intentional. */}
           <div className="rounded-2xl border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
-            <p className="eyebrow">Xác nhận</p>
+            <p className="eyebrow">{t('Xác nhận')}</p>
             <p className="mt-1 text-sm text-ink-2">
               <span className="font-semibold text-ink">{name || '—'}</span>
               {brand && (
@@ -611,13 +615,17 @@ export function SubscriptionForm({
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {price ? `${price} ₫` : '—'} ·{' '}
-              {BILLING_CYCLE_LABELS[billingCycle]}
+              {billingCycleLabel(billingCycle, locale)}
               {billingCycle === 'CUSTOM' && intervalDays
-                ? ` (${intervalDays} ngày)`
+                ? ' ' +
+                  t('({days} ngày)', {
+                    days: intervalDays,
+                    count: Number(intervalDays),
+                  })
                 : ''}{' '}
-              · Bắt đầu {startedAt || '—'}
+              · {t('Bắt đầu {date}', { date: startedAt || '—' })}
               {billingCycle !== 'LIFETIME' && renewalDate
-                ? ` · Gia hạn tới ${renewalDate}`
+                ? ' · ' + t('Gia hạn tới {date}', { date: renewalDate })
                 : ''}
             </p>
           </div>
@@ -633,7 +641,7 @@ export function SubscriptionForm({
                 onClick={goPrev}
               >
                 <ArrowLeft className="mr-1 h-4 w-4" />
-                Quay lại
+                {t('Quay lại')}
               </Button>
             )}
             <Button
@@ -643,7 +651,7 @@ export function SubscriptionForm({
               asChild
             >
               <Link href={isEdit ? `/subscriptions/${initial!.id}` : '/subscriptions'}>
-                Hủy
+                {t('Hủy')}
               </Link>
             </Button>
           </div>
@@ -657,11 +665,11 @@ export function SubscriptionForm({
                 className="rounded-pill"
                 onClick={goNext}
               >
-                Tiếp tục
+                {t('Tiếp tục')}
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
-              <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Thêm gói'} />
+              <SubmitButton label={isEdit ? t('Lưu thay đổi') : t('Thêm gói')} />
             )}
           </div>
         </div>

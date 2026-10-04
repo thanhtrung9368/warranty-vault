@@ -32,6 +32,8 @@
 //     canonical instead of letting sub-second noise propagate on every edit.
 
 import { differenceInCalendarDays } from 'date-fns';
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 
 export type ReturnWindowFields = {
   /** `null` = chưa biết, `0` = không cho đổi trả, `> 0` = số ngày. */
@@ -114,16 +116,25 @@ export function returnWindowFieldsFromFormData(formData: FormData): ReturnWindow
 }
 
 /**
- * Vietnamese note for a derived `returnDeadline`, shown next to the warranty end
- * date on the device page.
+ * Note for a derived `returnDeadline`, shown next to the warranty end date on
+ * the device page.
  *
  * Day-resolution, matching the server's `ReturnWindow.daysLeft` semantics: `0`
  * means today is the last day. Rendered from the value the server computed — the
  * web never derives the deadline itself.
+ *
+ * `locale` is required (and comes before the optional `now`, matching
+ * `formatRelativeDay` in `lib/format.ts`) so a caller that forgets it is a
+ * compile error rather than a Vietnamese fragment inside an English page.
  */
-export function returnDeadlineNote(deadline: string, now: Date = new Date()): string {
+export function returnDeadlineNote(
+  deadline: string,
+  locale: Locale,
+  now: Date = new Date(),
+): string {
   const days = differenceInCalendarDays(new Date(deadline), now);
-  if (days > 0) return `còn ${days} ngày`;
-  if (days === 0) return 'hôm nay là ngày cuối';
-  return `đã qua ${Math.abs(days)} ngày`;
+  if (days > 0) return translate(locale, 'còn {days} ngày', { days, count: days });
+  if (days === 0) return translate(locale, 'hôm nay là ngày cuối');
+  const past = Math.abs(days);
+  return translate(locale, 'đã qua {days} ngày', { days: past, count: past });
 }

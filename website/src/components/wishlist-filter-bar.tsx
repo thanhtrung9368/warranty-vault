@@ -11,16 +11,20 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { useT, useLocale } from '@/lib/i18n/client';
+import { wishlistPriorityLabel, wishlistStatusLabel } from '@/lib/i18n/labels';
 import {
   WISHLIST_PRIORITIES,
-  WISHLIST_PRIORITY_LABELS,
   WISHLIST_STATUSES,
-  WISHLIST_STATUS_LABELS,
 } from '@/lib/wishlist-types';
 import type { CategoryOption } from '@/app/actions/catalog';
 
 type StatusPill = 'ACTIVE' | 'ALL' | (typeof WISHLIST_STATUSES)[number];
 
+// 'ACTIVE' and 'ALL' are not wire statuses, so they carry their own Vietnamese
+// label; the three real ones are looked up in the shared map below. 'Watching'
+// is identical in both languages, so it needs no catalog entry (the key comes
+// back unchanged for either locale).
 const QUICK_STATUSES: { value: StatusPill; label: string }[] = [
   { value: 'ACTIVE', label: 'Đang theo dõi' },
   { value: 'WATCHING', label: 'Watching' },
@@ -32,6 +36,8 @@ const QUICK_STATUSES: { value: StatusPill; label: string }[] = [
 export function WishlistFilterBar({ categories }: { categories: CategoryOption[] }) {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useT();
+  const locale = useLocale();
 
   const update = (key: string, value: string | undefined) => {
     const next = new URLSearchParams(params.toString());
@@ -57,13 +63,13 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tìm tên, hãng, ghi chú..."
+            placeholder={t('Tìm tên, hãng, ghi chú...')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="rounded-pill border-border-strong bg-surface pl-9"
           />
         </div>
-        <div className="pill-group" role="tablist" aria-label="Trạng thái">
+        <div className="pill-group" role="tablist" aria-label={t('Trạng thái')}>
           {QUICK_STATUSES.map((s) => (
             <button
               key={s.value}
@@ -73,7 +79,7 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
               data-active={status === s.value}
               onClick={() => update('status', s.value)}
             >
-              {s.label}
+              {t(s.label)}
             </button>
           ))}
         </div>
@@ -85,13 +91,13 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
           onValueChange={(v) => update('priority', v)}
         >
           <SelectTrigger className="w-[140px] rounded-pill border-border-strong bg-surface-2">
-            <SelectValue placeholder="Mức độ" />
+            <SelectValue placeholder={t('Mức độ')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả mức</SelectItem>
+            <SelectItem value="ALL">{t('Tất cả mức')}</SelectItem>
             {WISHLIST_PRIORITIES.map((p) => (
               <SelectItem key={p} value={p}>
-                {WISHLIST_PRIORITY_LABELS[p]}
+                {wishlistPriorityLabel(p, locale)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -101,10 +107,10 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
           onValueChange={(v) => update('category', v)}
         >
           <SelectTrigger className="w-[140px] rounded-pill border-border-strong bg-surface-2">
-            <SelectValue placeholder="Loại" />
+            <SelectValue placeholder={t('Loại')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả loại</SelectItem>
+            <SelectItem value="ALL">{t('Tất cả loại')}</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.code} value={c.code}>
                 {c.name}
@@ -117,14 +123,14 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
           onValueChange={(v) => update('status', v)}
         >
           <SelectTrigger className="w-[180px] rounded-pill border-border-strong bg-surface-2">
-            <SelectValue placeholder="Trạng thái chi tiết" />
+            <SelectValue placeholder={t('Trạng thái chi tiết')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ACTIVE">Đang theo dõi + quyết mua</SelectItem>
-            <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+            <SelectItem value="ACTIVE">{t('Đang theo dõi + quyết mua')}</SelectItem>
+            <SelectItem value="ALL">{t('Tất cả trạng thái')}</SelectItem>
             {WISHLIST_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {WISHLIST_STATUS_LABELS[s]}
+                {wishlistStatusLabel(s, locale)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -140,15 +146,15 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
           }}
         >
           <SelectTrigger className="w-[200px] rounded-pill border-border-strong bg-surface-2">
-            <SelectValue placeholder="Sắp xếp" />
+            <SelectValue placeholder={t('Sắp xếp')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="priority-asc">Mức độ thèm cao trước</SelectItem>
-            <SelectItem value="target-asc">Target gần nhất trước</SelectItem>
-            <SelectItem value="target-desc">Target xa nhất trước</SelectItem>
-            <SelectItem value="recent-desc">Mới thêm</SelectItem>
-            <SelectItem value="price-desc">Giá cao trước</SelectItem>
-            <SelectItem value="price-asc">Giá thấp trước</SelectItem>
+            <SelectItem value="priority-asc">{t('Mức độ thèm cao trước')}</SelectItem>
+            <SelectItem value="target-asc">{t('Target gần nhất trước')}</SelectItem>
+            <SelectItem value="target-desc">{t('Target xa nhất trước')}</SelectItem>
+            <SelectItem value="recent-desc">{t('Mới thêm')}</SelectItem>
+            <SelectItem value="price-desc">{t('Giá cao trước')}</SelectItem>
+            <SelectItem value="price-asc">{t('Giá thấp trước')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

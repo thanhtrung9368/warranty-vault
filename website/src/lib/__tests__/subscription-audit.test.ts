@@ -71,24 +71,32 @@ describe('findingTone', () => {
 
 describe('findingTag', () => {
   it('labels a small price rise as minor', () => {
-    expect(findingTag({ kind: 'PRICE_INCREASED', material: false })).toBe('Mức tăng nhỏ');
-    expect(findingTag({ kind: 'PRICE_INCREASED', material: true })).toBe('Đáng chú ý');
+    expect(findingTag({ kind: 'PRICE_INCREASED', material: false }, 'vi')).toBe('Mức tăng nhỏ');
+    expect(findingTag({ kind: 'PRICE_INCREASED', material: true }, 'vi')).toBe('Đáng chú ý');
   });
 
   it('names the duplicate signal', () => {
-    expect(findingTag({ kind: 'DUPLICATE', reason: 'SAME_NAME' })).toBe('Trùng tên');
-    expect(findingTag({ kind: 'DUPLICATE', reason: 'SAME_BRAND_CATEGORY' })).toBe(
+    expect(findingTag({ kind: 'DUPLICATE', reason: 'SAME_NAME' }, 'vi')).toBe('Trùng tên');
+    expect(findingTag({ kind: 'DUPLICATE', reason: 'SAME_BRAND_CATEGORY' }, 'vi')).toBe(
       'Cùng hãng, cùng loại',
     );
-    expect(findingTag({ kind: 'DUPLICATE' })).toBe('Có thể trùng nhau');
+    expect(findingTag({ kind: 'DUPLICATE' }, 'vi')).toBe('Có thể trùng nhau');
   });
 
   it('marks the quiet-auto-renew finding as advisory', () => {
-    expect(findingTag({ kind: 'QUIET_AUTO_RENEW' })).toBe('Chỉ tư vấn');
+    expect(findingTag({ kind: 'QUIET_AUTO_RENEW' }, 'vi')).toBe('Chỉ tư vấn');
   });
 
   it('adds no tag for an unknown kind', () => {
-    expect(findingTag({ kind: 'SOMETHING_NEW' })).toBeNull();
+    expect(findingTag({ kind: 'SOMETHING_NEW' }, 'vi')).toBeNull();
+  });
+
+  it('renders the English column when the locale is en', () => {
+    // The locale is passed in, not read from the machine — see docs/I18N_PLAN.md
+    // §4.3. A missing catalog entry would fall back to the Vietnamese key, which
+    // is exactly what these two assertions are here to catch.
+    expect(findingTag({ kind: 'DUPLICATE', reason: 'SAME_NAME' }, 'en')).toBe('Same name');
+    expect(findingTag({ kind: 'PRICE_INCREASED', material: false }, 'en')).toBe('Minor increase');
   });
 });
 
@@ -127,13 +135,16 @@ describe('findingSubjects', () => {
 
 describe('thresholdLines', () => {
   it('states every rule using the numbers the payload carries', () => {
-    const lines = thresholdLines({
-      quietMinAutoCharges: 4,
-      quietMinMonths: 9,
-      upcomingRenewalDays: 21,
-      priceRiseMinPercent: 8,
-      duplicateNormalized: true,
-    });
+    const lines = thresholdLines(
+      {
+        quietMinAutoCharges: 4,
+        quietMinMonths: 9,
+        upcomingRenewalDays: 21,
+        priceRiseMinPercent: 8,
+        duplicateNormalized: true,
+      },
+      'vi',
+    );
     expect(lines).toHaveLength(4);
     const joined = lines.join('\n');
     expect(joined).toContain('4 lần');
@@ -144,18 +155,30 @@ describe('thresholdLines', () => {
   });
 
   it('omits the normalisation detail when the server does not normalise', () => {
-    const joined = thresholdLines({ ...thresholds, duplicateNormalized: false }).join('\n');
+    const joined = thresholdLines({ ...thresholds, duplicateNormalized: false }, 'vi').join('\n');
     expect(joined).not.toContain('bỏ dấu');
     expect(joined).toContain('hai gói đang hoạt động trùng tên');
   });
 
   it('never claims anything about usage', () => {
-    const joined = thresholdLines(thresholds).join('\n').toLowerCase();
+    const joined = thresholdLines(thresholds, 'vi').join('\n').toLowerCase();
     // The honest phrasing is about RECORDING, not using. Guard the copy against
     // a future edit that would turn it into a usage claim.
     expect(joined).not.toContain('không dùng');
     expect(joined).not.toContain('bạn dùng');
     expect(joined).not.toContain('đã dùng');
+  });
+
+  it('uses the English column, with English plurals, for en', () => {
+    // Two counts in one sentence, each inflecting on its own: passing a single
+    // `count` for the whole sentence would render "1 time … 6 month ago".
+    const joined = thresholdLines(
+      { ...thresholds, quietMinAutoCharges: 1, quietMinMonths: 1 },
+      'en',
+    ).join('\n');
+    expect(joined).toContain('1 time');
+    expect(joined).toContain('1 month');
+    expect(joined).not.toContain('tháng');
   });
 });
 

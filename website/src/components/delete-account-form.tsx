@@ -7,8 +7,12 @@ import { Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useT } from '@/lib/i18n/client';
 import { deleteAccount, type AuthFormState } from '@/app/actions/auth';
 
+// Machine-matched token: the Server Action `deleteAccount` compares the typed
+// value against this exact ASCII literal, so it is NOT display copy and is
+// never translated. Only the labels around it are.
 const CONFIRM_PHRASE = 'XOA TAI KHOAN';
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -18,6 +22,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button
       type="submit"
@@ -30,12 +35,13 @@ function SubmitButton() {
       ) : (
         <Trash2 className="mr-2 h-4 w-4" />
       )}
-      Xoá vĩnh viễn tài khoản
+      {t('Xoá vĩnh viễn tài khoản')}
     </Button>
   );
 }
 
 export function DeleteAccountForm() {
+  const t = useT();
   const [state, formAction] = useActionState<AuthFormState, FormData>(deleteAccount, {});
   const [open, setOpen] = React.useState(false);
   const errors = state?.errors ?? {};
@@ -44,8 +50,7 @@ export function DeleteAccountForm() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-ink-2">
-          Xoá tài khoản sẽ xoá toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt push. Không thể hoàn
-          tác.
+          {t('Xoá tài khoản sẽ xoá toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt push. Không thể hoàn tác.')}
         </p>
         <Button
           variant="outline"
@@ -53,7 +58,7 @@ export function DeleteAccountForm() {
           className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive-soft hover:text-destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />
-          Tao muốn xoá tài khoản
+          {t('Tao muốn xoá tài khoản')}
         </Button>
       </div>
     );
@@ -64,13 +69,12 @@ export function DeleteAccountForm() {
       <div className="flex items-start gap-3 rounded-md bg-destructive-soft p-3.5 text-sm text-destructive">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
-          Sau khi bấm xoá, toàn bộ dữ liệu của mày bị xoá vĩnh viễn. Tao khuyên mày xuất backup
-          JSON trước.
+          {t('Sau khi bấm xoá, toàn bộ dữ liệu của mày bị xoá vĩnh viễn. Tao khuyên mày xuất backup JSON trước.')}
         </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="delete-password" className="font-semibold">
-          Mật khẩu hiện tại
+          {t('Mật khẩu hiện tại')}
         </Label>
         <Input
           id="delete-password"
@@ -83,11 +87,11 @@ export function DeleteAccountForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="delete-confirm" className="font-semibold">
-          Gõ{' '}
+          {t('Gõ')}{' '}
           <code className="rounded bg-destructive-soft px-1.5 py-0.5 font-mono text-destructive">
             {CONFIRM_PHRASE}
           </code>{' '}
-          để xác nhận
+          {t('để xác nhận')}
         </Label>
         <Input
           id="delete-confirm"
@@ -112,7 +116,7 @@ export function DeleteAccountForm() {
           onClick={() => setOpen(false)}
           className="rounded-pill"
         >
-          Huỷ
+          {t('Huỷ')}
         </Button>
       </div>
     </form>

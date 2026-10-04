@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
+import { getI18n } from '@/lib/i18n/server';
 import type { Status } from '@/lib/types';
 
 export default async function EditDevicePage({
@@ -14,6 +15,7 @@ export default async function EditDevicePage({
   params: Promise<{ id: string }>;
 }) {
   await requireUser();
+  const { t } = await getI18n();
   const { id } = await params;
   const [res, catalog] = await Promise.all([
     api.devices.get(id),
@@ -21,7 +23,7 @@ export default async function EditDevicePage({
   ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
-    throw new Error(res.message ?? 'Không tải được thiết bị');
+    throw new Error(res.message ?? t('Không tải được thiết bị'));
   }
   const device = res.data;
 
@@ -37,11 +39,11 @@ export default async function EditDevicePage({
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href={`/devices/${device.id}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Quay lại chi tiết
+            {t('Quay lại chi tiết')}
           </Link>
         </Button>
-        <p className="eyebrow">Cập nhật</p>
-        <h1 className="display mt-1 text-3xl text-ink">Sửa thiết bị</h1>
+        <p className="eyebrow">{t('Cập nhật')}</p>
+        <h1 className="display mt-1 text-3xl text-ink">{t('Sửa thiết bị')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{device.name}</p>
       </div>
       <DeviceForm

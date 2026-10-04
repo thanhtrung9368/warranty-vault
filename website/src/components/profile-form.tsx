@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useT } from '@/lib/i18n/client';
 import { updateProfile, type AuthFormState } from '@/app/actions/auth';
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -17,6 +18,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending} className="rounded-pill">
       {pending ? (
@@ -24,7 +26,7 @@ function SubmitButton() {
       ) : (
         <Save className="mr-2 h-4 w-4" />
       )}
-      Lưu hồ sơ
+      {t('Lưu hồ sơ')}
     </Button>
   );
 }
@@ -39,6 +41,7 @@ function SubmitButton() {
 // Go. We intentionally do not pre-validate a character count here — the
 // server's Vietnamese message is surfaced through `state.errors.displayName`.
 export function ProfileForm({ email, initialName }: { email: string; initialName: string | null }) {
+  const t = useT();
   const [state, formAction] = useActionState<AuthFormState, FormData>(updateProfile, {});
   const errors = state?.errors ?? {};
   // The input is controlled so a failed/cleared save keeps what the user typed;
@@ -51,9 +54,9 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
       initialMount.current = false;
       return;
     }
-    if (state?.ok) toast.success(state.message ?? 'Đã cập nhật hồ sơ');
+    if (state?.ok) toast.success(state.message ?? t('Đã cập nhật hồ sơ'));
     else if (state?.message) toast.error(state.message);
-  }, [state]);
+  }, [state, t]);
 
   // Re-seed the input from the server's stored value after a successful save:
   // the server trims, so typing "  Trung  " comes back as "Trung". The prop
@@ -69,24 +72,23 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
   return (
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="displayName">Tên hiển thị</Label>
+        <Label htmlFor="displayName">{t('Tên hiển thị')}</Label>
         <Input
           id="displayName"
           name="displayName"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="vd: Trung Nguyễn"
+          placeholder={t('vd: Trung Nguyễn')}
           autoComplete="name"
         />
         <FieldError errors={errors.displayName} />
         <p className="text-xs text-muted-foreground">
-          Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển. Tối đa 80 byte — tên
-          tiếng Việt có dấu tốn nhiều byte hơn số ký tự. Để trống rồi lưu nếu muốn xoá tên.
+          {t('Tên hiển thị ở thanh trên cùng và lời chào trên bảng điều khiển. Tối đa 80 byte — tên tiếng Việt có dấu tốn nhiều byte hơn số ký tự. Để trống rồi lưu nếu muốn xoá tên.')}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="profileEmail">Email đăng nhập</Label>
+        <Label htmlFor="profileEmail">{t('Email đăng nhập')}</Label>
         <div className="relative">
           <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -98,22 +100,22 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
           />
         </div>
         <p id="profileEmailHint" className="text-xs text-muted-foreground">
-          Email dùng để đăng nhập. Đổi được bằng mục <strong className="font-semibold">Đổi email
-          đăng nhập</strong> ngay bên dưới — cần mật khẩu hiện tại và một bước xác nhận qua email
-          gửi tới địa chỉ mới.
+          {t('Email dùng để đăng nhập. Đổi được bằng mục')}{' '}
+          <strong className="font-semibold">{t('Đổi email đăng nhập')}</strong>{' '}
+          {t('ngay bên dưới — cần mật khẩu hiện tại và một bước xác nhận qua email gửi tới địa chỉ mới.')}
         </p>
       </div>
 
       {state?.ok && (
         <p className="inline-flex items-center gap-2 rounded-md border-[1.5px] border-emerald-soft bg-emerald-soft/60 px-3 py-2 text-sm font-medium text-emerald-ink">
           <CheckCircle2 className="h-4 w-4" />
-          {state.message ?? 'Đã cập nhật hồ sơ'}
+          {state.message ?? t('Đã cập nhật hồ sơ')}
         </p>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          {trimmed ? `Đang dùng: ${trimmed}` : 'Chưa đặt tên hiển thị.'}
+          {trimmed ? t('Đang dùng: {name}', { name: trimmed }) : t('Chưa đặt tên hiển thị.')}
         </p>
         <SubmitButton />
       </div>

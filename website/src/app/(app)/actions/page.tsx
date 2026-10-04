@@ -35,6 +35,9 @@ import {
   type SeverityTone,
 } from '@/lib/action-queue';
 import { formatDate, formatVND } from '@/lib/format';
+import type { Translator } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
+import { getI18n } from '@/lib/i18n/server';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -67,8 +70,20 @@ const TONE_TITLE: Record<SeverityTone, string> = {
 };
 
 // One row of the queue, shared by the actionable sections and "Đang hoãn".
-// Everything that reads as a claim (`title`, `detail`) comes from the payload.
-function ActionRow({ item, first }: { item: ActionItem; first: boolean }) {
+// Everything that reads as a claim (`title`, `detail`) comes from the payload
+// and is already in the page's language; the framing around it (`Xem …`, the due
+// date, the snooze deadline) is translated here.
+function ActionRow({
+  item,
+  first,
+  t,
+  locale,
+}: {
+  item: ActionItem;
+  first: boolean;
+  t: Translator;
+  locale: Locale;
+}) {
   const severity = severityOf(item);
   const tone = SEVERITY_SECTIONS.find((s) => s.severity === severity)?.tone ?? 'zinc';
   const href = actionHref(item);
@@ -109,18 +124,18 @@ function ActionRow({ item, first }: { item: ActionItem; first: boolean }) {
           {item.dueDate && (
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="h-3 w-3" />
-              {formatDate(item.dueDate)} · {dueDateNote(item.dueDate)}
+              {formatDate(item.dueDate, locale)} · {dueDateNote(item.dueDate, locale)}
             </span>
           )}
           {item.amountVnd != null && (
             <span className="font-semibold tabular-nums text-ink-2">
-              {formatVND(item.amountVnd)}
+              {formatVND(item.amountVnd, locale)}
             </span>
           )}
           {isSnoozed && item.snoozedUntil && (
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {snoozeNote(item.snoozedUntil)}
+              {snoozeNote(item.snoozedUntil, locale)}
             </span>
           )}
           {href && entity && (
@@ -128,7 +143,9 @@ function ActionRow({ item, first }: { item: ActionItem; first: boolean }) {
               href={href}
               className="inline-flex items-center gap-0.5 font-semibold text-primary hover:underline"
             >
-              Xem {entity.toLowerCase()}
+              {/* The entity noun is itself a dictionary key, so the sentence
+                  around it is what gets translated — never the noun alone. */}
+              {t('Xem {entity}', { entity: t(entity).toLowerCase() })}
               <ArrowRight className="h-3 w-3" />
             </Link>
           )}
@@ -144,6 +161,7 @@ function ActionRow({ item, first }: { item: ActionItem; first: boolean }) {
 
 export default async function ActionsPage() {
   await requireUser();
+  const { locale, t } = await getI18n();
 
   // One call, with `snoozed=true`: the flag only ever ADDS rows (openapi:
   // "chỉ thêm dòng, không bao giờ bớt dòng"), so the same payload drives both
@@ -154,9 +172,9 @@ export default async function ActionsPage() {
   if (!res.ok) {
     return (
       <div className="space-y-4">
-        <h1 className="display text-3xl text-ink">Việc cần xử lý</h1>
+        <h1 className="display text-3xl text-ink">{t('Việc cần xử lý')}</h1>
         <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          Lỗi tải hàng đợi: {res.message ?? res.error}
+          {t('Lỗi tải hàng đợi: {message}', { message: res.message ?? res.error })}
         </div>
       </div>
     );
@@ -172,39 +190,39 @@ export default async function ActionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="eyebrow">Hàng đợi</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Việc cần xử lý</h1>
+        <p className="eyebrow">{t('Hàng đợi')}</p>
+        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Việc cần xử lý')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          Những việc app tự suy ra từ dữ liệu bạn đã nhập và không tự quyết được. Hoãn một việc
-          sẽ ẩn nó khỏi hàng đợi tới hạn bạn chọn — việc đang hoãn luôn xem lại và bỏ hoãn được ở
-          mục “Đang hoãn” bên dưới.
+          {t(
+            'Những việc app tự suy ra từ dữ liệu bạn đã nhập và không tự quyết được. Hoãn một việc sẽ ẩn nó khỏi hàng đợi tới hạn bạn chọn — việc đang hoãn luôn xem lại và bỏ hoãn được ở mục “Đang hoãn” bên dưới.',
+          )}
         </p>
       </div>
 
       <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="stat-card tint-primary">
-          <p className="stat-eyebrow">Đang cần xử lý</p>
+          <p className="stat-eyebrow">{t('Đang cần xử lý')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-primary-ink">{total}</p>
-          <p className="mt-1 text-xs opacity-80">Không tính việc đang hoãn</p>
+          <p className="mt-1 text-xs opacity-80">{t('Không tính việc đang hoãn')}</p>
         </div>
         <div className="stat-card tint-rose">
-          <p className="stat-eyebrow">Ưu tiên cao</p>
+          <p className="stat-eyebrow">{t('Ưu tiên cao')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-rose-ink">
             {queue.counts.high}
           </p>
-          <p className="mt-1 text-xs opacity-80">Mốc thời gian hoặc tiền sắp mất</p>
+          <p className="mt-1 text-xs opacity-80">{t('Mốc thời gian hoặc tiền sắp mất')}</p>
         </div>
         <div className="stat-card tint-amber">
-          <p className="stat-eyebrow">Ưu tiên vừa</p>
+          <p className="stat-eyebrow">{t('Ưu tiên vừa')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-amber-ink">
             {queue.counts.medium}
           </p>
-          <p className="mt-1 text-xs opacity-80">Nên xem lại</p>
+          <p className="mt-1 text-xs opacity-80">{t('Nên xem lại')}</p>
         </div>
         <div className="stat-card tint-zinc">
-          <p className="stat-eyebrow">Ưu tiên thấp</p>
+          <p className="stat-eyebrow">{t('Ưu tiên thấp')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-ink-2">{queue.counts.low}</p>
-          <p className="mt-1 text-xs opacity-80">Chưa gấp</p>
+          <p className="mt-1 text-xs opacity-80">{t('Chưa gấp')}</p>
         </div>
       </div>
 
@@ -215,7 +233,9 @@ export default async function ActionsPage() {
         <div className="space-y-1">
           <p className="text-sm text-ink-2">{queue.note}</p>
           <p className="text-xs text-muted-foreground">
-            Hàng đợi tính tới {formatDate(queue.generatedAt)}.
+            {t('Hàng đợi tính tới {date}.', {
+              date: formatDate(queue.generatedAt, locale),
+            })}
           </p>
         </div>
       </div>
@@ -224,8 +244,10 @@ export default async function ActionsPage() {
         <EmptyState
           icon={CheckCircle2}
           tone="emerald"
-          title="Không có việc nào đang chờ"
-          description="Từ dữ liệu bạn đã nhập, app chưa suy ra được việc nào cần bạn quyết. Việc mới sẽ xuất hiện ở đây khi dữ liệu đổi."
+          title={t('Không có việc nào đang chờ')}
+          description={t(
+            'Từ dữ liệu bạn đã nhập, app chưa suy ra được việc nào cần bạn quyết. Việc mới sẽ xuất hiện ở đây khi dữ liệu đổi.',
+          )}
           cta={false}
         />
       ) : (
@@ -247,15 +269,23 @@ export default async function ActionsPage() {
                     TONE_TITLE[section.tone],
                   )}
                 >
-                  {section.title}
+                  {/* `title`/`hint` stay Vietnamese in `action-queue.ts` so the
+                      sentence is typed once; they are dictionary keys. */}
+                  {t(section.title)}
                 </span>
-                <span className="text-xs text-muted-foreground">{section.hint}</span>
+                <span className="text-xs text-muted-foreground">{t(section.hint)}</span>
               </div>
               <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
                 <CardContent className="p-4 sm:p-5">
                   <ul>
                     {rows.map((item, i) => (
-                      <ActionRow key={item.itemKey} item={item} first={i === 0} />
+                      <ActionRow
+                        key={item.itemKey}
+                        item={item}
+                        first={i === 0}
+                        t={t}
+                        locale={locale}
+                      />
                     ))}
                   </ul>
                 </CardContent>
@@ -275,7 +305,7 @@ export default async function ActionsPage() {
             {queue.snoozedCount}
           </span>
           <span className="font-display text-[15px] font-bold tracking-tight text-ink-2">
-            Đang hoãn
+            {t('Đang hoãn')}
           </span>
         </div>
         <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
@@ -283,13 +313,21 @@ export default async function ActionsPage() {
             {snoozed.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">
                 {queue.snoozedCount > 0
-                  ? 'Không tải được danh sách việc đang hoãn — thử tải lại trang nhé.'
-                  : 'Chưa hoãn việc nào. Việc nào bạn bấm “Hoãn” sẽ nằm ở đây để bỏ hoãn.'}
+                  ? t('Không tải được danh sách việc đang hoãn — thử tải lại trang nhé.')
+                  : t(
+                      'Chưa hoãn việc nào. Việc nào bạn bấm “Hoãn” sẽ nằm ở đây để bỏ hoãn.',
+                    )}
               </p>
             ) : (
               <ul>
                 {snoozed.map((item, i) => (
-                  <ActionRow key={item.itemKey} item={item} first={i === 0} />
+                  <ActionRow
+                    key={item.itemKey}
+                    item={item}
+                    first={i === 0}
+                    t={t}
+                    locale={locale}
+                  />
                 ))}
               </ul>
             )}

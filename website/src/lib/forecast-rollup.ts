@@ -10,6 +10,15 @@
 //     from the scheduled charges so they can never be read as committed spend.
 //
 // Same pattern as `stats-rollup.ts`: no DB, no fetch, unit-tested.
+//
+// ── Language ──────────────────────────────────────────────────────────────
+//
+// Two kinds of user-facing text are built here: the bucket labels
+// ('Tháng 3/2026' / 'March 2026'), the count sentences ('3 kỳ gia hạn'), and
+// the enum labels the two list cards print. All three take a `locale: Locale`
+// and go through the catalog; it is required so a missed call site is a
+// compile error rather than Vietnamese inside an English page
+// (docs/I18N_PLAN.md §4.3).
 
 import type {
   Forecast,
@@ -17,13 +26,13 @@ import type {
   ForecastWarranty,
   ForecastWishlistItem,
 } from '@/lib/api/stats';
+import { translate } from '@/lib/i18n/catalog';
 import {
-  WISHLIST_PRIORITY_LABELS,
-  WISHLIST_STATUS_LABELS,
-  type WishlistPriority,
-  type WishlistStatus,
-} from '@/lib/wishlist-types';
-import { WARRANTY_TYPE_LABELS, type WarrantyType } from '@/lib/types';
+  warrantyTypeLabel as warrantyTypeLabelFor,
+  wishlistPriorityLabel as wishlistPriorityLabelFor,
+  wishlistStatusLabel as wishlistStatusLabelFor,
+} from '@/lib/i18n/labels';
+import type { Locale } from '@/lib/i18n/locale';
 
 export const FORECAST_MONTHS_MIN = 1;
 export const FORECAST_MONTHS_MAX = 24;
@@ -31,6 +40,23 @@ export const FORECAST_MONTHS_DEFAULT = 12;
 
 /** Windows offered by the picker on /stats. `FORECAST_MONTHS_DEFAULT` is one of them. */
 export const FORECAST_MONTH_CHOICES = [3, 6, 12, 24] as const;
+
+/** English month names — `Intl` would do this, but this module stays dependency-free. */
+const EN_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 
 /**
  * Map the `?fm=` search param onto a legal `months` value.
@@ -53,19 +79,24 @@ export function normalizeForecastMonths(raw: string | number | null | undefined)
 // ---- labels ----------------------------------------------------------------
 
 /**
- * 'YYYY-MM' → 'Tháng 3/2026'. Rendered straight from the bucket key, so a bucket
- * is never shifted by a local-timezone round-trip (the API's buckets are UTC).
+ * 'YYYY-MM' → 'Tháng 3/2026' (vi) / 'March 2026' (en). Rendered straight from
+ * the bucket key, so a bucket is never shifted by a local-timezone round-trip
+ * (the API's buckets are UTC).
  */
-export function bucketMonthLabel(month: string): string {
+export function bucketMonthLabel(month: string, locale: Locale): string {
   const m = /^(\d{4})-(\d{2})$/.exec((month ?? '').trim());
   if (!m) return month ?? '';
-  return `Tháng ${Number(m[2])}/${m[1]}`;
+  const monthNumber = Number(m[2]);
+  if (locale === 'en') return `${EN_MONTHS[monthNumber - 1] ?? m[2]} ${m[1]}`;
+  return translate(locale, 'Tháng {month}/{year}', { month: monthNumber, year: m[1] });
 }
 
-/** Compact axis label: 'T3/26'. */
-export function bucketMonthShortLabel(month: string): string {
+
+/** Compact axis label: 'T3/26' (vi) / 'Mar 26' (en). */
+export function bucketMonthShortLabel(month: string, locale: Locale): string {
   const m = /^(\d{4})-(\d{2})$/.exec((month ?? '').trim());
   if (!m) return month ?? '';
+  if (locale === 'en') return `${EN_MONTHS[Number(m[2]) - 1]?.slice(0, 3) ?? m[2]} ${m[1].slice(2)}`;
   return `T${Number(m[2])}/${m[1].slice(2)}`;
 }
 
@@ -76,16 +107,22 @@ export function monthKeyOf(timestamp: string): string {
   return d.toISOString().slice(0, 7);
 }
 
-export function warrantyTypeLabel(type: string): string {
-  return WARRANTY_TYPE_LABELS[type as WarrantyType] ?? type;
+// Enum labels. Thin wrappers over `lib/i18n/labels.ts` so this module's callers
+// keep one import for everything the forecast section renders — the label maps
+// themselves stay Vietnamese, which is what makes them dictionary keys.
+export function warrantyTypeLabel(type: string, locale: Locale): string {
+  return warrantyTypeLabelFor(type as Parameters<typeof warrantyTypeLabelFor>[0], locale);
 }
 
-export function wishlistPriorityLabel(priority: string): string {
-  return WISHLIST_PRIORITY_LABELS[priority as WishlistPriority] ?? priority;
+export function wishlistPriorityLabel(priority: string, locale: Locale): string {
+  return wishlistPriorityLabelFor(
+    priority as Parameters<typeof wishlistPriorityLabelFor>[0],
+    locale,
+  );
 }
 
-export function wishlistStatusLabel(status: string): string {
-  return WISHLIST_STATUS_LABELS[status as WishlistStatus] ?? status;
+export function wishlistStatusLabel(status: string, locale: Locale): string {
+  return wishlistStatusLabelFor(status as Parameters<typeof wishlistStatusLabelFor>[0], locale);
 }
 
 // ---- buckets ---------------------------------------------------------------
@@ -159,6 +196,7 @@ export function buildForecastRows(
         Partial<Pick<Forecast, 'windowEnd'>>)
     | null
     | undefined,
+  locale: Locale,
 ): ForecastBucketRow[] {
   const buckets: ForecastBucket[] = forecast?.buckets ?? [];
   const currentMonth = monthKeyOf(forecast?.windowStart ?? forecast?.generatedAt ?? '');
@@ -180,8 +218,8 @@ export function buildForecastRows(
     const isClosingMonth = endMonth !== '' && b.month === endMonth && b.month === lastMonth;
     return {
       month: b.month,
-      label: bucketMonthLabel(b.month),
-      shortLabel: bucketMonthShortLabel(b.month),
+      label: bucketMonthLabel(b.month, locale),
+      shortLabel: bucketMonthShortLabel(b.month, locale),
       isCurrentMonth,
       isClosingMonth,
       isPartial: isCurrentMonth || isClosingMonth,
@@ -287,9 +325,10 @@ export function possibleSpendTotals(rows: ForecastBucketRow[]): PossibleSpendTot
 /** 'Tháng 3/2026 – Tháng 3/2027' from the API's own window bounds. */
 export function forecastWindowLabel(
   forecast: Pick<Forecast, 'windowStart' | 'windowEnd'> | null | undefined,
+  locale: Locale,
 ): string {
-  const from = bucketMonthLabel(monthKeyOf(forecast?.windowStart ?? ''));
-  const to = bucketMonthLabel(monthKeyOf(forecast?.windowEnd ?? ''));
+  const from = bucketMonthLabel(monthKeyOf(forecast?.windowStart ?? ''), locale);
+  const to = bucketMonthLabel(monthKeyOf(forecast?.windowEnd ?? ''), locale);
   if (!from && !to) return '';
   if (from === to) return from;
   return `${from} – ${to}`;
@@ -300,35 +339,56 @@ export function forecastWindowLabel(
  * warranty/wishlist milestone. `/stats` uses it so a user whose only data is a
  * dated wishlist item still gets the forecast instead of the "chưa có gì để
  * thống kê" empty state.
+ *
+ * The emptiness test is language-independent, but it goes through
+ * `buildForecastRows`, so it takes the locale of the page that asked rather
+ * than hard-coding one.
  */
 export function isForecastEmpty(
   forecast:
     | Pick<Forecast, 'buckets' | 'upcomingWarranties' | 'upcomingWishlist'>
     | null
     | undefined,
+  locale: Locale,
 ): boolean {
   if (!forecast) return true;
   if ((forecast.upcomingWarranties?.length ?? 0) > 0) return false;
   if ((forecast.upcomingWishlist?.length ?? 0) > 0) return false;
-  return buildForecastRowsAll(forecast.buckets).every((r) => r.isEmpty);
+  return buildForecastRowsAll(forecast.buckets, locale).every((r) => r.isEmpty);
 }
 
 // `buildForecastRows` needs window metadata only for `isCurrentMonth`; this thin
 // wrapper lets the emptiness check run off buckets alone.
-function buildForecastRowsAll(buckets: ForecastBucket[] | undefined): ForecastBucketRow[] {
-  return buildForecastRows({ buckets: buckets ?? [], windowStart: '', generatedAt: '' });
+function buildForecastRowsAll(
+  buckets: ForecastBucket[] | undefined,
+  locale: Locale,
+): ForecastBucketRow[] {
+  return buildForecastRows({ buckets: buckets ?? [], windowStart: '', generatedAt: '' }, locale);
 }
 
 /** '3 kỳ gia hạn' / '1 kỳ gia hạn' / 'Không có kỳ nào'. */
-export function chargeCountLabel(n: number): string {
-  if (n <= 0) return 'Không có kỳ nào';
-  return `${n} kỳ gia hạn`;
+export function chargeCountLabel(n: number, locale: Locale): string {
+  if (n <= 0) return translate(locale, 'Không có kỳ nào');
+  return translate(locale, '{count} kỳ gia hạn', { count: n });
 }
 
+/** The three count units the forecast section uses. */
+export type CountUnit = 'gói' | 'món' | 'kỳ';
+
+// Vietnamese has no plural form, so one key covers every count; English needs a
+// singular, which is why these are three explicit entries rather than a
+// `${n} ${unit}` template — "2 món" must not become "2 items" by luck.
+const COUNT_KEYS: Record<CountUnit, { many: string; one: string }> = {
+  'gói': { many: '{count} gói', one: '{count} gói' },
+  'món': { many: '{count} món', one: '{count} món' },
+  'kỳ': { many: '{count} kỳ', one: '{count} kỳ' },
+};
+
 /** '2 gói' / '1 gói' / '' — for the small "how many" suffixes. */
-export function packageCountLabel(n: number, unit = 'gói'): string {
+export function packageCountLabel(n: number, locale: Locale, unit: CountUnit = 'gói'): string {
   if (n <= 0) return '';
-  return `${n} ${unit}`;
+  const key = n === 1 ? COUNT_KEYS[unit].one : COUNT_KEYS[unit].many;
+  return translate(locale, key, { count: n });
 }
 
 export type { ForecastWarranty, ForecastWishlistItem };

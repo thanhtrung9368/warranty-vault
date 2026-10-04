@@ -8,8 +8,13 @@ import { Button } from '@/components/ui/button';
 import { removePushSubscription } from '@/app/actions/push';
 import type { PushSubscriptionMeta } from '@/lib/api/push';
 import { formatDate } from '@/lib/format';
+import { labelOf } from '@/lib/i18n/labels';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 
+// Source text + catalog keys: the values stay Vietnamese and are resolved
+// through `labelOf(…, locale)`. `iPhone / iPad (APNs)` and `Android (FCM)` have
+// no entry — they are the same sentence in both languages.
 const PLATFORM_LABELS: Record<PushSubscriptionMeta['platform'], string> = {
   web: 'Trình duyệt (Web Push)',
   apns: 'iPhone / iPad (APNs)',
@@ -28,6 +33,8 @@ export function PushDevices({
   subscriptions: PushSubscriptionMeta[];
   unavailable?: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
@@ -37,13 +44,13 @@ export function PushDevices({
       try {
         const res = await removePushSubscription(id);
         if (res.ok) {
-          toast.success('Đã gỡ thiết bị khỏi danh sách nhận thông báo');
+          toast.success(t('Đã gỡ thiết bị khỏi danh sách nhận thông báo'));
           router.refresh();
         } else {
-          toast.error(res.message ?? 'Không gỡ được thiết bị');
+          toast.error(res.message ?? t('Không gỡ được thiết bị'));
         }
       } catch {
-        toast.error('Không gỡ được thiết bị, thử lại sau');
+        toast.error(t('Không gỡ được thiết bị, thử lại sau'));
       } finally {
         setPendingId(null);
       }
@@ -53,7 +60,7 @@ export function PushDevices({
   return (
     <div className="mt-5 border-t border-border pt-5">
       <h3 className="font-display text-[15px] font-bold text-ink">
-        Thiết bị nhận thông báo
+        {t('Thiết bị nhận thông báo')}
         {!unavailable && subscriptions.length > 0 && (
           <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
             {subscriptions.length}
@@ -63,21 +70,22 @@ export function PushDevices({
 
       {unavailable ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Không tải được danh sách thiết bị — thử tải lại trang nhé.
+          {t('Không tải được danh sách thiết bị — thử tải lại trang nhé.')}
         </p>
       ) : subscriptions.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Chưa có thiết bị nào đăng ký nhận thông báo. Bật thông báo ở trên để thêm thiết bị này.
+          {t('Chưa có thiết bị nào đăng ký nhận thông báo. Bật thông báo ở trên để thêm thiết bị này.')}
         </p>
       ) : (
         <>
           <p className="mt-2 text-sm text-muted-foreground">
-            Mọi thiết bị dưới đây đều nhận thông báo nhắc bảo hành. Gỡ bớt nếu mày không dùng nữa.
+            {t('Mọi thiết bị dưới đây đều nhận thông báo nhắc bảo hành. Gỡ bớt nếu mày không dùng nữa.')}
           </p>
           <ul className="mt-3">
             {subscriptions.map((s, i) => {
               const Icon = s.platform === 'web' ? MonitorSmartphone : Smartphone;
               const pending = pendingId === s.id;
+              const platform = labelOf(PLATFORM_LABELS, s.platform, locale);
               return (
                 <li
                   key={s.id}
@@ -91,11 +99,11 @@ export function PushDevices({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-sm font-bold text-ink">
-                      {PLATFORM_LABELS[s.platform] ?? s.platform}
+                      {platform}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {s.userAgent ? s.userAgent : 'Không có thông tin thiết bị'} • Thêm{' '}
-                      {formatDate(s.createdAt)}
+                      {s.userAgent ? s.userAgent : t('Không có thông tin thiết bị')} •{' '}
+                      {t('Thêm {date}', { date: formatDate(s.createdAt, locale) })}
                     </p>
                   </div>
                   <Button
@@ -103,7 +111,7 @@ export function PushDevices({
                     variant="outline"
                     className="rounded-pill border-border-strong bg-surface-2 text-ink-2 hover:bg-surface-3"
                     disabled={pendingId !== null}
-                    aria-label={`Gỡ ${PLATFORM_LABELS[s.platform] ?? s.platform} khỏi danh sách nhận thông báo`}
+                    aria-label={t('Gỡ {device} khỏi danh sách nhận thông báo', { device: platform })}
                     onClick={() => remove(s.id)}
                   >
                     {pending ? (
@@ -111,7 +119,7 @@ export function PushDevices({
                     ) : (
                       <BellOff className="mr-1 h-3.5 w-3.5" />
                     )}
-                    Gỡ
+                    {t('Gỡ')}
                   </Button>
                 </li>
               );

@@ -3,9 +3,13 @@
 // The pure helpers are covered in `@/lib/__tests__/service-directory.test.ts`;
 // what this file adds is the part a helper test cannot see: that the card
 // actually renders `phoneSource` and the null-brand case the way the copy says.
-// `ServiceDirectoryCard` is a server component (no hooks, no browser APIs), so
-// `renderToStaticMarkup` is enough — no DOM environment, no click-through, and
-// no backend.
+// `ServiceDirectoryCard` touches no browser APIs (its only hooks are the i18n
+// ones), so `renderToStaticMarkup` is enough — no DOM environment, no
+// click-through, and no backend.
+//
+// Language is pinned with `I18nProvider locale="vi"` (docs/I18N_PLAN.md §4.3):
+// the assertions below quote the Vietnamese source sentences, and a bare render
+// would fall back to the English default and fail for the wrong reason.
 //
 // Kept as `.ts` (React.createElement, no JSX) because vitest only collects
 // `*.test.ts` here.
@@ -14,6 +18,8 @@ import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ServiceDirectoryCard } from '@/components/service-directory-card';
+import { I18nProvider } from '@/lib/i18n/client';
+import type { Locale } from '@/lib/i18n/locale';
 import {
   DIRECTORY_NO_BRAND_INPUT_TITLE,
   DIRECTORY_NO_CENTRES,
@@ -40,6 +46,26 @@ const RAW_CENTRE = {
   phoneSource: 'user',
 };
 
+/** The Vietnamese source sentences are what the assertions below quote. */
+const VI: Locale = 'vi';
+
+/**
+ * Render inside the provider so the copy under test is the Vietnamese source.
+ *
+ * The props are annotated because React 19's `createElement` overload for a
+ * function component types `children` as required — the cast is what lets the
+ * child travel as the third argument (where it belongs) instead of as a prop.
+ */
+function renderVi(element: React.ReactElement): string {
+  return renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      { locale: VI } as React.Attributes & { locale: Locale; children: React.ReactNode },
+      element,
+    ),
+  );
+}
+
 function render(raw: Record<string, unknown>): string {
   const directory = normalizeServiceDirectory({
     deviceId: 'd1',
@@ -49,7 +75,7 @@ function render(raw: Record<string, unknown>): string {
     ...raw,
   });
   if (!directory) throw new Error('fixture did not normalise');
-  return renderToStaticMarkup(
+  return renderVi(
     React.createElement(ServiceDirectoryCard, { directory, unavailable: false }),
   );
 }
@@ -161,7 +187,7 @@ describe('ServiceDirectoryCard — centres and disclaimer', () => {
   });
 
   it('says "không tải được" instead of pretending an empty directory', () => {
-    const html = renderToStaticMarkup(
+    const html = renderVi(
       React.createElement(ServiceDirectoryCard, { directory: null, unavailable: true }),
     );
     expect(html).toContain('Không tải được danh bạ bảo hành');

@@ -16,6 +16,7 @@
 
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
 import {
   csvFileName,
   csvTableToString,
@@ -44,13 +45,14 @@ export type CsvExportResult =
     }
   | { ok: false; message: string };
 
-const EMPTY_MESSAGE = 'Không có dữ liệu để xuất';
-
 export async function exportCsv(
   dataset: CsvDataset,
   delimiter: CsvDelimiter = CSV_DEFAULT_DELIMITER,
 ): Promise<CsvExportResult> {
   await requireUser();
+  // The language the file is written in follows the UI, so the headers and
+  // labels in the downloaded spreadsheet read like the screen they came from.
+  const { locale, t } = await getI18n();
 
   // Both arguments arrive from the client, so they are narrowed here rather
   // than trusted. An unknown dataset id falls back to `devices`.
@@ -63,31 +65,31 @@ export async function exportCsv(
       // Same order as the /devices list (newest purchase first).
       const res = await api.devices.list({ sort: 'purchaseDate', dir: 'desc' });
       if (!res.ok) {
-        return { ok: false, message: res.message ?? 'Không xuất được dữ liệu' };
+        return { ok: false, message: res.message ?? t('Không xuất được dữ liệu') };
       }
-      table = devicesCsvTable(res.data);
+      table = devicesCsvTable(res.data, locale);
       break;
     }
     case 'subscriptions': {
       const res = await api.subscriptions.list();
       if (!res.ok) {
-        return { ok: false, message: res.message ?? 'Không xuất được dữ liệu' };
+        return { ok: false, message: res.message ?? t('Không xuất được dữ liệu') };
       }
-      table = subscriptionsCsvTable(res.data.subscriptions ?? []);
+      table = subscriptionsCsvTable(res.data.subscriptions ?? [], locale);
       break;
     }
     case 'wishlist': {
       const res = await api.wishlist.list();
       if (!res.ok) {
-        return { ok: false, message: res.message ?? 'Không xuất được dữ liệu' };
+        return { ok: false, message: res.message ?? t('Không xuất được dữ liệu') };
       }
-      table = wishlistCsvTable(res.data.items ?? []);
+      table = wishlistCsvTable(res.data.items ?? [], locale);
       break;
     }
   }
 
   if (table.rows.length === 0) {
-    return { ok: false, message: EMPTY_MESSAGE };
+    return { ok: false, message: t('Không có dữ liệu để xuất') };
   }
 
   return {

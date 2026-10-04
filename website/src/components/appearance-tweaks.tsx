@@ -16,6 +16,7 @@ import {
   Type,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useT } from '@/lib/i18n/client';
 
 type Radius = 'sharp' | 'soft' | 'chunky';
 type Density = 'loose' | 'cozy' | 'dense';
@@ -100,6 +101,10 @@ function isLightHex(hex: string): boolean {
   return r * 299 + g * 587 + b * 114 > 148000;
 }
 
+// Option labels are Vietnamese source text and double as catalog keys: they are
+// resolved with `t(label)` where they render (see `AppearanceTweaks`). Proper
+// nouns (`Plus Jakarta`, `Inter`, `Fraunces (serif)`) read the same in both
+// languages and simply fall through.
 const THEME_OPTIONS = [
   { value: 'light', label: 'Sáng', Icon: Sun },
   { value: 'dark', label: 'Tối', Icon: Moon },
@@ -143,6 +148,7 @@ const SIDEBAR_OPTIONS: Array<{
 ];
 
 export function AppearanceTweaks() {
+  const t = useT();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   const [prefs, setPrefs] = React.useState<Prefs>(DEFAULTS);
@@ -167,10 +173,10 @@ export function AppearanceTweaks() {
   return (
     <div className="space-y-6">
       <Row
-        label="Chế độ"
-        description="Tông màu sáng, tối, hay theo cài đặt hệ thống."
+        label={t('Chế độ')}
+        description={t('Tông màu sáng, tối, hay theo cài đặt hệ thống.')}
       >
-        <div className="pill-group" role="group" aria-label="Chế độ">
+        <div className="pill-group" role="group" aria-label={t('Chế độ')}>
           {THEME_OPTIONS.map(({ value, label, Icon }) => (
             <button
               key={value}
@@ -180,7 +186,7 @@ export function AppearanceTweaks() {
               aria-pressed={currentTheme === value}
             >
               <Icon className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -189,12 +195,13 @@ export function AppearanceTweaks() {
       <Divider />
 
       <Row
-        label="Màu nhấn"
-        description="Màu chủ đạo cho nút, liên kết, biểu đồ và các điểm nhấn."
+        label={t('Màu nhấn')}
+        description={t('Màu chủ đạo cho nút, liên kết, biểu đồ và các điểm nhấn.')}
       >
-        <div className="swatch-group" role="group" aria-label="Màu nhấn">
+        <div className="swatch-group" role="group" aria-label={t('Màu nhấn')}>
           {ACCENT_OPTIONS.map(({ value, label, hex }) => {
             const active = mounted && prefs.accent === value;
+            const translated = t(label);
             return (
               <button
                 key={value}
@@ -203,8 +210,8 @@ export function AppearanceTweaks() {
                 style={{ background: hex }}
                 data-active={active}
                 aria-pressed={active}
-                aria-label={label}
-                title={label}
+                aria-label={translated}
+                title={translated}
                 onClick={() => update({ accent: value })}
               >
                 {active && (
@@ -221,10 +228,10 @@ export function AppearanceTweaks() {
       <Divider />
 
       <Row
-        label="Thanh bên"
-        description="Hiện đầy đủ nhãn, hoặc chỉ biểu tượng cho gọn."
+        label={t('Thanh bên')}
+        description={t('Hiện đầy đủ nhãn, hoặc chỉ biểu tượng cho gọn.')}
       >
-        <div className="pill-group" role="group" aria-label="Thanh bên">
+        <div className="pill-group" role="group" aria-label={t('Thanh bên')}>
           {SIDEBAR_OPTIONS.map(({ value, label, Icon }) => (
             <button
               key={value}
@@ -234,7 +241,7 @@ export function AppearanceTweaks() {
               aria-pressed={prefs.sidebar === value}
             >
               <Icon className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -243,10 +250,10 @@ export function AppearanceTweaks() {
       <Divider />
 
       <Row
-        label="Bo góc"
-        description="Độ bo của thẻ, nút và ô nhập."
+        label={t('Bo góc')}
+        description={t('Độ bo của thẻ, nút và ô nhập.')}
       >
-        <div className="pill-group" role="group" aria-label="Bo góc">
+        <div className="pill-group" role="group" aria-label={t('Bo góc')}>
           {RADIUS_OPTIONS.map(({ value, label, Icon }) => (
             <button
               key={value}
@@ -256,7 +263,7 @@ export function AppearanceTweaks() {
               aria-pressed={prefs.radius === value}
             >
               <Icon className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -265,10 +272,10 @@ export function AppearanceTweaks() {
       <Divider />
 
       <Row
-        label="Mật độ"
-        description="Khoảng cách giữa các thành phần — thoáng dễ thở, đặc xem nhiều hơn."
+        label={t('Mật độ')}
+        description={t('Khoảng cách giữa các thành phần — thoáng dễ thở, đặc xem nhiều hơn.')}
       >
-        <div className="pill-group" role="group" aria-label="Mật độ">
+        <div className="pill-group" role="group" aria-label={t('Mật độ')}>
           {DENSITY_OPTIONS.map(({ value, label, Icon }) => (
             <button
               key={value}
@@ -278,7 +285,7 @@ export function AppearanceTweaks() {
               aria-pressed={prefs.density === value}
             >
               <Icon className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -287,10 +294,10 @@ export function AppearanceTweaks() {
       <Divider />
 
       <Row
-        label="Font hiển thị"
-        description="Kiểu chữ cho tiêu đề và số liệu nổi bật."
+        label={t('Font hiển thị')}
+        description={t('Kiểu chữ cho tiêu đề và số liệu nổi bật.')}
       >
-        <div className="pill-group flex-wrap" role="group" aria-label="Font hiển thị">
+        <div className="pill-group flex-wrap" role="group" aria-label={t('Font hiển thị')}>
           {FONT_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
@@ -300,7 +307,7 @@ export function AppearanceTweaks() {
               aria-pressed={prefs.font === value}
             >
               <Type className="mr-1.5 inline h-3.5 w-3.5 -translate-y-px" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>

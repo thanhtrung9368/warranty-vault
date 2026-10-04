@@ -4,6 +4,13 @@
 // calls live here; every rule (what the default snooze is, the 1–365 window,
 // whether the item is really the caller's own) lives in Go.
 //
+// Every message this file returns is a dictionary KEY, never a pre-translated
+// sentence: the caller (`components/action-item-snooze.tsx`) renders it through
+// the same translator as the rest of that screen, so an English page cannot end
+// up with a Vietnamese toast because this action resolved a different language.
+// Go's own `message` arrives already localised (`apiFetch` sends `?lang=`) and
+// is passed through untouched.
+//
 // No `revalidatePath`: /actions and the `(app)` layout (which draws the sidebar
 // badge) read the queue with `cache: 'no-store'`, so the caller's
 // `router.refresh()` already re-renders both with fresh data — same reasoning as
@@ -47,7 +54,7 @@ export async function snoozeActionItem(
   }
   return {
     ok: true,
-    message: `Đã hoãn ${res.data.days} ngày`,
+    message: 'Đã hoãn {days} ngày',
     snoozedUntil: res.data.snoozedUntil,
     days: res.data.days,
   };

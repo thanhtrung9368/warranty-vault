@@ -15,8 +15,18 @@
 //
 // Nothing here touches the network or cookies: importable from RSC, client
 // components and unit tests alike.
+//
+// ── Bilingual ─────────────────────────────────────────────────────────────
+//
+// Pure module: no React, so no `useT()`. Every helper that SELECTS a sentence
+// takes a `locale: Locale` and renders it with `translate()` (I18N.md); the
+// exported `DIRECTORY_*` constants keep their Vietnamese values because they are
+// the ORIGINAL text and the dictionary keys, and the card wraps them in `t()`.
 
 import { WARRANTY_TYPE_LABELS, type WarrantyType } from '@/lib/types';
+import { translate } from '@/lib/i18n/catalog';
+import { labelOf } from '@/lib/i18n/labels';
+import type { Locale } from '@/lib/i18n/locale';
 
 // ---- Wire shapes (structural; `@/lib/api/directory` re-exports these) --------
 
@@ -282,6 +292,7 @@ export type BrandEntryState =
  */
 export function brandEntryState(
   directory: Pick<ServiceDirectory, 'brand' | 'brandInput'>,
+  locale: Locale,
 ): BrandEntryState {
   const input = str(directory.brandInput);
   const brand = directory.brand;
@@ -291,8 +302,11 @@ export function brandEntryState(
       kind: 'entry',
       title: brand.name,
       detail: hasVerifiedLink
-        ? 'Link dưới đây do chính hãng duy trì — app chỉ dẫn lại, không chép hotline.'
-        : DIRECTORY_NO_VERIFIED_LINK,
+        ? translate(
+            locale,
+            'Link dưới đây do chính hãng duy trì — app chỉ dẫn lại, không chép hotline.',
+          )
+        : translate(locale, DIRECTORY_NO_VERIFIED_LINK),
       brand,
       serviceLocatorUrl: brand.serviceLocatorUrl,
       supportUrl: brand.supportUrl,
@@ -303,14 +317,14 @@ export function brandEntryState(
   if (!input) {
     return {
       kind: 'no-input',
-      title: DIRECTORY_NO_BRAND_INPUT_TITLE,
-      detail: DIRECTORY_NO_BRAND_INPUT_DETAIL,
+      title: translate(locale, DIRECTORY_NO_BRAND_INPUT_TITLE),
+      detail: translate(locale, DIRECTORY_NO_BRAND_INPUT_DETAIL),
     };
   }
   return {
     kind: 'no-entry',
-    title: DIRECTORY_NO_ENTRY_TITLE,
-    detail: DIRECTORY_NO_ENTRY_DETAIL,
+    title: translate(locale, DIRECTORY_NO_ENTRY_TITLE),
+    detail: translate(locale, DIRECTORY_NO_ENTRY_DETAIL),
     brandInput: input,
   };
 }
@@ -330,14 +344,15 @@ export type PhoneDisclosure =
  */
 export function phoneDisclosure(
   centre: Pick<WarrantyCentre, 'phone' | 'phoneSource'>,
+  locale: Locale,
 ): PhoneDisclosure {
   const phone = str(centre.phone);
   if (phone === null) {
     return {
       kind: 'none',
       phone: null,
-      label: DIRECTORY_PHONE_NONE_LABEL,
-      hint: DIRECTORY_PHONE_NONE_HINT,
+      label: translate(locale, DIRECTORY_PHONE_NONE_LABEL),
+      hint: translate(locale, DIRECTORY_PHONE_NONE_HINT),
       tone: 'zinc',
     };
   }
@@ -345,24 +360,31 @@ export function phoneDisclosure(
     return {
       kind: 'user',
       phone,
-      label: DIRECTORY_PHONE_USER_LABEL,
-      hint: DIRECTORY_PHONE_USER_HINT,
+      label: translate(locale, DIRECTORY_PHONE_USER_LABEL),
+      hint: translate(locale, DIRECTORY_PHONE_USER_HINT),
       tone: 'zinc',
     };
   }
   return {
     kind: 'unverified',
     phone,
-    label: DIRECTORY_PHONE_UNVERIFIED_LABEL,
-    hint: DIRECTORY_PHONE_UNVERIFIED_HINT,
+    label: translate(locale, DIRECTORY_PHONE_UNVERIFIED_LABEL),
+    hint: translate(locale, DIRECTORY_PHONE_UNVERIFIED_HINT),
     tone: 'amber',
   };
 }
 
 // ---- Centre state ------------------------------------------------------------
 
-export function warrantyTypeLabel(type: string): string {
-  return WARRANTY_TYPE_LABELS[type as WarrantyType] ?? (type || 'Không rõ loại');
+/**
+ * A warranty type in words. An unknown code falls back to the code itself (the
+ * server may add a type before this client knows it); a missing code gets the
+ * explicit "Không rõ loại" rather than an empty cell.
+ */
+export function warrantyTypeLabel(type: string, locale: Locale): string {
+  const known = WARRANTY_TYPE_LABELS[type as WarrantyType];
+  if (known) return labelOf(WARRANTY_TYPE_LABELS, type, locale);
+  return type === '' ? translate(locale, 'Không rõ loại') : type;
 }
 
 export type CentreStatus = { kind: 'active' | 'expired' | 'undated'; label: string };
@@ -371,9 +393,13 @@ export type CentreStatus = { kind: 'active' | 'expired' | 'undated'; label: stri
  * Whether this package's coverage is still running. The server already computes
  * `isActive`; when it is absent (older payload) we fall back to the end date,
  * and "no end date" is its own answer rather than a default of "expired".
+ *
+ * `locale` sits second — before the injectable `now` — so the card's call is
+ * `centreStatus(centre, locale)`; a test that pins the clock passes it third.
  */
 export function centreStatus(
   centre: Pick<WarrantyCentre, 'isActive' | 'endDate'>,
+  locale: Locale,
   now: Date = new Date(),
 ): CentreStatus {
   const end = str(centre.endDate);
@@ -382,9 +408,11 @@ export function centreStatus(
     typeof centre.isActive === 'boolean'
       ? centre.isActive
       : Number.isFinite(endTime) && endTime > now.getTime();
-  if (active) return { kind: 'active', label: 'Còn hạn' };
-  if (!end || !Number.isFinite(endTime)) return { kind: 'undated', label: 'Chưa ghi hạn' };
-  return { kind: 'expired', label: 'Đã hết hạn' };
+  if (active) return { kind: 'active', label: translate(locale, 'Còn hạn') };
+  if (!end || !Number.isFinite(endTime)) {
+    return { kind: 'undated', label: translate(locale, 'Chưa ghi hạn') };
+  }
+  return { kind: 'expired', label: translate(locale, 'Đã hết hạn') };
 }
 
 export type CentreProviderState =
@@ -399,6 +427,7 @@ export type CentreProviderState =
  */
 export function centreProviderState(
   centre: Pick<WarrantyCentre, 'provider' | 'providerInput'>,
+  locale: Locale,
 ): CentreProviderState {
   const input = str(centre.providerInput);
   if (centre.provider) {
@@ -406,7 +435,7 @@ export function centreProviderState(
       kind: 'matched',
       name: centre.provider.name,
       input,
-      note: 'Khớp danh bạ nhà bảo hành.',
+      note: translate(locale, 'Khớp danh bạ nhà bảo hành.'),
     };
   }
   if (!input) {
@@ -414,10 +443,15 @@ export function centreProviderState(
       kind: 'no-input',
       name: null,
       input: null,
-      note: 'Chưa ghi nhà bảo hành cho gói này.',
+      note: translate(locale, 'Chưa ghi nhà bảo hành cho gói này.'),
     };
   }
-  return { kind: 'unmatched', name: null, input, note: DIRECTORY_PROVIDER_UNMATCHED };
+  return {
+    kind: 'unmatched',
+    name: null,
+    input,
+    note: translate(locale, DIRECTORY_PROVIDER_UNMATCHED),
+  };
 }
 
 // ---- Rollup ------------------------------------------------------------------
@@ -431,7 +465,13 @@ export type DirectoryContactSummary = {
   unmatchedProviders: number;
 };
 
-/** Counts for the honest one-line summary above the centre list. */
+/**
+ * Counts for the honest one-line summary above the centre list.
+ *
+ * Takes no locale: it produces numbers, not sentences, and the counts must not
+ * change with the language. `directorySummaryLine` is what turns them into
+ * words.
+ */
 export function directoryContactSummary(
   directory: Pick<ServiceDirectory, 'centres'>,
 ): DirectoryContactSummary {
@@ -440,11 +480,10 @@ export function directoryContactSummary(
   let matchedProviders = 0;
   let unmatchedProviders = 0;
   for (const c of directory.centres) {
-    if (phoneDisclosure(c).kind === 'user') withUserPhone += 1;
+    if (str(c.phone) !== null && c.phoneSource === 'user') withUserPhone += 1;
     if (str(c.address) !== null) withUserAddress += 1;
-    const provider = centreProviderState(c);
-    if (provider.kind === 'matched') matchedProviders += 1;
-    else if (provider.kind === 'unmatched') unmatchedProviders += 1;
+    if (c.provider) matchedProviders += 1;
+    else if (str(c.providerInput) !== null) unmatchedProviders += 1;
   }
   return {
     centres: directory.centres.length,
@@ -457,13 +496,30 @@ export function directoryContactSummary(
 }
 
 /** The summary sentence. `centres: 0` gets its own wording (see the card). */
-export function directorySummaryLine(summary: DirectoryContactSummary): string {
-  if (summary.centres === 0) return DIRECTORY_NO_CENTRES;
-  const parts = [
-    `${summary.withUserPhone}/${summary.centres} gói có số điện thoại do bạn tự ghi`,
-  ];
+export function directorySummaryLine(
+  summary: DirectoryContactSummary,
+  locale: Locale,
+): string {
+  if (summary.centres === 0) return translate(locale, DIRECTORY_NO_CENTRES);
+  const phones = {
+    withPhone: summary.withUserPhone,
+    total: summary.centres,
+    count: summary.withUserPhone,
+  };
+  const unmatched = { count: summary.unmatchedProviders };
+  // Each branch is ONE sentence, not two fragments joined with a separator:
+  // English reorders the clause, so a concatenated line would read as two
+  // half-translated halves.
   if (summary.unmatchedProviders > 0) {
-    parts.push(`${summary.unmatchedProviders} gói chưa khớp danh bạ nhà bảo hành`);
+    return translate(
+      locale,
+      '{withPhone}/{total} gói có số điện thoại do bạn tự ghi · {count} gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.',
+      { ...phones, ...unmatched },
+    );
   }
-  return `${parts.join(' · ')}. App không có hotline nào trong hai con số đó.`;
+  return translate(
+    locale,
+    '{withPhone}/{total} gói có số điện thoại do bạn tự ghi. App không có hotline nào trong hai con số đó.',
+    phones,
+  );
 }

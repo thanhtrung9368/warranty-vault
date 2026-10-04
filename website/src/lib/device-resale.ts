@@ -16,11 +16,15 @@
 
 import { format } from 'date-fns';
 import { formatVND, parseVNDInput } from './format';
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 
 // The exact Vietnamese copy the Go validator writes into `fieldErrors` for the
-// pair rule / negative price (api/internal/services/devices.go). Duplicated
-// here verbatim so the form can reject the same input *before* the round-trip
-// while still telling the user exactly what the server would have said.
+// pair rule / negative price (api/internal/services/devices.go). Kept literally
+// here — they are the dictionary keys (see the entry for each in
+// `lib/i18n/messages/warranties.ts`), so the form can reject the same input
+// *before* the round-trip while still telling the user exactly what the server
+// would have said, in whichever language the request is being served in.
 export const SOLD_AT_REQUIRED_MESSAGE = 'Thiếu ngày bán';
 export const SOLD_PRICE_REQUIRED_MESSAGE = 'Thiếu giá bán';
 export const SOLD_PRICE_INVALID_MESSAGE = 'Giá bán không hợp lệ';
@@ -69,20 +73,21 @@ export function soldAtToInputValue(value: string | null | undefined): string {
 }
 
 /**
- * Display a `YYYY-MM-DD` value (what the form's date input holds) as
- * `dd/MM/yyyy`, the format the rest of the UI shows dates in.
+ * Display a `YYYY-MM-DD` value (what the form's date input holds) as a plain
+ * calendar day in the reader's convention — `dd/MM/yyyy` in Vietnamese,
+ * `MM/dd/yyyy` in English (the same split as `formatDate`).
  *
  * Sliced rather than passed through `new Date()`: a date-only string is parsed
  * as UTC midnight, which `formatDate` would then render as the *previous* day
  * for anyone west of UTC. Falls back to the input unchanged when it is not a
  * plain calendar day.
  */
-export function saleDayLabel(day: string | null | undefined): string {
+export function saleDayLabel(day: string | null | undefined, locale: Locale): string {
   if (!day) return '';
   const match = ISO_DAY_PREFIX.exec(day.trim());
   if (!match) return day;
   const [year, month, date] = match[1].split('-');
-  return `${date}/${month}/${year}`;
+  return locale === 'en' ? `${month}/${date}/${year}` : `${date}/${month}/${year}`;
 }
 
 /**
@@ -97,14 +102,16 @@ export function soldPriceFromInput(display: string | null | undefined): number |
 
 /**
  * Client-side mirror of the server's resale pair rule. Returns the same
- * `fieldErrors` shape Go produces, or `{}` when the sale is complete / absent.
+ * `fieldErrors` shape Go produces — the messages already rendered in `locale`,
+ * exactly as the API's own `fieldErrors` are — or `{}` when the sale is complete
+ * / absent.
  *
  *   - both blank  ⇒ no sale (`{}`), which the write path treats as "clear it"
  *   - only a date ⇒ `Thiếu giá bán`
  *   - only a price ⇒ `Thiếu ngày bán`
  *   - negative price ⇒ `Giá bán không hợp lệ`
  */
-export function validateSale(input: SaleFields): SaleFieldErrors {
+export function validateSale(input: SaleFields, locale: Locale): SaleFieldErrors {
   const errors: SaleFieldErrors = {};
   const date = typeof input.soldAt === 'string' ? input.soldAt.trim() : '';
   const hasDate = date !== '';
@@ -114,11 +121,11 @@ export function validateSale(input: SaleFields): SaleFieldErrors {
     // Same order as Go: the negative-price message is written first, then the
     // pair rule may add/replace keys. A complete-but-negative pair keeps this
     // message; a negative price with no date reports both fields.
-    errors.soldPrice = [SOLD_PRICE_INVALID_MESSAGE];
+    errors.soldPrice = [translate(locale, SOLD_PRICE_INVALID_MESSAGE)];
   }
   if (hasDate !== hasPrice) {
-    if (!hasDate) errors.soldAt = [SOLD_AT_REQUIRED_MESSAGE];
-    else errors.soldPrice = [SOLD_PRICE_REQUIRED_MESSAGE];
+    if (!hasDate) errors.soldAt = [translate(locale, SOLD_AT_REQUIRED_MESSAGE)];
+    else errors.soldPrice = [translate(locale, SOLD_PRICE_REQUIRED_MESSAGE)];
   }
   return errors;
 }
@@ -135,13 +142,14 @@ export function validateSale(input: SaleFields): SaleFieldErrors {
 export function validateSaleToggled(
   input: SaleFields,
   toggled: boolean,
+  locale: Locale,
 ): SaleFieldErrors {
   if (!toggled) return {};
-  const errors = validateSale(input);
+  const errors = validateSale(input, locale);
   if (Object.keys(errors).length > 0) return errors;
   const date = typeof input.soldAt === 'string' ? input.soldAt.trim() : '';
   if (date === '' && input.soldPrice == null) {
-    return { soldAt: [SOLD_AT_REQUIRED_MESSAGE] };
+    return { soldAt: [translate(locale, SOLD_AT_REQUIRED_MESSAGE)] };
   }
   return {};
 }
@@ -163,7 +171,7 @@ export type SaleProfitLoss = {
   /** soldPrice − purchasePrice. Negative = loss. */
   amount: number;
   tone: 'profit' | 'loss' | 'even';
-  /** Vietnamese, already money-formatted: "Lãi 2.000.000 ₫" / "Hoà vốn". */
+  /** Already money-formatted in the request's locale: "Lãi 2.000.000 ₫" / "Profit ₫2,000,000". */
   label: string;
 };
 
@@ -175,11 +183,16 @@ export type SaleProfitLoss = {
 export function saleProfitLoss(
   purchasePrice: number | null | undefined,
   soldPrice: number | null | undefined,
+  locale: Locale,
 ): SaleProfitLoss | null {
   if (soldPrice == null) return null;
   const cost = purchasePrice ?? 0;
   const amount = soldPrice - cost;
-  if (amount > 0) return { amount, tone: 'profit', label: `Lãi ${formatVND(amount)}` };
-  if (amount < 0) return { amount, tone: 'loss', label: `Lỗ ${formatVND(-amount)}` };
-  return { amount: 0, tone: 'even', label: 'Hoà vốn' };
+  if (amount > 0) {
+    return { amount, tone: 'profit', label: translate(locale, 'Lãi {amount}', { amount: formatVND(amount, locale) }) };
+  }
+  if (amount < 0) {
+    return { amount, tone: 'loss', label: translate(locale, 'Lỗ {amount}', { amount: formatVND(-amount, locale) }) };
+  }
+  return { amount: 0, tone: 'even', label: translate(locale, 'Hoà vốn') };
 }

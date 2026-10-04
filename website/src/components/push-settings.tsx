@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/lib/i18n/client';
 import { subscribePush, unsubscribePush, sendTestPush } from '@/app/actions/push';
 
 function urlBase64ToBuffer(base64String: string): ArrayBuffer {
@@ -27,6 +28,7 @@ function urlBase64ToBuffer(base64String: string): ArrayBuffer {
 type State = 'idle' | 'unsupported' | 'denied' | 'subscribed' | 'unsubscribed';
 
 export function PushSettings() {
+  const t = useT();
   const [state, setState] = React.useState<State>('idle');
   const [pending, setPending] = React.useState<'sub' | 'unsub' | 'test' | null>(null);
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -55,7 +57,7 @@ export function PushSettings() {
 
   const subscribe = async () => {
     if (!vapidPublicKey) {
-      toast.error('Thiếu VAPID public key trong .env');
+      toast.error(t('Thiếu VAPID public key trong .env'));
       return;
     }
     setPending('sub');
@@ -63,7 +65,7 @@ export function PushSettings() {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setState(permission === 'denied' ? 'denied' : 'unsubscribed');
-        toast.error('Bạn cần cho phép thông báo');
+        toast.error(t('Bạn cần cho phép thông báo'));
         return;
       }
       const reg = await navigator.serviceWorker.ready;
@@ -83,12 +85,12 @@ export function PushSettings() {
       });
       if (res.ok) {
         setState('subscribed');
-        toast.success('Đã bật thông báo cho thiết bị này');
+        toast.success(t('Đã bật thông báo cho thiết bị này'));
       } else {
-        toast.error(res.message ?? 'Không đăng ký được');
+        toast.error(res.message ?? t('Không đăng ký được'));
       }
     } catch (e) {
-      toast.error(`Lỗi: ${(e as Error).message}`);
+      toast.error(t('Lỗi: {message}', { message: (e as Error).message }));
     } finally {
       setPending(null);
     }
@@ -104,9 +106,9 @@ export function PushSettings() {
         await sub.unsubscribe();
       }
       setState('unsubscribed');
-      toast.success('Đã tắt thông báo trên thiết bị này');
+      toast.success(t('Đã tắt thông báo trên thiết bị này'));
     } catch (e) {
-      toast.error(`Lỗi: ${(e as Error).message}`);
+      toast.error(t('Lỗi: {message}', { message: (e as Error).message }));
     } finally {
       setPending(null);
     }
@@ -116,8 +118,8 @@ export function PushSettings() {
     setPending('test');
     try {
       const res = await sendTestPush();
-      if (res.ok) toast.success(res.message ?? 'Đã gửi');
-      else toast.error(res.message ?? 'Không gửi được');
+      if (res.ok) toast.success(res.message ?? t('Đã gửi'));
+      else toast.error(res.message ?? t('Không gửi được'));
     } finally {
       setPending(null);
     }
@@ -128,8 +130,7 @@ export function PushSettings() {
       <div className="flex items-start gap-3 rounded-md bg-zinc-soft p-3.5 text-sm text-ink-2">
         <BellOff className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
-          Trình duyệt này chưa hỗ trợ push notification. Thử Chrome, Edge, Firefox hoặc Safari
-          phiên bản mới.
+          {t('Trình duyệt này chưa hỗ trợ push notification. Thử Chrome, Edge, Firefox hoặc Safari phiên bản mới.')}
         </p>
       </div>
     );
@@ -140,8 +141,7 @@ export function PushSettings() {
       <div className="flex items-start gap-3 rounded-md bg-rose-soft p-3.5 text-sm text-rose-ink">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>
-          Bạn đã chặn thông báo từ site này. Mở cài đặt trình duyệt → quyền thông báo → cho phép
-          rồi tải lại trang.
+          {t('Bạn đã chặn thông báo từ site này. Mở cài đặt trình duyệt → quyền thông báo → cho phép rồi tải lại trang.')}
         </p>
       </div>
     );
@@ -154,7 +154,7 @@ export function PushSettings() {
           <span className="icon-badge icon-badge-xs tint-emerald">
             <CheckCircle2 className="h-4 w-4" />
           </span>
-          <span className="font-medium">Thiết bị này đã bật thông báo</span>
+          <span className="font-medium">{t('Thiết bị này đã bật thông báo')}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -169,7 +169,7 @@ export function PushSettings() {
             ) : (
               <Send className="mr-2 h-4 w-4" />
             )}
-            Gửi thử
+            {t('Gửi thử')}
           </Button>
           <Button
             size="sm"
@@ -183,7 +183,7 @@ export function PushSettings() {
             ) : (
               <BellOff className="mr-2 h-4 w-4" />
             )}
-            Tắt
+            {t('Tắt')}
           </Button>
         </div>
       </div>
@@ -193,7 +193,7 @@ export function PushSettings() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Nhận thông báo khi thiết bị sắp hết bảo hành, ngay cả khi không mở web.
+        {t('Nhận thông báo khi thiết bị sắp hết bảo hành, ngay cả khi không mở web.')}
       </p>
       <Button
         size="lg"
@@ -206,7 +206,7 @@ export function PushSettings() {
         ) : (
           <BellRing className="mr-2 h-4 w-4" />
         )}
-        Bật thông báo
+        {t('Bật thông báo')}
       </Button>
     </div>
   );

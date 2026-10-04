@@ -193,13 +193,13 @@ describe('normalizeServiceDirectory', () => {
 
 describe('brandEntryState', () => {
   it('asks for the brand when the device has none', () => {
-    const state = brandEntryState({ brand: null, brandInput: null });
+    const state = brandEntryState({ brand: null, brandInput: null }, 'vi');
     expect(state.kind).toBe('no-input');
     expect(state.title).toBe(DIRECTORY_NO_BRAND_INPUT_TITLE);
   });
 
   it('explains a null brand instead of rendering an empty box', () => {
-    const state = brandEntryState({ brand: null, brandInput: 'Hãng lạ' });
+    const state = brandEntryState({ brand: null, brandInput: 'Hãng lạ' }, 'vi');
     expect(state.kind).toBe('no-entry');
     if (state.kind !== 'no-entry') throw new Error('unreachable');
     expect(state.brandInput).toBe('Hãng lạ');
@@ -208,16 +208,19 @@ describe('brandEntryState', () => {
   });
 
   it('surfaces the brand row with its verified links', () => {
-    const state = brandEntryState({
-      brandInput: 'Apple',
-      brand: {
-        brandId: 'apple',
-        name: 'Apple',
-        serviceLocatorUrl: 'https://support.apple.com/vi-vn',
-        supportUrl: null,
-        notes: null,
+    const state = brandEntryState(
+      {
+        brandInput: 'Apple',
+        brand: {
+          brandId: 'apple',
+          name: 'Apple',
+          serviceLocatorUrl: 'https://support.apple.com/vi-vn',
+          supportUrl: null,
+          notes: null,
+        },
       },
-    });
+      'vi',
+    );
     expect(state.kind).toBe('entry');
     if (state.kind !== 'entry') throw new Error('unreachable');
     expect(state.hasVerifiedLink).toBe(true);
@@ -225,10 +228,19 @@ describe('brandEntryState', () => {
   });
 
   it('says so when the matched brand has no verified link at all', () => {
-    const state = brandEntryState({
-      brandInput: 'Apple',
-      brand: { brandId: 'apple', name: 'Apple', serviceLocatorUrl: null, supportUrl: null, notes: 'x' },
-    });
+    const state = brandEntryState(
+      {
+        brandInput: 'Apple',
+        brand: {
+          brandId: 'apple',
+          name: 'Apple',
+          serviceLocatorUrl: null,
+          supportUrl: null,
+          notes: 'x',
+        },
+      },
+      'vi',
+    );
     if (state.kind !== 'entry') throw new Error('unreachable');
     expect(state.hasVerifiedLink).toBe(false);
     expect(state.detail).toBe(DIRECTORY_NO_VERIFIED_LINK);
@@ -237,7 +249,7 @@ describe('brandEntryState', () => {
 
 describe('phoneDisclosure', () => {
   it('renders a user-typed number as exactly that', () => {
-    const d = phoneDisclosure({ phone: '0901234567', phoneSource: 'user' });
+    const d = phoneDisclosure({ phone: '0901234567', phoneSource: 'user' }, 'vi');
     expect(d.kind).toBe('user');
     expect(d.phone).toBe('0901234567');
     expect(d.label).toBe(DIRECTORY_PHONE_USER_LABEL);
@@ -246,7 +258,7 @@ describe('phoneDisclosure', () => {
   });
 
   it('renders phoneSource: none as "there is nothing", never as a hotline', () => {
-    const d = phoneDisclosure({ phone: null, phoneSource: 'none' });
+    const d = phoneDisclosure({ phone: null, phoneSource: 'none' }, 'vi');
     expect(d.kind).toBe('none');
     expect(d.phone).toBeNull();
     expect(d.label).toBe(DIRECTORY_PHONE_NONE_LABEL);
@@ -255,19 +267,19 @@ describe('phoneDisclosure', () => {
   });
 
   it('treats a blank phone as none', () => {
-    expect(phoneDisclosure({ phone: '   ', phoneSource: 'user' }).kind).toBe('none');
-    expect(phoneDisclosure({ phone: '', phoneSource: 'none' }).kind).toBe('none');
+    expect(phoneDisclosure({ phone: '   ', phoneSource: 'user' }, 'vi').kind).toBe('none');
+    expect(phoneDisclosure({ phone: '', phoneSource: 'none' }, 'vi').kind).toBe('none');
   });
 
   it('flags a number whose source is unknown rather than vouching for it', () => {
-    const d = phoneDisclosure({ phone: '0901234567', phoneSource: 'unknown' });
+    const d = phoneDisclosure({ phone: '0901234567', phoneSource: 'unknown' }, 'vi');
     expect(d.kind).toBe('unverified');
     expect(d.label).toBe(DIRECTORY_PHONE_UNVERIFIED_LABEL);
     expect(d.tone).toBe('amber');
   });
 
   it('flags a self-contradictory payload (number + source none) too', () => {
-    expect(phoneDisclosure({ phone: '0901234567', phoneSource: 'none' }).kind).toBe('unverified');
+    expect(phoneDisclosure({ phone: '0901234567', phoneSource: 'none' }, 'vi').kind).toBe('unverified');
   });
 
   it('states the app is never the source of a phone number', () => {
@@ -278,44 +290,47 @@ describe('phoneDisclosure', () => {
 
 describe('centreStatus', () => {
   it('trusts the server-computed isActive', () => {
-    expect(centreStatus({ isActive: true, endDate: '2020-01-01T00:00:00Z' }, NOW)).toEqual({
+    expect(centreStatus({ isActive: true, endDate: '2020-01-01T00:00:00Z' }, 'vi', NOW)).toEqual({
       kind: 'active',
       label: 'Còn hạn',
     });
-    expect(centreStatus({ isActive: false, endDate: '2099-01-01T00:00:00Z' }, NOW)).toEqual({
+    expect(centreStatus({ isActive: false, endDate: '2099-01-01T00:00:00Z' }, 'vi', NOW)).toEqual({
       kind: 'expired',
       label: 'Đã hết hạn',
     });
   });
 
   it('gives "no end date" its own answer, not a default of expired', () => {
-    expect(centreStatus({ isActive: false, endDate: null }, NOW)).toEqual({
+    expect(centreStatus({ isActive: false, endDate: null }, 'vi', NOW)).toEqual({
       kind: 'undated',
       label: 'Chưa ghi hạn',
     });
-    expect(centreStatus({ isActive: false, endDate: 'not-a-date' }, NOW).kind).toBe('undated');
+    expect(centreStatus({ isActive: false, endDate: 'not-a-date' }, 'vi', NOW).kind).toBe('undated');
   });
 
   it('derives the state from the end date when the flag is absent', () => {
     const opts = { isActive: undefined as unknown as boolean };
-    expect(centreStatus({ ...opts, endDate: '2027-01-01T00:00:00Z' }, NOW).kind).toBe('active');
-    expect(centreStatus({ ...opts, endDate: '2026-01-01T00:00:00Z' }, NOW).kind).toBe('expired');
+    expect(centreStatus({ ...opts, endDate: '2027-01-01T00:00:00Z' }, 'vi', NOW).kind).toBe('active');
+    expect(centreStatus({ ...opts, endDate: '2026-01-01T00:00:00Z' }, 'vi', NOW).kind).toBe('expired');
   });
 });
 
 describe('centreProviderState', () => {
   it('shows the matched catalog name and keeps the typed text visible', () => {
-    const state = centreProviderState({
-      provider: centre().provider,
-      providerInput: 'Samsung VN',
-    });
+    const state = centreProviderState(
+      {
+        provider: centre().provider,
+        providerInput: 'Samsung VN',
+      },
+      'vi',
+    );
     expect(state.kind).toBe('matched');
     expect(state.name).toBe('Samsung');
     expect(state.input).toBe('Samsung VN');
   });
 
   it('shows the user’s own words when nothing matched, and says it did not guess', () => {
-    const state = centreProviderState({ provider: null, providerInput: 'TTBH FPT' });
+    const state = centreProviderState({ provider: null, providerInput: 'TTBH FPT' }, 'vi');
     expect(state.kind).toBe('unmatched');
     expect(state.name).toBeNull();
     expect(state.input).toBe('TTBH FPT');
@@ -323,7 +338,7 @@ describe('centreProviderState', () => {
   });
 
   it('distinguishes "nothing typed" from "typed but unmatched"', () => {
-    const state = centreProviderState({ provider: null, providerInput: null });
+    const state = centreProviderState({ provider: null, providerInput: null }, 'vi');
     expect(state.kind).toBe('no-input');
     expect(state.input).toBeNull();
   });
@@ -357,23 +372,26 @@ describe('directoryContactSummary / directorySummaryLine', () => {
   it('never lets the summary imply a hotline exists', () => {
     const line = directorySummaryLine(
       directoryContactSummary({ centres: [centre(), centre({ warrantyId: 'w2' })] }),
+      'vi',
     );
     expect(line).toContain('2/2 gói có số điện thoại do bạn tự ghi');
     expect(line).toContain('App không có hotline nào');
   });
 
   it('uses the empty-state wording when there is no package at all', () => {
-    expect(directorySummaryLine(directoryContactSummary({ centres: [] }))).toBe(DIRECTORY_NO_CENTRES);
+    expect(directorySummaryLine(directoryContactSummary({ centres: [] }), 'vi')).toBe(
+      DIRECTORY_NO_CENTRES,
+    );
   });
 });
 
 describe('warrantyTypeLabel', () => {
   it('uses the shared labels and falls back to the raw code', () => {
-    expect(warrantyTypeLabel('STANDARD')).toBe('Tiêu chuẩn');
-    expect(warrantyTypeLabel('EXTENDED')).toBe('Mở rộng');
-    expect(warrantyTypeLabel('THIRD_PARTY')).toBe('Bên thứ ba');
-    expect(warrantyTypeLabel('WEIRD')).toBe('WEIRD');
-    expect(warrantyTypeLabel('')).toBe('Không rõ loại');
+    expect(warrantyTypeLabel('STANDARD', 'vi')).toBe('Tiêu chuẩn');
+    expect(warrantyTypeLabel('EXTENDED', 'vi')).toBe('Mở rộng');
+    expect(warrantyTypeLabel('THIRD_PARTY', 'vi')).toBe('Bên thứ ba');
+    expect(warrantyTypeLabel('WEIRD', 'vi')).toBe('WEIRD');
+    expect(warrantyTypeLabel('', 'vi')).toBe('Không rõ loại');
   });
 });
 

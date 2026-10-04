@@ -17,17 +17,20 @@
 
 import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { getI18n } from '@/lib/i18n/server';
 import type { BackupExport } from '@/lib/api/backup';
 
 export type { BackupExport } from '@/lib/api/backup';
 
 export async function exportAllJson(): Promise<BackupExport> {
   await requireUser();
+  const { t } = await getI18n();
   const res = await api.backup.exportRaw();
   if (!res.ok) {
     // Throw — the client component catches and toasts. Matches the previous
-    // behaviour where Prisma errors would bubble up the same way.
-    throw new Error(res.message ?? 'Không xuất được dữ liệu');
+    // behaviour where Prisma errors would bubble up the same way. The message is
+    // thrown, not returned, so it has to be resolved here rather than downstream.
+    throw new Error(res.message ?? t('Không xuất được dữ liệu'));
   }
   return JSON.parse(res.body) as BackupExport;
 }

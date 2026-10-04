@@ -7,16 +7,34 @@
 // Bearer token (issued by the Go login/register flow) is stored in the
 // existing iron-session cookie via `auth-cookie.ts` and read here when
 // `opts.auth = true`.
+//
+// ── Language on the wire ─────────────────────────────────────────────────
+//
+// Every request carries an explicit `?lang=<locale>`, resolved for THIS request
+// by `lib/i18n/server.ts` (cookie → stored preference → Accept-Language → `en`).
+// Two things depend on it:
+//
+//  1. Go answers in the language the page is actually rendered in. `?lang=` is
+//     level 1 of the server's precedence chain, so it beats both the header and
+//     the user's stored row — the two can never disagree with the UI.
+//  2. It is the cache key. Next's Data Cache is keyed on the URL, and request
+//     HEADERS ARE NOT PART OF IT. A language that travels in a header would let
+//     one language's cached response be served to a reader of the other; a
+//     language in the URL partitions the cache by construction. This replaces
+//     the previous `Accept-Language: 'vi'` constant, which was safe only
+//     because it was constant. See `api/catalog.ts` for the request that
+//     actually opts into that cache.
+//
+// (`?lang=` rather than a header also means the value is the EXACT literal the
+// app resolved, instead of a header the server has to re-parse with q-weights.)
 
+import { DEFAULT_LOCALE, withLangParam, type Locale } from '@/lib/i18n/locale';
+import { getLocale } from '@/lib/i18n/server';
+import { translate, translatorFor, type Translator } from '@/lib/i18n/catalog';
 import { bearerHeader } from '@/lib/auth-cookie';
+import { GO_API_URL } from './base-url';
 
-const BASE_URL = (process.env.GO_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
-
-// The language this interface renders in. Every string in `(app)/` is
-// Vietnamese, so this is a statement of fact rather than a preference, and it
-// is what stops the API from answering in its English default. Phase 4 of
-// docs/I18N_PLAN.md replaces it with the user's choice.
-const UI_LANGUAGE = 'vi';
+const BASE_URL = GO_API_URL;
 
 export type ApiSuccess<T> = { ok: true; data: T };
 export type ApiError = {
@@ -45,7 +63,10 @@ export type ApiFetchOpts = {
   headers?: Record<string, string>;
   // Opt into Next's Data Cache for this request. When set, the default
   // `cache: 'no-store'` is dropped and `next: { revalidate, tags }` is used
-  // instead. Only safe for global, non-user-specific data (e.g. the catalog).
+  // instead. Only safe for global, non-user-specific data (e.g. the catalog) —
+  // and the response must be a pure function of the URL, because the URL is the
+  // only part of the request that reaches the cache key. The language is in the
+  // URL for exactly that reason.
   next?: { revalidate?: number | false; tags?: string[] };
 };
 
@@ -57,23 +78,12 @@ export async function apiFetch<T>(
   body?: unknown,
   opts: ApiFetchOpts = {},
 ): Promise<ApiResult<T>> {
-  const url = path.startsWith('http') ? path : BASE_URL + (path.startsWith('/') ? path : '/' + path);
+  // One resolution per request (React `cache()`), used for the URL and for any
+  // transport-level fallback copy we have to write ourselves.
+  const locale = await getLocale();
+  const target = path.startsWith('http') ? path : BASE_URL + (path.startsWith('/') ? path : '/' + path);
+  const url = withLangParam(target, locale);
   const headers: Record<string, string> = {};
-
-  // Tell the API which language this interface is actually rendering.
-  //
-  // The API resolves a language from `?lang=`, then `Accept-Language`, then the
-  // user's stored preference, then English. This app sends none of the first
-  // two, so once the Go side began defaulting to English (docs/I18N_PLAN.md),
-  // every converted domain started rendering English copy inside a Vietnamese
-  // page. The interface is Vietnamese-only until phase 4 adds a switcher.
-  //
-  // Deliberately a constant rather than the browser's own Accept-Language: the
-  // catalog read opts into Next's Data Cache (`opts.next` below), and a header
-  // that varies per request would let one language's response be cached and
-  // then served to a reader of the other. When phase 4 makes this dynamic, that
-  // cache needs a key that includes the language.
-  headers['Accept-Language'] = UI_LANGUAGE;
 
   // Default to authenticated requests; explicit `auth: false` skips.
   const wantAuth = opts.auth !== false;
@@ -115,7 +125,7 @@ export async function apiFetch<T>(
       ok: false,
       status: 0,
       error: 'network_error',
-      message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
+      message: translate(locale, 'Mất kết nối tới máy chủ, thử lại sau nhé.'),
     };
   }
 
@@ -135,7 +145,7 @@ export async function apiFetch<T>(
         ok: false,
         status: res.status,
         error: 'bad_response',
-        message: 'Phản hồi từ máy chủ không hợp lệ',
+        message: translate(locale, 'Phản hồi từ máy chủ không hợp lệ'),
       };
     }
   }
@@ -158,28 +168,49 @@ export async function apiFetch<T>(
   };
 }
 
-// Convert an ApiResult into the shape expected by `useFormState` callers.
-// Vietnamese strings come from the Go service unchanged; we don't rewrite them.
-export function toFormState<T>(
+/**
+ * Convert an `ApiResult` into the shape expected by `useFormState` callers.
+ *
+ * A `message` from Go is already rendered in the request's language (the request
+ * carried `?lang=`) and is passed through untouched — we never rewrite the
+ * server's copy.
+ *
+ * A `message` supplied by the CALLER is treated as a catalog key: pass the
+ * Vietnamese sentence as a literal and it comes out translated, exactly like a
+ * call to `t()`. An unregistered sentence is returned as written, i.e. in
+ * Vietnamese, which is the same visible fallback the rest of the app uses.
+ *
+ * Async because it has to resolve the request's language. Server actions can
+ * `return toFormState(res)` and let the framework await it.
+ */
+export async function toFormState<T>(
   res: ApiResult<T>,
   success: { message?: string } = {},
-): FormState {
+): Promise<FormState> {
+  const locale: Locale = await getLocale();
   if (res.ok) {
-    return { ok: true, message: success.message };
+    return { ok: true, message: success.message ? translate(locale, success.message) : undefined };
   }
   return {
     ok: false,
     errors: res.fieldErrors,
-    message: res.message ?? defaultMessageForStatus(res.status, res.error),
+    message: res.message ?? defaultMessageForStatus(res.status, res.error, locale),
   };
 }
 
-function defaultMessageForStatus(status: number, code: string): string {
-  if (status === 401) return 'Bạn chưa đăng nhập';
-  if (status === 404) return 'Không tìm thấy';
-  if (status === 409) return 'Đã đạt giới hạn cho phép';
-  if (status === 429) return 'Thao tác quá nhanh, thử lại sau';
-  if (status >= 500) return 'Lỗi hệ thống, thử lại sau';
-  if (code === 'network_error') return 'Mất kết nối tới máy chủ, thử lại sau nhé.';
-  return 'Có lỗi xảy ra, thử lại sau';
+/**
+ * Last-resort copy for a failure the server did not describe — a connection
+ * that never landed, or a 5xx with no envelope. The Go service produces its own
+ * sentence for everything it actually answers (§ the shared envelope in
+ * `internal/httpx`), so these are transport-shaped, not business-shaped.
+ */
+function defaultMessageForStatus(status: number, code: string, locale: Locale): string {
+  const t: Translator = translatorFor(locale ?? DEFAULT_LOCALE);
+  if (status === 401) return t('Bạn chưa đăng nhập');
+  if (status === 404) return t('Không tìm thấy');
+  if (status === 409) return t('Đã đạt giới hạn cho phép');
+  if (status === 429) return t('Thao tác quá nhanh, thử lại sau');
+  if (status >= 500) return t('Lỗi hệ thống, thử lại sau');
+  if (code === 'network_error') return t('Mất kết nối tới máy chủ, thử lại sau nhé.');
+  return t('Có lỗi xảy ra, thử lại sau');
 }

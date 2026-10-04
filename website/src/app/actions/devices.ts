@@ -10,6 +10,8 @@ import {
   setDeviceWarningsFlash,
 } from '@/lib/device-warnings-flash';
 import { requireUser } from '@/lib/auth';
+import type { Translator } from '@/lib/i18n/catalog';
+import { getI18n } from '@/lib/i18n/server';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
 import {
   parsePasteImport,
@@ -171,14 +173,14 @@ function pasteHeaderMode(value: unknown): PasteHeaderMode {
   return value === 'yes' || value === 'no' ? value : 'auto';
 }
 
-// Per-row failure copy. Go answers a rejected create with `message` (Vietnamese)
-// and/or `fieldErrors`; the field-level strings are the precise ones ("Ngày mua
-// không hợp lệ"), so they win when present.
-function pasteRowError(res: ApiResult<unknown>): string {
-  const state = toFormState(res);
+// Per-row failure copy. Go answers a rejected create with `message` (already in
+// the request's language) and/or `fieldErrors`; the field-level strings are the
+// precise ones ("Ngày mua không hợp lệ"), so they win when present.
+async function pasteRowError(res: ApiResult<unknown>, t: Translator): Promise<string> {
+  const state = await toFormState(res);
   const fieldMessages = Object.values(state.errors ?? {}).flat();
   if (fieldMessages.length > 0) return fieldMessages.join(' · ');
-  return state.message ?? 'Không tạo được thiết bị';
+  return state.message ?? t('Không tạo được thiết bị');
 }
 
 export async function importDevicesFromPaste(
@@ -191,20 +193,29 @@ export async function importDevicesFromPaste(
 
   const text = str(formData, 'text') ?? '';
   const headerMode = pasteHeaderMode(formData.get('headerMode'));
+  const { locale, t } = await getI18n();
 
   if (text.trim() === '') {
-    return { ok: false, message: 'Chưa có dữ liệu để nhập — dán bảng vào ô bên trên nhé.' };
+    return {
+      ok: false,
+      message: t('Chưa có dữ liệu để nhập — dán bảng vào ô bên trên nhé.'),
+    };
   }
 
   const catalog = await getDeviceFormCatalog();
-  const preview = parsePasteImport(text, { categories: catalog.categories, headerMode });
+  const preview = parsePasteImport(text, {
+    categories: catalog.categories,
+    headerMode,
+    locale,
+  });
 
   const results: PasteImportRowResult[] = [];
   if (preview.empty || preview.rows.length === 0) {
     return {
       ok: false,
-      message:
+      message: t(
         'Không đọc được dòng dữ liệu nào từ nội dung đã dán. Kiểm tra lại tiêu đề cột hoặc chọn "Dòng đầu là dữ liệu".',
+      ),
     };
   }
 
@@ -240,8 +251,8 @@ export async function importDevicesFromPaste(
         status: 'not_attempted',
         message:
           stopReason === 'limit'
-            ? 'Chưa tạo — đã dừng vì chạm giới hạn thiết bị.'
-            : 'Chưa tạo — đã dừng vì thao tác quá nhanh.',
+            ? t('Chưa tạo — đã dừng vì chạm giới hạn thiết bị.')
+            : t('Chưa tạo — đã dừng vì thao tác quá nhanh.'),
       });
       continue;
     }
@@ -260,10 +271,10 @@ export async function importDevicesFromPaste(
     }
 
     failedCount += 1;
-    const message = pasteRowError(res);
+    const message = await pasteRowError(res, t);
     results.push({ line: row.line, name: row.name, status: 'failed', message });
     if (res.status === 409 || res.status === 429) {
-      // The server's Vietnamese message explains the limit and is shown as-is.
+      // The server's own message explains the limit and is shown as-is.
       stopReason = res.status === 409 ? 'limit' : 'rate';
       stopMessage = message;
     }
@@ -275,17 +286,32 @@ export async function importDevicesFromPaste(
   revalidatePath('/devices');
 
   const attempted = createdCount + failedCount;
-  let message: string;
+  const parts: string[] = [];
   if (createdCount > 0) {
-    message = `Đã tạo ${createdCount} thiết bị.`;
-    if (skippedCount > 0) message += ` Bỏ qua ${skippedCount} dòng lỗi.`;
-    if (failedCount > 0) message += ` ${failedCount} dòng máy chủ từ chối.`;
-    if (notAttemptedCount > 0) message += ` ${notAttemptedCount} dòng chưa tạo.`;
+    parts.push(t('Đã tạo {created} thiết bị.', { created: createdCount, count: createdCount }));
+    if (skippedCount > 0) {
+      parts.push(t('Bỏ qua {skipped} dòng lỗi.', { skipped: skippedCount, count: skippedCount }));
+    }
+    if (failedCount > 0) {
+      parts.push(
+        t('{failed} dòng máy chủ từ chối.', { failed: failedCount, count: failedCount }),
+      );
+    }
+    if (notAttemptedCount > 0) {
+      parts.push(
+        t('{missing} dòng chưa tạo.', { missing: notAttemptedCount, count: notAttemptedCount }),
+      );
+    }
   } else if (attempted === 0) {
-    message = `Không có dòng nào hợp lệ để tạo (${skippedCount} dòng lỗi).`;
+    parts.push(
+      t('Không có dòng nào hợp lệ để tạo ({count} dòng lỗi).', {
+        count: skippedCount,
+      }),
+    );
   } else {
-    message = 'Không tạo được thiết bị nào — xem lý do ở từng dòng bên dưới.';
+    parts.push(t('Không tạo được thiết bị nào — xem lý do ở từng dòng bên dưới.'));
   }
+  const message = parts.join(' ');
 
   return {
     ok: createdCount > 0,

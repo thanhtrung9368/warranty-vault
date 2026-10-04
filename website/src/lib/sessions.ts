@@ -4,14 +4,24 @@
 //
 // Two independent jobs live here, both unit-testable without a backend:
 //
-//   1. Turning a session row into Vietnamese display copy — including the
-//      documented `deviceLabel: null` fallback ("Không rõ thiết bị").
+//   1. Turning a session row into display copy in the request's language —
+//      including the documented `deviceLabel: null` fallback
+//      ("Không rõ thiết bị").
 //   2. Deriving the `deviceLabel` we SEND at login from the User-Agent, which is
 //      the root cause of those nulls: the web login/register actions used to
 //      send no label at all, so every web session rendered the fallback.
 //
 // Nothing in here touches cookies / headers, so it stays importable from a
 // client component (the settings list) as well as from a server action.
+//
+// Display copy is resolved through the dictionary. `locale` is a REQUIRED
+// parameter on every label helper — an optional one with a Vietnamese default
+// would let a missed call site render Vietnamese inside an English page and
+// report nothing.
+
+import { translate } from '@/lib/i18n/catalog';
+import { labelOf } from '@/lib/i18n/labels';
+import type { Locale } from '@/lib/i18n/locale';
 
 /**
  * The fallback openapi.yaml documents for `SessionSummary.deviceLabel: null`
@@ -32,26 +42,37 @@ export const UNKNOWN_PLATFORM_LABEL = 'Không rõ nền tảng';
  * values that can arrive, and `sessionPlatformLabel` still falls back to the raw
  * code for anything unexpected rather than pretending to know it.
  *
+ * The map stays Vietnamese on purpose: it is the original text and the catalog
+ * key. `labelOf(PLATFORM_LABELS, code, locale)` resolves it.
+ *
  * (Not to be confused with `PushSubscription.platform`, which is the
  * `web | apns | fcm` vocabulary of a different entity.)
  */
-const PLATFORM_LABELS: Record<string, string> = {
+export const PLATFORM_LABELS: Record<string, string> = {
   web: 'Trình duyệt web',
   ios: 'iPhone / iPad',
   android: 'Android',
 };
 
-/** Vietnamese label for a session's `platform`, never empty. */
-export function sessionPlatformLabel(platform: string | null | undefined): string {
+/** Label for a session's `platform`, in `locale`, never empty. */
+export function sessionPlatformLabel(
+  platform: string | null | undefined,
+  locale: Locale,
+): string {
   const v = (platform ?? '').trim();
-  if (v === '') return UNKNOWN_PLATFORM_LABEL;
-  return PLATFORM_LABELS[v] ?? v;
+  if (v === '') return translate(locale, UNKNOWN_PLATFORM_LABEL);
+  return labelOf(PLATFORM_LABELS, v, locale);
 }
 
-/** Vietnamese label for a session's `deviceLabel`, applying the null fallback. */
-export function sessionDeviceLabel(deviceLabel: string | null | undefined): string {
+/** Label for a session's `deviceLabel` in `locale`, applying the null fallback. */
+export function sessionDeviceLabel(
+  deviceLabel: string | null | undefined,
+  locale: Locale,
+): string {
   const v = (deviceLabel ?? '').trim();
-  return v === '' ? UNKNOWN_DEVICE_LABEL : v;
+  // A label the user's own client sent ('Chrome · macOS') is not a catalog key
+  // and passes through untouched; the documented fallback is.
+  return translate(locale, v === '' ? UNKNOWN_DEVICE_LABEL : v);
 }
 
 // ---- login-time label ------------------------------------------------------
@@ -121,10 +142,15 @@ function detectPlatform(ua: string): string {
 }
 
 /**
- * Sensible Vietnamese `deviceLabel` for a web login, derived from the request's
+ * Sensible `deviceLabel` for a web login, derived from the request's
  * User-Agent. Examples: `Chrome · macOS`, `Safari · iPhone`,
  * `Chrome · Android`, and `Trình duyệt web` when the UA is missing or
  * unrecognisable.
+ *
+ * The label is PERSISTED on the session row at login time, so it is deliberately
+ * NOT translated here: there is no request whose language it belongs to, and the
+ * screen that renders it resolves the two constants below through the catalog
+ * (`sessionDeviceLabel`), so an English reader still sees "Web browser".
  *
  * The point is not precision — it is that the settings screen can tell two
  * sessions apart instead of showing "Không rõ thiết bị" for all of them (which
@@ -159,25 +185,33 @@ export type SessionRevokeOutcome =
 
 /**
  * Map a `DELETE /v1/auth/sessions/{id}` response onto the three outcomes the UI
- * cares about, keeping the API's own Vietnamese `message` whenever it sent one.
+ * cares about, keeping the API's own `message` whenever it sent one (the Go
+ * message is already in the request's language — the call carried `?lang=`).
  *
  * `current` wins over `alreadyRevoked`: that combination should not happen
  * (RequireUser rejects a revoked bearer before the handler runs), but if it ever
  * did, the caller's token is dead and logging out is the only safe reading.
  */
-export function sessionRevokeOutcome(result: SessionRevokeResult): SessionRevokeOutcome {
+export function sessionRevokeOutcome(
+  result: SessionRevokeResult,
+  locale: Locale,
+): SessionRevokeOutcome {
   const message = (result.message ?? '').trim();
   if (result.current) {
     return {
       kind: 'current',
-      message: message || 'Đã thu hồi phiên đăng nhập. Hãy đăng nhập lại.',
+      message: message || translate(locale, 'Đã thu hồi phiên đăng nhập. Hãy đăng nhập lại.'),
     };
   }
   if (result.alreadyRevoked) {
     return {
       kind: 'already',
-      message: message || 'Phiên đăng nhập này đã được thu hồi trước đó.',
+      message:
+        message || translate(locale, 'Phiên đăng nhập này đã được thu hồi trước đó.'),
     };
   }
-  return { kind: 'revoked', message: message || 'Đã thu hồi phiên đăng nhập.' };
+  return {
+    kind: 'revoked',
+    message: message || translate(locale, 'Đã thu hồi phiên đăng nhập.'),
+  };
 }

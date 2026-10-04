@@ -9,6 +9,7 @@ import {
   dismissWarrantyReminder,
   restoreWarrantyReminder,
 } from '@/app/actions/reminders';
+import { useT } from '@/lib/i18n/client';
 
 export function DismissButton({
   warrantyId,
@@ -17,6 +18,7 @@ export function DismissButton({
   warrantyId: string;
   isDismissed: boolean;
 }) {
+  const t = useT();
   const [pending, startTransition] = React.useTransition();
   const router = useRouter();
 
@@ -24,7 +26,7 @@ export function DismissButton({
     startTransition(async () => {
       await restoreWarrantyReminder(warrantyId);
       router.refresh();
-      toast.success('Đã hiện lại nhắc nhở');
+      toast.success(t('Đã hiện lại nhắc nhở'));
     });
 
   return (
@@ -38,14 +40,14 @@ export function DismissButton({
           if (isDismissed) {
             await restoreWarrantyReminder(warrantyId);
             router.refresh();
-            toast.success('Đã hiện lại nhắc nhở');
+            toast.success(t('Đã hiện lại nhắc nhở'));
           } else {
             await dismissWarrantyReminder(warrantyId);
             router.refresh();
             // The row leaves the list (force-dynamic page re-renders), so the
             // undo lives on the toast — mirrors the mobile snackbar/banner.
-            toast.success('Đã ẩn nhắc nhở', {
-              action: { label: 'Hoàn tác', onClick: restore },
+            toast.success(t('Đã ẩn nhắc nhở'), {
+              action: { label: t('Hoàn tác'), onClick: restore },
             });
           }
         })
@@ -58,7 +60,7 @@ export function DismissButton({
       ) : (
         <EyeOff className="mr-1 h-3.5 w-3.5" />
       )}
-      {isDismissed ? 'Hiện lại' : 'Đã xem, ẩn đi'}
+      {isDismissed ? t('Hiện lại') : t('Đã xem, ẩn đi')}
     </Button>
   );
 }

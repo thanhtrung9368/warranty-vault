@@ -16,6 +16,7 @@ import {
 import { SNOOZE_CHOICES } from '@/lib/action-queue';
 import { snoozeActionItem, unsnoozeActionItem } from '@/app/actions/actions';
 import { formatDate } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
 
 // Per-item snooze control for the "Việc cần xử lý" queue.
 //
@@ -24,8 +25,10 @@ import { formatDate } from '@/lib/format';
 //     row stays visible (and undoable) under "Đang hoãn";
 //   - it is not a push setting: the server keeps `DecisionSnooze` separate from
 //     `Reminder`, so snoozing here never silences a warranty notification.
-// Errors are surfaced with the server's own Vietnamese message (e.g. the 404
-// when the row was un-snoozed on another device).
+// Errors are surfaced with the server's own message, already in the page's
+// language (`?lang=` on every API call); the local fallbacks and everything
+// else here go through the client translator, so nothing renders Vietnamese
+// under an English UI.
 export function ActionItemSnooze({
   itemKey,
   isSnoozed,
@@ -35,6 +38,8 @@ export function ActionItemSnooze({
 }) {
   const [pending, startTransition] = React.useTransition();
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
 
   // Shared by the row button and the toast's undo, so both paths put the row
   // back exactly the same way.
@@ -43,20 +48,22 @@ export function ActionItemSnooze({
       startTransition(async () => {
         const res = await unsnoozeActionItem(itemKey);
         if (!res.ok) {
-          toast.error(res.message);
+          toast.error(t(res.message));
           return;
         }
         router.refresh();
-        if (!options?.silent) toast.success(res.message ?? 'Đã bỏ hoãn');
+        if (!options?.silent) {
+          toast.success(res.message ? t(res.message) : t('Đã bỏ hoãn'));
+        }
       }),
-    [itemKey, router],
+    [itemKey, router, t],
   );
 
   const snooze = (days: number) =>
     startTransition(async () => {
       const res = await snoozeActionItem(itemKey, days);
       if (!res.ok) {
-        toast.error(res.message);
+        toast.error(t(res.message));
         return;
       }
       router.refresh();
@@ -64,9 +71,11 @@ export function ActionItemSnooze({
       // same pattern as the reminders' "Đã ẩn nhắc nhở".
       toast.success(
         res.snoozedUntil
-          ? `Đã hoãn tới ${formatDate(res.snoozedUntil)}`
-          : (res.message ?? 'Đã hoãn việc này'),
-        { action: { label: 'Bỏ hoãn', onClick: () => unsnooze({ silent: true }) } },
+          ? t('Đã hoãn tới {date}', { date: formatDate(res.snoozedUntil, locale) })
+          : res.message
+            ? t(res.message, { days: res.days ?? days, count: res.days ?? days })
+            : t('Đã hoãn việc này'),
+        { action: { label: t('Bỏ hoãn'), onClick: () => unsnooze({ silent: true }) } },
       );
     });
 
@@ -84,7 +93,7 @@ export function ActionItemSnooze({
         ) : (
           <Undo2 className="mr-1 h-3.5 w-3.5" />
         )}
-        Bỏ hoãn
+        {t('Bỏ hoãn')}
       </Button>
     );
   }
@@ -103,12 +112,12 @@ export function ActionItemSnooze({
           ) : (
             <Clock className="mr-1 h-3.5 w-3.5" />
           )}
-          Hoãn
+          {t('Hoãn')}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[11rem]">
         <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
-          Hoãn việc này trong
+          {t('Hoãn việc này trong')}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {SNOOZE_CHOICES.map((choice) => (
@@ -117,10 +126,12 @@ export function ActionItemSnooze({
             onSelect={() => snooze(choice.days)}
             className="cursor-pointer"
           >
-            {choice.label}
+            {/* `label` is the Vietnamese dictionary key (`action-queue.ts`). */}
+            {t(choice.label)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
+

@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { formatVND } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
 
 // Palette pulled from the design tokens — slice colors map 1:1 to the
 // `.tint-*` helpers used in legend chips below. Order matches the order
@@ -37,11 +38,13 @@ export function CategoryPie({
 }: {
   data: { label: string; total: number; count: number }[];
 }) {
+  const t = useT();
+  const locale = useLocale();
   const filtered = data.filter((d) => d.total > 0).sort((a, b) => b.total - a.total);
   if (filtered.length === 0) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
-        Chưa có dữ liệu chi phí.
+        {t('Chưa có dữ liệu chi phí.')}
       </p>
     );
   }
@@ -76,7 +79,10 @@ export function CategoryPie({
               }}
               formatter={
                 ((v: number, _n: unknown, item: { payload: { count: number; label: string } }) => [
-                  `${formatVND(v)} (${item.payload.count} món)`,
+                  t('{amount} ({count} món)', {
+                    amount: formatVND(v, locale),
+                    count: item.payload.count,
+                  }),
                   item.payload.label,
                 ]) as never
               }
@@ -93,7 +99,9 @@ export function CategoryPie({
               aria-hidden
             />
             <span className="flex-1 truncate">{c.label}</span>
-            <span className="font-semibold tabular-nums text-ink-2">{formatVND(c.total)}</span>
+            <span className="font-semibold tabular-nums text-ink-2">
+              {formatVND(c.total, locale)}
+            </span>
           </li>
         ))}
       </ul>

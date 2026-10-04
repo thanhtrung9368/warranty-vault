@@ -12,10 +12,14 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { STATUSES, STATUS_LABELS } from '@/lib/types';
+import { STATUSES } from '@/lib/types';
+import { statusLabel } from '@/lib/i18n/labels';
+import { useLocale, useT } from '@/lib/i18n/client';
 import type { CategoryOption } from '@/app/actions/catalog';
 
 export function DevicesFilterBar({ categories }: { categories: CategoryOption[] }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const params = useSearchParams();
 
@@ -56,7 +60,7 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tìm theo tên, hãng, model, serial..."
+            placeholder={t('Tìm theo tên, hãng, model, serial...')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="rounded-pill pl-9"
@@ -68,13 +72,13 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
             onValueChange={(v) => update('status', v)}
           >
             <SelectTrigger className="w-[150px] rounded-pill">
-              <SelectValue placeholder="Trạng thái" />
+              <SelectValue placeholder={t('Trạng thái')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+              <SelectItem value="ALL">{t('Tất cả trạng thái')}</SelectItem>
               {STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {STATUS_LABELS[s]}
+                  {statusLabel(s, locale)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -90,16 +94,16 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
             }}
           >
             <SelectTrigger className="w-[180px] rounded-pill">
-              <SelectValue placeholder="Sắp xếp" />
+              <SelectValue placeholder={t('Sắp xếp')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="purchaseDate-desc">Ngày mua mới nhất</SelectItem>
-              <SelectItem value="purchaseDate-asc">Ngày mua cũ nhất</SelectItem>
-              <SelectItem value="warrantyEndDate-asc">BH sắp hết trước</SelectItem>
-              <SelectItem value="warrantyEndDate-desc">BH lâu hết trước</SelectItem>
-              <SelectItem value="price-desc">Giá cao nhất</SelectItem>
-              <SelectItem value="price-asc">Giá thấp nhất</SelectItem>
-              <SelectItem value="name-asc">Tên A-Z</SelectItem>
+              <SelectItem value="purchaseDate-desc">{t('Ngày mua mới nhất')}</SelectItem>
+              <SelectItem value="purchaseDate-asc">{t('Ngày mua cũ nhất')}</SelectItem>
+              <SelectItem value="warrantyEndDate-asc">{t('BH sắp hết trước')}</SelectItem>
+              <SelectItem value="warrantyEndDate-desc">{t('BH lâu hết trước')}</SelectItem>
+              <SelectItem value="price-desc">{t('Giá cao nhất')}</SelectItem>
+              <SelectItem value="price-asc">{t('Giá thấp nhất')}</SelectItem>
+              <SelectItem value="name-asc">{t('Tên A-Z')}</SelectItem>
             </SelectContent>
           </Select>
           {isFiltered && (
@@ -111,7 +115,7 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
               onClick={clearAll}
             >
               <X className="mr-1 h-3.5 w-3.5" />
-              Xoá lọc
+              {t('Xoá lọc')}
             </Button>
           )}
         </div>
@@ -124,7 +128,7 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
             data-active={activeCategory === ''}
             onClick={() => update('category', undefined)}
           >
-            Tất cả
+            {t('Tất cả')}
           </button>
           {pillCategories.map((c) => (
             <button
@@ -133,7 +137,11 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
               data-active={activeCategory === c.code}
               onClick={() => update('category', c.code)}
             >
-              {c.name}
+              {/* The DB stores the Vietnamese name (seeded by migration 0004).
+                  `t()` maps it to English through the catalog; an admin-added
+                  category that the dictionary has never seen comes back
+                  unchanged, which is the honest answer. */}
+              {t(c.name)}
             </button>
           ))}
           {categories.length > pillCategories.length && (
@@ -147,14 +155,18 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
             >
               <SelectTrigger
                 className="!h-8 !w-auto !rounded-pill !border-0 !bg-transparent !px-3.5 !py-0 !text-[13px] !font-semibold !text-muted !shadow-none !ring-0 hover:!text-ink focus-visible:!ring-0 data-[state=open]:!bg-card data-[state=open]:!text-ink data-[state=open]:!shadow-soft [&>svg]:!h-3.5 [&>svg]:!w-3.5"
-                aria-label="Loại khác"
+                aria-label={t('Loại khác')}
               >
-                <SelectValue placeholder="Loại khác…" />
+                <SelectValue placeholder={t('Loại khác…')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.slice(pillCategories.length).map((c) => (
                   <SelectItem key={c.code} value={c.code}>
-                    {c.name}
+                    {/* The DB stores the Vietnamese name (seeded by migration 0004).
+                  `t()` maps it to English through the catalog; an admin-added
+                  category that the dictionary has never seen comes back
+                  unchanged, which is the honest answer. */}
+              {t(c.name)}
                   </SelectItem>
                 ))}
               </SelectContent>

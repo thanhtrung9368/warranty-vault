@@ -111,7 +111,7 @@ describe('describeImportResult', () => {
       attachmentsImported: 0,
       attachmentsSkipped: 0,
       attachmentsUnreadable: 0,
-    });
+    }, 'vi');
     expect(summary.tone).toBe('success');
     expect(summary.message).toBe(
       'Đã import 3 thiết bị, bỏ qua 1 thiết bị đã tồn tại, 2 món wishlist, 1 gói đăng ký.',
@@ -132,7 +132,7 @@ describe('describeImportResult', () => {
       attachmentsImported: 12,
       attachmentsSkipped: 3,
       attachmentsUnreadable: 0,
-    });
+    }, 'vi');
     expect(summary.tone).toBe('success');
     expect(summary.message).toContain('12 file đính kèm đã ghi');
     expect(summary.message).toContain('bỏ qua 3 file đính kèm');
@@ -146,7 +146,7 @@ describe('describeImportResult', () => {
       attachmentsImported: 5,
       attachmentsSkipped: 0,
       attachmentsUnreadable: 2,
-    });
+    }, 'vi');
     expect(summary.tone).toBe('warning');
     expect(summary.message).toContain('2 file đính kèm KHÔNG giải mã được');
     expect(summary.details.join(' ')).toContain('2 không giải mã được');
@@ -165,18 +165,18 @@ describe('describeImportResult', () => {
       attachmentsImported: 0,
       attachmentsSkipped: 0,
       attachmentsUnreadable: 3,
-    });
+    }, 'vi');
     expect(summary.tone).toBe('warning');
     expect(summary.unreadableWarning).toContain('thiếu từ lúc xuất');
   });
 
   it('degrades gracefully when the response is missing or partially shaped', () => {
-    const empty = describeImportResult(null);
+    const empty = describeImportResult(null, 'vi');
     expect(empty.tone).toBe('success');
     expect(empty.message).toBe('Đã import 0 thiết bị.');
     expect(empty.details).toEqual([]);
 
-    const partial = describeImportResult({ imported: 2, attachmentsUnreadable: undefined });
+    const partial = describeImportResult({ imported: 2, attachmentsUnreadable: undefined }, 'vi');
     expect(partial.message).toBe('Đã import 2 thiết bị.');
     expect(Number.isNaN(Number(partial.message.match(/\d+/)?.[0]))).toBe(false);
   });
@@ -186,7 +186,7 @@ describe('describeImportResult', () => {
       imported: -5,
       skipped: Number.NaN,
       attachmentsUnreadable: -1,
-    });
+    }, 'vi');
     expect(summary.message).toBe('Đã import 0 thiết bị.');
     expect(summary.tone).toBe('success');
   });

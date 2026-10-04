@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, Heart, Loader2, Package, Repeat, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { searchAll } from '@/app/actions/search';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 import {
   SEARCH_DEBOUNCE_MS,
@@ -38,13 +39,14 @@ function GroupSection({
   rows: SearchResultRow[];
   onNavigate: () => void;
 }) {
+  const t = useT();
   if (rows.length === 0) return null;
   const Icon = GROUP_ICONS[groupKey];
   return (
     <div className="border-b border-border last:border-b-0">
       <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
-        {SEARCH_GROUP_LABELS[groupKey]}
+        {t(SEARCH_GROUP_LABELS[groupKey])}
         <span className="ml-auto font-mono text-[11px] font-normal">{rows.length}</span>
       </div>
       <ul>
@@ -79,13 +81,19 @@ function SearchResults({
   onNavigate: () => void;
   className?: string;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const shell = cn(
     'overflow-hidden rounded-lg border-[1.5px] border-border bg-card shadow-lift',
     className,
   );
 
   if (state.kind === 'idle') {
-    return <div className={cn(shell, 'p-4 text-sm text-muted-foreground')}>{SEARCH_IDLE_HINT}</div>;
+    return (
+      <div className={cn(shell, 'p-4 text-sm text-muted-foreground')}>
+        {t(SEARCH_IDLE_HINT)}
+      </div>
+    );
   }
 
   if (state.kind === 'loading') {
@@ -95,7 +103,7 @@ function SearchResults({
         aria-live="polite"
       >
         <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-        {SEARCH_LOADING_HINT}
+        {t(SEARCH_LOADING_HINT)}
       </div>
     );
   }
@@ -118,7 +126,7 @@ function SearchResults({
   if (searchResultCount(state.groups) === 0) {
     return (
       <div className={cn(shell, 'p-4 text-sm text-muted-foreground')} role="status">
-        {noResultsMessage(state.query)}
+        {noResultsMessage(state.query, locale)}
       </div>
     );
   }
@@ -151,6 +159,7 @@ function SearchResults({
 //   - Every string the server sends (including the 400 for a query over 200
 //     runes) is surfaced verbatim.
 export function GlobalSearch() {
+  const t = useT();
   const [query, setQuery] = React.useState('');
   const [state, setState] = React.useState<SearchState>({ kind: 'idle' });
   const [open, setOpen] = React.useState(false);
@@ -228,8 +237,8 @@ export function GlobalSearch() {
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onFocus={() => setOpen(true)}
-          placeholder={SEARCH_PLACEHOLDER}
-          aria-label="Tìm kiếm thiết bị, đăng ký, wishlist"
+          placeholder={t(SEARCH_PLACEHOLDER)}
+          aria-label={t('Tìm kiếm thiết bị, đăng ký, wishlist')}
           aria-expanded={open}
           className="rounded-pill pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
         />
@@ -240,7 +249,7 @@ export function GlobalSearch() {
               onQueryChange('');
               setOpen(true);
             }}
-            aria-label="Xoá từ khoá"
+            aria-label={t('Xoá từ khoá')}
             className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:text-ink"
           >
             <X className="h-3.5 w-3.5" />
@@ -261,7 +270,7 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        aria-label="Tìm kiếm"
+        aria-label={t('Tìm kiếm')}
         className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-2 hover:text-ink md:hidden"
       >
         <Search className="h-5 w-5" />
@@ -271,7 +280,7 @@ export function GlobalSearch() {
         <>
           <button
             type="button"
-            aria-label="Đóng tìm kiếm"
+            aria-label={t('Đóng tìm kiếm')}
             onClick={closeAll}
             className="fixed inset-x-0 top-16 z-40 h-screen cursor-default bg-ink/25 md:hidden"
           />
@@ -283,14 +292,14 @@ export function GlobalSearch() {
                 type="search"
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
-                placeholder={SEARCH_PLACEHOLDER}
-                aria-label="Tìm kiếm thiết bị, đăng ký, wishlist"
+                placeholder={t(SEARCH_PLACEHOLDER)}
+                aria-label={t('Tìm kiếm thiết bị, đăng ký, wishlist')}
                 className="rounded-pill pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
               />
               <button
                 type="button"
                 onClick={closeAll}
-                aria-label="Đóng tìm kiếm"
+                aria-label={t('Đóng tìm kiếm')}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:text-ink"
               >
                 <X className="h-4 w-4" />

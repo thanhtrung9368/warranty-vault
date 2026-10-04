@@ -27,6 +27,9 @@
 // cannot be known client-side; the import result reports those rows through
 // `attachmentsUnreadable`, which the UI surfaces.
 
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
+
 /** Mirror of `services.AttachmentBytesNoteVN` (JSON export, metadata only). */
 export const ATTACHMENT_BYTES_NOTE_JSON =
   'Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh.';
@@ -78,7 +81,7 @@ export type ImportCounters = {
 export type ImportSummary = {
   /** `warning` when files were restored but cannot be decrypted. */
   tone: 'success' | 'warning';
-  /** One-line Vietnamese summary (toast). */
+  /** One-line summary in the caller's language (toast). */
   message: string;
   /** Per-entity counter lines for the persistent result block. */
   details: string[];
@@ -91,8 +94,12 @@ function count(value: number | undefined): number {
 }
 
 /**
- * Turn the API's counters into Vietnamese. The wording of the pre-existing four
- * counters is unchanged; the three attachment counters are additive.
+ * Turn the API's counters into sentences in `locale`. The wording of the
+ * pre-existing four counters is unchanged; the three attachment counters are
+ * additive.
+ *
+ * `locale` is required (no Vietnamese default): an optional one would let a
+ * missed call site print Vietnamese inside an English page and report nothing.
  *
  * `attachmentsUnreadable` is never dropped or folded into "thành công": it means
  * the rows and bytes were restored but cannot be decrypted with THIS server's
@@ -100,7 +107,10 @@ function count(value: number | undefined): number {
  * written). The user has to be told, because the loss only becomes visible when
  * they try to open an invoice.
  */
-export function describeImportResult(result: ImportCounters | null | undefined): ImportSummary {
+export function describeImportResult(
+  result: ImportCounters | null | undefined,
+  locale: Locale,
+): ImportSummary {
   const imported = count(result?.imported);
   const skipped = count(result?.skipped);
   const wishlistImported = count(result?.wishlistImported);
@@ -111,32 +121,68 @@ export function describeImportResult(result: ImportCounters | null | undefined):
   const attachmentsSkipped = count(result?.attachmentsSkipped);
   const attachmentsUnreadable = count(result?.attachmentsUnreadable);
 
-  const parts: string[] = [`Đã import ${imported} thiết bị`];
-  if (skipped) parts.push(`bỏ qua ${skipped} thiết bị đã tồn tại`);
-  if (wishlistImported) parts.push(`${wishlistImported} món wishlist`);
-  if (wishlistSkipped) parts.push(`bỏ qua ${wishlistSkipped} món wishlist đã tồn tại`);
-  if (subImported) parts.push(`${subImported} gói đăng ký`);
-  if (subSkipped) parts.push(`bỏ qua ${subSkipped} gói đã tồn tại`);
-  if (attachmentsImported) parts.push(`${attachmentsImported} file đính kèm đã ghi`);
-  if (attachmentsSkipped) parts.push(`bỏ qua ${attachmentsSkipped} file đính kèm`);
+  const parts: string[] = [
+    translate(locale, 'Đã import {count} thiết bị', { count: imported }),
+  ];
+  if (skipped)
+    parts.push(translate(locale, 'bỏ qua {count} thiết bị đã tồn tại', { count: skipped }));
+  if (wishlistImported)
+    parts.push(translate(locale, '{count} món wishlist', { count: wishlistImported }));
+  if (wishlistSkipped)
+    parts.push(
+      translate(locale, 'bỏ qua {count} món wishlist đã tồn tại', { count: wishlistSkipped }),
+    );
+  if (subImported) parts.push(translate(locale, '{count} gói đăng ký', { count: subImported }));
+  if (subSkipped)
+    parts.push(translate(locale, 'bỏ qua {count} gói đã tồn tại', { count: subSkipped }));
+  if (attachmentsImported)
+    parts.push(
+      translate(locale, '{count} file đính kèm đã ghi', { count: attachmentsImported }),
+    );
+  if (attachmentsSkipped)
+    parts.push(translate(locale, 'bỏ qua {count} file đính kèm', { count: attachmentsSkipped }));
 
   const details: string[] = [];
-  if (skipped) details.push(`${skipped} thiết bị đã tồn tại nên được bỏ qua`);
-  if (wishlistSkipped) details.push(`${wishlistSkipped} món wishlist đã tồn tại nên được bỏ qua`);
-  if (subSkipped) details.push(`${subSkipped} gói đăng ký đã tồn tại nên được bỏ qua`);
+  if (skipped)
+    details.push(
+      translate(locale, '{count} thiết bị đã tồn tại nên được bỏ qua', { count: skipped }),
+    );
+  if (wishlistSkipped)
+    details.push(
+      translate(locale, '{count} món wishlist đã tồn tại nên được bỏ qua', {
+        count: wishlistSkipped,
+      }),
+    );
+  if (subSkipped)
+    details.push(
+      translate(locale, '{count} gói đăng ký đã tồn tại nên được bỏ qua', { count: subSkipped }),
+    );
 
   let unreadableWarning: string | undefined;
   if (attachmentsImported || attachmentsSkipped || attachmentsUnreadable) {
     details.push(
-      `File đính kèm: ${attachmentsImported} đã ghi, ${attachmentsSkipped} bỏ qua, ${attachmentsUnreadable} không giải mã được`,
+      translate(
+        locale,
+        'File đính kèm: {imported} đã ghi, {skipped} bỏ qua, {unreadable} không giải mã được',
+        {
+          imported: attachmentsImported,
+          skipped: attachmentsSkipped,
+          unreadable: attachmentsUnreadable,
+        },
+      ),
     );
   }
   if (attachmentsUnreadable) {
-    parts.push(`${attachmentsUnreadable} file đính kèm KHÔNG giải mã được`);
-    unreadableWarning =
-      `${attachmentsUnreadable} file đính kèm đã được khôi phục nhưng KHÔNG giải mã được bằng FILE_MASTER_KEY của máy chủ này ` +
-      '(hoặc blob đã thiếu từ lúc xuất bản sao lưu). Dòng dữ liệu vẫn còn, nhưng ảnh/hoá đơn đó sẽ không mở được — cần đúng ' +
-      'FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu.';
+    parts.push(
+      translate(locale, '{count} file đính kèm KHÔNG giải mã được', {
+        count: attachmentsUnreadable,
+      }),
+    );
+    unreadableWarning = translate(
+      locale,
+      '{count} file đính kèm đã được khôi phục nhưng KHÔNG giải mã được bằng FILE_MASTER_KEY của máy chủ này (hoặc blob đã thiếu từ lúc xuất bản sao lưu). Dòng dữ liệu vẫn còn, nhưng ảnh/hoá đơn đó sẽ không mở được — cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu.',
+      { count: attachmentsUnreadable },
+    );
   }
 
   return {

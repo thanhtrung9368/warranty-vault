@@ -107,16 +107,16 @@ describe('normalizeForecastMonths', () => {
 
 describe('bucket labels', () => {
   it('renders Vietnamese month labels from the UTC bucket key', () => {
-    expect(bucketMonthLabel('2026-03')).toBe('Tháng 3/2026');
-    expect(bucketMonthLabel('2026-12')).toBe('Tháng 12/2026');
-    expect(bucketMonthShortLabel('2026-03')).toBe('T3/26');
-    expect(bucketMonthShortLabel('2027-01')).toBe('T1/27');
+    expect(bucketMonthLabel('2026-03', 'vi')).toBe('Tháng 3/2026');
+    expect(bucketMonthLabel('2026-12', 'vi')).toBe('Tháng 12/2026');
+    expect(bucketMonthShortLabel('2026-03', 'vi')).toBe('T3/26');
+    expect(bucketMonthShortLabel('2027-01', 'vi')).toBe('T1/27');
   });
 
   it('leaves an unexpected key untouched instead of inventing a month', () => {
-    expect(bucketMonthLabel('')).toBe('');
-    expect(bucketMonthLabel('2026-3')).toBe('2026-3');
-    expect(bucketMonthShortLabel('nope')).toBe('nope');
+    expect(bucketMonthLabel('', 'vi')).toBe('');
+    expect(bucketMonthLabel('2026-3', 'vi')).toBe('2026-3');
+    expect(bucketMonthShortLabel('nope', 'vi')).toBe('nope');
   });
 
   it('derives the current month from a UTC timestamp', () => {
@@ -158,7 +158,7 @@ describe('autoRenewSplit', () => {
 });
 
 describe('buildForecastRows', () => {
-  const rows = buildForecastRows(FORECAST);
+  const rows = buildForecastRows(FORECAST, 'vi');
 
   it('keeps every bucket the API sent, in order — no assumption of 12', () => {
     expect(rows.map((r) => r.month)).toEqual([
@@ -186,7 +186,7 @@ describe('buildForecastRows', () => {
       windowStart: '2026-03-01T00:00:00Z',
       windowEnd: '2026-04-01T00:00:00Z',
       buckets: [bucket({ month: '2026-03' })],
-    });
+    }, 'vi');
     expect(edge).toHaveLength(1);
     expect(edge[0].isCurrentMonth).toBe(true);
     expect(edge[0].isClosingMonth).toBe(false);
@@ -216,9 +216,9 @@ describe('buildForecastRows', () => {
   });
 
   it('survives a missing / empty payload', () => {
-    expect(buildForecastRows(null)).toEqual([]);
-    expect(buildForecastRows(undefined)).toEqual([]);
-    expect(buildForecastRows({ buckets: [], windowStart: '', generatedAt: '' })).toEqual([]);
+    expect(buildForecastRows(null, 'vi')).toEqual([]);
+    expect(buildForecastRows(undefined, 'vi')).toEqual([]);
+    expect(buildForecastRows({ buckets: [], windowStart: '', generatedAt: '' }, 'vi')).toEqual([]);
   });
 
   it('builds stacked chart rows off the same numbers', () => {
@@ -269,7 +269,7 @@ describe('forecastTotals', () => {
 
 describe('possibleSpendTotals', () => {
   it('sums the reference columns without touching the scheduled total', () => {
-    const rows = buildForecastRows(FORECAST);
+    const rows = buildForecastRows(FORECAST, 'vi');
     expect(possibleSpendTotals(rows)).toEqual({
       warrantyVnd: 4_000_000,
       warrantyCount: 1,
@@ -282,16 +282,19 @@ describe('possibleSpendTotals', () => {
 
 describe('isForecastEmpty', () => {
   it('is true only when nothing at all happens in the window', () => {
-    expect(isForecastEmpty(null)).toBe(true);
+    expect(isForecastEmpty(null, 'vi')).toBe(true);
     expect(
-      isForecastEmpty({ buckets: [bucket({ month: '2026-03' })], upcomingWarranties: [], upcomingWishlist: [] }),
+      isForecastEmpty(
+        { buckets: [bucket({ month: '2026-03' })], upcomingWarranties: [], upcomingWishlist: [] },
+        'vi',
+      ),
     ).toBe(true);
     expect(
       isForecastEmpty({
         buckets: [bucket({ month: '2026-03', subscriptionVnd: 1 })],
         upcomingWarranties: [],
         upcomingWishlist: [],
-      }),
+      }, 'vi'),
     ).toBe(false);
   });
 
@@ -311,7 +314,7 @@ describe('isForecastEmpty', () => {
             currentPriceVnd: null,
           },
         ],
-      }),
+      }, 'vi'),
     ).toBe(false);
   });
 });
@@ -319,20 +322,23 @@ describe('isForecastEmpty', () => {
 describe('window + count labels', () => {
   it('labels the window from the API bounds', () => {
     expect(
-      forecastWindowLabel({
-        windowStart: '2026-03-14T09:00:00Z',
-        windowEnd: '2027-03-14T09:00:00Z',
-      }),
+      forecastWindowLabel(
+        {
+          windowStart: '2026-03-14T09:00:00Z',
+          windowEnd: '2027-03-14T09:00:00Z',
+        },
+        'vi',
+      ),
     ).toBe('Tháng 3/2026 – Tháng 3/2027');
-    expect(forecastWindowLabel(null)).toBe('');
+    expect(forecastWindowLabel(null, 'vi')).toBe('');
   });
 
   it('pluralises counts in Vietnamese', () => {
-    expect(chargeCountLabel(0)).toBe('Không có kỳ nào');
-    expect(chargeCountLabel(1)).toBe('1 kỳ gia hạn');
-    expect(chargeCountLabel(4)).toBe('4 kỳ gia hạn');
-    expect(packageCountLabel(0)).toBe('');
-    expect(packageCountLabel(1)).toBe('1 gói');
-    expect(packageCountLabel(2, 'món')).toBe('2 món');
+    expect(chargeCountLabel(0, 'vi')).toBe('Không có kỳ nào');
+    expect(chargeCountLabel(1, 'vi')).toBe('1 kỳ gia hạn');
+    expect(chargeCountLabel(4, 'vi')).toBe('4 kỳ gia hạn');
+    expect(packageCountLabel(0, 'vi')).toBe('');
+    expect(packageCountLabel(1, 'vi')).toBe('1 gói');
+    expect(packageCountLabel(2, 'vi', 'món')).toBe('2 món');
   });
 });

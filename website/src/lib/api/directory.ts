@@ -9,6 +9,8 @@
 // `@/lib/service-directory`).
 
 import { apiFetch, type ApiResult } from './client';
+import { translate } from '@/lib/i18n/catalog';
+import { getLocale } from '@/lib/i18n/server';
 import { normalizeServiceDirectory, type ServiceDirectory } from '@/lib/service-directory';
 
 export type {
@@ -35,7 +37,9 @@ export async function get(deviceId: string): Promise<ApiResult<ServiceDirectory>
       // client uses for an unparseable JSON body.
       status: 200,
       error: 'bad_response',
-      message: 'Danh bạ bảo hành trả về không hợp lệ',
+      // Our own sentence, not the server's — so it is rendered in the request's
+      // language here rather than passed through.
+      message: translate(await getLocale(), 'Danh bạ bảo hành trả về không hợp lệ'),
     };
   }
   return { ok: true, data: directory };

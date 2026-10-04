@@ -11,9 +11,11 @@ import {
   resetPassword,
   type ResetRequestState,
 } from '@/app/actions/password-reset';
+import { useT } from '@/lib/i18n/client';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending} size="lg" className="w-full">
       {pending ? (
@@ -21,12 +23,13 @@ function SubmitButton() {
       ) : (
         <KeyRound className="mr-2 h-4 w-4" />
       )}
-      Đổi mật khẩu
+      {t('Đổi mật khẩu')}
     </Button>
   );
 }
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const t = useT();
   const [state, formAction] = useActionState<ResetRequestState, FormData>(resetPassword, {});
   const errors = state?.errors ?? {};
 
@@ -36,9 +39,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <div className="mx-auto mb-3 inline-flex h-[60px] w-[60px] items-center justify-center rounded-full bg-primary-soft text-primary-ink">
           <KeyRound className="h-7 w-7" />
         </div>
-        <h1 className="display text-2xl">Đặt lại mật khẩu</h1>
+        <h1 className="display text-2xl">{t('Đặt lại mật khẩu')}</h1>
         <p className="mt-1.5 text-sm text-muted">
-          Chọn mật khẩu mới mạnh hơn nha — tối thiểu 8 ký tự.
+          {t('Chọn mật khẩu mới mạnh hơn nha — tối thiểu 8 ký tự.')}
         </p>
       </div>
 
@@ -51,7 +54,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           <Button asChild size="lg" className="w-full">
             <Link href="/login">
               <LogIn className="mr-2 h-4 w-4" />
-              Đăng nhập ngay
+              {t('Đăng nhập ngay')}
             </Link>
           </Button>
         </div>
@@ -60,7 +63,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           <input type="hidden" name="token" value={token} />
           <div className="space-y-1.5">
             <Label htmlFor="newPassword" className="text-sm font-semibold text-ink-2">
-              Mật khẩu mới <span className="text-destructive">*</span>
+              {t('Mật khẩu mới')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="newPassword"
@@ -68,7 +71,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
               type="password"
               autoComplete="new-password"
               minLength={8}
-              placeholder="Tối thiểu 8 ký tự"
+              placeholder={t('Tối thiểu 8 ký tự')}
               required
             />
             {errors.newPassword && (
@@ -77,7 +80,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirmPassword" className="text-sm font-semibold text-ink-2">
-              Xác nhận mật khẩu <span className="text-destructive">*</span>
+              {t('Xác nhận mật khẩu')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="confirmPassword"
@@ -85,7 +88,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
               type="password"
               autoComplete="new-password"
               minLength={8}
-              placeholder="Nhập lại mật khẩu mới"
+              placeholder={t('Nhập lại mật khẩu mới')}
               required
             />
             {errors.confirmPassword && (
@@ -104,7 +107,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
               className="inline-flex items-center font-semibold text-primary hover:underline"
             >
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-              Quay lại đăng nhập
+              {t('Quay lại đăng nhập')}
             </Link>
           </p>
         </form>

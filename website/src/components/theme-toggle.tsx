@@ -10,7 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useT } from '@/lib/i18n/client';
 
+// The labels are the Vietnamese originals and the dictionary keys; they are
+// resolved with `t(label)` where they are rendered, because `OPTIONS` is a
+// module constant and a hook cannot run out here.
 const OPTIONS = [
   { value: 'system', label: 'Theo hệ thống', Icon: Monitor },
   { value: 'light', label: 'Sáng', Icon: Sun },
@@ -18,6 +22,7 @@ const OPTIONS = [
 ] as const;
 
 export function ThemeToggle() {
+  const t = useT();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe hydration guard
@@ -37,7 +42,7 @@ export function ThemeToggle() {
         <Button
           variant="outline"
           size="icon"
-          aria-label="Đổi giao diện"
+          aria-label={t('Đổi giao diện')}
           className="h-10 w-10 rounded-pill border-border bg-card text-ink-2 shadow-none hover:bg-secondary"
         >
           <TriggerIcon className={mounted ? 'h-[18px] w-[18px]' : 'h-[18px] w-[18px] opacity-0'} />
@@ -51,7 +56,7 @@ export function ThemeToggle() {
             className="gap-2"
           >
             <Icon className="h-4 w-4" />
-            <span className="flex-1">{label}</span>
+            <span className="flex-1">{t(label)}</span>
             {current === value ? <Check className="h-4 w-4" /> : null}
           </DropdownMenuItem>
         ))}

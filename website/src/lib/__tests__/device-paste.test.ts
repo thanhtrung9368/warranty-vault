@@ -44,66 +44,66 @@ describe('detectPasteDelimiter', () => {
 
 describe('parsePasteDate', () => {
   it('accepts the two formats the repo already speaks and normalises to ISO', () => {
-    expect(parsePasteDate('2026-03-15')).toEqual({ ok: true, day: '2026-03-15' });
-    expect(parsePasteDate('2026-03-15T00:00:00')).toEqual({ ok: true, day: '2026-03-15' });
-    expect(parsePasteDate('15/03/2026')).toEqual({ ok: true, day: '2026-03-15' });
-    expect(parsePasteDate('5/3/2026')).toEqual({ ok: true, day: '2026-03-05' });
+    expect(parsePasteDate('2026-03-15', 'vi')).toEqual({ ok: true, day: '2026-03-15' });
+    expect(parsePasteDate('2026-03-15T00:00:00', 'vi')).toEqual({ ok: true, day: '2026-03-15' });
+    expect(parsePasteDate('15/03/2026', 'vi')).toEqual({ ok: true, day: '2026-03-15' });
+    expect(parsePasteDate('5/3/2026', 'vi')).toEqual({ ok: true, day: '2026-03-05' });
   });
 
   it('tolerates the same day-first format with other separators or a time', () => {
-    expect(parsePasteDate('15-03-2026')).toEqual({ ok: true, day: '2026-03-15' });
-    expect(parsePasteDate('15.03.2026')).toEqual({ ok: true, day: '2026-03-15' });
-    expect(parsePasteDate('15/03/2026 00:00:00')).toEqual({ ok: true, day: '2026-03-15' });
+    expect(parsePasteDate('15-03-2026', 'vi')).toEqual({ ok: true, day: '2026-03-15' });
+    expect(parsePasteDate('15.03.2026', 'vi')).toEqual({ ok: true, day: '2026-03-15' });
+    expect(parsePasteDate('15/03/2026 00:00:00', 'vi')).toEqual({ ok: true, day: '2026-03-15' });
   });
 
   it('reads 03/04/2026 day-first, the convention the app writes', () => {
-    expect(parsePasteDate('03/04/2026')).toEqual({ ok: true, day: '2026-04-03' });
+    expect(parsePasteDate('03/04/2026', 'vi')).toEqual({ ok: true, day: '2026-04-03' });
   });
 
   it('refuses to guess: two-digit years, impossible days and junk are errors', () => {
-    expect(parsePasteDate('15/3/26').ok).toBe(false);
-    expect(parsePasteDate('31/02/2026')).toEqual({
+    expect(parsePasteDate('15/3/26', 'vi').ok).toBe(false);
+    expect(parsePasteDate('31/02/2026', 'vi')).toEqual({
       ok: false,
       error: 'Ngày mua không hợp lệ: "31/02/2026"',
     });
-    expect(parsePasteDate('2026-02-30').ok).toBe(false);
-    expect(parsePasteDate('hôm qua').ok).toBe(false);
-    expect(parsePasteDate('')).toEqual({ ok: false, error: 'Thiếu ngày mua' });
+    expect(parsePasteDate('2026-02-30', 'vi').ok).toBe(false);
+    expect(parsePasteDate('hôm qua', 'vi').ok).toBe(false);
+    expect(parsePasteDate('', 'vi')).toEqual({ ok: false, error: 'Thiếu ngày mua' });
   });
 });
 
 describe('parsePastePrice', () => {
   it('treats blank as "chưa ghi giá" (0) with no warning', () => {
-    expect(parsePastePrice('')).toEqual({ value: 0 });
-    expect(parsePastePrice('   ')).toEqual({ value: 0 });
+    expect(parsePastePrice('', 'vi')).toEqual({ value: 0 });
+    expect(parsePastePrice('   ', 'vi')).toEqual({ value: 0 });
   });
 
   it('reads grouping separators and currency symbols', () => {
-    expect(parsePastePrice('15000000').value).toBe(15_000_000);
-    expect(parsePastePrice('15.000.000').value).toBe(15_000_000);
-    expect(parsePastePrice('15,000,000').value).toBe(15_000_000);
-    expect(parsePastePrice('15.000.000 ₫').value).toBe(15_000_000);
-    expect(parsePastePrice('15.000.000đ').value).toBe(15_000_000);
-    expect(parsePastePrice('15 000 000').value).toBe(15_000_000);
+    expect(parsePastePrice('15000000', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15.000.000', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15,000,000', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15.000.000 ₫', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15.000.000đ', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15 000 000', 'vi').value).toBe(15_000_000);
   });
 
   it('reads the "tr / triệu / k" shorthand people actually type', () => {
-    expect(parsePastePrice('15tr').value).toBe(15_000_000);
-    expect(parsePastePrice('15 triệu').value).toBe(15_000_000);
-    expect(parsePastePrice('15,5tr').value).toBe(15_500_000);
-    expect(parsePastePrice('1.5tr').value).toBe(1_500_000);
-    expect(parsePastePrice('1.500tr').value).toBe(1_500_000_000);
-    expect(parsePastePrice('15k').value).toBe(15_000);
+    expect(parsePastePrice('15tr', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15 triệu', 'vi').value).toBe(15_000_000);
+    expect(parsePastePrice('15,5tr', 'vi').value).toBe(15_500_000);
+    expect(parsePastePrice('1.5tr', 'vi').value).toBe(1_500_000);
+    expect(parsePastePrice('1.500tr', 'vi').value).toBe(1_500_000_000);
+    expect(parsePastePrice('15k', 'vi').value).toBe(15_000);
   });
 
   it('warns instead of inventing a number it cannot read', () => {
-    expect(parsePastePrice('abc')).toEqual({
+    expect(parsePastePrice('abc', 'vi')).toEqual({
       value: 0,
       warning: 'Không đọc được giá "abc" — tạm để 0',
     });
-    expect(parsePastePrice('-5tr').value).toBe(0);
-    expect(parsePastePrice('-5tr').warning).toContain('tạm để 0');
-    expect(parsePastePrice('15 tỷ').warning).toContain('tạm để 0');
+    expect(parsePastePrice('-5tr', 'vi').value).toBe(0);
+    expect(parsePastePrice('-5tr', 'vi').warning).toContain('tạm để 0');
+    expect(parsePastePrice('15 tỷ', 'vi').warning).toContain('tạm để 0');
   });
 });
 
@@ -146,7 +146,7 @@ describe('looksLikeHeader', () => {
 
 describe('parsePasteImport', () => {
   it('returns an empty preview for blank text', () => {
-    const preview = parsePasteImport('   \n  ', { categories });
+    const preview = parsePasteImport('   \n  ', { categories, locale: 'vi' });
     expect(preview.empty).toBe(true);
     expect(preview.rows).toHaveLength(0);
   });
@@ -156,7 +156,7 @@ describe('parsePasteImport', () => {
       'Tên thiết bị\tDanh mục\tHãng\tNgày mua\tGiá mua\tTrạng thái\tGhi chú',
       'iPhone 13\tĐiện thoại\tApple\t15/03/2024\t15.000.000\tĐang dùng\tMua cho vợ',
     ].join('\n');
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
 
     expect(preview.headerDetected).toBe(true);
     expect(preview.delimiter).toBe('\t');
@@ -181,7 +181,7 @@ describe('parsePasteImport', () => {
       'MacBook Pro\tLAPTOP\tApple\tMBP14\tSN123\t2023-06-01\t30tr\tFPT Shop\thàng cũ',
       'Nồi chiên\tĐồ nhà bếp\tPhilips\tHD9200\t\t01/12/2023\t1.500.000\tShopee\t',
     ].join('\n');
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
 
     expect(preview.headerDetected).toBe(false);
     expect(preview.columns.map((c) => c.field)).toEqual([
@@ -216,7 +216,7 @@ describe('parsePasteImport', () => {
 
   it('skips blank lines but keeps the line numbers the user sees', () => {
     const text = 'Tên,Loại,Ngày mua,Giá mua\n\nMáy giặt,WASHING,15/03/2024,9tr\n';
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
     expect(preview.rows).toHaveLength(1);
     expect(preview.rows[0].line).toBe(3);
     expect(preview.rows[0].draft?.category).toBe('WASHING');
@@ -225,7 +225,7 @@ describe('parsePasteImport', () => {
 
   it('keeps too-few-column rows visible with their own errors', () => {
     const text = ['Tên\tNgày mua\tGiá mua', 'Máy ảnh', 'Loa bluetooth\t31/02/2024\t2tr'].join('\n');
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
 
     expect(preview.validCount).toBe(0);
     expect(preview.skippedCount).toBe(2);
@@ -238,14 +238,14 @@ describe('parsePasteImport', () => {
 
   it('warns about extra cells but still creates the row', () => {
     const text = 'Loa bluetooth,SPEAKER,JBL,Go 3,,15/03/2024,2tr,Tiki,note,thừa 1,thừa 2';
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
     expect(preview.rows[0].draft).toMatchObject({ name: 'Loa bluetooth', purchasePrice: 2_000_000 });
     expect(preview.rows[0].warnings).toContain('Thừa 2 ô so với bảng — phần thừa bị bỏ qua');
   });
 
   it('defaults a blank category to "Khác" with a warning, but errors on an unknown one', () => {
     const text = ['Tên,Ngày mua,Loại', 'Máy sấy,15/03/2024,', 'Máy sấy 2,15/03/2024,Máy bay'].join('\n');
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
 
     expect(preview.rows[0].draft?.category).toBe('OTHER');
     expect(preview.rows[0].warnings).toContain('Chưa ghi loại — dùng "Khác"');
@@ -255,7 +255,7 @@ describe('parsePasteImport', () => {
 
   it('honours quoted fields containing the delimiter, quotes and newlines', () => {
     const text = 'Tên,Ngày mua,Ghi chú\n"Loa; 2 loa",15/03/2024,"Anh nói ""ngon""\nlắm"';
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
     expect(preview.delimiter).toBe(',');
     expect(preview.rows[0].cells[0]).toBe('Loa; 2 loa');
     expect(preview.rows[0].draft?.notes).toBe('Anh nói "ngon"\nlắm');
@@ -266,14 +266,14 @@ describe('parsePasteImport', () => {
   it('lets the user override header detection both ways', () => {
     // `auto` sees two known labels → header, so this header-only paste has no
     // data rows (and nothing would be created).
-    const headerOnly = parsePasteImport('Tên,Danh mục,15/03/2024', { categories });
+    const headerOnly = parsePasteImport('Tên,Danh mục,15/03/2024', { categories, locale: 'vi' });
     expect(headerOnly.headerDetected).toBe(true);
     expect(headerOnly.rows).toHaveLength(0);
 
     // Positional mode reads the documented column order, so this row is only
     // importable when the parser is *not* treating line 1 as a header.
     const dataRow = 'iPhone,PHONE,Apple,,SN123,15/03/2024,15tr';
-    const auto = parsePasteImport(dataRow, { categories });
+    const auto = parsePasteImport(dataRow, { categories, locale: 'vi' });
     expect(auto.headerDetected).toBe(false);
     expect(auto.rows[0].draft).toMatchObject({
       name: 'iPhone',
@@ -285,23 +285,23 @@ describe('parsePasteImport', () => {
     });
 
     // Forcing "this row is data" keeps it importable...
-    expect(parsePasteImport(dataRow, { categories, headerMode: 'no' }).validCount).toBe(1);
+    expect(parsePasteImport(dataRow, { categories, headerMode: 'no', locale: 'vi' }).validCount).toBe(1);
     // ...while forcing "this row is a header" consumes it (0 rows would be created).
-    const asHeader = parsePasteImport(dataRow, { categories, headerMode: 'yes' });
+    const asHeader = parsePasteImport(dataRow, { categories, headerMode: 'yes', locale: 'vi' });
     expect(asHeader.headerDetected).toBe(true);
     expect(asHeader.rows).toHaveLength(0);
   });
 
   it('notes a duplicated column and only uses the first one', () => {
     const text = ['Tên,Ngày mua,Giá mua,Giá mua', 'iPad,15/03/2024,10tr,99tr'].join('\n');
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
     expect(preview.notes).toContain('Cột "Giá mua" bị trùng — chỉ dùng cột đầu tiên.');
     expect(preview.rows[0].draft?.purchasePrice).toBe(10_000_000);
   });
 
   it('handles CRLF, a BOM and semicolon-delimited text', () => {
     const text = '\uFEFFTên;Ngày mua;Giá mua\r\nTivi Samsung;15/03/2024;12.000.000\r\n';
-    const preview = parsePasteImport(text, { categories });
+    const preview = parsePasteImport(text, { categories, locale: 'vi' });
     expect(preview.delimiter).toBe(';');
     expect(preview.headerDetected).toBe(true);
     expect(preview.rows[0].draft).toMatchObject({
@@ -318,7 +318,7 @@ describe('parsePasteImport', () => {
     const text =
       '\uFEFFTên thiết bị;Danh mục;Hãng;Model;Số seri;Ngày mua;Giá mua;Nơi mua;Trạng thái;Hết bảo hành;Ghi chú\r\n' +
       'Máy giặt LG;Máy giặt / Sấy;LG;FC1409;SN-1;01/12/2023;9000000;Điện Máy Xanh;Đang dùng;01/12/2025;\r\n';
-    const preview = parsePasteImport(text, { categories: [...categories] });
+    const preview = parsePasteImport(text, { categories: [...categories], locale: 'vi' });
 
     expect(preview.delimiter).toBe(';');
     expect(preview.headerDetected).toBe(true);
@@ -337,7 +337,7 @@ describe('parsePasteImport', () => {
     });
   });
 
-  it('notes a single-column paste instead of pretending it is a table', () => {    const preview = parsePasteImport('iPhone 13\nMacBook Pro', { categories });
+  it('notes a single-column paste instead of pretending it is a table', () => {    const preview = parsePasteImport('iPhone 13\nMacBook Pro', { categories, locale: 'vi' });
     expect(preview.notes).toEqual([
       'Không thấy dấu phân cách (tab, ; hoặc ,) — mỗi dòng đang chỉ có 1 cột.',
     ]);
@@ -347,7 +347,7 @@ describe('parsePasteImport', () => {
   it('caps how many rows it parses and says so', () => {
     const lines = ['Tên\tNgày mua\tGiá mua'];
     for (let i = 0; i < 10; i += 1) lines.push(`Máy ${i}\t15/03/2024\t1tr`);
-    const preview = parsePasteImport(lines.join('\n'), { categories, maxRows: 3 });
+    const preview = parsePasteImport(lines.join('\n'), { categories, maxRows: 3, locale: 'vi' });
     expect(preview.rows).toHaveLength(3);
     expect(preview.truncated).toBe(true);
     expect(preview.validCount).toBe(3);
@@ -355,7 +355,7 @@ describe('parsePasteImport', () => {
 
   it('never invents a value for a row it flagged', () => {
     // 7 positional cells: the date is fine, the name is empty → still skipped.
-    const preview = parsePasteImport('\tPHONE\tApple\t\t\t15/03/2024\t15tr', { categories });
+    const preview = parsePasteImport('\tPHONE\tApple\t\t\t15/03/2024\t15tr', { categories, locale: 'vi' });
     expect(preview.rows[0].errors).toEqual(['Thiếu tên thiết bị']);
     expect(preview.rows[0].draft).toBeNull();
   });
@@ -365,7 +365,7 @@ describe('pasteDraftToInput', () => {
   it('sends exactly the nine pasted fields and nothing that was not pasted', () => {
     const preview = parsePasteImport(
       'Tên,Loại,Ngày mua,Giá mua\nLoa JBL,Loa,15/03/2024,2tr',
-      { categories },
+      { categories, locale: 'vi' },
     );
     const draft = preview.rows[0].draft;
     expect(draft).not.toBeNull();

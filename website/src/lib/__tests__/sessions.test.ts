@@ -16,32 +16,32 @@ import {
 
 describe('sessionDeviceLabel', () => {
   it('uses the label the client sent', () => {
-    expect(sessionDeviceLabel('Chrome · macOS')).toBe('Chrome · macOS');
+    expect(sessionDeviceLabel('Chrome · macOS', 'vi')).toBe('Chrome · macOS');
   });
 
   it('falls back for null / undefined / blank — the documented copy', () => {
-    expect(sessionDeviceLabel(null)).toBe(UNKNOWN_DEVICE_LABEL);
-    expect(sessionDeviceLabel(undefined)).toBe(UNKNOWN_DEVICE_LABEL);
-    expect(sessionDeviceLabel('')).toBe(UNKNOWN_DEVICE_LABEL);
-    expect(sessionDeviceLabel('   ')).toBe(UNKNOWN_DEVICE_LABEL);
+    expect(sessionDeviceLabel(null, 'vi')).toBe(UNKNOWN_DEVICE_LABEL);
+    expect(sessionDeviceLabel(undefined, 'vi')).toBe(UNKNOWN_DEVICE_LABEL);
+    expect(sessionDeviceLabel('', 'vi')).toBe(UNKNOWN_DEVICE_LABEL);
+    expect(sessionDeviceLabel('   ', 'vi')).toBe(UNKNOWN_DEVICE_LABEL);
   });
 
   it('trims without rewriting a real label', () => {
-    expect(sessionDeviceLabel('  Safari · iPad  ')).toBe('Safari · iPad');
+    expect(sessionDeviceLabel('  Safari · iPad  ', 'vi')).toBe('Safari · iPad');
   });
 });
 
 describe('sessionPlatformLabel', () => {
   it('maps the three platform values Go can store', () => {
-    expect(sessionPlatformLabel('web')).toBe('Trình duyệt web');
-    expect(sessionPlatformLabel('ios')).toBe('iPhone / iPad');
-    expect(sessionPlatformLabel('android')).toBe('Android');
+    expect(sessionPlatformLabel('web', 'vi')).toBe('Trình duyệt web');
+    expect(sessionPlatformLabel('ios', 'vi')).toBe('iPhone / iPad');
+    expect(sessionPlatformLabel('android', 'vi')).toBe('Android');
   });
 
   it('never returns an empty string for a missing platform', () => {
-    expect(sessionPlatformLabel(null)).toBe(UNKNOWN_PLATFORM_LABEL);
-    expect(sessionPlatformLabel(undefined)).toBe(UNKNOWN_PLATFORM_LABEL);
-    expect(sessionPlatformLabel('')).toBe(UNKNOWN_PLATFORM_LABEL);
+    expect(sessionPlatformLabel(null, 'vi')).toBe(UNKNOWN_PLATFORM_LABEL);
+    expect(sessionPlatformLabel(undefined, 'vi')).toBe(UNKNOWN_PLATFORM_LABEL);
+    expect(sessionPlatformLabel('', 'vi')).toBe(UNKNOWN_PLATFORM_LABEL);
   });
 
   it('passes an unknown value through instead of guessing', () => {
@@ -49,8 +49,8 @@ describe('sessionPlatformLabel', () => {
     // is a defensive branch only — and it must not invent a mapping (in
     // particular not the push vocabulary `apns`/`fcm`, which belongs to
     // PushSubscription.platform, a different entity).
-    expect(sessionPlatformLabel('symbian')).toBe('symbian');
-    expect(sessionPlatformLabel('apns')).toBe('apns');
+    expect(sessionPlatformLabel('symbian', 'vi')).toBe('symbian');
+    expect(sessionPlatformLabel('apns', 'vi')).toBe('apns');
   });
 });
 
@@ -136,7 +136,7 @@ describe('sessionRevokeOutcome', () => {
       current: true,
       alreadyRevoked: false,
       message: 'Đã thu hồi phiên đăng nhập. Đây là phiên bạn đang dùng — hãy đăng nhập lại.',
-    });
+    }, 'vi');
     expect(out.kind).toBe('current');
     expect(out.message).toContain('đăng nhập lại');
   });
@@ -147,7 +147,7 @@ describe('sessionRevokeOutcome', () => {
       current: false,
       alreadyRevoked: true,
       message: 'Phiên đăng nhập này đã được thu hồi trước đó.',
-    });
+    }, 'vi');
     expect(out.kind).toBe('already');
     expect(out.message).toBe('Phiên đăng nhập này đã được thu hồi trước đó.');
   });
@@ -158,7 +158,7 @@ describe('sessionRevokeOutcome', () => {
       current: false,
       alreadyRevoked: false,
       message: 'Đã thu hồi phiên đăng nhập.',
-    });
+    }, 'vi');
     expect(out.kind).toBe('revoked');
   });
 
@@ -168,18 +168,18 @@ describe('sessionRevokeOutcome', () => {
       current: true,
       alreadyRevoked: true,
       message: '',
-    });
+    }, 'vi');
     expect(out.kind).toBe('current');
     expect(out.message).not.toBe('');
   });
 
   it('falls back to Vietnamese copy when the API sent no message', () => {
     expect(
-      sessionRevokeOutcome({ ok: true, current: false, alreadyRevoked: false, message: '' })
+      sessionRevokeOutcome({ ok: true, current: false, alreadyRevoked: false, message: '' }, 'vi')
         .message,
     ).toBe('Đã thu hồi phiên đăng nhập.');
     expect(
-      sessionRevokeOutcome({ ok: true, current: false, alreadyRevoked: true, message: '  ' })
+      sessionRevokeOutcome({ ok: true, current: false, alreadyRevoked: true, message: '  ' }, 'vi')
         .message,
     ).toBe('Phiên đăng nhập này đã được thu hồi trước đó.');
   });

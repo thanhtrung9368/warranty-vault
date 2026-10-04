@@ -35,7 +35,8 @@ import {
   type CostPerDayRankRow,
 } from '@/lib/stats-rollup';
 import { isForecastEmpty, normalizeForecastMonths } from '@/lib/forecast-rollup';
-import { CATEGORY_LABELS, type Category } from '@/lib/types';
+import { categoryLabel } from '@/lib/i18n/labels';
+import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
 import { requireUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -60,6 +61,7 @@ export default async function StatsPage({
   searchParams: Promise<{ year?: string; fm?: string }>;
 }) {
   await requireUser();
+  const { locale, t } = await getI18n();
   const sp = await searchParams;
   const forecastMonths = normalizeForecastMonths(sp.fm);
 
@@ -92,21 +94,21 @@ export default async function StatsPage({
   // The forecast is part of "is there anything to show here": a user whose only
   // data is a dated wishlist item has a milestone to forecast, so they must not
   // get the "chưa có gì để thống kê" empty state.
-  if (total === 0 && subscriptionTotal === 0 && isForecastEmpty(forecast)) {
+  if (total === 0 && subscriptionTotal === 0 && isForecastEmpty(forecast, locale)) {
     return (
       <div className="space-y-6">
         <div>
-          <p className="eyebrow">Tổng quan</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Thống kê</h1>
+          <p className="eyebrow">{t('Tổng quan')}</p>
+          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Thống kê')}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            Chưa có gì để thống kê đâu — thêm thiết bị xong quay lại nhé.
+            {t('Chưa có gì để thống kê đâu — thêm thiết bị xong quay lại nhé.')}
           </p>
         </div>
         <EmptyState
           icon={BarChart3}
           tone="violet"
-          title="Chưa có dữ liệu để thống kê"
-          description="Thêm thiết bị xong tao sẽ vẽ chart cho mày xem chi tiêu mỗi tháng."
+          title={t('Chưa có dữ liệu để thống kê')}
+          description={t('Thêm thiết bị xong tao sẽ vẽ chart cho mày xem chi tiêu mỗi tháng.')}
         />
       </div>
     );
@@ -117,10 +119,10 @@ export default async function StatsPage({
   const parsedYear = sp.year ? Number(sp.year) : currentYear;
   const year = Number.isFinite(parsedYear) ? parsedYear : currentYear;
 
-  const monthly = monthlySpendBuckets(entries, 12);
-  const byCategory = spendByCategoryRollup(devices, entries);
+  const monthly = monthlySpendBuckets(entries, 12, locale);
+  const byCategory = spendByCategoryRollup(devices, entries, locale);
   // Year-scoped category list (device counts stay 0 — the card shows money).
-  const yearByCategory = spendByCategoryRollup([], entriesForYear(entries, year));
+  const yearByCategory = spendByCategoryRollup([], entriesForYear(entries, year), locale);
   const yearTotal = yearlySpend(entries, year);
   const allTime = allTimeSpend(entries);
   const top = topExpensiveRollup(devices, 5);
@@ -128,18 +130,36 @@ export default async function StatsPage({
   // đ/ngày (FEATURE_IDEAS #7): the inverse story of `top`. Same pure helper the
   // device detail card uses, over the same warranty map this page already
   // fetched — no extra request, no second money-math variant.
-  const perDayRanking = costPerDayRollup(devices, warrantiesByDevice, { limit: 5 });
+  const perDayRanking = costPerDayRollup(devices, warrantiesByDevice, {
+    limit: 5,
+    locale,
+  });
 
   const monthlySubs = subscriptionStats?.totalMonthlyVnd ?? 0;
   const activeSubs = subscriptionStats?.byStatus?.ACTIVE ?? 0;
 
+  // "Không xếp hạng: …" — one sentence built from whichever reasons apply, so
+  // the note reads as one line rather than a fragment glued together in JSX.
+  const skippedNote = [
+    perDayRanking.skipped.noPurchaseDate > 0
+      ? t('{count} thiết bị thiếu ngày mua', { count: perDayRanking.skipped.noPurchaseDate })
+      : null,
+    perDayRanking.skipped.noRecordedCost > 0
+      ? t('{count} thiết bị chưa ghi giá', { count: perDayRanking.skipped.noRecordedCost })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div className="space-y-6">
       <div>
-        <p className="eyebrow">Tổng quan</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Thống kê</h1>
+        <p className="eyebrow">{t('Tổng quan')}</p>
+        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Thống kê')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          Tổng quan chi phí mua sắm (thiết bị + gói bảo hành) và giá trị tài sản còn bảo hành.
+          {t(
+            'Tổng quan chi phí mua sắm (thiết bị + gói bảo hành) và giá trị tài sản còn bảo hành.',
+          )}
         </p>
       </div>
 
@@ -147,7 +167,9 @@ export default async function StatsPage({
         <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <p>
-            Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu.
+            {t(
+              'Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu.',
+            )}
           </p>
         </div>
       )}
@@ -155,33 +177,42 @@ export default async function StatsPage({
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          eyebrow={`Tổng chi ${year}`}
-          value={formatVND(yearTotal.total)}
-          sub={`${yearTotal.deviceCount} thiết bị • ${yearTotal.warrantyCount} gói bảo hành`}
+          eyebrow={t('Tổng chi {year}', { year })}
+          value={formatVND(yearTotal.total, locale)}
+          sub={t('{devices} thiết bị • {warranties} gói bảo hành', {
+            devices: yearTotal.deviceCount,
+            warranties: yearTotal.warrantyCount,
+          })}
           tint="tint-amber"
           icon={<TrendingUp className="h-5 w-5" />}
         />
         <KpiCard
-          eyebrow="Tổng chi mua sắm"
-          value={formatVND(allTime.total)}
-          sub={`${allTime.deviceCount} thiết bị • ${allTime.warrantyCount} gói bảo hành`}
+          eyebrow={t('Tổng chi mua sắm')}
+          value={formatVND(allTime.total, locale)}
+          sub={t('{devices} thiết bị • {warranties} gói bảo hành', {
+            devices: allTime.deviceCount,
+            warranties: allTime.warrantyCount,
+          })}
           tint="tint-violet"
           icon={<Wallet className="h-5 w-5" />}
         />
         <KpiCard
-          eyebrow="Tài sản còn bảo hành"
-          value={formatVND(asset.total)}
-          sub={`${asset.count}/${total} thiết bị`}
+          eyebrow={t('Tài sản còn bảo hành')}
+          value={formatVND(asset.total, locale)}
+          sub={t('{count}/{total} thiết bị', { count: asset.count, total })}
           tint="tint-emerald"
           icon={<ShieldCheck className="h-5 w-5" />}
         />
         <KpiCard
-          eyebrow="Phí định kỳ mỗi tháng"
-          value={subscriptionStats ? formatVND(monthlySubs) : '—'}
+          eyebrow={t('Phí định kỳ mỗi tháng')}
+          value={subscriptionStats ? formatVND(monthlySubs, locale) : '—'}
           sub={
             subscriptionStats
-              ? `${activeSubs} gói đang hoạt động • ~${formatVND(monthlySubs * 12)}/năm`
-              : 'Không tải được số liệu đăng ký'
+              ? t('{count} gói đang hoạt động • ~{amount}/năm', {
+                  count: activeSubs,
+                  amount: formatVND(monthlySubs * 12, locale),
+                })
+              : t('Không tải được số liệu đăng ký')
           }
           tint="tint-sky"
           icon={<RefreshCw className="h-5 w-5" />}
@@ -196,10 +227,10 @@ export default async function StatsPage({
               <span className="icon-badge icon-badge-xs tint-primary">
                 <BarChart3 className="h-3.5 w-3.5" />
               </span>
-              Chi phí 12 tháng gần nhất
+              {t('Chi phí 12 tháng gần nhất')}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói).
+              {t('Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói).')}
             </p>
           </CardHeader>
           <CardContent>
@@ -213,10 +244,10 @@ export default async function StatsPage({
               <span className="icon-badge icon-badge-xs tint-violet">
                 <PieChart className="h-3.5 w-3.5" />
               </span>
-              Phân bổ theo loại
+              {t('Phân bổ theo loại')}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ.
+              {t('Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ.')}
             </p>
           </CardHeader>
           <CardContent>
@@ -233,20 +264,26 @@ export default async function StatsPage({
               <span className="icon-badge icon-badge-xs tint-sky">
                 <Calendar className="h-3.5 w-3.5" />
               </span>
-              Tổng chi theo năm
+              {t('Tổng chi theo năm')}
             </CardTitle>
             <YearPicker years={years} value={year} />
           </CardHeader>
           <CardContent>
             <div className="flex items-end gap-3">
-              <span className="display text-3xl text-ink">{formatVND(yearTotal.total)}</span>
+              <span className="display text-3xl text-ink">
+                {formatVND(yearTotal.total, locale)}
+              </span>
               <span className="pb-1 text-sm text-muted-foreground">
-                ({yearTotal.deviceCount} thiết bị • {yearTotal.warrantyCount} gói trong {year})
+                {t('({devices} thiết bị • {warranties} gói trong {year})', {
+                  devices: yearTotal.deviceCount,
+                  warranties: yearTotal.warrantyCount,
+                  year,
+                })}
               </span>
             </div>
             {yearByCategory.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">
-                Chưa có chi phí nào trong năm {year}.
+                {t('Chưa có chi phí nào trong năm {year}.', { year })}
               </p>
             ) : (
               <ul className="mt-4 space-y-1">
@@ -258,7 +295,7 @@ export default async function StatsPage({
                       <CategoryIconBadge category={c.category} size="xs" />
                       <span className="flex-1 truncate text-sm">{c.label}</span>
                       <span className="font-semibold tabular-nums text-ink-2">
-                        {formatVND(c.total)}
+                        {formatVND(c.total, locale)}
                       </span>
                     </li>
                   ))}
@@ -273,15 +310,17 @@ export default async function StatsPage({
               <span className="icon-badge icon-badge-xs tint-amber">
                 <Trophy className="h-3.5 w-3.5" />
               </span>
-              Top 5 thiết bị đắt nhất
+              {t('Top 5 thiết bị đắt nhất')}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Xếp theo giá mua thiết bị (chưa gồm gói bảo hành).
+              {t('Xếp theo giá mua thiết bị (chưa gồm gói bảo hành).')}
             </p>
           </CardHeader>
           <CardContent>
             {top.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Chưa có dữ liệu.</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {t('Chưa có dữ liệu.')}
+              </p>
             ) : (
               <ol>
                 {top.map((d, i) => (
@@ -300,12 +339,13 @@ export default async function StatsPage({
                           {d.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {CATEGORY_LABELS[d.category as Category] ?? d.category}
-                          {d.brand ? ` • ${d.brand}` : ''} • {formatDate(d.purchaseDate)}
+                          {categoryLabel(d.category, locale)}
+                          {d.brand ? ` • ${d.brand}` : ''} •{' '}
+                          {formatDate(d.purchaseDate, locale)}
                         </p>
                       </div>
                       <span className="font-display font-bold tabular-nums text-ink">
-                        {formatVND(d.purchasePrice)}
+                        {formatVND(d.purchasePrice, locale)}
                       </span>
                     </Link>
                   </li>
@@ -330,43 +370,32 @@ export default async function StatsPage({
             <span className="icon-badge icon-badge-xs tint-amber">
               <Coins className="h-3.5 w-3.5" />
             </span>
-            Chi phí mỗi ngày
+            {t('Chi phí mỗi ngày')}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            (giá mua + gói bảo hành − tiền bán) ÷ số ngày sở hữu. Máy đắt mà dùng
-            lâu có thể rẻ mỗi ngày hơn máy rẻ mà dùng ngắn.
+            {t(
+              '(giá mua + gói bảo hành − tiền bán) ÷ số ngày sở hữu. Máy đắt mà dùng lâu có thể rẻ mỗi ngày hơn máy rẻ mà dùng ngắn.',
+            )}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-6 lg:grid-cols-2">
             <CostPerDayList
-              title="Rẻ nhất mỗi ngày"
+              title={t('Rẻ nhất mỗi ngày')}
               icon={<TrendingDown className="h-3.5 w-3.5" />}
               tone="emerald"
               rows={perDayRanking.cheapest}
             />
             <CostPerDayList
-              title="Đắt nhất mỗi ngày"
+              title={t('Đắt nhất mỗi ngày')}
               icon={<TrendingUp className="h-3.5 w-3.5" />}
               tone="rose"
               rows={perDayRanking.priciest}
             />
           </div>
-          {(perDayRanking.skipped.noPurchaseDate > 0 ||
-            perDayRanking.skipped.noRecordedCost > 0) && (
+          {skippedNote !== '' && (
             <p className="border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
-              Không xếp hạng:{' '}
-              {[
-                perDayRanking.skipped.noPurchaseDate > 0
-                  ? `${perDayRanking.skipped.noPurchaseDate} thiết bị thiếu ngày mua`
-                  : null,
-                perDayRanking.skipped.noRecordedCost > 0
-                  ? `${perDayRanking.skipped.noRecordedCost} thiết bị chưa ghi giá`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              .
+              {t('Không xếp hạng:')} {skippedNote}.
             </p>
           )}
         </CardContent>
@@ -382,7 +411,9 @@ export default async function StatsPage({
       ) : (
         <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <p>Không tải được dự báo chi tiêu — phần dự báo tạm ẩn, thử tải lại trang nhé.</p>
+          <p>
+            {t('Không tải được dự báo chi tiêu — phần dự báo tạm ẩn, thử tải lại trang nhé.')}
+          </p>
         </div>
       )}
 
@@ -390,8 +421,10 @@ export default async function StatsPage({
         <EmptyState
           icon={Package}
           tone="primary"
-          title="Chưa có thiết bị nào"
-          description="Phí định kỳ bên trên vẫn được tính từ các gói đăng ký. Thêm thiết bị để thấy chi tiêu mua sắm ở đây."
+          title={t('Chưa có thiết bị nào')}
+          description={t(
+            'Phí định kỳ bên trên vẫn được tính từ các gói đăng ký. Thêm thiết bị để thấy chi tiêu mua sắm ở đây.',
+          )}
           cta={false}
         />
       )}
@@ -425,7 +458,11 @@ function KpiCard({
 // One direction of the đ/ngày leaderboard. `≥` marks a figure that is only a
 // lower bound because at least one warranty package has no recorded cost — the
 // row stays in the ranking, but the number cannot be read as exact.
-function CostPerDayList({
+//
+// It resolves the language itself (`getI18n()` is `cache()`d per request, so
+// this costs nothing): the component is small enough that threading a
+// translator through its props would be more code than the call.
+async function CostPerDayList({
   title,
   icon,
   tone,
@@ -436,6 +473,7 @@ function CostPerDayList({
   tone: 'emerald' | 'rose';
   rows: CostPerDayRankRow[];
 }) {
+  const { locale, t } = await getI18n();
   const anyLowerBound = rows.some((r) => r.cost.hasUnrecordedWarrantyCost);
 
   return (
@@ -451,7 +489,7 @@ function CostPerDayList({
       </p>
       {rows.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">
-          Chưa đủ dữ liệu — cần ngày mua và giá mua.
+          {t('Chưa đủ dữ liệu — cần ngày mua và giá mua.')}
         </p>
       ) : (
         <ol>
@@ -471,9 +509,9 @@ function CostPerDayList({
                     {r.device.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {CATEGORY_LABELS[r.device.category as Category] ?? r.device.category} •{' '}
-                    {r.cost.days} ngày
-                    {r.cost.endedBySale ? ' (đã bán)' : ''}
+                    {categoryLabel(r.device.category, locale)} •{' '}
+                    {t('{days} ngày', { days: r.cost.days, count: r.cost.days })}
+                    {r.cost.endedBySale ? ` ${t('(đã bán)')}` : ''}
                   </p>
                 </div>
                 <span className="text-right">
@@ -482,7 +520,7 @@ function CostPerDayList({
                     {r.cost.perDayLabel}
                   </span>
                   <span className="block text-xs tabular-nums text-muted-foreground">
-                    tổng {formatVND(r.cost.net)}
+                    {t('tổng {amount}', { amount: formatVND(r.cost.net, locale) })}
                   </span>
                 </span>
               </Link>
@@ -492,7 +530,7 @@ function CostPerDayList({
       )}
       {anyLowerBound && (
         <p className="mt-1 text-xs text-muted-foreground">
-          “≥” = còn gói bảo hành chưa ghi giá, con số thực có thể cao hơn.
+          {t('“≥” = còn gói bảo hành chưa ghi giá, con số thực có thể cao hơn.')}
         </p>
       )}
     </div>

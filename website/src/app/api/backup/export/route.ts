@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
+import { getI18n } from '@/lib/i18n/server';
 
 // GET /api/backup/export[?includeBlobs=true]
 //
@@ -19,16 +20,17 @@ const GO_API_URL = (process.env.GO_API_URL ?? 'http://localhost:4000').replace(/
 const NO_STORE = 'private, no-store, max-age=0';
 
 export async function GET(req: Request) {
+  const { t } = await getI18n();
   const cookie = await getAuthCookie();
   if (!cookie.accessToken) {
     return NextResponse.json(
-      { ok: false, error: 'unauthorized', message: 'Bạn chưa đăng nhập' },
+      { ok: false, error: 'unauthorized', message: t('Bạn chưa đăng nhập') },
       { status: 401, headers: { 'Cache-Control': NO_STORE } },
     );
   }
   if (cookie.expiresAt && cookie.expiresAt <= Date.now()) {
     return NextResponse.json(
-      { ok: false, error: 'unauthorized', message: 'Phiên đăng nhập đã hết hạn' },
+      { ok: false, error: 'unauthorized', message: t('Phiên đăng nhập đã hết hạn') },
       { status: 401, headers: { 'Cache-Control': NO_STORE } },
     );
   }
@@ -53,7 +55,7 @@ export async function GET(req: Request) {
       {
         ok: false,
         error: 'network_error',
-        message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
+        message: t('Mất kết nối tới máy chủ, thử lại sau nhé.'),
       },
       { status: 502, headers: { 'Cache-Control': NO_STORE } },
     );

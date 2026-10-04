@@ -1,12 +1,19 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { Vault, Wifi, Plane, RotateCcw, Info } from 'lucide-react';
+import { getI18n } from '@/lib/i18n/server';
 import { RetryButton } from './retry-button';
 
-export const metadata = {
-  title: 'Ngoại tuyến — WarrantyVault',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Ngoại tuyến — WarrantyVault') };
+}
 
-export default function OfflinePage() {
+// Served by the service worker when the network is gone. `getI18n()` still
+// works with no connection: the language is a cookie / header / stored
+// preference, none of which needs a request to the API.
+export default async function OfflinePage() {
+  const { t } = await getI18n();
   return (
     <div className="auth-gradient flex min-h-screen flex-col">
       <header className="flex items-center justify-between px-4 py-5 md:px-8">
@@ -23,19 +30,20 @@ export default function OfflinePage() {
       <main className="flex flex-1 items-center justify-center px-4 pb-12">
         <div className="w-full max-w-lg rounded-[var(--radius)] border border-border bg-card/80 px-6 py-10 text-center shadow-[0_30px_80px_-40px_rgba(60,20,5,0.25)] backdrop-blur md:px-10">
           <div className="mb-2 flex justify-center">
-            <span className="eyebrow">Trạng thái · Ngoại tuyến</span>
+            <span className="eyebrow">{t('Trạng thái · Ngoại tuyến')}</span>
           </div>
 
           <div className="mb-5 flex justify-center">
-            <OfflineCloudIllustration />
+            <OfflineCloudIllustration label={t('Mất kết nối')} />
           </div>
 
           <h1 className="display text-[30px] text-ink md:text-[36px]">
-            Mất kết nối rồi 📡
+            {t('Mất kết nối rồi 📡')}
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-[15px]">
-            Mày đang ngoại tuyến. WarrantyVault chưa lưu dữ liệu để xem offline — thiết bị, bảo
-            hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.
+            {t(
+              'Mày đang ngoại tuyến. WarrantyVault chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.',
+            )}
           </p>
 
           <div className="mt-6 flex justify-center">
@@ -45,8 +53,9 @@ export default function OfflinePage() {
           <div className="mt-6 flex items-start gap-3 rounded-md bg-surface-2 p-3.5 text-left text-sm text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>
-              Ngoại tuyến thì chỉ mở được đúng trang này thôi. Thông báo đẩy vẫn do trình duyệt nhận
-              giúp khi thiết bị có mạng — không cần mở web.
+              {t(
+                'Ngoại tuyến thì chỉ mở được đúng trang này thôi. Thông báo đẩy vẫn do trình duyệt nhận giúp khi thiết bị có mạng — không cần mở web.',
+              )}
             </p>
           </div>
 
@@ -56,8 +65,8 @@ export default function OfflinePage() {
                 <Wifi className="h-4 w-4" />
               </span>
               <div>
-                <div className="info-row-label">Bước 1</div>
-                <div className="info-row-value">Kiểm tra Wi-Fi / dữ liệu di động</div>
+                <div className="info-row-label">{t('Bước 1')}</div>
+                <div className="info-row-value">{t('Kiểm tra Wi-Fi / dữ liệu di động')}</div>
               </div>
             </div>
             <div className="info-row">
@@ -65,8 +74,8 @@ export default function OfflinePage() {
                 <Plane className="h-4 w-4" />
               </span>
               <div>
-                <div className="info-row-label">Bước 2</div>
-                <div className="info-row-value">Bật/tắt chế độ máy bay</div>
+                <div className="info-row-label">{t('Bước 2')}</div>
+                <div className="info-row-value">{t('Bật/tắt chế độ máy bay')}</div>
               </div>
             </div>
             <div className="info-row">
@@ -74,8 +83,8 @@ export default function OfflinePage() {
                 <RotateCcw className="h-4 w-4" />
               </span>
               <div>
-                <div className="info-row-label">Bước 3</div>
-                <div className="info-row-value">Kết nối lại rồi thử lại</div>
+                <div className="info-row-label">{t('Bước 3')}</div>
+                <div className="info-row-value">{t('Kết nối lại rồi thử lại')}</div>
               </div>
             </div>
           </div>
@@ -85,14 +94,14 @@ export default function OfflinePage() {
   );
 }
 
-function OfflineCloudIllustration() {
+function OfflineCloudIllustration({ label }: { label: string }) {
   return (
     <svg
       viewBox="0 0 200 140"
       width="200"
       height="140"
       role="img"
-      aria-label="Mất kết nối"
+      aria-label={label}
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* ground shadow */}

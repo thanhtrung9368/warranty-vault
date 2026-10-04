@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
 
 export default async function NewDevicePage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function NewDevicePage({
   searchParams: Promise<{ fromWishlist?: string }>;
 }) {
   const sp = await searchParams;
+  const { t } = await getI18n();
   const user = await requireUser();
   const [catalog, fromItem] = await Promise.all([
     getDeviceFormCatalog(),
@@ -38,18 +40,18 @@ export default async function NewDevicePage({
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
           <Link href={fromItem ? `/wishlist/${fromItem.id}` : '/devices'}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            {fromItem ? 'Quay lại wishlist' : 'Danh sách thiết bị'}
+            {fromItem ? t('Quay lại wishlist') : t('Danh sách thiết bị')}
           </Link>
         </Button>
-        <p className="eyebrow">Thêm vào kho</p>
-        <h1 className="display mt-1 text-3xl text-ink">Thêm thiết bị</h1>
+        <p className="eyebrow">{t('Thêm vào kho')}</p>
+        <h1 className="display mt-1 text-3xl text-ink">{t('Thêm thiết bị')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Nhập thông tin thiết bị, bảo hành và mua hàng.
+          {t('Nhập thông tin thiết bị, bảo hành và mua hàng.')}
         </p>
         {fromItem && (
           <div className="mt-3 inline-flex items-center gap-2 rounded-pill border-[1.5px] border-rose-soft bg-rose-soft px-3 py-1.5 text-sm font-semibold text-rose-ink">
             <Heart className="h-4 w-4" />
-            Tạo từ wishlist:&nbsp;<span className="font-bold">{fromItem.name}</span>
+            {t('Tạo từ wishlist:')}&nbsp;<span className="font-bold">{fromItem.name}</span>
           </div>
         )}
       </div>

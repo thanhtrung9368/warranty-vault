@@ -102,7 +102,7 @@ function wishlistItem(over: Partial<WishlistItem> = {}): WishlistItem {
 
 describe('deviceCsvRows', () => {
   it('maps a normal device onto the documented columns', () => {
-    const [row] = deviceCsvRows([device()]);
+    const [row] = deviceCsvRows([device()], 'vi');
     expect(row).toEqual([
       'Máy giặt LG',
       'Máy giặt / Sấy', // categoryLabel('WASHING')
@@ -119,20 +119,23 @@ describe('deviceCsvRows', () => {
   });
 
   it('keeps the header width when every optional field is null', () => {
-    const [row] = deviceCsvRows([
-      device({
-        name: 'Chuột không tên',
-        category: 'MOUSE',
-        brand: null,
-        model: null,
-        serialNumber: null,
-        purchasePrice: 0,
-        purchasePlace: null,
-        status: 'EXPIRED',
-        notes: null,
-        effectiveWarrantyEnd: null, // no warranty rows at all
-      }),
-    ]);
+    const [row] = deviceCsvRows(
+      [
+        device({
+          name: 'Chuột không tên',
+          category: 'MOUSE',
+          brand: null,
+          model: null,
+          serialNumber: null,
+          purchasePrice: 0,
+          purchasePlace: null,
+          status: 'EXPIRED',
+          notes: null,
+          effectiveWarrantyEnd: null, // no warranty rows at all
+        }),
+      ],
+      'vi',
+    );
     expect(row.slice(2, 5)).toEqual(['', '', '']);
     expect(row[6]).toBe('0'); // 0 đồng is not an empty cell
     expect(row[7]).toBe('');
@@ -140,9 +143,10 @@ describe('deviceCsvRows', () => {
   });
 
   it('passes the raw category / status code through when it is unknown', () => {
-    const [row] = deviceCsvRows([
-      device({ category: 'SOMETHING_NEW', status: 'MYSTERY' }),
-    ]);
+    const [row] = deviceCsvRows(
+      [device({ category: 'SOMETHING_NEW', status: 'MYSTERY' })],
+      'vi',
+    );
     expect(row[1]).toBe('SOMETHING_NEW');
     expect(row[8]).toBe('MYSTERY');
   });
@@ -151,15 +155,18 @@ describe('deviceCsvRows', () => {
 describe('devicesCsvTable', () => {
   it('escapes a Vietnamese name that contains the delimiter, a quote and a newline', () => {
     const csv = csvTableToString(
-      devicesCsvTable([
-        device({
-          name: 'Máy "xịn"; 2 chiếc\n(mua 2024)',
-          brand: null,
-          serialNumber: null,
-          effectiveWarrantyEnd: null,
-          purchasePrice: 0,
-        }),
-      ]),
+      devicesCsvTable(
+        [
+          device({
+            name: 'Máy "xịn"; 2 chiếc\n(mua 2024)',
+            brand: null,
+            serialNumber: null,
+            effectiveWarrantyEnd: null,
+            purchasePrice: 0,
+          }),
+        ],
+        'vi',
+      ),
       ';',
     );
 
@@ -187,23 +194,24 @@ describe('devicesCsvTable', () => {
   });
 
   it('starts the file with a BOM and ends with a trailing CRLF', () => {
-    const csv = csvTableToString(devicesCsvTable([device()]), ',');
+    const csv = csvTableToString(devicesCsvTable([device()], 'vi'), ',');
     expect(csv.startsWith(CSV_BOM)).toBe(true);
     expect([...Buffer.from(csv, 'utf8').subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     expect(csv.endsWith('\r\n')).toBe(true);
   });
 
   it('emits only the header when there are no devices', () => {
-    const csv = csvTableToString(devicesCsvTable([]), ';');
+    const csv = csvTableToString(devicesCsvTable([], 'vi'), ';');
     expect(csv).toBe(`${CSV_BOM}${DEVICE_CSV_HEADER.join(';')}\r\n`);
   });
 });
 
 describe('subscriptionCsvRows', () => {
   it('maps labels, money and the monthly equivalent', () => {
-    const [row] = subscriptionCsvRows([
-      subscription({ billingCycle: 'YEARLY', price: 2400000 }),
-    ]);
+    const [row] = subscriptionCsvRows(
+      [subscription({ billingCycle: 'YEARLY', price: 2400000 })],
+      'vi',
+    );
     expect(row).toEqual([
       'Netflix',
       'Điện tử khác', // categoryLabel('ELECTRONICS')
@@ -224,19 +232,22 @@ describe('subscriptionCsvRows', () => {
   });
 
   it('keeps nulls empty and lifetime at 0 per month', () => {
-    const [row] = subscriptionCsvRows([
-      subscription({
-        category: null,
-        brand: null,
-        plan: null,
-        billingCycle: 'LIFETIME',
-        price: 0,
-        autoRenew: false,
-        accountEmail: null,
-        paymentMethod: null,
-        notes: null,
-      }),
-    ]);
+    const [row] = subscriptionCsvRows(
+      [
+        subscription({
+          category: null,
+          brand: null,
+          plan: null,
+          billingCycle: 'LIFETIME',
+          price: 0,
+          autoRenew: false,
+          accountEmail: null,
+          paymentMethod: null,
+          notes: null,
+        }),
+      ],
+      'vi',
+    );
     expect(row.slice(1, 4)).toEqual(['', '', '']);
     expect(row[5]).toBe('0');
     expect(row[7]).toBe('0'); // LIFETIME → 0, matching the dashboard maths
@@ -248,7 +259,7 @@ describe('subscriptionCsvRows', () => {
 
 describe('wishlistCsvRows', () => {
   it('maps priority / status labels and nullable prices', () => {
-    const [row] = wishlistCsvRows([wishlistItem()]);
+    const [row] = wishlistCsvRows([wishlistItem()], 'vi');
     expect(row).toEqual([
       'Tai nghe Sony WH-1000XM5',
       'Tai nghe',
@@ -264,19 +275,22 @@ describe('wishlistCsvRows', () => {
   });
 
   it('leaves an unpriced, undated item blank', () => {
-    const [row] = wishlistCsvRows([
-      wishlistItem({
-        category: null,
-        brand: null,
-        initialPrice: null,
-        currentPrice: null,
-        targetDate: null,
-        buyUrl: null,
-        priority: 'MUST',
-        status: 'PURCHASED',
-        notes: 'mua khi giảm giá; dưới 5tr',
-      }),
-    ]);
+    const [row] = wishlistCsvRows(
+      [
+        wishlistItem({
+          category: null,
+          brand: null,
+          initialPrice: null,
+          currentPrice: null,
+          targetDate: null,
+          buyUrl: null,
+          priority: 'MUST',
+          status: 'PURCHASED',
+          notes: 'mua khi giảm giá; dưới 5tr',
+        }),
+      ],
+      'vi',
+    );
     expect(row.slice(1, 3)).toEqual(['', '']);
     expect(row.slice(5, 9)).toEqual(['', '', '', '']);
     expect(row[3]).toBe('Phải mua');
@@ -288,13 +302,16 @@ describe('wishlistCsvRows', () => {
 describe('table integrity', () => {
   it('every built row matches its header width', () => {
     const rowsByHeader: [readonly unknown[], number][] = [
-      [deviceCsvRows([device(), device({ brand: null, notes: null })]), DEVICE_CSV_HEADER.length],
       [
-        subscriptionCsvRows([subscription(), subscription({ category: null })]),
+        deviceCsvRows([device(), device({ brand: null, notes: null })], 'vi'),
+        DEVICE_CSV_HEADER.length,
+      ],
+      [
+        subscriptionCsvRows([subscription(), subscription({ category: null })], 'vi'),
         SUBSCRIPTION_CSV_HEADER.length,
       ],
       [
-        wishlistCsvRows([wishlistItem(), wishlistItem({ currentPrice: null })]),
+        wishlistCsvRows([wishlistItem(), wishlistItem({ currentPrice: null })], 'vi'),
         WISHLIST_CSV_HEADER.length,
       ],
     ];
@@ -306,9 +323,9 @@ describe('table integrity', () => {
 
   it('all three tables start with a BOM and end with a row', () => {
     const outputs = [
-      csvTableToString(devicesCsvTable([]), ';'),
-      csvTableToString(subscriptionsCsvTable([]), ';'),
-      csvTableToString(wishlistCsvTable([]), ';'),
+      csvTableToString(devicesCsvTable([], 'vi'), ';'),
+      csvTableToString(subscriptionsCsvTable([], 'vi'), ';'),
+      csvTableToString(wishlistCsvTable([], 'vi'), ';'),
     ];
     for (const out of outputs) {
       expect(out.startsWith(CSV_BOM)).toBe(true);

@@ -81,20 +81,25 @@ describe('normalizeDeviceWarnings', () => {
 });
 
 describe('titles and labels', () => {
+  // Language pinned explicitly (docs/I18N_PLAN.md §4.3): these assertions are
+  // about the Vietnamese source sentences, so they must not drift with the
+  // locale of the machine running the suite.
   it('has a Vietnamese heading for every documented code', () => {
-    expect(deviceWarningTitle('IMEI_CHECKSUM')).toBe(DEVICE_WARNING_TITLES.IMEI_CHECKSUM);
-    expect(deviceWarningTitle('IMEI_LENGTH')).toBe(DEVICE_WARNING_TITLES.IMEI_LENGTH);
-    expect(deviceWarningTitle('SERIAL_DUPLICATE')).toBe(DEVICE_WARNING_TITLES.SERIAL_DUPLICATE);
+    expect(deviceWarningTitle('IMEI_CHECKSUM', 'vi')).toBe(DEVICE_WARNING_TITLES.IMEI_CHECKSUM);
+    expect(deviceWarningTitle('IMEI_LENGTH', 'vi')).toBe(DEVICE_WARNING_TITLES.IMEI_LENGTH);
+    expect(deviceWarningTitle('SERIAL_DUPLICATE', 'vi')).toBe(
+      DEVICE_WARNING_TITLES.SERIAL_DUPLICATE,
+    );
   });
 
   it('still renders an unknown code', () => {
-    expect(deviceWarningTitle('SOMETHING_NEW')).toBe('Cảnh báo số serial/IMEI');
-    expect(deviceWarningTitle(null)).toBe('Cảnh báo số serial/IMEI');
+    expect(deviceWarningTitle('SOMETHING_NEW', 'vi')).toBe('Cảnh báo số serial/IMEI');
+    expect(deviceWarningTitle(null, 'vi')).toBe('Cảnh báo số serial/IMEI');
   });
 
   it('labels the field it points at', () => {
-    expect(deviceWarningFieldLabel('serialNumber')).toBe('Serial / IMEI');
-    expect(deviceWarningFieldLabel('')).toBe('Serial / IMEI');
+    expect(deviceWarningFieldLabel('serialNumber', 'vi')).toBe('Serial / IMEI');
+    expect(deviceWarningFieldLabel('', 'vi')).toBe('Serial / IMEI');
   });
 });
 
@@ -107,14 +112,14 @@ describe('messages / summary / has', () => {
   });
 
   it('summarises by heading', () => {
-    expect(deviceWarningSummary([IMEI_WARNING, DUPLICATE_WARNING])).toBe(
+    expect(deviceWarningSummary([IMEI_WARNING, DUPLICATE_WARNING], 'vi')).toBe(
       'IMEI có thể sai một chữ số · Serial đã có ở thiết bị khác',
     );
   });
 
   it('is empty-safe', () => {
     expect(deviceWarningMessages(null)).toEqual([]);
-    expect(deviceWarningSummary(undefined)).toBe('');
+    expect(deviceWarningSummary(undefined, 'vi')).toBe('');
     expect(hasDeviceWarnings([])).toBe(false);
     expect(hasDeviceWarnings(null)).toBe(false);
     expect(hasDeviceWarnings([IMEI_WARNING])).toBe(true);

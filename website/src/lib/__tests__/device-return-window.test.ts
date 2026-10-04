@@ -177,10 +177,12 @@ describe('returnWindowFieldsFromFormData', () => {
 describe('returnDeadlineNote', () => {
   const now = new Date('2026-04-10T09:00:00');
 
+  // Language pinned explicitly (docs/I18N_PLAN.md §4.3): the expected strings are
+  // the Vietnamese originals, which are also the dictionary keys.
   it('reads the derived deadline in Vietnamese at day resolution', () => {
-    expect(returnDeadlineNote('2026-04-13T00:00:00', now)).toBe('còn 3 ngày');
+    expect(returnDeadlineNote('2026-04-13T00:00:00', 'vi', now)).toBe('còn 3 ngày');
     // 0 = today is the last day (same semantics as ReturnWindow.daysLeft).
-    expect(returnDeadlineNote('2026-04-10T00:00:00', now)).toBe('hôm nay là ngày cuối');
-    expect(returnDeadlineNote('2026-04-01T00:00:00', now)).toBe('đã qua 9 ngày');
+    expect(returnDeadlineNote('2026-04-10T00:00:00', 'vi', now)).toBe('hôm nay là ngày cuối');
+    expect(returnDeadlineNote('2026-04-01T00:00:00', 'vi', now)).toBe('đã qua 9 ngày');
   });
 });

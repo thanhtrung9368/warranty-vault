@@ -1,6 +1,7 @@
 'use server';
 
 import { api } from '@/lib/api';
+import { getI18n } from '@/lib/i18n/server';
 
 // Upload an attachment for a device. Auth + ownership + MIME magic-byte
 // verification + image downscale + AES-256-GCM encryption all happen on
@@ -8,10 +9,11 @@ import { api } from '@/lib/api';
 // /devices/[id] (a `force-dynamic` page) picks up the change via
 // router.refresh(), so no revalidatePath is needed.
 export async function uploadAttachment(formData: FormData) {
+  const { t } = await getI18n();
   const deviceId = String(formData.get('deviceId') ?? '');
   const file = formData.get('file');
-  if (!(file instanceof File)) return { ok: false, message: 'Thiếu file' };
-  if (!deviceId) return { ok: false, message: 'Thiếu deviceId' };
+  if (!(file instanceof File)) return { ok: false, message: t('Thiếu file') };
+  if (!deviceId) return { ok: false, message: t('Thiếu deviceId') };
 
   // Build a fresh FormData with only the fields the Go endpoint expects
   // (`file`, optional `description`). The original FormData also carries
@@ -24,7 +26,7 @@ export async function uploadAttachment(formData: FormData) {
   }
 
   const res = await api.attachments.upload(deviceId, upstream);
-  if (!res.ok) return { ok: false, message: res.message ?? 'Tải lên thất bại' };
+  if (!res.ok) return { ok: false, message: res.message ?? t('Tải lên thất bại') };
 
   return { ok: true };
 }
@@ -58,14 +60,15 @@ export async function updateAttachmentDescription(
   id: string,
   description: string,
 ): Promise<{ ok: boolean; description?: string | null; message?: string }> {
-  if (!id) return { ok: false, message: 'Thiếu id file đính kèm' };
+  const { t } = await getI18n();
+  if (!id) return { ok: false, message: t('Thiếu id file đính kèm') };
 
   const res = await api.attachments.updateDescription(id, description);
   if (!res.ok) {
     if (res.status === 404) {
-      return { ok: false, message: 'Không tìm thấy file đính kèm' };
+      return { ok: false, message: t('Không tìm thấy file đính kèm') };
     }
-    return { ok: false, message: res.message ?? 'Không lưu được mô tả' };
+    return { ok: false, message: res.message ?? t('Không lưu được mô tả') };
   }
 
   // Return the server's normalized value (trimmed, or null when cleared) so

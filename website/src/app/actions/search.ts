@@ -9,6 +9,7 @@
 // "phiên đăng nhập đã hết hạn" inside the dropdown.
 
 import { api } from '@/lib/api';
+import { getLocale } from '@/lib/i18n/server';
 import {
   describeSearchFailure,
   isBlankQuery,
@@ -31,7 +32,9 @@ export async function searchAll(rawQuery: string): Promise<SearchActionResult> {
 
   const res = await api.search.search(query);
   if (!res.ok) {
-    return { ok: false, message: describeSearchFailure(res) };
+    // The failure wording is built here rather than by Go, so it has to be
+    // translated here — this action is not going through `toFormState`.
+    return { ok: false, message: describeSearchFailure(res, await getLocale()) };
   }
 
   // `query` is echoed by the server (trimmed) so the UI can label the results

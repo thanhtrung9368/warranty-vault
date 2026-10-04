@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { getI18n } from '@/lib/i18n/server';
 import type { DraftDevice } from '@/lib/api/ai';
 
 export type ExtractReceiptResult =
@@ -16,10 +17,11 @@ export type ExtractReceiptResult =
 // revalidatePath.
 export async function extractReceipt(formData: FormData): Promise<ExtractReceiptResult> {
   await requireUser();
+  const { t } = await getI18n();
 
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, message: 'Thiếu ảnh hoá đơn' };
+    return { ok: false, message: t('Thiếu ảnh hoá đơn') };
   }
 
   const upstream = new FormData();
@@ -27,7 +29,7 @@ export async function extractReceipt(formData: FormData): Promise<ExtractReceipt
 
   const res = await api.ai.extractReceipt(upstream);
   if (!res.ok) {
-    return { ok: false, message: res.message ?? 'Không quét được hoá đơn, thử lại nhé' };
+    return { ok: false, message: res.message ?? t('Không quét được hoá đơn, thử lại nhé') };
   }
   return { ok: true, draft: res.data };
 }
@@ -35,9 +37,10 @@ export async function extractReceipt(formData: FormData): Promise<ExtractReceipt
 // Toggle the AI receipt-scan opt-in for the current user.
 export async function setAIOptIn(enabled: boolean): Promise<{ ok: boolean; message?: string }> {
   await requireUser();
+  const { t } = await getI18n();
   const res = await api.ai.setOptIn(enabled);
   if (!res.ok) {
-    return { ok: false, message: res.message ?? 'Không cập nhật được cài đặt' };
+    return { ok: false, message: res.message ?? t('Không cập nhật được cài đặt') };
   }
   // /me (and thus requireUser) reflects the new flag — refresh settings + the
   // add-device form so the scan button appears/disappears.

@@ -7,8 +7,25 @@
 // a snooze deadline reads in Vietnamese.
 //
 // Kept free of React/Next so it can be unit-tested without a backend.
+//
+// ── Language ──────────────────────────────────────────────────────────────
+//
+// The sentences this module builds (`dueDateNote`, `snoozeNote`, the entity
+// name a row links to) are user-facing, so every one of them takes a
+// `locale: Locale` and goes through `translate()` — same rule as `format.ts`,
+// and required rather than defaulted so a missed call site is a compile error
+// rather than Vietnamese text inside an English page (docs/I18N_PLAN.md §4.3).
+//
+// Two things are deliberately NOT translated here: `SEVERITY_SECTIONS`'
+// `title`/`hint` and the `SNOOZE_CHOICES` labels. They stay Vietnamese because
+// they are the dictionary keys, and the two components that render them
+// (`app/(app)/actions/page.tsx`, `components/action-item-snooze.tsx`) pass them
+// straight to `t(...)`. Re-wording them here would mean typing the Vietnamese
+// sentence twice, which is the one thing this migration must not do.
 
 import { differenceInCalendarDays } from 'date-fns';
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 // Type-only import: a pure module must stay importable without the API client's
 // session machinery (that is what lets the queue logic be unit-tested).
 import type { ActionCounts, ActionItem, ActionSeverity } from '@/lib/api/actions';
@@ -117,7 +134,14 @@ export function actionHref(item: Pick<ActionItem, 'kind'> & Partial<ActionItem>)
   }
 }
 
-// Vietnamese noun for the linked entity, used as the link's accessible label.
+// Vietnamese noun for the linked entity ("Thiết bị" / "Gói đăng ký" / "Món đang
+// thèm"), used as the link's accessible label.
+//
+// It returns the Vietnamese NOUN rather than a translated one on purpose: the
+// noun is a dictionary key, and the link also has to write the sentence around
+// it ("Xem {entity}" / "View {entity}"), which only the render site can do —
+// `t('Xem {entity}', { entity: t(entity) })`. Translating here would leave the
+// caller holding an English noun with no way back to the key.
 export function entityLabel(
   item: Pick<ActionItem, 'kind'> & Partial<ActionItem>,
 ): string | null {
@@ -138,22 +162,24 @@ export function daysUntil(date: string, now: Date = new Date()): number {
   return differenceInCalendarDays(new Date(date), now);
 }
 
-// Short Vietnamese phrase for a deadline. Matches the server's day semantics for
-// `ReturnWindow.daysLeft`: 0 means "today is the last day".
-export function dueDateNote(date: string, now: Date = new Date()): string {
+// Short Vietnamese phrase for a deadline, translated at the call site. Matches
+// the server's day semantics for `ReturnWindow.daysLeft`: 0 means "today is the
+// last day".
+export function dueDateNote(date: string, locale: Locale, now: Date = new Date()): string {
   const days = daysUntil(date, now);
-  if (days === 0) return 'hôm nay';
-  if (days > 0) return `còn ${days} ngày`;
-  return `đã qua ${Math.abs(days)} ngày`;
+  if (days === 0) return translate(locale, 'hôm nay');
+  if (days > 0) return translate(locale, 'còn {days} ngày', { days, count: days });
+  const past = Math.abs(days);
+  return translate(locale, 'đã qua {days} ngày', { days: past, count: past });
 }
 
 // Same idea for a snooze deadline, phrased as when the row comes back.
-export function snoozeNote(snoozedUntil: string, now: Date = new Date()): string {
+export function snoozeNote(snoozedUntil: string, locale: Locale, now: Date = new Date()): string {
   const days = daysUntil(snoozedUntil, now);
-  if (days > 1) return `Hiện lại sau ${days} ngày`;
-  if (days === 1) return 'Hiện lại ngày mai';
-  if (days === 0) return 'Hiện lại hôm nay';
-  return 'Đã tới hạn hiện lại';
+  if (days > 1) return translate(locale, 'Hiện lại sau {days} ngày', { days, count: days });
+  if (days === 1) return translate(locale, 'Hiện lại ngày mai');
+  if (days === 0) return translate(locale, 'Hiện lại hôm nay');
+  return translate(locale, 'Đã tới hạn hiện lại');
 }
 
 // ---- Snooze choices ----------------------------------------------------------

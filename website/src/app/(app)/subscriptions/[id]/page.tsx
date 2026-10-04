@@ -24,10 +24,9 @@ import {
   DeleteSubscriptionButton,
 } from '@/components/subscription-actions';
 import { api } from '@/lib/api';
-import { categoryLabel } from '@/lib/types';
+import { billingCycleLabel, categoryLabel, subscriptionStatusLabel } from '@/lib/i18n/labels';
+import { getI18n } from '@/lib/i18n/server';
 import {
-  BILLING_CYCLE_LABELS,
-  SUBSCRIPTION_STATUS_LABELS,
   monthlyEquivalent,
   type BillingCycle,
   type SubscriptionStatus,
@@ -50,6 +49,7 @@ export default async function SubscriptionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { locale, t } = await getI18n();
   const res = await api.subscriptions.get(id);
   if (!res.ok) {
     if (res.status === 404) notFound();
@@ -58,11 +58,11 @@ export default async function SubscriptionDetailPage({
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/subscriptions">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Đăng ký
+            {t('Gói đăng ký')}
           </Link>
         </Button>
         <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          Lỗi tải gói: {res.message ?? res.error}
+          {t('Lỗi tải gói: {message}', { message: res.message ?? res.error })}
         </div>
       </div>
     );
@@ -87,7 +87,7 @@ export default async function SubscriptionDetailPage({
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/subscriptions">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Đăng ký
+            {t('Gói đăng ký')}
           </Link>
         </Button>
         <div className="flex flex-wrap gap-2">
@@ -99,7 +99,7 @@ export default async function SubscriptionDetailPage({
           >
             <Link href={`/subscriptions/${sub.id}/edit`}>
               <Pencil className="mr-2 h-4 w-4" />
-              Sửa
+              {t('Sửa')}
             </Link>
           </Button>
           <LogPaymentDialog subId={sub.id} defaultAmount={sub.price} />
@@ -119,7 +119,7 @@ export default async function SubscriptionDetailPage({
                 {sub.brand && sub.plan ? ' • ' : ''}
                 {sub.plan}
                 {(sub.brand || sub.plan) && sub.category ? ' • ' : ''}
-                {sub.category ? categoryLabel(sub.category) : ''}
+                {sub.category ? categoryLabel(sub.category, locale) : ''}
               </p>
             </div>
           </div>
@@ -129,7 +129,7 @@ export default async function SubscriptionDetailPage({
               STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
             )}
           >
-            {SUBSCRIPTION_STATUS_LABELS[status] ?? sub.status}
+            {subscriptionStatusLabel(status, locale)}
           </span>
         </div>
 
@@ -137,28 +137,35 @@ export default async function SubscriptionDetailPage({
           <div className="mt-4 flex items-start gap-2 rounded-2xl bg-amber-soft px-4 py-3 text-sm text-amber-ink">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              Đã quá hạn <b>{Math.abs(daysToRenewal)}</b> ngày — cron sẽ tự log payment kỳ này.
+              {t('Đã quá hạn')} <b>{Math.abs(daysToRenewal)}</b>{' '}
+              {t('ngày — cron sẽ tự log payment kỳ này.', {
+                count: Math.abs(daysToRenewal),
+              })}
             </span>
           </div>
         )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-surface p-4">
-            <p className="eyebrow">Giá / chu kỳ</p>
+            <p className="eyebrow">{t('Giá / chu kỳ')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
-              {formatVND(sub.price)}
+              {formatVND(sub.price, locale)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {BILLING_CYCLE_LABELS[sub.billingCycle as BillingCycle] ?? sub.billingCycle}
+              {billingCycleLabel(sub.billingCycle as BillingCycle, locale)}
               {sub.billingCycle === 'CUSTOM' && sub.intervalDays
-                ? ` (${sub.intervalDays} ngày)`
+                ? ' ' +
+                  t('({days} ngày)', {
+                    days: sub.intervalDays,
+                    count: sub.intervalDays,
+                  })
                 : ''}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-surface p-4">
-            <p className="eyebrow">Quy đổi / tháng</p>
+            <p className="eyebrow">{t('Quy đổi / tháng')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
-              {formatVND(monthly)}
+              {formatVND(monthly, locale)}
             </p>
           </div>
           <div
@@ -170,25 +177,30 @@ export default async function SubscriptionDetailPage({
             )}
           >
             <p className="eyebrow flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Gia hạn tới
+              <Calendar className="h-3 w-3" /> {t('Gia hạn tới')}
             </p>
             <p className="display mt-1 text-xl">
-              {isLifetime ? 'Lifetime' : formatDate(renewalDate)}
+              {isLifetime ? 'Lifetime' : formatDate(renewalDate, locale)}
             </p>
             {!isLifetime && (
               <p className={cn('text-xs', isOverdue ? 'font-semibold' : 'text-muted-foreground')}>
                 {daysToRenewal >= 0
-                  ? `Còn ${daysToRenewal} ngày`
-                  : `Quá ${Math.abs(daysToRenewal)} ngày`}
+                  ? t('Còn {days} ngày', { days: daysToRenewal, count: daysToRenewal })
+                  : t('Quá {days} ngày', {
+                      days: Math.abs(daysToRenewal),
+                      count: Math.abs(daysToRenewal),
+                    })}
               </p>
             )}
           </div>
           <div className="rounded-xl border border-border bg-surface p-4">
-            <p className="eyebrow">Đã chi tổng</p>
+            <p className="eyebrow">{t('Đã chi tổng')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
-              {formatVND(totalSpent)}
+              {formatVND(totalSpent, locale)}
             </p>
-            <p className="text-xs text-muted-foreground">qua {sub.payments.length} kỳ</p>
+            <p className="text-xs text-muted-foreground">
+              {t('qua {count} kỳ', { count: sub.payments.length })}
+            </p>
           </div>
         </div>
       </div>
@@ -198,9 +210,9 @@ export default async function SubscriptionDetailPage({
           <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <Wallet className="h-4 w-4" />
-              Lịch sử thanh toán
+              {t('Lịch sử thanh toán')}
               <span className="ml-auto inline-flex items-center rounded-pill bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-ink-2">
-                {sub.payments.length} kỳ
+                {t('{count} kỳ', { count: sub.payments.length })}
               </span>
             </h3>
             <PriceHistoryChart
@@ -217,17 +229,17 @@ export default async function SubscriptionDetailPage({
                     <li key={p.id} className="flex items-center justify-between gap-2 py-2.5">
                       <span className="min-w-[110px]">
                         <span className="block font-semibold text-ink">
-                          {formatDate(paidAt)}
+                          {formatDate(paidAt, locale)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {formatRelativeDay(paidAt)}
+                          {formatRelativeDay(paidAt, locale)}
                         </span>
                       </span>
                       <span className="flex-1 truncate text-muted-foreground">
                         {p.note ?? '—'}
                       </span>
                       <span className="font-display tabular-nums font-bold text-ink">
-                        {formatVND(p.amount)}
+                        {formatVND(p.amount, locale)}
                       </span>
                     </li>
                   );
@@ -240,7 +252,7 @@ export default async function SubscriptionDetailPage({
             <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
               <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-ink">
                 <StickyNote className="h-4 w-4" />
-                Ghi chú
+                {t('Ghi chú')}
               </h3>
               <p className="whitespace-pre-wrap text-sm text-ink-2">{sub.notes}</p>
             </div>
@@ -249,7 +261,7 @@ export default async function SubscriptionDetailPage({
           <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <Zap className="h-4 w-4" />
-              Đổi trạng thái nhanh
+              {t('Đổi trạng thái nhanh')}
             </h3>
             <SubscriptionStatusButtons subId={sub.id} status={sub.status} />
           </div>
@@ -260,7 +272,7 @@ export default async function SubscriptionDetailPage({
             <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
               <h3 className="mb-4 flex items-center gap-2 font-display text-base font-bold text-ink">
                 <ExternalLink className="h-4 w-4" />
-                Liên kết
+                {t('Liên kết')}
               </h3>
               <div className="flex flex-col gap-2">
                 {sub.manageUrl && (
@@ -272,7 +284,7 @@ export default async function SubscriptionDetailPage({
                   >
                     <a href={sub.manageUrl} target="_blank" rel="noreferrer">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      Quản lý gói
+                      {t('Quản lý gói')}
                     </a>
                   </Button>
                 )}
@@ -285,7 +297,7 @@ export default async function SubscriptionDetailPage({
                   >
                     <a href={sub.cancelUrl} target="_blank" rel="noreferrer">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      Huỷ gói
+                      {t('Huỷ gói')}
                     </a>
                   </Button>
                 )}
@@ -296,7 +308,7 @@ export default async function SubscriptionDetailPage({
           <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
             <h3 className="mb-2 flex items-center gap-2 font-display text-base font-bold text-ink">
               <CreditCard className="h-4 w-4" />
-              Tài khoản
+              {t('Tài khoản')}
             </h3>
             <div className="flex flex-col">
               {sub.accountEmail && (
@@ -312,7 +324,7 @@ export default async function SubscriptionDetailPage({
                 <div className="info-row">
                   <CreditCard className="info-row-icon h-4 w-4" />
                   <div className="min-w-0 flex-1">
-                    <div className="info-row-label">Thanh toán</div>
+                    <div className="info-row-label">{t('Thanh toán')}</div>
                     <div className="info-row-value">{sub.paymentMethod}</div>
                   </div>
                 </div>
@@ -320,18 +332,18 @@ export default async function SubscriptionDetailPage({
               <div className="info-row">
                 <RefreshCw className="info-row-icon h-4 w-4" />
                 <div className="min-w-0 flex-1">
-                  <div className="info-row-label">Tự gia hạn</div>
+                  <div className="info-row-label">{t('Tự gia hạn')}</div>
                   <div className="info-row-value">
-                    {sub.autoRenew ? '✓ Bật' : '— Tắt'}
+                    {sub.autoRenew ? t('✓ Bật') : t('— Tắt')}
                   </div>
                 </div>
               </div>
               <div className="info-row">
                 <Calendar className="info-row-icon h-4 w-4" />
                 <div className="min-w-0 flex-1">
-                  <div className="info-row-label">Bắt đầu từ</div>
+                  <div className="info-row-label">{t('Bắt đầu từ')}</div>
                   <div className="info-row-value">
-                    {formatDate(new Date(sub.startedAt))}
+                    {formatDate(new Date(sub.startedAt), locale)}
                   </div>
                 </div>
               </div>

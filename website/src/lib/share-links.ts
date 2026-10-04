@@ -16,6 +16,21 @@
 //
 // Nothing here touches cookies / headers / the network, so it is importable
 // from a client component, a server action and a unit test alike.
+//
+// ── Bilingual ─────────────────────────────────────────────────────────────
+//
+// Pure module: no React, so no `useT()`. Every sentence-producing helper takes a
+// `locale: Locale` and renders through `translate()` (I18N.md). The Vietnamese
+// literal is the dictionary KEY and stays byte-for-byte the original.
+//
+// The exported `SHARE_*` / `CERTIFICATE_*` constants keep their Vietnamese
+// values for the same reason: they ARE the source text, and the components wrap
+// them in `t(...)` at the point of render. `SHARE_STATUS_LABELS` is looked up
+// with `labelOf(...)` instead, since a status is a code, not a sentence.
+
+import { translate } from '@/lib/i18n/catalog';
+import { labelOf } from '@/lib/i18n/labels';
+import type { Locale } from '@/lib/i18n/locale';
 
 // ---- Wire shape (structural) -------------------------------------------------
 
@@ -45,6 +60,9 @@ export const MAX_ACTIVE_SHARES_PER_DEVICE = 10;
 /**
  * Expiry choices offered in the create dialog, all inside [1, 90]. 30 days is
  * the server default and is preselected, so the common case needs no decision.
+ *
+ * `label` stays Vietnamese (the dictionary key); the dialog renders it through
+ * `t(choice.label)`.
  */
 export const SHARE_EXPIRY_CHOICES: readonly { days: number; label: string }[] = [
   { days: 7, label: '7 ngày' },
@@ -159,14 +177,31 @@ export function shareIsLive(share: ShareLike, now: Date = new Date()): boolean {
   return shareStatus(share, now) === 'live';
 }
 
+/**
+ * Status → Vietnamese label. The map is the SOURCE TEXT (and the dictionary
+ * key); `shareStatusLabel` resolves it with `labelOf`, so an unmapped status
+ * falls through to the code itself.
+ *
+ * `live` is `'Đang hoạt động'`, which `messages/subscriptions.ts` already
+ * registers as "Active" — same words, same meaning, one entry.
+ */
 const SHARE_STATUS_LABELS: Record<ShareStatus, string> = {
   live: 'Đang hoạt động',
   expired: 'Đã hết hạn',
   revoked: 'Đã thu hồi',
 };
 
-export function shareStatusLabel(share: ShareLike, now: Date = new Date()): string {
-  return SHARE_STATUS_LABELS[shareStatus(share, now)];
+/**
+ * The status in words. `locale` sits second — before the injectable `now` — so
+ * the component's call is `shareStatusLabel(share, locale)`; a test that pins
+ * the clock passes it third.
+ */
+export function shareStatusLabel(
+  share: ShareLike,
+  locale: Locale,
+  now: Date = new Date(),
+): string {
+  return labelOf(SHARE_STATUS_LABELS, shareStatus(share, now), locale);
 }
 
 /** Badge tone for the status (matches the `Badge` variants in ui/badge.tsx). */
@@ -208,33 +243,53 @@ export function shareCapacity(
 const DAY_MS = 86_400_000;
 
 /**
- * Vietnamese countdown for a live link. `null` for a link that is not live
- * (the status badge already says why). Sub-day precision is deliberately
- * avoided: "Còn dưới 1 ngày" is honest, "Còn 0 ngày" is not.
+ * Countdown for a live link. `null` for a link that is not live (the status
+ * badge already says why). Sub-day precision is deliberately avoided: "Còn dưới
+ * 1 ngày" is honest, "Còn 0 ngày" is not.
  */
-export function shareRemainingLabel(share: ShareLike, now: Date = new Date()): string | null {
+export function shareRemainingLabel(
+  share: ShareLike,
+  locale: Locale,
+  now: Date = new Date(),
+): string | null {
   if (!shareIsLive(share, now)) return null;
   const expiry = toTime(share.expiresAt);
   if (expiry == null) return null;
   const left = expiry - now.getTime();
   if (left <= 0) return null;
-  if (left < DAY_MS) return 'Còn dưới 1 ngày';
-  return `Còn ${Math.floor(left / DAY_MS)} ngày`;
+  if (left < DAY_MS) return translate(locale, 'Còn dưới 1 ngày');
+  const days = Math.floor(left / DAY_MS);
+  // Reuses `warranties.ts`'s countdown key — one sentence, one English ("{days}
+  // days left" / "{days} day left"), whether it counts down a warranty or a link.
+  return translate(locale, 'Còn {days} ngày', { days, count: days });
 }
 
 /** Whether the owner has ever seen this link opened. */
-export function shareViewLabel(viewCount: number | null | undefined): string {
+export function shareViewLabel(
+  viewCount: number | null | undefined,
+  locale: Locale,
+): string {
   const n = typeof viewCount === 'number' && Number.isFinite(viewCount) ? Math.max(0, Math.trunc(viewCount)) : 0;
-  if (n === 0) return 'Chưa ai mở';
-  return `Đã mở ${n} lần`;
+  if (n === 0) return translate(locale, 'Chưa ai mở');
+  return translate(locale, 'Đã mở {count} lần', { count: n });
 }
 
 /** What the link exposes about the serial, in the owner's own words. */
-export function shareSerialExposureLabel(includeSerial: boolean | undefined): string {
-  return includeSerial ? 'Kèm serial/IMEI đầy đủ' : 'Chỉ serial che giữa';
+export function shareSerialExposureLabel(
+  includeSerial: boolean | undefined,
+  locale: Locale,
+): string {
+  return includeSerial
+    ? translate(locale, 'Kèm serial/IMEI đầy đủ')
+    : translate(locale, 'Chỉ serial che giữa');
 }
 
 // ---- Copy: what the certificate is, and what it never contains ----------------
+//
+// These constants stay Vietnamese: they ARE the source sentences, and the
+// component wraps each one in `t(...)`. Keeping them as constants (rather than
+// inlining the sentences at each render site) is what lets a test pin the
+// wording, and what lets the openapi content contract be compared with the UI.
 
 /**
  * The single sentence the UI must state BEFORE the link exists and again while
@@ -256,7 +311,13 @@ export const SHARE_ACK_LABEL = 'Tôi đã sao chép hoặc lưu link này và hi
 export const SHARE_SECTION_HINT =
   'Link chia sẻ là phiếu bàn giao cho người mua: mở được không cần đăng nhập, không có giá, ghi chú hay ảnh hoá đơn. Token chỉ hiện một lần lúc tạo.';
 
-export const SHARE_LIMIT_NOTE = `Tối đa ${MAX_ACTIVE_SHARES_PER_DEVICE} link còn hiệu lực cho mỗi thiết bị. Link luôn có hạn (${SHARE_TTL_MIN_DAYS}–${SHARE_TTL_MAX_DAYS} ngày) và thu hồi được — không có link vĩnh viễn.`;
+/**
+ * The cap and the bounds, as a sentence. A template rather than a constant
+ * because the numbers are interpolated by `translate` at render time (the
+ * Vietnamese `{max}`/`{min}`/`{maxDays}` placeholders are the key).
+ */
+export const SHARE_LIMIT_NOTE =
+  'Tối đa {max} link còn hiệu lực cho mỗi thiết bị. Link luôn có hạn ({min}–{maxDays} ngày) và thu hồi được — không có link vĩnh viễn.';
 
 /** Serial off (default) — what the buyer still gets. */
 export const SHARE_SERIAL_OFF_NOTE =

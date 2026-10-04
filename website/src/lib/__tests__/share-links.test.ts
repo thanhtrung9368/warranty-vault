@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CERTIFICATE_NEVER_SHOWN,
   CERTIFICATE_SHOWS,
+  SHARE_LIMIT_NOTE,
   MAX_ACTIVE_SHARES_PER_DEVICE,
   SHARE_ACK_LABEL,
   SHARE_CLOSE_BLOCKED_HINT,
@@ -28,6 +29,11 @@ import {
 } from '@/lib/share-links';
 
 const NOW = new Date('2026-06-15T12:00:00Z');
+
+// Language is pinned explicitly ('vi') on every message-producing helper
+// (docs/I18N_PLAN.md §4.3): these assertions are about the Vietnamese source
+// sentences, so they must not drift with the default locale. URL/expiry/
+// capacity helpers take no locale — they produce no prose.
 
 function share(overrides: Partial<ShareLike> = {}): ShareLike {
   return {
@@ -150,6 +156,15 @@ describe('normalizeShareExpiryDays', () => {
     expect(normalizeShareExpiryDays(7.9)).toBe(7);
   });
 
+  it('states the cap and the bounds as an interpolatable template', () => {
+    // The sentence is a dictionary key carrying `{max}`/`{min}`/`{maxDays}`
+    // placeholders, so the numbers and the wording cannot drift apart.
+    expect(SHARE_LIMIT_NOTE).toContain('{max} link còn hiệu lực');
+    expect(MAX_ACTIVE_SHARES_PER_DEVICE).toBe(10);
+    expect(SHARE_TTL_MIN_DAYS).toBe(1);
+    expect(SHARE_TTL_MAX_DAYS).toBe(90);
+  });
+
   it('offers only choices inside the window (and preselects the server default)', () => {
     for (const choice of SHARE_EXPIRY_CHOICES) {
       expect(choice.days).toBeGreaterThanOrEqual(SHARE_TTL_MIN_DAYS);
@@ -188,11 +203,15 @@ describe('shareStatus', () => {
   });
 
   it('labels and tones each state', () => {
-    expect(shareStatusLabel(share(), NOW)).toBe('Đang hoạt động');
+    expect(shareStatusLabel(share(), 'vi', NOW)).toBe('Đang hoạt động');
     expect(shareStatusTone(share(), NOW)).toBe('emerald');
-    expect(shareStatusLabel(share({ expiresAt: '2026-01-01T00:00:00Z' }), NOW)).toBe('Đã hết hạn');
+    expect(shareStatusLabel(share({ expiresAt: '2026-01-01T00:00:00Z' }), 'vi', NOW)).toBe(
+      'Đã hết hạn',
+    );
     expect(shareStatusTone(share({ expiresAt: '2026-01-01T00:00:00Z' }), NOW)).toBe('zinc');
-    expect(shareStatusLabel(share({ revokedAt: '2026-06-01T00:00:00Z' }), NOW)).toBe('Đã thu hồi');
+    expect(shareStatusLabel(share({ revokedAt: '2026-06-01T00:00:00Z' }), 'vi', NOW)).toBe(
+      'Đã thu hồi',
+    );
     expect(shareStatusTone(share({ revokedAt: '2026-06-01T00:00:00Z' }), NOW)).toBe('rose');
   });
 });
@@ -239,42 +258,42 @@ describe('splitShares / shareCapacity', () => {
 
 describe('shareRemainingLabel', () => {
   it('counts whole days left', () => {
-    expect(shareRemainingLabel(share({ expiresAt: '2026-06-20T12:00:00Z' }), NOW)).toBe(
+    expect(shareRemainingLabel(share({ expiresAt: '2026-06-20T12:00:00Z' }), 'vi', NOW)).toBe(
       'Còn 5 ngày',
     );
   });
 
   it('says "dưới 1 ngày" instead of "0 ngày"', () => {
-    expect(shareRemainingLabel(share({ expiresAt: '2026-06-15T20:00:00Z' }), NOW)).toBe(
+    expect(shareRemainingLabel(share({ expiresAt: '2026-06-15T20:00:00Z' }), 'vi', NOW)).toBe(
       'Còn dưới 1 ngày',
     );
   });
 
   it('has no countdown once the link is not live', () => {
-    expect(shareRemainingLabel(share({ expiresAt: '2026-06-01T00:00:00Z' }), NOW)).toBeNull();
-    expect(shareRemainingLabel(share({ revokedAt: '2026-06-01T00:00:00Z' }), NOW)).toBeNull();
-    expect(shareRemainingLabel(share({ expiresAt: 'garbage' }), NOW)).toBeNull();
+    expect(shareRemainingLabel(share({ expiresAt: '2026-06-01T00:00:00Z' }), 'vi', NOW)).toBeNull();
+    expect(shareRemainingLabel(share({ revokedAt: '2026-06-01T00:00:00Z' }), 'vi', NOW)).toBeNull();
+    expect(shareRemainingLabel(share({ expiresAt: 'garbage' }), 'vi', NOW)).toBeNull();
   });
 });
 
 describe('shareViewLabel / shareSerialExposureLabel', () => {
   it('never reports a view that did not happen', () => {
-    expect(shareViewLabel(0)).toBe('Chưa ai mở');
-    expect(shareViewLabel(undefined)).toBe('Chưa ai mở');
-    expect(shareViewLabel(null)).toBe('Chưa ai mở');
-    expect(shareViewLabel(1)).toBe('Đã mở 1 lần');
-    expect(shareViewLabel(7)).toBe('Đã mở 7 lần');
+    expect(shareViewLabel(0, 'vi')).toBe('Chưa ai mở');
+    expect(shareViewLabel(undefined, 'vi')).toBe('Chưa ai mở');
+    expect(shareViewLabel(null, 'vi')).toBe('Chưa ai mở');
+    expect(shareViewLabel(1, 'vi')).toBe('Đã mở 1 lần');
+    expect(shareViewLabel(7, 'vi')).toBe('Đã mở 7 lần');
   });
 
   it('defends against a negative / fractional count', () => {
-    expect(shareViewLabel(-3)).toBe('Chưa ai mở');
-    expect(shareViewLabel(2.7)).toBe('Đã mở 2 lần');
+    expect(shareViewLabel(-3, 'vi')).toBe('Chưa ai mở');
+    expect(shareViewLabel(2.7, 'vi')).toBe('Đã mở 2 lần');
   });
 
   it('states the serial exposure in the owner-facing words', () => {
-    expect(shareSerialExposureLabel(false)).toBe('Chỉ serial che giữa');
-    expect(shareSerialExposureLabel(undefined)).toBe('Chỉ serial che giữa');
-    expect(shareSerialExposureLabel(true)).toBe('Kèm serial/IMEI đầy đủ');
+    expect(shareSerialExposureLabel(false, 'vi')).toBe('Chỉ serial che giữa');
+    expect(shareSerialExposureLabel(undefined, 'vi')).toBe('Chỉ serial che giữa');
+    expect(shareSerialExposureLabel(true, 'vi')).toBe('Kèm serial/IMEI đầy đủ');
   });
 });
 

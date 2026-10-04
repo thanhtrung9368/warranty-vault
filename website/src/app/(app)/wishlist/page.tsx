@@ -15,13 +15,12 @@ import { WishlistFilterBar } from '@/components/wishlist-filter-bar';
 import { api } from '@/lib/api';
 import type { WishlistItem } from '@/lib/api/wishlist';
 import { getCategories } from '@/app/actions/catalog';
-import { categoryLabel } from '@/lib/types';
+import { getI18n } from '@/lib/i18n/server';
+import { categoryLabel, wishlistPriorityLabel, wishlistStatusLabel } from '@/lib/i18n/labels';
 import {
   WISHLIST_ACTIVE_STATUSES,
   WISHLIST_PRIORITIES,
-  WISHLIST_PRIORITY_LABELS,
   WISHLIST_PRIORITY_RANK,
-  WISHLIST_STATUS_LABELS,
   WISHLIST_STATUSES,
   type WishlistPriority,
   type WishlistStatus,
@@ -138,6 +137,7 @@ export default async function WishlistPage({
   }>;
 }) {
   const sp = await searchParams;
+  const { locale, t } = await getI18n();
   const filter: WFilter = {
     q: sp.q,
     category: sp.category,
@@ -154,9 +154,11 @@ export default async function WishlistPage({
   if (!listRes.ok) {
     return (
       <div className="space-y-4">
-        <h1 className="display text-3xl text-ink">Đang thèm</h1>
+        <h1 className="display text-3xl text-ink">{t('Đang thèm')}</h1>
         <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          Lỗi tải wishlist: {listRes.message ?? listRes.error}
+          {t('Lỗi tải wishlist: {message}', {
+            message: listRes.message ?? listRes.error,
+          })}
         </div>
       </div>
     );
@@ -172,17 +174,19 @@ export default async function WishlistPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Đang thèm</p>
+          <p className="eyebrow">{t('Đang thèm')}</p>
           <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Wishlist</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            Hiển thị {items.length} món
-            {isFiltered ? ' (đã lọc)' : ''}. Note lại đồ mày đang để mắt — đợi sale là nhào vô.
+            {t('Hiển thị {count} món{filtered}. Note lại đồ mày đang để mắt — đợi sale là nhào vô.', {
+              count: items.length,
+              filtered: isFiltered ? t(' (đã lọc)') : '',
+            })}
           </p>
         </div>
         <Button asChild size="lg" className="rounded-pill">
           <Link href="/wishlist/new">
             <Plus className="mr-1 h-4 w-4" />
-            Thêm món
+            {t('Thêm món')}
           </Link>
         </Button>
       </div>
@@ -190,23 +194,25 @@ export default async function WishlistPage({
       {totals.count > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="stat-card tint-rose">
-            <p className="stat-eyebrow">Đang theo dõi</p>
+            <p className="stat-eyebrow">{t('Đang theo dõi')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-rose-ink">
               {totals.count}
             </p>
-            <p className="mt-1 text-xs opacity-80">món trong list</p>
+            <p className="mt-1 text-xs opacity-80">
+              {t('món trong list', { count: totals.count })}
+            </p>
           </div>
           <div className="stat-card tint-violet">
-            <p className="stat-eyebrow">Tổng tiền</p>
+            <p className="stat-eyebrow">{t('Tổng tiền')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-violet-ink">
-              {formatVND(totals.totalPrice)}
+              {formatVND(totals.totalPrice, locale)}
             </p>
-            <p className="mt-1 text-xs opacity-80">theo giá hiện tại</p>
+            <p className="mt-1 text-xs opacity-80">{t('theo giá hiện tại')}</p>
           </div>
           <div className="stat-card tint-amber">
-            <p className="stat-eyebrow">Sắp tới</p>
+            <p className="stat-eyebrow">{t('Sắp tới')}</p>
             {totals.upcoming.length === 0 ? (
-              <p className="mt-2 text-sm opacity-80">Chưa đặt ngày dự kiến</p>
+              <p className="mt-2 text-sm opacity-80">{t('Chưa đặt ngày dự kiến')}</p>
             ) : (
               <ul className="mt-2 space-y-1 text-sm">
                 {totals.upcoming.map((u) => (
@@ -219,7 +225,7 @@ export default async function WishlistPage({
                       {u.name}
                     </Link>
                     <span className="ml-auto shrink-0 text-xs opacity-80">
-                      {u.targetDate ? formatDate(new Date(u.targetDate)) : ''}
+                      {u.targetDate ? formatDate(new Date(u.targetDate), locale) : ''}
                     </span>
                   </li>
                 ))}
@@ -236,15 +242,15 @@ export default async function WishlistPage({
           icon={Heart}
           tone="rose"
           title={
-            isFiltered ? 'Không có gì khớp bộ lọc' : 'Wishlist trống — thêm cái mày thèm đi'
+            isFiltered ? t('Không có gì khớp bộ lọc') : t('Wishlist trống — thêm cái mày thèm đi')
           }
           description={
             isFiltered
-              ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
-              : 'Note lại những món mày đang để mắt — giá, link, deadline...'
+              ? t('Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.')
+              : t('Note lại những món mày đang để mắt — giá, link, deadline...')
           }
           ctaHref="/wishlist/new"
-          ctaLabel="Thêm món đầu tiên"
+          ctaLabel={t('Thêm món đầu tiên')}
           cta={!isFiltered}
         />
       ) : (
@@ -286,7 +292,7 @@ export default async function WishlistPage({
                         PRIORITY_PILL[priority] ?? 'bg-zinc-soft text-ink-2',
                       )}
                     >
-                      {WISHLIST_PRIORITY_LABELS[priority] ?? it.priority}
+                      {wishlistPriorityLabel(priority, locale)}
                     </span>
                     <span
                       className={cn(
@@ -294,7 +300,7 @@ export default async function WishlistPage({
                         STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
                       )}
                     >
-                      {WISHLIST_STATUS_LABELS[status] ?? it.status}
+                      {wishlistStatusLabel(status, locale)}
                     </span>
                   </div>
                 </div>
@@ -313,16 +319,16 @@ export default async function WishlistPage({
                     <p className="truncate text-xs text-muted-foreground">
                       {it.brand}
                       {it.brand && it.category ? ' • ' : ''}
-                      {it.category ? categoryLabel(it.category) : ''}
+                      {it.category ? categoryLabel(it.category, locale) : ''}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-auto grid grid-cols-2 gap-3 border-t border-dashed border-border pt-4">
                   <div>
-                    <p className="eyebrow">Hiện tại</p>
+                    <p className="eyebrow">{t('Hiện tại')}</p>
                     <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink">
-                      {it.currentPrice ? formatVND(it.currentPrice) : '—'}
+                      {it.currentPrice ? formatVND(it.currentPrice, locale) : '—'}
                     </p>
                     {delta && (
                       <span
@@ -341,14 +347,14 @@ export default async function WishlistPage({
                     )}
                   </div>
                   <div>
-                    <p className="eyebrow">Ban đầu</p>
+                    <p className="eyebrow">{t('Ban đầu')}</p>
                     <p className="mt-1 font-display text-base font-semibold tabular-nums text-ink-2">
-                      {it.initialPrice ? formatVND(it.initialPrice) : '—'}
+                      {it.initialPrice ? formatVND(it.initialPrice, locale) : '—'}
                     </p>
                     {it.targetDate && (
                       <span className="mt-0.5 inline-flex items-center gap-1 rounded-pill bg-amber-soft px-2 py-0.5 text-[10px] font-semibold text-amber-ink">
                         <Calendar className="h-3 w-3" />
-                        {formatDate(new Date(it.targetDate))}
+                        {formatDate(new Date(it.targetDate), locale)}
                       </span>
                     )}
                   </div>

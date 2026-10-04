@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { api } from '@/lib/api';
 import type { SessionSummary } from '@/lib/api/auth';
 import { destroyAuthCookie } from '@/lib/auth-cookie';
+import { getI18n } from '@/lib/i18n/server';
 import { sessionRevokeOutcome, type SessionRevokeOutcome } from '@/lib/sessions';
 
 // Active sessions for the Settings list. `ok: false` when the Go read failed so
@@ -35,15 +36,18 @@ export type RevokeSessionState = {
 // later Go request would 401 (the (app) layout would bounce the user anyway —
 // doing it here makes the trip to /login deliberate instead of an error path).
 export async function revokeMySession(id: string): Promise<RevokeSessionState> {
+  // One resolution per request (React `cache()`), used for the fallback copy AND
+  // for `sessionRevokeOutcome`, which keeps Go's own message when it sent one.
+  const { locale, t } = await getI18n();
   const trimmed = typeof id === 'string' ? id.trim() : '';
-  if (!trimmed) return { ok: false, message: 'Thiếu id phiên đăng nhập' };
+  if (!trimmed) return { ok: false, message: t('Thiếu id phiên đăng nhập') };
 
   const res = await api.auth.revokeSession(trimmed);
   if (!res.ok) {
-    return { ok: false, message: res.message ?? 'Không gỡ được phiên đăng nhập' };
+    return { ok: false, message: res.message ?? t('Không gỡ được phiên đăng nhập') };
   }
 
-  const outcome = sessionRevokeOutcome(res.data);
+  const outcome = sessionRevokeOutcome(res.data, locale);
 
   if (outcome.kind === 'current') {
     await destroyAuthCookie();

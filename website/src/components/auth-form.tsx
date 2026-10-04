@@ -13,6 +13,7 @@ import {
   registerUser,
   type AuthFormState,
 } from '@/app/actions/auth';
+import { useT } from '@/lib/i18n/client';
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors || errors.length === 0) return null;
@@ -25,6 +26,7 @@ function SubmitButton({
   mode: 'login' | 'register';
 }) {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending} size="lg" className="w-full">
       {pending ? (
@@ -34,12 +36,13 @@ function SubmitButton({
       ) : (
         <UserPlus className="mr-2 h-4 w-4" />
       )}
-      {mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
+      {mode === 'login' ? t('Đăng nhập') : t('Tạo tài khoản')}
     </Button>
   );
 }
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
+  const t = useT();
   const action = mode === 'login' ? loginUser : registerUser;
   const [state, formAction] = useActionState<AuthFormState, FormData>(action, {});
   const errors = state?.errors ?? {};
@@ -55,12 +58,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           <Icon className="h-7 w-7" />
         </div>
         <h1 className="display text-2xl">
-          {mode === 'login' ? 'Chào mừng quay lại 👋' : 'Tạo tài khoản miễn phí'}
+          {mode === 'login' ? t('Chào mừng quay lại 👋') : t('Tạo tài khoản miễn phí')}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {mode === 'login'
-            ? 'Đăng nhập để xem thiết bị, gói đăng ký và wishlist của bạn.'
-            : 'Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.'}
+            ? t('Đăng nhập để xem thiết bị, gói đăng ký và wishlist của bạn.')
+            : t('Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.')}
         </p>
       </div>
 
@@ -68,7 +71,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         {mode === 'register' && (
           <div className="space-y-1.5">
             <Label htmlFor="name" className="text-sm font-semibold text-ink-2">
-              Tên hiển thị
+              {t('Tên hiển thị')}
             </Label>
             <Input
               id="name"
@@ -79,13 +82,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <p className="text-xs text-muted">Để trống cũng được</p>
+            <p className="text-xs text-muted">{t('Để trống cũng được')}</p>
             <FieldError errors={errors.name} />
           </div>
         )}
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-sm font-semibold text-ink-2">
-            Email <span className="text-destructive">*</span>
+            {t('Email')} <span className="text-destructive">*</span>
           </Label>
           <Input
             id="email"
@@ -102,14 +105,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password" className="text-sm font-semibold text-ink-2">
-              Mật khẩu <span className="text-destructive">*</span>
+              {t('Mật khẩu')} <span className="text-destructive">*</span>
             </Label>
             {mode === 'login' && (
               <Link
                 href="/forgot"
                 className="text-xs font-semibold text-primary hover:underline"
               >
-                Quên mật khẩu?
+                {t('Quên mật khẩu?')}
               </Link>
             )}
           </div>
@@ -119,13 +122,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             type="password"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             minLength={mode === 'register' ? 8 : undefined}
-            placeholder={mode === 'register' ? 'Tối thiểu 8 ký tự' : '••••••••'}
+            placeholder={mode === 'register' ? t('Tối thiểu 8 ký tự') : '••••••••'}
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           {mode === 'register' && !errors.password && (
-            <p className="text-xs text-muted">Tối thiểu 8 ký tự</p>
+            <p className="text-xs text-muted">{t('Tối thiểu 8 ký tự')}</p>
           )}
           <FieldError errors={errors.password} />
         </div>
@@ -147,16 +150,16 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         <p className="text-center text-sm text-muted">
           {mode === 'login' ? (
             <>
-              Chưa có tài khoản?{' '}
+              {t('Chưa có tài khoản?')}{' '}
               <Link href="/register" className="font-semibold text-primary hover:underline">
-                Đăng ký
+                {t('Đăng ký')}
               </Link>
             </>
           ) : (
             <>
-              Đã có tài khoản?{' '}
+              {t('Đã có tài khoản?')}{' '}
               <Link href="/login" className="font-semibold text-primary hover:underline">
-                Đăng nhập
+                {t('Đăng nhập')}
               </Link>
             </>
           )}

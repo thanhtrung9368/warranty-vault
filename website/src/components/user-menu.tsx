@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { logoutUser } from '@/app/actions/auth';
+import { useT } from '@/lib/i18n/client';
 
 export function UserMenu({
   email,
@@ -21,6 +22,7 @@ export function UserMenu({
   email: string;
   name: string | null;
 }) {
+  const t = useT();
   const [pending, startTransition] = useTransition();
   const initial = (name || email)[0]?.toUpperCase() ?? '?';
 
@@ -44,7 +46,7 @@ export function UserMenu({
         <DropdownMenuLabel className="flex items-center gap-2">
           <UserIcon className="h-4 w-4 text-muted-foreground" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{name || 'Người dùng'}</p>
+            <p className="truncate text-sm font-medium">{name || t('Người dùng')}</p>
             <p className="truncate text-xs font-normal text-muted-foreground">{email}</p>
           </div>
         </DropdownMenuLabel>
@@ -57,7 +59,7 @@ export function UserMenu({
               try {
                 await logoutUser();
               } catch {
-                toast.error('Không đăng xuất được');
+                toast.error(t('Không đăng xuất được'));
               }
             });
           }}
@@ -68,7 +70,7 @@ export function UserMenu({
           ) : (
             <LogOut className="mr-2 h-4 w-4" />
           )}
-          Đăng xuất
+          {t('Đăng xuất')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

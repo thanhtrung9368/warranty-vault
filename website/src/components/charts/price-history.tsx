@@ -9,7 +9,25 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { format } from 'date-fns';
+import { enUS, vi } from 'date-fns/locale';
 import { formatVND } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
+import type { Locale } from '@/lib/i18n/locale';
+
+// Axis tick labels are user-facing copy, so the unit suffix follows the
+// language: "1tr" / "1.5tr" (triệu) in Vietnamese, "1M" / "1.5M" (million) in
+// English. Duplicated in the three chart files on purpose — the alternative was
+// a new module, and this change is scoped to converting existing files.
+function compactMoney(v: number, locale: Locale): string {
+  if (v >= 1_000_000) {
+    const millions = v / 1_000_000;
+    const rounded = Number.isInteger(millions) ? String(millions) : millions.toFixed(1);
+    return `${rounded}${locale === 'vi' ? 'tr' : 'M'}`;
+  }
+  if (v >= 1000) return `${v / 1000}k`;
+  return `${v}`;
+}
 
 type Point = {
   recordedAt: string; // ISO string for SSR-safety
@@ -17,20 +35,21 @@ type Point = {
 };
 
 export function PriceHistoryChart({ data }: { data: Point[] }) {
+  const t = useT();
+  const locale = useLocale();
+
   if (data.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
-        Chưa có dữ liệu giá. Cập nhật giá hiện tại để bắt đầu theo dõi.
+        {t('Chưa có dữ liệu giá. Cập nhật giá hiện tại để bắt đầu theo dõi.')}
       </p>
     );
   }
-  // Recharts wants Date-formatted x labels.
+  // Recharts wants Date-formatted x labels. The pattern follows the language,
+  // the same way `formatDate` does (`vi-VN` was hard-coded here before).
+  const dateLocale = locale === 'vi' ? vi : enUS;
   const series = data.map((p) => ({
-    label: new Date(p.recordedAt).toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-    }),
+    label: format(new Date(p.recordedAt), 'dd/MM/yy', { locale: dateLocale }),
     price: p.price,
   }));
   return (
@@ -41,9 +60,7 @@ export function PriceHistoryChart({ data }: { data: Point[] }) {
         <YAxis
           stroke="hsl(var(--muted-foreground))"
           fontSize={11}
-          tickFormatter={(v: number) =>
-            v >= 1_000_000 ? `${(v / 1_000_000).toFixed(0)}tr` : v >= 1000 ? `${v / 1000}k` : `${v}`
-          }
+          tickFormatter={(v: number) => compactMoney(v, locale)}
         />
         <Tooltip
           contentStyle={{
@@ -52,7 +69,7 @@ export function PriceHistoryChart({ data }: { data: Point[] }) {
             borderRadius: 8,
             fontSize: 12,
           }}
-          formatter={((v: number) => [formatVND(v), 'Giá']) as never}
+          formatter={((v: number) => [formatVND(v, locale), t('Giá')]) as never}
         />
         <Line
           type="monotone"

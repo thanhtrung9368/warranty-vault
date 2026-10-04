@@ -20,11 +20,11 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { formatNumber, parseVNDInput } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
+import { wishlistPriorityLabel, wishlistStatusLabel } from '@/lib/i18n/labels';
 import {
   WISHLIST_PRIORITIES,
-  WISHLIST_PRIORITY_LABELS,
   WISHLIST_STATUSES,
-  WISHLIST_STATUS_LABELS,
   type WishlistPriority,
   type WishlistStatus,
 } from '@/lib/wishlist-types';
@@ -60,6 +60,9 @@ type Catalog = {
   brands: BrandOption[];
 };
 
+// Field key → its Vietnamese label (a dictionary key) and the wizard step it
+// lives on. The label stays Vietnamese here on purpose: it is the key the
+// catalog is looked up by, and `t()` is applied at render time.
 const FIELD_META: Record<string, { label: string; focusId: string; step: number }> = {
   name: { label: 'Tên sản phẩm', focusId: 'name', step: 0 },
   category: { label: 'Loại', focusId: 'category', step: 0 },
@@ -115,6 +118,8 @@ function MoneyInput({
   name: string;
   id?: string;
 }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <div className="relative">
       <Input
@@ -123,9 +128,9 @@ function MoneyInput({
         value={value}
         onChange={(e) => {
           const n = parseVNDInput(e.target.value);
-          onChange(n ? formatNumber(n) : '');
+          onChange(n ? formatNumber(n, locale) : '');
         }}
-        placeholder="Cân nhắc / 0"
+        placeholder={t('Cân nhắc / 0')}
         className="pr-10"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
@@ -143,6 +148,7 @@ function Stepper({
   current: number;
   onStepClick?: (i: number) => void;
 }) {
+  const t = useT();
   return (
     <div className="stepper">
       {STEPS.map((label, i) => {
@@ -159,7 +165,7 @@ function Stepper({
               <span className="stepper-bubble">
                 {state === 'done' ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
               </span>
-              <span className="stepper-label">{label}</span>
+              <span className="stepper-label">{t(label)}</span>
             </button>
             {i < STEPS.length - 1 && <span className="stepper-line" />}
           </React.Fragment>
@@ -177,6 +183,8 @@ export function WishlistForm({
   catalog: Catalog;
 }) {
   const isEdit = Boolean(initial?.id);
+  const t = useT();
+  const locale = useLocale();
   const action = isEdit
     ? updateWishlistItem.bind(null, initial!.id!)
     : createWishlistItem;
@@ -194,8 +202,8 @@ export function WishlistForm({
     const errs = state?.errors;
     if (errs && Object.keys(errs).length > 0) {
       const keys = Object.keys(errs);
-      const labels = keys.map((k) => FIELD_META[k]?.label ?? k);
-      toast.error('Vui lòng kiểm tra: ' + labels.join(', '));
+      const labels = keys.map((k) => t(FIELD_META[k]?.label ?? k));
+      toast.error(t('Vui lòng kiểm tra: {fields}', { fields: labels.join(', ') }));
       const stepOf = FIELD_META[keys[0]]?.step ?? 0;
       // See subscription-form for why this is deferred.
       setTimeout(() => {
@@ -205,7 +213,7 @@ export function WishlistForm({
     } else if (state?.ok === false && state.message) {
       toast.error(state.message);
     }
-  }, [state]);
+  }, [state, t]);
 
   const [category, setCategory] = React.useState<string>(initial?.category ?? '');
   const [brand, setBrand] = React.useState<string>(initial?.brand ?? '');
@@ -222,10 +230,10 @@ export function WishlistForm({
   const [priority, setPriority] = React.useState<string>(initial?.priority ?? 'WANT');
   const [status, setStatus] = React.useState<string>(initial?.status ?? 'WATCHING');
   const [initialPrice, setInitialPrice] = React.useState<string>(
-    initial?.initialPrice ? formatNumber(initial.initialPrice) : '',
+    initial?.initialPrice ? formatNumber(initial.initialPrice, locale) : '',
   );
   const [currentPrice, setCurrentPrice] = React.useState<string>(
-    initial?.currentPrice ? formatNumber(initial.currentPrice) : '',
+    initial?.currentPrice ? formatNumber(initial.currentPrice, locale) : '',
   );
 
   const categoryOptions: ComboboxOption[] = catalog.categories.map((c) => ({
@@ -241,9 +249,9 @@ export function WishlistForm({
     const others = catalog.brands.filter((b) => !seen.has(b.name));
     return [
       ...inCat.map((b) => ({ value: b.name, label: b.name })),
-      ...others.map((b) => ({ value: b.name, label: b.name, hint: 'khác loại' })),
+      ...others.map((b) => ({ value: b.name, label: b.name, hint: t('khác loại') })),
     ];
-  }, [catalog.brands, category]);
+  }, [catalog.brands, category, t]);
 
   const validateStep = (s: number): { ok: boolean; firstMissing?: string } => {
     if (s === 0) {
@@ -256,7 +264,7 @@ export function WishlistForm({
     const v = validateStep(step);
     if (!v.ok) {
       const k = v.firstMissing!;
-      toast.error('Vui lòng nhập: ' + (FIELD_META[k]?.label ?? k));
+      toast.error(t('Vui lòng nhập: {field}', { field: t(FIELD_META[k]?.label ?? k) }));
       focusField(k);
       return;
     }
@@ -271,7 +279,7 @@ export function WishlistForm({
         e.preventDefault();
         setStep(i);
         const k = v.firstMissing!;
-        toast.error('Vui lòng nhập: ' + (FIELD_META[k]?.label ?? k));
+        toast.error(t('Vui lòng nhập: {field}', { field: t(FIELD_META[k]?.label ?? k) }));
         setTimeout(() => focusField(k), 50);
         return;
       }
@@ -293,7 +301,7 @@ export function WishlistForm({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="name">
-                Tên sản phẩm <span className="text-destructive">*</span>
+                {t('Tên sản phẩm')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="name"
@@ -307,36 +315,36 @@ export function WishlistForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Loại</Label>
+              <Label htmlFor="category">{t('Loại')}</Label>
               <Combobox
                 triggerId="category"
                 options={categoryOptions}
                 value={category}
                 onValueChange={setCategory}
-                placeholder="Chọn loại (tuỳ chọn)"
-                searchPlaceholder="Tìm loại..."
+                placeholder={t('Chọn loại (tuỳ chọn)')}
+                searchPlaceholder={t('Tìm loại...')}
               />
               <input type="hidden" name="category" value={category} />
               <FieldError errors={errors.category} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand">Hãng</Label>
+              <Label htmlFor="brand">{t('Hãng')}</Label>
               <Combobox
                 triggerId="brand"
                 options={brandOptions}
                 value={brand}
                 onValueChange={setBrand}
                 placeholder="Apple, Samsung, ..."
-                searchPlaceholder="Tìm hãng..."
+                searchPlaceholder={t('Tìm hãng...')}
                 allowCustom
-                customLabel={(v) => `Dùng hãng "${v}"`}
+                customLabel={(v) => t('Dùng hãng "{name}"', { name: v })}
               />
               <input type="hidden" name="brand" value={brand} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="priorityVisible">Mức độ thèm</Label>
+              <Label htmlFor="priorityVisible">{t('Mức độ thèm')}</Label>
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger id="priorityVisible">
                   <SelectValue />
@@ -344,7 +352,7 @@ export function WishlistForm({
                 <SelectContent>
                   {WISHLIST_PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {WISHLIST_PRIORITY_LABELS[p]}
+                      {wishlistPriorityLabel(p, locale)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -352,7 +360,7 @@ export function WishlistForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="statusVisible">Trạng thái</Label>
+              <Label htmlFor="statusVisible">{t('Trạng thái')}</Label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger id="statusVisible">
                   <SelectValue />
@@ -360,7 +368,7 @@ export function WishlistForm({
                 <SelectContent>
                   {WISHLIST_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {WISHLIST_STATUS_LABELS[s]}
+                      {wishlistStatusLabel(s, locale)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -368,7 +376,7 @@ export function WishlistForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="initialPrice">Giá ban đầu (VND)</Label>
+              <Label htmlFor="initialPrice">{t('Giá ban đầu (VND)')}</Label>
               <MoneyInput
                 id="initialPrice"
                 value={initialPrice}
@@ -376,12 +384,12 @@ export function WishlistForm({
                 name="initialPrice"
               />
               <p className="text-xs text-muted-foreground">
-                Lúc bắt đầu để ý. Để trống nếu chưa biết.
+                {t('Lúc bắt đầu để ý. Để trống nếu chưa biết.')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="currentPrice">Giá hiện tại (VND)</Label>
+              <Label htmlFor="currentPrice">{t('Giá hiện tại (VND)')}</Label>
               <MoneyInput
                 id="currentPrice"
                 value={currentPrice}
@@ -389,7 +397,7 @@ export function WishlistForm({
                 name="currentPrice"
               />
               <p className="text-xs text-muted-foreground">
-                Đổi giá ở đây sẽ tự log vào lịch sử.
+                {t('Đổi giá ở đây sẽ tự log vào lịch sử.')}
               </p>
             </div>
           </div>
@@ -399,7 +407,7 @@ export function WishlistForm({
         <div className={cn('space-y-4', step !== 1 && 'hidden')}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="buyUrl">Link mua</Label>
+              <Label htmlFor="buyUrl">{t('Link mua')}</Label>
               <Input
                 id="buyUrl"
                 name="buyUrl"
@@ -412,20 +420,20 @@ export function WishlistForm({
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="imageUrl">Link ảnh sản phẩm</Label>
+              <Label htmlFor="imageUrl">{t('Link ảnh')}</Label>
               <Input
                 id="imageUrl"
                 name="imageUrl"
                 type="url"
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://... (tuỳ chọn)"
+                placeholder={t('https://... (tuỳ chọn)')}
               />
               <FieldError errors={errors.imageUrl} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="targetDate">Ngày dự kiến mua</Label>
+              <Label htmlFor="targetDate">{t('Ngày dự kiến mua')}</Label>
               <Input
                 id="targetDate"
                 name="targetDate"
@@ -434,12 +442,12 @@ export function WishlistForm({
                 onChange={(e) => setTargetDate(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Có ngày này → sẽ bị nhắc trước 30 / 7 / 0 ngày.
+                {t('Có ngày này → sẽ bị nhắc trước 30 / 7 / 0 ngày.')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reminderIntervalDays">Nhắc lại check giá (ngày)</Label>
+              <Label htmlFor="reminderIntervalDays">{t('Nhắc lại check giá (ngày)')}</Label>
               <Input
                 id="reminderIntervalDays"
                 name="reminderIntervalDays"
@@ -452,7 +460,7 @@ export function WishlistForm({
               />
               <FieldError errors={errors.reminderIntervalDays} />
               <p className="text-xs text-muted-foreground">
-                Để trống nếu không cần. vd: 30 = mỗi 30 ngày ping check.
+                {t('Để trống nếu không cần. vd: 30 = mỗi 30 ngày ping check.')}
               </p>
             </div>
           </div>
@@ -461,19 +469,19 @@ export function WishlistForm({
         {/* === STEP 2 — Ghi chú + xác nhận === */}
         <div className={cn('space-y-4', step !== 2 && 'hidden')}>
           <div className="space-y-2">
-            <Label htmlFor="notes">Ghi chú</Label>
+            <Label htmlFor="notes">{t('Ghi chú')}</Label>
             <Textarea
               id="notes"
               name="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Điều kiện mua, lý do thèm, deal cần chờ..."
+              placeholder={t('Điều kiện mua, lý do thèm, deal cần chờ...')}
               rows={4}
             />
           </div>
 
           <div className="rounded-2xl border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
-            <p className="eyebrow">Xác nhận món thèm</p>
+            <p className="eyebrow">{t('Xác nhận món thèm')}</p>
             <p className="mt-1 text-sm text-ink-2">
               <span className="font-semibold text-ink">{name || '—'}</span>
               {brand && (
@@ -484,10 +492,10 @@ export function WishlistForm({
               )}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {WISHLIST_PRIORITY_LABELS[priority as WishlistPriority] ?? priority} ·{' '}
-              {WISHLIST_STATUS_LABELS[status as WishlistStatus] ?? status}
-              {currentPrice ? ` · Hiện tại ${currentPrice} ₫` : ''}
-              {targetDate ? ` · Target ${targetDate}` : ''}
+              {wishlistPriorityLabel(priority as WishlistPriority, locale)} ·{' '}
+              {wishlistStatusLabel(status as WishlistStatus, locale)}
+              {currentPrice ? t(' · Hiện tại {price} ₫', { price: currentPrice }) : ''}
+              {targetDate ? t(' · Target {date}', { date: targetDate }) : ''}
             </p>
           </div>
         </div>
@@ -502,11 +510,11 @@ export function WishlistForm({
                 onClick={goPrev}
               >
                 <ArrowLeft className="mr-1 h-4 w-4" />
-                Quay lại
+                {t('Quay lại')}
               </Button>
             )}
             <Button type="button" variant="ghost" className="rounded-pill" asChild>
-              <Link href={isEdit ? `/wishlist/${initial!.id}` : '/wishlist'}>Hủy</Link>
+              <Link href={isEdit ? `/wishlist/${initial!.id}` : '/wishlist'}>{t('Huỷ')}</Link>
             </Button>
           </div>
           <div className="flex items-center gap-3">
@@ -515,11 +523,11 @@ export function WishlistForm({
             </span>
             {step < STEPS.length - 1 ? (
               <Button type="button" className="rounded-pill" onClick={goNext}>
-                Tiếp tục
+                {t('Tiếp tục')}
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
-              <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Thêm vào wishlist'} />
+              <SubmitButton label={isEdit ? t('Lưu thay đổi') : t('Thêm vào wishlist')} />
             )}
           </div>
         </div>

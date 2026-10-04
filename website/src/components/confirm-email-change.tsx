@@ -6,10 +6,11 @@ import Link from 'next/link';
 import { Loader2, MailCheck, CheckCircle2, ArrowLeft, LogIn, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { confirmEmailChange, type ConfirmEmailChangeState } from '@/app/actions/email-change';
-import { CONFIRM_EMAIL_COPY } from '@/lib/email-change';
+import { useT } from '@/lib/i18n/client';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending} size="lg" className="w-full">
       {pending ? (
@@ -17,7 +18,7 @@ function SubmitButton() {
       ) : (
         <MailCheck className="mr-2 h-4 w-4" />
       )}
-      {pending ? CONFIRM_EMAIL_COPY.pending : CONFIRM_EMAIL_COPY.button}
+      {pending ? t('Đang xác nhận…') : t('Xác nhận đổi email')}
     </Button>
   );
 }
@@ -32,6 +33,7 @@ function SubmitButton() {
 // effect (React Strict Mode in dev, a bfcache replay, a link prefetcher that
 // runs JS) into a spurious "link đã dùng" error for a token that was valid.
 export function ConfirmEmailChange({ token }: { token: string }) {
+  const t = useT();
   const [state, formAction] = useActionState<ConfirmEmailChangeState, FormData>(
     confirmEmailChange,
     {},
@@ -43,8 +45,17 @@ export function ConfirmEmailChange({ token }: { token: string }) {
         <div className="mx-auto mb-3 inline-flex h-[60px] w-[60px] items-center justify-center rounded-full bg-primary-soft text-primary-ink">
           <MailCheck className="h-7 w-7" />
         </div>
-        <h1 className="display text-2xl">{CONFIRM_EMAIL_COPY.title}</h1>
-        <p className="mt-1.5 text-sm text-muted">{CONFIRM_EMAIL_COPY.intro}</p>
+        {/* These two sentences are also `CONFIRM_EMAIL_COPY` in
+            `lib/email-change.ts` (used by the settings email-change form). They
+            are wrapped here rather than read from that module so this screen
+            translates on its own — the constant is plain Vietnamese and has no
+            locale-aware getter. */}
+        <h1 className="display text-2xl">{t('Xác nhận đổi email')}</h1>
+        <p className="mt-1.5 text-sm text-muted">
+          {t(
+            'Link này xác nhận địa chỉ email mới cho tài khoản WarrantyVault của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.',
+          )}
+        </p>
       </div>
 
       {state?.ok ? (
@@ -60,7 +71,7 @@ export function ConfirmEmailChange({ token }: { token: string }) {
           <Button asChild size="lg" className="w-full">
             <Link href="/login">
               <LogIn className="mr-2 h-4 w-4" />
-              Đăng nhập bằng email mới
+              {t('Đăng nhập bằng email mới')}
             </Link>
           </Button>
         </div>
@@ -87,7 +98,7 @@ export function ConfirmEmailChange({ token }: { token: string }) {
               className="inline-flex items-center font-semibold text-primary hover:underline"
             >
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-              Quay lại đăng nhập
+              {t('Quay lại đăng nhập')}
             </Link>
           </p>
         </form>

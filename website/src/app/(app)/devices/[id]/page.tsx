@@ -41,12 +41,9 @@ import { ServiceDirectoryCard } from '@/components/service-directory-card';
 import { api } from '@/lib/api';
 import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
-import {
-  CATEGORY_LABELS,
-  STATUS_LABELS,
-  type Category,
-  type Status,
-} from '@/lib/types';
+import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
+import { getI18n } from '@/lib/i18n/server';
+import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
@@ -100,6 +97,7 @@ export default async function DeviceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   await requireUser();
+  const { locale, t } = await getI18n();
   const { id } = await params;
   // Serial advisories from the create/update that just happened ("đã lưu, nhưng
   // có vẻ sai"). They are computed at write time only, so the write action passes
@@ -117,16 +115,15 @@ export default async function DeviceDetailPage({
   ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
-    throw new Error(res.message ?? 'Không tải được thiết bị');
+    throw new Error(res.message ?? t('Không tải được thiết bị'));
   }
   const device = res.data;
   const shares = sharesRes.ok ? sharesRes.data : [];
   const directory = directoryRes.ok ? directoryRes.data : null;
 
-  const categoryLabel =
-    CATEGORY_LABELS[device.category as Category] ?? device.category;
+  const category = categoryLabel(device.category, locale);
   const status = device.status as Status;
-  const statusLabel = STATUS_LABELS[status] ?? device.status;
+  const statusName = statusLabel(status, locale);
   const effectiveEnd = effectiveWarrantyEnd(device.warranties);
   // Resale (roadmap #12). The API returns both halves or neither; the
   // profit/loss versus `purchasePrice` is computed client-side on purpose
@@ -134,14 +131,14 @@ export default async function DeviceDetailPage({
   const saleRecorded = hasSaleRecorded(device);
   const profitLoss =
     device.soldPrice != null
-      ? saleProfitLoss(device.purchasePrice, device.soldPrice)
+      ? saleProfitLoss(device.purchasePrice, device.soldPrice, locale)
       : null;
   // Chi phí sở hữu mỗi ngày (FEATURE_IDEAS #7). Pure helper in
   // `@/lib/stats-rollup` — the same function the /stats ranking uses, so the
   // detail figure and the leaderboard can never disagree. `null` only when
   // `purchaseDate` itself is unusable (the card then says so instead of
   // printing a made-up number).
-  const perDay = costPerDay(device, device.warranties);
+  const perDay = costPerDay(device, device.warranties, locale);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -149,7 +146,7 @@ export default async function DeviceDetailPage({
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/devices">
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Danh sách thiết bị
+            {t('Danh sách thiết bị')}
           </Link>
         </Button>
       </div>
@@ -165,11 +162,11 @@ export default async function DeviceDetailPage({
                   STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2'
                 }`}
               >
-                {statusLabel}
+                {statusName}
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {categoryLabel}
+              {category}
               {device.brand ? ` • ${device.brand}` : ''}
               {device.model ? ` • ${device.model}` : ''}
             </p>
@@ -179,7 +176,7 @@ export default async function DeviceDetailPage({
           <Button asChild variant="outline" size="sm" className="rounded-pill">
             <Link href={`/devices/${device.id}/edit`}>
               <Pencil className="mr-1 h-4 w-4" />
-              Sửa
+              {t('Sửa')}
             </Link>
           </Button>
           <DeleteDeviceButton id={device.id} name={device.name} />
@@ -194,27 +191,27 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShoppingBag className="h-5 w-5 text-primary" />
-                Mua hàng
+                {t('Mua hàng')}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-x-6 sm:grid-cols-2">
               <InfoRow
                 icon={Calendar}
-                label="Ngày mua"
-                value={formatDate(device.purchaseDate)}
+                label={t('Ngày mua')}
+                value={formatDate(device.purchaseDate, locale)}
               />
               <InfoRow
                 icon={Wallet}
-                label="Giá mua"
-                value={formatVND(device.purchasePrice)}
+                label={t('Giá mua')}
+                value={formatVND(device.purchasePrice, locale)}
               />
-              <InfoRow icon={Store} label="Nơi mua" value={device.purchasePlace} />
+              <InfoRow icon={Store} label={t('Nơi mua')} value={device.purchasePlace} />
               <InfoRow
                 icon={Hash}
-                label="Serial / IMEI"
+                label={t('Serial / IMEI')}
                 value={device.serialNumber}
               />
-              <InfoRow icon={Tag} label="Loại" value={categoryLabel} />
+              <InfoRow icon={Tag} label={t('Loại')} value={category} />
             </CardContent>
           </Card>
 
@@ -225,26 +222,26 @@ export default async function DeviceDetailPage({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <HandCoins className="h-5 w-5 text-sky-ink" />
-                  Bán lại
+                  {t('Bán lại')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-x-6 sm:grid-cols-2">
                 <InfoRow
                   icon={CalendarCheck}
-                  label="Ngày bán"
-                  value={device.soldAt ? formatDate(device.soldAt) : null}
+                  label={t('Ngày bán')}
+                  value={device.soldAt ? formatDate(device.soldAt, locale) : null}
                 />
                 <InfoRow
                   icon={Wallet}
-                  label="Giá bán"
+                  label={t('Giá bán')}
                   value={
-                    device.soldPrice != null ? formatVND(device.soldPrice) : null
+                    device.soldPrice != null ? formatVND(device.soldPrice, locale) : null
                   }
                 />
                 {profitLoss && (
                   <InfoRow
                     icon={profitLoss.tone === 'loss' ? TrendingDown : TrendingUp}
-                    label="Lãi/lỗ so với giá mua"
+                    label={t('Lãi/lỗ so với giá mua')}
                     value={
                       <span
                         className={
@@ -257,7 +254,9 @@ export default async function DeviceDetailPage({
                       >
                         {profitLoss.label}
                         <span className="ml-1 font-normal text-muted-foreground">
-                          (giá mua {formatVND(device.purchasePrice)})
+                          {t('(giá mua {amount})', {
+                            amount: formatVND(device.purchasePrice, locale),
+                          })}
                         </span>
                       </span>
                     }
@@ -271,7 +270,7 @@ export default async function DeviceDetailPage({
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShieldCheck className="h-5 w-5 text-emerald-ink" />
-                Tổng quan bảo hành
+                {t('Tổng quan bảo hành')}
               </CardTitle>
               {effectiveEnd && (
                 <WarrantyPill warrantyEnd={effectiveEnd} variant="badge" />
@@ -281,17 +280,18 @@ export default async function DeviceDetailPage({
               {effectiveEnd ? (
                 <>
                   <p className="text-sm text-ink-2">
-                    Có <span className="font-semibold text-ink">{device.warranties.length}</span>{' '}
-                    gói bảo hành. Gói xa nhất hết{' '}
-                    <span className="font-semibold text-ink">{formatDate(effectiveEnd)}</span>.
+                    {t('Có {count} gói bảo hành. Gói xa nhất hết {date}.', {
+                      count: device.warranties.length,
+                      date: formatDate(effectiveEnd, locale),
+                    })}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Quản lý chi tiết từng gói ở mục bên dưới.
+                    {t('Quản lý chi tiết từng gói ở mục bên dưới.')}
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Thiết bị chưa có gói bảo hành nào.
+                  {t('Thiết bị chưa có gói bảo hành nào.')}
                 </p>
               )}
 
@@ -302,15 +302,15 @@ export default async function DeviceDetailPage({
                   already recorded. Rendered only when the server derived one. */}
               {device.returnDeadline && (
                 <p className="border-t border-dashed border-border pt-2 text-sm text-ink-2">
-                  Hạn đổi/trả:{' '}
+                  {t('Hạn đổi/trả:')}{' '}
                   <span className="font-semibold text-ink">
-                    {formatDate(device.returnDeadline)}
+                    {formatDate(device.returnDeadline, locale)}
                   </span>{' '}
                   <span className="text-muted-foreground">
-                    ({returnDeadlineNote(device.returnDeadline)})
+                    ({returnDeadlineNote(device.returnDeadline, locale)})
                   </span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Chính sách của cửa hàng do bạn ghi lại, không phải quy định pháp luật.
+                    {t('Chính sách của cửa hàng do bạn ghi lại, không phải quy định pháp luật.')}
                   </span>
                 </p>
               )}
@@ -321,7 +321,7 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShieldCheck className="h-5 w-5 text-primary" />
-                Gói bảo hành{' '}
+                {t('Gói bảo hành')}{' '}
                 <span className="font-medium text-muted-foreground">
                   ({device.warranties.length}/5)
                 </span>
@@ -354,7 +354,7 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="h-5 w-5 text-sky-ink" />
-                Đi bảo hành ở đâu
+                {t('Đi bảo hành ở đâu')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -372,7 +372,7 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Share2 className="h-5 w-5 text-primary" />
-                Phiếu bàn giao &amp; link chia sẻ
+                {t('Phiếu bàn giao & link chia sẻ')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -390,7 +390,7 @@ export default async function DeviceDetailPage({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <StickyNote className="h-5 w-5 text-muted-foreground" />
-                  Ghi chú
+                  {t('Ghi chú')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -411,52 +411,52 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Coins className="h-5 w-5 text-amber-ink" />
-                Chi phí sử dụng
+                {t('Chi phí sử dụng')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               {perDay == null ? (
                 <p className="text-muted-foreground">
-                  Thiết bị chưa có ngày mua hợp lệ nên chưa tính được chi phí mỗi ngày.
+                  {t('Thiết bị chưa có ngày mua hợp lệ nên chưa tính được chi phí mỗi ngày.')}
                 </p>
               ) : (
                 <>
                   <div>
                     <p className="flex items-baseline gap-1.5">
                       <span className="display text-2xl tabular-nums text-ink">
-                        {formatVND(perDay.perDay)}
+                        {formatVND(perDay.perDay, locale)}
                       </span>
-                      <span className="text-muted-foreground">/ngày</span>
+                      <span className="text-muted-foreground">{t('/ngày')}</span>
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {perDay.endedBySale ? 'Chi phí thực trả' : 'Tính đến hôm nay'} ·{' '}
-                      {perDay.days} ngày
+                      {perDay.endedBySale ? t('Chi phí thực trả') : t('Tính đến hôm nay')} ·{' '}
+                      {t('{days} ngày', { days: perDay.days, count: perDay.days })}
                       {perDay.endedBySale
                         ? ` (${perDay.fromDayLabel} → ${perDay.toDayLabel})`
-                        : ` kể từ ${perDay.fromDayLabel}`}
+                        : ` ${t('kể từ {from}', { from: perDay.fromDayLabel })}`}
                     </p>
                   </div>
 
                   <div className="space-y-1 border-t border-dashed border-border pt-2 text-xs text-ink-2">
                     <p className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground">Giá mua</span>
-                      <span className="tabular-nums">{formatVND(perDay.purchasePart)}</span>
+                      <span className="text-muted-foreground">{t('Giá mua')}</span>
+                      <span className="tabular-nums">{formatVND(perDay.purchasePart, locale)}</span>
                     </p>
                     <p className="flex items-center justify-between gap-2">
                       <span className="text-muted-foreground">
-                        Gói bảo hành ({perDay.warrantyCount})
+                        {t('Gói bảo hành ({count})', { count: perDay.warrantyCount })}
                       </span>
-                      <span className="tabular-nums">{formatVND(perDay.warrantyPart)}</span>
+                      <span className="tabular-nums">{formatVND(perDay.warrantyPart, locale)}</span>
                     </p>
                     {perDay.soldPart > 0 && (
                       <p className="flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground">Tiền bán</span>
-                        <span className="tabular-nums">−{formatVND(perDay.soldPart)}</span>
+                        <span className="text-muted-foreground">{t('Tiền bán')}</span>
+                        <span className="tabular-nums">−{formatVND(perDay.soldPart, locale)}</span>
                       </p>
                     )}
                     <p className="flex items-center justify-between gap-2 border-t border-dashed border-border pt-1 font-semibold text-ink">
-                      <span>Tổng chi</span>
-                      <span className="tabular-nums">{formatVND(perDay.net)}</span>
+                      <span>{t('Tổng chi')}</span>
+                      <span className="tabular-nums">{formatVND(perDay.net, locale)}</span>
                     </p>
                   </div>
 
@@ -467,19 +467,19 @@ export default async function DeviceDetailPage({
                     perDay.hasNoRecordedCost) && (
                     <ul className="space-y-1 border-t border-dashed border-border pt-2 text-xs text-muted-foreground">
                       {perDay.hasNoRecordedCost && (
-                        <li>Chưa ghi giá mua và chi phí gói bảo hành nên tạm tính 0 ₫.</li>
+                        <li>{t('Chưa ghi giá mua và chi phí gói bảo hành nên tạm tính 0 ₫.')}</li>
                       )}
                       {perDay.hasUnrecordedWarrantyCost && (
-                        <li>Có gói bảo hành chưa ghi giá — con số này chỉ là mức tối thiểu.</li>
+                        <li>{t('Có gói bảo hành chưa ghi giá — con số này chỉ là mức tối thiểu.')}</li>
                       )}
                       {perDay.soldBeforePurchase && (
-                        <li>Ngày bán trước ngày mua — dữ liệu có vẻ sai, tạm tính 1 ngày.</li>
+                        <li>{t('Ngày bán trước ngày mua — dữ liệu có vẻ sai, tạm tính 1 ngày.')}</li>
                       )}
                       {perDay.hasUndatedSale && (
-                        <li>Có giá bán nhưng thiếu ngày bán — tạm tính tới hôm nay.</li>
+                        <li>{t('Có giá bán nhưng thiếu ngày bán — tạm tính tới hôm nay.')}</li>
                       )}
                       {perDay.fullyRecovered && perDay.spent > 0 && (
-                        <li>Tiền bán đã thu hồi đủ (hoặc hơn) số đã chi.</li>
+                        <li>{t('Tiền bán đã thu hồi đủ (hoặc hơn) số đã chi.')}</li>
                       )}
                     </ul>
                   )}
@@ -488,7 +488,7 @@ export default async function DeviceDetailPage({
                     href="/stats#chi-phi-moi-ngay"
                     className="inline-block text-xs font-semibold text-primary hover:underline"
                   >
-                    So sánh với các thiết bị khác →
+                    {t('So sánh với các thiết bị khác →')}
                   </Link>
                 </>
               )}
@@ -499,7 +499,7 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Paperclip className="h-5 w-5 text-primary" />
-                File đính kèm{' '}
+                {t('File đính kèm ({count})', { count: device.attachments.length })}{' '}
                 <span className="font-medium text-muted-foreground">
                   ({device.attachments.length}/5)
                 </span>
@@ -519,21 +519,21 @@ export default async function DeviceDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Info className="h-5 w-5 text-muted-foreground" />
-                Thông tin nhanh
+                {t('Thông tin nhanh')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">ID</span>
+                  <span className="text-muted-foreground">{t('ID')}</span>
                   <span className="font-mono text-xs">{device.id}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Số gói BH</span>
+                  <span className="text-muted-foreground">{t('Số gói BH')}</span>
                   <span className="font-semibold">{device.warranties.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">File đính kèm</span>
+                  <span className="text-muted-foreground">{t('File đính kèm')}</span>
                   <span className="font-semibold">
                     {device.attachments.length}/5
                   </span>

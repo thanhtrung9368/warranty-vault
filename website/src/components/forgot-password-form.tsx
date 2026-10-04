@@ -11,9 +11,11 @@ import {
   requestPasswordReset,
   type ResetRequestState,
 } from '@/app/actions/password-reset';
+import { useT } from '@/lib/i18n/client';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending} size="lg" className="w-full">
       {pending ? (
@@ -21,12 +23,13 @@ function SubmitButton() {
       ) : (
         <Mail className="mr-2 h-4 w-4" />
       )}
-      Gửi link đặt lại
+      {t('Gửi link đặt lại')}
     </Button>
   );
 }
 
 export function ForgotPasswordForm() {
+  const t = useT();
   const [state, formAction] = useActionState<ResetRequestState, FormData>(
     requestPasswordReset,
     {},
@@ -39,9 +42,9 @@ export function ForgotPasswordForm() {
         <div className="mx-auto mb-3 inline-flex h-[60px] w-[60px] items-center justify-center rounded-full bg-amber-soft text-amber-ink">
           <KeyRound className="h-7 w-7" />
         </div>
-        <h1 className="display text-2xl">Lỡ tay quên mật khẩu hả?</h1>
+        <h1 className="display text-2xl">{t('Lỡ tay quên mật khẩu hả?')}</h1>
         <p className="mt-1.5 text-sm text-muted">
-          Nhập email tài khoản, bọn tao gửi link đặt lại trong vài giây.
+          {t('Nhập email tài khoản, bọn tao gửi link đặt lại trong vài giây.')}
         </p>
       </div>
 
@@ -54,7 +57,7 @@ export function ForgotPasswordForm() {
           <Button asChild variant="outline" size="lg" className="w-full">
             <Link href="/login">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Quay lại đăng nhập
+              {t('Quay lại đăng nhập')}
             </Link>
           </Button>
         </div>
@@ -62,7 +65,7 @@ export function ForgotPasswordForm() {
         <form action={formAction} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-sm font-semibold text-ink-2">
-              Email <span className="text-destructive">*</span>
+              {t('Email')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="email"
@@ -84,7 +87,7 @@ export function ForgotPasswordForm() {
           <SubmitButton />
           <p className="text-center text-sm text-muted">
             <Link href="/login" className="font-semibold text-primary hover:underline">
-              ← Quay lại đăng nhập
+              ← {t('Quay lại đăng nhập')}
             </Link>
           </p>
         </form>

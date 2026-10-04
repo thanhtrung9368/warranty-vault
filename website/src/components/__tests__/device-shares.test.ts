@@ -6,10 +6,14 @@
 // dialog's close button is unusable until the owner acknowledges, and that a
 // link row says what it exposes.
 //
-// `CreatedSharePanel` and `ShareRow` have no hooks and no browser APIs, so
-// `renderToStaticMarkup` works without a DOM (the parent `DeviceShares` does use
-// `useRouter`, and is deliberately not rendered here). Kept as `.ts` because
+// `CreatedSharePanel` and `ShareRow` use no browser APIs, only the i18n hooks,
+// so `renderToStaticMarkup` works without a DOM (the parent `DeviceShares` does
+// use `useRouter`, and is deliberately not rendered here). Kept as `.ts` because
 // vitest only collects `*.test.ts`.
+//
+// Language is pinned with `I18nProvider locale="vi"` (docs/I18N_PLAN.md §4.3):
+// the assertions below quote the Vietnamese source sentences, and a bare render
+// would fall back to the English default and fail for the wrong reason.
 
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -25,10 +29,32 @@ vi.mock('@/app/actions/shares', () => ({
 
 import { CreatedSharePanel, ShareRow } from '@/components/device-shares';
 import { Dialog } from '@/components/ui/dialog';
+import { I18nProvider } from '@/lib/i18n/client';
+import type { Locale } from '@/lib/i18n/locale';
 import type { CreatedDeviceShare, DeviceShare } from '@/lib/api/shares';
 import { SHARE_ACK_LABEL, SHARE_CLOSE_BLOCKED_HINT, SHARE_ONE_TIME_WARNING } from '@/lib/share-links';
 
 const URL = 'https://api.example.com/api/v1/public/shares/abc123token';
+
+/** The Vietnamese source sentences are what the assertions below quote. */
+const VI: Locale = 'vi';
+
+/**
+ * Render inside the provider so the copy under test is the Vietnamese source.
+ *
+ * The props are annotated because React 19's `createElement` overload for a
+ * function component types `children` as required — the cast is what lets the
+ * child travel as the third argument (where it belongs) instead of as a prop.
+ */
+function renderVi(element: React.ReactElement): string {
+  return renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      { locale: VI } as React.Attributes & { locale: Locale; children: React.ReactNode },
+      element,
+    ),
+  );
+}
 
 const CREATED: CreatedDeviceShare = {
   id: 's1',
@@ -46,7 +72,7 @@ const CREATED: CreatedDeviceShare = {
 function renderPanel(overrides: Partial<React.ComponentProps<typeof CreatedSharePanel>> = {}) {
   // `DialogTitle`/`DialogDescription` read Radix's dialog context, so the panel
   // needs a Root around it even when rendered to static markup.
-  return renderToStaticMarkup(
+  return renderVi(
     React.createElement(
       Dialog,
       { open: true },
@@ -80,7 +106,7 @@ function isDisabled(buttonMarkup: string): boolean {
 }
 
 function renderRow(props: Partial<React.ComponentProps<typeof ShareRow>> = {}) {
-  return renderToStaticMarkup(
+  return renderVi(
     React.createElement(ShareRow, {
       share: CREATED,
       ...props,

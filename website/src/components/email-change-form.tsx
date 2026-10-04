@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { requestEmailChange, type EmailChangeFormState } from '@/app/actions/email-change';
 import { newEmailInboxHint } from '@/lib/email-change';
 
@@ -18,6 +19,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending} variant="outline" className="rounded-pill">
       {pending ? (
@@ -25,7 +27,7 @@ function SubmitButton() {
       ) : (
         <MailPlus className="mr-2 h-4 w-4" />
       )}
-      Gửi link xác nhận
+      {t('Gửi link xác nhận')}
     </Button>
   );
 }
@@ -45,6 +47,8 @@ function SubmitButton() {
 //   - With no RESEND_API_KEY on the server the mail is only written to the log.
 //     Nothing in the response reveals that, so the UI does not pretend to know.
 export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
+  const t = useT();
+  const locale = useLocale();
   const [state, formAction] = useActionState<EmailChangeFormState, FormData>(
     requestEmailChange,
     {},
@@ -55,34 +59,35 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
 
   React.useEffect(() => {
     if (!state?.ok) return;
-    toast.success('Đã ghi nhận yêu cầu đổi email');
+    toast.success(t('Đã ghi nhận yêu cầu đổi email'));
     // Only clear on success: a rejected address (wrong password, invalid
     // address, same as the current one) stays in the input for correction.
     formRef.current?.reset();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNewEmail('');
-  }, [state]);
+  }, [state, t]);
 
   return (
     <div className="rounded-lg border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
-      <h3 className="font-display text-sm font-bold text-ink">Đổi email đăng nhập</h3>
+      <h3 className="font-display text-sm font-bold text-ink">{t('Đổi email đăng nhập')}</h3>
       <p className="mt-1 text-xs text-muted-foreground">
-        Bước 1/2: nhập địa chỉ mới và mật khẩu hiện tại. Hệ thống gửi một link xác nhận tới{' '}
-        <b>địa chỉ mới</b>; email hiện tại{' '}
-        <code className="rounded bg-card px-1 py-0.5 font-mono text-[11px]">{currentEmail}</code> vẫn
-        dùng được cho tới khi bạn bấm link đó.
+        {t('Bước 1/2: nhập địa chỉ mới và mật khẩu hiện tại. Hệ thống gửi một link xác nhận tới')}{' '}
+        <b>{t('địa chỉ mới')}</b>
+        {t('; email hiện tại')}{' '}
+        <code className="rounded bg-card px-1 py-0.5 font-mono text-[11px]">{currentEmail}</code>{' '}
+        {t('vẫn dùng được cho tới khi bạn bấm link đó.')}
       </p>
 
       <form ref={formRef} action={formAction} className="mt-4 space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="newEmail">Email mới</Label>
+          <Label htmlFor="newEmail">{t('Email mới')}</Label>
           <Input
             id="newEmail"
             name="newEmail"
             type="email"
             inputMode="email"
             autoComplete="email"
-            placeholder="vd: trung@vidu.com"
+            placeholder={t('vd: trung@vidu.com')}
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             required
@@ -91,7 +96,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="changeEmailPassword">Mật khẩu hiện tại</Label>
+          <Label htmlFor="changeEmailPassword">{t('Mật khẩu hiện tại')}</Label>
           <Input
             id="changeEmailPassword"
             name="currentPassword"
@@ -101,8 +106,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
           />
           <FieldError errors={errors.currentPassword} />
           <p className="text-xs text-muted-foreground">
-            Cần mật khẩu để một phiên đăng nhập bị đánh cắp không thể tự chuyển tài khoản sang địa
-            chỉ khác.
+            {t('Cần mật khẩu để một phiên đăng nhập bị đánh cắp không thể tự chuyển tài khoản sang địa chỉ khác.')}
           </p>
         </div>
 
@@ -111,7 +115,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
             <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <div className="space-y-1">
               <p>{state.message}</p>
-              <p className="font-normal">{newEmailInboxHint(newEmail)}</p>
+              <p className="font-normal">{newEmailInboxHint(newEmail, locale)}</p>
             </div>
           </div>
         )}

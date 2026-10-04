@@ -37,6 +37,7 @@ import {
 import { createDeviceShare, revokeDeviceShare } from '@/app/actions/shares';
 import type { CreatedDeviceShare, DeviceShare } from '@/lib/api/shares';
 import { formatDate } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 import {
   CERTIFICATE_NEVER_SHOWN,
@@ -54,6 +55,8 @@ import {
   SHARE_SERIAL_OFF_NOTE,
   SHARE_SERIAL_ON_NOTE,
   SHARE_TTL_DEFAULT_DAYS,
+  SHARE_TTL_MAX_DAYS,
+  SHARE_TTL_MIN_DAYS,
   shareCapacity,
   shareIsLive,
   shareRemainingLabel,
@@ -92,6 +95,8 @@ export function DeviceShares({
   unavailable?: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
   const capacity = shareCapacity(shares);
   const { live, dead } = splitShares(shares);
 
@@ -149,7 +154,7 @@ export function DeviceShares({
       setAck(false);
       setBlocked(false);
     } catch {
-      toast.error('Không tạo được link chia sẻ, thử lại sau');
+      toast.error(t('Không tạo được link chia sẻ, thử lại sau'));
     } finally {
       setPending(false);
     }
@@ -164,13 +169,13 @@ export function DeviceShares({
       await navigator.clipboard.writeText(created.url);
       setCopied(true);
       setBlocked(false);
-      toast.success('Đã sao chép link chia sẻ');
+      toast.success(t('Đã sao chép link chia sẻ'));
     } catch {
       // Never leave the user without a path: select the text so Ctrl/Cmd+C works.
       urlRef.current?.focus();
       urlRef.current?.select();
       toast.error(
-        'Không tự sao chép được — link đã được chọn, bấm Ctrl/Cmd + C để chép rồi gửi ngay.',
+        t('Không tự sao chép được — link đã được chọn, bấm Ctrl/Cmd + C để chép rồi gửi ngay.'),
       );
     }
   };
@@ -178,7 +183,7 @@ export function DeviceShares({
   const revoke = (shareId: string) => {
     if (
       !confirm(
-        'Thu hồi link này? Người đang giữ link sẽ không mở được phiếu nữa. Không thể hoàn tác.',
+        t('Thu hồi link này? Người đang giữ link sẽ không mở được phiếu nữa. Không thể hoàn tác.'),
       )
     ) {
       return;
@@ -194,7 +199,7 @@ export function DeviceShares({
         toast.success(res.message);
         router.refresh();
       } catch {
-        toast.error('Không thu hồi được link chia sẻ, thử lại sau');
+        toast.error(t('Không thu hồi được link chia sẻ, thử lại sau'));
       } finally {
         setRevokingId(null);
       }
@@ -208,17 +213,27 @@ export function DeviceShares({
       <div className="rounded-xl border-[1.5px] border-dashed border-border bg-surface-2 p-3 text-xs text-ink-2">
         <p className="flex items-start gap-2">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span>{SHARE_SECTION_HINT}</span>
+          <span>{t(SHARE_SECTION_HINT)}</span>
         </p>
-        <p className="mt-1.5 pl-[22px] text-muted-foreground">{SHARE_LIMIT_NOTE}</p>
+        <p className="mt-1.5 pl-[22px] text-muted-foreground">
+          {t(SHARE_LIMIT_NOTE, {
+            max: MAX_ACTIVE_SHARES_PER_DEVICE,
+            min: SHARE_TTL_MIN_DAYS,
+            maxDays: SHARE_TTL_MAX_DAYS,
+          })}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-2">
-          <span className="font-semibold text-ink">{capacity.liveCount}</span>/
-          {MAX_ACTIVE_SHARES_PER_DEVICE} link còn hiệu lực
+          {t('{live}/{max} link còn hiệu lực', {
+            live: String(capacity.liveCount),
+            max: String(MAX_ACTIVE_SHARES_PER_DEVICE),
+          })}
           {capacity.full && (
-            <span className="text-muted-foreground"> — đã đạt giới hạn, thu hồi bớt để tạo thêm</span>
+            <span className="text-muted-foreground">
+              {t(' — đã đạt giới hạn, thu hồi bớt để tạo thêm')}
+            </span>
           )}
         </p>
 
@@ -226,7 +241,7 @@ export function DeviceShares({
           <DialogTrigger asChild>
             <Button size="sm" className="rounded-pill" disabled={capacity.full}>
               <Plus className="mr-1.5 h-4 w-4" />
-              Tạo link chia sẻ
+              {t('Tạo link chia sẻ')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl border-[1.5px]">
@@ -250,11 +265,14 @@ export function DeviceShares({
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Link2 className="h-5 w-5 shrink-0 text-primary" />
-                    <span className="truncate">Tạo link chia sẻ cho “{deviceName}”</span>
+                    <span className="truncate">
+                      {t('Tạo link chia sẻ cho “{name}”', { name: deviceName })}
+                    </span>
                   </DialogTitle>
                   <DialogDescription>
-                    Link chỉ-đọc cho đúng thiết bị này, mở được không cần đăng nhập. Dùng khi bán
-                    máy hoặc khi đưa máy cho người khác đi bảo hành.
+                    {t(
+                      'Link chỉ-đọc cho đúng thiết bị này, mở được không cần đăng nhập. Dùng khi bán máy hoặc khi đưa máy cho người khác đi bảo hành.',
+                    )}
                   </DialogDescription>
                 </DialogHeader>
 
@@ -265,14 +283,14 @@ export function DeviceShares({
                 >
                   <p className="flex items-center gap-2 font-display text-sm font-bold">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
-                    Link chỉ hiện MỘT LẦN
+                    {t('Link chỉ hiện MỘT LẦN')}
                   </p>
-                  <p className="mt-1 text-sm leading-relaxed">{SHARE_ONE_TIME_WARNING}</p>
+                  <p className="mt-1 text-sm leading-relaxed">{t(SHARE_ONE_TIME_WARNING)}</p>
                 </div>
 
                 <div className="space-y-4 pt-1">
                   <div className="space-y-2">
-                    <Label htmlFor="share-expiry">Link sống trong bao lâu</Label>
+                    <Label htmlFor="share-expiry">{t('Link sống trong bao lâu')}</Label>
                     <Select
                       value={String(expiryDays)}
                       onValueChange={(v) => setExpiryDays(Number(v))}
@@ -283,14 +301,15 @@ export function DeviceShares({
                       <SelectContent>
                         {SHARE_EXPIRY_CHOICES.map((choice) => (
                           <SelectItem key={choice.days} value={String(choice.days)}>
-                            {choice.label}
+                            {t(choice.label)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Hết hạn là link ngừng hoạt động. Không có lựa chọn vĩnh viễn, và bạn luôn thu
-                      hồi được trước hạn.
+                      {t(
+                        'Hết hạn là link ngừng hoạt động. Không có lựa chọn vĩnh viễn, và bạn luôn thu hồi được trước hạn.',
+                      )}
                     </p>
                   </div>
 
@@ -304,7 +323,7 @@ export function DeviceShares({
                         className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                       />
                       <span className="text-[13px] font-semibold text-ink-2">
-                        {SHARE_SERIAL_LABEL}
+                        {t(SHARE_SERIAL_LABEL)}
                       </span>
                     </label>
                     <p
@@ -313,33 +332,33 @@ export function DeviceShares({
                         includeSerial ? 'text-amber-ink' : 'text-muted-foreground',
                       )}
                     >
-                      {includeSerial ? SHARE_SERIAL_ON_NOTE : SHARE_SERIAL_OFF_NOTE}
+                      {t(includeSerial ? SHARE_SERIAL_ON_NOTE : SHARE_SERIAL_OFF_NOTE)}
                     </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-xl border-[1.5px] border-border bg-surface-2 p-3">
                       <p className="font-display text-sm font-bold text-ink">
-                        {CERTIFICATE_PROJECTION_TITLE}
+                        {t(CERTIFICATE_PROJECTION_TITLE)}
                       </p>
                       <ul className="mt-2 space-y-1.5 text-xs text-ink-2">
                         {CERTIFICATE_SHOWS.map((line) => (
                           <li key={line} className="flex items-start gap-1.5">
                             <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-ink" />
-                            <span>{line}</span>
+                            <span>{t(line)}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
                     <div className="rounded-xl border-[1.5px] border-border bg-surface-2 p-3">
                       <p className="font-display text-sm font-bold text-ink">
-                        Không bao giờ có trong phiếu
+                        {t('Không bao giờ có trong phiếu')}
                       </p>
                       <ul className="mt-2 space-y-1.5 text-xs text-ink-2">
                         {CERTIFICATE_NEVER_SHOWN.map((line) => (
                           <li key={line} className="flex items-start gap-1.5">
                             <ShieldOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span>{line}</span>
+                            <span>{t(line)}</span>
                           </li>
                         ))}
                       </ul>
@@ -354,7 +373,7 @@ export function DeviceShares({
                     onClick={() => handleOpenChange(false)}
                     disabled={pending}
                   >
-                    Huỷ
+                    {t('Huỷ')}
                   </Button>
                   <Button className="rounded-pill" onClick={submit} disabled={pending}>
                     {pending ? (
@@ -362,7 +381,7 @@ export function DeviceShares({
                     ) : (
                       <Link2 className="mr-1.5 h-4 w-4" />
                     )}
-                    Tạo link
+                    {t('Tạo link')}
                   </Button>
                 </DialogFooter>
               </>
@@ -373,11 +392,13 @@ export function DeviceShares({
 
       {unavailable ? (
         <p className="text-sm text-muted-foreground">
-          Không tải được danh sách link chia sẻ — thử tải lại trang nhé.
+          {t('Không tải được danh sách link chia sẻ — thử tải lại trang nhé.')}
         </p>
       ) : shares.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Chưa có link chia sẻ nào. Tạo link khi bạn cần đưa phiếu bàn giao bảo hành cho người mua.
+          {t(
+            'Chưa có link chia sẻ nào. Tạo link khi bạn cần đưa phiếu bàn giao bảo hành cho người mua.',
+          )}
         </p>
       ) : (
         <>
@@ -398,7 +419,9 @@ export function DeviceShares({
           {dead.length > 0 && (
             <details className="rounded-xl border-[1.5px] border-border bg-surface-2 p-3">
               <summary className="cursor-pointer text-xs font-semibold text-ink-2">
-                Link đã hết hạn hoặc đã thu hồi ({dead.length})
+                {t('Link đã hết hạn hoặc đã thu hồi ({count})', {
+                  count: dead.length,
+                })}
               </summary>
               <ul className="mt-2">
                 {dead.map((share) => (
@@ -410,8 +433,9 @@ export function DeviceShares({
 
           {live.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              Không còn link nào đang hoạt động. Người nhận cũ mở link cũ sẽ thấy thông báo link
-              không còn hiệu lực.
+              {t(
+                'Không còn link nào đang hoạt động. Người nhận cũ mở link cũ sẽ thấy thông báo link không còn hiệu lực.',
+              )}
             </p>
           )}
         </>
@@ -450,15 +474,17 @@ export function CreatedSharePanel({
   onAck: (value: boolean) => void;
   onClose: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Check className="h-5 w-5 text-emerald-ink" />
-          Đã tạo link chia sẻ
+          {t('Đã tạo link chia sẻ')}
         </DialogTitle>
         <DialogDescription>
-          Gửi link dưới đây cho người nhận. Họ mở được ngay, không cần đăng nhập.
+          {t('Gửi link dưới đây cho người nhận. Họ mở được ngay, không cần đăng nhập.')}
         </DialogDescription>
       </DialogHeader>
 
@@ -469,13 +495,13 @@ export function CreatedSharePanel({
       >
         <p className="flex items-center gap-2 font-display text-sm font-bold">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Đây là lần duy nhất link hiện ra
+          {t('Đây là lần duy nhất link hiện ra')}
         </p>
-        <p className="mt-1 text-sm leading-relaxed">{SHARE_ONE_TIME_WARNING}</p>
+        <p className="mt-1 text-sm leading-relaxed">{t(SHARE_ONE_TIME_WARNING)}</p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="share-url">Link gửi cho người nhận</Label>
+        <Label htmlFor="share-url">{t('Link gửi cho người nhận')}</Label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             id="share-url"
@@ -496,11 +522,11 @@ export function CreatedSharePanel({
             ) : (
               <Copy className="mr-1.5 h-4 w-4" />
             )}
-            {copied ? 'Đã sao chép' : 'Sao chép link'}
+            {copied ? t('Đã sao chép') : t('Sao chép link')}
           </Button>
         </div>
         <p id="share-url-note" className="text-xs text-muted-foreground">
-          {SHARE_PREVIEW_NOTE}
+          {t(SHARE_PREVIEW_NOTE)}
         </p>
       </div>
 
@@ -508,11 +534,12 @@ export function CreatedSharePanel({
         <Button asChild variant="outline" size="sm" className="rounded-pill border-border-strong">
           <a href={url} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            Mở phiếu (xem trước)
+            {t('Mở phiếu (xem trước)')}
           </a>
         </Button>
         <span className="text-muted-foreground">
-          Hết hạn {formatDate(share.expiresAt)} • {shareSerialExposureLabel(share.includeSerial)}
+          {t('Hết hạn {date}', { date: formatDate(share.expiresAt, locale) })} •{' '}
+          {shareSerialExposureLabel(share.includeSerial, locale)}
         </span>
       </div>
 
@@ -531,18 +558,18 @@ export function CreatedSharePanel({
           onChange={(e) => onAck(e.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
         />
-        <span className="text-ink-2">{SHARE_ACK_LABEL}</span>
+        <span className="text-ink-2">{t(SHARE_ACK_LABEL)}</span>
       </label>
 
       {blocked && (
         <p role="alert" className="text-sm font-semibold text-destructive">
-          {SHARE_CLOSE_BLOCKED_HINT}
+          {t(SHARE_CLOSE_BLOCKED_HINT)}
         </p>
       )}
 
       <DialogFooter>
         <Button className="rounded-pill" onClick={onClose} disabled={!ack}>
-          Đóng
+          {t('Đóng')}
         </Button>
       </DialogFooter>
     </>
@@ -553,6 +580,11 @@ export function CreatedSharePanel({
  * One row of the share list. Exported alongside `CreatedSharePanel` for the
  * render test: the status/exposure wording and "revoke only a live link" rule
  * are worth pinning literally.
+ *
+ * The status line is a `<div>`, not a `<p>`: `Badge` renders a `<div>` itself
+ * (`ui/badge.tsx`), and a `<div>` inside a `<p>` is invalid HTML that React
+ * reports as a hydration error. The classes are unchanged, so the row looks
+ * exactly the same.
  */
 export function ShareRow({
   share,
@@ -567,26 +599,28 @@ export function ShareRow({
   revoking?: boolean;
   onRevoke?: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const live = shareIsLive(share);
-  const remaining = shareRemainingLabel(share);
+  const remaining = shareRemainingLabel(share, locale);
   return (
     <li className={cn('info-row flex flex-wrap items-center gap-3 py-3', first && '!border-t-0 pt-0')}>
       <span className={cn('icon-badge icon-badge-sm', live ? 'tint-emerald' : 'tint-zinc')}>
         <Link2 className="h-4 w-4" />
       </span>
       <div className={cn('min-w-0 flex-1', muted && 'opacity-75')}>
-        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
-          Tạo ngày {formatDate(share.createdAt)}
-          <Badge variant={shareStatusTone(share)}>{shareStatusLabel(share)}</Badge>
-        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+          {t('Tạo ngày {date}', { date: formatDate(share.createdAt, locale) })}
+          <Badge variant={shareStatusTone(share)}>{shareStatusLabel(share, locale)}</Badge>
+        </div>
         <p className="text-xs text-muted-foreground">
-          Hết hạn {formatDate(share.expiresAt)}
-          {remaining ? ` (${remaining})` : ''} • {shareViewLabel(share.viewCount)} •{' '}
-          {shareSerialExposureLabel(share.includeSerial)}
+          {t('Hết hạn {date}', { date: formatDate(share.expiresAt, locale) })}
+          {remaining ? ` (${remaining})` : ''} • {shareViewLabel(share.viewCount, locale)} •{' '}
+          {shareSerialExposureLabel(share.includeSerial, locale)}
         </p>
         {share.lastViewedAt && (
           <p className="text-xs text-muted-foreground">
-            Mở lần cuối {formatDate(share.lastViewedAt)}
+            {t('Mở lần cuối {date}', { date: formatDate(share.lastViewedAt, locale) })}
           </p>
         )}
       </div>
@@ -596,7 +630,9 @@ export function ShareRow({
           variant="outline"
           className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive-soft hover:text-destructive"
           disabled={revoking}
-          aria-label={`Thu hồi link tạo ngày ${formatDate(share.createdAt)}`}
+          aria-label={t('Thu hồi link tạo ngày {date}', {
+            date: formatDate(share.createdAt, locale),
+          })}
           onClick={onRevoke}
         >
           {revoking ? (
@@ -604,7 +640,7 @@ export function ShareRow({
           ) : (
             <ShieldOff className="mr-1 h-3.5 w-3.5" />
           )}
-          Thu hồi
+          {t('Thu hồi')}
         </Button>
       )}
     </li>

@@ -14,6 +14,8 @@
 import { z } from 'zod';
 import { api, toFormState } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
+import type { Translator } from '@/lib/i18n/catalog';
 import {
   describeConfirmEmailChangeFailure,
   emailChangeRequestMessage,
@@ -36,12 +38,19 @@ export type ConfirmEmailChangeState = {
 };
 
 // Shape/emptiness only. The address-format rule and the password check live in
-// Go; its Vietnamese `fieldErrors` are surfaced unchanged (`Email không hợp lệ`,
-// `Mật khẩu hiện tại không đúng`, `Email mới trùng với email hiện tại`).
-const changeEmailSchema = z.object({
-  newEmail: z.string().trim().toLowerCase().email('Email không hợp lệ'),
-  currentPassword: z.string().min(1, 'Nhập mật khẩu hiện tại'),
-});
+// Go; its `fieldErrors` are surfaced unchanged and are already in the request's
+// language (`?lang=` rides on every API call).
+//
+// The schema is built per call rather than at module scope because a zod message
+// is user-facing copy and a module-scope schema cannot read the request's
+// language. These two sentences are also in the Go catalog, so the English is
+// the server's own wording.
+function changeEmailSchema(t: Translator) {
+  return z.object({
+    newEmail: z.string().trim().toLowerCase().email(t('Email không hợp lệ')),
+    currentPassword: z.string().min(1, t('Nhập mật khẩu hiện tại')),
+  });
+}
 
 // Step 1/2. Requires the current password, then mails a single-use token to the
 // NEW address. The account email is unchanged until step 2.
@@ -55,8 +64,9 @@ export async function requestEmailChange(
   formData: FormData,
 ): Promise<EmailChangeFormState> {
   await requireUser();
+  const { locale, t } = await getI18n();
 
-  const parsed = changeEmailSchema.safeParse(Object.fromEntries(formData.entries()));
+  const parsed = changeEmailSchema(t).safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.flatten().fieldErrors };
   }
@@ -68,7 +78,7 @@ export async function requestEmailChange(
     return toFormState(res);
   }
 
-  return { ok: true, message: emailChangeRequestMessage(res.data.message) };
+  return { ok: true, message: emailChangeRequestMessage(res.data.message, locale) };
 }
 
 const confirmSchema = z.object({
@@ -81,23 +91,31 @@ export async function confirmEmailChange(
   _prev: ConfirmEmailChangeState,
   formData: FormData,
 ): Promise<ConfirmEmailChangeState> {
+  const { locale, t } = await getI18n();
+
   const parsed = confirmSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
-    return describeConfirmEmailChangeFailure({
-      status: 400,
-      error: 'bad_input',
-      fieldErrors: { token: ['Thiếu token'] },
-    });
+    return describeConfirmEmailChangeFailure(
+      {
+        status: 400,
+        error: 'bad_input',
+        // Translated here, not passed through: the form renders this string as
+        // the field error and this envelope never reached Go.
+        fieldErrors: { token: [t('Thiếu token')] },
+      },
+      locale,
+    );
   }
 
   const res = await api.auth.confirmEmailChange(parsed.data.token);
   if (!res.ok) {
-    return describeConfirmEmailChangeFailure(res);
+    return describeConfirmEmailChangeFailure(res, locale);
   }
 
   return {
     ok: true,
-    message: res.data.message ?? 'Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.',
-    hint: EMAIL_CHANGE_SUCCESS_HINT,
+    message:
+      res.data.message ?? t('Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.'),
+    hint: t(EMAIL_CHANGE_SUCCESS_HINT),
   };
 }

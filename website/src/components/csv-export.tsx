@@ -7,6 +7,9 @@
 // + delimiter and turns the returned string into a download. The string already
 // starts with a UTF-8 BOM (see `@/lib/csv`), so Excel keeps Vietnamese
 // diacritics intact.
+//
+// Every label here is the Vietnamese original wrapped in `t(...)`; the English
+// column lives in `@/lib/i18n/messages/devices.ts`.
 
 import * as React from 'react';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
@@ -15,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { exportCsv } from '@/app/actions/csv';
 import { CSV_DATASET_META, CSV_DATASETS, type CsvDataset } from '@/lib/csv-export';
 import { CSV_DEFAULT_DELIMITER, CSV_DELIMITERS, type CsvDelimiter } from '@/lib/csv';
+import { useT } from '@/lib/i18n/client';
 
 const DELIMITER_LABELS: Record<CsvDelimiter, { label: string; hint: string }> = {
   ';': {
@@ -28,6 +32,7 @@ const DELIMITER_LABELS: Record<CsvDelimiter, { label: string; hint: string }> = 
 };
 
 export function CsvExport() {
+  const t = useT();
   // Ships as `;` (vi-VN Excel); the picker exposes `,` for Google Sheets /
   // English-locale Excel. See the delimiter note in `@/lib/csv`.
   const [delimiter, setDelimiter] = React.useState<CsvDelimiter>(CSV_DEFAULT_DELIMITER);
@@ -52,9 +57,14 @@ export function CsvExport() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success(`Đã xuất ${res.rowCount} dòng ${CSV_DATASET_META[dataset].label}`);
+      toast.success(
+        t('Đã xuất {count} dòng {dataset}', {
+          count: res.rowCount,
+          dataset: t(CSV_DATASET_META[dataset].label),
+        }),
+      );
     } catch {
-      toast.error('Không xuất được dữ liệu');
+      toast.error(t('Không xuất được dữ liệu'));
     } finally {
       setBusy(null);
     }
@@ -63,16 +73,19 @@ export function CsvExport() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Tải danh sách ra file <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs">.csv</code>{' '}
-        để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá,
-        hoặc tự tính toán lại. File có kèm <b>BOM UTF-8</b> nên tiếng Việt không bị lỗi font, và
-        cột tiền là số trần (không có dấu chấm nghìn, không có ₫) để bảng tính cộng trừ được ngay.
-        Muốn khôi phục lại vào app thì dùng file JSON ở mục trên — CSV chỉ để đọc.
+        {t('Tải danh sách ra file')}{' '}
+        <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs">.csv</code>{' '}
+        {t(
+          'để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá, hoặc tự tính toán lại. File có kèm',
+        )}{' '}
+        <b>BOM UTF-8</b>{' '}
+        {t(
+          'nên tiếng Việt không bị lỗi font, và cột tiền là số trần (không có dấu chấm nghìn, không có ₫) để bảng tính cộng trừ được ngay. Muốn khôi phục lại vào app thì dùng file JSON ở mục trên — CSV chỉ để đọc.',
+        )}
       </p>
-
       <div>
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Dấu phân cách
+          {t('Dấu phân cách')}
         </div>
         <div className="pill-group">
           {CSV_DELIMITERS.map((d) => (
@@ -82,11 +95,13 @@ export function CsvExport() {
               data-active={delimiter === d}
               onClick={() => setDelimiter(d)}
             >
-              {DELIMITER_LABELS[d].label}
+              {t(DELIMITER_LABELS[d].label)}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">{DELIMITER_LABELS[delimiter].hint}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(DELIMITER_LABELS[delimiter].hint)}
+        </p>
       </div>
 
       <ul className="space-y-3">
@@ -103,9 +118,11 @@ export function CsvExport() {
                   <span className="icon-badge icon-badge-sm tint-emerald">
                     <FileSpreadsheet className="h-4 w-4" />
                   </span>
-                  <span className="font-display text-sm font-bold text-ink">{meta.label}</span>
+                  <span className="font-display text-sm font-bold text-ink">
+                    {t(meta.label)}
+                  </span>
                 </div>
-                <p className="mt-1.5 text-xs text-muted-foreground">{meta.description}</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">{t(meta.description)}</p>
               </div>
               <Button
                 variant="outline"
@@ -118,7 +135,7 @@ export function CsvExport() {
                 ) : (
                   <Download className="mr-2 h-4 w-4" />
                 )}
-                Tải CSV
+                {t('Tải CSV')}
               </Button>
             </li>
           );
@@ -126,8 +143,9 @@ export function CsvExport() {
       </ul>
 
       <p className="text-xs text-muted-foreground">
-        File CSV chỉ chứa nội dung đang thấy trong app (tối đa 50 thiết bị, 100 gói đăng ký, 200
-        món wishlist) — không kèm ảnh hoá đơn hay file đính kèm.
+        {t(
+          'File CSV chỉ chứa nội dung đang thấy trong app (tối đa 50 thiết bị, 100 gói đăng ký, 200 món wishlist) — không kèm ảnh hoá đơn hay file đính kèm.',
+        )}
       </p>
     </div>
   );

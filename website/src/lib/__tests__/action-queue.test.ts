@@ -180,17 +180,17 @@ describe('date notes', () => {
   });
 
   it('reads a deadline in Vietnamese', () => {
-    expect(dueDateNote('2026-04-13T00:00:00', now)).toBe('còn 3 ngày');
+    expect(dueDateNote('2026-04-13T00:00:00', 'vi', now)).toBe('còn 3 ngày');
     // 0 = today is the last day (matches ReturnWindow.daysLeft semantics).
-    expect(dueDateNote('2026-04-10T00:00:00', now)).toBe('hôm nay');
-    expect(dueDateNote('2026-04-08T00:00:00', now)).toBe('đã qua 2 ngày');
+    expect(dueDateNote('2026-04-10T00:00:00', 'vi', now)).toBe('hôm nay');
+    expect(dueDateNote('2026-04-08T00:00:00', 'vi', now)).toBe('đã qua 2 ngày');
   });
 
   it('reads a snooze deadline in Vietnamese', () => {
-    expect(snoozeNote('2026-07-09T00:00:00', now)).toBe('Hiện lại sau 90 ngày');
-    expect(snoozeNote('2026-04-11T00:00:00', now)).toBe('Hiện lại ngày mai');
-    expect(snoozeNote('2026-04-10T00:00:00', now)).toBe('Hiện lại hôm nay');
-    expect(snoozeNote('2026-04-09T00:00:00', now)).toBe('Đã tới hạn hiện lại');
+    expect(snoozeNote('2026-07-09T00:00:00', 'vi', now)).toBe('Hiện lại sau 90 ngày');
+    expect(snoozeNote('2026-04-11T00:00:00', 'vi', now)).toBe('Hiện lại ngày mai');
+    expect(snoozeNote('2026-04-10T00:00:00', 'vi', now)).toBe('Hiện lại hôm nay');
+    expect(snoozeNote('2026-04-09T00:00:00', 'vi', now)).toBe('Đã tới hạn hiện lại');
   });
 });
 

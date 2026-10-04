@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { uploadAttachment } from '@/app/actions/attachments';
+import { useT } from '@/lib/i18n/client';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPT = 'image/*,application/pdf';
@@ -17,6 +18,7 @@ export function AttachmentUploader({
   deviceId: string;
   remaining: number;
 }) {
+  const t = useT();
   const [files, setFiles] = React.useState<File[]>([]);
   const [description, setDescription] = React.useState('');
   const [pending, setPending] = React.useState(false);
@@ -26,7 +28,7 @@ export function AttachmentUploader({
   if (remaining <= 0) {
     return (
       <p className="py-4 text-center text-sm text-muted-foreground">
-        Đã đạt tối đa 5 file cho thiết bị này. Xóa file cũ để tải file mới.
+        {t('Đã đạt tối đa 5 file cho thiết bị này. Xóa file cũ để tải file mới.')}
       </p>
     );
   }
@@ -34,12 +36,12 @@ export function AttachmentUploader({
   const accept = (incoming: FileList | File[]) => {
     const arr = Array.from(incoming).filter((f) => {
       if (f.size > MAX_BYTES) {
-        toast.error(`${f.name} vượt quá 5MB`);
+        toast.error(t('{name} vượt quá 5MB', { name: f.name }));
         return false;
       }
       const ok = f.type.startsWith('image/') || f.type === 'application/pdf';
       if (!ok) {
-        toast.error(`${f.name}: chỉ chấp nhận ảnh hoặc PDF`);
+        toast.error(t('{name}: chỉ chấp nhận ảnh hoặc PDF', { name: f.name }));
         return false;
       }
       return true;
@@ -58,14 +60,14 @@ export function AttachmentUploader({
         if (description) fd.append('description', description);
         const res = await uploadAttachment(fd);
         if (!res.ok) {
-          toast.error(res.message ?? 'Upload thất bại');
+          toast.error(res.message ?? t('Upload thất bại'));
         }
       }
-      toast.success(`Đã tải lên ${files.length} file`);
+      toast.success(t('Đã tải lên {count} file', { count: files.length }));
       setFiles([]);
       setDescription('');
     } catch {
-      toast.error('Không tải được file');
+      toast.error(t('Không tải được file'));
     } finally {
       setPending(false);
     }
@@ -92,9 +94,12 @@ export function AttachmentUploader({
         }`}
       >
         <Upload className="h-7 w-7 text-primary" />
-        <p className="text-sm font-bold text-ink">Kéo thả hoặc bấm để chọn file</p>
+        <p className="text-sm font-bold text-ink">{t('Kéo thả hoặc bấm để chọn file')}</p>
         <p className="text-xs text-muted-foreground">
-          Ảnh hoặc PDF, tối đa 5MB. Còn lại: {remaining} file.
+          {t('Ảnh hoặc PDF, tối đa 5MB. Còn lại: {remaining} file.', {
+            remaining,
+            count: remaining,
+          })}
         </p>
         <input
           ref={inputRef}
@@ -119,7 +124,7 @@ export function AttachmentUploader({
                   type="button"
                   onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
                   className="text-muted-foreground hover:text-destructive"
-                  aria-label="Bỏ chọn"
+                  aria-label={t('Bỏ chọn')}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -127,7 +132,7 @@ export function AttachmentUploader({
             ))}
           </ul>
           <Input
-            placeholder="Mô tả chung (vd: Hóa đơn VAT, Phiếu bảo hành)"
+            placeholder={t('Mô tả chung (vd: Hóa đơn VAT, Phiếu bảo hành)')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -141,7 +146,7 @@ export function AttachmentUploader({
             ) : (
               <Upload className="mr-2 h-4 w-4" />
             )}
-            Tải lên {files.length} file
+            {t('Tải lên {count} file', { count: files.length })}
           </Button>
         </div>
       )}

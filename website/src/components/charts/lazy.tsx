@@ -11,15 +11,19 @@
 // instead of shipping in the page's initial JS.
 
 import dynamic from 'next/dynamic';
+import { useT } from '@/lib/i18n/client';
 
 function ChartSkeleton({ height }: { height: number }) {
+  // Screen-reader-only text is still copy a reader consumes, so it goes through
+  // the client translator like every other string in this tree.
+  const t = useT();
   return (
     <div
       className="flex w-full animate-pulse items-end justify-center rounded-xl bg-surface-2"
       style={{ height }}
       aria-hidden
     >
-      <span className="sr-only">Đang tải biểu đồ…</span>
+      <span className="sr-only">{t('Đang tải biểu đồ…')}</span>
     </div>
   );
 }

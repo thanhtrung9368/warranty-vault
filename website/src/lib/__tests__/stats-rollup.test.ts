@@ -158,8 +158,8 @@ describe('yearlySpend', () => {
 
 describe('monthlySpendBuckets', () => {
   it('always returns the trailing N months, newest bucket last', () => {
-    expect(monthlySpendBuckets(entries, 12)).toHaveLength(12);
-    expect(monthlySpendBuckets(entries, 1)).toHaveLength(1);
+    expect(monthlySpendBuckets(entries, 12, 'vi')).toHaveLength(12);
+    expect(monthlySpendBuckets(entries, 1, 'vi')).toHaveLength(1);
   });
 
   it('buckets by month and drops anything older than the window', () => {
@@ -174,6 +174,7 @@ describe('monthlySpendBuckets', () => {
         { amount: 999_000, date: tooOld, category: 'PHONE', kind: 'device' },
       ],
       12,
+      'vi',
     );
     expect(buckets[11].total).toBe(5_000);
     expect(buckets[9].total).toBe(7_000);
@@ -183,7 +184,7 @@ describe('monthlySpendBuckets', () => {
 
 describe('spendByCategoryRollup', () => {
   it('rolls warranty cost into the device category, keeping device counts', () => {
-    const rows = spendByCategoryRollup(devices, entries);
+    const rows = spendByCategoryRollup(devices, entries, 'vi');
     const phone = rows.find((r) => r.category === 'PHONE');
     const laptop = rows.find((r) => r.category === 'LAPTOP');
     expect(phone).toMatchObject({ label: 'Điện thoại', total: 22_000_000, count: 1 });
@@ -240,6 +241,7 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({ id: 'a', purchaseDate: '2026-05-16T00:00:00', purchasePrice: 30_000_000 }),
       [warranty({ id: 'w1', deviceId: 'a', cost: 3_000_000 })],
+      'vi',
       now,
     );
     expect(cost).toMatchObject({
@@ -261,6 +263,7 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({ id: 'today', purchaseDate: '2026-06-15T09:30:00', purchasePrice: 8_000_000 }),
       [],
+      'vi',
       now,
     );
     expect(cost?.days).toBe(1);
@@ -273,6 +276,7 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({ id: 'late', purchaseDate: '2026-03-01T23:30:00', purchasePrice: 1_000_000 }),
       [],
+      'vi',
       new Date(2026, 2, 11, 0, 30),
     );
     expect(cost?.days).toBe(10);
@@ -280,8 +284,8 @@ describe('costPerDay', () => {
   });
 
   it('returns null when the purchase date is missing or unreadable', () => {
-    expect(costPerDay(device({ id: 'x', purchaseDate: '' }), [], now)).toBeNull();
-    expect(costPerDay(device({ id: 'x', purchaseDate: 'không phải ngày' }), [], now)).toBeNull();
+    expect(costPerDay(device({ id: 'x', purchaseDate: '' }), [], 'vi', now)).toBeNull();
+    expect(costPerDay(device({ id: 'x', purchaseDate: 'không phải ngày' }), [], 'vi', now)).toBeNull();
   });
 
   it('treats an unrecorded warranty cost as unknown, not as zero', () => {
@@ -291,6 +295,7 @@ describe('costPerDay', () => {
         warranty({ id: 'w1', deviceId: 'a', cost: null }),
         warranty({ id: 'w2', deviceId: 'a', cost: 3_000_000 }),
       ],
+      'vi',
       now,
     );
     expect(cost?.warrantyPart).toBe(3_000_000);
@@ -302,6 +307,7 @@ describe('costPerDay', () => {
     const free = costPerDay(
       device({ id: 'a', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 5_000_000 }),
       [warranty({ id: 'w1', deviceId: 'a', cost: 0 })],
+      'vi',
       now,
     );
     expect(free?.hasUnrecordedWarrantyCost).toBe(false);
@@ -313,6 +319,7 @@ describe('costPerDay', () => {
         warranty({ id: 'w1', deviceId: 'b', cost: -1_000_000 }),
         warranty({ id: 'w2', deviceId: 'b', cost: Number.NaN }),
       ],
+      'vi',
       now,
     );
     // Bad data must not make the device look cheaper than it was.
@@ -330,6 +337,7 @@ describe('costPerDay', () => {
         soldPrice: 14_000_000,
       }),
       [warranty({ id: 'w1', deviceId: 'sold', cost: 1_000_000 })],
+      'vi',
       now,
     );
     expect(cost).toMatchObject({
@@ -354,6 +362,7 @@ describe('costPerDay', () => {
         soldPrice: 2_000_000,
       }),
       [],
+      'vi',
       now,
     );
     expect(cost?.soldBeforePurchase).toBe(true);
@@ -373,6 +382,7 @@ describe('costPerDay', () => {
         soldPrice: 15_000_000,
       }),
       [],
+      'vi',
       now,
     );
     expect(cost?.net).toBe(-5_000_000);
@@ -391,6 +401,7 @@ describe('costPerDay', () => {
         soldPrice: 4_000_000,
       }),
       [],
+      'vi',
       now,
     );
     expect(cost?.hasUndatedSale).toBe(true);
@@ -403,6 +414,7 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({ id: 'round', purchaseDate: '2026-06-01T00:00:00', purchasePrice: 1_000 }),
       [],
+      'vi',
       now,
     );
     // 1000 / 14 days = 71.43 → 71
@@ -413,6 +425,7 @@ describe('costPerDay', () => {
     const unrecorded = costPerDay(
       device({ id: 'free', purchaseDate: '2026-06-01T00:00:00', purchasePrice: 0 }),
       [warranty({ id: 'w1', deviceId: 'free', cost: 0 })],
+      'vi',
       now,
     );
     expect(unrecorded?.hasNoRecordedCost).toBe(true);
@@ -444,7 +457,7 @@ describe('costPerDayRollup', () => {
   ]);
 
   it('ranks the most expensive per day and the cheapest per day', () => {
-    const { priciest, cheapest } = costPerDayRollup(priced, warranties, { now });
+    const { priciest, cheapest } = costPerDayRollup(priced, warranties, { now, locale: 'vi' });
     expect(priciest.map((r) => r.device.id)).toEqual(['short', 'long']);
     expect(cheapest.map((r) => r.device.id)).toEqual(['long', 'short']);
     expect(priciest[0].cost.perDay).toBe(1_100_000);
@@ -452,7 +465,7 @@ describe('costPerDayRollup', () => {
   });
 
   it('reports why rows were left out instead of ranking them', () => {
-    const { priciest, skipped } = costPerDayRollup(priced, warranties, { now });
+    const { priciest, skipped } = costPerDayRollup(priced, warranties, { now, locale: 'vi' });
     expect(priciest).toHaveLength(2);
     expect(skipped).toEqual({ noPurchaseDate: 1, noRecordedCost: 1 });
   });
@@ -462,13 +475,13 @@ describe('costPerDayRollup', () => {
       device({ id: 'b', name: 'Beta', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 100 }),
       device({ id: 'a', name: 'Alpha', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 100 }),
     ];
-    const { priciest } = costPerDayRollup(ties, new Map(), { now, limit: 1 });
+    const { priciest } = costPerDayRollup(ties, new Map(), { now, limit: 1, locale: 'vi' });
     expect(priciest.map((r) => r.device.id)).toEqual(['a']);
   });
 
   it('accepts devices in any order without mutating the input array', () => {
     const input = [...priced];
-    costPerDayRollup(input, warranties, { now });
+    costPerDayRollup(input, warranties, { now, locale: 'vi' });
     expect(input.map((d) => d.id)).toEqual(priced.map((d) => d.id));
   });
 });

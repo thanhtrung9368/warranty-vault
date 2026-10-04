@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { FORECAST_MONTH_CHOICES } from '@/lib/forecast-rollup';
+import { getI18n } from '@/lib/i18n/server';
 import { cn } from '@/lib/utils';
 
 /**
@@ -11,15 +12,20 @@ import { cn } from '@/lib/utils';
  * `year` is the raw `/stats` year param, carried through so picking a window does
  * not reset the rest of the page.
  */
-export function ForecastWindowPicker({
+export async function ForecastWindowPicker({
   months,
   year,
 }: {
   months: number;
   year?: string;
 }) {
+  const { t } = await getI18n();
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Khoảng dự báo">
+    <div
+      className="flex flex-wrap items-center gap-1.5"
+      role="group"
+      aria-label={t('Khoảng dự báo')}
+    >
       {FORECAST_MONTH_CHOICES.map((m) => {
         const params = new URLSearchParams();
         if (year) params.set('year', year);
@@ -37,7 +43,7 @@ export function ForecastWindowPicker({
                 : 'border-border bg-surface-2 text-ink-2 hover:bg-surface-3',
             )}
           >
-            {m} tháng
+            {t('{months} tháng', { months: m, count: m })}
           </Link>
         );
       })}

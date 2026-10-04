@@ -25,20 +25,20 @@ const GO_NEUTRAL_MESSAGE =
 
 describe('emailChangeRequestMessage', () => {
   it('passes the neutral server message through byte-for-byte', () => {
-    expect(emailChangeRequestMessage(GO_NEUTRAL_MESSAGE)).toBe(GO_NEUTRAL_MESSAGE);
+    expect(emailChangeRequestMessage(GO_NEUTRAL_MESSAGE, 'vi')).toBe(GO_NEUTRAL_MESSAGE);
   });
 
   it('does not rewrite a different server message either', () => {
     // Whatever Go decides to say is what the user reads — there is no
     // client-side interpretation step that could turn it into "email đã tồn tại".
     const other = 'Đã ghi nhận yêu cầu đổi email.';
-    expect(emailChangeRequestMessage(other)).toBe(other);
+    expect(emailChangeRequestMessage(other, 'vi')).toBe(other);
   });
 
   it('only falls back when the server sent nothing usable', () => {
-    expect(emailChangeRequestMessage(undefined)).toBe(EMAIL_CHANGE_NEUTRAL_FALLBACK);
-    expect(emailChangeRequestMessage(null)).toBe(EMAIL_CHANGE_NEUTRAL_FALLBACK);
-    expect(emailChangeRequestMessage('   ')).toBe(EMAIL_CHANGE_NEUTRAL_FALLBACK);
+    expect(emailChangeRequestMessage(undefined, 'vi')).toBe(EMAIL_CHANGE_NEUTRAL_FALLBACK);
+    expect(emailChangeRequestMessage(null, 'vi')).toBe(EMAIL_CHANGE_NEUTRAL_FALLBACK);
+    expect(emailChangeRequestMessage('   ', 'vi')).toBe(EMAIL_CHANGE_NEUTRAL_FALLBACK);
   });
 
   it('mirrors the server wording in the fallback, conditional and all', () => {
@@ -52,7 +52,7 @@ describe('emailChangeRequestMessage', () => {
 
 describe('newEmailInboxHint', () => {
   it('names the NEW inbox, spam folder and both limits of the token', () => {
-    const hint = newEmailInboxHint('moi@vidu.com');
+    const hint = newEmailInboxHint('moi@vidu.com', 'vi');
     expect(hint).toContain('moi@vidu.com');
     expect(hint).toContain('Spam');
     expect(hint).toContain('một lần');
@@ -62,7 +62,7 @@ describe('newEmailInboxHint', () => {
   });
 
   it('stays readable when the typed address is empty', () => {
-    const hint = newEmailInboxHint('   ');
+    const hint = newEmailInboxHint('   ', 'vi');
     expect(hint).not.toContain('  ');
     expect(hint).toContain('địa chỉ mới');
   });
@@ -74,7 +74,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 400,
       error: 'invalid_email_change_token',
       message: 'Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.',
-    });
+    }, 'vi');
     expect(copy.message).toBe('Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.');
     expect(copy.title).toBe('Link không dùng được');
   });
@@ -85,7 +85,7 @@ describe('describeConfirmEmailChangeFailure', () => {
     const copy = describeConfirmEmailChangeFailure({
       status: 400,
       error: 'invalid_email_change_token',
-    });
+    }, 'vi');
     expect(copy.hint).toContain('hết hạn');
     expect(copy.hint).toContain('đã dùng');
     // …and tells the user how to get a usable link.
@@ -96,7 +96,7 @@ describe('describeConfirmEmailChangeFailure', () => {
     const copy = describeConfirmEmailChangeFailure({
       status: 400,
       error: 'invalid_email_change_token',
-    });
+    }, 'vi');
     expect(copy.message).toBe('Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.');
   });
 
@@ -105,7 +105,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 400,
       error: 'email_in_use',
       message: 'Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác.',
-    });
+    }, 'vi');
     expect(copy.title).toBe('Email đã có người dùng');
     expect(copy.message).toContain('đã được dùng cho một tài khoản khác');
     expect(copy.hint).toContain('địa chỉ khác');
@@ -117,7 +117,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 400,
       error: 'email_in_use',
       fieldErrors: { token: ['Thiếu token'] },
-    });
+    }, 'vi');
     expect(copy.title).toBe('Email đã có người dùng');
   });
 
@@ -126,7 +126,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 400,
       error: 'bad_input',
       fieldErrors: { token: ['Thiếu token'] },
-    });
+    }, 'vi');
     expect(copy.title).toBe('Thiếu token xác nhận');
     expect(copy.message).toBe('Thiếu token');
   });
@@ -136,14 +136,14 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 429,
       error: 'rate_limited',
       message: 'Quá nhiều yêu cầu',
-    });
+    }, 'vi');
     expect(copy.title).toBe('Thử lại sau');
     expect(copy.message).toBe('Quá nhiều yêu cầu');
     expect(copy.hint).toContain('giới hạn');
   });
 
   it('falls back to retry-later wording when the 429 body is empty', () => {
-    const copy = describeConfirmEmailChangeFailure({ status: 429, error: 'rate_limited' });
+    const copy = describeConfirmEmailChangeFailure({ status: 429, error: 'rate_limited' }, 'vi');
     expect(copy.message).toContain('Thao tác quá nhanh');
   });
 
@@ -152,7 +152,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 0,
       error: 'network_error',
       message: 'Mất kết nối tới máy chủ, thử lại sau nhé.',
-    });
+    }, 'vi');
     expect(copy.title).toBe('Mất kết nối');
     expect(copy.hint).toBeUndefined();
   });
@@ -162,7 +162,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 500,
       error: 'internal_error',
       message: 'Lỗi hệ thống',
-    });
+    }, 'vi');
     expect(copy.title).toBe('Không xác nhận được');
     expect(copy.message).toBe('Lỗi hệ thống');
   });
@@ -172,7 +172,7 @@ describe('describeConfirmEmailChangeFailure', () => {
       status: 418,
       error: 'teapot',
       message: 'Thông báo lạ',
-    });
+    }, 'vi');
     expect(copy.message).toBe('Thông báo lạ');
     expect(copy.title).toBe('Không xác nhận được');
   });
@@ -215,13 +215,13 @@ describeWithGo('mirror of api/internal/handlers/auth.go', () => {
 
   it('mirrors the invalid/expired/used token message', () => {
     expect(authGoSource).toContain(
-      describeConfirmEmailChangeFailure({ status: 400, error: 'invalid_email_change_token' }).message,
+      describeConfirmEmailChangeFailure({ status: 400, error: 'invalid_email_change_token' }, 'vi').message,
     );
   });
 
   it('mirrors the address-taken-at-confirm message', () => {
     expect(authGoSource).toContain(
-      describeConfirmEmailChangeFailure({ status: 400, error: 'email_in_use' }).message,
+      describeConfirmEmailChangeFailure({ status: 400, error: 'email_in_use' }, 'vi').message,
     );
   });
 

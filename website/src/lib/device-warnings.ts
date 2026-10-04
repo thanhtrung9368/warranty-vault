@@ -15,8 +15,10 @@
 // encoding lives here so it is unit-testable).
 
 import type { DeviceWarning } from '@/lib/api/devices';
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 
-/** Short Vietnamese headings, keyed by the stable `code`. */
+/** Short Vietnamese headings, keyed by the stable `code`. Dictionary keys. */
 export const DEVICE_WARNING_TITLES: Record<string, string> = {
   IMEI_CHECKSUM: 'IMEI có thể sai một chữ số',
   IMEI_LENGTH: 'Độ dài IMEI không chuẩn',
@@ -24,15 +26,21 @@ export const DEVICE_WARNING_TITLES: Record<string, string> = {
 };
 
 /** Heading for a warning; unknown codes still render, with a generic title. */
-export function deviceWarningTitle(code: string | null | undefined): string {
+export function deviceWarningTitle(code: string | null | undefined, locale: Locale): string {
   const c = (code ?? '').trim();
-  return DEVICE_WARNING_TITLES[c] ?? 'Cảnh báo số serial/IMEI';
+  return translate(locale, DEVICE_WARNING_TITLES[c] ?? 'Cảnh báo số serial/IMEI');
 }
 
-/** Vietnamese label for the field a warning points at (currently always serial). */
-export function deviceWarningFieldLabel(field: string | null | undefined): string {
+/** Label for the field a warning points at (currently always serial). */
+export function deviceWarningFieldLabel(
+  field: string | null | undefined,
+  locale: Locale,
+): string {
   const f = (field ?? '').trim();
-  if (f === '' || f === 'serialNumber') return 'Serial / IMEI';
+  // "Serial / IMEI" reads the same in both languages, so it needs no entry —
+  // `translate` returns the key itself. The call is still made so a future
+  // translation of this label only has to touch the dictionary.
+  if (f === '' || f === 'serialNumber') return translate(locale, 'Serial / IMEI');
   return f;
 }
 
@@ -81,8 +89,11 @@ export function deviceWarningMessages(warnings: DeviceWarning[] | null | undefin
 }
 
 /** One-line summary (headings only) for a toast title or an aria description. */
-export function deviceWarningSummary(warnings: DeviceWarning[] | null | undefined): string {
-  return (warnings ?? []).map((w) => deviceWarningTitle(w.code)).join(' · ');
+export function deviceWarningSummary(
+  warnings: DeviceWarning[] | null | undefined,
+  locale: Locale,
+): string {
+  return (warnings ?? []).map((w) => deviceWarningTitle(w.code, locale)).join(' · ');
 }
 
 // ---- flash cookie codec ----------------------------------------------------

@@ -57,16 +57,16 @@ describe('soldAtToInputValue', () => {
 
 describe('saleDayLabel', () => {
   it('renders a YYYY-MM-DD day as dd/MM/yyyy without a Date round-trip', () => {
-    expect(saleDayLabel('2026-03-01')).toBe('01/03/2026');
-    expect(saleDayLabel('2026-03-01T00:00:00')).toBe('01/03/2026');
-    expect(saleDayLabel(' 2026-12-31 ')).toBe('31/12/2026');
+    expect(saleDayLabel('2026-03-01', 'vi')).toBe('01/03/2026');
+    expect(saleDayLabel('2026-03-01T00:00:00', 'vi')).toBe('01/03/2026');
+    expect(saleDayLabel(' 2026-12-31 ', 'vi')).toBe('31/12/2026');
   });
 
   it('is empty for the unset states and unchanged for non-days', () => {
-    expect(saleDayLabel(null)).toBe('');
-    expect(saleDayLabel(undefined)).toBe('');
-    expect(saleDayLabel('')).toBe('');
-    expect(saleDayLabel('hôm qua')).toBe('hôm qua');
+    expect(saleDayLabel(null, 'vi')).toBe('');
+    expect(saleDayLabel(undefined, 'vi')).toBe('');
+    expect(saleDayLabel('', 'vi')).toBe('');
+    expect(saleDayLabel('hôm qua', 'vi')).toBe('hôm qua');
   });
 });
 
@@ -91,39 +91,39 @@ describe('soldPriceFromInput', () => {
 
 describe('validateSale', () => {
   it('accepts "not sold" (both sides absent)', () => {
-    expect(validateSale({ soldAt: null, soldPrice: null })).toEqual({});
-    expect(validateSale({ soldAt: '', soldPrice: null })).toEqual({});
-    expect(validateSale({ soldAt: '   ', soldPrice: null })).toEqual({});
+    expect(validateSale({ soldAt: null, soldPrice: null }, 'vi')).toEqual({});
+    expect(validateSale({ soldAt: '', soldPrice: null }, 'vi')).toEqual({});
+    expect(validateSale({ soldAt: '   ', soldPrice: null }, 'vi')).toEqual({});
   });
 
   it('accepts a complete sale, including a 0 price', () => {
-    expect(validateSale({ soldAt: '2026-03-01', soldPrice: 7_500_000 })).toEqual({});
-    expect(validateSale({ soldAt: '2026-03-01', soldPrice: 0 })).toEqual({});
+    expect(validateSale({ soldAt: '2026-03-01', soldPrice: 7_500_000 }, 'vi')).toEqual({});
+    expect(validateSale({ soldAt: '2026-03-01', soldPrice: 0 }, 'vi')).toEqual({});
   });
 
   it('rejects a price with no date using the server wording', () => {
-    expect(validateSale({ soldAt: null, soldPrice: 7_500_000 })).toEqual({
+    expect(validateSale({ soldAt: null, soldPrice: 7_500_000 }, 'vi')).toEqual({
       soldAt: [SOLD_AT_REQUIRED_MESSAGE],
     });
-    expect(validateSale({ soldAt: '   ', soldPrice: 7_500_000 })).toEqual({
+    expect(validateSale({ soldAt: '   ', soldPrice: 7_500_000 }, 'vi')).toEqual({
       soldAt: [SOLD_AT_REQUIRED_MESSAGE],
     });
   });
 
   it('rejects a date with no price using the server wording', () => {
-    expect(validateSale({ soldAt: '2026-03-01', soldPrice: null })).toEqual({
+    expect(validateSale({ soldAt: '2026-03-01', soldPrice: null }, 'vi')).toEqual({
       soldPrice: [SOLD_PRICE_REQUIRED_MESSAGE],
     });
   });
 
   it('rejects a negative price', () => {
-    expect(validateSale({ soldAt: '2026-03-01', soldPrice: -1 })).toEqual({
+    expect(validateSale({ soldAt: '2026-03-01', soldPrice: -1 }, 'vi')).toEqual({
       soldPrice: [SOLD_PRICE_INVALID_MESSAGE],
     });
   });
 
   it('reports both sides for a negative price with no date (Go order)', () => {
-    expect(validateSale({ soldAt: null, soldPrice: -1 })).toEqual({
+    expect(validateSale({ soldAt: null, soldPrice: -1 }, 'vi')).toEqual({
       soldAt: [SOLD_AT_REQUIRED_MESSAGE],
       soldPrice: [SOLD_PRICE_INVALID_MESSAGE],
     });
@@ -132,31 +132,31 @@ describe('validateSale', () => {
 
 describe('validateSaleToggled', () => {
   it('has nothing to check while the toggle is off', () => {
-    expect(validateSaleToggled({ soldAt: '', soldPrice: null }, false)).toEqual({});
-    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: 5 }, false)).toEqual({});
+    expect(validateSaleToggled({ soldAt: '', soldPrice: null }, false, 'vi')).toEqual({});
+    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: 5 }, false, 'vi')).toEqual({});
   });
 
   it('requires at least a date once the user declares a sale', () => {
-    expect(validateSaleToggled({ soldAt: '', soldPrice: null }, true)).toEqual({
+    expect(validateSaleToggled({ soldAt: '', soldPrice: null }, true, 'vi')).toEqual({
       soldAt: [SOLD_AT_REQUIRED_MESSAGE],
     });
-    expect(validateSaleToggled({ soldAt: '   ', soldPrice: null }, true)).toEqual({
+    expect(validateSaleToggled({ soldAt: '   ', soldPrice: null }, true, 'vi')).toEqual({
       soldAt: [SOLD_AT_REQUIRED_MESSAGE],
     });
   });
 
   it('falls through to the pair rule once one side is filled', () => {
-    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: null }, true)).toEqual({
+    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: null }, true, 'vi')).toEqual({
       soldPrice: [SOLD_PRICE_REQUIRED_MESSAGE],
     });
-    expect(validateSaleToggled({ soldAt: '', soldPrice: 5_000_000 }, true)).toEqual({
+    expect(validateSaleToggled({ soldAt: '', soldPrice: 5_000_000 }, true, 'vi')).toEqual({
       soldAt: [SOLD_AT_REQUIRED_MESSAGE],
     });
   });
 
   it('accepts a complete sale, including a 0 price', () => {
-    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: 0 }, true)).toEqual({});
-    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: 1 }, true)).toEqual({});
+    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: 0 }, true, 'vi')).toEqual({});
+    expect(validateSaleToggled({ soldAt: '2026-03-01', soldPrice: 1 }, true, 'vi')).toEqual({});
   });
 });
 
@@ -180,7 +180,7 @@ describe('hasSaleRecorded', () => {
 
 describe('saleProfitLoss', () => {
   it('reports a profit as soldPrice − purchasePrice', () => {
-    const pl = saleProfitLoss(10_000_000, 12_000_000);
+    const pl = saleProfitLoss(10_000_000, 12_000_000, 'vi');
     expect(pl).not.toBeNull();
     expect(pl!.amount).toBe(2_000_000);
     expect(pl!.tone).toBe('profit');
@@ -189,7 +189,7 @@ describe('saleProfitLoss', () => {
   });
 
   it('reports a loss as a positive magnitude', () => {
-    const pl = saleProfitLoss(10_000_000, 8_000_000);
+    const pl = saleProfitLoss(10_000_000, 8_000_000, 'vi');
     expect(pl!.amount).toBe(-2_000_000);
     expect(pl!.tone).toBe('loss');
     expect(pl!.label.startsWith('Lỗ ')).toBe(true);
@@ -197,19 +197,19 @@ describe('saleProfitLoss', () => {
   });
 
   it('reports a break-even sale', () => {
-    const pl = saleProfitLoss(10_000_000, 10_000_000);
+    const pl = saleProfitLoss(10_000_000, 10_000_000, 'vi');
     expect(pl!.amount).toBe(0);
     expect(pl!.tone).toBe('even');
     expect(pl!.label).toBe('Hoà vốn');
   });
 
   it('is null when there is no sale price', () => {
-    expect(saleProfitLoss(10_000_000, null)).toBeNull();
-    expect(saleProfitLoss(10_000_000, undefined)).toBeNull();
+    expect(saleProfitLoss(10_000_000, null, 'vi')).toBeNull();
+    expect(saleProfitLoss(10_000_000, undefined, 'vi')).toBeNull();
   });
 
   it('treats a missing purchase price as 0', () => {
-    const pl = saleProfitLoss(null, 5_000_000);
+    const pl = saleProfitLoss(null, 5_000_000, 'vi');
     expect(pl!.amount).toBe(5_000_000);
     expect(pl!.tone).toBe('profit');
   });

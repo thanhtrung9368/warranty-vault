@@ -19,6 +19,10 @@ import {
 
 // Global cross-entity search (`GET /api/v1/search`, roadmap #7).
 //
+// Language is pinned explicitly ('vi') on every message-producing helper
+// (docs/I18N_PLAN.md §4.3): these assertions are about the Vietnamese source
+// sentences and must not drift with the machine or the default locale.
+//
 // The behaviours pinned here come straight from openapi.yaml + services/search.go:
 // groups are always arrays, a blank `q` is a 200 (not an error), a `q` over 200
 // runes is a 400 whose message the client shows unchanged, and `limit` is per
@@ -101,9 +105,9 @@ describe('counts and empty state', () => {
   });
 
   it('quotes the query the server echoed back', () => {
-    expect(noResultsMessage('samsung')).toBe('Không tìm thấy kết quả cho “samsung”.');
-    expect(noResultsMessage('  samsung  ')).toBe('Không tìm thấy kết quả cho “samsung”.');
-    expect(noResultsMessage('')).toBe('Không tìm thấy kết quả nào.');
+    expect(noResultsMessage('samsung', 'vi')).toBe('Không tìm thấy kết quả cho “samsung”.');
+    expect(noResultsMessage('  samsung  ', 'vi')).toBe('Không tìm thấy kết quả cho “samsung”.');
+    expect(noResultsMessage('', 'vi')).toBe('Không tìm thấy kết quả nào.');
   });
 });
 
@@ -111,38 +115,41 @@ describe('describeSearchFailure', () => {
   it('shows the server message verbatim when there is one', () => {
     // The only 400 this endpoint returns is the over-long query.
     expect(
-      describeSearchFailure({
-        status: 400,
-        error: 'validation',
-        message: 'Từ khoá tìm kiếm quá dài (tối đa 200 ký tự)',
-      }),
+      describeSearchFailure(
+        {
+          status: 400,
+          error: 'validation',
+          message: 'Từ khoá tìm kiếm quá dài (tối đa 200 ký tự)',
+        },
+        'vi',
+      ),
     ).toBe('Từ khoá tìm kiếm quá dài (tối đa 200 ký tự)');
   });
 
   it('falls back to the rune limit when the 400 carried no message', () => {
-    const message = describeSearchFailure({ status: 400, error: 'validation' });
+    const message = describeSearchFailure({ status: 400, error: 'validation' }, 'vi');
     expect(message).toContain(String(SEARCH_MAX_QUERY_RUNES));
     // It must not claim a blank query is the problem — blank never gets here.
     expect(message.toLowerCase()).not.toContain('rỗng');
   });
 
   it('explains an expired session instead of a raw 401', () => {
-    expect(describeSearchFailure({ status: 401, error: 'unauthorized' })).toContain(
+    expect(describeSearchFailure({ status: 401, error: 'unauthorized' }, 'vi')).toContain(
       'Phiên đăng nhập đã hết hạn',
     );
   });
 
   it('maps rate limiting and transport failures', () => {
-    expect(describeSearchFailure({ status: 429, error: 'rate_limited' })).toContain(
+    expect(describeSearchFailure({ status: 429, error: 'rate_limited' }, 'vi')).toContain(
       'Thao tác quá nhanh',
     );
-    expect(describeSearchFailure({ status: 0, error: 'network_error' })).toContain(
+    expect(describeSearchFailure({ status: 0, error: 'network_error' }, 'vi')).toContain(
       'Mất kết nối',
     );
   });
 
   it('keeps a generic Vietnamese message for anything else', () => {
-    expect(describeSearchFailure({ status: 500, error: 'internal_error' })).toBe(
+    expect(describeSearchFailure({ status: 500, error: 'internal_error' }, 'vi')).toBe(
       'Không tìm kiếm được, thử lại sau.',
     );
   });
@@ -179,7 +186,10 @@ describe('result rows', () => {
   it('keeps the group labels in sync with the sidebar wording', () => {
     expect(SEARCH_GROUP_ORDER).toEqual(['devices', 'subscriptions', 'wishlist']);
     expect(SEARCH_GROUP_LABELS.devices).toBe('Thiết bị');
-    expect(SEARCH_GROUP_LABELS.subscriptions).toBe('Đăng ký');
+    // "Gói đăng ký", not "Đăng ký": the heading has to be the word the sidebar
+    // uses for that section (`common.ts`), or the dropdown points at a place the
+    // nav calls something else. ("Đăng ký" is also taken — it is "Sign up".)
+    expect(SEARCH_GROUP_LABELS.subscriptions).toBe('Gói đăng ký');
     expect(SEARCH_GROUP_LABELS.wishlist).toBe('Đang thèm');
   });
 });

@@ -1,4 +1,4 @@
-// Pure helpers + Vietnamese copy for the global cross-entity search
+// Pure helpers + copy for the global cross-entity search
 // (`GET /api/v1/search`, roadmap #7).
 //
 // Contract notes taken from openapi.yaml + `api/internal/services/search.go`,
@@ -17,8 +17,23 @@
 //     unchanged. We deliberately do not pre-validate the length: the server's
 //     Vietnamese message is the single source of truth for that rule.
 //
-// Free of React / server-only imports so it can be unit-tested and imported by
-// the client-side dropdown.
+// ── Bilingual ─────────────────────────────────────────────────────────────
+//
+// This module is pure — free of React / server-only imports — so it cannot call
+// `useT()` or `getI18n()`. Every sentence-producing helper therefore takes a
+// `locale: Locale` and renders through `translate()` (see I18N.md). The
+// Vietnamese literal stays the dictionary KEY; English is an added column.
+//
+// The label maps below (`SEARCH_GROUP_LABELS`) stay Vietnamese on purpose: they
+// are the ORIGINAL text and the keys the catalog is looked up by. Callers render
+// them with `labelOf(...)`, which returns the Vietnamese value untouched when no
+// entry exists.
+//
+// The placeholder and the two hint sentences are constants for the same reason;
+// a call site wraps the constant itself (`t(SEARCH_IDLE_HINT)`).
+
+import { translate } from '@/lib/i18n/catalog';
+import type { Locale } from '@/lib/i18n/locale';
 
 export const SEARCH_DEBOUNCE_MS = 300;
 
@@ -31,15 +46,31 @@ export const SEARCH_MAX_QUERY_RUNES = 200;
 
 export const SEARCH_PLACEHOLDER = 'Tìm thiết bị, đăng ký, wishlist…';
 
-/** Group headings — the same words the sidebar uses for the three sections. */
+/**
+ * Group headings — the same three sections the sidebar links to, which is why
+ * the Vietnamese values are the sidebar's wording (`Thiết bị`, `Gói đăng ký`,
+ * `Đang thèm`) rather than a second set of synonyms for them. A dropdown row and
+ * the nav item it leads to must read as the same place.
+ *
+ * Callers render it with `labelOf(SEARCH_GROUP_LABELS, group, locale)`.
+ */
 export const SEARCH_GROUP_LABELS = {
   devices: 'Thiết bị',
-  subscriptions: 'Đăng ký',
+  subscriptions: 'Gói đăng ký',
   wishlist: 'Đang thèm',
 } as const;
 
 export const SEARCH_IDLE_HINT = 'Nhập từ khoá để tìm trong thiết bị, đăng ký và wishlist.';
 export const SEARCH_LOADING_HINT = 'Đang tìm…';
+
+/**
+ * The message shown when the API answers 401. Already registered by
+ * `messages/settings.ts`, which owns the account session copy — kept as a
+ * constant here so the call site names the sentence instead of hiding it in a
+ * branch.
+ */
+export const SEARCH_SESSION_EXPIRED =
+  'Phiên đăng nhập đã hết hạn — tải lại trang để đăng nhập lại.';
 
 // ---- Row shapes --------------------------------------------------------------
 //
@@ -82,6 +113,13 @@ export type SearchGroupKey = keyof SearchGroups;
 /** Group keys in the order the dropdown renders them. */
 export const SEARCH_GROUP_ORDER: SearchGroupKey[] = ['devices', 'subscriptions', 'wishlist'];
 
+// ---- Localised copy ----------------------------------------------------------
+//
+// Only `noResultsMessage` and `describeSearchFailure` need a locale: they build
+// a sentence at call time. The placeholders and hints above are constants whose
+// value IS the Vietnamese sentence, so a caller wraps the constant itself —
+// `t(SEARCH_IDLE_HINT)` — exactly like every other source string.
+
 // ---- State -------------------------------------------------------------------
 
 export type SearchState =
@@ -113,11 +151,11 @@ export function isEmptySearch(groups: SearchGroups): boolean {
 }
 
 /** "Không tìm thấy kết quả cho “samsung”." — quotes the query the server echoed. */
-export function noResultsMessage(query: string): string {
+export function noResultsMessage(query: string, locale: Locale): string {
   const q = query.trim();
   return q.length > 0
-    ? `Không tìm thấy kết quả cho “${q}”.`
-    : 'Không tìm thấy kết quả nào.';
+    ? translate(locale, 'Không tìm thấy kết quả cho “{query}”.', { query: q })
+    : translate(locale, 'Không tìm thấy kết quả nào.');
 }
 
 export type SearchFailure = {
@@ -127,21 +165,30 @@ export type SearchFailure = {
 };
 
 /**
- * Vietnamese message for a failed search call. The server's own message wins
- * whenever it sent one — the only 400 this endpoint produces is "Từ khoá tìm
- * kiếm quá dài (tối đa 200 ký tự)", which must be shown as-is instead of being
+ * Message for a failed search call. The server's own message wins whenever it
+ * sent one — the only 400 this endpoint produces is "Từ khoá tìm kiếm quá dài
+ * (tối đa 200 ký tự)", and `apiFetch` already asked for it in the request's
+ * language (it carries `?lang=`), so it must be shown as-is instead of being
  * replaced by a client guess.
  */
-export function describeSearchFailure(failure: SearchFailure): string {
+export function describeSearchFailure(failure: SearchFailure, locale: Locale): string {
   const serverMessage = typeof failure.message === 'string' ? failure.message.trim() : '';
   if (serverMessage.length > 0) return serverMessage;
   if (failure.status === 0 || failure.error === 'network_error') {
-    return 'Mất kết nối tới máy chủ, thử lại sau nhé.';
+    return translate(locale, 'Mất kết nối tới máy chủ, thử lại sau nhé.');
   }
-  if (failure.status === 401) return 'Phiên đăng nhập đã hết hạn — tải lại trang để đăng nhập lại.';
-  if (failure.status === 429) return 'Thao tác quá nhanh, thử lại sau.';
-  if (failure.status === 400) return `Từ khoá không hợp lệ (tối đa ${SEARCH_MAX_QUERY_RUNES} ký tự).`;
-  return 'Không tìm kiếm được, thử lại sau.';
+  if (failure.status === 401) {
+    return translate(locale, SEARCH_SESSION_EXPIRED);
+  }
+  if (failure.status === 429) {
+    return translate(locale, 'Thao tác quá nhanh, thử lại sau.');
+  }
+  if (failure.status === 400) {
+    return translate(locale, 'Từ khoá không hợp lệ (tối đa {count} ký tự).', {
+      count: SEARCH_MAX_QUERY_RUNES,
+    });
+  }
+  return translate(locale, 'Không tìm kiếm được, thử lại sau.');
 }
 
 /** Secondary line of a result row: the fields the endpoint matched on. */

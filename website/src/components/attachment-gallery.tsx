@@ -25,6 +25,7 @@ import {
   deleteAttachment,
   updateAttachmentDescription,
 } from '@/app/actions/attachments';
+import { useT } from '@/lib/i18n/client';
 
 type Attachment = {
   id: string;
@@ -40,6 +41,7 @@ function fileUrl(id: string, opts?: { download?: boolean }): string {
 
 export function AttachmentGallery({ items }: { items: Attachment[] }) {
   const router = useRouter();
+  const t = useT();
   const [active, setActive] = React.useState<Attachment | null>(null);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
@@ -81,19 +83,19 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
       const res = await updateAttachmentDescription(a.id, typed);
       if (!res.ok) {
         setOverrides((o) => ({ ...o, [a.id]: previous }));
-        toast.error(res.message ?? 'Không lưu được mô tả');
+        toast.error(res.message ?? t('Không lưu được mô tả'));
         return;
       }
       setOverrides((o) => ({ ...o, [a.id]: res.description ?? null }));
       setEditingId(null);
       setDraft('');
-      toast.success(res.description ? 'Đã lưu mô tả' : 'Đã xoá mô tả');
+      toast.success(res.description ? t('Đã lưu mô tả') : t('Đã xoá mô tả'));
       // Re-render the device-detail RSC so the refreshed props match the
       // optimistic state (and the dialog shows the saved value).
       router.refresh();
     } catch {
       setOverrides((o) => ({ ...o, [a.id]: previous }));
-      toast.error('Không lưu được mô tả');
+      toast.error(t('Không lưu được mô tả'));
     } finally {
       setSavingId(null);
     }
@@ -103,10 +105,11 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
     return (
       <div className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border-strong bg-surface-2/60 px-6 py-8 text-center">
         <Paperclip className="h-6 w-6 text-muted-foreground" />
-        <p className="text-sm font-bold text-ink">Chưa có file đính kèm nào</p>
+        <p className="text-sm font-bold text-ink">{t('Chưa có file đính kèm nào')}</p>
         <p className="max-w-xs text-xs text-muted-foreground">
-          Tải lên ảnh hoá đơn hoặc phiếu bảo hành để lưu kèm thiết bị. Sau khi tải lên, bấm biểu
-          tượng bút chì để đặt mô tả cho từng file.
+          {t(
+            'Tải lên ảnh hoá đơn hoặc phiếu bảo hành để lưu kèm thiết bị. Sau khi tải lên, bấm biểu tượng bút chì để đặt mô tả cho từng file.',
+          )}
         </p>
       </div>
     );
@@ -170,8 +173,8 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                           cancelEdit();
                         }
                       }}
-                      placeholder="Mô tả cho file này"
-                      aria-label={`Mô tả cho ${a.fileName}`}
+                      placeholder={t('Mô tả cho file này')}
+                      aria-label={t('Mô tả cho {name}', { name: a.fileName })}
                       disabled={isSaving}
                       className="h-7 min-w-0 px-2 py-0 text-[11px]"
                     />
@@ -180,8 +183,8 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                       onClick={() => void saveEdit(a)}
                       disabled={isSaving}
                       className="shrink-0 text-muted-foreground hover:text-primary disabled:opacity-50"
-                      aria-label="Lưu mô tả"
-                      title="Lưu (Enter)"
+                      aria-label={t('Lưu mô tả')}
+                      title={t('Lưu (Enter)')}
                     >
                       {isSaving ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -194,8 +197,8 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                       onClick={cancelEdit}
                       disabled={isSaving}
                       className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                      aria-label="Huỷ sửa mô tả"
-                      title="Huỷ (Esc)"
+                      aria-label={t('Huỷ sửa mô tả')}
+                      title={t('Huỷ (Esc)')}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -210,8 +213,8 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                         type="button"
                         onClick={() => startEdit(a)}
                         className="text-muted-foreground hover:text-primary"
-                        aria-label="Sửa mô tả"
-                        title="Sửa mô tả"
+                        aria-label={t('Sửa mô tả')}
+                        title={t('Sửa mô tả')}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -219,19 +222,19 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                         type="button"
                         disabled={pendingId === a.id}
                         onClick={async () => {
-                          if (!confirm('Xóa file này?')) return;
+                          if (!confirm(t('Xóa file này?'))) return;
                           setPendingId(a.id);
                           try {
                             await deleteAttachment(a.id);
-                            toast.success('Đã xóa file');
+                            toast.success(t('Đã xóa file'));
                           } catch {
-                            toast.error('Không xóa được');
+                            toast.error(t('Không xóa được'));
                           } finally {
                             setPendingId(null);
                           }
                         }}
                         className="text-muted-foreground hover:text-destructive"
-                        aria-label="Xóa"
+                        aria-label={t('Xóa')}
                       >
                         {pendingId === a.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -276,12 +279,12 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                     }}
                   >
                     <Pencil className="mr-1 h-3.5 w-3.5" />
-                    Sửa mô tả
+                    {t('Sửa mô tả')}
                   </Button>
                   <Button asChild variant="outline" size="sm">
                     <a href={fileUrl(active.id)} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                      Mở trong tab mới
+                      {t('Mở trong tab mới')}
                     </a>
                   </Button>
                 </div>

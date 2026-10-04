@@ -25,7 +25,8 @@ import {
 } from '@/lib/subscription-types';
 import { WISHLIST_ACTIVE_STATUSES } from '@/lib/wishlist-types';
 import { requireUser } from '@/lib/auth';
-import { CATEGORY_LABELS } from '@/lib/types';
+import { categoryLabel } from '@/lib/i18n/labels';
+import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -163,7 +164,11 @@ function StatCard({ label, value, icon: Icon, sub, tone }: StatCardProps) {
   );
 }
 
-function SectionCard({
+// `title` arrives already translated from the page; the "view all" affordance is
+// this component's own copy, so it resolves the translator itself rather than
+// taking a second prop. An async RSC — no hook needed, and `getI18n()` is
+// `cache()`d per request, so the three call sites below cost nothing extra.
+async function SectionCard({
   icon: Icon,
   tint,
   title,
@@ -176,6 +181,7 @@ function SectionCard({
   href: string;
   children: React.ReactNode;
 }) {
+  const { t } = await getI18n();
   return (
     <div className="rounded-[var(--radius)] border border-border bg-card p-5 shadow-soft">
       <div className="mb-4 flex items-center justify-between">
@@ -189,7 +195,7 @@ function SectionCard({
         </div>
         <Button asChild variant="ghost" size="sm" className="h-8 px-3 text-primary">
           <Link href={href}>
-            Xem tất cả
+            {t('Xem tất cả')}
             <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Link>
         </Button>
@@ -201,6 +207,7 @@ function SectionCard({
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  const { locale, t } = await getI18n();
   const [devicesRes, wishlistRes, subsRes] = await Promise.all([
     api.devices.list(),
     api.wishlist.list({ status: 'ALL' }),
@@ -214,31 +221,31 @@ export default async function DashboardPage() {
 
   const cards: StatCardProps[] = [
     {
-      label: 'Tổng thiết bị',
+      label: t('Tổng thiết bị'),
       value: stats.total,
       icon: Package,
-      sub: 'Đang theo dõi',
+      sub: t('Đang theo dõi'),
       tone: 'primary',
     },
     {
-      label: 'Còn bảo hành',
+      label: t('Còn bảo hành'),
       value: Math.max(0, stats.active - stats.soon),
       icon: ShieldCheck,
-      sub: 'Còn được bảo vệ',
+      sub: t('Còn được bảo vệ'),
       tone: 'emerald',
     },
     {
-      label: 'Sắp hết (≤30 ngày)',
+      label: t('Sắp hết (≤30 ngày)'),
       value: stats.soon,
       icon: AlertTriangle,
-      sub: 'Cần để ý nha',
+      sub: t('Cần để ý nha'),
       tone: 'amber',
     },
     {
-      label: 'Đã hết bảo hành',
+      label: t('Đã hết bảo hành'),
       value: stats.expired,
       icon: ShieldX,
-      sub: 'Hết kèo rồi',
+      sub: t('Hết kèo rồi'),
       tone: 'zinc',
     },
   ];
@@ -248,11 +255,12 @@ export default async function DashboardPage() {
       {/* Hero greeting */}
       <div>
         <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-[34px]">
-          Chào{user.name ? `, ${user.name}` : ''}{' '}
+          {t('Chào')}
+          {user.name ? `, ${user.name}` : ''}{' '}
           <span style={{ fontFamily: 'system-ui' }}>👋</span>
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.
+          {t('Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.')}
         </p>
       </div>
 
@@ -269,13 +277,13 @@ export default async function DashboardPage() {
         <SectionCard
           icon={AlertTriangle}
           tint="amber"
-          title="Sắp hết bảo hành"
+          title={t('Sắp hết bảo hành')}
           href="/reminders"
         >
           {stats.soonList.length === 0 ? (
             <div className="py-3 text-sm text-muted-foreground">
-              <span className="text-emerald-ink">✓</span> Tất cả đều ngon, không có
-              gì sắp hết trong 30 ngày tới đâu.
+              <span className="text-emerald-ink">✓</span>{' '}
+              {t('Tất cả đều ngon, không có gì sắp hết trong 30 ngày tới đâu.')}
             </div>
           ) : (
             <ul className="flex flex-col">
@@ -291,11 +299,11 @@ export default async function DashboardPage() {
                         {d.name}
                       </div>
                       <div className="truncate text-[11px] text-muted-foreground">
-                        {CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] ??
-                          d.category}
-                        {d.brand ? ` • ${d.brand}` : ''} • {formatDate(d.purchaseDate)}
+                        {categoryLabel(d.category, locale)}
+                        {d.brand ? ` • ${d.brand}` : ''} •{' '}
+                        {formatDate(d.purchaseDate, locale)}
                         {' • '}
-                        {formatVND(d.purchasePrice)}
+                        {formatVND(d.purchasePrice, locale)}
                       </div>
                     </div>
                     <WarrantyPill warrantyEnd={d.effectiveWarrantyEnd} variant="badge" />
@@ -311,24 +319,27 @@ export default async function DashboardPage() {
           <SectionCard
             icon={RefreshCw}
             tint="sky"
-            title="Gói đăng ký"
+            title={t('Gói đăng ký')}
             href="/subscriptions"
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <div className="stat-eyebrow">Mỗi tháng</div>
+                <div className="stat-eyebrow">{t('Mỗi tháng')}</div>
                 <div className="font-display text-[28px] font-extrabold leading-tight tracking-tight">
-                  {formatVND(subs.monthly)}
+                  {formatVND(subs.monthly, locale)}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  ~ {formatVND(subs.yearly)} / năm • {subs.count} gói đang hoạt động
+                  {t('~ {amount} / năm • {count} gói đang hoạt động', {
+                    amount: formatVND(subs.yearly, locale),
+                    count: subs.count,
+                  })}
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="stat-eyebrow mb-1.5">Sắp gia hạn</div>
+                <div className="stat-eyebrow mb-1.5">{t('Sắp gia hạn')}</div>
                 {subs.upcoming.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Không có gói nào sắp charge
+                    {t('Không có gói nào sắp charge')}
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-1.5">
@@ -340,13 +351,13 @@ export default async function DashboardPage() {
                         >
                           <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground" />
                           <span className="font-semibold text-ink-2">
-                            {formatDate(u.renewalDate)}
+                            {formatDate(u.renewalDate, locale)}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-muted-foreground">
                             {u.name}
                           </span>
                           <span className="font-semibold tabular-nums">
-                            {formatVND(u.price)}
+                            {formatVND(u.price, locale)}
                           </span>
                         </Link>
                       </li>
@@ -360,22 +371,22 @@ export default async function DashboardPage() {
 
         {/* Wishlist */}
         {wishlist.count > 0 && (
-          <SectionCard icon={Heart} tint="rose" title="Đang thèm" href="/wishlist">
+          <SectionCard icon={Heart} tint="rose" title={t('Đang thèm')} href="/wishlist">
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <div className="stat-eyebrow">Tổng tiền (giá hiện tại)</div>
+                <div className="stat-eyebrow">{t('Tổng tiền (giá hiện tại)')}</div>
                 <div className="font-display text-[28px] font-extrabold leading-tight tracking-tight">
-                  {formatVND(wishlist.totalPrice)}
+                  {formatVND(wishlist.totalPrice, locale)}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {wishlist.count} món đang theo dõi
+                  {t('{count} món đang theo dõi', { count: wishlist.count })}
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="stat-eyebrow mb-1.5">Sắp tới ngày mua</div>
+                <div className="stat-eyebrow mb-1.5">{t('Sắp tới ngày mua')}</div>
                 {wishlist.upcoming.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Chưa có món nào đặt ngày dự kiến
+                    {t('Chưa có món nào đặt ngày dự kiến')}
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-1.5">
@@ -387,7 +398,7 @@ export default async function DashboardPage() {
                         >
                           <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" />
                           <span className="font-semibold text-ink-2">
-                            {u.targetDate ? formatDate(u.targetDate) : ''}
+                            {u.targetDate ? formatDate(u.targetDate, locale) : ''}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-muted-foreground">
                             {u.name}
@@ -409,23 +420,23 @@ export default async function DashboardPage() {
           <div className="mb-3 flex items-center gap-2.5">
             <Zap className="h-5 w-5 text-primary-ink" />
             <h3 className="font-display text-lg font-extrabold tracking-tight text-primary-ink">
-              Thêm nhanh
+              {t('Thêm nhanh')}
             </h3>
           </div>
           <p className="mb-4 text-[13px] text-primary-ink/85">
-            Mới mua đồ? Note ngay vào kẻo lại quên.
+            {t('Mới mua đồ? Note ngay vào kẻo lại quên.')}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm" className="h-9">
               <Link href="/devices/new">
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                Thiết bị
+                {t('Thiết bị')}
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm" className="h-9 bg-card">
               <Link href="/subscriptions/new">
                 <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                Gói đăng ký
+                {t('Gói đăng ký')}
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm" className="h-9 bg-card">
@@ -440,8 +451,10 @@ export default async function DashboardPage() {
 
       {stats.total === 0 && (
         <EmptyState
-          title="Chưa có thiết bị nào, bắt đầu nào"
-          description="Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... để theo dõi bảo hành tự động."
+          title={t('Chưa có thiết bị nào, bắt đầu nào')}
+          description={t(
+            'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... để theo dõi bảo hành tự động.',
+          )}
         />
       )}
     </div>

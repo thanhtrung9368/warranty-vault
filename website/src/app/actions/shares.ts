@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
 import type { CreatedDeviceShare } from '@/lib/api/shares';
+import { getI18n } from '@/lib/i18n/server';
 import { normalizeShareExpiryDays, shareCertificateUrl } from '@/lib/share-links';
 
 // Same env the API client uses. `sharePath` is a path on the API origin
@@ -44,8 +45,9 @@ export async function createDeviceShare(
 ): Promise<CreateShareActionResult> {
   await requireUser();
 
+  const { t } = await getI18n();
   const id = typeof deviceId === 'string' ? deviceId.trim() : '';
-  if (!id) return { ok: false, message: 'Thiếu id thiết bị' };
+  if (!id) return { ok: false, message: t('Thiếu id thiết bị') };
 
   // Runtime parsing: a server action argument is untrusted input, whatever the
   // TypeScript signature says.
@@ -56,7 +58,9 @@ export async function createDeviceShare(
     includeSerial: raw.includeSerial === true,
   });
   if (!res.ok) {
-    return { ok: false, message: res.message ?? 'Không tạo được link chia sẻ' };
+    // `res.message` comes from Go in the request's language (`?lang=`), so it is
+    // passed through untouched; the fallback is ours and is translated here.
+    return { ok: false, message: res.message ?? t('Không tạo được link chia sẻ') };
   }
 
   // The device page is `force-dynamic`, so the caller also refreshes; this keeps
@@ -74,16 +78,17 @@ export async function revokeDeviceShare(
 ): Promise<RevokeShareActionResult> {
   await requireUser();
 
+  const { t } = await getI18n();
   const id = typeof shareId === 'string' ? shareId.trim() : '';
-  if (!id) return { ok: false, message: 'Thiếu id link chia sẻ' };
+  if (!id) return { ok: false, message: t('Thiếu id link chia sẻ') };
 
   const res = await api.shares.revoke(id);
   if (!res.ok) {
-    return { ok: false, message: res.message ?? 'Không thu hồi được link chia sẻ' };
+    return { ok: false, message: res.message ?? t('Không thu hồi được link chia sẻ') };
   }
 
   const device = typeof deviceId === 'string' ? deviceId.trim() : '';
   if (device) revalidatePath(`/devices/${device}`);
 
-  return { ok: true, message: 'Đã thu hồi link chia sẻ' };
+  return { ok: true, message: t('Đã thu hồi link chia sẻ') };
 }

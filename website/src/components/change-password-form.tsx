@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useT } from '@/lib/i18n/client';
 import { changePassword, type AuthFormState } from '@/app/actions/auth';
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -17,6 +18,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useT();
   return (
     <Button type="submit" disabled={pending}>
       {pending ? (
@@ -24,27 +26,28 @@ function SubmitButton() {
       ) : (
         <KeyRound className="mr-2 h-4 w-4" />
       )}
-      Đổi mật khẩu
+      {t('Đổi mật khẩu')}
     </Button>
   );
 }
 
 export function ChangePasswordForm() {
+  const t = useT();
   const [state, formAction] = useActionState<AuthFormState, FormData>(changePassword, {});
   const errors = state?.errors ?? {};
   const formRef = React.useRef<HTMLFormElement>(null);
 
   React.useEffect(() => {
     if (state?.ok) {
-      toast.success(state.message ?? 'Đã đổi mật khẩu');
+      toast.success(state.message ?? t('Đã đổi mật khẩu'));
       formRef.current?.reset();
     }
-  }, [state]);
+  }, [state, t]);
 
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+        <Label htmlFor="currentPassword">{t('Mật khẩu hiện tại')}</Label>
         <Input
           id="currentPassword"
           name="currentPassword"
@@ -56,7 +59,7 @@ export function ChangePasswordForm() {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="newPassword">Mật khẩu mới</Label>
+          <Label htmlFor="newPassword">{t('Mật khẩu mới')}</Label>
           <Input
             id="newPassword"
             name="newPassword"
@@ -68,7 +71,7 @@ export function ChangePasswordForm() {
           <FieldError errors={errors.newPassword} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+          <Label htmlFor="confirmPassword">{t('Xác nhận mật khẩu mới')}</Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"

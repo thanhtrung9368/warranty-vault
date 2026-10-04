@@ -10,13 +10,22 @@
 //   - a warranty package's `cost` counts in the month/year of its `startDate`
 //     (that's when the money was spent) and rolls up into the category of the
 //     device it protects.
+//
+// ── Language ──────────────────────────────────────────────────────────────
+//
+// Every function that renders a value the reader sees — a month label, a
+// category name, a "12.500 ₫/ngày" figure, a "15/03/2026" day — takes a
+// `locale: Locale`. It is required, never defaulted, for the reason in
+// `format.ts`: a default would let a missed call site render Vietnamese inside
+// an English page and report nothing (docs/I18N_PLAN.md §4.3).
 
 import { startOfMonth, subMonths, format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { enUS, vi } from 'date-fns/locale';
 import type { DeviceListItem, Warranty } from '@/lib/api/devices';
-import { CATEGORY_LABELS, type Category } from '@/lib/types';
+import { translate } from '@/lib/i18n/catalog';
+import { categoryLabel } from '@/lib/i18n/labels';
+import type { Locale } from '@/lib/i18n/locale';
 import { formatVND } from '@/lib/format';
-import { saleDayLabel } from '@/lib/device-resale';
 
 export type SpendEntry = {
   amount: number;
@@ -67,7 +76,7 @@ export function buildSpendEntries(
   return entries;
 }
 
-export function monthlySpendBuckets(entries: SpendEntry[], months = 12) {
+export function monthlySpendBuckets(entries: SpendEntry[], months = 12, locale: Locale) {
   const start = startOfMonth(subMonths(new Date(), months - 1));
   const buckets = new Map<string, number>();
   for (let i = 0; i < months; i++) {
@@ -79,11 +88,12 @@ export function monthlySpendBuckets(entries: SpendEntry[], months = 12) {
     const key = format(startOfMonth(e.date), 'yyyy-MM');
     if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + e.amount);
   }
+  const dateLocale = locale === 'vi' ? vi : enUS;
   return Array.from(buckets.entries()).map(([k, total]) => {
     const [y, m] = k.split('-').map(Number);
     const dateObj = new Date(y, m - 1, 1);
     return {
-      month: format(dateObj, 'MM/yy', { locale: vi }),
+      month: format(dateObj, 'MM/yy', { locale: dateLocale }),
       total,
     };
   });
@@ -94,6 +104,7 @@ export function monthlySpendBuckets(entries: SpendEntry[], months = 12) {
 export function spendByCategoryRollup(
   devices: DeviceListItem[],
   entries: SpendEntry[],
+  locale: Locale,
 ): CategorySpend[] {
   const map = new Map<string, { total: number; count: number }>();
   for (const d of devices) {
@@ -108,7 +119,9 @@ export function spendByCategoryRollup(
   }
   return Array.from(map.entries()).map(([category, v]) => ({
     category,
-    label: CATEGORY_LABELS[category as Category] ?? category,
+    // `catalog.categories[].name` from the database is left alone; this is the
+    // static 20-code mirror in `lib/types.ts`, which the dictionary does cover.
+    label: categoryLabel(category, locale),
     total: v.total,
     count: v.count,
   }));
@@ -303,13 +316,34 @@ function nonNegative(value: number | null | undefined): number {
 }
 
 /**
+ * Render a `YYYY-MM-DD` key the way the rest of the app shows dates:
+ * `15/03/2026` in Vietnamese, `03/15/2026` in English.
+ *
+ * Deliberately does NOT go through `new Date()`: a date-only string parses as
+ * UTC midnight, which `formatDate` then renders as the *previous* day for a
+ * reader west of UTC. The calendar day is sliced out of the string instead —
+ * the same rule as `lib/device-resale.ts::saleDayLabel`, which this replaces
+ * because that helper is Vietnamese-order only.
+ */
+function dayLabel(day: string, locale: Locale): string {
+  const [year, month, date] = day.split('-');
+  return locale === 'vi' ? `${date}/${month}/${year}` : `${month}/${date}/${year}`;
+}
+
+/**
  * Đồng-per-day for one device, or `null` when `purchaseDate` is missing or
  * unreadable (decision 3). Never throws, never returns NaN/Infinity/negative —
  * see the decisions in the file header above.
+ *
+ * `locale` is required and sits before the optional `now`, matching
+ * `formatVND` / `formatDate` in `format.ts`. There is no Vietnamese default:
+ * a default would let the device detail card (a file this change does not own)
+ * keep rendering Vietnamese money into an English page and report nothing.
  */
 export function costPerDay(
   device: CostPerDayDevice,
-  warranties: readonly Warranty[] = [],
+  warranties: readonly Warranty[],
+  locale: Locale,
   now: Date = new Date(),
 ): DeviceCostPerDay | null {
   const fromDay = dayKey(device.purchaseDate);
@@ -351,7 +385,7 @@ export function costPerDay(
 
   return {
     perDay,
-    perDayLabel: `${formatVND(perDay)}/ngày`,
+    perDayLabel: `${formatVND(perDay, locale)}${translate(locale, '/ngày')}`,
     spent,
     net,
     purchasePart,
@@ -360,8 +394,12 @@ export function costPerDay(
     days,
     fromDay,
     toDay,
-    fromDayLabel: saleDayLabel(fromDay),
-    toDayLabel: saleDayLabel(toDay),
+    // Same day the resale block shows, sliced out of the wire string rather
+    // than round-tripped through `new Date()` — a date-only ISO value parses as
+    // UTC midnight, which `formatDate` would render as the PREVIOUS day for
+    // anyone west of UTC. Only the field ORDER follows the language.
+    fromDayLabel: dayLabel(fromDay, locale),
+    toDayLabel: dayLabel(toDay, locale),
     endedBySale: soldDay != null,
     fullyRecovered: net <= 0,
     hasUnrecordedWarrantyCost,
@@ -400,7 +438,7 @@ export type CostPerDayRanking = {
 export function costPerDayRollup(
   devices: readonly DeviceListItem[],
   warrantiesByDevice: Map<string, Warranty[]>,
-  opts: { now?: Date; limit?: number } = {},
+  opts: { now?: Date; limit?: number; locale: Locale },
 ): CostPerDayRanking {
   const limit = opts.limit ?? 5;
   const rows: CostPerDayRankRow[] = [];
@@ -408,7 +446,7 @@ export function costPerDayRollup(
   let noRecordedCost = 0;
 
   for (const d of devices) {
-    const cost = costPerDay(d, warrantiesByDevice.get(d.id) ?? [], opts.now);
+    const cost = costPerDay(d, warrantiesByDevice.get(d.id) ?? [], opts.locale, opts.now);
     if (cost == null) {
       noPurchaseDate += 1;
       continue;

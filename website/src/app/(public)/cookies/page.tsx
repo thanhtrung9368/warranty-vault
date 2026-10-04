@@ -1,47 +1,61 @@
 import type { Metadata } from 'next';
+import { getI18n } from '@/lib/i18n/server';
 
-export const metadata: Metadata = {
-  title: 'Chính sách Cookie — WarrantyVault',
-  description: 'Chính sách sử dụng cookie của WarrantyVault',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('Chính sách Cookie — WarrantyVault'),
+    description: t('Chính sách sử dụng cookie của WarrantyVault'),
+  };
+}
 
 const UPDATED = '05/06/2026';
 
-export default function CookiesPage() {
+// See the note in `privacy/page.tsx`: one paragraph is one key, split only where
+// the original puts inline markup (here: the `wv_session` code chip).
+export default async function CookiesPage() {
+  const { t } = await getI18n();
   return (
     <article className="prose prose-slate max-w-none dark:prose-invert">
-      <h1 className="display text-3xl">Chính sách Cookie</h1>
-      <p className="text-sm text-muted">Cập nhật lần cuối: {UPDATED}</p>
+      <h1 className="display text-3xl">{t('Chính sách Cookie')}</h1>
+      <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
 
       <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
         <p>
-          WarrantyVault dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có
-          cookie quảng cáo hay theo dõi.
+          {t(
+            'WarrantyVault dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.',
+          )}
         </p>
 
         <div>
-          <h3 className="display text-lg">1. Cookie thiết yếu</h3>
+          <h3 className="display text-lg">{t('1. Cookie thiết yếu')}</h3>
           <p className="mt-2">
-            Bọn tao dùng đúng một cookie cho phiên đăng nhập:{' '}
-            <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[13px]">wv_session</code>.
-            Nó được mã hoá, chỉ chứa token phiên và thời hạn — không có thông tin cá nhân đọc được. Tắt
-            cookie này thì không đăng nhập được.
+            {t('Bọn tao dùng đúng một cookie cho phiên đăng nhập:')}{' '}
+            <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[13px]">
+              wv_session
+            </code>
+            .{' '}
+            {t(
+              'Nó được mã hoá, chỉ chứa token phiên và thời hạn — không có thông tin cá nhân đọc được. Tắt cookie này thì không đăng nhập được.',
+            )}
           </p>
         </div>
 
         <div>
-          <h3 className="display text-lg">2. Lưu trữ cục bộ trên máy</h3>
+          <h3 className="display text-lg">{t('2. Lưu trữ cục bộ trên máy')}</h3>
           <p className="mt-2">
-            Một vài tuỳ chọn giao diện (ví dụ chế độ sáng/tối) được lưu trong bộ nhớ cục bộ của trình
-            duyệt (localStorage) trên máy mày, không gửi về máy chủ.
+            {t(
+              'Một vài tuỳ chọn giao diện (ví dụ chế độ sáng/tối) được lưu trong bộ nhớ cục bộ của trình duyệt (localStorage) trên máy mày, không gửi về máy chủ.',
+            )}
           </p>
         </div>
 
         <div>
-          <h3 className="display text-lg">3. Không cookie bên thứ ba</h3>
+          <h3 className="display text-lg">{t('3. Không cookie bên thứ ba')}</h3>
           <p className="mt-2">
-            Không Google Analytics, không pixel mạng xã hội, không cookie quảng cáo hay tracking xuyên
-            trang.
+            {t(
+              'Không Google Analytics, không pixel mạng xã hội, không cookie quảng cáo hay tracking xuyên trang.',
+            )}
           </p>
         </div>
       </div>

@@ -17,11 +17,10 @@ import { WarrantyTimeline } from '@/components/warranty-timeline';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { WarrantyForm } from '@/components/warranty-form';
 import { deleteWarranty } from '@/app/actions/warranties';
-import {
-  WARRANTY_TYPE_LABELS,
-  type WarrantyType,
-} from '@/lib/types';
+import { type WarrantyType } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
+import { warrantyTypeLabel } from '@/lib/i18n/labels';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 
 type WarrantyItem = {
@@ -82,6 +81,8 @@ function WarrantyCard({
   onEdit: () => void;
 }) {
   const [pending, startTransition] = React.useTransition();
+  const t = useT();
+  const locale = useLocale();
   const type = w.type as WarrantyType;
   const mapsHref = w.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(w.address)}`
@@ -97,7 +98,7 @@ function WarrantyCard({
               TYPE_BADGE[type] ?? 'bg-zinc-soft text-ink-2',
             )}
           >
-            {WARRANTY_TYPE_LABELS[type] ?? w.type}
+            {warrantyTypeLabel(type, locale)}
           </span>
           {w.provider && (
             <span className="text-sm font-semibold text-ink">{w.provider}</span>
@@ -110,7 +111,7 @@ function WarrantyCard({
             variant="ghost"
             className="h-8 w-8 rounded-full"
             onClick={onEdit}
-            aria-label="Sửa gói"
+            aria-label={t('Sửa gói')}
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
@@ -119,18 +120,20 @@ function WarrantyCard({
             variant="ghost"
             className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
             disabled={pending}
-            aria-label="Xoá gói"
+            aria-label={t('Xoá gói')}
             onClick={() => {
               if (
                 !confirm(
-                  `Xoá gói bảo hành "${WARRANTY_TYPE_LABELS[type] ?? w.type}"?`,
+                  t('Xoá gói bảo hành "{name}"?', {
+                    name: warrantyTypeLabel(type, locale),
+                  }),
                 )
               )
                 return;
               startTransition(async () => {
                 const res = await deleteWarranty(w.id);
-                if (res?.ok) toast.success('Đã xoá gói bảo hành');
-                else toast.error('Không xoá được');
+                if (res?.ok) toast.success(t('Đã xoá gói bảo hành'));
+                else toast.error(t('Không xoá được'));
               });
             }}
           >
@@ -146,24 +149,25 @@ function WarrantyCard({
       <div className="mt-4">
         <WarrantyTimeline purchaseDate={w.startDate} warrantyEndDate={w.endDate} />
         <p className="mt-2 text-xs text-muted-foreground">
-          {w.months} tháng • {formatDate(w.startDate)} → {formatDate(w.endDate)}
+          {t('{months} tháng', { months: w.months, count: w.months })} •{' '}
+          {formatDate(w.startDate, locale)} → {formatDate(w.endDate, locale)}
         </p>
       </div>
 
       <div className="mt-3 grid gap-x-6 sm:grid-cols-2">
         {w.cost != null && (
-          <InfoLine icon={Wallet} label="Giá gói" value={formatVND(w.cost)} />
+          <InfoLine icon={Wallet} label={t('Giá gói')} value={formatVND(w.cost, locale)} />
         )}
         <InfoLine
           icon={PhoneIcon}
-          label="SĐT"
+          label={t('SĐT')}
           value={w.phone}
           href={w.phone ? `tel:${w.phone}` : undefined}
         />
-        <InfoLine icon={MapPin} label="Địa chỉ" value={w.address} href={mapsHref} />
+        <InfoLine icon={MapPin} label={t('Địa chỉ')} value={w.address} href={mapsHref} />
         {w.notes && (
           <div className="sm:col-span-2">
-            <InfoLine icon={StickyNote} label="Ghi chú" value={w.notes} />
+            <InfoLine icon={StickyNote} label={t('Ghi chú')} value={w.notes} />
           </div>
         )}
       </div>
@@ -182,13 +186,14 @@ export function WarrantyList({
 }) {
   const [adding, setAdding] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const t = useT();
   const canAdd = warranties.length < maxPerDevice;
 
   return (
     <div className="space-y-3">
       {warranties.length === 0 && !adding && (
         <p className="text-sm text-muted-foreground">
-          Chưa có gói bảo hành nào. Bấm “Thêm gói” để tạo.
+          {t('Chưa có gói bảo hành nào. Bấm “Thêm gói” để tạo.')}
         </p>
       )}
 
@@ -199,7 +204,7 @@ export function WarrantyList({
             className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5"
           >
             <h4 className="mb-3 text-sm font-bold text-primary-ink">
-              Sửa gói bảo hành
+              {t('Sửa gói bảo hành')}
             </h4>
             <WarrantyForm
               deviceId={deviceId}
@@ -229,7 +234,7 @@ export function WarrantyList({
       {adding && (
         <div className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5">
           <h4 className="mb-3 text-sm font-bold text-primary-ink">
-            Thêm gói bảo hành
+            {t('Thêm gói bảo hành')}
           </h4>
           <WarrantyForm deviceId={deviceId} onCancel={() => setAdding(false)} />
         </div>
@@ -243,12 +248,12 @@ export function WarrantyList({
           onClick={() => setAdding(true)}
         >
           <Plus className="mr-1 h-4 w-4" />
-          Thêm gói bảo hành
+          {t('Thêm gói bảo hành')}
         </Button>
       )}
       {!canAdd && (
         <p className="text-xs text-muted-foreground">
-          Đã đạt giới hạn {maxPerDevice} gói cho thiết bị này.
+          {t('Đã đạt giới hạn {max} gói cho thiết bị này.', { max: maxPerDevice })}
         </p>
       )}
     </div>

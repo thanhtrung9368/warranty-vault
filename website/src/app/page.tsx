@@ -17,64 +17,93 @@ import {
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { getCurrentUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
+import type { Translator } from '@/lib/i18n/catalog';
 
 export const dynamic = 'force-dynamic';
 
-const FEATURES = [
-  {
-    icon: ShieldCheck,
-    title: 'Theo dõi bảo hành',
-    desc: 'Mỗi thiết bị có thể có nhiều gói bảo hành — gốc, mở rộng, bên thứ 3. Đếm ngược tự động.',
-    tint: 'tint-primary',
-  },
-  {
-    icon: Repeat,
-    title: 'Quản lý gói đăng ký',
-    desc: 'Netflix, iCloud, ChatGPT... theo dõi chu kỳ và ngày gia hạn. Quy ra chi phí mỗi tháng.',
-    tint: 'tint-sky',
-  },
-  {
-    icon: Heart,
-    title: 'Wishlist “đang thèm”',
-    desc: 'Món đang ngắm — đặt ngày mục tiêu, theo dõi giá. Mua xong là thành thiết bị luôn.',
-    tint: 'tint-rose',
-  },
-  {
-    icon: Bell,
-    title: 'Cảnh báo sắp hết',
-    desc: 'Bọn tao nhắc trước qua push notification — cả trên web lẫn app iOS/Android. Khỏi lo bỏ lỡ.',
-    tint: 'tint-amber',
-  },
-  {
-    icon: Receipt,
-    title: 'Lưu hoá đơn & phiếu BH',
-    desc: 'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.',
-    tint: 'tint-emerald',
-  },
-  {
-    icon: BarChart3,
-    title: 'Thống kê chi tiêu',
-    desc: 'Biểu đồ theo tháng, theo loại, top thiết bị đắt nhất. Biết tiền đi đâu.',
-    tint: 'tint-violet',
-  },
-];
+// The three content arrays below carry user-facing copy, so they are built
+// inside the page (and inside `t`) rather than at module scope: a module-level
+// constant cannot see the request's language. Only the icons and tints — which
+// are not copy — would survive out here, so the whole shape moved together.
+function buildFeatures(t: Translator) {
+  return [
+    {
+      icon: ShieldCheck,
+      title: t('Theo dõi bảo hành'),
+      desc: t(
+        'Mỗi thiết bị có thể có nhiều gói bảo hành — gốc, mở rộng, bên thứ 3. Đếm ngược tự động.',
+      ),
+      tint: 'tint-primary',
+    },
+    {
+      icon: Repeat,
+      title: t('Quản lý gói đăng ký'),
+      desc: t(
+        'Netflix, iCloud, ChatGPT... theo dõi chu kỳ và ngày gia hạn. Quy ra chi phí mỗi tháng.',
+      ),
+      tint: 'tint-sky',
+    },
+    {
+      icon: Heart,
+      title: t('Wishlist “đang thèm”'),
+      desc: t(
+        'Món đang ngắm — đặt ngày mục tiêu, theo dõi giá. Mua xong là thành thiết bị luôn.',
+      ),
+      tint: 'tint-rose',
+    },
+    {
+      icon: Bell,
+      title: t('Cảnh báo sắp hết'),
+      desc: t(
+        'Bọn tao nhắc trước qua push notification — cả trên web lẫn app iOS/Android. Khỏi lo bỏ lỡ.',
+      ),
+      tint: 'tint-amber',
+    },
+    {
+      icon: Receipt,
+      title: t('Lưu hoá đơn & phiếu BH'),
+      desc: t(
+        'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.',
+      ),
+      tint: 'tint-emerald',
+    },
+    {
+      icon: BarChart3,
+      title: t('Thống kê chi tiêu'),
+      desc: t('Biểu đồ theo tháng, theo loại, top thiết bị đắt nhất. Biết tiền đi đâu.'),
+      tint: 'tint-violet',
+    },
+  ];
+}
 
-const STEPS = [
-  { n: 1, title: 'Đăng ký miễn phí', desc: 'Email + mật khẩu. 30 giây xong.' },
-  {
-    n: 2,
-    title: 'Thêm thiết bị',
-    desc: 'Laptop, điện thoại, máy giặt... bất cứ thứ gì có bảo hành.',
-  },
-  { n: 3, title: 'Theo dõi tự động', desc: 'Khỏi đụng vào, tao lo phần đếm ngược.' },
-];
+function buildSteps(t: Translator) {
+  return [
+    { n: 1, title: t('Đăng ký miễn phí'), desc: t('Email + mật khẩu. 30 giây xong.') },
+    {
+      n: 2,
+      title: t('Thêm thiết bị'),
+      desc: t('Laptop, điện thoại, máy giặt... bất cứ thứ gì có bảo hành.'),
+    },
+    { n: 3, title: t('Theo dõi tự động'), desc: t('Khỏi đụng vào, tao lo phần đếm ngược.') },
+  ];
+}
 
-const STAT_CARDS = [
-  { l: 'Tổng', v: '10', Icon: Package, tint: 'tint-primary' },
-  { l: 'Còn BH', v: '8', Icon: ShieldCheck, tint: 'tint-emerald' },
-  { l: 'Sắp hết', v: '2', Icon: AlertTriangle, tint: 'tint-amber' },
-  { l: 'Hết', v: '1', Icon: ShieldX, tint: 'tint-zinc' },
-];
+function buildStatCards(t: Translator) {
+  return [
+    { l: t('Tổng'), v: '10', Icon: Package, tint: 'tint-primary' },
+    { l: t('Còn BH'), v: '8', Icon: ShieldCheck, tint: 'tint-emerald' },
+    { l: t('Sắp hết'), v: '2', Icon: AlertTriangle, tint: 'tint-amber' },
+    // `Hết hạn`, not the bare `Hết` this card used to carry. The dictionary is
+    // keyed by the Vietnamese sentence, and `Hết` is already taken by
+    // `warranties.ts` as "Expires" — the end DATE on a warranty timeline, the
+    // opposite sense to this card, which counts devices whose warranty has
+    // already run out. One Vietnamese key cannot carry two English meanings, so
+    // the two-character shorthand gave way to the unambiguous term the Go
+    // catalog already uses for this state ("Đã hết hạn" → "Expired").
+    { l: t('Hết hạn'), v: '1', Icon: ShieldX, tint: 'tint-zinc' },
+  ];
+}
 
 function HeroIllustration() {
   return (
@@ -251,7 +280,12 @@ function HeroIllustration() {
 }
 
 export default async function LandingPage() {
+  const { t } = await getI18n();
   const user = await getCurrentUser();
+
+  const FEATURES = buildFeatures(t);
+  const STEPS = buildSteps(t);
+  const STAT_CARDS = buildStatCards(t);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -274,7 +308,7 @@ export default async function LandingPage() {
             {user ? (
               <Button asChild>
                 <Link href="/dashboard">
-                  Vào app
+                  {t('Vào app')}
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>
@@ -284,10 +318,10 @@ export default async function LandingPage() {
                   href="/login"
                   className="hidden text-sm font-semibold text-ink-2 hover:text-ink sm:inline-flex"
                 >
-                  Đăng nhập
+                  {t('Đăng nhập')}
                 </Link>
                 <Button asChild>
-                  <Link href="/register">Bắt đầu miễn phí</Link>
+                  <Link href="/register">{t('Bắt đầu miễn phí')}</Link>
                 </Button>
               </>
             )}
@@ -302,30 +336,53 @@ export default async function LandingPage() {
             <div>
               <span className="mb-5 inline-flex items-center gap-1.5 rounded-pill border-[1.5px] border-primary-soft-2 bg-primary-soft/70 px-3 py-1 text-xs font-bold text-primary-ink">
                 <Sparkles className="h-3 w-3" />
-                Miễn phí · Local-first · Tiếng Việt
+                {t('Miễn phí · Local-first · Tiếng Việt')}
               </span>
+              {/* One sentence, one key. Both languages happen to put the
+                  warranty words in the same slot, so the gradient highlight is
+                  applied to whichever substring the active language uses — the
+                  sentence itself is never cut in two, which would hand a
+                  translator two fragments whose order they cannot choose. */}
               <h1 className="display text-[clamp(36px,5vw,60px)]">
-                Đừng quên ngày hết{' '}
-                <span
-                  className="bg-clip-text text-transparent"
-                  style={{
-                    backgroundImage:
-                      'linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary-2)))',
-                  }}
-                >
-                  bảo hành
-                </span>{' '}
-                thiết bị của bạn
+                {(() => {
+                  const sentence = t('Đừng quên ngày hết bảo hành thiết bị của bạn');
+                  // `t('bảo hành')` is a deliberate call on an unregistered key:
+                  // it returns "bảo hành" in Vietnamese and the dictionary's
+                  // English word for it in English, which is exactly the
+                  // substring this page wants to highlight. If a future English
+                  // sentence stops containing that word, `at === -1` below just
+                  // renders the whole sentence unhighlighted instead of
+                  // breaking the layout.
+                  const mark = t('bảo hành');
+                  const at = sentence.indexOf(mark);
+                  if (at === -1) return sentence;
+                  return (
+                    <>
+                      {sentence.slice(0, at)}
+                      <span
+                        className="bg-clip-text text-transparent"
+                        style={{
+                          backgroundImage:
+                            'linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary-2)))',
+                        }}
+                      >
+                        {mark}
+                      </span>
+                      {sentence.slice(at + mark.length)}
+                    </>
+                  );
+                })()}
               </h1>
               <p className="mb-7 mt-4 max-w-xl text-[17px] leading-relaxed text-muted">
-                Theo dõi thiết bị, gói đăng ký và những món đang thèm — tất cả ở một chỗ. Nhắc bảo
-                hành sắp hết, lưu hoá đơn, biết tiền chảy đi đâu.
+                {t(
+                  'Theo dõi thiết bị, gói đăng ký và những món đang thèm — tất cả ở một chỗ. Nhắc bảo hành sắp hết, lưu hoá đơn, biết tiền chảy đi đâu.',
+                )}
               </p>
               <div className="mb-6 flex flex-wrap items-center gap-3">
                 {user ? (
                   <Button asChild size="lg">
                     <Link href="/dashboard">
-                      Mở Dashboard
+                      {t('Mở Dashboard')}
                       <ArrowRight className="ml-1 h-4 w-4" />
                     </Link>
                   </Button>
@@ -333,7 +390,7 @@ export default async function LandingPage() {
                   <>
                     <Button asChild size="lg">
                       <Link href="/register">
-                        Tạo tài khoản miễn phí
+                        {t('Tạo tài khoản miễn phí')}
                         <ArrowRight className="ml-1 h-4 w-4" />
                       </Link>
                     </Button>
@@ -341,16 +398,20 @@ export default async function LandingPage() {
                       href="/login"
                       className="text-sm font-semibold text-primary hover:underline"
                     >
-                      Đã có tài khoản → Đăng nhập
+                      {t('Đã có tài khoản → Đăng nhập')}
                     </Link>
                   </>
                 )}
               </div>
               <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted">
-                {['Không cần thẻ tín dụng', 'Không quảng cáo', 'Backup xuất/nhập JSON'].map((t) => (
-                  <li key={t} className="inline-flex items-center gap-1.5">
+                {[
+                  'Không cần thẻ tín dụng',
+                  'Không quảng cáo',
+                  'Backup xuất/nhập JSON',
+                ].map((bullet) => (
+                  <li key={bullet} className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5" style={{ color: 'hsl(var(--emerald))' }} />
-                    {t}
+                    {t(bullet)}
                   </li>
                 ))}
               </ul>
@@ -403,10 +464,10 @@ export default async function LandingPage() {
         <section className="px-4 py-24 md:px-8">
           <div className="mx-auto max-w-5xl">
             <div className="mb-10 text-center">
-              <span className="eyebrow">Tính năng</span>
-              <h2 className="display mt-2 text-4xl">Tất cả những gì mày cần</h2>
+              <span className="eyebrow">{t('Tính năng')}</span>
+              <h2 className="display mt-2 text-4xl">{t('Tất cả những gì mày cần')}</h2>
               <p className="mx-auto mt-3 max-w-lg text-muted">
-                Không spam tính năng, không tracking. Chỉ những thứ thực sự hữu ích.
+                {t('Không spam tính năng, không tracking. Chỉ những thứ thực sự hữu ích.')}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -437,8 +498,8 @@ export default async function LandingPage() {
         <section className="px-4 py-14 md:px-8">
           <div className="mx-auto max-w-5xl">
             <div className="mb-10 text-center">
-              <span className="eyebrow">Bắt đầu</span>
-              <h2 className="display mt-2 text-3xl">3 bước để bắt đầu</h2>
+              <span className="eyebrow">{t('Bắt đầu như thế nào')}</span>
+              <h2 className="display mt-2 text-3xl">{t('3 bước để bắt đầu')}</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {STEPS.map((s) => (
@@ -470,14 +531,16 @@ export default async function LandingPage() {
               <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[18px] bg-ink text-background">
                 <Vault className="h-8 w-8" />
               </div>
-              <h2 className="display text-3xl text-primary-ink">Sẵn sàng quản lý thiết bị?</h2>
+              <h2 className="display text-3xl text-primary-ink">
+                {t('Sẵn sàng quản lý thiết bị?')}
+              </h2>
               <p className="mt-2 text-primary-ink/80">
-                Free mãi mãi. Không cần thẻ. Không quảng cáo.
+                {t('Free mãi mãi. Không cần thẻ. Không quảng cáo.')}
               </p>
               <div className="mt-6 flex justify-center">
                 <Button asChild size="lg">
                   <Link href={user ? '/dashboard' : '/register'}>
-                    {user ? 'Mở Dashboard' : 'Tạo tài khoản miễn phí'}
+                    {user ? t('Mở Dashboard') : t('Tạo tài khoản miễn phí')}
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
@@ -497,8 +560,12 @@ export default async function LandingPage() {
                 WarrantyVault
               </span>
             </Link>
+            {/* The year is interpolated rather than concatenated, so the
+                sentence stays one translatable key. */}
             <div className="text-[13px] text-muted">
-              © {new Date().getFullYear()} WarrantyVault. Made with ♥ in Vietnam.
+              {t('© {year} WarrantyVault. Made with ♥ in Vietnam.', {
+                year: new Date().getFullYear(),
+              })}
             </div>
             <div className="flex items-center gap-4 text-[13px]">
               <Link href="/privacy" className="text-muted hover:text-ink">
@@ -511,7 +578,7 @@ export default async function LandingPage() {
                 Cookies
               </Link>
               <Link href="/login" className="font-semibold text-primary hover:underline">
-                Đăng nhập
+                {t('Đăng nhập')}
               </Link>
             </div>
           </div>

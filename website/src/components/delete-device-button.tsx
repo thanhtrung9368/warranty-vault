@@ -14,8 +14,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { deleteDevice } from '@/app/actions/devices';
+import { useT } from '@/lib/i18n/client';
 
 export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
+  const t = useT();
   const [open, setOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
 
@@ -28,15 +30,17 @@ export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
           className="rounded-pill border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
           <Trash2 className="mr-1 h-4 w-4" />
-          Xoá
+          {t('Xoá')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Xóa thiết bị?</DialogTitle>
+          <DialogTitle>{t('Xóa thiết bị?')}</DialogTitle>
           <DialogDescription>
-            Hành động này sẽ xóa vĩnh viễn <span className="font-medium">{name}</span> cùng toàn bộ
-            file đính kèm và nhắc nhở. Không thể khôi phục.
+            {t(
+              'Hành động này sẽ xóa vĩnh viễn {name} cùng toàn bộ file đính kèm và nhắc nhở. Không thể khôi phục.',
+              { name },
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -46,7 +50,7 @@ export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
             onClick={() => setOpen(false)}
             disabled={pending}
           >
-            Hủy
+            {t('Huỷ')}
           </Button>
           <Button
             variant="destructive"
@@ -56,15 +60,15 @@ export function DeleteDeviceButton({ id, name }: { id: string; name: string }) {
               startTransition(async () => {
                 try {
                   await deleteDevice(id);
-                  toast.success('Đã xoá thiết bị');
+                  toast.success(t('Đã xoá thiết bị'));
                 } catch {
-                  toast.error('Không xoá được, thử lại sau');
+                  toast.error(t('Không xoá được, thử lại sau'));
                 }
               })
             }
           >
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-            Xoá vĩnh viễn
+            {t('Xoá vĩnh viễn')}
           </Button>
         </DialogFooter>
       </DialogContent>

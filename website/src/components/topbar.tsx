@@ -5,8 +5,10 @@ import { GlobalSearch } from '@/components/global-search';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserMenu } from '@/components/user-menu';
 import type { CurrentUser } from '@/lib/auth';
+import { getI18n } from '@/lib/i18n/server';
 
-export function Topbar({ user }: { user: CurrentUser }) {
+export async function Topbar({ user }: { user: CurrentUser }) {
+  const { t } = await getI18n();
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-card/85 px-4 backdrop-blur md:gap-3 md:px-8">
       {/* Mobile brand. The wordmark is `sm:`-only so the search box (and the
@@ -34,7 +36,7 @@ export function Topbar({ user }: { user: CurrentUser }) {
         >
           <Link href="/devices/new">
             <Plus className="mr-1 h-4 w-4" />
-            Thêm thiết bị
+            {t('Thêm thiết bị')}
           </Link>
         </Button>
         <ThemeToggle />

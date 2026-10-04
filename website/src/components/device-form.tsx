@@ -32,13 +32,11 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import {
-  CATEGORY_LABELS,
-  STATUSES,
-  STATUS_LABELS,
-  type Status,
-} from '@/lib/types';
+import { CATEGORY_LABELS, STATUSES, type Status } from '@/lib/types';
 import { formatNumber, parseVNDInput, formatVND, formatDate } from '@/lib/format';
+import type { Locale } from '@/lib/i18n/locale';
+import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
+import { useLocale, useT } from '@/lib/i18n/client';
 import {
   SALE_FIELD_MESSAGES,
   saleDayLabel,
@@ -65,6 +63,7 @@ import type {
   StoreOption,
   WarrantyProviderOption,
 } from '@/app/actions/catalog';
+import type { Translator } from '@/lib/i18n/catalog';
 import { cn } from '@/lib/utils';
 
 type Initial = {
@@ -102,6 +101,9 @@ type Catalog = {
 };
 
 // Maps a server-side field key (from Zod errors) to label, focus id, and step.
+// The label is the Vietnamese original — it is translated where it is shown
+// (`t(FIELD_META[key].label)`), which keeps the focus id and step lookup free of
+// any locale.
 const FIELD_META: Record<string, { label: string; focusId: string; step: number }> = {
   name: { label: 'Tên thiết bị', focusId: 'name', step: 0 },
   category: { label: 'Loại thiết bị', focusId: 'category', step: 0 },
@@ -113,17 +115,17 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
 };
 
 // Toast copy for a field the client itself rejected. The sale pair reuses the
-// server's exact Vietnamese wording so the pre-flight check and a round-trip
+// server's exact wording (translated) so the pre-flight check and a round-trip
 // rejection read identically; other fields keep the existing "Vui lòng nhập"
 // phrasing.
-function fieldMessage(key: string): string {
-  return (
-    SALE_FIELD_MESSAGES[key as keyof typeof SALE_FIELD_MESSAGES] ??
-    `Vui lòng nhập: ${FIELD_META[key]?.label ?? key}`
-  );
+function fieldMessage(key: string, t: Translator): string {
+  const fromServer = SALE_FIELD_MESSAGES[key as keyof typeof SALE_FIELD_MESSAGES];
+  if (fromServer) return t(fromServer);
+  return t('Vui lòng nhập: {field}', { field: t(FIELD_META[key]?.label ?? key) });
 }
 
-// Vietnamese labels for draft fields the OCR could not map to the catalog.
+// Labels for draft fields the OCR could not map to the catalog. The values are
+// Vietnamese originals; `translate` renders them in the active language.
 const UNMATCHED_LABELS: Record<string, string> = {
   brand: 'Hãng',
   purchasePlace: 'Nơi mua',
@@ -175,10 +177,12 @@ function SubmitButton({ label }: { label: string }) {
 function MoneyInput({
   value,
   onChange,
+  locale,
   name = 'purchasePrice',
 }: {
   value: string;
   onChange: (v: string) => void;
+  locale: Locale;
   name?: string;
 }) {
   return (
@@ -188,7 +192,7 @@ function MoneyInput({
         value={value}
         onChange={(e) => {
           const n = parseVNDInput(e.target.value);
-          onChange(n ? formatNumber(n) : '');
+          onChange(n ? formatNumber(n, locale) : '');
         }}
         placeholder="0"
         className="pr-10"
@@ -209,9 +213,11 @@ function MoneyInput({
 function SalePriceInput({
   value,
   onChange,
+  locale,
 }: {
   value: string;
   onChange: (v: string) => void;
+  locale: Locale;
 }) {
   return (
     <div className="relative">
@@ -222,7 +228,7 @@ function SalePriceInput({
         onChange={(e) => {
           const raw = e.target.value;
           const digits = raw.replace(/[^\d]/g, '');
-          onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw)));
+          onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw), locale));
         }}
         placeholder="0"
         className="pr-10"
@@ -240,6 +246,7 @@ function SalePriceInput({
 }
 
 function Stepper({ current }: { current: number }) {
+  const t = useT();
   return (
     <div className="stepper w-full">
       {STEPS.map((s, i) => {
@@ -252,7 +259,7 @@ function Stepper({ current }: { current: number }) {
                 {state === 'done' ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </span>
               <span className="stepper-label hidden truncate sm:inline">
-                {s.label}
+                {t(s.label)}
               </span>
             </div>
             {i < STEPS.length - 1 && <span className="stepper-line" />}
@@ -274,6 +281,8 @@ export function DeviceForm({
   fromWishlistId?: string;
   aiEnabled?: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const isEdit = Boolean(initial?.id);
   const action = isEdit ? updateDevice.bind(null, initial!.id!) : createDevice;
 
@@ -299,7 +308,7 @@ export function DeviceForm({
       : format(new Date(), 'yyyy-MM-dd'),
   );
   const [purchasePriceDisplay, setPurchasePriceDisplay] = React.useState<string>(
-    initial?.purchasePrice ? formatNumber(initial.purchasePrice) : '',
+    initial?.purchasePrice ? formatNumber(initial.purchasePrice, locale) : '',
   );
   const [purchasePlace, setPurchasePlace] = React.useState<string>(
     initial?.purchasePlace ?? '',
@@ -335,11 +344,15 @@ export function DeviceForm({
     soldAtToInputValue(initial?.soldAt),
   );
   const [soldPriceDisplay, setSoldPriceDisplay] = React.useState<string>(
-    initial?.soldPrice != null ? formatNumber(initial.soldPrice) : '',
+    initial?.soldPrice != null ? formatNumber(initial.soldPrice, locale) : '',
   );
 
   const saleSoldPrice = sold ? soldPriceFromInput(soldPriceDisplay) : null;
-  const profitLoss = saleProfitLoss(parseVNDInput(purchasePriceDisplay), saleSoldPrice);
+  const profitLoss = saleProfitLoss(
+    parseVNDInput(purchasePriceDisplay),
+    saleSoldPrice,
+    locale,
+  );
 
   // ─── OCR receipt scan (create flow only) ────────────────────────────────
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -376,12 +389,12 @@ export function DeviceForm({
       if (d.serialNumber) setSerialNumber(d.serialNumber);
       if (d.purchaseDate) setPurchaseDate(d.purchaseDate);
       if (typeof d.purchasePrice === 'number') {
-        setPurchasePriceDisplay(formatNumber(d.purchasePrice));
+        setPurchasePriceDisplay(formatNumber(d.purchasePrice, locale));
       }
       if (d.purchasePlace) setPurchasePlace(d.purchasePlace);
       if (typeof d.warrantyMonths === 'number') setWarrantyMonths(d.warrantyMonths);
     },
-    [catalog.categories],
+    [catalog.categories, locale],
   );
 
   const handleScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,9 +419,9 @@ export function DeviceForm({
         serial: res.draft.serialNumber ?? null,
       });
       setStep(0);
-      toast.success('Đã điền nháp từ hoá đơn — kiểm tra lại trước khi lưu nhé');
+      toast.success(t('Đã điền nháp từ hoá đơn — kiểm tra lại trước khi lưu nhé'));
     } catch {
-      toast.error('Không quét được hoá đơn, thử lại sau');
+      toast.error(t('Không quét được hoá đơn, thử lại sau'));
     } finally {
       setScanning(false);
     }
@@ -424,8 +437,8 @@ export function DeviceForm({
     const errs = state?.errors;
     if (errs && Object.keys(errs).length > 0) {
       const keys = Object.keys(errs);
-      const labels = keys.map((k) => FIELD_META[k]?.label ?? k);
-      toast.error('Vui lòng kiểm tra: ' + labels.join(', '));
+      const labels = keys.map((k) => t(FIELD_META[k]?.label ?? k));
+      toast.error(t('Vui lòng kiểm tra: {fields}', { fields: labels.join(', ') }));
       // Jump to the step that owns the first failing field, then focus it.
       // The setState here syncs UI to a server-action result, not local state.
       const firstStep = FIELD_META[keys[0]]?.step ?? 0;
@@ -435,7 +448,9 @@ export function DeviceForm({
     } else if (state?.ok === false && state.message) {
       toast.error(state.message);
     }
-  }, [state]);
+    // `t` is in the list because the toast is copy: switching language while an
+    // error is on screen has to re-render it in the new one.
+  }, [state, t]);
 
   // ─── Catalog-driven options ─────────────────────────────────────────────
   const brandOptions: ComboboxOption[] = React.useMemo(() => {
@@ -450,20 +465,25 @@ export function DeviceForm({
     });
     return [
       ...inCat.map(toOpt),
-      ...others.map((b) => ({ value: b.name, label: b.name, hint: 'khác loại' })),
+      ...others.map((b) => ({ value: b.name, label: b.name, hint: t('khác loại') })),
     ];
-  }, [catalog.brands, category]);
+    // `t` is in the list because the "khác loại" hint is translated copy.
+  }, [catalog.brands, category, t]);
 
+  // The picker's labels are the DATABASE names (seeded Vietnamese by migration
+  // 0004 and mirrored in `CATEGORY_LABELS`). `t()` maps the 20 known names to
+  // English and passes an admin-added one through untouched — the same rule the
+  // filter bar follows, so the two pickers can never disagree.
   const categoryOptions: ComboboxOption[] = catalog.categories.map((c) => ({
     value: c.code,
-    label: c.name,
+    label: t(c.name),
   }));
 
   const storeOptions: ComboboxOption[] = catalog.stores.map((s) => ({
     value: s.name,
     label: s.name,
     hint:
-      s.type === 'ONLINE' ? 'online' : s.type === 'OFFLINE' ? 'cửa hàng' : undefined,
+      s.type === 'ONLINE' ? 'online' : s.type === 'OFFLINE' ? t('cửa hàng') : undefined,
   }));
 
   const providerOptions: ComboboxOption[] = catalog.warrantyProviders.map((p) => ({
@@ -511,7 +531,11 @@ export function DeviceForm({
       // toggled-on-but-empty) sale is caught before the round-trip. Whatever
       // the server still rejects (e.g. an unparseable date) comes back through
       // `errors.soldAt` / `errors.soldPrice` and renders under the field.
-      const saleErrors = validateSaleToggled({ soldAt, soldPrice: saleSoldPrice }, sold);
+      const saleErrors = validateSaleToggled(
+        { soldAt, soldPrice: saleSoldPrice },
+        sold,
+        locale,
+      );
       if (saleErrors.soldAt) return 'soldAt';
       if (saleErrors.soldPrice) return 'soldPrice';
     }
@@ -521,7 +545,7 @@ export function DeviceForm({
   const goNext = () => {
     const bad = validateStep(step);
     if (bad) {
-      toast.error(fieldMessage(bad));
+      toast.error(fieldMessage(bad, t));
       focusField(bad);
       return;
     }
@@ -559,7 +583,7 @@ export function DeviceForm({
       if (bad) {
         e.preventDefault();
         setStep(i);
-        toast.error(fieldMessage(bad));
+        toast.error(fieldMessage(bad, t));
         setTimeout(() => focusField(bad), 0);
         return;
       }
@@ -567,8 +591,7 @@ export function DeviceForm({
   };
 
   // ─── Render helpers ─────────────────────────────────────────────────────
-  const categoryLabel =
-    CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? category;
+  const categoryName = categoryLabel(category, locale);
 
   // All steps share the same form, just toggle visibility per step.
   // This keeps every field mounted so its hidden input ships with submit.
@@ -588,7 +611,8 @@ export function DeviceForm({
       <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 md:p-8">
         <Stepper current={step} />
         <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Bước {step + 1}/{STEPS.length} · {STEPS[step].hint}
+          {t('Bước {step}/{total}', { step: step + 1, total: STEPS.length })} ·{' '}
+          {t(STEPS[step].hint)}
         </p>
         <hr className="my-6 border-border" />
 
@@ -622,11 +646,12 @@ export function DeviceForm({
                 )}
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-foreground">
-                    {scanning ? 'Đang quét hoá đơn…' : 'Quét hoá đơn / phiếu bảo hành'}
+                    {scanning ? t('Đang quét hoá đơn…') : t('Quét hoá đơn / phiếu bảo hành')}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    Chụp hoặc chọn ảnh (JPEG/PNG/WEBP) hoặc file PDF hoá đơn để tự điền thông tin —
-                    bạn vẫn kiểm tra lại trước khi lưu
+                    {t(
+                      'Chụp hoặc chọn ảnh (JPEG/PNG/WEBP) hoặc file PDF hoá đơn để tự điền thông tin — bạn vẫn kiểm tra lại trước khi lưu',
+                    )}
                   </span>
                 </span>
               </button>
@@ -637,14 +662,15 @@ export function DeviceForm({
                     <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                     <div className="space-y-0.5">
                       <p className="font-medium text-foreground">
-                        Đã điền nháp từ hoá đơn
-                        {scanInfo.confidence !== 'high' && ' (độ tin cậy chưa cao — kiểm tra kỹ)'}
+                        {t('Đã điền nháp từ hoá đơn')}
+                        {scanInfo.confidence !== 'high' &&
+                          t(' (độ tin cậy chưa cao — kiểm tra kỹ)')}
                       </p>
                       {scanInfo.unmatched.length > 0 && (
                         <p className="text-muted-foreground">
-                          Cần xem lại:{' '}
+                          {t('Cần xem lại:')}{' '}
                           {scanInfo.unmatched
-                            .map((k) => UNMATCHED_LABELS[k] ?? k)
+                            .map((k) => t(UNMATCHED_LABELS[k] ?? k))
                             .join(', ')}
                         </p>
                       )}
@@ -659,12 +685,12 @@ export function DeviceForm({
                     <div className="rounded-lg border-[1.5px] border-amber-200 bg-amber-soft px-3 py-2 text-amber-ink dark:border-amber-900">
                       <p className="flex items-center gap-1.5 font-semibold">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        Vẫn dùng được, nhưng nên kiểm tra lại
+                        {t('Vẫn dùng được, nhưng nên kiểm tra lại')}
                       </p>
                       <ul className="mt-1 space-y-1">
                         {scanInfo.warnings.map((w, i) => (
                           <li key={`${w.code}-${i}`}>
-                            <span className="font-medium">{deviceWarningTitle(w.code)}: </span>
+                            <span className="font-medium">{deviceWarningTitle(w.code, locale)}: </span>
                             {w.message}
                           </li>
                         ))}
@@ -678,7 +704,7 @@ export function DeviceForm({
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="name">
-              Tên thiết bị <span className="text-destructive">*</span>
+              {t('Tên thiết bị')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="name"
@@ -693,7 +719,7 @@ export function DeviceForm({
 
           <div className="space-y-2">
             <Label htmlFor="category">
-              Loại <span className="text-destructive">*</span>
+              {t('Loại')} <span className="text-destructive">*</span>
             </Label>
             <Combobox
               triggerId="category"
@@ -702,8 +728,8 @@ export function DeviceForm({
               onValueChange={(v) =>
                 setCategory(v || catalog.categories[0]?.code || 'OTHER')
               }
-              placeholder="Chọn loại"
-              searchPlaceholder="Tìm loại..."
+              placeholder={t('Chọn loại')}
+              searchPlaceholder={t('Tìm loại...')}
               clearable={false}
             />
             <input type="hidden" name="category" value={category} />
@@ -711,16 +737,16 @@ export function DeviceForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="brand">Hãng</Label>
+            <Label htmlFor="brand">{t('Hãng')}</Label>
             <Combobox
               triggerId="brand"
               options={brandOptions}
               value={brand}
               onValueChange={setBrand}
               placeholder="Apple, Samsung, ..."
-              searchPlaceholder="Tìm hãng..."
+              searchPlaceholder={t('Tìm hãng...')}
               allowCustom
-              customLabel={(v) => `Dùng hãng "${v}"`}
+              customLabel={(v) => t('Dùng hãng "{value}"', { value: v })}
             />
             <input type="hidden" name="brand" value={brand} />
           </div>
@@ -743,7 +769,7 @@ export function DeviceForm({
               name="serialNumber"
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
-              placeholder="Không bắt buộc"
+              placeholder={t('Không bắt buộc')}
               className={serialWarning ? 'border-amber-400 dark:border-amber-700' : undefined}
               aria-describedby={serialWarning ? 'serialNumber-warning' : undefined}
             />
@@ -755,8 +781,9 @@ export function DeviceForm({
                 className="flex items-start gap-1.5 text-xs font-medium text-amber-ink"
               >
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {deviceWarningTitle(serialWarning.code)} — vẫn lưu được, xem chi tiết ở khung quét
-                phía trên.
+                {t('{title} — vẫn lưu được, xem chi tiết ở khung quét phía trên.', {
+                  title: deviceWarningTitle(serialWarning.code, locale),
+                })}
               </p>
             )}
           </div>
@@ -766,7 +793,7 @@ export function DeviceForm({
         <div className={cn('grid gap-4 md:grid-cols-2', stepCls(1))}>
           <div className="space-y-2">
             <Label htmlFor="purchaseDate">
-              Ngày mua <span className="text-destructive">*</span>
+              {t('Ngày mua')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="purchaseDate"
@@ -780,24 +807,25 @@ export function DeviceForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="purchasePrice">Giá mua (VND)</Label>
+            <Label htmlFor="purchasePrice">{t('Giá mua (VND)')}</Label>
             <MoneyInput
               value={purchasePriceDisplay}
               onChange={setPurchasePriceDisplay}
+              locale={locale}
             />
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="purchasePlace">Nơi mua</Label>
+            <Label htmlFor="purchasePlace">{t('Nơi mua')}</Label>
             <Combobox
               triggerId="purchasePlace"
               options={storeOptions}
               value={purchasePlace}
               onValueChange={setPurchasePlace}
               placeholder="vd: FPT Shop, Tiki, ..."
-              searchPlaceholder="Tìm cửa hàng..."
+              searchPlaceholder={t('Tìm cửa hàng...')}
               allowCustom
-              customLabel={(v) => `Dùng nơi mua "${v}"`}
+              customLabel={(v) => t('Dùng nơi mua "{value}"', { value: v })}
             />
             <input type="hidden" name="purchasePlace" value={purchasePlace} />
           </div>
@@ -806,12 +834,13 @@ export function DeviceForm({
         {/* ───── Step 3 — Bảo hành ───── */}
         <div className={cn('space-y-4', stepCls(2))}>
           <p className="text-sm text-muted-foreground">
-            Đây là gói bảo hành tiêu chuẩn khi tạo thiết bị. Có thể thêm gói khác
-            (AppleCare+, FPT Care...) sau khi tạo.
+            {t(
+              'Đây là gói bảo hành tiêu chuẩn khi tạo thiết bị. Có thể thêm gói khác (AppleCare+, FPT Care...) sau khi tạo.',
+            )}
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="warrantyMonths">Số tháng bảo hành</Label>
+              <Label htmlFor="warrantyMonths">{t('Số tháng bảo hành')}</Label>
               <Input
                 id="warrantyMonths"
                 name="warrantyMonths"
@@ -822,22 +851,22 @@ export function DeviceForm({
               />
               <FieldError errors={errors.warrantyMonths} />
               <p className="text-xs text-muted-foreground">
-                Ngày hết = ngày mua + số tháng. Để 0 nếu không có.
+                {t('Ngày hết = ngày mua + số tháng. Để 0 nếu không có.')}
               </p>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="warrantyProvider">Đơn vị bảo hành</Label>
+                <Label htmlFor="warrantyProvider">{t('Đơn vị bảo hành')}</Label>
                 {selectedTemplate ? (
                   <button
                     type="button"
                     onClick={() => applyProviderTemplate(warrantyProvider, true)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-                    title="Ghi đè SĐT/địa chỉ/ghi chú từ template"
+                    title={t('Ghi đè SĐT/địa chỉ/ghi chú từ template')}
                   >
                     <RotateCcw className="h-3 w-3" />
-                    Khôi phục từ template
+                    {t('Khôi phục từ template')}
                   </button>
                 ) : null}
               </div>
@@ -846,10 +875,10 @@ export function DeviceForm({
                 options={providerOptions}
                 value={warrantyProvider}
                 onValueChange={handleProviderChange}
-                placeholder="vd: Apple Việt Nam"
-                searchPlaceholder="Tìm đơn vị bảo hành..."
+                placeholder={t('vd: Apple Việt Nam')}
+                searchPlaceholder={t('Tìm đơn vị bảo hành...')}
                 allowCustom
-                customLabel={(v) => `Dùng đơn vị "${v}"`}
+                customLabel={(v) => t('Dùng đơn vị "{value}"', { value: v })}
               />
               <input
                 type="hidden"
@@ -872,7 +901,7 @@ export function DeviceForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="warrantyPhone">SĐT bảo hành</Label>
+              <Label htmlFor="warrantyPhone">{t('SĐT bảo hành')}</Label>
               <Input
                 id="warrantyPhone"
                 name="warrantyPhone"
@@ -884,24 +913,24 @@ export function DeviceForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="warrantyAddress">Địa chỉ trung tâm BH</Label>
+              <Label htmlFor="warrantyAddress">{t('Địa chỉ trung tâm BH')}</Label>
               <Input
                 id="warrantyAddress"
                 name="warrantyAddress"
                 value={warrantyAddress}
                 onChange={(e) => setWarrantyAddress(e.target.value)}
-                placeholder="vd: 123 Nguyễn Trãi, Q.1"
+                placeholder={t('vd: 123 Nguyễn Trãi, Q.1')}
               />
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="warrantyNotes">Ghi chú bảo hành</Label>
+              <Label htmlFor="warrantyNotes">{t('Ghi chú bảo hành')}</Label>
               <Textarea
                 id="warrantyNotes"
                 name="warrantyNotes"
                 value={warrantyNotes}
                 onChange={(e) => setWarrantyNotes(e.target.value)}
-                placeholder="Điều kiện, lưu ý khi đi bảo hành..."
+                placeholder={t('Điều kiện, lưu ý khi đi bảo hành...')}
                 rows={3}
               />
             </div>
@@ -912,7 +941,7 @@ export function DeviceForm({
         <div className={cn('space-y-5', stepCls(3))}>
           {isEdit && (
             <div className="space-y-2 md:max-w-xs">
-              <Label htmlFor="status">Trạng thái</Label>
+              <Label htmlFor="status">{t('Trạng thái')}</Label>
               <Select
                 name="status"
                 value={status}
@@ -924,7 +953,7 @@ export function DeviceForm({
                 <SelectContent>
                   {STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {STATUS_LABELS[s]}
+                      {statusLabel(s, locale)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -933,13 +962,13 @@ export function DeviceForm({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Ghi chú</Label>
+            <Label htmlFor="notes">{t('Ghi chú')}</Label>
             <Textarea
               id="notes"
               name="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ghi chú tự do về thiết bị..."
+              placeholder={t('Ghi chú tự do về thiết bị...')}
               rows={4}
             />
           </div>
@@ -955,9 +984,11 @@ export function DeviceForm({
                   <HandCoins className="h-4 w-4" />
                 </span>
                 <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-ink">Bán lại</p>
+                  <p className="text-sm font-semibold text-ink">{t('Bán lại')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán.
+                    {t(
+                      'Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán.',
+                    )}
                   </p>
                 </div>
               </div>
@@ -967,7 +998,7 @@ export function DeviceForm({
                 className="rounded-pill"
                 onClick={() => setSold((v) => !v)}
               >
-                {sold ? 'Bỏ ghi nhận' : 'Ghi nhận đã bán'}
+                {sold ? t('Bỏ ghi nhận') : t('Ghi nhận đã bán')}
               </Button>
             </div>
 
@@ -976,7 +1007,7 @@ export function DeviceForm({
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="soldAt">
-                      Ngày bán <span className="text-destructive">*</span>
+                      {t('Ngày bán')} <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="soldAt"
@@ -990,15 +1021,16 @@ export function DeviceForm({
 
                   <div className="space-y-2">
                     <Label htmlFor="soldPrice">
-                      Giá bán (VND) <span className="text-destructive">*</span>
+                      {t('Giá bán (VND)')} <span className="text-destructive">*</span>
                     </Label>
                     <SalePriceInput
                       value={soldPriceDisplay}
                       onChange={setSoldPriceDisplay}
+                      locale={locale}
                     />
                     <FieldError errors={errors.soldPrice} />
                     <p className="text-xs text-muted-foreground">
-                      Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán.
+                      {t('Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán.')}
                     </p>
                   </div>
                 </div>
@@ -1019,7 +1051,9 @@ export function DeviceForm({
                     )}
                     {profitLoss.label}
                     <span className="font-normal opacity-80">
-                      so với giá mua {formatVND(parseVNDInput(purchasePriceDisplay))}
+                      {t('so với giá mua {amount}', {
+                        amount: formatVND(parseVNDInput(purchasePriceDisplay), locale),
+                      })}
                     </span>
                   </p>
                 )}
@@ -1029,23 +1063,23 @@ export function DeviceForm({
 
           {/* Summary card — quick review before saving */}
           <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
-            <p className="eyebrow mb-3">Kiểm tra lại</p>
+            <p className="eyebrow mb-3">{t('Kiểm tra lại')}</p>
             <div className="grid gap-x-6 sm:grid-cols-2">
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Tên</p>
+                  <p className="info-row-label">{t('Tên')}</p>
                   <p className="info-row-value text-sm">{name || '—'}</p>
                 </div>
               </div>
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Loại</p>
-                  <p className="info-row-value text-sm">{categoryLabel}</p>
+                  <p className="info-row-label">{t('Loại')}</p>
+                  <p className="info-row-value text-sm">{categoryName}</p>
                 </div>
               </div>
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Hãng / Model</p>
+                  <p className="info-row-label">{t('Hãng / Model')}</p>
                   <p className="info-row-value text-sm">
                     {[brand, model].filter(Boolean).join(' • ') || '—'}
                   </p>
@@ -1053,45 +1087,50 @@ export function DeviceForm({
               </div>
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Ngày mua</p>
+                  <p className="info-row-label">{t('Ngày mua')}</p>
                   <p className="info-row-value text-sm">
-                    {purchaseDate ? formatDate(purchaseDate) : '—'}
+                    {purchaseDate ? formatDate(purchaseDate, locale) : '—'}
                   </p>
                 </div>
               </div>
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Giá</p>
+                  <p className="info-row-label">{t('Giá')}</p>
                   <p className="info-row-value text-sm tabular-nums">
                     {purchasePriceDisplay
-                      ? formatVND(parseVNDInput(purchasePriceDisplay) || 0)
+                      ? formatVND(parseVNDInput(purchasePriceDisplay) || 0, locale)
                       : '—'}
                   </p>
                 </div>
               </div>
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Bảo hành</p>
+                  <p className="info-row-label">{t('Bảo hành')}</p>
                   <p className="info-row-value text-sm">
                     {warrantyMonths > 0
-                      ? `${warrantyMonths} tháng${warrantyProvider ? ' · ' + warrantyProvider : ''}`
-                      : 'Không'}
+                      ? t('Bảo hành {value}', {
+                          value: `${t('{months} tháng', {
+                            months: warrantyMonths,
+                            count: warrantyMonths,
+                          })}${warrantyProvider ? ' · ' + warrantyProvider : ''}`,
+                        })
+                      : t('Không')}
                   </p>
                 </div>
               </div>
               <div className="info-row">
                 <div className="min-w-0 flex-1">
-                  <p className="info-row-label">Bán lại</p>
+                  <p className="info-row-label">{t('Bán lại')}</p>
                   <p className="info-row-value text-sm">
                     {sold
                       ? [
-                          soldAt ? saleDayLabel(soldAt) : '—',
-                          saleSoldPrice != null ? formatVND(saleSoldPrice) : '—',
+                          soldAt ? saleDayLabel(soldAt, locale) : '—',
+                          saleSoldPrice != null ? formatVND(saleSoldPrice, locale) : '—',
                           profitLoss?.label,
                         ]
                           .filter(Boolean)
                           .join(' · ')
-                      : 'Chưa bán'}
+                      : t('Chưa bán')}
                   </p>
                 </div>
               </div>
@@ -1110,7 +1149,7 @@ export function DeviceForm({
                 onClick={goPrev}
               >
                 <ArrowLeft className="mr-1 h-4 w-4" />
-                Quay lại
+                {t('Quay lại')}
               </Button>
             )}
             {!isEdit && (
@@ -1121,7 +1160,7 @@ export function DeviceForm({
                 onClick={resetAll}
               >
                 <RotateCcw className="mr-1 h-4 w-4" />
-                Đặt lại
+                {t('Đặt lại')}
               </Button>
             )}
           </div>
@@ -1135,17 +1174,17 @@ export function DeviceForm({
                 className="rounded-pill"
                 onClick={goNext}
               >
-                Tiếp tục
+                {t('Tiếp tục')}
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
               <>
                 <Button type="button" variant="outline" asChild className="rounded-pill">
                   <Link href={isEdit ? `/devices/${initial!.id}` : '/devices'}>
-                    Huỷ
+                    {t('Huỷ')}
                   </Link>
                 </Button>
-                <SubmitButton label={isEdit ? 'Lưu thay đổi' : 'Lưu thiết bị'} />
+                <SubmitButton label={isEdit ? t('Lưu thay đổi') : t('Lưu thiết bị')} />
               </>
             )}
           </div>

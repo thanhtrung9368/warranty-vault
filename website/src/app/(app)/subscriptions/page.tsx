@@ -8,12 +8,13 @@ import { SubscriptionAuditPanel } from '@/components/subscription-audit-panel';
 import { api } from '@/lib/api';
 import type { Subscription } from '@/lib/api/subscriptions';
 import { getCategories } from '@/app/actions/catalog';
-import { categoryLabel } from '@/lib/types';
+import { translate } from '@/lib/i18n/catalog';
+import { billingCycleLabel, categoryLabel, subscriptionStatusLabel } from '@/lib/i18n/labels';
+import type { Locale } from '@/lib/i18n/locale';
+import { getI18n } from '@/lib/i18n/server';
 import {
   BILLING_CYCLES,
-  BILLING_CYCLE_LABELS,
   SUBSCRIPTION_ACTIVE_STATUSES,
-  SUBSCRIPTION_STATUS_LABELS,
   SUBSCRIPTION_STATUSES,
   monthlyEquivalent,
   monthlySpendTotal,
@@ -31,15 +32,31 @@ type RenewalTone = 'safe' | 'warn' | 'danger' | 'expired' | 'neutral';
 function renewalLabel(
   date: Date,
   cycle: string,
+  locale: Locale,
 ): { text: string; tone: RenewalTone } {
   if (cycle === 'LIFETIME') return { text: 'Lifetime', tone: 'neutral' };
   const days = differenceInDays(date, new Date());
-  if (days < 0) return { text: `Quá hạn ${Math.abs(days)} ngày`, tone: 'danger' };
-  if (days === 0) return { text: 'Hôm nay', tone: 'warn' };
-  if (days <= 3) return { text: `Còn ${days} ngày`, tone: 'danger' };
-  if (days <= 7) return { text: `Còn ${days} ngày`, tone: 'warn' };
-  if (days <= 30) return { text: `Còn ${days} ngày`, tone: 'safe' };
-  return { text: formatDate(date), tone: 'neutral' };
+  if (days < 0) {
+    const overdue = Math.abs(days);
+    return {
+      text: translate(locale, 'Quá hạn {days} ngày', { days: overdue, count: overdue }),
+      tone: 'danger',
+    };
+  }
+  if (days === 0) return { text: translate(locale, 'Hôm nay'), tone: 'warn' };
+  if (days <= 3) {
+    return {
+      text: translate(locale, 'Còn {days} ngày', { days, count: days }),
+      tone: 'danger',
+    };
+  }
+  if (days <= 7) {
+    return { text: translate(locale, 'Còn {days} ngày', { days, count: days }), tone: 'warn' };
+  }
+  if (days <= 30) {
+    return { text: translate(locale, 'Còn {days} ngày', { days, count: days }), tone: 'safe' };
+  }
+  return { text: formatDate(date, locale), tone: 'neutral' };
 }
 
 const RENEWAL_PILL: Record<RenewalTone, string> = {
@@ -150,6 +167,7 @@ export default async function SubscriptionsPage({
   }>;
 }) {
   const sp = await searchParams;
+  const { locale, t } = await getI18n();
   const filter: SubFilter = {
     q: sp.q,
     category: sp.category,
@@ -170,9 +188,11 @@ export default async function SubscriptionsPage({
   if (!listRes.ok) {
     return (
       <div className="space-y-4">
-        <h1 className="display text-3xl text-ink">Gói đăng ký</h1>
+        <h1 className="display text-3xl text-ink">{t('Gói đăng ký')}</h1>
         <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-          Lỗi tải danh sách: {listRes.message ?? listRes.error}
+          {t('Lỗi tải danh sách: {message}', {
+            message: listRes.message ?? listRes.error,
+          })}
         </div>
       </div>
     );
@@ -188,17 +208,22 @@ export default async function SubscriptionsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="eyebrow">Gói định kỳ</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Gói đăng ký</h1>
+          <p className="eyebrow">{t('Gói định kỳ')}</p>
+          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Gói đăng ký')}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            Hiển thị {subs.length} gói
-            {isFiltered ? ' (đã lọc)' : ''}. Theo dõi chi phí định kỳ — biết tiền chảy đi đâu mỗi tháng.
+            {t(
+              'Hiển thị {count} gói{filtered}. Theo dõi chi phí định kỳ — biết tiền chảy đi đâu mỗi tháng.',
+              {
+                count: subs.length,
+                filtered: isFiltered ? t(' (đã lọc)') : '',
+              },
+            )}
           </p>
         </div>
         <Button asChild size="lg" className="rounded-pill">
           <Link href="/subscriptions/new">
             <Plus className="mr-1 h-4 w-4" />
-            Thêm gói
+            {t('Thêm gói')}
           </Link>
         </Button>
       </div>
@@ -206,29 +231,33 @@ export default async function SubscriptionsPage({
       {totals.count > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="stat-card tint-sky">
-            <p className="stat-eyebrow">Mỗi tháng</p>
+            <p className="stat-eyebrow">{t('Mỗi tháng')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-sky-ink">
-              {formatVND(totals.monthly)}
+              {formatVND(totals.monthly, locale)}
             </p>
             <p className="mt-1 text-xs opacity-80">
-              ~ {formatVND(totals.yearly)} / năm
+              {t('~ {amount} / năm', { amount: formatVND(totals.yearly, locale) })}
             </p>
           </div>
           <div className="stat-card tint-primary">
-            <p className="stat-eyebrow">Đang hoạt động</p>
+            <p className="stat-eyebrow">{t('Đang hoạt động')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-primary-ink">
               {totals.count}
             </p>
-            <p className="mt-1 text-xs opacity-80">gói đang chạy</p>
+            <p className="mt-1 text-xs opacity-80">{t('gói đang chạy')}</p>
           </div>
           <div className="stat-card tint-amber">
-            <p className="stat-eyebrow">Sắp gia hạn</p>
+            <p className="stat-eyebrow">{t('Sắp gia hạn')}</p>
             {totals.upcoming.length === 0 ? (
-              <p className="mt-2 text-sm opacity-80">Chưa có gói nào sắp charge</p>
+              <p className="mt-2 text-sm opacity-80">{t('Chưa có gói nào sắp charge')}</p>
             ) : (
               <ul className="mt-2 space-y-1 text-sm">
                 {totals.upcoming.slice(0, 3).map((u) => {
-                  const { text } = renewalLabel(new Date(u.renewalDate), u.billingCycle);
+                  const { text } = renewalLabel(
+                    new Date(u.renewalDate),
+                    u.billingCycle,
+                    locale,
+                  );
                   return (
                     <li key={u.id} className="flex items-center gap-2 truncate">
                       <Calendar className="h-3.5 w-3.5 shrink-0" />
@@ -259,14 +288,14 @@ export default async function SubscriptionsPage({
         <EmptyState
           icon={RefreshCw}
           tone="sky"
-          title={isFiltered ? 'Không có gì khớp bộ lọc' : 'Chưa có gói đăng ký nào'}
+          title={isFiltered ? t('Không có gì khớp bộ lọc') : t('Chưa có gói đăng ký nào')}
           description={
             isFiltered
-              ? 'Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.'
-              : 'Note lại các gói phần mềm/dịch vụ — Apple One, ChatGPT, Spotify, hosting...'
+              ? t('Thử nới bộ lọc hoặc xoá ô tìm kiếm xem sao.')
+              : t('Note lại các gói phần mềm/dịch vụ — Apple One, ChatGPT, Spotify, hosting...')
           }
           ctaHref="/subscriptions/new"
-          ctaLabel="Thêm gói đầu tiên"
+          ctaLabel={t('Thêm gói đầu tiên')}
           cta={!isFiltered}
         />
       ) : (
@@ -278,7 +307,11 @@ export default async function SubscriptionsPage({
               s.intervalDays,
             );
             const renewalAt = new Date(s.renewalDate);
-            const { text: rText, tone: rTone } = renewalLabel(renewalAt, s.billingCycle);
+            const { text: rText, tone: rTone } = renewalLabel(
+              renewalAt,
+              s.billingCycle,
+              locale,
+            );
             const status = s.status as SubscriptionStatus;
             return (
               <Link
@@ -303,7 +336,7 @@ export default async function SubscriptionsPage({
                     <p className="truncate text-xs text-muted-foreground">
                       {s.brand}
                       {s.brand && s.category ? ' • ' : ''}
-                      {s.category ? categoryLabel(s.category) : ''}
+                      {s.category ? categoryLabel(s.category, locale) : ''}
                     </p>
                   </div>
                   <span
@@ -312,7 +345,7 @@ export default async function SubscriptionsPage({
                       STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
                     )}
                   >
-                    {SUBSCRIPTION_STATUS_LABELS[status] ?? s.status}
+                    {subscriptionStatusLabel(status, locale)}
                   </span>
                 </div>
 
@@ -325,24 +358,24 @@ export default async function SubscriptionsPage({
 
                 <div className="mt-auto grid grid-cols-2 gap-3 border-t border-dashed border-border pt-4">
                   <div>
-                    <p className="eyebrow">Giá / chu kỳ</p>
+                    <p className="eyebrow">{t('Giá / chu kỳ')}</p>
                     <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink">
-                      {formatVND(s.price)}
+                      {formatVND(s.price, locale)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {BILLING_CYCLE_LABELS[s.billingCycle as BillingCycle] ?? s.billingCycle}
+                      {billingCycleLabel(s.billingCycle as BillingCycle, locale)}
                     </p>
                   </div>
                   <div>
-                    <p className="eyebrow">~ / tháng</p>
+                    <p className="eyebrow">{t('~ / tháng')}</p>
                     <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink-2">
-                      {formatVND(monthly)}
+                      {formatVND(monthly, locale)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-2 border-t border-dashed border-border pt-3">
-                  <span className="eyebrow">Gia hạn</span>
+                  <span className="eyebrow">{t('Gia hạn')}</span>
                   <span
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[11px] font-semibold',

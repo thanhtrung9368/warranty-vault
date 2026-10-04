@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n/client';
 
 export type ComboboxOption = {
   value: string; // also used as label fallback when label is missing
@@ -40,21 +41,31 @@ export function Combobox({
   options,
   value,
   onValueChange,
-  placeholder = 'Chọn...',
-  searchPlaceholder = 'Tìm kiếm...',
-  emptyText = 'Không có kết quả',
+  placeholder,
+  searchPlaceholder,
+  emptyText,
   allowCustom = false,
-  customLabel = (v) => `Dùng "${v}"`,
+  customLabel,
   disabled,
   className,
   triggerId,
   clearable = true,
 }: Props) {
+  const t = useT();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [activeIndex, setActiveIndex] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+
+  // The three defaults are dictionary keys rather than resolved strings: a
+  // default parameter is evaluated before `t` exists, so the fallback has to
+  // happen at render time. A caller that passes its own placeholder (the device
+  // form, the wishlist form) still wins — that prop is already translated.
+  const resolvedPlaceholder = placeholder ?? t('Chọn...');
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('Tìm kiếm...');
+  const resolvedEmptyText = emptyText ?? t('Không có kết quả');
+  const resolvedCustomLabel = customLabel ?? ((v: string) => t('Dùng "{value}"', { value: v }));
 
   const selected = React.useMemo(
     () => options.find((o) => o.value === value),
@@ -169,13 +180,13 @@ export function Combobox({
               !displayLabel && 'text-muted-foreground',
             )}
           >
-            {displayLabel || placeholder}
+            {displayLabel || resolvedPlaceholder}
           </span>
           <div className="flex items-center gap-1">
             {clearable && value && !disabled ? (
               <span
                 role="button"
-                aria-label="Xoá"
+                aria-label={t('Xoá')}
                 tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -208,7 +219,7 @@ export function Combobox({
                 setQuery(e.target.value);
                 setActiveIndex(0);
               }}
-              placeholder={searchPlaceholder}
+              placeholder={resolvedSearchPlaceholder}
               className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               onKeyDown={onInputKeyDown}
               role="combobox"
@@ -227,7 +238,7 @@ export function Combobox({
           >
             {rowKeys.length === 0 ? (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {emptyText}
+                {resolvedEmptyText}
               </div>
             ) : (
               <>
@@ -287,7 +298,7 @@ export function Combobox({
                             : 'text-muted-foreground',
                         )}
                       >
-                        + {customLabel(query.trim())}
+                        + {resolvedCustomLabel(query.trim())}
                       </button>
                     );
                   })()

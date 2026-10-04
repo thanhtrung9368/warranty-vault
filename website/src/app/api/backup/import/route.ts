@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
+import { getI18n } from '@/lib/i18n/server';
 
 // POST /api/backup/import?mode=merge|replace
 //
@@ -23,12 +24,17 @@ function jsonError(status: number, error: string, message: string) {
 }
 
 export async function POST(req: Request) {
+  const { t } = await getI18n();
   const cookie = await getAuthCookie();
   if (!cookie.accessToken) {
-    return jsonError(401, 'unauthorized', 'Bạn chưa đăng nhập');
+    return jsonError(401, 'unauthorized', t('Bạn chưa đăng nhập'));
   }
   if (cookie.expiresAt && cookie.expiresAt <= Date.now()) {
-    return jsonError(401, 'unauthorized', 'Phiên đăng nhập đã hết hạn — tải lại trang để đăng nhập lại.');
+    return jsonError(
+      401,
+      'unauthorized',
+      t('Phiên đăng nhập đã hết hạn — tải lại trang để đăng nhập lại.'),
+    );
   }
 
   const incoming = new URL(req.url);
@@ -55,7 +61,7 @@ export async function POST(req: Request) {
     };
     upstream = await fetch(`${GO_API_URL}/v1/backup/import?mode=${mode}`, init);
   } catch {
-    return jsonError(502, 'network_error', 'Mất kết nối tới máy chủ, thử lại sau nhé.');
+    return jsonError(502, 'network_error', t('Mất kết nối tới máy chủ, thử lại sau nhé.'));
   }
 
   // Relay Go's envelope (status + JSON) unchanged: field-level 400s ("File JSON

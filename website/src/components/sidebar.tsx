@@ -15,6 +15,7 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n/client';
 
 type NavItem = {
   href: string;
@@ -23,6 +24,23 @@ type NavItem = {
   match: (path: string) => boolean;
 };
 
+// `label` stays the Vietnamese ORIGINAL — it is the dictionary key, looked up
+// with `t(item.label)` at render time (see `lib/i18n/catalog.ts`), so the nav
+// cannot drift from the headings the catalogue already carries: `Tổng quan` is
+// `messages/dashboard.ts`'s "Overview", `Đang thèm` is its (and
+// `messages/wishlist.ts`'s) "Wishlist".
+//
+// The `/subscriptions` item reads `Gói đăng ký`, not the shorter `Đăng ký` it
+// used to. This is the one place the "key is the Vietnamese sentence" design
+// forced a COPY change, and it is worth knowing why: `Đăng ký` is also the
+// account-creation action ("Sign up") in `messages/common.ts`, and one
+// Vietnamese key can only carry one English. Left alone, an English nav read
+// "Sign up" and pointed at the subscription list. `Gói đăng ký` is the term the
+// subscriptions page itself uses for its `<h1>`, it is already registered as
+// "Subscriptions", and it says what the section holds instead of naming the
+// act of signing up for it. Same fix applied to the two back links in
+// `(app)/subscriptions/new/page.tsx` and `[id]/page.tsx`, which had it worse:
+// they read "Sign up" while navigating AWAY from the subscriptions list.
 const items: NavItem[] = [
   {
     href: '/dashboard',
@@ -44,7 +62,7 @@ const items: NavItem[] = [
   },
   {
     href: '/subscriptions',
-    label: 'Đăng ký',
+    label: 'Gói đăng ký',
     icon: RefreshCw,
     match: (p) => p.startsWith('/subscriptions'),
   },
@@ -96,6 +114,7 @@ export function Sidebar({
   actionCount?: number;
 }) {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <aside className="wv-sidebar sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-1.5 border-r border-border bg-card px-3.5 py-4 md:flex">
@@ -123,8 +142,8 @@ export function Sidebar({
               key={item.href}
               href={item.href}
               data-active={active ? 'true' : undefined}
-              title={item.label}
-              aria-label={item.label}
+              title={t(item.label)}
+              aria-label={t(item.label)}
               className={cn(
                 'wv-sidebar-item relative flex h-[42px] items-center gap-3 overflow-hidden rounded-md px-3 text-sm font-semibold transition-colors',
                 active
@@ -141,7 +160,7 @@ export function Sidebar({
               <span className="flex w-[22px] items-center justify-center">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
-              <span className="wv-sidebar-label flex-1 truncate">{item.label}</span>
+              <span className="wv-sidebar-label flex-1 truncate">{t(item.label)}</span>
               {badge > 0 && (
                 <span
                   className={cn(
@@ -174,6 +193,7 @@ export function MobileBottomNav({
   actionCount?: number;
 }) {
   const pathname = usePathname();
+  const t = useT();
   const navRef = React.useRef<HTMLElement>(null);
 
   React.useEffect(() => {
@@ -185,7 +205,7 @@ export function MobileBottomNav({
     <nav
       ref={navRef}
       className="no-scrollbar fixed bottom-3 left-3 right-3 z-40 flex h-16 items-center gap-1 overflow-x-auto rounded-pill border border-border bg-card p-1.5 shadow-lift md:hidden"
-      aria-label="Điều hướng chính"
+      aria-label={t('Điều hướng chính')}
     >
       {items.map((item) => {
         const Icon = item.icon;
@@ -196,7 +216,7 @@ export function MobileBottomNav({
             key={item.href}
             href={item.href}
             data-active={active ? 'true' : undefined}
-            aria-label={item.label}
+            aria-label={t(item.label)}
             className={cn(
               'relative flex h-full min-w-[62px] flex-1 flex-col items-center justify-center gap-0.5 rounded-pill px-1.5 text-[10px] font-semibold transition-colors',
               active
@@ -205,7 +225,7 @@ export function MobileBottomNav({
             )}
           >
             <Icon className="h-5 w-5" />
-            <span className="whitespace-nowrap leading-none">{item.label}</span>
+            <span className="whitespace-nowrap leading-none">{t(item.label)}</span>
             {badge > 0 && (
               <span
                 className={cn(

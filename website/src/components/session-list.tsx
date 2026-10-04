@@ -13,6 +13,7 @@ import {
   sessionPlatformLabel,
 } from '@/lib/sessions';
 import { formatDate, formatRelativeDay } from '@/lib/format';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 
 /**
@@ -31,6 +32,8 @@ export function SessionList({
   sessions: SessionSummary[];
   unavailable?: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const router = useRouter();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
@@ -52,7 +55,7 @@ export function SessionList({
         }
         router.refresh();
       } catch {
-        toast.error('Không gỡ được phiên đăng nhập, thử lại sau');
+        toast.error(t('Không gỡ được phiên đăng nhập, thử lại sau'));
       } finally {
         setPendingId(null);
       }
@@ -62,7 +65,7 @@ export function SessionList({
   if (unavailable) {
     return (
       <p className="text-sm text-muted-foreground">
-        Không tải được danh sách phiên đăng nhập — thử tải lại trang nhé.
+        {t('Không tải được danh sách phiên đăng nhập — thử tải lại trang nhé.')}
       </p>
     );
   }
@@ -70,7 +73,7 @@ export function SessionList({
   if (sessions.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Không có phiên đăng nhập nào đang hoạt động.
+        {t('Không có phiên đăng nhập nào đang hoạt động.')}
       </p>
     );
   }
@@ -78,13 +81,12 @@ export function SessionList({
   return (
     <div>
       <p className="text-sm text-muted-foreground">
-        Mỗi lần đăng nhập tạo một phiên. Gỡ phiên ở thiết bị bạn không dùng nữa để cắt quyền truy
-        cập vào dữ liệu — không liên quan tới danh sách nhận thông báo ở trên.
+        {t('Mỗi lần đăng nhập tạo một phiên. Gỡ phiên ở thiết bị bạn không dùng nữa để cắt quyền truy cập vào dữ liệu — không liên quan tới danh sách nhận thông báo ở trên.')}
       </p>
       <ul className="mt-3">
         {sessions.map((s, i) => {
-          const label = sessionDeviceLabel(s.deviceLabel);
-          const platform = sessionPlatformLabel(s.platform);
+          const label = sessionDeviceLabel(s.deviceLabel, locale);
+          const platform = sessionPlatformLabel(s.platform, locale);
           const isMobile = s.platform === 'ios' || s.platform === 'android';
           const Icon = isMobile ? Smartphone : MonitorSmartphone;
           const pending = pendingId === s.id;
@@ -102,17 +104,21 @@ export function SessionList({
                 <Icon className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 font-display text-sm font-bold text-ink">
+                {/* A <div>, not a <p>: <Badge> renders a <div> and nesting a
+                    block element inside <p> is invalid HTML (React logs a
+                    hydration error for it). The styling is unchanged. */}
+                <div className="flex flex-wrap items-center gap-2 font-display text-sm font-bold text-ink">
                   <span className="truncate">{label}</span>
-                  {s.current && <Badge variant="emerald">Thiết bị này</Badge>}
-                </p>
+                  {s.current && <Badge variant="emerald">{t('Thiết bị này')}</Badge>}
+                </div>
                 <p className="truncate text-xs text-muted-foreground">
-                  {platform} • Đăng nhập {formatDate(s.createdAt)} • Hoạt động{' '}
-                  {formatRelativeDay(s.lastSeenAt)} • Hết hạn {formatDate(s.expiresAt)}
+                  {platform} • {t('Đăng nhập {date}', { date: formatDate(s.createdAt, locale) })} •{' '}
+                  {t('Hoạt động {when}', { when: formatRelativeDay(s.lastSeenAt, locale) })} •{' '}
+                  {t('Hết hạn {date}', { date: formatDate(s.expiresAt, locale) })}
                 </p>
                 {s.current && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Gỡ phiên này tương đương đăng xuất — bạn sẽ được đưa về trang đăng nhập.
+                    {t('Gỡ phiên này tương đương đăng xuất — bạn sẽ được đưa về trang đăng nhập.')}
                   </p>
                 )}
               </div>
@@ -123,8 +129,8 @@ export function SessionList({
                 disabled={pendingId !== null}
                 aria-label={
                   s.current
-                    ? 'Đăng xuất khỏi thiết bị này'
-                    : `Gỡ phiên đăng nhập trên ${label}`
+                    ? t('Đăng xuất khỏi thiết bị này')
+                    : t('Gỡ phiên đăng nhập trên {device}', { device: label })
                 }
                 onClick={() => revoke(s.id)}
               >
@@ -135,7 +141,7 @@ export function SessionList({
                 ) : (
                   <ShieldOff className="mr-1 h-3.5 w-3.5" />
                 )}
-                Gỡ
+                {t('Gỡ')}
               </Button>
             </li>
           );
