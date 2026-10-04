@@ -72,10 +72,64 @@ gốc** — mọi chuỗi đang tồn tại đều là tiếng Việt. Bản ti�
 |---|---|---|---|
 | **0** | `api/` | Hạ tầng: `User.locale` + migration `0014`, bộ khung catalog, middleware `Accept-Language`, `?lang=`, `PATCH /auth/me` nhận `locale`, push dùng `User.locale`. **Chỉ chuyển một lát cắt** (auth) để chứng minh mẫu | ✅ **xong** — xem ghi chú dưới |
 | **1** | `api/` | Dịch nốt ~800 chuỗi Go theo mẫu đã chứng minh, **chia 5 wave tuần tự** | ✅ **XONG — cả 5 wave** |
-| **2** | `android/` | `values/` (en) + `values-vi/`, đổi ngôn ngữ trong app | ⬜ |
-| **3** | `ios/` | String Catalog, đổi ngôn ngữ trong app | ⬜ |
-| **4** | `website/` | Từ điển + chuyển ngôn ngữ | ⬜ |
-| **5** | `docs/`, test | Sửa mâu thuẫn tài liệu, cập nhật test | ⬜ |
+| **2** | `android/` | `values/` (en) + `values-vi/`, đổi ngôn ngữ trong app | ✅ **xong** — 602 string + 33 plurals mỗi bên, 459 test |
+| **3** | `ios/` | String Catalog, đổi ngôn ngữ trong app | ✅ **xong** — 758 entry, 350 test |
+| **4** | `website/` | Từ điển + chuyển ngôn ngữ | ✅ **xong** — 1.318 entry / 999 key, 484 test |
+| **5** | `docs/`, test | Sửa mâu thuẫn tài liệu, cập nhật test | ✅ **xong** — xem §6 |
+
+## 6. Song ngữ đã xong — và 4 bài học phải ghi lại
+
+Cả 3 client đã song ngữ. Tổng: **Go 333 entry · iOS 758 · Android 602+33 · Web 1.318**.
+
+### 6.1 Ba client KHÔNG tự khớp nhau — phải diff thủ công
+
+Đây là phát hiện quan trọng nhất, và **không test nào bắt được**:
+
+| Key | Go (canonical) | Web | iOS |
+|---|---|---|---|
+| `Đang dùng` | **In use** | In use | ⚠️ Active |
+| `Hết bảo hành` | **Out of warranty** | Out of warranty | ⚠️ Warranty ends |
+| `Đã mua` | **Purchased** | Purchased | ⚠️ Bought |
+
+iOS dịch **độc lập** và ra chỗ khác. `Hết bảo hành` → *"Warranty ends"* sai cả **thì** lẫn **từ**
+(tiếng Việt nói bảo hành **đã** hết). **Không suite nào so 3 catalog với nhau** nên drift này
+**im lặng tuyệt đối**.
+
+→ **Sau mỗi lần một client dịch, phải diff key-by-key với `api/internal/i18n/catalog.go`.**
+
+### 6.2 Ngôn ngữ của ARTIFACT khác ngôn ngữ của REQUEST
+
+| Loại | Fallback | Vì sao |
+|---|---|---|
+| **Request** | `en` — mặc định sản phẩm | Người đọc **đổi được bất cứ lúc nào** |
+| **Artifact** (email · push · phiếu công khai) | **`vi`** — ngôn ngữ gốc | Gửi rồi **không render lại được** |
+
+### 6.3 Test assert chuỗi tiếng Việt — cách xử lý ĐÚNG
+
+Mặc định phải **ghim ngôn ngữ**, **không** sửa assertion. Nhưng có **đúng một ca** ngoại lệ, và
+phải ghi lý do **ngay trong test**: khi **yêu cầu đổi**, không phải khi implementation đổi.
+
+Ví dụ thật: Android format tiền VN là **dialect thứ 3** (`1.000.000đ`, không space, `đ` U+0111)
+trong khi Go canonical là `1.000.000 ₫`. Khi align theo Go thì **12 chuỗi kỳ vọng phải đổi** —
+và `VietnameseFormatterTest` ghi rõ trong header rằng **đây là đổi yêu cầu**. Cùng cách xử lý ở
+`wave5_i18n_test.go` khi fallback của `FromStored` đổi từ `en` sang `vi`.
+
+### 6.4 Đừng tin brief — kể cả brief của người giao việc
+
+Trong session này **brief sai 12 lần** và **agent đo lại đúng gần hết**:
+
+| Brief nói | Thực tế |
+|---|---|
+| `Models.kt` bị test Go parse | **Không** — chỉ `CategoryLabels.kt`. Suýt để lỗ hổng lớn nhất không được sửa |
+| Header không nằm trong cache key của Next | **Có** — `generateCacheKey` hash headers (đo bằng code của Next) |
+| Nhét ngôn ngữ vào cache **tags** | **Không hoạt động** — tags không nằm trong key |
+| `Đang dùng` dịch là "Active" | **"In use"** — "Active" là status của **gói đăng ký** |
+| `~307 / ~967 / ~1.159` chuỗi | **812 / 796 / 761** — đều thấp hơn |
+| Chỉ `VietnameseFormatterTest` ghim tiền | **4 file** |
+| `Money.kt` là chỗ duy nhất sửa tiền | 2 câu resource cũng chứa `0đ`, **1 ở catalog tiếng Anh** |
+
+→ **Quy tắc:** brief là **giả thuyết**, không phải sự thật. Agent **phải kiểm chứng** claim trong
+brief trước khi tuân theo, và **phải nói ra** khi brief sai.
 
 **Pha 0 phải xong trước khi làm pha 1.** Chứng minh mẫu trên **một lát cắt nhỏ** rồi mới nhân ra
 803 chuỗi — nếu mẫu sai thì sai 803 lần.
