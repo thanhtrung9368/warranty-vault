@@ -4344,7 +4344,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Warranty ends"
+            "value": "Out of warranty"
           }
         },
         "vi": {
@@ -11303,7 +11303,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Active"
+            "value": "In use"
           }
         },
         "vi": {
@@ -12188,7 +12188,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bought"
+            "value": "Purchased"
           }
         },
         "vi": {
