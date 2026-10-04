@@ -15,6 +15,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -27,6 +28,11 @@ const (
 
 // AttachmentError carries a code → HTTP status mapping that the handler can
 // translate without coupling to the store package directly.
+//
+// i18n: the code is contract and does not move with the language. Only the
+// words do, and they are finished here rather than at the handler, because every
+// function below has the request context in scope (same shape as the
+// subscriptions slice: ErrNotFound(i18n.Text(ctx, …))).
 type AttachmentError struct {
 	Code    string // "bad_input" | "not_found" | "limit_reached" | "internal_error"
 	Message string
@@ -38,6 +44,29 @@ func badInput(msg string) error     { return &AttachmentError{Code: "bad_input",
 func notFound(msg string) error     { return &AttachmentError{Code: "not_found", Message: msg} }
 func limitReached(msg string) error { return &AttachmentError{Code: "limit_reached", Message: msg} }
 func internalErr(msg string) error  { return &AttachmentError{Code: "internal_error", Message: msg} }
+
+// filesText renders a message produced by internal/files in the request's
+// language.
+//
+// internal/files deliberately knows nothing about languages: it is a low-level
+// package (MIME sniffing, AES-GCM, path safety) called from two domains — the
+// attachment pipeline here and AI receipt extraction in internal/handlers/ai.go —
+// and it has no request context of its own. Its error TEXT is therefore the
+// Vietnamese source and doubles as the catalog key (internal/i18n/catalog.go),
+// and the caller that owns a request renders it:
+//
+//	services.Upload   → i18n.Text(ctx, err.Error())   (converted, this wave)
+//	handlers/ai.go    → err.Error()                   (wave 4, Vietnamese verbatim)
+//
+// So adding the entry changes nothing for the AI path: an unconverted call site
+// that never asks the catalog keeps sending exactly the bytes it sent before.
+// (This is also why no entry exists for mime.go's "file trống": Upload rejects an
+// empty body with "File trống" before DetectAndValidate can see it, so from this
+// package the key is unreachable, and an unreachable catalog entry is dead weight
+// — the same reason wave 2 dropped the wishlist singular.)
+func filesText(ctx context.Context, err error) string {
+	return i18n.Text(ctx, err.Error())
+}
 
 // AsAttachmentError returns the typed error if err is one, allowing handlers
 // to assert with errors.As against this concrete type.
@@ -56,7 +85,7 @@ func ListAttachmentsByDevice(ctx context.Context, db *pgxpool.Pool, userID, devi
 	dev, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: deviceID, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, notFound("Thiết bị không tồn tại")
+			return nil, notFound(i18n.Text(ctx, "Thiết bị không tồn tại"))
 		}
 		return nil, fmt.Errorf("get device: %w", err)
 	}
@@ -81,7 +110,7 @@ func GetAttachmentForUser(ctx context.Context, db *pgxpool.Pool, userID, attachm
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Attachment{}, notFound("Không tìm thấy file")
+			return store.Attachment{}, notFound(i18n.Text(ctx, "Không tìm thấy file"))
 		}
 		return store.Attachment{}, fmt.Errorf("get attachment: %w", err)
 	}
@@ -102,22 +131,30 @@ type UploadAttachmentInput struct {
 //
 // On any error before encryption the buffers are dropped and nothing is
 // written. Errors after the disk write attempt to clean up the orphan blob.
+//
+// i18n: every message below is the EXISTING Vietnamese literal wrapped in
+// `i18n.Text(ctx, …)`; Vietnamese stays the original and only gains an English
+// column in internal/i18n/catalog.go. The two messages that come from
+// internal/files and internal/files' own errors are rendered with `filesText`,
+// so the same catalog entry serves this path without changing what the
+// unconverted AI handler sends. No Code changes: an upload that refused with
+// `bad_input` before still refuses with `bad_input`, in either language.
 func Upload(ctx context.Context, db *pgxpool.Pool, userID string, in UploadAttachmentInput) (store.Attachment, error) {
 	if !files.SafeSegment(in.DeviceID) {
-		return store.Attachment{}, badInput("Device không hợp lệ")
+		return store.Attachment{}, badInput(i18n.Text(ctx, "Device không hợp lệ"))
 	}
 	if len(in.Body) == 0 {
-		return store.Attachment{}, badInput("File trống")
+		return store.Attachment{}, badInput(i18n.Text(ctx, "File trống"))
 	}
 	if len(in.Body) > MaxAttachmentBytes {
-		return store.Attachment{}, badInput("File vượt quá 5MB")
+		return store.Attachment{}, badInput(i18n.Text(ctx, "File vượt quá 5MB"))
 	}
 
 	q := store.New(db)
 	// Ownership.
 	if _, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: in.DeviceID, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Attachment{}, notFound("Thiết bị không tồn tại")
+			return store.Attachment{}, notFound(i18n.Text(ctx, "Thiết bị không tồn tại"))
 		}
 		return store.Attachment{}, fmt.Errorf("get device: %w", err)
 	}
@@ -128,20 +165,22 @@ func Upload(ctx context.Context, db *pgxpool.Pool, userID string, in UploadAttac
 		return store.Attachment{}, fmt.Errorf("count attachments: %w", err)
 	}
 	if count >= int64(MaxAttachmentsPerDevice) {
-		return store.Attachment{}, limitReached("Tối đa 5 file/thiết bị")
+		// A single key, not a pair: the ceiling is the fixed constant 5, so
+		// "1 file/thiết bị" can never be produced (see the catalog comment).
+		return store.Attachment{}, limitReached(i18n.Text(ctx, "Tối đa 5 file/thiết bị"))
 	}
 
 	// MIME detect + whitelist + magic-byte parity.
 	mime, err := files.DetectAndValidate(in.Body, in.DeclaredCT)
 	if err != nil {
-		return store.Attachment{}, badInput(err.Error())
+		return store.Attachment{}, badInput(filesText(ctx, err))
 	}
 
 	// Resize (best-effort; falls back to original bytes on non-fatal codec
 	// hiccups for gif/webp).
 	processed, err := files.MaybeResize(in.Body, mime)
 	if err != nil {
-		return store.Attachment{}, badInput("Không xử lý được ảnh, file có thể đã hỏng")
+		return store.Attachment{}, badInput(i18n.Text(ctx, "Không xử lý được ảnh, file có thể đã hỏng"))
 	}
 
 	// Per-user total bytes cap (use processed length so resize savings count).
@@ -150,17 +189,17 @@ func Upload(ctx context.Context, db *pgxpool.Pool, userID string, in UploadAttac
 		return store.Attachment{}, fmt.Errorf("sum bytes: %w", err)
 	}
 	if used+int64(len(processed)) > int64(MaxUploadBytesPerUser) {
-		return store.Attachment{}, limitReached("Dung lượng tổng vượt quá 100MB. Xoá bớt file cũ.")
+		return store.Attachment{}, limitReached(i18n.Text(ctx, "Dung lượng tổng vượt quá 100MB. Xoá bớt file cũ."))
 	}
 
 	// Encrypt.
 	master, err := files.LoadMasterKey()
 	if err != nil {
-		return store.Attachment{}, internalErr(err.Error())
+		return store.Attachment{}, internalErr(filesText(ctx, err))
 	}
 	enc, err := files.Encrypt(processed, master)
 	if err != nil {
-		return store.Attachment{}, internalErr("Lỗi mã hoá file")
+		return store.Attachment{}, internalErr(i18n.Text(ctx, "Lỗi mã hoá file"))
 	}
 
 	// Write to disk.
@@ -168,7 +207,7 @@ func Upload(ctx context.Context, db *pgxpool.Pool, userID string, in UploadAttac
 	fileBase := uuid.NewString() + ".enc"
 	storagePath, err := files.WriteEncrypted(root, in.DeviceID, fileBase, enc.Ciphertext)
 	if err != nil {
-		return store.Attachment{}, internalErr("Lỗi ghi file")
+		return store.Attachment{}, internalErr(i18n.Text(ctx, "Lỗi ghi file"))
 	}
 
 	// DB row. Best-effort cleanup if the insert fails.
@@ -220,7 +259,7 @@ func UpdateDescription(ctx context.Context, db *pgxpool.Pool, userID, attachment
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Attachment{}, notFound("Không tìm thấy file")
+			return store.Attachment{}, notFound(i18n.Text(ctx, "Không tìm thấy file"))
 		}
 		return store.Attachment{}, fmt.Errorf("update attachment description: %w", err)
 	}
@@ -237,7 +276,7 @@ func Delete(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) 
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return notFound("Không tìm thấy file")
+			return notFound(i18n.Text(ctx, "Không tìm thấy file"))
 		}
 		return fmt.Errorf("delete attachment: %w", err)
 	}
@@ -252,6 +291,13 @@ func Delete(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) 
 // Plaintext bytes never touch disk (matching OpenStream). Returns notFound on
 // any miss / decrypt failure to avoid leaking which IDs exist. Shared by
 // OpenStream (file download) and the AI extraction service.
+//
+// i18n note: `services.ExtractReceipt` (AI, wave 4) reuses this function, so the
+// attachment-domain notFound below is reachable from POST /api/v1/ai/extract-receipt
+// and now follows that request's language. It is the one message the AI endpoint
+// gets from a converted domain; everything the AI service owns is still
+// Vietnamese and stays that way until wave 4. `handlers/ai.go` and
+// `services/ai_extract.go` were deliberately left untouched.
 func decryptAttachment(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string) (plain []byte, mime, name string, err error) {
 	att, gerr := GetAttachmentForUser(ctx, db, userID, attachmentID)
 	if gerr != nil {
@@ -260,17 +306,17 @@ func decryptAttachment(ctx context.Context, db *pgxpool.Pool, userID, attachment
 	root := files.PrivateUploadRoot()
 	ct, rerr := files.ReadEncrypted(root, att.StoragePath)
 	if rerr != nil {
-		return nil, "", "", notFound("Không tìm thấy file")
+		return nil, "", "", notFound(i18n.Text(ctx, "Không tìm thấy file"))
 	}
 	master, merr := files.LoadMasterKey()
 	if merr != nil {
-		return nil, "", "", internalErr(merr.Error())
+		return nil, "", "", internalErr(filesText(ctx, merr))
 	}
 	plainBytes, derr := files.Decrypt(ct, att.Iv, att.WrappedKey, master)
 	if derr != nil {
 		// Decrypt failure (key mismatch / tag fail) → leak nothing, treat as
 		// missing.
-		return nil, "", "", notFound("Không tìm thấy file")
+		return nil, "", "", notFound(i18n.Text(ctx, "Không tìm thấy file"))
 	}
 	return plainBytes, att.FileType, att.FileName, nil
 }

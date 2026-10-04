@@ -63,6 +63,11 @@ var (
 //
 // The decoded byte length must be ≥ 32; only the first 32 bytes are used.
 // The result is cached process-wide for cheap repeat access.
+//
+// i18n: both refusal messages are Vietnamese source text that also serve as i18n
+// catalog keys (internal/i18n/catalog.go). They reach a user through the 500 the
+// attachment pipeline returns, which renders them via services.filesText; an
+// unconverted caller keeps sending err.Error() verbatim. See the note in mime.go.
 func LoadMasterKey() (MasterKey, error) {
 	cachedMasterKeyMu.Lock()
 	defer cachedMasterKeyMu.Unlock()

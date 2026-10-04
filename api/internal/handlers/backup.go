@@ -13,6 +13,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -40,8 +41,11 @@ func RegisterBackup(mux *http.ServeMux, deps Deps) {
 
 func exportBackupHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		// Attach resolves `?lang=` / Accept-Language for THIS request, so the
+		// export's own copy — the two honesty notes in the envelope — and every
+		// refusal follow the same language (docs/I18N_PLAN.md §2.2).
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 
 		// Opt-in switch between the two formats (roadmap #2):
 		//   absent/false → the JSON export, byte-identical to before (v5, metadata
@@ -51,9 +55,9 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 		includeBlobs, ok := parseBoolQuery(r.URL.Query().Get("includeBlobs"))
 		if !ok {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Tham số includeBlobs không hợp lệ",
+				i18n.Text(ctx, "Tham số includeBlobs không hợp lệ"),
 				map[string][]string{
-					"includeBlobs": {"Phải là true hoặc false"},
+					"includeBlobs": {i18n.Text(ctx, "Phải là true hoặc false")},
 				})
 			return
 		}
@@ -69,7 +73,7 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 			// WriteBackupZip streams straight to the response: the archive can be
 			// ~100 MB, so it is never buffered. Once the first byte is out the status
 			// is fixed — a failure here can only be logged.
-			payload, err := services.WriteBackupZip(r.Context(), deps.DB, us.UserID, w)
+			payload, err := services.WriteBackupZip(ctx, deps.DB, us.UserID, w)
 			if err != nil {
 				slog.Error("backup export with blobs failed", "err", err, "userId", us.UserID)
 				return
@@ -81,7 +85,7 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		out, err := services.ExportBackup(r.Context(), deps.DB, us.UserID)
+		out, err := services.ExportBackup(ctx, deps.DB, us.UserID)
 		if err != nil {
 			slog.Error("backup export failed", "err", err, "userId", us.UserID)
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
@@ -99,8 +103,8 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 
 func importBackupHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
@@ -110,7 +114,10 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 			mode = services.ImportMerge
 		}
 		if mode != services.ImportMerge && mode != services.ImportReplace {
-			badInput(w, ctx, nil, "Mode không hợp lệ")
+			// The same words as the service's own refusal, deliberately: one
+			// catalog entry, and the CODE differs by layer (this one is
+			// `bad_input`, the service's is `validation`) exactly as before.
+			badInput(w, ctx, nil, i18n.Text(ctx, "Mode không hợp lệ"))
 			return
 		}
 
@@ -128,14 +135,14 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		raw, err := io.ReadAll(r.Body)
 		if err != nil {
-			// MaxBytesReader sets a typed error; surface as a friendly Vietnamese msg.
+			// MaxBytesReader sets a typed error; surface it as a friendly message.
 			var mberr *http.MaxBytesError
 			if errors.As(err, &mberr) {
 				httpx.WriteErrorC(w, ctx, http.StatusRequestEntityTooLarge, "bad_input",
-					"File backup quá lớn (giới hạn "+limitLabel+")", nil)
+					i18n.T(ctx, "File backup quá lớn (giới hạn %s)", limitLabel), nil)
 				return
 			}
-			badInput(w, ctx, nil, "Không đọc được nội dung file")
+			badInput(w, ctx, nil, i18n.Text(ctx, "Không đọc được nội dung file"))
 			return
 		}
 
@@ -149,22 +156,27 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 		var result *services.ImportResult
 		var ierr error
 		if isZipArchive(raw) {
-			result, ierr = services.ImportBackupZip(r.Context(), deps.DB, us.UserID, raw, mode)
+			result, ierr = services.ImportBackupZip(ctx, deps.DB, us.UserID, raw, mode)
 		} else {
 			var payload services.BackupExport
 			dec := json.NewDecoder(bytes.NewReader(raw))
 			// Allow unknown fields — older / future versions might carry extras.
 			if derr := dec.Decode(&payload); derr != nil {
-				badInput(w, ctx, nil, "File JSON không hợp lệ")
+				badInput(w, ctx, nil, i18n.Text(ctx, "File JSON không hợp lệ"))
 				return
 			}
-			result, ierr = services.ImportBackup(r.Context(), deps.DB, us.UserID, &payload, mode)
+			result, ierr = services.ImportBackup(ctx, deps.DB, us.UserID, &payload, mode)
 		}
 
 		if ierr != nil {
 			var svc *services.Error
 			if errors.As(ierr, &svc) {
-				httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), strings.ToLower(svc.Code), svc.Message, svc.FieldErrors)
+				// domainErrorMessage, not svc.Message: a keyed error (the device
+				// ceilings come from ErrLimit) renders the headline in the request's
+				// language, while an unkeyed one is written out verbatim — which is
+				// byte-for-byte what this handler did before it knew about languages.
+				httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), strings.ToLower(svc.Code),
+					domainErrorMessage(ctx, svc), svc.FieldErrors)
 				return
 			}
 			slog.Error("backup import failed", "err", ierr, "userId", us.UserID)

@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -61,11 +62,17 @@ const (
 	MinBackupVersion = 5
 )
 
-// AttachmentBytesNoteVN is the Vietnamese warning that ships inside every
-// metadata-only export. It exists so any client can warn accurately from the
-// payload itself instead of hardcoding "the backup has no images" (roadmap #2) —
-// which is true for this document but would silently become a lie if the format
-// changed.
+// AttachmentBytesNoteVN is the warning that ships inside every metadata-only
+// export. It exists so any client can warn accurately from the payload itself
+// instead of hardcoding "the backup has no images" (roadmap #2) — which is true
+// for this document but would silently become a lie if the format changed.
+//
+// It is the Vietnamese SOURCE text and doubles as the catalog key
+// (internal/i18n/catalog.go), which is why it is a named constant: the note
+// reaches `i18n.Text` as DATA (newBackupEnvelope), and the same sentence has to
+// stay reviewable in one place. The name keeps the "VN" because the constant IS
+// the Vietnamese sentence — what varies is the language it is rendered in, which
+// is the language of the EXPORT request.
 const AttachmentBytesNoteVN = "Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh."
 
 // BlobAttachmentBytesNoteVN is the note that ships inside the .zip archive
@@ -74,6 +81,10 @@ const AttachmentBytesNoteVN = "Bản sao lưu này KHÔNG chứa nội dung ản
 // AES-256-GCM ciphertext whose per-file keys are wrapped with FILE_MASTER_KEY, so
 // a restore on a server with a different (or missing) FILE_MASTER_KEY imports the
 // rows and the bytes but cannot decrypt them.
+//
+// Also a catalog key (see AttachmentBytesNoteVN). When a blob was missing from
+// disk at export time this sentence is the `%s` of the appended warning in
+// backup_blobs.go::missingBlobNote, so the two are translated together.
 const BlobAttachmentBytesNoteVN = "Bản sao lưu này CÓ chứa nội dung ảnh/hoá đơn đính kèm (đã mã hoá AES-256-GCM). Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu thì mới giải mã được; thiếu hoặc sai khoá thì file vẫn được khôi phục nhưng không mở được."
 
 type BackupExport struct {
@@ -87,7 +98,11 @@ type BackupExport struct {
 	//     owning device's storagePath, but never the bytes, so a restore on a fresh
 	//     server cannot bring invoice images back — the blobs live under
 	//     PRIVATE_UPLOAD_ROOT and need FILE_MASTER_KEY to decrypt.
-	//   attachmentBytesNote — Vietnamese one-liner for the client to surface.
+	//   attachmentBytesNote — one-liner for the client to surface, rendered in the
+	//     language of the export request (`?lang=` / Accept-Language / the stored
+	//     preference). It travels INSIDE the document, so a client that never
+	//     speaks that language still reads the same sentence the exporter chose;
+	//     nothing about the warning's meaning depends on which side renders it.
 	IncludesAttachmentBytes bool                 `json:"includesAttachmentBytes"`
 	AttachmentBytesNote     string               `json:"attachmentBytesNote"`
 	Subscriptions           []BackupSubscription `json:"subscriptions"`
@@ -104,12 +119,16 @@ type BackupExport struct {
 // newBackupEnvelope builds an export envelope. The honesty fields are set here
 // rather than at the call site so every export path is self-describing by
 // construction.
-func newBackupEnvelope(version int, includesBytes bool, note string, deviceCount, wishlistCount, subCount int) *BackupExport {
+//
+// `noteKey` is the Vietnamese source text of the note AND its catalog key, so
+// the envelope is rendered in the request's language without the two export
+// paths having to agree on anything but which sentence applies to them.
+func newBackupEnvelope(ctx context.Context, version int, includesBytes bool, noteKey string, deviceCount, wishlistCount, subCount int) *BackupExport {
 	return &BackupExport{
 		Version:                 version,
 		ExportedAt:              time.Now().UTC().Format(time.RFC3339Nano),
 		IncludesAttachmentBytes: includesBytes,
-		AttachmentBytesNote:     note,
+		AttachmentBytesNote:     i18n.Text(ctx, noteKey),
 		Subscriptions:           make([]BackupSubscription, 0, subCount),
 		Wishlist:                make([]BackupWishlistItem, 0, wishlistCount),
 		Devices:                 make([]BackupDevice, 0, deviceCount),
@@ -117,13 +136,13 @@ func newBackupEnvelope(version int, includesBytes bool, note string, deviceCount
 }
 
 // newBackupExport builds the metadata-only JSON envelope (version 5, unchanged).
-func newBackupExport(deviceCount, wishlistCount, subCount int) *BackupExport {
-	return newBackupEnvelope(MetadataOnlyBackupVersion, false, AttachmentBytesNoteVN, deviceCount, wishlistCount, subCount)
+func newBackupExport(ctx context.Context, deviceCount, wishlistCount, subCount int) *BackupExport {
+	return newBackupEnvelope(ctx, MetadataOnlyBackupVersion, false, AttachmentBytesNoteVN, deviceCount, wishlistCount, subCount)
 }
 
 // newBlobBackupExport builds the envelope written inside the .zip archive.
-func newBlobBackupExport(deviceCount, wishlistCount, subCount int) *BackupExport {
-	return newBackupEnvelope(BackupVersion, true, BlobAttachmentBytesNoteVN, deviceCount, wishlistCount, subCount)
+func newBlobBackupExport(ctx context.Context, deviceCount, wishlistCount, subCount int) *BackupExport {
+	return newBackupEnvelope(ctx, BackupVersion, true, BlobAttachmentBytesNoteVN, deviceCount, wishlistCount, subCount)
 }
 
 type BackupSubscription struct {
@@ -363,9 +382,9 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 
 	var out *BackupExport
 	if withBlobs {
-		out = newBlobBackupExport(len(devices), len(wishlist), len(subs))
+		out = newBlobBackupExport(ctx, len(devices), len(wishlist), len(subs))
 	} else {
-		out = newBackupExport(len(devices), len(wishlist), len(subs))
+		out = newBackupExport(ctx, len(devices), len(wishlist), len(subs))
 	}
 
 	for _, s := range subs {
@@ -514,18 +533,23 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 // that used to destroy every existing backup (`version != current` rejected a
 // v5 file the moment the writer moved to v6).
 //
-// Too old and too new are different failures and get different Vietnamese
-// messages, both naming the received version: "quá cũ" for a payload older than
-// this build understands, and "mới hơn" for one written by a newer build (the
-// user should update the app instead of having the file rejected as corrupt).
-func backupVersionError(version, min, max int) error {
+// Too old and too new are different failures and get different messages, both
+// naming the received version: "quá cũ" for a payload older than this build
+// understands, and "mới hơn" for one written by a newer build (the user should
+// update the app instead of having the file rejected as corrupt).
+//
+// i18n: the messages are the existing Vietnamese literals wrapped in `i18n.T`,
+// so the ctx must be the REQUEST's (both callers have one) and the sentence
+// follows the same language as the rest of the import's answer. The error keeps
+// the VALIDATION code — only the words move.
+func backupVersionError(ctx context.Context, version, min, max int) error {
 	if version > max {
-		return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+		return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 			"Bản sao lưu phiên bản %d mới hơn phiên bản ứng dụng hỗ trợ (%d). Cập nhật ứng dụng rồi thử lại.",
 			version, max)}
 	}
 	if version < min {
-		return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+		return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 			"Bản sao lưu phiên bản %d quá cũ, phiên bản được hỗ trợ: %d-%d.",
 			version, min, max)}
 	}
@@ -553,7 +577,7 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	// — exactly the data loss the blob format exists to prevent — so say so
 	// instead. (A v6 payload with no attachments has nothing to lose and imports.)
 	if payload != nil && payload.IncludesAttachmentBytes && payloadHasAttachments(payload) {
-		return nil, &Error{Code: "VALIDATION", Message: "File data.json này là phần dữ liệu của một bản sao lưu .zip có kèm nội dung ảnh. Hãy chọn chính file .zip để khôi phục — import riêng data.json sẽ mất toàn bộ ảnh/hoá đơn."}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File data.json này là phần dữ liệu của một bản sao lưu .zip có kèm nội dung ảnh. Hãy chọn chính file .zip để khôi phục — import riêng data.json sẽ mất toàn bộ ảnh/hoá đơn.")}
 	}
 	return importBackup(ctx, db, userID, payload, mode, nil)
 }
@@ -577,22 +601,29 @@ type blobGetter func(att BackupAttachment) ([]byte, error)
 // alone, BEFORE any database write — so a malicious file cannot half-wipe the
 // user's data in replace mode. Extracted from ImportBackup so the .zip path can
 // run the same checks before it writes any blob to disk.
-func validateBackupPayload(payload *BackupExport) error {
+//
+// i18n: every refusal below is a whole-document failure (no fieldErrors), so it
+// is the file's own description of what is wrong and follows the request's
+// language. Only the words move: the VALIDATION code does not.
+func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 	if payload == nil {
-		return &Error{Code: "VALIDATION", Message: "File JSON không hợp lệ"}
+		return &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File JSON không hợp lệ")}
 	}
-	if err := backupVersionError(payload.Version, MinBackupVersion, BackupVersion); err != nil {
+	if err := backupVersionError(ctx, payload.Version, MinBackupVersion, BackupVersion); err != nil {
 		return err
 	}
 	for _, d := range payload.Devices {
 		if !safeIDRE.MatchString(d.ID) {
-			return &Error{Code: "VALIDATION", Message: fmt.Sprintf("ID thiết bị không hợp lệ: %s", d.ID)}
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx, "ID thiết bị không hợp lệ: %s", d.ID)}
 		}
 		if len(d.Attachments) > MaxAttachmentsPerDevice {
 			// The upload path caps this (services/attachments.go). A backup cannot
 			// legitimately exceed it, so this can only be a tampered file — refuse it
 			// rather than letting the restore create a state the upload path forbids.
-			return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+			//
+			// One key, not a singular/plural pair: the guard is `>`, so the count
+			// here is always at least 6 and "1 attachment" is unreachable.
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 				"Thiết bị \"%s\" có %d file đính kèm, vượt giới hạn %d file/thiết bị.",
 				d.Name, len(d.Attachments), MaxAttachmentsPerDevice)}
 		}
@@ -600,13 +631,13 @@ func validateBackupPayload(payload *BackupExport) error {
 			if !safeStoragePathRE.MatchString(a.StoragePath) ||
 				!strings.HasPrefix(a.StoragePath, d.ID+"/") {
 				return &Error{Code: "VALIDATION",
-					Message: fmt.Sprintf("Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.", d.Name)}
+					Message: i18n.T(ctx, "Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.", d.Name)}
 			}
 			iv, ivErr := base64.StdEncoding.DecodeString(a.IV)
 			wk, wkErr := base64.StdEncoding.DecodeString(a.WrappedKey)
 			if ivErr != nil || wkErr != nil || len(iv) != 12 || len(wk) < 28 {
 				return &Error{Code: "VALIDATION",
-					Message: fmt.Sprintf("Khoá file hỏng trong \"%s\".", d.Name)}
+					Message: i18n.T(ctx, "Khoá file hỏng trong \"%s\".", d.Name)}
 			}
 		}
 	}
@@ -670,14 +701,14 @@ func assertBackupDeviceQuota(ctx context.Context, db *pgxpool.Pool, userID strin
 // every file written is deleted again if the transaction does not commit (no
 // orphan blobs pointing at rows that were rolled back).
 func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload *BackupExport, mode ImportMode, blobs blobGetter) (*ImportResult, error) {
-	if err := validateBackupPayload(payload); err != nil {
+	if err := validateBackupPayload(ctx, payload); err != nil {
 		return nil, err
 	}
 	if mode == "" {
 		mode = ImportMerge
 	}
 	if mode != ImportMerge && mode != ImportReplace {
-		return nil, &Error{Code: "VALIDATION", Message: "Mode không hợp lệ"}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "Mode không hợp lệ")}
 	}
 
 	// IDs are globally unique (all ten tables have a text primary key, not a
@@ -867,7 +898,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 				continue
 			}
 			if _, werr := files.WriteEncrypted(root, d.ID, filepath.Base(a.StoragePath), ct); werr != nil {
-				return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+				return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 					"Không ghi được file đính kèm \"%s\" ra đĩa.", a.FileName)}
 			}
 			written = append(written, a.StoragePath)

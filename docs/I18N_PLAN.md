@@ -90,11 +90,11 @@ build fail, rồi có thể đi "sửa" file của con đầu. Nên **mỗi th�
 |---|---|---|
 | 1 | devices + warranties (+ `serial_validation.go`) | ✅ xong — 29 chuỗi |
 | 2 | subscriptions + wishlist | ✅ xong — 36 chuỗi |
-| 3 | backup + attachments + files | ⬜ |
+| 3 | backup + attachments + files | ✅ xong — 61 chuỗi (62 khoá) |
 | 4 | ai + shares + search + directory | ⬜ |
 | 5 | cron + email templates + `actions.go` + `forecast.go` + còn lại | ⬜ |
 
-**Catalog:** 72 (hết pha 0) → **101** (hết wave 1) → **140** (hết wave 2).
+**Catalog:** 72 (hết pha 0) → **101** (hết wave 1) → **140** (hết wave 2) → **202** (hết wave 3).
 
 ### 3.2. Hai file wave 2 KHÔNG chuyển nhưng CÓ chứa copy subscription/wishlist
 
@@ -123,6 +123,48 @@ chuyển "hiển nhiên" là `ErrValidationKeyed` — nhưng nó set `Code: "VAL
 
 **Luật cho wave sau:** trước khi đổi một error sang helper i18n, **xem `Code` cũ là gì** và giữ
 nguyên. Mã lỗi là contract; chỉ phần chữ được dịch.
+
+### 3.4. Wave 3 (backup + attachments + files) — brief sai gì, và còn lại gì
+
+- **`services/backup_ids.go` không có trong brief** nhưng chứa câu từ chối cross-account — đúng câu
+  mà `handlers/backup_test.go` khẳng định. Đã chuyển: 1 câu, cộng 7 nhãn thực thể (`thiết bị`,
+  `gói bảo hành`, …) được nội suy vào câu đó nên cũng phải vào catalog. Nhãn `subscription` **cố ý**
+  không có entry: nó là cùng một từ ở cả hai ngôn ngữ, và khoá lạ thì `i18n.Text` trả lại chính khoá.
+- **`internal/files/` vẫn tiếng Việt ở tầng package** (không có request context, và được gọi từ hai
+  domain). Chữ của nó *là* khoá catalog, còn bên gọi có request mới dịch
+  (`services/attachments.go::filesText`) — nhờ vậy `handlers/ai.go` (wave 4) vẫn gửi **đúng byte
+  tiếng Việt** như trước. Hai chuỗi của `files/` **không** có entry: `mime.go`'s `"file trống"`
+  (`Upload` chặn body rỗng trước khi tới nó, nên khoá bất khả) và `resize.go`'s `errBadImage` (code
+  chết — không ai `return` nó).
+- **Một câu của domain attachments rò sang AI:** `decryptAttachment` dùng chung với
+  `services.ExtractReceipt`, nên `"Không tìm thấy file"` của `POST /api/v1/ai/extract-receipt` giờ
+  theo ngôn ngữ request, trong khi phần còn lại của AI vẫn tiếng Việt tới wave 4. Không test nào vỡ;
+  ghi lại để wave 4 biết chỗ này đã đổi và đừng dịch lại lần hai.
+- **Không có cặp số ít/số nhiều nào ở các giới hạn attachment:** 5 file và 100 MB là hằng số, không
+  nội suy số đếm. Câu duy nhất mang số đếm là cảnh báo blob thiếu trong `.zip`
+  (`services/backup_blobs.go::missingBlobNote`, có cặp khoá); còn câu "có %d file đính kèm, vượt giới
+  hạn" chỉ chạy khi `> 5` nên dạng số ít bất khả — thêm khoá sẽ là entry không ai tạo ra được.
+- **Domain này không có tiền.** Byte size chỉ có dạng hằng số 5 MB / 100 MB, và thứ duy nhất đổi theo
+  ngôn ngữ là khoảng trắng trước đơn vị (`5MB` → `5 MB`).
+- **Nợ đã biết, cố ý không sửa ở wave này:** openapi ghi `409` cho `POST /devices/{id}/attachments`
+  nhưng handler trả `400 limit_reached` (type `AttachmentError` khác `services.Error`). Đổi nó là đổi
+  status thật mà client có thể đang dựa vào — cần người quyết contract, không phải một wave dịch chữ.
+- **`/api/files/{id}` không nhận `?lang=`:** mọi lỗi ở đó là 404 với body rỗng của `net/http`, không
+  có chữ nào để dịch.
+- **Hai lỗi cross-cutting wave 3 phát hiện, cố ý KHÔNG sửa (không thuộc domain này):**
+  1. `internal/handlers/auth.go:115` ghép câu đã dịch với `ratelimit.FormatRetry`
+     (`internal/ratelimit/helpers.go:68`) — hàm này **chỉ có tiếng Việt**, nên `?lang=en` cho ra
+     `"Too many attempts. Try again in 2 phút"`. Đã kiểm bằng cách chạy thật. Sửa thì phải cho
+     `FormatRetry` biết ngôn ngữ (hoặc trả về số + đơn vị tách rời) — việc của wave "còn lại".
+  2. `internal/auth/middleware.go:26,34` ghi 401 bằng `httpx.WriteError` với chuỗi tiếng Việt **hardcode**,
+     không qua catalog — nên mọi endpoint đã chuyển (kể cả `/api/v1/backup/*`) vẫn trả 401 tiếng Việt
+     dưới `?lang=en`. **Không được sửa lẻ:** middleware này dùng chung với các domain chưa chuyển
+     (AI, shares, cron…), nên dịch nó sẽ lật chữ của những endpoint đó — phải làm ở wave cuối, cùng
+     lúc với "Lỗi hệ thống".
+- **Chuỗi chưa ai nhận (không thuộc wave 1-3, wave 5 "còn lại" phải để ý):**
+  `handlers/reminders.go` (4 chuỗi tham số `withinDays`/`includeDismissed` — trong đó
+  `"Phải là true hoặc false"` **đã có** entry do wave 3 thêm), `handlers/sessions.go` (7 —
+  đã ghi nợ ở §3.1 pha 0), `handlers/push.go` + `services/push.go`, `handlers/cron.go`.
 
 **Pha 2/3/4 chạy song song được** (thư mục khác nhau), nhưng chỉ sau khi pha 1 xong.
 

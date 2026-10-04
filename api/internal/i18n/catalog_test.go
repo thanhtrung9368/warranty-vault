@@ -161,6 +161,14 @@ var singularPluralPairs = []struct {
 		"«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
 		"«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
 	},
+	// Wave 3: the .zip export's "N attachments were missing from disk" warning.
+	// It IS a pair — the export records one missing blob as readily as five, and
+	// English cannot say "1 attachments". The `%s` in both forms is the translated
+	// honesty note the warning is appended to.
+	{
+		"%s LƯU Ý: %d file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
+		"%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
+	},
 }
 
 func TestSingularPluralPairsAgreeOnVerbCounts(t *testing.T) {
@@ -385,6 +393,13 @@ func TestCatalogCoversTheConvertedAreas(t *testing.T) {
 		"↩️ Còn %d ngày đổi trả \"%s\"",
 		"✅ Đã gia hạn \"%s\"",
 		"⌛️ Gói \"%s\" đã hết hạn",
+		// backup + attachments + files (wave 3) — both honesty notes, one import
+		// refusal and one attachment ceiling, so deleting this domain's copy
+		// fails here rather than shipping a half-translated endpoint.
+		"Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh.",
+		"Bản sao lưu này CÓ chứa nội dung ảnh/hoá đơn đính kèm (đã mã hoá AES-256-GCM). Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu thì mới giải mã được; thiếu hoặc sai khoá thì file vẫn được khôi phục nhưng không mở được.",
+		"File data.json này là phần dữ liệu của một bản sao lưu .zip có kèm nội dung ảnh. Hãy chọn chính file .zip để khôi phục — import riêng data.json sẽ mất toàn bộ ảnh/hoá đơn.",
+		"Tối đa 5 file/thiết bị",
 	}
 	for _, key := range mustExist {
 		if _, ok := messages[key]; !ok {

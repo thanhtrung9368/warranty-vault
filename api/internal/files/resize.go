@@ -139,6 +139,14 @@ func resizeGIF(buf []byte) ([]byte, error) {
 }
 
 // errBadImage is returned when decoding a declared-image upload fails.
+//
+// i18n: NOTE that nothing returns this value — MaybeResize lets the codec's own
+// error through (and tolerates decode failures for gif/webp), and
+// services.Upload replaces whatever it gets with the same Vietnamese sentence,
+// which IS in the catalog. So this variable is dead weight kept alive only by the
+// `var _` below, and it deliberately has no catalog entry of its own: a wave
+// cannot translate an unreachable string, and the matching key already exists
+// under services/attachments.go.
 var errBadImage = errors.New("Không xử lý được ảnh, file có thể đã hỏng") //nolint:staticcheck // Vietnamese user-facing error
 
 // Ensure errBadImage is referenced so go vet doesn't complain in builds

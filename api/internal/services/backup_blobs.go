@@ -43,6 +43,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 const (
@@ -110,9 +111,13 @@ func WriteBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, w io.W
 	}
 
 	if len(payload.MissingAttachmentIds) > 0 {
-		payload.AttachmentBytesNote = fmt.Sprintf(
-			"%s LƯU Ý: %d file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
-			BlobAttachmentBytesNoteVN, len(payload.MissingAttachmentIds))
+		// Appended to the note the envelope already carries, so the archive says
+		// BOTH that it holds the (encrypted) bytes and that these particular files
+		// are not among them. `payload.AttachmentBytesNote` is already rendered in
+		// the export request's language (newBlobBackupExport), and the warning
+		// follows it: a client shows one sentence, not half of two languages.
+		payload.AttachmentBytesNote = missingBlobNote(
+			i18n.From(ctx), payload.AttachmentBytesNote, len(payload.MissingAttachmentIds))
 	}
 
 	dataWriter, err := zw.Create(backupDataEntry)
@@ -131,6 +136,33 @@ func WriteBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, w io.W
 	return payload, nil
 }
 
+// missingBlobNote renders the warning appended to the .zip envelope's note when
+// some blobs were absent from disk at export time.
+//
+// It is a singular/plural PAIR with a DIFFERENT argument list per form: the count
+// is what makes the English singular, so the singular template has no `%d` slot
+// and takes only the base note. Handing one list to both forms is the bug wave 0
+// shipped (`... expires in 1 day%!(EXTRA int=7)`), and the pair is pinned in
+// internal/i18n/catalog_test.go::TestSingularPluralPairsAgreeOnVerbCounts.
+//
+// `lang` rather than a context because the caller is a streaming writer that
+// already resolved the language once for the envelope around this note.
+func missingBlobNote(lang i18n.Tag, base string, n int) string {
+	const (
+		pluralKey   = "%s LƯU Ý: %d file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds)."
+		singularKey = "%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds)."
+	)
+	key, args := pluralKey, []any{base, n}
+	if n == 1 {
+		key, args = singularKey, []any{base}
+	}
+	text, ok := i18n.Lookup(lang, key)
+	if !ok {
+		text = key
+	}
+	return i18n.Interpolate(text, args...)
+}
+
 // ImportBackupZip applies a blob-carrying archive. Metadata-only JSON payloads
 // keep going through ImportBackup.
 //
@@ -142,7 +174,7 @@ func WriteBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, w io.W
 func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archive []byte, mode ImportMode) (*ImportResult, error) {
 	zr, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
 	if err != nil {
-		return nil, &Error{Code: "VALIDATION", Message: "File backup không phải ZIP hợp lệ"}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File backup không phải ZIP hợp lệ")}
 	}
 
 	var dataEntry *zip.File
@@ -153,22 +185,22 @@ func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archi
 		switch {
 		case name == backupDataEntry:
 			if f.UncompressedSize64 > maxBackupDataJSONBytes {
-				return nil, &Error{Code: "VALIDATION", Message: "Phần dữ liệu (data.json) trong file backup quá lớn"}
+				return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "Phần dữ liệu (data.json) trong file backup quá lớn")}
 			}
 			dataEntry = f
 		case strings.HasPrefix(name, backupAttachmentPrefix):
 			storagePath := strings.TrimPrefix(name, backupAttachmentPrefix)
 			if !safeStoragePathRE.MatchString(storagePath) {
 				return nil, &Error{Code: "VALIDATION",
-					Message: fmt.Sprintf("Đường dẫn file không hợp lệ trong bản sao lưu: %s", storagePath)}
+					Message: i18n.T(ctx, "Đường dẫn file không hợp lệ trong bản sao lưu: %s", storagePath)}
 			}
 			if f.UncompressedSize64 > maxBlobEntryBytes {
 				return nil, &Error{Code: "VALIDATION",
-					Message: fmt.Sprintf("File đính kèm %s vượt quá giới hạn %d MB", storagePath, MaxAttachmentBytes/(1024*1024))}
+					Message: i18n.T(ctx, "File đính kèm %s vượt quá giới hạn %d MB", storagePath, MaxAttachmentBytes/(1024*1024))}
 			}
 			totalBlobBytes += f.UncompressedSize64
 			if totalBlobBytes > MaxUploadBytesPerUser {
-				return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+				return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 					"Bản sao lưu chứa hơn %d MB file đính kèm, vượt giới hạn dung lượng mỗi người dùng.",
 					MaxUploadBytesPerUser/(1024*1024))}
 			}
@@ -181,22 +213,22 @@ func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archi
 			continue
 		default:
 			return nil, &Error{Code: "VALIDATION",
-				Message: fmt.Sprintf("File backup chứa thành phần không mong đợi: %s", name)}
+				Message: i18n.T(ctx, "File backup chứa thành phần không mong đợi: %s", name)}
 		}
 	}
 	if dataEntry == nil {
-		return nil, &Error{Code: "VALIDATION", Message: "File backup thiếu data.json"}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File backup thiếu data.json")}
 	}
 
 	raw, err := readZipEntry(dataEntry, maxBackupDataJSONBytes)
 	if err != nil {
-		return nil, &Error{Code: "VALIDATION", Message: "Không đọc được data.json trong file backup"}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "Không đọc được data.json trong file backup")}
 	}
 	var payload BackupExport
 	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil, &Error{Code: "VALIDATION", Message: "File JSON trong bản sao lưu không hợp lệ"}
+		return nil, &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File JSON trong bản sao lưu không hợp lệ")}
 	}
-	if err := validateBackupPayload(&payload); err != nil {
+	if err := validateBackupPayload(ctx, &payload); err != nil {
 		return nil, err
 	}
 
@@ -217,7 +249,7 @@ func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archi
 				if knownMissing[a.ID] {
 					continue
 				}
-				return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+				return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 					"Bản sao lưu thiếu nội dung của file đính kèm \"%s\" (%s). File có thể đã hỏng hoặc bị sửa.",
 					a.FileName, a.StoragePath)}
 			}
@@ -226,11 +258,11 @@ func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archi
 	}
 	if !payload.IncludesAttachmentBytes && len(blobEntries) > 0 {
 		return nil, &Error{Code: "VALIDATION",
-			Message: "File backup không nhất quán: data.json nói không chứa nội dung ảnh nhưng archive lại có."}
+			Message: i18n.Text(ctx, "File backup không nhất quán: data.json nói không chứa nội dung ảnh nhưng archive lại có.")}
 	}
 	if wantBlobs == 0 && len(blobEntries) > 0 && len(knownMissing) == 0 {
 		return nil, &Error{Code: "VALIDATION",
-			Message: "File backup không nhất quán: archive chứa file đính kèm nhưng data.json không khai báo file nào."}
+			Message: i18n.Text(ctx, "File backup không nhất quán: archive chứa file đính kèm nhưng data.json không khai báo file nào.")}
 	}
 
 	getter := func(att BackupAttachment) ([]byte, error) {
@@ -241,12 +273,12 @@ func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archi
 		}
 		f, ok := blobEntries[att.StoragePath]
 		if !ok {
-			return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+			return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 				"Bản sao lưu thiếu nội dung của file đính kèm \"%s\".", att.FileName)}
 		}
 		b, rerr := readZipEntry(f, maxBlobEntryBytes)
 		if rerr != nil {
-			return nil, &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+			return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 				"Không đọc được nội dung file đính kèm \"%s\" trong bản sao lưu.", att.FileName)}
 		}
 		return b, nil

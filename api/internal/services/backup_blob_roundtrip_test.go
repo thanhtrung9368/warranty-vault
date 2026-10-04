@@ -102,7 +102,12 @@ func TestBackupWithBlobsRoundTripToCleanDatabase(t *testing.T) {
 	t.Setenv("PRIVATE_UPLOAD_ROOT", uploadRoot)
 	t.Setenv("FILE_MASTER_KEY", testMasterKeyB64)
 
-	ctx := context.Background()
+	// viCtx, not context.Background(): the assertions below compare the exported
+	// note to `BlobAttachmentBytesNoteVN`, i.e. to the Vietnamese source text, and
+	// the product default is English. The language is pinned; the assertion is
+	// unchanged (docs/I18N_PLAN.md §4.3). The English note is pinned in
+	// backup_i18n_test.go.
+	ctx := viCtx()
 	source, err := pgxpool.New(ctx, sourceDSN)
 	if err != nil {
 		t.Fatalf("connect source: %v", err)
@@ -328,7 +333,9 @@ func TestMetadataOnlyExportStaysV5AndImportsIntoCleanDatabase(t *testing.T) {
 	t.Setenv("PRIVATE_UPLOAD_ROOT", t.TempDir())
 	t.Setenv("FILE_MASTER_KEY", testMasterKeyB64)
 
-	ctx := context.Background()
+	// viCtx: same reason as TestBackupWithBlobsRoundTripToCleanDatabase — the
+	// assertion below is against the Vietnamese source text of the note.
+	ctx := viCtx()
 	source, err := pgxpool.New(ctx, sourceDSN)
 	if err != nil {
 		t.Fatalf("connect source: %v", err)
@@ -475,7 +482,11 @@ func TestBlobExportRecordsMissingBlob(t *testing.T) {
 	t.Setenv("PRIVATE_UPLOAD_ROOT", root)
 	t.Setenv("FILE_MASTER_KEY", testMasterKeyB64)
 
-	ctx := context.Background()
+	// viCtx, not context.Background(): the note this test asserts below
+	// ("không còn trên đĩa") is Vietnamese and the product default is English —
+	// the language is pinned, the assertion is unchanged (docs/I18N_PLAN.md §4.3).
+	// The English note, singular and plural, is pinned in backup_i18n_test.go.
+	ctx := viCtx()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)

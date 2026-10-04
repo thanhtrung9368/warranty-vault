@@ -602,7 +602,13 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
 
   /api/v1/devices/{id}/attachments:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    # `lang` on this path is part of Phase 1 of docs/I18N_PLAN.md: the attachment
+    # pipeline renders `message` / `fieldErrors` in the request's language (the
+    # MIME refusals come from internal/files and are translated at the service
+    # boundary), so the parameter is no longer an auth-only switch.
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [attachments]
       responses:
@@ -926,7 +932,9 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
 
   /api/v1/attachments/{id}:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     patch:
       tags: [attachments]
       summary: Sửa mô tả của file đính kèm
@@ -1486,6 +1494,10 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/backup/export:
+    # `lang` here decides the language of the two honesty notes INSIDE the exported
+    # document (`attachmentBytesNote`), not just of an error envelope: the note
+    # travels with the file and is shown by whichever client opens it.
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [backup]
       summary: Download the authenticated user's full data graph (JSON, or .zip kèm ảnh)
@@ -1501,7 +1513,9 @@ paths:
           * `attachments/<storagePath>` — nội dung **đã mã hoá** (AES-256-GCM) của
             từng file đính kèm, đúng byte như trên đĩa (không base64, không nén);
           * `data.json` — envelope phiên bản **6** với
-            `includesAttachmentBytes: true` và `attachmentBytesNote` tiếng Việt.
+            `includesAttachmentBytes: true` và `attachmentBytesNote` **theo ngôn
+            ngữ của request** (`?lang=` → `Accept-Language` → `User.locale` → `en`),
+            vì câu đó nằm trong chính file backup và được client hiển thị thẳng.
         Nhờ vậy khôi phục sang máy chủ mới mang theo được ảnh hoá đơn — thứ mà bản
         JSON chỉ có metadata không làm được.
 
@@ -1540,6 +1554,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/backup/import:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [backup]
       summary: Restore a backup (JSON metadata, hoặc .zip kèm nội dung ảnh)
@@ -1568,8 +1583,8 @@ paths:
 
         **Id xung đột với tài khoản khác ⇒ 400, không phải 500.** Mọi bảng dùng
         khoá chính text **toàn cục**; file của tài khoản khác sẽ đụng khoá chính.
-        Endpoint từ chối trước khi mở transaction, kèm message tiếng Việt nêu rõ
-        id và loại thực thể. (Id thuộc chính người đang import được bỏ qua ở chế
+        Endpoint từ chối trước khi mở transaction, kèm message nêu rõ id và loại
+        thực thể, **theo ngôn ngữ của request** (`?lang=`; mặc định `en`). (Id thuộc chính người đang import được bỏ qua ở chế
         độ `merge` và bị xoá trước ở chế độ `replace`, nên không bị coi là xung
         đột.) Chọn **từ chối** thay vì **đổi id**: đổi id phải viết lại toàn bộ đồ
         thị id (device → warranty → reminder, attachment, wishlist → price,
@@ -2346,8 +2361,8 @@ components:
         Import chấp nhận **mọi** phiên bản trong khoảng
         [MinBackupVersion, BackupVersion] (hiện tại 5-6) thay vì so bằng đúng, nên
         việc nâng lên v6 không làm file v5 của người dùng thành rác. Payload mới
-        hơn (ví dụ 7) bị từ chối với thông báo tiếng Việt nói rõ phiên bản nhận
-        được; payload quá cũ (≤4) cũng vậy.
+        hơn (ví dụ 7) bị từ chối với thông báo nói rõ phiên bản nhận được (theo
+        ngôn ngữ của request); payload quá cũ (≤4) cũng vậy.
       required: [version, exportedAt, devices, wishlist, subscriptions]
       properties:
         version:
@@ -2368,7 +2383,13 @@ components:
             `attachments/<storagePath>` trong cùng archive.
         attachmentBytesNote:
           type: string
-          description: 'Câu tiếng Việt giải thích `includesAttachmentBytes` (và, với bản ZIP, cả yêu cầu `FILE_MASTER_KEY`) để client hiển thị thẳng cho người dùng.'
+          description: |
+            Câu giải thích `includesAttachmentBytes` (và, với bản ZIP, cả yêu cầu
+            `FILE_MASTER_KEY`) để client hiển thị thẳng cho người dùng. Viết bằng
+            **ngôn ngữ của request export** — nó nằm trong chính file backup, nên
+            nội dung câu không phụ thuộc client nào mở file sau này. Bản ZIP có
+            thêm một câu nối tiếp khi có blob thiếu lúc export (số ít/số nhiều
+            theo đúng ngữ pháp tiếng Anh).
         missingAttachmentIds:
           type: array
           items: { type: string }

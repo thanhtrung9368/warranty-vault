@@ -29,6 +29,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -86,6 +87,13 @@ func assertNoForeignBackupIDs(ctx context.Context, db *pgxpool.Pool, userID stri
 	}
 
 	type probe struct {
+		// label names the entity in the internal error below (a log line, never
+		// translated) AND in the user-facing refusal, where it is interpolated into
+		// a sentence. That second use means it must pass through `i18n.Text`, which
+		// is why the seven entity names have catalog entries: "thiết bị" →
+		// "device", "gói bảo hành" → "warranty", and so on. "subscription"
+		// deliberately has none — it is the same word in both languages, and a key
+		// the catalog does not know renders as the key itself.
 		label string
 		ids   []string
 		find  func([]string) ([]string, error)
@@ -126,9 +134,9 @@ func assertNoForeignBackupIDs(ctx context.Context, db *pgxpool.Pool, userID stri
 			return fmt.Errorf("check foreign %s ids: %w", p.label, err)
 		}
 		if len(conflicts) > 0 {
-			return &Error{Code: "VALIDATION", Message: fmt.Sprintf(
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
 				"Bản sao lưu chứa dữ liệu của một tài khoản khác: id %s \"%s\" đã tồn tại. Không thể khôi phục bản sao lưu này vào tài khoản hiện tại — hãy đăng nhập đúng tài khoản đã xuất bản sao lưu.",
-				p.label, conflicts[0])}
+				i18n.Text(ctx, p.label), conflicts[0])}
 		}
 	}
 	return nil

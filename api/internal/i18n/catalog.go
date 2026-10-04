@@ -515,4 +515,214 @@ var messages = map[string]message{
 		vi: "«%s» và «%s» đang cùng hoạt động, cùng hãng và cùng loại. Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một dịch vụ.",
 		en: "\"%s\" and \"%s\" are both active, from the same brand and in the same category. Check whether you are paying twice for the same service.",
 	},
+
+	// ── Wave 3: backup, attachments and files (docs/I18N_PLAN.md §3.1).
+	//
+	// The two honesty notes come first because they are the reason this domain
+	// cannot be translated casually: they are the export's own statement about
+	// what the file does and does not contain, backup_honesty_test.go pins them,
+	// and a shortened or softened translation would turn a truthful warning into a
+	// reassuring one. They are rendered in the language of the EXPORT request and
+	// travel inside the document, so the same archive read by two clients still
+	// says the same thing.
+	"Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh.": {
+		vi: "Bản sao lưu này KHÔNG chứa nội dung ảnh/hoá đơn đính kèm (chỉ có tên file, loại file và kích thước). Khôi phục sang một máy chủ khác sẽ không khôi phục được ảnh.",
+		en: "This backup does NOT contain the contents of the attached images/invoices (only the file name, file type and size). Restoring it onto a different server will not bring those images back.",
+	},
+	"Bản sao lưu này CÓ chứa nội dung ảnh/hoá đơn đính kèm (đã mã hoá AES-256-GCM). Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu thì mới giải mã được; thiếu hoặc sai khoá thì file vẫn được khôi phục nhưng không mở được.": {
+		vi: "Bản sao lưu này CÓ chứa nội dung ảnh/hoá đơn đính kèm (đã mã hoá AES-256-GCM). Cần đúng FILE_MASTER_KEY của máy chủ đã xuất bản sao lưu thì mới giải mã được; thiếu hoặc sai khoá thì file vẫn được khôi phục nhưng không mở được.",
+		en: "This backup DOES contain the contents of the attached images/invoices (encrypted with AES-256-GCM). You need the exact FILE_MASTER_KEY of the server that exported it in order to decrypt them; with a missing or wrong key the files are still restored but cannot be opened.",
+	},
+	// Pair: the same rule as every other count-bearing sentence — the count is
+	// what makes the English singular, so the singular template has no `%d` slot
+	// and the caller passes a DIFFERENT argument list for it
+	// (internal/services/backup_blobs.go::missingBlobNote). The `%s` is the
+	// translated note above, which is why both forms keep it.
+	"%s LƯU Ý: %d file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).": {
+		vi: "%s LƯU Ý: %d file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
+		en: "%s NOTE: %d attachments were no longer on disk, so they are NOT in this backup (see missingAttachmentIds).",
+	},
+	"%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).": {
+		vi: "%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
+		en: "%s NOTE: 1 attachment was no longer on disk, so it is NOT in this backup (see missingAttachmentIds).",
+	},
+
+	// Version refusals. Too new and too old are different sentences on purpose:
+	// one tells the user to update the app, the other that the file predates the
+	// supported range. Both name the version received.
+	"Bản sao lưu phiên bản %d mới hơn phiên bản ứng dụng hỗ trợ (%d). Cập nhật ứng dụng rồi thử lại.": {
+		vi: "Bản sao lưu phiên bản %d mới hơn phiên bản ứng dụng hỗ trợ (%d). Cập nhật ứng dụng rồi thử lại.",
+		en: "This backup is version %d, newer than this app supports (%d). Update the app and try again.",
+	},
+	"Bản sao lưu phiên bản %d quá cũ, phiên bản được hỗ trợ: %d-%d.": {
+		vi: "Bản sao lưu phiên bản %d quá cũ, phiên bản được hỗ trợ: %d-%d.",
+		en: "This backup is version %d, which is too old; supported versions: %d-%d.",
+	},
+
+	// Import refusals. Most are whole-document failures with no fieldErrors, so
+	// they describe what is wrong with the FILE rather than with a form field.
+	"File data.json này là phần dữ liệu của một bản sao lưu .zip có kèm nội dung ảnh. Hãy chọn chính file .zip để khôi phục — import riêng data.json sẽ mất toàn bộ ảnh/hoá đơn.": {
+		vi: "File data.json này là phần dữ liệu của một bản sao lưu .zip có kèm nội dung ảnh. Hãy chọn chính file .zip để khôi phục — import riêng data.json sẽ mất toàn bộ ảnh/hoá đơn.",
+		en: "This data.json is the data half of a .zip backup that carries the invoice images. Choose the .zip file itself to restore — importing data.json on its own loses every image/invoice.",
+	},
+	"File JSON không hợp lệ":                   {vi: "File JSON không hợp lệ", en: "Invalid JSON file"},
+	"File JSON trong bản sao lưu không hợp lệ": {vi: "File JSON trong bản sao lưu không hợp lệ", en: "The JSON inside this backup is invalid"},
+	"ID thiết bị không hợp lệ: %s":             {vi: "ID thiết bị không hợp lệ: %s", en: "Invalid device id: %s"},
+	"Mode không hợp lệ":                        {vi: "Mode không hợp lệ", en: "Invalid mode"},
+	"Không ghi được file đính kèm \"%s\" ra đĩa.": {
+		vi: "Không ghi được file đính kèm \"%s\" ra đĩa.",
+		en: "Could not write attachment \"%s\" to disk.",
+	},
+	// A single key, NOT a pair: the guard is `len(attachments) > 5`, so the
+	// smallest count this sentence can carry is 6 and "1 attachment" is
+	// unreachable. A singular key would be a catalog entry nothing can produce —
+	// the same reason wave 2 dropped the wishlist singular (docs/I18N_PLAN.md
+	// §3.1).
+	"Thiết bị \"%s\" có %d file đính kèm, vượt giới hạn %d file/thiết bị.": {
+		vi: "Thiết bị \"%s\" có %d file đính kèm, vượt giới hạn %d file/thiết bị.",
+		en: "Device \"%s\" has %d attachments, over the limit of %d per device.",
+	},
+	"Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.": {
+		vi: "Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.",
+		en: "Invalid file path in \"%s\". This backup file may have been tampered with.",
+	},
+	"Khoá file hỏng trong \"%s\".": {vi: "Khoá file hỏng trong \"%s\".", en: "Corrupt file key in \"%s\"."},
+	"Đường dẫn file không hợp lệ trong bản sao lưu: %s": {
+		vi: "Đường dẫn file không hợp lệ trong bản sao lưu: %s",
+		en: "Invalid file path inside this backup: %s",
+	},
+	"Bản sao lưu chứa dữ liệu của một tài khoản khác: id %s \"%s\" đã tồn tại. Không thể khôi phục bản sao lưu này vào tài khoản hiện tại — hãy đăng nhập đúng tài khoản đã xuất bản sao lưu.": {
+		vi: "Bản sao lưu chứa dữ liệu của một tài khoản khác: id %s \"%s\" đã tồn tại. Không thể khôi phục bản sao lưu này vào tài khoản hiện tại — hãy đăng nhập đúng tài khoản đã xuất bản sao lưu.",
+		en: "This backup contains data from another account: the %s id \"%s\" already exists. It cannot be restored into the current account — sign in to the account that exported it.",
+	},
+
+	// The entity names that sentence interpolates (the probe labels in
+	// services/backup_ids.go). They are fragments, so they read as part of the
+	// sentence around them rather than as titles. There is deliberately NO entry
+	// for "subscription": the Vietnamese label is the English word, and a key the
+	// catalog does not know renders as the key itself, which is correct in both
+	// languages — an entry with identical vi/en would fail
+	// TestTranslationsAreActuallyTranslated.
+	"thiết bị":      {vi: "thiết bị", en: "device"},
+	"gói bảo hành":  {vi: "gói bảo hành", en: "warranty"},
+	"nhắc nhở":      {vi: "nhắc nhở", en: "reminder"},
+	"file đính kèm": {vi: "file đính kèm", en: "attachment"},
+	"món wishlist":  {vi: "món wishlist", en: "wishlist item"},
+	"lịch sử giá":   {vi: "lịch sử giá", en: "price history"},
+	"thanh toán":    {vi: "thanh toán", en: "payment"},
+
+	// .zip-entry refusals (services/backup_blobs.go). Every one of them is a
+	// statement about the archive the user handed us, so the English keeps the
+	// same bluntness as the Vietnamese.
+	"File backup không phải ZIP hợp lệ": {vi: "File backup không phải ZIP hợp lệ", en: "This backup file is not a valid ZIP"},
+	"Phần dữ liệu (data.json) trong file backup quá lớn": {
+		vi: "Phần dữ liệu (data.json) trong file backup quá lớn",
+		en: "The data.json part of this backup file is too large",
+	},
+	"File backup thiếu data.json": {vi: "File backup thiếu data.json", en: "This backup file is missing data.json"},
+	"Không đọc được data.json trong file backup": {
+		vi: "Không đọc được data.json trong file backup",
+		en: "Could not read data.json inside this backup file",
+	},
+	"File backup chứa thành phần không mong đợi: %s": {
+		vi: "File backup chứa thành phần không mong đợi: %s",
+		en: "This backup file contains an unexpected entry: %s",
+	},
+	// Byte sizes are the only unit this domain renders, and the only sizes in it
+	// are the fixed limits (5 MB per file, 100 MB per user). English puts a space
+	// between the number and the unit and Vietnamese does not — that is the whole
+	// extent of "sizes follow the language" here; no variable byte size is ever
+	// interpolated into a sentence.
+	"File đính kèm %s vượt quá giới hạn %d MB": {
+		vi: "File đính kèm %s vượt quá giới hạn %d MB",
+		en: "Attachment %s is over the %d MB limit",
+	},
+	"Bản sao lưu chứa hơn %d MB file đính kèm, vượt giới hạn dung lượng mỗi người dùng.": {
+		vi: "Bản sao lưu chứa hơn %d MB file đính kèm, vượt giới hạn dung lượng mỗi người dùng.",
+		en: "This backup holds more than %d MB of attachments, over the per-user storage limit.",
+	},
+	"Bản sao lưu thiếu nội dung của file đính kèm \"%s\" (%s). File có thể đã hỏng hoặc bị sửa.": {
+		vi: "Bản sao lưu thiếu nội dung của file đính kèm \"%s\" (%s). File có thể đã hỏng hoặc bị sửa.",
+		en: "This backup is missing the contents of attachment \"%s\" (%s). The file may be corrupt or edited.",
+	},
+	"Bản sao lưu thiếu nội dung của file đính kèm \"%s\".": {
+		vi: "Bản sao lưu thiếu nội dung của file đính kèm \"%s\".",
+		en: "This backup is missing the contents of attachment \"%s\".",
+	},
+	"Không đọc được nội dung file đính kèm \"%s\" trong bản sao lưu.": {
+		vi: "Không đọc được nội dung file đính kèm \"%s\" trong bản sao lưu.",
+		en: "Could not read the contents of attachment \"%s\" inside this backup.",
+	},
+	"File backup không nhất quán: data.json nói không chứa nội dung ảnh nhưng archive lại có.": {
+		vi: "File backup không nhất quán: data.json nói không chứa nội dung ảnh nhưng archive lại có.",
+		en: "This backup is inconsistent: data.json says it carries no image contents, but the archive does.",
+	},
+	"File backup không nhất quán: archive chứa file đính kèm nhưng data.json không khai báo file nào.": {
+		vi: "File backup không nhất quán: archive chứa file đính kèm nhưng data.json không khai báo file nào.",
+		en: "This backup is inconsistent: the archive contains attachments but data.json declares none.",
+	},
+
+	// Attachment upload copy (services/attachments.go). The two limit sentences
+	// name a FIXED ceiling (5 files, 100 MB), so neither is a plural pair: no
+	// count is interpolated and the noun is plural at both 5 and 100.
+	"Thiết bị không tồn tại": {vi: "Thiết bị không tồn tại", en: "Device not found"},
+	"Device không hợp lệ":    {vi: "Device không hợp lệ", en: "Invalid device"},
+	"File trống":             {vi: "File trống", en: "File is empty"},
+	"File vượt quá 5MB":      {vi: "File vượt quá 5MB", en: "File is larger than 5 MB"},
+	"Tối đa 5 file/thiết bị": {vi: "Tối đa 5 file/thiết bị", en: "At most 5 files per device"},
+	"Không xử lý được ảnh, file có thể đã hỏng": {
+		vi: "Không xử lý được ảnh, file có thể đã hỏng",
+		en: "Could not process this image; the file may be corrupt",
+	},
+	"Dung lượng tổng vượt quá 100MB. Xoá bớt file cũ.": {
+		vi: "Dung lượng tổng vượt quá 100MB. Xoá bớt file cũ.",
+		en: "Your total storage is over 100 MB. Delete some old files.",
+	},
+	"Lỗi mã hoá file": {vi: "Lỗi mã hoá file", en: "Could not encrypt the file"},
+	"Lỗi ghi file":    {vi: "Lỗi ghi file", en: "Could not write the file"},
+
+	// internal/files copy. That package has no request context of its own and is
+	// called from two domains, so its error TEXT is the key and the caller that
+	// owns a request renders it (services.filesText). The AI handler, which is a
+	// later wave, keeps passing err.Error() and therefore keeps emitting the
+	// Vietnamese source byte-for-byte.
+	"Chỉ chấp nhận JPG/PNG/WEBP/GIF/HEIC hoặc PDF": {
+		vi: "Chỉ chấp nhận JPG/PNG/WEBP/GIF/HEIC hoặc PDF",
+		en: "Only JPG/PNG/WEBP/GIF/HEIC or PDF files are accepted",
+	},
+	"Nội dung file không khớp định dạng khai báo": {
+		vi: "Nội dung file không khớp định dạng khai báo",
+		en: "The file contents do not match the declared format",
+	},
+	"FILE_MASTER_KEY chưa được cấu hình": {
+		vi: "FILE_MASTER_KEY chưa được cấu hình",
+		en: "FILE_MASTER_KEY is not configured",
+	},
+	"FILE_MASTER_KEY phải decode được (base64 hoặc hex) thành ≥ 32 byte": {
+		vi: "FILE_MASTER_KEY phải decode được (base64 hoặc hex) thành ≥ 32 byte",
+		en: "FILE_MASTER_KEY must decode (base64 or hex) to at least 32 bytes",
+	},
+
+	// Request-shape copy in the two converted handlers. The generic 500
+	// ("Lỗi hệ thống") is deliberately NOT here: it is shared by every domain and
+	// is added when the last of them is converted (handlers/handlers.go).
+	"Tham số includeBlobs không hợp lệ": {vi: "Tham số includeBlobs không hợp lệ", en: "Invalid includeBlobs parameter"},
+	"Phải là true hoặc false":           {vi: "Phải là true hoặc false", en: "Must be true or false"},
+	"File backup quá lớn (giới hạn %s)": {
+		vi: "File backup quá lớn (giới hạn %s)",
+		en: "Backup file is too large (limit %s)",
+	},
+	"Không đọc được nội dung file": {vi: "Không đọc được nội dung file", en: "Could not read the file contents"},
+	"Content-Type phải là multipart/form-data": {
+		vi: "Content-Type phải là multipart/form-data",
+		en: "Content-Type must be multipart/form-data",
+	},
+	"File quá lớn":                     {vi: "File quá lớn", en: "File is too large"},
+	"Không đọc được multipart payload": {vi: "Không đọc được multipart payload", en: "Could not read the multipart payload"},
+	"Thiếu file":                       {vi: "Thiếu file", en: "Missing file"},
+	"Thiếu id file":                    {vi: "Thiếu id file", en: "Missing file id"},
+	"Chỉ hỗ trợ sửa mô tả":             {vi: "Chỉ hỗ trợ sửa mô tả", en: "Only the description can be edited"},
+	"Thiếu description":                {vi: "Thiếu description", en: "Missing description"},
+	"Mô tả không hợp lệ":               {vi: "Mô tả không hợp lệ", en: "Invalid description"},
+	"Không tìm thấy file":              {vi: "Không tìm thấy file", en: "File not found"},
 }

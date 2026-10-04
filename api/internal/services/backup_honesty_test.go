@@ -18,8 +18,15 @@ import (
 // which is deliberately still version 5 even though the blob-carrying archive
 // writes version 6 (see newBlobBackupExport), so a v5-only client/importer keeps
 // reading this document unchanged.
+//
+// i18n: the language is pinned (viCtx) rather than left to the default, because
+// the assertions below are about the VIETNAMESE sentence — `strings.Contains(...,
+// "không")` only passes in Vietnamese, and the payload comparison is against the
+// `vi` text of the catalog entry. The English rendering of the same envelope is
+// pinned separately in backup_i18n_test.go; the product default is English, so an
+// unpinned test here would assert the wrong language (docs/I18N_PLAN.md §4.3).
 func TestBackupEnvelopeDeclaresMissingAttachmentBytes(t *testing.T) {
-	env := newBackupExport(0, 0, 0)
+	env := newBackupExport(viCtx(), 0, 0, 0)
 
 	if env.IncludesAttachmentBytes {
 		t.Error("includesAttachmentBytes = true, want false — the JSON export carries attachment metadata only")
@@ -80,7 +87,9 @@ func TestBackupVersionErrorRange(t *testing.T) {
 		{name: "missing version (0) is refused", version: 0, wantErr: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := backupVersionError(tc.version, min, max)
+			// viCtx: the message assertions below look for the words "cũ"/the
+			// version number, and this suite has always pinned the Vietnamese copy.
+			err := backupVersionError(viCtx(), tc.version, min, max)
 			if tc.wantErr && err == nil {
 				t.Fatalf("backupVersionError(%d, %d, %d) = nil, want an error", tc.version, min, max)
 			}
@@ -98,12 +107,12 @@ func TestBackupVersionErrorRange(t *testing.T) {
 // The production constants themselves: today's accepted range must include the
 // version we write, and ImportBackup must refuse a payload from the future.
 func TestImportBackupVersionGuards(t *testing.T) {
-	if err := backupVersionError(BackupVersion, MinBackupVersion, BackupVersion); err != nil {
+	if err := backupVersionError(viCtx(), BackupVersion, MinBackupVersion, BackupVersion); err != nil {
 		t.Errorf("the version we write (%d) is rejected by our own importer: %v", BackupVersion, err)
 	}
 	// Rejected before any DB access, so a nil pool is safe here.
 	future := &BackupExport{Version: BackupVersion + 1}
-	if _, err := ImportBackup(context.Background(), nil, "u", future, ImportMerge); err == nil {
+	if _, err := ImportBackup(viCtx(), nil, "u", future, ImportMerge); err == nil {
 		t.Error("ImportBackup(future version) = nil, want VALIDATION — a newer payload must not be silently accepted")
 	} else if svc, ok := As(err); !ok || svc.Code != "VALIDATION" {
 		t.Errorf("ImportBackup(future version) = %v, want VALIDATION", err)
@@ -111,7 +120,7 @@ func TestImportBackupVersionGuards(t *testing.T) {
 		t.Errorf("message %q does not name the received version", svc.Message)
 	}
 	tooOld := &BackupExport{Version: MinBackupVersion - 1}
-	if _, err := ImportBackup(context.Background(), nil, "u", tooOld, ImportMerge); err == nil {
+	if _, err := ImportBackup(viCtx(), nil, "u", tooOld, ImportMerge); err == nil {
 		t.Error("ImportBackup(too-old version) = nil, want VALIDATION")
 	} else if svc, ok := As(err); !ok || !strings.Contains(svc.Message, "cũ") {
 		t.Errorf("ImportBackup(too-old version) = %v, want a 'quá cũ' VALIDATION message", err)
@@ -125,7 +134,10 @@ func TestBackupExportImportRoundTripAgainstRealPostgres(t *testing.T) {
 	dsn := testDatabaseURL(t)
 	gooseUp(t, dsn)
 
-	ctx := context.Background()
+	// viCtx: the honesty-note assertions below compare against
+	// AttachmentBytesNoteVN, the Vietnamese source text. The language is pinned,
+	// the assertion is unchanged (docs/I18N_PLAN.md §4.3).
+	ctx := viCtx()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)

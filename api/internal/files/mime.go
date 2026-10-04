@@ -35,8 +35,19 @@ var heifAliases = map[string]string{
 //
 // `declared` is the client-provided Content-Type (e.g. from multipart
 // header). It is normalised (strip parameters, lowercase) before compare.
+//
+// i18n: the errors returned here are USER-FACING copy and this package has no
+// request context (it is called from the attachment pipeline and from the AI
+// receipt handler). Each message is therefore the Vietnamese source text AND its
+// i18n catalog key (internal/i18n/catalog.go), and the caller that owns a request
+// renders it: services/attachments.go does, through `filesText`, while
+// handlers/ai.go still passes err.Error() verbatim. Do not "fix" this by
+// translating inside the package.
 func DetectAndValidate(buf []byte, declared string) (string, error) {
 	if len(buf) == 0 {
+		// Deliberately no catalog entry: services.Upload rejects an empty body
+		// ("File trống") before it ever calls this, so no converted call site can
+		// produce this key.
 		return "", errors.New("file trống")
 	}
 	declaredCT := normaliseCT(declared)

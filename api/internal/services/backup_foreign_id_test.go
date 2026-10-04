@@ -25,7 +25,11 @@ import (
 func TestForeignDeviceIDSQLStateAndImportGuard(t *testing.T) {
 	dsn := testDatabaseURL(t)
 	gooseUp(t, dsn)
-	ctx := context.Background()
+	// viCtx: this test pins the Vietnamese copy (its doc comment says so). The
+	// assertion below only checks that the conflicting id is named — true in both
+	// languages — but leaving the context unpinned would make that a coincidence
+	// rather than a decision.
+	ctx := viCtx()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -46,9 +47,16 @@ func toAttachmentDTO(a store.Attachment) attachmentDTO {
 	}
 }
 
-// RegisterAttachments wires the three attachment endpoints onto mux. Kept
+// RegisterAttachments wires the attachment endpoints onto mux. Kept
 // out of cmd/server/main.go per Phase C contract: the mux owner only calls
 // RegisterAttachments(mux, deps).
+//
+// i18n: the four JSON handlers below call i18n.Attach(r) themselves, so `?lang=`
+// works even in tests that build a mux without i18n.Middleware. The service
+// errors they pass on are already finished strings in the request's language
+// (services/attachments.go) and the code → status mapping is unchanged.
+// downloadFileHandler is deliberately NOT converted: it answers 404 with an
+// empty body on every failure, so it has no copy to translate.
 func RegisterAttachments(mux *http.ServeMux, deps Deps) {
 	mux.HandleFunc("POST /api/v1/devices/{id}/attachments", uploadAttachmentHandler(deps))
 	mux.HandleFunc("GET /api/v1/devices/{id}/attachments", listAttachmentsHandler(deps))
@@ -61,14 +69,14 @@ func RegisterAttachments(mux *http.ServeMux, deps Deps) {
 
 func listAttachmentsHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
 		if err != nil {
 			unauthorized(w, ctx)
 			return
 		}
 		deviceID := r.PathValue("id")
-		rows, sErr := services.ListAttachmentsByDevice(r.Context(), d.DB, us.UserID, deviceID)
+		rows, sErr := services.ListAttachmentsByDevice(ctx, d.DB, us.UserID, deviceID)
 		if sErr != nil {
 			writeAttachmentError(w, ctx, sErr)
 			return
@@ -83,16 +91,16 @@ func listAttachmentsHandler(d Deps) http.HandlerFunc {
 
 func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
 		if err != nil {
 			unauthorized(w, ctx)
 			return
 		}
 		// Per-user write rate-limit. Mirrors rateLimitUserWrite() in TS.
-		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
+		rl, _ := ratelimit.CheckUserWrite(ctx, d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, r.Context(), rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -100,7 +108,7 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 		ct := r.Header.Get("Content-Type")
 		if !strings.HasPrefix(strings.ToLower(ct), "multipart/form-data") {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Content-Type phải là multipart/form-data", nil)
+				i18n.Text(ctx, "Content-Type phải là multipart/form-data"), nil)
 			return
 		}
 
@@ -110,17 +118,17 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 			// MaxBytesReader returns an error stating size — translate to 413.
 			if strings.Contains(err.Error(), "request body too large") {
 				httpx.WriteErrorC(w, ctx, http.StatusRequestEntityTooLarge, "bad_input",
-					"File quá lớn", nil)
+					i18n.Text(ctx, "File quá lớn"), nil)
 				return
 			}
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Không đọc được multipart payload", nil)
+				i18n.Text(ctx, "Không đọc được multipart payload"), nil)
 			return
 		}
 
 		file, header, ferr := r.FormFile("file")
 		if ferr != nil {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu file", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu file"), nil)
 			return
 		}
 		defer func() { _ = file.Close() }()
@@ -130,12 +138,12 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 		body, rerr := io.ReadAll(io.LimitReader(file, services.MaxAttachmentBytes+1))
 		if rerr != nil {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
-				"Không đọc được nội dung file", nil)
+				i18n.Text(ctx, "Không đọc được nội dung file"), nil)
 			return
 		}
 		if len(body) > services.MaxAttachmentBytes {
 			httpx.WriteErrorC(w, ctx, http.StatusRequestEntityTooLarge, "bad_input",
-				"File vượt quá 5MB", nil)
+				i18n.Text(ctx, "File vượt quá 5MB"), nil)
 			return
 		}
 
@@ -146,7 +154,7 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 
 		declaredCT := header.Header.Get("Content-Type")
 
-		att, sErr := services.Upload(r.Context(), d.DB, us.UserID, services.UploadAttachmentInput{
+		att, sErr := services.Upload(ctx, d.DB, us.UserID, services.UploadAttachmentInput{
 			DeviceID:    deviceID,
 			FileName:    header.Filename,
 			DeclaredCT:  declaredCT,
@@ -174,25 +182,27 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 // row that belongs to someone else is a 404, exactly like GET /api/files/{id}.
 func updateAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
 		if err != nil {
 			unauthorized(w, ctx)
 			return
 		}
-		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
+		rl, _ := ratelimit.CheckUserWrite(ctx, d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, r.Context(), rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id file", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id file"), nil)
 			return
 		}
 
 		// Raw-map decode so "key absent" is distinguishable from "explicit null /
-		// empty" and so unknown fields get a field-level Vietnamese message.
+		// empty" and so unknown fields get a field-level message. Both the headline
+		// and the per-field entry are rendered HERE, because the map holds finished
+		// strings by the time the writer sees it.
 		var raw map[string]json.RawMessage
 		if err := decodeJSON(r, &raw); err != nil {
 			badJSONBody(w, ctx)
@@ -201,25 +211,25 @@ func updateAttachmentHandler(d Deps) http.HandlerFunc {
 		unknown := map[string][]string{}
 		for k := range raw {
 			if k != "description" {
-				unknown[k] = []string{"Chỉ hỗ trợ sửa mô tả"}
+				unknown[k] = []string{i18n.Text(ctx, "Chỉ hỗ trợ sửa mô tả")}
 			}
 		}
 		if len(unknown) > 0 {
-			badInput(w, ctx, unknown, "Chỉ hỗ trợ sửa mô tả")
+			badInput(w, ctx, unknown, i18n.Text(ctx, "Chỉ hỗ trợ sửa mô tả"))
 			return
 		}
 		rawDesc, present := raw["description"]
 		if !present {
-			badInput(w, ctx, map[string][]string{"description": {"Thiếu description"}})
+			badInput(w, ctx, map[string][]string{"description": {i18n.Text(ctx, "Thiếu description")}})
 			return
 		}
 		var descIn *string
 		if err := json.Unmarshal(rawDesc, &descIn); err != nil {
-			badInput(w, ctx, map[string][]string{"description": {"Mô tả không hợp lệ"}})
+			badInput(w, ctx, map[string][]string{"description": {i18n.Text(ctx, "Mô tả không hợp lệ")}})
 			return
 		}
 
-		att, sErr := services.UpdateDescription(r.Context(), d.DB, us.UserID, id,
+		att, sErr := services.UpdateDescription(ctx, d.DB, us.UserID, id,
 			services.NormalizeDescription(descIn))
 		if sErr != nil {
 			writeAttachmentError(w, ctx, sErr)
@@ -233,19 +243,19 @@ func updateAttachmentHandler(d Deps) http.HandlerFunc {
 
 func deleteAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
 		if err != nil {
 			unauthorized(w, ctx)
 			return
 		}
-		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
+		rl, _ := ratelimit.CheckUserWrite(ctx, d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, r.Context(), rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 		id := r.PathValue("id")
-		if sErr := services.Delete(r.Context(), d.DB, us.UserID, id); sErr != nil {
+		if sErr := services.Delete(ctx, d.DB, us.UserID, id); sErr != nil {
 			writeAttachmentError(w, ctx, sErr)
 			return
 		}
@@ -294,6 +304,17 @@ func downloadFileHandler(d Deps) http.HandlerFunc {
 
 // ---- helpers ---------------------------------------------------------------
 
+// writeAttachmentError maps a services.AttachmentError onto the wire. The code
+// (and therefore the status) is contract and does not move with the language;
+// `ae.Message` is already the finished sentence in the request's language,
+// because the service that built the error had the context in scope
+// (services/attachments.go — see the note on AttachmentError there).
+//
+// `limit_reached` stays a 400 here. services.Error's LIMIT_REACHED is a 409, but
+// this is a different type on a different code path, and the attachment upload
+// has answered 400 since before i18n existed. openapi.yaml documents 409 for that
+// endpoint — a pre-existing disagreement this wave did not touch (reported, not
+// silently "fixed": changing it would move a status real clients key off).
 func writeAttachmentError(w http.ResponseWriter, ctx context.Context, err error) {
 	if ae, ok := services.AsAttachmentError(err); ok {
 		switch ae.Code {

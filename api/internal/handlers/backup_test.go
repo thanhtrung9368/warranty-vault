@@ -282,7 +282,11 @@ func TestBackupImportForeignIDReturns400(t *testing.T) {
 		}},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/backup/import?mode=merge", bytes.NewReader(raw))
+	// `?lang=vi`: the assertion below is about the VIETNAMESE sentence, and the
+	// product default is English (docs/I18N_PLAN.md §2.2). The request is what
+	// pins the language — the assertion text is unchanged. The English rendering of
+	// the same refusal is pinned in backup_i18n_test.go.
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/backup/import?mode=merge&lang=vi", bytes.NewReader(raw))
 	req.Header.Set("Authorization", "Bearer "+issuedB.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
