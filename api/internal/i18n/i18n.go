@@ -199,31 +199,40 @@ func From(ctx context.Context) Tag {
 	return Default
 }
 
-// FromStored resolves a stored `User.locale` value on its own, with the same
-// fallback the cron uses for a recipient who has never chosen: the value when it
-// names a supported language, Default otherwise — including NULL, which is every
-// account that predates migration 0014.
+// FromStored resolves a stored `User.locale` value on its own, falling back to
+// the SOURCE language rather than the product default. The value wins when it
+// names a supported language; NULL — every account that predates migration
+// 0014, and everyone until a language switcher ships — gets Vietnamese.
 //
 // It exists for the two callers that must pick a language WITHOUT a request to
 // read it from: the cron (which builds text for hundreds of recipients in one
 // pass) and the transactional email templates (which are rendered inside a
 // detached goroutine precisely so a slow SMTP hop cannot hold the HTTP response).
-// Both need "the user's own preference, else the product default" and neither can
-// use the request precedence chain — the request belongs to whoever triggered the
-// mail, which for password reset is the person asking for it but for a future
-// admin-triggered mail would not be.
+// Neither can use the request precedence chain — the request belongs to whoever
+// triggered the mail, which for password reset is the person asking for it but
+// for a future admin-triggered mail would not be.
+//
+// The fallback is deliberately Vietnamese, and differs from the product default
+// of English on purpose. These two callers produce ARTIFACTS: an email lands in
+// an inbox and a notification lands on a lock screen, neither can be re-rendered
+// once sent, and neither is read beside a language switcher the reader could
+// reach for. The in-app default being English is a reversible choice the reader
+// makes again on every screen; an email in the wrong language is final. The same
+// reasoning already governs the public share certificate, which also falls back
+// to Vietnamese rather than to the default (see handlers.publicShareLanguage).
 //
 // It is deliberately NOT used by the request path: there the stored preference is
 // level 3 of the chain, attached by auth.RequireUser via WithUserLocale, so a
-// request signal can outrank it.
+// request signal can outrank it and the product default still applies when
+// nothing at all is known.
 func FromStored(stored *string) Tag {
 	if stored == nil {
-		return Default
+		return VI
 	}
 	if tag, ok := Normalize(*stored); ok {
 		return tag
 	}
-	return Default
+	return VI
 }
 
 // FromContext is From without the default: it reports whether ANY level of the

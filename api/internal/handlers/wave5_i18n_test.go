@@ -675,16 +675,33 @@ func TestPushRegistrationValidationInBothLanguages(t *testing.T) {
 // A sanity check on this file's own fixtures: the two languages really do produce
 // different bytes on the action queue, so none of the assertions above can pass
 // because a conversion quietly served the source language to both.
+//
+// The FromStored assertions below were rewritten when the owner changed the
+// requirement, not to make a failure go away: the email path had been pinned to
+// the product default of English, and it now falls back to the source language
+// because an email is an artifact that cannot be re-rendered once sent. The old
+// expectation is recorded here so the change is visible rather than silent —
+// FromStored(nil) previously returned en and was asserted to.
 func TestWave5LanguagesActuallyDiffer(t *testing.T) {
-	if i18n.FromStored(nil) != i18n.EN {
-		t.Errorf("FromStored(nil) = %q, want the product default en — that is what the email path relies on", i18n.FromStored(nil))
+	// No stored preference, and an unsupported one, both fall back to the SOURCE
+	// language for artifacts. This is deliberately not the product default: see
+	// the FromStored doc comment for why email and push differ from the request
+	// path, and handlers.publicShareLanguage for the same call made earlier.
+	if i18n.FromStored(nil) != i18n.VI {
+		t.Errorf("FromStored(nil) = %q, want the source language vi — the email path cannot re-render what it already sent", i18n.FromStored(nil))
 	}
 	stored := "vi"
 	if i18n.FromStored(&stored) != i18n.VI {
 		t.Errorf("FromStored(\"vi\") = %q, want vi", i18n.FromStored(&stored))
 	}
 	unsupported := "fr"
-	if i18n.FromStored(&unsupported) != i18n.EN {
-		t.Errorf("FromStored(\"fr\") = %q, want the default (an unsupported value falls back, never 400)", i18n.FromStored(&unsupported))
+	if i18n.FromStored(&unsupported) != i18n.VI {
+		t.Errorf("FromStored(\"fr\") = %q, want the source fallback (an unsupported value falls back, never 400)", i18n.FromStored(&unsupported))
+	}
+	// An explicit preference still wins, which is the half that makes the
+	// fallback safe: someone who chose English gets English.
+	chosen := "en"
+	if i18n.FromStored(&chosen) != i18n.EN {
+		t.Errorf("FromStored(\"en\") = %q, want en — an explicit choice must beat the fallback", i18n.FromStored(&chosen))
 	}
 }
