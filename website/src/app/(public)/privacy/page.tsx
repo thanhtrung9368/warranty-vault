@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Chính sách bảo mật — WarrantyVault',
-  description: 'Chính sách bảo mật và xử lý dữ liệu của WarrantyVault',
+  title: 'Chính sách bảo mật — Warranty Vault',
+  description: 'Chính sách bảo mật và xử lý dữ liệu của Warranty Vault',
 };
 
 const UPDATED = '05/06/2026';
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
 
       <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
         <p>
-          WarrantyVault là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách
+          Warranty Vault là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách
           “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn
           lại: <b>dữ liệu của mày là của mày</b> — bọn tao không bán, không quảng cáo, không tracking.
         </p>

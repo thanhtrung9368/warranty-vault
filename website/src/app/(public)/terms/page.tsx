@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Điều khoản sử dụng — WarrantyVault',
-  description: 'Điều khoản sử dụng dịch vụ WarrantyVault',
+  title: 'Điều khoản sử dụng — Warranty Vault',
+  description: 'Điều khoản sử dụng dịch vụ Warranty Vault',
 };
 
 const UPDATED = '05/06/2026';
@@ -15,14 +15,14 @@ export default function TermsPage() {
 
       <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
         <p>
-          Dùng WarrantyVault tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn
+          Dùng Warranty Vault tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn
           và dễ hiểu.
         </p>
 
         <div>
           <h3 className="display text-lg">1. Dịch vụ &amp; mục đích cá nhân</h3>
           <p className="mt-2">
-            WarrantyVault là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của
+            Warranty Vault là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của
             chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.
           </p>
         </div>

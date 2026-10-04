@@ -1,6 +1,6 @@
 {
-  "name": "WarrantyVault — Quản lý bảo hành & gói đăng ký",
-  "short_name": "WarrantyVault",
+  "name": "Warranty Vault — Quản lý bảo hành & gói đăng ký",
+  "short_name": "Warranty Vault",
   "description": "Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn, tiếng Việt 100%.",
   "start_url": "/dashboard",
   "scope": "/",

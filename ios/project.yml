@@ -35,7 +35,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: WarrantyVault
+        CFBundleDisplayName: Warranty Vault
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
@@ -44,7 +44,7 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
-        NSFaceIDUsageDescription: WarrantyVault dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.
+        NSFaceIDUsageDescription: Warranty Vault dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

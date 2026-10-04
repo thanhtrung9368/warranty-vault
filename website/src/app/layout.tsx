@@ -30,13 +30,13 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: 'WarrantyVault — Quản lý bảo hành & gói đăng ký',
+  title: 'Warranty Vault — Quản lý bảo hành & gói đăng ký',
   description: 'Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn, tiếng Việt 100%.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'WarrantyVault',
+    title: 'Warranty Vault',
   },
   icons: {
     icon: [
