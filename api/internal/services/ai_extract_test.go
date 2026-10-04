@@ -42,7 +42,7 @@ func TestBuildDraft_MapsCatalogDiacriticInsensitive(t *testing.T) {
 		Category:       strp("Điện thoại"),
 		Confidence:     strp("high"),
 	}
-	d := buildDraft(e, testCatalog())
+	d := buildDraft(context.Background(), e, testCatalog())
 
 	if d.BrandID == nil || *d.BrandID != "brand_apple" {
 		t.Errorf("brand not mapped: %+v", d.BrandID)
@@ -69,7 +69,7 @@ func TestBuildDraft_UnmatchedFreeText(t *testing.T) {
 		Brand:         strp("Xiaomi"),      // not in catalog
 		PurchasePlace: strp("Cửa hàng lạ"), // not in catalog
 	}
-	d := buildDraft(e, testCatalog())
+	d := buildDraft(context.Background(), e, testCatalog())
 
 	if d.BrandID != nil {
 		t.Errorf("expected no brand bind, got %v", *d.BrandID)
@@ -86,7 +86,7 @@ func TestBuildDraft_UnmatchedFreeText(t *testing.T) {
 }
 
 func TestBuildDraft_DefaultConfidence(t *testing.T) {
-	d := buildDraft(ai.ExtractedReceipt{Name: strp("X")}, testCatalog())
+	d := buildDraft(context.Background(), ai.ExtractedReceipt{Name: strp("X")}, testCatalog())
 	if d.Confidence != "medium" {
 		t.Errorf("default confidence = %q, want medium", d.Confidence)
 	}
@@ -102,7 +102,7 @@ func TestBuildDraft_SerialAndWarrantyMonths(t *testing.T) {
 		SerialNumber:   strp("  356789012345678 "), // OCR padding is trimmed
 		WarrantyMonths: intp(24),
 	}
-	d := buildDraft(e, testCatalog())
+	d := buildDraft(context.Background(), e, testCatalog())
 	if d.SerialNumber == nil || *d.SerialNumber != "356789012345678" {
 		t.Errorf("serialNumber = %v, want trimmed %q", d.SerialNumber, "356789012345678")
 	}
@@ -131,7 +131,7 @@ func TestBuildDraft_WarrantyMonthsBounds(t *testing.T) {
 		{name: "negative dropped", months: intp(-12), wantNil: true, wantFlag: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			d := buildDraft(ai.ExtractedReceipt{WarrantyMonths: tc.months}, testCatalog())
+			d := buildDraft(context.Background(), ai.ExtractedReceipt{WarrantyMonths: tc.months}, testCatalog())
 			if tc.wantNil {
 				if d.WarrantyMonths != nil {
 					t.Errorf("warrantyMonths = %d, want nil (out-of-range values must not reach the form)", *d.WarrantyMonths)
@@ -147,7 +147,7 @@ func TestBuildDraft_WarrantyMonthsBounds(t *testing.T) {
 }
 
 func TestBuildDraft_SerialNumberSanitising(t *testing.T) {
-	d := buildDraft(ai.ExtractedReceipt{SerialNumber: strp("   ")}, testCatalog())
+	d := buildDraft(context.Background(), ai.ExtractedReceipt{SerialNumber: strp("   ")}, testCatalog())
 	if d.SerialNumber != nil {
 		t.Errorf("blank serialNumber = %q, want nil", *d.SerialNumber)
 	}
@@ -157,7 +157,7 @@ func TestBuildDraft_SerialNumberSanitising(t *testing.T) {
 
 	// Implausibly long value (junk OCR text) is dropped and flagged for manual entry.
 	junk := strp(strings.Repeat("A", maxDraftSerialBytes+1))
-	d = buildDraft(ai.ExtractedReceipt{SerialNumber: junk}, testCatalog())
+	d = buildDraft(context.Background(), ai.ExtractedReceipt{SerialNumber: junk}, testCatalog())
 	if d.SerialNumber != nil {
 		t.Errorf("over-long serialNumber = %q, want nil", *d.SerialNumber)
 	}
@@ -167,7 +167,7 @@ func TestBuildDraft_SerialNumberSanitising(t *testing.T) {
 
 	// Exactly at the cap is still accepted.
 	ok := strp(strings.Repeat("B", maxDraftSerialBytes))
-	d = buildDraft(ai.ExtractedReceipt{SerialNumber: ok}, testCatalog())
+	d = buildDraft(context.Background(), ai.ExtractedReceipt{SerialNumber: ok}, testCatalog())
 	if d.SerialNumber == nil || *d.SerialNumber != *ok {
 		t.Errorf("serialNumber at the cap = %v, want passthrough", d.SerialNumber)
 	}

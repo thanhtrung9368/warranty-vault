@@ -9,6 +9,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
@@ -28,8 +29,14 @@ func RegisterDevices(mux *http.ServeMux, deps Deps) {
 
 func listDevicesHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		// Attach resolves `?lang=` / Accept-Language for THIS request. The real
+		// server also runs i18n.Middleware, but the handler tests build their own
+		// mux without it, and a test that cannot pin a language either depends on
+		// the machine's locale or has to assert the default (docs/I18N_PLAN.md
+		// §4.3). Calling it is harmless when the middleware already ran: the two
+		// compute the same answer.
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		f := services.DeviceFilter{
 			Q:        r.URL.Query().Get("q"),
 			Category: r.URL.Query().Get("category"),
@@ -37,7 +44,7 @@ func listDevicesHandler(deps Deps) http.HandlerFunc {
 			Sort:     r.URL.Query().Get("sort"),
 			Dir:      r.URL.Query().Get("dir"),
 		}
-		rows, err := services.ListDevices(r.Context(), deps.DB, us.UserID, f)
+		rows, err := services.ListDevices(ctx, deps.DB, us.UserID, f)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "list devices")
 			return
@@ -45,14 +52,14 @@ func listDevicesHandler(deps Deps) http.HandlerFunc {
 		if rows == nil {
 			rows = []services.DeviceListItem{}
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"devices": rows})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"devices": rows})
 	}
 }
 
 func createDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
@@ -75,7 +82,7 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 			fromWishlistID = strings.TrimSpace(v)
 		}
 
-		device, err := services.CreateDevice(r.Context(), deps.DB, us.UserID, input, fromWishlistID)
+		device, err := services.CreateDevice(ctx, deps.DB, us.UserID, input, fromWishlistID)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "create device")
 			return
@@ -84,39 +91,39 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 		// write and excludes the new row, so a device can never look like a
 		// duplicate of itself and a rejected create costs no extra query. The
 		// field is additive: the device WAS created, the status stays 201.
-		warnings := services.DeviceSerialWarnings(r.Context(), deps.DB, us.UserID, device.SerialNumber, device.ID)
-		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"device": device, "warnings": warnings})
+		warnings := services.DeviceSerialWarnings(ctx, deps.DB, us.UserID, device.SerialNumber, device.ID)
+		httpx.WriteJSONC(w, ctx, http.StatusCreated, map[string]any{"device": device, "warnings": warnings})
 	}
 }
 
 func getDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id thiết bị"), nil)
 			return
 		}
-		device, err := services.GetDevice(r.Context(), deps.DB, us.UserID, id)
+		device, err := services.GetDevice(ctx, deps.DB, us.UserID, id)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "get device")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"device": device})
 	}
 }
 
 func updateDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id thiết bị"), nil)
 			return
 		}
 		var input services.DeviceInput
@@ -124,34 +131,34 @@ func updateDeviceHandler(deps Deps) http.HandlerFunc {
 			badJSONBody(w, ctx)
 			return
 		}
-		device, err := services.UpdateDevice(r.Context(), deps.DB, us.UserID, id, input)
+		device, err := services.UpdateDevice(ctx, deps.DB, us.UserID, id, input)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "update device")
 			return
 		}
 		// Same advisory post-check as create, excluding the row just edited.
-		warnings := services.DeviceSerialWarnings(r.Context(), deps.DB, us.UserID, device.SerialNumber, device.ID)
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device, "warnings": warnings})
+		warnings := services.DeviceSerialWarnings(ctx, deps.DB, us.UserID, device.SerialNumber, device.ID)
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"device": device, "warnings": warnings})
 	}
 }
 
 func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, _ := auth.UserFromContext(r.Context())
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Thiếu id thiết bị"), nil)
 			return
 		}
-		if err := services.DeleteDevice(r.Context(), deps.DB, us.UserID, id); err != nil {
+		if err := services.DeleteDevice(ctx, deps.DB, us.UserID, id); err != nil {
 			writeDevicesErr(w, ctx, err, "delete device")
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]bool{"ok": true})
 	}
 }
 
@@ -171,11 +178,20 @@ func ensureUserWriteRate(w http.ResponseWriter, r *http.Request, deps Deps, user
 // devices/warranties/reminders handler trio in this package; named with a
 // suffix to avoid colliding with helpers defined in other resource files
 // (subscriptions, attachments, etc).
+//
+// A converted domain error carries its user-facing text twice: `MessageKey` names
+// a catalog entry and `Message` is the Vietnamese source. Rendering the key is
+// what lets an error built deep in services (with no request in scope) reach the
+// client in the right language — and, because the catalog is keyed on the
+// Vietnamese source text, an error with no key is written out verbatim, so the
+// domains Phase 1 has not reached are byte-identical. Mirrors
+// writeAuthServiceErr in auth.go; the 500 message stays a literal for the same
+// reason it does there (see the note in writeServiceError).
 func writeDevicesErr(w http.ResponseWriter, ctx context.Context, err error, op string) {
 	var svc *services.Error
 	if errors.As(err, &svc) {
 		code := strings.ToLower(svc.Code)
-		httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), code, svc.Message, svc.FieldErrors)
+		httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), code, domainErrorMessage(ctx, svc), svc.FieldErrors)
 		return
 	}
 	slog.Error(op+" failed", "err", err)

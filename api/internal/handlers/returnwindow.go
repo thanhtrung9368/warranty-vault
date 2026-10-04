@@ -6,6 +6,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -34,13 +35,17 @@ func RegisterReturnWindows(mux *http.ServeMux, deps Deps) {
 
 func listReturnWindowsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		us, ok := auth.UserFromContext(r.Context())
+		// Attach resolves `?lang=` / Accept-Language for this request; the real
+		// server also runs i18n.Middleware, but this handler is exercised through a
+		// bare mux in tests, where a test can only pin a language if the handler
+		// reads the query itself (docs/I18N_PLAN.md §4.3).
+		ctx := i18n.Attach(r)
+		us, ok := auth.UserFromContext(ctx)
 		if !ok {
 			unauthorized(w, ctx)
 			return
 		}
-		rows, err := services.ListReturnWindows(r.Context(), deps.DB, us.UserID, time.Now())
+		rows, err := services.ListReturnWindows(ctx, deps.DB, us.UserID, time.Now())
 		if err != nil {
 			writeServiceError(w, ctx, err, "list return windows")
 			return
@@ -48,6 +53,6 @@ func listReturnWindowsHandler(deps Deps) http.HandlerFunc {
 		if rows == nil {
 			rows = []services.ReturnWindowRow{}
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"returnWindows": rows})
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{"returnWindows": rows})
 	}
 }

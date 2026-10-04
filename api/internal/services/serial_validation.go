@@ -3,11 +3,11 @@ package services
 import (
 	"context"
 	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -47,11 +47,16 @@ const (
 const SerialField = "serialNumber"
 
 // Warning is one advisory finding. `Code` is machine-readable, `Field` names the
-// input it belongs to, `Message` is the Vietnamese copy to show as-is.
+// input it belongs to, `Message` is the copy to show as-is.
 //
 // It is the structured sibling of DraftDevice.Unmatched: `unmatched` means "we
 // got something but could not bind/drop it", a Warning means "we kept it, but it
 // looks wrong". Both are non-blocking review channels; neither is a rejection.
+//
+// `Message` is rendered in the request's language (docs/I18N_PLAN.md §3, Phase
+// 1). A client that shows `Message` verbatim therefore gets translated copy for
+// free, and one that binds to `Code` is unaffected either way — the same split
+// the error envelope uses for `error` vs `message`.
 type Warning struct {
 	Code    string `json:"code"`
 	Field   string `json:"field"`
@@ -89,8 +94,9 @@ func IsLikelyIMEI(serial string) bool {
 
 // SerialWarnings returns every advisory finding for one serial value.
 //
+//	serial         — the value as the user typed / as OCR read it
 //	duplicateCount — how many OTHER devices of this user already carry the value
-//	                 (0 when unknown; the DB-backed wrapper fills this in).
+//	                 (0 when unknown; the DB-backed wrapper fills this in)
 //
 // The returned slice is never nil, so the JSON contract is `[]` and not `null`.
 //
@@ -100,7 +106,21 @@ func IsLikelyIMEI(serial string) bool {
 // treated as an ordinary manufacturer serial and gets no IMEI remark at all. A
 // false "your IMEI is wrong" on a perfectly good serial is the failure mode this
 // rule exists to avoid.
-func SerialWarnings(serial string, duplicateCount int64) []Warning {
+//
+// # i18n
+//
+// Converted with the devices slice (docs/I18N_PLAN.md §3, Phase 1). Two of the
+// three messages embed a number, and they embed it by CONCATENATION in the
+// original (`"… chuỗi này có " + strconv.Itoa(len(v)) + ". …"`), which cannot be
+// a catalog key. They are re-expressed as `%d` templates — the Vietnamese output
+// is byte-for-byte what it was, and the English column gets the count in the
+// place English puts it. That is the only rewrite in this file; the sentences
+// themselves are the originals.
+//
+// `T` (not `Text`) for those two, because they take an argument — and the key is
+// a LITERAL at the call site, which is what `go vet`'s printf analyzer requires
+// of a variadic call.
+func SerialWarnings(ctx context.Context, serial string, duplicateCount int64) []Warning {
 	warnings := []Warning{}
 	v := strings.TrimSpace(serial)
 	if v == "" {
@@ -113,15 +133,15 @@ func SerialWarnings(serial string, duplicateCount int64) []Warning {
 			warnings = append(warnings, Warning{
 				Code:  WarningIMEIChecksum,
 				Field: SerialField,
-				Message: "15 số này không đúng checksum IMEI (Luhn) — có thể sai một chữ số. " +
-					"Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn trước khi đi bảo hành.",
+				Message: i18n.Text(ctx, "15 số này không đúng checksum IMEI (Luhn) — có thể sai một chữ số. "+
+					"Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn trước khi đi bảo hành."),
 			})
 		case len(v) != imeiDigits:
 			warnings = append(warnings, Warning{
 				Code:  WarningIMEILength,
 				Field: SerialField,
-				Message: "IMEI chuẩn có đúng 15 chữ số, chuỗi này có " +
-					strconv.Itoa(len(v)) + ". Nếu đây là số serial của hãng thì bỏ qua cảnh báo này.",
+				Message: i18n.T(ctx, "IMEI chuẩn có đúng 15 chữ số, chuỗi này có %d. "+
+					"Nếu đây là số serial của hãng thì bỏ qua cảnh báo này.", len(v)),
 			})
 		}
 	}
@@ -130,8 +150,8 @@ func SerialWarnings(serial string, duplicateCount int64) []Warning {
 		warnings = append(warnings, Warning{
 			Code:  WarningSerialDuplicate,
 			Field: SerialField,
-			Message: "Số serial/IMEI này đã có ở " + strconv.FormatInt(duplicateCount, 10) +
-				" thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.",
+			Message: i18n.T(ctx, "Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. "+
+				"Kiểm tra để tránh trùng hồ sơ bảo hành.", duplicateCount),
 		})
 	}
 
@@ -166,9 +186,9 @@ func DeviceSerialWarnings(ctx context.Context, db *pgxpool.Pool, userID string, 
 	if err != nil {
 		slog.Warn("duplicate-serial check failed; continuing without it",
 			"err", err, "userId", userID)
-		return SerialWarnings(v, 0)
+		return SerialWarnings(ctx, v, 0)
 	}
-	return SerialWarnings(v, count)
+	return SerialWarnings(ctx, v, count)
 }
 
 // luhnValid implements the Luhn checksum IMEIs use: walking from the rightmost

@@ -584,28 +584,15 @@ func translateKey(ctx context.Context, key string) string {
 // envelope. Mirrors writeDevicesErr, kept local so auth.go doesn't depend on the
 // devices handler file.
 //
-// A domain error carries its user-facing text twice when it has been converted:
-// `MessageKey` names a catalog entry (rendered here in the request's language)
-// and `Message` is the Vietnamese source that every unconverted service still
-// sets. Rendering the key, when there is one, is what lets a service construct an
-// error deep in a call stack with no request in scope and still have it reach the
-// client in the right language.
+// The MessageKey rendering now lives in domainErrorMessage (handlers.go) so the
+// three writers cannot drift; this one keeps its own 500 branch because the auth
+// slice's generic failure is translated there, unlike the per-domain writers
+// whose 500 copy is still awaiting its wave.
 func writeAuthServiceErr(w http.ResponseWriter, ctx context.Context, err error, op string) {
 	var svc *services.Error
 	if errors.As(err, &svc) {
-		message := svc.Message
-		if svc.MessageKey != "" {
-			// A keyed error names its own message, so the envelope headline is the
-			// field message rather than the generic "invalid input" — which is what
-			// a single-field validation failure should read like for a client that
-			// only renders `message`.
-			// MessageKey is a catalog key carried on the error, not a literal at this
-			// call site — exactly the shape `go vet`'s printf analyzer rejects for a
-			// format-string wrapper. translateKey passes no arguments, so the format
-			// contract is trivially satisfied.
-			message = translateKey(ctx, svc.MessageKey)
-		}
-		httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), strings.ToLower(svc.Code), message, svc.FieldErrors)
+		httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), strings.ToLower(svc.Code),
+			domainErrorMessage(ctx, svc), svc.FieldErrors)
 		return
 	}
 	slog.Error(op+" failed", "err", err)

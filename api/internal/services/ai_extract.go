@@ -146,7 +146,7 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 		return DraftDevice{}, internalErr("Lỗi tải danh mục")
 	}
 
-	draft := buildDraft(extracted, cat)
+	draft := buildDraft(ctx, extracted, cat)
 
 	// Post-check on the serial the model returned (FEATURE_IDEAS #6). Purely
 	// advisory: the value stays in the draft so the form is still pre-filled, and
@@ -175,7 +175,7 @@ func GetAIOptIn(ctx context.Context, db *pgxpool.Pool, userID string) (bool, err
 	return u.AiOptIn, nil
 }
 
-func buildDraft(e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
+func buildDraft(ctx context.Context, e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
 	d := DraftDevice{
 		Name:          e.Name,
 		Model:         e.Model,
@@ -196,7 +196,7 @@ func buildDraft(e ai.ExtractedReceipt, cat *Catalog) DraftDevice {
 	if sn, ok := sanitizeSerialNumber(e.SerialNumber); ok {
 		d.SerialNumber = sn
 		if sn != nil {
-			d.Warnings = append(d.Warnings, SerialWarnings(*sn, 0)...)
+			d.Warnings = append(d.Warnings, SerialWarnings(ctx, *sn, 0)...)
 		}
 	} else {
 		d.Unmatched = append(d.Unmatched, "serialNumber")

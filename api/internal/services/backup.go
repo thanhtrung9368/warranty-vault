@@ -661,7 +661,7 @@ func assertBackupDeviceQuota(ctx context.Context, db *pgxpool.Pool, userID strin
 		incomingTotal++
 		incomingActive += deviceActiveIncoming(d.Status)
 	}
-	return enforceDeviceQuota(baseActive, baseTotal, incomingActive, incomingTotal)
+	return enforceDeviceQuota(ctx, baseActive, baseTotal, incomingActive, incomingTotal)
 }
 
 // importBackup is the shared import body. `blobs` is non-nil only for the .zip

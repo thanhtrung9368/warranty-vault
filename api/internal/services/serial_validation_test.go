@@ -122,7 +122,7 @@ func TestSerialWarnings(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ws := SerialWarnings(tc.serial, tc.duplicates)
+			ws := SerialWarnings(viCtx(), tc.serial, tc.duplicates)
 			if ws == nil {
 				t.Fatal("SerialWarnings returned nil; the JSON contract is [] not null")
 			}
@@ -144,7 +144,7 @@ func TestSerialWarnings(t *testing.T) {
 // The length warning must state the actual length — it is the only part of the
 // message the server can be precise about.
 func TestSerialWarningsLengthMessageNamesTheLength(t *testing.T) {
-	ws := SerialWarnings("35693803564380", 0) // 14 digits
+	ws := SerialWarnings(viCtx(), "35693803564380", 0) // 14 digits
 	if len(ws) != 1 || ws[0].Code != WarningIMEILength {
 		t.Fatalf("warnings = %v, want one IMEI_LENGTH", warningCodes(ws))
 	}
@@ -237,7 +237,10 @@ func TestDeviceSerialWarningsDuplicateLookup(t *testing.T) {
 	// duplicate this check is for.
 	insertDevice(devA3, userA, "356938035643809")
 
-	ws := DeviceSerialWarnings(ctx, pool, userA, &valid, devA1)
+	// viCtx(), not the bare ctx: the assertion below reads the Vietnamese copy,
+	// and the product default is now English (docs/I18N_PLAN.md §4.3). Pinning the
+	// language keeps the assertion exactly as it was.
+	ws := DeviceSerialWarnings(viCtx(), pool, userA, &valid, devA1)
 	if got := warningCodes(ws); !codesEqual(got, []string{WarningSerialDuplicate}) {
 		t.Fatalf("warnings = %v, want SERIAL_DUPLICATE", got)
 	}

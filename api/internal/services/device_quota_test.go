@@ -1,13 +1,23 @@
 package services
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 // Pure tests for the device ceilings (FEATURE_IDEAS #14). The database-backed
 // boundary test lives in internal/handlers (per-test scratch database); this file
 // pins the arithmetic and the two Vietnamese messages, both of which are pure.
+//
+// The messages are rendered in the language resolved from the context, and the
+// product default is English (docs/I18N_PLAN.md §2.2), so every call here passes
+// a context with Vietnamese PINNED to it. That is the i18n rule for tests: pin
+// the language, never soften the assertion — the two sentences below were
+// correct before Phase 1 and stay correct after it.
+func viCtx() context.Context { return i18n.WithTag(context.Background(), i18n.VI) }
 
 func TestEnforceDeviceQuotaBoundaries(t *testing.T) {
 	cases := []struct {
@@ -30,7 +40,7 @@ func TestEnforceDeviceQuotaBoundaries(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := enforceDeviceQuota(tc.active, tc.total, tc.incomingActive, tc.incomingTot)
+			err := enforceDeviceQuota(viCtx(), tc.active, tc.total, tc.incomingActive, tc.incomingTot)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected a limit error, got nil")
 			}
@@ -51,7 +61,7 @@ func TestEnforceDeviceQuotaBoundaries(t *testing.T) {
 // implied sold devices counted, and it named no way out. Pin the facts a user needs
 // in order to act.
 func TestDeviceQuotaMessagesAreTruthful(t *testing.T) {
-	errActive := enforceDeviceQuota(MaxDevicesPerUser, MaxDevicesPerUser+3, 1, 1)
+	errActive := enforceDeviceQuota(viCtx(), MaxDevicesPerUser, MaxDevicesPerUser+3, 1, 1)
 	if errActive == nil {
 		t.Fatal("expected the active ceiling to be enforced")
 	}
@@ -61,7 +71,7 @@ func TestDeviceQuotaMessagesAreTruthful(t *testing.T) {
 		}
 	}
 
-	errTotal := enforceDeviceQuota(0, MaxDevicesTotalPerUser, 0, 1)
+	errTotal := enforceDeviceQuota(viCtx(), 0, MaxDevicesTotalPerUser, 0, 1)
 	if errTotal == nil {
 		t.Fatal("expected the storage ceiling to be enforced")
 	}

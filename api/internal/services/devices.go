@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -153,7 +154,23 @@ type WarrantyWithReminders struct {
 // ValidateDeviceInput hand-rolls the same validation as the Zod schema in
 // website/src/lib/services/devices.ts::deviceInputSchema. Returns nil on
 // success or *Error{Code: VALIDATION} with field messages on failure.
-func ValidateDeviceInput(in *DeviceInput) error {
+//
+// # i18n
+//
+// This is part of the converted devices slice (docs/I18N_PLAN.md §3, Phase 1).
+// Every message is the EXISTING Vietnamese literal wrapped in `i18n.Text(ctx,
+// …)` — the source text is not re-written, it gains an English column in
+// internal/i18n/catalog.go. `go vet` is the reason these are `Text` and not `T`:
+// `T` is printf-shaped, so a literal key with no arguments is fine there too, but
+// keeping argument-free messages on the non-variadic call shape is the rule
+// Phase 0 set, and it is what makes a key that later arrives as data safe.
+//
+// The returned error's headline is the generic "Dữ liệu không hợp lệ", rendered
+// through ErrValidationHeadline so it follows the same language as the field
+// messages below it. The generic sentence (rather than a specific field's) is
+// deliberate: this failure can report several fields at once, so naming one of
+// them would be a lie about the others.
+func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Category = strings.TrimSpace(in.Category)
 	in.PurchaseDate = strings.TrimSpace(in.PurchaseDate)
@@ -172,19 +189,19 @@ func ValidateDeviceInput(in *DeviceInput) error {
 
 	fieldErrors := FieldErrors{}
 	if in.Name == "" {
-		fieldErrors["name"] = []string{"Tên thiết bị bắt buộc"}
+		fieldErrors["name"] = []string{i18n.Text(ctx, "Tên thiết bị bắt buộc")}
 	}
 	if in.Category == "" {
-		fieldErrors["category"] = []string{"Loại thiết bị bắt buộc"}
+		fieldErrors["category"] = []string{i18n.Text(ctx, "Loại thiết bị bắt buộc")}
 	}
 	if in.PurchaseDate == "" {
-		fieldErrors["purchaseDate"] = []string{"Ngày mua bắt buộc"}
+		fieldErrors["purchaseDate"] = []string{i18n.Text(ctx, "Ngày mua bắt buộc")}
 	}
 	if in.PurchasePrice < 0 {
-		fieldErrors["purchasePrice"] = []string{"Giá mua không hợp lệ"}
+		fieldErrors["purchasePrice"] = []string{i18n.Text(ctx, "Giá mua không hợp lệ")}
 	}
 	if in.SoldPrice != nil && *in.SoldPrice < 0 {
-		fieldErrors["soldPrice"] = []string{"Giá bán không hợp lệ"}
+		fieldErrors["soldPrice"] = []string{i18n.Text(ctx, "Giá bán không hợp lệ")}
 	}
 	// Resale pair rule: a sale is recorded either completely (date + price) or
 	// not at all. Exactly one of the two is rejected so a client can never
@@ -194,13 +211,13 @@ func ValidateDeviceInput(in *DeviceInput) error {
 	// to SOLD without any resale figures.
 	if (in.SoldAt == nil) != (in.SoldPrice == nil) {
 		if in.SoldAt == nil {
-			fieldErrors["soldAt"] = []string{"Thiếu ngày bán"}
+			fieldErrors["soldAt"] = []string{i18n.Text(ctx, "Thiếu ngày bán")}
 		} else {
-			fieldErrors["soldPrice"] = []string{"Thiếu giá bán"}
+			fieldErrors["soldPrice"] = []string{i18n.Text(ctx, "Thiếu giá bán")}
 		}
 	}
 	if in.WarrantyMonths < 0 {
-		fieldErrors["warrantyMonths"] = []string{"Số tháng bảo hành không hợp lệ"}
+		fieldErrors["warrantyMonths"] = []string{i18n.Text(ctx, "Số tháng bảo hành không hợp lệ")}
 	}
 	// 0 is valid and meaningful ("cửa hàng không cho đổi trả"); NULL (absent) means
 	// unknown and is also valid. Only out-of-range values are rejected, so a typo
@@ -208,16 +225,20 @@ func ValidateDeviceInput(in *DeviceInput) error {
 	if in.ReturnWindowDays != nil &&
 		(*in.ReturnWindowDays < ReturnWindowDaysMin || *in.ReturnWindowDays > ReturnWindowDaysMax) {
 		fieldErrors["returnWindowDays"] = []string{
-			fmt.Sprintf("Số ngày đổi trả phải từ %d tới %d", ReturnWindowDaysMin, ReturnWindowDaysMax),
+			i18n.T(ctx, "Số ngày đổi trả phải từ %d tới %d", ReturnWindowDaysMin, ReturnWindowDaysMax),
 		}
 	}
 	if in.Status == "" {
 		in.Status = "ACTIVE"
 	} else if !validStatuses[in.Status] {
-		fieldErrors["status"] = []string{"Trạng thái không hợp lệ"}
+		fieldErrors["status"] = []string{i18n.Text(ctx, "Trạng thái không hợp lệ")}
 	}
 	if len(fieldErrors) > 0 {
-		return ErrValidation(fieldErrors)
+		// ErrValidationHeadline, not ErrValidation: this validator has translated
+		// its fieldErrors, so the envelope headline has to move with them or the
+		// response is half English and half Vietnamese (see the doc comments in
+		// services/errors.go).
+		return ErrValidationHeadline(fieldErrors)
 	}
 	return nil
 }
@@ -355,7 +376,7 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	d, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: id, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound("Không tìm thấy thiết bị")
+			return nil, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
 		return nil, fmt.Errorf("get device: %w", err)
 	}
@@ -401,7 +422,7 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 // CreateDevice mirrors website/src/lib/services/devices.ts::createDevice
 // including the optional inline-warranty side effect when warrantyMonths > 0.
 func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in DeviceInput, fromWishlistID string) (store.Device, error) {
-	if err := ValidateDeviceInput(&in); err != nil {
+	if err := ValidateDeviceInput(ctx, &in); err != nil {
 		return store.Device{}, err
 	}
 	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
@@ -415,13 +436,15 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 
 	purchaseDate, err := parseDate(in.PurchaseDate)
 	if err != nil {
-		return store.Device{}, ErrValidation(FieldErrors{"purchaseDate": {"Ngày mua không hợp lệ"}})
+		return store.Device{}, ErrValidationHeadline(FieldErrors{
+			"purchaseDate": {i18n.Text(ctx, "Ngày mua không hợp lệ")},
+		})
 	}
-	soldAt, err := parseSoldAt(in.SoldAt)
+	soldAt, err := parseSoldAt(ctx, in.SoldAt)
 	if err != nil {
 		return store.Device{}, err
 	}
-	receivedAt, err := parseReceivedAt(in.ReceivedAt)
+	receivedAt, err := parseReceivedAt(ctx, in.ReceivedAt)
 	if err != nil {
 		return store.Device{}, err
 	}
@@ -504,7 +527,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 // Manages the single STANDARD warranty inline: creates / updates / deletes
 // based on warrantyMonths.
 func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in DeviceInput) (store.Device, error) {
-	if err := ValidateDeviceInput(&in); err != nil {
+	if err := ValidateDeviceInput(ctx, &in); err != nil {
 		return store.Device{}, err
 	}
 	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
@@ -514,20 +537,22 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	q := store.New(db)
 	if _, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: id, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Device{}, ErrNotFound("Không tìm thấy thiết bị")
+			return store.Device{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
 		return store.Device{}, fmt.Errorf("get device: %w", err)
 	}
 
 	purchaseDate, err := parseDate(in.PurchaseDate)
 	if err != nil {
-		return store.Device{}, ErrValidation(FieldErrors{"purchaseDate": {"Ngày mua không hợp lệ"}})
+		return store.Device{}, ErrValidationHeadline(FieldErrors{
+			"purchaseDate": {i18n.Text(ctx, "Ngày mua không hợp lệ")},
+		})
 	}
-	soldAt, err := parseSoldAt(in.SoldAt)
+	soldAt, err := parseSoldAt(ctx, in.SoldAt)
 	if err != nil {
 		return store.Device{}, err
 	}
-	receivedAt, err := parseReceivedAt(in.ReceivedAt)
+	receivedAt, err := parseReceivedAt(ctx, in.ReceivedAt)
 	if err != nil {
 		return store.Device{}, err
 	}
@@ -560,7 +585,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Device{}, ErrNotFound("Không tìm thấy thiết bị")
+			return store.Device{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
 		return store.Device{}, fmt.Errorf("update device: %w", err)
 	}
@@ -631,7 +656,7 @@ func DeleteDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) erro
 		return fmt.Errorf("delete device: %w", err)
 	}
 	if rows == 0 {
-		return ErrNotFound("Không tìm thấy thiết bị")
+		return ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 	}
 	return nil
 }
@@ -650,10 +675,19 @@ type categoryLookup interface {
 // assertCategoryExists rejects a category code that is not an active row of
 // public."Category". The catalog rows come from migration 0004 — before that
 // migration existed the table was empty and this check rejected every write.
+//
+// The `category` fieldError is rendered here rather than taken from
+// ErrCategoryInvalid so it follows the request's language like the headline does
+// (see the ErrCategoryInvalidMessage doc comment). `store.New(db)` callers in
+// this package all have a request context; the wishlist paths pass the one they
+// already have, so their response gains a translated field error without any
+// behaviour change on the Vietnamese side.
 func assertCategoryExists(ctx context.Context, q categoryLookup, code string) error {
 	if _, err := q.GetCategoryByCode(ctx, code); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrCategoryInvalid()
+			invalid := ErrCategoryInvalid()
+			invalid.FieldErrors["category"] = []string{i18n.Text(ctx, ErrCategoryInvalidMessage)}
+			return invalid
 		}
 		return fmt.Errorf("get category: %w", err)
 	}
@@ -689,6 +723,12 @@ type deviceQuotaCounter interface {
 // than refusing to undo a mistaken sale, which is precisely the trap this
 // feature exists to remove. Clients must therefore treat `status` (not the
 // quota) as the source of truth for "how many devices do I have".
+//
+// ctx is only used to render the two refusal messages in the request's language
+// (docs/I18N_PLAN.md §3, Phase 1). It is a real parameter rather than something
+// read later so a nil context is impossible to pass by accident: this is called
+// from the HTTP handlers AND from the backup importer / wishlist transitions,
+// and all of them already carry one.
 func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal int64) error {
 	if incomingTotal <= 0 {
 		return nil
@@ -698,30 +738,37 @@ func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string,
 		return fmt.Errorf("count all devices: %w", err)
 	}
 	if incomingActive <= 0 {
-		return enforceDeviceQuota(0, total, 0, incomingTotal)
+		return enforceDeviceQuota(ctx, 0, total, 0, incomingTotal)
 	}
 	active, err := q.CountActiveDevicesByUser(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("count active devices: %w", err)
 	}
-	return enforceDeviceQuota(active, total, incomingActive, incomingTotal)
+	return enforceDeviceQuota(ctx, active, total, incomingActive, incomingTotal)
 }
 
 // enforceDeviceQuota is the pure ceiling arithmetic shared by CreateDevice
 // (which counts the user's existing rows) and the backup importer (which knows
 // its own base: `replace` wipes first, so its base is zero). Split out so the
 // boundary cases are unit-testable without a database.
-func enforceDeviceQuota(active, total, incomingActive, incomingTotal int64) error {
+//
+// Both refusals name a FIXED ceiling (50 / 500), so neither message needs a
+// singular form: Vietnamese does not inflect for number and English does not
+// either at these values. What the messages must do is say what actually counts
+// — "đã bán" devices are free under the active ceiling but counted under the
+// storage one — because the flat "Đã đạt giới hạn 50 thiết bị" this replaced was
+// wrong on exactly that point.
+func enforceDeviceQuota(ctx context.Context, active, total, incomingActive, incomingTotal int64) error {
 	if incomingTotal <= 0 {
 		return nil
 	}
 	if total+incomingTotal > MaxDevicesTotalPerUser {
-		return ErrLimit(fmt.Sprintf(
+		return ErrLimit(i18n.T(ctx,
 			"Đã đạt giới hạn %d thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại.",
 			MaxDevicesTotalPerUser))
 	}
 	if incomingActive > 0 && active+incomingActive > MaxDevicesPerUser {
-		return ErrLimit(fmt.Sprintf(
+		return ErrLimit(i18n.T(ctx,
 			"Đã đạt giới hạn %d thiết bị chưa bán. Thiết bị đã đánh dấu \"Đã bán\" không chiếm suất — đánh dấu đã bán một thiết bị rồi thử lại.",
 			MaxDevicesPerUser))
 	}
@@ -773,13 +820,15 @@ func parseDate(s string) (time.Time, error) {
 // purchaseDate: YYYY-MM-DD or RFC3339) into a pgtype.Timestamp for the write
 // path. nil / absent → zero (invalid) timestamp, which pgx writes as SQL NULL —
 // the "not sold" state.
-func parseSoldAt(in *string) (pgtype.Timestamp, error) {
+func parseSoldAt(ctx context.Context, in *string) (pgtype.Timestamp, error) {
 	if in == nil {
 		return pgtype.Timestamp{}, nil
 	}
 	t, err := parseDate(*in)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidation(FieldErrors{"soldAt": {"Ngày bán không hợp lệ"}})
+		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+			"soldAt": {i18n.Text(ctx, "Ngày bán không hợp lệ")},
+		})
 	}
 	return pgtype.Timestamp{Time: t, Valid: true}, nil
 }
@@ -790,13 +839,15 @@ func parseSoldAt(in *string) (pgtype.Timestamp, error) {
 // "delivery date not recorded", which is deliberately different from "delivered on
 // the purchase date": the deadline falls back to purchaseDate but the UI can still
 // say the date is unknown.
-func parseReceivedAt(in *string) (pgtype.Timestamp, error) {
+func parseReceivedAt(ctx context.Context, in *string) (pgtype.Timestamp, error) {
 	if in == nil {
 		return pgtype.Timestamp{}, nil
 	}
 	t, err := parseDate(*in)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidation(FieldErrors{"receivedAt": {"Ngày nhận hàng không hợp lệ"}})
+		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+			"receivedAt": {i18n.Text(ctx, "Ngày nhận hàng không hợp lệ")},
+		})
 	}
 	return pgtype.Timestamp{Time: t, Valid: true}, nil
 }

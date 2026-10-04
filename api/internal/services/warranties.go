@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -36,7 +37,15 @@ type WarrantyInput struct {
 }
 
 // ValidateWarrantyInput mirrors warrantyInputSchema.
-func ValidateWarrantyInput(in *WarrantyInput) error {
+//
+// # i18n
+//
+// Converted with the devices slice (docs/I18N_PLAN.md §3, Phase 1): every message
+// is the existing Vietnamese literal wrapped in `i18n.Text(ctx, …)`, with the
+// English column added in internal/i18n/catalog.go. The envelope headline is the
+// generic "Dữ liệu không hợp lệ", rendered through ErrValidationHeadline so it
+// follows the same language as the field messages under it.
+func ValidateWarrantyInput(ctx context.Context, in *WarrantyInput) error {
 	in.Type = strings.TrimSpace(in.Type)
 	in.StartDate = strings.TrimSpace(in.StartDate)
 	trimPtr(&in.Provider)
@@ -46,19 +55,23 @@ func ValidateWarrantyInput(in *WarrantyInput) error {
 
 	fieldErrors := FieldErrors{}
 	if !validWarrantyTypes[in.Type] {
-		fieldErrors["type"] = []string{"Loại bảo hành không hợp lệ"}
+		fieldErrors["type"] = []string{i18n.Text(ctx, "Loại bảo hành không hợp lệ")}
 	}
 	if in.StartDate == "" {
-		fieldErrors["startDate"] = []string{"Ngày bắt đầu bắt buộc"}
+		fieldErrors["startDate"] = []string{i18n.Text(ctx, "Ngày bắt đầu bắt buộc")}
 	}
 	if in.Months < 1 {
-		fieldErrors["months"] = []string{"Số tháng bảo hành >= 1"}
+		fieldErrors["months"] = []string{i18n.Text(ctx, "Số tháng bảo hành >= 1")}
 	}
 	if in.Cost != nil && *in.Cost < 0 {
-		fieldErrors["cost"] = []string{"Chi phí không hợp lệ"}
+		fieldErrors["cost"] = []string{i18n.Text(ctx, "Chi phí không hợp lệ")}
 	}
 	if len(fieldErrors) > 0 {
-		return ErrValidation(fieldErrors)
+		// ErrValidationHeadline, not ErrValidation: this validator has translated
+		// its fieldErrors, so the envelope headline has to move with them or the
+		// response is half English and half Vietnamese (see the doc comments in
+		// services/errors.go).
+		return ErrValidationHeadline(fieldErrors)
 	}
 	return nil
 }
@@ -69,7 +82,7 @@ func ListWarrantiesByDevice(ctx context.Context, db *pgxpool.Pool, userID, devic
 	q := store.New(db)
 	if _, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: deviceID, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound("Không tìm thấy thiết bị")
+			return nil, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
 		return nil, fmt.Errorf("get device: %w", err)
 	}
@@ -95,7 +108,7 @@ func GetWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID strin
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Warranty{}, ErrNotFound("Không tìm thấy gói bảo hành")
+			return store.Warranty{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy gói bảo hành"))
 		}
 		return store.Warranty{}, fmt.Errorf("get warranty: %w", err)
 	}
@@ -104,13 +117,13 @@ func GetWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID strin
 
 // CreateWarranty mirrors website/src/lib/services/warranties.ts::createWarranty.
 func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID string, in WarrantyInput) (store.Warranty, error) {
-	if err := ValidateWarrantyInput(&in); err != nil {
+	if err := ValidateWarrantyInput(ctx, &in); err != nil {
 		return store.Warranty{}, err
 	}
 	q := store.New(db)
 	if _, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: deviceID, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Warranty{}, ErrNotFound("Không tìm thấy thiết bị")
+			return store.Warranty{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
 		return store.Warranty{}, fmt.Errorf("get device: %w", err)
 	}
@@ -119,13 +132,15 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 		return store.Warranty{}, fmt.Errorf("count warranties: %w", err)
 	}
 	if count >= MaxWarrantiesPerDevice {
-		return store.Warranty{}, ErrLimit(fmt.Sprintf(
+		return store.Warranty{}, ErrLimit(i18n.T(ctx,
 			"Mỗi thiết bị tối đa %d gói bảo hành.", MaxWarrantiesPerDevice))
 	}
 
 	startDate, err := parseDate(in.StartDate)
 	if err != nil {
-		return store.Warranty{}, ErrValidation(FieldErrors{"startDate": {"Ngày bắt đầu không hợp lệ"}})
+		return store.Warranty{}, ErrValidationHeadline(FieldErrors{
+			"startDate": {i18n.Text(ctx, "Ngày bắt đầu không hợp lệ")},
+		})
 	}
 	endDate := addMonths(startDate, int(in.Months))
 
@@ -152,14 +167,16 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 // Returns the updated warranty + its parent deviceId so callers can revalidate
 // the device detail path.
 func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID string, in WarrantyInput) (store.Warranty, error) {
-	if err := ValidateWarrantyInput(&in); err != nil {
+	if err := ValidateWarrantyInput(ctx, &in); err != nil {
 		return store.Warranty{}, err
 	}
 	q := store.New(db)
 
 	startDate, err := parseDate(in.StartDate)
 	if err != nil {
-		return store.Warranty{}, ErrValidation(FieldErrors{"startDate": {"Ngày bắt đầu không hợp lệ"}})
+		return store.Warranty{}, ErrValidationHeadline(FieldErrors{
+			"startDate": {i18n.Text(ctx, "Ngày bắt đầu không hợp lệ")},
+		})
 	}
 	endDate := addMonths(startDate, int(in.Months))
 
@@ -178,7 +195,7 @@ func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID st
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Warranty{}, ErrNotFound("Không tìm thấy gói bảo hành")
+			return store.Warranty{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy gói bảo hành"))
 		}
 		return store.Warranty{}, fmt.Errorf("update warranty: %w", err)
 	}
@@ -196,7 +213,7 @@ func DeleteWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID st
 		return fmt.Errorf("delete warranty: %w", err)
 	}
 	if rows == 0 {
-		return ErrNotFound("Không tìm thấy gói bảo hành")
+		return ErrNotFound(i18n.Text(ctx, "Không tìm thấy gói bảo hành"))
 	}
 	return nil
 }
@@ -211,7 +228,7 @@ func DismissReminder(ctx context.Context, db *pgxpool.Pool, userID, warrantyID s
 		UserId: userID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound("Không tìm thấy gói bảo hành")
+			return ErrNotFound(i18n.Text(ctx, "Không tìm thấy gói bảo hành"))
 		}
 		return fmt.Errorf("get warranty: %w", err)
 	}
@@ -242,7 +259,7 @@ func RestoreReminder(ctx context.Context, db *pgxpool.Pool, userID, warrantyID s
 		UserId: userID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound("Không tìm thấy gói bảo hành")
+			return ErrNotFound(i18n.Text(ctx, "Không tìm thấy gói bảo hành"))
 		}
 		return fmt.Errorf("get warranty: %w", err)
 	}

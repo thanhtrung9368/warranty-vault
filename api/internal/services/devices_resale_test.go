@@ -55,7 +55,7 @@ func TestValidateDeviceInputResalePair(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			in := base()
 			tc.mutate(&in)
-			err := ValidateDeviceInput(&in)
+			err := ValidateDeviceInput(viCtx(), &in)
 			if tc.wantField == "" {
 				if err != nil {
 					t.Fatalf("ValidateDeviceInput = %v, want nil", err)
@@ -77,11 +77,11 @@ func TestValidateDeviceInputResalePair(t *testing.T) {
 }
 
 func TestParseSoldAt(t *testing.T) {
-	if ts, err := parseSoldAt(nil); err != nil || ts.Valid {
+	if ts, err := parseSoldAt(viCtx(), nil); err != nil || ts.Valid {
 		t.Errorf("parseSoldAt(nil) = (%v, %v), want an invalid timestamp (SQL NULL)", ts, err)
 	}
 	for _, in := range []string{"2026-03-01", "2026-03-01T10:30:00Z", "2026-03-01T10:30:00+07:00"} {
-		ts, err := parseSoldAt(strp(in))
+		ts, err := parseSoldAt(viCtx(), strp(in))
 		if err != nil {
 			t.Errorf("parseSoldAt(%q) = %v, want nil", in, err)
 			continue
@@ -90,7 +90,7 @@ func TestParseSoldAt(t *testing.T) {
 			t.Errorf("parseSoldAt(%q) produced an invalid timestamp", in)
 		}
 	}
-	if _, err := parseSoldAt(strp("31/03/2026")); err == nil {
+	if _, err := parseSoldAt(viCtx(), strp("31/03/2026")); err == nil {
 		t.Error("parseSoldAt(\"31/03/2026\") = nil, want a soldAt field error")
 	} else if svc, ok := As(err); !ok || len(svc.FieldErrors["soldAt"]) == 0 {
 		t.Errorf("parseSoldAt(invalid) = %v, want fieldErrors[soldAt]", err)

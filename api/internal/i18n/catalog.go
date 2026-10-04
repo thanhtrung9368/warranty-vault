@@ -298,4 +298,99 @@ var messages = map[string]message{
 		vi: "Đây là thông báo thử nghiệm",
 		en: "This is a test notification",
 	},
+
+	// ── Shared envelopes whose callers have been converted.
+	//
+	// "Lỗi hệ thống" is deliberately NOT in this group: it is the 500 headline of
+	// every per-domain error writer (writeServiceError, writeDevicesErr,
+	// writeAttachmentError, …), so translating it would change responses in
+	// domains Phase 1 has not reached. It is already in the catalog above because
+	// the converted auth slice serves it, and each remaining writer adopts
+	// i18n.Text for it in its own wave.
+	"Thiếu id thiết bị":       {vi: "Thiếu id thiết bị", en: "Missing device id"},
+	"Thiếu id gói bảo hành":   {vi: "Thiếu id gói bảo hành", en: "Missing warranty id"},
+	"Không tìm thấy thiết bị": {vi: "Không tìm thấy thiết bị", en: "Device not found"},
+	"Không tìm thấy gói bảo hành": {
+		vi: "Không tìm thấy gói bảo hành",
+		en: "Warranty not found",
+	},
+	"Loại thiết bị không hợp lệ": {
+		vi: "Loại thiết bị không hợp lệ",
+		en: "Invalid device category",
+	},
+
+	// ── Device validation (internal/services/devices.go).
+	//
+	// Vietnamese is the original in every entry below; only the English column is
+	// new. Each sentence keeps its meaning rather than its word order — "Tên thiết
+	// bị bắt buộc" is "Device name is required", not "Name device mandatory".
+	"Tên thiết bị bắt buộc":  {vi: "Tên thiết bị bắt buộc", en: "Device name is required"},
+	"Loại thiết bị bắt buộc": {vi: "Loại thiết bị bắt buộc", en: "Device category is required"},
+	"Ngày mua bắt buộc":      {vi: "Ngày mua bắt buộc", en: "Purchase date is required"},
+	"Giá mua không hợp lệ":   {vi: "Giá mua không hợp lệ", en: "Invalid purchase price"},
+	"Giá bán không hợp lệ":   {vi: "Giá bán không hợp lệ", en: "Invalid sale price"},
+	"Thiếu ngày bán":         {vi: "Thiếu ngày bán", en: "Missing sale date"},
+	"Thiếu giá bán":          {vi: "Thiếu giá bán", en: "Missing sale price"},
+	"Ngày mua không hợp lệ":  {vi: "Ngày mua không hợp lệ", en: "Invalid purchase date"},
+	"Ngày bán không hợp lệ":  {vi: "Ngày bán không hợp lệ", en: "Invalid sale date"},
+	"Ngày nhận hàng không hợp lệ": {
+		vi: "Ngày nhận hàng không hợp lệ",
+		en: "Invalid delivery date",
+	},
+	"Số tháng bảo hành không hợp lệ": {
+		vi: "Số tháng bảo hành không hợp lệ",
+		en: "Invalid warranty length in months",
+	},
+	"Trạng thái không hợp lệ": {vi: "Trạng thái không hợp lệ", en: "Invalid status"},
+	"Số ngày đổi trả phải từ %d tới %d": {
+		vi: "Số ngày đổi trả phải từ %d tới %d",
+		en: "The return window must be between %d and %d days",
+	},
+	// The active-device ceiling. Read aloud, not word for word
+	// (docs/I18N_PLAN.md §4.4): the Vietnamese says sold devices "do not occupy a
+	// slot", which is the whole point of the message — a user at 50 active rows is
+	// told that marking one SOLD frees the one they are trying to add.
+	"Đã đạt giới hạn %d thiết bị chưa bán. Thiết bị đã đánh dấu \"Đã bán\" không chiếm suất — đánh dấu đã bán một thiết bị rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d thiết bị chưa bán. Thiết bị đã đánh dấu \"Đã bán\" không chiếm suất — đánh dấu đã bán một thiết bị rồi thử lại.",
+		en: "You have reached the limit of %d unsold devices. Devices marked as sold do not count against it — mark one as sold and try again.",
+	},
+	// The storage ceiling, which counts sold rows too (the anti-gaming backstop).
+	"Đã đạt giới hạn %d thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại.",
+		en: "You have reached the %d-device storage limit (sold devices included). Delete some older records and try again.",
+	},
+
+	// ── Warranty validation (internal/services/warranties.go).
+	"Loại bảo hành không hợp lệ": {vi: "Loại bảo hành không hợp lệ", en: "Invalid warranty type"},
+	"Ngày bắt đầu bắt buộc":      {vi: "Ngày bắt đầu bắt buộc", en: "Start date is required"},
+	"Ngày bắt đầu không hợp lệ":  {vi: "Ngày bắt đầu không hợp lệ", en: "Invalid start date"},
+	// The Vietnamese states a numeric floor with a `>=` glyph; English says it in
+	// words. Same rule, and it reads like a sentence rather than a formula.
+	"Số tháng bảo hành >= 1": {vi: "Số tháng bảo hành >= 1", en: "Warranty length must be at least 1 month"},
+	"Chi phí không hợp lệ":   {vi: "Chi phí không hợp lệ", en: "Invalid cost"},
+	"Mỗi thiết bị tối đa %d gói bảo hành.": {
+		vi: "Mỗi thiết bị tối đa %d gói bảo hành.",
+		en: "A device can have at most %d warranties.",
+	},
+
+	// ── Serial / IMEI advisories (internal/services/serial_validation.go).
+	//
+	// The last two were string CONCATENATION in the source
+	// (`"… chuỗi này có " + strconv.Itoa(len(v)) + ". …"`), which cannot be a
+	// catalog key, so they are `%d` templates here. The Vietnamese side is
+	// byte-for-byte what it was — the concatenation is simply done by Sprintf.
+	// None of the three is an error: they are warnings shown next to a value that
+	// was still saved, so the English keeps the same reassuring tone.
+	"15 số này không đúng checksum IMEI (Luhn) — có thể sai một chữ số. Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn trước khi đi bảo hành.": {
+		vi: "15 số này không đúng checksum IMEI (Luhn) — có thể sai một chữ số. Vẫn lưu được, nhưng nên đối chiếu lại với tem máy hoặc hoá đơn trước khi đi bảo hành.",
+		en: "This 15-digit number fails the IMEI (Luhn) checksum — one digit may be wrong. It is saved anyway, but check it against the sticker on the device or the receipt before you claim the warranty.",
+	},
+	"IMEI chuẩn có đúng 15 chữ số, chuỗi này có %d. Nếu đây là số serial của hãng thì bỏ qua cảnh báo này.": {
+		vi: "IMEI chuẩn có đúng 15 chữ số, chuỗi này có %d. Nếu đây là số serial của hãng thì bỏ qua cảnh báo này.",
+		en: "A standard IMEI has exactly 15 digits; this one has %d. If it is the manufacturer's own serial number, ignore this warning.",
+	},
+	"Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.": {
+		vi: "Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.",
+		en: "This serial/IMEI already appears on %d other devices in your account. Check it to avoid duplicate warranty records.",
+	},
 }

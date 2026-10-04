@@ -407,6 +407,10 @@ paths:
               schema: { $ref: '#/components/schemas/Catalog' }
 
   /api/v1/devices:
+    # `lang` on this path is part of Phase 1 of docs/I18N_PLAN.md: the devices
+    # slice renders `message` / `fieldErrors` in the request's language, so the
+    # parameter is no longer an auth-only switch.
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [devices]
       parameters:
@@ -510,7 +514,9 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/devices/{id}:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [devices]
       responses:
@@ -557,7 +563,9 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/devices/{id}/warranties:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [warranties]
       responses:
@@ -872,7 +880,9 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/warranties/{id}:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     patch:
       tags: [warranties]
       requestBody:
@@ -899,7 +909,9 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/warranties/{id}/reminder:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     post:
       tags: [warranties]
       summary: Dismiss the expiry reminder for this warranty
@@ -1643,6 +1655,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/return-windows:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [devices]
       summary: Thiết bị còn hạn đổi/trả ("1 đổi 1"), kèm deadline đã tính sẵn
@@ -2083,7 +2096,7 @@ components:
       required: [error]
       properties:
         error: { type: string, description: 'Stable code, e.g. unauthorized, not_found, bad_input, rate_limited, limit_reached' }
-        message: { type: string, description: 'Human-readable Vietnamese message' }
+        message: { type: string, description: 'Human-readable message, rendered in the language of the request (see the `lang` parameter; `en` by default)' }
         fieldErrors:
           type: object
           additionalProperties:
@@ -2682,9 +2695,14 @@ components:
           description: |
             Ngày bán (`YYYY-MM-DD` hoặc ISO đầy đủ), nullable. PHẢI gửi kèm
             `soldPrice`: gửi đúng một trong hai trường ⇒ 400 với
-            `fieldErrors.soldAt = ["Thiếu ngày bán"]` (hoặc `fieldErrors.soldPrice`
+            `fieldErrors.soldAt = ["Missing sale date"]` (hoặc `fieldErrors.soldPrice`
             ngược lại). Gửi cả hai = `null` để xoá ghi nhận đã bán.
-            Giá trị không parse được ⇒ 400 `fieldErrors.soldAt = ["Ngày bán không hợp lệ"]`.
+            Giá trị không parse được ⇒ 400 `fieldErrors.soldAt = ["Invalid sale date"]`.
+
+            Chuỗi trong `message`/`fieldErrors` phụ thuộc ngôn ngữ của request
+            (`lang`, mặc định `en`) — khoá của `fieldErrors` thì không đổi. Bản
+            tiếng Việt của hai câu trên: `["Thiếu ngày bán"]` và
+            `["Ngày bán không hợp lệ"]`.
         soldPrice:
           type: integer
           minimum: 0
@@ -2715,8 +2733,9 @@ components:
           nullable: true
           description: |
             Ngày thực nhận máy (`YYYY-MM-DD` hoặc ISO đầy đủ), nullable. Không
-            parse được ⇒ 400 `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp
-            lệ"]`. Gửi `null` để xoá.
+            parse được ⇒ 400 `fieldErrors.receivedAt = ["Invalid delivery
+            date"]` (`["Ngày nhận hàng không hợp lệ"]` khi `lang=vi`). Gửi `null`
+            để xoá.
         warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }

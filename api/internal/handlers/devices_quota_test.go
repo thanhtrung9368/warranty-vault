@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 )
 
@@ -24,8 +25,33 @@ import (
 // back to version 3 mid-run. Seeding is done with raw SQL — 50 rows through the
 // service would test the seed, not the ceiling — and the assertion is made through
 // the real HTTP surface, so the message the user actually reads is what is pinned.
+//
+// # i18n
+//
+// The refusal copy is asserted in Vietnamese, and the product default is English
+// (docs/I18N_PLAN.md §2.2), so every request below carries an explicit `?lang=vi`.
+// That is a change to the REQUEST, never to the assertion — the sentences are the
+// ones this suite has always pinned, and they must keep reading the same way after
+// Phase 1 (docs/I18N_PLAN.md §4.3). The one direct service call (the backup
+// importer) pins the language on its context instead, because no HTTP request is
+// involved there.
 
 const quotaTestUser = "zz_test_quota_user"
+
+// viCtx pins Vietnamese for the code paths that are exercised as SERVICES rather
+// than over HTTP (the backup importer), where there is no `?lang=` to send. The
+// product default is English, so an unpinned context would assert the English
+// copy of a message this suite pins in Vietnamese.
+func viCtx() context.Context { return i18n.WithTag(context.Background(), i18n.VI) }
+
+// withViQuery is viCtx for a request: it runs the mux behind i18n.Middleware with
+// `?lang=vi`, which is exactly how the real server resolves the language. It is
+// needed for the endpoints whose handlers are NOT part of this wave and therefore
+// do not call i18n.Attach themselves (the wishlist transition below, which reaches
+// the device ceiling through services.UpdateWishlistItem). Those handlers keep
+// emitting Vietnamese, so the request is what pins the language — the assertion is
+// left exactly as it was.
+func withViQuery(mux *http.ServeMux) http.Handler { return i18n.Middleware(mux) }
 
 func setupQuotaTest(t *testing.T) (*pgxpool.Pool, *http.ServeMux, string) {
 	t.Helper()
@@ -94,7 +120,8 @@ func postNewDevice(t *testing.T, mux *http.ServeMux, token, status string) *http
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", bytes.NewReader(raw))
+	// ?lang=vi: the refusal message is asserted below in Vietnamese.
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices?lang=vi", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	rr := httptest.NewRecorder()
@@ -277,7 +304,7 @@ func TestBackupImportObeysTheSameDeviceCeilings(t *testing.T) {
 
 	// A merge import may not push the account past the storage ceiling…
 	seedDevices(t, pool, "sold", "SOLD", services.MaxDevicesTotalPerUser-1)
-	_, err := services.ImportBackup(context.Background(), pool, quotaTestUser,
+	_, err := services.ImportBackup(viCtx(), pool, quotaTestUser,
 		&services.BackupExport{Version: services.MetadataOnlyBackupVersion, Devices: soldDevices(2)},
 		services.ImportMerge)
 	if err == nil {
@@ -289,7 +316,7 @@ func TestBackupImportObeysTheSameDeviceCeilings(t *testing.T) {
 
 	// …while a payload that fits still imports, so the check is a ceiling and not a
 	// blanket refusal of sold devices.
-	res, err := services.ImportBackup(context.Background(), pool, quotaTestUser,
+	res, err := services.ImportBackup(viCtx(), pool, quotaTestUser,
 		&services.BackupExport{Version: services.MetadataOnlyBackupVersion, Devices: soldDevices(1)},
 		services.ImportMerge)
 	if err != nil {
@@ -321,7 +348,7 @@ func TestBackupReplaceImportIsNotBlockedByRowsItIsAboutToDelete(t *testing.T) {
 			UpdatedAt:     "2025-01-01T00:00:00Z",
 		})
 	}
-	res, err := services.ImportBackup(context.Background(), pool, quotaTestUser,
+	res, err := services.ImportBackup(viCtx(), pool, quotaTestUser,
 		&services.BackupExport{Version: services.MetadataOnlyBackupVersion, Devices: devices},
 		services.ImportReplace)
 	if err != nil {
@@ -350,11 +377,15 @@ func TestWishlistPurchaseObeysTheDeviceCeiling(t *testing.T) {
 		raw, _ := json.Marshal(map[string]any{
 			"name": "Món muốn mua", "category": "PHONE", "priority": "WANT", "status": "PURCHASED",
 		})
-		req := httptest.NewRequest(http.MethodPatch, "/api/v1/wishlist/zz_quota_wish", bytes.NewReader(raw))
+		// ?lang=vi: the wishlist transition hits the same device ceiling and the
+		// refusal copy below is asserted in Vietnamese. Through the middleware,
+		// because the wishlist handler is not part of this wave and so does not
+		// call i18n.Attach itself.
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/wishlist/zz_quota_wish?lang=vi", bytes.NewReader(raw))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+token)
 		rr := httptest.NewRecorder()
-		mux.ServeHTTP(rr, req)
+		withViQuery(mux).ServeHTTP(rr, req)
 		return rr
 	}
 

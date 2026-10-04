@@ -7,8 +7,16 @@ import (
 	"net/http"
 )
 
-// FieldErrors maps form field names to a list of Vietnamese error messages.
+// FieldErrors maps form field names to a list of user-facing error messages.
 // Mirrors the shape Zod's `flatten().fieldErrors` produces in TS.
+//
+// A converted code path renders each message with `i18n.Text(ctx, <the
+// Vietnamese literal>)` at the point where the literal is written, so the value
+// here is already in the request's language. An unconverted one stores the
+// Vietnamese literal, which is exactly what it did before i18n existed. That is
+// the whole reason the values are finished strings rather than catalog keys: the
+// key IS the Vietnamese source text (internal/i18n/catalog.go), so both shapes
+// are the same bytes until a translation is added.
 type FieldErrors map[string][]string
 
 // Error is a typed business-logic error that handlers translate into the
@@ -89,28 +97,59 @@ func ErrForbidden(message string) *Error {
 
 // ErrLimit builds a LIMIT_REACHED domain error matching the TS pattern of
 // `Đã đạt giới hạn ${max} ${name}. ...` style messages.
+//
+// MessageKey is set to the same literal as Message, which is always valid —
+// the catalog is keyed on the Vietnamese source text — and is what lets the
+// envelope writer render the headline in the request's language even though the
+// error is built deep in a service with no request in scope
+// (handlers.writeDevicesErr). An entry Phase 1 has not reached yet falls back to
+// the Vietnamese string, i.e. to exactly what an unconverted caller sends today.
 func ErrLimit(message string) *Error {
-	return &Error{Code: "LIMIT_REACHED", Message: message}
+	return &Error{Code: "LIMIT_REACHED", Message: message, MessageKey: message}
 }
 
 // ErrValidation builds a VALIDATION error with a generic message and the
 // per-field map.
 //
-// The envelope `Message` is intentionally a fixed Vietnamese string: it is the
-// generic "invalid input" headline that is identical for every validator in this
-// package. A converted handler that wants it rendered in the request's language
-// sets MessageKey afterwards, or supplies its own headline — see
-// handlers/auth.go::badInput, which does the latter.
+// Message is deliberately NOT keyed HERE, and that is a scope decision rather
+// than an oversight. `Dữ liệu không hợp lệ` is shared by every validator in this
+// package, including the ones whose domains are not converted yet (wishlist,
+// subscriptions, backup, shares, actions). Setting MessageKey in this constructor
+// would flip the envelope `message` of all of them to English for a request that
+// asks for English while their fieldErrors stay Vietnamese — the half-translated
+// envelope docs/I18N_PLAN.md §2.4 is written to avoid.
+//
+// A CONVERTED validator therefore opts in explicitly, with
+// ErrValidationHeadline, so its headline and its fieldErrors move together:
+//
+//	func ValidateThing(ctx context.Context, in *Thing) error {
+//		fieldErrors := FieldErrors{"name": {i18n.Text(ctx, "Tên thiết bị bắt buộc")}}
+//		return ErrValidationHeadline(fieldErrors)
+//	}
+//
+// The devices and warranties validators do exactly that; handlers/auth.go reaches
+// the same result by supplying its own translated headline through badInput.
+// Leaving MessageKey empty is the pre-i18n behaviour, so an unconverted caller is
+// byte-identical to what it was before this package knew about languages.
 func ErrValidation(fieldErrors FieldErrors) *Error {
 	return &Error{
-		Code: "VALIDATION",
-		// Vietnamese source text, and the i18n catalog key for it: a converted
-		// handler renders MessageKey, an unconverted one sends Message, and both
-		// spell the same sentence (internal/i18n/catalog.go).
+		Code:        "VALIDATION",
 		Message:     "Dữ liệu không hợp lệ",
-		MessageKey:  "Dữ liệu không hợp lệ",
 		FieldErrors: fieldErrors,
 	}
+}
+
+// ErrValidationHeadline is ErrValidation for a validator that has translated its
+// fieldErrors and wants the envelope headline to follow the same language.
+//
+// The headline stays the GENERIC sentence rather than a field's message: this
+// failure can report several fields at once ("Tên thiết bị bắt buộc" AND "Giá mua
+// không hợp lệ"), so naming one of them would be a lie about the others. A failure
+// that is genuinely about a single field uses ErrValidationKeyed instead.
+func ErrValidationHeadline(fieldErrors FieldErrors) *Error {
+	e := ErrValidation(fieldErrors)
+	e.MessageKey = "Dữ liệu không hợp lệ"
+	return e
 }
 
 // ErrValidationKeyed is ErrValidation for a failure that IS the whole story — a
@@ -127,11 +166,24 @@ func ErrValidationKeyed(messageKey string, fieldErrors FieldErrors) *Error {
 	}
 }
 
-// ErrCategoryInvalid mirrors the TS "Loại thiết bị không hợp lệ" message.
+// ErrCategoryInvalid mirrors the TS "Loại thiết bị không hợp lệ" message, with an
+// empty field error for the caller to fill in.
+//
+// It is split that way because this is the one converted error whose fieldError
+// is a full sentence rather than a fragment: the call site
+// (assertCategoryExists, which has a ctx) renders the `category` entry with
+// `i18n.Text(ctx, ErrCategoryInvalidMessage)`, while the constructor — reachable
+// with no request in scope — keys only the headline and leaves the map to the
+// caller. Leaving the Vietnamese literal in the map here would ship a
+// half-translated envelope: `message` in English, `fieldErrors.category` in
+// Vietnamese, which is exactly the shape the devices i18n test scans for.
+const ErrCategoryInvalidMessage = "Loại thiết bị không hợp lệ"
+
 func ErrCategoryInvalid() *Error {
 	return &Error{
 		Code:        "CATEGORY_INVALID",
-		Message:     "Loại thiết bị không hợp lệ",
-		FieldErrors: FieldErrors{"category": {"Loại thiết bị không hợp lệ"}},
+		Message:     ErrCategoryInvalidMessage,
+		MessageKey:  ErrCategoryInvalidMessage,
+		FieldErrors: FieldErrors{"category": {ErrCategoryInvalidMessage}},
 	}
 }
