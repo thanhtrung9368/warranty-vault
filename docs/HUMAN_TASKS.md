@@ -210,7 +210,7 @@ npx web-push generate-vapid-keys
 **Tốn:** 0đ. FCM không tính phí. Gói Spark (miễn phí) là đủ.
 
 1. Vào <https://console.firebase.google.com> → tạo project.
-2. Thêm app Android, package name **`com.warrantyvault.app`** (phải khớp
+2. Thêm app Android, package name **`app.warrantyvault`** (phải khớp
    `applicationId` trong `android/app/build.gradle.kts`).
 3. Tải `google-services.json` → chép vào `android/app/google-services.json`.
    File hiện tại chỉ là **stub** (`project_number: "000"`, `api_key: "placeholder"`)

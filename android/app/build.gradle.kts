@@ -18,7 +18,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.warrantyvault.app"
+        applicationId = "app.warrantyvault"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

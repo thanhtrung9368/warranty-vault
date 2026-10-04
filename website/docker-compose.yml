@@ -113,7 +113,7 @@ services:
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}
-      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.warrantyvault.app}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-app.warrantyvault}
       APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
       APNS_PRODUCTION: ${APNS_PRODUCTION:-}
       FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}

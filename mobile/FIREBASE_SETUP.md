@@ -16,7 +16,7 @@ Toàn bộ free, không cần thẻ tín dụng cho free tier.
 Trong Firebase console của project mới tạo:
 
 1. Click icon **Android** (hoặc **Add app → Android**)
-2. **Android package name**: `com.warrantyvault.app`
+2. **Android package name**: `app.warrantyvault`
    *(Phải khớp với `applicationId` trong `android/app/build.gradle.kts` — nếu sau này đổi tên app thì update cả 2 chỗ)*
 3. **App nickname**: `WarrantyVault`
 4. **Debug signing certificate SHA-1**: bỏ trống cũng được, chỉ cần khi dùng Google Sign-In hoặc Dynamic Links

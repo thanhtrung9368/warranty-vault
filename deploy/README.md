@@ -77,7 +77,7 @@ VAPID_SUBJECT=mailto:admin@warrantyvault.tld
 # APNs / FCM khi có Apple Dev / Firebase
 APNS_KEY_ID=
 APNS_TEAM_ID=
-APNS_BUNDLE_ID=com.warrantyvault.app
+APNS_BUNDLE_ID=app.warrantyvault
 APNS_PRIVATE_KEY=
 APNS_PRODUCTION=true
 FCM_SERVICE_ACCOUNT_JSON=

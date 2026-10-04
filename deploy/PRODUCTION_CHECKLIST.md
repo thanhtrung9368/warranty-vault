@@ -53,7 +53,7 @@ Tạo một file `/opt/warranty-vault/.env` duy nhất.
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_DB` | `warranty` / `warranty_vault` | `deploy/backup.sh` đọc đúng 2 biến này (cùng default) — đổi ở compose thì phải truyền cùng giá trị cho backup |
 | `VAPID_SUBJECT` | `mailto:admin@example.com` | Nên là `mailto:` thật |
-| `APNS_BUNDLE_ID` | `com.warrantyvault.app` | Khớp bundle id app iOS |
+| `APNS_BUNDLE_ID` | `app.warrantyvault` | Khớp bundle id app iOS |
 | `RESEND_FROM` | rỗng | Bắt buộc nếu set `RESEND_API_KEY` |
 
 **Optional** (thiếu thì tính năng tương ứng tắt, server vẫn boot — xem §5):
