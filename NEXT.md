@@ -186,10 +186,9 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 
 | Việc | Nguồn | Ghi chú |
 |---|---|---|
-| **Nối client đổi email cho Android** | roadmap #10 | API đã xong (`change-email` + `confirm-email-change`, migration `0009`). **Web + iOS đã nối** (web có `/confirm-email/[token]` + form; iOS có `EmailChangeSheet`). Chỉ còn **Android**: `ProfileEditSheet.kt:45` vẫn ghi email change không được contract hỗ trợ — câu đó nay sai. Đây là việc rõ ràng nhất còn lại |
-| **UI chia sẻ link cho iOS** | FEATURE_IDEAS #2 | Backend + web + Android đã có. iOS: `Sources/WarrantyVaultKit/ShareLinks.swift` xong, và `ios/App/Features/Devices/ShareCertificatesSection.swift` **đang được viết** — lúc kiểm thì **chưa gắn vào màn hình nào**. Mục này đang di chuyển nhanh, kiểm lại trước khi làm |
-| Cache dữ liệu trong `sw.js` để offline xem được | roadmap #6 | Đây mới là "làm thật"; `sw.js` hiện chỉ cache đúng `/offline` |
-| Danh sách "Đã ẩn" cho Android | roadmap #5 | Web + iOS đã có; Android mới chỉ có "Hoàn tác" |
+| **Cache dữ liệu trong `sw.js` để offline xem được** | roadmap #6 | Đây mới là "làm thật"; `sw.js` hiện chỉ cache đúng `/offline` (`OFFLINE_SHELL = ['/offline']`) |
+| **Danh sách "Đã ẩn" cho Android** | roadmap #5 | Web + iOS đã có (**20 chỗ** gọi `includeDismissed`); Android **không có chỗ nào** — mới chỉ có "Hoàn tác" sau khi ẩn |
+| **11 header CSV của Android** | i18n pha 2 | `DEVICE_CSV_HEADER` còn tiếng Việt ở **cả 2 ngôn ngữ**. Không tách lẻ được: giá trị ô đến từ 2 mirror bị test Go parse, nên dịch header thôi sẽ ra **bảng trộn 2 ngôn ngữ**. Phải mở mirror trước |
 | Sửa/xác nhận lại copy backup + trang `/offline` nếu có ai đó viết lại UI | roadmap #2, #6 | Phần "nói thật" đã xong; đừng để nó quay lại |
 
 **Vừa xong trong đợt này — đừng làm lại (bản trước còn nằm trong bảng "còn lại"):**
@@ -199,6 +198,9 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 | ~~Ghi `includeBlobs` vào `openapi.yaml`~~ | roadmap #2 | ✅ `openapi.yaml` mục `/api/v1/backup/export` nay mô tả cả tham số `includeBlobs` lẫn hai định dạng trả về |
 | ~~PDF OCR cho hoá đơn~~ | roadmap #15 | ✅ `ai.IsSupportedReceiptType` nhận `application/pdf`; PDF gửi dạng `document` block, không còn 400 |
 | ~~Trang `/confirm-email/<token>` + form đổi email (web)~~ | roadmap #10 | ✅ `website/src/app/(auth)/confirm-email/[token]/page.tsx` + `components/email-change-form.tsx`, gắn trong `settings/page.tsx` |
+| ~~Nối client đổi email cho **Android**~~ | roadmap #10 | ✅ `ui/screens/settings/EmailChangeSheet.kt` + `EmailChangeRules.kt` (nhận token dán **hoặc** cả link), 2 endpoint mới, hàng Email trong Settings nay bấm được. Câu "email change is not supported" đã xoá ở **cả 5 chỗ**, không chỉ `ProfileEditSheet.kt:45` |
+| ~~UI chia sẻ link cho **iOS**~~ | FEATURE_IDEAS #2 | ✅ `ShareCertificatesSection` đã gắn — `DeviceDetailView.swift:221` |
+| ~~Song ngữ toàn bộ 3 client~~ | `docs/I18N_PLAN.md` | ✅ Go 333 entry · iOS 758 · Android 602+33 · Web 1.318. **1.293 test** xanh ở 4 tầng |
 
 **Cần người duyệt / quyết định trước khi code:**
 
@@ -215,11 +217,11 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 
 | Việc | Chờ gì | Trạng thái |
 |---|---|---|
-| Apple Developer + APNs .p8 | $99/năm | Chưa mua |
-| Firebase project + service account JSON + `google-services.json` | Google account | Chưa tạo (file vẫn là stub) |
-| VPS + domain + Caddy TLS | Card + DNS | Chưa có |
-| TestFlight / Play Console internal | Apple/Google account | Chưa có |
-| Upstash (rate-limit) / Resend (email) prod keys | Signup free tier | Chưa có |
+| ~~Apple Developer + APNs .p8~~ | ~~$99/năm~~ | ✅ **ĐÃ CÓ TÀI KHOẢN** (2026-10-04) — còn thiếu mỗi việc tạo key `.p8` trong portal |
+| ~~Firebase project + `google-services.json`~~ | ~~Google account~~ | ✅ **XONG** — project `daring-tracer-277502`, package `app.warrantyvault`, file **thật** (không còn stub) |
+| VPS + domain + Caddy TLS | Card + DNS | **VPS: ĐÃ CÓ.** Còn **domain** — và nó chặn **cứng** cả HTTPS lẫn Resend (Let's Encrypt không cấp cert cho IP trần) |
+| TestFlight / Play Console internal | Apple/Google account | Apple ✅ có · Play: **app chưa tạo trong console** |
+| Upstash (rate-limit) / Resend (email) prod keys | Signup free tier | **Resend chặn bởi domain**; Upstash chủ repo tạm hoãn |
 | **Diễn tập restore thật** | VPS/DB staging | **Chưa làm** — và là việc quan trọng nhất trong bảng này |
 
 ---
