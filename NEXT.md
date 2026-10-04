@@ -231,9 +231,23 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 3. ~~**Block 1.3–1.5** — reminder/payment/label parity~~ ✅ XONG (2026-06-05), nâng cấp tiếp 2026-10-03.
 4. ~~**Block 2** — đồng bộ docs~~ ✅ XONG (2026-06-05) + 2026-10-03.
 5. ~~**Block 3** — CI test~~ ✅ XONG (2026-06-05) + 2026-10-03.
-6. **Block 4** — gần xong; chỉ còn `google-services.json` thật (chờ Firebase).
+6. ~~**Block 4** — `google-services.json` thật~~ ✅ XONG (2026-10-04): Firebase project `daring-tracer-277502`, package `app.warrantyvault`, plugin đã sinh resource thật; service account đã vào `.env` gốc. Xem `docs/HUMAN_TASKS.md` 1.1.
 7. **Block 5** — chọn trong bảng: việc code được thì làm ngay, việc cần duyệt thì hỏi trước.
 
-> **Đường ngắn nhất tới "chạy thật":** mua domain + VPS (`docs/HUMAN_TASKS.md` 2.1 → 2.2), dựng theo
-> `deploy/PRODUCTION_CHECKLIST.md`, rồi **diễn tập restore** trước khi tin vào backup. Mọi thứ còn
-> lại — Apple, Firebase, Upstash, Resend — đều **không chặn** việc deploy web.
+> **Đường ngắn nhất tới "chạy thật":** mua **domain** (`docs/HUMAN_TASKS.md` 2.1) — **VPS đã có rồi** —
+> dựng theo `deploy/PRODUCTION_CHECKLIST.md`, rồi **diễn tập restore** trước khi tin vào backup.
+>
+> ⚠️ **Sửa lại một câu ở đây từng nói sai.** Bản trước gộp *"Apple, Firebase, Upstash, Resend đều không
+> chặn việc deploy web"*. Đúng về mặt **deploy**, nhưng sai về mặt **chức năng**, và sai theo hướng dễ
+> khiến người đọc bỏ qua:
+>
+> * **Resend CHẶN CỨNG reset mật khẩu** khi chưa có domain. [Docs Resend](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain):
+>   *"The `resend.dev` domain is only available for testing purposes and can only send emails to the
+>   email address associated with your Resend account."* Nên deploy được, nhưng **người dùng thật không
+>   reset được mật khẩu** — không phải "tính năng phụ", mà là luồng auth hỏng.
+> * **HTTPS cũng cần domain** — Let's Encrypt không cấp cert cho IP trần, và cookie `wv_session` bật
+>   `secure` ở production nên **không sống qua HTTP**.
+> * **Apple/Firebase/Upstash thì đúng là không chặn** — APNs và FCM không cần tên miền công khai, và
+>   rate limit có fallback in-memory.
+>
+> Nên: **domain là thứ duy nhất còn chặn**, và nó chỉ ~$10/năm.
