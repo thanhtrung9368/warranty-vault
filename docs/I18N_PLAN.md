@@ -71,7 +71,7 @@ gốc** — mọi chuỗi đang tồn tại đều là tiếng Việt. Bản ti�
 | Pha | Vùng | Nội dung | Trạng thái |
 |---|---|---|---|
 | **0** | `api/` | Hạ tầng: `User.locale` + migration `0014`, bộ khung catalog, middleware `Accept-Language`, `?lang=`, `PATCH /auth/me` nhận `locale`, push dùng `User.locale`. **Chỉ chuyển một lát cắt** (auth) để chứng minh mẫu | ✅ **xong** — xem ghi chú dưới |
-| **1** | `api/` | Dịch nốt ~800 chuỗi Go theo mẫu đã chứng minh, **chia 5 wave tuần tự** | 🔄 **wave 1+2 xong**, xem bảng dưới |
+| **1** | `api/` | Dịch nốt ~800 chuỗi Go theo mẫu đã chứng minh, **chia 5 wave tuần tự** | ✅ **XONG — cả 5 wave** |
 | **2** | `android/` | `values/` (en) + `values-vi/`, đổi ngôn ngữ trong app | ⬜ |
 | **3** | `ios/` | String Catalog, đổi ngôn ngữ trong app | ⬜ |
 | **4** | `website/` | Từ điển + chuyển ngôn ngữ | ⬜ |
@@ -91,8 +91,8 @@ build fail, rồi có thể đi "sửa" file của con đầu. Nên **mỗi th�
 | 1 | devices + warranties (+ `serial_validation.go`) | ✅ xong — 29 chuỗi |
 | 2 | subscriptions + wishlist | ✅ xong — 36 chuỗi |
 | 3 | backup + attachments + files | ✅ xong — 61 chuỗi (62 khoá) |
-| 4 | ai + shares + search + directory | ⬜ |
-| 5 | cron + email templates + `actions.go` + `forecast.go` + còn lại | ⬜ |
+| 4 | ai + shares + search + directory | ✅ xong — 82 chuỗi |
+| 5 | cron + email + `actions.go` + `forecast.go` + **500 dùng chung** + 401 + ratelimit | ✅ xong — 77 chuỗi |
 
 **Catalog:** 72 (hết pha 0) → **101** (hết wave 1) → **140** (hết wave 2) → **202** (hết wave 3).
 
