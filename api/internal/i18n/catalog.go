@@ -53,10 +53,13 @@ package i18n
 //
 // ── English completion ───────────────────────────────────────────────────
 //
-// Phase 0 (this change) fills in the whole auth slice plus the cron push bodies.
-// Phase 1 adds the remaining ~740 strings; the mechanism does not change. Reach
-// for `i18n.T(ctx, "<the Vietnamese literal>", args...)` at the call site and add
-// the entry here — that is the entire Phase 1 recipe.
+// Phase 0 filled in the auth slice plus the cron push bodies. Phase 1 adds the
+// rest, one domain per wave (docs/I18N_PLAN.md §3); the mechanism does not
+// change. Reach for `i18n.T(ctx, "<the Vietnamese literal>", args...)` at the
+// call site and add the entry here — that is the entire Phase 1 recipe.
+//
+// Converted so far: auth (Phase 0) · devices + warranties (wave 1) ·
+// subscriptions + subscription audit + wishlist (wave 2).
 
 // message is one catalog entry. The zero value of the second language is "" and
 // means "not translated yet"; `T` then serves the other language instead of an
@@ -392,5 +395,124 @@ var messages = map[string]message{
 	"Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.": {
 		vi: "Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.",
 		en: "This serial/IMEI already appears on %d other devices in your account. Check it to avoid duplicate warranty records.",
+	},
+
+	// ── Subscriptions + wishlist (internal/services/subscriptions.go,
+	// wishlist.go, and their handlers).
+	//
+	// "Gói" is the Vietnamese word this app uses for a subscription, and the
+	// English noun is "subscription" — never "package", which reads as a parcel.
+	// The wishlist counterpart is "item"; a human would say "the thing I want",
+	// but the API's own noun (`WishlistItem`) is what the three clients display.
+	"Thiếu id":                      {vi: "Thiếu id", en: "Missing id"},
+	"Thiếu id món":                  {vi: "Thiếu id món", en: "Missing wishlist item id"},
+	"Không tìm thấy gói":            {vi: "Không tìm thấy gói", en: "Subscription not found"},
+	"Không tìm thấy món":            {vi: "Không tìm thấy món", en: "Wishlist item not found"},
+	"Tên gói bắt buộc":              {vi: "Tên gói bắt buộc", en: "Subscription name is required"},
+	"Tên gói tối đa 200 ký tự":      {vi: "Tên gói tối đa 200 ký tự", en: "Subscription name must be at most 200 characters"},
+	"Tên sản phẩm bắt buộc":         {vi: "Tên sản phẩm bắt buộc", en: "Wishlist item name is required"},
+	"Tên sản phẩm tối đa 200 ký tự": {vi: "Tên sản phẩm tối đa 200 ký tự", en: "Wishlist item name must be at most 200 characters"},
+	"Chu kỳ không hợp lệ":           {vi: "Chu kỳ không hợp lệ", en: "Invalid billing cycle"},
+	"Mức ưu tiên không hợp lệ":      {vi: "Mức ưu tiên không hợp lệ", en: "Invalid priority"},
+	"URL không hợp lệ":              {vi: "URL không hợp lệ", en: "Invalid URL"},
+	"Giá không hợp lệ":              {vi: "Giá không hợp lệ", en: "Invalid price"},
+	"Giá phải ≥ 0":                  {vi: "Giá phải ≥ 0", en: "Price must be at least 0"},
+	"Số tiền phải ≥ 0":              {vi: "Số tiền phải ≥ 0", en: "Amount must be at least 0"},
+	"Số ngày phải từ 1 đến 3650": {
+		vi: "Số ngày phải từ 1 đến 3650",
+		en: "Number of days must be between 1 and 3650",
+	},
+	"Số ngày nhắc không hợp lệ":    {vi: "Số ngày nhắc không hợp lệ", en: "Invalid reminder interval in days"},
+	"Ngày thanh toán bắt buộc":     {vi: "Ngày thanh toán bắt buộc", en: "Payment date is required"},
+	"Ngày thanh toán không hợp lệ": {vi: "Ngày thanh toán không hợp lệ", en: "Invalid payment date"},
+	"Ngày gia hạn không hợp lệ":    {vi: "Ngày gia hạn không hợp lệ", en: "Invalid renewal date"},
+	"Ngày không hợp lệ":            {vi: "Ngày không hợp lệ", en: "Invalid date"},
+	"Ghi chú tối đa 500 ký tự":     {vi: "Ghi chú tối đa 500 ký tự", en: "Note must be at most 500 characters"},
+	"Cần nhập số ngày khi chọn chu kỳ Tuỳ chỉnh": {
+		vi: "Cần nhập số ngày khi chọn chu kỳ Tuỳ chỉnh",
+		en: "Enter the number of days when the cycle is Custom",
+	},
+	"Loại sản phẩm không hợp lệ": {
+		vi: "Loại sản phẩm không hợp lệ",
+		en: "Invalid wishlist category",
+	},
+
+	// The subscription ceiling. A pair like the device one, but here the count is
+	// 100 only in the plural: the refusal is real at 1 too (a client can call
+	// POST /subscriptions directly), and English must not say "1 subscriptions".
+	"Đã đạt giới hạn %d gói. Xoá bớt rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d gói. Xoá bớt rồi thử lại.",
+		en: "You have reached the limit of %d subscriptions. Delete some and try again.",
+	},
+	"Đã đạt giới hạn 1 gói. Xoá bớt rồi thử lại.": {
+		vi: "Đã đạt giới hạn 1 gói. Xoá bớt rồi thử lại.",
+		en: "You have reached the limit of 1 subscription. Delete it and try again.",
+	},
+
+	// The wishlist ceiling, same shape.
+	"Đã đạt giới hạn %d món. Xoá bớt rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d món. Xoá bớt rồi thử lại.",
+		en: "You have reached the limit of %d wishlist items. Delete some and try again.",
+	},
+	// Manual renew cannot touch a LIFETIME row: there is no next cycle to advance
+	// to, so there is nothing to charge for.
+	"Gói lifetime không có gia hạn": {
+		vi: "Gói lifetime không có gia hạn",
+		en: "A lifetime subscription has nothing to renew",
+	},
+	"Gói chu kỳ Tuỳ chỉnh thiếu số ngày — không thể gia hạn": {
+		vi: "Gói chu kỳ Tuỳ chỉnh thiếu số ngày — không thể gia hạn",
+		en: "This custom-cycle subscription has no interval in days, so it cannot be renewed",
+	},
+
+	// ── Subscription audit (internal/services/subscription_audit.go).
+	//
+	// Long-form copy. Every one of these is READ ALOUD rather than substituted
+	// word for word (docs/I18N_PLAN.md §4.4): the audit's whole value is that its
+	// claims are exactly as strong as the data, and a literal translation of
+	// "lâu rồi không thấy ghi nhận gì" would claim more than the rows say.
+	//
+	// `note` is returned with every report so no client can render a finding as
+	// if it were usage data.
+	"Đây là số liệu TỰ SOÁT từ những gì bạn đã ghi, không phải kết luận về việc bạn có dùng hay không: app không đọc được giao dịch ngân hàng và không có cách nào biết một gói có đang được dùng. «Lâu rồi không thấy ghi nhận gì» nghĩa là không có khoản nào do bạn tự ghi — các khoản tự động trừ vẫn được tính riêng. Không có gì bị sửa hay huỷ tự động.": {
+		vi: "Đây là số liệu TỰ SOÁT từ những gì bạn đã ghi, không phải kết luận về việc bạn có dùng hay không: app không đọc được giao dịch ngân hàng và không có cách nào biết một gói có đang được dùng. «Lâu rồi không thấy ghi nhận gì» nghĩa là không có khoản nào do bạn tự ghi — các khoản tự động trừ vẫn được tính riêng. Không có gì bị sửa hay huỷ tự động.",
+		en: "These figures are a SELF-AUDIT of what you recorded, not a verdict on whether you use the service: the app cannot read your bank transactions and has no way to know whether a subscription is being used. \"No activity recorded for a long time\" means no payment was logged by you — automatic charges are counted separately. Nothing has been changed or cancelled automatically.",
+	},
+
+	"Gói tự trừ tiền đã lâu mà không thấy ghi nhận gì": {
+		vi: "Gói tự trừ tiền đã lâu mà không thấy ghi nhận gì",
+		en: "This subscription has been auto-charging for a long time with nothing recorded by you",
+	},
+	// Pair: the count is what makes it singular, so the singular template has no
+	// `%d` slot and the caller passes a different argument list
+	// (internal/services/subscription_audit.go::auditCountVND).
+	"«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.": {
+		vi: "«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
+		en: "\"%s\" has been charged automatically %d times, %s in total, starting on %s — and you have never logged a payment of your own for it. If you have not used it for a while, this is the moment to take another look.",
+	},
+	"«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.": {
+		vi: "«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
+		en: "\"%s\" has been charged automatically 1 time, %s in total, starting on %s — and you have never logged a payment of your own for it. If you have not used it for a while, this is the moment to take another look.",
+	},
+
+	"Giá gói đã tăng": {vi: "Giá gói đã tăng", en: "The subscription price went up"},
+	"«%s» tăng từ %s lên %s (+%s, +%d%%) ở kỳ thanh toán ngày %s.": {
+		vi: "«%s» tăng từ %s lên %s (+%s, +%d%%) ở kỳ thanh toán ngày %s.",
+		en: "\"%s\" rose from %s to %s (+%s, +%d%%) in the billing period on %s.",
+	},
+	"«%s» tăng từ %s lên %s (+%s) ở kỳ thanh toán ngày %s.": {
+		vi: "«%s» tăng từ %s lên %s (+%s) ở kỳ thanh toán ngày %s.",
+		en: "\"%s\" rose from %s to %s (+%s) in the billing period on %s.",
+	},
+
+	"Hai gói trùng tên": {vi: "Hai gói trùng tên", en: "Two subscriptions share a name"},
+	"«%s» và «%s» đang cùng hoạt động và trùng tên (khác cách viết). Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một thứ.": {
+		vi: "«%s» và «%s» đang cùng hoạt động và trùng tên (khác cách viết). Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một thứ.",
+		en: "\"%s\" and \"%s\" are both active and share a name (spelled differently). Check whether you are paying twice for the same thing.",
+	},
+	"Hai gói cùng hãng và cùng loại": {vi: "Hai gói cùng hãng và cùng loại", en: "Two subscriptions share a brand and category"},
+	"«%s» và «%s» đang cùng hoạt động, cùng hãng và cùng loại. Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một dịch vụ.": {
+		vi: "«%s» và «%s» đang cùng hoạt động, cùng hãng và cùng loại. Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một dịch vụ.",
+		en: "\"%s\" and \"%s\" are both active, from the same brand and in the same category. Check whether you are paying twice for the same service.",
 	},
 }

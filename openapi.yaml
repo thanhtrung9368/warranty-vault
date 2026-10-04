@@ -982,6 +982,10 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/subscriptions:
+    # `lang` on this path is part of Phase 1 of docs/I18N_PLAN.md: the
+    # subscriptions slice renders `message` / `fieldErrors` in the request's
+    # language, so the parameter is no longer an auth-only switch.
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [subscriptions]
       parameters:
@@ -990,8 +994,9 @@ paths:
           description: |
             Filter by subscription status. Omit the parameter (or send an empty value)
             to get every status. Unlike `/api/v1/devices` there is no `ALL` sentinel:
-            any other value is rejected with 400 `bad_input` and a Vietnamese field
-            error on `status`.
+            any other value is rejected with 400 `bad_input` and a `status` field
+            error in the language of the request (`Invalid status` / `Trạng thái
+            không hợp lệ`).
           schema: { type: string, enum: [ACTIVE, PAUSED, CANCELED, EXPIRED] }
       responses:
         '200':
@@ -1025,7 +1030,9 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
 
   /api/v1/subscriptions/{id}:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [subscriptions]
       responses:
@@ -1061,7 +1068,9 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
 
   /api/v1/subscriptions/{id}/payments:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     post:
       tags: [subscriptions]
       requestBody:
@@ -1079,16 +1088,25 @@ paths:
                 properties: { payment: { $ref: '#/components/schemas/Payment' } }
 
   /api/v1/subscriptions/{id}/renew:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     post:
       tags: [subscriptions]
       summary: Manually mark subscription as renewed (logs payment + advances renewalDate)
       responses:
-        '200': { $ref: '#/components/responses/Ok' }
+        '200':
+          description: Renewed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { subscription: { $ref: '#/components/schemas/Subscription' } }
         '400': { $ref: '#/components/responses/BadInput' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/subscriptions/audit:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [subscriptions]
       summary: Tự soát subscription — gói bị bỏ quên / tăng giá / trùng nhau (chỉ tư vấn)
@@ -1155,6 +1173,9 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/wishlist:
+    # `lang` on this path is part of Phase 1 of docs/I18N_PLAN.md: the wishlist
+    # slice renders `message` / `fieldErrors` in the request's language.
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [wishlist]
       parameters:
@@ -1163,7 +1184,8 @@ paths:
           description: |
             Filter by wishlist status. Omit the parameter (or send an empty/blank value)
             to get every status. There is no `ALL` sentinel: any other value is rejected
-            with 400 `bad_input` and a Vietnamese field error on `status`.
+            with 400 `bad_input` and a `status` field error in the language of the
+            request (`Invalid status` / `Trạng thái không hợp lệ`).
           schema: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
       responses:
         '200':
@@ -1199,7 +1221,9 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/wishlist/{id}:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     get:
       tags: [wishlist]
       summary: Item + price history (newest first)
@@ -1228,7 +1252,9 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
 
   /api/v1/wishlist/{id}/prices:
-    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
     post:
       tags: [wishlist]
       summary: Log a price observation
@@ -3488,8 +3514,8 @@ components:
         findingKey: { type: string, description: '`<LOẠI_PHÁT_HIỆN>:<id hoặc cặp id>`. Ổn định giữa các lần gọi.' }
         kind: { type: string, enum: [QUIET_AUTO_RENEW, PRICE_INCREASED, DUPLICATE] }
         severity: { type: string, enum: [HIGH, MEDIUM, LOW] }
-        title: { type: string }
-        detail: { type: string, description: 'Câu tiếng Việt nêu đúng số liệu đã dẫn tới kết luận này.' }
+        title: { type: string, description: 'Tiêu đề, viết bằng ngôn ngữ của request (`lang`, mặc định `en`).' }
+        detail: { type: string, description: 'Một câu nêu đúng số liệu đã dẫn tới kết luận này, viết bằng ngôn ngữ của request — **kể cả ngày và số tiền** trong câu (`1.200.000 ₫` / `07/05/2026` với `lang=vi`, `₫1,200,000` / `05/07/2026` với `lang=en`, vì `05/07` đọc ngược nhau ở hai ngôn ngữ).' }
         subscriptionIds: { type: array, items: { type: string }, description: 'Một id cho hai luật đầu, hai id cho `DUPLICATE`.' }
         names: { type: array, items: { type: string } }
         monthlyVnd: { type: integer, format: int64, description: 'Tổng quy đổi tháng của các gói liên quan (VND, int64). `0` với `LIFETIME`.' }
@@ -3519,7 +3545,7 @@ components:
           type: boolean
           description: 'Luôn `true`. Có mặt để client khẳng định với người dùng rằng **không có gì bị sửa hay huỷ tự động** — endpoint này không có đường ghi nào.'
         thresholds: { $ref: '#/components/schemas/SubscriptionAuditThresholds' }
-        note: { type: string, description: 'Câu tiếng Việt nói rõ giới hạn của phân tích (không đọc được giao dịch ngân hàng, không biết gói có đang được dùng hay không). Hiển thị thẳng.' }
+        note: { type: string, description: 'Câu nói rõ giới hạn của phân tích (không đọc được giao dịch ngân hàng, không biết gói có đang được dùng hay không), viết bằng ngôn ngữ của request. Hiển thị thẳng.' }
 
     # ─── Warranty directory (FEATURE_IDEAS #15) ─────────────────────────────
 

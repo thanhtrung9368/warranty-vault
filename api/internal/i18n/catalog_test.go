@@ -143,6 +143,24 @@ var singularPluralPairs = []struct {
 		"Hạn đổi/trả: %s (%d ngày kể từ ngày nhận)",
 		"Hạn đổi/trả: %s (1 ngày kể từ ngày nhận)",
 	},
+	// Wave 2 (subscriptions + wishlist). The subscription ceiling is a pair for
+	// the same reason the cron's day counts are: the count is interpolated, the
+	// refusal is reachable at 1 through a service-level call, and "1 subscriptions"
+	// is not English. The wishlist ceiling is deliberately NOT a pair —
+	// MAX_WISHLIST_PER_USER is 200 and no user-supplied count reaches its
+	// sentence, so a singular key for it would be a catalog entry nothing can
+	// produce.
+	{
+		"Đã đạt giới hạn %d gói. Xoá bớt rồi thử lại.",
+		"Đã đạt giới hạn 1 gói. Xoá bớt rồi thử lại.",
+	},
+	// The audit's "auto-charged N times" sentence. It IS a pair: the count is
+	// reachable at 1 (the threshold is 3, but the sentence is a template), and
+	// English cannot say "1 times".
+	{
+		"«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
+		"«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
+	},
 }
 
 func TestSingularPluralPairsAgreeOnVerbCounts(t *testing.T) {

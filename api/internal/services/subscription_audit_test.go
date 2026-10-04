@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -15,6 +16,14 @@ import (
 // scratch database; this file pins the RULES, which are the part a client would
 // otherwise have to reimplement. All dates are absolute so the suite cannot go red
 // on a particular day.
+//
+// Language is pinned to i18n.VI on every BuildSubscriptionAudit call, and that is
+// a pin rather than a preference: the builder's copy is now translated, so leaving
+// it to the default (`en`) would make these rule tests assert English strings —
+// and the Vietnamese renderings, which are the ORIGINAL and what the three
+// shipped clients display today, would stop being exercised anywhere. The
+// English renderings are covered by
+// internal/handlers/subscriptions_i18n_test.go.
 
 var auditNow = time.Date(2026, time.September, 15, 12, 0, 0, 0, time.UTC)
 
@@ -52,7 +61,7 @@ func TestAuditQuietAutoRenewThresholds(t *testing.T) {
 	quiet.FirstPaidAt = tsForAudit(auditNow.AddDate(0, -AuditQuietMinMonths, 0))
 	quiet.LastPaidAt = tsForAudit(auditNow.AddDate(0, 0, -1))
 
-	got := BuildSubscriptionAudit([]store.ListSubscriptionPaymentAuditRow{quiet}, nil, nil, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, []store.ListSubscriptionPaymentAuditRow{quiet}, nil, nil, auditNow)
 	f := findAuditKind(got.Findings, AuditQuietAutoRenew)
 	if f == nil {
 		t.Fatalf("expected a QUIET_AUTO_RENEW finding, got %+v", got.Findings)
@@ -113,7 +122,7 @@ func TestAuditQuietAutoRenewIsSuppressed(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := base()
 			tc.mutate(&r)
-			got := BuildSubscriptionAudit([]store.ListSubscriptionPaymentAuditRow{r}, nil, nil, auditNow)
+			got := BuildSubscriptionAudit(i18n.VI, []store.ListSubscriptionPaymentAuditRow{r}, nil, nil, auditNow)
 			if f := findAuditKind(got.Findings, AuditQuietAutoRenew); f != nil {
 				t.Errorf("expected no finding, got %+v", f)
 			}
@@ -136,7 +145,7 @@ func TestAuditPriceRise(t *testing.T) {
 	// finding — but a monthly equivalent of 0, because the cycle is unknown there.
 	rows := []store.ListSubscriptionPaymentAuditRow{auditSub("sub_price", "Spotify", BillingCycleMonthly, 69000, true)}
 
-	got := BuildSubscriptionAudit(rows, rises, nil, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, rows, rises, nil, auditNow)
 	f := findAuditKind(got.Findings, AuditPriceIncreased)
 	if f == nil {
 		t.Fatalf("expected a PRICE_INCREASED finding, got %+v", got.Findings)
@@ -172,7 +181,7 @@ func TestAuditPriceRiseMaterialityThreshold(t *testing.T) {
 		Amount:           100000 + 1000,
 		PrevAmount:       100000,
 	}}
-	got := BuildSubscriptionAudit(nil, rises, nil, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, nil, rises, nil, auditNow)
 	f := findAuditKind(got.Findings, AuditPriceIncreased)
 	if f == nil {
 		t.Fatal("expected the small rise to be reported")
@@ -193,7 +202,7 @@ func TestAuditPriceRiseFromZeroOmitsPercent(t *testing.T) {
 		Amount:           99000,
 		PrevAmount:       0,
 	}}
-	got := BuildSubscriptionAudit(nil, rises, nil, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, nil, rises, nil, auditNow)
 	f := findAuditKind(got.Findings, AuditPriceIncreased)
 	if f == nil {
 		t.Fatal("expected a finding")
@@ -214,7 +223,7 @@ func TestAuditPriceRiseKeepsOnlyTheLatestPerSubscription(t *testing.T) {
 		{SubscriptionID: "s1", SubscriptionName: "A", PaidAt: tsForAudit(auditNow.AddDate(0, 0, -1)), Amount: 120000, PrevAmount: 110000},
 		{SubscriptionID: "s1", SubscriptionName: "A", PaidAt: tsForAudit(auditNow.AddDate(0, -2, 0)), Amount: 110000, PrevAmount: 100000},
 	}
-	got := BuildSubscriptionAudit(nil, rises, nil, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, nil, rises, nil, auditNow)
 	if len(got.Findings) != 1 {
 		t.Fatalf("expected 1 finding, got %d: %+v", len(got.Findings), got.Findings)
 	}
@@ -229,7 +238,7 @@ func TestAuditDuplicatePairSumsMonthlyCost(t *testing.T) {
 		IDB: "s2", NameB: "iCloud+", PriceB: 199000, BillingCycleB: BillingCycleMonthly,
 		Reason: "SAME_NAME",
 	}}
-	got := BuildSubscriptionAudit(nil, nil, pairs, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, nil, nil, pairs, auditNow)
 	f := findAuditKind(got.Findings, AuditDuplicate)
 	if f == nil {
 		t.Fatal("expected a DUPLICATE finding")
@@ -259,7 +268,7 @@ func TestAuditDuplicateBrandCategoryReason(t *testing.T) {
 		PriceB: 260000, BillingCycleB: BillingCycleMonthly,
 		Reason: "SAME_BRAND_CATEGORY",
 	}}
-	got := BuildSubscriptionAudit(nil, nil, pairs, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, nil, nil, pairs, auditNow)
 	f := findAuditKind(got.Findings, AuditDuplicate)
 	if f == nil {
 		t.Fatal("expected a DUPLICATE finding")
@@ -294,6 +303,7 @@ func TestAuditOrderingAndCounts(t *testing.T) {
 	}
 
 	got := BuildSubscriptionAudit(
+		i18n.VI,
 		[]store.ListSubscriptionPaymentAuditRow{quietSmall, quietBig},
 		[]store.ListSubscriptionPriceRisesRow{rise},
 		nil, auditNow,
@@ -322,7 +332,7 @@ func TestAuditOrderingAndCounts(t *testing.T) {
 }
 
 func TestAuditEmptyIsNotEmptyNull(t *testing.T) {
-	got := BuildSubscriptionAudit(nil, nil, nil, auditNow)
+	got := BuildSubscriptionAudit(i18n.VI, nil, nil, nil, auditNow)
 	if got.Findings == nil {
 		t.Fatal("findings must be an empty slice, not nil — a client rendering the array must not have to null-check")
 	}

@@ -12,11 +12,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
 // MaxWishlistPerUser mirrors website/src/lib/services/wishlist.ts::MAX_WISHLIST_PER_USER.
 const MaxWishlistPerUser = 200
+
+// wishlistCategoryMessage is the wishlist-flavoured spelling of
+// ErrCategoryInvalidMessage ("Loại SẢN PHẨM", not "Loại THIẾT BỊ"): a wishlist
+// item is something the user wants to buy, so the device wording would be wrong.
+// It is the headline AND the `category` field error of the same failure, which is
+// why it is a constant — a key must reach `i18n.Text` as DATA.
+const wishlistCategoryMessage = "Loại sản phẩm không hợp lệ"
+
+// wishlistLimitMessage is the wishlist ceiling. ONE key, unlike the
+// subscription ceiling: MaxWishlistPerUser is 200 and no argument from the user's
+// data reaches the sentence, so "1 item" cannot occur — and a singular key that
+// nothing can produce would be dead weight in the catalog rather than safety.
+const wishlistLimitMessage = "Đã đạt giới hạn %d món. Xoá bớt rồi thử lại."
 
 // validWishlistPriorities mirrors website/src/lib/wishlist-types.ts::WISHLIST_PRIORITIES.
 var validWishlistPriorities = map[string]bool{
@@ -64,7 +78,18 @@ type WishlistDetail struct {
 }
 
 // ValidateWishlistInput hand-rolls the same validation as the Zod schema.
-func ValidateWishlistInput(in *WishlistInput) error {
+//
+// i18n (docs/I18N_PLAN.md §3, Phase 1 wave 2): every message is the EXISTING
+// Vietnamese literal wrapped in `i18n.Text(ctx, …)`, and the headline is
+// ErrValidationHeadline so it moves with the field errors. See
+// ValidateDeviceInput for the same pattern.
+//
+// `name`/`initialPrice`/`currentPrice` are checked from the SAME field-error map
+// as the subscription validator, which is why the shared spellings
+// ("Giá không hợp lệ", "Giá phải ≥ 0", "Trạng thái không hợp lệ") are keyed by
+// their Vietnamese text rather than by a per-domain id: one entry serves every
+// domain that says the same thing.
+func ValidateWishlistInput(ctx context.Context, in *WishlistInput) error {
 	in.Name = strings.TrimSpace(in.Name)
 	trimPtr(&in.Category)
 	trimPtr(&in.Brand)
@@ -77,40 +102,40 @@ func ValidateWishlistInput(in *WishlistInput) error {
 
 	fieldErrors := FieldErrors{}
 	if in.Name == "" {
-		fieldErrors["name"] = []string{"Tên sản phẩm bắt buộc"}
+		fieldErrors["name"] = []string{i18n.Text(ctx, "Tên sản phẩm bắt buộc")}
 	} else if len([]rune(in.Name)) > 200 {
-		fieldErrors["name"] = []string{"Tên sản phẩm tối đa 200 ký tự"}
+		fieldErrors["name"] = []string{i18n.Text(ctx, "Tên sản phẩm tối đa 200 ký tự")}
 	}
 	if in.InitialPrice != nil && *in.InitialPrice < 0 {
-		fieldErrors["initialPrice"] = []string{"Giá không hợp lệ"}
+		fieldErrors["initialPrice"] = []string{i18n.Text(ctx, "Giá không hợp lệ")}
 	}
 	if in.CurrentPrice != nil && *in.CurrentPrice < 0 {
-		fieldErrors["currentPrice"] = []string{"Giá không hợp lệ"}
+		fieldErrors["currentPrice"] = []string{i18n.Text(ctx, "Giá không hợp lệ")}
 	}
 	if in.ReminderIntervalDays != nil {
 		v := *in.ReminderIntervalDays
 		if v < 1 || v > 3650 {
-			fieldErrors["reminderIntervalDays"] = []string{"Số ngày nhắc không hợp lệ"}
+			fieldErrors["reminderIntervalDays"] = []string{i18n.Text(ctx, "Số ngày nhắc không hợp lệ")}
 		}
 	}
 	if in.BuyUrl != nil && !looksLikeURL(*in.BuyUrl) {
-		fieldErrors["buyUrl"] = []string{"URL không hợp lệ"}
+		fieldErrors["buyUrl"] = []string{i18n.Text(ctx, "URL không hợp lệ")}
 	}
 	if in.ImageUrl != nil && !looksLikeURL(*in.ImageUrl) {
-		fieldErrors["imageUrl"] = []string{"URL không hợp lệ"}
+		fieldErrors["imageUrl"] = []string{i18n.Text(ctx, "URL không hợp lệ")}
 	}
 	if in.Priority == "" {
 		in.Priority = "WANT"
 	} else if !validWishlistPriorities[in.Priority] {
-		fieldErrors["priority"] = []string{"Mức ưu tiên không hợp lệ"}
+		fieldErrors["priority"] = []string{i18n.Text(ctx, "Mức ưu tiên không hợp lệ")}
 	}
 	if in.Status == "" {
 		in.Status = "WATCHING"
 	} else if !validWishlistStatuses[in.Status] {
-		fieldErrors["status"] = []string{"Trạng thái không hợp lệ"}
+		fieldErrors["status"] = []string{i18n.Text(ctx, "Trạng thái không hợp lệ")}
 	}
 	if len(fieldErrors) > 0 {
-		return ErrValidation(fieldErrors)
+		return ErrValidationHeadline(fieldErrors)
 	}
 	return nil
 }
@@ -131,7 +156,14 @@ func ListWishlist(ctx context.Context, db *pgxpool.Pool, userID string, status *
 	if status != nil {
 		st = strings.TrimSpace(*status)
 		if st != "" && !validWishlistStatuses[st] {
-			return nil, ErrValidation(FieldErrors{"status": {"Trạng thái không hợp lệ"}})
+			// Single-field failure: the sentence IS the whole story, so the
+			// envelope headline names it instead of saying "invalid input"
+			// (ErrValidationKeyed). Mirrors the `status` filter on
+			// GET /api/v1/subscriptions.
+			return nil, ErrValidationKeyed(
+				"Trạng thái không hợp lệ",
+				FieldErrors{"status": {i18n.Text(ctx, "Trạng thái không hợp lệ")}},
+			)
 		}
 	}
 	rows, err := q.ListWishlistByUser(ctx, store.ListWishlistByUserParams{
@@ -153,7 +185,7 @@ func GetWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Wis
 	item, err := q.GetWishlistByID(ctx, store.GetWishlistByIDParams{ID: id, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound("Không tìm thấy món")
+			return nil, ErrNotFound(i18n.Text(ctx, "Không tìm thấy món"))
 		}
 		return nil, fmt.Errorf("get wishlist: %w", err)
 	}
@@ -174,17 +206,23 @@ func GetWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Wis
 // Wrapped in a transaction because we also seed the first WishlistPrice row
 // (currentPrice ?? initialPrice) when a starting price is supplied.
 func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in WishlistInput) (store.WishlistItem, error) {
-	if err := ValidateWishlistInput(&in); err != nil {
+	if err := ValidateWishlistInput(ctx, &in); err != nil {
 		return store.WishlistItem{}, err
 	}
 	if in.Category != nil {
 		if err := assertCategoryExists(ctx, store.New(db), *in.Category); err != nil {
 			// Domain-translate to wishlist-flavored message.
 			if de, ok := As(err); ok && de.Code == "CATEGORY_INVALID" {
+				// The wishlist spellings of ErrCategoryInvalid: same error code
+				// and shape, "sản phẩm" instead of "thiết bị". Both the headline
+				// and the field error are rendered HERE rather than by the
+				// constructor, because the map holds finished strings and this is
+				// the frame that has the request context.
 				return store.WishlistItem{}, &Error{
 					Code:        "CATEGORY_INVALID",
-					Message:     "Loại sản phẩm không hợp lệ",
-					FieldErrors: FieldErrors{"category": {"Loại sản phẩm không hợp lệ"}},
+					Message:     i18n.Text(ctx, wishlistCategoryMessage),
+					MessageKey:  wishlistCategoryMessage,
+					FieldErrors: FieldErrors{"category": {i18n.Text(ctx, wishlistCategoryMessage)}},
 				}
 			}
 			return store.WishlistItem{}, err
@@ -197,15 +235,18 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 		return store.WishlistItem{}, fmt.Errorf("count wishlist: %w", err)
 	}
 	if count >= MaxWishlistPerUser {
-		return store.WishlistItem{}, ErrLimit(fmt.Sprintf(
-			"Đã đạt giới hạn %d món. Xoá bớt rồi thử lại.", MaxWishlistPerUser))
+		return store.WishlistItem{}, ErrLimit(
+			i18n.T(ctx, wishlistLimitMessage, MaxWishlistPerUser))
 	}
 
 	var targetTS pgtype.Timestamp
 	if in.TargetDate != nil {
 		t, err := parseDate(*in.TargetDate)
 		if err != nil {
-			return store.WishlistItem{}, ErrValidation(FieldErrors{"targetDate": {"Ngày không hợp lệ"}})
+			return store.WishlistItem{}, ErrValidationKeyed(
+				"Ngày không hợp lệ",
+				FieldErrors{"targetDate": {i18n.Text(ctx, "Ngày không hợp lệ")}},
+			)
 		}
 		targetTS = pgtype.Timestamp{Time: t, Valid: true}
 	}
@@ -273,16 +314,22 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 //   - Other transitions are plain field updates.
 //   - If currentPrice changes, a new WishlistPrice row is appended (matches TS).
 func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in WishlistInput) (store.WishlistItem, error) {
-	if err := ValidateWishlistInput(&in); err != nil {
+	if err := ValidateWishlistInput(ctx, &in); err != nil {
 		return store.WishlistItem{}, err
 	}
 	if in.Category != nil {
 		if err := assertCategoryExists(ctx, store.New(db), *in.Category); err != nil {
 			if de, ok := As(err); ok && de.Code == "CATEGORY_INVALID" {
+				// The wishlist spellings of ErrCategoryInvalid: same error code
+				// and shape, "sản phẩm" instead of "thiết bị". Both the headline
+				// and the field error are rendered HERE rather than by the
+				// constructor, because the map holds finished strings and this is
+				// the frame that has the request context.
 				return store.WishlistItem{}, &Error{
 					Code:        "CATEGORY_INVALID",
-					Message:     "Loại sản phẩm không hợp lệ",
-					FieldErrors: FieldErrors{"category": {"Loại sản phẩm không hợp lệ"}},
+					Message:     i18n.Text(ctx, wishlistCategoryMessage),
+					MessageKey:  wishlistCategoryMessage,
+					FieldErrors: FieldErrors{"category": {i18n.Text(ctx, wishlistCategoryMessage)}},
 				}
 			}
 			return store.WishlistItem{}, err
@@ -293,7 +340,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 	owned, err := q.GetWishlistByID(ctx, store.GetWishlistByIDParams{ID: id, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.WishlistItem{}, ErrNotFound("Không tìm thấy món")
+			return store.WishlistItem{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy món"))
 		}
 		return store.WishlistItem{}, fmt.Errorf("get wishlist: %w", err)
 	}
@@ -302,7 +349,10 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 	if in.TargetDate != nil {
 		t, perr := parseDate(*in.TargetDate)
 		if perr != nil {
-			return store.WishlistItem{}, ErrValidation(FieldErrors{"targetDate": {"Ngày không hợp lệ"}})
+			return store.WishlistItem{}, ErrValidationKeyed(
+				"Ngày không hợp lệ",
+				FieldErrors{"targetDate": {i18n.Text(ctx, "Ngày không hợp lệ")}},
+			)
 		}
 		targetTS = pgtype.Timestamp{Time: t, Valid: true}
 	}
@@ -332,7 +382,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.WishlistItem{}, ErrNotFound("Không tìm thấy món")
+			return store.WishlistItem{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy món"))
 		}
 		return store.WishlistItem{}, fmt.Errorf("update wishlist: %w", err)
 	}
@@ -444,7 +494,7 @@ func DeleteWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string) er
 		return fmt.Errorf("delete wishlist: %w", err)
 	}
 	if rows == 0 {
-		return ErrNotFound("Không tìm thấy món")
+		return ErrNotFound(i18n.Text(ctx, "Không tìm thấy món"))
 	}
 	return nil
 }
@@ -453,17 +503,23 @@ func DeleteWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string) er
 // Wrapped in a transaction: append WishlistPrice + bump WishlistItem.currentPrice.
 func LogWishlistPrice(ctx context.Context, db *pgxpool.Pool, userID, id string, in PriceLogInput) error {
 	if in.Price < 0 {
-		return ErrValidation(FieldErrors{"price": {"Giá không hợp lệ"}})
+		return ErrValidationKeyed(
+			"Giá không hợp lệ",
+			FieldErrors{"price": {i18n.Text(ctx, "Giá không hợp lệ")}},
+		)
 	}
 	trimPtr(&in.Note)
 	if in.Note != nil && len([]rune(*in.Note)) > 500 {
-		return ErrValidation(FieldErrors{"note": {"Ghi chú tối đa 500 ký tự"}})
+		return ErrValidationKeyed(
+			"Ghi chú tối đa 500 ký tự",
+			FieldErrors{"note": {i18n.Text(ctx, "Ghi chú tối đa 500 ký tự")}},
+		)
 	}
 
 	q := store.New(db)
 	if _, err := q.GetWishlistByID(ctx, store.GetWishlistByIDParams{ID: id, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound("Không tìm thấy món")
+			return ErrNotFound(i18n.Text(ctx, "Không tìm thấy món"))
 		}
 		return fmt.Errorf("get wishlist: %w", err)
 	}
@@ -499,12 +555,15 @@ func LogWishlistPrice(ctx context.Context, db *pgxpool.Pool, userID, id string, 
 // callers should use UpdateWishlist instead.
 func SetWishlistStatus(ctx context.Context, db *pgxpool.Pool, userID, id, status string) error {
 	if !validWishlistStatuses[status] {
-		return ErrValidation(FieldErrors{"status": {"Trạng thái không hợp lệ"}})
+		return ErrValidationKeyed(
+			"Trạng thái không hợp lệ",
+			FieldErrors{"status": {i18n.Text(ctx, "Trạng thái không hợp lệ")}},
+		)
 	}
 	q := store.New(db)
 	if _, err := q.GetWishlistByID(ctx, store.GetWishlistByIDParams{ID: id, UserId: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound("Không tìm thấy món")
+			return ErrNotFound(i18n.Text(ctx, "Không tìm thấy món"))
 		}
 		return fmt.Errorf("get wishlist: %w", err)
 	}

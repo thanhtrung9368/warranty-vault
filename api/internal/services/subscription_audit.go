@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -151,14 +152,28 @@ type SubscriptionAudit struct {
 	Note        string                      `json:"note"`
 }
 
-// auditNoteVN states the limits of the analysis inside the payload, so no client
+// auditNoteKey states the limits of the analysis inside the payload, so no client
 // can render these findings as if they were usage data or as if the app had read
 // a bank statement.
-const auditNoteVN = "Đây là số liệu TỰ SOÁT từ những gì bạn đã ghi, không phải kết luận về việc bạn có dùng hay không: app không đọc được giao dịch ngân hàng và không có cách nào biết một gói có đang được dùng. «Lâu rồi không thấy ghi nhận gì» nghĩa là không có khoản nào do bạn tự ghi — các khoản tự động trừ vẫn được tính riêng. Không có gì bị sửa hay huỷ tự động."
+//
+// It is the Vietnamese SOURCE text, unchanged, and it doubles as the catalog key
+// (internal/i18n/catalog.go). A named constant rather than an inline literal
+// because the sentence reaches `i18n.Text` as DATA — see the two renderings
+// below — and because a key that long is easier to keep honest in one place.
+const auditNoteKey = "Đây là số liệu TỰ SOÁT từ những gì bạn đã ghi, không phải kết luận về việc bạn có dùng hay không: app không đọc được giao dịch ngân hàng và không có cách nào biết một gói có đang được dùng. «Lâu rồi không thấy ghi nhận gì» nghĩa là không có khoản nào do bạn tự ghi — các khoản tự động trừ vẫn được tính riêng. Không có gì bị sửa hay huỷ tự động."
 
 // GetSubscriptionAudit runs the three detection queries and folds them into one
 // advisory report. `now` is passed in so the caller (and the tests) control the
 // instant.
+//
+// i18n: the report's copy is generated here, on the server, rather than by the
+// client — the `note`, the finding `title`s and the finding `detail`s are all
+// sentences this package owns. The language therefore comes from the request
+// context, resolved at the HTTP edge (`i18n.TagFor` → `Attach`), and the money
+// and date inside those sentences follow it too (i18n.FormatMoney /
+// i18n.FormatDate): a Vietnamese reader gets "177.000 ₫" and "07/05/2026", an
+// English one "₫177,000" and "05/07/2026". The two date forms are genuinely
+// ambiguous against each other, which is exactly why they cannot be shared.
 func GetSubscriptionAudit(ctx context.Context, db *pgxpool.Pool, userID string, now time.Time) (SubscriptionAudit, error) {
 	q := store.New(db)
 
@@ -174,13 +189,20 @@ func GetSubscriptionAudit(ctx context.Context, db *pgxpool.Pool, userID string, 
 	if err != nil {
 		return SubscriptionAudit{}, fmt.Errorf("audit: duplicate pairs: %w", err)
 	}
-	return BuildSubscriptionAudit(rows, rises, pairs, now), nil
+	return BuildSubscriptionAudit(i18n.From(ctx), rows, rises, pairs, now), nil
 }
 
 // BuildSubscriptionAudit is the pure half: it takes the three result sets and
 // applies every threshold. Kept free of the database so the rules can be tested
 // against fixtures, and so the SQL can change without silently changing a rule.
+//
+// `lang` is a parameter rather than something read from a context because this
+// function has no context by design: it is the pure half, and the language is an
+// INPUT to the sentences it produces in the same way `now` is an input to the
+// thresholds it applies. The one caller with a request (GetSubscriptionAudit)
+// resolves it with i18n.From(ctx), which sees whatever the handler put there.
 func BuildSubscriptionAudit(
+	lang i18n.Tag,
 	rows []store.ListSubscriptionPaymentAuditRow,
 	rises []store.ListSubscriptionPriceRisesRow,
 	pairs []store.ListSubscriptionDuplicatePairsRow,
@@ -233,10 +255,16 @@ func BuildSubscriptionAudit(
 			it.LastRecordedAt = tsPtrUTC(r.LastPaidAt)
 		}
 		attachRenewal(&it, r.RenewalDate, now)
-		it.Title = "Gói tự trừ tiền đã lâu mà không thấy ghi nhận gì"
-		it.Detail = fmt.Sprintf(
+		it.Title = auditText(lang, quietAutoRenewTitle)
+		// Singular/plural PAIR with a separate argument list per form: the count
+		// is what makes it singular, so the singular template has no `%d` slot.
+		// Handing one list to both forms is the bug wave 0 shipped
+		// (`... expires in 1 day%!(EXTRA int=7)`).
+		it.Detail = auditAutoChargeDetail(lang, int(r.AutoRenewCount),
 			"«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
-			r.Name, r.AutoRenewCount, formatVNDInt64(r.AutoChargedTotal), formatViDate(r.FirstPaidAt.Time))
+			"«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
+			[]any{r.Name, r.AutoRenewCount, formatMoney(lang, r.AutoChargedTotal), formatDate(lang, r.FirstPaidAt.Time)},
+			[]any{r.Name, formatMoney(lang, r.AutoChargedTotal), formatDate(lang, r.FirstPaidAt.Time)})
 		findings = append(findings, it)
 	}
 
@@ -286,15 +314,17 @@ func BuildSubscriptionAudit(
 		if r.PaidAt.Valid {
 			it.LastRecordedAt = tsPtrUTC(r.PaidAt)
 		}
-		it.Title = "Giá gói đã tăng"
+		it.Title = auditText(lang, priceRaisedTitle)
 		if percent != nil {
-			it.Detail = fmt.Sprintf("«%s» tăng từ %s lên %s (+%s, +%d%%) ở kỳ thanh toán ngày %s.",
-				r.SubscriptionName, formatVNDInt64(int64(r.PrevAmount)), formatVNDInt64(int64(r.Amount)),
-				formatVNDInt64(increase), *percent, formatViDate(r.PaidAt.Time))
+			it.Detail = i18n.Translate(lang,
+				"«%s» tăng từ %s lên %s (+%s, +%d%%) ở kỳ thanh toán ngày %s.",
+				r.SubscriptionName, formatMoney(lang, int64(r.PrevAmount)), formatMoney(lang, int64(r.Amount)),
+				formatMoney(lang, increase), *percent, formatDate(lang, r.PaidAt.Time))
 		} else {
-			it.Detail = fmt.Sprintf("«%s» tăng từ %s lên %s (+%s) ở kỳ thanh toán ngày %s.",
-				r.SubscriptionName, formatVNDInt64(int64(r.PrevAmount)), formatVNDInt64(int64(r.Amount)),
-				formatVNDInt64(increase), formatViDate(r.PaidAt.Time))
+			it.Detail = i18n.Translate(lang,
+				"«%s» tăng từ %s lên %s (+%s) ở kỳ thanh toán ngày %s.",
+				r.SubscriptionName, formatMoney(lang, int64(r.PrevAmount)), formatMoney(lang, int64(r.Amount)),
+				formatMoney(lang, increase), formatDate(lang, r.PaidAt.Time))
 		}
 		findings = append(findings, it)
 	}
@@ -313,12 +343,12 @@ func BuildSubscriptionAudit(
 			Reason: &reason,
 		}
 		if reason == "SAME_NAME" {
-			it.Title = "Hai gói trùng tên"
-			it.Detail = fmt.Sprintf("«%s» và «%s» đang cùng hoạt động và trùng tên (khác cách viết). Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một thứ.",
+			it.Title = auditText(lang, duplicateNameTitle)
+			it.Detail = i18n.Translate(lang, "«%s» và «%s» đang cùng hoạt động và trùng tên (khác cách viết). Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một thứ.",
 				p.NameA, p.NameB)
 		} else {
-			it.Title = "Hai gói cùng hãng và cùng loại"
-			it.Detail = fmt.Sprintf("«%s» và «%s» đang cùng hoạt động, cùng hãng và cùng loại. Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một dịch vụ.",
+			it.Title = auditText(lang, duplicateBrandCategoryTitle)
+			it.Detail = i18n.Translate(lang, "«%s» và «%s» đang cùng hoạt động, cùng hãng và cùng loại. Kiểm tra xem có phải bạn đang trả tiền hai lần cho cùng một dịch vụ.",
 				p.NameA, p.NameB)
 		}
 		findings = append(findings, it)
@@ -362,7 +392,7 @@ func BuildSubscriptionAudit(
 			PriceRiseMinPercent: AuditPriceRiseMinPercent,
 			DuplicateNormalized: true,
 		},
-		Note: auditNoteVN,
+		Note: auditText(lang, auditNoteKey),
 	}
 }
 
@@ -376,4 +406,86 @@ func attachRenewal(it *AuditFinding, renewal pgtype.Timestamp, now time.Time) {
 	it.NextRenewalAt = tsPtrUTC(renewal)
 	days := DaysUntil(renewal.Time, now)
 	it.DaysUntilRenewal = &days
+}
+
+// ─── i18n helpers for the pure builder ───────────────────────────────────────
+
+// The finding titles. Named constants because each one reaches the catalog
+// through `auditText`, i.e. as DATA rather than as a literal at the call site.
+//
+// `auditText` (not `i18n.Text`) is what the pure builder needs: BuildSubscriptionAudit
+// has a `lang` and no request, and `i18n.Text` takes a context. The distinction
+// matters for `go vet` too — `i18n.Translate` is printf-shaped and therefore
+// rejects a key that arrives from a variable, which is exactly why the lookup
+// goes through `i18n.Lookup` + `i18n.Interpolate` here.
+const (
+	quietAutoRenewTitle         = "Gói tự trừ tiền đã lâu mà không thấy ghi nhận gì"
+	priceRaisedTitle            = "Giá gói đã tăng"
+	duplicateNameTitle          = "Hai gói trùng tên"
+	duplicateBrandCategoryTitle = "Hai gói cùng hãng và cùng loại"
+)
+
+// auditText renders an argument-free catalog key in `lang`.
+//
+// Keyed on the Vietnamese source text like every other entry; an unknown key
+// degrades to the key itself, which IS the correct Vietnamese sentence.
+func auditText(lang i18n.Tag, key string) string {
+	text, ok := i18n.Lookup(lang, key)
+	if !ok {
+		return key
+	}
+	return text
+}
+
+// auditAutoChargeDetail renders the "auto-charged N times" sentence, whose
+// singular and plural forms take DIFFERENT argument lists: the count is what
+// makes it singular, so the singular template has no slot for it. Passing the
+// plural's list to the singular template is the mistake that produced
+// `... expires in 1 day%!(EXTRA int=7)` in wave 0, and
+// internal/i18n/catalog_test.go::TestSingularPluralPairsAgreeOnVerbCounts pins
+// the two templates against it.
+func auditAutoChargeDetail(lang i18n.Tag, n int, pluralKey, singularKey string, pluralArgs, singularArgs []any) string {
+	key, args := pluralKey, pluralArgs
+	if n == 1 {
+		key, args = singularKey, singularArgs
+	}
+	text, ok := i18n.Lookup(lang, key)
+	if !ok {
+		text = key
+	}
+	return i18n.Interpolate(text, args...)
+}
+
+// formatMoney renders a VND amount for `lang`, delegating to i18n.FormatMoney —
+// the same helper the cron's push bodies use, so an audit row and a notification
+// about the same money cannot disagree.
+//
+//	vi → 1.200.000 ₫   (dot grouping, trailing symbol — byte-for-byte what
+//	                    formatVNDInt64 in actions.go produces, which is what the
+//	                    Vietnamese side must keep emitting)
+//	en → ₫1,200,000    (comma grouping, leading symbol)
+//
+// The narrowing to int32 is safe and deliberate: every amount here originates in
+// `Subscription.price` / `SubscriptionPayment.amount`, which are int32 VND
+// columns, and the only arithmetic applied is a SUM over one subscription's
+// payments. The int64 fields on AuditFinding stay int64 — they are the wire shape
+// and a total is not a price — but no total this code can build overflows the
+// cast. (If it ever could, the fix is to widen i18n.FormatMoney, not to truncate
+// here.)
+//
+// Only the VALUES and their rendering follow the language; the currency does not,
+// because đồng is not denominated per language (see i18n.FormatMoney).
+func formatMoney(lang i18n.Tag, amount int64) string {
+	return i18n.FormatMoney(lang, int32(amount))
+}
+
+// formatDate renders a calendar date in `lang`: vi dd/mm/yyyy, en mm/dd/yyyy.
+//
+// It is a thin alias for i18n.FormatDate and NOT a call to the package-local
+// formatViDate in actions.go — that helper is Vietnamese-only by definition, and
+// the action queue it belongs to is a later wave. Aliasing keeps this file's
+// three call sites reading as "the audit's own date rendering" while there is
+// exactly one implementation of each language's format in the repo.
+func formatDate(lang i18n.Tag, t time.Time) string {
+	return i18n.FormatDate(lang, t)
 }

@@ -71,7 +71,7 @@ gốc** — mọi chuỗi đang tồn tại đều là tiếng Việt. Bản ti�
 | Pha | Vùng | Nội dung | Trạng thái |
 |---|---|---|---|
 | **0** | `api/` | Hạ tầng: `User.locale` + migration `0014`, bộ khung catalog, middleware `Accept-Language`, `?lang=`, `PATCH /auth/me` nhận `locale`, push dùng `User.locale`. **Chỉ chuyển một lát cắt** (auth) để chứng minh mẫu | ✅ **xong** — xem ghi chú dưới |
-| **1** | `api/` | Dịch nốt ~803 chuỗi Go theo mẫu đã chứng minh | ⬜ **sẵn sàng bắt đầu** |
+| **1** | `api/` | Dịch nốt ~800 chuỗi Go theo mẫu đã chứng minh, **chia 5 wave tuần tự** | 🔄 **wave 1+2 xong**, xem bảng dưới |
 | **2** | `android/` | `values/` (en) + `values-vi/`, đổi ngôn ngữ trong app | ⬜ |
 | **3** | `ios/` | String Catalog, đổi ngôn ngữ trong app | ⬜ |
 | **4** | `website/` | Từ điển + chuyển ngôn ngữ | ⬜ |
@@ -79,6 +79,50 @@ gốc** — mọi chuỗi đang tồn tại đều là tiếng Việt. Bản ti�
 
 **Pha 0 phải xong trước khi làm pha 1.** Chứng minh mẫu trên **một lát cắt nhỏ** rồi mới nhân ra
 803 chuỗi — nếu mẫu sai thì sai 803 lần.
+
+### 3.1. Pha 1 chia 5 wave — và vì sao phải TUẦN TỰ
+
+**Go biên dịch cả module.** Hai agent cùng sửa `api/` thì một con để lại lỗi cú pháp là con kia
+build fail, rồi có thể đi "sửa" file của con đầu. Nên **mỗi thời điểm chỉ một agent được ở trong
+`api/`** — đúng bài học của `sqlc generate`. Các wave chạy nối tiếp, không song song.
+
+| Wave | Domain | Trạng thái |
+|---|---|---|
+| 1 | devices + warranties (+ `serial_validation.go`) | ✅ xong — 29 chuỗi |
+| 2 | subscriptions + wishlist | ✅ xong — 36 chuỗi |
+| 3 | backup + attachments + files | ⬜ |
+| 4 | ai + shares + search + directory | ⬜ |
+| 5 | cron + email templates + `actions.go` + `forecast.go` + còn lại | ⬜ |
+
+**Catalog:** 72 (hết pha 0) → **101** (hết wave 1) → **140** (hết wave 2).
+
+### 3.2. Hai file wave 2 KHÔNG chuyển nhưng CÓ chứa copy subscription/wishlist
+
+Brief wave 2 liệt kê thiếu. Wave 5 phải nhận chúng:
+
+- **`services/forecast.go`** — `forecastNote` nói thẳng về gói ACTIVE/LIFETIME và chi phí wishlist,
+  cộng 2 câu validate khoảng tháng.
+- **`services/actions.go`** — các mục hàng đợi của subscription và wishlist (*"Sắp bị trừ tiền nhưng
+  chưa có link huỷ"*, *"Ngày gia hạn chưa được cập nhật"*, *"Đã qua ngày dự kiến mua"*), **và nó
+  render ngày/tiền qua `formatViDate`/`formatVNDInt64` chỉ có tiếng Việt** — nên cần đúng bộ
+  locale plumbing mà `subscription_audit.go` vừa nhận.
+
+Wave 2 đã thêm `formatMoney`/`formatDate` riêng ở phía audit (delegate sang `i18n.FormatMoney`/
+`i18n.FormatDate`) thay vì sửa 2 hàm kia, để domain chưa chuyển không bị xê dịch.
+
+### 3.3. Bẫy wire code — wave 2 phát hiện, các wave sau phải kiểm
+
+`services/subscriptions.go` dựng 3 lỗi qua helper `errBadInput` với `Code: "BAD_INPUT"`. Cách
+chuyển "hiển nhiên" là `ErrValidationKeyed` — nhưng nó set `Code: "VALIDATION"`, nên response sẽ
+**giữ nguyên 400 và giữ nguyên bản dịch**, chỉ **âm thầm đổi mã lỗi trên wire** từ `bad_input`
+(openapi ghi đúng thế cho path đó) sang `validation`. **Không test nào bắt được**, và web có so
+`'bad_input'`.
+
+→ Đã thêm `services/errors.go::ErrBadInputKeyed` (`BAD_INPUT` + `MessageKey`) và
+`TestSubscriptionBodyErrorCodesAreStable` khoá từng ca.
+
+**Luật cho wave sau:** trước khi đổi một error sang helper i18n, **xem `Code` cũ là gì** và giữ
+nguyên. Mã lỗi là contract; chỉ phần chữ được dịch.
 
 **Pha 2/3/4 chạy song song được** (thư mục khác nhau), nhưng chỉ sau khi pha 1 xong.
 

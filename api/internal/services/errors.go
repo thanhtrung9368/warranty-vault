@@ -166,6 +166,30 @@ func ErrValidationKeyed(messageKey string, fieldErrors FieldErrors) *Error {
 	}
 }
 
+// ErrBadInputKeyed is ErrValidationKeyed for a failure whose wire CODE is
+// `bad_input` rather than `validation` — a distinction this package has always
+// made and which clients bind to.
+//
+// It exists because dropping it is a silent contract change: the subscriptions
+// service used to build these errors through a local `errBadInput` helper with
+// `Code: "BAD_INPUT"`, so `POST /api/v1/subscriptions` with a Custom cycle and no
+// interval has always answered `{"error":"bad_input",…}` — which is what
+// openapi.yaml documents for the body-level failures on that path. Converting the
+// helper to ErrValidationKeyed would have kept the status (both are 400) and the
+// translation while quietly renaming the code to `validation`, and nothing in the
+// suite would have caught it.
+//
+// The same MessageKey rule applies as above: an unknown key degrades to the
+// Vietnamese source text, so this is safe for a domain a wave has not reached.
+func ErrBadInputKeyed(messageKey string, fieldErrors FieldErrors) *Error {
+	return &Error{
+		Code:        "BAD_INPUT",
+		Message:     messageKey,
+		MessageKey:  messageKey,
+		FieldErrors: fieldErrors,
+	}
+}
+
 // ErrCategoryInvalid mirrors the TS "Loại thiết bị không hợp lệ" message, with an
 // empty field error for the caller to fill in.
 //
