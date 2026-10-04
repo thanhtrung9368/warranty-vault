@@ -12,6 +12,12 @@ import { bearerHeader } from '@/lib/auth-cookie';
 
 const BASE_URL = (process.env.GO_API_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
 
+// The language this interface renders in. Every string in `(app)/` is
+// Vietnamese, so this is a statement of fact rather than a preference, and it
+// is what stops the API from answering in its English default. Phase 4 of
+// docs/I18N_PLAN.md replaces it with the user's choice.
+const UI_LANGUAGE = 'vi';
+
 export type ApiSuccess<T> = { ok: true; data: T };
 export type ApiError = {
   ok: false;
@@ -53,6 +59,21 @@ export async function apiFetch<T>(
 ): Promise<ApiResult<T>> {
   const url = path.startsWith('http') ? path : BASE_URL + (path.startsWith('/') ? path : '/' + path);
   const headers: Record<string, string> = {};
+
+  // Tell the API which language this interface is actually rendering.
+  //
+  // The API resolves a language from `?lang=`, then `Accept-Language`, then the
+  // user's stored preference, then English. This app sends none of the first
+  // two, so once the Go side began defaulting to English (docs/I18N_PLAN.md),
+  // every converted domain started rendering English copy inside a Vietnamese
+  // page. The interface is Vietnamese-only until phase 4 adds a switcher.
+  //
+  // Deliberately a constant rather than the browser's own Accept-Language: the
+  // catalog read opts into Next's Data Cache (`opts.next` below), and a header
+  // that varies per request would let one language's response be cached and
+  // then served to a reader of the other. When phase 4 makes this dynamic, that
+  // cache needs a key that includes the language.
+  headers['Accept-Language'] = UI_LANGUAGE;
 
   // Default to authenticated requests; explicit `auth: false` skips.
   const wantAuth = opts.auth !== false;
