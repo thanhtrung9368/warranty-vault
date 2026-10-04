@@ -2,9 +2,27 @@
 // command (cmd/cron) and the protected HTTP endpoint
 // (POST /api/v1/cron/warranty-check).
 //
-// Mirrors website/src/app/api/cron/warranty-check/route.ts byte-for-byte:
-// same buckets, same Vietnamese strings, same auto-bill transaction, same
-// per-row "delete on Gone" cleanup of dead PushSubscription rows.
+// Mirrors website/src/app/api/cron/warranty-check/route.ts for the buckets, the
+// auto-bill transaction and the per-row "delete on Gone" cleanup of dead
+// PushSubscription rows.
+//
+// # i18n
+//
+// Every notification body is rendered through internal/i18n in the RECIPIENT's
+// language, read from `User.locale` (migration 0014) — this is the reason that
+// column exists. There is no request here and therefore no `Accept-Language` and
+// no caller to ask: a cron pass builds text for hundreds of users at once, each
+// of whom may want a different language, so the stored preference is the only
+// signal available. A user with no stored preference (locale IS NULL, i.e. every
+// account that predates the column, and anyone who never opened the picker) gets
+// the product default (English).
+//
+// The locale map is read ONCE per pass by loadLocales and then consulted per
+// recipient, so a run costs one extra query in total rather than one per push.
+//
+// The date and money helpers below are locale-aware for the same reason:
+// "05/07/2026" is 5 July to a Vietnamese reader and 7 May to an English one, and
+// sending the wrong one is worse than sending an unformatted date.
 package cron
 
 import (
@@ -21,6 +39,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -56,12 +75,97 @@ type Dispatcher interface {
 // push package's transport-specific bits.
 type Result = push.Result
 
-// Vietnamese day-bucket labels mirror the TS WARRANTY_TYPE_LABELS / wishlist /
-// subscription strings exactly. Don't translate — copy verbatim.
+// warrantyTypeLabels maps a Warranty.type code to its catalog key. The key is the
+// Vietnamese label (the catalog is keyed on source text), so the push body for a
+// Vietnamese recipient is byte-identical to what this job sent before i18n
+// existed. A code the catalog does not know (a hand-edited row) falls through to
+// the raw code at the call site.
 var warrantyTypeLabels = map[string]string{
 	"STANDARD":    "Tiêu chuẩn",
 	"EXTENDED":    "Mở rộng",
 	"THIRD_PARTY": "Bên thứ ba",
+}
+
+// loadLocales reads every stored language preference in one query and returns it
+// as userId -> locale. Users who never chose one are simply absent, and the
+// lookup below returns the default for them.
+//
+// A failure is NOT fatal: the run continues with every notification in the
+// default language, which is what the whole service did before migration 0014.
+// Losing a day's reminders because a preference could not be read would be a far
+// worse outcome than one day of English.
+func loadLocales(ctx context.Context, q *store.Queries) map[string]i18n.Tag {
+	out := map[string]i18n.Tag{}
+	rows, err := q.ListUserLocales(ctx)
+	if err != nil {
+		slog.Error("cron: list user locales failed; falling back to the default language", "err", err)
+		return out
+	}
+	for _, r := range rows {
+		if tag, ok := i18n.Normalize(derefString(r.Locale)); ok {
+			out[r.ID] = tag
+		}
+	}
+	return out
+}
+
+// derefString tolerates a NULL text column.
+func derefString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// render looks up a key that was COMPUTED rather than written out, and fills in
+// its arguments. The lookup and the interpolation are separate steps because
+// i18n.Translate is a printf-shaped function — deliberately, so that a
+// hand-written `%` in a Vietnamese source string can never reach Sprintf — and
+// `go vet` therefore rejects it for a key that arrives from a variable.
+//
+// An unknown key degrades to the key text itself, which is the Vietnamese source
+// sentence, exactly as i18n.Translate does.
+func render(tag i18n.Tag, key string, args ...any) string {
+	text, ok := i18n.Lookup(tag, key)
+	if !ok {
+		text = key
+	}
+	return i18n.Interpolate(text, args...)
+}
+
+// renderCount renders one of a singular/plural KEY PAIR, taking a separate
+// argument list for each form.
+//
+// The two lists are not a convenience: the singular template genuinely takes
+// fewer verbs, because the count is what makes it singular — "expires in 1 day"
+// has no slot for a number. Feeding the plural's argument list to the singular
+// template produced `... expires in 1 day%!(EXTRA int=7)`, which is what the
+// first version of this helper did and what
+// internal/i18n/catalog_test.go::TestSingularPluralPairsAgreeOnVerbCounts now
+// forbids.
+//
+// Both lists are passed on every call, so the caller states the count only once
+// in each and neither branch can drift from the other.
+func renderCount(tag i18n.Tag, n int, pluralKey, singularKey string, pluralArgs, singularArgs []any) string {
+	if n == 1 {
+		return render(tag, singularKey, singularArgs...)
+	}
+	return render(tag, pluralKey, pluralArgs...)
+}
+
+// pluralKey picks between a singular and a plural catalog key. Vietnamese does
+// not inflect for number and English does ("1 day" / "3 days"), so the catalog
+// carries both entries for each count-bearing message and the caller chooses.
+//
+// There is deliberately no plural-rule engine: the only counts that ever appear
+// are 1, 3, 7 and 30, the choice is a single `== 1`, and pulling in
+// golang.org/x/text/feature/plural plus its CLDR tables to answer it would be a
+// large dependency for a boolean.
+func pluralKey(n int, plural, singular string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
 }
 
 // dayWindow returns the [00:00 today+offset, 00:00 today+offset+1d) UTC
@@ -76,39 +180,22 @@ func dayWindow(now time.Time, daysFromNow int) (time.Time, time.Time) {
 	return start, end
 }
 
-// formatVND mirrors website/src/lib/format.ts::formatVND. Vietnamese locale
-// uses "." as thousands separator and a trailing " ₫".
+// formatVND renders an amount for a Vietnamese reader: "." thousands separator
+// and a trailing " ₫". It mirrors website/src/lib/format.ts::formatVND and the
+// locale-aware implementation now lives in i18n.FormatMoney, which also knows the
+// English form ("₫1,200,000"). Kept as a named wrapper because the cron's own
+// tests and its Vietnamese wording pin this exact output.
 func formatVND(amount int32) string {
-	if amount == 0 {
-		return "0 ₫"
-	}
-	n := int64(amount)
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	// Build digits in reverse with thousand-dot separators.
-	s := ""
-	count := 0
-	for n > 0 {
-		if count > 0 && count%3 == 0 {
-			s = "." + s
-		}
-		s = string(rune('0'+(n%10))) + s
-		n /= 10
-		count++
-	}
-	if neg {
-		s = "-" + s
-	}
-	return s + " ₫"
+	return i18n.FormatMoney(i18n.VI, amount)
 }
 
-// formatVi formats a date as dd/mm/yyyy (Vietnamese short form). Mirrors
-// `Date.toLocaleDateString('vi-VN')` for our purposes (we deliberately don't
-// pull in a full ICU locale).
+// formatVi formats a date as dd/mm/yyyy for a Vietnamese reader, mirroring
+// `Date.toLocaleDateString('vi-VN')` (we deliberately do not pull in a full ICU
+// locale). English notifications get i18n.FormatDate(i18n.EN, ...) instead —
+// mm/dd/yyyy — because a bare "05/07/2026" is read differently in the two
+// languages.
 func formatVi(t time.Time) string {
-	return fmt.Sprintf("%02d/%02d/%d", t.Day(), int(t.Month()), t.Year())
+	return i18n.FormatDate(i18n.VI, t)
 }
 
 // Run executes one full warranty-check pass. Safe to call concurrently with
@@ -133,6 +220,15 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// only touched on the (sequential) outer loops, so they need no lock.
 	var statsMu sync.Mutex
 	q := store.New(db)
+
+	// Recipient language lookup. Read once for the whole pass — see loadLocales.
+	locales := loadLocales(ctx, q)
+	langOf := func(userID string) i18n.Tag {
+		if tag, ok := locales[userID]; ok {
+			return tag
+		}
+		return i18n.Default
+	}
 
 	// Cache PushSubscription lists per user to avoid hammering the DB during
 	// the fan-out loops. Same user shows up in many warranty / wishlist /
@@ -227,22 +323,27 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		for _, w := range rows {
 			stats.WarrantyNotices++
 
-			typeLabel := warrantyTypeLabels[w.Type]
-			if typeLabel == "" {
-				typeLabel = w.Type
+			lang := langOf(w.UserID)
+			typeKey := warrantyTypeLabels[w.Type]
+			if typeKey == "" {
+				typeKey = w.Type
 			}
+			typeLabel := render(lang, typeKey)
 			endStr := ""
 			if w.EndDate.Valid {
-				endStr = formatVi(w.EndDate.Time)
+				endStr = i18n.FormatDate(lang, w.EndDate.Time)
 			}
-			body := "Hết hạn: " + endStr
+			body := i18n.Translate(lang, "Hết hạn: %s", endStr)
 			if w.Provider != nil && *w.Provider != "" {
-				body += " • " + *w.Provider
+				body = i18n.Translate(lang, "Hết hạn: %s • %s", endStr, *w.Provider)
 			}
 
 			payload := push.Payload{
-				Title: fmt.Sprintf(`BH %s của "%s" sắp hết trong %d ngày`,
-					typeLabel, w.DeviceName, days),
+				Title: renderCount(lang, days,
+					"BH %s của \"%s\" sắp hết trong %d ngày",
+					"BH %s của \"%s\" sắp hết trong 1 ngày",
+					[]any{typeLabel, w.DeviceName, days},
+					[]any{typeLabel, w.DeviceName}),
 				Body: body,
 				URL:  fmt.Sprintf("/devices/%s", w.DeviceId),
 				Tag:  fmt.Sprintf("wv-%d-%s", days, w.ID),
@@ -278,24 +379,33 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		for _, it := range rows {
 			stats.WishlistTargetHits++
 
-			priceText := ""
-			if it.CurrentPrice != nil {
-				priceText = " • " + formatVND(*it.CurrentPrice)
-			} else if it.InitialPrice != nil {
-				priceText = " • ~" + formatVND(*it.InitialPrice)
+			lang := langOf(it.UserId)
+			money := func(v int32) string { return i18n.FormatMoney(lang, v) }
+			var body string
+			switch {
+			case it.CurrentPrice != nil:
+				body = render(lang, "Check lại giá nhé • %s", money(*it.CurrentPrice))
+			case it.InitialPrice != nil:
+				body = render(lang, "Check lại giá nhé • ~%s", money(*it.InitialPrice))
+			default:
+				body = render(lang, "Check lại giá nhé")
 			}
 
 			var headline string
 			if days == 0 {
-				headline = fmt.Sprintf(`🛍️ Hôm nay là ngày dự kiến mua "%s"`, it.Name)
+				headline = render(lang, `🛍️ Hôm nay là ngày dự kiến mua "%s"`, it.Name)
 			} else {
-				headline = fmt.Sprintf(`🛍️ Còn %d ngày tới ngày mua "%s"`, days, it.Name)
+				headline = renderCount(lang, days,
+					`🛍️ Còn %d ngày tới ngày mua "%s"`,
+					`🛍️ Còn 1 ngày tới ngày mua "%s"`,
+					[]any{days, it.Name},
+					[]any{it.Name})
 			}
 
 			tagPrefix := fmt.Sprintf("wl-d%d", days)
 			payload := push.Payload{
 				Title: headline,
-				Body:  "Check lại giá nhé" + priceText,
+				Body:  body,
 				URL:   fmt.Sprintf("/wishlist/%s", it.ID),
 				Tag:   fmt.Sprintf("%s-%s", tagPrefix, it.ID),
 			}
@@ -320,16 +430,31 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		interval := *it.ReminderIntervalDays
 		stats.WishlistCheckins++
 
-		priceText := ""
+		lang := langOf(it.UserId)
+		var checkinBody string
 		if it.CurrentPrice != nil {
-			priceText = " • giá hiện tại " + formatVND(*it.CurrentPrice)
+			checkinBody = render(lang, "Còn thèm không? Check lại giá nhé • giá hiện tại %s.",
+				i18n.FormatMoney(lang, *it.CurrentPrice))
+		} else {
+			checkinBody = render(lang, "Còn thèm không? Check lại giá nhé.")
+		}
+
+		// English names the item first ("No price update for X in N days"),
+		// Vietnamese names the count first; the English templates therefore get
+		// the arguments in the other order.
+		titleArgs, titleArgsSingular := []any{interval, it.Name}, []any{it.Name}
+		if lang != i18n.VI {
+			titleArgs, titleArgsSingular = []any{it.Name, interval}, []any{it.Name}
 		}
 
 		payload := push.Payload{
-			Title: fmt.Sprintf(`🔔 Đã %d ngày chưa update giá "%s"`, interval, it.Name),
-			Body:  "Còn thèm không? Check lại giá nhé" + priceText + ".",
-			URL:   fmt.Sprintf("/wishlist/%s", it.ID),
-			Tag:   fmt.Sprintf("wl-int-%s", it.ID),
+			Title: renderCount(lang, int(interval),
+				`🔔 Đã %d ngày chưa update giá "%s"`,
+				`🔔 Đã 1 ngày chưa update giá "%s"`,
+				titleArgs, titleArgsSingular),
+			Body: checkinBody,
+			URL:  fmt.Sprintf("/wishlist/%s", it.ID),
+			Tag:  fmt.Sprintf("wl-int-%s", it.ID),
 		}
 		dispatch(it.UserId, payload, "wishlist_checkin",
 			"item", it.ID, "interval_days", interval)
@@ -350,24 +475,47 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			return stats, fmt.Errorf("list subs due for renewal (%dd): %w", days, err)
 		}
 		for _, s := range subs {
-			verb := "sẽ tự gia hạn"
+			lang := langOf(s.UserId)
+			verbKey := "sẽ tự gia hạn"
 			if !s.AutoRenew {
-				verb = "sẽ hết hạn"
+				verbKey = "sẽ hết hạn"
 			}
+			verb := render(lang, verbKey)
+
+			// The English phrasing names the subscription first and the verb
+			// last, the Vietnamese one does the opposite, so the argument ORDER
+			// differs per language. That is why the call site builds the list
+			// instead of one template serving both (docs/I18N_PLAN.md §4.4).
 			var head string
-			if days == 0 {
-				head = fmt.Sprintf(`💸 Hôm nay %s: "%s"`, verb, s.Name)
-			} else {
-				head = fmt.Sprintf(`💸 Còn %d ngày %s: "%s"`, days, verb, s.Name)
+			// The renewal push has three forms: "today", "in N days", "tomorrow".
+			// The first two are grammatically the plural/zero bucket and the third
+			// is the singular one, so renderCount's `n == 1` split handles it.
+			switch {
+			case days == 0 && lang == i18n.VI:
+				head = render(lang, `💸 Hôm nay %s: "%s"`, verb, s.Name)
+			case days == 0:
+				head = render(lang, `💸 Hôm nay %s: "%s"`, s.Name, verb)
+			case lang == i18n.VI:
+				head = renderCount(lang, days,
+					`💸 Còn %d ngày %s: "%s"`,
+					`💸 Còn 1 ngày %s: "%s"`,
+					[]any{days, verb, s.Name},
+					[]any{verb, s.Name})
+			default:
+				head = renderCount(lang, days,
+					`💸 Còn %d ngày %s: "%s"`,
+					`💸 Còn 1 ngày %s: "%s"`,
+					[]any{days, s.Name, verb},
+					[]any{s.Name, verb})
 			}
 
 			brand := ""
 			if s.Brand != nil {
 				brand = *s.Brand
 			}
-			body := formatVND(s.Price) + " • " + brand
+			body := i18n.FormatMoney(lang, s.Price) + " • " + brand
 			if s.CancelUrl != nil && *s.CancelUrl != "" {
-				body += " • có link huỷ"
+				body += render(lang, " • có link huỷ")
 			}
 
 			payload := push.Payload{
@@ -439,10 +587,11 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			}
 			stats.SubscriptionRenewals++
 
+			lang := langOf(s.UserId)
 			payload := push.Payload{
-				Title: fmt.Sprintf(`✅ Đã gia hạn "%s"`, s.Name),
-				Body: fmt.Sprintf("Tự động charge %s. Kỳ tới: %s",
-					formatVND(s.Price), formatVi(next)),
+				Title: render(lang, `✅ Đã gia hạn "%s"`, s.Name),
+				Body: render(lang, "Tự động charge %s. Kỳ tới: %s",
+					i18n.FormatMoney(lang, s.Price), i18n.FormatDate(lang, next)),
 				URL: fmt.Sprintf("/subscriptions/%s", s.ID),
 				Tag: fmt.Sprintf("sub-billed-%s-%d", s.ID, oldRenewal.UnixMilli()),
 			}
@@ -455,9 +604,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			}
 			stats.SubscriptionExpired++
 
+			lang := langOf(s.UserId)
 			payload := push.Payload{
-				Title: fmt.Sprintf(`⌛️ Gói "%s" đã hết hạn`, s.Name),
-				Body:  "Không tự gia hạn — đăng ký lại hoặc đánh dấu huỷ.",
+				Title: render(lang, `⌛️ Gói "%s" đã hết hạn`, s.Name),
+				Body:  render(lang, "Không tự gia hạn — đăng ký lại hoặc đánh dấu huỷ."),
 				URL:   fmt.Sprintf("/subscriptions/%s", s.ID),
 				Tag:   fmt.Sprintf("sub-expired-%s", s.ID),
 			}
@@ -499,20 +649,29 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		for _, d := range rows {
 			stats.ReturnWindowNotices++
 
+			lang := langOf(d.UserID)
 			deadline := ""
 			if d.ReturnDeadline.Valid {
-				deadline = formatVi(d.ReturnDeadline.Time)
+				deadline = i18n.FormatDate(lang, d.ReturnDeadline.Time)
 			}
-			body := "Hạn đổi/trả: " + deadline
+			body := render(lang, "Hạn đổi/trả: %s", deadline)
 			if d.ReturnWindowDays != nil {
-				body += fmt.Sprintf(" (%d ngày kể từ ngày nhận)", *d.ReturnWindowDays)
+				body = renderCount(lang, int(*d.ReturnWindowDays),
+					"Hạn đổi/trả: %s (%d ngày kể từ ngày nhận)",
+					"Hạn đổi/trả: %s (1 ngày kể từ ngày nhận)",
+					[]any{deadline, *d.ReturnWindowDays},
+					[]any{deadline})
 			}
 
 			payload := push.Payload{
-				Title: fmt.Sprintf(`↩️ Còn %d ngày đổi trả "%s"`, days, d.DeviceName),
-				Body:  body,
-				URL:   fmt.Sprintf("/devices/%s", d.ID),
-				Tag:   fmt.Sprintf("wv-return-%d-%s", days, d.ID),
+				Title: renderCount(lang, days,
+					`↩️ Còn %d ngày đổi trả "%s"`,
+					`↩️ Còn 1 ngày đổi trả "%s"`,
+					[]any{days, d.DeviceName},
+					[]any{d.DeviceName}),
+				Body: body,
+				URL:  fmt.Sprintf("/devices/%s", d.ID),
+				Tag:  fmt.Sprintf("wv-return-%d-%s", days, d.ID),
 			}
 			dispatch(d.UserID, payload, "return_window",
 				"device", d.ID, "days", days)

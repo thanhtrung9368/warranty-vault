@@ -25,20 +25,21 @@ func RegisterCron(mux *http.ServeMux, deps Deps) {
 
 func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		secret := strings.TrimSpace(os.Getenv("CRON_SECRET"))
 		if secret == "" {
-			httpx.WriteError(w, http.StatusInternalServerError,
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
 				"cron_not_configured", "CRON_SECRET chưa set", nil)
 			return
 		}
 		if !cronAuthorized(r, secret) {
-			httpx.WriteError(w, http.StatusUnauthorized,
+			httpx.WriteErrorC(w, ctx, http.StatusUnauthorized,
 				"unauthorized", "Unauthorized", nil)
 			return
 		}
 
 		if deps.Dispatcher == nil {
-			httpx.WriteError(w, http.StatusInternalServerError,
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
 				"cron_misconfigured", "Push dispatcher chưa khởi tạo", nil)
 			return
 		}
@@ -51,7 +52,7 @@ func warrantyCheckHandler(deps Deps) http.HandlerFunc {
 		stats, err := cron.Run(ctx, deps.DB, deps.Dispatcher)
 		if err != nil {
 			slog.Error("cron run failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError,
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
 				"cron_failed", err.Error(), nil)
 			return
 		}

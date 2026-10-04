@@ -17,9 +17,10 @@ func RegisterCatalog(mux *http.ServeMux, deps Deps) {
 
 func catalogHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		cat, err := services.ListCatalog(r.Context(), deps.DB)
 		if err != nil {
-			writeServiceError(w, err, "list catalog")
+			writeServiceError(w, ctx, err, "list catalog")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, cat)

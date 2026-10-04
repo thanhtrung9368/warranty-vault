@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -53,13 +54,14 @@ func RegisterShares(mux *http.ServeMux, deps Deps) {
 
 func createShareHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		deviceID := r.PathValue("id")
 		if deviceID == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
 			return
 		}
 
@@ -71,17 +73,17 @@ func createShareHandler(deps Deps) http.HandlerFunc {
 		in := services.CreateShareInput{}
 		body, rerr := io.ReadAll(io.LimitReader(r.Body, maxShareCreateBody+1))
 		if rerr != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		if len(body) > maxShareCreateBody {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Body quá lớn", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Body quá lớn", nil)
 			return
 		}
 		if len(bytes.TrimSpace(body)) > 0 {
 			var raw map[string]json.RawMessage
 			if err := json.Unmarshal(body, &raw); err != nil {
-				badJSONBody(w)
+				badJSONBody(w, ctx)
 				return
 			}
 			unknown := map[string][]string{}
@@ -91,18 +93,18 @@ func createShareHandler(deps Deps) http.HandlerFunc {
 				}
 			}
 			if len(unknown) > 0 {
-				badInput(w, unknown, "Dữ liệu không hợp lệ")
+				badInput(w, ctx, unknown, "Dữ liệu không hợp lệ")
 				return
 			}
 			if err := json.Unmarshal(body, &in); err != nil {
-				badJSONBody(w)
+				badJSONBody(w, ctx)
 				return
 			}
 		}
 
 		created, sErr := services.CreateDeviceShare(r.Context(), deps.DB, us.UserID, deviceID, in)
 		if sErr != nil {
-			writeDevicesErr(w, sErr, "create share")
+			writeDevicesErr(w, ctx, sErr, "create share")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"share": created})
@@ -111,15 +113,16 @@ func createShareHandler(deps Deps) http.HandlerFunc {
 
 func listSharesHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		deviceID := r.PathValue("id")
 		if deviceID == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
 			return
 		}
 		shares, err := services.ListDeviceShares(r.Context(), deps.DB, us.UserID, deviceID)
 		if err != nil {
-			writeDevicesErr(w, err, "list shares")
+			writeDevicesErr(w, ctx, err, "list shares")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"shares": shares})
@@ -128,12 +131,13 @@ func listSharesHandler(deps Deps) http.HandlerFunc {
 
 func revokeShareHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		if err := services.RevokeDeviceShare(r.Context(), deps.DB, us.UserID, r.PathValue("id")); err != nil {
-			writeDevicesErr(w, err, "revoke share")
+			writeDevicesErr(w, ctx, err, "revoke share")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -144,19 +148,20 @@ func revokeShareHandler(deps Deps) http.HandlerFunc {
 
 func publicShareHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		setShareHeaders(w)
 
 		// Rate limit BEFORE the lookup: an enumeration attempt must not reach the
 		// database at all.
 		rl, _ := ratelimit.CheckShareView(r.Context(), deps.Limiter, ratelimit.GetClientIP(r))
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, r.Context(), rl.RetryAfterSec)
 			return
 		}
 
 		cert, err := services.ViewSharedCertificate(r.Context(), deps.DB, r.PathValue("token"))
 		if err != nil {
-			writeShareLookupFailure(w, r, err)
+			writeShareLookupFailure(w, ctx, r, err)
 			return
 		}
 
@@ -181,10 +186,10 @@ func publicShareHandler(deps Deps) http.HandlerFunc {
 // its own message, because a broken query must stay visible to monitoring. That
 // branch is never reachable by choosing a token, so it reveals nothing about any
 // token; it is not, and is not meant to be, indistinguishable from the 404.
-func writeShareLookupFailure(w http.ResponseWriter, r *http.Request, err error) {
+func writeShareLookupFailure(w http.ResponseWriter, ctx context.Context, r *http.Request, err error) {
 	if svc, ok := services.As(err); ok && svc.Code == "NOT_FOUND" {
 		if shareWantsJSON(r) {
-			httpx.WriteError(w, http.StatusNotFound, "not_found", svc.Message, nil)
+			httpx.WriteErrorC(w, ctx, http.StatusNotFound, "not_found", svc.Message, nil)
 			return
 		}
 		writeShareHTML(w, http.StatusNotFound, sharePage{NotFound: true, Message: svc.Message})
@@ -192,7 +197,7 @@ func writeShareLookupFailure(w http.ResponseWriter, r *http.Request, err error) 
 	}
 	slog.Error("public share lookup failed", "err", err)
 	if shareWantsJSON(r) {
-		httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+		httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 		return
 	}
 	writeShareHTML(w, http.StatusInternalServerError, sharePage{
@@ -447,7 +452,7 @@ const shareTemplateHTML = `<!doctype html>
   </div>
 {{else}}
   <h1>Phiếu bàn giao bảo hành</h1>
-  <p class="sub">Thông tin bảo hành của một thiết bị, do chủ máy tạo từ WarrantyVault.</p>
+  <p class="sub">Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warranty Vault.</p>
 
   <p class="device">{{.Cert.DeviceName}}</p>
   {{if .Cert.BrandModel}}<p class="brand">{{.Cert.BrandModel}}</p>{{end}}

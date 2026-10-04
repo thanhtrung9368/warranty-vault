@@ -22,6 +22,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
@@ -44,6 +45,16 @@ type userDTO struct {
 	Email   string  `json:"email"`
 	Name    *string `json:"name"`
 	AiOptIn bool    `json:"aiOptIn"`
+	// Locale is the stored language preference (migration 0014), or nil when the
+	// user has never chosen one.
+	//
+	// `omitempty` is deliberate and additive: every existing client ignores
+	// unknown fields, but a null-valued `"locale": null` on every response would
+	// also change the bytes of GET /auth/me for users who never set it. It is
+	// serialised as soon as the user picks a language — and the three clients need
+	// it to render which option is currently selected. Contrast `Name`, which has
+	// always been emitted as null; that shape is frozen.
+	Locale *string `json:"locale,omitempty"`
 }
 
 type authTokenResponse struct {
@@ -78,26 +89,35 @@ func remarshal(src, dst any) error {
 	return json.Unmarshal(b, dst)
 }
 
-func badJSONBody(w http.ResponseWriter) {
-	httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Body phải là JSON hợp lệ", nil)
+// badJSONBody / badInput / rateLimited / unauthorized are shared by every handler
+// file in this package, so the context argument they now take is about the
+// Content-Language header, not about the language of the body: only the auth
+// slice is converted in Phase 0, and the two messages below are the generic
+// envelope text every endpoint sends.
+//
+// badInput's message is supplied by the CALLER, which is what lets the converted
+// auth handlers pass translated copy while an unconverted caller keeps passing
+// Vietnamese. Phase 1 converts the rest.
+func badJSONBody(w http.ResponseWriter, ctx context.Context) {
+	httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", i18n.Text(ctx, "Body phải là JSON hợp lệ"), nil)
 }
 
-func badInput(w http.ResponseWriter, fieldErrors map[string][]string, message ...string) {
-	msg := "Dữ liệu không hợp lệ"
+func badInput(w http.ResponseWriter, ctx context.Context, fieldErrors map[string][]string, message ...string) {
+	msg := i18n.Text(ctx, "Dữ liệu không hợp lệ")
 	if len(message) > 0 && message[0] != "" {
 		msg = message[0]
 	}
-	httpx.WriteError(w, http.StatusBadRequest, "bad_input", msg, fieldErrors)
+	httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", msg, fieldErrors)
 }
 
-func rateLimited(w http.ResponseWriter, retryAfterSec int) {
+func rateLimited(w http.ResponseWriter, ctx context.Context, retryAfterSec int) {
 	w.Header().Set("Retry-After", strconvItoa(retryAfterSec))
-	msg := "Thao tác quá nhanh. Đợi " + ratelimit.FormatRetry(retryAfterSec)
-	httpx.WriteError(w, http.StatusTooManyRequests, "rate_limited", msg, nil)
+	msg := i18n.T(ctx, "Thao tác quá nhanh. Đợi %s", ratelimit.FormatRetry(retryAfterSec))
+	httpx.WriteErrorC(w, ctx, http.StatusTooManyRequests, "rate_limited", msg, nil)
 }
 
-func unauthorized(w http.ResponseWriter) {
-	httpx.WriteError(w, http.StatusUnauthorized, "unauthorized", "Bạn chưa đăng nhập", nil)
+func unauthorized(w http.ResponseWriter, ctx context.Context) {
+	httpx.WriteErrorC(w, ctx, http.StatusUnauthorized, "unauthorized", i18n.Text(ctx, "Bạn chưa đăng nhập"), nil)
 }
 
 func strconvItoa(n int) string {
@@ -159,27 +179,31 @@ type registerRequest struct {
 
 func Register(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		var body registerRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		fieldErrors := map[string][]string{}
 		emailNorm := strings.ToLower(strings.TrimSpace(body.Email))
 		if !validateEmail(emailNorm) {
-			fieldErrors["email"] = []string{"Email không hợp lệ"}
+			fieldErrors["email"] = []string{i18n.Text(ctx, "Email không hợp lệ")}
 		}
 		if len(body.Password) < 8 {
-			fieldErrors["password"] = []string{"Mật khẩu tối thiểu 8 ký tự"}
+			fieldErrors["password"] = []string{i18n.Text(ctx, "Mật khẩu tối thiểu 8 ký tự")}
 		} else if len(body.Password) > 200 {
-			fieldErrors["password"] = []string{"Mật khẩu không được quá 200 ký tự"}
+			fieldErrors["password"] = []string{i18n.Text(ctx, "Mật khẩu không được quá 200 ký tự")}
 		}
 		var name *string
 		if body.Name != nil {
 			trimmed := strings.TrimSpace(*body.Name)
 			if len(trimmed) > 80 {
-				fieldErrors["name"] = []string{"Tên không được quá 80 ký tự"}
+				fieldErrors["name"] = []string{i18n.Text(ctx, "Tên không được quá 80 ký tự")}
 			}
 			if trimmed != "" {
 				name = &trimmed
@@ -187,17 +211,17 @@ func Register(d Deps) http.HandlerFunc {
 		}
 		platform := normalizePlatform(body.Platform)
 		if body.Platform != nil && platform == nil && *body.Platform != "" {
-			fieldErrors["platform"] = []string{"Platform không hợp lệ"}
+			fieldErrors["platform"] = []string{i18n.Text(ctx, "Platform không hợp lệ")}
 		}
 		if len(fieldErrors) > 0 {
-			badInput(w, fieldErrors)
+			badInput(w, ctx, fieldErrors)
 			return
 		}
 
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "register",
 			ratelimit.GetClientIP(r), emailNorm)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -205,7 +229,7 @@ func Register(d Deps) http.HandlerFunc {
 		existing, err := q.GetUserByEmail(r.Context(), emailNorm)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			slog.Error("get user by email", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if err == nil {
@@ -214,7 +238,7 @@ func Register(d Deps) http.HandlerFunc {
 			_, _ = auth.Hash(body.Password)
 			httpx.WriteJSON(w, http.StatusOK, map[string]any{
 				"ok":      true,
-				"message": "Nếu email chưa đăng ký, tài khoản đã được tạo. Nếu đã có, vào đăng nhập hoặc quên mật khẩu.",
+				"message": i18n.Text(ctx, "Nếu email chưa đăng ký, tài khoản đã được tạo. Nếu đã có, vào đăng nhập hoặc quên mật khẩu."),
 			})
 			return
 		}
@@ -222,7 +246,7 @@ func Register(d Deps) http.HandlerFunc {
 		hash, err := auth.Hash(body.Password)
 		if err != nil {
 			slog.Error("bcrypt hash failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		user, err := q.CreateUser(r.Context(), store.CreateUserParams{
@@ -233,7 +257,7 @@ func Register(d Deps) http.HandlerFunc {
 		})
 		if err != nil {
 			slog.Error("create user failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
@@ -241,14 +265,14 @@ func Register(d Deps) http.HandlerFunc {
 			ptrIfNotEmptyOrPassthrough(body.DeviceLabel), platform)
 		if err != nil {
 			slog.Error("issue token failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		httpx.WriteJSON(w, http.StatusCreated, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale},
 		})
 	}
 }
@@ -291,33 +315,37 @@ type loginRequest struct {
 
 func Login(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		var body loginRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		fieldErrors := map[string][]string{}
 		emailNorm := strings.ToLower(strings.TrimSpace(body.Email))
 		if !validateEmail(emailNorm) {
-			fieldErrors["email"] = []string{"Email không hợp lệ"}
+			fieldErrors["email"] = []string{i18n.Text(ctx, "Email không hợp lệ")}
 		}
 		if body.Password == "" {
-			fieldErrors["password"] = []string{"Nhập mật khẩu"}
+			fieldErrors["password"] = []string{i18n.Text(ctx, "Nhập mật khẩu")}
 		}
 		platform := normalizePlatform(body.Platform)
 		if body.Platform != nil && platform == nil && *body.Platform != "" {
-			fieldErrors["platform"] = []string{"Platform không hợp lệ"}
+			fieldErrors["platform"] = []string{i18n.Text(ctx, "Platform không hợp lệ")}
 		}
 		if len(fieldErrors) > 0 {
-			badInput(w, fieldErrors)
+			badInput(w, ctx, fieldErrors)
 			return
 		}
 
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "login",
 			ratelimit.GetClientIP(r), emailNorm)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -325,17 +353,17 @@ func Login(d Deps) http.HandlerFunc {
 		user, err := q.GetUserByEmail(r.Context(), emailNorm)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				httpx.WriteError(w, http.StatusUnauthorized, "invalid_credentials",
-					"Email hoặc mật khẩu không đúng", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusUnauthorized, "invalid_credentials",
+					i18n.Text(ctx, "Email hoặc mật khẩu không đúng"), nil)
 				return
 			}
 			slog.Error("get user by email", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if !auth.Verify(body.Password, user.PasswordHash) {
-			httpx.WriteError(w, http.StatusUnauthorized, "invalid_credentials",
-				"Email hoặc mật khẩu không đúng", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusUnauthorized, "invalid_credentials",
+				i18n.Text(ctx, "Email hoặc mật khẩu không đúng"), nil)
 			return
 		}
 
@@ -343,14 +371,14 @@ func Login(d Deps) http.HandlerFunc {
 			ptrIfNotEmptyOrPassthrough(body.DeviceLabel), platform)
 		if err != nil {
 			slog.Error("issue token failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		httpx.WriteJSON(w, http.StatusOK, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale},
 		})
 	}
 }
@@ -359,20 +387,24 @@ func Login(d Deps) http.HandlerFunc {
 
 func Logout(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		header := r.Header.Get("Authorization")
 		if header == "" {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		// Idempotent: returns nil even if the token was already revoked or
 		// never existed. The client should still drop it locally.
 		if err := auth.RevokeToken(r.Context(), d.DB, header); err != nil {
 			if errors.Is(err, auth.ErrInvalidSession) {
-				unauthorized(w)
+				unauthorized(w, ctx)
 				return
 			}
 			slog.Error("revoke token failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -383,19 +415,30 @@ func Logout(d Deps) http.HandlerFunc {
 
 func Me(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
-		// aiOptIn lives on the User row, not the session — read it so clients
-		// can render the Settings toggle state.
+		// aiOptIn and locale live on the User row, not on the session — read them
+		// so clients can render the Settings toggle state and the language picker.
+		//
+		// The session DOES carry locale (GetSessionByTokenHash selects it, so the
+		// auth middleware can seed the i18n precedence chain), but the row is read
+		// anyway for aiOptIn. Both answers come from this one row so the response
+		// can never disagree with what the middleware resolved.
 		aiOptIn := false
+		var locale *string
 		if u, uerr := store.New(d.DB).GetUserByID(r.Context(), us.UserID); uerr == nil {
 			aiOptIn = u.AiOptIn
+			locale = u.Locale
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]userDTO{
-			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn},
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]userDTO{
+			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, Locale: locale},
 		})
 	}
 }
@@ -429,15 +472,19 @@ func RegisterProfile(mux *http.ServeMux, deps Deps) {
 
 func updateMeHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		us, ok := auth.UserFromContext(r.Context())
 		if !ok {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 
 		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -446,66 +493,123 @@ func updateMeHandler(d Deps) http.HandlerFunc {
 		// field-level Vietnamese message instead of the generic bad-JSON one.
 		var raw map[string]json.RawMessage
 		if err := decodeJSON(r, &raw); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		unknown := map[string][]string{}
 		for k := range raw {
-			if k == "displayName" {
+			if k == "displayName" || k == "locale" {
 				continue
 			}
 			if k == "email" || k == "newEmail" {
-				unknown[k] = []string{"Không đổi email ở đây. Dùng POST /api/v1/auth/change-email (cần mật khẩu hiện tại) rồi xác nhận bằng token gửi tới địa chỉ mới."}
+				unknown[k] = []string{i18n.Text(ctx, "Không đổi email ở đây. Dùng POST /api/v1/auth/change-email (cần mật khẩu hiện tại) rồi xác nhận bằng token gửi tới địa chỉ mới.")}
 				continue
 			}
-			unknown[k] = []string{"Trường không được hỗ trợ"}
+			unknown[k] = []string{i18n.Text(ctx, "Trường không được hỗ trợ")}
 		}
 		if len(unknown) > 0 {
-			badInput(w, unknown, "Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change).")
+			badInput(w, ctx, unknown, i18n.Text(ctx, "Chỉ hỗ trợ sửa tên hiển thị. Đổi email có luồng riêng (change-email + confirm-email-change)."))
 			return
 		}
 
-		rawName, present := raw["displayName"]
+		// Both accepted fields are tri-state, and the two halves are read the same
+		// way: ABSENT ("locale" not in the map) means leave the stored value alone,
+		// while an explicit `null` or `""` clears it. A client that has never heard
+		// of `locale` therefore cannot wipe a preference by editing its name.
+		//
+		// A body with NEITHER field is still rejected. That used to be enforced by
+		// `displayName` being the only accepted key; now that `locale` exists, the
+		// rule is stated directly, so an empty or mistyped body keeps failing
+		// loudly instead of being a silent 200 that changed nothing. Each field
+		// individually became optional purely so a language picker can send
+		// `{"locale": "vi"}` without also restating the display name.
+		rawName, namePresent := raw["displayName"]
+		rawLocale, localePresent := raw["locale"]
+		if !namePresent && !localePresent {
+			badInput(w, ctx, map[string][]string{"displayName": {i18n.Text(ctx, "Thiếu displayName")}})
+			return
+		}
 		var nameIn *string
-		if present {
+		if namePresent {
 			// `null` unmarshals to a nil *string without error; a number/object/
 			// array/bool is rejected here.
 			if err := json.Unmarshal(rawName, &nameIn); err != nil {
-				badInput(w, map[string][]string{"displayName": {"Tên hiển thị không hợp lệ"}})
+				badInput(w, ctx, map[string][]string{"displayName": {i18n.Text(ctx, "Tên hiển thị không hợp lệ")}})
 				return
 			}
 		}
-		name, verr := services.NormalizeDisplayName(nameIn, present)
+		name, nameChanged, verr := services.NormalizeDisplayName(ctx, nameIn, namePresent)
 		if verr != nil {
-			writeAuthServiceErr(w, verr, "validate display name")
+			writeAuthServiceErr(w, ctx, verr, "validate display name")
 			return
 		}
 
-		user, uerr := services.UpdateDisplayName(r.Context(), d.DB, us.UserID, name)
+		var localeIn *string
+		if localePresent {
+			if err := json.Unmarshal(rawLocale, &localeIn); err != nil {
+				badInput(w, ctx, map[string][]string{"locale": {i18n.Text(ctx, "Ngôn ngữ không hợp lệ")}})
+				return
+			}
+		}
+		locale, localeChanged, lerr := services.NormalizeLocale(ctx, localeIn, localePresent)
+		if lerr != nil {
+			writeAuthServiceErr(w, ctx, lerr, "validate locale")
+			return
+		}
+
+		user, uerr := services.UpdateProfile(ctx, d.DB, us.UserID,
+			name, nameChanged, locale, localeChanged)
 		if uerr != nil {
-			writeAuthServiceErr(w, uerr, "update display name")
+			writeAuthServiceErr(w, ctx, uerr, "update profile")
 			return
 		}
 
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{
-			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn},
-			"message": "Đã cập nhật hồ sơ",
+		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{
+			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale},
+			"message": i18n.Text(ctx, "Đã cập nhật hồ sơ"),
 		})
 	}
+}
+
+// translateKey renders a catalog key that arrived as DATA (a struct field)
+// rather than as a literal at the call site. Split out purely so the printf
+// analyzer does not read a variable as a caller-supplied format string: the key
+// is never used as a format and no arguments are passed.
+func translateKey(ctx context.Context, key string) string {
+	return i18n.Text(ctx, key)
 }
 
 // writeAuthServiceErr maps a services.* domain error onto the shared JSON error
 // envelope. Mirrors writeDevicesErr, kept local so auth.go doesn't depend on the
 // devices handler file.
-func writeAuthServiceErr(w http.ResponseWriter, err error, op string) {
+//
+// A domain error carries its user-facing text twice when it has been converted:
+// `MessageKey` names a catalog entry (rendered here in the request's language)
+// and `Message` is the Vietnamese source that every unconverted service still
+// sets. Rendering the key, when there is one, is what lets a service construct an
+// error deep in a call stack with no request in scope and still have it reach the
+// client in the right language.
+func writeAuthServiceErr(w http.ResponseWriter, ctx context.Context, err error, op string) {
 	var svc *services.Error
 	if errors.As(err, &svc) {
-		httpx.WriteError(w, svc.HTTPStatus(), strings.ToLower(svc.Code), svc.Message, svc.FieldErrors)
+		message := svc.Message
+		if svc.MessageKey != "" {
+			// A keyed error names its own message, so the envelope headline is the
+			// field message rather than the generic "invalid input" — which is what
+			// a single-field validation failure should read like for a client that
+			// only renders `message`.
+			// MessageKey is a catalog key carried on the error, not a literal at this
+			// call site — exactly the shape `go vet`'s printf analyzer rejects for a
+			// format-string wrapper. translateKey passes no arguments, so the format
+			// contract is trivially satisfied.
+			message = translateKey(ctx, svc.MessageKey)
+		}
+		httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), strings.ToLower(svc.Code), message, svc.FieldErrors)
 		return
 	}
 	slog.Error(op+" failed", "err", err)
-	httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 }
 
 // ---- POST /api/v1/auth/forgot --------------------------------------------------
@@ -518,21 +622,25 @@ const passwordResetTTLMin = 30
 
 func Forgot(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		var body forgotRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		emailNorm := strings.ToLower(strings.TrimSpace(body.Email))
 		if !validateEmail(emailNorm) {
-			badInput(w, map[string][]string{"email": {"Email không hợp lệ"}})
+			badInput(w, ctx, map[string][]string{"email": {i18n.Text(ctx, "Email không hợp lệ")}})
 			return
 		}
 
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "forgot",
 			ratelimit.GetClientIP(r), emailNorm)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -589,42 +697,46 @@ type changePasswordRequest struct {
 
 func ChangePassword(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "change-password",
 			ratelimit.GetClientIP(r), us.UserID)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
 		var body changePasswordRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		fieldErrors := map[string][]string{}
 		if body.CurrentPassword == "" {
-			fieldErrors["currentPassword"] = []string{"Nhập mật khẩu hiện tại"}
+			fieldErrors["currentPassword"] = []string{i18n.Text(ctx, "Nhập mật khẩu hiện tại")}
 		}
 		if len(body.NewPassword) < 8 {
-			fieldErrors["newPassword"] = []string{"Mật khẩu mới tối thiểu 8 ký tự"}
+			fieldErrors["newPassword"] = []string{i18n.Text(ctx, "Mật khẩu mới tối thiểu 8 ký tự")}
 		} else if len(body.NewPassword) > 200 {
-			fieldErrors["newPassword"] = []string{"Mật khẩu không được quá 200 ký tự"}
+			fieldErrors["newPassword"] = []string{i18n.Text(ctx, "Mật khẩu không được quá 200 ký tự")}
 		}
 		if body.ConfirmPassword == "" {
-			fieldErrors["confirmPassword"] = []string{"Required"}
+			fieldErrors["confirmPassword"] = []string{i18n.Text(ctx, "Required")}
 		}
 		if len(fieldErrors) == 0 && body.NewPassword != body.ConfirmPassword {
-			fieldErrors["confirmPassword"] = []string{"Xác nhận mật khẩu không khớp"}
+			fieldErrors["confirmPassword"] = []string{i18n.Text(ctx, "Xác nhận mật khẩu không khớp")}
 		}
 		if len(fieldErrors) > 0 {
-			badInput(w, fieldErrors)
+			badInput(w, ctx, fieldErrors)
 			return
 		}
 
@@ -632,22 +744,22 @@ func ChangePassword(d Deps) http.HandlerFunc {
 		row, err := q.GetUserByID(r.Context(), us.UserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				httpx.WriteError(w, http.StatusNotFound, "user_not_found", "Không tìm thấy", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusNotFound, "user_not_found", i18n.Text(ctx, "Không tìm thấy"), nil)
 				return
 			}
 			slog.Error("get user by id", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if !auth.Verify(body.CurrentPassword, row.PasswordHash) {
-			badInput(w, map[string][]string{"currentPassword": {"Mật khẩu hiện tại không đúng"}})
+			badInput(w, ctx, map[string][]string{"currentPassword": {i18n.Text(ctx, "Mật khẩu hiện tại không đúng")}})
 			return
 		}
 
 		newHash, err := auth.Hash(body.NewPassword)
 		if err != nil {
 			slog.Error("bcrypt hash failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if err := q.UpdateUserPassword(r.Context(), store.UpdateUserPasswordParams{
@@ -655,13 +767,13 @@ func ChangePassword(d Deps) http.HandlerFunc {
 			PasswordHash: newHash,
 		}); err != nil {
 			slog.Error("update password failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": "Đã đổi mật khẩu thành công",
+			"message": i18n.Text(ctx, "Đã đổi mật khẩu thành công"),
 		})
 	}
 }
@@ -683,24 +795,28 @@ type resetPasswordRequest struct {
 
 func ResetPassword(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		var body resetPasswordRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		fieldErrors := map[string][]string{}
 		body.Token = strings.TrimSpace(body.Token)
 		if body.Token == "" {
-			fieldErrors["token"] = []string{"Thiếu token"}
+			fieldErrors["token"] = []string{i18n.Text(ctx, "Thiếu token")}
 		}
 		if len(body.NewPassword) < 8 {
-			fieldErrors["newPassword"] = []string{"Mật khẩu tối thiểu 8 ký tự"}
+			fieldErrors["newPassword"] = []string{i18n.Text(ctx, "Mật khẩu tối thiểu 8 ký tự")}
 		} else if len(body.NewPassword) > 200 {
-			fieldErrors["newPassword"] = []string{"Mật khẩu không được quá 200 ký tự"}
+			fieldErrors["newPassword"] = []string{i18n.Text(ctx, "Mật khẩu không được quá 200 ký tự")}
 		}
 		if len(fieldErrors) > 0 {
-			badInput(w, fieldErrors)
+			badInput(w, ctx, fieldErrors)
 			return
 		}
 
@@ -709,7 +825,7 @@ func ResetPassword(d Deps) http.HandlerFunc {
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "reset",
 			ratelimit.GetClientIP(r), body.Token[:min(16, len(body.Token))])
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -719,26 +835,26 @@ func ResetPassword(d Deps) http.HandlerFunc {
 		reset, err := q.GetPasswordResetByTokenHash(r.Context(), tokenHash)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				httpx.WriteError(w, http.StatusBadRequest, "invalid_reset_token",
-					"Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "invalid_reset_token",
+					i18n.Text(ctx, "Link không hợp lệ hoặc đã hết hạn. Yêu cầu link mới."), nil)
 				return
 			}
 			slog.Error("lookup password reset", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		newHash, err := auth.Hash(body.NewPassword)
 		if err != nil {
 			slog.Error("bcrypt hash failed", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		tx, err := d.DB.Begin(r.Context())
 		if err != nil {
 			slog.Error("begin tx", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		defer func() { _ = tx.Rollback(r.Context()) }()
@@ -749,36 +865,36 @@ func ResetPassword(d Deps) http.HandlerFunc {
 			PasswordHash: newHash,
 		}); err != nil {
 			slog.Error("update password", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if err := tq.ConsumePasswordReset(r.Context(), reset.ID); err != nil {
 			slog.Error("consume reset", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		// Burn every other outstanding reset for this user.
 		if err := tq.ConsumeAllPasswordResetsForUser(r.Context(), reset.UserId); err != nil {
 			slog.Error("consume other resets", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		// Revoke every Session — password change kicks all devices off.
 		if err := tq.RevokeAllSessionsForUser(r.Context(), reset.UserId); err != nil {
 			slog.Error("revoke sessions", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
 			slog.Error("commit", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": "Đã đổi mật khẩu. Vào /login để đăng nhập.",
+			"message": i18n.Text(ctx, "Đã đổi mật khẩu. Vào /login để đăng nhập."),
 		})
 	}
 }
@@ -814,35 +930,39 @@ const emailChangeNeutralMessage = "Nếu địa chỉ mới hợp lệ và chưa
 
 func RequestEmailChange(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 
 		var body changeEmailRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		fieldErrors := map[string][]string{}
 		newEmail := strings.ToLower(strings.TrimSpace(body.NewEmail))
 		if !validateEmail(newEmail) {
-			fieldErrors["newEmail"] = []string{"Email không hợp lệ"}
+			fieldErrors["newEmail"] = []string{i18n.Text(ctx, "Email không hợp lệ")}
 		}
 		if body.CurrentPassword == "" {
-			fieldErrors["currentPassword"] = []string{"Nhập mật khẩu hiện tại"}
+			fieldErrors["currentPassword"] = []string{i18n.Text(ctx, "Nhập mật khẩu hiện tại")}
 		}
 		if len(fieldErrors) > 0 {
-			badInput(w, fieldErrors)
+			badInput(w, ctx, fieldErrors)
 			return
 		}
 
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "change-email",
 			ratelimit.GetClientIP(r), us.UserID)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -850,20 +970,20 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 		user, err := q.GetUserByID(r.Context(), us.UserID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				httpx.WriteError(w, http.StatusNotFound, "user_not_found", "Không tìm thấy", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusNotFound, "user_not_found", i18n.Text(ctx, "Không tìm thấy"), nil)
 				return
 			}
 			slog.Error("get user by id", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if !auth.Verify(body.CurrentPassword, user.PasswordHash) {
-			badInput(w, map[string][]string{"currentPassword": {"Mật khẩu hiện tại không đúng"}})
+			badInput(w, ctx, map[string][]string{"currentPassword": {i18n.Text(ctx, "Mật khẩu hiện tại không đúng")}})
 			return
 		}
 		if newEmail == strings.ToLower(user.Email) {
 			// Not an enumeration risk: this is the caller's own address.
-			badInput(w, map[string][]string{"newEmail": {"Email mới trùng với email hiện tại"}})
+			badInput(w, ctx, map[string][]string{"newEmail": {i18n.Text(ctx, "Email mới trùng với email hiện tại")}})
 			return
 		}
 
@@ -872,19 +992,19 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 			slog.Info("email change requested for an address already in use", "userId", user.ID)
 			httpx.WriteJSON(w, http.StatusOK, map[string]any{
 				"ok":      true,
-				"message": emailChangeNeutralMessage,
+				"message": i18n.Text(ctx, emailChangeNeutralMessage),
 			})
 			return
 		} else if gerr != nil && !errors.Is(gerr, pgx.ErrNoRows) {
 			slog.Error("email change lookup failed", "err", gerr)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		rawToken, hash, terr := auth.NewTokenAndHash()
 		if terr != nil {
 			slog.Error("email change token generation failed", "err", terr)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		expires := time.Now().Add(passwordResetTTLMin * time.Minute)
@@ -896,7 +1016,7 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 			ExpiresAt:    pgtype.Timestamp{Time: expires, Valid: true},
 		}); perr != nil {
 			slog.Error("create email change failed", "err", perr)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
@@ -920,7 +1040,7 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": emailChangeNeutralMessage,
+			"message": i18n.Text(ctx, emailChangeNeutralMessage),
 		})
 	}
 }
@@ -941,21 +1061,25 @@ type confirmEmailChangeRequest struct {
 
 func ConfirmEmailChange(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		var body confirmEmailChangeRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		body.Token = strings.TrimSpace(body.Token)
 		if body.Token == "" {
-			badInput(w, map[string][]string{"token": {"Thiếu token"}})
+			badInput(w, ctx, map[string][]string{"token": {i18n.Text(ctx, "Thiếu token")}})
 			return
 		}
 
 		rl, _ := ratelimit.CheckAuth(r.Context(), d.Limiter, "confirm-email-change",
 			ratelimit.GetClientIP(r), body.Token[:min(16, len(body.Token))])
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, ctx, rl.RetryAfterSec)
 			return
 		}
 
@@ -966,18 +1090,18 @@ func ConfirmEmailChange(d Deps) http.HandlerFunc {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// Covers unknown, already-used and expired tokens: the query filters
 				// usedAt + expiresAt, so a replayed token lands here.
-				httpx.WriteError(w, http.StatusBadRequest, "invalid_email_change_token",
-					"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "invalid_email_change_token",
+					i18n.Text(ctx, "Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới."), nil)
 				return
 			}
 			slog.Error("lookup email change", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if change.PendingEmail == nil || strings.TrimSpace(*change.PendingEmail) == "" {
 			// Defensive: the query already requires a non-NULL pendingEmail.
-			httpx.WriteError(w, http.StatusBadRequest, "invalid_email_change_token",
-				"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "invalid_email_change_token",
+				i18n.Text(ctx, "Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới."), nil)
 			return
 		}
 		newEmail := strings.ToLower(strings.TrimSpace(*change.PendingEmail))
@@ -986,19 +1110,19 @@ func ConfirmEmailChange(d Deps) http.HandlerFunc {
 		// outstanding. Say so plainly: at this point the caller has proven control of
 		// the address, so there is nothing left to enumerate.
 		if other, gerr := q.GetUserByEmail(r.Context(), newEmail); gerr == nil && other.ID != change.UserId {
-			httpx.WriteError(w, http.StatusBadRequest, "email_in_use",
-				"Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác.", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "email_in_use",
+				i18n.Text(ctx, "Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác."), nil)
 			return
 		} else if gerr != nil && !errors.Is(gerr, pgx.ErrNoRows) {
 			slog.Error("email change lookup failed", "err", gerr)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		tx, err := d.DB.Begin(r.Context())
 		if err != nil {
 			slog.Error("begin tx", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		defer func() { _ = tx.Rollback(r.Context()) }()
@@ -1010,48 +1134,48 @@ func ConfirmEmailChange(d Deps) http.HandlerFunc {
 		})
 		if err != nil {
 			if isUniqueViolation(err) {
-				httpx.WriteError(w, http.StatusBadRequest, "email_in_use",
-					"Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác.", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "email_in_use",
+					i18n.Text(ctx, "Email này đã được dùng cho một tài khoản khác. Yêu cầu đổi sang địa chỉ khác."), nil)
 				return
 			}
 			slog.Error("update user email", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if rows == 0 {
 			// The user disappeared between issuing and confirming the token.
-			httpx.WriteError(w, http.StatusBadRequest, "invalid_email_change_token",
-				"Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới.", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "invalid_email_change_token",
+				i18n.Text(ctx, "Link xác nhận không hợp lệ hoặc đã hết hạn. Yêu cầu link mới."), nil)
 			return
 		}
 		if err := tq.ConsumePasswordReset(r.Context(), change.ID); err != nil {
 			slog.Error("consume email change", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		// Burn every other outstanding token (password reset + email change).
 		if err := tq.ConsumeAllPasswordResetsForUser(r.Context(), change.UserId); err != nil {
 			slog.Error("consume other resets", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		// Email change kicks all devices off, exactly like the password-reset path:
 		// sessions issued for the old address must not survive it.
 		if err := tq.RevokeAllSessionsForUser(r.Context(), change.UserId); err != nil {
 			slog.Error("revoke sessions", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
 			slog.Error("commit", "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": "Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới.",
+			"message": i18n.Text(ctx, "Đã đổi email. Vào /login để đăng nhập lại bằng địa chỉ mới."),
 		})
 	}
 }
@@ -1088,9 +1212,13 @@ type deleteMeRequest struct {
 
 func DeleteMe(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Resolve ?lang= / Accept-Language here so the envelope helpers below
+		// render in the request's language even when this handler is invoked
+		// directly (handler tests) rather than through httpx's middleware chain.
+		ctx := i18n.Attach(r)
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 
@@ -1101,7 +1229,7 @@ func DeleteMe(d Deps) http.HandlerFunc {
 			_ = decodeJSONLoose(r, &body)
 		}
 		if strings.TrimSpace(body.Password) == "" {
-			badInput(w, map[string][]string{"password": {"Nhập mật khẩu để xác nhận"}})
+			badInput(w, ctx, map[string][]string{"password": {i18n.Text(ctx, "Nhập mật khẩu để xác nhận")}})
 			return
 		}
 
@@ -1109,15 +1237,15 @@ func DeleteMe(d Deps) http.HandlerFunc {
 		row, gerr := q.GetUserByID(r.Context(), us.UserID)
 		if gerr != nil {
 			if errors.Is(gerr, pgx.ErrNoRows) {
-				httpx.WriteError(w, http.StatusNotFound, "user_not_found", "Không tìm thấy", nil)
+				httpx.WriteErrorC(w, ctx, http.StatusNotFound, "user_not_found", i18n.Text(ctx, "Không tìm thấy"), nil)
 				return
 			}
 			slog.Error("get user by id", "err", gerr)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 		if !auth.Verify(body.Password, row.PasswordHash) {
-			badInput(w, map[string][]string{"password": {"Mật khẩu không đúng"}})
+			badInput(w, ctx, map[string][]string{"password": {i18n.Text(ctx, "Mật khẩu không đúng")}})
 			return
 		}
 
@@ -1126,13 +1254,13 @@ func DeleteMe(d Deps) http.HandlerFunc {
 		devices, derr := q.ListDevicesByUserSimple(r.Context(), us.UserID)
 		if derr != nil {
 			slog.Error("list devices for delete", "err", derr, "userId", us.UserID)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
 		if err := q.DeleteUser(r.Context(), us.UserID); err != nil {
 			slog.Error("delete user", "err", err, "userId", us.UserID)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
 
@@ -1156,7 +1284,7 @@ func DeleteMe(d Deps) http.HandlerFunc {
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
-			"message": "Đã xoá tài khoản",
+			"message": i18n.Text(ctx, "Đã xoá tài khoản"),
 		})
 	}
 }

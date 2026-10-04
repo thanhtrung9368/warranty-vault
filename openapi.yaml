@@ -11,6 +11,11 @@ info:
 
     Auth: bearer token from POST /api/v1/auth/login (or /register). Send as
     `Authorization: Bearer <token>` on every authenticated request.
+
+    Ngôn ngữ: mọi chữ trong `message` / `fieldErrors` được server dịch sẵn. Thứ
+    tự quyết định: `?lang=vi|en` → header `Accept-Language` → `User.locale` (đã
+    lưu) → `en`. Ngôn ngữ không hỗ trợ rơi về mặc định, **không** phải lỗi 400.
+    Xem `components.parameters.Lang`.
   version: 0.1.0
 
 servers:
@@ -38,6 +43,7 @@ security:
 
 paths:
   /api/v1/auth/register:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       security: []
@@ -60,6 +66,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/login:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       security: []
@@ -75,6 +82,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/logout:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       summary: Revoke the current session token
@@ -83,6 +91,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/auth/forgot:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       security: []
@@ -102,6 +111,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/me:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     get:
       tags: [auth]
       responses:
@@ -115,17 +125,22 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     patch:
       tags: [auth]
-      summary: Cập nhật hồ sơ — chỉ tên hiển thị
+      summary: Cập nhật hồ sơ — tên hiển thị và ngôn ngữ
       description: |
-        Partial profile update. `displayName` is the ONLY accepted field; the
-        account email **cannot be changed here** (and is not supported anywhere
-        yet — it needs a two-step verification flow, deliberately out of scope).
-        A body carrying `email` / `newEmail` is rejected with 400 and a
-        `fieldErrors` entry saying so, rather than silently ignored.
+        Partial profile update. Two fields are accepted: `displayName` and
+        `locale`. The account email **cannot be changed here** — it has its own
+        two-step flow (`POST /api/v1/auth/change-email`). A body carrying
+        `email` / `newEmail` is rejected with 400 and a `fieldErrors` entry
+        saying so, rather than silently ignored.
 
-        Clearing: `"displayName": null`, `""`, or only whitespace all set the
-        name to null. A missing `displayName` key is 400 (`Thiếu displayName`),
-        not a silent no-op.
+        Both accepted fields are **tri-state** and independent: an ABSENT key
+        leaves the stored value alone, `null` (or `""`) CLEARS it, and a value
+        sets it. So `{"locale": "vi"}` on its own is a valid body, and a client
+        that only knows about `displayName` cannot wipe a stored language by
+        editing a name.
+
+        A body with NEITHER key is 400, so an empty or mistyped body still fails
+        loudly instead of being a 200 that changed nothing.
 
         Response mirrors `GET /api/v1/auth/me` (`{ "user": ... }`) plus a
         Vietnamese `message`, so a client can replace its cached user object
@@ -238,6 +253,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/reset-password:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       security: []
@@ -266,6 +282,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/change-password:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       summary: Change the authenticated user's password
@@ -289,6 +306,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/change-email:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       summary: Yêu cầu đổi email — bước 1/2 (gửi token xác nhận tới địa chỉ mới)
@@ -334,6 +352,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/auth/confirm-email-change:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [auth]
       summary: Xác nhận đổi email — bước 2/2 (tiêu thụ token)
@@ -1290,6 +1309,7 @@ paths:
         '400': { $ref: '#/components/responses/BadInput' }
 
   /api/v1/push/test:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
     post:
       tags: [push]
       summary: Send a sample notification to every registered subscription
@@ -1298,6 +1318,10 @@ paths:
         FCM) to every PushSubscription the caller owns. Subscriptions the
         upstream gateway reports as gone (404/410, FCM UNREGISTERED) are
         deleted as a side effect, matching the cron's gone-detection.
+
+        The notification BODY is translated like the cron's are, so `?lang=`
+        changes what lands on the device — this is the one push whose language a
+        client can set per request rather than through `User.locale`.
       responses:
         '200':
           description: Send counts
@@ -1982,6 +2006,32 @@ components:
       required: true
       schema: { type: string }
 
+    # The language of the `message` / `fieldErrors` COPY in a response. It is not
+    # a resource: it changes no status code, no error code and no field name, so a
+    # client that ignores it loses nothing but the localisation.
+    #
+    # Precedence, first match wins:
+    #   1. this parameter (`vi` | `en`)
+    #   2. the `Accept-Language` request header (q-weighted, parsed by
+    #      golang.org/x/text/language)
+    #   3. the caller's stored preference (`User.locale`, set through PATCH
+    #      /api/v1/auth/me)
+    #   4. `en`
+    #
+    # A language we do not ship is a FALLBACK, never an error: `?lang=fr` is
+    # ignored (the next level decides) and `Accept-Language: fr` gets English with
+    # a 200. The response carries `Content-Language` when the request asked for a
+    # language at all, so a client can see what it actually got.
+    Lang:
+      name: lang
+      in: query
+      required: false
+      schema: { type: string, enum: [vi, en] }
+      description: |
+        Ngôn ngữ của phần chữ trong response (`message`, `fieldErrors`). Thắng cả
+        header `Accept-Language` lẫn lựa chọn đã lưu. Giá trị khác `vi`/`en` bị
+        bỏ qua (rơi xuống mức kế tiếp), **không** phải lỗi 400.
+
   responses:
     Ok:
       description: Success
@@ -2106,6 +2156,18 @@ components:
         email: { type: string, format: email }
         name: { type: string, nullable: true }
         aiOptIn: { type: boolean, description: 'Người dùng đã bật tính năng quét hoá đơn AI (mặc định false)' }
+        locale:
+          type: string
+          nullable: true
+          enum: [en, vi]
+          description: |
+            Ngôn ngữ người dùng đã chọn (`User.locale`, migration 0014). `null`
+            nghĩa là **chưa chọn** — KHÔNG phải "tiếng Anh": request vẫn quyết
+            định theo thứ tự `?lang=` → `Accept-Language` → cột này → `en`.
+
+            Field này **vắng mặt** trong response khi người dùng chưa từng chọn
+            ngôn ngữ, để response của client cũ không đổi một byte nào. Chỉ nhận
+            hai mã hai chữ cái; gửi `vi-VN` thì server lưu `vi`.
 
     RegisterInput:
       type: object
@@ -2140,7 +2202,6 @@ components:
         riêng hai bước (`POST /api/v1/auth/change-email` rồi
         `POST /api/v1/auth/confirm-email-change`). Gửi thêm `email`/`newEmail` vào
         endpoint này sẽ trả 400 kèm `fieldErrors` chỉ đúng hai endpoint đó.
-      required: [displayName]
       properties:
         displayName:
           type: string
@@ -2151,6 +2212,34 @@ components:
             (`User.name` trở thành null). Giới hạn 80 **byte** UTF-8, đúng bằng
             giới hạn của bước đăng ký (tên tiếng Việt có dấu tốn nhiều byte hơn
             số ký tự). Giá trị được trim trước khi lưu.
+
+            **Vắng mặt ⇒ giữ nguyên** tên đang có (khác hẳn `null`). Đây là quy
+            ước ba trạng thái mà `locale` cũng theo, và là lý do hai field này
+            độc lập nhau: client cũ chỉ gửi `displayName` vẫn không thể vô tình
+            xoá ngôn ngữ đã lưu.
+        locale:
+          type: string
+          nullable: true
+          enum: [en, vi]
+          description: |
+            Ngôn ngữ của chính người dùng. Ba trạng thái:
+
+            * **vắng mặt** ⇒ giữ nguyên giá trị đã lưu;
+            * `null` hoặc `""` ⇒ XOÁ (về `null`), tức quay lại để request quyết
+              định theo `Accept-Language`;
+            * `"en"` / `"vi"` (chấp nhận cả `vi-VN`, `en-US` — lưu mã gốc) ⇒ đặt.
+
+            Giá trị không hỗ trợ (ví dụ `"fr"`) là **400** kèm
+            `fieldErrors.locale`, KHÁC với một `Accept-Language: fr` (cái đó chỉ
+            rơi về mặc định): đây là một write hỏng, còn kia là một sở thích
+            chúng tôi không có.
+
+            Gửi body **rỗng** (không có cả `displayName` lẫn `locale`) là 400.
+
+            Ảnh hưởng: ngôn ngữ của `message`/`fieldErrors` trong mọi response
+            sau đó (khi request không nói gì), và ngôn ngữ của **push
+            notification** — cron không có request nào để hỏi, nên cột này là
+            tín hiệu duy nhất. Xem `components.parameters.Lang`.
 
     # Body of POST /api/v1/auth/change-email (step 1 of 2).
     ChangeEmailRequest:

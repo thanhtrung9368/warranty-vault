@@ -17,18 +17,27 @@ func TestNormalizeDisplayName(t *testing.T) {
 		raw     *string
 		present bool
 		want    string // "" means nil (clear)
-		wantErr string // field name expected in fieldErrors, "" = no error
+		// wantChanged is the tri-state output: false means "leave the stored
+		// value ALONE" (the key was absent), true means "write this value,
+		// including a nil that clears it".
+		wantChanged bool
+		wantErr     string // field name expected in fieldErrors, "" = no error
 	}{
-		{name: "set trimmed value", raw: strp("  Nguyễn Văn A  "), present: true, want: "Nguyễn Văn A"},
-		{name: "empty string clears", raw: strp(""), present: true, want: ""},
-		{name: "whitespace clears", raw: strp("   "), present: true, want: ""},
-		{name: "explicit null clears", raw: nil, present: true, want: ""},
-		{name: "missing key rejected", raw: nil, present: false, wantErr: "displayName"},
-		{name: "80 bytes accepted", raw: strp(strings.Repeat("a", 80)), present: true, want: strings.Repeat("a", 80)},
+		{name: "set trimmed value", raw: strp("  Nguyễn Văn A  "), present: true, want: "Nguyễn Văn A", wantChanged: true},
+		{name: "empty string clears", raw: strp(""), present: true, want: "", wantChanged: true},
+		{name: "whitespace clears", raw: strp("   "), present: true, want: "", wantChanged: true},
+		{name: "explicit null clears", raw: nil, present: true, want: "", wantChanged: true},
+		// The absent key is NOT an error any more: a language picker sends
+		// `{"locale": "vi"}` with no displayName. It means "unchanged".
+		{name: "missing key leaves it unchanged", raw: nil, present: false, want: "", wantChanged: false},
+		{name: "80 bytes accepted", raw: strp(strings.Repeat("a", 80)), present: true, want: strings.Repeat("a", 80), wantChanged: true},
 		{name: "81 bytes rejected", raw: strp(strings.Repeat("a", 81)), present: true, wantErr: "displayName"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := NormalizeDisplayName(tc.raw, tc.present)
+			got, changed, err := NormalizeDisplayName(context.Background(), tc.raw, tc.present)
+			if changed != tc.wantChanged {
+				t.Errorf("changed = %v, want %v", changed, tc.wantChanged)
+			}
 			if tc.wantErr != "" {
 				if err == nil {
 					t.Fatalf("NormalizeDisplayName(%v, present=%v) = %v, want fieldErrors[%s]",
@@ -71,7 +80,7 @@ func TestMaxDisplayNameBytesMatchesRegisterConvention(t *testing.T) {
 	if len(vietnamese80) != 80 {
 		t.Fatalf("test fixture is %d bytes, want 80", len(vietnamese80))
 	}
-	if _, err := NormalizeDisplayName(&vietnamese80, true); err != nil {
+	if _, _, err := NormalizeDisplayName(context.Background(), &vietnamese80, true); err != nil {
 		t.Errorf("80-byte Vietnamese name rejected: %v", err)
 	}
 }
@@ -102,9 +111,9 @@ func TestUpdateDisplayNameAgainstRealPostgres(t *testing.T) {
 	})
 
 	// 1. Set a name.
-	got, err := UpdateDisplayName(ctx, pool, userID, strp("Nguyễn Văn A"))
+	got, err := UpdateProfile(ctx, pool, userID, strp("Nguyễn Văn A"), true, nil, false)
 	if err != nil {
-		t.Fatalf("UpdateDisplayName(set): %v", err)
+		t.Fatalf("UpdateProfile(set): %v", err)
 	}
 	if got.Name == nil || *got.Name != "Nguyễn Văn A" {
 		t.Errorf("returned name = %v, want %q — the handler answers with this row", got.Name, "Nguyễn Văn A")
@@ -123,9 +132,9 @@ func TestUpdateDisplayNameAgainstRealPostgres(t *testing.T) {
 	}
 
 	// 2. Clear it (nil → SQL NULL).
-	cleared, err := UpdateDisplayName(ctx, pool, userID, nil)
+	cleared, err := UpdateProfile(ctx, pool, userID, nil, true, nil, false)
 	if err != nil {
-		t.Fatalf("UpdateDisplayName(clear): %v", err)
+		t.Fatalf("UpdateProfile(clear): %v", err)
 	}
 	if cleared.Name != nil {
 		t.Errorf("after clear, name = %q, want nil", *cleared.Name)
@@ -139,9 +148,9 @@ func TestUpdateDisplayNameAgainstRealPostgres(t *testing.T) {
 	}
 
 	// 3. Unknown user → NOT_FOUND (the handler maps it to 404).
-	if _, err := UpdateDisplayName(ctx, pool, "zz_test_profile_missing", strp("X")); err == nil {
-		t.Fatal("UpdateDisplayName(missing user) = nil, want NOT_FOUND")
+	if _, err := UpdateProfile(ctx, pool, "zz_test_profile_missing", strp("X"), true, nil, false); err == nil {
+		t.Fatal("UpdateProfile(missing user) = nil, want NOT_FOUND")
 	} else if svc, ok := As(err); !ok || svc.Code != "NOT_FOUND" {
-		t.Errorf("UpdateDisplayName(missing user) = %v, want NOT_FOUND", err)
+		t.Errorf("UpdateProfile(missing user) = %v, want NOT_FOUND", err)
 	}
 }

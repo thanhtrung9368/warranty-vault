@@ -70,8 +70,8 @@ gốc** — mọi chuỗi đang tồn tại đều là tiếng Việt. Bản ti�
 
 | Pha | Vùng | Nội dung | Trạng thái |
 |---|---|---|---|
-| **0** | `api/` | Hạ tầng: `User.locale` + migration `0014`, bộ khung catalog, middleware `Accept-Language`, `?lang=`, `PATCH /auth/me` nhận `locale`, push dùng `User.locale`. **Chỉ chuyển một lát cắt** (auth) để chứng minh mẫu | ⬜ |
-| **1** | `api/` | Dịch nốt ~803 chuỗi Go theo mẫu đã chứng minh | ⬜ |
+| **0** | `api/` | Hạ tầng: `User.locale` + migration `0014`, bộ khung catalog, middleware `Accept-Language`, `?lang=`, `PATCH /auth/me` nhận `locale`, push dùng `User.locale`. **Chỉ chuyển một lát cắt** (auth) để chứng minh mẫu | ✅ **xong** — xem ghi chú dưới |
+| **1** | `api/` | Dịch nốt ~803 chuỗi Go theo mẫu đã chứng minh | ⬜ **sẵn sàng bắt đầu** |
 | **2** | `android/` | `values/` (en) + `values-vi/`, đổi ngôn ngữ trong app | ⬜ |
 | **3** | `ios/` | String Catalog, đổi ngôn ngữ trong app | ⬜ |
 | **4** | `website/` | Từ điển + chuyển ngôn ngữ | ⬜ |
@@ -81,6 +81,44 @@ gốc** — mọi chuỗi đang tồn tại đều là tiếng Việt. Bản ti�
 803 chuỗi — nếu mẫu sai thì sai 803 lần.
 
 **Pha 2/3/4 chạy song song được** (thư mục khác nhau), nhưng chỉ sau khi pha 1 xong.
+
+### 3.1. Pha 0 đã chốt những gì (đọc trước khi làm pha 1)
+
+Mẫu đã được chứng minh trên lát cắt auth + push. Công thức cho **mỗi** chuỗi ở pha 1:
+
+```go
+// 1. gọi site — bọc chuỗi tiếng Việt ĐANG CÓ, không sửa nó
+fieldErrors["email"] = []string{i18n.Text(ctx, "Email không hợp lệ")}
+message := i18n.T(ctx, "Còn %d ngày", days)      // có tham số → T
+// 2. một entry trong internal/i18n/catalog.go
+"Email không hợp lệ": {vi: "Email không hợp lệ", en: "Invalid email address"},
+```
+
+| Quyết định | Chốt | Vì sao |
+|---|---|---|
+| Khoá catalog | **chính chuỗi tiếng Việt** | Pha 1 chỉ *thêm*, không đặt tên 803 lần; khoá sai rơi về đúng câu tiếng Việt, không bao giờ ra `err.limit50` |
+| Nội suy | `fmt.Sprintf` (`%s`, `%d`), gọi qua `i18n.T` | Không thêm dependency; `%` trong chuỗi tĩnh không bị Sprintf đụng vì `Text`/`Lookup` không chạy Sprintf khi không có tham số |
+| Thiếu bản dịch | rơi sang **ngôn ngữ còn lại**, rồi tới chính khoá | Không bao giờ ra chuỗi rỗng hay tên khoá |
+| `Text` vs `T` | `Text(ctx, key)` khi không có tham số; `T(ctx, key, args…)` khi có | `go vet` coi `(string, ...any)` là printf-wrapper và **fail** nếu khoá không phải literal — `Text` đi đường `Lookup`, không có đuôi variadic |
+| Số nhiều | cặp khoá `…%d ngày` / `…1 ngày`, caller truyền **hai** danh sách tham số (`cron.renderCount`) | Tiếng Việt không biến đổi, tiếng Anh có; không kéo CLDR về cho một phép `== 1` |
+| `locale` trong DB | `text` NULL + CHECK hai chữ cái thường | NULL = "chưa chọn" (KHÁC `'en'`); thành viên `{en,vi}` do app ép, nên thêm ngôn ngữ thứ ba **không cần migration** |
+| `locale` trong response | `omitempty` | Client cũ không thấy byte nào đổi |
+| `?lang=` | chỉ nhận đúng `vi`/`en`; giá trị khác **rơi xuống mức kế tiếp**, không phải 400 | Là công tắc debug theo contract openapi |
+| `PATCH /auth/me` | hai field ba trạng thái, **độc lập**; body rỗng vẫn 400 | Client cũ gửi mỗi `displayName` không thể xoá ngôn ngữ đã lưu |
+| Thư viện | **không thêm dependency nào** | `golang.org/x/text/language` đã có sẵn (`ParseAcceptLanguage` + `Matcher` với kiểm tra confidence) |
+
+**Còn nợ, pha 1 phải làm:**
+
+- ~740 chuỗi ngoài lát cắt auth (devices, subscriptions, wishlist, backup, AI, shares…).
+  `writeServiceError`/`writeDevicesErr`/`writeAttachmentError`/`writeShareLookupFailure` đã nhận
+  `ctx` sẵn nên chỉ cần đổi chuỗi thành `i18n.Text`.
+- `User.locale` **không** nằm trong backup payload (`services/backup.go`), giống `DecisionSnooze`:
+  mất khi restore thì rơi về `Accept-Language`, hướng an toàn.
+- Template email (`internal/email/resend.go`) vẫn tiếng Việt — chưa vào catalog.
+- `GET/POST /api/v1/auth/sessions*` vẫn tiếng Việt và **chưa** nhận `?lang=`.
+- Lỗi từ `services.*` chưa chuyển hết: cơ chế đã có (`Error.MessageKey`, `ErrValidationKeyed`),
+  nhưng mới `profile.go` dùng.
+
 
 ## 4. Luật cho mọi agent làm việc này
 

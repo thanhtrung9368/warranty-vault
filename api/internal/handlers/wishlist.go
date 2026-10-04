@@ -23,6 +23,7 @@ func RegisterWishlist(mux *http.ServeMux, deps Deps) {
 
 func listWishlistHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		var statusFilter *string
 		if v := r.URL.Query().Get("status"); v != "" {
@@ -30,7 +31,7 @@ func listWishlistHandler(deps Deps) http.HandlerFunc {
 		}
 		items, err := services.ListWishlist(r.Context(), deps.DB, us.UserID, statusFilter)
 		if err != nil {
-			writeServiceError(w, err, "list wishlist")
+			writeServiceError(w, ctx, err, "list wishlist")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
@@ -39,18 +40,19 @@ func listWishlistHandler(deps Deps) http.HandlerFunc {
 
 func createWishlistHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		var input services.WishlistInput
 		if err := decodeJSONLoose(r, &input); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		item, err := services.CreateWishlist(r.Context(), deps.DB, us.UserID, input)
 		if err != nil {
-			writeServiceError(w, err, "create wishlist")
+			writeServiceError(w, ctx, err, "create wishlist")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"item": item})
@@ -59,15 +61,16 @@ func createWishlistHandler(deps Deps) http.HandlerFunc {
 
 func getWishlistHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
 			return
 		}
 		detail, err := services.GetWishlist(r.Context(), deps.DB, us.UserID, id)
 		if err != nil {
-			writeServiceError(w, err, "get wishlist")
+			writeServiceError(w, ctx, err, "get wishlist")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
@@ -79,23 +82,24 @@ func getWishlistHandler(deps Deps) http.HandlerFunc {
 
 func updateWishlistHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
 			return
 		}
 		var input services.WishlistInput
 		if err := decodeJSONLoose(r, &input); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		item, err := services.UpdateWishlist(r.Context(), deps.DB, us.UserID, id, input)
 		if err != nil {
-			writeServiceError(w, err, "update wishlist")
+			writeServiceError(w, ctx, err, "update wishlist")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"item": item})
@@ -104,17 +108,18 @@ func updateWishlistHandler(deps Deps) http.HandlerFunc {
 
 func deleteWishlistHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
 			return
 		}
 		if err := services.DeleteWishlist(r.Context(), deps.DB, us.UserID, id); err != nil {
-			writeServiceError(w, err, "delete wishlist")
+			writeServiceError(w, ctx, err, "delete wishlist")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -123,22 +128,23 @@ func deleteWishlistHandler(deps Deps) http.HandlerFunc {
 
 func logWishlistPriceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id món", nil)
 			return
 		}
 		var input services.PriceLogInput
 		if err := decodeJSONLoose(r, &input); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		if err := services.LogWishlistPrice(r.Context(), deps.DB, us.UserID, id, input); err != nil {
-			writeServiceError(w, err, "log wishlist price")
+			writeServiceError(w, ctx, err, "log wishlist price")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]bool{"ok": true})

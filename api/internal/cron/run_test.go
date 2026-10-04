@@ -19,6 +19,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver used by goose below
 	"github.com/pressly/goose/v3"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
@@ -613,9 +614,13 @@ func TestRunReturnWindowBucket(t *testing.T) {
 	pool := cronScratchDB(t)
 
 	userID := uuid.NewString()
+	// locale = 'vi' PINS the language this test asserts in. Without it the
+	// recipient falls back to the product default (en) and the Vietnamese
+	// assertions below would be testing nothing — or worse, passing only on a
+	// machine whose default happened to be Vietnamese.
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO "User" (id, email, "passwordHash", "updatedAt")
-		VALUES ($1, $2, 'x', NOW())`, userID, userID+"@cron.test"); err != nil {
+		INSERT INTO "User" (id, email, "passwordHash", "updatedAt", locale)
+		VALUES ($1, $2, 'x', NOW(), 'vi')`, userID, userID+"@cron.test"); err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
@@ -733,4 +738,191 @@ func tagsOf(sends []mockSend) []string {
 		out = append(out, s.payload.Tag)
 	}
 	return out
+}
+
+// ─── i18n: the recipient's stored language drives the push body ──────────────
+//
+// User.locale exists for exactly this (migration 0014, docs/I18N_PLAN.md §2.3).
+// A cron pass has no request, so no Accept-Language and no ?lang=; the stored
+// preference is the only signal. These tests pin all three outcomes: a stored
+// preference is honoured, an absent one gets the product default, and the
+// singular/plural split is real English rather than "1 days".
+
+func TestPluralKeyPicksTheSingularForm(t *testing.T) {
+	for _, tc := range []struct {
+		n    int
+		want string
+	}{
+		{0, "plural"},
+		{1, "singular"},
+		{2, "plural"},
+		{3, "plural"},
+		{7, "plural"},
+		{30, "plural"},
+	} {
+		if got := pluralKey(tc.n, "plural", "singular"); got != tc.want {
+			t.Errorf("pluralKey(%d) = %q, want %q", tc.n, got, tc.want)
+		}
+	}
+}
+
+// render is the computed-key path: it must fall back through the catalog exactly
+// like i18n.Translate, including for a key the catalog does not know.
+func TestRenderFallsBackToTheKeyText(t *testing.T) {
+	if got := render(i18n.EN, "Hạn đổi/trả: %s", "07/05/2026"); got != "Return deadline: 07/05/2026" {
+		t.Errorf("render(en) = %q", got)
+	}
+	if got := render(i18n.VI, "Hạn đổi/trả: %s", "07/05/2026"); got != "Hạn đổi/trả: 07/05/2026" {
+		t.Errorf("render(vi) = %q", got)
+	}
+	// Unknown key: the key IS the Vietnamese source text, so this is the
+	// pre-i18n behaviour rather than a broken message.
+	if got := render(i18n.EN, "Chuỗi chưa có trong catalog %d", 5); got != "Chuỗi chưa có trong catalog 5" {
+		t.Errorf("render(unknown key) = %q", got)
+	}
+}
+
+// The warranty title in both languages, to show the plural pair and the
+// Vietnamese-vs-English argument order both land.
+func TestWarrantyPushTitleIsLocalised(t *testing.T) {
+	const plural = `BH %s của "%s" sắp hết trong %d ngày`
+	const singular = `BH %s của "%s" sắp hết trong 1 ngày`
+
+	for _, tc := range []struct {
+		name string
+		tag  i18n.Tag
+		days int
+		want string
+	}{
+		{"en/7", i18n.EN, 7, `Standard warranty for "iPhone 15" expires in 7 days`},
+		{"en/1 (singular has no slot for the count)", i18n.EN, 1, `Standard warranty for "iPhone 15" expires in 1 day`},
+		{"vi/7", i18n.VI, 7, `BH Tiêu chuẩn của "iPhone 15" sắp hết trong 7 ngày`},
+		{"vi/1", i18n.VI, 1, `BH Tiêu chuẩn của "iPhone 15" sắp hết trong 1 ngày`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			label := "Standard"
+			if tc.tag == i18n.VI {
+				label = "Tiêu chuẩn"
+			}
+			got := renderCount(tc.tag, tc.days, plural, singular,
+				[]any{label, "iPhone 15", tc.days},
+				[]any{label, "iPhone 15"})
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// loadLocales over a real database: a stored preference is returned, NULL is
+// absent (and therefore falls back to the default), and an unsupported value
+// cannot leak through — the column's CHECK allows any two-letter code, so the
+// application layer is what narrows it to the shipped languages.
+func TestLoadLocalesReadsStoredPreferences(t *testing.T) {
+	ctx := context.Background()
+	pool := cronScratchDB(t)
+
+	insert := func(id string, locale any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "User" (id, email, "passwordHash", "updatedAt", locale)
+			VALUES ($1, $2, 'x', NOW(), $3)`, id, id+"@cron-i18n.test", locale); err != nil {
+			t.Fatalf("insert user %s: %v", id, err)
+		}
+	}
+	insert("loc_en", "en")
+	insert("loc_vi", "vi")
+	insert("loc_null", nil)
+
+	locales := loadLocales(ctx, store.New(pool))
+
+	if got := locales["loc_en"]; got != i18n.EN {
+		t.Errorf("locales[loc_en] = %q, want %q", got, i18n.EN)
+	}
+	if got := locales["loc_vi"]; got != i18n.VI {
+		t.Errorf("locales[loc_vi] = %q, want %q", got, i18n.VI)
+	}
+	if _, ok := locales["loc_null"]; ok {
+		t.Errorf("locales contains a NULL preference; it must be absent so the default applies")
+	}
+	// The map is keyed by userId and covers only rows that have a preference.
+	if len(locales) != 2 {
+		t.Errorf("len(locales) = %d, want 2 (the NULL row must not appear): %v", len(locales), locales)
+	}
+}
+
+// The whole path, end to end: the same warranty bucket, two users, two stored
+// preferences, two languages out. This is what makes User.locale load-bearing
+// rather than decorative.
+func TestRunRendersPushInTheRecipientsStoredLanguage(t *testing.T) {
+	ctx := context.Background()
+	pool := cronScratchDB(t)
+
+	now := time.Now()
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	seed := func(userID string, locale any, deviceID string) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "User" (id, email, "passwordHash", "updatedAt", locale)
+			VALUES ($1, $2, 'x', NOW(), $3)`, userID, userID+"@cron-i18n.test", locale); err != nil {
+			t.Fatalf("insert user %s: %v", userID, err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "PushSubscription" (id, "userId", endpoint, p256dh, auth, platform, "createdAt")
+			VALUES ($1, $2, $3, 'p', 'a', 'web', NOW())`,
+			uuid.NewString(), userID, "https://fake.local/"+userID); err != nil {
+			t.Fatalf("insert push sub: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "Device" (id, "userId", name, category, "purchaseDate", "purchasePrice", status, "createdAt", "updatedAt")
+			VALUES ($1, $2, 'iPhone 15', 'PHONE', $3, 1000000, 'ACTIVE', NOW(), NOW())`,
+			deviceID, userID, midnight.AddDate(0, 0, -100)); err != nil {
+			t.Fatalf("insert device: %v", err)
+		}
+		// endDate must land inside the 7-day bucket's window, which is
+		// [today+6 00:00, today+7 00:00) — dayWindow(now, days-1). Noon of
+		// today+6 sits in the middle of it; midnight of today+7 is the excluded
+		// upper bound and would match nothing.
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO "Warranty" (id, "deviceId", type, "startDate", "endDate", months, "createdAt", "updatedAt")
+			VALUES ($1, $2, 'STANDARD', $3, $4, 12, NOW(), NOW())`,
+			"war_"+deviceID, deviceID, midnight.AddDate(-1, 0, 0), midnight.AddDate(0, 0, 6).Add(12*time.Hour)); err != nil {
+			t.Fatalf("insert warranty: %v", err)
+		}
+	}
+
+	seed("i18n_en", "en", "dev_i18n_en")
+	seed("i18n_vi", "vi", "dev_i18n_vi")
+	// No stored preference at all: must get the product default, English.
+	seed("i18n_null", nil, "dev_i18n_null")
+
+	mock := &mockDispatcher{}
+	if _, err := Run(ctx, pool, mock); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	titles := map[string]string{}
+	for _, s := range mock.sends {
+		if strings.Contains(s.payload.Tag, "dev_i18n") || strings.Contains(s.payload.URL, "dev_i18n") {
+			titles[s.payload.URL] = s.payload.Title
+		}
+	}
+	if len(titles) != 3 {
+		var all []string
+		for _, s := range mock.sends {
+			all = append(all, s.payload.Tag+" | "+s.payload.Title)
+		}
+		t.Fatalf("expected 3 warranty pushes, got %d: %v\nall sends: %v", len(titles), titles, all)
+	}
+
+	if got, want := titles["/devices/dev_i18n_en"], `Standard warranty for "iPhone 15" expires in 7 days`; got != want {
+		t.Errorf("stored 'en' title = %q, want %q", got, want)
+	}
+	if got, want := titles["/devices/dev_i18n_vi"], `BH Tiêu chuẩn của "iPhone 15" sắp hết trong 7 ngày`; got != want {
+		t.Errorf("stored 'vi' title = %q, want %q", got, want)
+	}
+	if got, want := titles["/devices/dev_i18n_null"], `Standard warranty for "iPhone 15" expires in 7 days`; got != want {
+		t.Errorf("NULL locale title = %q, want the default (%q)", got, want)
+	}
 }

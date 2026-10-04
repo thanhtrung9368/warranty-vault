@@ -130,7 +130,7 @@ type SharedCertificate struct {
 // SharedCertificateDisclaimer is shown on every certificate (JSON and HTML). It
 // says what the document is NOT, because the recipient has no other way to know:
 // no prices, no invoice images, no identity of the seller.
-const SharedCertificateDisclaimer = "Phiếu này do chủ máy tạo từ ứng dụng WarrantyVault và chỉ chứa " +
+const SharedCertificateDisclaimer = "Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa " +
 	"thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không " +
 	"kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận."
 

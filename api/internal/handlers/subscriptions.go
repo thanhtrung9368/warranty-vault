@@ -50,14 +50,15 @@ func RegisterSubscriptions(mux *http.ServeMux, deps Deps) {
 
 func auditSubscriptionsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, ok := auth.UserFromContext(r.Context())
 		if !ok {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		audit, err := services.GetSubscriptionAudit(r.Context(), deps.DB, us.UserID, time.Now())
 		if err != nil {
-			writeServiceError(w, err, "subscription audit")
+			writeServiceError(w, ctx, err, "subscription audit")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, audit)
@@ -157,12 +158,13 @@ func subscriptionRequestToInput(body subscriptionRequest) (services.Subscription
 
 func listSubscriptionsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 
 		var statusArg *string
 		if s := strings.TrimSpace(r.URL.Query().Get("status")); s != "" {
 			if !services.IsValidSubscriptionStatus(s) {
-				badInput(w, map[string][]string{"status": {"Trạng thái không hợp lệ"}})
+				badInput(w, ctx, map[string][]string{"status": {"Trạng thái không hợp lệ"}})
 				return
 			}
 			statusArg = &s
@@ -170,7 +172,7 @@ func listSubscriptionsHandler(deps Deps) http.HandlerFunc {
 
 		rows, err := services.ListSubscriptions(r.Context(), deps.DB, us.UserID, statusArg)
 		if err != nil {
-			writeServiceError(w, err, "list subscriptions")
+			writeServiceError(w, ctx, err, "list subscriptions")
 			return
 		}
 		if rows == nil {
@@ -184,6 +186,7 @@ func listSubscriptionsHandler(deps Deps) http.HandlerFunc {
 
 func createSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
@@ -191,19 +194,19 @@ func createSubscriptionHandler(deps Deps) http.HandlerFunc {
 
 		var body subscriptionRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		input, ferrs := subscriptionRequestToInput(body)
 		if len(ferrs) > 0 {
-			badInput(w, ferrs)
+			badInput(w, ctx, ferrs)
 			return
 		}
 
 		created, err := services.CreateSubscription(r.Context(), deps.DB, us.UserID, input)
 		if err != nil {
-			writeServiceError(w, err, "create subscription")
+			writeServiceError(w, ctx, err, "create subscription")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"subscription": created})
@@ -221,16 +224,17 @@ type subscriptionDetailDTO struct {
 
 func getSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
 			return
 		}
 
 		detail, err := services.GetSubscription(r.Context(), deps.DB, us.UserID, id)
 		if err != nil {
-			writeServiceError(w, err, "get subscription")
+			writeServiceError(w, ctx, err, "get subscription")
 			return
 		}
 		out := subscriptionDetailDTO{
@@ -248,31 +252,32 @@ func getSubscriptionHandler(deps Deps) http.HandlerFunc {
 
 func updateSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
 			return
 		}
 
 		var body subscriptionRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
 		input, ferrs := subscriptionRequestToInput(body)
 		if len(ferrs) > 0 {
-			badInput(w, ferrs)
+			badInput(w, ctx, ferrs)
 			return
 		}
 
 		updated, err := services.UpdateSubscription(r.Context(), deps.DB, us.UserID, id, input)
 		if err != nil {
-			writeServiceError(w, err, "update subscription")
+			writeServiceError(w, ctx, err, "update subscription")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"subscription": updated})
@@ -283,17 +288,18 @@ func updateSubscriptionHandler(deps Deps) http.HandlerFunc {
 
 func deleteSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
 			return
 		}
 		if err := services.DeleteSubscription(r.Context(), deps.DB, us.UserID, id); err != nil {
-			writeServiceError(w, err, "delete subscription")
+			writeServiceError(w, ctx, err, "delete subscription")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -304,19 +310,20 @@ func deleteSubscriptionHandler(deps Deps) http.HandlerFunc {
 
 func logSubscriptionPaymentHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
 			return
 		}
 
 		var body subscriptionPaymentRequest
 		if err := decodeJSON(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
@@ -326,7 +333,7 @@ func logSubscriptionPaymentHandler(deps Deps) http.HandlerFunc {
 		} else {
 			t, err := parseFlexibleSubDate(*body.PaidAt)
 			if err != nil {
-				badInput(w, map[string][]string{"paidAt": {"Ngày thanh toán không hợp lệ"}})
+				badInput(w, ctx, map[string][]string{"paidAt": {"Ngày thanh toán không hợp lệ"}})
 				return
 			}
 			paidAt = t
@@ -334,7 +341,7 @@ func logSubscriptionPaymentHandler(deps Deps) http.HandlerFunc {
 
 		payment, err := services.LogPayment(r.Context(), deps.DB, us.UserID, id, body.Amount, paidAt, body.Note)
 		if err != nil {
-			writeServiceError(w, err, "log payment")
+			writeServiceError(w, ctx, err, "log payment")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{"payment": payment})
@@ -345,19 +352,20 @@ func logSubscriptionPaymentHandler(deps Deps) http.HandlerFunc {
 
 func renewSubscriptionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id", nil)
 			return
 		}
 
 		updated, err := services.Renew(r.Context(), deps.DB, us.UserID, id)
 		if err != nil {
-			writeServiceError(w, err, "renew subscription")
+			writeServiceError(w, ctx, err, "renew subscription")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"subscription": updated})

@@ -23,9 +23,9 @@ var AllowedMIMEs = map[string]struct{}{
 // or image/heif-sequence. Treat these as image/heic for whitelist purposes
 // since they are visually equivalent for our use-case (warranty receipts).
 var heifAliases = map[string]string{
-	"image/heif":              "image/heic",
-	"image/heic-sequence":     "image/heic",
-	"image/heif-sequence":     "image/heic",
+	"image/heif":          "image/heic",
+	"image/heic-sequence": "image/heic",
+	"image/heif-sequence": "image/heic",
 }
 
 // DetectAndValidate inspects the leading bytes of buf to confirm the file

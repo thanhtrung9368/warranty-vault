@@ -24,6 +24,10 @@ import (
 
 const testPassword = "MatKhau12345"
 
+// postJSON posts `body` to `path`, which may carry a query string. The callers
+// that assert Vietnamese copy pass `?lang=vi` explicitly: the product default is
+// now English, and a test that asserted Vietnamese without pinning the language
+// would only pass on a machine configured for it (docs/I18N_PLAN.md §4.3).
 func postJSON(t *testing.T, h http.HandlerFunc, path, bearer string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	raw, err := json.Marshal(body)
@@ -92,7 +96,9 @@ func TestRequestEmailChangeAgainstRealPostgres(t *testing.T) {
 	h := RequestEmailChange(deps)
 
 	// ---- wrong password: 400 on the password field, nothing stored ----------
-	rr := postJSON(t, h, "/api/v1/auth/change-email", issued.AccessToken, map[string]string{
+	// ?lang=vi: this test asserts the Vietnamese neutral message, so it pins the
+	// language instead of depending on the default or on the machine's locale.
+	rr := postJSON(t, h, "/api/v1/auth/change-email?lang=vi", issued.AccessToken, map[string]string{
 		"newEmail": "new-a@example.invalid", "currentPassword": "sai-mat-khau",
 	})
 	if rr.Code != http.StatusBadRequest {
@@ -119,7 +125,7 @@ func TestRequestEmailChangeAgainstRealPostgres(t *testing.T) {
 	}
 
 	// ---- address already in use: neutral 200, no token, no email ------------
-	rr = postJSON(t, h, "/api/v1/auth/change-email", issued.AccessToken, map[string]string{
+	rr = postJSON(t, h, "/api/v1/auth/change-email?lang=vi", issued.AccessToken, map[string]string{
 		"newEmail": "taken@example.invalid", "currentPassword": testPassword,
 	})
 	if rr.Code != http.StatusOK {
@@ -143,7 +149,7 @@ func TestRequestEmailChangeAgainstRealPostgres(t *testing.T) {
 
 	// ---- happy path: token stored, account email untouched ------------------
 	const newEmail = "new-a@example.invalid"
-	rr = postJSON(t, h, "/api/v1/auth/change-email", issued.AccessToken, map[string]string{
+	rr = postJSON(t, h, "/api/v1/auth/change-email?lang=vi", issued.AccessToken, map[string]string{
 		"newEmail": "  NEW-A@example.invalid  ", "currentPassword": testPassword,
 	})
 	if rr.Code != http.StatusOK {
@@ -221,7 +227,9 @@ func TestConfirmEmailChangeAgainstRealPostgres(t *testing.T) {
 	deps := Deps{DB: pool, Limiter: &permissiveLimiter{}}
 	h := ConfirmEmailChange(deps)
 	confirm := func(token string) *httptest.ResponseRecorder {
-		return postJSON(t, h, "/api/v1/auth/confirm-email-change", "", map[string]string{"token": token})
+		// ?lang=vi for the same reason as above: the expired-token assertion below
+		// looks for the Vietnamese "hết hạn" wording.
+		return postJSON(t, h, "/api/v1/auth/confirm-email-change?lang=vi", "", map[string]string{"token": token})
 	}
 
 	// ---- happy path ---------------------------------------------------------
@@ -353,7 +361,7 @@ func TestEmailChangeTokenRejectedByResetPassword(t *testing.T) {
 	seedEmailChangeToken(t, pool, raw, userID, "guard-new@example.invalid", time.Now().Add(30*time.Minute))
 
 	deps := Deps{DB: pool, Limiter: &permissiveLimiter{}}
-	rr := postJSON(t, ResetPassword(deps), "/api/v1/auth/reset-password", "", map[string]string{
+	rr := postJSON(t, ResetPassword(deps), "/api/v1/auth/reset-password?lang=vi", "", map[string]string{
 		"token": raw, "newPassword": "MatKhauMoi123",
 	})
 	if rr.Code != http.StatusBadRequest {

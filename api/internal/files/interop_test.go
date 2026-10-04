@@ -123,7 +123,9 @@ func TestInteropTSFixture(t *testing.T) {
 // TestInteropGoEncryptDump exercises the reverse direction. It:
 //
 //  1. Encrypts a plaintext with a deterministic master via the Go encoder.
+//
 //  2. Self-decrypts to confirm the in-process round-trip works (sanity).
+//
 //  3. Writes a JSON bundle to t.TempDir() and t.Logf's the absolute path so a
 //     human can manually run:
 //

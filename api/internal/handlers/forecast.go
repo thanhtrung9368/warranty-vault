@@ -24,19 +24,20 @@ func RegisterForecast(mux *http.ServeMux, deps Deps) {
 
 func forecastHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, ok := auth.UserFromContext(r.Context())
 		if !ok {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		months, err := services.ParseForecastMonths(r.URL.Query().Get("months"))
 		if err != nil {
-			writeServiceError(w, err, "parse forecast months")
+			writeServiceError(w, ctx, err, "parse forecast months")
 			return
 		}
 		forecast, err := services.GetForecast(r.Context(), deps.DB, us.UserID, months, time.Now())
 		if err != nil {
-			writeServiceError(w, err, "forecast")
+			writeServiceError(w, ctx, err, "forecast")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, forecast)

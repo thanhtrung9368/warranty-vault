@@ -43,13 +43,14 @@ func parseBoolQuery(raw string) (value bool, ok bool) {
 
 func listRemindersHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 
 		withinDays := defaultRemindersWithinDays
 		if raw := r.URL.Query().Get("withinDays"); raw != "" {
 			n, err := strconv.Atoi(raw)
 			if err != nil || n < 1 || n > maxRemindersWithinDays {
-				httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+				httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 					"Tham số withinDays không hợp lệ",
 					map[string][]string{
 						"withinDays": {"Phải là số nguyên từ 1 tới " + strconv.Itoa(maxRemindersWithinDays)},
@@ -64,7 +65,7 @@ func listRemindersHandler(deps Deps) http.HandlerFunc {
 		// behaviour AND response shape exactly.
 		includeDismissed, ok := parseBoolQuery(r.URL.Query().Get("includeDismissed"))
 		if !ok {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 				"Tham số includeDismissed không hợp lệ",
 				map[string][]string{
 					"includeDismissed": {"Phải là true hoặc false"},
@@ -74,7 +75,7 @@ func listRemindersHandler(deps Deps) http.HandlerFunc {
 
 		rows, err := services.ListUpcomingReminders(r.Context(), deps.DB, us.UserID, withinDays, includeDismissed)
 		if err != nil {
-			writeDevicesErr(w, err, "list reminders")
+			writeDevicesErr(w, ctx, err, "list reminders")
 			return
 		}
 		if rows == nil {

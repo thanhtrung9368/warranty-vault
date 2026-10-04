@@ -28,15 +28,16 @@ func RegisterDirectory(mux *http.ServeMux, deps Deps) {
 
 func serviceDirectoryHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
 			return
 		}
 		dir, err := services.BuildServiceDirectory(r.Context(), deps.DB, us.UserID, id)
 		if err != nil {
-			writeDevicesErr(w, err, "service directory")
+			writeDevicesErr(w, ctx, err, "service directory")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"directory": dir})

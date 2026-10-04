@@ -12,7 +12,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO "User" (id, email, "passwordHash", name, "createdAt", "updatedAt", "passwordChangedAt")
 VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn"
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale
 `
 
 type CreateUserParams struct {
@@ -39,6 +39,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AiOptIn,
+		&i.Locale,
 	)
 	return i, err
 }
@@ -53,7 +54,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn" FROM "User" WHERE email = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale FROM "User" WHERE email = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -68,12 +69,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AiOptIn,
+		&i.Locale,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn" FROM "User" WHERE id = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale FROM "User" WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -88,8 +90,43 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.AiOptIn,
+		&i.Locale,
 	)
 	return i, err
+}
+
+const listUserLocales = `-- name: ListUserLocales :many
+SELECT id, locale FROM "User" WHERE locale IS NOT NULL
+`
+
+type ListUserLocalesRow struct {
+	ID     string  `json:"id"`
+	Locale *string `json:"locale"`
+}
+
+// Cron fan-out support (internal/cron/run.go). Push bodies are built in Go with no
+// request context, so the recipient's stored preference is the only language
+// signal available — read every preference in ONE query at the top of a run rather
+// than one lookup per notification. Users with no preference are simply absent
+// from the map and fall back to the default language.
+func (q *Queries) ListUserLocales(ctx context.Context) ([]ListUserLocalesRow, error) {
+	rows, err := q.db.Query(ctx, listUserLocales)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserLocalesRow
+	for rows.Next() {
+		var i ListUserLocalesRow
+		if err := rows.Scan(&i.ID, &i.Locale); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setUserAIOptIn = `-- name: SetUserAIOptIn :exec
@@ -107,38 +144,6 @@ type SetUserAIOptInParams struct {
 func (q *Queries) SetUserAIOptIn(ctx context.Context, arg SetUserAIOptInParams) error {
 	_, err := q.db.Exec(ctx, setUserAIOptIn, arg.ID, arg.AiOptIn)
 	return err
-}
-
-const updateUserDisplayName = `-- name: UpdateUserDisplayName :one
-UPDATE "User"
-SET name = $2,
-    "updatedAt" = NOW()
-WHERE id = $1
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn"
-`
-
-type UpdateUserDisplayNameParams struct {
-	ID   string  `json:"id"`
-	Name *string `json:"name"`
-}
-
-// PATCH /api/v1/auth/me. A NULL $2 clears the display name (the column is
-// nullable and Register already treats "no name" as NULL). Returns the updated
-// row so the handler can respond with the full user DTO (including aiOptIn).
-func (q *Queries) UpdateUserDisplayName(ctx context.Context, arg UpdateUserDisplayNameParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserDisplayName, arg.ID, arg.Name)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.Name,
-		&i.PasswordHash,
-		&i.PasswordChangedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.AiOptIn,
-	)
-	return i, err
 }
 
 const updateUserEmail = `-- name: UpdateUserEmail :execrows
@@ -182,4 +187,58 @@ type UpdateUserPasswordParams struct {
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
 	return err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE "User"
+SET name = CASE WHEN $4::boolean THEN $2 ELSE name END,
+    locale = CASE WHEN $5::boolean THEN $3 ELSE locale END,
+    "updatedAt" = NOW()
+WHERE id = $1
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale
+`
+
+type UpdateUserProfileParams struct {
+	ID            string  `json:"id"`
+	Name          *string `json:"name"`
+	Locale        *string `json:"locale"`
+	NamePresent   bool    `json:"namePresent"`
+	LocalePresent bool    `json:"localePresent"`
+}
+
+// PATCH /api/v1/auth/me — the narrow write path. Both fields are tri-state:
+//
+//	name       — SQL NULL clears the name;   ($2, namePresent=false) leaves it ALONE
+//	locale     — SQL NULL clears the preference; ($3, localePresent=false) leaves it ALONE
+//
+// The `present` booleans mirror what the handler already has to know: a JSON body
+// distinguishes an ABSENT key ("leave unchanged") from an explicit `null`
+// ("clear"), and a nullable parameter cannot express that difference on its own —
+// NULL means "clear" in both directions. Without these flags a client that does
+// not send `locale` (every client today) would wipe the stored preference on every
+// display-name edit. Same reasoning as `displayName`, which the handler has always
+// had to track explicitly.
+//
+// Returns the updated row so the handler can answer with the full user DTO.
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.ID,
+		arg.Name,
+		arg.Locale,
+		arg.NamePresent,
+		arg.LocalePresent,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.PasswordChangedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AiOptIn,
+		&i.Locale,
+	)
+	return i, err
 }

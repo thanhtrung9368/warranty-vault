@@ -21,6 +21,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/handlers"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 )
@@ -117,7 +118,12 @@ func main() {
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
 
-	handler := httpx.RequestID(httpx.Logging(httpx.Recover(mux)))
+	// i18n outer-most of the request-scoped middleware so the resolved language is
+	// on the context before anything else runs, including the error paths in
+	// Recover. It only reads `?lang=` and Accept-Language; the stored preference
+	// (level 3) is added later by auth.RequireUser, which is the first point at
+	// which the user is known.
+	handler := httpx.RequestID(httpx.Logging(httpx.Recover(i18n.Middleware(mux))))
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

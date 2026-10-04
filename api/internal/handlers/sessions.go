@@ -39,15 +39,16 @@ const sessionNotFoundMessage = "Không tìm thấy phiên đăng nhập"
 
 func listSessionsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, ok := auth.UserFromContext(r.Context())
 		if !ok {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		sessions, err := auth.ListSessions(r.Context(), deps.DB, us.UserID, us.SessionID, time.Now())
 		if err != nil {
 			slog.Error("list sessions failed", "err", err, "userId", us.UserID)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
 		if sessions == nil {
@@ -59,9 +60,10 @@ func listSessionsHandler(deps Deps) http.HandlerFunc {
 
 func revokeSessionHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, ok := auth.UserFromContext(r.Context())
 		if !ok {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
@@ -70,18 +72,18 @@ func revokeSessionHandler(deps Deps) http.HandlerFunc {
 
 		sessionID := strings.TrimSpace(r.PathValue("id"))
 		if sessionID == "" {
-			badInput(w, map[string][]string{"id": {"Thiếu id phiên đăng nhập"}})
+			badInput(w, ctx, map[string][]string{"id": {"Thiếu id phiên đăng nhập"}})
 			return
 		}
 
 		alreadyRevoked, err := auth.RevokeSessionForUser(r.Context(), deps.DB, us.UserID, sessionID)
 		if err != nil {
 			if errors.Is(err, auth.ErrSessionNotFound) {
-				httpx.WriteError(w, http.StatusNotFound, "not_found", sessionNotFoundMessage, nil)
+				httpx.WriteErrorC(w, ctx, http.StatusNotFound, "not_found", sessionNotFoundMessage, nil)
 				return
 			}
 			slog.Error("revoke session failed", "err", err, "userId", us.UserID)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
 

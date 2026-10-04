@@ -27,6 +27,11 @@ type UserSession struct {
 	Name      *string
 	SessionID string
 	ExpiresAt time.Time
+	// Locale is the user's stored language preference (migration 0014). Nil for
+	// every account that has never chosen one — including all rows that predate
+	// the column — and nil is meaningful: it means "let the request decide",
+	// not "English". See internal/i18n for the precedence chain.
+	Locale *string
 }
 
 type IssuedToken struct {
@@ -110,6 +115,7 @@ func VerifyBearer(ctx context.Context, db *pgxpool.Pool, authHeader string) (*Us
 		Name:      row.UName,
 		SessionID: row.SessionID,
 		ExpiresAt: row.ExpiresAt.Time,
+		Locale:    row.ULocale,
 	}, nil
 }
 

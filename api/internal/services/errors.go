@@ -15,8 +15,26 @@ type FieldErrors map[string][]string
 // JSON envelope. Mirrors website/src/lib/services/errors.ts::DomainError.
 type Error struct {
 	Code        string      // machine-readable; matches TS DomainError.code
-	Message     string      // Vietnamese, user-facing
+	Message     string      // user-facing; Vietnamese unless MessageKey is set
 	FieldErrors FieldErrors // optional per-field messages
+	// MessageKey is the i18n catalog key for Message, when the code path that
+	// built this error has been converted. Empty — the default, and what every
+	// Err* constructor below produces — means "Message is already the text to
+	// send", i.e. exactly the pre-i18n behaviour.
+	//
+	// The indirection exists because Message is a plain string on a struct built
+	// by ~50 call sites across this package, while the language is only known at
+	// the HTTP edge (internal/i18n resolves it from the request). A handler
+	// renders a keyed message with i18n.T(ctx, svc.MessageKey) when it writes the
+	// envelope and falls back to svc.Message otherwise, so an error constructed
+	// deep in a service with no context in scope still reaches the client in the
+	// right language.
+	//
+	// Because the catalog is keyed on the Vietnamese source text
+	// (internal/i18n/catalog.go), setting MessageKey to the same literal as
+	// Message is always valid and can never render worse than Message would have:
+	// an entry Phase 1 has not reached falls back to the Vietnamese string.
+	MessageKey string
 }
 
 func (e *Error) Error() string {
@@ -77,8 +95,36 @@ func ErrLimit(message string) *Error {
 
 // ErrValidation builds a VALIDATION error with a generic message and the
 // per-field map.
+//
+// The envelope `Message` is intentionally a fixed Vietnamese string: it is the
+// generic "invalid input" headline that is identical for every validator in this
+// package. A converted handler that wants it rendered in the request's language
+// sets MessageKey afterwards, or supplies its own headline — see
+// handlers/auth.go::badInput, which does the latter.
 func ErrValidation(fieldErrors FieldErrors) *Error {
-	return &Error{Code: "VALIDATION", Message: "Dữ liệu không hợp lệ", FieldErrors: fieldErrors}
+	return &Error{
+		Code: "VALIDATION",
+		// Vietnamese source text, and the i18n catalog key for it: a converted
+		// handler renders MessageKey, an unconverted one sends Message, and both
+		// spell the same sentence (internal/i18n/catalog.go).
+		Message:     "Dữ liệu không hợp lệ",
+		MessageKey:  "Dữ liệu không hợp lệ",
+		FieldErrors: fieldErrors,
+	}
+}
+
+// ErrValidationKeyed is ErrValidation for a failure that IS the whole story — a
+// single bad field, where the envelope headline should say what went wrong rather
+// than the generic "Dữ liệu không hợp lệ". `messageKey` is both the Vietnamese
+// source text and the catalog key for it, so a converted handler renders it in the
+// request's language and an unconverted one sends the Vietnamese verbatim.
+func ErrValidationKeyed(messageKey string, fieldErrors FieldErrors) *Error {
+	return &Error{
+		Code:        "VALIDATION",
+		Message:     messageKey,
+		MessageKey:  messageKey,
+		FieldErrors: fieldErrors,
+	}
 }
 
 // ErrCategoryInvalid mirrors the TS "Loại thiết bị không hợp lệ" message.

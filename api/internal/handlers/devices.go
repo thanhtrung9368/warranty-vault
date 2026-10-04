@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -27,6 +28,7 @@ func RegisterDevices(mux *http.ServeMux, deps Deps) {
 
 func listDevicesHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		f := services.DeviceFilter{
 			Q:        r.URL.Query().Get("q"),
@@ -37,7 +39,7 @@ func listDevicesHandler(deps Deps) http.HandlerFunc {
 		}
 		rows, err := services.ListDevices(r.Context(), deps.DB, us.UserID, f)
 		if err != nil {
-			writeDevicesErr(w, err, "list devices")
+			writeDevicesErr(w, ctx, err, "list devices")
 			return
 		}
 		if rows == nil {
@@ -49,6 +51,7 @@ func listDevicesHandler(deps Deps) http.HandlerFunc {
 
 func createDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
@@ -58,12 +61,12 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 		// without polluting the strict service input struct.
 		var raw map[string]any
 		if err := decodeJSON(r, &raw); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		var input services.DeviceInput
 		if err := remarshal(raw, &input); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
@@ -74,7 +77,7 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 
 		device, err := services.CreateDevice(r.Context(), deps.DB, us.UserID, input, fromWishlistID)
 		if err != nil {
-			writeDevicesErr(w, err, "create device")
+			writeDevicesErr(w, ctx, err, "create device")
 			return
 		}
 		// Serial/IMEI advisory post-check (FEATURE_IDEAS #6). It runs AFTER the
@@ -88,15 +91,16 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 
 func getDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
 			return
 		}
 		device, err := services.GetDevice(r.Context(), deps.DB, us.UserID, id)
 		if err != nil {
-			writeDevicesErr(w, err, "get device")
+			writeDevicesErr(w, ctx, err, "get device")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"device": device})
@@ -105,23 +109,24 @@ func getDeviceHandler(deps Deps) http.HandlerFunc {
 
 func updateDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
 			return
 		}
 		var input services.DeviceInput
 		if err := decodeJSON(r, &input); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		device, err := services.UpdateDevice(r.Context(), deps.DB, us.UserID, id, input)
 		if err != nil {
-			writeDevicesErr(w, err, "update device")
+			writeDevicesErr(w, ctx, err, "update device")
 			return
 		}
 		// Same advisory post-check as create, excluding the row just edited.
@@ -132,17 +137,18 @@ func updateDeviceHandler(deps Deps) http.HandlerFunc {
 
 func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id thiết bị", nil)
 			return
 		}
 		if err := services.DeleteDevice(r.Context(), deps.DB, us.UserID, id); err != nil {
-			writeDevicesErr(w, err, "delete device")
+			writeDevicesErr(w, ctx, err, "delete device")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -154,7 +160,7 @@ func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 func ensureUserWriteRate(w http.ResponseWriter, r *http.Request, deps Deps, userID string) bool {
 	rl, _ := ratelimit.CheckUserWrite(r.Context(), deps.Limiter, userID)
 	if !rl.Ok {
-		rateLimited(w, rl.RetryAfterSec)
+		rateLimited(w, r.Context(), rl.RetryAfterSec)
 		return false
 	}
 	return true
@@ -165,13 +171,13 @@ func ensureUserWriteRate(w http.ResponseWriter, r *http.Request, deps Deps, user
 // devices/warranties/reminders handler trio in this package; named with a
 // suffix to avoid colliding with helpers defined in other resource files
 // (subscriptions, attachments, etc).
-func writeDevicesErr(w http.ResponseWriter, err error, op string) {
+func writeDevicesErr(w http.ResponseWriter, ctx context.Context, err error, op string) {
 	var svc *services.Error
 	if errors.As(err, &svc) {
 		code := strings.ToLower(svc.Code)
-		httpx.WriteError(w, svc.HTTPStatus(), code, svc.Message, svc.FieldErrors)
+		httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), code, svc.Message, svc.FieldErrors)
 		return
 	}
 	slog.Error(op+" failed", "err", err)
-	httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 }

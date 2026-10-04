@@ -364,8 +364,10 @@ type ListUpcomingRemindersRow struct {
 //     because its end date left the window is exactly the silent disappearance
 //     this flag exists to fix (clients cannot page, and withinDays is capped at
 //     365 days). The result is still bounded: the write path caps a user at
-//     MAX_DEVICES_PER_USER (50) × MAX_WARRANTIES_PER_DEVICE (5) = 250 warranty
-//     rows, so at most 250 dismissed rows can exist.
+//     MAX_DEVICES_TOTAL_PER_USER (500, sold devices included) ×
+//     MAX_WARRANTIES_PER_DEVICE (5) = 2500 warranty rows, so at most 2500
+//     dismissed rows can exist. The binding ceiling is the 500-row total, not
+//     the 50-active one — a sold device keeps its warranties.
 //   - no `d.status = 'ACTIVE'` filter — a reminder hidden on a device that was
 //     later sold / broken / lost must still be visible in the "Đã ẩn" list.
 //

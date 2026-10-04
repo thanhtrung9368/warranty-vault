@@ -17,10 +17,11 @@ func RegisterStats(mux *http.ServeMux, deps Deps) {
 
 func statsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		stats, err := services.Snapshot(r.Context(), deps.DB, us.UserID)
 		if err != nil {
-			writeServiceError(w, err, "stats snapshot")
+			writeServiceError(w, ctx, err, "stats snapshot")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, stats)

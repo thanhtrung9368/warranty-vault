@@ -10,6 +10,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -39,10 +40,11 @@ type pushRegisterRequest struct {
 
 func listPushHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		subs, err := services.ListPushSubscriptions(r.Context(), deps.DB, us.UserID)
 		if err != nil {
-			writeServiceError(w, err, "list push subscriptions")
+			writeServiceError(w, ctx, err, "list push subscriptions")
 			return
 		}
 		if subs == nil {
@@ -54,6 +56,7 @@ func listPushHandler(deps Deps) http.HandlerFunc {
 
 func registerPushHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
@@ -61,7 +64,7 @@ func registerPushHandler(deps Deps) http.HandlerFunc {
 
 		var body pushRegisterRequest
 		if err := decodeJSONLoose(r, &body); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 
@@ -87,7 +90,7 @@ func registerPushHandler(deps Deps) http.HandlerFunc {
 		}
 
 		if _, err := services.SubscribePush(r.Context(), deps.DB, us.UserID, input); err != nil {
-			writeServiceError(w, err, "subscribe push")
+			writeServiceError(w, ctx, err, "subscribe push")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]bool{"ok": true})
@@ -96,17 +99,18 @@ func registerPushHandler(deps Deps) http.HandlerFunc {
 
 func deletePushHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		id := strings.TrimSpace(r.PathValue("id"))
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id đăng ký", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id đăng ký", nil)
 			return
 		}
 		if err := services.DeletePushSubscriptionByID(r.Context(), deps.DB, us.UserID, id); err != nil {
-			writeServiceError(w, err, "delete push subscription")
+			writeServiceError(w, ctx, err, "delete push subscription")
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -122,12 +126,13 @@ func deletePushHandler(deps Deps) http.HandlerFunc {
 // are deleted (matches the cron's gone-detection behavior).
 func TestPush(deps Deps) http.HandlerFunc {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
 		}
 		if deps.Dispatcher == nil {
-			httpx.WriteError(w, http.StatusInternalServerError,
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError,
 				"push_not_configured", "Push dispatcher chưa khởi tạo", nil)
 			return
 		}
@@ -136,13 +141,13 @@ func TestPush(deps Deps) http.HandlerFunc {
 		rows, err := q.ListPushSubscriptionsByUser(r.Context(), us.UserID)
 		if err != nil {
 			slog.Error("test push: list subs failed", "user", us.UserID, "err", err)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
 
 		payload := push.Payload{
-			Title: "WarrantyVault",
-			Body:  "Đây là thông báo thử nghiệm",
+			Title: "Warranty Vault",
+			Body:  i18n.Text(ctx, "Đây là thông báo thử nghiệm"),
 			URL:   "/settings",
 			Tag:   "wv-test-push",
 		}

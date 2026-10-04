@@ -183,6 +183,7 @@ type User struct {
 	CreatedAt         pgtype.Timestamp `json:"createdAt"`
 	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
 	AiOptIn           bool             `json:"aiOptIn"`
+	Locale            *string          `json:"locale"`
 }
 
 type Warranty struct {

@@ -114,6 +114,10 @@ SELECT
     u.id           AS u_id,
     u.email        AS u_email,
     u.name         AS u_name,
+    -- Carried on the session lookup so the auth middleware can seed level 3 of
+    -- the locale precedence chain (User.locale, migration 0014) without running a
+    -- second query on every authenticated request.
+    u.locale       AS u_locale,
     u."passwordChangedAt" AS u_password_changed_at
 FROM "Session" s
 JOIN "User" u ON u.id = s."userId"
@@ -134,6 +138,7 @@ type GetSessionByTokenHashRow struct {
 	UID                string           `json:"u_id"`
 	UEmail             string           `json:"u_email"`
 	UName              *string          `json:"u_name"`
+	ULocale            *string          `json:"u_locale"`
 	UPasswordChangedAt pgtype.Timestamp `json:"u_password_changed_at"`
 }
 
@@ -153,6 +158,7 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenhash string) (
 		&i.UID,
 		&i.UEmail,
 		&i.UName,
+		&i.ULocale,
 		&i.UPasswordChangedAt,
 	)
 	return i, err

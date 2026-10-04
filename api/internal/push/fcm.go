@@ -174,19 +174,19 @@ type fcmMessage struct {
 	Message fcmMessageInner `json:"message"`
 }
 type fcmMessageInner struct {
-	Token        string                 `json:"token"`
-	Notification fcmNotification        `json:"notification"`
-	Data         map[string]string      `json:"data,omitempty"`
-	Android      fcmAndroid             `json:"android"`
-	Apns         map[string]any         `json:"apns"`
+	Token        string            `json:"token"`
+	Notification fcmNotification   `json:"notification"`
+	Data         map[string]string `json:"data,omitempty"`
+	Android      fcmAndroid        `json:"android"`
+	Apns         map[string]any    `json:"apns"`
 }
 type fcmNotification struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 }
 type fcmAndroid struct {
-	Priority     string                 `json:"priority"`
-	Notification map[string]any         `json:"notification"`
+	Priority     string         `json:"priority"`
+	Notification map[string]any `json:"notification"`
 }
 
 // SendFCM pushes to a single registration token. Mirrors `sendFcmPush`:

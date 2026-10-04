@@ -40,6 +40,7 @@ func RegisterBackup(mux *http.ServeMux, deps Deps) {
 
 func exportBackupHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 
 		// Opt-in switch between the two formats (roadmap #2):
@@ -49,7 +50,7 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 		//                  a v6 data.json with includesAttachmentBytes=true
 		includeBlobs, ok := parseBoolQuery(r.URL.Query().Get("includeBlobs"))
 		if !ok {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 				"Tham số includeBlobs không hợp lệ",
 				map[string][]string{
 					"includeBlobs": {"Phải là true hoặc false"},
@@ -83,7 +84,7 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 		out, err := services.ExportBackup(r.Context(), deps.DB, us.UserID)
 		if err != nil {
 			slog.Error("backup export failed", "err", err, "userId", us.UserID)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
 
@@ -98,6 +99,7 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 
 func importBackupHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, _ := auth.UserFromContext(r.Context())
 		if !ensureUserWriteRate(w, r, deps, us.UserID) {
 			return
@@ -108,7 +110,7 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 			mode = services.ImportMerge
 		}
 		if mode != services.ImportMerge && mode != services.ImportReplace {
-			badInput(w, nil, "Mode không hợp lệ")
+			badInput(w, ctx, nil, "Mode không hợp lệ")
 			return
 		}
 
@@ -129,11 +131,11 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 			// MaxBytesReader sets a typed error; surface as a friendly Vietnamese msg.
 			var mberr *http.MaxBytesError
 			if errors.As(err, &mberr) {
-				httpx.WriteError(w, http.StatusRequestEntityTooLarge, "bad_input",
+				httpx.WriteErrorC(w, ctx, http.StatusRequestEntityTooLarge, "bad_input",
 					"File backup quá lớn (giới hạn "+limitLabel+")", nil)
 				return
 			}
-			badInput(w, nil, "Không đọc được nội dung file")
+			badInput(w, ctx, nil, "Không đọc được nội dung file")
 			return
 		}
 
@@ -153,7 +155,7 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 			dec := json.NewDecoder(bytes.NewReader(raw))
 			// Allow unknown fields — older / future versions might carry extras.
 			if derr := dec.Decode(&payload); derr != nil {
-				badInput(w, nil, "File JSON không hợp lệ")
+				badInput(w, ctx, nil, "File JSON không hợp lệ")
 				return
 			}
 			result, ierr = services.ImportBackup(r.Context(), deps.DB, us.UserID, &payload, mode)
@@ -162,11 +164,11 @@ func importBackupHandler(deps Deps) http.HandlerFunc {
 		if ierr != nil {
 			var svc *services.Error
 			if errors.As(ierr, &svc) {
-				httpx.WriteError(w, svc.HTTPStatus(), strings.ToLower(svc.Code), svc.Message, svc.FieldErrors)
+				httpx.WriteErrorC(w, ctx, svc.HTTPStatus(), strings.ToLower(svc.Code), svc.Message, svc.FieldErrors)
 				return
 			}
 			slog.Error("backup import failed", "err", ierr, "userId", us.UserID)
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 			return
 		}
 

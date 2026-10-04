@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 type ctxKey string
@@ -34,6 +35,12 @@ func RequireUser(db *pgxpool.Pool) func(http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), userKey, us)
+			// Level 3 of the locale precedence chain: the stored preference is
+			// only known once the bearer token resolved, so it is attached here.
+			// WithUserLocale is a no-op when the request already decided (an
+			// explicit Accept-Language or ?lang=), which is what keeps the
+			// documented order — request signals beat the stored preference.
+			ctx = i18n.WithUserLocale(ctx, us.Locale)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

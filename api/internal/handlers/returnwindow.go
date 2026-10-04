@@ -34,14 +34,15 @@ func RegisterReturnWindows(mux *http.ServeMux, deps Deps) {
 
 func listReturnWindowsHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, ok := auth.UserFromContext(r.Context())
 		if !ok {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		rows, err := services.ListReturnWindows(r.Context(), deps.DB, us.UserID, time.Now())
 		if err != nil {
-			writeServiceError(w, err, "list return windows")
+			writeServiceError(w, ctx, err, "list return windows")
 			return
 		}
 		if rows == nil {

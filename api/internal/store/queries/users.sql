@@ -16,15 +16,35 @@ SET "passwordHash" = $2,
     "updatedAt" = NOW()
 WHERE id = $1;
 
--- name: UpdateUserDisplayName :one
--- PATCH /api/v1/auth/me. A NULL $2 clears the display name (the column is
--- nullable and Register already treats "no name" as NULL). Returns the updated
--- row so the handler can respond with the full user DTO (including aiOptIn).
+-- name: UpdateUserProfile :one
+-- PATCH /api/v1/auth/me — the narrow write path. Both fields are tri-state:
+--
+--	name       — SQL NULL clears the name;   ($2, namePresent=false) leaves it ALONE
+--	locale     — SQL NULL clears the preference; ($3, localePresent=false) leaves it ALONE
+--
+-- The `present` booleans mirror what the handler already has to know: a JSON body
+-- distinguishes an ABSENT key ("leave unchanged") from an explicit `null`
+-- ("clear"), and a nullable parameter cannot express that difference on its own —
+-- NULL means "clear" in both directions. Without these flags a client that does
+-- not send `locale` (every client today) would wipe the stored preference on every
+-- display-name edit. Same reasoning as `displayName`, which the handler has always
+-- had to track explicitly.
+--
+-- Returns the updated row so the handler can answer with the full user DTO.
 UPDATE "User"
-SET name = $2,
+SET name = CASE WHEN sqlc.arg('namePresent')::boolean THEN $2 ELSE name END,
+    locale = CASE WHEN sqlc.arg('localePresent')::boolean THEN $3 ELSE locale END,
     "updatedAt" = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: ListUserLocales :many
+-- Cron fan-out support (internal/cron/run.go). Push bodies are built in Go with no
+-- request context, so the recipient's stored preference is the only language
+-- signal available — read every preference in ONE query at the top of a run rather
+-- than one lookup per notification. Users with no preference are simply absent
+-- from the map and fall back to the default language.
+SELECT id, locale FROM "User" WHERE locale IS NOT NULL;
 
 -- name: SetUserAIOptIn :exec
 UPDATE "User"

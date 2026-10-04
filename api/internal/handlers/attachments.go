@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -60,15 +61,16 @@ func RegisterAttachments(mux *http.ServeMux, deps Deps) {
 
 func listAttachmentsHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		deviceID := r.PathValue("id")
 		rows, sErr := services.ListAttachmentsByDevice(r.Context(), d.DB, us.UserID, deviceID)
 		if sErr != nil {
-			writeAttachmentError(w, sErr)
+			writeAttachmentError(w, ctx, sErr)
 			return
 		}
 		out := make([]attachmentDTO, 0, len(rows))
@@ -81,22 +83,23 @@ func listAttachmentsHandler(d Deps) http.HandlerFunc {
 
 func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		// Per-user write rate-limit. Mirrors rateLimitUserWrite() in TS.
 		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, r.Context(), rl.RetryAfterSec)
 			return
 		}
 
 		deviceID := r.PathValue("id")
 		ct := r.Header.Get("Content-Type")
 		if !strings.HasPrefix(strings.ToLower(ct), "multipart/form-data") {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 				"Content-Type phải là multipart/form-data", nil)
 			return
 		}
@@ -106,18 +109,18 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 		if err := r.ParseMultipartForm(10 << 20); err != nil {
 			// MaxBytesReader returns an error stating size — translate to 413.
 			if strings.Contains(err.Error(), "request body too large") {
-				httpx.WriteError(w, http.StatusRequestEntityTooLarge, "bad_input",
+				httpx.WriteErrorC(w, ctx, http.StatusRequestEntityTooLarge, "bad_input",
 					"File quá lớn", nil)
 				return
 			}
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 				"Không đọc được multipart payload", nil)
 			return
 		}
 
 		file, header, ferr := r.FormFile("file")
 		if ferr != nil {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu file", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu file", nil)
 			return
 		}
 		defer func() { _ = file.Close() }()
@@ -126,12 +129,12 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 		// detection + image resize.
 		body, rerr := io.ReadAll(io.LimitReader(file, services.MaxAttachmentBytes+1))
 		if rerr != nil {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input",
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 				"Không đọc được nội dung file", nil)
 			return
 		}
 		if len(body) > services.MaxAttachmentBytes {
-			httpx.WriteError(w, http.StatusRequestEntityTooLarge, "bad_input",
+			httpx.WriteErrorC(w, ctx, http.StatusRequestEntityTooLarge, "bad_input",
 				"File vượt quá 5MB", nil)
 			return
 		}
@@ -151,7 +154,7 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 			Description: description,
 		})
 		if sErr != nil {
-			writeAttachmentError(w, sErr)
+			writeAttachmentError(w, ctx, sErr)
 			return
 		}
 		httpx.WriteJSON(w, http.StatusCreated, map[string]any{
@@ -171,19 +174,20 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 // row that belongs to someone else is a 404, exactly like GET /api/files/{id}.
 func updateAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, r.Context(), rl.RetryAfterSec)
 			return
 		}
 		id := r.PathValue("id")
 		if id == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", "Thiếu id file", nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", "Thiếu id file", nil)
 			return
 		}
 
@@ -191,7 +195,7 @@ func updateAttachmentHandler(d Deps) http.HandlerFunc {
 		// empty" and so unknown fields get a field-level Vietnamese message.
 		var raw map[string]json.RawMessage
 		if err := decodeJSON(r, &raw); err != nil {
-			badJSONBody(w)
+			badJSONBody(w, ctx)
 			return
 		}
 		unknown := map[string][]string{}
@@ -201,24 +205,24 @@ func updateAttachmentHandler(d Deps) http.HandlerFunc {
 			}
 		}
 		if len(unknown) > 0 {
-			badInput(w, unknown, "Chỉ hỗ trợ sửa mô tả")
+			badInput(w, ctx, unknown, "Chỉ hỗ trợ sửa mô tả")
 			return
 		}
 		rawDesc, present := raw["description"]
 		if !present {
-			badInput(w, map[string][]string{"description": {"Thiếu description"}})
+			badInput(w, ctx, map[string][]string{"description": {"Thiếu description"}})
 			return
 		}
 		var descIn *string
 		if err := json.Unmarshal(rawDesc, &descIn); err != nil {
-			badInput(w, map[string][]string{"description": {"Mô tả không hợp lệ"}})
+			badInput(w, ctx, map[string][]string{"description": {"Mô tả không hợp lệ"}})
 			return
 		}
 
 		att, sErr := services.UpdateDescription(r.Context(), d.DB, us.UserID, id,
 			services.NormalizeDescription(descIn))
 		if sErr != nil {
-			writeAttachmentError(w, sErr)
+			writeAttachmentError(w, ctx, sErr)
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
@@ -229,19 +233,20 @@ func updateAttachmentHandler(d Deps) http.HandlerFunc {
 
 func deleteAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		us, err := auth.VerifyBearer(r.Context(), d.DB, r.Header.Get("Authorization"))
 		if err != nil {
-			unauthorized(w)
+			unauthorized(w, ctx)
 			return
 		}
 		rl, _ := ratelimit.CheckUserWrite(r.Context(), d.Limiter, us.UserID)
 		if !rl.Ok {
-			rateLimited(w, rl.RetryAfterSec)
+			rateLimited(w, r.Context(), rl.RetryAfterSec)
 			return
 		}
 		id := r.PathValue("id")
 		if sErr := services.Delete(r.Context(), d.DB, us.UserID, id); sErr != nil {
-			writeAttachmentError(w, sErr)
+			writeAttachmentError(w, ctx, sErr)
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -289,24 +294,24 @@ func downloadFileHandler(d Deps) http.HandlerFunc {
 
 // ---- helpers ---------------------------------------------------------------
 
-func writeAttachmentError(w http.ResponseWriter, err error) {
+func writeAttachmentError(w http.ResponseWriter, ctx context.Context, err error) {
 	if ae, ok := services.AsAttachmentError(err); ok {
 		switch ae.Code {
 		case "bad_input":
-			httpx.WriteError(w, http.StatusBadRequest, "bad_input", ae.Message, nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input", ae.Message, nil)
 		case "not_found":
-			httpx.WriteError(w, http.StatusNotFound, "not_found", ae.Message, nil)
+			httpx.WriteErrorC(w, ctx, http.StatusNotFound, "not_found", ae.Message, nil)
 		case "limit_reached":
-			httpx.WriteError(w, http.StatusBadRequest, "limit_reached", ae.Message, nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "limit_reached", ae.Message, nil)
 		case "internal_error":
-			httpx.WriteError(w, http.StatusInternalServerError, "internal_error", ae.Message, nil)
+			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", ae.Message, nil)
 		default:
-			httpx.WriteError(w, http.StatusBadRequest, ae.Code, ae.Message, nil)
+			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, ae.Code, ae.Message, nil)
 		}
 		return
 	}
 	slog.Error("attachment handler error", "err", err)
-	httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
+	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", "Lỗi hệ thống", nil)
 }
 
 func sanitizeFilename(s string) string {

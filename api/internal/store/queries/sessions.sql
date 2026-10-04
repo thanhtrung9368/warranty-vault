@@ -17,6 +17,10 @@ SELECT
     u.id           AS u_id,
     u.email        AS u_email,
     u.name         AS u_name,
+    -- Carried on the session lookup so the auth middleware can seed level 3 of
+    -- the locale precedence chain (User.locale, migration 0014) without running a
+    -- second query on every authenticated request.
+    u.locale       AS u_locale,
     u."passwordChangedAt" AS u_password_changed_at
 FROM "Session" s
 JOIN "User" u ON u.id = s."userId"
