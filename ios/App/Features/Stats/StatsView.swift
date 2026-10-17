@@ -281,8 +281,12 @@ struct StatsView: View {
                 Text(WVFormat.vnd(summary.autoRenewTotalVnd))
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(WVColor.label)
-                Text(L.t("%@ · %d kỳ gia hạn · %d gói",
-                          ForecastCopy.autoRenewHeading, summary.chargesCount, summary.subscriptionsCount))
+                // Composed from per-count fragments rather than one template: English
+                // inflects each noun independently, so a two-count sentence cannot be a
+                // single key without printing "1 renewals · 1 subscriptions".
+                Text("\(ForecastCopy.autoRenewHeading) · "
+                     + L.p("%d kỳ gia hạn", summary.chargesCount) + " · "
+                     + L.p("%d gói", summary.subscriptionsCount))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
 
@@ -462,7 +466,8 @@ struct StatsView: View {
             Text(WVFormat.vnd(snap.totalDevicesValue))
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(.white)
-            Text(L.t("%d thiết bị · %d đăng ký đang hoạt động", snap.totalDevices, snap.activeSubs))
+            Text(L.p("%d thiết bị", snap.totalDevices) + " · "
+                 + L.p("%d đăng ký đang hoạt động", snap.activeSubs))
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.85))
         }
@@ -534,13 +539,14 @@ struct StatsView: View {
             WVStatCard(
                 eyebrow: L.t("Tổng chi %d", year),
                 value: WVFormat.compactVnd(yearTotals.total),
-                sub: L.t("%d thiết bị • %d gói BH", yearTotals.deviceCount, yearTotals.warrantyCount)
+                sub: L.p("%d thiết bị", yearTotals.deviceCount) + " • "
+                     + L.p("%d gói BH", yearTotals.warrantyCount)
             )
             WVStatCard(
                 eyebrow: L.t("Tổng chi mua sắm"),
                 value: WVFormat.compactVnd(snap.allTimeTotals.total),
-                sub: L.t("%d thiết bị • %d gói BH",
-                         snap.allTimeTotals.deviceCount, snap.allTimeTotals.warrantyCount)
+                sub: L.p("%d thiết bị", snap.allTimeTotals.deviceCount) + " • "
+                     + L.p("%d gói BH", snap.allTimeTotals.warrantyCount)
             )
             WVStatCard(
                 eyebrow: L.t("Tài sản còn bảo hành"),
@@ -838,8 +844,8 @@ private struct ForecastMonthRow: View {
             }
 
             if bucket.subscriptionCount > 0 {
-                Text(L.t("%d kỳ · %@ %@", bucket.subscriptionCount,
-                             ForecastCopy.autoRenewHeading, WVFormat.vnd(bucket.subscriptionAutoRenewVnd)))
+                Text(L.p("%d kỳ", bucket.subscriptionCount) + " · "
+                     + "\(ForecastCopy.autoRenewHeading) \(WVFormat.vnd(bucket.subscriptionAutoRenewVnd))")
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
                 if bucket.manualRenewVnd > 0 {

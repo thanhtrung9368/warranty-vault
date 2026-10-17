@@ -69,23 +69,6 @@
         }
       }
     },
-    "%@ · %d kỳ gia hạn · %d gói": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · %d renewals · %d subscriptions"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · %d kỳ gia hạn · %d gói"
-          }
-        }
-      }
-    },
     "%@ · %d việc đang hoãn": {
       "extractionState": "manual",
       "localizations": {
@@ -330,23 +313,6 @@
         }
       }
     },
-    "%d kỳ · %@ %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d renewals · %@ %@"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d kỳ · %@ %@"
-          }
-        }
-      }
-    },
     "%d lần": {
       "extractionState": "manual",
       "localizations": {
@@ -553,40 +519,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "%d thiết bị · %d đăng ký đang hoạt động": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d devices · %d active subscriptions"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d thiết bị · %d đăng ký đang hoạt động"
-          }
-        }
-      }
-    },
-    "%d thiết bị • %d gói BH": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d devices • %d warranties"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d thiết bị • %d gói BH"
           }
         }
       }
@@ -2700,23 +2632,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cân nhắc"
-          }
-        }
-      }
-    },
-    "Còn %@ năm": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ years left"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Còn %@ năm"
           }
         }
       }
@@ -13387,6 +13302,181 @@
           "stringUnit": {
             "state": "translated",
             "value": "“Thiết bị đăng nhập” là các phiên còn quyền truy cập dữ liệu của bạn. Khác với “Thiết bị nhận thông báo” ở trên — xoá một đích push chỉ ngừng gửi thông báo, không thu hồi quyền truy cập."
+          }
+        }
+      }
+    },
+    "%d đăng ký đang hoạt động": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 active subscription"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d active subscriptions"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d đăng ký đang hoạt động"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%d năm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 year"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d years"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d năm"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%d kỳ gia hạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 renewal"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d renewals"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d kỳ gia hạn"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%d kỳ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 renewal"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d renewals"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d kỳ"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%d gói BH": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 warranty"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d warranties"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d gói BH"
+                }
+              }
+            }
           }
         }
       }

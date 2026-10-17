@@ -212,6 +212,48 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(problems, [], "call sites whose key is missing from the catalog")
     }
 
+    func testNoCatalogEntryIsOrphaned() throws {
+        // The inverse of the test above, and it exists because the previous one
+        // cannot catch this direction. A key left behind after its call site is
+        // rewritten still renders nothing wrong — it is simply dead weight that a
+        // translator will keep translating and a reader will keep wondering about.
+        //
+        // It found five immediately: the four two-count sentences and one old
+        // "Còn %@ năm" whose call sites were composed from per-count fragments so
+        // English could inflect each noun independently. The reformatting was
+        // correct and left the originals behind.
+        //
+        // Keys reached by `L.t(hit)` with a runtime value (CategoryLabels, which the
+        // Go test pins) are counted as used as long as the literal appears in the
+        // sources anywhere, so the scan is a plain substring test rather than a
+        // call-site parse.
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        var sources = ""
+        for directory in ["Sources", "App"] {
+            let base = root.appendingPathComponent(directory)
+            guard let enumerator = FileManager.default.enumerator(
+                at: base, includingPropertiesForKeys: nil
+            ) else { continue }
+            for case let url as URL in enumerator where url.pathExtension == "swift" {
+                sources += try String(contentsOf: url, encoding: .utf8)
+            }
+        }
+        XCTAssertFalse(sources.isEmpty, "the orphan scan read no sources at all")
+
+        var orphans: [String] = []
+        for key in L.allKeys {
+            let escaped = key.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            if !sources.contains(key) && !sources.contains(escaped) {
+                orphans.append(key)
+            }
+        }
+        XCTAssertEqual(orphans, [], "catalog entries no source references any more")
+    }
+
     // MARK: - Dynamic keys
 
     func testCategoryLabelsFollowTheSelectedLanguage() {

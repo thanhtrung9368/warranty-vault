@@ -396,7 +396,12 @@ struct WarrantyPill: View {
         if d == 0 { return L.t("Hết hôm nay") }
         if d <= 90 { return L.t("Còn %dd", d) }
         if d <= 365 { return L.t("Còn ~%dth", Int((Double(d) / 30).rounded())) }
-        return L.t("Còn %@ năm", String(format: "%.1f", Double(d) / 365))
+        // Whole years, not a decimal. This branch only fires past a year, and
+        // "%.1f" rendered the first two months of it as "Còn 1.0 năm" / "1.0 years
+        // left" — a false-looking number in Vietnamese and a plural violation in
+        // English ("1.0 years"). Rounding is clamped to at least 1 so a chip never
+        // reads "Còn 0 năm". Precision past a year is not worth a decimal on a card.
+        return L.p("%d năm", max(1, Int((Double(d) / 365).rounded())))
     }
     private var color: Color {
         switch status {
