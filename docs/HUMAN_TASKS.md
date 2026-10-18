@@ -326,7 +326,7 @@ chế độ "bên thứ ba chết thì mất bảo vệ"**.
 *(Chưa test được SRH ở máy này — Docker daemon không dùng được. Docs Upstash nói tương thích hoàn
 toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trước khi tin.)*
 
-### [~] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email — ⏸️ **TẠM HOÃN: CHẶN BỞI DOMAIN**
+### [ ] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email — 🟢 **ĐÃ HẾT CHẶN, chỉ còn verify domain**
 
 **Tốn:** 0đ ở free tier (giới hạn số email/ngày — kiểm tra lại khi đăng ký).
 
@@ -455,7 +455,7 @@ gia hạn sớm vài năm trước mốc đó để khoá giá $10.46.
   sai và đã được sửa.
 - **Mở khoá:** push trên iOS + TestFlight để test trên máy thật.
 
-### [ ] 2.4 — Google Play Console → internal testing Android
+### [ ] 2.4 — Google Play Console → internal testing Android — 🟡 **app `com.warrly` đã tạo, chờ upload AAB**
 
 - **Tốn:** phí đăng ký **một lần** (theo trí nhớ là $25 USD — **xác nhận lại** tại
   <https://play.google.com/console/about/>).
@@ -501,7 +501,7 @@ Nếu chạy công khai cho người khác dùng, mày có thể thuộc diện 
 tác động xử lý DLPCL. **Tao không phải luật sư và chưa verify được nghĩa vụ cụ thể** —
 mày tự tra hoặc hỏi người có chuyên môn. Nếu chỉ dùng cá nhân thì nhẹ hơn nhiều.
 
-### [ ] 3.3 — Tên miền thương hiệu
+### [x] 3.3 — Tên miền thương hiệu — ✅ **CHỐT 2026-10-18: `Warrly` + `warrly.com`**
 
 **Đã chốt cả tên sản phẩm và tên miền (2026-10-18).**
 
