@@ -28,6 +28,32 @@ firebaseBom = "33.7.0"
 googleServices = "4.4.2"
 junit = "4.13.2"
 
+# Serial / IMEI scanning (AddDeviceSheet.kt → SerialScannerDialog.kt).
+#
+# `mlkitBarcode` is the BUNDLED ML Kit artifact (com.google.mlkit:barcode-scanning),
+# not the Play-Services variant (com.google.android.gms:play-services-mlkit-…): the
+# model ships inside the APK, so a scan works offline, on a phone without Google
+# Play Services, and without a first-use model download on a shop's Wi-Fi.
+# The formats the scanner asks for are Code128 / EAN-13 / EAN-8 / QR / DataMatrix
+# — IMEI labels are Code128, phone boxes carry EAN-13, and some brands print a
+# DataMatrix next to the S/N.
+#
+# `mlkitTextRecognition` is the second model, added on purpose: the serial is
+# often PRINTED text (S/N on a laptop box, IMEI under the battery) rather than a
+# barcode, so barcode-only would miss the case this feature exists for. It is the
+# bundled Latin model, so it is offline too. It is NOT small: the OCR native
+# pipeline is ~11 MB per ABI in the release APK (measured, not guessed). The app
+# ships as an App Bundle, which splits by ABI, so a phone downloads one ABI's
+# worth; the reasoning is repeated where both models are used
+# (SerialScannerDialog.kt).
+#
+# CameraX supplies the preview and the frame pipeline that feeds ML Kit. It is
+# the AndroidX camera stack already in the ecosystem — no vendor SDK, no
+# deprecated Camera1 API.
+camerax = "1.4.2"
+mlkitBarcode = "17.3.0"
+mlkitTextRecognition = "16.0.1"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
@@ -56,6 +82,14 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
+
+# ---- Serial / IMEI scanner: camera preview + the two ML Kit models ----
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcode" }
+mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 
 # ---- JVM unit tests (src/test) ----
 junit = { group = "junit", name = "junit", version.ref = "junit" }

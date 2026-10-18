@@ -153,6 +153,25 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
 
+    // Serial / IMEI scanning (AddDeviceSheet → SerialScannerDialog).
+    //
+    // CameraX: PreviewView + ImageAnalysis. `camera-camera2` is the actual
+    // implementation behind the CameraX abstraction; `camera-lifecycle` is what
+    // binds the use cases to the Activity lifecycle (so the camera closes when
+    // the app is backgrounded, without this screen writing that logic).
+    //
+    // ML Kit: `barcode-scanning` is the BUNDLED artifact (model in the APK, no
+    // Play Services, no first-use download) — the enum of formats asked for is
+    // Code128 / EAN-13 / EAN-8 / QR / DataMatrix, see SerialScannerDialog.
+    // `text-recognition` is the bundled Latin OCR, added because a serial is
+    // often printed rather than encoded (see the note in libs.versions.toml).
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.mlkit.text.recognition)
+
     // JVM unit tests — run by `:app:testDebugUnitTest` (CI "Unit tests" step).
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

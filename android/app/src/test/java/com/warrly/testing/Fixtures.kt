@@ -43,6 +43,7 @@ object Fixtures {
         effectiveWarrantyEnd: String? = null,
         attachmentCount: Int = 0,
         brand: String? = "Apple",
+        serialNumber: String? = null,
         purchasePrice: Int = 30_000_000,
         soldAt: String? = null,
         soldPrice: Int? = null,
@@ -57,6 +58,7 @@ object Fixtures {
         brand = brand,
         purchaseDate = "2024-03-01",
         purchasePrice = purchasePrice,
+        serialNumber = serialNumber,
         status = status,
         notes = null,
         soldAt = soldAt,
@@ -101,12 +103,16 @@ object Fixtures {
         uploadedAt = "2025-01-02T03:04:05",
     )
 
-    fun warranty(id: String = "war-1", deviceId: String = "dev-1") = Warranty(
+    fun warranty(
+        id: String = "war-1",
+        deviceId: String = "dev-1",
+        endDate: String = "2026-03-01",
+    ) = Warranty(
         id = id,
         deviceId = deviceId,
         type = WarrantyType.STANDARD,
         startDate = "2024-03-01",
-        endDate = "2026-03-01",
+        endDate = endDate,
         months = 24,
     )
 

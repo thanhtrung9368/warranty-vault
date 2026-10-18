@@ -2,6 +2,7 @@ import SwiftUI
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
+import AVFoundation
 import WarrlyKit
 
 // ============================================================
@@ -95,6 +96,25 @@ struct DeviceFormView: View {
     @State private var scanning = false
     @State private var scanInfo: ScanInfo?
     @State private var aiEnabled = false
+
+    // Serial / IMEI camera scan. Feature-gated on `DataScannerViewController`
+    // support (false on every simulator); permission is handled here, before the
+    // scanner sheet is presented, so the sheet never opens into a denied camera.
+    @State private var showSerialScanner = false
+    @State private var serialScanNotice = false
+    @State private var serialScanAlert: SerialScanAlert?
+
+    private enum SerialScanAlert: Identifiable {
+        case permissionDenied
+        case unavailable
+
+        var id: Int {
+            switch self {
+            case .permissionDenied: return 0
+            case .unavailable: return 1
+            }
+        }
+    }
 
     struct ScanInfo {
         let confidence: String
@@ -348,8 +368,11 @@ struct DeviceFormView: View {
                     }
                     .buttonStyle(WVRowButtonStyle())
                     WVDivider()
-                    inputRow(label: "Serial / IMEI", placeholder: L.t("Không bắt buộc"),
-                             text: $serial, autocapitalize: .characters)
+                    serialRow
+                    if serialScanNotice {
+                        WVDivider()
+                        serialScanNoticeRow
+                    }
                 }
 
                 // Purchase info
@@ -644,6 +667,15 @@ struct DeviceFormView: View {
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerSheet(selected: $category, options: categoryOptions)
         }
+        .sheet(isPresented: $showSerialScanner) {
+            SerialScannerSheet { value in
+                // A draft, nothing more: the value goes into the text field and
+                // the user still has to tap save. `serialScanNotice` says so.
+                serial = value
+                serialScanNotice = true
+                fieldErrors["serialNumber"] = nil
+            }
+        }
         .alert(L.t("Bỏ thay đổi?"), isPresented: $showDiscardAlert) {
             Button(L.t("Tiếp tục sửa"), role: .cancel) {}
             Button(L.t("Bỏ"), role: .destructive) { dismiss() }
@@ -667,6 +699,58 @@ struct DeviceFormView: View {
         ) { result in
             Task { await handlePDFImport(result) }
         }
+    }
+
+    // MARK: - Serial / IMEI camera scan
+
+    /// Checks support and camera permission, then presents the scanner.
+    ///
+    /// Permission is requested **before** the VisionKit controller is created:
+    /// `DataScannerViewController` does not own the denied state, and presenting
+    /// it without access would leave the user on a black screen with no route
+    /// forward. An explicit Vietnamese alert with "Mở Cài đặt" is the route.
+    @MainActor
+    private func beginSerialScan() async {
+        guard SerialScannerSupport.isSupported else {
+            serialScanAlert = .unavailable
+            return
+        }
+
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            presentSerialScanner()
+        case .notDetermined:
+            let granted = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                AVCaptureDevice.requestAccess(for: .video) { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+            if granted {
+                presentSerialScanner()
+            } else {
+                serialScanAlert = .permissionDenied
+            }
+        case .denied, .restricted:
+            serialScanAlert = .permissionDenied
+        @unknown default:
+            serialScanAlert = .permissionDenied
+        }
+    }
+
+    @MainActor
+    private func presentSerialScanner() {
+        guard SerialScannerSupport.isAvailable else {
+            serialScanAlert = .unavailable
+            return
+        }
+        showSerialScanner = true
+    }
+
+    /// The only way out of a denied permission: the app cannot request again, so
+    /// it sends the user to the one place that can change the decision.
+    private func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     // MARK: - OCR receipt scan
@@ -796,6 +880,86 @@ struct DeviceFormView: View {
     }
 
     // MARK: - Row helpers
+
+    /// The serial field plus the scan action. The button is feature-gated: on a
+    /// simulator (or any device without `DataScannerViewController` support) it
+    /// does not appear at all, rather than opening a dead camera surface.
+    private var serialRow: some View {
+        HStack(spacing: 10) {
+            Text("Serial / IMEI")
+                .font(.system(size: 17))
+                .foregroundStyle(WVColor.label)
+                .frame(width: 110, alignment: .leading)
+
+            TextField(L.t("Không bắt buộc"), text: $serial)
+                .font(.system(size: 17))
+                .foregroundStyle(WVColor.label)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .multilineTextAlignment(.trailing)
+                .onChange(of: serial) { _, newValue in
+                    fieldErrors["serialNumber"] = nil
+                    if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                        serialScanNotice = false
+                    }
+                }
+
+            if SerialScannerSupport.isSupported {
+                Button {
+                    Task { await beginSerialScan() }
+                } label: {
+                    Image(systemName: "barcode.viewfinder")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                        .frame(width: 38, height: 38)
+                        .background(WVColor.tint.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L.t("Quét serial / IMEI"))
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+        // Attached to the serial row, not the form root: the root already has
+        // the discard alert, and stacking two alerts on one view is the classic
+        // way to get "only the last one shows" behaviour.
+        .alert(item: $serialScanAlert) { alert in
+            switch alert {
+            case .permissionDenied:
+                return Alert(
+                    title: Text(L.t("Cần quyền camera")),
+                    message: Text(L.t("Warrly cần camera để quét serial/IMEI. Quyền camera đang bị tắt hoặc hạn chế, nên hãy bật lại trong Cài đặt > Warrly > Camera.")),
+                    primaryButton: .default(Text(L.t("Mở Cài đặt"))) { openSettings() },
+                    secondaryButton: .cancel(Text(L.t("Để sau")))
+                )
+            case .unavailable:
+                return Alert(
+                    title: Text(L.t("Camera chưa sẵn sàng")),
+                    message: Text(L.t("Camera đang được ứng dụng khác dùng hoặc tạm thời không khả dụng. Đóng ứng dụng kia rồi thử lại.")),
+                    dismissButton: .default(Text(L.t("Thử lại"))) {
+                        Task { await beginSerialScan() }
+                    }
+                )
+            }
+        }
+    }
+
+    private var serialScanNoticeRow: some View {
+        HStack(alignment: .top, spacing: 7) {
+            WVIcon("checkCircle", size: 13)
+                .foregroundStyle(WVColor.green)
+                .padding(.top, 1)
+            Text(L.t("Đã điền serial từ bản quét — kiểm tra lại trước khi lưu."))
+                .font(.system(size: 12))
+                .foregroundStyle(WVColor.label2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
 
     private func inputRow(
         label: String,

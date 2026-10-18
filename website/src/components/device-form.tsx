@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { LeadDaysField } from '@/components/lead-days-field';
+import { SerialScanner } from '@/components/serial-scanner';
 import {
   Select,
   SelectTrigger,
@@ -55,6 +56,7 @@ import {
   LEAD_DAYS_REQUIRED_MESSAGE,
   normalizeLeadDays,
 } from '@/lib/lead-days';
+import { supportsSerialScan } from '@/lib/serial-scan';
 import {
   createDevice,
   updateDevice,
@@ -148,6 +150,12 @@ const STEPS = [
   { label: 'Bảo hành', hint: 'Gói tiêu chuẩn' },
   { label: 'Xác nhận', hint: 'Ghi chú & kiểm tra' },
 ];
+
+// `useSyncExternalStore` with a no-op subscription is how this component reads
+// a browser capability without a hydration mismatch: the server snapshot is
+// `null` ("not known yet"), the client snapshot is the real answer. The value
+// never changes during a session, so there is nothing to subscribe to.
+const subscribeToScanSupport = () => () => {};
 
 function focusField(key: string) {
   const meta = FIELD_META[key];
@@ -310,6 +318,18 @@ export function DeviceForm({
   const [serialNumber, setSerialNumber] = React.useState<string>(
     initial?.serialNumber ?? '',
   );
+  // Native barcode scanning (Chromium only). `null` until the client has been
+  // asked, so the server render never shows a button the browser cannot back.
+  const scanSupported = React.useSyncExternalStore<boolean | null>(
+    subscribeToScanSupport,
+    () => supportsSerialScan(window),
+    () => null,
+  );
+  const [scannerOpen, setScannerOpen] = React.useState(false);
+  // The value a scan put in the field, kept only to show the "editable draft"
+  // note. It is cleared as soon as the user types, so the note never describes a
+  // value the user did not scan.
+  const [scanFilledSerial, setScanFilledSerial] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<Status>(initial?.status ?? 'ACTIVE');
 
   const [purchaseDate, setPurchaseDate] = React.useState<string>(
@@ -403,7 +423,10 @@ export function DeviceForm({
       }
       if (d.brand) setBrand(d.brand);
       if (d.model) setModel(d.model);
-      if (d.serialNumber) setSerialNumber(d.serialNumber);
+      if (d.serialNumber) {
+        setSerialNumber(d.serialNumber);
+        setScanFilledSerial(null);
+      }
       if (d.purchaseDate) setPurchaseDate(d.purchaseDate);
       if (typeof d.purchasePrice === 'number') {
         setPurchasePriceDisplay(formatNumber(d.purchasePrice, locale));
@@ -443,6 +466,18 @@ export function DeviceForm({
       setScanning(false);
     }
   };
+
+  // A scanned serial is only ever a DRAFT in the controlled field: nothing is
+  // submitted here, and the user can edit or clear it before saving.
+  const handleSerialScanned = React.useCallback(
+    (value: string) => {
+      setSerialNumber(value);
+      setScanFilledSerial(value);
+      setScannerOpen(false);
+      toast.success(t('Đã quét serial — kiểm tra lại trước khi lưu'));
+    },
+    [t],
+  );
 
   // Toast + focus when the server returns errors (skip the initial mount).
   const initialMount = React.useRef(true);
@@ -581,6 +616,8 @@ export function DeviceForm({
     setBrand('');
     setModel('');
     setSerialNumber('');
+    setScanFilledSerial(null);
+    setScannerOpen(false);
     setStatus('ACTIVE');
     setPurchaseDate(format(new Date(), 'yyyy-MM-dd'));
     setPurchasePriceDisplay('');
@@ -785,16 +822,50 @@ export function DeviceForm({
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="serialNumber">Serial / IMEI</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="serialNumber">Serial / IMEI</Label>
+              {/* Chromium-only: rendered only after the client confirms the
+                  native BarcodeDetector + camera are both available. A button
+                  that opens a camera and silently fails is worse than none. */}
+              {scanSupported === true && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-pill"
+                  onClick={() => setScannerOpen(true)}
+                >
+                  <ScanLine className="mr-1 h-3.5 w-3.5" />
+                  {t('Quét mã')}
+                </Button>
+              )}
+            </div>
             <Input
               id="serialNumber"
               name="serialNumber"
               value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value)}
+              onChange={(e) => {
+                setSerialNumber(e.target.value);
+                setScanFilledSerial(null);
+              }}
               placeholder={t('Không bắt buộc')}
               className={serialWarning ? 'border-amber-400 dark:border-amber-700' : undefined}
               aria-describedby={serialWarning ? 'serialNumber-warning' : undefined}
             />
+            {/* The feature detect is browser-specific, not a failure: Safari and
+                Firefox simply do not ship BarcodeDetector. Say so instead of
+                offering a control that cannot work. */}
+            {scanSupported === false && (
+              <p className="text-xs text-muted-foreground">
+                {t('Trình duyệt này không hỗ trợ quét mã vạch — nhập serial bằng tay.')}
+              </p>
+            )}
+            {scanFilledSerial !== null && serialNumber === scanFilledSerial && (
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <ScanLine className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {t('Đã điền từ mã vừa quét — sửa được, chưa lưu.')}
+              </p>
+            )}
             {/* The scanned value was KEPT and is editable here — the full message
                 lives in the scan panel above, so this only points at it. */}
             {serialWarning && (
@@ -1229,6 +1300,15 @@ export function DeviceForm({
       {/* Always-mounted fields that don't belong to a visible step on the create flow.
           When editing, status lives on step 4; otherwise it gets a default. */}
       {!isEdit && <input type="hidden" name="status" value={status} />}
+
+      {/* Mounted only while open: the camera effect starts on mount and its
+          cleanup stops every track on close. */}
+      {scannerOpen && (
+        <SerialScanner
+          onClose={() => setScannerOpen(false)}
+          onScanned={handleSerialScanned}
+        />
+      )}
 
       {/* Return window (migration 0010) — round-tripped, never edited here.
           `PATCH /v1/devices/{id}` replaces every field, so a save that omits

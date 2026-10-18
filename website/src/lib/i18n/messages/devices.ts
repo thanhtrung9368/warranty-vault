@@ -151,6 +151,43 @@ export const devices = defineMessages({
     'Draft filled in from the receipt — check it before saving',
   'Không quét được hoá đơn, thử lại sau': 'Could not scan the receipt, try again later',
 
+  // ── Device form — serial / IMEI barcode scan (native BarcodeDetector) ───
+  // The feature exists only in Chromium: Safari and Firefox do not ship
+  // `BarcodeDetector`, so the button is not rendered there and the field says
+  // why. Every message below is reachable only after the client-side feature
+  // detect has said yes, except the "not supported" line itself.
+  'Quét mã': 'Scan code',
+  'Quét serial / IMEI': 'Scan serial / IMEI',
+  'Trình duyệt này không hỗ trợ quét mã vạch — nhập serial bằng tay.':
+    'This browser does not support barcode scanning — type the serial in by hand.',
+  'Dùng camera để đọc mã vạch trên tem máy hoặc hộp. Ảnh không rời khỏi thiết bị.':
+    'Use the camera to read the barcode on the device label or box. The video never leaves your device.',
+  'Khung hình camera để quét mã vạch': 'Camera preview for barcode scanning',
+  'Đang mở camera…': 'Opening the camera…',
+  'Đưa mã vạch vào khung hình. Định dạng thường gặp: Code 128, EAN-13, EAN-8, QR và Data Matrix.':
+    'Point the barcode into the frame. Common formats: Code 128, EAN-13, EAN-8, QR and Data Matrix.',
+  'Mã quét được chỉ điền vào ô serial — bạn vẫn sửa và kiểm tra trước khi lưu.':
+    'The scanned code only fills the serial field — you still edit and check it before saving.',
+  'Đã điền từ mã vừa quét — sửa được, chưa lưu.':
+    'Filled in from the scanned code — editable, not saved yet.',
+  'Đã quét serial — kiểm tra lại trước khi lưu':
+    'Serial scanned — check it before saving',
+  'Không có quyền dùng camera. Bật quyền camera cho trang này trong cài đặt trình duyệt rồi thử lại.':
+    'Camera permission was denied. Allow camera access for this site in your browser settings and try again.',
+  'Không tìm thấy camera nào trên thiết bị này.':
+    'No camera was found on this device.',
+  'Camera đang được ứng dụng khác dùng. Đóng ứng dụng đó rồi thử lại.':
+    'The camera is being used by another app. Close it and try again.',
+  'Không mở được camera. Thử lại sau.': 'Could not open the camera. Try again later.',
+  'Trình duyệt không quét được định dạng mã vạch này. Thử nhập serial bằng tay.':
+    'This browser cannot scan that barcode format. Type the serial in by hand.',
+  'Mã vừa quét quá dài ({count} ký tự) — có vẻ không phải serial. Nhập tay nếu cần.':
+    'The scanned code is too long ({count} characters) — it does not look like a serial. Type it in if needed.',
+  'Mã vừa quét là một đường dẫn, không phải serial. Nhập tay nếu cần.':
+    'The scanned code is a URL, not a serial. Type it in if needed.',
+  'Không đọc được mã vạch. Giữ máy ổn định và thử lại.':
+    'Could not read a barcode. Hold the device steady and try again.',
+
   // ── Detail page (`devices/[id]/page.tsx`) ───────────────────────────────
   'Không tải được thiết bị': 'Could not load the device',
   'Tổng quan bảo hành': 'Warranty overview',

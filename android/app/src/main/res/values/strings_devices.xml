@@ -276,4 +276,73 @@
     <string name="dash_sub_none">none</string>
     <string name="dash_sub_over">over</string>
 
+    <!-- ===== Serial / IMEI scanner (SerialScan.kt, SerialScannerDialog.kt) =====
+         The scan action is the trailing icon on the serial field. What it reads is
+         only a DRAFT: the user can edit it, and nothing is saved until Save. The
+         copy says that out loud because "scanned" reads as "verified" otherwise. -->
+    <string name="scan_action">Scan the serial / IMEI</string>
+    <string name="scan_title">Scan the serial / IMEI</string>
+    <string name="scan_close">Close the scanner</string>
+    <string name="scan_mode_barcode">Barcode</string>
+    <string name="scan_mode_text">Printed text</string>
+    <string name="scan_hint_barcode">Fill the frame with the barcode — on the box, or on the label under the device.</string>
+    <string name="scan_hint_text">Fill the frame with the printed S/N or IMEI on the box label.</string>
+    <string name="scan_found">Read</string>
+    <string name="scan_nothing_found">Nothing read yet. Hold still and fill the frame with the code.</string>
+    <string name="scan_use">Use</string>
+    <string name="scan_manual">I will type it myself</string>
+    <string name="scan_never_saved">A scan is only a draft: check the number, edit it if needed, then tap Save.</string>
+    <string name="scan_camera_failed">Could not start the camera on this device. Type the number in instead.</string>
+    <string name="scan_torch_on">Turn the light on</string>
+    <string name="scan_torch_off">Turn the light off</string>
+    <string name="scan_permission_title">Camera permission</string>
+    <string name="scan_permission_ask_again">Warrly needs the camera to read the serial/IMEI. Allow it in the next dialog to scan.</string>
+    <string name="scan_permission_blocked">Camera access for Warrly is turned off. Turn it back on in Settings → Apps → Warrly → Permissions, then scan again.</string>
+    <string name="scan_permission_retry">Try again</string>
+    <string name="scan_permission_settings">Open settings</string>
+    <string name="scan_permission_later">Not now</string>
+    <string name="scan_settings_unavailable">Could not open the app settings</string>
+
+    <!-- ===== Pre-service handover checklist (HandoverChecklist.kt,
+         HandoverChecklistSection.kt). The intake rules Vietnamese retailers
+         publish: a device that is still locked is refused, and data may be wiped
+         during service. Every row is an action plus the reason it matters —
+         a generic checklist is one people scroll past. ===== -->
+    <string name="handover_title">Before you go to warranty service</string>
+    <string name="handover_subtitle">A locked device can be refused; data can be wiped while it is repaired.</string>
+    <string name="handover_progress">%1$d/%2$d</string>
+    <string name="handover_expand">Show the checklist</string>
+    <string name="handover_collapse">Hide the checklist</string>
+    <string name="handover_reset">Clear all ticks</string>
+    <string name="handover_session_note">Ticks are kept for this session only — they are not saved.</string>
+    <string name="handover_imei_note">IMEI/serial saved in the app: %1$s</string>
+    <string name="handover_imei_missing">No IMEI/serial saved yet — add it so you can check it against the box.</string>
+    <string name="handover_warranty_end_note">Warranty ends: %1$s</string>
+    <string name="handover_warranty_end_missing">This device has no warranty end date in the app.</string>
+
+    <string name="handover_accounts_title">Sign out of Google / Mi / iCloud / Samsung</string>
+    <string name="handover_accounts_why">A device still signed in to your account can be refused, and the shop should not be holding your data.</string>
+    <string name="handover_activation_title">Turn off iCloud Activation Lock / Find My Device</string>
+    <string name="handover_activation_why">The activation lock survives a factory reset — the device is unusable to anyone else, and the intake is refused.</string>
+    <string name="handover_screen_lock_title">Remove the screen lock and biometrics</string>
+    <string name="handover_screen_lock_why">A PIN, pattern, fingerprint or face lock stops the technician from testing the device, so the shop will not take it.</string>
+    <string name="handover_backup_title">Back up photos and data</string>
+    <string name="handover_backup_why">A repair can wipe the device — a backup is the only copy left if that happens.</string>
+    <string name="handover_sim_title">Take out the SIM and the memory card</string>
+    <string name="handover_sim_why">Both hold your data, and many shops ask you to remove them before they accept the device.</string>
+    <string name="handover_photos_title">Photograph the device\'s current condition</string>
+    <string name="handover_photos_why">A dated photo of the screen, edges and ports is proof if it comes back scratched or cracked.</string>
+    <string name="handover_serial_title">Photograph the IMEI / serial label on the box</string>
+    <string name="handover_serial_why">The device leaves your hands; keep the number so you can match the paperwork when you collect it.</string>
+    <string name="handover_invoice_title">Bring the invoice and the box with the matching IMEI</string>
+    <string name="handover_invoice_why">Without an invoice the shop can charge for a repair that the warranty would have covered.</string>
+    <string name="handover_accessories_title">List the accessories you are handing over</string>
+    <string name="handover_accessories_why">The intake slip only records what you say — name the charger, cable, case and pen so you get them back.</string>
+    <string name="handover_warranty_title">Know when the warranty ends</string>
+    <string name="handover_warranty_why">Check it before you pay: a repair still under warranty should cost nothing.</string>
+    <string name="handover_slip_title">Ask for an intake slip with the condition and the return date</string>
+    <string name="handover_slip_why">That slip is the only proof of what the device looked like and when you can collect it.</string>
+    <string name="handover_wipe_title">Agree on a data wipe before they start</string>
+    <string name="handover_wipe_why">Technicians sometimes wipe the device to repair it — confirm first so it is not a surprise.</string>
+
 </resources>

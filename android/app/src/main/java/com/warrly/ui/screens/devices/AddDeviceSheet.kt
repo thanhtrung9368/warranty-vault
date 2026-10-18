@@ -1,6 +1,9 @@
 package com.warrly.ui.screens.devices
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,7 +22,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.outlined.DocumentScanner
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,12 +33,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -42,15 +49,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.warrly.R
 import com.warrly.i18n.AppStrings
 import com.warrly.i18n.appStrings
@@ -160,6 +171,7 @@ fun AddDeviceSheet(
     // OCR receipt scan (create flow only, gated on the per-user AI opt-in).
     val context = LocalContext.current
     val s = appStrings()
+    val keyboardController = LocalSoftwareKeyboardController.current
     var scanning by remember { mutableStateOf(false) }
     var scanInfo by remember { mutableStateOf<DraftDevice?>(null) }
     // Warnings from the AI draft (values it KEPT but flagged), kept apart from
@@ -167,6 +179,46 @@ fun AddDeviceSheet(
     // draft; only the second one means "you must type this yourself".
     var scanWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
     var aiOptIn by remember { mutableStateOf(false) }
+
+    // ---- Serial / IMEI scan -------------------------------------------------
+    // The camera is the highest-value way into this form: the serial is the
+    // field users mistype and the one every service centre asks for. The result
+    // goes into the very same `serial` state as typing (see the trailing icon
+    // below) — it is a draft the user can edit, and nothing is saved until Save.
+    var showSerialScanner by rememberSaveable { mutableStateOf(false) }
+    // `null` = no permission problem on screen. ASK_AGAIN vs BLOCKED decides
+    // whether the dialog offers a retry or the Settings route (see
+    // `cameraPermissionProblem`); a plain "denied" toast would leave a
+    // permanently-denied user with no way forward.
+    var cameraProblem by remember { mutableStateOf<CameraPermissionProblem?>(null) }
+
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            showSerialScanner = true
+        } else {
+            // Read AFTER the answer: `shouldShowRequestPermissionRationale` is
+            // also false before the first request, so asking it earlier would
+            // misreport "blocked" on the very first denial.
+            val activity = context.findActivity()
+            val canAskAgain = activity != null && ActivityCompat.shouldShowRequestPermissionRationale(
+                activity,
+                Manifest.permission.CAMERA,
+            )
+            cameraProblem = cameraPermissionProblem(granted, canAskAgain)
+        }
+    }
+
+    fun openSerialScanner() {
+        // The tapped icon lives inside a focused text field, so the IME is almost
+        // certainly up. Leaving it up lets it squeeze the dialog's camera preview
+        // (a separate window), which is the last thing a scanner needs.
+        keyboardController?.hide()
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) showSerialScanner = true else cameraPermission.launch(Manifest.permission.CAMERA)
+    }
 
     // Seeds the form from an extracted draft. Category only applied when it
     // matches a known catalog code; brand/place set verbatim. Never persists —
@@ -345,6 +397,11 @@ fun AddDeviceSheet(
                 // Amber advisory under the serial box when the scan flagged the
                 // value it kept. Not `isError`: the serial is legitimate until
                 // proven otherwise and the save must not look blocked.
+                //
+                // The trailing icon is the serial/IMEI scan action: the field is
+                // exactly where the user is about to type the number off the box,
+                // so the camera belongs there rather than in the sheet header. A
+                // scan only fills this state — the edit + Save flow is unchanged.
                 val serialWarning = deviceWarningsForField(scanWarnings).firstOrNull()
                 OutlinedTextField(
                     value = serial,
@@ -353,6 +410,14 @@ fun AddDeviceSheet(
                         scanWarnings = emptyList()
                     },
                     label = { Text(stringResource(R.string.devadd_serial_number)) },
+                    trailingIcon = {
+                        IconButton(onClick = { openSerialScanner() }) {
+                            Icon(
+                                Icons.Outlined.QrCodeScanner,
+                                stringResource(R.string.scan_action),
+                            )
+                        }
+                    },
                     supportingText = serialWarning?.let {
                         {
                             Text(
@@ -557,6 +622,76 @@ fun AddDeviceSheet(
 
             Spacer(Modifier.height(20.dp))
         }
+    }
+
+    // The scanner is a dialog ON TOP of this sheet, so the form and everything
+    // already typed stays underneath. `onPicked` only seeds `serial`; the user
+    // can still edit it and Save is still a separate tap.
+    if (showSerialScanner) {
+        SerialScannerDialog(
+            onDismiss = { showSerialScanner = false },
+            onPicked = { value ->
+                serial = value
+                // A value that replaced the previous serial invalidates the
+                // warnings that were about the old one.
+                scanWarnings = emptyList()
+                showSerialScanner = false
+            },
+        )
+    }
+
+    // Permission refused. Two different situations, two different routes: a
+    // retry while the OS will still show the dialog, otherwise the app's
+    // settings page (the only way back after "don't ask again").
+    cameraProblem?.let { problem ->
+        AlertDialog(
+            onDismissRequest = { cameraProblem = null },
+            title = { Text(stringResource(R.string.scan_permission_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        if (problem == CameraPermissionProblem.BLOCKED) {
+                            R.string.scan_permission_blocked
+                        } else {
+                            R.string.scan_permission_ask_again
+                        },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        cameraProblem = null
+                        if (problem == CameraPermissionProblem.BLOCKED) {
+                            if (!openAppSettings(context)) {
+                                Toast.makeText(
+                                    context,
+                                    R.string.scan_settings_unavailable,
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        } else {
+                            cameraPermission.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                ) {
+                    Text(
+                        stringResource(
+                            if (problem == CameraPermissionProblem.BLOCKED) {
+                                R.string.scan_permission_settings
+                            } else {
+                                R.string.scan_permission_retry
+                            },
+                        ),
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { cameraProblem = null }) {
+                    Text(stringResource(R.string.scan_permission_later))
+                }
+            },
+        )
     }
 }
 

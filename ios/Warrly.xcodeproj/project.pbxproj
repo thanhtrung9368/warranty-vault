@@ -9,7 +9,9 @@
 /* Begin PBXBuildFile section */
 		004A105AD1AA1B87DAEED1F0 /* WishlistStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 962356363C6D6FB924763757 /* WishlistStore.swift */; };
 		0E3B00937D901B8A205AB34C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 837638321876BA6937EC02F1 /* DashboardView.swift */; };
+		17C652BA6D2AB371559121C1 /* ServiceChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC795856CE9A07B871A7C09D /* ServiceChecklistView.swift */; };
 		18B4CC7B7F08AC5969307F04 /* EmailChangeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163670807C633A5A52D2510E /* EmailChangeSheet.swift */; };
+		27C182B72105AFB5B23B17C6 /* SerialScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */; };
 		314D3E283DC579C17545BCD4 /* ActionQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */; };
 		37E59A5567895D8F428B9345 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17993834773F9CB178159EEA /* SearchScreen.swift */; };
 		3AA54CD6CF963EA894E4A7D8 /* WishlistScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */; };
@@ -114,9 +116,11 @@
 		B64117F6E7C690FC88EC5822 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreScreen.swift; sourceTree = "<group>"; };
 		B935ABD3E30E1BAF6C3C17F1 /* DevicesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesStore.swift; sourceTree = "<group>"; };
+		BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialScannerView.swift; sourceTree = "<group>"; };
 		BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDescriptionSheet.swift; sourceTree = "<group>"; };
 		C83ECFDE18B85BE8BAFB7400 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDetailView.swift; sourceTree = "<group>"; };
+		CC795856CE9A07B871A7C09D /* ServiceChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceChecklistView.swift; sourceTree = "<group>"; };
 		CF8280A48921BDB1B223FA62 /* WarrantiesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantiesStore.swift; sourceTree = "<group>"; };
 		D05C77622BBD295F05C6E1F9 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		DE2CF6A0173340F46390FE0E /* AttachmentsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentsSection.swift; sourceTree = "<group>"; };
@@ -273,6 +277,8 @@
 				CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */,
 				3A9B29C4B670543664AD4F7D /* DeviceFormView.swift */,
 				E524A44E85B68F979F8E4089 /* DevicesScreen.swift */,
+				BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */,
+				CC795856CE9A07B871A7C09D /* ServiceChecklistView.swift */,
 				32B17B4E0FDB45A93ECCB48B /* ServiceDirectorySection.swift */,
 				A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */,
 			);
@@ -483,6 +489,8 @@
 				F5129E75AF7D8D63D0826166 /* RemindersView.swift in Sources */,
 				EF7988881CB8B823F3301B27 /* RootView.swift in Sources */,
 				37E59A5567895D8F428B9345 /* SearchScreen.swift in Sources */,
+				27C182B72105AFB5B23B17C6 /* SerialScannerView.swift in Sources */,
+				17C652BA6D2AB371559121C1 /* ServiceChecklistView.swift in Sources */,
 				4E5031AC2B316EED0CA496C3 /* ServiceDirectorySection.swift in Sources */,
 				FB947B9445F3FB0590863136 /* SessionsView.swift in Sources */,
 				44DBCC2CAF1DFF5FFE11B708 /* SettingsView.swift in Sources */,

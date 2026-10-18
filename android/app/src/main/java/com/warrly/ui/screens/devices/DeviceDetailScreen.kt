@@ -413,6 +413,12 @@ private fun DeviceDetailBody(
         // "Đi bảo hành ở đâu" (#15) sits directly under the summary: when the
         // question is "where do I take this", it is the answer being looked for.
         item { ServiceDirectorySection(api = api, deviceId = device.id) }
+        // Pre-service handover checklist. Placed next to the service directory
+        // because the two answer the same trip: the directory says WHERE to take
+        // the device, the checklist says what has to happen BEFORE it will be
+        // accepted (accounts signed out, lock removed, data backed up). It sits
+        // above the certificate section, which is about selling, not servicing.
+        item { HandoverChecklistSection(device = device) }
         // Handover certificate (#2) — the artifact handed to a buyer. Placed
         // before the warranty list because the list is what it summarises.
         item {

@@ -11,6 +11,12 @@ const csp = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "img-src 'self' data: blob:",
+  // The optional serial scanner previews a camera MediaStream through
+  // `<video srcObject>` (blob/MediaStream-backed). `default-src 'self'` is the
+  // fallback for media, so `media-src` is opened to exactly self + blob. No
+  // remote media origin is allowed. `getUserMedia` itself is not governed by
+  // CSP — it is the Permissions-Policy below.
+  "media-src 'self' blob:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   // Next 16 / Turbopack inlines a small bootstrap; dev needs eval for HMR.
@@ -28,8 +34,12 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   {
+    // `camera=(self)` is required by the optional serial scanner: without it
+    // `getUserMedia` rejects with NotAllowedError on every browser, even after
+    // the user grants permission. Only this origin may use the camera;
+    // microphone and geolocation remain disabled everywhere.
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+    value: 'camera=(self), microphone=(), geolocation=(), interest-cohort=()',
   },
   { key: 'X-DNS-Prefetch-Control', value: 'off' },
   ...(isProd

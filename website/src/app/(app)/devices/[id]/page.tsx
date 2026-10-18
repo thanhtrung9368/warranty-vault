@@ -21,6 +21,8 @@ import {
   MapPin,
   Share2,
   Bell,
+  ClipboardCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +53,7 @@ import { returnDeadlineNote } from '@/lib/device-return-window';
 import { leadDaysLabel } from '@/lib/lead-days';
 import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 import { costPerDay } from '@/lib/stats-rollup';
+import { buildHandoverChecklist } from '@/lib/handover-checklist';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +130,18 @@ export default async function DeviceDetailPage({
   const status = device.status as Status;
   const statusName = statusLabel(status, locale);
   const effectiveEnd = effectiveWarrantyEnd(device.warranties);
+  // Generated from this device's own facts (category, serial, store, warranty
+  // end). The detail card only needs the count + section names; the full list
+  // lives on the handover route.
+  const handoverChecklist = buildHandoverChecklist(
+    {
+      category: device.category,
+      serialNumber: device.serialNumber,
+      purchasePlace: device.purchasePlace,
+      warrantyEnd: effectiveEnd,
+    },
+    locale,
+  );
   // Resale (roadmap #12). The API returns both halves or neither; the
   // profit/loss versus `purchasePrice` is computed client-side on purpose
   // (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)").
@@ -325,6 +340,42 @@ export default async function DeviceDetailPage({
                 <Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span>{leadDaysLabel(device.leadDays, locale)}</span>
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Pre-service handover checklist. The card is the entry point; the
+              generated list and its tick-boxes live on `/devices/[id]/handover`
+              because the full list would bury the rest of this page. */}
+          <Card className="rounded-2xl border-[1.5px]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ClipboardCheck className="h-5 w-5 text-primary" />
+                {t('Chuẩn bị đi bảo hành')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-ink-2">
+                {t(
+                  '{count} việc cần kiểm tra trước khi giao máy, từ sao lưu dữ liệu và đăng xuất tài khoản đến hoá đơn, hộp máy và phiếu tiếp nhận.',
+                  { count: handoverChecklist.total },
+                )}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {handoverChecklist.groups.map((group) => (
+                  <span
+                    key={group.id}
+                    className="rounded-pill bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-2"
+                  >
+                    {group.title}
+                  </span>
+                ))}
+              </div>
+              <Button asChild variant="outline" className="rounded-pill">
+                <Link href={`/devices/${device.id}/handover`}>
+                  {t('Mở checklist bàn giao')}
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
 

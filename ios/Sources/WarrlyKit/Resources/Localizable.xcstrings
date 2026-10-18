@@ -13736,6 +13736,1485 @@
           }
         }
       }
+    },
+    "Dữ liệu và tài khoản": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data and accounts"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dữ liệu và tài khoản"
+          }
+        }
+      }
+    },
+    "Đăng xuất iCloud/Google/Mi và tắt Find My": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out of iCloud/Google/Mi and turn off Find My"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng xuất iCloud/Google/Mi và tắt Find My"
+          }
+        }
+      }
+    },
+    "Máy còn tài khoản hoặc khoá kích hoạt có thể bị từ chối tiếp nhận, và sau khi xoá dữ liệu bạn sẽ không đăng nhập lại được. Tắt Find My (iPhone/iPad/Mac) hoặc Find My Device (Android) trước, rồi mới đăng xuất.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An account or activation lock still on the device can get it refused at intake, and after a data wipe you will not be able to sign back in. Turn off Find My (iPhone/iPad/Mac) or Find My Device (Android) first, then sign out."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy còn tài khoản hoặc khoá kích hoạt có thể bị từ chối tiếp nhận, và sau khi xoá dữ liệu bạn sẽ không đăng nhập lại được. Tắt Find My (iPhone/iPad/Mac) hoặc Find My Device (Android) trước, rồi mới đăng xuất."
+          }
+        }
+      }
+    },
+    "Gỡ mật khẩu màn hình và mọi khoá sinh trắc học": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the screen passcode and every biometric lock"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gỡ mật khẩu màn hình và mọi khoá sinh trắc học"
+          }
+        }
+      }
+    },
+    "Xoá mật khẩu, Face ID/Touch ID, vân tay hoặc mật khẩu hình vẽ. Máy còn khoá có thể bị từ chối kiểm tra hoặc bị xoá dữ liệu ngay tại quầy; bạn sẽ phải thiết lập lại sau khi nhận máy.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the passcode, Face ID/Touch ID, fingerprint or pattern. A locked device may be refused for testing or wiped at the counter; you will have to set it up again when you get it back."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá mật khẩu, Face ID/Touch ID, vân tay hoặc mật khẩu hình vẽ. Máy còn khoá có thể bị từ chối kiểm tra hoặc bị xoá dữ liệu ngay tại quầy; bạn sẽ phải thiết lập lại sau khi nhận máy."
+          }
+        }
+      }
+    },
+    "Sao lưu ảnh và dữ liệu, kiểm tra bản sao lưu đã xong": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back up photos and data, then confirm the backup finished"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao lưu ảnh và dữ liệu, kiểm tra bản sao lưu đã xong"
+          }
+        }
+      }
+    },
+    "Trung tâm có thể xoá dữ liệu trong lúc sửa, kể cả khi chỉ thay màn hình. Dùng iCloud/Google One hoặc sao lưu vào máy tính; mở thử một ảnh cũ để chắc lần sao lưu gần nhất đã hoàn tất, đừng chỉ bấm bắt đầu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A service centre may wipe the device while repairing it, even for a screen replacement. Use iCloud/Google One or a computer backup; open an old photo to be sure the latest backup completed — do not just tap start."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trung tâm có thể xoá dữ liệu trong lúc sửa, kể cả khi chỉ thay màn hình. Dùng iCloud/Google One hoặc sao lưu vào máy tính; mở thử một ảnh cũ để chắc lần sao lưu gần nhất đã hoàn tất, đừng chỉ bấm bắt đầu."
+          }
+        }
+      }
+    },
+    "Rút SIM, thẻ nhớ và giữ lại": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take out the SIM and memory card and keep them"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rút SIM, thẻ nhớ và giữ lại"
+          }
+        }
+      }
+    },
+    "Nhân viên không cần SIM/thẻ nhớ để sửa máy và chúng rất dễ thất lạc. Giữ lại, trừ khi lỗi cần SIM để tái hiện (mất sóng, không nhận SIM).": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The staff do not need the SIM/memory card to repair the device and they are easy to lose. Keep them, unless the fault needs the SIM to reproduce (no signal, SIM not detected)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhân viên không cần SIM/thẻ nhớ để sửa máy và chúng rất dễ thất lạc. Giữ lại, trừ khi lỗi cần SIM để tái hiện (mất sóng, không nhận SIM)."
+          }
+        }
+      }
+    },
+    "Serial/IMEI đã lưu: %@. Đối chiếu số này với hộp, hoá đơn và mục Giới thiệu trên máy trước khi đi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serial/IMEI on record: %@. Check this number against the box, the invoice and Settings > About on the device before you go."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serial/IMEI đã lưu: %@. Đối chiếu số này với hộp, hoá đơn và mục Giới thiệu trên máy trước khi đi."
+          }
+        }
+      }
+    },
+    "Máy chưa lưu serial/IMEI — ghi lại từ hộp hoặc Cài đặt trước khi đi, vì trung tâm tra cứu bảo hành theo số này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No serial/IMEI saved for this device — note it from the box or Settings before you go, because the service centre looks up warranty by this number."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy chưa lưu serial/IMEI — ghi lại từ hộp hoặc Cài đặt trước khi đi, vì trung tâm tra cứu bảo hành theo số này."
+          }
+        }
+      }
+    },
+    "Ứng dụng đang có %d tệp đính kèm cho máy này; mở sẵn để đối chiếu, nhưng vẫn mang bản giấy nếu có.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app already holds %d attachment(s) for this device; have them open to compare, but still bring the paper copy if you have one."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ứng dụng đang có %d tệp đính kèm cho máy này; mở sẵn để đối chiếu, nhưng vẫn mang bản giấy nếu có."
+          }
+        }
+      }
+    },
+    "Chưa có ảnh hoá đơn trong ứng dụng — chụp và lưu hoá đơn vào máy này trước khi đi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no invoice photo in the app yet — photograph the invoice and save it to this device before you go."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có ảnh hoá đơn trong ứng dụng — chụp và lưu hoá đơn vào máy này trước khi đi."
+          }
+        }
+      }
+    },
+    "Gói bảo hành xa nhất hết hạn ngày %@. Hỏi trước lỗi này có thuộc diện bảo hành không, hay phải trả phí.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The furthest warranty ends on %@. Ask beforehand whether this fault is covered, or whether it will be chargeable."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói bảo hành xa nhất hết hạn ngày %@. Hỏi trước lỗi này có thuộc diện bảo hành không, hay phải trả phí."
+          }
+        }
+      }
+    },
+    "Chưa ghi ngày hết hạn bảo hành. Tìm ngày trên hoá đơn hoặc phiếu bảo hành, hoặc hỏi hãng trước khi đi để biết lỗi có được bảo hành không.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No warranty end date is recorded. Find it on the invoice or warranty card, or ask the brand before you go, so you know whether the fault is covered."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa ghi ngày hết hạn bảo hành. Tìm ngày trên hoá đơn hoặc phiếu bảo hành, hoặc hỏi hãng trước khi đi để biết lỗi có được bảo hành không."
+          }
+        }
+      }
+    },
+    "Bạn mua ở %@. Gọi trước để hỏi giờ tiếp nhận, có cần đặt lịch không và cần mang giấy tờ gì.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You bought it at %@. Call ahead to ask about intake hours, whether an appointment is needed and which documents to bring."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn mua ở %@. Gọi trước để hỏi giờ tiếp nhận, có cần đặt lịch không và cần mang giấy tờ gì."
+          }
+        }
+      }
+    },
+    "Gọi trước cho nơi mua hoặc trung tâm bảo hành để hỏi giờ tiếp nhận, có cần đặt lịch không và cần mang giấy tờ gì.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call the shop or warranty centre ahead to ask about intake hours, whether an appointment is needed and which documents to bring."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gọi trước cho nơi mua hoặc trung tâm bảo hành để hỏi giờ tiếp nhận, có cần đặt lịch không và cần mang giấy tờ gì."
+          }
+        }
+      }
+    },
+    "Giấy tờ và bằng chứng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paperwork and evidence"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giấy tờ và bằng chứng"
+          }
+        }
+      }
+    },
+    "Mang hoá đơn, phiếu bảo hành và hộp có IMEI khớp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bring the invoice, warranty card and a box with a matching IMEI"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mang hoá đơn, phiếu bảo hành và hộp có IMEI khớp"
+          }
+        }
+      }
+    },
+    "Biết chính xác hạn bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Know the exact warranty end date"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biết chính xác hạn bảo hành"
+          }
+        }
+      }
+    },
+    "Kiểm tra chính sách tiếp nhận của nơi mua": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the intake policy of the place you bought it"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra chính sách tiếp nhận của nơi mua"
+          }
+        }
+      }
+    },
+    "Chụp ảnh hoặc quay video tình trạng máy trước khi giao": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photograph or film the device's condition before handing it over"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh hoặc quay video tình trạng máy trước khi giao"
+          }
+        }
+      }
+    },
+    "Chụp đủ các mặt, viền, màn hình đang bật sáng, cổng sạc và mọi vết trầy đã có; quay một đoạn ngắn lúc máy đang chạy. Đây là bằng chứng nếu trung tâm cho rằng hư hỏng mới phát sinh trong lúc sửa.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photograph every side, the edges, the screen turned on, the charging port and any existing scratches; film a short clip while it is running. This is your evidence if the centre claims new damage happened during the repair."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp đủ các mặt, viền, màn hình đang bật sáng, cổng sạc và mọi vết trầy đã có; quay một đoạn ngắn lúc máy đang chạy. Đây là bằng chứng nếu trung tâm cho rằng hư hỏng mới phát sinh trong lúc sửa."
+          }
+        }
+      }
+    },
+    "Ghi lại lỗi và cách tái hiện": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Write down the fault and how to reproduce it"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi lại lỗi và cách tái hiện"
+          }
+        }
+      }
+    },
+    "Ghi lỗi xuất hiện khi nào, sau thao tác gì, kèm ảnh chụp thông báo lỗi. Nếu lỗi chỉ thỉnh thoảng mới xảy ra, quay video lại — không tái hiện được thì trung tâm dễ trả máy về với lý do “không thấy lỗi”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note when the fault appears, what triggers it, and photograph any error message. If it is intermittent, film it — a fault the centre cannot reproduce is easily returned as “no fault found”."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi lỗi xuất hiện khi nào, sau thao tác gì, kèm ảnh chụp thông báo lỗi. Nếu lỗi chỉ thỉnh thoảng mới xảy ra, quay video lại — không tái hiện được thì trung tâm dễ trả máy về với lý do “không thấy lỗi”."
+          }
+        }
+      }
+    },
+    "Đóng gói và bàn giao": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Packing and handover"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng gói và bàn giao"
+          }
+        }
+      }
+    },
+    "Liệt kê phụ kiện gửi kèm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List the accessories you are sending with it"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liệt kê phụ kiện gửi kèm"
+          }
+        }
+      }
+    },
+    "Chỉ gửi những món cần cho việc sửa: củ sạc, cáp, hộp, ốp, bút cảm ứng, dây đeo hoặc tay cầm. Ghi rõ từng món vào phiếu tiếp nhận để không mất hoặc tranh cãi khi nhận lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send only what the repair needs: charger, cable, box, case, stylus, strap or controller. Write each item on the intake slip so nothing is lost or disputed at pickup."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ gửi những món cần cho việc sửa: củ sạc, cáp, hộp, ốp, bút cảm ứng, dây đeo hoặc tay cầm. Ghi rõ từng món vào phiếu tiếp nhận để không mất hoặc tranh cãi khi nhận lại."
+          }
+        }
+      }
+    },
+    "Lấy hết đồ cá nhân khỏi máy, ốp và túi đựng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove all personal items from the device, case and pouch"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lấy hết đồ cá nhân khỏi máy, ốp và túi đựng"
+          }
+        }
+      }
+    },
+    "Kiểm tra khe SIM, thẻ nhớ, ốp, ngăn phụ và túi đựng máy. Đừng để lại thẻ ngân hàng, giấy tờ, ảnh gia đình hay chìa khoá.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the SIM slot, memory card, case, compartments and device pouch. Do not leave bank cards, documents, family photos or keys behind."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra khe SIM, thẻ nhớ, ốp, ngăn phụ và túi đựng máy. Đừng để lại thẻ ngân hàng, giấy tờ, ảnh gia đình hay chìa khoá."
+          }
+        }
+      }
+    },
+    "Lấy phiếu tiếp nhận có đủ thông tin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get an intake slip with all the details"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lấy phiếu tiếp nhận có đủ thông tin"
+          }
+        }
+      }
+    },
+    "Phiếu phải ghi tên máy, IMEI/serial, tình trạng ngoại hình, danh sách phụ kiện, lỗi tiếp nhận, chi phí dự kiến, ngày hẹn trả và chính sách xoá dữ liệu. Chụp lại phiếu trước khi rời quầy; không có phiếu thì đừng để máy lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The slip must list the device name, IMEI/serial, cosmetic condition, accessories, the fault as received, estimated cost, promised return date and data-wipe policy. Photograph it before leaving the counter; if there is no slip, do not leave the device."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phiếu phải ghi tên máy, IMEI/serial, tình trạng ngoại hình, danh sách phụ kiện, lỗi tiếp nhận, chi phí dự kiến, ngày hẹn trả và chính sách xoá dữ liệu. Chụp lại phiếu trước khi rời quầy; không có phiếu thì đừng để máy lại."
+          }
+        }
+      }
+    },
+    "Hỏi rõ việc xoá dữ liệu và yêu cầu ghi vào phiếu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask exactly what happens to your data and have it written down"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỏi rõ việc xoá dữ liệu và yêu cầu ghi vào phiếu"
+          }
+        }
+      }
+    },
+    "Hỏi họ có xoá dữ liệu không, xoá lúc nào và có gọi trước không. Yêu cầu ghi câu trả lời vào phiếu; nếu họ không đồng ý, hãy tự sao lưu và xoá máy trước khi giao.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask whether they will wipe the data, when, and whether they will call first. Have the answer written on the slip; if they will not, back up and erase the device yourself before handing it over."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỏi họ có xoá dữ liệu không, xoá lúc nào và có gọi trước không. Yêu cầu ghi câu trả lời vào phiếu; nếu họ không đồng ý, hãy tự sao lưu và xoá máy trước khi giao."
+          }
+        }
+      }
+    },
+    "Hỏi báo giá và xác nhận trước khi đồng ý sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask for a quote and confirm before agreeing to the repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỏi báo giá và xác nhận trước khi đồng ý sửa"
+          }
+        }
+      }
+    },
+    "Yêu cầu báo giá, thời gian sửa và việc lỗi có thuộc diện bảo hành hay không trước khi họ bắt đầu. Hỏi thêm chi phí có thay đổi nếu phát sinh không, và chỉ đồng ý bằng văn bản hoặc tin nhắn.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask for the price, turnaround time and whether the fault is covered by warranty before they start. Also ask whether the cost changes if more work is needed, and agree only in writing or by message."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yêu cầu báo giá, thời gian sửa và việc lỗi có thuộc diện bảo hành hay không trước khi họ bắt đầu. Hỏi thêm chi phí có thay đổi nếu phát sinh không, và chỉ đồng ý bằng văn bản hoặc tin nhắn."
+          }
+        }
+      }
+    },
+    "Khi nhận lại máy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When you pick it up"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khi nhận lại máy"
+          }
+        }
+      }
+    },
+    "Đối chiếu serial/IMEI với phiếu tiếp nhận": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the serial/IMEI against the intake slip"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đối chiếu serial/IMEI với phiếu tiếp nhận"
+          }
+        }
+      }
+    },
+    "Serial/IMEI trên máy phải là %@. Kiểm tra trong Cài đặt > Giới thiệu và trên phiếu; không ký nhận nếu số không khớp.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The serial/IMEI on the device must be %@. Check Settings > About and the slip; do not sign for it if the number does not match."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serial/IMEI trên máy phải là %@. Kiểm tra trong Cài đặt > Giới thiệu và trên phiếu; không ký nhận nếu số không khớp."
+          }
+        }
+      }
+    },
+    "Kiểm tra serial/IMEI trong Cài đặt > Giới thiệu và so với phiếu tiếp nhận; không ký nhận nếu số không khớp.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the serial/IMEI in Settings > About and compare it with the intake slip; do not sign for it if the number does not match."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra serial/IMEI trong Cài đặt > Giới thiệu và so với phiếu tiếp nhận; không ký nhận nếu số không khớp."
+          }
+        }
+      }
+    },
+    "So lại ngoại hình với ảnh chụp lúc giao": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compare the condition with the photos taken at drop-off"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So lại ngoại hình với ảnh chụp lúc giao"
+          }
+        }
+      }
+    },
+    "Xem kỹ vết trầy, móp, nứt và vết keo ở viền máy trước khi ký. Nếu có hư hỏng mới, chụp ảnh tại chỗ và hỏi ngay, đừng mang máy về rồi mới báo.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look closely at scratches, dents, cracks and any glue around the edges before signing. If there is new damage, photograph it on the spot and raise it immediately — do not take the device home first."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem kỹ vết trầy, móp, nứt và vết keo ở viền máy trước khi ký. Nếu có hư hỏng mới, chụp ảnh tại chỗ và hỏi ngay, đừng mang máy về rồi mới báo."
+          }
+        }
+      }
+    },
+    "Kiểm tra chức năng tại quầy trước khi về": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test the functions at the counter before leaving"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra chức năng tại quầy trước khi về"
+          }
+        }
+      }
+    },
+    "Đếm đủ phụ kiện đã gửi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Count every accessory you sent in"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đếm đủ phụ kiện đã gửi"
+          }
+        }
+      }
+    },
+    "Đối chiếu với danh sách trên phiếu và nhận lại đủ trước khi rời quầy. Kiểm tra cả hộp, cáp, củ sạc và ốp nếu bạn đã gửi kèm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check them against the list on the slip and get them all back before leaving the counter. Include the box, cable, charger and case if you sent them."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đối chiếu với danh sách trên phiếu và nhận lại đủ trước khi rời quầy. Kiểm tra cả hộp, cáp, củ sạc và ốp nếu bạn đã gửi kèm."
+          }
+        }
+      }
+    },
+    "Nhận giấy bảo hành cho lần sửa này": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get the warranty for this repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhận giấy bảo hành cho lần sửa này"
+          }
+        }
+      }
+    },
+    "Hỏi linh kiện đã thay, thời hạn bảo hành của lần sửa và điều kiện áp dụng; xin phiếu hoặc biên nhận ghi rõ những thông tin đó. Chụp lại trước khi rời quầy.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask which parts were replaced, the warranty period for this repair and its conditions; ask for a slip or receipt that states them. Photograph it before leaving the counter."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hỏi linh kiện đã thay, thời hạn bảo hành của lần sửa và điều kiện áp dụng; xin phiếu hoặc biên nhận ghi rõ những thông tin đó. Chụp lại trước khi rời quầy."
+          }
+        }
+      }
+    },
+    "Khôi phục dữ liệu và kiểm tra tài khoản": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore your data and check the accounts"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục dữ liệu và kiểm tra tài khoản"
+          }
+        }
+      }
+    },
+    "Đăng nhập lại, khôi phục từ bản sao lưu và kiểm tra ảnh, danh bạ. Làm ngay tại quầy khi còn Wi-Fi, để nếu thiếu dữ liệu bạn còn báo được trước khi về.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign back in, restore from the backup and check photos and contacts. Do it at the counter while the Wi-Fi is available, so missing data can still be reported before you leave."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng nhập lại, khôi phục từ bản sao lưu và kiểm tra ảnh, danh bạ. Làm ngay tại quầy khi còn Wi-Fi, để nếu thiếu dữ liệu bạn còn báo được trước khi về."
+          }
+        }
+      }
+    },
+    "Thử màn hình và cảm ứng, camera trước/sau, loa, mic, sạc, Wi-Fi/4G/5G, Face ID hoặc vân tay.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test the screen and touch, front/rear cameras, speaker, microphone, charging, Wi-Fi/4G/5G, Face ID or fingerprint."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử màn hình và cảm ứng, camera trước/sau, loa, mic, sạc, Wi-Fi/4G/5G, Face ID hoặc vân tay."
+          }
+        }
+      }
+    },
+    "Thử màn hình, bàn phím, touchpad, cổng sạc, loa, webcam và Wi-Fi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test the screen, keyboard, trackpad, charging port, speakers, webcam and Wi-Fi."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử màn hình, bàn phím, touchpad, cổng sạc, loa, webcam và Wi-Fi."
+          }
+        }
+      }
+    },
+    "Thử màn hình/cảm ứng, sạc, loa/mic, cảm biến nhịp tim và dây đeo.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test the screen/touch, charging, speaker/microphone, heart-rate sensor and strap."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử màn hình/cảm ứng, sạc, loa/mic, cảm biến nhịp tim và dây đeo."
+          }
+        }
+      }
+    },
+    "Thử kết nối Bluetooth, mic, loa và sạc hoặc hộp sạc.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test Bluetooth pairing, microphone, speaker and charging or the charging case."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử kết nối Bluetooth, mic, loa và sạc hoặc hộp sạc."
+          }
+        }
+      }
+    },
+    "Thử màn hình, cổng HDMI, loa và tay điều khiển.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test the screen, HDMI ports, speakers and remote/controller."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử màn hình, cổng HDMI, loa và tay điều khiển."
+          }
+        }
+      }
+    },
+    "Thử nguồn, các chế độ chính, rò nước và tiếng ồn bất thường.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test power, the main modes, water leaks and unusual noise."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử nguồn, các chế độ chính, rò nước và tiếng ồn bất thường."
+          }
+        }
+      }
+    },
+    "Thử đúng chức năng bạn mang đi sửa, rồi thử thêm nguồn, sạc và kết nối.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test the function you brought it in for, then power, charging and connectivity."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử đúng chức năng bạn mang đi sửa, rồi thử thêm nguồn, sạc và kết nối."
+          }
+        }
+      }
+    },
+    "Quét serial / IMEI": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan serial / IMEI"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quét serial / IMEI"
+          }
+        }
+      }
+    },
+    "Đưa camera vào mã vạch hoặc dòng chữ in serial/IMEI trên hộp hoặc mặt máy.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point the camera at a barcode or the printed serial/IMEI line on the box or the device."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đưa camera vào mã vạch hoặc dòng chữ in serial/IMEI trên hộp hoặc mặt máy."
+          }
+        }
+      }
+    },
+    "Chạm vào dòng chữ hoặc mã vạch được đánh dấu để chọn. Mã vạch có thể tự nhận; kết quả luôn là bản nháp để bạn kiểm tra lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap the highlighted text or barcode to choose it. A barcode may be picked up automatically; the result is always a draft for you to check."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chạm vào dòng chữ hoặc mã vạch được đánh dấu để chọn. Mã vạch có thể tự nhận; kết quả luôn là bản nháp để bạn kiểm tra lại."
+          }
+        }
+      }
+    },
+    "Không mở được camera quét.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open the scanner camera."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không mở được camera quét."
+          }
+        }
+      }
+    },
+    "Thử đóng màn hình này rồi mở lại. Nếu một ứng dụng khác đang dùng camera, hãy đóng ứng dụng đó trước.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close this screen and open it again. If another app is using the camera, close that app first."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử đóng màn hình này rồi mở lại. Nếu một ứng dụng khác đang dùng camera, hãy đóng ứng dụng đó trước."
+          }
+        }
+      }
+    },
+    "Kết quả quét": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan result"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết quả quét"
+          }
+        }
+      }
+    },
+    "Đây là chuỗi camera đọc được. Sửa lại nếu thiếu hoặc thừa ký tự, rồi bấm dùng. Ứng dụng chỉ điền vào biểu mẫu — chưa lưu gì.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the string the camera read. Fix any missing or extra characters, then tap use. The app only fills the form — nothing is saved yet."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đây là chuỗi camera đọc được. Sửa lại nếu thiếu hoặc thừa ký tự, rồi bấm dùng. Ứng dụng chỉ điền vào biểu mẫu — chưa lưu gì."
+          }
+        }
+      }
+    },
+    "Kết quả có thể là cả dòng chữ in trên hộp. Hãy xoá phần nhãn còn sót lại nếu có.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The result may be the whole printed line from the box. Remove any label that is still attached."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết quả có thể là cả dòng chữ in trên hộp. Hãy xoá phần nhãn còn sót lại nếu có."
+          }
+        }
+      }
+    },
+    "Dùng serial này": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use this serial"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng serial này"
+          }
+        }
+      }
+    },
+    "Quét lại": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan again"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quét lại"
+          }
+        }
+      }
+    },
+    "Máy còn khoá, chưa sao lưu hoặc thiếu hoá đơn có thể bị từ chối tiếp nhận. Tick từng bước khi bạn đã làm xong.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A locked device without a backup or invoice can be refused at intake. Tick each step once you have done it."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy còn khoá, chưa sao lưu hoặc thiếu hoá đơn có thể bị từ chối tiếp nhận. Tick từng bước khi bạn đã làm xong."
+          }
+        }
+      }
+    },
+    "Danh sách chỉ được tick trong phiên này. Đóng ứng dụng là mất các tick; không có gì được lưu lên máy chủ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The ticks last for this app session only. Closing the app loses them; nothing is saved to the server."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh sách chỉ được tick trong phiên này. Đóng ứng dụng là mất các tick; không có gì được lưu lên máy chủ."
+          }
+        }
+      }
+    },
+    "Bỏ chọn tất cả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear all ticks"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ chọn tất cả"
+          }
+        }
+      }
+    },
+    "Trước khi đi bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Before you go to service"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trước khi đi bảo hành"
+          }
+        }
+      }
+    },
+    "Xong": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xong"
+          }
+        }
+      }
+    },
+    "Chuẩn bị trước khi giao máy cho trung tâm bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting ready to hand the device to a service centre"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuẩn bị trước khi giao máy cho trung tâm bảo hành"
+          }
+        }
+      }
+    },
+    "Serial/IMEI: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serial/IMEI: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serial/IMEI: %@"
+          }
+        }
+      }
+    },
+    "Hạn bảo hành: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty ends: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hạn bảo hành: %@"
+          }
+        }
+      }
+    },
+    "Đã chuẩn bị %d/%d bước": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d of %d steps ready"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chuẩn bị %d/%d bước"
+          }
+        }
+      }
+    },
+    "Đã làm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã làm"
+          }
+        }
+      }
+    },
+    "Chưa làm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not done"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa làm"
+          }
+        }
+      }
+    },
+    "Danh sách nhắc bạn gỡ khoá, sao lưu, chuẩn bị giấy tờ và kiểm tra máy khi nhận lại — những việc quyết định chuyến đi có thành công hay không.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The list reminds you to remove locks, back up, prepare the paperwork and check the device at pickup — the things that decide whether the trip succeeds."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh sách nhắc bạn gỡ khoá, sao lưu, chuẩn bị giấy tờ và kiểm tra máy khi nhận lại — những việc quyết định chuyến đi có thành công hay không."
+          }
+        }
+      }
+    },
+    "Danh sách bàn giao trước khi sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pre-service handover checklist"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh sách bàn giao trước khi sửa"
+          }
+        }
+      }
+    },
+    "Chỉ tick trong phiên này, không lưu lên máy chủ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ticks last for this session only; nothing is saved to the server"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ tick trong phiên này, không lưu lên máy chủ"
+          }
+        }
+      }
+    },
+    "Cần quyền camera": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera access needed"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần quyền camera"
+          }
+        }
+      }
+    },
+    "Mở Cài đặt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở Cài đặt"
+          }
+        }
+      }
+    },
+    "Để sau": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để sau"
+          }
+        }
+      }
+    },
+    "Camera chưa sẵn sàng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera is not ready"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera chưa sẵn sàng"
+          }
+        }
+      }
+    },
+    "Camera đang được ứng dụng khác dùng hoặc tạm thời không khả dụng. Đóng ứng dụng kia rồi thử lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The camera is in use by another app or temporarily unavailable. Close that app and try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Camera đang được ứng dụng khác dùng hoặc tạm thời không khả dụng. Đóng ứng dụng kia rồi thử lại."
+          }
+        }
+      }
+    },
+    "Đã điền serial từ bản quét — kiểm tra lại trước khi lưu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serial filled from the scan — check it before saving."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã điền serial từ bản quét — kiểm tra lại trước khi lưu."
+          }
+        }
+      }
+    },
+    "Warrly cần camera để quét serial/IMEI. Quyền camera đang bị tắt hoặc hạn chế, nên hãy bật lại trong Cài đặt > Warrly > Camera.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warrly needs the camera to scan serial/IMEI. Camera access is off or restricted, so turn it back on in Settings > Warrly > Camera."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warrly cần camera để quét serial/IMEI. Quyền camera đang bị tắt hoặc hạn chế, nên hãy bật lại trong Cài đặt > Warrly > Camera."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

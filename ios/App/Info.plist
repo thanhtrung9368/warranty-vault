@@ -31,6 +31,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Warrly dùng camera để quét mã vạch hoặc đọc serial/IMEI in trên hộp hay mặt máy, giúp bạn điền đúng số mà không phải gõ tay. Hình ảnh chỉ được xử lý trên thiết bị và không gửi đi đâu cả.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Warrly dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.</string>
 	<key>UIApplicationSceneManifest</key>

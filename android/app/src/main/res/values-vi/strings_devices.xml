@@ -260,4 +260,72 @@
     <string name="dash_sub_none">không có</string>
     <string name="dash_sub_over">hết kèo</string>
 
+    <!-- ===== Quét số máy / IMEI (SerialScan.kt, SerialScannerDialog.kt) =====
+         Nút quét là icon ở cuối ô số máy. Kết quả quét CHỈ là bản nháp — người
+         dùng sửa được và vẫn phải bấm Lưu, nên câu chữ nói rõ điều đó. ===== -->
+    <string name="scan_action">Quét số máy / IMEI</string>
+    <string name="scan_title">Quét số máy / IMEI</string>
+    <string name="scan_close">Đóng trình quét</string>
+    <string name="scan_mode_barcode">Mã vạch</string>
+    <string name="scan_mode_text">Chữ in</string>
+    <string name="scan_hint_barcode">Đặt mã vạch vào giữa khung hình — trên hộp hoặc trên tem dưới máy.</string>
+    <string name="scan_hint_text">Đặt dòng chữ in số máy (S/N) hoặc IMEI trên tem vào giữa khung hình.</string>
+    <string name="scan_found">Đã đọc được</string>
+    <string name="scan_nothing_found">Chưa đọc được gì. Giữ yên máy và đặt mã vừa khung hình.</string>
+    <string name="scan_use">Dùng</string>
+    <string name="scan_manual">Để tôi tự nhập</string>
+    <string name="scan_never_saved">Kết quả quét chỉ là bản nháp: kiểm tra lại số, sửa nếu cần rồi bấm Lưu.</string>
+    <string name="scan_camera_failed">Không mở được camera trên máy này. Bạn gõ tay số máy vậy.</string>
+    <string name="scan_torch_on">Bật đèn</string>
+    <string name="scan_torch_off">Tắt đèn</string>
+    <string name="scan_permission_title">Quyền camera</string>
+    <string name="scan_permission_ask_again">Warrly cần camera để đọc số máy/IMEI. Bạn bấm “Cho phép” ở hộp thoại tiếp theo để quét.</string>
+    <string name="scan_permission_blocked">Quyền camera của Warrly đang tắt. Bạn bật lại trong Cài đặt → Ứng dụng → Warrly → Quyền, rồi quét lại.</string>
+    <string name="scan_permission_retry">Thử lại</string>
+    <string name="scan_permission_settings">Mở Cài đặt</string>
+    <string name="scan_permission_later">Để sau</string>
+    <string name="scan_settings_unavailable">Không mở được Cài đặt ứng dụng</string>
+
+    <!-- ===== Danh sách chuẩn bị trước khi đi bảo hành (HandoverChecklist.kt,
+         HandoverChecklistSection.kt). Đúng luật tiếp nhận mà FPT Shop /
+         CellphoneS công bố: máy còn khoá thì bị từ chối, dữ liệu có thể bị xoá
+         trong lúc sửa. Mỗi dòng là một việc phải làm kèm lý do — danh sách
+         chung chung là thứ người ta lướt qua. ===== -->
+    <string name="handover_title">Chuẩn bị trước khi đi bảo hành</string>
+    <string name="handover_subtitle">Máy còn khoá có thể bị từ chối; dữ liệu có thể bị xoá trong lúc sửa.</string>
+    <string name="handover_progress">%1$d/%2$d</string>
+    <string name="handover_expand">Mở danh sách</string>
+    <string name="handover_collapse">Thu gọn danh sách</string>
+    <string name="handover_reset">Bỏ đánh dấu tất cả</string>
+    <string name="handover_session_note">Dấu tích chỉ giữ trong phiên này — không được lưu lại.</string>
+    <string name="handover_imei_note">IMEI/serial đang ghi trong app: %1$s</string>
+    <string name="handover_imei_missing">Chưa ghi IMEI/serial — thêm vào để đối chiếu với hộp.</string>
+    <string name="handover_warranty_end_note">Hạn bảo hành: %1$s</string>
+    <string name="handover_warranty_end_missing">Máy này chưa có hạn bảo hành trong app.</string>
+
+    <string name="handover_accounts_title">Đăng xuất Google / Mi / iCloud / Samsung</string>
+    <string name="handover_accounts_why">Máy còn đăng nhập tài khoản của bạn có thể bị từ chối, và dữ liệu của bạn cũng không nên nằm trong tay cửa hàng.</string>
+    <string name="handover_activation_title">Tắt iCloud Activation Lock / Find My Device</string>
+    <string name="handover_activation_why">Khoá kích hoạt vẫn bám theo máy sau khi xoá dữ liệu — máy thành vô dụng với người khác và bị từ chối tiếp nhận.</string>
+    <string name="handover_screen_lock_title">Bỏ khoá màn hình, vân tay và khuôn mặt</string>
+    <string name="handover_screen_lock_why">PIN, mật khẩu, vân tay hay khuôn mặt khiến kỹ thuật viên không kiểm tra được máy, nên cửa hàng không nhận.</string>
+    <string name="handover_backup_title">Sao lưu ảnh và dữ liệu</string>
+    <string name="handover_backup_why">Sửa máy có thể xoá sạch dữ liệu — bản sao lưu là thứ duy nhất còn lại nếu chuyện đó xảy ra.</string>
+    <string name="handover_sim_title">Tháo SIM và thẻ nhớ</string>
+    <string name="handover_sim_why">Cả hai đều chứa dữ liệu của bạn, và nhiều nơi yêu cầu tháo ra trước khi tiếp nhận máy.</string>
+    <string name="handover_photos_title">Chụp ảnh tình trạng máy trước khi gửi</string>
+    <string name="handover_photos_why">Ảnh có ngày giờ về màn hình, viền máy và cổng sạc là bằng chứng nếu lúc nhận lại máy bị trầy hay nứt.</string>
+    <string name="handover_serial_title">Chụp lại tem IMEI / serial trên hộp</string>
+    <string name="handover_serial_why">Máy rời tay bạn, nên giữ lại số máy để đối chiếu giấy tờ khi quay lại nhận.</string>
+    <string name="handover_invoice_title">Mang hoá đơn và hộp có IMEI khớp máy</string>
+    <string name="handover_invoice_why">Không có hoá đơn, cửa hàng có thể tính phí một việc lẽ ra được bảo hành.</string>
+    <string name="handover_accessories_title">Liệt kê phụ kiện gửi kèm</string>
+    <string name="handover_accessories_why">Phiếu tiếp nhận chỉ ghi những gì bạn nói — kể rõ sạc, cáp, ốp, bút để nhận lại đủ.</string>
+    <string name="handover_warranty_title">Biết ngày hết hạn bảo hành</string>
+    <string name="handover_warranty_why">Xem trước khi trả tiền: việc còn trong hạn bảo hành thì không phải trả.</string>
+    <string name="handover_slip_title">Xin phiếu tiếp nhận ghi tình trạng máy và ngày hẹn trả</string>
+    <string name="handover_slip_why">Đó là giấy tờ duy nhất chứng minh tình trạng máy lúc nhận và ngày bạn được lấy lại.</string>
+    <string name="handover_wipe_title">Hỏi rõ việc xoá dữ liệu trước khi họ bắt đầu</string>
+    <string name="handover_wipe_why">Kỹ thuật viên có thể xoá máy để sửa — xác nhận trước để khỏi bất ngờ.</string>
+
 </resources>

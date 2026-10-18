@@ -9,6 +9,17 @@
          this app's own manifest rather than only buried in a dependency. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Serial / IMEI scanning (AddDeviceSheet → SerialScannerDialog). Requested
+         at runtime from the scan action, never at first launch: a user who never
+         scans is never asked. Declaring it without the matching <uses-feature>
+         below would make the app "require a camera" for Play filtering. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- required="false": scanning is a convenience, not a requirement. Without
+         this line the CAMERA permission alone implies android.hardware.camera
+         and hides the app from camera-less devices (some tablets, TV boxes) —
+         the serial field can always be typed into by hand. -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
     <application
         android:name=".App"
         android:allowBackup="false"

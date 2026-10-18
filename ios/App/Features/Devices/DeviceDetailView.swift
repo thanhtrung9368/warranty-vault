@@ -19,6 +19,7 @@ struct DeviceDetailView: View {
 
     @State private var showActionMenu = false
     @State private var showDeleteAlert = false
+    @State private var showServiceChecklist = false
     @State private var deletionError: String?
     @State private var actionError: String?
     @State private var deviceStatus: DeviceStatus
@@ -26,6 +27,11 @@ struct DeviceDetailView: View {
     /// Advisory `warnings` returned by the status PATCH. Non-blocking: the
     /// status change did happen, this only says the serial looks odd.
     @State private var statusWarnings: [DeviceWarning] = []
+
+    /// In-memory, per-device tick state for the pre-service checklist. Shared so
+    /// leaving the sheet (or this screen) and returning keeps the ticks for the
+    /// rest of the app session; deliberately not persisted anywhere.
+    @ObservedObject private var checklistSession = ServiceChecklistSession.shared
 
     @Environment(\.dismiss) private var dismiss
 
@@ -45,6 +51,28 @@ struct DeviceDetailView: View {
 
     private var warranties: [Warranty] { store.warranties }
     private var attachments: [AttachmentMeta] { store.device?.attachments ?? [] }
+
+    /// The furthest warranty end, from the detail read when it has loaded and
+    /// from the list projection otherwise. Used by the handover checklist's
+    /// "know the warranty end date" line; `nil` means the app genuinely does not
+    /// know, and the checklist says so rather than inventing a date.
+    private var effectiveWarrantyEnd: Date? {
+        StatsRollup.effectiveWarrantyEnd(warranties) ?? currentDevice.effectiveWarrantyEnd
+    }
+
+    /// The device facts the pre-service checklist injects into its copy.
+    private var checklistDevice: ServiceChecklistDevice {
+        ServiceChecklistDevice(
+            name: currentDevice.name,
+            category: currentDevice.category,
+            serialNumber: currentDevice.serialNumber,
+            warrantyEndText: effectiveWarrantyEnd.map(WVFormat.date),
+            purchasePlace: currentDevice.purchasePlace,
+            // The detail read's attachment array is authoritative once loaded;
+            // the list projection carries a count for the moment before it is.
+            attachmentCount: max(attachments.count, currentDevice.attachmentCount ?? 0)
+        )
+    }
 
     private var maxDaysLeft: Int? {
         guard !warranties.isEmpty else { return nil }
@@ -229,6 +257,20 @@ struct DeviceDetailView: View {
                     }
                 }
 
+                // Pre-service handover checklist. Sits with the warranty contact
+                // details because that is the moment the user is about to hand
+                // the machine over; the list itself is generated per device and
+                // ticked in memory only (no API field exists for it).
+                WVSectionHeader(L.t("Trước khi đi bảo hành"))
+                WVSectionFooter(L.t("Danh sách nhắc bạn gỡ khoá, sao lưu, chuẩn bị giấy tờ và kiểm tra máy khi nhận lại — những việc quyết định chuyến đi có thành công hay không."))
+                WVGroup {
+                    WVRow(icon: "checklist", iconColor: WVColor.orange,
+                          title: L.t("Danh sách bàn giao trước khi sửa"),
+                          subtitle: L.t("Chỉ tick trong phiên này, không lưu lên máy chủ"),
+                          chevron: true,
+                          action: { showServiceChecklist = true })
+                }
+
                 // Where to actually take the machine (FEATURE_IDEAS #15). Its own
                 // read: the directory is a device-level answer, and a failure to
                 // load it must not look like "the app has no information".
@@ -373,6 +415,13 @@ struct DeviceDetailView: View {
             Button(L.t("Xoá"), role: .destructive) { Task { await deleteDevice() } }
         } message: {
             Text(L.t("\"%@\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành.", currentDevice.name))
+        }
+        .sheet(isPresented: $showServiceChecklist) {
+            ServiceChecklistSheet(
+                device: checklistDevice,
+                deviceID: currentDevice.id,
+                session: checklistSession
+            )
         }
         .task { await store.load() }
         .refreshable { await store.load() }
