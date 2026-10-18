@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 import WarrlyKit
 
@@ -127,6 +128,11 @@ struct SettingsView: View {
     // AI receipt-scan opt-in.
     @State private var aiOptIn = false
     @State private var aiBusy = false
+    /// Server copy for a refused opt-in change. The switch used to flip back
+    /// with no explanation at all; Android shows the server's message in a
+    /// snackbar, and this is the same thing through the alert pattern used
+    /// below for backups and the language.
+    @State private var aiError: String?
 
     // Backup export / import.
     @State private var backupBusy = false
@@ -229,6 +235,14 @@ struct SettingsView: View {
         } message: {
             Text(localization.saveError ?? "")
         }
+        .alert(L.t("Không lưu được lựa chọn"), isPresented: Binding(
+            get: { aiError != nil },
+            set: { if !$0 { aiError = nil } }
+        )) {
+            Button("OK", role: .cancel) { aiError = nil }
+        } message: {
+            Text(aiError ?? "")
+        }
     }
 
     // MARK: - Language section
@@ -322,15 +336,26 @@ struct SettingsView: View {
     }
 
     private func setAIOptIn(_ enabled: Bool) {
+        // The switch reads `aiOptIn` through a computed binding, so the old
+        // value is still the state here. Capturing it is what makes the
+        // rollback correct even if this is ever called with a non-toggle value.
+        let previous = aiOptIn
         aiBusy = true
         Task {
             defer { aiBusy = false }
             do {
                 let v = try await client.setAIOptIn(enabled)
                 aiOptIn = v
+            } catch let APIError.server(_, envelope) {
+                // Revert and SAY SO. A toggle that silently springs back is
+                // indistinguishable from a broken switch.
+                aiOptIn = previous
+                aiError = envelope.message
+                    ?? envelope.fieldErrors?.values.first?.first
+                    ?? L.t("Không kết nối được máy chủ.")
             } catch {
-                // Revert the toggle on failure.
-                aiOptIn = !enabled
+                aiOptIn = previous
+                aiError = L.t("Không kết nối được máy chủ.")
             }
         }
     }
@@ -471,16 +496,36 @@ struct SettingsView: View {
 
     // MARK: - Info section
 
+    /// The legal pages on the production site. These are the exact paths the
+    /// Next.js app serves under `website/src/app/(public)/` — `privacy` and
+    /// `terms` — so the rows open the same documents the web footer links to
+    /// instead of being dead rows.
+    private enum PublicPage: String {
+        case privacy
+        case terms
+
+        var url: URL? { URL(string: "https://warrly.com/\(rawValue)") }
+    }
+
+    private func open(_ page: PublicPage) {
+        guard let url = page.url else { return }
+        UIApplication.shared.open(url)
+    }
+
     private var infoSection: some View {
         WVGroup {
             WVRow(icon: "info", iconColor: WVColor.blue,
                   title: L.t("Phiên bản"), detail: appVersion)
             WVDivider(inset: 60)
             WVRow(icon: "shield", iconColor: WVColor.green,
-                  title: L.t("Chính sách bảo mật"), chevron: true)
+                  title: L.t("Chính sách bảo mật"), chevron: true) {
+                open(.privacy)
+            }
             WVDivider(inset: 60)
             WVRow(icon: "receipt", iconColor: WVColor.gray,
-                  title: L.t("Điều khoản sử dụng"), chevron: true)
+                  title: L.t("Điều khoản sử dụng"), chevron: true) {
+                open(.terms)
+            }
         }
     }
 

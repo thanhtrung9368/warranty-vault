@@ -86,6 +86,24 @@ public final class AuthStore: ObservableObject {
         status = .unauthenticated
     }
 
+    /// `PATCH /api/v1/auth/me` → `displayName`.
+    ///
+    /// `raw` is exactly what the user typed: blank/whitespace clears the stored
+    /// name (`DisplayNameRules` maps that to an explicit `null`). The server's
+    /// 80-byte cap is deliberately not re-checked here — the caller shows the
+    /// server's own Vietnamese `fieldErrors.displayName`, which is the single
+    /// source of truth for the limit.
+    ///
+    /// The response carries the updated user, and adopting it here is what makes
+    /// the profile header, the row and the "Thêm" screen refresh without a
+    /// re-fetch.
+    public func updateDisplayName(_ raw: String) async throws {
+        let result = try await client.updateProfile(
+            UpdateProfileInput(displayName: DisplayNameRules.field(for: raw))
+        )
+        status = .authenticated(result.user)
+    }
+
     /// Permanently deletes the account (requires the current password), then
     /// clears the keychain and drops to the unauthenticated state. Throws on
     /// failure (e.g. wrong password) so the caller can surface the error.

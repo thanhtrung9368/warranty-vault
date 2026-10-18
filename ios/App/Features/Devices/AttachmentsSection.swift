@@ -26,6 +26,9 @@ struct DeviceAttachmentsSection: View {
     @State private var showFileImporter = false
     @State private var errorMessage: String?
     @State private var showPreviewURL: URL?
+    /// The attachment whose description is being edited. Non-nil presents the
+    /// one-field sheet (`PATCH /api/v1/attachments/{id}`).
+    @State private var editingAttachment: AttachmentMeta?
 
     init(client: APIClient, deviceId: String, initialAttachments: [AttachmentMeta]) {
         self.client = client
@@ -47,11 +50,13 @@ struct DeviceAttachmentsSection: View {
                     .padding(.horizontal, WVSpacing.gutter)
             } else {
                 WVGroup {
-                    // Thumbnail grid (if any)
+                    // Thumbnail grid (if any). Two columns rather than three:
+                    // the tile now also carries the attachment's description
+                    // (written on any client), which needs the width. Three
+                    // columns only had room for a filename.
                     if !attachments.isEmpty {
                         LazyVGrid(
                             columns: [
-                                GridItem(.flexible(), spacing: 8),
                                 GridItem(.flexible(), spacing: 8),
                                 GridItem(.flexible(), spacing: 8),
                             ],
@@ -62,7 +67,8 @@ struct DeviceAttachmentsSection: View {
                                     att: att,
                                     downloadURL: downloadURLs[att.id],
                                     isDeleting: pendingDeleteId == att.id,
-                                    onDelete: { Task { await delete(att) } }
+                                    onDelete: { Task { await delete(att) } },
+                                    onEditDescription: { editingAttachment = att }
                                 )
                             }
                         }
@@ -152,9 +158,21 @@ struct DeviceAttachmentsSection: View {
         ) { result in
             Task { await handleFileImport(result: result) }
         }
+        .sheet(item: $editingAttachment) { att in
+            AttachmentDescriptionSheet(client: client, attachment: att) { updated in
+                replace(updated)
+            }
+        }
     }
 
     // MARK: - Actions
+
+    /// Swaps one attachment's metadata after a PATCH, keeping its position in
+    /// the grid and its cached download URL.
+    private func replace(_ updated: AttachmentMeta) {
+        guard let idx = attachments.firstIndex(where: { $0.id == updated.id }) else { return }
+        attachments[idx] = updated
+    }
 
     private func refresh() async {
         isLoading = true
@@ -258,8 +276,17 @@ private struct AttachmentThumbnail: View {
     let downloadURL: URL?
     let isDeleting: Bool
     let onDelete: () -> Void
+    let onEditDescription: () -> Void
 
     private var isImage: Bool { att.fileType.hasPrefix("image/") }
+
+    /// What the tile prints under the filename. A description set on the web or
+    /// Android used to be decoded and then shown nowhere.
+    private var description: String? {
+        guard let text = att.description?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else { return nil }
+        return text
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -274,17 +301,24 @@ private struct AttachmentThumbnail: View {
                 )
                 .aspectRatio(1, contentMode: .fit)
                 .overlay {
-                    // Icon
+                    // Icon + filename + description
                     VStack(spacing: 4) {
                         WVIcon(isImage ? "camera" : "receipt", size: 24, weight: .regular)
                             .foregroundStyle(WVColor.label3)
                         Text(att.fileName)
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(2)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 4)
+                        if let description {
+                            Text(description)
+                                .font(.system(size: 10))
+                                .foregroundStyle(WVColor.label2)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                        }
                     }
+                    .padding(.horizontal, 6)
                 }
                 .overlay {
                     // Tap to open
@@ -310,6 +344,17 @@ private struct AttachmentThumbnail: View {
             }
             .offset(x: 6, y: -6)
             .disabled(isDeleting)
+            .accessibilityLabel(L.t("Xoá"))
+        }
+        .overlay(alignment: .topLeading) {
+            Button(action: onEditDescription) {
+                Image(systemName: "pencil.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(WVColor.label2)
+                    .background(WVColor.bg2.clipShape(Circle()))
+            }
+            .offset(x: -6, y: -6)
+            .accessibilityLabel(L.t("Sửa mô tả"))
         }
     }
 }

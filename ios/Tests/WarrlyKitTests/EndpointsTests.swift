@@ -627,6 +627,46 @@ final class EndpointsTests: KitTestCase {
         XCTAssertEqual(StubURLProtocol.requests.count, 0, "building a URL must not hit the network")
     }
 
+    func testAttachmentDescriptionPatchSendsTheKeyAndDecodesTheEcho() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"attachment": {
+            "id": "att_1", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+            "fileSize": 1024, "description": "Hoá đơn FPT", "uploadedAt": "2025-03-12T09:30:00Z"
+        }}
+        """#))
+
+        let updated = try await client.updateAttachmentDescription(
+            id: "att_1", description: "Hoá đơn FPT"
+        )
+        XCTAssertEqual(updated.description, "Hoá đơn FPT")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "PATCH")
+        XCTAssertEqual(request.url?.path, "/api/v1/attachments/att_1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(try request.jsonBody()["description"] as? String, "Hoá đơn FPT")
+    }
+
+    func testClearingAnAttachmentDescriptionSendsAnExplicitNull() async throws {
+        // The contract requires the `description` key; an absent key is a 400.
+        // `nil` must therefore travel as `null`, not disappear.
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"attachment": {
+            "id": "att_1", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+            "fileSize": 1024, "description": null, "uploadedAt": "2025-03-12T09:30:00Z"
+        }}
+        """#))
+
+        let updated = try await client.updateAttachmentDescription(id: "att_1", description: nil)
+        XCTAssertNil(updated.description)
+
+        let body = try XCTUnwrap(StubURLProtocol.lastRequest).jsonBody()
+        XCTAssertTrue(body.keys.contains("description"), "the key is required by the contract")
+        XCTAssertTrue(body["description"] is NSNull)
+    }
+
     // MARK: - Subscriptions
 
     func testSubscriptionDetailDefaultsPaymentsAndLogsPayment() async throws {

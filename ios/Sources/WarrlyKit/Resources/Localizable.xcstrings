@@ -1291,23 +1291,6 @@
         }
       }
     },
-    "Báo cáo chi phí": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Spending report"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Báo cáo chi phí"
-          }
-        }
-      }
-    },
     "Bên thứ ba": {
       "extractionState": "manual",
       "localizations": {
@@ -1491,23 +1474,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bảo mật"
-          }
-        }
-      }
-    },
-    "Bảo mật & quyền riêng tư": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Security & privacy"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bảo mật & quyền riêng tư"
           }
         }
       }
@@ -4151,23 +4117,6 @@
         }
       }
     },
-    "Hướng dẫn": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guide"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hướng dẫn"
-          }
-        }
-      }
-    },
     "Hạn %@ • %@": {
       "extractionState": "manual",
       "localizations": {
@@ -5729,23 +5678,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Liên hệ bảo hành"
-          }
-        }
-      }
-    },
-    "Liên hệ hỗ trợ": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contact support"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Liên hệ hỗ trợ"
           }
         }
       }
@@ -9696,23 +9628,6 @@
         }
       }
     },
-    "Trợ giúp": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Help"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trợ giúp"
-          }
-        }
-      }
-    },
     "Tuỳ chỉnh": {
       "extractionState": "manual",
       "localizations": {
@@ -11705,23 +11620,6 @@
         }
       }
     },
-    "Đánh giá Warrly ⭐️": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rate Warrly ⭐️"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đánh giá Warrly ⭐️"
-          }
-        }
-      }
-    },
     "Đây chính là thiết bị bạn đang cầm. Thu hồi xong bạn sẽ bị đăng xuất ngay và phải đăng nhập lại bằng email + mật khẩu.": {
       "extractionState": "manual",
       "localizations": {
@@ -12948,23 +12846,6 @@
         }
       }
     },
-    "Đồng bộ iCloud": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iCloud sync"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đồng bộ iCloud"
-          }
-        }
-      }
-    },
     "Đồng hồ": {
       "extractionState": "manual",
       "localizations": {
@@ -13477,6 +13358,210 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Xoá gói bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete warranty plan"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá gói bảo hành"
+          }
+        }
+      }
+    },
+    "Xoá gói bảo hành?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this warranty plan?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá gói bảo hành?"
+          }
+        }
+      }
+    },
+    "Gói này sẽ bị xoá vĩnh viễn khỏi thiết bị. Không thể hoàn tác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This plan is deleted from the device for good. This cannot be undone."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói này sẽ bị xoá vĩnh viễn khỏi thiết bị. Không thể hoàn tác."
+          }
+        }
+      }
+    },
+    "Chưa đặt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not set"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa đặt"
+          }
+        }
+      }
+    },
+    "Để trống để xoá tên. Tối đa 80 byte (~26 ký tự tiếng Việt).": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave it empty to clear the name. At most 80 bytes (~26 Vietnamese characters)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để trống để xoá tên. Tối đa 80 byte (~26 ký tự tiếng Việt)."
+          }
+        }
+      }
+    },
+    "Mô tả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Description"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mô tả"
+          }
+        }
+      }
+    },
+    "Sửa mô tả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit description"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sửa mô tả"
+          }
+        }
+      }
+    },
+    "Để trống để xoá mô tả.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave it empty to clear the description."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để trống để xoá mô tả."
+          }
+        }
+      }
+    },
+    "Đánh dấu đã mua?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as purchased?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh dấu đã mua?"
+          }
+        }
+      }
+    },
+    "Mục sẽ chuyển sang trạng thái Đã mua và một thiết bị mới sẽ được tạo.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The item moves to Purchased and a new device is created."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mục sẽ chuyển sang trạng thái Đã mua và một thiết bị mới sẽ được tạo."
+          }
+        }
+      }
+    },
+    "Xác nhận": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác nhận"
+          }
+        }
+      }
+    },
+    "Không lưu được lựa chọn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save that choice"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được lựa chọn"
           }
         }
       }

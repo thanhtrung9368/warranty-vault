@@ -492,6 +492,29 @@ public struct AttachmentMeta: Codable, Sendable, Identifiable, Hashable {
     public let uploadedAt: Date
 }
 
+/// Body of `PATCH /api/v1/attachments/{id}` — the only mutable attachment field.
+///
+/// `description` is **required by the contract** and an absent key is a 400, so
+/// the key is always encoded: `null` clears the stored description. The
+/// synthesized `Codable` conformance would instead drop a `nil` key
+/// (`encodeIfPresent`), turning "clear it" into "you forgot the field" — hence
+/// the hand-written `encode(to:)`.
+public struct AttachmentDescriptionInput: Encodable, Sendable {
+    public var description: String?
+
+    public init(description: String?) {
+        self.description = description
+    }
+
+    enum CodingKeys: String, CodingKey { case description }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Unconditional: `nil` travels as an explicit JSON null.
+        try container.encode(description, forKey: .description)
+    }
+}
+
 // MARK: - Subscription
 
 public struct Subscription: Codable, Sendable, Identifiable, Hashable {

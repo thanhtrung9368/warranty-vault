@@ -12,6 +12,7 @@ struct AccountView: View {
     @EnvironmentObject private var appLock: AppLockStore
     @State private var showChangePassword = false
     @State private var showChangeEmail = false
+    @State private var showDisplayName = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
     @State private var deletePassword = ""
@@ -24,22 +25,17 @@ struct AccountView: View {
                 avatarHeader
                     .padding(.top, 8)
 
-                // Info section (read-only for now)
+                // Info section. The display name is editable (PATCH /auth/me);
+                // the email stays read-only here because changing it is a
+                // separate password-gated two-step flow — see "Đổi email" below.
                 WVSectionHeader(L.t("Thông tin"))
                 WVGroup {
                     // Display name
-                    HStack(spacing: 16) {
-                        Text(L.t("Tên hiển thị"))
-                            .font(.system(size: 17))
-                            .foregroundStyle(WVColor.label)
-                        Spacer()
-                        Text(userName)
-                            .font(.system(size: 17))
-                            .foregroundStyle(WVColor.label3)
-                            .lineLimit(1)
+                    WVRow(title: L.t("Tên hiển thị"),
+                          detail: displayName ?? L.t("Chưa đặt"),
+                          chevron: true) {
+                        showDisplayName = true
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
 
                     WVDivider(inset: 16)
 
@@ -119,6 +115,9 @@ struct AccountView: View {
         }
         .sheet(isPresented: $showChangeEmail) {
             EmailChangeSheet(client: client)
+        }
+        .sheet(isPresented: $showDisplayName) {
+            DisplayNameSheet(auth: auth, currentName: displayName ?? "")
         }
         .alert(L.t("Xoá tài khoản?"), isPresented: $showDeleteAlert) {
             SecureField(L.t("Mật khẩu hiện tại"), text: $deletePassword)
@@ -238,6 +237,17 @@ struct AccountView: View {
     }
 
     // MARK: - Helpers
+
+    /// The stored display name, or `nil` when the account has never set one.
+    ///
+    /// Kept separate from `userName` on purpose: `userName` falls back to the
+    /// email so the avatar header is never blank, but the "Tên hiển thị" row is
+    /// an editor for the NAME — pre-filling it with the email would offer to
+    /// save an email as a display name.
+    private var displayName: String? {
+        if case let .authenticated(u) = auth.status { return u.name }
+        return nil
+    }
 
     private var userName: String {
         if case let .authenticated(u) = auth.status {

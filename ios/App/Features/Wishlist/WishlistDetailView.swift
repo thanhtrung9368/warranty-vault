@@ -18,6 +18,9 @@ struct WishlistDetailView: View {
     @State private var showUpdatePrice             = false
     @State private var showMore                    = false
     @State private var showDelete                  = false
+    /// "Đã mua" is not a flag flip: the server creates a Device in the same
+    /// transaction, so it asks first (Android has the same confirmation).
+    @State private var showPurchaseConfirm         = false
     @State private var localStatus: WishlistStatus = .WATCHING
     @State private var pushEdit                    = false
     /// Backs the "Đã mua → Xem thiết bị" link: marking a wishlist item
@@ -69,7 +72,7 @@ struct WishlistDetailView: View {
             Button(L.t("Sửa")) { pushEdit = true }
             Button(L.t("Update giá")) { showUpdatePrice = true }
             if item?.status != .PURCHASED {
-                Button(L.t("Đã mua → tạo thiết bị")) { Task { await markPurchased() } }
+                Button(L.t("Đã mua → tạo thiết bị")) { showPurchaseConfirm = true }
             }
             Button(L.t("Xoá"), role: .destructive) { showDelete = true }
             Button(L.t("Huỷ"), role: .cancel) {}
@@ -79,6 +82,15 @@ struct WishlistDetailView: View {
             Button(L.t("Xoá"), role: .destructive) { Task { await deleteItem() } }
         } message: {
             Text(L.t("\"%@\" và lịch sử giá sẽ bị xoá.", item?.name ?? ""))
+        }
+        // Marking PURCHASED is not a flag flip: `PATCH /wishlist/{id}` creates a
+        // Device server-side in the same transaction, and flipping the status
+        // back does NOT delete it. Confirm first.
+        .alert(L.t("Đánh dấu đã mua?"), isPresented: $showPurchaseConfirm) {
+            Button(L.t("Huỷ"), role: .cancel) {}
+            Button(L.t("Xác nhận")) { Task { await markPurchased() } }
+        } message: {
+            Text(L.t("Mục sẽ chuyển sang trạng thái Đã mua và một thiết bị mới sẽ được tạo."))
         }
         .navigationDestination(isPresented: $pushEdit) {
             if let w = item {
@@ -233,7 +245,7 @@ struct WishlistDetailView: View {
 
             if w.status != .PURCHASED {
                 WVButton(L.t("Đã mua"), icon: "shoppingBag", kind: .primary, size: .small,
-                         fullWidth: true) { Task { await markPurchased() } }
+                         fullWidth: true) { showPurchaseConfirm = true }
             }
         }
         .padding(.horizontal, WVSpacing.gutter)
@@ -327,7 +339,16 @@ struct WishlistDetailView: View {
                     ForEach(WishlistStatus.allCases, id: \.self) { s in
                         let active = localStatus == s
                         Button {
-                            Task { await changeStatus(s, w: w) }
+                            // The chips are a second route to PURCHASED, and
+                            // that status creates a device. Ask the same
+                            // question instead of letting the confirmation be
+                            // bypassed here.
+                            if s == .PURCHASED {
+                                guard w.status != .PURCHASED else { return }
+                                showPurchaseConfirm = true
+                            } else {
+                                Task { await changeStatus(s, w: w) }
+                            }
                         } label: {
                             Text(s.wishChipLabel)
                                 .font(.system(size: 13, weight: .semibold))

@@ -44,7 +44,7 @@ struct MoreScreen: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: 8)
 
-                // MARK: Main actions — Nhắc nhở / Thống kê / Báo cáo
+                // MARK: Main actions — Tìm kiếm / Nhắc nhở / Thống kê
                 moreActionsSection
 
                 WVSectionHeader(L.t("Tài khoản"))
@@ -52,9 +52,6 @@ struct MoreScreen: View {
 
                 WVSectionHeader(L.t("Ứng dụng"))
                 appSection
-
-                WVSectionHeader(L.t("Trợ giúp"))
-                helpSection
 
                 Spacer().frame(height: 16)
 
@@ -193,29 +190,6 @@ struct MoreScreen: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
-
-                WVDivider(inset: 60)
-
-                NavigationLink {
-                    StatsView(client: client)
-                        .navigationTitle(L.t("Báo cáo chi phí"))
-                        .navigationBarTitleDisplayMode(.inline)
-                } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "bar", color: WVColor.purple)
-                        Text(L.t("Báo cáo chi phí"))
-                            .font(.system(size: 17))
-                            .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
-                        WVIcon("arrowRight", size: 13, weight: .semibold)
-                            .foregroundStyle(WVColor.label4)
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(WVRowButtonStyle())
             }
         }
     }
@@ -249,14 +223,6 @@ struct MoreScreen: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(WVRowButtonStyle())
-
-            WVDivider(inset: 60)
-
-            WVRow(icon: "lock", iconColor: WVColor.gray, title: L.t("Bảo mật & quyền riêng tư"), chevron: true)
-
-            WVDivider(inset: 60)
-
-            WVRow(icon: "cloud", iconColor: WVColor.teal, title: L.t("Đồng bộ iCloud"), detail: L.t("Bật"), chevron: true)
         }
     }
 
@@ -300,20 +266,6 @@ struct MoreScreen: View {
                 guard !fileBusy else { return }
                 showImporter = true
             }
-        }
-    }
-
-    private var helpSection: some View {
-        WVGroup {
-            WVRow(icon: "info", iconColor: WVColor.blue, title: L.t("Hướng dẫn"), chevron: true)
-
-            WVDivider(inset: 60)
-
-            WVRow(icon: "mail", iconColor: WVColor.green, title: L.t("Liên hệ hỗ trợ"), chevron: true)
-
-            WVDivider(inset: 60)
-
-            WVRow(icon: "heart", iconColor: WVColor.pink, title: L.t("Đánh giá Warrly ⭐️"), chevron: true)
         }
     }
 }

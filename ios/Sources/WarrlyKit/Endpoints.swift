@@ -252,6 +252,22 @@ extension APIClient {
         let _: EmptyResponse = try await request("DELETE", "/api/v1/attachments/\(id)")
     }
 
+    /// `PATCH /api/v1/attachments/{id}` — sets or clears the attachment's
+    /// description, the only mutable field (`openapi.yaml`).
+    ///
+    /// `nil` clears it. Ownership is the server's call: someone else's id is a
+    /// 404, never a 403.
+    public func updateAttachmentDescription(
+        id: String, description: String?
+    ) async throws -> AttachmentMeta {
+        struct Wrapper: Decodable { let attachment: AttachmentMeta }
+        let w: Wrapper = try await request(
+            "PATCH", "/api/v1/attachments/\(id)",
+            body: AttachmentDescriptionInput(description: description)
+        )
+        return w.attachment
+    }
+
     // MARK: - AI receipt OCR
 
     /// Sends a receipt / warranty-card image to the Go OCR endpoint and returns

@@ -27,9 +27,11 @@ struct WarrantyFormView: View {
 
     // UI state
     @State private var isSubmitting = false
+    @State private var isDeleting = false
     @State private var topError: String?
     @State private var fieldErrors: [String: [String]] = [:]
     @State private var showDiscardAlert = false
+    @State private var showDeleteAlert = false
 
     private var isEditing: Bool { warranty != nil }
 
@@ -288,6 +290,32 @@ struct WarrantyFormView: View {
                     .padding(.vertical, 20)
                 }
 
+                // Delete this plan (edit only). It lives here because this is
+                // where a user goes to fix a plan — and it is one push away
+                // from the device, so removing a mistyped warranty never means
+                // leaving the device first. `WarrantiesStore.delete` was
+                // implemented and unreachable until this row existed.
+                //
+                // Always behind a confirmation: the server deletes the row
+                // outright, and a mistyped plan must not be permanent.
+                if isEditing {
+                    WVGroup {
+                        WVRow(icon: "trash", iconColor: WVColor.red,
+                              title: L.t("Xoá gói bảo hành"),
+                              role: .destructive) {
+                            showDeleteAlert = true
+                        }
+                        .disabled(isDeleting || isSubmitting)
+                    }
+                    .padding(.top, 4)
+
+                    if isDeleting {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 8)
+                    }
+                }
+
                 Spacer().frame(height: 24)
             }
         }
@@ -318,7 +346,35 @@ struct WarrantyFormView: View {
         } message: {
             Text(L.t("Tất cả thông tin đã nhập sẽ mất."))
         }
+        .alert(L.t("Xoá gói bảo hành?"), isPresented: $showDeleteAlert) {
+            Button(L.t("Huỷ"), role: .cancel) {}
+            Button(L.t("Xoá"), role: .destructive) { Task { await deleteWarranty() } }
+        } message: {
+            Text(L.t("Gói này sẽ bị xoá vĩnh viễn khỏi thiết bị. Không thể hoàn tác."))
+        }
         .task { await catalog.loadIfNeeded() }
+    }
+
+    // MARK: - Delete
+
+    /// Deletes the plan currently being edited.
+    ///
+    /// `WarrantiesStore.delete` removes it from the shared `warranties` list, so
+    /// the device detail screen this form was pushed from already shows the new
+    /// count and list when we pop back — no extra reload, and no stale row.
+    private func deleteWarranty() async {
+        guard let warranty else { return }
+        topError = nil
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            try await store.delete(id: warranty.id)
+            dismiss()
+        } catch let err as APIError {
+            topError = err.localizedDescription
+        } catch {
+            topError = error.localizedDescription
+        }
     }
 
     // MARK: - Submit

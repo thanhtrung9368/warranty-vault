@@ -26,12 +26,14 @@
 		6269797C054E034DCF4D97BC /* SubscriptionAuditStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F055799E348F2DDE968C3E04 /* SubscriptionAuditStore.swift */; };
 		64098F1E020CA14620A80ECF /* MoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */; };
 		6A567C7E8DC0896FA7857042 /* CatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8126004F477522699C8B5716 /* CatalogStore.swift */; };
+		75D5A75BC2DFF4FBB1EDBC4B /* DisplayNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */; };
 		7C1EBB1B0A534E6E76CFFCD0 /* DevicesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B935ABD3E30E1BAF6C3C17F1 /* DevicesStore.swift */; };
 		7C90CD9D820A0B3185341FA9 /* PushDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */; };
 		7EFE65D6734D6DEF14DA2218 /* WarrlyKit in Frameworks */ = {isa = PBXBuildFile; productRef = E58C7131256E714F3F1D4AD5 /* WarrlyKit */; };
 		81E15CD5A52173973033472C /* WarrlyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AF10732BDC065E9C23D22A0 /* WarrlyApp.swift */; };
 		99725CA6FAD2BB436E164772 /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3758D84A200AD988C79FAD6C /* StatsStore.swift */; };
 		9A71C5FF3F31634A44CD3967 /* WishlistFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F7348BDEAEFE1709F1196E /* WishlistFormView.swift */; };
+		9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */; };
 		A31C0E6ED724BE35006B72C9 /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744CF576C6B50B3F556BFE6 /* PushRegistrar.swift */; };
 		A6F3F0FC77F9880AC8684810 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */; };
 		C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCDE32D624D890090538C46 /* WarrantyFormView.swift */; };
@@ -95,11 +97,12 @@
 		6F489E872F9722B82F024442 /* ActionQueueScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionQueueScreen.swift; sourceTree = "<group>"; };
 		7429E15B5008CCB1B845B03A /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		754A1427254BBB1F95F2C9A1 /* SubscriptionsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsScreen.swift; sourceTree = "<group>"; };
+		7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayNameSheet.swift; sourceTree = "<group>"; };
 		8126004F477522699C8B5716 /* CatalogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogStore.swift; sourceTree = "<group>"; };
 		837638321876BA6937EC02F1 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCertificatesSection.swift; sourceTree = "<group>"; };
-		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
 		AE23F30DA617EBC2492BA2FE /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionQueueStore.swift; sourceTree = "<group>"; };
@@ -109,6 +112,7 @@
 		B64117F6E7C690FC88EC5822 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreScreen.swift; sourceTree = "<group>"; };
 		B935ABD3E30E1BAF6C3C17F1 /* DevicesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesStore.swift; sourceTree = "<group>"; };
+		BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDescriptionSheet.swift; sourceTree = "<group>"; };
 		C83ECFDE18B85BE8BAFB7400 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDetailView.swift; sourceTree = "<group>"; };
 		CF8280A48921BDB1B223FA62 /* WarrantiesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantiesStore.swift; sourceTree = "<group>"; };
@@ -119,7 +123,7 @@
 		F055799E348F2DDE968C3E04 /* SubscriptionAuditStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionAuditStore.swift; sourceTree = "<group>"; };
 		F14D4F5DC2451792F25172A9 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		F47C1974502CB1C3B5831E36 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
-		FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -262,6 +266,7 @@
 		77B51C987C4FC7A2890F0556 /* Devices */ = {
 			isa = PBXGroup;
 			children = (
+				BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */,
 				DE2CF6A0173340F46390FE0E /* AttachmentsSection.swift */,
 				CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */,
 				3A9B29C4B670543664AD4F7D /* DeviceFormView.swift */,
@@ -289,6 +294,7 @@
 			children = (
 				3B77EA8F6EF481AE458216A6 /* AccountView.swift */,
 				5C9F4F43537DC73663D292E1 /* ChangePasswordSheet.swift */,
+				7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */,
 				163670807C633A5A52D2510E /* EmailChangeSheet.swift */,
 				B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */,
 				B0F0DFA33018B41748664EBF /* SessionsView.swift */,
@@ -398,6 +404,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					7095207B2D902D146CD8346B = {
+						DevelopmentTeam = RNCMNPBA9L;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -445,6 +452,7 @@
 				57F129A92B0689D9F286D129 /* ActionQueueScreen.swift in Sources */,
 				314D3E283DC579C17545BCD4 /* ActionQueueStore.swift in Sources */,
 				5B4EF61B86E168CF518470F3 /* AppDelegate.swift in Sources */,
+				9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */,
 				DA51F5A007F18FFB37D7C73E /* AttachmentsSection.swift in Sources */,
 				D1C905C7BD2AE84702AD9F4A /* AuthStore.swift in Sources */,
 				ECE57D2FE911D880F2DB872F /* AutocompleteChips.swift in Sources */,
@@ -457,6 +465,7 @@
 				D10445D364810FD53A47B3F2 /* DeviceFormView.swift in Sources */,
 				5339B998E6614AA044485023 /* DevicesScreen.swift in Sources */,
 				7C1EBB1B0A534E6E76CFFCD0 /* DevicesStore.swift in Sources */,
+				75D5A75BC2DFF4FBB1EDBC4B /* DisplayNameSheet.swift in Sources */,
 				18B4CC7B7F08AC5969307F04 /* EmailChangeSheet.swift in Sources */,
 				D5C014DE56CFA32383CFD0C9 /* ForgotPasswordView.swift in Sources */,
 				C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */,
@@ -632,7 +641,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/Warrly.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = H572CC5N6D;
+				DEVELOPMENT_TEAM = RNCMNPBA9L;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -653,7 +662,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/Warrly.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = H572CC5N6D;
+				DEVELOPMENT_TEAM = RNCMNPBA9L;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

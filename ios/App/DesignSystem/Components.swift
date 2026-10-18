@@ -152,6 +152,13 @@ enum WVRowRole { case normal, destructive, tint, centered }
 
 /// Standard grouped-list row: leading icon, title/subtitle, trailing detail +
 /// chevron. For fully custom content use `WVRowContainer`.
+///
+/// A row is only a `Button` when it has an `action`. It used to render a
+/// disabled button otherwise, which still looked tappable and did nothing — that
+/// is how "Bảo mật & quyền riêng tư", "Đồng bộ iCloud", "Hướng dẫn", "Liên hệ
+/// hỗ trợ" and "Đánh giá Warrly" survived as dead rows. Now a row without an
+/// action renders as plain static content (no tap highlight, no button
+/// accessibility trait), so a row that cannot go anywhere cannot pretend it can.
 struct WVRow: View {
     var icon: String?
     var iconColor: Color = WVColor.gray
@@ -172,64 +179,74 @@ struct WVRow: View {
     }
 
     var body: some View {
-        Button {
-            action?()
-        } label: {
-            HStack(spacing: 12) {
-                if role == .centered { Spacer(minLength: 0) }
-                if let icon {
-                    WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 30)
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 17))
-                        .foregroundStyle(titleColor)
-                        .lineLimit(1)
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 13))
-                            .foregroundStyle(WVColor.label3)
-                            .lineLimit(1)
-                    }
-                }
-                if role != .centered { Spacer(minLength: 8) }
-                if let detail {
-                    Text(detail)
-                        .font(.system(size: 17))
+        if let action {
+            Button(action: action) { content }
+                .buttonStyle(WVRowButtonStyle())
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
+        HStack(spacing: 12) {
+            if role == .centered { Spacer(minLength: 0) }
+            if let icon {
+                WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 30)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 17))
+                    .foregroundStyle(titleColor)
+                    .lineLimit(1)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
                 }
-                if chevron {
-                    WVIcon("arrowRight", size: 13, weight: .semibold)
-                        .foregroundStyle(WVColor.label4)
-                }
-                if role == .centered { Spacer(minLength: 0) }
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .padding(.vertical, 7)
-            .contentShape(Rectangle())
+            if role != .centered { Spacer(minLength: 8) }
+            if let detail {
+                Text(detail)
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label3)
+                    .lineLimit(1)
+            }
+            if chevron {
+                WVIcon("arrowRight", size: 13, weight: .semibold)
+                    .foregroundStyle(WVColor.label4)
+            }
+            if role == .centered { Spacer(minLength: 0) }
         }
-        .buttonStyle(WVRowButtonStyle())
-        .disabled(action == nil)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+        .contentShape(Rectangle())
     }
 }
 
 /// Wrap arbitrary content so it picks up the row's tap highlight + min height.
+///
+/// Same rule as `WVRow`: no `action`, no button.
 struct WVRowContainer<Content: View>: View {
     var action: (() -> Void)?
     @ViewBuilder var content: Content
     var body: some View {
-        Button { action?() } label: {
-            content
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .padding(.vertical, 7)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+        if let action {
+            Button(action: action) { padded }
+                .buttonStyle(WVRowButtonStyle())
+        } else {
+            padded
         }
-        .buttonStyle(WVRowButtonStyle())
-        .disabled(action == nil)
+    }
+
+    private var padded: some View {
+        content
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
     }
 }
 
