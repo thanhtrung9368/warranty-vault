@@ -1,0 +1,17 @@
+// Shared API build settings for the app.
+//
+// The base URL is assembled from a scheme and a host instead of being written
+// as one literal because `//` starts a comment in .xcconfig files: a line such
+// as `WV_API_BASE_URL = https://api.warrly.com` would silently resolve to
+// `https:` and the app would fail at launch.
+SLASH = /
+WV_API_BASE_URL = $(WV_API_SCHEME):$(SLASH)$(SLASH)$(WV_API_HOST)
+
+// `WV_API_BASE_URL` reaches the app through the generated Info.plist key
+// `WVAPIBaseURL`; `App/Info.plist` is generated from project.yml — never edit
+// it by hand. `BaseURLResolver` in WarrlyKit reads the key at runtime and
+// crashes with a readable message if it is missing or malformed.
+//
+// Build overrides still work:
+//   xcodebuild ... WV_API_BASE_URL=https://staging.warrly.com
+// and the launch-environment override `WV_BASE_URL` wins over both.

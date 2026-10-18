@@ -22,8 +22,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
 	</dict>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Warrly dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.</string>
@@ -48,5 +54,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>WVAPIBaseURL</key>
+	<string>$(WV_API_BASE_URL)</string>
 </dict>
 </plist>

@@ -1,0 +1,6 @@
+#include "Base.xcconfig"
+
+// Production API. This must be HTTPS: the app has no blanket ATS exception and
+// only `localhost` is allowed to use insecure HTTP (for local Debug builds).
+WV_API_SCHEME = https
+WV_API_HOST = api.warrly.com

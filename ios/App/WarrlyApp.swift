@@ -79,17 +79,33 @@ struct WarrlyApp: App {
 
 enum AppConfig {
     /// Where the Go API backend lives (api/cmd/server, port 4000).
-    /// Mobile clients hit Go directly — the Next.js website no longer serves
-    /// /api/v1/*.
-    /// - Simulator: localhost works because the simulator shares the host's loopback.
-    /// - Real device on the same Wi-Fi: replace with your Mac's LAN IP, e.g.
-    ///   "http://192.168.1.17:4000". Run `go run ./cmd/server` on the Mac.
-    /// - Production: set to https://yourdomain.com (must be HTTPS for ATS).
+    ///
+    /// Resolution order (see `BaseURLResolver` in WarrlyKit):
+    ///   1. `WV_BASE_URL` in the launch environment — local development and QA.
+    ///   2. `WVAPIBaseURL` in the generated Info.plist, fed by
+    ///      `Config/Debug.xcconfig` (`http://localhost:4000`) or
+    ///      `Config/Release.xcconfig` (`https://api.warrly.com`).
+    ///
+    /// There is deliberately **no fallback**. A TestFlight build has no launch
+    /// environment, so a missing/misspelled key used to mean every request went
+    /// to `localhost` on the phone itself — an endless "network error" with no
+    /// clue why. Crashing at launch with the reason (visible in the device log
+    /// and in TestFlight) is the loud failure this configuration needs.
     static let baseURL: URL = {
-        if let envURL = ProcessInfo.processInfo.environment["WV_BASE_URL"],
-           let url = URL(string: envURL) {
-            return url
+        do {
+            return try BaseURLResolver.resolve(
+                bundleValue: Bundle.main.object(
+                    forInfoDictionaryKey: BaseURLResolver.infoPlistKey
+                ) as? String,
+                environmentValue: ProcessInfo.processInfo.environment[
+                    BaseURLResolver.environmentKey
+                ]
+            )
+        } catch {
+            fatalError("""
+                Warrly cannot start: \(error)
+                Check ios/Config/{Debug,Release}.xcconfig and the WVAPIBaseURL key in the generated Info.plist (run `xcodegen generate` after editing project.yml). For local runs, set WV_BASE_URL.
+                """)
         }
-        return URL(string: "http://localhost:4000")!
     }()
 }

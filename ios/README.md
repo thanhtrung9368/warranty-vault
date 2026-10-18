@@ -88,19 +88,38 @@ dịch trong `App/` sẽ không làm đỏ CI, phải tự chạy `xcodebuild` �
 
 ## Chạy thử
 
-Bật backend trước:
+Bật backend Go (port 4000) trước:
 ```
-npm run dev   # cùng repo, ở root
+cd api && go run ./cmd/server
 ```
 
-Trong Xcode bấm Run (⌘R). Simulator load `http://localhost:3000` qua loopback chung với máy host.
+Trong Xcode bấm Run (⌘R). Bản **Debug** lấy `http://localhost:4000` từ
+`Config/Debug.xcconfig`; simulator dùng chung loopback với máy host nên chạy được ngay.
+Bản **Release** lấy `https://api.warrly.com` từ `Config/Release.xcconfig` — không cần
+environment, nên bản TestFlight trỏ đúng production.
 
-**Test trên iPhone thật cùng Wi-Fi**:
-1. Sửa `AppConfig.baseURL` trong `App/WarrlyApp.swift` thành IP LAN, ví dụ `http://192.168.1.17:3000`
-2. Trên Mac chạy: `npm run dev -- -H 0.0.0.0` để Next bind ra ngoài loopback
-3. Plug iPhone, chọn target device, Run
+Muốn trỏ sang backend khác (staging, máy khác trong LAN) mà không sửa project: đặt biến môi
+trường `WV_BASE_URL` trong scheme (Run → Arguments → Environment Variables). Biến này thắng
+giá trị trong Info.plist. Nếu đặt mà sai định dạng, app **crash ngay khi khởi động** kèm lý do
+— cố ý, để một bản build trỏ nhầm chỗ không âm thầm gửi request đi.
 
-Hoặc set env var khi build (không cần sửa code): trong Xcode scheme → Run → Arguments → Environment Variables → `WV_BASE_URL=http://192.168.1.17:3000`.
+Lưu ý ATS: app chỉ cho phép HTTP không mã hoá tới `localhost` (Debug). Gọi
+`http://<LAN-IP>:4000` từ iPhone thật sẽ bị iOS chặn; dùng HTTPS hoặc tunnel, đừng thêm lại
+`NSAllowsArbitraryLoads`.
+
+## Privacy manifest
+
+Có **hai** file `PrivacyInfo.xcprivacy`, cả hai đều phải nằm trong bundle khi build:
+
+- `App/PrivacyInfo.xcprivacy` — app target; khai báo `UserDefaults` (`CA92.1`) và các loại dữ
+  liệu app thu thập (email, tên, user ID, push token, ảnh/PDF, nội dung người dùng nhập, lịch
+  sử mua). Không tracking.
+- `Sources/WarrlyKit/Resources/PrivacyInfo.xcprivacy` — bundle `WarrlyKit_WarrlyKit.bundle`;
+  `AppLock.swift` đọc/ghi `UserDefaults` nên bundle thư viện cũng dùng required-reason API.
+  File này được khai báo trong `Package.swift` cạnh `Localizable.xcstrings`.
+
+Thêm required-reason API mới thì phải cập nhật đúng manifest tương ứng; thiếu file thì app
+vẫn build và ship, chỉ bị App Store từ chối một cách âm thầm.
 
 ## Phần đã làm vs còn để TODO
 

@@ -21,7 +21,18 @@ let package = Package(
             // Xcode's String Catalog compiler, which would replace it with
             // `.lproj/Localizable.strings`, and `StringCatalog` would then have
             // nothing to read. The catalog stays byte-identical in the bundle.
-            resources: [.copy("Resources/Localizable.xcstrings")]
+            //
+            // `PrivacyInfo.xcprivacy` is a SECOND manifest, separate from the
+            // app's `App/PrivacyInfo.xcprivacy`. `AppLock.swift` reads and writes
+            // `UserDefaults` (the lock switch), so the WarrlyKit resource bundle
+            // (`WarrlyKit_WarrlyKit.bundle`) uses a required-reason API and must
+            // carry its own manifest — Apple inspects every bundle, and the app's
+            // manifest does not cover a library's own API use. `.copy` puts it at
+            // the bundle root, which is where the OS looks for it.
+            resources: [
+                .copy("Resources/Localizable.xcstrings"),
+                .copy("Resources/PrivacyInfo.xcprivacy"),
+            ]
         ),
         .testTarget(
             name: "WarrlyKitTests",
