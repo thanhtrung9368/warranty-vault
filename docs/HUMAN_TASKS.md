@@ -520,8 +520,8 @@ Tên miền: **`warrly.com`**.
 > **không sở hữu**. Cái cũ `app.warrantyvault` cũng sai y vậy (đảo ngược `warrantyvault.app`
 > của người khác). Quy ước reverse-domain chỉ có nghĩa khi mình **thật sự kiểm soát** tên miền đó.
 
-> 🗑️ **App Play cũ `app.warrantyvault` (tạo 4/10) nên xoá** — nó giữ một package vĩnh viễn
-> mà mình không dùng, và mang tên thương hiệu cũ.
+> ✅ **Đã xoá app Play cũ `app.warrantyvault`** (2026-10-18). Play Console chỉ còn **`com.warrly`**.
+> Đây là lần duy nhất việc này còn rẻ — sau khi publish thì không xoá được nữa.
 
 > ⚠️ **`AssetVault` là tên CŨ của repo** (2 commit đầu tiên). Nó từng còn sót trong email
 > template — đã sửa 26 chỗ. Nếu thấy `AssetVault` ở đâu nữa thì đó là **rác**, không phải
