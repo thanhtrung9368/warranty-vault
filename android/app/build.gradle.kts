@@ -14,11 +14,11 @@ if (hasGoogleServices) {
 }
 
 android {
-    namespace = "app.warrly"
+    namespace = "com.warrly"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "app.warrly"
+        applicationId = "com.warrly"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

@@ -32,7 +32,7 @@ const categorySeedMigration = "0004_seed_category_catalog.sql"
 // drift unnoticed.
 const (
 	iosCategoryLabelsPath     = "ios/Sources/WarrlyKit/CategoryLabels.swift"
-	androidCategoryLabelsPath = "android/app/src/main/java/app/warrly/ui/components/CategoryLabels.kt"
+	androidCategoryLabelsPath = "android/app/src/main/java/com/warrly/ui/components/CategoryLabels.kt"
 )
 
 // activeCategoryCodes lists the codes CATEGORY_LABELS is expected to contain, in
