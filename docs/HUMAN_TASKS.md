@@ -481,9 +481,43 @@ mày tự tra hoặc hỏi người có chuyên môn. Nếu chỉ dùng cá nhâ
 
 ### [ ] 3.3 — Tên miền thương hiệu
 
-Code đang dùng **WarrantyVault** ở mọi nơi (web, iOS, Android, tài liệu). Design
-handoff có nhắc cả **AssetVault**. Nếu muốn đổi thì đổi **trước khi** phát hành lên
-store — đổi sau phải sửa bundle ID, package name, và làm lại store listing.
+**Đã chốt tên sản phẩm, chưa chốt tên miền.**
+
+Tên sản phẩm là **`Warranty Vault`** (có dấu cách) — đã đổi xong ở cả 4 tầng: web, iOS,
+Android, Go, tài liệu, store listing. Bundle ID / package name là **`app.warrantyvault`**
+(không dấu cách, Play Console đã xác nhận `com.warrantyvault.app` bị chiếm).
+
+> ⚠️ **`AssetVault` là tên CŨ của repo** (2 commit đầu tiên). Nó từng còn sót trong email
+> template — đã sửa 26 chỗ. Nếu thấy `AssetVault` ở đâu nữa thì đó là **rác**, không phải
+> tên thay thế.
+
+**Chưa ai quyết định mua tên miền nào.** Mọi chỗ có `warrantyvault.vn` trong repo đều là
+**ví dụ trong ngoặc** (`"vd warrantyvault.vn"`, `"Thay warrantyvault.tld bằng domain thật"`),
+không phải quyết định.
+
+Tình trạng tên miền, kiểm bằng **RDAP** (nguồn đăng ký chính thức, không phải DNS) ngày
+2026-10-18:
+
+| Tên miền | Trạng thái |
+|---|---|
+| `warrantyvault.com` | ❌ đã đăng ký từ **2006-07-18** |
+| `warrantyvault.app` | ❌ đã đăng ký **2026-04-06** |
+| `warrantyvault.net` | ❌ đã đăng ký **2026-07-04** |
+| **`warrantyvault.dev`** | ✅ **còn trống** |
+| **`warrantyvault.io`** | ✅ **còn trống** |
+| `warrantyvault.vn` | ❓ **không có RDAP công khai** — phải tra trên registrar VN (Tenten, PA Việt Nam, Mắt Bão) |
+
+**Cần mày chốt:** đuôi nào. Ghi chú để chọn:
+
+- **`.dev`** — Google vận hành, **bắt buộc HTTPS** (HSTS preload), giá rẻ. Hợp với app này
+  vì production vốn phải HTTPS. Nhược điểm: **không thể chạy HTTP**, nên dev phải dùng
+  `localhost`, không dùng được domain này cho môi trường local.
+- **`.io`** — quen thuộc với dân công nghệ, nhưng **đắt hơn** và hay bị coi là "đuôi của
+  startup".
+- **`.vn`** — **bản địa nhất**, tốt cho SEO tiếng Việt và niềm tin người dùng Việt. Cần
+  **CCCD/hộ chiếu** để đăng ký theo quy định VN. **Chưa kiểm được còn trống hay không.**
+
+> 🔴 **Dù chọn đuôi nào, đây vẫn là món chặn nhiều nhất** — xem ghi chú ở 2.1.
 
 ### [x] 3.4 — 5 control chết trên iOS — ✅ **HẾT VIỆC, agent đã xử lý xong (2026-10-03)**
 
