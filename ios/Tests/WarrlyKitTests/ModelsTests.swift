@@ -179,6 +179,10 @@ final class ModelsTests: KitTestCase {
             with: APIClient.encoder.encode(inbox)) as? [String: Any]
         XCTAssertNil(encoded?["deviceId"] as? String)
 
+        let encodedFiled = try JSONSerialization.jsonObject(
+            with: APIClient.encoder.encode(filed)) as? [String: Any]
+        XCTAssertEqual(encodedFiled?["deviceId"] as? String, "dev_1")
+
         XCTAssertTrue(AttachmentUploadInput(deviceId: nil).isInboxUpload)
         XCTAssertTrue(AttachmentUploadInput(deviceId: " ").isInboxUpload)
         XCTAssertFalse(AttachmentUploadInput(deviceId: "dev_1").isInboxUpload)
