@@ -249,10 +249,13 @@ final class ServiceDirectoryInfoTests: KitTestCase {
                        "tel:+840901-234-567")
         XCTAssertEqual(ServiceDirectoryInfo.dialURL(for: "090.123.4567")?.absoluteString,
                        "tel:0901234567")
-        // Assert the number the dialler receives, not the serialised URL: `#` has
-        // to survive as part of the number, and older Foundation versions drop an
-        // empty fragment from absoluteString, which made this a moving target.
-        XCTAssertEqual(ServiceDirectoryInfo.dialURL(for: "*123#")?.path, "*123#")
+        // The discriminating property is that `#` is percent-encoded: if it is
+        // not, Foundation reads it as a fragment delimiter and the dialler
+        // receives `*123`, so a USSD code like *123# silently does nothing.
+        // Asserting on `absoluteString` rather than `.path` because Foundation
+        // versions disagree about whether an opaque `tel:` URL has a path at all
+        // — on some the path is empty while the URL itself is correct.
+        XCTAssertEqual(ServiceDirectoryInfo.dialURL(for: "*123#")?.absoluteString, "tel:*123%23")
     }
 
     /// The line that must be on screen wherever a phone is (or is not).
