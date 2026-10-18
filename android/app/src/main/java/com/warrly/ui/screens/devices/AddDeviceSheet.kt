@@ -58,6 +58,7 @@ import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
 import com.warrly.network.BrandOption
 import com.warrly.network.CategoryOption
+import com.warrly.network.DEFAULT_LEAD_DAYS
 import com.warrly.network.Device
 import com.warrly.network.DeviceInput
 import com.warrly.network.DeviceStatus
@@ -65,8 +66,11 @@ import com.warrly.network.DeviceWarning
 import com.warrly.network.DraftDevice
 import com.warrly.network.StoreOption
 import com.warrly.network.fieldErrors
+import com.warrly.network.leadDaysForRequest
+import com.warrly.network.normalizeLeadDays
 import com.warrly.network.toUserMessage
 import com.warrly.ui.components.CategoryLabels
+import com.warrly.ui.components.LeadDaysPicker
 import com.warrly.ui.components.SheetGroup
 import com.warrly.ui.screens.common.StoreAutocompleteField
 import com.warrly.ui.theme.WVAccent
@@ -131,6 +135,14 @@ fun AddDeviceSheet(
     // DeviceReturnWindow.kt). Blank means "chưa biết" and stays `null`.
     var returnWindowDays by remember { mutableStateOf(returnWindowDaysInput(existing?.returnWindowDays)) }
     var receivedAt by remember { mutableStateOf(receivedAtInput(existing?.receivedAt)) }
+    // Reminder schedule (`leadDays`) — editable here, unlike the read-only return
+    // window above. The API accepts 1..5 days, each 0..365; the picker normalises
+    // every change, so this state is always sorted descending and de-duped. A
+    // device loaded from a server that predates the field decodes to the old
+    // fixed schedule (30/7), so an edit can never blank it.
+    var leadDays by remember {
+        mutableStateOf(normalizeLeadDays(existing?.leadDays ?: DEFAULT_LEAD_DAYS))
+    }
 
     var categoryOptions by remember { mutableStateOf<List<CategoryOption>>(emptyList()) }
     var brandOptions by remember { mutableStateOf<List<BrandOption>>(emptyList()) }
@@ -384,6 +396,20 @@ fun AddDeviceSheet(
                 }
             }
 
+            // Reminder lead time. Its own group because it applies to every
+            // warranty on the device, not to the purchase fields above; the
+            // picker matches the sheet's other rows (label + controls + hint).
+            SheetGroup {
+                LeadDaysPicker(
+                    days = leadDays,
+                    onDaysChange = {
+                        leadDays = it
+                        fieldErrors = fieldErrors - "leadDays"
+                    },
+                    error = firstFieldError("leadDays"),
+                )
+            }
+
             // Resale (roadmap #12). The server owns the pair rule: exactly one of
             // the two is a 400, so its field errors are surfaced under the fields
             // instead of being pre-empted by a local check.
@@ -474,6 +500,10 @@ fun AddDeviceSheet(
                             // nothing can be erased.
                             returnWindowDays = returnWindowDaysRequest(returnWindowDays),
                             receivedAt = receivedAtRequest(receivedAt),
+                            // Already normalised by the picker; `leadDaysForRequest`
+                            // drops the key only if the list is empty (which the
+                            // disabled Save button prevents).
+                            leadDays = leadDaysForRequest(leadDays),
                             warrantyMonths = if (isEdit) 0 else (months.toIntOrNull() ?: 0),
                         )
                         try {
@@ -488,9 +518,9 @@ fun AddDeviceSheet(
                         } catch (e: Exception) {
                             val fe = e.fieldErrors(ApiClient.json)
                             fieldErrors = fe
-                            // soldAt/soldPrice are rendered under their own fields;
-                            // every other server error still needs a visible place.
-                            val inline = setOf("soldAt", "soldPrice")
+                            // soldAt/soldPrice/leadDays are rendered under their own
+                            // fields; every other server error still needs a visible place.
+                            val inline = setOf("soldAt", "soldPrice", "leadDays")
                             error = if (fe.isEmpty() || fe.keys.any { it !in inline }) {
                                 e.toUserMessage(ApiClient.json)
                             } else {
@@ -501,7 +531,10 @@ fun AddDeviceSheet(
                         }
                     }
                 },
-                enabled = name.isNotBlank() && purchaseDate.isNotBlank() && !submitting,
+                // At least one lead day is required by the API (an empty array is a
+                // 400), so an emptied schedule blocks Save instead of producing it.
+                enabled = name.isNotBlank() && purchaseDate.isNotBlank() &&
+                    leadDays.isNotEmpty() && !submitting,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,

@@ -13,6 +13,8 @@
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { SubscriptionInput, PaymentInput } from '@/lib/api/subscriptions';
+import { leadDaysError, leadDaysFromFormData } from '@/lib/lead-days';
+import { getI18n } from '@/lib/i18n/server';
 
 export type SubscriptionFormState = FormState;
 
@@ -43,6 +45,7 @@ function buildSubscriptionInput(formData: FormData): SubscriptionInput {
   const billingCycle = (s(formData, 'billingCycle') ??
     'MONTHLY') as SubscriptionInput['billingCycle'];
   const status = s(formData, 'status') as SubscriptionInput['status'] | null;
+  const leadDays = leadDaysFromFormData(formData);
   return {
     name: s(formData, 'name') ?? '',
     category: s(formData, 'category'),
@@ -60,8 +63,26 @@ function buildSubscriptionInput(formData: FormData): SubscriptionInput {
     manageUrl: s(formData, 'manageUrl'),
     cancelUrl: s(formData, 'cancelUrl'),
     notes: s(formData, 'notes'),
+    // Repeated `leadDays` entries (the chip control) are parsed here, not with
+    // `s()` — FormData has no scalar view of an array. An absent key is left
+    // out so Go applies its create default / keeps the stored list on update;
+    // an explicitly empty selection is rejected below before the request.
+    ...(leadDays === undefined ? {} : { leadDays }),
     fromWishlistId: s(formData, 'fromWishlistId'),
   };
+}
+
+// Zero selected days is the one invalid payload the client refuses to send
+// (Go's 400 is the authority for everything else). The message is a catalog
+// key, so an English reader gets it in English just like Go's own
+// `fieldErrors.leadDays`.
+async function leadDaysFormState(
+  input: SubscriptionInput,
+): Promise<SubscriptionFormState | null> {
+  const key = leadDaysError(input.leadDays);
+  if (!key) return null;
+  const { t } = await getI18n();
+  return { ok: false, errors: { leadDays: [t(key)] } };
 }
 
 export async function createSubscription(
@@ -69,6 +90,8 @@ export async function createSubscription(
   formData: FormData,
 ): Promise<SubscriptionFormState> {
   const input = buildSubscriptionInput(formData);
+  const invalid = await leadDaysFormState(input);
+  if (invalid) return invalid;
   const res = await api.subscriptions.create(input);
   if (!res.ok) return toFormState(res);
 
@@ -81,6 +104,8 @@ export async function updateSubscription(
   formData: FormData,
 ): Promise<SubscriptionFormState> {
   const input = buildSubscriptionInput(formData);
+  const invalid = await leadDaysFormState(input);
+  if (invalid) return invalid;
   const res = await api.subscriptions.update(id, input);
   if (!res.ok) return toFormState(res);
 
@@ -125,6 +150,10 @@ export async function setSubscriptionStatus(id: string, status: string) {
     manageUrl: s.manageUrl,
     cancelUrl: s.cancelUrl,
     notes: s.notes,
+    // Carry the user's schedule through the full-shape PATCH. Omitting it
+    // would also be legal (absent = unchanged), but sending the read value
+    // keeps this quick action visibly lossless.
+    leadDays: s.leadDays,
   });
   if (!res.ok) return { ok: false };
   return { ok: true };

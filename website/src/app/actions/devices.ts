@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { api, toFormState, type ApiResult, type FormState } from '@/lib/api';
 import type { DeviceInput } from '@/lib/api/devices';
 import { returnWindowFieldsFromFormData } from '@/lib/device-return-window';
+import { leadDaysError, leadDaysFromFormData } from '@/lib/lead-days';
 import {
   clearDeviceWarningsFlash,
   setDeviceWarningsFlash,
@@ -40,6 +41,10 @@ function buildDeviceInput(formData: FormData): DeviceInput {
   // Required fields are surfaced as empty strings — server returns 400 with
   // Vietnamese fieldErrors which are passed through as-is.
   const status = str(formData, 'status');
+  // Repeated `leadDays` entries (the chip control) need their own parser:
+  // `str()`/`num()` only see one scalar value. Absent stays absent so Go
+  // applies its [30, 7] create default or keeps the stored list on update.
+  const leadDays = leadDaysFromFormData(formData);
   // Resale pair: both keys are ALWAYS sent, so "no sale" is an explicit
   // `{soldAt: null, soldPrice: null}` (the server's clear signal) rather than
   // one key silently going missing and tripping the pair rule. `num()` keeps a
@@ -69,7 +74,19 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     warrantyAddress: str(formData, 'warrantyAddress') ?? null,
     warrantyPhone: str(formData, 'warrantyPhone') ?? null,
     warrantyNotes: str(formData, 'warrantyNotes') ?? null,
+    ...(leadDays === undefined ? {} : { leadDays }),
   };
+}
+
+// Zero selected days is the one invalid payload the client refuses to send
+// (Go's 400 remains the authority for everything else). The message is a
+// catalog key, so it renders in the active language exactly like the server's
+// own `fieldErrors.leadDays`.
+async function leadDaysFormState(input: DeviceInput): Promise<DeviceFormState | null> {
+  const key = leadDaysError(input.leadDays);
+  if (!key) return null;
+  const { t } = await getI18n();
+  return { ok: false, errors: { leadDays: [t(key)] } };
 }
 
 export async function createDevice(
@@ -77,6 +94,8 @@ export async function createDevice(
   formData: FormData,
 ): Promise<DeviceFormState> {
   const input = buildDeviceInput(formData);
+  const invalid = await leadDaysFormState(input);
+  if (invalid) return invalid;
   const fromWishlistId = str(formData, 'fromWishlistId') ?? null;
 
   const res = await api.devices.create({ ...input, fromWishlistId });
@@ -100,6 +119,8 @@ export async function updateDevice(
   formData: FormData,
 ): Promise<DeviceFormState> {
   const input = buildDeviceInput(formData);
+  const invalid = await leadDaysFormState(input);
+  if (invalid) return invalid;
   const res = await api.devices.update(id, input);
   if (!res.ok) return toFormState(res);
 

@@ -11,7 +11,7 @@ import (
 
 const searchDevices = `-- name: SearchDevices :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 FROM "Device"
 WHERE "userId" = $1::text
   AND (
@@ -85,6 +85,7 @@ func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([
 			&i.ReturnWindowDays,
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
+			&i.LeadDays,
 		); err != nil {
 			return nil, err
 		}
@@ -97,7 +98,7 @@ func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([
 }
 
 const searchSubscriptions = `-- name: SearchSubscriptions :many
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
 FROM "Subscription"
 WHERE "userId" = $1::text
   AND (
@@ -148,6 +149,8 @@ func (q *Queries) SearchSubscriptions(ctx context.Context, arg SearchSubscriptio
 			&i.LastNotifiedRenewalAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LeadDays,
+			&i.LastNotifiedRenewalLeadDay,
 		); err != nil {
 			return nil, err
 		}

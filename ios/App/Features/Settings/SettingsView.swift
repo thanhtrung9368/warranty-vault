@@ -163,7 +163,7 @@ struct SettingsView: View {
 
                 // Notifications
                 WVSectionHeader(L.t("Nhắc nhở"))
-                WVSectionFooter(L.t("Khi gói bảo hành sắp hết, hệ thống đẩy thông báo tự động trước 7 ngày và 30 ngày. Mốc nhắc do máy chủ quy định — ứng dụng chưa hỗ trợ tuỳ chỉnh."))
+                WVSectionFooter(L.t("Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày."))
                 notificationsSection
 
                 // Sign-in sessions (who can reach the data)
@@ -460,18 +460,17 @@ struct SettingsView: View {
 
             // Reminder lead time.
             //
-            // This used to be a picker writing to `@State` only: nothing was
-            // saved, nothing was sent, and the value reset on every launch. The
-            // push fanout is a server-side cron job on a *fixed* schedule
-            // (`api/internal/cron/run.go` fires at 7 and 30 days before expiry)
-            // and the API has no per-user lead-time field, so a PATCH-able
-            // value does not exist. Rather than keep a control that pretends to
-            // work, the row now states the real schedule — and stays a
-            // non-interactive row (no chevron, no action).
+            // This row used to say the schedule was fixed server-side at 7 and
+            // 30 days because the API had no field to customise. It does now:
+            // `leadDays` lives on each Device and Subscription, so the schedule
+            // is edited in that item's form, not globally. The row therefore
+            // points at the per-item editor instead of stating a fixed
+            // schedule; it stays non-interactive (no chevron, no action)
+            // because there is no global value to change here.
             WVRow(icon: "clock", iconColor: WVColor.purple,
                   title: L.t("Nhắc trước"),
-                  subtitle: L.t("Hệ thống tự gửi, chưa tuỳ chỉnh được"),
-                  detail: L.t("7 & 30 ngày"))
+                  subtitle: L.t("Theo từng thiết bị / gói"),
+                  detail: L.t("Tuỳ chỉnh"))
         }
     }
 

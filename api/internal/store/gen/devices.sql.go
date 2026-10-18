@@ -112,16 +112,18 @@ INSERT INTO "Device" (
     "soldPrice",
     "returnWindowDays",
     "receivedAt",
+    "leadDays",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     COALESCE($16::text, 'ACTIVE'),
     $11, $12, $13, $14, $15,
+    COALESCE($17::int[], ARRAY[30, 7]::int[]),
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 `
 
 type CreateDeviceParams struct {
@@ -141,6 +143,7 @@ type CreateDeviceParams struct {
 	ReturnWindowDays *int32           `json:"returnWindowDays"`
 	ReceivedAt       pgtype.Timestamp `json:"receivedAt"`
 	Status           *string          `json:"status"`
+	LeadDays         []int32          `json:"leadDays"`
 }
 
 func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Device, error) {
@@ -161,6 +164,7 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.ReturnWindowDays,
 		arg.ReceivedAt,
 		arg.Status,
+		arg.LeadDays,
 	)
 	var i Device
 	err := row.Scan(
@@ -183,6 +187,7 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.ReturnWindowDays,
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
+		&i.LeadDays,
 	)
 	return i, err
 }
@@ -208,7 +213,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -242,12 +247,13 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.ReturnWindowDays,
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
+		&i.LeadDays,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -278,13 +284,49 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.ReturnWindowDays,
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
+		&i.LeadDays,
 	)
 	return i, err
 }
 
+const listActiveDeviceLeadDays = `-- name: ListActiveDeviceLeadDays :many
+SELECT DISTINCT unnest("leadDays")::int AS lead_day
+FROM "Device"
+WHERE status = 'ACTIVE'
+ORDER BY lead_day DESC
+`
+
+// Cron support (migration 0015). One row per DISTINCT lead day that any active
+// device is currently asking for, sorted newest-first. The sweep runs one
+// day-window query per value, so the number of queries is the number of distinct
+// user choices (at most 5 per device, and typically a handful globally) rather
+// than 366.
+//
+// `unnest` inside DISTINCT is what keeps this cheap: it does not care how many
+// devices chose the same number.
+func (q *Queries) ListActiveDeviceLeadDays(ctx context.Context) ([]int32, error) {
+	rows, err := q.db.Query(ctx, listActiveDeviceLeadDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var lead_day int32
+		if err := rows.Scan(&lead_day); err != nil {
+			return nil, err
+		}
+		items = append(items, lead_day)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -368,6 +410,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.ReturnWindowDays,
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
+			&i.LeadDays,
 		); err != nil {
 			return nil, err
 		}
@@ -380,7 +423,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -416,6 +459,7 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.ReturnWindowDays,
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
+			&i.LeadDays,
 		); err != nil {
 			return nil, err
 		}
@@ -443,9 +487,10 @@ UPDATE "Device" SET
     "soldPrice" = $14,
     "returnWindowDays" = $15,
     "receivedAt" = $16,
+    "leadDays" = $17,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 `
 
 type UpdateDeviceParams struct {
@@ -465,6 +510,7 @@ type UpdateDeviceParams struct {
 	SoldPrice        *int32           `json:"soldPrice"`
 	ReturnWindowDays *int32           `json:"returnWindowDays"`
 	ReceivedAt       pgtype.Timestamp `json:"receivedAt"`
+	LeadDays         []int32          `json:"leadDays"`
 }
 
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
@@ -485,6 +531,7 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.SoldPrice,
 		arg.ReturnWindowDays,
 		arg.ReceivedAt,
+		arg.LeadDays,
 	)
 	var i Device
 	err := row.Scan(
@@ -507,6 +554,7 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.ReturnWindowDays,
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
+		&i.LeadDays,
 	)
 	return i, err
 }

@@ -31,16 +31,25 @@ struct SubscriptionFormView: View {
     @State private var notes:         String
     @State private var subStatus:     SubscriptionStatus
 
+    /// Reminder lead times before renewal, in days. Kept normalised descending
+    /// by `LeadDaysRules`; a create form starts from the server's `[30, 7]`
+    /// default. Empty is a visible invalid state — the API rejects `[]`.
+    @State private var leadDays:     [Int]
+
     // UI state
     @State private var showCatPicker   = false
     @State private var showCyclePicker = false
     @State private var showDiscard     = false
     @State private var isBusy          = false
     @State private var topError: String?
+    /// Verbatim `fieldErrors.leadDays` from the server, shown under the editor.
+    @State private var leadDaysError: String?
 
     private var isEditing: Bool { subscription != nil }
     private var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty && (price ?? 0) > 0
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+            && (price ?? 0) > 0
+            && LeadDaysRules.isValid(LeadDaysRules.normalize(leadDays))
     }
 
     // MARK: - Init
@@ -68,6 +77,12 @@ struct SubscriptionFormView: View {
         _cancelUrl     = State(initialValue: sub?.cancelUrl ?? "")
         _notes         = State(initialValue: sub?.notes ?? "")
         _subStatus     = State(initialValue: sub?.status ?? .ACTIVE)
+        // Older payloads have no `leadDays`; the server's create default is
+        // `[30, 7]`, and `normalize` makes any returned list canonical before
+        // the first frame draws it.
+        _leadDays      = State(initialValue: LeadDaysRules.normalize(
+            sub?.leadDays ?? LeadDaysRules.defaults
+        ))
     }
 
     // MARK: - Body
@@ -187,6 +202,12 @@ struct SubscriptionFormView: View {
                         }
                     }
                 }
+
+                // Reminder lead times before the renewal date. Same editor and
+                // same `LeadDaysRules` as the device form; the schedule is
+                // per-subscription, not a global preference.
+                LeadDaysSection(days: $leadDays, error: leadDaysError)
+                    .onChange(of: leadDays) { _, _ in leadDaysError = nil }
 
                 // Account
                 WVSectionHeader(L.t("Tài khoản"))
@@ -308,8 +329,17 @@ struct SubscriptionFormView: View {
     // MARK: - Submit
 
     private func submit() async {
-        topError = nil; isBusy = true
+        topError = nil; leadDaysError = nil; isBusy = true
         defer { isBusy = false }
+
+        // Empty is the one locally reachable invalid schedule; the toolbar can
+        // still fire while the button is disabled, and the server answers `[]`
+        // with 400 `fieldErrors.leadDays`.
+        guard let normalizedLeadDays = LeadDaysRules.wireValue(leadDays) else {
+            topError = L.t("Chọn ít nhất 1 mốc nhắc")
+            return
+        }
+
         // Both dates come from a `DatePicker`, so they are zoned instants; the
         // wire wants the bare calendar day *the picker drew*. `WireDay` writes it
         // in the device's own zone — a UTC- or Vietnam-pinned format saves the day
@@ -333,6 +363,7 @@ struct SubscriptionFormView: View {
         input.manageUrl     = manageUrl.isEmpty ? nil : manageUrl
         input.cancelUrl     = cancelUrl.isEmpty ? nil : cancelUrl
         input.notes         = notes.isEmpty ? nil : notes
+        input.leadDays      = normalizedLeadDays
 
         do {
             if let subscription {
@@ -343,8 +374,11 @@ struct SubscriptionFormView: View {
                 toast.show(L.t("Đã thêm gói 🎉"))
             }
             dismiss()
+        } catch let err as APIError {
+            topError = err.localizedDescription
+            leadDaysError = err.fieldErrors["leadDays"]?.first
         } catch {
-            topError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            topError = error.localizedDescription
         }
     }
 }

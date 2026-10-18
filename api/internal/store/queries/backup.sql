@@ -120,14 +120,20 @@ WHERE "userId" = $1;
 -- told about, for the same reason BackupInsertReminder carries lastNotifiedAt. A
 -- payload that predates them decodes to NULL = "unknown window", which is the
 -- correct reading, so the payload version stays at 5/6 (the format is additive).
+--
+-- leadDays (migration 0015) is optional for the same reason and defaults exactly
+-- like the column: an older payload has no value, and [30, 7] is the behaviour
+-- that payload was written under. Carrying it stops a restore from silently
+-- resetting every device's reminder schedule to the default.
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
     "soldAt", "soldPrice", "returnWindowDays", "receivedAt",
-    "returnWindowNotifiedAt", "createdAt", "updatedAt"
+    "returnWindowNotifiedAt", "createdAt", "updatedAt", "leadDays"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19
+    $17, $18, $19,
+    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7])
 );
 
 -- name: BackupInsertWarranty :exec
@@ -141,10 +147,15 @@ INSERT INTO "Warranty" (
 -- name: BackupInsertReminder :exec
 -- "lastNotifiedAt" is the cron dedup marker (migration 0002): dropping it on
 -- restore makes the next cron run re-notify warranties the user already saw.
+-- "lastNotifiedLeadDay" is the other half of the per-lead-day key (migration
+-- 0015); carrying it keeps a restore from re-firing the SAME lead day on a
+-- same-day restore. A payload that predates it decodes to NULL, which the query
+-- treats as "handled that day" rather than "never notified".
 INSERT INTO "Reminder" (
-    id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt"
+    id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt",
+    "lastNotifiedLeadDay"
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 );
 
 -- name: BackupInsertAttachment :exec
@@ -176,14 +187,21 @@ INSERT INTO "WishlistPrice" (
 -- name: BackupInsertSubscription :exec
 -- "lastNotifiedRenewalAt" is the cron renewal-warning dedup marker; like the
 -- reminder marker it must survive a restore or the user gets re-notified.
+-- "lastNotifiedRenewalLeadDay" and "leadDays" are the migration-0015 pair:
+-- carrying the lead day keeps a same-day restore from re-firing the reminder the
+-- user already saw, and carrying leadDays keeps the user's chosen schedule.
+-- Older payloads decode to NULL; leadDays then falls back to [30, 7], the
+-- schedule that payload was written under.
 INSERT INTO "Subscription" (
     id, "userId", name, category, brand, plan, "billingCycle",
     "intervalDays", price, currency, "startedAt", "renewalDate",
     "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl",
-    "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt"
+    "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt",
+    "lastNotifiedRenewalLeadDay", "leadDays"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19, $20, $21, $22
+    $17, $18, $19, $20, $21, $22, $23,
+    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7])
 );
 
 -- name: BackupInsertPayment :exec

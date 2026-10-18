@@ -196,11 +196,20 @@ WHERE d."userId" = $1
 -- ─── Cron: warranty bucket fan-out ────────────────────────────────────────
 
 -- name: ListWarrantiesInWindow :many
--- For cron: every ACTIVE-device warranty whose endDate is in [start, end),
--- skipping warranties with a dismissed Reminder row OR a Reminder already
--- stamped lastNotifiedAt today (idempotency — prevents a same-day re-run
--- from firing the push again). Returns userId so the caller can fan out
--- push notifications.
+-- For cron: every ACTIVE-device warranty whose endDate is in [start, end) AND
+-- whose device's "leadDays" contains `leadDay`. The cron calls this once per
+-- DISTINCT lead day (queries/devices.sql::ListActiveDeviceLeadDays), so a device
+-- with [30, 7] is examined once for the 30-day window and once for the 7-day one,
+-- and fires one push per due lead day.
+--
+-- Idempotency (migration 0015): the key is
+--   (warrantyId, leadDay, calendar day)
+-- stored as (Reminder.lastNotifiedAt::date, Reminder.lastNotifiedLeadDay). A row
+-- is skipped only when the SAME lead day was already stamped today; another lead
+-- day in the same day is still allowed, which is precisely what the old
+-- per-warranty-per-day key could not express. `lastNotifiedLeadDay IS NULL`
+-- means the row was stamped by the pre-0015 code: treat it as suppressing all
+-- lead days for the rest of that day, so a deploy-day re-run cannot duplicate.
 SELECT
     w.*,
     d."userId"  AS user_id,
@@ -208,6 +217,7 @@ SELECT
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d.status = 'ACTIVE'
+  AND sqlc.arg('leadDay')::int = ANY(d."leadDays")
   AND w."endDate" >= $1
   AND w."endDate" <  $2
   AND NOT EXISTS (
@@ -219,21 +229,24 @@ WHERE d.status = 'ACTIVE'
       WHERE r."warrantyId" = w.id
         AND r."lastNotifiedAt" IS NOT NULL
         AND r."lastNotifiedAt"::date >= CURRENT_DATE
+        AND (r."lastNotifiedLeadDay" IS NULL
+             OR r."lastNotifiedLeadDay" = sqlc.arg('leadDay')::int)
   );
 
 -- name: StampWarrantyNotified :exec
 -- Called by cron after a successful warranty fan-out. If a Reminder row
 -- already exists for the warranty (any row, including a non-dismissed one),
--- bumps its lastNotifiedAt to NOW(). Otherwise inserts a new non-dismissed
--- Reminder stamped with NOW(). This keeps the same-day idempotency check
--- in ListWarrantiesInWindow working even when the user has never dismissed
--- a reminder for this warranty.
+-- bumps its lastNotifiedAt and lastNotifiedLeadDay. Otherwise inserts a new
+-- non-dismissed Reminder stamped with both. Keeping the lead day here is what
+-- lets the same-day idempotency check in ListWarrantiesInWindow distinguish the
+-- 30-day push from the 7-day one (migration 0015).
 WITH updated AS (
     UPDATE "Reminder"
-    SET "lastNotifiedAt" = NOW()
+    SET "lastNotifiedAt" = NOW(),
+        "lastNotifiedLeadDay" = sqlc.arg('leadDay')::int
     WHERE "warrantyId" = $1
     RETURNING id
 )
-INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt")
-SELECT $2, $1, false, NOW(), NOW()
+INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "lastNotifiedAt", "lastNotifiedLeadDay", "createdAt")
+SELECT $2, $1, false, NOW(), sqlc.arg('leadDay')::int, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM updated);

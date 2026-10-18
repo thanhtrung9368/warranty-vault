@@ -77,6 +77,10 @@ public final class SubscriptionsStore: ObservableObject {
         input.manageUrl = current.manageUrl
         input.cancelUrl = current.cancelUrl
         input.notes = current.notes
+        // A status change must not touch the reminder schedule. The contract
+        // says an absent `leadDays` is "unchanged", but carrying the loaded
+        // value keeps this full-replacement PATCH honest about its intent.
+        input.leadDays = current.leadDays
         try await update(id: id, input)
     }
 }

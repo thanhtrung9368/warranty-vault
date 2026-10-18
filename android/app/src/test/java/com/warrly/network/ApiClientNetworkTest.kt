@@ -390,6 +390,72 @@ class ApiClientNetworkTest {
         assertTrue("0 is not absent: $zeroBody", zeroBody.contains("\"returnWindowDays\":0"))
     }
 
+    // ---- reminder lead days (Device.leadDays / Subscription.leadDays) ----
+
+    /**
+     * The device sheet must send the schedule the user picked, not lean on the
+     * server default: on an edit, omitting the key means "unchanged", so a
+     * missing pass-through would silently keep the old 30/7 schedule forever.
+     */
+    @Test
+    fun createDevice_sendsTheChosenReminderSchedule() = runBlocking {
+        enqueueJson(
+            """
+                {
+                  "device": {
+                    "id": "dev-1", "name": "Máy lọc nước", "category": "APPLIANCE",
+                    "purchaseDate": "2026-03-01", "leadDays": [14, 3]
+                  },
+                  "warnings": []
+                }
+            """.trimIndent(),
+            code = 201,
+        )
+
+        val res = api().createDevice(
+            DeviceInput(
+                name = "Máy lọc nước",
+                category = "APPLIANCE",
+                purchaseDate = "2026-03-01",
+                leadDays = listOf(14, 3),
+            ),
+        )
+
+        assertEquals(listOf(14, 3), res.device.leadDays)
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue("the chosen schedule must be in the body: $body", body.contains("\"leadDays\":[14,3]"))
+    }
+
+    @Test
+    fun updateSubscription_sendsTheChosenReminderSchedule() = runBlocking {
+        enqueueJson(
+            """
+                {
+                  "subscription": {
+                    "id": "sub-1", "name": "Netflix", "startedAt": "2026-03-01",
+                    "leadDays": [60, 7]
+                  }
+                }
+            """.trimIndent(),
+        )
+
+        val res = api().updateSubscription(
+            "sub-1",
+            SubscriptionInput(
+                name = "Netflix",
+                startedAt = "2026-03-01",
+                leadDays = listOf(60, 7),
+            ),
+        )
+
+        assertEquals(listOf(60, 7), res.subscription.leadDays)
+        val recorded = server.takeRequest()
+        assertEquals("PATCH", recorded.method)
+        assertEquals("/api/v1/subscriptions/sub-1", recorded.path)
+        val body = recorded.body.readUtf8()
+        assertTrue("the chosen schedule must be in the body: $body", body.contains("\"leadDays\":[60,7]"))
+    }
+
     // ---- "Việc cần xử lý" (GET /api/v1/actions) ----
 
     @Test

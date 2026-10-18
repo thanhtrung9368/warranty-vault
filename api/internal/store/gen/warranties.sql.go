@@ -56,7 +56,7 @@ func (q *Queries) CountWarrantiesByDevice(ctx context.Context, deviceid string) 
 const createDismissedReminder = `-- name: CreateDismissedReminder :one
 INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "createdAt")
 VALUES ($1, $2, true, NOW())
-RETURNING id, "warrantyId", "isDismissed", "createdAt", "lastNotifiedAt"
+RETURNING id, "warrantyId", "isDismissed", "createdAt", "lastNotifiedAt", "lastNotifiedLeadDay"
 `
 
 type CreateDismissedReminderParams struct {
@@ -74,6 +74,7 @@ func (q *Queries) CreateDismissedReminder(ctx context.Context, arg CreateDismiss
 		&i.IsDismissed,
 		&i.CreatedAt,
 		&i.LastNotifiedAt,
+		&i.LastNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -178,7 +179,7 @@ func (q *Queries) DismissReminderByID(ctx context.Context, id string) error {
 
 const getActiveReminderForWarranty = `-- name: GetActiveReminderForWarranty :one
 
-SELECT id, "warrantyId", "isDismissed", "createdAt", "lastNotifiedAt"
+SELECT id, "warrantyId", "isDismissed", "createdAt", "lastNotifiedAt", "lastNotifiedLeadDay"
 FROM "Reminder"
 WHERE "warrantyId" = $1 AND "isDismissed" = false
 ORDER BY "createdAt" DESC
@@ -196,6 +197,7 @@ func (q *Queries) GetActiveReminderForWarranty(ctx context.Context, warrantyid s
 		&i.IsDismissed,
 		&i.CreatedAt,
 		&i.LastNotifiedAt,
+		&i.LastNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -542,6 +544,7 @@ SELECT
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d.status = 'ACTIVE'
+  AND $3::int = ANY(d."leadDays")
   AND w."endDate" >= $1
   AND w."endDate" <  $2
   AND NOT EXISTS (
@@ -553,12 +556,15 @@ WHERE d.status = 'ACTIVE'
       WHERE r."warrantyId" = w.id
         AND r."lastNotifiedAt" IS NOT NULL
         AND r."lastNotifiedAt"::date >= CURRENT_DATE
+        AND (r."lastNotifiedLeadDay" IS NULL
+             OR r."lastNotifiedLeadDay" = $3::int)
   )
 `
 
 type ListWarrantiesInWindowParams struct {
 	EndDate   pgtype.Timestamp `json:"endDate"`
 	EndDate_2 pgtype.Timestamp `json:"endDate_2"`
+	LeadDay   int32            `json:"leadDay"`
 }
 
 type ListWarrantiesInWindowRow struct {
@@ -580,13 +586,24 @@ type ListWarrantiesInWindowRow struct {
 }
 
 // ─── Cron: warranty bucket fan-out ────────────────────────────────────────
-// For cron: every ACTIVE-device warranty whose endDate is in [start, end),
-// skipping warranties with a dismissed Reminder row OR a Reminder already
-// stamped lastNotifiedAt today (idempotency — prevents a same-day re-run
-// from firing the push again). Returns userId so the caller can fan out
-// push notifications.
+// For cron: every ACTIVE-device warranty whose endDate is in [start, end) AND
+// whose device's "leadDays" contains `leadDay`. The cron calls this once per
+// DISTINCT lead day (queries/devices.sql::ListActiveDeviceLeadDays), so a device
+// with [30, 7] is examined once for the 30-day window and once for the 7-day one,
+// and fires one push per due lead day.
+//
+// Idempotency (migration 0015): the key is
+//
+//	(warrantyId, leadDay, calendar day)
+//
+// stored as (Reminder.lastNotifiedAt::date, Reminder.lastNotifiedLeadDay). A row
+// is skipped only when the SAME lead day was already stamped today; another lead
+// day in the same day is still allowed, which is precisely what the old
+// per-warranty-per-day key could not express. `lastNotifiedLeadDay IS NULL`
+// means the row was stamped by the pre-0015 code: treat it as suppressing all
+// lead days for the rest of that day, so a deploy-day re-run cannot duplicate.
 func (q *Queries) ListWarrantiesInWindow(ctx context.Context, arg ListWarrantiesInWindowParams) ([]ListWarrantiesInWindowRow, error) {
-	rows, err := q.db.Query(ctx, listWarrantiesInWindow, arg.EndDate, arg.EndDate_2)
+	rows, err := q.db.Query(ctx, listWarrantiesInWindow, arg.EndDate, arg.EndDate_2, arg.LeadDay)
 	if err != nil {
 		return nil, err
 	}
@@ -638,28 +655,30 @@ func (q *Queries) RestoreRemindersForWarranty(ctx context.Context, warrantyid st
 const stampWarrantyNotified = `-- name: StampWarrantyNotified :exec
 WITH updated AS (
     UPDATE "Reminder"
-    SET "lastNotifiedAt" = NOW()
+    SET "lastNotifiedAt" = NOW(),
+        "lastNotifiedLeadDay" = $3::int
     WHERE "warrantyId" = $1
     RETURNING id
 )
-INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt")
-SELECT $2, $1, false, NOW(), NOW()
+INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "lastNotifiedAt", "lastNotifiedLeadDay", "createdAt")
+SELECT $2, $1, false, NOW(), $3::int, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM updated)
 `
 
 type StampWarrantyNotifiedParams struct {
 	WarrantyId string `json:"warrantyId"`
 	ID         string `json:"id"`
+	LeadDay    int32  `json:"leadDay"`
 }
 
 // Called by cron after a successful warranty fan-out. If a Reminder row
 // already exists for the warranty (any row, including a non-dismissed one),
-// bumps its lastNotifiedAt to NOW(). Otherwise inserts a new non-dismissed
-// Reminder stamped with NOW(). This keeps the same-day idempotency check
-// in ListWarrantiesInWindow working even when the user has never dismissed
-// a reminder for this warranty.
+// bumps its lastNotifiedAt and lastNotifiedLeadDay. Otherwise inserts a new
+// non-dismissed Reminder stamped with both. Keeping the lead day here is what
+// lets the same-day idempotency check in ListWarrantiesInWindow distinguish the
+// 30-day push from the 7-day one (migration 0015).
 func (q *Queries) StampWarrantyNotified(ctx context.Context, arg StampWarrantyNotifiedParams) error {
-	_, err := q.db.Exec(ctx, stampWarrantyNotified, arg.WarrantyId, arg.ID)
+	_, err := q.db.Exec(ctx, stampWarrantyNotified, arg.WarrantyId, arg.ID, arg.LeadDay)
 	return err
 }
 

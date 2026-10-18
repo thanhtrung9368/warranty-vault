@@ -14,7 +14,7 @@ import (
 const listOpenReturnWindows = `-- name: ListOpenReturnWindows :many
 
 SELECT
-    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt",
+    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays",
     (COALESCE(d."receivedAt", d."purchaseDate")
         + (d."returnWindowDays" * INTERVAL '1 day'))::timestamp AS "returnDeadline"
 FROM "Device" d
@@ -52,6 +52,7 @@ type ListOpenReturnWindowsRow struct {
 	ReturnWindowDays       *int32           `json:"returnWindowDays"`
 	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
 	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
+	LeadDays               []int32          `json:"leadDays"`
 	ReturnDeadline         pgtype.Timestamp `json:"returnDeadline"`
 }
 
@@ -107,6 +108,7 @@ func (q *Queries) ListOpenReturnWindows(ctx context.Context, arg ListOpenReturnW
 			&i.ReturnWindowDays,
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
+			&i.LeadDays,
 			&i.ReturnDeadline,
 		); err != nil {
 			return nil, err

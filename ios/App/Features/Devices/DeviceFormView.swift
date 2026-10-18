@@ -36,6 +36,15 @@ struct DeviceFormView: View {
     @State private var status: DeviceStatus
     @State private var notes: String
 
+    /// Reminder lead times for this device's warranties, in days before expiry.
+    ///
+    /// Always kept normalised descending by `LeadDaysRules`; an edit loads the
+    /// stored schedule (or the server's `[30, 7]` default when the payload is
+    /// older than the field) and sends it back on every save. The form refuses
+    /// to submit while the list is empty — the API answers an empty array with
+    /// 400 `fieldErrors.leadDays`.
+    @State private var leadDays: [Int]
+
     /// The exchange / return window, loaded from the device being edited and sent
     /// straight back on every save.
     ///
@@ -116,6 +125,13 @@ struct DeviceFormView: View {
         _warrantyAddress = State(initialValue: "")
         _status = State(initialValue: device?.status ?? .ACTIVE)
         _notes = State(initialValue: device?.notes ?? "")
+        // Load the stored schedule. A payload from before `leadDays` existed
+        // (or a server that has not shipped it yet) has no value, and the
+        // server's own create default is `[30, 7]` — so that is the shape this
+        // form starts from and sends back, already sorted by the rules.
+        _leadDays = State(initialValue: LeadDaysRules.normalize(
+            device?.leadDays ?? LeadDaysRules.defaults
+        ))
         // Load the recorded window once; `submit()` writes it back unchanged.
         _returnWindow = State(initialValue: device.map(DeviceReturnWindow.carried(from:)) ?? .unknown)
         // Same for the sale. `carried` reduces `soldAt` (a Z-less naive-UTC
@@ -135,6 +151,7 @@ struct DeviceFormView: View {
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
+            && LeadDaysRules.isValid(LeadDaysRules.normalize(leadDays))
     }
 
     // MARK: - Resale (derived)
@@ -372,6 +389,14 @@ struct DeviceFormView: View {
                         AutocompleteRow(suggestions: storeSuggestions, text: $purchasePlace)
                     }
                 }
+
+                // Reminder lead times ("Nhắc trước"). The cron used to fire at a
+                // fixed 7/30 days; each device now carries its own schedule, in
+                // both create and edit mode. The rules (0...365, dedupe,
+                // descending, 1...5) live in WarrlyKit so they are testable
+                // without a simulator.
+                LeadDaysSection(days: $leadDays, error: fieldErrors["leadDays"]?.first)
+                    .onChange(of: leadDays) { _, _ in fieldErrors["leadDays"] = nil }
 
                 // Default warranty (create mode only)
                 if !isEditing {
@@ -821,6 +846,14 @@ struct DeviceFormView: View {
         isSubmitting = true
         defer { isSubmitting = false }
 
+        // The only locally reachable invalid state: no day selected. The Save
+        // button is disabled for it, but the toolbar can still fire, and the
+        // wire rejects an empty array with 400 `fieldErrors.leadDays`.
+        guard let normalizedLeadDays = LeadDaysRules.wireValue(leadDays) else {
+            topError = L.t("Chọn ít nhất 1 mốc nhắc")
+            return
+        }
+
         // The picker's `Date` is zoned; the wire value is a bare calendar day. It
         // has to be written in the zone the picker drew it in, or a device east of
         // the formatter's pin stores the day *before* the one on screen.
@@ -834,6 +867,10 @@ struct DeviceFormView: View {
         input.purchasePrice = price ?? 0
         input.status = status
         input.notes = notes.isEmpty ? nil : notes
+        // Normalised descending, 1...5 entries, each 0...365. Sent even on an
+        // edit: an absent key is "unchanged" per the contract, but stating the
+        // schedule makes the save's intent explicit.
+        input.leadDays = normalizedLeadDays
 
         // The window is fully replaced by a PATCH, so the values loaded from the
         // device travel back on every save — create included (both are nil there,

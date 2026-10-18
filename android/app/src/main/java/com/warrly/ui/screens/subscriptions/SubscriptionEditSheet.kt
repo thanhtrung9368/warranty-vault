@@ -50,10 +50,15 @@ import com.warrly.R
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
 import com.warrly.network.BillingCycle
+import com.warrly.network.DEFAULT_LEAD_DAYS
 import com.warrly.network.Subscription
 import com.warrly.network.SubscriptionInput
 import com.warrly.network.SubscriptionStatus
+import com.warrly.network.fieldErrors
+import com.warrly.network.leadDaysForRequest
+import com.warrly.network.normalizeLeadDays
 import com.warrly.network.toUserMessage
+import com.warrly.ui.components.LeadDaysPicker
 import com.warrly.ui.components.SheetGroup
 import com.warrly.ui.screens.common.BrandAutocompleteField
 import com.warrly.ui.screens.common.rememberCatalog
@@ -100,10 +105,20 @@ fun SubscriptionEditSheet(
     var manageUrl by remember { mutableStateOf(existing?.manageUrl ?: "") }
     var cancelUrl by remember { mutableStateOf(existing?.cancelUrl ?: "") }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
+    // Reminder schedule (`leadDays`): 1..5 days, each 0..365, sorted descending.
+    // The picker normalises each change. An older server that omits the field
+    // decodes to the fixed 30/7 schedule the cron used, so the UI never claims
+    // "no reminders" and an edit round-trips that schedule instead of erasing it.
+    var leadDays by remember {
+        mutableStateOf(normalizeLeadDays(existing?.leadDays ?: DEFAULT_LEAD_DAYS))
+    }
 
     var submitting by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Per-field 400s; `fieldErrors.leadDays` is shown under the picker instead
+    // of in the generic banner (same split as AddDeviceSheet).
+    var fieldErrors by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     // Deleting a subscription destroys its payment history for good, so it asks
     // first — the same AlertDialog pattern as deleting a device / a warranty.
     // (iOS: `SubscriptionDetailView` → "Xoá gói đăng ký?".)
@@ -198,6 +213,20 @@ fun SubscriptionEditSheet(
                 StatusDropdown(selected = status, onSelected = { status = it })
             }
 
+            // Reminder lead time — how many days before the renewal date each
+            // reminder fires. A separate group so it reads as its own setting,
+            // not another billing field (it is shared with the device form).
+            SheetGroup {
+                LeadDaysPicker(
+                    days = leadDays,
+                    onDaysChange = {
+                        leadDays = it
+                        fieldErrors = fieldErrors - "leadDays"
+                    },
+                    error = fieldErrors["leadDays"]?.firstOrNull(),
+                )
+            }
+
             SheetGroup {
                 OutlinedTextField(
                     value = accountEmail, onValueChange = { accountEmail = it },
@@ -238,7 +267,7 @@ fun SubscriptionEditSheet(
             Button(
                 onClick = {
                     scope.launch {
-                        submitting = true; error = null
+                        submitting = true; error = null; fieldErrors = emptyMap()
                         val input = SubscriptionInput(
                             name = name.trim(),
                             category = category.ifBlank { null },
@@ -258,6 +287,9 @@ fun SubscriptionEditSheet(
                             manageUrl = manageUrl.ifBlank { null },
                             cancelUrl = cancelUrl.ifBlank { null },
                             notes = notes.ifBlank { null },
+                            // Already normalised by the picker; only an empty
+                            // list (which disables Save) omits the key.
+                            leadDays = leadDaysForRequest(leadDays),
                         )
                         try {
                             val res = if (existing != null) {
@@ -267,13 +299,22 @@ fun SubscriptionEditSheet(
                             }
                             onSaved(res.subscription)
                         } catch (e: Exception) {
-                            error = e.toUserMessage(ApiClient.json)
+                            val fe = e.fieldErrors(ApiClient.json)
+                            fieldErrors = fe
+                            // leadDays is rendered under the picker; everything
+                            // else still needs the visible banner.
+                            error = if (fe.isEmpty() || fe.keys.any { it != "leadDays" }) {
+                                e.toUserMessage(ApiClient.json)
+                            } else {
+                                null
+                            }
                         } finally {
                             submitting = false
                         }
                     }
                 },
-                enabled = name.isNotBlank() && startedAt.isNotBlank() && !submitting,
+                enabled = name.isNotBlank() && startedAt.isNotBlank() &&
+                    leadDays.isNotEmpty() && !submitting,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,

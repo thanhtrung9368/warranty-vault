@@ -68,6 +68,7 @@ import com.warrly.network.Payment
 import com.warrly.network.PaymentInput
 import com.warrly.network.Subscription
 import com.warrly.network.toUserMessage
+import com.warrly.ui.components.leadDaysValue
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -355,6 +356,12 @@ private fun SummaryCard(sub: Subscription) {
             )
             DetailRow(stringResource(R.string.devdetail_starts), sub.startedAt.take(10))
             sub.renewalDate?.let { DetailRow(stringResource(R.string.subs_renew_2), it.take(10)) }
+            // Reminder schedule (`leadDays`): "Nhắc trước · 30 và 7 ngày". The
+            // model defaults to the server's [30, 7] when the payload omits it,
+            // so an older server never renders an empty schedule.
+            leadDaysValue(s, sub.leadDays)?.let { schedule ->
+                DetailRow(stringResource(R.string.lead_days_label), schedule)
+            }
             DetailRow("Auto-renew", if (sub.autoRenew) stringResource(R.string.subs_yes) else stringResource(R.string.subs_no))
             if (!sub.accountEmail.isNullOrBlank()) {
                 DetailRow(stringResource(R.string.subs_account), sub.accountEmail)

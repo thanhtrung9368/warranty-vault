@@ -71,6 +71,15 @@ struct DeviceDetailView: View {
         return nil
     }
 
+    /// The reminder schedule as a read-only trailing value, or `nil` when the
+    /// payload has no `leadDays` (an older read, or a server that has not
+    /// shipped the field yet). The row is hidden rather than showing "30/7" —
+    /// this screen must not claim a schedule it does not know.
+    private var leadDaysDisplay: String? {
+        guard let days = currentDevice.leadDays, !days.isEmpty else { return nil }
+        return LeadDaysRules.dayListText(days)
+    }
+
     /// The recorded sale as **read-only** rows, or `nil` when the device was never
     /// sold — an unsold device shows no empty money rows (the web renders its
     /// "Bán lại" card under exactly the same condition, Android its rows).
@@ -135,6 +144,19 @@ struct DeviceDetailView: View {
                     WVRow(icon: "hash", iconColor: WVColor.blue,
                           title: "Serial / IMEI",
                           detail: currentDevice.serialNumber ?? "—")
+                }
+
+                // Reminder lead times ("Nhắc trước"). Per-device since the
+                // `leadDays` field landed; rendered as "Nhắc trước 30 và 7 ngày"
+                // in Vietnamese (or "Reminds you 30 and 7 days before" in English).
+                // Read-only here — the schedule is edited in the device form.
+                if let leadDaysDisplay {
+                    WVSectionHeader(L.t("Nhắc nhở"))
+                    WVGroup {
+                        WVRow(icon: "clock", iconColor: WVColor.purple,
+                              title: L.t("Nhắc trước"),
+                              detail: leadDaysDisplay)
+                    }
                 }
 
                 // Resale ("Bán lại", migration 0006). Read-only here; the pair is
@@ -460,6 +482,11 @@ struct DeviceDetailView: View {
         input.purchasePrice = d.purchasePrice
         input.status = status
         input.notes = d.notes
+        // A status tap is not an edit to the reminder schedule. The contract
+        // already treats an absent `leadDays` as "unchanged", but this screen
+        // sends what it loaded so a future server change cannot turn a status
+        // tap into a silent reset to the 7/30 default.
+        input.leadDays = d.leadDays
         // A status change is still a FULL replacement of the device row, so the
         // recorded exchange window has to travel with it. Omitting it here would
         // erase a window the user recorded elsewhere just because they tapped

@@ -307,15 +307,45 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		_ = g.Wait()
 	}
 
-	// ─── 1. Warranty expiry notices (7d / 30d) ─────────────────────────────
-	for _, days := range []int{7, 30} {
-		// TS uses dayWindow(bucket.days - 1) — the warranty endDate column is
-		// midnight-of-day, so a bucket "7 days from now" matches rows whose
-		// endDate falls in [now+6 00:00, now+7 00:00). Mirror that exactly.
-		start, end := dayWindow(now, days-1)
+	// ─── 1. Warranty expiry notices (one per device lead day) ──────────────
+	//
+	// Migration 0015 replaced the two hard-coded buckets (7 and 30) with the
+	// per-device "leadDays". The sweep therefore runs once per DISTINCT lead day
+	// anybody is asking for, and each run matches only warranties whose device
+	// contains that value. A device with the default [30, 7] is examined in both
+	// runs and fires on the day each window opens.
+	//
+	// The old inclusive convention is preserved exactly for every positive
+	// milestone: a "7-day" notice matches endDate in [now+6 00:00, now+7 00:00),
+	// because the warranty column is midnight-of-day and the product has always
+	// counted today as day 1. That is what makes the default [30, 7]
+	// byte-for-byte the old schedule.
+	//
+	// 0 is the one special case: the contract allows it and a user who picks 0
+	// means "on the expiry day", which is dayWindow(now, 0). Applying L-1 to it
+	// would put it on the day AFTER expiry — the opposite of what the number
+	// says. This deliberately overlaps with L=1 (which also lands on the expiry
+	// day under the inclusive convention); they are two different lead days and
+	// the per-lead-day idempotency key keeps them apart.
+	//
+	// A value LARGER than the remaining days is simply not in its window (the
+	// window is in the past), so it never fires retroactively. Neither does a
+	// smaller one fire early: each lead day has exactly one calendar day.
+	warrantyLeadDays, err := q.ListActiveDeviceLeadDays(ctx)
+	if err != nil {
+		return stats, fmt.Errorf("list active device lead days: %w", err)
+	}
+	for _, leadDay := range warrantyLeadDays {
+		days := int(leadDay)
+		windowDays := days - 1
+		if days == 0 {
+			windowDays = 0
+		}
+		start, end := dayWindow(now, windowDays)
 		rows, err := q.ListWarrantiesInWindow(ctx, store.ListWarrantiesInWindowParams{
 			EndDate:   pgtype.Timestamp{Time: start, Valid: true},
 			EndDate_2: pgtype.Timestamp{Time: end, Valid: true},
+			LeadDay:   leadDay,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list warranties in window (%dd): %w", days, err)
@@ -351,15 +381,18 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			dispatch(w.UserID, payload, "warranty",
 				"warranty", w.ID, "device", w.DeviceId, "days", days)
 
-			// Stamp Reminder.lastNotifiedAt so a 2nd cron run on the same day
-			// is filtered out by ListWarrantiesInWindow. If no Reminder row
+			// Stamp the per-lead-day idempotency marker. If no Reminder row
 			// exists for this warranty yet, the query inserts one with
 			// isDismissed=false. Dismissed reminders are still filtered by the
 			// query's other NOT EXISTS clause, so this can't accidentally
 			// re-show a warranty the user already dismissed.
+			//
+			// The lead day is part of the key (migration 0015), so a same-day
+			// stamp for the 30-day push does not suppress the 7-day one.
 			if err := q.StampWarrantyNotified(ctx, store.StampWarrantyNotifiedParams{
 				WarrantyId: w.ID,
 				ID:         uuid.NewString(),
+				LeadDay:    leadDay,
 			}); err != nil {
 				slog.Error("cron: stamp warranty notified", "warranty", w.ID, "err", err)
 			}
@@ -464,12 +497,33 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 4. Subscription renewal warnings (3 / 1 / 0 days) ─────────────────
-	for _, days := range []int{3, 1, 0} {
+	// ─── 4. Subscription renewal warnings (one per subscription lead day) ──
+	//
+	// Same shape as the warranty sweep, but the day mapping is NATURAL: a
+	// subscription's renewalDate is the charge day itself, and the old 3/1/0
+	// buckets already used dayWindow(now, days) — a 0-day warning means TODAY.
+	// leadDays therefore follows that convention on this side (0 = renewal day,
+	// 7 = seven days before) rather than the warranty side's inclusive count.
+	//
+	// These are DIFFERENT subjects with different deadlines: a device warranty
+	// ends on a day, a subscription renews on a day. Keeping each side's
+	// established count is more important than pretending the two are identical.
+	//
+	// NOTE: Subscription also gets the default [30, 7] (migration 0015), so a
+	// subscription that used to warn at 3/1/0 now warns at 30/7. That is the
+	// contract's deliberate default, not a preservation of the old schedule. A
+	// user who wants the old milestones can set leadDays [3, 1, 0].
+	subLeadDays, err := q.ListActiveSubscriptionLeadDays(ctx)
+	if err != nil {
+		return stats, fmt.Errorf("list active subscription lead days: %w", err)
+	}
+	for _, leadDay := range subLeadDays {
+		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		subs, err := q.ListSubscriptionsDueForRenewal(ctx, store.ListSubscriptionsDueForRenewalParams{
 			RenewalDate:   pgtype.Timestamp{Time: start, Valid: true},
 			RenewalDate_2: pgtype.Timestamp{Time: end, Valid: true},
+			LeadDay:       leadDay,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list subs due for renewal (%dd): %w", days, err)
@@ -527,11 +581,15 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			dispatch(s.UserId, payload, "subscription_renewal",
 				"sub", s.ID, "days", days)
 
-			// Stamp lastNotifiedRenewalAt so a 2nd same-day cron run skips this
-			// row in ListSubscriptionsDueForRenewal. Cron firing across the 3
-			// different timing buckets (3/1/0d) doesn't collide because a given
-			// sub's renewalDate only matches one bucket per run.
-			if err := q.StampSubscriptionRenewalNotified(ctx, s.ID); err != nil {
+			// Stamp the per-lead-day idempotency marker (migration 0015). The
+			// old key was per-subscription-per-day, which would have let the
+			// 30-day push suppress the 7-day one on a compressed test clock. The
+			// query now skips a row only when the SAME lead day was stamped
+			// today.
+			if err := q.StampSubscriptionRenewalNotified(ctx, store.StampSubscriptionRenewalNotifiedParams{
+				ID:      s.ID,
+				LeadDay: leadDay,
+			}); err != nil {
 				slog.Error("cron: stamp subscription renewal notified",
 					"sub", s.ID, "err", err)
 			}

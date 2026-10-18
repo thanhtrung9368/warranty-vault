@@ -71,6 +71,11 @@ type DeviceInput struct {
 	// the window without the delivery date, or vice versa.
 	ReturnWindowDays *int32  `json:"returnWindowDays,omitempty"`
 	ReceivedAt       *string `json:"receivedAt,omitempty"` // YYYY-MM-DD or RFC3339
+	// LeadDays is the per-device reminder schedule (migration 0015): one push per
+	// milestone, fired that many days before a Warranty end date. nil (absent or
+	// JSON null) means "use the create default / keep the stored value on
+	// update"; an empty array is a validation error, not "no reminders".
+	LeadDays         []int32 `json:"leadDays,omitempty"`
 	WarrantyMonths   int32   `json:"warrantyMonths"`
 	WarrantyProvider *string `json:"warrantyProvider,omitempty"`
 	WarrantyAddress  *string `json:"warrantyAddress,omitempty"`
@@ -226,6 +231,16 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 		(*in.ReturnWindowDays < ReturnWindowDaysMin || *in.ReturnWindowDays > ReturnWindowDaysMax) {
 		fieldErrors["returnWindowDays"] = []string{
 			i18n.T(ctx, "Số ngày đổi trả phải từ %d tới %d", ReturnWindowDaysMin, ReturnWindowDaysMax),
+		}
+	}
+	// Reminder schedule (migration 0015). nil is valid and means "absent" — the
+	// create path defaults it to [30, 7], the update path keeps the stored value.
+	// A non-nil slice is validated here and sorted descending for storage.
+	if in.LeadDays != nil {
+		if sorted, msg := normalizeLeadDays(ctx, in.LeadDays); msg != "" {
+			fieldErrors["leadDays"] = []string{msg}
+		} else {
+			in.LeadDays = sorted
 		}
 	}
 	if in.Status == "" {
@@ -476,6 +491,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 
 		ReturnWindowDays: in.ReturnWindowDays,
 		ReceivedAt:       receivedAt,
+		LeadDays:         leadDaysForCreate(in.LeadDays, DefaultDeviceLeadDays),
 	})
 	if err != nil {
 		return store.Device{}, fmt.Errorf("create device: %w", err)
@@ -535,7 +551,10 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	}
 
 	q := store.New(db)
-	if _, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: id, UserId: userID}); err != nil {
+	// The stored row is needed for update semantics that are "leave it alone when
+	// the request omits the field" — leadDays is the first of them.
+	current, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: id, UserId: userID})
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return store.Device{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
@@ -582,6 +601,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 
 		ReturnWindowDays: in.ReturnWindowDays,
 		ReceivedAt:       receivedAt,
+		LeadDays:         leadDaysForUpdate(in.LeadDays, current.LeadDays),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

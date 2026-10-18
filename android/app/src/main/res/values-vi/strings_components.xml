@@ -27,4 +27,17 @@
     <string name="comp_warranty_none">Không có</string>
     <string name="comp_retry">Thử lại</string>
 
+    <!-- ===== Nhắc trước bao nhiêu ngày (LeadDaysPicker.kt, DeviceDetailScreen.kt,
+         SubscriptionDetailScreen.kt). Dùng chung cho thiết bị và gói đăng ký:
+         `leadDays` là lịch nhắc do người dùng chọn. `%1$s` là danh sách ngày đã
+         nối sẵn ("30 và 7") — tiếng Việt chỉ có `other`. ===== -->
+    <string name="lead_days_label">Nhắc trước</string>
+    <string name="lead_days_and">và</string>
+    <plurals name="lead_days_value">
+        <item quantity="other">%1$s ngày</item>
+    </plurals>
+    <string name="lead_days_custom_label">Số ngày khác (0–365)</string>
+    <string name="lead_days_hint">Tối đa 5 mốc. App nhắc trước ngày hết hạn đúng số ngày đã chọn.</string>
+    <string name="lead_days_required">Chọn ít nhất một mốc.</string>
+
 </resources>

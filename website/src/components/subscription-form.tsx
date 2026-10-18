@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { LeadDaysField } from '@/components/lead-days-field';
 import {
   Select,
   SelectTrigger,
@@ -28,6 +29,11 @@ import {
   type BillingCycle,
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
+import {
+  LEAD_DAYS_DEFAULT_SUBSCRIPTION,
+  LEAD_DAYS_REQUIRED_MESSAGE,
+  normalizeLeadDays,
+} from '@/lib/lead-days';
 import {
   createSubscription,
   updateSubscription,
@@ -57,6 +63,8 @@ type Initial = {
   manageUrl?: string | null;
   cancelUrl?: string | null;
   notes?: string | null;
+  // Reminder lead days. Absent (create) starts from the server default [30, 7].
+  leadDays?: number[];
 };
 
 type Catalog = {
@@ -79,6 +87,7 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   price: { label: 'Giá', focusId: 'price', step: 1 },
   startedAt: { label: 'Ngày bắt đầu', focusId: 'startedAt', step: 1 },
   renewalDate: { label: 'Ngày gia hạn', focusId: 'renewalDate', step: 1 },
+  leadDays: { label: 'Mốc nhắc trước', focusId: 'leadDays', step: 1 },
   accountEmail: { label: 'Email tài khoản', focusId: 'accountEmail', step: 2 },
   paymentMethod: { label: 'Thanh toán', focusId: 'paymentMethod', step: 2 },
   manageUrl: { label: 'Link quản lý', focusId: 'manageUrl', step: 2 },
@@ -280,6 +289,11 @@ export function SubscriptionForm({
   const [manageUrl, setManageUrl] = React.useState<string>(initial?.manageUrl ?? '');
   const [cancelUrl, setCancelUrl] = React.useState<string>(initial?.cancelUrl ?? '');
   const [notes, setNotes] = React.useState<string>(initial?.notes ?? '');
+  // Reminder lead times. Create starts on the server default [30, 7]; edit
+  // loads the stored schedule.
+  const [leadDays, setLeadDays] = React.useState<number[]>(
+    normalizeLeadDays(initial?.leadDays ?? LEAD_DAYS_DEFAULT_SUBSCRIPTION),
+  );
 
   const categoryOptions: ComboboxOption[] = catalog.categories.map((c) => ({
     value: c.code,
@@ -310,15 +324,24 @@ export function SubscriptionForm({
       if (!startedAt) return { ok: false, firstMissing: 'startedAt' };
       if (billingCycle === 'CUSTOM' && !intervalDays)
         return { ok: false, firstMissing: 'intervalDays' };
+      // The one visible rule for lead days: at least one entry. Sorting,
+      // dedupe and 0..365 clamping are `lib/lead-days.ts`; Go remains the
+      // authority for everything else.
+      if (leadDays.length === 0) return { ok: false, firstMissing: 'leadDays' };
     }
     return { ok: true };
   };
+
+  const missingFieldMessage = (key: string) =>
+    key === 'leadDays'
+      ? t(LEAD_DAYS_REQUIRED_MESSAGE)
+      : t('Vui lòng nhập: {field}', { field: t(FIELD_META[key]?.label ?? key) });
 
   const goNext = () => {
     const v = validateStep(step);
     if (!v.ok) {
       const k = v.firstMissing!;
-      toast.error(t('Vui lòng nhập: {field}', { field: t(FIELD_META[k]?.label ?? k) }));
+      toast.error(missingFieldMessage(k));
       focusField(k);
       return;
     }
@@ -334,7 +357,7 @@ export function SubscriptionForm({
         e.preventDefault();
         setStep(i);
         const k = v.firstMissing!;
-        toast.error(t('Vui lòng nhập: {field}', { field: t(FIELD_META[k]?.label ?? k) }));
+        toast.error(missingFieldMessage(k));
         setTimeout(() => focusField(k), 50);
         return;
       }
@@ -527,6 +550,18 @@ export function SubscriptionForm({
             <p className="text-xs text-muted-foreground">
               {t('Tự tính từ Ngày bắt đầu + Chu kỳ. Sửa nếu billing date của mày khác.')}
             </p>
+          </div>
+
+          {/* Reminder lead times — the user's own schedule instead of the old
+              fixed 7/30-day one. Mounted inside the step div (steps are hidden
+              with CSS, never unmounted), so its hidden inputs submit even when
+              the user is on another step. */}
+          <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5 md:col-span-2">
+            <LeadDaysField
+              value={leadDays}
+              onChange={setLeadDays}
+              errors={errors.leadDays}
+            />
           </div>
         </div>
 

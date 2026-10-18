@@ -26,6 +26,9 @@ export type Subscription = {
   manageUrl: string | null;
   cancelUrl: string | null;
   notes: string | null;
+  // Reminder lead times: 1..5 integers, each 0..365, no duplicates, sorted
+  // descending by the server. `[30, 7]` is the create default.
+  leadDays: number[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -59,6 +62,10 @@ export type SubscriptionInput = {
   manageUrl?: string | null;
   cancelUrl?: string | null;
   notes?: string | null;
+  // Reminder lead days. Same wire semantics as `DeviceInput.leadDays`: absent
+  // means "server default on create / unchanged on update", empty is rejected
+  // by Go, and `lib/lead-days.ts` normalises what the form sends.
+  leadDays?: number[];
   // Web-only convenience: when set, Go will mark the matching wishlist item
   // as PURCHASED in the same transaction.
   fromWishlistId?: string | null;

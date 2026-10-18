@@ -209,13 +209,17 @@ echo "→ Chạy cron lần 2 — kiểm tra idempotency ở tầng DB"
 #     lastNotifiedAt is unchanged between runs (within a few seconds).
 #   * Subscription "expire" path (autoRenew=false): once status=EXPIRED, the
 #     row no longer matches `status='ACTIVE'` filters, so it's idempotent too.
-#   * Notification-only buckets — fixed by migration 0002:
-#       - warranty 7d/30d → Reminder.lastNotifiedAt stamped after fan-out;
-#         ListWarrantiesInWindow filters by ::date >= CURRENT_DATE.
+#   * Notification-only buckets — idempotency from migration 0002, key extended
+#     by migration 0015 to include WHICH lead day fired:
+#       - warranty leadDays (default 30/7) → Reminder.lastNotifiedAt +
+#         Reminder.lastNotifiedLeadDay stamped after fan-out;
+#         ListWarrantiesInWindow filters by ::date >= CURRENT_DATE AND lead day.
 #       - wishlist target-date day-of → WishlistItem.lastNotifiedAt is already
 #         stamped (existed pre-fix); ListWishlistTargetDateDue now filters it.
-#       - subscription renewal warnings 3/1/0 → Subscription.lastNotifiedRenewalAt
-#         is stamped after fan-out; ListSubscriptionsDueForRenewal filters it.
+#       - subscription renewal leadDays (default 30/7; 3/1/0 is now a custom
+#         choice) → Subscription.lastNotifiedRenewalAt +
+#         Subscription.lastNotifiedRenewalLeadDay stamped after fan-out;
+#         ListSubscriptionsDueForRenewal filters both.
 #     The 2nd-run assertions below cover these via the same-day re-run check.
 wt_stamp_before=$(wv_sql -c \
   "SELECT \"lastNotifiedAt\" FROM \"WishlistItem\" WHERE id = '${WL_INTERVAL}';")

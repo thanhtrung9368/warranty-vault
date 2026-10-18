@@ -638,6 +638,9 @@ export function categoryLabelFor(
  *     device being created for the first time.
  *   - `warrantyMonths`: absent ⇒ 0 ⇒ no inline warranty package is created. The
  *     paste has no warranty columns and the UI says so.
+ *   - `leadDays`: absent ⇒ Go applies its `[30, 7]` create default. The paste
+ *     format has no reminder column; hard-coding the default here would create
+ *     a second source of truth for the same rule.
  */
 export function pasteDraftToInput(draft: PasteDraft): DeviceInput {
   return {

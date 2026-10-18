@@ -402,6 +402,21 @@ data class Device(
      * days three ways is exactly what this field exists to prevent.
      */
     val returnDeadline: String? = null,
+    /**
+     * User-chosen reminder schedule (openapi `Device.leadDays`): how many days
+     * before the warranty end each reminder fires. Descending, `0..365` each,
+     * 1..5 entries, no duplicates — `0` means "on the day it expires" and is a
+     * real choice, not "unset".
+     *
+     * **Defaulted, not nullable, on purpose.** A server that predates the field
+     * omits it, and an empty chip row would read as "this device has no
+     * reminders" — which was never true (the old cron used the fixed 30/7
+     * schedule). [DEFAULT_LEAD_DAYS] is exactly that old schedule, so the UI
+     * shows the effective truth against an older server. See
+     * [normalizeLeadDays] for the rules and [isValidLeadDays] for the 1..5
+     * lower bound.
+     */
+    val leadDays: List<Int> = DEFAULT_LEAD_DAYS,
     val warranties: List<Warranty> = emptyList(),
     /**
      * `GET /api/v1/devices` only (see Go `DeviceListItem`): `max(endDate)` over
@@ -547,6 +562,18 @@ data class DeviceInput(
      * `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp lệ"]`.
      */
     val receivedAt: String? = null,
+    /**
+     * Reminder schedule to store (`leadDays`, openapi `DeviceInput.leadDays`).
+     *
+     * `null` **omits the key** (`ApiClient.json` drops nulls), which the
+     * contract reads as "leave it alone" on update and "use the server default
+     * `[30, 7]`" on create. The sheet never relies on that in practice: it
+     * loads the stored schedule and sends a normalised non-empty list back
+     * (`ui/components/LeadDaysPicker.kt` → [leadDaysForRequest]). It exists so
+     * a caller that does not touch reminders cannot accidentally overwrite
+     * them with a default.
+     */
+    val leadDays: List<Int>? = null,
     val warrantyMonths: Int = 0,
     val warrantyProvider: String? = null,
     val warrantyAddress: String? = null,
@@ -682,6 +709,16 @@ data class Subscription(
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val payments: List<Payment> = emptyList(),
+    /**
+     * User-chosen reminder schedule (openapi `Subscription.leadDays`): how many
+     * days before `renewalDate` each reminder fires. Same shape and the same
+     * rules as [Device.leadDays] — descending, `0..365` each, 1..5 entries.
+     *
+     * Defaulted rather than nullable so a payload from a server that predates
+     * the field still renders the schedule the cron was actually using
+     * ([DEFAULT_LEAD_DAYS]) instead of an empty row. See [normalizeLeadDays].
+     */
+    val leadDays: List<Int> = DEFAULT_LEAD_DAYS,
 )
 
 @Serializable
@@ -702,6 +739,14 @@ data class SubscriptionInput(
     val manageUrl: String? = null,
     val cancelUrl: String? = null,
     val notes: String? = null,
+    /**
+     * Reminder schedule to store (openapi `SubscriptionInput.leadDays`).
+     *
+     * `null` omits the key → unchanged on update / server default on create.
+     * The edit sheet always sends a normalised non-empty list; see
+     * [DeviceInput.leadDays] for the same reasoning.
+     */
+    val leadDays: List<Int>? = null,
 )
 
 @Serializable

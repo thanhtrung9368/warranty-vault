@@ -934,23 +934,6 @@
         }
       }
     },
-    "7 & 30 ngày": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 & 30 days"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 & 30 ngày"
-          }
-        }
-      }
-    },
     "7 ngày": {
       "extractionState": "manual",
       "localizations": {
@@ -4287,23 +4270,6 @@
         }
       }
     },
-    "Hệ thống tự gửi, chưa tuỳ chỉnh được": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sent automatically, not customisable yet"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hệ thống tự gửi, chưa tuỳ chỉnh được"
-          }
-        }
-      }
-    },
     "Hỏng": {
       "extractionState": "manual",
       "localizations": {
@@ -4402,23 +4368,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng."
-          }
-        }
-      }
-    },
-    "Khi gói bảo hành sắp hết, hệ thống đẩy thông báo tự động trước 7 ngày và 30 ngày. Mốc nhắc do máy chủ quy định — ứng dụng chưa hỗ trợ tuỳ chỉnh.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When a warranty is about to expire the server sends a push 7 days and 30 days ahead. The schedule is fixed server-side — the app cannot customise it."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Khi gói bảo hành sắp hết, hệ thống đẩy thông báo tự động trước 7 ngày và 30 ngày. Mốc nhắc do máy chủ quy định — ứng dụng chưa hỗ trợ tuỳ chỉnh."
           }
         }
       }
@@ -13562,6 +13511,228 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không lưu được lựa chọn"
+          }
+        }
+      }
+    },
+    "%@ và %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ and %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ và %@"
+          }
+        }
+      }
+    },
+    "%@ ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ days"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ngày"
+          }
+        }
+      }
+    },
+    "Nhắc trước %@ ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminds you %@ days before"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhắc trước %@ ngày"
+          }
+        }
+      }
+    },
+    "Nhắc trước %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Reminds you %d day before"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Reminds you %d days before"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nhắc trước %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Chọn 1–5 mốc nhắc, mỗi mốc từ 0 đến 365 ngày. Mốc 0 là nhắc đúng ngày hết hạn.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick 1–5 lead times, 0–365 days each. 0 means the day it expires."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn 1–5 mốc nhắc, mỗi mốc từ 0 đến 365 ngày. Mốc 0 là nhắc đúng ngày hết hạn."
+          }
+        }
+      }
+    },
+    "Đã chọn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chọn"
+          }
+        }
+      }
+    },
+    "Chọn ít nhất 1 mốc nhắc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick at least 1 reminder day"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn ít nhất 1 mốc nhắc"
+          }
+        }
+      }
+    },
+    "Mốc có sẵn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presets"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc có sẵn"
+          }
+        }
+      }
+    },
+    "Mốc khác": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom day"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc khác"
+          }
+        }
+      }
+    },
+    "Tối đa 5 mốc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 5 lead times"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tối đa 5 mốc"
+          }
+        }
+      }
+    },
+    "Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lead times are set per device and per subscription — open one to change it. The default is 30 and 7 days."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày."
+          }
+        }
+      }
+    },
+    "Theo từng thiết bị / gói": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per device / subscription"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo từng thiết bị / gói"
           }
         }
       }

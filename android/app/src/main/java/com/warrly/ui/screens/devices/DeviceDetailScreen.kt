@@ -70,6 +70,7 @@ import com.warrly.network.Device
 import com.warrly.network.DeviceWarning
 import com.warrly.network.Warranty
 import com.warrly.network.toUserMessage
+import com.warrly.ui.components.leadDaysValue
 import com.warrly.ui.theme.WVAccent
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -534,6 +535,13 @@ private fun DeviceSummaryCard(device: Device) {
             // This pass only guarantees an edit on Android cannot erase one.
             returnDeadlineLabel(device.returnDeadline)?.let { deadline ->
                 DetailRow(stringResource(R.string.devdetail_return_window), deadline)
+            }
+            // Reminder schedule (`leadDays`). Rendered with the same label/value
+            // words as the edit picker, so the card reads as "Nhắc trước · 30 và
+            // 7 ngày". The model defaults to [30, 7] when an older server omits
+            // the field, so this row is never blank.
+            leadDaysValue(s, device.leadDays)?.let { schedule ->
+                DetailRow(stringResource(R.string.lead_days_label), schedule)
             }
             if (!device.purchasePlace.isNullOrBlank()) {
                 DetailRow(stringResource(R.string.devdetail_purchased_at), device.purchasePlace)

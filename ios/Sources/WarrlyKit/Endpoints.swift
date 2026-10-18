@@ -180,6 +180,12 @@ extension APIClient {
     /// the server attached. The create is never rejected because of a warning —
     /// the device exists by the time this returns; the caller only has to show
     /// the yellow note (and must not present it as a failure).
+    ///
+    /// The reminder schedule (`DeviceInput.leadDays`) travels in the same body:
+    /// normalised descending, 1…5 entries in `0...365`, or omitted so the server
+    /// applies its `[30, 7]` default. An empty array would be a 400
+    /// (`fieldErrors.leadDays`), which is why callers build it with
+    /// `LeadDaysRules.wireValue`.
     public func createDevice(_ input: DeviceInput) async throws -> DeviceSaveResult {
         try await request("POST", "/api/v1/devices", body: input)
     }
@@ -187,6 +193,10 @@ extension APIClient {
     /// Same contract as `createDevice`, including `warnings`. The device being
     /// edited is excluded from the duplicate-serial probe server-side, so
     /// saving an unchanged serial does not warn about "duplicating itself".
+    ///
+    /// `leadDays` is accepted here too. It is the one field a PATCH does **not**
+    /// replace when omitted (`null`/absent means "keep the stored schedule"),
+    /// but the form sends it anyway so the save states the schedule explicitly.
     public func updateDevice(id: String, _ input: DeviceInput) async throws -> DeviceSaveResult {
         try await request("PATCH", "/api/v1/devices/\(id)", body: input)
     }
@@ -339,12 +349,18 @@ extension APIClient {
         return (outer.subscription, outer.body.payments ?? [])
     }
 
+    /// Creates a subscription. `SubscriptionInput.leadDays` rides in the body,
+    /// already normalised by `LeadDaysRules.wireValue`; omitted means the server
+    /// default `[30, 7]`. An empty array is a 400 (`fieldErrors.leadDays`).
     public func createSubscription(_ input: SubscriptionInput) async throws -> Subscription {
         struct Wrapper: Decodable { let subscription: Subscription }
         let w: Wrapper = try await request("POST", "/api/v1/subscriptions", body: input)
         return w.subscription
     }
 
+    /// Updates a subscription. `leadDays` is accepted here too; absent/`null`
+    /// leaves the stored schedule unchanged, but the form sends the value it
+    /// loaded so the intent is explicit.
     public func updateSubscription(id: String, _ input: SubscriptionInput) async throws -> Subscription {
         struct Wrapper: Decodable { let subscription: Subscription }
         let w: Wrapper = try await request("PATCH", "/api/v1/subscriptions/\(id)", body: input)

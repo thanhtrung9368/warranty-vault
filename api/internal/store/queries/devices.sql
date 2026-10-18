@@ -81,12 +81,14 @@ INSERT INTO "Device" (
     "soldPrice",
     "returnWindowDays",
     "receivedAt",
+    "leadDays",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     COALESCE(sqlc.narg('status')::text, 'ACTIVE'),
     $11, $12, $13, $14, $15,
+    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]::int[]),
     NOW(),
     NOW()
 )
@@ -108,6 +110,7 @@ UPDATE "Device" SET
     "soldPrice" = $14,
     "returnWindowDays" = $15,
     "receivedAt" = $16,
+    "leadDays" = $17,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;
@@ -170,3 +173,17 @@ WHERE "userId" = $1
   AND "serialNumber" IS NOT NULL
   AND lower("serialNumber") = lower(sqlc.arg('serial')::text)
   AND (sqlc.arg('excludeId')::text = '' OR id <> sqlc.arg('excludeId')::text);
+
+-- name: ListActiveDeviceLeadDays :many
+-- Cron support (migration 0015). One row per DISTINCT lead day that any active
+-- device is currently asking for, sorted newest-first. The sweep runs one
+-- day-window query per value, so the number of queries is the number of distinct
+-- user choices (at most 5 per device, and typically a handful globally) rather
+-- than 366.
+--
+-- `unnest` inside DISTINCT is what keeps this cheap: it does not care how many
+-- devices chose the same number.
+SELECT DISTINCT unnest("leadDays")::int AS lead_day
+FROM "Device"
+WHERE status = 'ACTIVE'
+ORDER BY lead_day DESC;

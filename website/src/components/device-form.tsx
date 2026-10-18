@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { LeadDaysField } from '@/components/lead-days-field';
 import {
   Select,
   SelectTrigger,
@@ -49,6 +50,11 @@ import {
   receivedAtInputValue,
   returnWindowDaysInputValue,
 } from '@/lib/device-return-window';
+import {
+  LEAD_DAYS_DEFAULT_DEVICE,
+  LEAD_DAYS_REQUIRED_MESSAGE,
+  normalizeLeadDays,
+} from '@/lib/lead-days';
 import {
   createDevice,
   updateDevice,
@@ -91,6 +97,8 @@ type Initial = {
   // `lib/device-return-window.ts`). They are carried through an edit untouched.
   returnWindowDays?: number | null;
   receivedAt?: string | null;
+  // Reminder lead days. Absent (create) starts from the server default [30, 7].
+  leadDays?: number[];
 };
 
 type Catalog = {
@@ -109,6 +117,7 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   category: { label: 'Loại thiết bị', focusId: 'category', step: 0 },
   purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate', step: 1 },
   warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
+  leadDays: { label: 'Mốc nhắc trước', focusId: 'leadDays', step: 2 },
   // Resale pair — both live on the final step, next to `status`.
   soldAt: { label: 'Ngày bán', focusId: 'soldAt', step: 3 },
   soldPrice: { label: 'Giá bán', focusId: 'soldPrice', step: 3 },
@@ -119,6 +128,7 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
 // rejection read identically; other fields keep the existing "Vui lòng nhập"
 // phrasing.
 function fieldMessage(key: string, t: Translator): string {
+  if (key === 'leadDays') return t(LEAD_DAYS_REQUIRED_MESSAGE);
   const fromServer = SALE_FIELD_MESSAGES[key as keyof typeof SALE_FIELD_MESSAGES];
   if (fromServer) return t(fromServer);
   return t('Vui lòng nhập: {field}', { field: t(FIELD_META[key]?.label ?? key) });
@@ -332,6 +342,13 @@ export function DeviceForm({
 
   const [notes, setNotes] = React.useState<string>(initial?.notes ?? '');
 
+  // Reminder lead times. On create the server default is also the form default,
+  // so the control starts on [30, 7] rather than empty; on edit the stored
+  // schedule is loaded and normalised for display.
+  const [leadDays, setLeadDays] = React.useState<number[]>(
+    normalizeLeadDays(initial?.leadDays ?? LEAD_DAYS_DEFAULT_DEVICE),
+  );
+
   // ─── Resale (soldAt + soldPrice, server-enforced pair) ──────────────────
   // `sold` is a UI-only gate: when off, neither field is mounted and the
   // action submits `{soldAt: null, soldPrice: null}`, i.e. the server's explicit
@@ -525,6 +542,10 @@ export function DeviceForm({
     }
     if (s === 2) {
       if (warrantyMonths < 0) return 'warrantyMonths';
+      // Mirror only the visible rule: "at least one reminder day". Sort,
+      // dedupe and range clamping live in `lib/lead-days.ts`; Go still decides
+      // everything else.
+      if (leadDays.length === 0) return 'leadDays';
     }
     if (s === 3) {
       // Client-side mirror of the server's pair rule, so a half-recorded (or
@@ -570,6 +591,7 @@ export function DeviceForm({
     setWarrantyAddress('');
     setWarrantyNotes('');
     setNotes('');
+    setLeadDays([...LEAD_DAYS_DEFAULT_DEVICE]);
     setSold(false);
     setSoldAt('');
     setSoldPriceDisplay('');
@@ -934,6 +956,19 @@ export function DeviceForm({
                 rows={3}
               />
             </div>
+          </div>
+
+          {/* Reminder lead times — replaces the old fixed 7/30-day schedule.
+              A bordered sub-card, matching the resale block on the final step.
+              The control is inside this always-mounted step div (steps are
+              hidden with CSS, never unmounted), so its hidden inputs submit
+              from every step. */}
+          <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+            <LeadDaysField
+              value={leadDays}
+              onChange={setLeadDays}
+              errors={errors.leadDays}
+            />
           </div>
         </div>
 

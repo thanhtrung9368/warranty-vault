@@ -32,6 +32,9 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     // Return window (migration 0010) — defaults to "chưa ghi"; ignored here.
     returnWindowDays: null,
     receivedAt: null,
+    // Reminder schedule — the spend rollups ignore it; present for the wire
+    // shape after the leadDays field landed on `Device`.
+    leadDays: [30, 7],
     createdAt: '2026-03-15T00:00:00Z',
     updatedAt: '2026-03-15T00:00:00Z',
     attachmentCount: 0,

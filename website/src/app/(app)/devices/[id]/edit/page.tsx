@@ -76,6 +76,9 @@ export default async function EditDevicePage({
           // another client. The form has no input for them in this pass.
           returnWindowDays: device.returnWindowDays,
           receivedAt: device.receivedAt,
+          // Reminder lead days — loaded so the form starts on the saved
+          // schedule, and submitted on save by `LeadDaysField`.
+          leadDays: device.leadDays,
         }}
       />
     </div>

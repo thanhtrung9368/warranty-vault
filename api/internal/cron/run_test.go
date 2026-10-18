@@ -398,7 +398,10 @@ func TestRun_SubRenewalWarningIdempotent(t *testing.T) {
 		t.Fatalf("insert push sub: %v", err)
 	}
 
-	// renewalDate at noon today (matches the 0-day warning bucket).
+	// renewalDate at noon today (matches the 0-day warning window). leadDays is
+	// pinned to [0] because migration 0015's default is [30, 7]: a subscription
+	// that renews TODAY is no longer a 0-day warning unless the user asked for
+	// one. This test is about same-day idempotency, not about the default.
 	now := time.Now()
 	todayNoon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
 	q := store.New(pool)
@@ -412,6 +415,7 @@ func TestRun_SubRenewalWarningIdempotent(t *testing.T) {
 		StartedAt:    pgtype.Timestamp{Time: todayNoon.AddDate(0, -1, 0), Valid: true},
 		RenewalDate:  pgtype.Timestamp{Time: todayNoon, Valid: true},
 		AutoRenew:    true,
+		LeadDays:     []int32{0},
 	}); err != nil {
 		t.Fatalf("create sub: %v", err)
 	}

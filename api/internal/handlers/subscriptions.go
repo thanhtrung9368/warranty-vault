@@ -99,6 +99,10 @@ type subscriptionRequest struct {
 	ManageURL     *string `json:"manageUrl"`
 	CancelURL     *string `json:"cancelUrl"`
 	Notes         *string `json:"notes"`
+	// LeadDays distinguishes absent/null (nil → default on create, unchanged on
+	// update) from an explicitly empty array (non-nil, empty → 400). Decoding
+	// into a slice preserves that distinction without a pointer.
+	LeadDays []int32 `json:"leadDays"`
 }
 
 type subscriptionPaymentRequest struct {
@@ -168,6 +172,7 @@ func subscriptionRequestToInput(ctx context.Context, body subscriptionRequest) (
 		ManageURL:     body.ManageURL,
 		CancelURL:     body.CancelURL,
 		Notes:         body.Notes,
+		LeadDays:      body.LeadDays,
 	}, ferrs
 }
 

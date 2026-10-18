@@ -265,6 +265,70 @@ class ModelsSerializationTest {
     }
 
     @Test
+    fun deviceAndSubscription_leadDaysDefaultToTheOldFixedScheduleWhenOmitted() {
+        // A server that predates the field omits `leadDays`. The UI must show the
+        // schedule the cron was actually using ([30, 7]), never an empty one, or
+        // the detail card would claim the device has no reminders.
+        val device = json.decodeFromString(
+            Device.serializer(),
+            """{"id":"dev-1","name":"Chuột","category":"ACCESSORY","purchaseDate":"2024-05-05"}""",
+        )
+        assertEquals(DEFAULT_LEAD_DAYS, device.leadDays)
+
+        val subscription = json.decodeFromString(
+            Subscription.serializer(),
+            """{"id":"sub-1","name":"Netflix","startedAt":"2024-05-05"}""",
+        )
+        assertEquals(DEFAULT_LEAD_DAYS, subscription.leadDays)
+
+        // A supporting server returns the schedule already sorted descending.
+        val custom = json.decodeFromString(
+            Device.serializer(),
+            """
+                {
+                  "id": "dev-1", "name": "Chuột", "category": "ACCESSORY",
+                  "purchaseDate": "2024-05-05", "leadDays": [60, 14, 0]
+                }
+            """.trimIndent(),
+        )
+        assertEquals(listOf(60, 14, 0), custom.leadDays)
+    }
+
+    @Test
+    fun leadDaysIsSentWhenChosenAndOmittedWhenUnset() {
+        val chosen = json.encodeToString(
+            DeviceInput.serializer(),
+            DeviceInput(
+                name = "iPhone",
+                category = "PHONE",
+                purchaseDate = "2024-03-01",
+                leadDays = listOf(14, 3),
+            ),
+        )
+        assertTrue("the chosen schedule must reach the wire: $chosen", chosen.contains("\"leadDays\":[14,3]"))
+
+        // null must DROP the key: on update that means "leave the stored
+        // schedule alone", and on create the server applies [30, 7].
+        val untouched = json.encodeToString(
+            DeviceInput.serializer(),
+            DeviceInput(name = "iPhone", category = "PHONE", purchaseDate = "2024-03-01"),
+        )
+        assertFalse(
+            "an untouched schedule must not be turned into a default overwrite: $untouched",
+            untouched.contains("leadDays"),
+        )
+
+        val subscription = json.encodeToString(
+            SubscriptionInput.serializer(),
+            SubscriptionInput(name = "Netflix", startedAt = "2024-03-01", leadDays = listOf(30)),
+        )
+        assertTrue(
+            "subscriptions carry the same field: $subscription",
+            subscription.contains("\"leadDays\":[30]"),
+        )
+    }
+
+    @Test
     fun warranty_isDismissed_reflectsNestedReminders() {
         val base = Fixtures.warranty()
 

@@ -349,6 +349,24 @@ var messages = map[string]message{
 		vi: "Số ngày đổi trả phải từ %d tới %d",
 		en: "The return window must be between %d and %d days",
 	},
+	// Reminder lead days (migration 0015), shared by Device and Subscription.
+	// The Vietnamese is the source text and the catalog key; the English says the
+	// same rule in the same number order, because the form renders one line under
+	// the field and a reader must be able to match it to the offending value.
+	// "Giá trị" / "value" is deliberate: the count of MILESTONES is what is too
+	// long or too short, not a number of days — that is the next message.
+	"Số ngày nhắc phải có từ 1 đến 5 giá trị": {
+		vi: "Số ngày nhắc phải có từ 1 đến 5 giá trị",
+		en: "Lead days must contain between 1 and 5 values",
+	},
+	"Mỗi ngày nhắc phải nằm trong khoảng 0 đến 365": {
+		vi: "Mỗi ngày nhắc phải nằm trong khoảng 0 đến 365",
+		en: "Each lead day must be between 0 and 365",
+	},
+	"Số ngày nhắc không được trùng nhau": {
+		vi: "Số ngày nhắc không được trùng nhau",
+		en: "Lead days must not contain duplicates",
+	},
 	// The active-device ceiling. Read aloud, not word for word
 	// (docs/I18N_PLAN.md §4.4): the Vietnamese says sold devices "do not occupy a
 	// slot", which is the whole point of the message — a user at 50 active rows is
@@ -1193,8 +1211,8 @@ var messages = map[string]message{
 	// (i18n.FromStored) rather than in the language of the request that happened
 	// to trigger them.
 	"Đặt lại mật khẩu Warrly": {vi: "Đặt lại mật khẩu Warrly", en: "Reset your Warrly password"},
-	"Đặt lại mật khẩu":            {vi: "Đặt lại mật khẩu", en: "Reset password"},
-	"Chào %s,":                    {vi: "Chào %s,", en: "Hi %s,"},
+	"Đặt lại mật khẩu":        {vi: "Đặt lại mật khẩu", en: "Reset password"},
+	"Chào %s,":                {vi: "Chào %s,", en: "Hi %s,"},
 	"Có yêu cầu đặt lại mật khẩu cho tài khoản này.": {
 		vi: "Có yêu cầu đặt lại mật khẩu cho tài khoản này.",
 		en: "Someone asked to reset the password for this account.",
@@ -1216,8 +1234,8 @@ var messages = map[string]message{
 		en: "This link is valid for %d minutes. If this was not you, you can ignore this email.",
 	},
 	"Xác nhận đổi email Warrly": {vi: "Xác nhận đổi email Warrly", en: "Confirm your new Warrly email"},
-	"Xác nhận đổi email":            {vi: "Xác nhận đổi email", en: "Confirm email change"},
-	"Chào bạn,":                     {vi: "Chào bạn,", en: "Hi,"},
+	"Xác nhận đổi email":        {vi: "Xác nhận đổi email", en: "Confirm email change"},
+	"Chào bạn,":                 {vi: "Chào bạn,", en: "Hi,"},
 	"Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.": {
 		vi: "Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.",
 		en: "Someone asked to change this Warrly account's email from %s to this address.",

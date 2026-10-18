@@ -68,6 +68,10 @@ export default async function EditSubscriptionPage({
           manageUrl: sub.manageUrl,
           cancelUrl: sub.cancelUrl,
           notes: sub.notes,
+          // Reminder schedule — the form edits it; PATCH is a full payload but
+          // Go treats an absent/null leadDays as "unchanged", so this pass
+          // exists to show the stored value (and let the form submit it).
+          leadDays: sub.leadDays,
         }}
       />
     </div>

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,6 +32,25 @@ var (
 	safeIDRE          = regexp.MustCompile(`^[a-z0-9_-]+$`)
 	safeStoragePathRE = regexp.MustCompile(`^[a-z0-9_-]+/[a-z0-9-]+\.enc$`)
 )
+
+// backupLeadDays prepares the migration-0015 reminder schedule for an insert
+// from a backup payload. Absent and empty both become nil so SQL's
+// `COALESCE(..., ARRAY[30, 7])` applies the same default as a create; a present
+// array is copied and sorted descending so a restore cannot store a schedule in
+// a different order from the API.
+//
+// Validation is deliberately NOT performed here. A backup is restored, not
+// composed: refusing the whole file because one hand-edited array is malformed
+// would block the user's only recovery path, and a value outside 0..365 simply
+// never matches a cron day window.
+func backupLeadDays(days []int32) []int32 {
+	if len(days) == 0 {
+		return nil
+	}
+	sorted := append([]int32(nil), days...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] > sorted[j] })
+	return sorted
+}
 
 // ---- Export shapes (BackupV1 = the canonical Vietnamese-named JSON the web
 //      client + mobile apps consume; numbered version: 5 to match TS).
@@ -167,11 +187,19 @@ type BackupSubscription struct {
 	// LastNotifiedRenewalAt is the cron renewal-warning dedup marker
 	// (Subscription."lastNotifiedRenewalAt", migration 0001). Same class of bug
 	// as BackupReminder.LastNotifiedAt: dropping it on restore re-fires the
-	// 3/1/0-day renewal notifications.
-	LastNotifiedRenewalAt *string         `json:"lastNotifiedRenewalAt"`
-	CreatedAt             string          `json:"createdAt"`
-	UpdatedAt             string          `json:"updatedAt"`
-	Payments              []BackupPayment `json:"payments"`
+	// renewal notifications.
+	LastNotifiedRenewalAt *string `json:"lastNotifiedRenewalAt"`
+	// LastNotifiedRenewalLeadDay is the other half of the per-lead-day key
+	// (migration 0015): without it, a same-day restore could re-fire the 7-day
+	// warning after the 30-day one had already been stamped.
+	LastNotifiedRenewalLeadDay *int32 `json:"lastNotifiedRenewalLeadDay"`
+	// LeadDays is the user's renewal reminder schedule (migration 0015). Optional
+	// in the payload: an older export has no value and imports as [30, 7], the
+	// schedule that export was written under.
+	LeadDays  []int32         `json:"leadDays"`
+	CreatedAt string          `json:"createdAt"`
+	UpdatedAt string          `json:"updatedAt"`
+	Payments  []BackupPayment `json:"payments"`
 }
 
 type BackupPayment struct {
@@ -236,13 +264,19 @@ type BackupDevice struct {
 	// and dropping returnWindowNotifiedAt would make the next cron run re-push a
 	// window the user already saw (same reason BackupReminder carries
 	// lastNotifiedAt).
-	ReturnWindowDays       *int32             `json:"returnWindowDays"`
-	ReceivedAt             *string            `json:"receivedAt"`
-	ReturnWindowNotifiedAt *string            `json:"returnWindowNotifiedAt"`
-	CreatedAt              string             `json:"createdAt"`
-	UpdatedAt              string             `json:"updatedAt"`
-	Warranties             []BackupWarranty   `json:"warranties"`
-	Attachments            []BackupAttachment `json:"attachments"`
+	ReturnWindowDays       *int32  `json:"returnWindowDays"`
+	ReceivedAt             *string `json:"receivedAt"`
+	ReturnWindowNotifiedAt *string `json:"returnWindowNotifiedAt"`
+	// LeadDays (migration 0015) is optional in the same additive way: a payload
+	// written before it existed decodes to nil, and the importer lets SQL's
+	// COALESCE turn that into [30, 7] — the schedule that payload ran under.
+	// Without this field a restore would silently reset every device's custom
+	// reminder schedule to the default.
+	LeadDays    []int32            `json:"leadDays"`
+	CreatedAt   string             `json:"createdAt"`
+	UpdatedAt   string             `json:"updatedAt"`
+	Warranties  []BackupWarranty   `json:"warranties"`
+	Attachments []BackupAttachment `json:"attachments"`
 }
 
 type BackupWarranty struct {
@@ -269,7 +303,11 @@ type BackupReminder struct {
 	// restore wipe the marker, so the next run re-notified warranties the user
 	// had already been told about.
 	LastNotifiedAt *string `json:"lastNotifiedAt"`
-	CreatedAt      string  `json:"createdAt"`
+	// LastNotifiedLeadDay is the lead day that stamp belongs to (migration 0015).
+	// Optional: a pre-0015 payload has no value, and NULL is exactly the "legacy
+	// stamp" the sweep understands.
+	LastNotifiedLeadDay *int32 `json:"lastNotifiedLeadDay"`
+	CreatedAt           string `json:"createdAt"`
 }
 
 type BackupAttachment struct {
@@ -389,28 +427,30 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 
 	for _, s := range subs {
 		bs := BackupSubscription{
-			ID:                    s.ID,
-			Name:                  s.Name,
-			Category:              s.Category,
-			Brand:                 s.Brand,
-			Plan:                  s.Plan,
-			BillingCycle:          s.BillingCycle,
-			IntervalDays:          s.IntervalDays,
-			Price:                 s.Price,
-			Currency:              s.Currency,
-			StartedAt:             ts(s.StartedAt),
-			RenewalDate:           ts(s.RenewalDate),
-			AutoRenew:             s.AutoRenew,
-			Status:                s.Status,
-			AccountEmail:          s.AccountEmail,
-			PaymentMethod:         s.PaymentMethod,
-			ManageUrl:             s.ManageUrl,
-			CancelUrl:             s.CancelUrl,
-			Notes:                 s.Notes,
-			LastNotifiedRenewalAt: tsPtr(s.LastNotifiedRenewalAt),
-			CreatedAt:             ts(s.CreatedAt),
-			UpdatedAt:             ts(s.UpdatedAt),
-			Payments:              []BackupPayment{},
+			ID:                         s.ID,
+			Name:                       s.Name,
+			Category:                   s.Category,
+			Brand:                      s.Brand,
+			Plan:                       s.Plan,
+			BillingCycle:               s.BillingCycle,
+			IntervalDays:               s.IntervalDays,
+			Price:                      s.Price,
+			Currency:                   s.Currency,
+			StartedAt:                  ts(s.StartedAt),
+			RenewalDate:                ts(s.RenewalDate),
+			AutoRenew:                  s.AutoRenew,
+			Status:                     s.Status,
+			AccountEmail:               s.AccountEmail,
+			PaymentMethod:              s.PaymentMethod,
+			ManageUrl:                  s.ManageUrl,
+			CancelUrl:                  s.CancelUrl,
+			Notes:                      s.Notes,
+			LastNotifiedRenewalAt:      tsPtr(s.LastNotifiedRenewalAt),
+			LastNotifiedRenewalLeadDay: s.LastNotifiedRenewalLeadDay,
+			LeadDays:                   s.LeadDays,
+			CreatedAt:                  ts(s.CreatedAt),
+			UpdatedAt:                  ts(s.UpdatedAt),
+			Payments:                   []BackupPayment{},
 		}
 		for _, p := range payBySub[s.ID] {
 			bs.Payments = append(bs.Payments, BackupPayment{
@@ -474,6 +514,7 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			ReturnWindowDays:       d.ReturnWindowDays,
 			ReceivedAt:             tsPtr(d.ReceivedAt),
 			ReturnWindowNotifiedAt: tsPtr(d.ReturnWindowNotifiedAt),
+			LeadDays:               d.LeadDays,
 			CreatedAt:              ts(d.CreatedAt),
 			UpdatedAt:              ts(d.UpdatedAt),
 			Warranties:             []BackupWarranty{},
@@ -497,10 +538,11 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			}
 			for _, r := range remByWarranty[w.ID] {
 				bw.Reminders = append(bw.Reminders, BackupReminder{
-					ID:             r.ID,
-					IsDismissed:    r.IsDismissed,
-					LastNotifiedAt: tsPtr(r.LastNotifiedAt),
-					CreatedAt:      ts(r.CreatedAt),
+					ID:                  r.ID,
+					IsDismissed:         r.IsDismissed,
+					LastNotifiedAt:      tsPtr(r.LastNotifiedAt),
+					LastNotifiedLeadDay: r.LastNotifiedLeadDay,
+					CreatedAt:           ts(r.CreatedAt),
 				})
 			}
 			bd.Warranties = append(bd.Warranties, bw)
@@ -821,6 +863,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			ReturnWindowDays:       d.ReturnWindowDays,
 			ReceivedAt:             pgtsPtr(d.ReceivedAt),
 			ReturnWindowNotifiedAt: pgtsPtr(d.ReturnWindowNotifiedAt),
+			LeadDays:               backupLeadDays(d.LeadDays),
 			CreatedAt:              pgts(d.CreatedAt),
 			UpdatedAt:              pgts(d.UpdatedAt),
 		}); err != nil {
@@ -852,11 +895,12 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 					continue
 				}
 				if err := q.BackupInsertReminder(ctx, store.BackupInsertReminderParams{
-					ID:             r.ID,
-					WarrantyId:     w.ID,
-					IsDismissed:    r.IsDismissed,
-					LastNotifiedAt: pgtsPtr(r.LastNotifiedAt),
-					CreatedAt:      pgts(r.CreatedAt),
+					ID:                  r.ID,
+					WarrantyId:          w.ID,
+					IsDismissed:         r.IsDismissed,
+					LastNotifiedAt:      pgtsPtr(r.LastNotifiedAt),
+					LastNotifiedLeadDay: r.LastNotifiedLeadDay,
+					CreatedAt:           pgts(r.CreatedAt),
 				}); err != nil {
 					return nil, fmt.Errorf("insert reminder: %w", err)
 				}
@@ -991,28 +1035,30 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			currency = "VND"
 		}
 		if err := q.BackupInsertSubscription(ctx, store.BackupInsertSubscriptionParams{
-			ID:                    s.ID,
-			UserId:                userID,
-			Name:                  s.Name,
-			Category:              s.Category,
-			Brand:                 s.Brand,
-			Plan:                  s.Plan,
-			BillingCycle:          s.BillingCycle,
-			IntervalDays:          s.IntervalDays,
-			Price:                 s.Price,
-			Currency:              currency,
-			StartedAt:             pgts(s.StartedAt),
-			RenewalDate:           pgts(s.RenewalDate),
-			AutoRenew:             s.AutoRenew,
-			Status:                s.Status,
-			AccountEmail:          s.AccountEmail,
-			PaymentMethod:         s.PaymentMethod,
-			ManageUrl:             s.ManageUrl,
-			CancelUrl:             s.CancelUrl,
-			Notes:                 s.Notes,
-			LastNotifiedRenewalAt: pgtsPtr(s.LastNotifiedRenewalAt),
-			CreatedAt:             pgts(s.CreatedAt),
-			UpdatedAt:             pgts(s.UpdatedAt),
+			ID:                         s.ID,
+			UserId:                     userID,
+			Name:                       s.Name,
+			Category:                   s.Category,
+			Brand:                      s.Brand,
+			Plan:                       s.Plan,
+			BillingCycle:               s.BillingCycle,
+			IntervalDays:               s.IntervalDays,
+			Price:                      s.Price,
+			Currency:                   currency,
+			StartedAt:                  pgts(s.StartedAt),
+			RenewalDate:                pgts(s.RenewalDate),
+			AutoRenew:                  s.AutoRenew,
+			Status:                     s.Status,
+			AccountEmail:               s.AccountEmail,
+			PaymentMethod:              s.PaymentMethod,
+			ManageUrl:                  s.ManageUrl,
+			CancelUrl:                  s.CancelUrl,
+			Notes:                      s.Notes,
+			LastNotifiedRenewalAt:      pgtsPtr(s.LastNotifiedRenewalAt),
+			LastNotifiedRenewalLeadDay: s.LastNotifiedRenewalLeadDay,
+			LeadDays:                   backupLeadDays(s.LeadDays),
+			CreatedAt:                  pgts(s.CreatedAt),
+			UpdatedAt:                  pgts(s.UpdatedAt),
 		}); err != nil {
 			return nil, fmt.Errorf("insert subscription: %w", err)
 		}

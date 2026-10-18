@@ -31,4 +31,20 @@
     <string name="comp_warranty_none">None</string>
     <string name="comp_retry">Try again</string>
 
+    <!-- ===== Reminder lead time (LeadDaysPicker.kt, DeviceDetailScreen.kt,
+         SubscriptionDetailScreen.kt). Shared by devices and subscriptions:
+         `leadDays` is the user-chosen "remind me N days before" schedule.
+         The plural takes the ALREADY-JOINED day list as `%1$s` ("30 and 7"),
+         so its quantity is the number of entries, or the only entry when there
+         is one — that is what selects the English singular for a lone "1". ===== -->
+    <string name="lead_days_label">Reminder lead time</string>
+    <string name="lead_days_and">and</string>
+    <plurals name="lead_days_value">
+        <item quantity="one">%1$s day</item>
+        <item quantity="other">%1$s days</item>
+    </plurals>
+    <string name="lead_days_custom_label">Custom days (0–365)</string>
+    <string name="lead_days_hint">Up to 5 lead days. The app reminds you that many days before the expiry date.</string>
+    <string name="lead_days_required">Pick at least one day.</string>
+
 </resources>

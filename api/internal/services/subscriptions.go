@@ -40,6 +40,10 @@ type SubscriptionInput struct {
 	ManageURL     *string
 	CancelURL     *string
 	Notes         *string
+	// LeadDays is the renewal reminder schedule (migration 0015). nil means
+	// "absent": create defaults to [30, 7], update keeps the stored value. An
+	// explicitly empty array is a 400, exactly as on Device.
+	LeadDays []int32
 }
 
 // PaymentInput is the parsed payload for logging a manual payment.
@@ -100,7 +104,7 @@ const (
 // The headline is ErrValidationHeadline, not the bare ErrValidation: this
 // validator translated its fieldErrors, so the envelope's `message` has to move
 // with them or the response is half English and half Vietnamese.
-func validateSubscriptionInput(ctx context.Context, in SubscriptionInput) error {
+func validateSubscriptionInput(ctx context.Context, in *SubscriptionInput) error {
 	fieldErrs := FieldErrors{}
 
 	name := strings.TrimSpace(in.Name)
@@ -130,6 +134,18 @@ func validateSubscriptionInput(ctx context.Context, in SubscriptionInput) error 
 
 	if in.Status != "" && !IsValidSubscriptionStatus(in.Status) {
 		fieldErrs["status"] = []string{i18n.Text(ctx, "Trạng thái không hợp lệ")}
+	}
+
+	// Reminder schedule (migration 0015). nil is valid and means "absent"; the
+	// create/update paths decide what that means (default vs unchanged). A
+	// non-nil slice is validated here and sorted descending for storage; the
+	// pointer receiver lets the normalized order reach the caller.
+	if in.LeadDays != nil {
+		if sorted, msg := normalizeLeadDays(ctx, in.LeadDays); msg != "" {
+			fieldErrs["leadDays"] = []string{msg}
+		} else {
+			in.LeadDays = sorted
+		}
 	}
 
 	if len(fieldErrs) > 0 {
@@ -193,7 +209,7 @@ func GetSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string) (
 // CreateSubscription inserts a new row after validating + checking the limit.
 // If renewalDate is nil, it defaults to NextRenewalDate(startedAt, cycle, …).
 func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in SubscriptionInput) (store.Subscription, error) {
-	if err := validateSubscriptionInput(ctx, in); err != nil {
+	if err := validateSubscriptionInput(ctx, &in); err != nil {
 		return store.Subscription{}, err
 	}
 
@@ -242,6 +258,7 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 		ManageUrl:     trimToPtr(in.ManageURL),
 		CancelUrl:     trimToPtr(in.CancelURL),
 		Notes:         trimToPtr(in.Notes),
+		LeadDays:      leadDaysForCreate(in.LeadDays, DefaultSubscriptionLeadDays),
 		Currency:      nil, // → SQL COALESCE → 'VND'
 		Status:        &status,
 	})
@@ -254,7 +271,7 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 // UpdateSubscription replaces the row's fields. Ownership is enforced by the
 // SQL `WHERE userId = $2`. Missing renewalDate keeps the existing value.
 func UpdateSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string, in SubscriptionInput) (store.Subscription, error) {
-	if err := validateSubscriptionInput(ctx, in); err != nil {
+	if err := validateSubscriptionInput(ctx, &in); err != nil {
 		return store.Subscription{}, err
 	}
 
@@ -297,6 +314,7 @@ func UpdateSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string
 		ManageUrl:     trimToPtr(in.ManageURL),
 		CancelUrl:     trimToPtr(in.CancelURL),
 		Notes:         trimToPtr(in.Notes),
+		LeadDays:      leadDaysForUpdate(in.LeadDays, existing.LeadDays),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

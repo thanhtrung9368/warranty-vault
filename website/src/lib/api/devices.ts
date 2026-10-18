@@ -69,6 +69,13 @@ export type DeviceInput = {
   warrantyAddress?: string | null;
   warrantyPhone?: string | null;
   warrantyNotes?: string | null;
+  // Reminder lead days (1..5 integers, each 0..365, no duplicates). The server
+  // sorts descending, rejects an empty array and defaults to [30, 7] on create
+  // when this key is absent. On PATCH an absent/null value leaves the stored
+  // list unchanged; the device form always sends the selected list, and
+  // `lib/lead-days.ts` normalises it (sort/dedupe/clamp/cap) without trying to
+  // replace Go's validation.
+  leadDays?: number[];
   // Server marks the wishlist item as PURCHASED when set.
   fromWishlistId?: string | null;
 };
@@ -104,6 +111,10 @@ export type Device = {
   // unchanged (see `lib/device-return-window.ts`).
   returnWindowDays: number | null;
   receivedAt: string | null;
+  // Reminder lead times (the per-user replacement for the fixed 7/30 schedule):
+  // 1..5 integers, each 0..365, no duplicates, sorted descending by the server.
+  // `[30, 7]` is the create default.
+  leadDays: number[];
   // Cron de-duplication stamp for the "sắp hết hạn đổi trả" push. Operational
   // detail with no web surface, so it is optional here.
   returnWindowNotifiedAt?: string | null;

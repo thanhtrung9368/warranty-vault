@@ -16,6 +16,7 @@
 		3C7CCD3942EE6348D1590F4D /* DeviceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */; };
 		44DBCC2CAF1DFF5FFE11B708 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33AE91C9B8486FF06C36BF43 /* SettingsView.swift */; };
 		474C2F2F54BE62619CED3AD0 /* ShareCertificatesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */; };
+		4AA650E2E9999B6296460CE4 /* LeadDaysSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 888F7704865BD2666E99290B /* LeadDaysSection.swift */; };
 		4E5031AC2B316EED0CA496C3 /* ServiceDirectorySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B17B4E0FDB45A93ECCB48B /* ServiceDirectorySection.swift */; };
 		518874433CE8A23D988958DE /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F47C1974502CB1C3B5831E36 /* RegisterView.swift */; };
 		5339B998E6614AA044485023 /* DevicesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E524A44E85B68F979F8E4089 /* DevicesScreen.swift */; };
@@ -100,6 +101,7 @@
 		7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayNameSheet.swift; sourceTree = "<group>"; };
 		8126004F477522699C8B5716 /* CatalogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogStore.swift; sourceTree = "<group>"; };
 		837638321876BA6937EC02F1 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		888F7704865BD2666E99290B /* LeadDaysSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeadDaysSection.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCertificatesSection.swift; sourceTree = "<group>"; };
 		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -284,6 +286,7 @@
 				1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */,
 				569E34979FCE797CC256EF82 /* Components.swift */,
 				60CE06298DACE1DDBD26D736 /* Formatters.swift */,
+				888F7704865BD2666E99290B /* LeadDaysSection.swift */,
 				F14D4F5DC2451792F25172A9 /* Theme.swift */,
 			);
 			path = DesignSystem;
@@ -469,6 +472,7 @@
 				18B4CC7B7F08AC5969307F04 /* EmailChangeSheet.swift in Sources */,
 				D5C014DE56CFA32383CFD0C9 /* ForgotPasswordView.swift in Sources */,
 				C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */,
+				4AA650E2E9999B6296460CE4 /* LeadDaysSection.swift in Sources */,
 				C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */,
 				605266B4D8EE7B981A281741 /* LoginView.swift in Sources */,
 				64098F1E020CA14620A80ECF /* MoreScreen.swift in Sources */,

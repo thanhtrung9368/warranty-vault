@@ -46,6 +46,9 @@ function device(over: Partial<DeviceListItem> = {}): DeviceListItem {
     // Return window (migration 0010) — same idea: no CSV columns for it (yet).
     returnWindowDays: null,
     receivedAt: null,
+    // Reminder schedule — the CSV export has no leadDays column (yet), so the
+    // value only has to satisfy the wire shape.
+    leadDays: [30, 7],
     createdAt: '2024-03-08T10:00:00Z',
     updatedAt: '2024-03-08T10:00:00Z',
     attachmentCount: 0,
@@ -75,6 +78,9 @@ function subscription(over: Partial<Subscription> = {}): Subscription {
     manageUrl: null,
     cancelUrl: null,
     notes: null,
+    // Reminder schedule — not exported to CSV; present to satisfy the wire
+    // shape after the leadDays field landed on `Subscription`.
+    leadDays: [30, 7],
     ...over,
   };
 }

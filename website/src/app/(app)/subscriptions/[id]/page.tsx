@@ -12,6 +12,7 @@ import {
   Wallet,
   StickyNote,
   Zap,
+  Bell,
 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import {
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
 import { formatDate, formatVND, formatRelativeDay } from '@/lib/format';
+import { leadDaysLabel } from '@/lib/lead-days';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -335,6 +337,17 @@ export default async function SubscriptionDetailPage({
                   <div className="info-row-label">{t('Tự gia hạn')}</div>
                   <div className="info-row-value">
                     {sub.autoRenew ? t('✓ Bật') : t('— Tắt')}
+                  </div>
+                </div>
+              </div>
+              {/* Reminder schedule (per-user `Subscription.leadDays`) — the
+                  actual days the cron will use, not the old fixed 7/30 pair. */}
+              <div className="info-row">
+                <Bell className="info-row-icon h-4 w-4" />
+                <div className="min-w-0 flex-1">
+                  <div className="info-row-label">{t('Mốc nhắc')}</div>
+                  <div className="info-row-value">
+                    {leadDaysLabel(sub.leadDays, locale)}
                   </div>
                 </div>
               </div>

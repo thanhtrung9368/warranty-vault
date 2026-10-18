@@ -1969,7 +1969,7 @@ paths:
                       - pushesFailed
                       - pushesGone
                     properties:
-                      warrantyNotices: { type: integer, description: 'Số gói bảo hành rơi vào mốc 7 hoặc 30 ngày trước `endDate`.' }
+                      warrantyNotices: { type: integer, description: 'Số lượt nhắc bảo hành đã xử lý: một lượt cho mỗi cặp (warranty, mốc `leadDays`) rơi đúng ngày. Mặc định [30, 7] cho kết quả như lịch 30/7 ngày cũ.' }
                       returnWindowNotices: { type: integer, description: 'Số thiết bị rơi vào mốc còn 3 hoặc 1 ngày đổi/trả (`COALESCE(receivedAt, purchaseDate) + returnWindowDays`).' }
                       wishlistTargetHits: { type: integer }
                       wishlistCheckins: { type: integer }
@@ -2467,8 +2467,20 @@ components:
           nullable: true
           description: |
             Mốc chống trùng thông báo gia hạn của cron. Được export/import nguyên
-            vẹn: nếu thiếu, lần chạy cron kế tiếp sẽ nhắc lại các mốc 3/1/0 ngày
+            vẹn: nếu thiếu, lần chạy cron kế tiếp sẽ nhắc lại các mốc `leadDays`
             mà người dùng đã được nhắc. Null = chưa từng nhắc.
+        lastNotifiedRenewalLeadDay:
+          type: integer
+          nullable: true
+          description: 'Mốc `leadDays` của `lastNotifiedRenewalAt` (migration 0015); null ở file backup cũ hoặc sau khi tự gia hạn.'
+        leadDays:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 365 }
+          description: 'Lịch nhắc gia hạn (migration 0015). Vắng mặt/null ở file backup cũ ⇒ import dùng mặc định [3, 1, 0] — lịch cũ của cron gia hạn, không phải [30, 7] của bảo hành.'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         payments:
@@ -2535,6 +2547,14 @@ components:
           nullable: true
           description: 'Thời điểm bán (migration 0006). Vắng mặt/null trong file backup cũ = chưa bán, vẫn import được.'
         soldPrice: { type: integer, nullable: true, description: 'Giá bán, VND. Null = chưa bán.' }
+        leadDays:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 365 }
+          description: 'Lịch nhắc bảo hành (migration 0015). Vắng mặt/null ở file backup cũ ⇒ import dùng mặc định [30, 7], đúng lịch cron bảo hành cũ. Subscription dùng [3, 1, 0] — hai lịch cũ khác nhau nên hai mặc định khác nhau.'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         warranties:
@@ -2572,6 +2592,10 @@ components:
                         0002). Được export/import nguyên vẹn — thiếu nó thì lần
                         cron kế tiếp sẽ nhắc lại bảo hành người dùng đã được nhắc.
                         Null = chưa từng nhắc.
+                    lastNotifiedLeadDay:
+                      type: integer
+                      nullable: true
+                      description: 'Mốc `leadDays` của `lastNotifiedAt` (migration 0015); null ở file backup cũ.'
                     createdAt: { type: string, format: date-time }
         attachments:
           type: array
@@ -2629,7 +2653,7 @@ components:
 
     Device:
       type: object
-      required: [id, name, category, purchaseDate, purchasePrice, status]
+      required: [id, name, category, purchaseDate, purchasePrice, status, leadDays]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -2702,6 +2726,23 @@ components:
             Dấu chống trùng của cron: lần gần nhất đã đẩy thông báo "sắp hết hạn
             đổi trả" cho thiết bị này. Là chi tiết vận hành — client hiển thị
             hay không đều được. Cùng vai trò với `Reminder.lastNotifiedAt`.
+        leadDays:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 365 }
+          description: |
+            Các mốc nhắc trước ngày hết hạn bảo hành, tính bằng ngày (migration
+            0015). **Luôn có mặt** trên list và detail, đã sắp xếp **giảm dần**.
+            Mặc định khi tạo mà không gửi: **[30, 7]** — đúng lịch cron bảo
+            hành cũ.
+
+            Cron gửi **một** thông báo cho mỗi mốc khi warranty `endDate` rơi vào
+            đúng cửa sổ của mốc đó. `0` = đúng ngày hết hạn; mốc lớn hơn số ngày
+            còn lại (đã đi qua mốc) **không** bắn bù. Mặc định `[30, 7]` — đúng
+            lịch 30/7 ngày cũ cho mọi người dùng chưa từng đặt. Luật ghi nằm ở
+            `DeviceInput.leadDays`.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2813,6 +2854,28 @@ components:
             parse được ⇒ 400 `fieldErrors.receivedAt = ["Invalid delivery
             date"]` (`["Ngày nhận hàng không hợp lệ"]` khi `lang=vi`). Gửi `null`
             để xoá.
+        leadDays:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 365 }
+          description: |
+            Các mốc nhắc trước ngày hết hạn bảo hành (migration 0015): một thông
+            báo cho mỗi mốc, mỗi khi mốc đó đến. `0` = đúng ngày hết hạn. Server
+            sắp xếp **giảm dần** trước khi lưu.
+
+            * **POST** — vắng mặt hoặc `null` ⇒ mặc định `[30, 7]`.
+            * **PATCH** — vắng mặt hoặc `null` ⇒ **giữ nguyên** giá trị đã lưu,
+              **không** reset. Đây là ngoại lệ có chủ ý so với
+              `returnWindowDays`/`receivedAt`: PATCH chỉ để đổi tên thiết bị không
+              được làm mất lịch nhắc của người dùng.
+            * **Mảng rỗng `[]` ⇒ 400** `fieldErrors.leadDays` — mảng rỗng **không**
+              có nghĩa "không nhắc". Người muốn ít nhắc hơn thì chọn ít mốc hơn.
+            * Độ dài **1..5**, mỗi giá trị **0..365**, **không trùng nhau**. Vi
+              phạm ⇒ 400 với `fieldErrors.leadDays` (câu tiếng Việt hoặc tiếng Anh
+              theo `lang`; khoá `leadDays` không đổi).
         warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
@@ -2860,6 +2923,15 @@ components:
         isDismissed: { type: boolean }
         createdAt: { type: string, format: date-time }
         lastNotifiedAt: { type: string, format: date-time, nullable: true }
+        lastNotifiedLeadDay:
+          type: integer
+          nullable: true
+          description: |
+            Mốc `leadDays` mà `lastNotifiedAt` thuộc về (migration 0015). Cùng
+            `lastNotifiedAt` nó tạo thành khoá chống trùng
+            `(warrantyId, leadDay, ngày)`. Là chi tiết vận hành; `null` = dòng
+            được stamp bởi code trước migration 0015 (coi như đã xử lý mọi mốc
+            trong ngày đó).
 
     WarrantyInput:
       type: object
@@ -2901,7 +2973,7 @@ components:
 
     Subscription:
       type: object
-      required: [id, name, billingCycle, price, startedAt, renewalDate, autoRenew, status]
+      required: [id, name, billingCycle, price, startedAt, renewalDate, autoRenew, status, leadDays]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -2927,6 +2999,30 @@ components:
           format: date-time
           nullable: true
           description: 'Set by the renewal-notification cron; null until the first renewal push goes out.'
+        lastNotifiedRenewalLeadDay:
+          type: integer
+          nullable: true
+          description: |
+            Mốc `leadDays` mà `lastNotifiedRenewalAt` thuộc về (migration 0015).
+            Cùng `lastNotifiedRenewalAt` nó tạo thành khoá chống trùng
+            `(subscriptionId, leadDay, ngày)` — nhờ đó mốc 30 ngày không chặn mốc
+            7 ngày trong cùng một ngày. Là chi tiết vận hành; `null` nghĩa là
+            "đã xử lý hôm nay cho mọi mốc" (dòng cũ, hoặc vừa tự gia hạn).
+        leadDays:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 365 }
+          description: |
+            Các mốc nhắc trước ngày gia hạn `renewalDate`, tính bằng ngày
+            (migration 0015). **Luôn có mặt** trên list và detail, đã sắp xếp
+            **giảm dần**. Cron gửi một thông báo cho mỗi mốc khi `renewalDate`
+            rơi vào đúng ngày của mốc đó (`0` = đúng ngày gia hạn, `7` = còn 7
+            ngày). Mốc đã đi qua không bắn bù. Mặc định khi tạo mà không gửi:
+            **[3, 1, 0]** — đúng lịch cron gia hạn cũ. Khác `Device` (`[30, 7]`,
+            lịch cron bảo hành cũ) vì hai cron cũ chạy hai lịch khác nhau; một
+            mặc định chung sẽ âm thầm đổi hành vi của người dùng hiện có.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2959,6 +3055,26 @@ components:
         manageUrl: { type: string, nullable: true }
         cancelUrl: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        leadDays:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { type: integer, minimum: 0, maximum: 365 }
+          description: |
+            Các mốc nhắc trước ngày gia hạn (migration 0015): một thông báo cho
+            mỗi mốc, mỗi khi mốc đó đến. Server sắp xếp **giảm dần** trước khi
+            lưu.
+
+            * **POST** — vắng mặt hoặc `null` ⇒ mặc định `[30, 7]`.
+            * **PATCH** — vắng mặt hoặc `null` ⇒ **giữ nguyên** giá trị đã lưu,
+              **không** reset.
+            * **Mảng rỗng `[]` ⇒ 400** `fieldErrors.leadDays` — không có nghĩa
+              "không nhắc".
+            * Độ dài **1..5**, mỗi giá trị **0..365**, **không trùng nhau**. Vi
+              phạm ⇒ 400 với `fieldErrors.leadDays` theo ngôn ngữ của request.
+            * Gói `LIFETIME` không có gia hạn nên cron bỏ qua mọi mốc.
 
     Payment:
       type: object

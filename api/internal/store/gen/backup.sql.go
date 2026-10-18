@@ -415,10 +415,11 @@ INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
     "soldAt", "soldPrice", "returnWindowDays", "receivedAt",
-    "returnWindowNotifiedAt", "createdAt", "updatedAt"
+    "returnWindowNotifiedAt", "createdAt", "updatedAt", "leadDays"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19
+    $17, $18, $19,
+    COALESCE($20::int[], ARRAY[30, 7])
 )
 `
 
@@ -442,6 +443,7 @@ type BackupInsertDeviceParams struct {
 	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
 	CreatedAt              pgtype.Timestamp `json:"createdAt"`
 	UpdatedAt              pgtype.Timestamp `json:"updatedAt"`
+	LeadDays               []int32          `json:"leadDays"`
 }
 
 // ─── Import inserts (preserve ids + timestamps) ──────────────────────────
@@ -455,6 +457,11 @@ type BackupInsertDeviceParams struct {
 // told about, for the same reason BackupInsertReminder carries lastNotifiedAt. A
 // payload that predates them decodes to NULL = "unknown window", which is the
 // correct reading, so the payload version stays at 5/6 (the format is additive).
+//
+// leadDays (migration 0015) is optional for the same reason and defaults exactly
+// like the column: an older payload has no value, and [30, 7] is the behaviour
+// that payload was written under. Carrying it stops a restore from silently
+// resetting every device's reminder schedule to the default.
 func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDeviceParams) error {
 	_, err := q.db.Exec(ctx, backupInsertDevice,
 		arg.ID,
@@ -476,6 +483,7 @@ func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDevice
 		arg.ReturnWindowNotifiedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.LeadDays,
 	)
 	return err
 }
@@ -509,22 +517,28 @@ func (q *Queries) BackupInsertPayment(ctx context.Context, arg BackupInsertPayme
 
 const backupInsertReminder = `-- name: BackupInsertReminder :exec
 INSERT INTO "Reminder" (
-    id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt"
+    id, "warrantyId", "isDismissed", "lastNotifiedAt", "createdAt",
+    "lastNotifiedLeadDay"
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 )
 `
 
 type BackupInsertReminderParams struct {
-	ID             string           `json:"id"`
-	WarrantyId     string           `json:"warrantyId"`
-	IsDismissed    bool             `json:"isDismissed"`
-	LastNotifiedAt pgtype.Timestamp `json:"lastNotifiedAt"`
-	CreatedAt      pgtype.Timestamp `json:"createdAt"`
+	ID                  string           `json:"id"`
+	WarrantyId          string           `json:"warrantyId"`
+	IsDismissed         bool             `json:"isDismissed"`
+	LastNotifiedAt      pgtype.Timestamp `json:"lastNotifiedAt"`
+	CreatedAt           pgtype.Timestamp `json:"createdAt"`
+	LastNotifiedLeadDay *int32           `json:"lastNotifiedLeadDay"`
 }
 
 // "lastNotifiedAt" is the cron dedup marker (migration 0002): dropping it on
 // restore makes the next cron run re-notify warranties the user already saw.
+// "lastNotifiedLeadDay" is the other half of the per-lead-day key (migration
+// 0015); carrying it keeps a restore from re-firing the SAME lead day on a
+// same-day restore. A payload that predates it decodes to NULL, which the query
+// treats as "handled that day" rather than "never notified".
 func (q *Queries) BackupInsertReminder(ctx context.Context, arg BackupInsertReminderParams) error {
 	_, err := q.db.Exec(ctx, backupInsertReminder,
 		arg.ID,
@@ -532,6 +546,7 @@ func (q *Queries) BackupInsertReminder(ctx context.Context, arg BackupInsertRemi
 		arg.IsDismissed,
 		arg.LastNotifiedAt,
 		arg.CreatedAt,
+		arg.LastNotifiedLeadDay,
 	)
 	return err
 }
@@ -541,40 +556,49 @@ INSERT INTO "Subscription" (
     id, "userId", name, category, brand, plan, "billingCycle",
     "intervalDays", price, currency, "startedAt", "renewalDate",
     "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl",
-    "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt"
+    "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt",
+    "lastNotifiedRenewalLeadDay", "leadDays"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19, $20, $21, $22
+    $17, $18, $19, $20, $21, $22, $23,
+    COALESCE($24::int[], ARRAY[30, 7])
 )
 `
 
 type BackupInsertSubscriptionParams struct {
-	ID                    string           `json:"id"`
-	UserId                string           `json:"userId"`
-	Name                  string           `json:"name"`
-	Category              *string          `json:"category"`
-	Brand                 *string          `json:"brand"`
-	Plan                  *string          `json:"plan"`
-	BillingCycle          string           `json:"billingCycle"`
-	IntervalDays          *int32           `json:"intervalDays"`
-	Price                 int32            `json:"price"`
-	Currency              string           `json:"currency"`
-	StartedAt             pgtype.Timestamp `json:"startedAt"`
-	RenewalDate           pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew             bool             `json:"autoRenew"`
-	Status                string           `json:"status"`
-	AccountEmail          *string          `json:"accountEmail"`
-	PaymentMethod         *string          `json:"paymentMethod"`
-	ManageUrl             *string          `json:"manageUrl"`
-	CancelUrl             *string          `json:"cancelUrl"`
-	Notes                 *string          `json:"notes"`
-	LastNotifiedRenewalAt pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
-	CreatedAt             pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt             pgtype.Timestamp `json:"updatedAt"`
+	ID                         string           `json:"id"`
+	UserId                     string           `json:"userId"`
+	Name                       string           `json:"name"`
+	Category                   *string          `json:"category"`
+	Brand                      *string          `json:"brand"`
+	Plan                       *string          `json:"plan"`
+	BillingCycle               string           `json:"billingCycle"`
+	IntervalDays               *int32           `json:"intervalDays"`
+	Price                      int32            `json:"price"`
+	Currency                   string           `json:"currency"`
+	StartedAt                  pgtype.Timestamp `json:"startedAt"`
+	RenewalDate                pgtype.Timestamp `json:"renewalDate"`
+	AutoRenew                  bool             `json:"autoRenew"`
+	Status                     string           `json:"status"`
+	AccountEmail               *string          `json:"accountEmail"`
+	PaymentMethod              *string          `json:"paymentMethod"`
+	ManageUrl                  *string          `json:"manageUrl"`
+	CancelUrl                  *string          `json:"cancelUrl"`
+	Notes                      *string          `json:"notes"`
+	LastNotifiedRenewalAt      pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
+	CreatedAt                  pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamp `json:"updatedAt"`
+	LastNotifiedRenewalLeadDay *int32           `json:"lastNotifiedRenewalLeadDay"`
+	LeadDays                   []int32          `json:"leadDays"`
 }
 
 // "lastNotifiedRenewalAt" is the cron renewal-warning dedup marker; like the
 // reminder marker it must survive a restore or the user gets re-notified.
+// "lastNotifiedRenewalLeadDay" and "leadDays" are the migration-0015 pair:
+// carrying the lead day keeps a same-day restore from re-firing the reminder the
+// user already saw, and carrying leadDays keeps the user's chosen schedule.
+// Older payloads decode to NULL; leadDays then falls back to [30, 7], the
+// schedule that payload was written under.
 func (q *Queries) BackupInsertSubscription(ctx context.Context, arg BackupInsertSubscriptionParams) error {
 	_, err := q.db.Exec(ctx, backupInsertSubscription,
 		arg.ID,
@@ -599,6 +623,8 @@ func (q *Queries) BackupInsertSubscription(ctx context.Context, arg BackupInsert
 		arg.LastNotifiedRenewalAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.LastNotifiedRenewalLeadDay,
+		arg.LeadDays,
 	)
 	return err
 }
@@ -773,7 +799,7 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 const backupListDevices = `-- name: BackupListDevices :many
 
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -820,6 +846,7 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.ReturnWindowDays,
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
+			&i.LeadDays,
 		); err != nil {
 			return nil, err
 		}
@@ -867,7 +894,7 @@ func (q *Queries) BackupListPaymentsForUser(ctx context.Context, userid string) 
 }
 
 const backupListRemindersForUser = `-- name: BackupListRemindersForUser :many
-SELECT r.id, r."warrantyId", r."isDismissed", r."createdAt", r."lastNotifiedAt"
+SELECT r.id, r."warrantyId", r."isDismissed", r."createdAt", r."lastNotifiedAt", r."lastNotifiedLeadDay"
 FROM "Reminder" r
 JOIN "Warranty" w ON w.id = r."warrantyId"
 JOIN "Device"   d ON d.id = w."deviceId"
@@ -890,6 +917,7 @@ func (q *Queries) BackupListRemindersForUser(ctx context.Context, userid string)
 			&i.IsDismissed,
 			&i.CreatedAt,
 			&i.LastNotifiedAt,
+			&i.LastNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -902,7 +930,7 @@ func (q *Queries) BackupListRemindersForUser(ctx context.Context, userid string)
 }
 
 const backupListSubscriptionsForUser = `-- name: BackupListSubscriptionsForUser :many
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
 FROM "Subscription"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -940,6 +968,8 @@ func (q *Queries) BackupListSubscriptionsForUser(ctx context.Context, userid str
 			&i.LastNotifiedRenewalAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LeadDays,
+			&i.LastNotifiedRenewalLeadDay,
 		); err != nil {
 			return nil, err
 		}

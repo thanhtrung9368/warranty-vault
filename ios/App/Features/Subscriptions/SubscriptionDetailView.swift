@@ -80,6 +80,13 @@ struct SubscriptionDetailView: View {
                 SubscriptionFormView(client: client, store: store, subscription: sub)
             }
         }
+        // The form writes through `store.update`, but this screen keeps its own
+        // `subscription` snapshot for the payments/detail read. Refresh it when
+        // the editor closes so the new reminder schedule (and every other field)
+        // is visible immediately instead of after a pull-to-refresh.
+        .onChange(of: pushEdit) { _, isPushing in
+            if !isPushing { Task { await reload() } }
+        }
     }
 
     // MARK: - Main content
@@ -89,6 +96,12 @@ struct SubscriptionDetailView: View {
             VStack(spacing: 0) {
                 heroSection(sub)
                 costCard(sub)        .padding(.top, WVSpacing.sm)
+                // Per-subscription reminder schedule ("Nhắc trước 30 và 7
+                // ngày"). Hidden when the payload has no `leadDays` rather than
+                // assuming the default.
+                if let days = sub.leadDays, !days.isEmpty {
+                    reminderSection(days)
+                }
                 quickActions(sub)
                 statusSegmented(sub)
                 if payments.count > 1 { paymentChart }
@@ -191,6 +204,22 @@ struct SubscriptionDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Reminder schedule
+
+    /// Read-only "Nhắc trước 30 và 7 ngày" row. The value is normalised and
+    /// rendered by `LeadDaysRules`, the same source the form editor uses.
+    private func reminderSection(_ days: [Int]) -> some View {
+        VStack(spacing: 0) {
+            WVSectionHeader(L.t("Nhắc nhở"))
+            WVGroup {
+                WVRow(icon: "clock", iconColor: WVColor.purple,
+                      title: L.t("Nhắc trước"),
+                      detail: LeadDaysRules.dayListText(days))
+            }
+        }
+        .padding(.top, WVSpacing.sm)
     }
 
     // MARK: - Quick actions

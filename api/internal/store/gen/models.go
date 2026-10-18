@@ -76,6 +76,7 @@ type Device struct {
 	ReturnWindowDays       *int32           `json:"returnWindowDays"`
 	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
 	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
+	LeadDays               []int32          `json:"leadDays"`
 }
 
 type DeviceShare struct {
@@ -113,11 +114,12 @@ type PushSubscription struct {
 }
 
 type Reminder struct {
-	ID             string           `json:"id"`
-	WarrantyId     string           `json:"warrantyId"`
-	IsDismissed    bool             `json:"isDismissed"`
-	CreatedAt      pgtype.Timestamp `json:"createdAt"`
-	LastNotifiedAt pgtype.Timestamp `json:"lastNotifiedAt"`
+	ID                  string           `json:"id"`
+	WarrantyId          string           `json:"warrantyId"`
+	IsDismissed         bool             `json:"isDismissed"`
+	CreatedAt           pgtype.Timestamp `json:"createdAt"`
+	LastNotifiedAt      pgtype.Timestamp `json:"lastNotifiedAt"`
+	LastNotifiedLeadDay *int32           `json:"lastNotifiedLeadDay"`
 }
 
 type Session struct {
@@ -141,28 +143,30 @@ type Store struct {
 }
 
 type Subscription struct {
-	ID                    string           `json:"id"`
-	UserId                string           `json:"userId"`
-	Name                  string           `json:"name"`
-	Category              *string          `json:"category"`
-	Brand                 *string          `json:"brand"`
-	Plan                  *string          `json:"plan"`
-	BillingCycle          string           `json:"billingCycle"`
-	IntervalDays          *int32           `json:"intervalDays"`
-	Price                 int32            `json:"price"`
-	Currency              string           `json:"currency"`
-	StartedAt             pgtype.Timestamp `json:"startedAt"`
-	RenewalDate           pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew             bool             `json:"autoRenew"`
-	Status                string           `json:"status"`
-	AccountEmail          *string          `json:"accountEmail"`
-	PaymentMethod         *string          `json:"paymentMethod"`
-	ManageUrl             *string          `json:"manageUrl"`
-	CancelUrl             *string          `json:"cancelUrl"`
-	Notes                 *string          `json:"notes"`
-	LastNotifiedRenewalAt pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
-	CreatedAt             pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt             pgtype.Timestamp `json:"updatedAt"`
+	ID                         string           `json:"id"`
+	UserId                     string           `json:"userId"`
+	Name                       string           `json:"name"`
+	Category                   *string          `json:"category"`
+	Brand                      *string          `json:"brand"`
+	Plan                       *string          `json:"plan"`
+	BillingCycle               string           `json:"billingCycle"`
+	IntervalDays               *int32           `json:"intervalDays"`
+	Price                      int32            `json:"price"`
+	Currency                   string           `json:"currency"`
+	StartedAt                  pgtype.Timestamp `json:"startedAt"`
+	RenewalDate                pgtype.Timestamp `json:"renewalDate"`
+	AutoRenew                  bool             `json:"autoRenew"`
+	Status                     string           `json:"status"`
+	AccountEmail               *string          `json:"accountEmail"`
+	PaymentMethod              *string          `json:"paymentMethod"`
+	ManageUrl                  *string          `json:"manageUrl"`
+	CancelUrl                  *string          `json:"cancelUrl"`
+	Notes                      *string          `json:"notes"`
+	LastNotifiedRenewalAt      pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
+	CreatedAt                  pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt                  pgtype.Timestamp `json:"updatedAt"`
+	LeadDays                   []int32          `json:"leadDays"`
+	LastNotifiedRenewalLeadDay *int32           `json:"lastNotifiedRenewalLeadDay"`
 }
 
 type SubscriptionPayment struct {

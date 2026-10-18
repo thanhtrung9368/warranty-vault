@@ -20,6 +20,7 @@ import {
   Coins,
   MapPin,
   Share2,
+  Bell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +48,7 @@ import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
+import { leadDaysLabel } from '@/lib/lead-days';
 import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 import { costPerDay } from '@/lib/stats-rollup';
 
@@ -314,6 +316,15 @@ export default async function DeviceDetailPage({
                   </span>
                 </p>
               )}
+
+              {/* Reminder schedule (per-user `Device.leadDays`). This replaces
+                  the old fixed 7/30-day cron text: the sentence is generated
+                  from the device's own list, sorted descending by the server
+                  (and again by `leadDaysLabel` for safety). */}
+              <p className="flex items-start gap-2 border-t border-dashed border-border pt-2 text-sm text-ink-2">
+                <Bell className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{leadDaysLabel(device.leadDays, locale)}</span>
+              </p>
             </CardContent>
           </Card>
 

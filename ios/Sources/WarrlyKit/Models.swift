@@ -236,6 +236,27 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     public let createdAt: Date?
     public let updatedAt: Date?
 
+    /// Reminder lead times for this device's warranties, in **days before
+    /// expiry**, e.g. `[30, 7]`.
+    ///
+    /// Optional on the **read** side only: older cached payloads and a server
+    /// that has not shipped the field yet must still decode, so `nil` means
+    /// "not returned", not "no reminders". The contract returns it sorted
+    /// descending with 1…5 entries in `0...365`; read it through
+    /// `LeadDaysRules` rather than trusting the raw array.
+    ///
+    /// ## Encoding
+    ///
+    /// `Device` has a synthesized `Codable` conformance, which calls
+    /// `encodeIfPresent` for this property: a **non-nil array is always
+    /// encoded**, while `nil` is dropped. That omission is correct for this
+    /// field — the contract defines an absent/`null` `leadDays` as "leave the
+    /// stored schedule alone" on update and as the server default `[30, 7]` on
+    /// create. (It is *not* the `AttachmentDescriptionInput.description` case,
+    /// where an absent key is a 400 and `nil` must travel as an explicit JSON
+    /// null; that is why the two are modelled differently.)
+    public let leadDays: [Int]?
+
     /// Exchange / return window ("1 đổi 1") length in days, recorded by the user
     /// for **this** device (migration 0010). Three states, and they are all
     /// different: `nil` = **chưa biết** (the API has no default and never infers
@@ -318,6 +339,11 @@ public struct DeviceDetailBody: Decodable, Sendable {
     public let attachments: [AttachmentMeta]?
     public let warranties: [Warranty]?
 
+    /// Reminder lead times, on the detail read. Same field and same rules as
+    /// `Device.leadDays`; optional because this screen may be talking to a
+    /// server that has not shipped it yet.
+    public let leadDays: [Int]?
+
     // The return window, on the detail read (openapi `DeviceDetail`).
     //
     // The detail endpoint is where the **derived** deadline is available even for
@@ -353,6 +379,23 @@ public struct DeviceInput: Encodable, Sendable {
     public var warrantyPhone: String?
     public var warrantyNotes: String?
     public var fromWishlistId: String?
+
+    /// Reminder lead times, in days before warranty expiry (openapi
+    /// `DeviceInput.leadDays`). The device form always sends a value built by
+    /// `LeadDaysRules.wireValue`: normalised descending, 1…5 entries, each
+    /// `0...365`. The server also sorts and validates, so a bug here is a 400
+    /// (`fieldErrors.leadDays`), never a silently stored odd schedule.
+    ///
+    /// `nil` is dropped from the JSON by the synthesized encoder. Unlike
+    /// `returnWindowDays`, that is **not** destructive: the contract makes an
+    /// absent/`null` `leadDays` mean "keep the stored schedule" on update and
+    /// "use the server default `[30, 7]`" on create. The form still sends the
+    /// loaded value back on every save, so the intent stays explicit.
+    ///
+    /// An empty array is **not** a way to clear the schedule — the server
+    /// rejects it with a 400. A user who wants fewer reminders removes days
+    /// until one is left.
+    public var leadDays: [Int]?
 
     /// Exchange-window length in days (openapi `DeviceInput.returnWindowDays`).
     /// Independent of `receivedAt` — sending one without the other is valid.
@@ -536,6 +579,13 @@ public struct Subscription: Codable, Sendable, Identifiable, Hashable {
     public let manageUrl: String?
     public let cancelUrl: String?
     public let notes: String?
+
+    /// Reminder lead times before the renewal date, in **days**, e.g.
+    /// `[30, 7]`. Same optional-and-encode-when-set rule as
+    /// `Device.leadDays`: `nil` means "the server did not return it" (an older
+    /// payload), and a non-nil array is always encoded by the synthesized
+    /// `Codable`. See `LeadDaysRules` for clamp/dedupe/sort/cap.
+    public let leadDays: [Int]?
 }
 
 public struct SubscriptionInput: Encodable, Sendable {
@@ -555,6 +605,16 @@ public struct SubscriptionInput: Encodable, Sendable {
     public var manageUrl: String?
     public var cancelUrl: String?
     public var notes: String?
+
+    /// Reminder lead times before renewal, in days (openapi
+    /// `SubscriptionInput.leadDays`). Built with `LeadDaysRules.wireValue` by
+    /// the form: normalised descending, 1…5 entries, `0...365`.
+    ///
+    /// `nil` is omitted by the synthesized encoder, which the contract defines
+    /// as "leave the stored schedule unchanged" on update; on create the server
+    /// defaults it to `[30, 7]`. An empty array is rejected with a 400 and is
+    /// never built by this client.
+    public var leadDays: [Int]?
 
     public init(name: String, billingCycle: BillingCycle, price: Int, startedAt: String) {
         self.name = name; self.billingCycle = billingCycle
