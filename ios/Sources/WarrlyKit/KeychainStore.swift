@@ -9,7 +9,7 @@ public struct KeychainStore: Sendable {
     public let service: String
     public let account: String
 
-    public init(service: String = "app.warrly",
+    public init(service: String = "com.warrly",
                 account: String = "session.token") {
         self.service = service
         self.account = account

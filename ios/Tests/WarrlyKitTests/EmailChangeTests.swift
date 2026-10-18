@@ -32,7 +32,7 @@ final class EmailChangeTests: KitTestCase {
     /// `invalid_email_change_token`.
     func testConfirmLinkIsReducedToItsToken() {
         XCTAssertEqual(
-            EmailChangeRules.token(fromPasted: "https://app.warrly.vn/confirm-email/raw-token-1"),
+            EmailChangeRules.token(fromPasted: "https://com.warrly.vn/confirm-email/raw-token-1"),
             "raw-token-1")
         XCTAssertEqual(
             EmailChangeRules.token(fromPasted: "http://localhost:3000/confirm-email/raw-token-1"),

@@ -214,9 +214,9 @@ npx web-push generate-vapid-keys
 **Tốn:** 0đ. FCM không tính phí. Gói Spark (miễn phí) là đủ.
 
 **Project:** `daring-tracer-277502` (display name `Warrly`).
-**Package Android:** `app.warrly`.
+**Package Android:** `com.warrly`.
 
-- **Đã cài `android/app/google-services.json`** (687 byte, `package_name: app.warrly`).
+- **Đã cài `android/app/google-services.json`** (687 byte, `package_name: com.warrly`).
   Plugin Google Services đã bật và **sinh resource thật** — kiểm bằng bằng chứng chứ không chỉ
   "build không lỗi": `app/build/generated/res/processDebugGoogleServices/values/values.xml` có
   `google_app_id = 1:181364876291:android:2055795a0ec9a5660fda36`, `project_id`, `google_api_key` thật.
@@ -368,7 +368,7 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
 ### [x] 2.1 — Domain — ✅ **ĐÃ MUA `warrly.com` (2026-10-18)**
 
 **Tên sản phẩm đã chốt: `Warrly`** (bỏ `Warranty Vault` — xem 3.3 để biết vì sao).
-Đã đổi toàn bộ 4 tầng: hiển thị, bundle ID `app.warrly`, package Android `app.warrly`,
+Đã đổi toàn bộ 4 tầng: hiển thị, bundle ID `com.warrly`, package Android `com.warrly`,
 iOS module `WarrlyKit`, catalog i18n, Caddyfile.
 
 `.com` đã mua, Active tới **2027-10-18**. Giá `.com` tăng lên $11.17 từ **1/11/2026** —
@@ -412,7 +412,7 @@ gia hạn sớm vài năm trước mốc đó để khoá giá $10.46.
 > Apple, không cần tên miền công khai. Nên **2.3 mở được ngay** — chỉ cần tạo APNs key (.p8)
 > trong Apple Developer portal rồi điền `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY`.
 >
-> ℹ️ **2.4 Google Play cũng không cần domain** — chỉ cần package name `app.warrly`.
+> ℹ️ **2.4 Google Play cũng không cần domain** — chỉ cần package name `com.warrly`.
 
 > 💡 **Đường miễn phí (không khuyến khích):** DuckDNS hoặc tương tự cho một subdomain có
 > quyền sửa DNS, đủ để Resend verify. Nhưng email gửi từ một subdomain miễn phí **rất dễ vào

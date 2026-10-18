@@ -77,7 +77,7 @@ VAPID_SUBJECT=mailto:admin@warrly.tld
 # APNs / FCM khi có Apple Dev / Firebase
 APNS_KEY_ID=
 APNS_TEAM_ID=
-APNS_BUNDLE_ID=app.warrly
+APNS_BUNDLE_ID=com.warrly
 APNS_PRIVATE_KEY=
 APNS_PRODUCTION=true
 FCM_SERVICE_ACCOUNT_JSON=

@@ -897,7 +897,7 @@ EncryptedSharedPreferences + SharedPreferences. Nên phải xây thêm:
 
 - **iOS** — một widget extension target **thứ hai** (`project.yml` hiện chỉ có 1 target application,
   `:20-28`), một App Group + **Keychain access group** (`KeychainStore.swift:12` đang dùng service
-  `app.warrly` **KHÔNG** có `kSecAttrAccessGroup`), và app ghi snapshot vào container dùng
+  `com.warrly` **KHÔNG** có `kSecAttrAccessGroup`), và app ghi snapshot vào container dùng
   chung. Lưu ý `ios/Warrly.xcodeproj/project.pbxproj` **được git-track**, nên phải giữ đồng bộ
   `project.yml` và `pbxproj`.
 - **Android** — thêm `androidx.glance:glance-appwidget` + WorkManager (cả hai đều **chưa có** trong

@@ -1,6 +1,6 @@
 name: Warrly
 options:
-  bundleIdPrefix: app.warrly
+  bundleIdPrefix: com.warrly
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -54,7 +54,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.warrly
+        PRODUCT_BUNDLE_IDENTIFIER: com.warrly
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Automatic

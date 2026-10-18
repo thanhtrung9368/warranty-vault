@@ -218,7 +218,7 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 | Việc | Chờ gì | Trạng thái |
 |---|---|---|
 | ~~Apple Developer + APNs .p8~~ | ~~$99/năm~~ | ✅ **ĐÃ CÓ TÀI KHOẢN** (2026-10-04) — còn thiếu mỗi việc tạo key `.p8` trong portal |
-| ~~Firebase project + `google-services.json`~~ | ~~Google account~~ | ✅ **XONG** — project `daring-tracer-277502`, package `app.warrly`, file **thật** (không còn stub) |
+| ~~Firebase project + `google-services.json`~~ | ~~Google account~~ | ✅ **XONG** — project `daring-tracer-277502`, package `com.warrly`, file **thật** (không còn stub) |
 | VPS + domain + Caddy TLS | Card + DNS | **VPS: ĐÃ CÓ.** Còn **domain** — và nó chặn **cứng** cả HTTPS lẫn Resend (Let's Encrypt không cấp cert cho IP trần) |
 | TestFlight / Play Console internal | Apple/Google account | Apple ✅ có · Play: **app chưa tạo trong console** |
 | Upstash (rate-limit) / Resend (email) prod keys | Signup free tier | **Resend chặn bởi domain**; Upstash chủ repo tạm hoãn |
@@ -233,7 +233,7 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 3. ~~**Block 1.3–1.5** — reminder/payment/label parity~~ ✅ XONG (2026-06-05), nâng cấp tiếp 2026-10-03.
 4. ~~**Block 2** — đồng bộ docs~~ ✅ XONG (2026-06-05) + 2026-10-03.
 5. ~~**Block 3** — CI test~~ ✅ XONG (2026-06-05) + 2026-10-03.
-6. ~~**Block 4** — `google-services.json` thật~~ ✅ XONG (2026-10-04): Firebase project `daring-tracer-277502`, package `app.warrly`, plugin đã sinh resource thật; service account đã vào `.env` gốc. Xem `docs/HUMAN_TASKS.md` 1.1.
+6. ~~**Block 4** — `google-services.json` thật~~ ✅ XONG (2026-10-04): Firebase project `daring-tracer-277502`, package `com.warrly`, plugin đã sinh resource thật; service account đã vào `.env` gốc. Xem `docs/HUMAN_TASKS.md` 1.1.
 7. **Block 5** — chọn trong bảng: việc code được thì làm ngay, việc cần duyệt thì hỏi trước.
 
 > **Đường ngắn nhất tới "chạy thật":** mua **domain** (`docs/HUMAN_TASKS.md` 2.1) — **VPS đã có rồi** —
