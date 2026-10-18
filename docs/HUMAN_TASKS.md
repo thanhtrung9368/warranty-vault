@@ -519,6 +519,35 @@ Tình trạng tên miền, kiểm bằng **RDAP** (nguồn đăng ký chính th�
 
 > 🔴 **Dù chọn đuôi nào, đây vẫn là món chặn nhiều nhất** — xem ghi chú ở 2.1.
 
+#### ⚠️ Tên "WarrantyVault" đã có người dùng cho sản phẩm thật
+
+`warrantyvault.app` **không phải domain parking** — nó là sản phẩm đang bán:
+
+- **Chủ sở hữu:** `Hope Built Advisory LLC` (công ty Mỹ), `© 2026`
+- **Sản phẩm:** *"WarrantyVault — Construction & Facilities Warranty Management"* — quản lý bảo hành
+  cho nhà thầu, mái nhà, MEP, thiết bị trong các dự án xây dựng
+- **Đang bán thật:** có waitlist và giá launch `$199 one-time` (25 suất)
+- **Đăng ký domain:** 2026-04-06, hết hạn 2027-04-06, registrar Cloudflare
+
+Họ ở **phân khúc khác** (xây dựng / toà nhà, thị trường Mỹ, tiếng Anh) — mình ở **thiết bị tiêu dùng,
+thị trường Việt Nam**. Nhưng **cùng tên, cùng chức năng "quản lý bảo hành"**, nên đây là **rủi ro
+nhãn hiệu thật**, không phải chuyện nhỏ:
+
+- App Store có thể bị gỡ nếu bên kia khiếu nại tên
+- Nếu họ đăng ký nhãn hiệu (họ đang bán sản phẩm thương mại, khả năng cao), phạm vi bảo hộ có thể
+  vượt ngành — luật nhãn hiệu không chỉ giới hạn theo ngành ở nhiều nước
+
+> **Tao không phải luật sư** — đây là quan sát dữ kiện, không phải tư vấn pháp lý. Nếu mày định giữ
+> tên này cho một sản phẩm thương mại, nên hỏi người làm luật.
+
+**Ba hướng:**
+
+| Hướng | Được | Mất |
+|---|---|---|
+| **Giữ tên, dùng đuôi khác** (`warrantyvault.dev` / `.io` / `warranty-vault.app`) | Không phải đổi gì trong code | **Rủi ro nhãn hiệu vẫn nguyên** — đổi đuôi không giảm rủi ro, vì nhãn hiệu là về *tên*, không phải domain |
+| **Đổi tên** (vd `SoBaoHanh`, `VaultBH`, `BaoHanhCaNhan`) | Xoá hẳn rủi ro · mở lại `.com`/`.app` | Phải đổi ở 4 tầng + bundle ID + store listing. **Play Console chưa tạo app** nên đây là lúc rẻ nhất để đổi |
+| **Giữ nguyên, chấp nhận rủi ro** | Không tốn công | Sống chung với khả năng bị khiếu nại/gỡ app |
+
 ### [x] 3.4 — 5 control chết trên iOS — ✅ **HẾT VIỆC, agent đã xử lý xong (2026-10-03)**
 
 Bản 2026-10-02 liệt kê 5 chỗ bấm vào không làm gì trên iOS và hỏi mày muốn xoá hay làm thật.
