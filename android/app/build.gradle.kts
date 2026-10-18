@@ -15,6 +15,30 @@ if (hasGoogleServices) {
     apply(plugin = libs.plugins.google.services.get().pluginId)
 }
 
+// Play publishing is configured only when credentials are present, so an ordinary
+// build — and CI running the tests — never needs a Play service account.
+//
+// In CI the service-account JSON arrives as ANDROID_PUBLISHER_CREDENTIALS (GPP
+// reads it directly, so no key file is ever written to disk or committed).
+// Locally, drop the key at app/play-service-account.json.
+val hasPlayCredentials =
+    !System.getenv("ANDROID_PUBLISHER_CREDENTIALS").isNullOrBlank() ||
+        file("play-service-account.json").exists()
+if (hasPlayCredentials) {
+    apply(plugin = libs.plugins.play.publisher.get().pluginId)
+    configure<com.github.triplet.gradle.play.PlayPublisherExtension> {
+        // `internal` is the Play track that mirrors TestFlight: fast, small
+        // audience, and it does not need a store listing review for updates.
+        // The release workflow passes -PplayTrack=<track> to promote without a
+        // code change; a plain local build gets the safe default.
+        track.set((project.findProperty("playTrack") as String?) ?: "internal")
+        defaultToAppBundles.set(true)
+        // Every upload must bump versionCode, or Play rejects it. Failing on the
+        // Gradle side is friendlier than a 400 from Google halfway through a run.
+        resolutionStrategy.set(com.github.triplet.gradle.androidpublisher.ResolutionStrategy.FAIL)
+    }
+}
+
 android {
     namespace = "com.warrly"
     compileSdk = 36

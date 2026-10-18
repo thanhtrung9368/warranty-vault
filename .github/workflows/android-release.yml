@@ -1,0 +1,121 @@
+# Builds a signed release bundle and uploads it to the Play `internal` track —
+# the Android answer to TestFlight. Tagging `v*` ships; the manual trigger is
+# there so a release can be re-run without a new commit.
+#
+# Why this is a separate workflow from android.yml: the test workflow must run on
+# every push and needs no secrets. This one needs the upload keystore and a Play
+# service account, and it publishes to a store. Mixing them would put store
+# credentials in the path of every pull request.
+name: android-release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Play track"
+        required: true
+        default: "internal"
+        type: choice
+        options: [internal, alpha, beta, production]
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: bundle • sign • upload
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install SDK platform 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # The keystore is the only proof this app is yours, so it lives in a secret
+      # and is written to disk only for the length of this job. It is never
+      # committed, and the workflow deletes it in a final step even if the build
+      # fails — an `always()` step rather than trusting success.
+      - name: Restore upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::UPLOAD_KEYSTORE_BASE64 is not set. The release bundle must be signed with the upload key that Play already trusts."
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > keystore/warrly-upload.jks
+          printf 'storeFile=keystore/warrly-upload.jks\nstorePassword=%s\nkeyAlias=warrly-upload\nkeyPassword=%s\n' \
+            "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > keystore.properties
+          chmod 600 keystore.properties keystore/warrly-upload.jks
+
+      # ANDROID_PUBLISHER_CREDENTIALS is read by Gradle Play Publisher directly —
+      # no JSON file is written anywhere. That is why app/build.gradle.kts guards
+      # the plugin on this variable.
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Verify unit tests actually ran
+        run: |
+          shopt -s nullglob
+          results=(app/build/test-results/testDebugUnitTest/*.xml)
+          if [ ${#results[@]} -eq 0 ]; then
+            echo "::error:::app:testDebugUnitTest produced no test results — refusing to publish an untested bundle."
+            exit 1
+          fi
+          total=$(grep -ho 'tests="[0-9]*"' "${results[@]}" | grep -o '[0-9]*' | awk '{n+=$1} END {print n+0}')
+          echo "Executed $total unit tests across ${#results[@]} classes."
+          if [ "$total" -eq 0 ]; then
+            echo "::error::The unit test report contains zero tests."
+            exit 1
+          fi
+
+      - name: Build and upload to Play
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
+          TRACK: ${{ inputs.track || 'internal' }}
+        run: |
+          if [ -z "${ANDROID_PUBLISHER_CREDENTIALS:-}" ]; then
+            echo "::error::ANDROID_PUBLISHER_CREDENTIALS is not set. See docs/PLAY_RELEASE.md."
+            exit 1
+          fi
+          ./gradlew publishReleaseBundle --no-daemon -PplayTrack="$TRACK"
+
+      # Always runs, including after a failed build. Leaving the keystore on a
+      # runner is not a leak by itself — the machine is discarded — but a leftover
+      # file is exactly what ends up in an artifact upload added later.
+      - name: Remove keystore
+        if: always()
+        run: rm -rf keystore keystore.properties
+        working-directory: android
+
+      - name: Keep the signed bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30
