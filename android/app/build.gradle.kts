@@ -17,13 +17,13 @@ if (hasGoogleServices) {
 
 android {
     namespace = "com.warrly"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.warrly"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 1
+        targetSdk = 36
+        versionCode = 2
         versionName = "0.1.0"
 
         // Default base URL for the Go API backend (api/cmd/server, port 4000).
