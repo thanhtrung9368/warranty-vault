@@ -12,6 +12,14 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
+  configs:
+    # APNs dùng hai môi trường khác nhau: build Debug đăng ký token với
+    # gateway sandbox, build Release/TestFlight với gateway production.
+    # Entitlement phải khớp, nếu không APNs từ chối token và push im lặng.
+    Debug:
+      APS_ENVIRONMENT: development
+    Release:
+      APS_ENVIRONMENT: production
 
 packages:
   WarrlyKit:
@@ -38,7 +46,11 @@ targets:
     entitlements:
       path: App/Warrly.entitlements
       properties:
-        aps-environment: development
+        # Biến theo configuration: Debug = development, Release = production.
+        # Xcode thay $(...) trong file entitlements lúc build, nên MỘT file
+        # phục vụ cả hai. Hardcode 'development' thì archive cho TestFlight sẽ
+        # mang entitlement development, và APNs production từ chối token.
+        aps-environment: $(APS_ENVIRONMENT)
     info:
       path: App/Info.plist
       properties:
@@ -76,6 +88,4 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_REQUIRED: NO
-        CODE_SIGN_IDENTITY: ""
-        CODE_SIGNING_ALLOWED: NO
+        DEVELOPMENT_TEAM: RNCMNPBA9L
