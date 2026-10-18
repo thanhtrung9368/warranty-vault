@@ -104,6 +104,15 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 
     implementation(libs.androidx.security.crypto)
+
+    // App lock ("Khoá bằng sinh trắc học") — opt-in biometric + device-credential
+    // gate, mirroring the iOS "Face ID & Touch ID" lock. `biometric` brings
+    // androidx.fragment transitively; it is pinned explicitly (libs.versions.toml)
+    // so MainActivity can host BiometricPrompt through a FragmentActivity without
+    // tripping InvalidFragmentVersionForActivityResult.
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment)
+
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)

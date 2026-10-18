@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App lock ("Khoá bằng sinh trắc học") — the Android twin of the iOS
+  "Face ID & Touch ID" lock.
+
+  Owned by:
+    ui/screens/lock/AppLockScreen.kt      the full-screen cover
+    ui/screens/settings/SettingsScreen.kt the toggle row + its dynamic subtitle
+    auth/AppLock.kt                       the state machine (typed reasons only,
+                                          all copy lives here)
+  The `values-vi` file carries the Vietnamese copy, transcribed from
+  ios/App/Features/Settings/AccountView.swift and RootView.swift so the two
+  native apps say the same thing.
+-->
+<resources>
+
+    <!-- ===== Lock screen (AppLockScreen.kt). ===== -->
+    <string name="app_lock_title">Warrly is locked</string>
+    <string name="app_lock_subtitle">Unlock with your biometrics or the device screen lock to see your warranty data.</string>
+    <string name="app_lock_unlock">Unlock</string>
+    <string name="app_lock_sign_out_hint">If you cannot unlock, sign out and sign back in with your email and password.</string>
+
+    <!-- Reason handed to the system BiometricPrompt (it is the prompt title). -->
+    <string name="app_lock_prompt_reason">Unlock Warrly to see your warranty data.</string>
+    <string name="app_lock_prompt_subtitle">Biometrics or device screen lock</string>
+
+    <!-- ===== Authentication failures (AppLockFailure → copy). ===== -->
+    <string name="app_lock_error_biometrics_unavailable">Biometrics are not supported on this device.</string>
+    <string name="app_lock_error_biometrics_not_enrolled">No biometrics are set up on this device.</string>
+    <string name="app_lock_error_lockout">Biometrics are temporarily locked. Use the device screen lock to continue.</string>
+    <string name="app_lock_error_no_device_credential">This device has no screen lock set.</string>
+    <string name="app_lock_error_auth_failed">Authentication did not succeed. Try again.</string>
+    <string name="app_lock_error_unknown">Could not authenticate. Try again.</string>
+
+    <!-- ===== Settings row (SettingsScreen.kt). ===== -->
+    <string name="app_lock_row_title">Biometric app lock</string>
+    <string name="app_lock_row_subtitle_on">On — unlock with biometrics or the device screen lock</string>
+    <string name="app_lock_row_subtitle_off">Off</string>
+    <string name="app_lock_row_footer">When on, the app asks for biometrics — or the device screen lock — every time you come back. If the device no longer has a screen lock, the app lock turns itself off so you cannot be stranded. It only covers the screen: nothing extra is encrypted.</string>
+
+    <!-- ===== Why the switch is unavailable (AppLockUnavailable → copy). ===== -->
+    <string name="app_lock_unavailable_no_credential">This device has no screen lock — set a PIN or pattern in system Settings first.</string>
+    <string name="app_lock_unavailable_no_hardware">This device does not support biometrics.</string>
+    <string name="app_lock_unavailable_not_enrolled">No biometrics are set up — turn them on in system Settings first.</string>
+
+    <!-- ===== Self-disabled notice (AppLockNotice → copy). ===== -->
+    <string name="app_lock_auto_disabled">The app lock was turned off because the device no longer has a screen lock to authenticate with.</string>
+
+</resources>

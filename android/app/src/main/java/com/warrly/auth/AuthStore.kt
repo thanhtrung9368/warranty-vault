@@ -120,9 +120,14 @@ class AuthStore(
      * BOTH, and a failure here is surfaced rather than swallowed — a silent
      * failure would leave the account receiving Vietnamese push while the app
      * renders English.
+     *
+     * [language] is `null` for "Theo thiết bị": the tri-state `locale` is cleared
+     * with an explicit `"locale": null` (see [UpdateLocaleInput] and its
+     * serializer — the app's JSON config drops nulls otherwise), which sends the
+     * server back to deciding per request.
      */
-    suspend fun updateLocale(language: AppLanguage): UpdateProfileResponse {
-        val res = api.updateLocale(UpdateLocaleInput(language.tag))
+    suspend fun updateLocale(language: AppLanguage?): UpdateProfileResponse {
+        val res = api.updateLocale(UpdateLocaleInput(language?.tag))
         _status.value = Status.Authenticated(res.user)
         return res
     }

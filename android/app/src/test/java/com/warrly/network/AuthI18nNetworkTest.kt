@@ -146,6 +146,24 @@ class AuthI18nNetworkTest {
         assertTrue("must not carry locale: $body", !body.contains("locale"))
     }
 
+    /**
+     * "Theo thiết bị" is `PATCH {"locale": null}` on the wire — the tri-state
+     * clear branch, not an omission. This goes through Retrofit's converter, so
+     * it proves the hand-written serializer survives the real call path as well
+     * as the direct `encodeToString` in `ModelsSerializationTest`.
+     */
+    @Test
+    fun updateLocaleCanClearTheStoredLanguageWithAnExplicitNull() = runBlocking {
+        enqueueJson(userJson)
+
+        api().updateLocale(UpdateLocaleInput(locale = null))
+
+        val recorded = server.takeRequest()
+        assertEquals("PATCH", recorded.method)
+        assertEquals("/api/v1/auth/me", recorded.path)
+        assertEquals("""{"locale":null}""", recorded.body.readUtf8())
+    }
+
     /** `User.locale` decodes when present and defaults to null when absent. */
     @Test
     fun userLocaleDecodesAndIsOptional() {

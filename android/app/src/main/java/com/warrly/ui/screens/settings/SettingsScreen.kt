@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MailOutline
@@ -40,6 +41,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +78,10 @@ import androidx.compose.ui.unit.dp
 import com.warrly.App
 import com.warrly.BuildConfig
 import com.warrly.R
+import com.warrly.auth.AppLockAvailability
+import com.warrly.auth.AppLockFailure
+import com.warrly.auth.AppLockNotice
+import com.warrly.auth.AppLockStore
 import com.warrly.auth.AuthStore
 import com.warrly.export.csvFileName
 import com.warrly.export.devicesCsvBytes
@@ -86,6 +92,7 @@ import com.warrly.network.ApiService
 import com.warrly.network.toUserMessage
 import com.warrly.ui.components.PageHeader
 import com.warrly.ui.components.SectionHeader
+import com.warrly.ui.screens.lock.messageRes
 import com.warrly.ui.theme.ThemePreference
 import com.warrly.ui.theme.ThemeStore
 import kotlinx.coroutines.launch
@@ -98,11 +105,19 @@ fun SettingsScreen(
     auth: AuthStore,
     themeStore: ThemeStore,
     api: ApiService,
+    appLock: AppLockStore,
     onOpenPushDevices: () -> Unit = {},
     onOpenSessions: () -> Unit = {},
 ) {
     val status by auth.status.collectAsState()
     val themePref by themeStore.preference.collectAsState()
+    // App lock state — the store is app-scoped so these flows survive Activity
+    // recreation; the row below only renders them.
+    val appLockEnabled by appLock.isEnabled.collectAsState()
+    val appLockBusy by appLock.isAuthenticating.collectAsState()
+    val appLockAvailability by appLock.availability.collectAsState()
+    val appLockFailure by appLock.lastFailure.collectAsState()
+    val appLockNotice by appLock.autoDisabledNotice.collectAsState()
     val cs = MaterialTheme.colorScheme
     var showChangePassword by rememberSaveable { mutableStateOf(false) }
     var showProfileEdit by rememberSaveable { mutableStateOf(false) }
@@ -418,6 +433,44 @@ fun SettingsScreen(
                         onClick = { showChangePassword = true },
                         showDivider = true,
                     )
+                    // App lock — the Android twin of iOS "Face ID & Touch ID"
+                    // (AccountView.swift). Off by default; turning it on AND off
+                    // each authenticate once (`AppLockStore.setEnabled`), and the
+                    // switch cannot be turned on when the device could never
+                    // satisfy it, so nobody can lock themselves out.
+                    SettingsRow(
+                        icon = Icons.Filled.Fingerprint,
+                        title = stringResource(R.string.app_lock_row_title),
+                        subtitle = appLockSubtitle(
+                            enabled = appLockEnabled,
+                            availability = appLockAvailability,
+                            failure = appLockFailure,
+                            notice = appLockNotice,
+                        ),
+                        trailing = {
+                            if (appLockBusy) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Switch(
+                                    checked = appLockEnabled,
+                                    enabled = appLockEnabled || appLockAvailability.canEnableLock,
+                                    onCheckedChange = { next ->
+                                        appLock.acknowledgeAutoDisabledNotice()
+                                        scope.launch {
+                                            appLock.setEnabled(
+                                                next,
+                                                context.getString(R.string.app_lock_prompt_reason),
+                                            )
+                                        }
+                                    },
+                                )
+                            }
+                        },
+                        showDivider = true,
+                    )
                     SettingsRow(
                         icon = Icons.Filled.Notifications,
                         title = stringResource(R.string.set_notification_devices),
@@ -437,6 +490,14 @@ fun SettingsScreen(
                     )
                 }
             }
+            // Honest about what the lock is: a screen cover, not encryption of
+            // the data at rest.
+            Text(
+                stringResource(R.string.app_lock_row_footer),
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+            )
 
             Spacer(Modifier.height(16.dp))
             Box(Modifier.padding(horizontal = 16.dp)) {
@@ -805,6 +866,31 @@ private fun SettingsRow(
             )
         }
     }
+}
+
+/**
+ * The app-lock row's subtitle, in priority order — exactly the order the iOS
+ * `AccountView.appLockDetail` uses:
+ *
+ *  1. the last failure ("Xác thực không thành công. Thử lại.") — it explains a
+ *     switch that visibly refused to move;
+ *  2. the one-shot self-disabled notice (the device lost its screen lock);
+ *  3. "đang bật" when on;
+ *  4. the reason it cannot be enabled (no credential / no sensor / not enrolled);
+ *  5. "đang tắt".
+ */
+@Composable
+private fun appLockSubtitle(
+    enabled: Boolean,
+    availability: AppLockAvailability,
+    failure: AppLockFailure?,
+    notice: AppLockNotice?,
+): String {
+    failure?.let { return stringResource(it.messageRes()) }
+    notice?.let { return stringResource(it.messageRes()) }
+    if (enabled) return stringResource(R.string.app_lock_row_subtitle_on)
+    availability.unavailable?.let { return stringResource(it.messageRes()) }
+    return stringResource(R.string.app_lock_row_subtitle_off)
 }
 
 private fun iconFor(pref: ThemePreference): ImageVector = when (pref) {

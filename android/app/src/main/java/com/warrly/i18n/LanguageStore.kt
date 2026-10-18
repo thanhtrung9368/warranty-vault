@@ -34,13 +34,28 @@ import java.util.Locale
  */
 class LanguageStore(context: Context) {
 
+    private val appContext: Context = context.applicationContext
+
     private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _language = MutableStateFlow(current(context))
 
     /** The language the UI is rendering in. Collect to recreate on change. */
     val language: StateFlow<AppLanguage> = _language.asStateFlow()
+
+    /**
+     * The language the user *chose*, or `null` when the app is following the
+     * device (`locale` absent on the server).
+     *
+     * Kept separate from [language] on purpose, exactly like iOS
+     * `LocalizationStore.storedChoice`: "the phone is Vietnamese" and "the user
+     * chose Vietnamese" are different states, and only the second one is written
+     * to the account. The language sheet ticks "Theo thiết bị" off this, not off
+     * the resolved language.
+     */
+    private val _stored = MutableStateFlow(AppLanguage.fromTag(readTag(appContext)))
+    val stored: StateFlow<AppLanguage?> = _stored.asStateFlow()
 
     /**
      * Records an explicit choice. Writing to prefs is unconditional even when the
@@ -51,17 +66,39 @@ class LanguageStore(context: Context) {
      */
     fun set(language: AppLanguage) {
         prefs.edit().putString(KEY_LANGUAGE, language.tag).apply()
+        _stored.value = language
         _language.value = language
+    }
+
+    /**
+     * Returns to "theo thiết bị": removes the stored choice and re-resolves from
+     * the device language. This is the third, previously unreachable state of the
+     * tri-state `locale` — the account is PATCHed with an explicit `null` by
+     * [com.warrly.auth.AuthStore.updateLocale] and the device forgets its
+     * override here.
+     */
+    fun clear() {
+        prefs.edit().remove(KEY_LANGUAGE).apply()
+        _stored.value = null
+        _language.value = current(appContext)
     }
 
     /**
      * Adopts the `locale` the server holds for this account, without PATCHing it
      * back. Used on sign-in / bootstrap so a choice made on another device (or on
-     * the web once phase 4 lands) follows the user here; a `null` (never chosen)
-     * leaves the local choice alone rather than resetting it.
+     * the web) follows the user here.
+     *
+     * A `null` `locale` means "never chosen / cleared": the local override is
+     * dropped and the device language takes over, which is what makes the
+     * Settings sheet show "Theo thiết bị" after the account was cleared
+     * elsewhere. (iOS `LocalizationStore.adopt(user:)` does the same.)
      */
     fun adoptFromServer(tag: String?) {
-        val stored = AppLanguage.fromTag(tag) ?: return
+        val stored = AppLanguage.fromTag(tag)
+        if (stored == null) {
+            if (_stored.value != null) clear()
+            return
+        }
         set(stored)
     }
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -102,6 +104,25 @@ fun SubscriptionEditSheet(
     var submitting by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Deleting a subscription destroys its payment history for good, so it asks
+    // first — the same AlertDialog pattern as deleting a device / a warranty.
+    // (iOS: `SubscriptionDetailView` → "Xoá gói đăng ký?".)
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    fun performDelete(target: Subscription) {
+        scope.launch {
+            deleting = true; error = null
+            try {
+                api.deleteSubscription(target.id)
+                onDeleted(target.id)
+            } catch (e: Exception) {
+                error = e.toUserMessage(ApiClient.json)
+            } finally {
+                deleting = false
+                showDeleteConfirm = false
+            }
+        }
+    }
 
     val catalog = rememberCatalog(api)
     val brandOptions = catalog?.brands ?: emptyList()
@@ -275,19 +296,7 @@ fun SubscriptionEditSheet(
 
             if (isEdit && existing != null) {
                 OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            deleting = true; error = null
-                            try {
-                                api.deleteSubscription(existing.id)
-                                onDeleted(existing.id)
-                            } catch (e: Exception) {
-                                error = e.toUserMessage(ApiClient.json)
-                            } finally {
-                                deleting = false
-                            }
-                        }
-                    },
+                    onClick = { showDeleteConfirm = true },
                     enabled = !deleting && !submitting,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -300,6 +309,35 @@ fun SubscriptionEditSheet(
 
             Spacer(Modifier.height(20.dp))
         }
+    }
+
+    // Confirmation. Rendered outside the sheet so dismissing/`onDeleted`
+    // tearing the sheet down cannot leave a dialog dangling.
+    if (showDeleteConfirm && existing != null) {
+        AlertDialog(
+            onDismissRequest = { if (!deleting) showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.subs_delete_confirm_title)) },
+            text = {
+                Text(stringResource(R.string.subs_delete_confirm_body, existing.name))
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !deleting,
+                    onClick = { performDelete(existing) },
+                ) {
+                    Text(
+                        if (deleting) stringResource(R.string.subs_deleting)
+                        else stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !deleting, onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 }
 

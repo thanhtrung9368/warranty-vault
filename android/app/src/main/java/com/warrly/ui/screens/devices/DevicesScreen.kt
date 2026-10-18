@@ -70,10 +70,12 @@ import com.warrly.i18n.AppStrings
 import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
+import com.warrly.network.CategoryOption
 import com.warrly.network.Device
 import com.warrly.network.DeviceStatus
 import com.warrly.network.DeviceWarning
 import com.warrly.network.toUserMessage
+import com.warrly.ui.components.CategoryLabels
 import com.warrly.ui.components.EmptyState
 import com.warrly.ui.components.ErrorState
 import com.warrly.ui.components.FilterOption
@@ -86,6 +88,7 @@ import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.WarrantyPill
 import com.warrly.ui.components.pressScale
 import com.warrly.ui.components.warrantyState
+import com.warrly.ui.screens.common.rememberCatalog
 import com.warrly.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -122,6 +125,7 @@ class DevicesViewModel(private val api: ApiService) : ViewModel() {
     fun load(
         query: String = "",
         status: DeviceStatus? = null,
+        category: String? = null,
         sort: DeviceSort = DeviceSort.PurchaseDateDesc,
     ) {
         viewModelScope.launch {
@@ -129,6 +133,7 @@ class DevicesViewModel(private val api: ApiService) : ViewModel() {
             try {
                 val res = api.listDevices(
                     q = query.trim().ifBlank { null },
+                    category = category?.takeIf { it.isNotBlank() },
                     status = status?.name,
                     sort = sort.sort,
                     dir = sort.dir,
@@ -168,21 +173,27 @@ fun DevicesScreen(
     // that vanishes with it is a warning nobody reads.
     var savedWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
     // Filter state — mirrors the web `devices-filter-bar.tsx` (search box, status
-    // pills, sort dropdown). Values are persisted across rotation.
+    // pills, sort dropdown) plus the category facet iOS has
+    // (`DevicesScreen.categoryFilter`, sent as `GET /v1/devices?category=`).
+    // Values are persisted across rotation.
     var query by rememberSaveable { mutableStateOf("") }
     var statusFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var sortKey by rememberSaveable { mutableStateOf(DeviceSort.PurchaseDateDesc.name) }
     val sort = DeviceSort.valueOf(sortKey)
     val status = statusFilter?.let { runCatching { DeviceStatus.valueOf(it) }.getOrNull() }
-    val isFiltered = query.isNotBlank() || status != null
+    // The same catalog the device form reads (`rememberCatalog` → GET /v1/catalog),
+    // so the chip labels are exactly the names the create form shows.
+    val catalog = rememberCatalog(api)
+    val isFiltered = query.isNotBlank() || status != null || categoryFilter != null
     val scope = rememberCoroutineScope()
 
-    fun reload() = vm.load(query = query, status = status, sort = sort)
+    fun reload() = vm.load(query = query, status = status, category = categoryFilter, sort = sort)
 
     // Debounced so each keystroke doesn't fire a request (web waits 300ms too).
-    LaunchedEffect(query, statusFilter, sortKey) {
+    LaunchedEffect(query, statusFilter, categoryFilter, sortKey) {
         if (query.isNotBlank()) kotlinx.coroutines.delay(300)
-        vm.load(query = query, status = status, sort = sort)
+        vm.load(query = query, status = status, category = categoryFilter, sort = sort)
     }
 
     Scaffold(
@@ -258,6 +269,11 @@ fun DevicesScreen(
                             onQueryChange = { query = it },
                             statusKey = statusFilter ?: ALL_STATUSES,
                             onStatusChange = { statusFilter = it.takeIf { k -> k != ALL_STATUSES } },
+                            categoryKey = categoryFilter ?: ALL_CATEGORIES,
+                            onCategoryChange = {
+                                categoryFilter = it.takeIf { key -> key != ALL_CATEGORIES }
+                            },
+                            categoryOptions = categoryOptions(catalog?.categories, categoryFilter),
                             sort = sort,
                             onSortChange = { sortKey = it.name },
                             onClick = onOpenDevice,
@@ -297,6 +313,9 @@ private fun DeviceList(
     onQueryChange: (String) -> Unit,
     statusKey: String,
     onStatusChange: (String) -> Unit,
+    categoryKey: String,
+    onCategoryChange: (String) -> Unit,
+    categoryOptions: List<FilterOption>,
     sort: DeviceSort,
     onSortChange: (DeviceSort) -> Unit,
     onClick: (String) -> Unit,
@@ -325,6 +344,12 @@ private fun DeviceList(
                 selectedKey = statusKey,
                 onSelect = onStatusChange,
                 modifier = Modifier.padding(horizontal = 4.dp),
+                // Category facet (above the status pills, like the wishlist's
+                // priority row). Server-side: `GET /v1/devices?category=`, the
+                // same query parameter the web filter bar sends.
+                secondaryOptions = categoryOptions,
+                secondarySelectedKey = categoryKey,
+                onSecondarySelect = onCategoryChange,
                 trailing = {
                     SortMenuButton(
                         options = DeviceSort.entries,
@@ -362,6 +387,35 @@ private fun statusOptions(s: AppStrings, allLabel: String): List<FilterOption> =
         DeviceStatus.entries.map { FilterOption(it.name, s.get(it.labelRes)) }
 
 internal const val ALL_STATUSES = "ALL"
+
+/** The category facet's "no category" key — distinct from [ALL_STATUSES]. */
+internal const val ALL_CATEGORIES = "ALL"
+
+/**
+ * The category facet: "Tất cả loại" + every entry of the curated `Category`
+ * catalog, in the catalog's own order.
+ *
+ * Uses the SAME catalog the device form's picker reads (`GET /v1/catalog`), so a
+ * category renamed in the DB reads the same in both places. When the catalog has
+ * not loaded (offline, first frame) or a previously-selected code is no longer in
+ * it (retired category), the active code is still rendered from the static
+ * [CategoryLabels] mirror — otherwise an active filter could lose its chip and
+ * become impossible to clear.
+ */
+@Composable
+private fun categoryOptions(
+    categories: List<CategoryOption>?,
+    selected: String?,
+): List<FilterOption> {
+    val fromCatalog = categories.orEmpty().map { FilterOption(it.code, it.name) }
+    val withSelection = if (selected != null && fromCatalog.none { it.key == selected }) {
+        fromCatalog + FilterOption(selected, CategoryLabels.label(selected))
+    } else {
+        fromCatalog
+    }
+    return listOf(FilterOption(ALL_CATEGORIES, stringResource(R.string.dev_all_categories))) +
+        withSelection
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

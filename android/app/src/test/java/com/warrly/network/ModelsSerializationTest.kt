@@ -88,6 +88,40 @@ class ModelsSerializationTest {
         assertFalse(named.contains("email", ignoreCase = true))
     }
 
+    /**
+     * The tri-state `locale`, including the branch Android could not send before
+     * the "Theo thiết bị" row existed.
+     *
+     * `ApiClient.json` sets `explicitNulls = false`, so a plain data class would
+     * DROP a null `locale` and the server would answer 400 to the empty body
+     * ("a body with neither key"). The custom serializer must therefore emit the
+     * key with an explicit null — this is the whole point of it.
+     */
+    @Test
+    fun updateLocaleInput_alwaysSendsTheKeyAndCanClearWithAnExplicitNull() {
+        assertEquals(
+            "clearing is an explicit null, not an omitted key",
+            """{"locale":null}""",
+            json.encodeToString(UpdateLocaleInput.serializer(), UpdateLocaleInput(null)),
+        )
+        assertEquals(
+            """{"locale":"vi"}""",
+            json.encodeToString(UpdateLocaleInput.serializer(), UpdateLocaleInput("vi")),
+        )
+        assertEquals(
+            """{"locale":"en"}""",
+            json.encodeToString(UpdateLocaleInput.serializer(), UpdateLocaleInput("en")),
+        )
+
+        // Round trip, because the serializer must at least be total.
+        val decoded = json.decodeFromString(UpdateLocaleInput.serializer(), """{"locale":null}""")
+        assertNull(decoded.locale)
+        assertEquals(
+            "vi",
+            json.decodeFromString(UpdateLocaleInput.serializer(), """{"locale":"vi"}""").locale,
+        )
+    }
+
     @Test
     fun updateProfileResponse_decodesTheFreshUserAndMessage() {
         val raw = """

@@ -135,6 +135,7 @@
     <string name="share_copy">Sao chép</string>
     <string name="share_revoke_link">Thu hồi link</string>
     <string name="dev_all">Tất cả</string>
+    <string name="dev_all_categories">Tất cả loại</string>
     <string name="dev_newest_purchase">Ngày mua mới nhất</string>
     <string name="dev_oldest_purchase">Ngày mua cũ nhất</string>
     <string name="dev_warranty_ending_soonest">BH sắp hết trước</string>
@@ -156,6 +157,7 @@
     <string name="devadd_contact_phone">Điện thoại liên hệ</string>
     <string name="dev_filtered_suffix"> (đã lọc)</string>
     <string name="att_could_not_read_file">Không đọc được file</string>
+    <string name="att_file_too_large">File vượt quá 5MB.</string>
     <string name="att_not_signed_in">Chưa đăng nhập</string>
     <string name="att_download_failed">Tải về thất bại (%1$d)</string>
     <string name="att_no_data">Không có dữ liệu</string>

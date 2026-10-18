@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bản tiếng Việt của khoá ứng dụng — chép nguyên văn câu chữ từ
+     ios/App/RootView.swift + ios/App/Features/Settings/AccountView.swift để hai
+     app native nói cùng một câu. Xem chú thích ở values/strings_lock.xml. -->
+<resources>
+
+    <!-- ===== Màn hình khoá (AppLockScreen.kt). ===== -->
+    <string name="app_lock_title">Warrly đang khoá</string>
+    <string name="app_lock_subtitle">Mở khoá bằng sinh trắc học hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành.</string>
+    <string name="app_lock_unlock">Mở khoá</string>
+    <string name="app_lock_sign_out_hint">Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu.</string>
+
+    <!-- Câu hiện trong hộp thoại sinh trắc học của hệ thống (là tiêu đề hộp thoại). -->
+    <string name="app_lock_prompt_reason">Mở khoá Warrly để xem dữ liệu bảo hành.</string>
+    <string name="app_lock_prompt_subtitle">Sinh trắc học hoặc mã mở khoá thiết bị</string>
+
+    <!-- ===== Lỗi xác thực (AppLockFailure → câu chữ). ===== -->
+    <string name="app_lock_error_biometrics_unavailable">Thiết bị không hỗ trợ sinh trắc học.</string>
+    <string name="app_lock_error_biometrics_not_enrolled">Chưa cài đặt sinh trắc học trên thiết bị.</string>
+    <string name="app_lock_error_lockout">Sinh trắc học đang tạm bị khoá. Dùng mã mở khoá để tiếp tục.</string>
+    <string name="app_lock_error_no_device_credential">Thiết bị chưa đặt mã mở khoá.</string>
+    <string name="app_lock_error_auth_failed">Xác thực không thành công. Thử lại.</string>
+    <string name="app_lock_error_unknown">Không xác thực được. Thử lại.</string>
+
+    <!-- ===== Dòng trong Cài đặt (SettingsScreen.kt). ===== -->
+    <string name="app_lock_row_title">Khoá bằng sinh trắc học</string>
+    <string name="app_lock_row_subtitle_on">Đang bật — mở khoá bằng sinh trắc học hoặc mã mở khoá</string>
+    <string name="app_lock_row_subtitle_off">Đang tắt</string>
+    <string name="app_lock_row_footer">Khi bật, ứng dụng sẽ yêu cầu sinh trắc học — hoặc mã mở khoá của thiết bị — mỗi lần quay lại. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng. Khoá chỉ che màn hình, không mã hoá thêm dữ liệu.</string>
+
+    <!-- ===== Vì sao chưa bật được (AppLockUnavailable → câu chữ). ===== -->
+    <string name="app_lock_unavailable_no_credential">Thiết bị chưa đặt mã mở khoá — hãy đặt mã trong Cài đặt trước.</string>
+    <string name="app_lock_unavailable_no_hardware">Thiết bị này không hỗ trợ sinh trắc học.</string>
+    <string name="app_lock_unavailable_not_enrolled">Chưa cài đặt sinh trắc học trên thiết bị — hãy bật trong Cài đặt.</string>
+
+    <!-- ===== Tự tắt (AppLockNotice → câu chữ). ===== -->
+    <string name="app_lock_auto_disabled">Đã tắt khoá ứng dụng vì thiết bị không còn mã mở khoá để xác thực.</string>
+
+</resources>

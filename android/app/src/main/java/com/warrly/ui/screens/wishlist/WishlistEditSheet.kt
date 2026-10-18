@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +30,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -99,6 +101,25 @@ fun WishlistEditSheet(
     var submitting by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Deleting a wishlist item destroys its price history for good, so it asks
+    // first — the same AlertDialog pattern as deleting a device / a warranty.
+    // (iOS: `WishlistDetailView` → "Xoá khỏi wishlist?".)
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    fun performDelete(target: WishlistItem) {
+        scope.launch {
+            deleting = true; error = null
+            try {
+                api.deleteWishlistItem(target.id)
+                onDeleted(target.id)
+            } catch (e: Exception) {
+                error = e.toUserMessage(ApiClient.json)
+            } finally {
+                deleting = false
+                showDeleteConfirm = false
+            }
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -264,19 +285,7 @@ fun WishlistEditSheet(
 
             if (isEdit && existing != null) {
                 OutlinedButton(
-                    onClick = {
-                        scope.launch {
-                            deleting = true; error = null
-                            try {
-                                api.deleteWishlistItem(existing.id)
-                                onDeleted(existing.id)
-                            } catch (e: Exception) {
-                                error = e.toUserMessage(ApiClient.json)
-                            } finally {
-                                deleting = false
-                            }
-                        }
-                    },
+                    onClick = { showDeleteConfirm = true },
                     enabled = !deleting && !submitting,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -289,6 +298,35 @@ fun WishlistEditSheet(
 
             Spacer(Modifier.height(20.dp))
         }
+    }
+
+    // Confirmation. Rendered outside the sheet so dismissing/`onDeleted`
+    // tearing the sheet down cannot leave a dialog dangling.
+    if (showDeleteConfirm && existing != null) {
+        AlertDialog(
+            onDismissRequest = { if (!deleting) showDeleteConfirm = false },
+            title = { Text(stringResource(R.string.wish_delete_confirm_title)) },
+            text = {
+                Text(stringResource(R.string.wish_delete_confirm_body, existing.name))
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !deleting,
+                    onClick = { performDelete(existing) },
+                ) {
+                    Text(
+                        if (deleting) stringResource(R.string.subs_deleting)
+                        else stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !deleting, onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
     }
 }
 

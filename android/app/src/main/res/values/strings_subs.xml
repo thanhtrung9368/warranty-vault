@@ -55,6 +55,8 @@
     <string name="subs_cancel_url">Cancel URL</string>
     <string name="subs_deleting">Deleting…</string>
     <string name="subs_delete_plan">Delete plan</string>
+    <string name="subs_delete_confirm_title">Delete subscription?</string>
+    <string name="subs_delete_confirm_body">“%1$s” and its payment history will be deleted. This cannot be undone.</string>
     <string name="wish_add_another_one">Add another one</string>
     <string name="wish_what_you_want">What you want</string>
     <string name="wish_nothing_on_your_wishlist_yet">Nothing on your wishlist yet?</string>
@@ -71,6 +73,9 @@
     <string name="wish_confirm">Confirm</string>
     <string name="wish_log_a_new_price">Log a new price</string>
     <string name="wish_purchased">Purchased</string>
+    <string name="wish_view_purchased_device">Purchased → View device</string>
+    <string name="wish_delete_confirm_title">Remove from wishlist?</string>
+    <string name="wish_delete_confirm_body">“%1$s” and its price history will be deleted. This cannot be undone.</string>
     <string name="wish_price_history">Price history (%1$s)</string>
     <string name="wish_priority">Priority</string>
     <string name="wish_initial_price">Initial price</string>

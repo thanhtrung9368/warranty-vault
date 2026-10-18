@@ -1,7 +1,11 @@
 package com.warrly
 
 import android.app.Application
+import com.warrly.auth.AndroidAppLockCapabilities
+import com.warrly.auth.AppLockStore
 import com.warrly.auth.AuthStore
+import com.warrly.auth.BiometricAppLockAuthenticator
+import com.warrly.auth.SharedPreferencesAppLockStorage
 import com.warrly.auth.TokenStore
 import com.warrly.core.push.PushRegistrar
 import com.warrly.i18n.LanguageStore
@@ -25,6 +29,16 @@ class App : Application() {
     lateinit var pushRegistrar: PushRegistrar
         private set
     lateinit var themeStore: ThemeStore
+        private set
+
+    /**
+     * The opt-in app lock ("Khoá bằng sinh trắc học") — the Android twin of the
+     * iOS `AppLockStore`. App-scoped so the lock survives Activity recreation
+     * (language change, rotation) instead of re-prompting; the prompt itself is
+     * hosted by whichever `MainActivity` is current (see
+     * `BiometricAppLockAuthenticator.attach`).
+     */
+    lateinit var appLock: AppLockStore
         private set
 
     /**
@@ -61,6 +75,14 @@ class App : Application() {
         pushRegistrar = PushRegistrar(api, tokenStore, auth)
         pushRegistrar.start()
         themeStore = ThemeStore(this)
+        // Created here (not in the Activity) so the "locked" state survives a
+        // recreation; `init` reads the stored preference and starts locked, so
+        // protected content is never laid out before the cover.
+        appLock = AppLockStore(
+            authenticator = BiometricAppLockAuthenticator(this),
+            storage = SharedPreferencesAppLockStorage(this),
+            capabilities = AndroidAppLockCapabilities(this)::read,
+        )
         shareIntake = ShareIntake()
     }
 

@@ -140,6 +140,7 @@
     <string name="share_copy">Copy</string>
     <string name="share_revoke_link">Revoke link</string>
     <string name="dev_all">All</string>
+    <string name="dev_all_categories">All categories</string>
     <string name="dev_newest_purchase">Newest purchase</string>
     <string name="dev_oldest_purchase">Oldest purchase</string>
     <string name="dev_warranty_ending_soonest">Warranty ending soonest</string>
@@ -162,6 +163,7 @@
     <string name="devadd_contact_phone">Contact phone</string>
     <string name="dev_filtered_suffix"> (filtered)</string>
     <string name="att_could_not_read_file">Could not read the file</string>
+    <string name="att_file_too_large">The file is over 5MB.</string>
     <string name="att_not_signed_in">Not signed in</string>
     <string name="att_download_failed">Download failed (%1$d)</string>
     <string name="att_no_data">No data</string>

@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PriceChange
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -112,6 +113,13 @@ fun WishlistDetailScreen(
     api: ApiService,
     itemId: String,
     onBack: () -> Unit,
+    /**
+     * Opens the Device that `PATCH /api/v1/wishlist/{id}` created in the same
+     * transaction as the PURCHASED status — the `purchasedDeviceId` the response
+     * echoes back. Same follow-through as iOS
+     * (`WishlistDetailView.purchasedBanner` → "Đã mua → Xem thiết bị").
+     */
+    onOpenDevice: (String) -> Unit = {},
 ) {
     val vm = remember(itemId) { WishlistDetailViewModel(api, itemId) }
     val state by vm.state.collectAsState()
@@ -168,6 +176,7 @@ fun WishlistDetailScreen(
                     onClearError = { actionError = null },
                     onLogPrice = { showLogPrice = true },
                     onMarkPurchased = { showPurchaseConfirm = true },
+                    onOpenDevice = onOpenDevice,
                 )
             }
         }
@@ -265,6 +274,7 @@ private fun Body(
     onClearError: () -> Unit,
     onLogPrice: () -> Unit,
     onMarkPurchased: () -> Unit,
+    onOpenDevice: (String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -272,6 +282,32 @@ private fun Body(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { SummaryCard(item) }
+
+        // "Đã mua → Xem thiết bị". Marking the item PURCHASED makes the Go
+        // service create a linked Device in the same transaction and echo its
+        // id back; this is the only way to reach that device from the wishlist
+        // (the web links to /devices/{id}, iOS pushes its detail screen).
+        item.purchasedDeviceId?.takeIf { it.isNotBlank() }?.let { deviceId ->
+            item {
+                OutlinedButton(
+                    onClick = { onOpenDevice(deviceId) },
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        Icons.Filled.Devices,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(R.string.wish_view_purchased_device),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
 
         if (actionError != null) {
             item { ErrorBanner(actionError, onClearError) }

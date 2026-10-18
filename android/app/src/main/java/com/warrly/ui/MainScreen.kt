@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.warrly.App
 import com.warrly.R
+import com.warrly.auth.AppLockStore
 import com.warrly.auth.AuthStore
 import com.warrly.share.ShareTarget
 import com.warrly.ui.screens.actions.ActionQueueScreen
@@ -75,7 +76,7 @@ private enum class Tab(
 }
 
 @Composable
-fun MainScreen(auth: AuthStore) {
+fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
     var selected by remember { mutableStateOf(Tab.Dashboard) }
     val authStatus by auth.status.collectAsState()
     // The label is a resource ID, not a String: an `enum class` is not a
@@ -88,6 +89,13 @@ fun MainScreen(auth: AuthStore) {
     var openDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var openSubscriptionId by rememberSaveable { mutableStateOf<String?>(null) }
     var openWishlistId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Wishlist → device (the `purchasedDeviceId` link). Marking a wishlist item
+    // PURCHASED makes Go create a Device in the same transaction and echo its id
+    // back; "Xem thiết bị" opens that device. This holds the item to return to
+    // when Back is pressed there, so the link behaves like a push (iOS pushes
+    // the device on top of the wishlist item's NavigationStack) instead of
+    // dumping the user back on the tab.
+    var wishlistReturnId by rememberSaveable { mutableStateOf<String?>(null) }
     var openPushDevices by rememberSaveable { mutableStateOf(false) }
     // Device sessions (GET/DELETE /api/v1/auth/sessions) — the other leaf route
     // of Settings, next to the push-target list. Revoking the CURRENT session
@@ -150,7 +158,15 @@ fun MainScreen(auth: AuthStore) {
         DeviceDetailScreen(
             api = App.instance.api,
             deviceId = devId,
-            onBack = { openDeviceId = null },
+            onBack = {
+                openDeviceId = null
+                // Came from a wishlist item via "Xem thiết bị": back returns to
+                // that item, not to the tab it was opened from.
+                wishlistReturnId?.let { returnTo ->
+                    wishlistReturnId = null
+                    openWishlistId = returnTo
+                }
+            },
         )
         return
     }
@@ -169,6 +185,14 @@ fun MainScreen(auth: AuthStore) {
             api = App.instance.api,
             itemId = wishId,
             onBack = { openWishlistId = null },
+            // "Đã mua → Xem thiết bị": the device Go created in the purchase
+            // transaction. Opening it pushes the device screen on top (Back
+            // returns here, see `wishlistReturnId` above).
+            onOpenDevice = { deviceId ->
+                wishlistReturnId = wishId
+                openWishlistId = null
+                openDeviceId = deviceId
+            },
         )
         return
     }
@@ -298,6 +322,7 @@ fun MainScreen(auth: AuthStore) {
                         auth = auth,
                         themeStore = App.instance.themeStore,
                         api = App.instance.api,
+                        appLock = appLock,
                         onOpenPushDevices = { openPushDevices = true },
                         onOpenSessions = { openSessions = true },
                     )

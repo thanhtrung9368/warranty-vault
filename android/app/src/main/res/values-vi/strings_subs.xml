@@ -54,6 +54,8 @@
     <string name="subs_cancel_url">URL huỷ</string>
     <string name="subs_deleting">Đang xoá...</string>
     <string name="subs_delete_plan">Xoá gói</string>
+    <string name="subs_delete_confirm_title">Xoá gói đăng ký?</string>
+    <string name="subs_delete_confirm_body">“%1$s” và lịch sử thanh toán sẽ bị xoá. Không thể hoàn tác.</string>
     <string name="wish_add_another_one">Thèm thêm cái nữa</string>
     <string name="wish_what_you_want">Cái mày đang thèm</string>
     <string name="wish_nothing_on_your_wishlist_yet">Mày chưa thèm cái nào? Lạ thật.</string>
@@ -69,6 +71,9 @@
     <string name="wish_confirm">Xác nhận</string>
     <string name="wish_log_a_new_price">Ghi giá mới</string>
     <string name="wish_purchased">Đã mua</string>
+    <string name="wish_view_purchased_device">Đã mua → Xem thiết bị</string>
+    <string name="wish_delete_confirm_title">Xoá khỏi wishlist?</string>
+    <string name="wish_delete_confirm_body">“%1$s” và lịch sử giá sẽ bị xoá. Không thể hoàn tác.</string>
     <string name="wish_price_history">Lịch sử giá (%1$s)</string>
     <string name="wish_priority">Ưu tiên</string>
     <string name="wish_initial_price">Giá ban đầu</string>

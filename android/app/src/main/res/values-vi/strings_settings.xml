@@ -10,7 +10,8 @@
     <string name="settings_lang_sheet_title">Chọn ngôn ngữ</string>
     <string name="settings_lang_english">Tiếng Anh</string>
     <string name="settings_lang_vietnamese">Tiếng Việt</string>
-    <string name="settings_lang_footer">Lựa chọn được lưu vào tài khoản để thông báo đẩy và email gửi đúng ngôn ngữ, không chỉ riêng màn hình trong app.</string>
+    <string name="settings_lang_device">Theo thiết bị</string>
+    <string name="settings_lang_footer">Lựa chọn được lưu vào tài khoản để thông báo đẩy và email gửi đúng ngôn ngữ, không chỉ riêng màn hình trong app. “Theo thiết bị” xoá lựa chọn đã lưu và quay lại theo ngôn ngữ của điện thoại.</string>
     <string name="settings_lang_saving">Đang lưu…</string>
 
     <!-- ===== Dòng email trong Cài đặt (SettingsScreen.kt). ===== -->

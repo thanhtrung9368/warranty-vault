@@ -1,5 +1,6 @@
 package com.warrly.ui.screens.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,6 +66,18 @@ import kotlinx.coroutines.launch
  * `MainActivity` observes it and recreates itself, which is what re-runs
  * `attachBaseContext` with the new locale. This sheet therefore disappears by
  * design on success, and the whole UI has already switched when it does.
+ *
+ * ## Three rows, not two
+ *
+ * The contract's `locale` is **tri-state** (`openapi.yaml`, `UpdateProfileInput`):
+ * absent means "follow the device", `null` clears a stored choice, a value sets
+ * it. iOS exposes all three (`SettingsView.languageSection` + `LanguageChoice`);
+ * Android used to expose two, so once a language had been picked the account
+ * could never be unpinned. The third row sends `{"locale": null}` — see
+ * [com.warrly.network.UpdateLocaleInput] for why that needs a custom serializer.
+ * The tick is derived from the STORED choice ([LanguageStore.stored]), so
+ * "Theo thiết bị" shows as selected even when the device language happens to be
+ * Vietnamese.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,20 +89,26 @@ fun LanguageSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val current by languageStore.language.collectAsState()
+    val stored by languageStore.stored.collectAsState()
 
-    var saving by remember { mutableStateOf<AppLanguage?>(null) }
+    var saving by remember { mutableStateOf<LanguageChoice?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    fun choose(language: AppLanguage) {
-        if (saving != null || language == current) return
-        saving = language
+    fun choose(choice: LanguageChoice) {
+        if (saving != null || choice.language == stored) return
+        saving = choice
         error = null
         scope.launch {
             try {
-                auth.updateLocale(language)
-                // Triggers MainActivity.recreate() through the StateFlow.
-                languageStore.set(language)
+                // `null` PATCHes an explicit `{"locale": null}` — the tri-state
+                // "follow the device" branch, not an omission.
+                auth.updateLocale(choice.language)
+                when (val language = choice.language) {
+                    // Triggers MainActivity.recreate() through the StateFlow when
+                    // the resolved language actually moves.
+                    null -> languageStore.clear()
+                    else -> languageStore.set(language)
+                }
             } catch (e: Exception) {
                 error = e.toUserMessage(ApiClient.json, context)
             } finally {
@@ -109,19 +128,28 @@ fun LanguageSheet(
             )
             Spacer(Modifier.height(4.dp))
 
+            // "Theo thiết bị" first: it is the default state, and the only way
+            // back once a language has been chosen.
+            LanguageRow(
+                label = stringResource(R.string.settings_lang_device),
+                selected = stored == null,
+                busy = saving == LanguageChoice.Device,
+                enabled = saving == null,
+                onClick = { choose(LanguageChoice.Device) },
+            )
             LanguageRow(
                 label = stringResource(R.string.settings_lang_vietnamese),
-                selected = current == AppLanguage.Vi,
-                busy = saving == AppLanguage.Vi,
+                selected = stored == AppLanguage.Vi,
+                busy = saving == LanguageChoice.Vietnamese,
                 enabled = saving == null,
-                onClick = { choose(AppLanguage.Vi) },
+                onClick = { choose(LanguageChoice.Vietnamese) },
             )
             LanguageRow(
                 label = stringResource(R.string.settings_lang_english),
-                selected = current == AppLanguage.En,
-                busy = saving == AppLanguage.En,
+                selected = stored == AppLanguage.En,
+                busy = saving == LanguageChoice.English,
                 enabled = saving == null,
-                onClick = { choose(AppLanguage.En) },
+                onClick = { choose(LanguageChoice.English) },
             )
 
             error?.let {
@@ -143,6 +171,22 @@ fun LanguageSheet(
             Spacer(Modifier.height(20.dp))
         }
     }
+}
+
+/**
+ * The three states the contract has, not two.
+ *
+ * `Device` is the absent `locale` — the server decides per request — and maps to
+ * an explicit `PATCH {"locale": null}`. Mirror of iOS `LanguageChoice`
+ * (`ios/App/State/LocalizationStore.swift`).
+ */
+private enum class LanguageChoice(
+    @StringRes val labelRes: Int,
+    val language: AppLanguage?,
+) {
+    Device(R.string.settings_lang_device, null),
+    Vietnamese(R.string.settings_lang_vietnamese, AppLanguage.Vi),
+    English(R.string.settings_lang_english, AppLanguage.En),
 }
 
 @Composable

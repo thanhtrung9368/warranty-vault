@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,7 +16,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
+import com.warrly.auth.AuthStore
+import com.warrly.auth.BiometricAppLockAuthenticator
 import com.warrly.i18n.LanguageStore
 import com.warrly.i18n.LocaleSupport
 import com.warrly.share.ShareTarget
@@ -25,7 +29,14 @@ import com.warrly.ui.RootScreen
 import com.warrly.ui.theme.WarrlyTheme
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+/**
+ * `FragmentActivity`, not `ComponentActivity`: the app lock's
+ * `androidx.biometric.BiometricPrompt` can only be hosted by a
+ * `FragmentActivity` (it is a Fragment under the hood, also on API 28+).
+ * `FragmentActivity` IS a `ComponentActivity`, so `setContent`,
+ * `enableEdgeToEdge` and `registerForActivityResult` are unchanged.
+ */
+class MainActivity : FragmentActivity() {
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -53,6 +64,56 @@ class MainActivity : ComponentActivity() {
 
         // Verify session on launch — RootScreen routes Login vs Main.
         App.instance.auth.bootstrap()
+
+        // App lock ("Khoá bằng sinh trắc học"): this Activity is the host the
+        // system BiometricPrompt is presented from.
+        val appLock = App.instance.appLock
+        (appLock.authenticator as? BiometricAppLockAuthenticator)?.attach(this)
+        val promptReason = resources.getString(R.string.app_lock_prompt_reason)
+        lifecycle.addObserver(LifecycleEventObserver { _, event ->
+            when (event) {
+                // Re-lock on BACKGROUNDING. `ON_STOP` is the Android equivalent of
+                // iOS `.background`; `ON_PAUSE` also fires for dialogs, permission
+                // prompts and multi-window focus changes, which must not lock.
+                Lifecycle.Event.ON_STOP ->
+                    if (!isChangingConfigurations) appLock.handleEnterBackground()
+
+                // Prompt on the way back in — but only for a signed-in session
+                // (iOS RootView guards `.active` the same way: there is nothing to
+                // protect on the login screen). `isAuthenticating` inside the
+                // store makes this a no-op while a prompt is already on screen, so
+                // a recreation or a second `ON_START` cannot stack two.
+                Lifecycle.Event.ON_START -> lifecycleScope.launch {
+                    if (App.instance.auth.status.value is AuthStore.Status.Authenticated) {
+                        appLock.handleForeground(promptReason)
+                    } else {
+                        // Capabilities can change while signed out too (the user
+                        // may have removed the screen lock); cheap, no prompt.
+                        appLock.refreshAvailability()
+                    }
+                }
+
+                else -> Unit
+            }
+        })
+
+        // A cold launch with a stored session goes Idle → Authenticated AFTER
+        // ON_START, so that transition is the one that actually owns the first
+        // prompt. (Without it, a locked app that restored a session would sit on
+        // the cover until the user tapped "Mở khoá".) This mirrors the iOS
+        // `AppLockScreen.task` prompt, which fires when the cover appears.
+        lifecycleScope.launch {
+            var wasAuthenticated = false
+            App.instance.auth.status.collect { status ->
+                val nowAuthenticated = status is AuthStore.Status.Authenticated
+                if (nowAuthenticated && !wasAuthenticated &&
+                    lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                ) {
+                    appLock.handleForeground(promptReason)
+                }
+                wasAuthenticated = nowAuthenticated
+            }
+        }
 
         // Recreate when Settings changes the language. `applied` starts at the
         // value this Activity was built with, so the collector's first emission
@@ -85,10 +146,15 @@ class MainActivity : ComponentActivity() {
             val themePref by App.instance.themeStore.preference.collectAsState()
             WarrlyTheme(preference = themePref) {
                 Surface(modifier = Modifier) {
-                    RootScreen(auth = App.instance.auth)
+                    RootScreen(auth = App.instance.auth, appLock = App.instance.appLock)
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        (App.instance.appLock.authenticator as? BiometricAppLockAuthenticator)?.detach(this)
+        super.onDestroy()
     }
 
     /**

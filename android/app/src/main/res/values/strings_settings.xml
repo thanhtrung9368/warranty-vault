@@ -19,7 +19,8 @@
     <string name="settings_lang_sheet_title">Choose a language</string>
     <string name="settings_lang_english">English</string>
     <string name="settings_lang_vietnamese">Vietnamese</string>
-    <string name="settings_lang_footer">The choice is saved to your account so push notifications and emails arrive in the right language, not only the screens here.</string>
+    <string name="settings_lang_device">Follow device</string>
+    <string name="settings_lang_footer">The choice is saved to your account so push notifications and emails arrive in the right language, not only the screens here. “Follow device” clears that saved choice and follows the phone language again.</string>
     <string name="settings_lang_saving">Saving…</string>
 
     <!-- ===== Profile row / email change entry point (SettingsScreen.kt). ===== -->

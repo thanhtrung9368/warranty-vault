@@ -105,6 +105,30 @@ class DevicesViewModelTest {
     }
 
     @Test
+    fun load_forwardsTheCategoryFacetToTheApi() = runTest(dispatcher) {
+        var call: ListCall? = null
+        val vm = DevicesViewModel(FakeDevicesApi(onList = { call = it }))
+
+        // `GET /v1/devices?category=PHONE` — the facet Android was missing and
+        // iOS already had (`DevicesScreen.categoryFilter`).
+        vm.load(category = "PHONE")
+        advanceUntilIdle()
+
+        assertEquals("PHONE", call?.category)
+    }
+
+    @Test
+    fun load_omitsABlankCategoryInsteadOfSendingAnEmptyFilter() = runTest(dispatcher) {
+        var call: ListCall? = null
+        val vm = DevicesViewModel(FakeDevicesApi(onList = { call = it }))
+
+        vm.load(category = "   ")
+        advanceUntilIdle()
+
+        assertEquals(null, call?.category)
+    }
+
+    @Test
     fun load_omitsABlankSearchTerm() = runTest(dispatcher) {
         var call: ListCall? = null
         val vm = DevicesViewModel(FakeDevicesApi(onList = { call = it }))

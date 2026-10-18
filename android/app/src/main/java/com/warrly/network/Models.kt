@@ -2,8 +2,23 @@ package com.warrly.network
 
 import androidx.annotation.StringRes
 import com.warrly.R
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.element
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 // ---- Display labels on the domain enums ----
 //
@@ -114,16 +129,58 @@ data class MeResponse(val user: User)
 data class UpdateProfileInput(val displayName: String)
 
 /**
- * Body of `PATCH /api/v1/auth/me` when only the language changes.
+ * Body of `PATCH /api/v1/auth/me` when only the language changes — the
+ * tri-state `locale` the contract describes (`openapi.yaml`, UpdateProfileInput):
+ * absent = leave the stored value alone, `null` = CLEAR it ("theo thiết bị"),
+ * `"vi"` / `"en"` = set it.
  *
- * `locale` is non-nullable for the same serialization reason as `displayName`
- * above — with `explicitNulls = false` a null would drop the key and the body
- * would carry neither accepted field, which the server answers 400. This client
- * never clears a language (the switcher has exactly two values), so the tri-state
- * "clear" branch is intentionally not modelled.
+ * `locale` is nullable, and unlike every other optional field in this file a
+ * `null` must reach the wire **as an explicit null key**. `ApiClient.json` sets
+ * `explicitNulls = false`, so a plain `@Serializable` property would be dropped
+ * and `{}` would be answered with 400 ("a body with neither key"). That is why
+ * this one type carries a hand-written serializer: it always emits the key.
+ *
+ * The "clear" case is the "Theo thiết bị" row in the language sheet — before
+ * this existed the account was pinned forever once a language had been picked.
  */
-@Serializable
-data class UpdateLocaleInput(val locale: String)
+@Serializable(with = UpdateLocaleInputSerializer::class)
+data class UpdateLocaleInput(val locale: String?)
+
+/**
+ * Writes `{"locale": …}` **including an explicit `null`**.
+ *
+ * The tests pinning this are
+ * `ModelsSerializationTest.updateLocaleInput_alwaysSendsTheKeyAndCanClearWithAnExplicitNull`
+ * and `AuthI18nNetworkTest.updateLocaleCanClearTheStoredLanguageWithAnExplicitNull`;
+ * without it the "Theo thiết bị" row would silently send `{}` and the server
+ * would reject the request.
+ */
+object UpdateLocaleInputSerializer : KSerializer<UpdateLocaleInput> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("com.warrly.network.UpdateLocaleInput") {
+            element<String?>("locale")
+        }
+
+    override fun serialize(encoder: Encoder, value: UpdateLocaleInput) {
+        val jsonEncoder = encoder as? JsonEncoder
+            ?: throw SerializationException("UpdateLocaleInput is only serialized as JSON")
+        jsonEncoder.encodeJsonElement(
+            buildJsonObject {
+                val tag = value.locale
+                put("locale", if (tag == null) JsonNull else JsonPrimitive(tag))
+            },
+        )
+    }
+
+    override fun deserialize(decoder: Decoder): UpdateLocaleInput {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: throw SerializationException("UpdateLocaleInput is only deserialized from JSON")
+        val element = jsonDecoder.decodeJsonElement().jsonObject["locale"]
+        return UpdateLocaleInput(
+            element?.takeIf { it !is JsonNull }?.jsonPrimitive?.content,
+        )
+    }
+}
 
 /** Response of `PATCH /api/v1/auth/me` — the fresh user plus a translated note. */
 @Serializable

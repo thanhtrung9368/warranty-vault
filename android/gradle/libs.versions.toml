@@ -12,6 +12,15 @@ kotlinxSerialization = "1.7.3"
 retrofitKotlinSerializationConverter = "1.0.0"
 coroutines = "1.9.0"
 securityCrypto = "1.1.0-alpha06"
+# App lock ("Khoá bằng sinh trắc học"). `biometric` is the AndroidX wrapper over
+# the framework BiometricPrompt: it ships the pre-API-30 compat dialog and the
+# device-credential fallback, so unlocking is biometrics-with-PIN everywhere.
+# It asks for androidx.fragment 1.2.5 transitively; `fragment` is pinned to a
+# newer release here because 1.2.5 predates the Activity Result fix that lint's
+# InvalidFragmentVersionForActivityResult requires (MainActivity uses
+# registerForActivityResult).
+biometric = "1.2.0-alpha05"
+fragment = "1.5.7"
 coil = "2.7.0"
 viewmodelCompose = "2.8.7"
 firebaseBom = "33.7.0"
@@ -32,6 +41,8 @@ androidx-material-icons-extended = { group = "androidx.compose.material", name =
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "viewmodelCompose" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
+androidx-fragment = { group = "androidx.fragment", name = "fragment", version.ref = "fragment" }
 
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-kotlinx-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofitKotlinSerializationConverter" }
