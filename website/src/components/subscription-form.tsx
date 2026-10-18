@@ -6,7 +6,7 @@ import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { format, addDays, addMonths, addYears } from 'date-fns';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, Check, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Save, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,12 @@ type Initial = {
   notes?: string | null;
   // Reminder lead days. Absent (create) starts from the server default [30, 7].
   leadDays?: number[];
+  // Free trial (Feature B). `trialEndsAt` arrives as a date-time string; the
+  // date input keeps only its calendar day. `convertsToPrice` is ignored unless
+  // a trial end exists — a price without a date is the combination the server
+  // rejects, so the form never surfaces it.
+  trialEndsAt?: string | null;
+  convertsToPrice?: number | null;
 };
 
 type Catalog = {
@@ -87,6 +93,11 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   price: { label: 'Giá', focusId: 'price', step: 1 },
   startedAt: { label: 'Ngày bắt đầu', focusId: 'startedAt', step: 1 },
   renewalDate: { label: 'Ngày gia hạn', focusId: 'renewalDate', step: 1 },
+  // Free trial (Feature B). The price is only routable while the trial date
+  // exists — but Go can still answer `fieldErrors.convertsToPrice`, so the key
+  // has to be here for the error to find its input.
+  trialEndsAt: { label: 'Ngày kết thúc dùng thử', focusId: 'trialEndsAt', step: 1 },
+  convertsToPrice: { label: 'Giá sau dùng thử (VND)', focusId: 'convertsToPrice', step: 1 },
   leadDays: { label: 'Mốc nhắc trước', focusId: 'leadDays', step: 1 },
   accountEmail: { label: 'Email tài khoản', focusId: 'accountEmail', step: 2 },
   paymentMethod: { label: 'Thanh toán', focusId: 'paymentMethod', step: 2 },
@@ -153,6 +164,49 @@ function MoneyInput({
         ₫
       </span>
       <input type="hidden" name={name} value={parseVNDInput(value)} />
+    </div>
+  );
+}
+
+// Post-trial price. Same feel as `MoneyInput` with one deliberate difference:
+// a blank box ships an EMPTY string, not `0`, so the action maps it to `null`
+// ("price after the trial not known yet"). `0` would be a recorded free plan,
+// which is a different claim — and the server's `convertsToPrice` is nullable
+// precisely so "unknown" is expressible.
+function OptionalMoneyInput({
+  value,
+  onChange,
+  name,
+  id,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  name: string;
+  id?: string;
+}) {
+  const locale = useLocale();
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const digits = raw.replace(/[^\d]/g, '');
+          onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw), locale));
+        }}
+        placeholder="0"
+        className="pr-10"
+      />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
+        ₫
+      </span>
+      <input
+        type="hidden"
+        name={name}
+        value={value.trim() === '' ? '' : String(parseVNDInput(value))}
+      />
     </div>
   );
 }
@@ -294,6 +348,25 @@ export function SubscriptionForm({
   const [leadDays, setLeadDays] = React.useState<number[]>(
     normalizeLeadDays(initial?.leadDays ?? LEAD_DAYS_DEFAULT_SUBSCRIPTION),
   );
+
+  // Free trial (Feature B). The two fields are a one-way pair: the price only
+  // means something with a trial end, and Go rejects the other half
+  // (`fieldErrors.convertsToPrice`). The price input is therefore mounted only
+  // while a date exists, and clearing the date clears the price in the same
+  // handler — so the invalid combination cannot be submitted from this form.
+  const [trialEndsAt, setTrialEndsAt] = React.useState<string>(
+    initial?.trialEndsAt ? format(new Date(initial.trialEndsAt), 'yyyy-MM-dd') : '',
+  );
+  const [convertsToPrice, setConvertsToPrice] = React.useState<string>(
+    initial?.trialEndsAt && initial.convertsToPrice != null
+      ? formatNumber(initial.convertsToPrice, locale)
+      : '',
+  );
+
+  const handleTrialEndChange = (next: string) => {
+    setTrialEndsAt(next);
+    if (!next) setConvertsToPrice('');
+  };
 
   const categoryOptions: ComboboxOption[] = catalog.categories.map((c) => ({
     value: c.code,
@@ -550,6 +623,65 @@ export function SubscriptionForm({
             <p className="text-xs text-muted-foreground">
               {t('Tự tính từ Ngày bắt đầu + Chu kỳ. Sửa nếu billing date của mày khác.')}
             </p>
+          </div>
+
+          {/* Free trial (Feature B). The price input is conditional on the
+              date on purpose: `convertsToPrice` without `trialEndsAt` is the
+              one pair the server rejects (`fieldErrors.convertsToPrice`), so
+              the form makes it unreachable — no price field, no price value,
+              and clearing the date clears the price in the change handler.
+              The hidden input keeps the key in the payload so clearing a trial
+              on an edit sends an explicit `null` instead of omitting it. */}
+          <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5 md:col-span-2">
+            <div className="flex items-start gap-3">
+              <span className="icon-badge icon-badge-sm tint-violet mt-0.5">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-ink">{t('Dùng thử')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'Ghi ngày kết thúc dùng thử nếu gói đang miễn phí. Giá sau dùng thử chỉ nhập khi đã có ngày kết thúc.',
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="trialEndsAt">{t('Ngày kết thúc dùng thử')}</Label>
+                <Input
+                  id="trialEndsAt"
+                  name="trialEndsAt"
+                  type="date"
+                  value={trialEndsAt}
+                  onChange={(e) => handleTrialEndChange(e.target.value)}
+                />
+                <FieldError errors={errors.trialEndsAt} />
+              </div>
+
+              {trialEndsAt ? (
+                <div className="space-y-2">
+                  <Label htmlFor="convertsToPrice">
+                    {t('Giá sau dùng thử (VND)')}
+                  </Label>
+                  <OptionalMoneyInput
+                    id="convertsToPrice"
+                    name="convertsToPrice"
+                    value={convertsToPrice}
+                    onChange={setConvertsToPrice}
+                  />
+                  <FieldError errors={errors.convertsToPrice} />
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      'Từ ngày này gói bắt đầu tính phí. Không nhập giá nếu chưa biết.',
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <input type="hidden" name="convertsToPrice" value="" />
+              )}
+            </div>
           </div>
 
           {/* Reminder lead times — the user's own schedule instead of the old

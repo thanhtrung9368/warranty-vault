@@ -81,6 +81,10 @@ public final class SubscriptionsStore: ObservableObject {
         // says an absent `leadDays` is "unchanged", but carrying the loaded
         // value keeps this full-replacement PATCH honest about its intent.
         input.leadDays = current.leadDays
+        // …and the trial pair is part of the same full replacement. Carrying it
+        // through `SubscriptionTrial.apply` also guarantees the rejected
+        // "price without a trial date" body is never built here.
+        SubscriptionTrial.apply(SubscriptionTrial.carried(from: current), to: &input)
         try await update(id: id, input)
     }
 }

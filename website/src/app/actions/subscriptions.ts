@@ -68,6 +68,14 @@ function buildSubscriptionInput(formData: FormData): SubscriptionInput {
     // out so Go applies its create default / keeps the stored list on update;
     // an explicitly empty selection is rejected below before the request.
     ...(leadDays === undefined ? {} : { leadDays }),
+    // Free trial (Feature B). Both keys are always sent so a cleared trial is an
+    // explicit `{trialEndsAt: null, convertsToPrice: null}` rather than a key
+    // silently going missing. The invalid half — `convertsToPrice` without
+    // `trialEndsAt` — is prevented in the form (the price is only mounted once a
+    // trial end exists) and still rejected by Go with
+    // `fieldErrors.convertsToPrice` if any other client sends it.
+    trialEndsAt: s(formData, 'trialEndsAt'),
+    convertsToPrice: n(formData, 'convertsToPrice'),
     fromWishlistId: s(formData, 'fromWishlistId'),
   };
 }
@@ -154,6 +162,12 @@ export async function setSubscriptionStatus(id: string, status: string) {
     // would also be legal (absent = unchanged), but sending the read value
     // keeps this quick action visibly lossless.
     leadDays: s.leadDays,
+    // Same reasoning for the trial: a status pill must not erase a recorded
+    // conversion date/price. Sending both read values is lossless by
+    // construction (a stored `convertsToPrice` always came with a
+    // `trialEndsAt`, because the server rejects it otherwise).
+    trialEndsAt: s.trialEndsAt,
+    convertsToPrice: s.convertsToPrice,
   });
   if (!res.ok) return { ok: false };
   return { ok: true };

@@ -403,6 +403,33 @@ data class Device(
      */
     val returnDeadline: String? = null,
     /**
+     * Warranty activation (openapi `Device.activationRequired`): `true` when the
+     * warranty only starts once a retailer activates the device.
+     *
+     * Defaulted to `false` rather than nullable because that is the contract's
+     * default: a server that predates the field and a brand-new device both mean
+     * "no activation step". The derived state lives in
+     * `ui/screens/devices/DeviceActivation.kt`.
+     */
+    val activationRequired: Boolean = false,
+    /**
+     * When the warranty was activated, in the same naive-UTC wire shape as
+     * [purchaseDate] / [soldAt] (`"2026-03-02T00:00:00"`, no `Z`) — only the
+     * date half is ever used.
+     *
+     * A date **earlier** than [purchaseDate] is allowed and must never be
+     * blocked: a shop can pre-activate a device before the invoice date.
+     */
+    val activatedAt: String? = null,
+    /**
+     * The last day extended cover (AppleCare+, Samsung Care+) can be bought, in
+     * the same naive-UTC wire shape as [purchaseDate]. `null` = the retailer
+     * gave no deadline for this device; it is not a date the client may invent.
+     * The countdown is computed by `extendedCoverState` in
+     * `ui/screens/devices/DeviceActivation.kt`.
+     */
+    val extendedCoverBuyBy: String? = null,
+    /**
      * User-chosen reminder schedule (openapi `Device.leadDays`): how many days
      * before the warranty end each reminder fires. Descending, `0..365` each,
      * 1..5 entries, no duplicates — `0` means "on the day it expires" and is a
@@ -563,6 +590,24 @@ data class DeviceInput(
      */
     val receivedAt: String? = null,
     /**
+     * Warranty activation (openapi `DeviceInput.activationRequired`). A plain
+     * boolean, always encoded (`encodeDefaults = true`), so an update that turns
+     * activation off really sends `false` instead of dropping the key. Create
+     * defaults to `false`, which is the contract default.
+     */
+    val activationRequired: Boolean = false,
+    /**
+     * Activation date (`YYYY-MM-DD`). `null` drops the key (explicit nulls are
+     * off), which the update contract reads as "unchanged". Any date is accepted,
+     * including one before [purchaseDate] — a shop may pre-activate.
+     */
+    val activatedAt: String? = null,
+    /**
+     * Last day to buy extended cover (`YYYY-MM-DD`). `null` drops the key, which
+     * means "unchanged" on update and "not recorded" on create.
+     */
+    val extendedCoverBuyBy: String? = null,
+    /**
      * Reminder schedule to store (`leadDays`, openapi `DeviceInput.leadDays`).
      *
      * `null` **omits the key** (`ApiClient.json` drops nulls), which the
@@ -699,6 +744,26 @@ data class Subscription(
     val currency: String = "VND",
     val startedAt: String,
     val renewalDate: String? = null,
+    /**
+     * Free-trial end (openapi `Subscription.trialEndsAt`), in the same naive-UTC
+     * wire shape as [startedAt] / [renewalDate] (`"2026-03-02T00:00:00"`, no
+     * `Z`) — only the date half is ever used.
+     *
+     * `null` = no free trial, and the plan bills straight away. When it is set,
+     * the billing date row on the detail card means "trial ends" instead of
+     * "renews"; it must not be invented from [renewalDate]. See
+     * `ui/screens/subscriptions/SubscriptionTrial.kt`.
+     */
+    val trialEndsAt: String? = null,
+    /**
+     * The price charged once a free trial ends, in VND (openapi
+     * `Subscription.convertsToPrice`). `null` = not recorded.
+     *
+     * The server rejects this field without [trialEndsAt]
+     * (`fieldErrors.convertsToPrice`), and the edit sheet never lets that
+     * combination leave the phone — see `SubscriptionTrial.kt`.
+     */
+    val convertsToPrice: Int? = null,
     val autoRenew: Boolean = true,
     val status: SubscriptionStatus = SubscriptionStatus.ACTIVE,
     val accountEmail: String? = null,
@@ -732,6 +797,19 @@ data class SubscriptionInput(
     val price: Int = 0,
     val startedAt: String,                 // YYYY-MM-DD
     val renewalDate: String? = null,
+    /**
+     * Trial end (`YYYY-MM-DD`). `null` drops the key (explicit nulls are off),
+     * which the update contract reads as "unchanged". See
+     * [Subscription.trialEndsAt] for the wire shape.
+     */
+    val trialEndsAt: String? = null,
+    /**
+     * Price after the trial, in VND. `null` drops the key. The API rejects it
+     * when [trialEndsAt] is absent, so callers use
+     * `convertsToPriceForRequest` in `SubscriptionTrial.kt` rather than sending
+     * a raw value.
+     */
+    val convertsToPrice: Int? = null,
     val autoRenew: Boolean = true,
     val status: SubscriptionStatus = SubscriptionStatus.ACTIVE,
     val accountEmail: String? = null,

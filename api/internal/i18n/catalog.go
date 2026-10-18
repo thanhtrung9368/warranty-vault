@@ -291,6 +291,57 @@ var messages = map[string]message{
 		en: "Return deadline: %s (1 day from delivery)",
 	},
 
+	// ── Activation / extended cover (migration 0016, Feature A).
+	//
+	// The activation notice has no day count on purpose: it fires once, not per
+	// lead day, and the API deliberately does not invent a brand-specific window.
+	// The Vietnamese sentence is the source text; the English says the same thing
+	// with the product's noun "device".
+	"⚠️ \"%s\" chưa kích hoạt bảo hành": {
+		vi: "⚠️ \"%s\" chưa kích hoạt bảo hành",
+		en: "⚠️ \"%s\" warranty is not activated",
+	},
+	"Bảo hành chỉ bắt đầu sau khi kích hoạt. Ghi ngày kích hoạt để tính đúng hạn.": {
+		vi: "Bảo hành chỉ bắt đầu sau khi kích hoạt. Ghi ngày kích hoạt để tính đúng hạn.",
+		en: "Warranty starts only after activation. Add the activation date to track the real deadline.",
+	},
+	"🛡️ Còn %d ngày mua bảo hiểm mở rộng cho \"%s\"": {
+		vi: "🛡️ Còn %d ngày mua bảo hiểm mở rộng cho \"%s\"",
+		en: "🛡️ %d days left to buy extended cover for \"%s\"",
+	},
+	"🛡️ Còn 1 ngày mua bảo hiểm mở rộng cho \"%s\"": {
+		vi: "🛡️ Còn 1 ngày mua bảo hiểm mở rộng cho \"%s\"",
+		en: "🛡️ 1 day left to buy extended cover for \"%s\"",
+	},
+	"Hạn cuối: %s": {vi: "Hạn cuối: %s", en: "Last day: %s"},
+
+	// ── Subscription trial (migration 0016, Feature B).
+	//
+	// Deliberately different wording from the renewal pair above: a trial asks the
+	// user to DECIDE whether to keep the plan, while a renewal asks whether a
+	// charge will happen. The count is in the singular/plural pair form, like
+	// every other count-bearing push.
+	"🎁 Dùng thử \"%s\" kết thúc hôm nay": {
+		vi: "🎁 Dùng thử \"%s\" kết thúc hôm nay",
+		en: "🎁 Your \"%s\" trial ends today",
+	},
+	"🎁 Dùng thử \"%s\" kết thúc sau %d ngày": {
+		vi: "🎁 Dùng thử \"%s\" kết thúc sau %d ngày",
+		en: "🎁 Your \"%s\" trial ends in %d days",
+	},
+	"🎁 Dùng thử \"%s\" kết thúc sau 1 ngày": {
+		vi: "🎁 Dùng thử \"%s\" kết thúc sau 1 ngày",
+		en: "🎁 Your \"%s\" trial ends in 1 day",
+	},
+	"Từ %s bắt đầu tính phí %s. Quyết định giữ hay huỷ trước hạn.": {
+		vi: "Từ %s bắt đầu tính phí %s. Quyết định giữ hay huỷ trước hạn.",
+		en: "Billing starts %s at %s. Decide whether to keep it before then.",
+	},
+	"Từ %s bắt đầu tính phí. Quyết định giữ hay huỷ trước hạn.": {
+		vi: "Từ %s bắt đầu tính phí. Quyết định giữ hay huỷ trước hạn.",
+		en: "Billing starts %s. Decide whether to keep it before then.",
+	},
+
 	// ── Warranty type labels (cron warranty bucket).
 	"Tiêu chuẩn": {vi: "Tiêu chuẩn", en: "Standard"},
 	"Mở rộng":    {vi: "Mở rộng", en: "Extended"},
@@ -339,6 +390,18 @@ var messages = map[string]message{
 	"Ngày nhận hàng không hợp lệ": {
 		vi: "Ngày nhận hàng không hợp lệ",
 		en: "Invalid delivery date",
+	},
+	// Activation / extended cover (migration 0016, Feature A). Only the date
+	// FORMAT is validated — the API does not assert a brand day count anywhere,
+	// and activatedAt before purchaseDate is explicitly allowed, so there is no
+	// cross-field message to translate.
+	"Ngày kích hoạt không hợp lệ": {
+		vi: "Ngày kích hoạt không hợp lệ",
+		en: "Invalid activation date",
+	},
+	"Hạn mua bảo hiểm mở rộng không hợp lệ": {
+		vi: "Hạn mua bảo hiểm mở rộng không hợp lệ",
+		en: "Invalid extended-cover purchase deadline",
 	},
 	"Số tháng bảo hành không hợp lệ": {
 		vi: "Số tháng bảo hành không hợp lệ",
@@ -444,8 +507,23 @@ var messages = map[string]message{
 	"Ngày thanh toán bắt buộc":     {vi: "Ngày thanh toán bắt buộc", en: "Payment date is required"},
 	"Ngày thanh toán không hợp lệ": {vi: "Ngày thanh toán không hợp lệ", en: "Invalid payment date"},
 	"Ngày gia hạn không hợp lệ":    {vi: "Ngày gia hạn không hợp lệ", en: "Invalid renewal date"},
-	"Ngày không hợp lệ":            {vi: "Ngày không hợp lệ", en: "Invalid date"},
-	"Ghi chú tối đa 500 ký tự":     {vi: "Ghi chú tối đa 500 ký tự", en: "Note must be at most 500 characters"},
+	// Trial pair (migration 0016, Feature B). The one cross-field message is the
+	// convertsToPrice-without-trialEndsAt rule; the reverse (a date without a
+	// price) is allowed and has no message.
+	"Ngày kết thúc dùng thử không hợp lệ": {
+		vi: "Ngày kết thúc dùng thử không hợp lệ",
+		en: "Invalid trial end date",
+	},
+	"Giá sau dùng thử không hợp lệ": {
+		vi: "Giá sau dùng thử không hợp lệ",
+		en: "Invalid post-trial price",
+	},
+	"Chỉ đặt giá sau dùng thử khi đã có ngày kết thúc dùng thử": {
+		vi: "Chỉ đặt giá sau dùng thử khi đã có ngày kết thúc dùng thử",
+		en: "A post-trial price needs a trial end date",
+	},
+	"Ngày không hợp lệ":        {vi: "Ngày không hợp lệ", en: "Invalid date"},
+	"Ghi chú tối đa 500 ký tự": {vi: "Ghi chú tối đa 500 ký tự", en: "Note must be at most 500 characters"},
 	"Cần nhập số ngày khi chọn chu kỳ Tuỳ chỉnh": {
 		vi: "Cần nhập số ngày khi chọn chu kỳ Tuỳ chỉnh",
 		en: "Enter the number of days when the cycle is Custom",

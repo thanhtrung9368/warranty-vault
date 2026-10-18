@@ -542,6 +542,40 @@ private fun DeviceSummaryCard(device: Device) {
             returnDeadlineLabel(device.returnDeadline)?.let { deadline ->
                 DetailRow(stringResource(R.string.devdetail_return_window), deadline)
             }
+            // Warranty activation (DeviceActivation.kt). Shown only when it is
+            // meaningful — required, or actually activated. "Required but not
+            // activated yet" is the state a service counter can refuse, so it
+            // gets the warning colour; a recorded date is a plain fact.
+            if (hasActivationState(device.activationRequired, device.activatedAt)) {
+                val activation = activationStatus(
+                    device.activationRequired,
+                    device.activatedAt,
+                )
+                DetailRow(
+                    stringResource(R.string.devdetail_activation),
+                    activationLabel(s, activation),
+                    valueColor = if (activation == ActivationStatus.RequiredNotActivated) {
+                        WVAccent.current.warning
+                    } else {
+                        null
+                    },
+                )
+            }
+            // Extended-cover deadline and its countdown. The date is the
+            // server's; the countdown is derived from it, and the row disappears
+            // entirely when the shop gave no deadline.
+            extendedCoverState(s, device.extendedCoverBuyBy)?.let { cover ->
+                DetailRow(
+                    stringResource(R.string.devdetail_extended_cover_deadline),
+                    "${cover.buyByDate} · ${cover.label}",
+                    valueColor = when (cover.tone) {
+                        ExtendedCoverTone.Expired -> cs.error
+                        ExtendedCoverTone.Today, ExtendedCoverTone.Soon ->
+                            WVAccent.current.warning
+                        ExtendedCoverTone.Open -> null
+                    },
+                )
+            }
             // Reminder schedule (`leadDays`). Rendered with the same label/value
             // words as the edit picker, so the card reads as "Nhắc trước · 30 và
             // 7 ngày". The model defaults to [30, 7] when an older server omits

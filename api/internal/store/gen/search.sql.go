@@ -11,7 +11,7 @@ import (
 
 const searchDevices = `-- name: SearchDevices :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 FROM "Device"
 WHERE "userId" = $1::text
   AND (
@@ -86,6 +86,12 @@ func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
 			&i.LeadDays,
+			&i.ActivationRequired,
+			&i.ActivatedAt,
+			&i.ExtendedCoverBuyBy,
+			&i.ActivationNotifiedAt,
+			&i.ExtendedCoverNotifiedAt,
+			&i.ExtendedCoverNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -98,7 +104,7 @@ func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([
 }
 
 const searchSubscriptions = `-- name: SearchSubscriptions :many
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 FROM "Subscription"
 WHERE "userId" = $1::text
   AND (
@@ -151,6 +157,10 @@ func (q *Queries) SearchSubscriptions(ctx context.Context, arg SearchSubscriptio
 			&i.UpdatedAt,
 			&i.LeadDays,
 			&i.LastNotifiedRenewalLeadDay,
+			&i.TrialEndsAt,
+			&i.ConvertsToPrice,
+			&i.TrialNotifiedAt,
+			&i.TrialNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}

@@ -15215,6 +15215,261 @@
           }
         }
       }
+    },
+    "Bảo hành & kích hoạt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty & activation"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo hành & kích hoạt"
+          }
+        }
+      }
+    },
+    "Bảo hành có thể bắt đầu bằng thao tác kích hoạt của cửa hàng. Ngày kích hoạt có thể sớm hơn ngày mua; hạn mua gói mở rộng (AppleCare+, Samsung Care+) là ngày cuối có thể mua.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty may start with the retailer's activation, not the invoice. The activation date can be earlier than the purchase date; the extended-cover deadline is the last day you can buy AppleCare+ or Samsung Care+."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo hành có thể bắt đầu bằng thao tác kích hoạt của cửa hàng. Ngày kích hoạt có thể sớm hơn ngày mua; hạn mua gói mở rộng (AppleCare+, Samsung Care+) là ngày cuối có thể mua."
+          }
+        }
+      }
+    },
+    "Cần kích hoạt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activation required"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần kích hoạt"
+          }
+        }
+      }
+    },
+    "Ngày kích hoạt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activation date"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày kích hoạt"
+          }
+        }
+      }
+    },
+    "Chưa kích hoạt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not activated"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa kích hoạt"
+          }
+        }
+      }
+    },
+    "Đã kích hoạt ngày %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activated on %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã kích hoạt ngày %@"
+          }
+        }
+      }
+    },
+    "Kích hoạt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activation"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kích hoạt"
+          }
+        }
+      }
+    },
+    "Hạn mua gói mở rộng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extended cover deadline"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hạn mua gói mở rộng"
+          }
+        }
+      }
+    },
+    "Mua gói mở rộng trước": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buy extended cover by"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mua gói mở rộng trước"
+          }
+        }
+      }
+    },
+    "Dùng thử": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trial"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng thử"
+          }
+        }
+      }
+    },
+    "Có dùng thử": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has a trial"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có dùng thử"
+          }
+        }
+      }
+    },
+    "Dùng thử đến": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trial ends"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng thử đến"
+          }
+        }
+      }
+    },
+    "Giá sau dùng thử": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Price after trial"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giá sau dùng thử"
+          }
+        }
+      }
+    },
+    "DÙNG THỬ ĐẾN": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TRIAL ENDS"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DÙNG THỬ ĐẾN"
+          }
+        }
+      }
+    },
+    "Chỉ nhập giá sau dùng thử khi đã đặt ngày kết thúc dùng thử.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only enter a post-trial price once a trial end date is set."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ nhập giá sau dùng thử khi đã đặt ngày kết thúc dùng thử."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

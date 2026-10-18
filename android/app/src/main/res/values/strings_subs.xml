@@ -49,6 +49,17 @@
     <string name="subs_start_date_yyyy_mm_dd">Start date * (YYYY-MM-DD)</string>
     <string name="subs_next_renewal_date_yyyy_mm_dd">Next renewal date (YYYY-MM-DD)</string>
     <string name="subs_auto_renew">Auto-renew</string>
+    <!-- ===== Free trial (SubscriptionTrial.kt, SubscriptionEditSheet.kt,
+         SubscriptionDetailScreen.kt). A trial changes what the billing date row
+         means and adds the price that starts after it. The server rejects a
+         post-trial price without a trial end, so the price field is only shown
+         while the date is set. ===== -->
+    <string name="subs_trial">Free trial</string>
+    <string name="subs_trial_ends_yyyy_mm_dd">Trial ends (YYYY-MM-DD)</string>
+    <string name="subs_converts_to_price_vnd">Price after the trial (VND)</string>
+    <string name="subs_trial_hint">Billing starts on this date. Without a trial end date there is no trial.</string>
+    <string name="subs_trial_ends_on">Trial until</string>
+    <string name="subs_price_after_trial">Price after the trial</string>
     <string name="subs_account_email">Account email</string>
     <string name="subs_payment_method">Payment method</string>
     <string name="subs_manage_url">Manage URL</string>

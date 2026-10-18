@@ -136,6 +136,21 @@ export const devices = defineMessages({
   '{months} tháng': { en: '{months} months', enOne: '{months} month' },
   'Không': 'No',
 
+  // ── Device form — warranty activation & extended cover (Feature A) ─────
+  // Three fields inside the existing warranty step, not a step of their own.
+  // The activation date may legitimately predate the purchase date, and the
+  // hint below says so — the server accepts it, so the client must not "fix" it.
+  'Bảo hành & kích hoạt': 'Warranty & activation',
+  'Kích hoạt bảo hành': 'Warranty activation required',
+  'Bảo hành chỉ bắt đầu sau khi cửa hàng kích hoạt. Máy chưa kích hoạt có thể bị từ chối tiếp nhận.':
+    'The warranty only starts once the retailer activates it. An unactivated device can be refused at the counter.',
+  'Ngày kích hoạt': 'Activation date',
+  'Ngày kích hoạt có thể trước ngày mua — cửa hàng kích hoạt sẵn trước khi giao máy.':
+    'The activation date can be before the purchase date — a shop can pre-activate the device before handing it over.',
+  'Hạn mua gói mở rộng': 'Extended cover buy-by date',
+  'AppleCare+, Samsung Care+... phải mua trước ngày này; quá hạn là không mua được nữa.':
+    'AppleCare+, Samsung Care+... must be bought by this date; once it passes, the option is gone.',
+
   // ── Device form — receipt scan (AI) ─────────────────────────────────────
   'Đang quét hoá đơn…': 'Scanning the receipt…',
   'Quét hoá đơn / phiếu bảo hành': 'Scan a receipt / warranty card',
@@ -199,6 +214,24 @@ export const devices = defineMessages({
   'Hạn đổi/trả:': 'Return deadline:',
   'Chính sách của cửa hàng do bạn ghi lại, không phải quy định pháp luật.':
     'The store policy is whatever you recorded — it is not a legal requirement.',
+  // Warranty activation + extended-cover deadline (Feature A). The two-line
+  // warning is deliberate: "chưa kích hoạt" alone reads like missing data,
+  // while the point of the field is that the counter can refuse the device.
+  'Đã kích hoạt ngày {date}': 'Activated on {date}',
+  'Chưa kích hoạt': 'Not activated',
+  'Cửa hàng chưa kích hoạt — máy có thể bị từ chối bảo hành.':
+    'The retailer has not activated it — the device can be refused for warranty service.',
+  'Hạn mua gói mở rộng:': 'Extended cover deadline:',
+  'Còn {days} ngày để mua gói mở rộng': {
+    en: '{days} days left to buy extended cover',
+    enOne: '{days} day left to buy extended cover',
+  },
+  'Hôm nay là ngày cuối mua gói mở rộng':
+    'Today is the last day to buy extended cover',
+  'Đã hết hạn mua gói mở rộng ({days} ngày trước)': {
+    en: 'The extended-cover deadline passed {days} days ago',
+    enOne: 'The extended-cover deadline passed {days} day ago',
+  },
   'Đi bảo hành ở đâu': 'Where to claim the warranty',
   'Phiếu bàn giao & link chia sẻ': 'Handover certificate & share links',
   'Chi phí sử dụng': 'Cost of ownership',

@@ -125,14 +125,24 @@ WHERE "userId" = $1;
 -- like the column: an older payload has no value, and [30, 7] is the behaviour
 -- that payload was written under. Carrying it stops a restore from silently
 -- resetting every device's reminder schedule to the default.
+--
+-- Activation / extended cover (migration 0016) adds six optional columns. They
+-- are carried for the same two reasons as the exchange window above: dropping
+-- activatedAt/extendedCoverBuyBy on a restore would delete user-entered deadlines,
+-- and dropping the notified markers would make the next cron re-push a reminder
+-- the user already saw. An older payload decodes to false/NULL, which is exactly
+-- the old meaning ("not required", "no deadline", "never notified").
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
     "soldAt", "soldPrice", "returnWindowDays", "receivedAt",
-    "returnWindowNotifiedAt", "createdAt", "updatedAt", "leadDays"
+    "returnWindowNotifiedAt", "createdAt", "updatedAt",
+    "activationRequired", "activatedAt", "extendedCoverBuyBy",
+    "activationNotifiedAt", "extendedCoverNotifiedAt",
+    "extendedCoverNotifiedLeadDay", "leadDays"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19,
+    $17, $18, $19, $20, $21, $22, $23, $24, $25,
     COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7])
 );
 
@@ -193,15 +203,23 @@ INSERT INTO "WishlistPrice" (
 -- Older payloads decode to NULL; leadDays then falls back to [3, 1, 0] — the
 -- schedule that payload was written under, because the pre-0015 renewal cron
 -- fired at 3, 1 and 0 days. (Device falls back to [30, 7] for the same reason.)
+--
+-- Trial fields (migration 0016) are optional in the same additive way. Two
+-- distinct classes of data are carried: the user's own trialEndsAt/convertsToPrice
+-- (a restore that dropped them would silently delete the trial the user is
+-- tracking) and the trial reminder's (date, leadDay) idempotency pair (a same-day
+-- restore must not re-fire the reminder). An older payload decodes to NULL, i.e.
+-- "no trial" — the old behaviour.
 INSERT INTO "Subscription" (
     id, "userId", name, category, brand, plan, "billingCycle",
     "intervalDays", price, currency, "startedAt", "renewalDate",
     "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl",
     "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt",
-    "lastNotifiedRenewalLeadDay", "leadDays"
+    "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice",
+    "trialNotifiedAt", "trialNotifiedLeadDay", "leadDays"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    $17, $18, $19, $20, $21, $22, $23,
+    $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27,
     COALESCE(sqlc.narg('leadDays')::int[], ARRAY[3, 1, 0])
 );
 

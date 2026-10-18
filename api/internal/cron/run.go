@@ -54,10 +54,13 @@ const pushFanoutLimit = 8
 // any one row are logged and skipped, never aborting the rest of the job.
 type Stats struct {
 	WarrantyNotices      int `json:"warrantyNotices"`
+	ActivationNotices    int `json:"activationNotices"`
+	ExtendedCoverNotices int `json:"extendedCoverNotices"`
 	ReturnWindowNotices  int `json:"returnWindowNotices"`
 	WishlistTargetHits   int `json:"wishlistTargetHits"`
 	WishlistCheckins     int `json:"wishlistCheckins"`
 	SubscriptionRenewals int `json:"subscriptionRenewals"`
+	TrialNotices         int `json:"trialNotices"`
 	SubscriptionExpired  int `json:"subscriptionExpired"`
 	SessionsPruned       int `json:"sessionsPruned"`
 	PushesSent           int `json:"pushesSent"`
@@ -399,7 +402,96 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 2. Wishlist target-date buckets (today / +7 / +30) ────────────────
+	// ─── 2. Warranty not activated (once per device) ───────────────────────
+	//
+	// In Vietnam the warranty often starts with a retailer/manufacturer
+	// activation step rather than the invoice, and an unactivated device can be
+	// refused at the counter even with a valid receipt. This sweep has no
+	// deadline to count down from — the condition stays true until the user acts
+	// — so it is NOT per-lead-day: the query selects only rows whose
+	// "activationNotifiedAt" is NULL and the stamp below makes the notice
+	// ONCE-ONLY. A user who dismisses it (or simply ignores it) is never sent it
+	// again; recording "activatedAt" stops it by definition.
+	activationRows, err := q.ListDevicesAwaitingActivation(ctx)
+	if err != nil {
+		return stats, fmt.Errorf("list devices awaiting activation: %w", err)
+	}
+	for _, d := range activationRows {
+		stats.ActivationNotices++
+
+		lang := langOf(d.UserID)
+		payload := push.Payload{
+			Title: render(lang, `⚠️ "%s" chưa kích hoạt bảo hành`, d.DeviceName),
+			Body:  render(lang, "Bảo hành chỉ bắt đầu sau khi kích hoạt. Ghi ngày kích hoạt để tính đúng hạn."),
+			URL:   fmt.Sprintf("/devices/%s", d.ID),
+			Tag:   fmt.Sprintf("wv-activation-%s", d.ID),
+		}
+		dispatch(d.UserID, payload, "activation", "device", d.ID)
+
+		if err := q.StampDeviceActivationNotified(ctx, d.ID); err != nil {
+			slog.Error("cron: stamp device activation notified", "device", d.ID, "err", err)
+		}
+	}
+
+	// ─── 3. Extended-cover purchase deadline (one per device lead day) ─────
+	//
+	// "extendedCoverBuyBy" is the last day to buy AppleCare+/Samsung Care+-style
+	// cover. It reuses the SAME per-device "leadDays" column as the warranty
+	// sweep — no second schedule — and the distinct lead-day list is the one
+	// already loaded above for that sweep.
+	//
+	// The day mapping here is NATURAL, not the warranty sweep's
+	// inclusive-minus-one: the deadline is an INCLUSIVE last day, so a 7-day lead
+	// means "the deadline is exactly 7 calendar days away", the same convention
+	// as the return-window and subscription-renewal sweeps. The per-lead-day
+	// idempotency key (deviceId, leadDay, day) means a same-day 30-day stamp
+	// cannot suppress the 7-day notice.
+	//
+	// No brand day count appears anywhere in this sweep. The deadline is
+	// user-entered; the cron only counts down to it.
+	for _, leadDay := range warrantyLeadDays {
+		days := int(leadDay)
+		start, end := dayWindow(now, days)
+		rows, err := q.ListExtendedCoverInWindow(ctx, store.ListExtendedCoverInWindowParams{
+			WindowStart: pgtype.Timestamp{Time: start, Valid: true},
+			WindowEnd:   pgtype.Timestamp{Time: end, Valid: true},
+			LeadDay:     leadDay,
+		})
+		if err != nil {
+			return stats, fmt.Errorf("list extended cover in window (%dd): %w", days, err)
+		}
+		for _, d := range rows {
+			stats.ExtendedCoverNotices++
+
+			lang := langOf(d.UserID)
+			deadline := ""
+			if d.ExtendedCoverBuyBy.Valid {
+				deadline = i18n.FormatDate(lang, d.ExtendedCoverBuyBy.Time)
+			}
+			payload := push.Payload{
+				Title: renderCount(lang, days,
+					`🛡️ Còn %d ngày mua bảo hiểm mở rộng cho "%s"`,
+					`🛡️ Còn 1 ngày mua bảo hiểm mở rộng cho "%s"`,
+					[]any{days, d.DeviceName},
+					[]any{d.DeviceName}),
+				Body: render(lang, "Hạn cuối: %s", deadline),
+				URL:  fmt.Sprintf("/devices/%s", d.ID),
+				Tag:  fmt.Sprintf("wv-extcover-%d-%s", days, d.ID),
+			}
+			dispatch(d.UserID, payload, "extended_cover",
+				"device", d.ID, "days", days)
+
+			if err := q.StampDeviceExtendedCoverNotified(ctx, store.StampDeviceExtendedCoverNotifiedParams{
+				ID:      d.ID,
+				LeadDay: leadDay,
+			}); err != nil {
+				slog.Error("cron: stamp device extended cover notified",
+					"device", d.ID, "err", err)
+			}
+		}
+	}
+
+	// ─── 4. Wishlist target-date buckets (today / +7 / +30) ────────────────
 	for _, days := range []int{0, 7, 30} {
 		start, end := dayWindow(now, days)
 		rows, err := q.ListWishlistTargetDateDue(ctx, store.ListWishlistTargetDateDueParams{
@@ -451,7 +543,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 3. Wishlist periodic check-in pings ───────────────────────────────
+	// ─── 5. Wishlist periodic check-in pings ───────────────────────────────
 	checkinRows, err := q.ListWishlistDueForCheckin(ctx)
 	if err != nil {
 		return stats, fmt.Errorf("list wishlist due for checkin: %w", err)
@@ -497,7 +589,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 4. Subscription renewal warnings (one per subscription lead day) ──
+	// ─── 6. Subscription renewal warnings (one per subscription lead day) ──
 	//
 	// Same shape as the warranty sweep, but the day mapping is NATURAL: a
 	// subscription's renewalDate is the charge day itself, and the old 3/1/0
@@ -596,7 +688,82 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 5. Subscription auto-bill / expire ────────────────────────────────
+	// ─── 7. Subscription trial ending (one per subscription lead day) ──────
+	//
+	// A trial is NOT a renewal: the renewal sweep asks "will this renew?", while
+	// this one asks "do you want to keep it before billing starts?". The wording
+	// below is deliberately different from the renewal reminder because the
+	// action is different — decide, not renew. The two sweeps share the
+	// subscription's existing "leadDays" column (no second schedule) and the
+	// migration-0015 per-lead-day key shape, but use a SEPARATE (date, leadDay)
+	// pair on the row so the two notices can fire on the same day without
+	// suppressing each other.
+	//
+	// The day mapping is NATURAL like the renewal sweep: trialEndsAt == today is
+	// the 0-day bucket ("billing starts today").
+	trialLeadDays, err := q.ListActiveTrialLeadDays(ctx)
+	if err != nil {
+		return stats, fmt.Errorf("list active trial lead days: %w", err)
+	}
+	for _, leadDay := range trialLeadDays {
+		days := int(leadDay)
+		start, end := dayWindow(now, days)
+		subs, err := q.ListSubscriptionsTrialEndingInWindow(ctx, store.ListSubscriptionsTrialEndingInWindowParams{
+			TrialEndsAt:   pgtype.Timestamp{Time: start, Valid: true},
+			TrialEndsAt_2: pgtype.Timestamp{Time: end, Valid: true},
+			LeadDay:       leadDay,
+		})
+		if err != nil {
+			return stats, fmt.Errorf("list subscriptions with trial ending (%dd): %w", days, err)
+		}
+		for _, s := range subs {
+			stats.TrialNotices++
+
+			lang := langOf(s.UserId)
+			var head string
+			if days == 0 {
+				head = render(lang, `🎁 Dùng thử "%s" kết thúc hôm nay`, s.Name)
+			} else {
+				head = renderCount(lang, days,
+					`🎁 Dùng thử "%s" kết thúc sau %d ngày`,
+					`🎁 Dùng thử "%s" kết thúc sau 1 ngày`,
+					[]any{s.Name, days},
+					[]any{s.Name})
+			}
+
+			trialEnd := ""
+			if s.TrialEndsAt.Valid {
+				trialEnd = i18n.FormatDate(lang, s.TrialEndsAt.Time)
+			}
+			var body string
+			if s.ConvertsToPrice != nil {
+				body = render(lang, "Từ %s bắt đầu tính phí %s. Quyết định giữ hay huỷ trước hạn.",
+					trialEnd, i18n.FormatMoney(lang, *s.ConvertsToPrice))
+			} else {
+				body = render(lang, "Từ %s bắt đầu tính phí. Quyết định giữ hay huỷ trước hạn.",
+					trialEnd)
+			}
+
+			payload := push.Payload{
+				Title: head,
+				Body:  body,
+				URL:   fmt.Sprintf("/subscriptions/%s", s.ID),
+				Tag:   fmt.Sprintf("sub-trial-%d-%s", days, s.ID),
+			}
+			dispatch(s.UserId, payload, "subscription_trial",
+				"sub", s.ID, "days", days)
+
+			if err := q.StampSubscriptionTrialNotified(ctx, store.StampSubscriptionTrialNotifiedParams{
+				ID:      s.ID,
+				LeadDay: leadDay,
+			}); err != nil {
+				slog.Error("cron: stamp subscription trial notified",
+					"sub", s.ID, "err", err)
+			}
+		}
+	}
+
+	// ─── 8. Subscription auto-bill / expire ────────────────────────────────
 	todayStart, _ := dayWindow(now, 0)
 	overdue, err := q.ListSubscriptionsOverdue(ctx,
 		pgtype.Timestamp{Time: todayStart, Valid: true})
@@ -674,7 +841,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 6. Return / exchange window closing (T-3 / T-1) ───────────────────
+	// ─── 9. Return / exchange window closing (T-3 / T-1) ───────────────────
 	//
 	// The deadline is NOT "Warranty"."endDate" — it is
 	// COALESCE("receivedAt", "purchaseDate") + "returnWindowDays", which belongs to
@@ -742,7 +909,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 	}
 
-	// ─── 7. Pruning ────────────────────────────────────────────────────────
+	// ─── 10. Pruning ───────────────────────────────────────────────────────
 	pruned, err := q.PruneExpiredSessions(ctx)
 	if err != nil {
 		slog.Error("cron: prune expired sessions", "err", err)

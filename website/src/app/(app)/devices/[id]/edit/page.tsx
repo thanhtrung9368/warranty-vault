@@ -79,6 +79,12 @@ export default async function EditDevicePage({
           // Reminder lead days — loaded so the form starts on the saved
           // schedule, and submitted on save by `LeadDaysField`.
           leadDays: device.leadDays,
+          // Warranty activation + extended-cover deadline (Feature A) — loaded
+          // so the three inputs start on the stored values. The form always
+          // submits all three, because PATCH replaces the whole device.
+          activationRequired: device.activationRequired,
+          activatedAt: device.activatedAt,
+          extendedCoverBuyBy: device.extendedCoverBuyBy,
         }}
       />
     </div>

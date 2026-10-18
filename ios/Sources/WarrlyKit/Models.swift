@@ -257,6 +257,35 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// null; that is why the two are modelled differently.)
     public let leadDays: [Int]?
 
+    /// Whether the warranty only starts once the retailer activates the device.
+    ///
+    /// `true` = e-warranty activation is required; `false` = the purchase date
+    /// starts the warranty. Optional on the read side for the same reason
+    /// `leadDays` is: an older cached payload (or a server that has not shipped
+    /// the field yet) must still decode. `nil` means the documented default
+    /// `false`, which is what `isActivationRequired` returns.
+    public let activationRequired: Bool?
+
+    /// When the device was activated, as the server's date-time wire string.
+    ///
+    /// Kept as the raw `String` — not a `Date` — for the same reason `soldAt` and
+    /// `receivedAt` are: only its calendar day is ever shown or counted, and
+    /// parsing an instant would move the day in a negative-offset zone. The wire
+    /// may be `…Z`, Z-less time or a bare `YYYY-MM-DD`; read it through
+    /// `WarrantyActivation`, never by parsing it here.
+    ///
+    /// This may legitimately be **earlier than `purchaseDate`** (a shop can
+    /// pre-activate a device); the API does not reject it and neither does iOS.
+    public let activatedAt: String?
+
+    /// The last day extended cover (AppleCare+, Samsung Care+) can be bought, or
+    /// `nil` when the user is not tracking it. Same raw-day rule as `activatedAt`;
+    /// the countdown is `WarrantyActivation.buyByDaysLeft`.
+    public let extendedCoverBuyBy: String?
+
+    /// Never-nil view of `activationRequired` for the form and the detail screen.
+    public var isActivationRequired: Bool { activationRequired ?? false }
+
     /// Exchange / return window ("1 đổi 1") length in days, recorded by the user
     /// for **this** device (migration 0010). Three states, and they are all
     /// different: `nil` = **chưa biết** (the API has no default and never infers
@@ -344,6 +373,18 @@ public struct DeviceDetailBody: Decodable, Sendable {
     /// server that has not shipped it yet.
     public let leadDays: [Int]?
 
+    // Warranty activation / extended-cover deadline, on the detail read. The
+    // detail endpoint embeds the whole `store.Device`, so the three fields have
+    // the same wire shape and rules as their `Device` counterparts:
+    // `activationRequired` is optional only for an older server, and the two
+    // dates stay raw day strings so the calendar day cannot drift.
+    public let activationRequired: Bool?
+    public let activatedAt: String?
+    public let extendedCoverBuyBy: String?
+
+    /// Never-nil view of `activationRequired`, mirroring `Device`.
+    public var isActivationRequired: Bool { activationRequired ?? false }
+
     // The return window, on the detail read (openapi `DeviceDetail`).
     //
     // The detail endpoint is where the **derived** deadline is available even for
@@ -396,6 +437,28 @@ public struct DeviceInput: Encodable, Sendable {
     /// rejects it with a 400. A user who wants fewer reminders removes days
     /// until one is left.
     public var leadDays: [Int]?
+
+    /// Whether the warranty only starts after the retailer activates the device
+    /// (openapi `DeviceInput.activationRequired`, default `false`).
+    ///
+    /// Non-optional on the write side: the form always sends its current value,
+    /// so a PATCH cannot accidentally fall back to the server default and turn a
+    /// required-activation device into an ordinary one. It is independent of
+    /// `activatedAt` — a device may require activation and not be activated yet.
+    public var activationRequired: Bool = false
+
+    /// When the device was activated (`YYYY-MM-DD` or full ISO), or `nil` when it
+    /// has not been. `nil` is dropped by the synthesized encoder, which Go reads
+    /// exactly like an explicit `null`: the date is cleared. Applied through
+    /// `WarrantyActivation.apply` on every save path.
+    ///
+    /// A date **earlier than `purchaseDate` is valid** (pre-activation by the
+    /// shop); no client-side validation rejects it.
+    public var activatedAt: String?
+
+    /// The last day extended cover can be bought (`YYYY-MM-DD` or full ISO), or
+    /// `nil` when it is not tracked. Same null/clear rule as `activatedAt`.
+    public var extendedCoverBuyBy: String?
 
     /// Exchange-window length in days (openapi `DeviceInput.returnWindowDays`).
     /// Independent of `receivedAt` — sending one without the other is valid.
@@ -586,6 +649,20 @@ public struct Subscription: Codable, Sendable, Identifiable, Hashable {
     /// payload), and a non-nil array is always encoded by the synthesized
     /// `Codable`. See `LeadDaysRules` for clamp/dedupe/sort/cap.
     public let leadDays: [Int]?
+
+    /// When the free trial ends and billing starts, as the server's date-time
+    /// wire string. `nil` = no timed trial (or a server that has not shipped the
+    /// field). Kept raw for the same calendar-day reason as
+    /// `Device.activatedAt`; read it through `SubscriptionTrial`, never by
+    /// parsing it here.
+    public let trialEndsAt: String?
+
+    /// The price charged after the trial, in VND, or `nil` when not recorded.
+    ///
+    /// The server rejects `convertsToPrice` **without** `trialEndsAt` with
+    /// `fieldErrors.convertsToPrice`, so the two are read and written as a pair
+    /// through `SubscriptionTrialFields`.
+    public let convertsToPrice: Int?
 }
 
 public struct SubscriptionInput: Encodable, Sendable {
@@ -615,6 +692,21 @@ public struct SubscriptionInput: Encodable, Sendable {
     /// defaults it to `[30, 7]`. An empty array is rejected with a 400 and is
     /// never built by this client.
     public var leadDays: [Int]?
+
+    /// When the trial ends and billing starts (`YYYY-MM-DD` or full ISO), or
+    /// `nil` when there is no trial. `nil` is dropped by the synthesized encoder;
+    /// a subscription PATCH replaces the row, so an absent key is the documented
+    /// "clear it" — the same rule `renewalDate` uses.
+    ///
+    /// `convertsToPrice` must never be sent without this. Build the pair with
+    /// `SubscriptionTrialFields` / `SubscriptionTrial.apply`, which drop the price
+    /// whenever the date is gone (the server answers that combination with 400
+    /// `fieldErrors.convertsToPrice`).
+    public var trialEndsAt: String?
+
+    /// The price after conversion, VND, or `nil` when not recorded. Travels with
+    /// `trialEndsAt` or not at all — see the pair rule above.
+    public var convertsToPrice: Int?
 
     public init(name: String, billingCycle: BillingCycle, price: Int, startedAt: String) {
         self.name = name; self.billingCycle = billingCycle

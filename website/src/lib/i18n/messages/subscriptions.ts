@@ -123,6 +123,23 @@ export const subscriptions = defineMessages({
   // key is already registered — with the same English ("Cancel") — by
   // `warranties.ts`, so it is reused rather than duplicated here.
 
+  // ── Free trial (Feature B) — form + detail ──────────────────────────────
+  // The price input exists only while a trial end exists (the server rejects
+  // `convertsToPrice` without `trialEndsAt` with `fieldErrors.convertsToPrice`).
+  // These keys name the two halves so the pair is self-explanatory on screen.
+  'Dùng thử': 'Free trial',
+  'Ngày kết thúc dùng thử': 'Trial end date',
+  'Giá sau dùng thử (VND)': 'Price after the trial (VND)',
+  'Ghi ngày kết thúc dùng thử nếu gói đang miễn phí. Giá sau dùng thử chỉ nhập khi đã có ngày kết thúc.':
+    'Record the trial end date if the plan is free right now. The post-trial price can only be entered once that date exists.',
+  'Từ ngày này gói bắt đầu tính phí. Không nhập giá nếu chưa biết.':
+    'Billing starts on that day. Leave the price blank if you do not know it yet.',
+  'Dùng thử đến {date}': 'Trial until {date}',
+  'Đã hết dùng thử từ {date}': 'Trial ended {date}',
+  'Giá sau dùng thử: {amount}': 'After the trial: {amount}',
+  'Gói tự chuyển sang trả phí khi hết dùng thử.':
+    'The plan starts charging when the trial ends.',
+
   // ── Actions (`components/subscription-actions.tsx`) ─────────────────────
   'Log một lần thanh toán': 'Log one payment',
   'Số tiền (VND)': 'Amount (VND)',

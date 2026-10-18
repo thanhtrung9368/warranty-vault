@@ -35,6 +35,11 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     // Reminder schedule — the spend rollups ignore it; present for the wire
     // shape after the leadDays field landed on `Device`.
     leadDays: [30, 7],
+    // Warranty activation + extended-cover deadline (Feature A) — ignored by
+    // the money math; present for the wire shape.
+    activationRequired: false,
+    activatedAt: null,
+    extendedCoverBuyBy: null,
     createdAt: '2026-03-15T00:00:00Z',
     updatedAt: '2026-03-15T00:00:00Z',
     attachmentCount: 0,

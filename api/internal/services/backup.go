@@ -194,12 +194,22 @@ type BackupSubscription struct {
 	// warning after the 30-day one had already been stamped.
 	LastNotifiedRenewalLeadDay *int32 `json:"lastNotifiedRenewalLeadDay"`
 	// LeadDays is the user's renewal reminder schedule (migration 0015). Optional
-	// in the payload: an older export has no value and imports as [30, 7], the
+	// in the payload: an older export has no value and imports as [3, 1, 0], the
 	// schedule that export was written under.
-	LeadDays  []int32         `json:"leadDays"`
-	CreatedAt string          `json:"createdAt"`
-	UpdatedAt string          `json:"updatedAt"`
-	Payments  []BackupPayment `json:"payments"`
+	LeadDays []int32 `json:"leadDays"`
+	// Trial pair (migration 0016, Feature B). trialEndsAt/convertsToPrice are the
+	// user's own data — dropping them on restore would silently delete the trial
+	// the user was tracking. trialNotifiedAt/trialNotifiedLeadDay are the cron
+	// reminder's (date, leadDay) idempotency pair; without them a same-day restore
+	// re-fires a notice the user already saw. All four are optional/additive: a
+	// payload written before them decodes to NULL = "no trial", the old meaning.
+	TrialEndsAt          *string         `json:"trialEndsAt"`
+	ConvertsToPrice      *int32          `json:"convertsToPrice"`
+	TrialNotifiedAt      *string         `json:"trialNotifiedAt"`
+	TrialNotifiedLeadDay *int32          `json:"trialNotifiedLeadDay"`
+	CreatedAt            string          `json:"createdAt"`
+	UpdatedAt            string          `json:"updatedAt"`
+	Payments             []BackupPayment `json:"payments"`
 }
 
 type BackupPayment struct {
@@ -272,11 +282,23 @@ type BackupDevice struct {
 	// COALESCE turn that into [30, 7] — the schedule that payload ran under.
 	// Without this field a restore would silently reset every device's custom
 	// reminder schedule to the default.
-	LeadDays    []int32            `json:"leadDays"`
-	CreatedAt   string             `json:"createdAt"`
-	UpdatedAt   string             `json:"updatedAt"`
-	Warranties  []BackupWarranty   `json:"warranties"`
-	Attachments []BackupAttachment `json:"attachments"`
+	LeadDays []int32 `json:"leadDays"`
+	// Activation / extended cover (migration 0016, Feature A). Optional and
+	// additive in exactly the same way as the two groups above: an older payload
+	// decodes to false/NULL = "not required", "no deadline", "never notified".
+	// Dropping activatedAt/extendedCoverBuyBy on restore would delete a
+	// user-entered deadline; dropping the notified markers would let the next
+	// cron re-push a reminder the user already saw.
+	ActivationRequired           bool               `json:"activationRequired"`
+	ActivatedAt                  *string            `json:"activatedAt"`
+	ExtendedCoverBuyBy           *string            `json:"extendedCoverBuyBy"`
+	ActivationNotifiedAt         *string            `json:"activationNotifiedAt"`
+	ExtendedCoverNotifiedAt      *string            `json:"extendedCoverNotifiedAt"`
+	ExtendedCoverNotifiedLeadDay *int32             `json:"extendedCoverNotifiedLeadDay"`
+	CreatedAt                    string             `json:"createdAt"`
+	UpdatedAt                    string             `json:"updatedAt"`
+	Warranties                   []BackupWarranty   `json:"warranties"`
+	Attachments                  []BackupAttachment `json:"attachments"`
 }
 
 type BackupWarranty struct {
@@ -448,6 +470,10 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			LastNotifiedRenewalAt:      tsPtr(s.LastNotifiedRenewalAt),
 			LastNotifiedRenewalLeadDay: s.LastNotifiedRenewalLeadDay,
 			LeadDays:                   s.LeadDays,
+			TrialEndsAt:                tsPtr(s.TrialEndsAt),
+			ConvertsToPrice:            s.ConvertsToPrice,
+			TrialNotifiedAt:            tsPtr(s.TrialNotifiedAt),
+			TrialNotifiedLeadDay:       s.TrialNotifiedLeadDay,
 			CreatedAt:                  ts(s.CreatedAt),
 			UpdatedAt:                  ts(s.UpdatedAt),
 			Payments:                   []BackupPayment{},
@@ -515,10 +541,17 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			ReceivedAt:             tsPtr(d.ReceivedAt),
 			ReturnWindowNotifiedAt: tsPtr(d.ReturnWindowNotifiedAt),
 			LeadDays:               d.LeadDays,
-			CreatedAt:              ts(d.CreatedAt),
-			UpdatedAt:              ts(d.UpdatedAt),
-			Warranties:             []BackupWarranty{},
-			Attachments:            []BackupAttachment{},
+
+			ActivationRequired:           d.ActivationRequired,
+			ActivatedAt:                  tsPtr(d.ActivatedAt),
+			ExtendedCoverBuyBy:           tsPtr(d.ExtendedCoverBuyBy),
+			ActivationNotifiedAt:         tsPtr(d.ActivationNotifiedAt),
+			ExtendedCoverNotifiedAt:      tsPtr(d.ExtendedCoverNotifiedAt),
+			ExtendedCoverNotifiedLeadDay: d.ExtendedCoverNotifiedLeadDay,
+			CreatedAt:                    ts(d.CreatedAt),
+			UpdatedAt:                    ts(d.UpdatedAt),
+			Warranties:                   []BackupWarranty{},
+			Attachments:                  []BackupAttachment{},
 		}
 		for _, w := range warByDevice[d.ID] {
 			bw := BackupWarranty{
@@ -860,12 +893,18 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			SoldAt:        pgtsPtr(d.SoldAt),
 			SoldPrice:     d.SoldPrice,
 
-			ReturnWindowDays:       d.ReturnWindowDays,
-			ReceivedAt:             pgtsPtr(d.ReceivedAt),
-			ReturnWindowNotifiedAt: pgtsPtr(d.ReturnWindowNotifiedAt),
-			LeadDays:               backupLeadDays(d.LeadDays),
-			CreatedAt:              pgts(d.CreatedAt),
-			UpdatedAt:              pgts(d.UpdatedAt),
+			ReturnWindowDays:             d.ReturnWindowDays,
+			ReceivedAt:                   pgtsPtr(d.ReceivedAt),
+			ReturnWindowNotifiedAt:       pgtsPtr(d.ReturnWindowNotifiedAt),
+			LeadDays:                     backupLeadDays(d.LeadDays),
+			ActivationRequired:           d.ActivationRequired,
+			ActivatedAt:                  pgtsPtr(d.ActivatedAt),
+			ExtendedCoverBuyBy:           pgtsPtr(d.ExtendedCoverBuyBy),
+			ActivationNotifiedAt:         pgtsPtr(d.ActivationNotifiedAt),
+			ExtendedCoverNotifiedAt:      pgtsPtr(d.ExtendedCoverNotifiedAt),
+			ExtendedCoverNotifiedLeadDay: d.ExtendedCoverNotifiedLeadDay,
+			CreatedAt:                    pgts(d.CreatedAt),
+			UpdatedAt:                    pgts(d.UpdatedAt),
 		}); err != nil {
 			return nil, fmt.Errorf("insert device: %w", err)
 		}
@@ -1057,6 +1096,10 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			LastNotifiedRenewalAt:      pgtsPtr(s.LastNotifiedRenewalAt),
 			LastNotifiedRenewalLeadDay: s.LastNotifiedRenewalLeadDay,
 			LeadDays:                   backupLeadDays(s.LeadDays),
+			TrialEndsAt:                pgtsPtr(s.TrialEndsAt),
+			ConvertsToPrice:            s.ConvertsToPrice,
+			TrialNotifiedAt:            pgtsPtr(s.TrialNotifiedAt),
+			TrialNotifiedLeadDay:       s.TrialNotifiedLeadDay,
 			CreatedAt:                  pgts(s.CreatedAt),
 			UpdatedAt:                  pgts(s.UpdatedAt),
 		}); err != nil {

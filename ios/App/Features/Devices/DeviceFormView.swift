@@ -57,6 +57,18 @@ struct DeviceFormView: View {
     /// encoder drops, i.e. exactly what the server already has.
     @State private var returnWindow: ReturnWindowFields
 
+    /// Warranty activation + extended-cover deadline ("Bảo hành & kích hoạt").
+    ///
+    /// `activatedAt` and `extendedCoverBuyBy` are optional dates because both are
+    /// nullable on the wire: "not activated yet" and "not tracking the buy-by
+    /// date" are real answers, not an empty date picker. They are loaded through
+    /// `WarrantyActivation.carried(from:)` and written back through
+    /// `WarrantyActivation.apply` on every save — `PATCH /devices/{id}` replaces
+    /// the row, so omitting them would erase an activation recorded elsewhere.
+    @State private var activationRequired: Bool
+    @State private var activatedAt: Date?
+    @State private var extendedCoverBuyBy: Date?
+
     /// Resale ("Bán lại", migration 0006): whether a sale is being recorded, the
     /// day it happened and what it went for.
     ///
@@ -154,6 +166,14 @@ struct DeviceFormView: View {
         ))
         // Load the recorded window once; `submit()` writes it back unchanged.
         _returnWindow = State(initialValue: device.map(DeviceReturnWindow.carried(from:)) ?? .unknown)
+        // Warranty activation / extended cover. `carried` normalises both wire
+        // dates to their calendar day, so the picker below shows the same day the
+        // server holds; `WireDay` turns that day into the picker's `Date` in the
+        // device's own zone (parsing it as an instant is what would slide it).
+        let activation = device.map(WarrantyActivation.carried(from:)) ?? .none
+        _activationRequired = State(initialValue: activation.activationRequired)
+        _activatedAt = State(initialValue: WireDay.date(from: activation.activatedAt))
+        _extendedCoverBuyBy = State(initialValue: WireDay.date(from: activation.extendedCoverBuyBy))
         // Same for the sale. `carried` reduces `soldAt` (a Z-less naive-UTC
         // timestamp) to its `YYYY-MM-DD` day without parsing an instant, and keeps
         // a `0₫` give-away as `0` rather than as "not recorded".
@@ -186,6 +206,128 @@ struct DeviceFormView: View {
     private var saleFields: ResaleFields {
         ResaleFields(soldAt: saleRecorded ? DeviceResale.dayString(soldDate) : nil,
                      soldPrice: saleRecorded ? soldPrice : nil)
+    }
+
+    // MARK: - Activation (derived)
+
+    /// The three activation fields as the form currently holds them.
+    ///
+    /// The pickers write `YYYY-MM-DD` in the device's own zone, which is the same
+    /// day the wire read gave us; no date is invented when a picker is empty.
+    private var activationFields: ActivationFields {
+        ActivationFields(
+            activationRequired: activationRequired,
+            activatedAt: activatedAt.map { WireDay.string(from: $0) },
+            extendedCoverBuyBy: extendedCoverBuyBy.map { WireDay.string(from: $0) }
+        )
+    }
+
+    /// "Bảo hành & kích hoạt" — the three device-level fields, in the warranty
+    /// area of the existing form.
+    ///
+    /// The activation-date row is drawn while the toggle is on **or** a date
+    /// already exists, exactly as `WarrantyActivation.State` needs: turning the
+    /// toggle on without picking a date is the legitimate "required and not
+    /// activated yet" state, and a pre-activated device can carry a date with the
+    /// toggle off. Turning the toggle off does not erase a stored date — that
+    /// would be an edit the user did not ask for — but the row stays visible so
+    /// it can be cleared explicitly with the X.
+    @ViewBuilder
+    private var activationSection: some View {
+        WVSectionHeader(L.t("Bảo hành & kích hoạt"))
+        WVSectionFooter(L.t("Bảo hành có thể bắt đầu bằng thao tác kích hoạt của cửa hàng. Ngày kích hoạt có thể sớm hơn ngày mua; hạn mua gói mở rộng (AppleCare+, Samsung Care+) là ngày cuối có thể mua."))
+        WVGroup {
+            WVRowContainer {
+                Toggle(L.t("Cần kích hoạt"), isOn: $activationRequired)
+                    .font(.system(size: 17))
+                    .onChange(of: activationRequired) { _, _ in
+                        fieldErrors["activatedAt"] = nil
+                    }
+            }
+
+            if activationRequired || activatedAt != nil {
+                WVDivider()
+                HStack(spacing: 12) {
+                    Text(L.t("Ngày kích hoạt"))
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.label)
+                    Spacer(minLength: 8)
+                    if let date = activatedAt {
+                        DatePicker("", selection: Binding(
+                            get: { date },
+                            set: { activatedAt = $0 }
+                        ), displayedComponents: .date)
+                        .labelsHidden()
+                        .onChange(of: activatedAt) { _, _ in
+                            fieldErrors["activatedAt"] = nil
+                        }
+                        Button {
+                            activatedAt = nil
+                        } label: {
+                            WVIcon("x", size: 13)
+                                .foregroundStyle(WVColor.label4)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(L.t("Xoá"))
+                    } else {
+                        // No date is a real state: the warranty is required to be
+                        // activated but the retailer has not done it yet. Tapping
+                        // seeds the picker with the purchase day (pre-activation is
+                        // allowed, so the user may move it earlier).
+                        Button(L.t("Chưa kích hoạt")) {
+                            activatedAt = purchaseDate
+                        }
+                        .font(.system(size: 17))
+                        .foregroundStyle(WVColor.tint)
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 7)
+                fieldErrorRow("activatedAt")
+            }
+
+            WVDivider()
+
+            HStack(spacing: 12) {
+                Text(L.t("Mua gói mở rộng trước"))
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                Spacer(minLength: 8)
+                if let date = extendedCoverBuyBy {
+                    DatePicker("", selection: Binding(
+                        get: { date },
+                        set: { extendedCoverBuyBy = $0 }
+                    ), displayedComponents: .date)
+                    .labelsHidden()
+                    .onChange(of: extendedCoverBuyBy) { _, _ in
+                        fieldErrors["extendedCoverBuyBy"] = nil
+                    }
+                    Button {
+                        extendedCoverBuyBy = nil
+                    } label: {
+                        WVIcon("x", size: 13)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L.t("Xoá"))
+                } else {
+                    // The API has no default for this window and never infers one:
+                    // an empty value means "not tracking it", not "60 days".
+                    Button(L.t("Chưa đặt")) {
+                        extendedCoverBuyBy = Date()
+                    }
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.tint)
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+            fieldErrorRow("extendedCoverBuyBy")
+        }
     }
 
     /// Lãi/lỗ so với giá mua, live as the user types. `nil` until a sale price
@@ -420,6 +562,10 @@ struct DeviceFormView: View {
                 // without a simulator.
                 LeadDaysSection(days: $leadDays, error: fieldErrors["leadDays"]?.first)
                     .onChange(of: leadDays) { _, _ in fieldErrors["leadDays"] = nil }
+
+                // Warranty activation + extended-cover deadline (Feature A).
+                // Three fields inside the warranty area, not a new step.
+                activationSection
 
                 // Default warranty (create mode only)
                 if !isEditing {
@@ -1041,6 +1187,12 @@ struct DeviceFormView: View {
         // which the encoder omits). There is no UI for this and deliberately so:
         // no client may *set* a window until all three ship the fields.
         DeviceReturnWindow.apply(returnWindow, to: &input)
+
+        // Activation / extended cover. `apply` normalises both dates to their
+        // calendar day; an untouched optional picker stays nil and is dropped, so
+        // no date is invented. An activation date earlier than `purchaseDate` is
+        // passed through untouched — the server explicitly allows pre-activation.
+        WarrantyActivation.apply(activationFields, to: &input)
 
         // Resale (migration 0006) — same full-replacement rule, but here the
         // screen owns the input too. The server's pair rule is checked locally

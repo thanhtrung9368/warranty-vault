@@ -48,6 +48,14 @@
     <string name="subs_start_date_yyyy_mm_dd">Ngày bắt đầu * (YYYY-MM-DD)</string>
     <string name="subs_next_renewal_date_yyyy_mm_dd">Ngày gia hạn kế (YYYY-MM-DD)</string>
     <string name="subs_auto_renew">Tự động gia hạn</string>
+    <!-- ===== Dùng thử (SubscriptionTrial.kt, SubscriptionEditSheet.kt,
+         SubscriptionDetailScreen.kt). ===== -->
+    <string name="subs_trial">Dùng thử</string>
+    <string name="subs_trial_ends_yyyy_mm_dd">Kết thúc dùng thử (YYYY-MM-DD)</string>
+    <string name="subs_converts_to_price_vnd">Giá sau dùng thử (VND)</string>
+    <string name="subs_trial_hint">Bắt đầu tính phí từ ngày này. Không có ngày kết thúc thì coi như không dùng thử.</string>
+    <string name="subs_trial_ends_on">Dùng thử đến</string>
+    <string name="subs_price_after_trial">Giá sau dùng thử</string>
     <string name="subs_account_email">Email tài khoản</string>
     <string name="subs_payment_method">Phương thức thanh toán</string>
     <string name="subs_manage_url">URL quản lý</string>

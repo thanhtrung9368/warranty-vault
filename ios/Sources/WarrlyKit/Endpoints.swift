@@ -186,17 +186,26 @@ extension APIClient {
     /// applies its `[30, 7]` default. An empty array would be a 400
     /// (`fieldErrors.leadDays`), which is why callers build it with
     /// `LeadDaysRules.wireValue`.
+    ///
+    /// The activation trio (`activationRequired`, `activatedAt`,
+    /// `extendedCoverBuyBy`) rides in the same body through `DeviceInput` — the
+    /// form sends it, and `WarrantyActivation.apply` is the only supported way to
+    /// populate it.
     public func createDevice(_ input: DeviceInput) async throws -> DeviceSaveResult {
         try await request("POST", "/api/v1/devices", body: input)
     }
 
-    /// Same contract as `createDevice`, including `warnings`. The device being
-    /// edited is excluded from the duplicate-serial probe server-side, so
-    /// saving an unchanged serial does not warn about "duplicating itself".
+    /// Same contract as `createDevice`, including `warnings` and the activation
+    /// fields. The device being edited is excluded from the duplicate-serial probe
+    /// server-side, so saving an unchanged serial does not warn about "duplicating
+    /// itself".
     ///
     /// `leadDays` is accepted here too. It is the one field a PATCH does **not**
     /// replace when omitted (`null`/absent means "keep the stored schedule"),
     /// but the form sends it anyway so the save states the schedule explicitly.
+    /// `activatedAt` / `extendedCoverBuyBy` are full-replacement fields: omitted
+    /// means cleared, which is why `DeviceDetailView.saveStatus` and the form both
+    /// carry them with `WarrantyActivation.apply`.
     public func updateDevice(id: String, _ input: DeviceInput) async throws -> DeviceSaveResult {
         try await request("PATCH", "/api/v1/devices/\(id)", body: input)
     }
@@ -352,6 +361,11 @@ extension APIClient {
     /// Creates a subscription. `SubscriptionInput.leadDays` rides in the body,
     /// already normalised by `LeadDaysRules.wireValue`; omitted means the server
     /// default `[30, 7]`. An empty array is a 400 (`fieldErrors.leadDays`).
+    ///
+    /// `trialEndsAt` / `convertsToPrice` ride in the same body as a pair through
+    /// `SubscriptionTrial.apply`. Sending a price without a trial end date is a
+    /// 400 `fieldErrors.convertsToPrice`, so callers must not build that
+    /// combination by hand.
     public func createSubscription(_ input: SubscriptionInput) async throws -> Subscription {
         struct Wrapper: Decodable { let subscription: Subscription }
         let w: Wrapper = try await request("POST", "/api/v1/subscriptions", body: input)
@@ -361,6 +375,11 @@ extension APIClient {
     /// Updates a subscription. `leadDays` is accepted here too; absent/`null`
     /// leaves the stored schedule unchanged, but the form sends the value it
     /// loaded so the intent is explicit.
+    ///
+    /// The trial pair is a full-replacement field: omitting `trialEndsAt` clears
+    /// the trial, and `convertsToPrice` is never sent on its own. Both every save
+    /// path and `SubscriptionsStore.setStatus` carry it with
+    /// `SubscriptionTrial.apply`.
     public func updateSubscription(id: String, _ input: SubscriptionInput) async throws -> Subscription {
         struct Wrapper: Decodable { let subscription: Subscription }
         let w: Wrapper = try await request("PATCH", "/api/v1/subscriptions/\(id)", body: input)

@@ -112,38 +112,45 @@ INSERT INTO "Device" (
     "soldPrice",
     "returnWindowDays",
     "receivedAt",
+    "activationRequired",
+    "activatedAt",
+    "extendedCoverBuyBy",
     "leadDays",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-    COALESCE($16::text, 'ACTIVE'),
+    COALESCE($19::text, 'ACTIVE'),
     $11, $12, $13, $14, $15,
-    COALESCE($17::int[], ARRAY[30, 7]::int[]),
+    $16, $17, $18,
+    COALESCE($20::int[], ARRAY[30, 7]::int[]),
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 `
 
 type CreateDeviceParams struct {
-	ID               string           `json:"id"`
-	UserId           string           `json:"userId"`
-	Name             string           `json:"name"`
-	Category         string           `json:"category"`
-	Brand            *string          `json:"brand"`
-	Model            *string          `json:"model"`
-	SerialNumber     *string          `json:"serialNumber"`
-	PurchaseDate     pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice    int32            `json:"purchasePrice"`
-	PurchasePlace    *string          `json:"purchasePlace"`
-	Notes            *string          `json:"notes"`
-	SoldAt           pgtype.Timestamp `json:"soldAt"`
-	SoldPrice        *int32           `json:"soldPrice"`
-	ReturnWindowDays *int32           `json:"returnWindowDays"`
-	ReceivedAt       pgtype.Timestamp `json:"receivedAt"`
-	Status           *string          `json:"status"`
-	LeadDays         []int32          `json:"leadDays"`
+	ID                 string           `json:"id"`
+	UserId             string           `json:"userId"`
+	Name               string           `json:"name"`
+	Category           string           `json:"category"`
+	Brand              *string          `json:"brand"`
+	Model              *string          `json:"model"`
+	SerialNumber       *string          `json:"serialNumber"`
+	PurchaseDate       pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice      int32            `json:"purchasePrice"`
+	PurchasePlace      *string          `json:"purchasePlace"`
+	Notes              *string          `json:"notes"`
+	SoldAt             pgtype.Timestamp `json:"soldAt"`
+	SoldPrice          *int32           `json:"soldPrice"`
+	ReturnWindowDays   *int32           `json:"returnWindowDays"`
+	ReceivedAt         pgtype.Timestamp `json:"receivedAt"`
+	ActivationRequired bool             `json:"activationRequired"`
+	ActivatedAt        pgtype.Timestamp `json:"activatedAt"`
+	ExtendedCoverBuyBy pgtype.Timestamp `json:"extendedCoverBuyBy"`
+	Status             *string          `json:"status"`
+	LeadDays           []int32          `json:"leadDays"`
 }
 
 func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Device, error) {
@@ -163,6 +170,9 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.SoldPrice,
 		arg.ReturnWindowDays,
 		arg.ReceivedAt,
+		arg.ActivationRequired,
+		arg.ActivatedAt,
+		arg.ExtendedCoverBuyBy,
 		arg.Status,
 		arg.LeadDays,
 	)
@@ -188,6 +198,12 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
 		&i.LeadDays,
+		&i.ActivationRequired,
+		&i.ActivatedAt,
+		&i.ExtendedCoverBuyBy,
+		&i.ActivationNotifiedAt,
+		&i.ExtendedCoverNotifiedAt,
+		&i.ExtendedCoverNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -213,7 +229,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -248,12 +264,18 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
 		&i.LeadDays,
+		&i.ActivationRequired,
+		&i.ActivatedAt,
+		&i.ExtendedCoverBuyBy,
+		&i.ActivationNotifiedAt,
+		&i.ExtendedCoverNotifiedAt,
+		&i.ExtendedCoverNotifiedLeadDay,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -285,6 +307,12 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
 		&i.LeadDays,
+		&i.ActivationRequired,
+		&i.ActivatedAt,
+		&i.ExtendedCoverBuyBy,
+		&i.ActivationNotifiedAt,
+		&i.ExtendedCoverNotifiedAt,
+		&i.ExtendedCoverNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -324,9 +352,62 @@ func (q *Queries) ListActiveDeviceLeadDays(ctx context.Context) ([]int32, error)
 	return items, nil
 }
 
+const listDevicesAwaitingActivation = `-- name: ListDevicesAwaitingActivation :many
+SELECT
+    d.id       AS id,
+    d."userId" AS user_id,
+    d.name     AS device_name
+FROM "Device" d
+WHERE d.status = 'ACTIVE'
+  AND d."activationRequired" = true
+  AND d."activatedAt" IS NULL
+  AND d."activationNotifiedAt" IS NULL
+ORDER BY d."createdAt" ASC
+`
+
+type ListDevicesAwaitingActivationRow struct {
+	ID         string `json:"id"`
+	UserID     string `json:"user_id"`
+	DeviceName string `json:"device_name"`
+}
+
+// Cron support (migration 0016, Feature A). A device whose warranty only starts
+// on activation, where the user has not recorded an activation date yet.
+//
+// ONCE-ONLY, not per-lead-day: there is no deadline to count down from — the
+// condition is true until the user acts — so the sweep relies on
+// "activationNotifiedAt" being NULL and stamps it after the fan-out. That keeps
+// the notification from becoming a daily nag and means a user who dismisses it
+// stays dismissed. Setting "activatedAt" stops it by definition; a later
+// clearing of that date does not resurrect the reminder (the stamp survives),
+// which is the conservative direction for a notice whose only action is
+// "go and enter a date".
+//
+// Only ACTIVE devices: a SOLD/BROKEN/LOST device has no live warranty whose
+// start matters. The set is bounded by MAX_DEVICES_PER_USER = 50.
+func (q *Queries) ListDevicesAwaitingActivation(ctx context.Context) ([]ListDevicesAwaitingActivationRow, error) {
+	rows, err := q.db.Query(ctx, listDevicesAwaitingActivation)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDevicesAwaitingActivationRow
+	for rows.Next() {
+		var i ListDevicesAwaitingActivationRow
+		if err := rows.Scan(&i.ID, &i.UserID, &i.DeviceName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -411,6 +492,12 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
 			&i.LeadDays,
+			&i.ActivationRequired,
+			&i.ActivatedAt,
+			&i.ExtendedCoverBuyBy,
+			&i.ActivationNotifiedAt,
+			&i.ExtendedCoverNotifiedAt,
+			&i.ExtendedCoverNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -423,7 +510,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -460,6 +547,12 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
 			&i.LeadDays,
+			&i.ActivationRequired,
+			&i.ActivatedAt,
+			&i.ExtendedCoverBuyBy,
+			&i.ActivationNotifiedAt,
+			&i.ExtendedCoverNotifiedAt,
+			&i.ExtendedCoverNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -469,6 +562,117 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const listExtendedCoverInWindow = `-- name: ListExtendedCoverInWindow :many
+SELECT
+    d.id                 AS id,
+    d."userId"           AS user_id,
+    d.name               AS device_name,
+    d."extendedCoverBuyBy" AS extended_cover_buy_by
+FROM "Device" d
+WHERE d.status = 'ACTIVE'
+  AND d."extendedCoverBuyBy" IS NOT NULL
+  AND $1::int = ANY(d."leadDays")
+  AND d."extendedCoverBuyBy" >= $2::timestamp
+  AND d."extendedCoverBuyBy" <  $3::timestamp
+  AND (
+      d."extendedCoverNotifiedAt" IS NULL
+      OR d."extendedCoverNotifiedAt"::date < CURRENT_DATE
+      OR (d."extendedCoverNotifiedLeadDay" IS NOT NULL
+          AND d."extendedCoverNotifiedLeadDay" <> $1::int)
+  )
+`
+
+type ListExtendedCoverInWindowParams struct {
+	LeadDay     int32            `json:"leadDay"`
+	WindowStart pgtype.Timestamp `json:"windowStart"`
+	WindowEnd   pgtype.Timestamp `json:"windowEnd"`
+}
+
+type ListExtendedCoverInWindowRow struct {
+	ID                 string           `json:"id"`
+	UserID             string           `json:"user_id"`
+	DeviceName         string           `json:"device_name"`
+	ExtendedCoverBuyBy pgtype.Timestamp `json:"extended_cover_buy_by"`
+}
+
+// Cron support (migration 0016, Feature A). ACTIVE devices whose
+// "extendedCoverBuyBy" falls in [windowStart, windowEnd) AND whose "leadDays"
+// contains this run's leadDay.
+//
+// "extendedCoverBuyBy" is an INCLUSIVE last day (the day the window closes), so
+// this uses the NATURAL day mapping — dayWindow(now, days) — the same convention
+// as the return-window and subscription-renewal sweeps: a 7-day lead means the
+// deadline is exactly 7 calendar days away. It deliberately does NOT use the
+// warranty sweep's inclusive-minus-one convention, which counts today as day 1
+// for an endDate.
+//
+// Idempotency is the per-lead-day key of migration 0015, on this table:
+//
+//	(deviceId, leadDay, calendar day)
+//
+// stored as (extendedCoverNotifiedAt::date, extendedCoverNotifiedLeadDay). A row
+// is skipped only when the SAME lead day was stamped today; a different lead day
+// on the same day still fires. leadDay IS NULL on a hand-edited row means
+// "handled today for every lead day" — the conservative reading.
+func (q *Queries) ListExtendedCoverInWindow(ctx context.Context, arg ListExtendedCoverInWindowParams) ([]ListExtendedCoverInWindowRow, error) {
+	rows, err := q.db.Query(ctx, listExtendedCoverInWindow, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExtendedCoverInWindowRow
+	for rows.Next() {
+		var i ListExtendedCoverInWindowRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.DeviceName,
+			&i.ExtendedCoverBuyBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const stampDeviceActivationNotified = `-- name: StampDeviceActivationNotified :exec
+UPDATE "Device"
+SET "activationNotifiedAt" = NOW(),
+    "updatedAt" = NOW()
+WHERE id = $1
+`
+
+// Once-only marker: the next run filters the row out forever. Bumps "updatedAt"
+// like the other subject-table stamps.
+func (q *Queries) StampDeviceActivationNotified(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, stampDeviceActivationNotified, id)
+	return err
+}
+
+const stampDeviceExtendedCoverNotified = `-- name: StampDeviceExtendedCoverNotified :exec
+UPDATE "Device"
+SET "extendedCoverNotifiedAt" = NOW(),
+    "extendedCoverNotifiedLeadDay" = $2::int,
+    "updatedAt" = NOW()
+WHERE id = $1
+`
+
+type StampDeviceExtendedCoverNotifiedParams struct {
+	ID      string `json:"id"`
+	LeadDay int32  `json:"leadDay"`
+}
+
+// Cron stamps this after the fan-out. `leadDay` is part of the idempotency key,
+// not decoration: a same-day 30-day push must not suppress the 7-day one.
+func (q *Queries) StampDeviceExtendedCoverNotified(ctx context.Context, arg StampDeviceExtendedCoverNotifiedParams) error {
+	_, err := q.db.Exec(ctx, stampDeviceExtendedCoverNotified, arg.ID, arg.LeadDay)
+	return err
 }
 
 const updateDevice = `-- name: UpdateDevice :one
@@ -488,29 +692,35 @@ UPDATE "Device" SET
     "returnWindowDays" = $15,
     "receivedAt" = $16,
     "leadDays" = $17,
+    "activationRequired" = $18,
+    "activatedAt" = $19,
+    "extendedCoverBuyBy" = $20,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
 `
 
 type UpdateDeviceParams struct {
-	ID               string           `json:"id"`
-	UserId           string           `json:"userId"`
-	Name             string           `json:"name"`
-	Category         string           `json:"category"`
-	Brand            *string          `json:"brand"`
-	Model            *string          `json:"model"`
-	SerialNumber     *string          `json:"serialNumber"`
-	PurchaseDate     pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice    int32            `json:"purchasePrice"`
-	PurchasePlace    *string          `json:"purchasePlace"`
-	Status           string           `json:"status"`
-	Notes            *string          `json:"notes"`
-	SoldAt           pgtype.Timestamp `json:"soldAt"`
-	SoldPrice        *int32           `json:"soldPrice"`
-	ReturnWindowDays *int32           `json:"returnWindowDays"`
-	ReceivedAt       pgtype.Timestamp `json:"receivedAt"`
-	LeadDays         []int32          `json:"leadDays"`
+	ID                 string           `json:"id"`
+	UserId             string           `json:"userId"`
+	Name               string           `json:"name"`
+	Category           string           `json:"category"`
+	Brand              *string          `json:"brand"`
+	Model              *string          `json:"model"`
+	SerialNumber       *string          `json:"serialNumber"`
+	PurchaseDate       pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice      int32            `json:"purchasePrice"`
+	PurchasePlace      *string          `json:"purchasePlace"`
+	Status             string           `json:"status"`
+	Notes              *string          `json:"notes"`
+	SoldAt             pgtype.Timestamp `json:"soldAt"`
+	SoldPrice          *int32           `json:"soldPrice"`
+	ReturnWindowDays   *int32           `json:"returnWindowDays"`
+	ReceivedAt         pgtype.Timestamp `json:"receivedAt"`
+	LeadDays           []int32          `json:"leadDays"`
+	ActivationRequired bool             `json:"activationRequired"`
+	ActivatedAt        pgtype.Timestamp `json:"activatedAt"`
+	ExtendedCoverBuyBy pgtype.Timestamp `json:"extendedCoverBuyBy"`
 }
 
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
@@ -532,6 +742,9 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.ReturnWindowDays,
 		arg.ReceivedAt,
 		arg.LeadDays,
+		arg.ActivationRequired,
+		arg.ActivatedAt,
+		arg.ExtendedCoverBuyBy,
 	)
 	var i Device
 	err := row.Scan(
@@ -555,6 +768,12 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.ReceivedAt,
 		&i.ReturnWindowNotifiedAt,
 		&i.LeadDays,
+		&i.ActivationRequired,
+		&i.ActivatedAt,
+		&i.ExtendedCoverBuyBy,
+		&i.ActivationNotifiedAt,
+		&i.ExtendedCoverNotifiedAt,
+		&i.ExtendedCoverNotifiedLeadDay,
 	)
 	return i, err
 }

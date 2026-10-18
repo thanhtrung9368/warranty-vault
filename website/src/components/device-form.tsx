@@ -17,6 +17,8 @@ import {
   ScanLine,
   Sparkles,
   HandCoins,
+  ShieldCheck,
+  CalendarClock,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
@@ -101,6 +103,12 @@ type Initial = {
   receivedAt?: string | null;
   // Reminder lead days. Absent (create) starts from the server default [30, 7].
   leadDays?: number[];
+  // Warranty activation + extended-cover deadline (Feature A). `activatedAt` /
+  // `extendedCoverBuyBy` arrive as Z-less date-time strings (`purchaseDate`'s
+  // shape); the date inputs take the calendar day, exactly like `soldAt`.
+  activationRequired?: boolean;
+  activatedAt?: string | null;
+  extendedCoverBuyBy?: string | null;
 };
 
 type Catalog = {
@@ -120,6 +128,12 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate', step: 1 },
   warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
   leadDays: { label: 'Mốc nhắc trước', focusId: 'leadDays', step: 2 },
+  // Warranty activation + extended cover (Feature A) — same step as the rest of
+  // the warranty fields. There is no client-side rule to enforce (a
+  // pre-activation date before `purchaseDate` is legal), so these only route a
+  // server `fieldErrors` entry back to the right input.
+  activatedAt: { label: 'Ngày kích hoạt', focusId: 'activatedAt', step: 2 },
+  extendedCoverBuyBy: { label: 'Hạn mua gói mở rộng', focusId: 'extendedCoverBuyBy', step: 2 },
   // Resale pair — both live on the final step, next to `status`.
   soldAt: { label: 'Ngày bán', focusId: 'soldAt', step: 3 },
   soldPrice: { label: 'Giá bán', focusId: 'soldPrice', step: 3 },
@@ -368,6 +382,26 @@ export function DeviceForm({
   const [leadDays, setLeadDays] = React.useState<number[]>(
     normalizeLeadDays(initial?.leadDays ?? LEAD_DAYS_DEFAULT_DEVICE),
   );
+
+  // ─── Warranty activation + extended-cover deadline (Feature A) ──────────
+  // `activationRequired` is a real boolean, not a checkbox-presence trick: the
+  // controlled checkbox and a hidden mirror always ship `'true'`/`'false'`, so
+  // unchecking it on an edit is an explicit `false` rather than an absent key.
+  // The activation date is rendered only when the box is on or a date already
+  // exists (a device can be activated without requiring it), while the hidden
+  // input keeps the field in the payload on every save.
+  const [activationRequired, setActivationRequired] = React.useState<boolean>(
+    Boolean(initial?.activationRequired),
+  );
+  const [activatedAt, setActivatedAt] = React.useState<string>(
+    initial?.activatedAt ? format(new Date(initial.activatedAt), 'yyyy-MM-dd') : '',
+  );
+  const [extendedCoverBuyBy, setExtendedCoverBuyBy] = React.useState<string>(
+    initial?.extendedCoverBuyBy
+      ? format(new Date(initial.extendedCoverBuyBy), 'yyyy-MM-dd')
+      : '',
+  );
+  const showActivatedAt = activationRequired || activatedAt !== '';
 
   // ─── Resale (soldAt + soldPrice, server-enforced pair) ──────────────────
   // `sold` is a UI-only gate: when off, neither field is mounted and the
@@ -629,6 +663,9 @@ export function DeviceForm({
     setWarrantyNotes('');
     setNotes('');
     setLeadDays([...LEAD_DAYS_DEFAULT_DEVICE]);
+    setActivationRequired(false);
+    setActivatedAt('');
+    setExtendedCoverBuyBy('');
     setSold(false);
     setSoldAt('');
     setSoldPriceDisplay('');
@@ -1026,6 +1063,97 @@ export function DeviceForm({
                 placeholder={t('Điều kiện, lưu ý khi đi bảo hành...')}
                 rows={3}
               />
+            </div>
+          </div>
+
+          {/* Warranty activation + extended-cover deadline (Feature A). Three
+              fields in a sub-card of this step — deliberately NOT a step of
+              their own. Both halves are always submitted (a hidden mirror for
+              the checkbox, and a hidden/visible date input that is always
+              present in one form) because PATCH replaces the whole device: an
+              omitted key would erase an activation recorded on another client.
+              `activatedAt` is never compared with `purchaseDate` — a shop can
+              pre-activate, and the server accepts that. */}
+          <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+            <div className="flex items-start gap-3">
+              <span className="icon-badge icon-badge-sm tint-emerald mt-0.5">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-ink">
+                  {t('Bảo hành & kích hoạt')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'Bảo hành chỉ bắt đầu sau khi cửa hàng kích hoạt. Máy chưa kích hoạt có thể bị từ chối tiếp nhận.',
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="activationRequired"
+                  className="flex items-start gap-2.5 text-sm font-medium text-ink"
+                >
+                  <input
+                    id="activationRequired"
+                    type="checkbox"
+                    checked={activationRequired}
+                    onChange={(e) => setActivationRequired(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span>{t('Kích hoạt bảo hành')}</span>
+                </label>
+                {/* The checkbox is controlled and therefore has no `name`; this
+                    mirror makes the boolean explicit on every submit. */}
+                <input
+                  type="hidden"
+                  name="activationRequired"
+                  value={activationRequired ? 'true' : 'false'}
+                />
+              </div>
+
+              {showActivatedAt ? (
+                <div className="space-y-2">
+                  <Label htmlFor="activatedAt">{t('Ngày kích hoạt')}</Label>
+                  <Input
+                    id="activatedAt"
+                    name="activatedAt"
+                    type="date"
+                    value={activatedAt}
+                    onChange={(e) => setActivatedAt(e.target.value)}
+                  />
+                  <FieldError errors={errors.activatedAt} />
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      'Ngày kích hoạt có thể trước ngày mua — cửa hàng kích hoạt sẵn trước khi giao máy.',
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <input type="hidden" name="activatedAt" value="" />
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="extendedCoverBuyBy">
+                  {t('Hạn mua gói mở rộng')}
+                </Label>
+                <Input
+                  id="extendedCoverBuyBy"
+                  name="extendedCoverBuyBy"
+                  type="date"
+                  value={extendedCoverBuyBy}
+                  onChange={(e) => setExtendedCoverBuyBy(e.target.value)}
+                />
+                <FieldError errors={errors.extendedCoverBuyBy} />
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'AppleCare+, Samsung Care+... phải mua trước ngày này; quá hạn là không mua được nữa.',
+                  )}
+                </p>
+              </div>
             </div>
           </div>
 

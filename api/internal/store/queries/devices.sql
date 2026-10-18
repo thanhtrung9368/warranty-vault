@@ -81,6 +81,9 @@ INSERT INTO "Device" (
     "soldPrice",
     "returnWindowDays",
     "receivedAt",
+    "activationRequired",
+    "activatedAt",
+    "extendedCoverBuyBy",
     "leadDays",
     "createdAt",
     "updatedAt"
@@ -88,6 +91,7 @@ INSERT INTO "Device" (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     COALESCE(sqlc.narg('status')::text, 'ACTIVE'),
     $11, $12, $13, $14, $15,
+    $16, $17, $18,
     COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]::int[]),
     NOW(),
     NOW()
@@ -111,6 +115,9 @@ UPDATE "Device" SET
     "returnWindowDays" = $15,
     "receivedAt" = $16,
     "leadDays" = $17,
+    "activationRequired" = $18,
+    "activatedAt" = $19,
+    "extendedCoverBuyBy" = $20,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;
@@ -187,3 +194,82 @@ SELECT DISTINCT unnest("leadDays")::int AS lead_day
 FROM "Device"
 WHERE status = 'ACTIVE'
 ORDER BY lead_day DESC;
+
+-- name: ListDevicesAwaitingActivation :many
+-- Cron support (migration 0016, Feature A). A device whose warranty only starts
+-- on activation, where the user has not recorded an activation date yet.
+--
+-- ONCE-ONLY, not per-lead-day: there is no deadline to count down from — the
+-- condition is true until the user acts — so the sweep relies on
+-- "activationNotifiedAt" being NULL and stamps it after the fan-out. That keeps
+-- the notification from becoming a daily nag and means a user who dismisses it
+-- stays dismissed. Setting "activatedAt" stops it by definition; a later
+-- clearing of that date does not resurrect the reminder (the stamp survives),
+-- which is the conservative direction for a notice whose only action is
+-- "go and enter a date".
+--
+-- Only ACTIVE devices: a SOLD/BROKEN/LOST device has no live warranty whose
+-- start matters. The set is bounded by MAX_DEVICES_PER_USER = 50.
+SELECT
+    d.id       AS id,
+    d."userId" AS user_id,
+    d.name     AS device_name
+FROM "Device" d
+WHERE d.status = 'ACTIVE'
+  AND d."activationRequired" = true
+  AND d."activatedAt" IS NULL
+  AND d."activationNotifiedAt" IS NULL
+ORDER BY d."createdAt" ASC;
+
+-- name: StampDeviceActivationNotified :exec
+-- Once-only marker: the next run filters the row out forever. Bumps "updatedAt"
+-- like the other subject-table stamps.
+UPDATE "Device"
+SET "activationNotifiedAt" = NOW(),
+    "updatedAt" = NOW()
+WHERE id = $1;
+
+-- name: ListExtendedCoverInWindow :many
+-- Cron support (migration 0016, Feature A). ACTIVE devices whose
+-- "extendedCoverBuyBy" falls in [windowStart, windowEnd) AND whose "leadDays"
+-- contains this run's leadDay.
+--
+-- "extendedCoverBuyBy" is an INCLUSIVE last day (the day the window closes), so
+-- this uses the NATURAL day mapping — dayWindow(now, days) — the same convention
+-- as the return-window and subscription-renewal sweeps: a 7-day lead means the
+-- deadline is exactly 7 calendar days away. It deliberately does NOT use the
+-- warranty sweep's inclusive-minus-one convention, which counts today as day 1
+-- for an endDate.
+--
+-- Idempotency is the per-lead-day key of migration 0015, on this table:
+--   (deviceId, leadDay, calendar day)
+-- stored as (extendedCoverNotifiedAt::date, extendedCoverNotifiedLeadDay). A row
+-- is skipped only when the SAME lead day was stamped today; a different lead day
+-- on the same day still fires. leadDay IS NULL on a hand-edited row means
+-- "handled today for every lead day" — the conservative reading.
+SELECT
+    d.id                 AS id,
+    d."userId"           AS user_id,
+    d.name               AS device_name,
+    d."extendedCoverBuyBy" AS extended_cover_buy_by
+FROM "Device" d
+WHERE d.status = 'ACTIVE'
+  AND d."extendedCoverBuyBy" IS NOT NULL
+  AND sqlc.arg('leadDay')::int = ANY(d."leadDays")
+  AND d."extendedCoverBuyBy" >= sqlc.arg('windowStart')::timestamp
+  AND d."extendedCoverBuyBy" <  sqlc.arg('windowEnd')::timestamp
+  AND (
+      d."extendedCoverNotifiedAt" IS NULL
+      OR d."extendedCoverNotifiedAt"::date < CURRENT_DATE
+      OR (d."extendedCoverNotifiedLeadDay" IS NOT NULL
+          AND d."extendedCoverNotifiedLeadDay" <> sqlc.arg('leadDay')::int)
+  );
+
+-- name: StampDeviceExtendedCoverNotified :exec
+-- Cron stamps this after the fan-out. `leadDay` is part of the idempotency key,
+-- not decoration: a same-day 30-day push must not suppress the 7-day one.
+UPDATE "Device"
+SET "extendedCoverNotifiedAt" = NOW(),
+    "extendedCoverNotifiedLeadDay" = sqlc.arg('leadDay')::int,
+    "updatedAt" = NOW()
+WHERE id = $1;

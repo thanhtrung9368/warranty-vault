@@ -57,26 +57,32 @@ type DecisionSnooze struct {
 }
 
 type Device struct {
-	ID                     string           `json:"id"`
-	UserId                 string           `json:"userId"`
-	Name                   string           `json:"name"`
-	Category               string           `json:"category"`
-	Brand                  *string          `json:"brand"`
-	Model                  *string          `json:"model"`
-	SerialNumber           *string          `json:"serialNumber"`
-	PurchaseDate           pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice          int32            `json:"purchasePrice"`
-	PurchasePlace          *string          `json:"purchasePlace"`
-	Status                 string           `json:"status"`
-	Notes                  *string          `json:"notes"`
-	CreatedAt              pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt              pgtype.Timestamp `json:"updatedAt"`
-	SoldAt                 pgtype.Timestamp `json:"soldAt"`
-	SoldPrice              *int32           `json:"soldPrice"`
-	ReturnWindowDays       *int32           `json:"returnWindowDays"`
-	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
-	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
-	LeadDays               []int32          `json:"leadDays"`
+	ID                           string           `json:"id"`
+	UserId                       string           `json:"userId"`
+	Name                         string           `json:"name"`
+	Category                     string           `json:"category"`
+	Brand                        *string          `json:"brand"`
+	Model                        *string          `json:"model"`
+	SerialNumber                 *string          `json:"serialNumber"`
+	PurchaseDate                 pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice                int32            `json:"purchasePrice"`
+	PurchasePlace                *string          `json:"purchasePlace"`
+	Status                       string           `json:"status"`
+	Notes                        *string          `json:"notes"`
+	CreatedAt                    pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt                    pgtype.Timestamp `json:"updatedAt"`
+	SoldAt                       pgtype.Timestamp `json:"soldAt"`
+	SoldPrice                    *int32           `json:"soldPrice"`
+	ReturnWindowDays             *int32           `json:"returnWindowDays"`
+	ReceivedAt                   pgtype.Timestamp `json:"receivedAt"`
+	ReturnWindowNotifiedAt       pgtype.Timestamp `json:"returnWindowNotifiedAt"`
+	LeadDays                     []int32          `json:"leadDays"`
+	ActivationRequired           bool             `json:"activationRequired"`
+	ActivatedAt                  pgtype.Timestamp `json:"activatedAt"`
+	ExtendedCoverBuyBy           pgtype.Timestamp `json:"extendedCoverBuyBy"`
+	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
+	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
+	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
 }
 
 type DeviceShare struct {
@@ -167,6 +173,10 @@ type Subscription struct {
 	UpdatedAt                  pgtype.Timestamp `json:"updatedAt"`
 	LeadDays                   []int32          `json:"leadDays"`
 	LastNotifiedRenewalLeadDay *int32           `json:"lastNotifiedRenewalLeadDay"`
+	TrialEndsAt                pgtype.Timestamp `json:"trialEndsAt"`
+	ConvertsToPrice            *int32           `json:"convertsToPrice"`
+	TrialNotifiedAt            pgtype.Timestamp `json:"trialNotifiedAt"`
+	TrialNotifiedLeadDay       *int32           `json:"trialNotifiedLeadDay"`
 }
 
 type SubscriptionPayment struct {

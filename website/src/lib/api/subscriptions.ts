@@ -29,6 +29,17 @@ export type Subscription = {
   // Reminder lead times: 1..5 integers, each 0..365, no duplicates, sorted
   // descending by the server. `[30, 7]` is the create default.
   leadDays: number[];
+  // Free trial (Feature B). `trialEndsAt` is when the free period ends and
+  // billing starts; null when the plan has no trial. `convertsToPrice` is what
+  // the plan costs AFTER that conversion, in VND.
+  //
+  // The pair is one-way: a price without a trial end is meaningless and the
+  // server rejects it with `fieldErrors.convertsToPrice`, so the form never
+  // submits that combination (it hides — and clears — the price when the date
+  // is cleared). A trial end without a price is valid: "billing starts, figure
+  // not known yet".
+  trialEndsAt: string | null;
+  convertsToPrice: number | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -66,6 +77,12 @@ export type SubscriptionInput = {
   // means "server default on create / unchanged on update", empty is rejected
   // by Go, and `lib/lead-days.ts` normalises what the form sends.
   leadDays?: number[];
+  // Free trial (Feature B). Absent means "no trial / unchanged"; `null` clears a
+  // recorded trial. `convertsToPrice` without `trialEndsAt` is the one
+  // combination Go rejects (`fieldErrors.convertsToPrice`) — the form enforces
+  // that rule by construction, not by a local copy of the server validator.
+  trialEndsAt?: string | null;
+  convertsToPrice?: number | null;
   // Web-only convenience: when set, Go will mark the matching wishlist item
   // as PURCHASED in the same transaction.
   fromWishlistId?: string | null;

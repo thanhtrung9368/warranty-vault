@@ -103,6 +103,13 @@ type subscriptionRequest struct {
 	// update) from an explicitly empty array (non-nil, empty → 400). Decoding
 	// into a slice preserves that distinction without a pointer.
 	LeadDays []int32 `json:"leadDays"`
+	// Trial pair (migration 0016, Feature B). The date arrives as a string like
+	// every other date on this DTO and is parsed in subscriptionRequestToInput;
+	// `null`/absent clears it (PATCH replaces). ConvertsToPrice is a *int32 so
+	// absent/null is distinguishable from the meaningful value 0 (a trial that
+	// converts to a free plan).
+	TrialEndsAt     *string `json:"trialEndsAt"`
+	ConvertsToPrice *int32  `json:"convertsToPrice"`
 }
 
 type subscriptionPaymentRequest struct {
@@ -155,24 +162,36 @@ func subscriptionRequestToInput(ctx context.Context, body subscriptionRequest) (
 		}
 	}
 
+	var trialEndsAt *time.Time
+	if body.TrialEndsAt != nil && strings.TrimSpace(*body.TrialEndsAt) != "" {
+		t, err := parseFlexibleSubDate(*body.TrialEndsAt)
+		if err != nil {
+			ferrs["trialEndsAt"] = []string{i18n.Text(ctx, "Ngày kết thúc dùng thử không hợp lệ")}
+		} else {
+			trialEndsAt = &t
+		}
+	}
+
 	return services.SubscriptionInput{
-		Name:          body.Name,
-		Category:      body.Category,
-		Brand:         body.Brand,
-		Plan:          body.Plan,
-		BillingCycle:  body.BillingCycle,
-		IntervalDays:  body.IntervalDays,
-		Price:         body.Price,
-		StartedAt:     startedAt,
-		RenewalDate:   renewalPtr,
-		AutoRenew:     body.AutoRenew,
-		Status:        body.Status,
-		AccountEmail:  body.AccountEmail,
-		PaymentMethod: body.PaymentMethod,
-		ManageURL:     body.ManageURL,
-		CancelURL:     body.CancelURL,
-		Notes:         body.Notes,
-		LeadDays:      body.LeadDays,
+		Name:            body.Name,
+		Category:        body.Category,
+		Brand:           body.Brand,
+		Plan:            body.Plan,
+		BillingCycle:    body.BillingCycle,
+		IntervalDays:    body.IntervalDays,
+		Price:           body.Price,
+		StartedAt:       startedAt,
+		RenewalDate:     renewalPtr,
+		AutoRenew:       body.AutoRenew,
+		Status:          body.Status,
+		AccountEmail:    body.AccountEmail,
+		PaymentMethod:   body.PaymentMethod,
+		ManageURL:       body.ManageURL,
+		CancelURL:       body.CancelURL,
+		Notes:           body.Notes,
+		LeadDays:        body.LeadDays,
+		TrialEndsAt:     trialEndsAt,
+		ConvertsToPrice: body.ConvertsToPrice,
 	}, ferrs
 }
 

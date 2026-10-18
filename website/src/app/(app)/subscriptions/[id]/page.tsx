@@ -13,6 +13,7 @@ import {
   StickyNote,
   Zap,
   Bell,
+  Sparkles,
 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ import {
 } from '@/lib/subscription-types';
 import { formatDate, formatVND, formatRelativeDay } from '@/lib/format';
 import { leadDaysLabel } from '@/lib/lead-days';
+import { trialLabel, trialPhase, conversionPriceLabel } from '@/lib/subscription-trial';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -82,6 +84,15 @@ export default async function SubscriptionDetailPage({
   const isOverdue = sub.billingCycle !== 'LIFETIME' && daysToRenewal < 0;
   const isLifetime = sub.billingCycle === 'LIFETIME';
   const status = sub.status as SubscriptionStatus;
+  // Free trial (Feature B). `trialLabel` is `null` for a plan with no trial, so
+  // the "Gia hạn tới …" card below keeps its normal meaning; while a trial is
+  // recorded it is the honest answer to "when does money move". The price line
+  // is omitted when the figure is unknown — never rendered as 0 ₫.
+  const trial = trialLabel(sub, locale);
+  const trialPrice = conversionPriceLabel(sub.convertsToPrice, locale);
+  // Only a RUNNING trial gets the "starts charging when it ends" explanation —
+  // after conversion that sentence describes something that already happened.
+  const trialRunning = trialPhase(sub) === 'trial';
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -144,6 +155,19 @@ export default async function SubscriptionDetailPage({
                 count: Math.abs(daysToRenewal),
               })}
             </span>
+          </div>
+        )}
+
+        {trial && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-violet-soft px-4 py-3 text-sm text-violet-ink">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span className="font-semibold">{trial}</span>
+            {trialPrice && <span className="font-medium">{trialPrice}</span>}
+            {trialRunning && (
+              <span className="text-xs opacity-80">
+                {t('Gói tự chuyển sang trả phí khi hết dùng thử.')}
+              </span>
+            )}
           </div>
         )}
 

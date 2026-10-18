@@ -76,6 +76,18 @@ export type DeviceInput = {
   // `lib/lead-days.ts` normalises it (sort/dedupe/clamp/cap) without trying to
   // replace Go's validation.
   leadDays?: number[];
+  // Warranty activation (Feature A). `activationRequired` defaults to false on
+  // the server. `activatedAt` is when the retailer/account activation happened
+  // — it may legitimately be EARLIER than `purchaseDate` (a shop can
+  // pre-activate before handing the device over), so no client may block that
+  // pair; the server does not either.
+  activationRequired?: boolean;
+  // Accepts `YYYY-MM-DD` (what the device form's date input gives us) or a
+  // full date-time, like `purchaseDate` / `soldAt`. `null` clears it.
+  activatedAt?: string | null;
+  // Last day to BUY extended cover (AppleCare+, Samsung Care+). After this day
+  // the option is gone forever, which is why the detail page shows a countdown.
+  extendedCoverBuyBy?: string | null;
   // Server marks the wishlist item as PURCHASED when set.
   fromWishlistId?: string | null;
 };
@@ -115,6 +127,15 @@ export type Device = {
   // 1..5 integers, each 0..365, no duplicates, sorted descending by the server.
   // `[30, 7]` is the create default.
   leadDays: number[];
+  // Warranty activation (Feature A). `activatedAt` serialises like
+  // `purchaseDate` — Z-less `YYYY-MM-DDTHH:MM:SS[.fff]` — and is null until the
+  // warranty is actually activated. A device can require activation and still
+  // have no date: that is exactly the "chưa kích hoạt" state the detail page
+  // surfaces, because an unactivated device can be refused at the counter.
+  activationRequired: boolean;
+  activatedAt: string | null;
+  // Last day to buy extended cover; null when the retailer never gave one.
+  extendedCoverBuyBy: string | null;
   // Cron de-duplication stamp for the "sắp hết hạn đổi trả" push. Operational
   // detail with no web surface, so it is optional here.
   returnWindowNotifiedAt?: string | null;

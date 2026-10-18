@@ -71,6 +71,23 @@ type DeviceInput struct {
 	// the window without the delivery date, or vice versa.
 	ReturnWindowDays *int32  `json:"returnWindowDays,omitempty"`
 	ReceivedAt       *string `json:"receivedAt,omitempty"` // YYYY-MM-DD or RFC3339
+	// Activation / extended cover (migration 0016, Feature A).
+	//
+	//   * ActivationRequired: the warranty only starts once the retailer/manufacturer
+	//     activates the device. Default false, so every existing row keeps its
+	//     behaviour.
+	//   * ActivatedAt: when it was activated; the real start when it is LATER than
+	//     PurchaseDate. Deliberately independent of PurchaseDate — a timestamp
+	//     BEFORE the invoice is a legitimate data-entry state (a shop pre-activating
+	//     stock), so the API does not reject it. See the OpenAPI description.
+	//   * ExtendedCoverBuyBy: the last day to buy extended cover (AppleCare+ /
+	//     Samsung Care+ style). USER-ENTERED. The API does not derive it and does
+	//     not assert a day count for any brand; the report behind this feature
+	//     could not verify the windows, so there is no default and no cross-field
+	//     arithmetic.
+	ActivationRequired bool    `json:"activationRequired"`
+	ActivatedAt        *string `json:"activatedAt,omitempty"`        // YYYY-MM-DD or RFC3339
+	ExtendedCoverBuyBy *string `json:"extendedCoverBuyBy,omitempty"` // YYYY-MM-DD or RFC3339
 	// LeadDays is the per-device reminder schedule (migration 0015): one push per
 	// milestone, fired that many days before a Warranty end date. nil (absent or
 	// JSON null) means "use the create default / keep the stored value on
@@ -186,6 +203,8 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 	trimPtr(&in.Notes)
 	trimPtr(&in.SoldAt)
 	trimPtr(&in.ReceivedAt)
+	trimPtr(&in.ActivatedAt)
+	trimPtr(&in.ExtendedCoverBuyBy)
 	trimPtr(&in.WarrantyProvider)
 	trimPtr(&in.WarrantyAddress)
 	trimPtr(&in.WarrantyPhone)
@@ -219,6 +238,28 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 			fieldErrors["soldAt"] = []string{i18n.Text(ctx, "Thiếu ngày bán")}
 		} else {
 			fieldErrors["soldPrice"] = []string{i18n.Text(ctx, "Thiếu giá bán")}
+		}
+	}
+	// Activation / extended cover (migration 0016). The ONLY rule is that a value
+	// present must be a real date: both columns are user-entered timestamps, and a
+	// typo must become a normal 400 with a field error rather than a 500 from the
+	// driver. There is deliberately NO cross-field validation here —
+	//   * ActivatedAt before PurchaseDate is ALLOWED. A shop can activate a device
+	//     before it is invoiced; that is a legitimate data-entry state, not a
+	//     mistake this API gets to overrule.
+	//   * ExtendedCoverBuyBy before/after anything else is ALLOWED. No brand day
+	//     count is asserted anywhere: the value is what the user was told.
+	// The parse happens again in Create/Update (as with soldAt/receivedAt); this
+	// check exists so the rule is unit-testable without a database and so a bad
+	// value is refused before any transaction starts.
+	if in.ActivatedAt != nil {
+		if _, err := parseDate(*in.ActivatedAt); err != nil {
+			fieldErrors["activatedAt"] = []string{i18n.Text(ctx, "Ngày kích hoạt không hợp lệ")}
+		}
+	}
+	if in.ExtendedCoverBuyBy != nil {
+		if _, err := parseDate(*in.ExtendedCoverBuyBy); err != nil {
+			fieldErrors["extendedCoverBuyBy"] = []string{i18n.Text(ctx, "Hạn mua bảo hiểm mở rộng không hợp lệ")}
 		}
 	}
 	if in.WarrantyMonths < 0 {
@@ -463,6 +504,14 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err != nil {
 		return store.Device{}, err
 	}
+	activatedAt, err := parseActivatedAt(ctx, in.ActivatedAt)
+	if err != nil {
+		return store.Device{}, err
+	}
+	extendedCoverBuyBy, err := parseExtendedCoverBuyBy(ctx, in.ExtendedCoverBuyBy)
+	if err != nil {
+		return store.Device{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -492,6 +541,10 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		ReturnWindowDays: in.ReturnWindowDays,
 		ReceivedAt:       receivedAt,
 		LeadDays:         leadDaysForCreate(in.LeadDays, DefaultDeviceLeadDays),
+
+		ActivationRequired: in.ActivationRequired,
+		ActivatedAt:        activatedAt,
+		ExtendedCoverBuyBy: extendedCoverBuyBy,
 	})
 	if err != nil {
 		return store.Device{}, fmt.Errorf("create device: %w", err)
@@ -575,6 +628,14 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err != nil {
 		return store.Device{}, err
 	}
+	activatedAt, err := parseActivatedAt(ctx, in.ActivatedAt)
+	if err != nil {
+		return store.Device{}, err
+	}
+	extendedCoverBuyBy, err := parseExtendedCoverBuyBy(ctx, in.ExtendedCoverBuyBy)
+	if err != nil {
+		return store.Device{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -602,6 +663,10 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		ReturnWindowDays: in.ReturnWindowDays,
 		ReceivedAt:       receivedAt,
 		LeadDays:         leadDaysForUpdate(in.LeadDays, current.LeadDays),
+
+		ActivationRequired: in.ActivationRequired,
+		ActivatedAt:        activatedAt,
+		ExtendedCoverBuyBy: extendedCoverBuyBy,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -867,6 +932,47 @@ func parseReceivedAt(ctx context.Context, in *string) (pgtype.Timestamp, error) 
 	if err != nil {
 		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
 			"receivedAt": {i18n.Text(ctx, "Ngày nhận hàng không hợp lệ")},
+		})
+	}
+	return pgtype.Timestamp{Time: t, Valid: true}, nil
+}
+
+// parseActivatedAt converts the optional `activatedAt` input (YYYY-MM-DD or
+// RFC3339) into a pgtype.Timestamp. nil / absent → SQL NULL = "not activated",
+// which is also what the once-only activation reminder keys on.
+//
+// There is NO comparison against purchaseDate here, on purpose. An activation
+// timestamp BEFORE the invoice is a legitimate state — a shop can activate stock
+// before selling it — and the frozen contract says so explicitly. Rejecting it
+// would turn real data into a validation error.
+func parseActivatedAt(ctx context.Context, in *string) (pgtype.Timestamp, error) {
+	if in == nil {
+		return pgtype.Timestamp{}, nil
+	}
+	t, err := parseDate(*in)
+	if err != nil {
+		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+			"activatedAt": {i18n.Text(ctx, "Ngày kích hoạt không hợp lệ")},
+		})
+	}
+	return pgtype.Timestamp{Time: t, Valid: true}, nil
+}
+
+// parseExtendedCoverBuyBy converts the optional `extendedCoverBuyBy` input
+// (YYYY-MM-DD or RFC3339) into a pgtype.Timestamp. nil / absent → SQL NULL =
+// "no extended-cover deadline".
+//
+// No day count is added or subtracted: the deadline is whatever the user entered.
+// The API does not know, and must not pretend to know, AppleCare+'s or any other
+// brand's window.
+func parseExtendedCoverBuyBy(ctx context.Context, in *string) (pgtype.Timestamp, error) {
+	if in == nil {
+		return pgtype.Timestamp{}, nil
+	}
+	t, err := parseDate(*in)
+	if err != nil {
+		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+			"extendedCoverBuyBy": {i18n.Text(ctx, "Hạn mua bảo hiểm mở rộng không hợp lệ")},
 		})
 	}
 	return pgtype.Timestamp{Time: t, Valid: true}, nil

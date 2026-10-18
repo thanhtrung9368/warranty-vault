@@ -69,6 +69,7 @@ import com.warrly.network.PaymentInput
 import com.warrly.network.Subscription
 import com.warrly.network.toUserMessage
 import com.warrly.ui.components.leadDaysValue
+import com.warrly.ui.screens.vietnamDate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -355,7 +356,25 @@ private fun SummaryCard(sub: Subscription) {
                 formatPriceCycle(s, sub.price, sub.billingCycle),
             )
             DetailRow(stringResource(R.string.devdetail_starts), sub.startedAt.take(10))
-            sub.renewalDate?.let { DetailRow(stringResource(R.string.subs_renew_2), it.take(10)) }
+            // Trial vs renewal (SubscriptionTrial.kt): the same row changes its
+            // meaning when a trial exists, and the post-trial price joins it.
+            // Without a trial the original renewal row is untouched.
+            val phase = subscriptionBillingPhase(sub.trialEndsAt)
+            if (phase == BillingPhase.Trial) {
+                vietnamDate(sub.trialEndsAt)?.let { trialEnd ->
+                    DetailRow(billingPhaseLabel(s, phase), trialEnd)
+                }
+                sub.convertsToPrice?.let { priceAfter ->
+                    DetailRow(
+                        stringResource(R.string.subs_price_after_trial),
+                        formatVnd(priceAfter),
+                    )
+                }
+            } else {
+                sub.renewalDate?.let {
+                    DetailRow(billingPhaseLabel(s, phase), it.take(10))
+                }
+            }
             // Reminder schedule (`leadDays`): "Nhắc trước · 30 và 7 ngày". The
             // model defaults to the server's [30, 7] when the payload omits it,
             // so an older server never renders an empty schedule.

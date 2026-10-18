@@ -41,9 +41,20 @@ type SubscriptionInput struct {
 	CancelURL     *string
 	Notes         *string
 	// LeadDays is the renewal reminder schedule (migration 0015). nil means
-	// "absent": create defaults to [30, 7], update keeps the stored value. An
+	// "absent": create defaults to [3, 1, 0], update keeps the stored value. An
 	// explicitly empty array is a 400, exactly as on Device.
 	LeadDays []int32
+	// TrialEndsAt / ConvertsToPrice are the subscription trial pair (migration
+	// 0016, Feature B). Both are optional:
+	//   * TrialEndsAt is when the free period ends and billing starts. nil means
+	//     "no trial".
+	//   * ConvertsToPrice is the price after conversion (VND). It is MEANINGLESS
+	//     without TrialEndsAt and is rejected with fieldErrors.convertsToPrice;
+	//     the reverse (a date without a price) is allowed because a user may know
+	//     when the trial ends without knowing what it will cost.
+	// PATCH replaces both (absent/null clears), matching the rest of this input.
+	TrialEndsAt     *time.Time
+	ConvertsToPrice *int32
 }
 
 // PaymentInput is the parsed payload for logging a manual payment.
@@ -134,6 +145,27 @@ func validateSubscriptionInput(ctx context.Context, in *SubscriptionInput) error
 
 	if in.Status != "" && !IsValidSubscriptionStatus(in.Status) {
 		fieldErrs["status"] = []string{i18n.Text(ctx, "Trạng thái không hợp lệ")}
+	}
+
+	// Trial pair (migration 0016, Feature B). Exactly one cross-field rule, and
+	// only in one direction:
+	//   * convertsToPrice WITHOUT trialEndsAt is meaningless — there is no date
+	//     the price applies from — so it is rejected on `convertsToPrice`.
+	//   * trialEndsAt WITHOUT convertsToPrice is allowed: the user knows when the
+	//     free period ends but not yet what it will cost.
+	// Both fields are cleared together by a PATCH that omits them, so the check
+	// runs against the resulting state, not against "what the client happened to
+	// send". No other validation is invented here (no trialEndsAt vs renewalDate
+	// rule, no minimum price): the contract stops at this pair.
+	if in.ConvertsToPrice != nil {
+		switch {
+		case in.TrialEndsAt == nil || in.TrialEndsAt.IsZero():
+			fieldErrs["convertsToPrice"] = []string{
+				i18n.Text(ctx, "Chỉ đặt giá sau dùng thử khi đã có ngày kết thúc dùng thử"),
+			}
+		case *in.ConvertsToPrice < 0:
+			fieldErrs["convertsToPrice"] = []string{i18n.Text(ctx, "Giá sau dùng thử không hợp lệ")}
+		}
 	}
 
 	// Reminder schedule (migration 0015). nil is valid and means "absent"; the
@@ -241,26 +273,28 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 	}
 
 	created, err := q.CreateSubscription(ctx, store.CreateSubscriptionParams{
-		ID:            auth.NewID(),
-		UserId:        userID,
-		Name:          strings.TrimSpace(in.Name),
-		Category:      trimToPtr(in.Category),
-		Brand:         trimToPtr(in.Brand),
-		Plan:          trimToPtr(in.Plan),
-		BillingCycle:  in.BillingCycle,
-		IntervalDays:  in.IntervalDays,
-		Price:         in.Price,
-		StartedAt:     subPgts(in.StartedAt),
-		RenewalDate:   subPgts(renewal),
-		AutoRenew:     in.AutoRenew,
-		AccountEmail:  trimToPtr(in.AccountEmail),
-		PaymentMethod: trimToPtr(in.PaymentMethod),
-		ManageUrl:     trimToPtr(in.ManageURL),
-		CancelUrl:     trimToPtr(in.CancelURL),
-		Notes:         trimToPtr(in.Notes),
-		LeadDays:      leadDaysForCreate(in.LeadDays, DefaultSubscriptionLeadDays),
-		Currency:      nil, // → SQL COALESCE → 'VND'
-		Status:        &status,
+		ID:              auth.NewID(),
+		UserId:          userID,
+		Name:            strings.TrimSpace(in.Name),
+		Category:        trimToPtr(in.Category),
+		Brand:           trimToPtr(in.Brand),
+		Plan:            trimToPtr(in.Plan),
+		BillingCycle:    in.BillingCycle,
+		IntervalDays:    in.IntervalDays,
+		Price:           in.Price,
+		StartedAt:       subPgts(in.StartedAt),
+		RenewalDate:     subPgts(renewal),
+		AutoRenew:       in.AutoRenew,
+		AccountEmail:    trimToPtr(in.AccountEmail),
+		PaymentMethod:   trimToPtr(in.PaymentMethod),
+		ManageUrl:       trimToPtr(in.ManageURL),
+		CancelUrl:       trimToPtr(in.CancelURL),
+		Notes:           trimToPtr(in.Notes),
+		LeadDays:        leadDaysForCreate(in.LeadDays, DefaultSubscriptionLeadDays),
+		TrialEndsAt:     subPgtsPtr(in.TrialEndsAt),
+		ConvertsToPrice: in.ConvertsToPrice,
+		Currency:        nil, // → SQL COALESCE → 'VND'
+		Status:          &status,
 	})
 	if err != nil {
 		return store.Subscription{}, fmt.Errorf("create subscription: %w", err)
@@ -295,26 +329,28 @@ func UpdateSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string
 	}
 
 	updated, err := q.UpdateSubscription(ctx, store.UpdateSubscriptionParams{
-		ID:            id,
-		UserId:        userID,
-		Name:          strings.TrimSpace(in.Name),
-		Category:      trimToPtr(in.Category),
-		Brand:         trimToPtr(in.Brand),
-		Plan:          trimToPtr(in.Plan),
-		BillingCycle:  in.BillingCycle,
-		IntervalDays:  in.IntervalDays,
-		Price:         in.Price,
-		Currency:      existing.Currency,
-		StartedAt:     subPgts(in.StartedAt),
-		RenewalDate:   renewal,
-		AutoRenew:     in.AutoRenew,
-		Status:        status,
-		AccountEmail:  trimToPtr(in.AccountEmail),
-		PaymentMethod: trimToPtr(in.PaymentMethod),
-		ManageUrl:     trimToPtr(in.ManageURL),
-		CancelUrl:     trimToPtr(in.CancelURL),
-		Notes:         trimToPtr(in.Notes),
-		LeadDays:      leadDaysForUpdate(in.LeadDays, existing.LeadDays),
+		ID:              id,
+		UserId:          userID,
+		Name:            strings.TrimSpace(in.Name),
+		Category:        trimToPtr(in.Category),
+		Brand:           trimToPtr(in.Brand),
+		Plan:            trimToPtr(in.Plan),
+		BillingCycle:    in.BillingCycle,
+		IntervalDays:    in.IntervalDays,
+		Price:           in.Price,
+		Currency:        existing.Currency,
+		StartedAt:       subPgts(in.StartedAt),
+		RenewalDate:     renewal,
+		AutoRenew:       in.AutoRenew,
+		Status:          status,
+		AccountEmail:    trimToPtr(in.AccountEmail),
+		PaymentMethod:   trimToPtr(in.PaymentMethod),
+		ManageUrl:       trimToPtr(in.ManageURL),
+		CancelUrl:       trimToPtr(in.CancelURL),
+		Notes:           trimToPtr(in.Notes),
+		LeadDays:        leadDaysForUpdate(in.LeadDays, existing.LeadDays),
+		TrialEndsAt:     subPgtsPtr(in.TrialEndsAt),
+		ConvertsToPrice: in.ConvertsToPrice,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -543,6 +579,16 @@ func subPgts(t time.Time) pgtype.Timestamp {
 		return pgtype.Timestamp{}
 	}
 	return pgtype.Timestamp{Time: t.UTC(), Valid: true}
+}
+
+// subPgtsPtr is subPgts for an optional date: nil / zero → SQL NULL. Used by the
+// trial pair (migration 0016) so "no trial" is stored as NULL rather than the
+// zero timestamp, which would otherwise look like year 1 to every read path.
+func subPgtsPtr(t *time.Time) pgtype.Timestamp {
+	if t == nil {
+		return pgtype.Timestamp{}
+	}
+	return subPgts(*t)
 }
 
 // Compile-time check: tx satisfies the store DBTX interface used by Queries.

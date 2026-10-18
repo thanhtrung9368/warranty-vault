@@ -14,7 +14,7 @@ import (
 const listOpenReturnWindows = `-- name: ListOpenReturnWindows :many
 
 SELECT
-    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays",
+    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay",
     (COALESCE(d."receivedAt", d."purchaseDate")
         + (d."returnWindowDays" * INTERVAL '1 day'))::timestamp AS "returnDeadline"
 FROM "Device" d
@@ -33,27 +33,33 @@ type ListOpenReturnWindowsParams struct {
 }
 
 type ListOpenReturnWindowsRow struct {
-	ID                     string           `json:"id"`
-	UserId                 string           `json:"userId"`
-	Name                   string           `json:"name"`
-	Category               string           `json:"category"`
-	Brand                  *string          `json:"brand"`
-	Model                  *string          `json:"model"`
-	SerialNumber           *string          `json:"serialNumber"`
-	PurchaseDate           pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice          int32            `json:"purchasePrice"`
-	PurchasePlace          *string          `json:"purchasePlace"`
-	Status                 string           `json:"status"`
-	Notes                  *string          `json:"notes"`
-	CreatedAt              pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt              pgtype.Timestamp `json:"updatedAt"`
-	SoldAt                 pgtype.Timestamp `json:"soldAt"`
-	SoldPrice              *int32           `json:"soldPrice"`
-	ReturnWindowDays       *int32           `json:"returnWindowDays"`
-	ReceivedAt             pgtype.Timestamp `json:"receivedAt"`
-	ReturnWindowNotifiedAt pgtype.Timestamp `json:"returnWindowNotifiedAt"`
-	LeadDays               []int32          `json:"leadDays"`
-	ReturnDeadline         pgtype.Timestamp `json:"returnDeadline"`
+	ID                           string           `json:"id"`
+	UserId                       string           `json:"userId"`
+	Name                         string           `json:"name"`
+	Category                     string           `json:"category"`
+	Brand                        *string          `json:"brand"`
+	Model                        *string          `json:"model"`
+	SerialNumber                 *string          `json:"serialNumber"`
+	PurchaseDate                 pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice                int32            `json:"purchasePrice"`
+	PurchasePlace                *string          `json:"purchasePlace"`
+	Status                       string           `json:"status"`
+	Notes                        *string          `json:"notes"`
+	CreatedAt                    pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt                    pgtype.Timestamp `json:"updatedAt"`
+	SoldAt                       pgtype.Timestamp `json:"soldAt"`
+	SoldPrice                    *int32           `json:"soldPrice"`
+	ReturnWindowDays             *int32           `json:"returnWindowDays"`
+	ReceivedAt                   pgtype.Timestamp `json:"receivedAt"`
+	ReturnWindowNotifiedAt       pgtype.Timestamp `json:"returnWindowNotifiedAt"`
+	LeadDays                     []int32          `json:"leadDays"`
+	ActivationRequired           bool             `json:"activationRequired"`
+	ActivatedAt                  pgtype.Timestamp `json:"activatedAt"`
+	ExtendedCoverBuyBy           pgtype.Timestamp `json:"extendedCoverBuyBy"`
+	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
+	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
+	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
+	ReturnDeadline               pgtype.Timestamp `json:"returnDeadline"`
 }
 
 // Hạn đổi trả / "1 đổi 1" (FEATURE_IDEAS #1).
@@ -109,6 +115,12 @@ func (q *Queries) ListOpenReturnWindows(ctx context.Context, arg ListOpenReturnW
 			&i.ReceivedAt,
 			&i.ReturnWindowNotifiedAt,
 			&i.LeadDays,
+			&i.ActivationRequired,
+			&i.ActivatedAt,
+			&i.ExtendedCoverBuyBy,
+			&i.ActivationNotifiedAt,
+			&i.ExtendedCoverNotifiedAt,
+			&i.ExtendedCoverNotifiedLeadDay,
 			&i.ReturnDeadline,
 		); err != nil {
 			return nil, err

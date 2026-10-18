@@ -72,6 +72,12 @@ export default async function EditSubscriptionPage({
           // Go treats an absent/null leadDays as "unchanged", so this pass
           // exists to show the stored value (and let the form submit it).
           leadDays: sub.leadDays,
+          // Free trial (Feature B) — loaded so the trial date and post-trial
+          // price start on the stored values. The form only renders the price
+          // when a trial end exists, which is also the only combination the
+          // server accepts.
+          trialEndsAt: sub.trialEndsAt,
+          convertsToPrice: sub.convertsToPrice,
         }}
       />
     </div>

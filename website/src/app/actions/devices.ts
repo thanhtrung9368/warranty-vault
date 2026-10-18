@@ -37,6 +37,14 @@ function num(formData: FormData, key: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+// Booleans are always shipped by the form as the literal `'true'`/`'false'`
+// (the checkbox is controlled and a hidden input carries its state), so
+// anything else — including a missing key from an older form — is false, which
+// is also the server's default.
+function bool(formData: FormData, key: string): boolean {
+  return formData.get(key) === 'true';
+}
+
 function buildDeviceInput(formData: FormData): DeviceInput {
   // Required fields are surfaced as empty strings — server returns 400 with
   // Vietnamese fieldErrors which are passed through as-is.
@@ -74,6 +82,15 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     warrantyAddress: str(formData, 'warrantyAddress') ?? null,
     warrantyPhone: str(formData, 'warrantyPhone') ?? null,
     warrantyNotes: str(formData, 'warrantyNotes') ?? null,
+    // Warranty activation (Feature A). All three keys are ALWAYS sent, because
+    // PATCH replaces the whole device: an omitted key would silently erase an
+    // activation recorded on another client (same trap as the resale pair).
+    // `activatedAt` is passed through verbatim — a day string is what the date
+    // input gives us and what the server accepts — and is deliberately NOT
+    // compared with `purchaseDate`: pre-activation by the shop is legal.
+    activationRequired: bool(formData, 'activationRequired'),
+    activatedAt: str(formData, 'activatedAt') ?? null,
+    extendedCoverBuyBy: str(formData, 'extendedCoverBuyBy') ?? null,
     ...(leadDays === undefined ? {} : { leadDays }),
   };
 }

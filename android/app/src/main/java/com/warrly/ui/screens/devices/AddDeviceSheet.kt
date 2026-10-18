@@ -39,6 +39,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -153,6 +154,17 @@ fun AddDeviceSheet(
     // fixed schedule (30/7), so an edit can never blank it.
     var leadDays by remember {
         mutableStateOf(normalizeLeadDays(existing?.leadDays ?: DEFAULT_LEAD_DAYS))
+    }
+    // Warranty activation + extended-cover deadline (DeviceActivation.kt).
+    // `activationRequired` is a plain boolean; the two dates use the same
+    // `take(10)` wire shape as `purchaseDate`. Nothing compares the activation
+    // date with the purchase date: a shop may pre-activate before the invoice.
+    var activationRequired by remember {
+        mutableStateOf(existing?.activationRequired ?: false)
+    }
+    var activatedAt by remember { mutableStateOf(activatedAtInput(existing?.activatedAt)) }
+    var extendedCoverBuyBy by remember {
+        mutableStateOf(extendedCoverBuyByInput(existing?.extendedCoverBuyBy))
     }
 
     var categoryOptions by remember { mutableStateOf<List<CategoryOption>>(emptyList()) }
@@ -461,6 +473,70 @@ fun AddDeviceSheet(
                 }
             }
 
+            // Warranty activation and the extended-cover deadline — the three
+            // fields the Vietnamese retail reality needs and a plain "purchase
+            // date" form cannot express. Its own small group inside the warranty
+            // part of the form, not a new step: the date field appears with the
+            // switch, or whenever a date already exists (a pre-activated device
+            // keeps its date visible even if the switch is off).
+            SheetGroup {
+                Text(
+                    stringResource(R.string.devadd_warranty_activation),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.devadd_activation_required),
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = activationRequired,
+                        onCheckedChange = {
+                            activationRequired = it
+                            fieldErrors = fieldErrors - "activationRequired"
+                        },
+                    )
+                }
+                if (showsActivationDate(activationRequired, activatedAt)) {
+                    OutlinedTextField(
+                        value = activatedAt,
+                        onValueChange = {
+                            activatedAt = it
+                            fieldErrors = fieldErrors - "activatedAt"
+                        },
+                        label = { Text(stringResource(R.string.devadd_activated_on_yyyy_mm_dd)) },
+                        isError = firstFieldError("activatedAt") != null,
+                        supportingText = firstFieldError("activatedAt")?.let {
+                            { Text(it, color = MaterialTheme.colorScheme.error) }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                OutlinedTextField(
+                    value = extendedCoverBuyBy,
+                    onValueChange = {
+                        extendedCoverBuyBy = it
+                        fieldErrors = fieldErrors - "extendedCoverBuyBy"
+                    },
+                    label = {
+                        Text(stringResource(R.string.devadd_extended_cover_buy_by_yyyy_mm_dd))
+                    },
+                    isError = firstFieldError("extendedCoverBuyBy") != null,
+                    supportingText = firstFieldError("extendedCoverBuyBy")?.let {
+                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    stringResource(R.string.devadd_warranty_activation_hint),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             // Reminder lead time. Its own group because it applies to every
             // warranty on the device, not to the purchase fields above; the
             // picker matches the sheet's other rows (label + controls + hint).
@@ -565,6 +641,13 @@ fun AddDeviceSheet(
                             // nothing can be erased.
                             returnWindowDays = returnWindowDaysRequest(returnWindowDays),
                             receivedAt = receivedAtRequest(receivedAt),
+                            // Activation + extended cover. A blank date drops the
+                            // key, which the update contract reads as "unchanged";
+                            // `activationRequired` is always encoded so turning
+                            // the switch off really sends `false`.
+                            activationRequired = activationRequired,
+                            activatedAt = activatedAtRequest(activatedAt),
+                            extendedCoverBuyBy = extendedCoverBuyByRequest(extendedCoverBuyBy),
                             // Already normalised by the picker; `leadDaysForRequest`
                             // drops the key only if the list is empty (which the
                             // disabled Save button prevents).
@@ -585,7 +668,14 @@ fun AddDeviceSheet(
                             fieldErrors = fe
                             // soldAt/soldPrice/leadDays are rendered under their own
                             // fields; every other server error still needs a visible place.
-                            val inline = setOf("soldAt", "soldPrice", "leadDays")
+                            val inline = setOf(
+                                "soldAt",
+                                "soldPrice",
+                                "leadDays",
+                                "activationRequired",
+                                "activatedAt",
+                                "extendedCoverBuyBy",
+                            )
                             error = if (fe.isEmpty() || fe.keys.any { it !in inline }) {
                                 e.toUserMessage(ApiClient.json)
                             } else {

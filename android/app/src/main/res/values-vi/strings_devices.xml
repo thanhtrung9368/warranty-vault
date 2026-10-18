@@ -62,6 +62,13 @@
     <string name="devadd_price_vnd">Giá (VND)</string>
     <string name="devadd_purchase_date_yyyy_mm_dd">Ngày mua (YYYY-MM-DD) *</string>
     <string name="devadd_warranty_length_months">Số tháng bảo hành</string>
+    <!-- ===== Bảo hành &amp; kích hoạt / hạn mua gói mở rộng
+         (DeviceActivation.kt, AddDeviceSheet.kt, DeviceDetailScreen.kt). ===== -->
+    <string name="devadd_warranty_activation">Bảo hành &amp; kích hoạt</string>
+    <string name="devadd_activation_required">Kích hoạt bảo hành</string>
+    <string name="devadd_activated_on_yyyy_mm_dd">Ngày kích hoạt (YYYY-MM-DD)</string>
+    <string name="devadd_extended_cover_buy_by_yyyy_mm_dd">Hạn mua gói mở rộng (YYYY-MM-DD)</string>
+    <string name="devadd_warranty_activation_hint">Máy chưa kích hoạt có thể bị từ chối ở quầy. Gói mở rộng (AppleCare+, Samsung Care+) chỉ mua được trước hạn này.</string>
     <string name="devadd_resale_details_optional">Thông tin bán lại (tuỳ chọn)</string>
     <string name="devadd_sale_price_vnd">Giá bán (VND)</string>
     <string name="devadd_sale_date_yyyy_mm_dd">Ngày bán (YYYY-MM-DD)</string>
@@ -84,6 +91,18 @@
     <string name="devdetail_bought_on">Mua ngày</string>
     <string name="devdetail_price">Giá</string>
     <string name="devdetail_return_window">Hạn đổi trả</string>
+    <string name="devdetail_activation">Kích hoạt</string>
+    <string name="devdetail_activation_required">Chưa kích hoạt</string>
+    <string name="devdetail_activation_on">Đã kích hoạt ngày %1$s</string>
+    <string name="devdetail_activation_not_required">Không cần kích hoạt</string>
+    <string name="devdetail_extended_cover_deadline">Hạn mua gói mở rộng</string>
+    <plurals name="devdetail_extended_cover_days_left">
+        <item quantity="other">Còn %1$d ngày</item>
+    </plurals>
+    <string name="devdetail_extended_cover_last_day">Hôm nay là ngày cuối</string>
+    <plurals name="devdetail_extended_cover_days_overdue">
+        <item quantity="other">Đã quá hạn %1$d ngày</item>
+    </plurals>
     <string name="devdetail_purchased_at">Nơi mua</string>
     <string name="devdetail_resale">Bán lại</string>
     <string name="devdetail_sale_date">Ngày bán</string>

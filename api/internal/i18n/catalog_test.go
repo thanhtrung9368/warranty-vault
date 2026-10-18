@@ -139,6 +139,17 @@ var singularPluralPairs = []struct {
 		`↩️ Còn %d ngày đổi trả "%s"`,
 		`↩️ Còn 1 ngày đổi trả "%s"`,
 	},
+	// Migration 0016: the extended-cover countdown and the trial-ending countdown.
+	// Both counts are reachable at exactly 1 (the lead day is user-supplied and the
+	// trial can end tomorrow), so both need a real singular form.
+	{
+		`🛡️ Còn %d ngày mua bảo hiểm mở rộng cho "%s"`,
+		`🛡️ Còn 1 ngày mua bảo hiểm mở rộng cho "%s"`,
+	},
+	{
+		`🎁 Dùng thử "%s" kết thúc sau %d ngày`,
+		`🎁 Dùng thử "%s" kết thúc sau 1 ngày`,
+	},
 	{
 		"Hạn đổi/trả: %s (%d ngày kể từ ngày nhận)",
 		"Hạn đổi/trả: %s (1 ngày kể từ ngày nhận)",
@@ -300,6 +311,20 @@ func TestSingularRendersWithoutTheCountArgument(t *testing.T) {
 			singularArgs: []any{"iPhone"},
 		},
 		{
+			// Migration 0016, extended-cover deadline.
+			plural:       `🛡️ Còn %d ngày mua bảo hiểm mở rộng cho "%s"`,
+			singular:     `🛡️ Còn 1 ngày mua bảo hiểm mở rộng cho "%s"`,
+			plainArgs:    []any{7, "iPhone"},
+			singularArgs: []any{"iPhone"},
+		},
+		{
+			// Migration 0016, trial ending. Both languages name the plan first.
+			plural:       `🎁 Dùng thử "%s" kết thúc sau %d ngày`,
+			singular:     `🎁 Dùng thử "%s" kết thúc sau 1 ngày`,
+			plainArgs:    []any{"Netflix", 7},
+			singularArgs: []any{"Netflix"},
+		},
+		{
 			plural:       "Hạn đổi/trả: %s (%d ngày kể từ ngày nhận)",
 			singular:     "Hạn đổi/trả: %s (1 ngày kể từ ngày nhận)",
 			plainArgs:    []any{"07/10/2026", int32(30)},
@@ -459,6 +484,13 @@ func TestCatalogCoversTheConvertedAreas(t *testing.T) {
 		"↩️ Còn %d ngày đổi trả \"%s\"",
 		"✅ Đã gia hạn \"%s\"",
 		"⌛️ Gói \"%s\" đã hết hạn",
+		// migration 0016: activation, extended cover, trial — one sample from each
+		// of the three new notices and both new validation messages.
+		"⚠️ \"%s\" chưa kích hoạt bảo hành",
+		"🛡️ Còn %d ngày mua bảo hiểm mở rộng cho \"%s\"",
+		"🎁 Dùng thử \"%s\" kết thúc sau %d ngày",
+		"Hạn mua bảo hiểm mở rộng không hợp lệ",
+		"Chỉ đặt giá sau dùng thử khi đã có ngày kết thúc dùng thử",
 		// backup + attachments + files (wave 3) — both honesty notes, one import
 		// refusal and one attachment ceiling, so deleting this domain's copy
 		// fails here rather than shipping a half-translated endpoint.

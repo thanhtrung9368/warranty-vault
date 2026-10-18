@@ -37,6 +37,8 @@ INSERT INTO "Subscription" (
     "manageUrl",
     "cancelUrl",
     notes,
+    "trialEndsAt",
+    "convertsToPrice",
     "leadDays",
     "createdAt",
     "updatedAt"
@@ -45,7 +47,7 @@ INSERT INTO "Subscription" (
     COALESCE(sqlc.narg('currency')::text, 'VND'),
     $10, $11, $12,
     COALESCE(sqlc.narg('status')::text, 'ACTIVE'),
-    $13, $14, $15, $16, $17,
+    $13, $14, $15, $16, $17, $18, $19,
     -- The fallback MUST match migration 0015's column default for THIS table.
     -- Subscription defaults to [3, 1, 0] and Device to [30, 7] because their old
     -- crons ran different schedules; a shared [30, 7] here silently moved every
@@ -75,6 +77,8 @@ UPDATE "Subscription" SET
     "cancelUrl" = $18,
     notes = $19,
     "leadDays" = $20,
+    "trialEndsAt" = $21,
+    "convertsToPrice" = $22,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;
@@ -198,3 +202,59 @@ FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
 ORDER BY lead_day DESC;
+
+-- name: ListActiveTrialLeadDays :many
+-- Cron support (migration 0016, Feature B). One row per DISTINCT lead day among
+-- ACTIVE subscriptions that have a trial clock. Mirrors ListActiveSubscription-
+-- LeadDays, with one deliberate difference: LIFETIME rows are NOT excluded here.
+--
+-- A lifetime plan with a trial is a strange combination, but the contract says
+-- "remind at the subscription's leadDays before trialEndsAt" and does not carve
+-- out a billing cycle; the renewal sweep's LIFETIME filter exists because a
+-- lifetime row has no renewal date, which is a different question. This query is
+-- also a separate sweep rather than an extension of the renewal one because the
+-- two reminders have different idempotency markers and must be able to fire on
+-- the same day without suppressing each other.
+SELECT DISTINCT unnest("leadDays")::int AS lead_day
+FROM "Subscription"
+WHERE status = 'ACTIVE'
+  AND "trialEndsAt" IS NOT NULL
+ORDER BY lead_day DESC;
+
+-- name: ListSubscriptionsTrialEndingInWindow :many
+-- Cron support (migration 0016, Feature B). ACTIVE subscriptions whose
+-- "trialEndsAt" falls in [windowStart, windowEnd) AND whose "leadDays" contains
+-- this run's leadDay.
+--
+-- The day mapping is NATURAL — dayWindow(now, days) — like the renewal sweep and
+-- unlike the warranty sweep's inclusive-minus-one convention: a trial that ends
+-- today means "billing starts today", which is the 0-day bucket.
+--
+-- Idempotency is the migration-0015 per-lead-day key on this table:
+--   (subscriptionId, leadDay, calendar day)
+-- stored as (trialNotifiedAt::date, trialNotifiedLeadDay). It is a SEPARATE pair
+-- from the renewal marker on purpose: the same subscription can be told "your
+-- trial ends in 3 days" and "your renewal is in 3 days" on the same run, and
+-- those two notices must not suppress each other.
+SELECT *
+FROM "Subscription"
+WHERE status = 'ACTIVE'
+  AND "trialEndsAt" IS NOT NULL
+  AND sqlc.arg('leadDay')::int = ANY("leadDays")
+  AND "trialEndsAt" >= $1
+  AND "trialEndsAt" <  $2
+  AND (
+      "trialNotifiedAt" IS NULL
+      OR "trialNotifiedAt"::date < CURRENT_DATE
+      OR ("trialNotifiedLeadDay" IS NOT NULL
+          AND "trialNotifiedLeadDay" <> sqlc.arg('leadDay')::int)
+  );
+
+-- name: StampSubscriptionTrialNotified :exec
+-- Cron stamps this after the trial-reminder fan-out. `leadDay` is part of the
+-- idempotency key, exactly like the renewal stamp above.
+UPDATE "Subscription"
+SET "trialNotifiedAt" = NOW(),
+    "trialNotifiedLeadDay" = sqlc.arg('leadDay')::int,
+    "updatedAt" = NOW()
+WHERE id = $1;

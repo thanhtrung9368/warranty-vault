@@ -36,6 +36,17 @@ struct SubscriptionFormView: View {
     /// default. Empty is a visible invalid state — the API rejects `[]`.
     @State private var leadDays:     [Int]
 
+    /// Trial ("Dùng thử", Feature B): whether a timed free period exists, when it
+    /// ends, and the price charged after it.
+    ///
+    /// `hasTrial` is the "the date is set" control. Turning it off clears
+    /// `convertsToPrice` immediately: the server rejects a price without a trial
+    /// date (`fieldErrors.convertsToPrice`), and the price row is hidden whenever
+    /// there is no date, so the form can never build that combination.
+    @State private var hasTrial:          Bool
+    @State private var trialEndsAt:       Date
+    @State private var convertsToPrice:   Int?
+
     // UI state
     @State private var showCatPicker   = false
     @State private var showCyclePicker = false
@@ -44,12 +55,17 @@ struct SubscriptionFormView: View {
     @State private var topError: String?
     /// Verbatim `fieldErrors.leadDays` from the server, shown under the editor.
     @State private var leadDaysError: String?
+    /// Verbatim `fieldErrors.convertsToPrice`, if the server still rejects one.
+    @State private var trialError: String?
 
     private var isEditing: Bool { subscription != nil }
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
             && (price ?? 0) > 0
             && LeadDaysRules.isValid(LeadDaysRules.normalize(leadDays))
+            // The pair rule, defensive: the price row is hidden and cleared when
+            // there is no trial date, so this should always hold.
+            && (hasTrial || convertsToPrice == nil)
     }
 
     // MARK: - Init
@@ -83,6 +99,16 @@ struct SubscriptionFormView: View {
         _leadDays      = State(initialValue: LeadDaysRules.normalize(
             sub?.leadDays ?? LeadDaysRules.defaults
         ))
+        // Trial. `carried` reduces the wire day without parsing an instant and
+        // drops a `convertsToPrice` that has no trial date (the pair the server
+        // rejects). The picker starts on the stored day, else the renewal date —
+        // never on a day the form invents into a trial.
+        let trial = sub.map(SubscriptionTrial.carried(from:)) ?? .none
+        _hasTrial = State(initialValue: trial.trialEndsAt != nil)
+        _trialEndsAt = State(initialValue: WireDay.date(from: trial.trialEndsAt)
+            ?? sub?.renewalDate ?? Date())
+        _convertsToPrice = State(initialValue: trial.trialEndsAt != nil
+            ? trial.convertsToPrice : nil)
     }
 
     // MARK: - Body
@@ -199,6 +225,50 @@ struct SubscriptionFormView: View {
                                 .keyboardType(.numberPad)
                                 .font(.system(size: 17))
                                 .multilineTextAlignment(.trailing)
+                        }
+                    }
+                }
+
+                // Trial ("Dùng thử", Feature B). The date is the switch: when it
+                // is off there is no trial and the post-trial price is hidden and
+                // cleared, because a price without a trial date is the server's
+                // 400 `fieldErrors.convertsToPrice`.
+                WVSectionHeader(L.t("Dùng thử"))
+                WVSectionFooter(L.t("Chỉ nhập giá sau dùng thử khi đã đặt ngày kết thúc dùng thử."))
+                WVGroup {
+                    WVRowContainer {
+                        Toggle(L.t("Có dùng thử"), isOn: $hasTrial)
+                            .font(.system(size: 17))
+                            .onChange(of: hasTrial) { _, isOn in
+                                if !isOn {
+                                    convertsToPrice = nil
+                                    trialError = nil
+                                }
+                            }
+                    }
+                    if hasTrial {
+                        WVDivider()
+                        WVRowContainer {
+                            DatePicker(L.t("Dùng thử đến"), selection: $trialEndsAt,
+                                       displayedComponents: .date)
+                                .font(.system(size: 17))
+                                .onChange(of: trialEndsAt) { _, _ in trialError = nil }
+                        }
+                        WVDivider()
+                        fieldRow(L.t("Giá sau dùng thử")) {
+                            WVMoneyField(value: $convertsToPrice)
+                                .frame(width: 150)
+                                .onChange(of: convertsToPrice) { _, _ in trialError = nil }
+                        }
+                        if let trialError {
+                            WVDivider()
+                            Text(trialError)
+                                .font(.system(size: 12))
+                                .foregroundStyle(WVColor.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
                         }
                     }
                 }
@@ -329,7 +399,7 @@ struct SubscriptionFormView: View {
     // MARK: - Submit
 
     private func submit() async {
-        topError = nil; leadDaysError = nil; isBusy = true
+        topError = nil; leadDaysError = nil; trialError = nil; isBusy = true
         defer { isBusy = false }
 
         // Empty is the one locally reachable invalid schedule; the toolbar can
@@ -365,6 +435,15 @@ struct SubscriptionFormView: View {
         input.notes         = notes.isEmpty ? nil : notes
         input.leadDays      = normalizedLeadDays
 
+        // Trial, as a pair. `SubscriptionTrialFields` drops the price when there
+        // is no trial day, so the forbidden `convertsToPrice`-without-
+        // `trialEndsAt` body cannot be built even if the view state is stale.
+        let trial = SubscriptionTrialFields(
+            trialEndsAt: hasTrial ? WireDay.string(from: trialEndsAt) : nil,
+            convertsToPrice: hasTrial ? convertsToPrice : nil
+        )
+        SubscriptionTrial.apply(trial, to: &input)
+
         do {
             if let subscription {
                 try await store.update(id: subscription.id, input)
@@ -377,6 +456,8 @@ struct SubscriptionFormView: View {
         } catch let err as APIError {
             topError = err.localizedDescription
             leadDaysError = err.fieldErrors["leadDays"]?.first
+            trialError = err.fieldErrors["convertsToPrice"]?.first
+                ?? err.fieldErrors["trialEndsAt"]?.first
         } catch {
             topError = error.localizedDescription
         }

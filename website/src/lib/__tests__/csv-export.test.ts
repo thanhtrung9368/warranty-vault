@@ -49,6 +49,11 @@ function device(over: Partial<DeviceListItem> = {}): DeviceListItem {
     // Reminder schedule — the CSV export has no leadDays column (yet), so the
     // value only has to satisfy the wire shape.
     leadDays: [30, 7],
+    // Warranty activation + extended-cover deadline (Feature A) — no CSV
+    // columns, so these stay at the "not recorded" defaults.
+    activationRequired: false,
+    activatedAt: null,
+    extendedCoverBuyBy: null,
     createdAt: '2024-03-08T10:00:00Z',
     updatedAt: '2024-03-08T10:00:00Z',
     attachmentCount: 0,
@@ -81,6 +86,9 @@ function subscription(over: Partial<Subscription> = {}): Subscription {
     // Reminder schedule — not exported to CSV; present to satisfy the wire
     // shape after the leadDays field landed on `Subscription`.
     leadDays: [30, 7],
+    // Free trial (Feature B) — not exported to CSV; defaults mean "no trial".
+    trialEndsAt: null,
+    convertsToPrice: null,
     ...over,
   };
 }

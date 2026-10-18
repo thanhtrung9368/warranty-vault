@@ -66,6 +66,16 @@
     <string name="devadd_price_vnd">Price (VND)</string>
     <string name="devadd_purchase_date_yyyy_mm_dd">Purchase date (YYYY-MM-DD) *</string>
     <string name="devadd_warranty_length_months">Warranty length (months)</string>
+    <!-- ===== Warranty activation and the extended-cover deadline
+         (DeviceActivation.kt, AddDeviceSheet.kt, DeviceDetailScreen.kt).
+         In Vietnam the warranty often starts with a retailer action, not the
+         invoice, and extended cover (AppleCare+, Samsung Care+) must be bought
+         inside a window that closes forever. ===== -->
+    <string name="devadd_warranty_activation">Warranty &amp; activation</string>
+    <string name="devadd_activation_required">Warranty activation required</string>
+    <string name="devadd_activated_on_yyyy_mm_dd">Activation date (YYYY-MM-DD)</string>
+    <string name="devadd_extended_cover_buy_by_yyyy_mm_dd">Extended cover buy-by (YYYY-MM-DD)</string>
+    <string name="devadd_warranty_activation_hint">An unactivated device can be refused at the counter. Extended cover (AppleCare+, Samsung Care+) can only be bought before its deadline.</string>
     <string name="devadd_resale_details_optional">Resale details (optional)</string>
     <string name="devadd_sale_price_vnd">Sale price (VND)</string>
     <string name="devadd_sale_date_yyyy_mm_dd">Sale date (YYYY-MM-DD)</string>
@@ -88,6 +98,20 @@
     <string name="devdetail_bought_on">Bought on</string>
     <string name="devdetail_price">Price</string>
     <string name="devdetail_return_window">Return window</string>
+    <string name="devdetail_activation">Activation</string>
+    <string name="devdetail_activation_required">Not activated</string>
+    <string name="devdetail_activation_on">Activated on %1$s</string>
+    <string name="devdetail_activation_not_required">Not required</string>
+    <string name="devdetail_extended_cover_deadline">Extended cover deadline</string>
+    <plurals name="devdetail_extended_cover_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+    <string name="devdetail_extended_cover_last_day">Last day today</string>
+    <plurals name="devdetail_extended_cover_days_overdue">
+        <item quantity="one">%1$d day overdue</item>
+        <item quantity="other">%1$d days overdue</item>
+    </plurals>
     <string name="devdetail_purchased_at">Purchased at</string>
     <string name="devdetail_resale">Resale</string>
     <string name="devdetail_sale_date">Sale date</string>

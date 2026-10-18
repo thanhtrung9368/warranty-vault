@@ -23,6 +23,7 @@ import {
   Bell,
   ClipboardCheck,
   ArrowRight,
+  CalendarClock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,10 @@ import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
+import {
+  activationStateLabel,
+  extendedCoverBuyByNote,
+} from '@/lib/device-activation';
 import { leadDaysLabel } from '@/lib/lead-days';
 import { readDeviceWarningsFlash } from '@/lib/device-warnings-flash';
 import { costPerDay } from '@/lib/stats-rollup';
@@ -156,6 +161,18 @@ export default async function DeviceDetailPage({
   // `purchaseDate` itself is unusable (the card then says so instead of
   // printing a made-up number).
   const perDay = costPerDay(device, device.warranties, locale);
+
+  // Warranty activation + extended-cover deadline (Feature A). `null` when the
+  // device neither requires activation nor has a recorded date, so ordinary
+  // devices do not grow an empty row. The missing-date state is the one that
+  // matters: an unactivated device can be refused at the counter.
+  const activationLabel = activationStateLabel(device, locale);
+  const activationMissing = Boolean(device.activationRequired) && !device.activatedAt;
+  // Countdown for the last day to buy extended cover. `null` only when the
+  // recorded value is unparseable — the row still shows the date itself.
+  const coverNote = device.extendedCoverBuyBy
+    ? extendedCoverBuyByNote(device.extendedCoverBuyBy, locale)
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -328,6 +345,45 @@ export default async function DeviceDetailPage({
                   </span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     {t('Chính sách của cửa hàng do bạn ghi lại, không phải quy định pháp luật.')}
+                  </span>
+                </p>
+              )}
+
+              {/* Warranty activation (Feature A). Two states matter: a device
+                  with a recorded activation date ("Đã kích hoạt ngày …") and
+                  one that requires activation but has none yet ("Chưa kích
+                  hoạt" + why that is a problem at the counter). A device with
+                  neither setting renders no row at all. */}
+              {activationLabel && (
+                <div className="border-t border-dashed border-border pt-2 text-sm text-ink-2">
+                  <p className="flex items-start gap-2">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-ink" />
+                    <span className="font-semibold text-ink">{activationLabel}</span>
+                  </p>
+                  {activationMissing && (
+                    <p className="mt-0.5 pl-6 text-xs font-medium text-amber-ink">
+                      {t('Cửa hàng chưa kích hoạt — máy có thể bị từ chối bảo hành.')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Extended-cover deadline (Feature A). The date is the record;
+                  the parenthetical is the countdown, because this window closes
+                  forever and "còn 3 ngày" is the actionable half. */}
+              {device.extendedCoverBuyBy && (
+                <p className="border-t border-dashed border-border pt-2 text-sm text-ink-2">
+                  <span className="inline-flex items-start gap-2">
+                    <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-amber-ink" />
+                    <span>
+                      {t('Hạn mua gói mở rộng:')}{' '}
+                      <span className="font-semibold text-ink">
+                        {formatDate(device.extendedCoverBuyBy, locale)}
+                      </span>
+                      {coverNote && (
+                        <span className="text-muted-foreground"> ({coverNote})</span>
+                      )}
+                    </span>
                   </span>
                 </p>
               )}

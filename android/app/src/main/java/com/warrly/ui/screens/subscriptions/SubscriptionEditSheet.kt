@@ -112,6 +112,22 @@ fun SubscriptionEditSheet(
     var leadDays by remember {
         mutableStateOf(normalizeLeadDays(existing?.leadDays ?: DEFAULT_LEAD_DAYS))
     }
+    // Free trial (SubscriptionTrial.kt). The price after the trial is only
+    // meaningful while a trial end date exists — the server rejects the pair
+    // otherwise — so clearing the date also clears the price and hides the field.
+    // A stored price with no stored date is dropped on load for the same reason:
+    // keeping it hidden would block Save with an invisible field.
+    val initialTrialEndsAt = trialEndsAtInput(existing?.trialEndsAt)
+    var trialEndsAt by remember { mutableStateOf(initialTrialEndsAt) }
+    var convertsToPrice by remember {
+        mutableStateOf(
+            if (initialTrialEndsAt.isBlank()) {
+                ""
+            } else {
+                convertsToPriceInput(existing?.convertsToPrice)
+            },
+        )
+    }
 
     var submitting by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -213,6 +229,54 @@ fun SubscriptionEditSheet(
                 StatusDropdown(selected = status, onSelected = { status = it })
             }
 
+            // Free trial: when billing starts and what it will cost. The price
+            // field only exists while the date does, and clearing the date
+            // clears the price — the pair the API rejects
+            // (`fieldErrors.convertsToPrice`) can never be submitted.
+            SheetGroup {
+                Text(
+                    stringResource(R.string.subs_trial),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = trialEndsAt,
+                    onValueChange = {
+                        trialEndsAt = it
+                        if (it.isBlank()) convertsToPrice = ""
+                        fieldErrors = fieldErrors - "trialEndsAt" - "convertsToPrice"
+                    },
+                    label = { Text(stringResource(R.string.subs_trial_ends_yyyy_mm_dd)) },
+                    isError = fieldErrors["trialEndsAt"]?.firstOrNull() != null,
+                    supportingText = fieldErrors["trialEndsAt"]?.firstOrNull()?.let {
+                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (trialEndsAt.isNotBlank()) {
+                    OutlinedTextField(
+                        value = convertsToPrice,
+                        onValueChange = {
+                            convertsToPrice = it.filter { c -> c.isDigit() }
+                            fieldErrors = fieldErrors - "convertsToPrice"
+                        },
+                        label = { Text(stringResource(R.string.subs_converts_to_price_vnd)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = fieldErrors["convertsToPrice"]?.firstOrNull() != null,
+                        supportingText = fieldErrors["convertsToPrice"]?.firstOrNull()?.let {
+                            { Text(it, color = MaterialTheme.colorScheme.error) }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Text(
+                    stringResource(R.string.subs_trial_hint),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             // Reminder lead time — how many days before the renewal date each
             // reminder fires. A separate group so it reads as its own setting,
             // not another billing field (it is shared with the device form).
@@ -287,6 +351,14 @@ fun SubscriptionEditSheet(
                             manageUrl = manageUrl.ifBlank { null },
                             cancelUrl = cancelUrl.ifBlank { null },
                             notes = notes.ifBlank { null },
+                            // A blank trial date drops the key ("unchanged"), and
+                            // `convertsToPriceForRequest` refuses to send a price
+                            // without one even if the state somehow kept it.
+                            trialEndsAt = trialEndsAtRequest(trialEndsAt),
+                            convertsToPrice = convertsToPriceForRequest(
+                                trialEndsAt,
+                                convertsToPrice,
+                            ),
                             // Already normalised by the picker; only an empty
                             // list (which disables Save) omits the key.
                             leadDays = leadDaysForRequest(leadDays),
@@ -301,9 +373,14 @@ fun SubscriptionEditSheet(
                         } catch (e: Exception) {
                             val fe = e.fieldErrors(ApiClient.json)
                             fieldErrors = fe
-                            // leadDays is rendered under the picker; everything
-                            // else still needs the visible banner.
-                            error = if (fe.isEmpty() || fe.keys.any { it != "leadDays" }) {
+                            // leadDays / trial fields are rendered under their
+                            // own inputs; everything else still needs the banner.
+                            val inline = setOf(
+                                "leadDays",
+                                "trialEndsAt",
+                                "convertsToPrice",
+                            )
+                            error = if (fe.isEmpty() || fe.keys.any { it !in inline }) {
                                 e.toUserMessage(ApiClient.json)
                             } else {
                                 null
@@ -314,7 +391,8 @@ fun SubscriptionEditSheet(
                     }
                 },
                 enabled = name.isNotBlank() && startedAt.isNotBlank() &&
-                    leadDays.isNotEmpty() && !submitting,
+                    leadDays.isNotEmpty() &&
+                    trialFormIsSubmittable(trialEndsAt, convertsToPrice) && !submitting,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,

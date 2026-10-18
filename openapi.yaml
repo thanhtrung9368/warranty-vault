@@ -1930,11 +1930,18 @@ paths:
       description: |
         Internal endpoint triggered by a scheduler (systemd timer, Vercel Cron, or
         equivalent). Authenticated via `Authorization: Bearer ${CRON_SECRET}` —
-        not the user bearer scheme. Fans out warranty-expiry, wishlist target-date,
-        wishlist periodic check-in, and subscription renewal notifications, plus
+        not the user bearer scheme. Fans out warranty-expiry, warranty activation,
+        extended-cover deadline, wishlist target-date, wishlist periodic check-in,
+        subscription renewal, and subscription-trial-ending notifications, plus
         auto-bills overdue ACTIVE subscriptions. Idempotent for billing
         (filters by `renewalDate <= now`); see `internal/cron/run.go` for the
         per-bucket idempotency notes.
+
+        The two migration-0016 device notices reuse the device's `leadDays` for
+        the extended-cover countdown, and the activation notice fires **once**
+        (it has no deadline to count down from). The trial notice reuses the
+        subscription's `leadDays` and has a (date, leadDay) marker separate from
+        the renewal one, so both can fire on the same day.
       parameters:
         - name: Authorization
           in: header
@@ -1959,10 +1966,13 @@ paths:
                       này là "đã xử lý", không phải "đã thành công".
                     required:
                       - warrantyNotices
+                      - activationNotices
+                      - extendedCoverNotices
                       - returnWindowNotices
                       - wishlistTargetHits
                       - wishlistCheckins
                       - subscriptionRenewals
+                      - trialNotices
                       - subscriptionExpired
                       - sessionsPruned
                       - pushesSent
@@ -1970,10 +1980,13 @@ paths:
                       - pushesGone
                     properties:
                       warrantyNotices: { type: integer, description: 'Số lượt nhắc bảo hành đã xử lý: một lượt cho mỗi cặp (warranty, mốc `leadDays`) rơi đúng ngày. Mặc định [30, 7] cho kết quả như lịch 30/7 ngày cũ.' }
+                      activationNotices: { type: integer, description: 'Số thiết bị được nhắc "chưa kích hoạt bảo hành" trong lượt chạy. Chỉ bắn MỘT lần cho mỗi thiết bị (`activationRequired = true`, `activatedAt IS NULL`, chưa từng nhắc) — không theo `leadDays`, không nhắc hằng ngày.' }
+                      extendedCoverNotices: { type: integer, description: 'Số lượt nhắc mua bảo hiểm mở rộng: một lượt cho mỗi cặp (thiết bị, mốc `leadDays`) có `extendedCoverBuyBy` rơi đúng cửa sổ của mốc. Không có số ngày mặc định của hãng nào ở đây.' }
                       returnWindowNotices: { type: integer, description: 'Số thiết bị rơi vào mốc còn 3 hoặc 1 ngày đổi/trả (`COALESCE(receivedAt, purchaseDate) + returnWindowDays`).' }
                       wishlistTargetHits: { type: integer }
                       wishlistCheckins: { type: integer }
                       subscriptionRenewals: { type: integer, description: 'Số gói đã được tự động gia hạn THẬT trong một transaction (có ghi `SubscriptionPayment`).' }
+                      trialNotices: { type: integer, description: 'Số lượt nhắc kết thúc dùng thử: một lượt cho mỗi cặp (gói, mốc `leadDays`) có `trialEndsAt` rơi đúng cửa sổ của mốc. Dùng dấu chống trùng riêng, không chặn/không bị chặn bởi nhắc gia hạn cùng ngày.' }
                       subscriptionExpired: { type: integer }
                       sessionsPruned: { type: integer }
                       pushesSent: { type: integer }
@@ -2481,6 +2494,24 @@ components:
           uniqueItems: true
           items: { type: integer, minimum: 0, maximum: 365 }
           description: 'Lịch nhắc gia hạn (migration 0015). Vắng mặt/null ở file backup cũ ⇒ import dùng mặc định [3, 1, 0] — lịch cũ của cron gia hạn, không phải [30, 7] của bảo hành.'
+        trialEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày kết thúc dùng thử (migration 0016). Vắng mặt/null ở payload cũ = không có dùng thử. Được export/import nguyên vẹn để khôi phục không xoá mất giai đoạn dùng thử.'
+        convertsToPrice:
+          type: integer
+          nullable: true
+          description: 'Giá sau dùng thử, VND. Null = chưa biết. Vắng mặt ở payload cũ = null.'
+        trialNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Dấu chống trùng nhắc kết thúc dùng thử (migration 0016). Được export/import nguyên vẹn; null = chưa từng nhắc.'
+        trialNotifiedLeadDay:
+          type: integer
+          nullable: true
+          description: 'Mốc `leadDays` của `trialNotifiedAt`; null ở payload cũ hoặc khi chưa nhắc.'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         payments:
@@ -2555,6 +2586,33 @@ components:
           uniqueItems: true
           items: { type: integer, minimum: 0, maximum: 365 }
           description: 'Lịch nhắc bảo hành (migration 0015). Vắng mặt/null ở file backup cũ ⇒ import dùng mặc định [30, 7], đúng lịch cron bảo hành cũ. Subscription dùng [3, 1, 0] — hai lịch cũ khác nhau nên hai mặc định khác nhau.'
+        activationRequired:
+          type: boolean
+          description: 'Bảo hành chỉ bắt đầu sau khi kích hoạt (migration 0016). Vắng mặt ở payload cũ = false.'
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Thời điểm kích hoạt (migration 0016). Có thể trước `purchaseDate`; đó là trạng thái hợp lệ. Null = chưa kích hoạt.'
+        extendedCoverBuyBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày cuối mua bảo hiểm mở rộng, do người dùng nhập (migration 0016). Null = không theo dõi.'
+        activationNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Dấu đã nhắc kích hoạt (migration 0016) — chỉ nhắc một lần. Được export/import nguyên vẹn để khôi phục không nhắc lại.'
+        extendedCoverNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Dấu cron đã nhắc mua bảo hiểm mở rộng (migration 0016); cùng `extendedCoverNotifiedLeadDay` là khoá per-lead-day. Null = chưa từng nhắc.'
+        extendedCoverNotifiedLeadDay:
+          type: integer
+          nullable: true
+          description: 'Mốc `leadDays` của `extendedCoverNotifiedAt`; null ở payload cũ hoặc khi chưa nhắc.'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         warranties:
@@ -2653,7 +2711,7 @@ components:
 
     Device:
       type: object
-      required: [id, name, category, purchaseDate, purchasePrice, status, leadDays]
+      required: [id, name, category, purchaseDate, purchasePrice, status, activationRequired, leadDays]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -2743,6 +2801,81 @@ components:
             còn lại (đã đi qua mốc) **không** bắn bù. Mặc định `[30, 7]` — đúng
             lịch 30/7 ngày cũ cho mọi người dùng chưa từng đặt. Luật ghi nằm ở
             `DeviceInput.leadDays`.
+
+            Cùng mảng này cũng là lịch nhắc cho `extendedCoverBuyBy` (migration
+            0016) — **không** có lịch thứ hai. Một thiết bị đặt `[30, 7]` sẽ nhận
+            nhắc mua bảo hiểm mở rộng ở đúng hai mốc đó, giống nhắc hết hạn bảo
+            hành.
+        activationRequired:
+          type: boolean
+          default: false
+          description: |
+            `true` = bảo hành chỉ bắt đầu sau khi thiết bị được **kích hoạt**
+            (điện tử) bởi đại lý/hãng. Ở Việt Nam nhiều hãng (Samsung, Sony, LG,
+            Xiaomi…) coi ngày kích hoạt là mốc bắt đầu bảo hành; máy chưa kích
+            hoạt có thể bị từ chối tại quầy dù có hoá đơn hợp lệ. Mặc định
+            `false`, nên mọi thiết bị hiện có giữ nguyên hành vi.
+
+            Khi `true` và `activatedAt` còn `null`, cron gửi **một** thông báo
+            nhắc kích hoạt — không phải nhắc hằng ngày: sau lần đầu, thiết bị
+            được đánh dấu đã nhắc và không bao giờ nhắc lại, kể cả khi người dùng
+            bỏ qua thông báo. Ghi `activatedAt` cũng dừng nhắc ngay.
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Thời điểm thiết bị được kích hoạt bảo hành. Khi có và **muộn hơn**
+            `purchaseDate`, đây là mốc bắt đầu bảo hành thật.
+
+            `null` = chưa kích hoạt / chưa ghi nhận.
+
+            **Quan trọng:** `activatedAt` **trước** `purchaseDate` là trạng thái
+            dữ liệu hợp lệ và **được chấp nhận**, không bị từ chối. Cửa hàng có
+            thể kích hoạt sẵn máy trước khi xuất hoá đơn; API không coi đó là vô
+            lý và không có kiểm tra chéo nào giữa hai trường.
+
+            Định dạng trả về giống `purchaseDate` (timestamp không kèm offset).
+        extendedCoverBuyBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            **Ngày cuối cùng** còn mua được gói bảo hiểm/bảo hành mở rộng
+            (AppleCare+, Samsung Care+…). `null` = không theo dõi.
+
+            Giá trị do **người dùng tự nhập**. API **không** suy ra từ hãng, không
+            có giá trị mặc định, và **không khẳng định số ngày của bất kỳ hãng
+            nào** — báo cáo đứng sau tính năng này không xác minh được cửa sổ của
+            mọi hãng, nên con số chỉ có thể là dữ liệu người dùng ghi lại.
+
+            Cron nhắc tại các mốc trong `leadDays` của chính thiết bị (dùng chung
+            lịch với nhắc hết hạn bảo hành, không có lịch thứ hai). Mốc `0` = đúng
+            ngày cuối. Không có kiểm tra chéo với `purchaseDate`.
+        activationNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Dấu chống trùng của cron cho thông báo "chưa kích hoạt bảo hành"
+            (migration 0016). Là chi tiết vận hành; `null` = chưa từng nhắc. Chỉ
+            có một lần nhắc cho mỗi thiết bị, không theo `leadDays`.
+        extendedCoverNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Dấu chống trùng của cron cho nhắc mua bảo hiểm mở rộng (migration
+            0016). Cùng `extendedCoverNotifiedLeadDay` tạo thành khoá
+            `(deviceId, leadDay, ngày)`. Là chi tiết vận hành.
+        extendedCoverNotifiedLeadDay:
+          type: integer
+          nullable: true
+          description: |
+            Mốc `leadDays` mà `extendedCoverNotifiedAt` thuộc về. Nhờ đó mốc 30
+            ngày không chặn mốc 7 ngày trong cùng một ngày. `null` = dòng được
+            đánh dấu thủ công hoặc bởi đường ghi cũ; được hiểu là "đã xử lý mọi
+            mốc trong ngày đó". Là chi tiết vận hành.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2876,6 +3009,47 @@ components:
             * Độ dài **1..5**, mỗi giá trị **0..365**, **không trùng nhau**. Vi
               phạm ⇒ 400 với `fieldErrors.leadDays` (câu tiếng Việt hoặc tiếng Anh
               theo `lang`; khoá `leadDays` không đổi).
+
+            Mảng này áp dụng cho **cả** nhắc hết hạn bảo hành **và** nhắc mốc mua
+            bảo hiểm mở rộng (`extendedCoverBuyBy`, migration 0016) — không có
+            lịch thứ hai.
+        activationRequired:
+          type: boolean
+          default: false
+          description: |
+            Đặt `true` khi bảo hành chỉ bắt đầu sau khi thiết bị được kích hoạt
+            điện tử. Vắng mặt ⇒ `false` (mặc định của cột).
+
+            ⚠️ `PATCH` **thay thế**: không gửi trường này nghĩa là đặt lại
+            `false`, giống các trường thay thế khác của endpoint này. Client nào
+            đang bật tính năng phải gửi lại `activationRequired: true`.
+        activatedAt:
+          type: string
+          nullable: true
+          description: |
+            Thời điểm kích hoạt bảo hành (`YYYY-MM-DD` hoặc ISO đầy đủ), nullable.
+            Gửi `null`/vắng mặt để xoá.
+
+            **`activatedAt` trước `purchaseDate` được chấp nhận.** Đó là trạng
+            thái dữ liệu hợp lệ (cửa hàng kích hoạt sẵn máy trước khi xuất hoá
+            đơn), không phải lỗi nhập liệu, nên API **không** có kiểm tra chéo
+            giữa hai trường. Chỉ định dạng ngày sai mới bị từ chối: 400
+            `fieldErrors.activatedAt` = `["Invalid activation date"]`
+            (`["Ngày kích hoạt không hợp lệ"]` khi `lang=vi`).
+        extendedCoverBuyBy:
+          type: string
+          nullable: true
+          description: |
+            Ngày cuối cùng còn mua được bảo hiểm mở rộng (`YYYY-MM-DD` hoặc ISO
+            đầy đủ), nullable. Gửi `null`/vắng mặt để xoá. Giá trị do người dùng
+            tự nhập: server **không** tự tính từ hãng hay từ `purchaseDate`, và
+            **không** giả định số ngày của bất kỳ hãng nào. Chỉ định dạng ngày sai
+            mới bị từ chối: 400 `fieldErrors.extendedCoverBuyBy` =
+            `["Invalid extended-cover purchase deadline"]`
+            (`["Hạn mua bảo hiểm mở rộng không hợp lệ"]` khi `lang=vi`).
+
+            Cron nhắc theo `leadDays` của thiết bị; đây là ngày **bao gồm** (ngày
+            cuối vẫn mua được), nên mốc `7` bắn khi hạn còn đúng 7 ngày.
         warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
@@ -3023,6 +3197,49 @@ components:
             **[3, 1, 0]** — đúng lịch cron gia hạn cũ. Khác `Device` (`[30, 7]`,
             lịch cron bảo hành cũ) vì hai cron cũ chạy hai lịch khác nhau; một
             mặc định chung sẽ âm thầm đổi hành vi của người dùng hiện có.
+
+            Cùng mảng này cũng là lịch nhắc kết thúc dùng thử `trialEndsAt`
+            (migration 0016) — không có lịch thứ hai.
+        trialEndsAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Thời điểm kết thúc giai đoạn dùng thử miễn phí và bắt đầu tính phí
+            (migration 0016). `null` = không có dùng thử.
+
+            Một `renewalDate` không biểu diễn được "miễn phí tới 12/11, sau đó
+            260k/tháng": ngày gia hạn là ngày bị trừ tiền của chu kỳ hiện tại,
+            còn `trialEndsAt` là ngày kết thúc ưu đãi. Khi có, cron gửi một thông
+            báo **quyết định** (giữ hay huỷ) tại các mốc `leadDays`, khác hẳn nội
+            dung nhắc gia hạn.
+        convertsToPrice:
+          type: integer
+          nullable: true
+          description: |
+            Giá sau khi hết dùng thử, VND (số nguyên). `null` = chưa biết.
+
+            **Quan hệ với `trialEndsAt`:** `convertsToPrice` mà không có
+            `trialEndsAt` là vô nghĩa (không có ngày nào để giá đó bắt đầu) và bị
+            từ chối với 400 `fieldErrors.convertsToPrice`. Chiều ngược lại **được
+            phép**: người dùng có thể biết ngày kết thúc dùng thử mà chưa biết
+            giá tương lai. Số âm bị từ chối cùng khoá lỗi.
+        trialNotifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Dấu chống trùng của cron cho nhắc kết thúc dùng thử (migration 0016).
+            Cùng `trialNotifiedLeadDay` tạo thành khoá
+            `(subscriptionId, leadDay, ngày)`, **tách riêng** khỏi dấu nhắc gia
+            hạn để hai thông báo có thể cùng bắn trong một ngày. Là chi tiết vận
+            hành.
+        trialNotifiedLeadDay:
+          type: integer
+          nullable: true
+          description: |
+            Mốc `leadDays` mà `trialNotifiedAt` thuộc về. `null` = "đã xử lý hôm
+            nay cho mọi mốc". Là chi tiết vận hành.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -3067,14 +3284,40 @@ components:
             mỗi mốc, mỗi khi mốc đó đến. Server sắp xếp **giảm dần** trước khi
             lưu.
 
-            * **POST** — vắng mặt hoặc `null` ⇒ mặc định `[30, 7]`.
+            * **POST** — vắng mặt hoặc `null` ⇒ mặc định `[3, 1, 0]`.
             * **PATCH** — vắng mặt hoặc `null` ⇒ **giữ nguyên** giá trị đã lưu,
               **không** reset.
             * **Mảng rỗng `[]` ⇒ 400** `fieldErrors.leadDays` — không có nghĩa
               "không nhắc".
             * Độ dài **1..5**, mỗi giá trị **0..365**, **không trùng nhau**. Vi
               phạm ⇒ 400 với `fieldErrors.leadDays` theo ngôn ngữ của request.
-            * Gói `LIFETIME` không có gia hạn nên cron bỏ qua mọi mốc.
+            * Gói `LIFETIME` không có gia hạn nên cron renewal bỏ qua mọi mốc.
+              Nhắc dùng thử vẫn dùng `leadDays` của gói.
+        trialEndsAt:
+          type: string
+          nullable: true
+          description: |
+            Ngày kết thúc dùng thử (`YYYY-MM-DD` hoặc ISO đầy đủ), nullable.
+            Không parse được ⇒ 400 `fieldErrors.trialEndsAt` = `["Invalid trial
+            end date"]` (`["Ngày kết thúc dùng thử không hợp lệ"]` khi
+            `lang=vi`). Gửi `null`/vắng mặt để xoá (PATCH thay thế).
+
+            Cron nhắc tại các mốc `leadDays` **trước** ngày này; mốc `0` = đúng
+            ngày bắt đầu tính phí.
+        convertsToPrice:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Giá sau dùng thử, VND, nullable.
+
+            * Có `convertsToPrice` mà **không** có `trialEndsAt` ⇒ 400
+              `fieldErrors.convertsToPrice` (câu theo `lang`; khoá không đổi).
+            * Có `trialEndsAt` mà không có `convertsToPrice` ⇒ **hợp lệ**.
+            * Số âm ⇒ 400 cùng khoá `fieldErrors.convertsToPrice`.
+
+            `PATCH` thay thế cả hai trường: không gửi `trialEndsAt` nghĩa là xoá
+            dùng thử, và khi đó gửi kèm `convertsToPrice` sẽ bị từ chối.
 
     Payment:
       type: object

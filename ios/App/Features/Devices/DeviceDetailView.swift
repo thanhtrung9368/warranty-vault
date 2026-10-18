@@ -108,6 +108,26 @@ struct DeviceDetailView: View {
         return LeadDaysRules.dayListText(days)
     }
 
+    /// Activation state and the extended-cover deadline as read-only rows, or
+    /// `nil` when the device opted into neither.
+    ///
+    /// `activatedAt` and `extendedCoverBuyBy` are raw wire days (see
+    /// `WarrantyActivation`); the countdown is day-resolution and measured on the
+    /// caller's calendar, so `0` means "today is the last day". The status row is
+    /// the exact state a service centre checks: required-but-not-activated is a
+    /// red flag, an activation date is a green confirmation.
+    private var activationDisplay: (state: WarrantyActivation.State,
+                                    status: String?,
+                                    buyByDay: String?,
+                                    buyByNote: String?)? {
+        let fields = WarrantyActivation.carried(from: currentDevice)
+        guard WarrantyActivation.isVisible(fields) else { return nil }
+        return (WarrantyActivation.state(fields),
+                WarrantyActivation.statusLabel(fields),
+                WarrantyActivation.dayLabel(fields.extendedCoverBuyBy),
+                WarrantyActivation.buyByNote(fields.extendedCoverBuyBy))
+    }
+
     /// The recorded sale as **read-only** rows, or `nil` when the device was never
     /// sold — an unsold device shows no empty money rows (the web renders its
     /// "Bán lại" card under exactly the same condition, Android its rows).
@@ -172,6 +192,33 @@ struct DeviceDetailView: View {
                     WVRow(icon: "hash", iconColor: WVColor.blue,
                           title: "Serial / IMEI",
                           detail: currentDevice.serialNumber ?? "—")
+                }
+
+                // Warranty activation / extended cover (Feature A). Read-only;
+                // the three fields are edited in the device form. The activation
+                // row renders the state the service centre checks, and the buy-by
+                // row pairs the server day with its day-resolution countdown.
+                if let activation = activationDisplay {
+                    WVSectionHeader(L.t("Bảo hành & kích hoạt"))
+                    WVGroup {
+                        if let status = activation.status {
+                            WVRow(
+                                icon: activation.state == .requiredNotActivated
+                                    ? "shieldX" : "shieldCheck",
+                                iconColor: activation.state == .requiredNotActivated
+                                    ? WVColor.red : WVColor.green,
+                                title: L.t("Kích hoạt"),
+                                detail: status
+                            )
+                        }
+                        if let day = activation.buyByDay {
+                            if activation.status != nil { WVDivider(inset: 60) }
+                            WVRow(icon: "calendar", iconColor: WVColor.orange,
+                                  title: L.t("Hạn mua gói mở rộng"),
+                                  subtitle: activation.buyByNote,
+                                  detail: day)
+                        }
+                    }
                 }
 
                 // Reminder lead times ("Nhắc trước"). Per-device since the
@@ -541,6 +588,10 @@ struct DeviceDetailView: View {
         // erase a window the user recorded elsewhere just because they tapped
         // "Đã bán".
         DeviceReturnWindow.apply(DeviceReturnWindow.carried(from: d), to: &input)
+        // The activation trio is a full-replacement field too: without this a
+        // status tap would erase "cần kích hoạt", the activation date and the
+        // extended-cover deadline recorded on another client.
+        WarrantyActivation.apply(WarrantyActivation.carried(from: d), to: &input)
         // …and the same is true of the resale pair (migration 0006): tapping a
         // status is not a reason to lose a sale recorded on the web or Android.
         // Both halves travel together, or — for a device that was never sold —

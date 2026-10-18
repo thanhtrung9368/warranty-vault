@@ -96,6 +96,12 @@ struct SubscriptionDetailView: View {
             VStack(spacing: 0) {
                 heroSection(sub)
                 costCard(sub)        .padding(.top, WVSpacing.sm)
+                // Trial ("Dùng thử", Feature B). Shown only when a trial end date
+                // is recorded; the post-trial price rides with it and is hidden
+                // when the user has not stated one.
+                if sub.trialEndsAt != nil {
+                    trialSection(sub)
+                }
                 // Per-subscription reminder schedule ("Nhắc trước 30 và 7
                 // ngày"). Hidden when the payload has no `leadDays` rather than
                 // assuming the default.
@@ -179,13 +185,25 @@ struct SubscriptionDetailView: View {
 
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(sub.billingCycle == .LIFETIME ? "LIFETIME" : L.t("GIA HẠN TỚI"))
+                        // Trial-vs-renewal label: a subscription with a trial says
+                        // so here instead of claiming it renews on a date that is
+                        // really the first charge. Both words come from
+                        // `SubscriptionTrial`, so the distinction is testable.
+                        Text(sub.billingCycle == .LIFETIME
+                             ? "LIFETIME"
+                             : SubscriptionTrial.termHeading(trialEndsAt: sub.trialEndsAt))
                             .font(.system(size: 12, weight: .semibold))
                             .tracking(0.5)
                             .foregroundStyle(WVColor.label3)
                         if sub.billingCycle == .LIFETIME {
                             Text("∞")
                                 .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(WVColor.label)
+                        } else if let trialDay = SubscriptionTrial.dayLabel(sub.trialEndsAt) {
+                            // The trial day is a calendar day on the wire; never
+                            // re-parse it as an instant just to draw it.
+                            Text(trialDay)
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(WVColor.label)
                         } else {
                             let days = WVFormat.daysUntil(sub.renewalDate)
@@ -204,6 +222,36 @@ struct SubscriptionDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Trial
+
+    /// "Dùng thử đến 12/11/2026" plus the price after conversion.
+    ///
+    /// Both values come from `SubscriptionTrial`: the day is reduced to its
+    /// calendar prefix (never parsed as an instant) and the price row is omitted
+    /// when no post-trial price was recorded. A trial with no recorded price is
+    /// still a trial, so the section does not disappear.
+    private func trialSection(_ sub: Subscription) -> some View {
+        let price = SubscriptionTrial.priceLabel(
+            trialEndsAt: sub.trialEndsAt,
+            convertsToPrice: sub.convertsToPrice
+        )
+        return VStack(spacing: 0) {
+            WVSectionHeader(L.t("Dùng thử"))
+            WVGroup {
+                WVRow(icon: "clock", iconColor: WVColor.orange,
+                      title: L.t("Dùng thử đến"),
+                      detail: SubscriptionTrial.dayLabel(sub.trialEndsAt) ?? "—")
+                if let price {
+                    WVDivider(inset: 60)
+                    WVRow(icon: "wallet", iconColor: WVColor.green,
+                          title: L.t("Giá sau dùng thử"),
+                          detail: price)
+                }
+            }
+        }
+        .padding(.top, WVSpacing.sm)
     }
 
     // MARK: - Reminder schedule

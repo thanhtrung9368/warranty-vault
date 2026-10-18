@@ -18,7 +18,7 @@ SET "renewalDate" = $2,
     "lastNotifiedRenewalLeadDay" = NULL,
     "updatedAt" = NOW()
 WHERE id = $1
-RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 `
 
 type AdvanceSubscriptionRenewalParams struct {
@@ -63,6 +63,10 @@ func (q *Queries) AdvanceSubscriptionRenewal(ctx context.Context, arg AdvanceSub
 		&i.UpdatedAt,
 		&i.LeadDays,
 		&i.LastNotifiedRenewalLeadDay,
+		&i.TrialEndsAt,
+		&i.ConvertsToPrice,
+		&i.TrialNotifiedAt,
+		&i.TrialNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -101,46 +105,50 @@ INSERT INTO "Subscription" (
     "manageUrl",
     "cancelUrl",
     notes,
+    "trialEndsAt",
+    "convertsToPrice",
     "leadDays",
     "createdAt",
     "updatedAt"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9,
-    COALESCE($18::text, 'VND'),
+    COALESCE($20::text, 'VND'),
     $10, $11, $12,
-    COALESCE($19::text, 'ACTIVE'),
-    $13, $14, $15, $16, $17,
+    COALESCE($21::text, 'ACTIVE'),
+    $13, $14, $15, $16, $17, $18, $19,
     -- The fallback MUST match migration 0015's column default for THIS table.
     -- Subscription defaults to [3, 1, 0] and Device to [30, 7] because their old
     -- crons ran different schedules; a shared [30, 7] here silently moved every
     -- existing subscription's renewal warnings two weeks earlier.
-    COALESCE($20::int[], ARRAY[3, 1, 0]::int[]),
+    COALESCE($22::int[], ARRAY[3, 1, 0]::int[]),
     NOW(), NOW()
 )
-RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 `
 
 type CreateSubscriptionParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      *string          `json:"category"`
-	Brand         *string          `json:"brand"`
-	Plan          *string          `json:"plan"`
-	BillingCycle  string           `json:"billingCycle"`
-	IntervalDays  *int32           `json:"intervalDays"`
-	Price         int32            `json:"price"`
-	StartedAt     pgtype.Timestamp `json:"startedAt"`
-	RenewalDate   pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew     bool             `json:"autoRenew"`
-	AccountEmail  *string          `json:"accountEmail"`
-	PaymentMethod *string          `json:"paymentMethod"`
-	ManageUrl     *string          `json:"manageUrl"`
-	CancelUrl     *string          `json:"cancelUrl"`
-	Notes         *string          `json:"notes"`
-	Currency      *string          `json:"currency"`
-	Status        *string          `json:"status"`
-	LeadDays      []int32          `json:"leadDays"`
+	ID              string           `json:"id"`
+	UserId          string           `json:"userId"`
+	Name            string           `json:"name"`
+	Category        *string          `json:"category"`
+	Brand           *string          `json:"brand"`
+	Plan            *string          `json:"plan"`
+	BillingCycle    string           `json:"billingCycle"`
+	IntervalDays    *int32           `json:"intervalDays"`
+	Price           int32            `json:"price"`
+	StartedAt       pgtype.Timestamp `json:"startedAt"`
+	RenewalDate     pgtype.Timestamp `json:"renewalDate"`
+	AutoRenew       bool             `json:"autoRenew"`
+	AccountEmail    *string          `json:"accountEmail"`
+	PaymentMethod   *string          `json:"paymentMethod"`
+	ManageUrl       *string          `json:"manageUrl"`
+	CancelUrl       *string          `json:"cancelUrl"`
+	Notes           *string          `json:"notes"`
+	TrialEndsAt     pgtype.Timestamp `json:"trialEndsAt"`
+	ConvertsToPrice *int32           `json:"convertsToPrice"`
+	Currency        *string          `json:"currency"`
+	Status          *string          `json:"status"`
+	LeadDays        []int32          `json:"leadDays"`
 }
 
 func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error) {
@@ -162,6 +170,8 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		arg.ManageUrl,
 		arg.CancelUrl,
 		arg.Notes,
+		arg.TrialEndsAt,
+		arg.ConvertsToPrice,
 		arg.Currency,
 		arg.Status,
 		arg.LeadDays,
@@ -192,6 +202,10 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.UpdatedAt,
 		&i.LeadDays,
 		&i.LastNotifiedRenewalLeadDay,
+		&i.TrialEndsAt,
+		&i.ConvertsToPrice,
+		&i.TrialNotifiedAt,
+		&i.TrialNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -262,7 +276,7 @@ const expireSubscription = `-- name: ExpireSubscription :one
 UPDATE "Subscription"
 SET status = 'EXPIRED', "updatedAt" = NOW()
 WHERE id = $1
-RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 `
 
 func (q *Queries) ExpireSubscription(ctx context.Context, id string) (Subscription, error) {
@@ -293,12 +307,16 @@ func (q *Queries) ExpireSubscription(ctx context.Context, id string) (Subscripti
 		&i.UpdatedAt,
 		&i.LeadDays,
 		&i.LastNotifiedRenewalLeadDay,
+		&i.TrialEndsAt,
+		&i.ConvertsToPrice,
+		&i.TrialNotifiedAt,
+		&i.TrialNotifiedLeadDay,
 	)
 	return i, err
 }
 
 const getSubscriptionByID = `-- name: GetSubscriptionByID :one
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 FROM "Subscription"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -337,6 +355,10 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, arg GetSubscriptionBy
 		&i.UpdatedAt,
 		&i.LeadDays,
 		&i.LastNotifiedRenewalLeadDay,
+		&i.TrialEndsAt,
+		&i.ConvertsToPrice,
+		&i.TrialNotifiedAt,
+		&i.TrialNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -355,6 +377,45 @@ ORDER BY lead_day DESC
 // value, so the query count is the number of distinct user choices, not 366.
 func (q *Queries) ListActiveSubscriptionLeadDays(ctx context.Context) ([]int32, error) {
 	rows, err := q.db.Query(ctx, listActiveSubscriptionLeadDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var lead_day int32
+		if err := rows.Scan(&lead_day); err != nil {
+			return nil, err
+		}
+		items = append(items, lead_day)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActiveTrialLeadDays = `-- name: ListActiveTrialLeadDays :many
+SELECT DISTINCT unnest("leadDays")::int AS lead_day
+FROM "Subscription"
+WHERE status = 'ACTIVE'
+  AND "trialEndsAt" IS NOT NULL
+ORDER BY lead_day DESC
+`
+
+// Cron support (migration 0016, Feature B). One row per DISTINCT lead day among
+// ACTIVE subscriptions that have a trial clock. Mirrors ListActiveSubscription-
+// LeadDays, with one deliberate difference: LIFETIME rows are NOT excluded here.
+//
+// A lifetime plan with a trial is a strange combination, but the contract says
+// "remind at the subscription's leadDays before trialEndsAt" and does not carve
+// out a billing cycle; the renewal sweep's LIFETIME filter exists because a
+// lifetime row has no renewal date, which is a different question. This query is
+// also a separate sweep rather than an extension of the renewal one because the
+// two reminders have different idempotency markers and must be able to fire on
+// the same day without suppressing each other.
+func (q *Queries) ListActiveTrialLeadDays(ctx context.Context) ([]int32, error) {
+	rows, err := q.db.Query(ctx, listActiveTrialLeadDays)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +476,7 @@ func (q *Queries) ListPaymentsBySubscription(ctx context.Context, arg ListPaymen
 
 const listSubscriptionsByUser = `-- name: ListSubscriptionsByUser :many
 
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 FROM "Subscription"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR status = $2)
@@ -465,6 +526,10 @@ func (q *Queries) ListSubscriptionsByUser(ctx context.Context, arg ListSubscript
 			&i.UpdatedAt,
 			&i.LeadDays,
 			&i.LastNotifiedRenewalLeadDay,
+			&i.TrialEndsAt,
+			&i.ConvertsToPrice,
+			&i.TrialNotifiedAt,
+			&i.TrialNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -478,7 +543,7 @@ func (q *Queries) ListSubscriptionsByUser(ctx context.Context, arg ListSubscript
 
 const listSubscriptionsDueForRenewal = `-- name: ListSubscriptionsDueForRenewal :many
 
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
@@ -549,6 +614,10 @@ func (q *Queries) ListSubscriptionsDueForRenewal(ctx context.Context, arg ListSu
 			&i.UpdatedAt,
 			&i.LeadDays,
 			&i.LastNotifiedRenewalLeadDay,
+			&i.TrialEndsAt,
+			&i.ConvertsToPrice,
+			&i.TrialNotifiedAt,
+			&i.TrialNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -561,7 +630,7 @@ func (q *Queries) ListSubscriptionsDueForRenewal(ctx context.Context, arg ListSu
 }
 
 const listSubscriptionsOverdue = `-- name: ListSubscriptionsOverdue :many
-SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
@@ -604,6 +673,97 @@ func (q *Queries) ListSubscriptionsOverdue(ctx context.Context, renewaldate pgty
 			&i.UpdatedAt,
 			&i.LeadDays,
 			&i.LastNotifiedRenewalLeadDay,
+			&i.TrialEndsAt,
+			&i.ConvertsToPrice,
+			&i.TrialNotifiedAt,
+			&i.TrialNotifiedLeadDay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSubscriptionsTrialEndingInWindow = `-- name: ListSubscriptionsTrialEndingInWindow :many
+SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
+FROM "Subscription"
+WHERE status = 'ACTIVE'
+  AND "trialEndsAt" IS NOT NULL
+  AND $3::int = ANY("leadDays")
+  AND "trialEndsAt" >= $1
+  AND "trialEndsAt" <  $2
+  AND (
+      "trialNotifiedAt" IS NULL
+      OR "trialNotifiedAt"::date < CURRENT_DATE
+      OR ("trialNotifiedLeadDay" IS NOT NULL
+          AND "trialNotifiedLeadDay" <> $3::int)
+  )
+`
+
+type ListSubscriptionsTrialEndingInWindowParams struct {
+	TrialEndsAt   pgtype.Timestamp `json:"trialEndsAt"`
+	TrialEndsAt_2 pgtype.Timestamp `json:"trialEndsAt_2"`
+	LeadDay       int32            `json:"leadDay"`
+}
+
+// Cron support (migration 0016, Feature B). ACTIVE subscriptions whose
+// "trialEndsAt" falls in [windowStart, windowEnd) AND whose "leadDays" contains
+// this run's leadDay.
+//
+// The day mapping is NATURAL — dayWindow(now, days) — like the renewal sweep and
+// unlike the warranty sweep's inclusive-minus-one convention: a trial that ends
+// today means "billing starts today", which is the 0-day bucket.
+//
+// Idempotency is the migration-0015 per-lead-day key on this table:
+//
+//	(subscriptionId, leadDay, calendar day)
+//
+// stored as (trialNotifiedAt::date, trialNotifiedLeadDay). It is a SEPARATE pair
+// from the renewal marker on purpose: the same subscription can be told "your
+// trial ends in 3 days" and "your renewal is in 3 days" on the same run, and
+// those two notices must not suppress each other.
+func (q *Queries) ListSubscriptionsTrialEndingInWindow(ctx context.Context, arg ListSubscriptionsTrialEndingInWindowParams) ([]Subscription, error) {
+	rows, err := q.db.Query(ctx, listSubscriptionsTrialEndingInWindow, arg.TrialEndsAt, arg.TrialEndsAt_2, arg.LeadDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Subscription
+	for rows.Next() {
+		var i Subscription
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserId,
+			&i.Name,
+			&i.Category,
+			&i.Brand,
+			&i.Plan,
+			&i.BillingCycle,
+			&i.IntervalDays,
+			&i.Price,
+			&i.Currency,
+			&i.StartedAt,
+			&i.RenewalDate,
+			&i.AutoRenew,
+			&i.Status,
+			&i.AccountEmail,
+			&i.PaymentMethod,
+			&i.ManageUrl,
+			&i.CancelUrl,
+			&i.Notes,
+			&i.LastNotifiedRenewalAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LeadDays,
+			&i.LastNotifiedRenewalLeadDay,
+			&i.TrialEndsAt,
+			&i.ConvertsToPrice,
+			&i.TrialNotifiedAt,
+			&i.TrialNotifiedLeadDay,
 		); err != nil {
 			return nil, err
 		}
@@ -619,7 +779,7 @@ const setSubscriptionStatus = `-- name: SetSubscriptionStatus :one
 UPDATE "Subscription"
 SET status = $3, "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 `
 
 type SetSubscriptionStatusParams struct {
@@ -656,6 +816,10 @@ func (q *Queries) SetSubscriptionStatus(ctx context.Context, arg SetSubscription
 		&i.UpdatedAt,
 		&i.LeadDays,
 		&i.LastNotifiedRenewalLeadDay,
+		&i.TrialEndsAt,
+		&i.ConvertsToPrice,
+		&i.TrialNotifiedAt,
+		&i.TrialNotifiedLeadDay,
 	)
 	return i, err
 }
@@ -681,6 +845,26 @@ func (q *Queries) StampSubscriptionRenewalNotified(ctx context.Context, arg Stam
 	return err
 }
 
+const stampSubscriptionTrialNotified = `-- name: StampSubscriptionTrialNotified :exec
+UPDATE "Subscription"
+SET "trialNotifiedAt" = NOW(),
+    "trialNotifiedLeadDay" = $2::int,
+    "updatedAt" = NOW()
+WHERE id = $1
+`
+
+type StampSubscriptionTrialNotifiedParams struct {
+	ID      string `json:"id"`
+	LeadDay int32  `json:"leadDay"`
+}
+
+// Cron stamps this after the trial-reminder fan-out. `leadDay` is part of the
+// idempotency key, exactly like the renewal stamp above.
+func (q *Queries) StampSubscriptionTrialNotified(ctx context.Context, arg StampSubscriptionTrialNotifiedParams) error {
+	_, err := q.db.Exec(ctx, stampSubscriptionTrialNotified, arg.ID, arg.LeadDay)
+	return err
+}
+
 const updateSubscription = `-- name: UpdateSubscription :one
 UPDATE "Subscription" SET
     name = $3,
@@ -701,32 +885,36 @@ UPDATE "Subscription" SET
     "cancelUrl" = $18,
     notes = $19,
     "leadDays" = $20,
+    "trialEndsAt" = $21,
+    "convertsToPrice" = $22,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"
+RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay", "trialEndsAt", "convertsToPrice", "trialNotifiedAt", "trialNotifiedLeadDay"
 `
 
 type UpdateSubscriptionParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Name          string           `json:"name"`
-	Category      *string          `json:"category"`
-	Brand         *string          `json:"brand"`
-	Plan          *string          `json:"plan"`
-	BillingCycle  string           `json:"billingCycle"`
-	IntervalDays  *int32           `json:"intervalDays"`
-	Price         int32            `json:"price"`
-	Currency      string           `json:"currency"`
-	StartedAt     pgtype.Timestamp `json:"startedAt"`
-	RenewalDate   pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew     bool             `json:"autoRenew"`
-	Status        string           `json:"status"`
-	AccountEmail  *string          `json:"accountEmail"`
-	PaymentMethod *string          `json:"paymentMethod"`
-	ManageUrl     *string          `json:"manageUrl"`
-	CancelUrl     *string          `json:"cancelUrl"`
-	Notes         *string          `json:"notes"`
-	LeadDays      []int32          `json:"leadDays"`
+	ID              string           `json:"id"`
+	UserId          string           `json:"userId"`
+	Name            string           `json:"name"`
+	Category        *string          `json:"category"`
+	Brand           *string          `json:"brand"`
+	Plan            *string          `json:"plan"`
+	BillingCycle    string           `json:"billingCycle"`
+	IntervalDays    *int32           `json:"intervalDays"`
+	Price           int32            `json:"price"`
+	Currency        string           `json:"currency"`
+	StartedAt       pgtype.Timestamp `json:"startedAt"`
+	RenewalDate     pgtype.Timestamp `json:"renewalDate"`
+	AutoRenew       bool             `json:"autoRenew"`
+	Status          string           `json:"status"`
+	AccountEmail    *string          `json:"accountEmail"`
+	PaymentMethod   *string          `json:"paymentMethod"`
+	ManageUrl       *string          `json:"manageUrl"`
+	CancelUrl       *string          `json:"cancelUrl"`
+	Notes           *string          `json:"notes"`
+	LeadDays        []int32          `json:"leadDays"`
+	TrialEndsAt     pgtype.Timestamp `json:"trialEndsAt"`
+	ConvertsToPrice *int32           `json:"convertsToPrice"`
 }
 
 func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) (Subscription, error) {
@@ -751,6 +939,8 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		arg.CancelUrl,
 		arg.Notes,
 		arg.LeadDays,
+		arg.TrialEndsAt,
+		arg.ConvertsToPrice,
 	)
 	var i Subscription
 	err := row.Scan(
@@ -778,6 +968,10 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		&i.UpdatedAt,
 		&i.LeadDays,
 		&i.LastNotifiedRenewalLeadDay,
+		&i.TrialEndsAt,
+		&i.ConvertsToPrice,
+		&i.TrialNotifiedAt,
+		&i.TrialNotifiedLeadDay,
 	)
 	return i, err
 }
