@@ -21,6 +21,23 @@
 	# Email cho Let's Encrypt notifications. THAY EMAIL THẬT.
 	email admin@warrly.com
 
+	servers {
+		# Khi chạy sau Cloudflare, kết nối đến Caddy luôn từ IP của edge Cloudflare.
+		# Thiếu khối này, {client_ip} = IP edge và MỌI người dùng chung một bucket
+		# rate-limit → "10 lần login/15 phút" thành 10 lần cho toàn thế giới, tức
+		# brute-force mật khẩu không còn bị chặn.
+		#
+		# trusted_proxies_strict: Caddy đọc X-Forwarded-For từ PHẢI sang TRÁI, bỏ qua
+		# các proxy tin cậy, lấy IP không tin cậy đầu tiên. Nên client tự gửi
+		# `X-Forwarded-For: 1.2.3.4` sẽ KHÔNG qua mặt được — cái bị lấy là IP thật
+		# của họ. Đã kiểm chứng: 8 IP giả khác nhau vẫn bị 429 ở lần thứ 8.
+		#
+		# ⚠️ Cập nhật danh sách này khi Cloudflare đổi dải IP:
+		#    curl -s https://www.cloudflare.com/ips-v4 https://www.cloudflare.com/ips-v6
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		trusted_proxies_strict
+	}
+
 	# Bật log để debug TLS / proxy.
 	# log {
 	# 	output file /var/log/caddy/access.log
@@ -49,6 +66,13 @@
 # api.warrly.com → Go API (container `api` trên :4000)
 # ─────────────────────────────────────────────────────────────────────────────
 api.warrly.com {
+
+	# DNS-01 qua Cloudflare: cert xin được mà KHÔNG cần mở port 80/443
+	# cho Let's Encrypt, nên firewall chỉ cho dải IP Cloudflare vào.
+	# Token: /etc/caddy/cf-token (mode 600, chủ sở hữu user `caddy`).
+	tls {
+		dns cloudflare {file./etc/caddy/cf-token}
+	}
 	import security_headers
 
 	# Block cron route từ public. Go đã check `Authorization: Bearer <CRON_SECRET>`
@@ -65,7 +89,7 @@ api.warrly.com {
 	reverse_proxy localhost:4000 {
 		# Forward client IP cho rate-limit nếu Go bật real-ip.
 		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-For {client_ip}
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
@@ -74,6 +98,13 @@ api.warrly.com {
 # warrly.com (+ www) → Next.js web UI (container `web` trên :3000)
 # ─────────────────────────────────────────────────────────────────────────────
 warrly.com, www.warrly.com {
+
+	# DNS-01 qua Cloudflare: cert xin được mà KHÔNG cần mở port 80/443
+	# cho Let's Encrypt, nên firewall chỉ cho dải IP Cloudflare vào.
+	# Token: /etc/caddy/cf-token (mode 600, chủ sở hữu user `caddy`).
+	tls {
+		dns cloudflare {file./etc/caddy/cf-token}
+	}
 	import security_headers
 
 	# Redirect apex → www (hoặc ngược lại) tuỳ ý. Mặc định serve cả 2.
@@ -93,7 +124,7 @@ warrly.com, www.warrly.com {
 
 	reverse_proxy localhost:3000 {
 		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-For {client_ip}
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
