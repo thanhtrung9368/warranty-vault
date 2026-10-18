@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Vault } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { OfflineCacheCleaner } from '@/components/offline-cache-cleaner';
 import { getI18n } from '@/lib/i18n/server';
 
 // Chrome for the public auth flows. The "already signed in → /dashboard" guard
@@ -23,6 +24,9 @@ export default async function AuthLayout({
   const { locale, t } = await getI18n();
   return (
     <div className="auth-gradient flex min-h-screen flex-col">
+      {/* A signed-out browser must not keep the previous account's cached
+          device pages. Covers sign-out redirects and expired sessions. */}
+      <OfflineCacheCleaner />
       <header className="flex items-center justify-between gap-3 px-4 py-5 md:px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <span className="brand-mark">

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useT } from '@/lib/i18n/client';
+import { clearOfflinePageCache } from '@/lib/offline/cache-client';
 import { deleteAccount, type AuthFormState } from '@/app/actions/auth';
 
 // Machine-matched token: the Server Action `deleteAccount` compares the typed
@@ -65,7 +66,15 @@ export function DeleteAccountForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      className="space-y-4"
+      onSubmit={() => {
+        // Account deletion is a sign-out too. The action redirects to `/` on
+        // success (not `/login`), so the auth-layout cleaner would never run.
+        void clearOfflinePageCache();
+      }}
+    >
       <div className="flex items-start gap-3 rounded-md bg-destructive-soft p-3.5 text-sm text-destructive">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <p>

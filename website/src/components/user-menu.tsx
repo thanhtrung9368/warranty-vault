@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { logoutUser } from '@/app/actions/auth';
+import { clearOfflinePageCache } from '@/lib/offline/cache-client';
 import { useT } from '@/lib/i18n/client';
 
 export function UserMenu({
@@ -57,6 +58,10 @@ export function UserMenu({
             e.preventDefault();
             startTransition(async () => {
               try {
+                // The cached pages contain this account's devices. Drop them
+                // before the Server Action destroys the session, so a shared
+                // browser cannot read them offline as the next user.
+                await clearOfflinePageCache();
                 await logoutUser();
               } catch {
                 toast.error(t('Không đăng xuất được'));

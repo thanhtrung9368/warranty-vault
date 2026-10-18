@@ -1,5 +1,6 @@
 import { Sidebar, MobileBottomNav } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
+import { OfflineBridge } from '@/components/offline-bridge';
 import { api } from '@/lib/api';
 import { badgeCount } from '@/lib/action-queue';
 import { requireUser } from '@/lib/auth';
@@ -36,6 +37,9 @@ export default async function AppLayout({
         </div>
       </div>
       <MobileBottomNav reminderCount={reminderCount} actionCount={actionCount} />
+      {/* Prime the offline cache and make offline link clicks document
+          navigations. Renders nothing. */}
+      <OfflineBridge />
     </>
   );
 }

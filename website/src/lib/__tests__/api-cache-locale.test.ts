@@ -187,6 +187,13 @@ describe('what Next actually keys the fetch cache on (canary)', () => {
       maxMemoryCacheSize: 1,
       fetchCacheKeyPrefix: '',
       allowedRevalidateHeaderKeys: [],
+      // Next 16.4's IncrementalCache reads `previewProps` (and a concrete
+      // `prerenderManifest`) in its constructor; 16.3 read only the callback.
+      // Pass both shapes so this canary keeps testing the installed build
+      // rather than a constructor signature.
+      previewProps: { previewModeId: 'wv-test-preview' },
+      prerenderManifest: { preview: {}, routes: {}, dynamicRoutes: {} },
+      locales: [],
       getPrerenderManifest: () => ({ preview: {}, routes: {}, dynamicRoutes: {} }),
     } as never);
     return (cache as unknown as {

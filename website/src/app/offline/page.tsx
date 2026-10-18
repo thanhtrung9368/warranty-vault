@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Vault, Wifi, Plane, RotateCcw, Info } from 'lucide-react';
 import { getI18n } from '@/lib/i18n/server';
+import { OfflineSavedPages } from '@/components/offline-saved-pages';
 import { RetryButton } from './retry-button';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,6 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
 // Served by the service worker when the network is gone. `getI18n()` still
 // works with no connection: the language is a cookie / header / stored
 // preference, none of which needs a request to the API.
+//
+// The page is honest in both directions: it lists the documents the worker
+// really cached (with their save time) and says plainly that the data may be
+// stale. It no longer claims Warrly has no offline data.
 export default async function OfflinePage() {
   const { t } = await getI18n();
   return (
@@ -42,7 +47,7 @@ export default async function OfflinePage() {
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-[15px]">
             {t(
-              'Mày đang ngoại tuyến. Warrly chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.',
+              'Mày đang ngoại tuyến. Warrly lưu lại những trang mày đã mở khi còn mạng để xem tiếp — nhưng dữ liệu đã lưu có thể đã cũ, nên đừng coi đó là bảo hành còn hiệu lực nếu chưa kiểm tra lại.',
             )}
           </p>
 
@@ -54,9 +59,13 @@ export default async function OfflinePage() {
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>
               {t(
-                'Ngoại tuyến thì chỉ mở được đúng trang này thôi. Thông báo đẩy vẫn do trình duyệt nhận giúp khi thiết bị có mạng — không cần mở web.',
+                'Trang đã lưu có một dải vàng ở đầu ghi thời điểm lưu. Nếu trang mày cần chưa có trong danh sách, hãy kết nối lại một lần để Warrly lưu nó. Thông báo đẩy vẫn do trình duyệt nhận khi có mạng — không cần mở web.',
               )}
             </p>
+          </div>
+
+          <div className="mt-6 text-left">
+            <OfflineSavedPages />
           </div>
 
           <div className="mt-8 text-left">

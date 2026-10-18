@@ -131,10 +131,14 @@ export const publicPages = defineMessages({
   'Ngoại tuyến — Warrly': 'Offline — Warrly',
   'Trạng thái · Ngoại tuyến': 'Status · Offline',
   'Mất kết nối rồi 📡': 'You are offline 📡',
-  'Mày đang ngoại tuyến. Warrly chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.':
-    'You are offline. Warrly does not cache your data for offline viewing yet — devices, warranties and stats all need a connection. Once you are back online everything works as usual.',
-  'Ngoại tuyến thì chỉ mở được đúng trang này thôi. Thông báo đẩy vẫn do trình duyệt nhận giúp khi thiết bị có mạng — không cần mở web.':
-    'Offline, this is the only page that opens. Push notifications are still received by your browser whenever the device has a connection — you do not need to open the site.',
+  'Mày đang ngoại tuyến. Warrly lưu lại những trang mày đã mở khi còn mạng để xem tiếp — nhưng dữ liệu đã lưu có thể đã cũ, nên đừng coi đó là bảo hành còn hiệu lực nếu chưa kiểm tra lại.':
+    'You are offline. Warrly saves the pages you opened while online so you can keep reading — but saved data can be out of date, so do not treat it as proof a warranty is still valid until you have refreshed.',
+  'Trang đã lưu có một dải vàng ở đầu ghi thời điểm lưu. Nếu trang mày cần chưa có trong danh sách, hãy kết nối lại một lần để Warrly lưu nó. Thông báo đẩy vẫn do trình duyệt nhận khi có mạng — không cần mở web.':
+    'A saved page shows a yellow strip at the top with the time it was saved. If the page you need is not listed, reconnect once so Warrly can save it. Push notifications are still received by the browser when the device has a connection — you do not need to open the site.',
+  'Trang đã lưu để xem ngoại tuyến': 'Pages saved for offline',
+  'Chưa có trang nào được lưu. Khi còn mạng, mở một thiết bị hoặc trang tổng quan rồi quay lại đây.':
+    'No pages saved yet. While online, open a device or the dashboard, then come back here.',
+  'Đã lưu lúc {time}': 'Saved {time}',
   'Bước 1': 'Step 1',
   'Kiểm tra Wi-Fi / dữ liệu di động': 'Check Wi-Fi / mobile data',
   'Bước 2': 'Step 2',
