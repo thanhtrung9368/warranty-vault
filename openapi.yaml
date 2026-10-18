@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: WarrantyVault API
+  title: Warrly API
   description: |
-    REST API for native mobile clients (iOS / Android) of WarrantyVault.
+    REST API for native mobile clients (iOS / Android) of Warrly.
     Source-of-truth for client codegen:
       - iOS:     swift-openapi-generator
       - Android: openapi-generator-cli (kotlin)
@@ -21,7 +21,7 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local dev
-  - url: https://warrantyvault.example.com
+  - url: https://warrly.example.com
     description: Production (set when deployed)
 
 tags:

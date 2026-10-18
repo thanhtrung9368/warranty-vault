@@ -1,0 +1,150 @@
+package app.warrly.ui.screens.dashboard
+
+import app.warrly.network.ActionQueue
+import app.warrly.network.DeviceListResponse
+import app.warrly.network.RemindersResponse
+import app.warrly.network.SubscriptionListResponse
+import app.warrly.network.UserStats
+import app.warrly.network.WishlistListResponse
+import app.warrly.testing.FakeApiService
+import app.warrly.testing.Fixtures
+import app.warrly.testing.httpError
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
+
+/** `DashboardViewModel` fans out to four endpoints and merges them into one payload. */
+@OptIn(ExperimentalCoroutinesApi::class)
+class DashboardViewModelTest {
+
+    private val dispatcher = StandardTestDispatcher()
+
+    @Before
+    fun setUp() = Dispatchers.setMain(dispatcher)
+
+    @After
+    fun tearDown() = Dispatchers.resetMain()
+
+    private class FakeDashboardApi(
+        private val stats: suspend () -> UserStats = { Fixtures.stats() },
+        private val reminders: suspend () -> RemindersResponse = { RemindersResponse(emptyList()) },
+        private val subscriptions: suspend () -> SubscriptionListResponse = { SubscriptionListResponse(emptyList()) },
+        private val wishlist: suspend () -> WishlistListResponse = { WishlistListResponse(emptyList()) },
+        private val devices: suspend () -> DeviceListResponse = { DeviceListResponse(emptyList()) },
+        private val actions: suspend () -> ActionQueue = { Fixtures.actionQueue(items = emptyList()) },
+    ) : FakeApiService() {
+        override suspend fun getStats(): UserStats = stats()
+        override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse = reminders()
+        override suspend fun listSubscriptions(): SubscriptionListResponse = subscriptions()
+        override suspend fun listWishlist(): WishlistListResponse = wishlist()
+        override suspend fun listDevices(
+            q: String?,
+            category: String?,
+            status: String?,
+            sort: String?,
+            dir: String?,
+        ): DeviceListResponse = devices()
+
+        override suspend fun listActionItems(snoozed: Boolean?): ActionQueue = actions()
+    }
+
+    @Test
+    fun load_mergesStatsRemindersSubscriptionsWishlistDevicesAndTheActionQueue() = runTest(dispatcher) {
+        val stats = Fixtures.stats(devices = 4)
+        val reminders = listOf(Fixtures.upcomingReminder(id = "war-1"))
+        val subs = listOf(Fixtures.subscription())
+        val wishlist = listOf(Fixtures.wishlistItem())
+        val devices = listOf(Fixtures.device(id = "dev-1", effectiveWarrantyEnd = "2026-01-01"))
+        val queue = Fixtures.actionQueue(
+            items = listOf(
+                Fixtures.actionItem(itemKey = "WARRANTY_EXPIRED:war-9", severity = "HIGH"),
+                Fixtures.actionItem(itemKey = "DEVICE_MISSING_SERIAL:dev-9", severity = "LOW"),
+            ),
+        )
+        val vm = DashboardViewModel(
+            FakeDashboardApi(
+                stats = { stats },
+                reminders = { RemindersResponse(reminders) },
+                subscriptions = { SubscriptionListResponse(subs) },
+                wishlist = { WishlistListResponse(wishlist) },
+                devices = { DeviceListResponse(devices) },
+                actions = { queue },
+            ),
+        )
+
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals(
+            DashboardViewModel.State.Loaded(
+                DashboardData(
+                    stats = stats,
+                    reminders = reminders,
+                    subscriptions = subs,
+                    wishlist = wishlist,
+                    devices = devices,
+                    actions = queue,
+                ),
+            ),
+            vm.state.value,
+        )
+    }
+
+    /**
+     * The queue badge is the dashboard's only optional datum: the other five
+     * sources must fail loudly (a silently empty warranty grid reads as "0 đã hết
+     * hạn"), but a queue this build cannot read degrades to a row with no number.
+     * `actions = null` is therefore "no badge", never "0 việc".
+     */
+    @Test
+    fun load_keepsTheDashboardWhenOnlyTheActionQueueFails() = runTest(dispatcher) {
+        val vm = DashboardViewModel(
+            FakeDashboardApi(
+                actions = {
+                    throw httpError(503, """{"error":"unavailable","message":"Tạm thời không có"}""")
+                },
+            ),
+        )
+
+        vm.load()
+        advanceUntilIdle()
+
+        val loaded = vm.state.value as DashboardViewModel.State.Loaded
+        assertNull("a failed queue must not invent a count", loaded.data.actions)
+    }
+
+    @Test
+    fun load_failsTheWholeDashboardWhenAnyEndpointFails() = runTest(dispatcher) {
+        val vm = DashboardViewModel(
+            FakeDashboardApi(reminders = { throw httpError(500, """{"error":"internal","message":"Máy chủ đang bận"}""") }),
+        )
+
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals(DashboardViewModel.State.Error("Máy chủ đang bận"), vm.state.value)
+    }
+
+    @Test
+    fun load_failsWhenTheDeviceListFails() = runTest(dispatcher) {
+        // The warranty grid reads the device list, so a failure there must not
+        // silently degrade to "0 đã hết hạn".
+        val vm = DashboardViewModel(
+            FakeDashboardApi(devices = { throw httpError(503, """{"error":"unavailable","message":"Tạm thời không có"}""") }),
+        )
+
+        vm.load()
+        advanceUntilIdle()
+
+        assertEquals(DashboardViewModel.State.Error("Tạm thời không có"), vm.state.value)
+    }
+}

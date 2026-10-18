@@ -1,13 +1,13 @@
 import SwiftUI
 import UIKit
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // ServiceDirectorySection — "Đi bảo hành ở đâu" (FEATURE_IDEAS #15)
 //
 // `GET /api/v1/devices/{id}/service-directory` answers one question, and the whole
 // feature is an honesty problem rather than a layout one. Every branch here is
-// decided by `WarrantyVaultKit/ServiceDirectoryInfo.swift` (where the copy and the
+// decided by `WarrlyKit/ServiceDirectoryInfo.swift` (where the copy and the
 // rules are unit-tested); this file only draws the result:
 //
 //   * `brand: null` is EXPLAINED — no seeded row, or an ambiguous match — and never

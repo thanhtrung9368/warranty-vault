@@ -2,15 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "WarrantyVaultKit",
+    name: "WarrlyKit",
     platforms: [.iOS(.v16), .macOS(.v13)],
     products: [
-        .library(name: "WarrantyVaultKit", targets: ["WarrantyVaultKit"]),
+        .library(name: "WarrlyKit", targets: ["WarrlyKit"]),
     ],
     targets: [
         .target(
-            name: "WarrantyVaultKit",
-            path: "Sources/WarrantyVaultKit",
+            name: "WarrlyKit",
+            path: "Sources/WarrlyKit",
             // `Localizable.xcstrings` is the app's String Catalog. It is declared
             // as a resource because a file inside a SwiftPM target that is not
             // declared here is SILENTLY not copied into `Bundle.module` — the
@@ -24,9 +24,9 @@ let package = Package(
             resources: [.copy("Resources/Localizable.xcstrings")]
         ),
         .testTarget(
-            name: "WarrantyVaultKitTests",
-            dependencies: ["WarrantyVaultKit"],
-            path: "Tests/WarrantyVaultKitTests"
+            name: "WarrlyKitTests",
+            dependencies: ["WarrlyKit"],
+            path: "Tests/WarrlyKitTests"
         ),
     ]
 )

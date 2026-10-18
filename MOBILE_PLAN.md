@@ -1,4 +1,4 @@
-# Plan: Native iOS + Android cho WarrantyVault
+# Plan: Native iOS + Android cho Warrly
 
 > ## ⚠️ Trạng thái: ✅ HOÀN TẤT — tài liệu **lịch sử**
 >
@@ -94,7 +94,7 @@ Reuse Zod schema + bcrypt logic từ `src/app/actions/auth.ts` → ❌ không c�
 ### 0.5 OpenAPI spec + multi-platform cron — ✅ DONE (code) / ⏳ OPS pending
 
 - [x] `openapi.yaml` (root) — source-of-truth, hiện **34 path**.
-  - 🔁 **Đổi so với plan**: iOS và Android **không codegen** từ YAML. Cả 2 viết tay client mirror spec — iOS `ios/Sources/WarrantyVaultKit/{Endpoints,Models}.swift`, Android `android/.../network/{ApiService,Models}.kt`. Bù lại có `api/scripts/check_openapi_drift.sh` trong CI, nhưng script đó chỉ so **Go ↔ YAML**, không cover mobile (muốn chắc thì phải review tay khi sửa spec).
+  - 🔁 **Đổi so với plan**: iOS và Android **không codegen** từ YAML. Cả 2 viết tay client mirror spec — iOS `ios/Sources/WarrlyKit/{Endpoints,Models}.swift`, Android `android/.../network/{ApiService,Models}.kt`. Bù lại có `api/scripts/check_openapi_drift.sh` trong CI, nhưng script đó chỉ so **Go ↔ YAML**, không cover mobile (muốn chắc thì phải review tay khi sửa spec).
 - [x] `src/lib/push-fanout.ts::sendToSubscription()` → nay là `api/internal/push/dispatch.go` (switch theo `platform`), dispatch concurrent bằng errgroup (2026-06-05).
 - [x] APNs sender — `src/lib/push-apns.ts` → `api/internal/push/apns.go` (HTTP/2 + ES256 JWT, cache token, 410 → `gone:true`).
 - [x] FCM v1 sender — `src/lib/push-fcm.ts` → `api/internal/push/fcm.go` (OAuth2 service-account JWT → access token, POST `messages:send`, 404/UNREGISTERED → `gone:true`).
@@ -108,17 +108,17 @@ Reuse Zod schema + bcrypt logic từ `src/app/actions/auth.ts` → ❌ không c�
 **Stack** (thực tế): SwiftUI + async/await, URLSession, Keychain (`KeychainStore`). 🔁 `ios/Package.swift` khai báo `swift-tools-version: 5.10`, platform `.iOS(.v16)` / `.macOS(.v13)` — plan ghi "Swift 6" nhưng **không có gì trong repo xác nhận** Swift 6 language mode.
 ⚠️ **Không dùng SwiftData** như plan dự kiến (không có `import SwiftData` / `@Model` nào trong repo) — state giữ bằng `ObservableObject` store (`ios/App/State/*Store.swift`), không cache offline.
 
-**Project layout — thực tế** (khác bản dự kiến `ios/WarrantyVault/`):
+**Project layout — thực tế** (khác bản dự kiến `ios/Warrly/`):
 
 ```
 ios/
-├── Package.swift                       # SwiftPM library "WarrantyVaultKit"
-├── Sources/WarrantyVaultKit/           # không phụ thuộc UIKit/SwiftUI
+├── Package.swift                       # SwiftPM library "WarrlyKit"
+├── Sources/WarrlyKit/           # không phụ thuộc UIKit/SwiftUI
 │   ├── APIClient.swift                 # URLSession + Bearer + JSON
 │   ├── Endpoints.swift                 # 1 method/route, mirror openapi.yaml
 │   ├── Models.swift · Errors.swift · KeychainStore.swift
 └── App/                                # SwiftUI app sources
-    ├── WarrantyVaultApp.swift · RootView.swift
+    ├── WarrlyApp.swift · RootView.swift
     ├── DesignSystem/                   # Theme, Components, Charts, Formatters, AutocompleteChips
     ├── State/                          # AuthStore, DevicesStore, SubscriptionsStore, WishlistStore,
     │                                   # RemindersStore, StatsStore, WarrantiesStore, CatalogStore, ThemeStore
@@ -131,7 +131,7 @@ ios/
         └── Settings/ (SettingsView, AccountView, ChangePasswordSheet, PushDevicesView)
 ```
 
-**Auth flow**: Login → `POST /api/v1/auth/login` trên **Go** (`http://localhost:4000`, override được trong `WarrantyVaultApp.swift`) → token vào Keychain → đăng ký APNs → `POST /api/v1/push/register`. ✅ đúng như plan (chỉ đổi backend TS → Go).
+**Auth flow**: Login → `POST /api/v1/auth/login` trên **Go** (`http://localhost:4000`, override được trong `WarrlyApp.swift`) → token vào Keychain → đăng ký APNs → `POST /api/v1/push/register`. ✅ đúng như plan (chỉ đổi backend TS → Go).
 
 **Camera/file**: ✅ — PhotosPicker/`.fileImporter` + multipart qua `APIClient`.
 
@@ -140,7 +140,7 @@ ios/
 **Mốc ship:**
 | Việc | Commit | Ngày |
 |---|---|---|
-| MVP iOS đầu tiên (`App/Features/*`, `WarrantyVaultKit`) | `57938d8` | 2026-05-13 |
+| MVP iOS đầu tiên (`App/Features/*`, `WarrlyKit`) | `57938d8` | 2026-05-13 |
 | `RegisterView` + refactor login | `40efcb2` | 2026-05-14 |
 | `PushDevicesView` (quản lý thiết bị push) | `ff904fb` | 2026-05-14 |
 | Shell 5 tab + `DashboardView` + `MoreScreen` + DesignSystem (`Charts.swift`, `Formatters.swift`), bỏ Sheet-modal → full-screen form | `02a6250` | 2026-06-05 |
@@ -155,7 +155,7 @@ ios/
 **Stack** (thực tế): Kotlin **2.0.21**, Jetpack Compose + Material 3 (BOM 2024.10.01), Retrofit 2.11 + OkHttp 4.12 + kotlinx.serialization, `EncryptedSharedPreferences` (`androidx.security:security-crypto`) cho token, Firebase Cloud Messaging (BOM 33.7.0), Coil.
 ⚠️ **Không dùng Room** và không DataStore cho token (chỉ có `ThemeStore` ghi SharedPreferences đơn giản) — không có cache offline, khác plan dự kiến.
 
-**Project layout — thực tế** (`android/app/src/main/java/com/warrantyvault/app/`):
+**Project layout — thực tế** (`android/app/src/main/java/com/warrly/app/`):
 
 ```
 ├── App.kt · MainActivity.kt
@@ -189,7 +189,7 @@ ios/
 
 ## Phase 3 — Release infra ⏳ một nửa xong (phần còn lại chờ tiền/tài khoản)
 
-- **Apple**: Developer Program ($99/năm). Xcode Cloud hoặc Fastlane + GitHub Actions. TestFlight cho beta. App Store Connect cho metadata (vi-VN screenshots). → ⏳ **chưa có account**; đã có `ios.yml` build `WarrantyVaultKit` (`swift build`), **chưa** build cả app Xcode (NEXT.md ghi là optional còn lại).
+- **Apple**: Developer Program ($99/năm). Xcode Cloud hoặc Fastlane + GitHub Actions. TestFlight cho beta. App Store Connect cho metadata (vi-VN screenshots). → ⏳ **chưa có account**; đã có `ios.yml` build `WarrlyKit` (`swift build`), **chưa** build cả app Xcode (NEXT.md ghi là optional còn lại).
 - **Google**: Play Console ($25 one-time). Gradle Play Publisher (track `internal` → `beta` → `production`). Play Console listing tiếng Việt. → ⏳ **chưa có account**; `android.yml` đã chạy `:app:testDebugUnitTest` + `:app:assembleDebug`.
 - **Backend env mới**: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY` (nội dung `.p8` — tên đúng, verify ở `api/internal/push/apns.go` + `api/.env.example`; `CLAUDE.md` ghi `APNS_KEY_P8` là không khớp code), `FCM_SERVICE_ACCOUNT_JSON`. ✅ đã có trong `api/.env.example` + `api/README.md`; ⏳ giá trị thật chờ account.
 - **Rate limit**: in-memory cho dev. ~~`src/lib/rate-limit-upstash.ts`~~ → nay ở `api/internal/ratelimit/upstash.go`; bật bằng `RATE_LIMITER=redis` (hoặc `upstash`) + `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (fail-open, thiếu env thì warn + fallback memory). ✅ code xong; ⏳ key prod chờ signup.
@@ -207,7 +207,7 @@ warranty-vault/
 │                         #   không cron; chỉ còn src/app/api/files/[id]/route.ts để stream file)
 ├── api/                  # Go backend — canonical API server (port 4000) + cmd/cron
 │   └── migrations/       # goose .sql — thay cho website/prisma/
-├── ios/                  # Native iOS — WarrantyVaultKit (SPM) + App/SwiftUI
+├── ios/                  # Native iOS — WarrlyKit (SPM) + App/SwiftUI
 ├── android/              # Native Android — Kotlin + Compose
 ├── mobile/               # Docs cross-platform (FIREBASE_SETUP.md)
 ├── openapi.yaml          # Source of truth — Go + web client + 2 app bind vào đây (34 path)

@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // LoginView — authentication entry point.

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# WarrantyVault — one-shot cron service (template)
+# Warrly — one-shot cron service (template)
 #
 # Service này được kích hoạt bởi `warranty-vault-cron.timer` (daily 09:00
 # Hanoi). Nó chạy binary `/app/cron` trong image `warranty-vault-api:local`
@@ -24,7 +24,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [Unit]
-Description=WarrantyVault daily cron job (warranty + wishlist + subscription notifications)
+Description=Warrly daily cron job (warranty + wishlist + subscription notifications)
 Documentation=https://github.com/thanhtrung9368/warranty-vault
 After=docker.service network-online.target
 Requires=docker.service

@@ -1,4 +1,4 @@
-# WarrantyVault iOS
+# Warrly iOS
 
 Native iOS app — SwiftUI + async/await, talks to the Go backend (`../api`) via REST.
 
@@ -8,7 +8,7 @@ Xem [docs/I18N_PLAN.md](../docs/I18N_PLAN.md) §3 pha 3. Tóm tắt:
 
 - **Tiếng Việt là bản gốc.** Chuỗi tiếng Việt đang có là **khoá** của catalog; bản tiếng Anh
   là bản dịch thêm. Cách này giống hệt `api/internal/i18n/catalog.go`.
-- Catalog là một **String Catalog** thật — `Sources/WarrantyVaultKit/Resources/Localizable.xcstrings`
+- Catalog là một **String Catalog** thật — `Sources/WarrlyKit/Resources/Localizable.xcstrings`
   — mở/sửa được bằng String Catalog editor của Xcode. Nó được khai báo `.copy` trong
   `Package.swift`: thiếu khai báo đó thì file **không** vào `Bundle.module` và mọi chuỗi
   lặng lẽ rơi về tiếng Việt, không có lỗi nào.
@@ -27,15 +27,15 @@ Xem [docs/I18N_PLAN.md](../docs/I18N_PLAN.md) §3 pha 3. Tóm tắt:
 
 ```
 ios/
-├── Package.swift                  # SwiftPM library "WarrantyVaultKit"
-├── Sources/WarrantyVaultKit/      # API client, models, auth — không phụ thuộc UIKit/SwiftUI
+├── Package.swift                  # SwiftPM library "WarrlyKit"
+├── Sources/WarrlyKit/      # API client, models, auth — không phụ thuộc UIKit/SwiftUI
 │   ├── APIClient.swift            # URLSession + Bearer token, JSON encode/decode
 │   ├── Endpoints.swift            # 1 method/route, mirror openapi.yaml
 │   ├── Models.swift               # Codable types
 │   ├── Errors.swift               # APIError với fieldErrors
 │   └── KeychainStore.swift        # token persistence
 └── App/                           # SwiftUI app sources
-    ├── WarrantyVaultApp.swift     # @main entry
+    ├── WarrlyApp.swift     # @main entry
     ├── RootView.swift             # Login / TabBar switch
     ├── DesignSystem/
     │   ├── Theme.swift            # Colors mirror src/app/globals.css
@@ -60,24 +60,24 @@ swift build
 
 ## Mở trong Xcode
 
-`WarrantyVault.xcodeproj` được **sinh ra** từ `project.yml` bằng [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+`Warrly.xcodeproj` được **sinh ra** từ `project.yml` bằng [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 — đừng sửa tay file project, sửa `project.yml` rồi sinh lại:
 
 ```
 cd ios
 xcodegen generate
-open WarrantyVault.xcodeproj
+open Warrly.xcodeproj
 ```
 
 **Thêm file mới dưới `App/` thì BẮT BUỘC chạy `xcodegen generate`** — project liệt kê source
-theo đường dẫn, file mới không tự xuất hiện. File mới trong `Sources/WarrantyVaultKit/` thì
+theo đường dẫn, file mới không tự xuất hiện. File mới trong `Sources/WarrlyKit/` thì
 không cần: SwiftPM tự thấy.
 
 Build kiểm tra không cần Xcode GUI:
 
 ```
 cd ios
-xcodebuild build -project WarrantyVault.xcodeproj -scheme WarrantyVault \
+xcodebuild build -project Warrly.xcodeproj -scheme Warrly \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath /tmp/wv-ios-dd CODE_SIGNING_ALLOWED=NO
 rm -rf /tmp/wv-ios-dd
@@ -96,7 +96,7 @@ npm run dev   # cùng repo, ở root
 Trong Xcode bấm Run (⌘R). Simulator load `http://localhost:3000` qua loopback chung với máy host.
 
 **Test trên iPhone thật cùng Wi-Fi**:
-1. Sửa `AppConfig.baseURL` trong `App/WarrantyVaultApp.swift` thành IP LAN, ví dụ `http://192.168.1.17:3000`
+1. Sửa `AppConfig.baseURL` trong `App/WarrlyApp.swift` thành IP LAN, ví dụ `http://192.168.1.17:3000`
 2. Trên Mac chạy: `npm run dev -- -H 0.0.0.0` để Next bind ra ngoài loopback
 3. Plug iPhone, chọn target device, Run
 

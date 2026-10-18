@@ -127,7 +127,7 @@ export function Sidebar({
           <Vault className="h-4 w-4" />
         </span>
         <span className="wv-sidebar-brand-text font-display text-[17px] font-extrabold tracking-tight text-ink">
-          WarrantyVault
+          Warrly
         </span>
       </Link>
 

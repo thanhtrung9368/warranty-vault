@@ -1,6 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // SettingsView — App preferences, notifications, theme.
@@ -209,7 +209,7 @@ struct SettingsView: View {
             isPresented: $showExporter,
             document: exportDoc,
             contentType: .json,
-            defaultFilename: "warrantyvault-backup"
+            defaultFilename: "warrly-backup"
         ) { result in
             if case .failure = result { backupMessage = L.t("Không lưu được file backup.") }
         }

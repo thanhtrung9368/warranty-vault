@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // DeviceFormView — add / edit device (pushed as a screen)

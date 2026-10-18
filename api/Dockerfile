@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ─────────────────────────────────────────────────────────────────────────────
-# WarrantyVault Go API — multi-stage Docker build
+# Warrly Go API — multi-stage Docker build
 #
 # - Stage 1 (builder): golang:1.24-alpine builds three static binaries:
 #   server, cron, migrate. CGO disabled so the binaries run on

@@ -65,7 +65,7 @@
 - ✅ **4 mục mới của `FEATURE_IDEAS.md`, có migration riêng:** `0010_return_window` (hạn đổi trả "1 đổi 1" — #1),
   `0011_decision_snooze` (hàng đợi "Việc cần xử lý" — #3), `0012_brand_service_info` (danh bạ bảo hành theo hãng — #15),
   `0013_device_share` (link chia sẻ chỉ-đọc — #2). Ba mục đầu đã có UI ở cả web/iOS/Android; **link chia sẻ thì iOS
-  mới có model + endpoint (`Sources/WarrantyVaultKit/ShareLinks.swift`), chưa có view**.
+  mới có model + endpoint (`Sources/WarrlyKit/ShareLinks.swift`), chưa có view**.
 - ✅ **Trần thiết bị đổi luật (#14):** 50 **thiết bị chưa bán** (`status <> 'SOLD'`) + trần lưu trữ **500 dòng**
   kể cả máy đã bán, áp trên **ba** write path (tạo, import backup, wishlist → `PURCHASED` — đường thứ ba trước
   đây **lách** được giới hạn). Lỗi `LIMIT_REACHED` nay trả **409** đúng như openapi vẫn hằng ghi (trước là 400).
@@ -155,7 +155,7 @@ Backend đã có đủ endpoint; đây thuần là UI mobile còn thiếu so v�
       (`--disable-sandbox` chỉ cần khi chạy local trên máy này vì `xcode-select` còn trỏ vào CommandLineTools,
       xem `docs/HUMAN_TASKS.md` 0.2.)
 - [x] `api/scripts/check_openapi_drift.sh` chạy trong `api.yml` — nay **67 endpoint / 48 path** (con số này đang tăng — tin output script, đừng tin tài liệu).
-- [ ] (còn, optional) `ios.yml` mới build **thư viện** `WarrantyVaultKit`, chưa build app Xcode
+- [ ] (còn, optional) `ios.yml` mới build **thư viện** `WarrlyKit`, chưa build app Xcode
       (project do người dùng tạo — xem `ios/README.md`). Chưa có workflow deploy push image khi tag.
 
 ---
@@ -218,7 +218,7 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 | Việc | Chờ gì | Trạng thái |
 |---|---|---|
 | ~~Apple Developer + APNs .p8~~ | ~~$99/năm~~ | ✅ **ĐÃ CÓ TÀI KHOẢN** (2026-10-04) — còn thiếu mỗi việc tạo key `.p8` trong portal |
-| ~~Firebase project + `google-services.json`~~ | ~~Google account~~ | ✅ **XONG** — project `daring-tracer-277502`, package `app.warrantyvault`, file **thật** (không còn stub) |
+| ~~Firebase project + `google-services.json`~~ | ~~Google account~~ | ✅ **XONG** — project `daring-tracer-277502`, package `app.warrly`, file **thật** (không còn stub) |
 | VPS + domain + Caddy TLS | Card + DNS | **VPS: ĐÃ CÓ.** Còn **domain** — và nó chặn **cứng** cả HTTPS lẫn Resend (Let's Encrypt không cấp cert cho IP trần) |
 | TestFlight / Play Console internal | Apple/Google account | Apple ✅ có · Play: **app chưa tạo trong console** |
 | Upstash (rate-limit) / Resend (email) prod keys | Signup free tier | **Resend chặn bởi domain**; Upstash chủ repo tạm hoãn |
@@ -233,7 +233,7 @@ Chi tiết + bằng chứng nằm ở `docs/FEATURE_ROADMAP.md` §0.
 3. ~~**Block 1.3–1.5** — reminder/payment/label parity~~ ✅ XONG (2026-06-05), nâng cấp tiếp 2026-10-03.
 4. ~~**Block 2** — đồng bộ docs~~ ✅ XONG (2026-06-05) + 2026-10-03.
 5. ~~**Block 3** — CI test~~ ✅ XONG (2026-06-05) + 2026-10-03.
-6. ~~**Block 4** — `google-services.json` thật~~ ✅ XONG (2026-10-04): Firebase project `daring-tracer-277502`, package `app.warrantyvault`, plugin đã sinh resource thật; service account đã vào `.env` gốc. Xem `docs/HUMAN_TASKS.md` 1.1.
+6. ~~**Block 4** — `google-services.json` thật~~ ✅ XONG (2026-10-04): Firebase project `daring-tracer-277502`, package `app.warrly`, plugin đã sinh resource thật; service account đã vào `.env` gốc. Xem `docs/HUMAN_TASKS.md` 1.1.
 7. **Block 5** — chọn trong bảng: việc code được thì làm ngay, việc cần duyệt thì hỏi trước.
 
 > **Đường ngắn nhất tới "chạy thật":** mua **domain** (`docs/HUMAN_TASKS.md` 2.1) — **VPS đã có rồi** —

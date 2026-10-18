@@ -1,6 +1,6 @@
 {
-  "name": "Warranty Vault — Quản lý bảo hành & gói đăng ký",
-  "short_name": "Warranty Vault",
+  "name": "Warrly — Quản lý bảo hành & gói đăng ký",
+  "short_name": "Warrly",
   "description": "Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn, tiếng Việt 100%.",
   "start_url": "/dashboard",
   "scope": "/",

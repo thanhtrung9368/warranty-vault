@@ -38,13 +38,13 @@ const fraunces = Fraunces({
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return {
-    title: t('Warranty Vault — Quản lý bảo hành & gói đăng ký'),
+    title: t('Warrly — Quản lý bảo hành & gói đăng ký'),
     description: t('Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn gàng, song ngữ Việt–Anh.'),
     manifest: '/manifest.webmanifest',
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
-      title: 'Warranty Vault',
+      title: 'Warrly',
     },
     icons: {
       icon: [

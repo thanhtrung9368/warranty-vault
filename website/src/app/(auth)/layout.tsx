@@ -29,7 +29,7 @@ export default async function AuthLayout({
             <Vault className="h-[18px] w-[18px]" />
           </span>
           <span className="font-display text-base font-extrabold tracking-tight text-ink">
-            WarrantyVault
+            Warrly
           </span>
         </Link>
         <div className="flex items-center gap-2">

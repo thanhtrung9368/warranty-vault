@@ -120,8 +120,8 @@ def wrap_file(path, apply):
         out.append(line)
 
     text = "\n".join(out)
-    if wrapped and "import WarrantyVaultKit" not in text and "/Sources/WarrantyVaultKit/" not in path:
-        text = text.replace("import SwiftUI\n", "import SwiftUI\nimport WarrantyVaultKit\n", 1)
+    if wrapped and "import WarrlyKit" not in text and "/Sources/WarrlyKit/" not in path:
+        text = text.replace("import SwiftUI\n", "import SwiftUI\nimport WarrlyKit\n", 1)
     if apply and text != src:
         open(path, "w", encoding="utf-8").write(text)
 

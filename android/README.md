@@ -1,4 +1,4 @@
-# WarrantyVault Android
+# Warrly Android
 
 Native Android app — Kotlin + Jetpack Compose + Material 3, talks to the Go backend (`../api`) via REST.
 
@@ -21,7 +21,7 @@ android/
         │   ├── values/{strings.xml, themes.xml}
         │   ├── mipmap-anydpi-v26/{ic_launcher,ic_launcher_round}.xml
         │   └── drawable/ic_launcher_{foreground,background}.xml
-        └── java/com/warrantyvault/app/
+        └── java/com/warrly/app/
             ├── App.kt              # Application — singletons (TokenStore, Api, AuthStore)
             ├── MainActivity.kt     # @main entry, sets Compose
             ├── BuildConfig         # exposes BASE_URL (set in app/build.gradle.kts)
@@ -111,7 +111,7 @@ cd android
 
 Code đã sẵn sàng nhưng chưa hoạt động khi chưa có Firebase config:
 
-1. Tạo Firebase project, add Android app `app.warrantyvault`, tải `google-services.json` về.
+1. Tạo Firebase project, add Android app `app.warrly`, tải `google-services.json` về.
 2. Đặt file vào `android/app/google-services.json` (đã thêm vào `.gitignore` của bạn — đừng commit).
 3. Sync Gradle. Plugin `com.google.gms.google-services` sẽ tự apply (xem điều kiện `if (hasGoogleServices)` trong `app/build.gradle.kts`).
 4. Set `FCM_SERVICE_ACCOUNT_JSON` env trên backend (xem `website/src/lib/push-fanout.ts`) để cron có thể gửi push qua FCM v1 API.

@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WarrantyVault"
+rootProject.name = "Warrly"
 include(":app")

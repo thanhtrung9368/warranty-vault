@@ -1,0 +1,534 @@
+package app.warrly.ui.screens.devices
+
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import app.warrly.App
+import app.warrly.BuildConfig
+import app.warrly.R
+import app.warrly.network.ApiClient
+import app.warrly.network.ApiService
+import app.warrly.network.Attachment
+import app.warrly.network.AttachmentDescriptionInput
+import app.warrly.network.fieldErrors
+import app.warrly.network.toUserMessage
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+
+@Composable
+fun AttachmentsSection(api: ApiService, deviceId: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var items by remember { mutableStateOf<List<Attachment>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var uploading by remember { mutableStateOf(false) }
+    // Which attachment's description is being edited (PATCH
+    // /api/v1/attachments/{id} — description is the only mutable field).
+    var editing by remember { mutableStateOf<Attachment?>(null) }
+
+    suspend fun reload() {
+        loading = true
+        try {
+            items = api.listAttachments(deviceId).attachments
+            error = null
+        } catch (e: Exception) {
+            error = e.toUserMessage(ApiClient.json)
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(deviceId) { reload() }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                uploading = true
+                try {
+                    uploadFromUri(context, api, deviceId, uri)
+                    reload()
+                } catch (e: Exception) {
+                    error = e.toUserMessage(ApiClient.json)
+                } finally {
+                    uploading = false
+                }
+            }
+        }
+    }
+
+    val pdfPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                uploading = true
+                try {
+                    uploadFromUri(context, api, deviceId, uri)
+                    reload()
+                } catch (e: Exception) {
+                    error = e.toUserMessage(ApiClient.json)
+                } finally {
+                    uploading = false
+                }
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Description, null,
+                tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.att_documents_attached_photos),
+                fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text("${items.size}/5",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly,
+                        ),
+                    )
+                },
+                enabled = !uploading,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(Icons.Filled.Image, null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.att_add_photo))
+            }
+            OutlinedButton(
+                onClick = { pdfPicker.launch(arrayOf("application/pdf")) },
+                enabled = !uploading,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(Icons.Filled.PictureAsPdf, null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.att_add_pdf))
+            }
+        }
+
+        if (uploading) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.att_uploading), fontSize = 13.sp)
+            }
+        }
+
+        error?.let {
+            Text(
+                it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp,
+            )
+        }
+
+        when {
+            loading && items.isEmpty() -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.state_loading), fontSize = 13.sp)
+                }
+            }
+            items.isEmpty() -> {
+                Text(
+                    stringResource(R.string.att_no_attachments_yet),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            else -> {
+                items.forEach { att ->
+                    AttachmentRow(
+                        att,
+                        onOpen = {
+                            scope.launch {
+                                try {
+                                    openAttachment(context, att)
+                                } catch (e: Exception) {
+                                    error = e.toUserMessage(ApiClient.json)
+                                }
+                            }
+                        },
+                        onEditDescription = { editing = att },
+                        onDelete = {
+                            scope.launch {
+                                try {
+                                    api.deleteAttachment(att.id)
+                                    reload()
+                                } catch (e: Exception) {
+                                    error = e.toUserMessage(ApiClient.json)
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    // Description editing. Reached from the pencil on a row; ownership of the
+    // id is the server's call (someone else's id is a 404, never a 403).
+    editing?.let { att ->
+        AttachmentDescriptionSheet(
+            api = api,
+            attachment = att,
+            onDismiss = { editing = null },
+            onSaved = {
+                editing = null
+                scope.launch { reload() }
+            },
+        )
+    }
+}
+
+/**
+ * `PATCH /api/v1/attachments/{id}` in the house sheet style
+ * (see `WarrantyEditSheet`). The field starts from the current description and
+ * a blank value clears it — the server trims and maps blank → NULL.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttachmentDescriptionSheet(
+    api: ApiService,
+    attachment: Attachment,
+    onDismiss: () -> Unit,
+    onSaved: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+
+    var description by remember { mutableStateOf(attachment.description.orEmpty()) }
+    var submitting by remember { mutableStateOf(false) }
+    var generalError by remember { mutableStateOf<String?>(null) }
+    var fieldErrors by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
+
+    val descriptionError = fieldErrors["description"]?.firstOrNull()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                stringResource(R.string.att_edit_description),
+                fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                attachment.fileName,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = {
+                    description = it
+                    fieldErrors = fieldErrors - "description"
+                },
+                label = { Text(stringResource(R.string.att_description)) },
+                enabled = !submitting,
+                isError = descriptionError != null,
+                supportingText = {
+                    Text(
+                        descriptionError ?: stringResource(R.string.att_leave_it_empty_to_clear_the),
+                        color = if (descriptionError != null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            generalError?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.WarningAmber, null,
+                        tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(6.dp))
+                    Text(it,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 13.sp)
+                }
+            }
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        submitting = true
+                        generalError = null
+                        fieldErrors = emptyMap()
+                        try {
+                            // "" clears: the key is required by the server and a
+                            // null would be dropped by `explicitNulls = false`.
+                            api.updateAttachment(
+                                attachment.id,
+                                AttachmentDescriptionInput(description),
+                            )
+                            onSaved()
+                        } catch (e: Exception) {
+                            val fe = e.fieldErrors(ApiClient.json)
+                            if (fe.isNotEmpty()) {
+                                fieldErrors = fe
+                            } else {
+                                generalError = e.toUserMessage(ApiClient.json)
+                            }
+                        } finally {
+                            submitting = false
+                        }
+                    }
+                },
+                enabled = !submitting,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                if (submitting) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.height(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Text(stringResource(R.string.action_save), fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun AttachmentRow(
+    att: Attachment,
+    onOpen: () -> Unit,
+    onEditDescription: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val isImage = att.fileType.startsWith("image/")
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.surface),
+        border = BorderStroke(1.dp, cs.outline),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(cs.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (isImage) Icons.Filled.Image else Icons.Filled.PictureAsPdf,
+                    null, tint = cs.primary,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    att.fileName, fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold, color = cs.onSurface,
+                )
+                Text(
+                    formatBytes(att.fileSize),
+                    fontSize = 12.sp, color = cs.onSurfaceVariant,
+                )
+                if (!att.description.isNullOrBlank()) {
+                    Text(
+                        att.description,
+                        fontSize = 12.sp,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onEditDescription) {
+                Icon(Icons.Filled.Edit, stringResource(R.string.att_edit_description), tint = cs.primary)
+            }
+            IconButton(onClick = onOpen) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, stringResource(R.string.att_open), tint = cs.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, stringResource(R.string.action_delete), tint = cs.error)
+            }
+        }
+    }
+}
+
+private fun formatBytes(b: Long): String {
+    if (b < 1024) return "$b B"
+    if (b < 1024 * 1024) return "${b / 1024} KB"
+    return String.format(java.util.Locale.US, "%.1f MB", b / (1024.0 * 1024.0))
+}
+
+// Reads the picked URI in chunks and uploads as multipart/form-data. We pull
+// the bytes through OkHttp's RequestBody so the whole file isn't held in
+// memory, but for an MVP simple readBytes is fine — backend caps at 5 MB.
+private suspend fun uploadFromUri(
+    context: Context,
+    api: ApiService,
+    deviceId: String,
+    uri: Uri,
+) {
+    val resolver = context.contentResolver
+    val mime = resolver.getType(uri) ?: "application/octet-stream"
+    val name = queryDisplayName(context, uri) ?: "file"
+    val bytes = withContext(Dispatchers.IO) {
+        resolver.openInputStream(uri)?.use { it.readBytes() }
+    } ?: throw IllegalStateException(context.getString(R.string.att_could_not_read_file))
+
+    val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
+    val part = MultipartBody.Part.createFormData("file", name, body)
+    api.uploadAttachment(deviceId, part, null)
+}
+
+private fun queryDisplayName(context: Context, uri: Uri): String? {
+    return runCatching {
+        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+            val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (idx >= 0 && c.moveToFirst()) c.getString(idx) else null
+        }
+    }.getOrNull()
+}
+
+// Downloads encrypted attachment via authenticated GET, writes to cache, then
+// hands off to a viewer via FileProvider — required because /api/files/:id
+// needs a Bearer token and the system Intent.ACTION_VIEW can't carry headers.
+private suspend fun openAttachment(context: Context, att: Attachment) {
+    val token = App.instance.tokenStore.read()
+        ?: throw IllegalStateException(context.getString(R.string.att_not_signed_in))
+    val url = "${BuildConfig.BASE_URL.trimEnd('/')}/api/files/${att.id}"
+
+    val cacheDir = File(context.cacheDir, "attachments").apply { mkdirs() }
+    val outFile = File(cacheDir, sanitize(att.fileName))
+
+    withContext(Dispatchers.IO) {
+        val client = ApiClient.fileClient
+        val req = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException(context.getString(R.string.att_download_failed, resp.code))
+            }
+            resp.body?.byteStream()?.use { input ->
+                outFile.outputStream().use { out -> input.copyTo(out) }
+            } ?: throw IllegalStateException(context.getString(R.string.att_no_data))
+        }
+    }
+
+    val authority = "${context.packageName}.fileprovider"
+    val contentUri: Uri = FileProvider.getUriForFile(context, authority, outFile)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(contentUri, att.fileType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Log.w("Attachments", "no viewer", e)
+        Toast.makeText(
+            context,
+            context.getString(R.string.att_no_app_for_file_type, att.fileType),
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+}
+
+private fun sanitize(name: String): String =
+    name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120)

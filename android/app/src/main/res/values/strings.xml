@@ -29,7 +29,7 @@
 -->
 <resources>
 
-    <string name="app_name">Warranty Vault</string>
+    <string name="app_name">Warrly</string>
 
     <!-- ===== Bottom navigation (MainScreen.kt). Short on purpose: seven
          destinations share one phone-width bar. "Gói" is rendered "Plans"

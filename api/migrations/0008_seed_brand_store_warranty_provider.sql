@@ -1,4 +1,4 @@
--- WarrantyVault — seed the Brand, Store and WarrantyProvider catalogs.
+-- Warrly — seed the Brand, Store and WarrantyProvider catalogs.
 --
 -- Why this migration exists (re-audit of the note in 0004)
 -- -------------------------------------------------------

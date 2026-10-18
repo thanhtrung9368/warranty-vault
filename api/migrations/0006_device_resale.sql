@@ -1,4 +1,4 @@
--- WarrantyVault — device resale: nullable "soldAt" / "soldPrice" on "Device".
+-- Warrly — device resale: nullable "soldAt" / "soldPrice" on "Device".
 --
 -- Why: Device.status already carries a 'SOLD' value (see
 -- internal/services/devices.go::validStatuses and stats.go's status taxonomy),

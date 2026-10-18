@@ -113,7 +113,7 @@ export default async function SettingsPage() {
           <span className="icon-badge icon-badge-sm tint-zinc">
             <Info className="h-4 w-4" />
           </span>
-          {t('Về WarrantyVault')}
+          {t('Về Warrly')}
         </h2>
         <div className="space-y-2 text-sm text-muted-foreground">
           <p>

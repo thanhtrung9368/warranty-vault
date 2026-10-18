@@ -36,7 +36,7 @@ import {
 export type CsvExportResult =
   | {
       ok: true;
-      /** e.g. `warrantyvault-thiet-bi-20250115-1030.csv` */
+      /** e.g. `warrly-thiet-bi-20250115-1030.csv` */
       filename: string;
       /** Full file contents, BOM included. */
       content: string;

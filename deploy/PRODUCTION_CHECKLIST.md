@@ -1,11 +1,11 @@
-# Production checklist — WarrantyVault (pre-deploy)
+# Production checklist — Warrly (pre-deploy)
 
 Checklist tick-trước-khi-mở-cửa cho stack `postgres + api + web + cron` sau Caddy.
 Đọc kèm `deploy/README.md` (hướng dẫn cài đặt gốc) — file này chỉ chứa **việc phải
 làm + cách verify**, kèm những chỗ dễ sai đã đọc trực tiếp trong repo.
 
 > Quy ước: `/opt/warranty-vault` = repo root trên VPS, `<domain>` = domain thật
-> (vd `warrantyvault.vn`). Đổi placeholder trước khi copy lệnh.
+> (vd `warrly.com`). Đổi placeholder trước khi copy lệnh.
 > ⚠️ = hành vi đã kiểm tra trong code/compose, không phải suy đoán.
 
 ---
@@ -53,7 +53,7 @@ Tạo một file `/opt/warranty-vault/.env` duy nhất.
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_DB` | `warranty` / `warranty_vault` | `deploy/backup.sh` đọc đúng 2 biến này (cùng default) — đổi ở compose thì phải truyền cùng giá trị cho backup |
 | `VAPID_SUBJECT` | `mailto:admin@example.com` | Nên là `mailto:` thật |
-| `APNS_BUNDLE_ID` | `app.warrantyvault` | Khớp bundle id app iOS |
+| `APNS_BUNDLE_ID` | `app.warrly` | Khớp bundle id app iOS |
 | `RESEND_FROM` | rỗng | Bắt buộc nếu set `RESEND_API_KEY` |
 
 **Optional** (thiếu thì tính năng tương ứng tắt, server vẫn boot — xem §5):
@@ -152,7 +152,7 @@ Rollback schema (ghi nhớ cách chạy đúng):
 - [ ] HTTP redirect sang HTTPS: `curl -sI http://<domain>/login | head -1` → `308`
 - [ ] HSTS có mặt: `curl -sI https://<domain>/login | grep -i strict-transport-security`
 - [ ] Cả 3 hostname đều trả 200/404 (không có host nào lỗi cert `000`):
-      `D=warrantyvault.vn; for h in $D www.$D api.$D; do echo -n "$h "; curl -s -o /dev/null -w '%{http_code}\n' "https://$h/"; done`
+      `D=warrly.com; for h in $D www.$D api.$D; do echo -n "$h "; curl -s -o /dev/null -w '%{http_code}\n' "https://$h/"; done`
       (`api.<domain>/` trả 404 là bình thường — API chỉ phục vụ `/api/v1/*`, `/healthz`, `/readyz`)
 - [ ] Cron route bị chặn ở edge: `curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.<domain>/api/v1/cron/warranty-check` → `404`
 

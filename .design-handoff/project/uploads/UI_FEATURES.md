@@ -1,4 +1,4 @@
-# AssetVault (WarrantyVault) — Đặc tả chức năng UI để redesign
+# AssetVault (Warrly) — Đặc tả chức năng UI để redesign
 
 > **Mục đích:** đặc tả đầy đủ mọi trang, mọi component, mọi state của web app để hand-off cho AI design re-design lại toàn bộ giao diện.
 > **Đối tượng:** cá nhân (multi-user) Việt Nam, theo dõi **thiết bị + bảo hành + gói đăng ký + wishlist**.

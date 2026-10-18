@@ -4,8 +4,8 @@ import { getI18n } from '@/lib/i18n/server';
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return {
-    title: t('Chính sách Cookie — WarrantyVault'),
-    description: t('Chính sách sử dụng cookie của WarrantyVault'),
+    title: t('Chính sách Cookie — Warrly'),
+    description: t('Chính sách sử dụng cookie của Warrly'),
   };
 }
 
@@ -23,7 +23,7 @@ export default async function CookiesPage() {
       <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
         <p>
           {t(
-            'WarrantyVault dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.',
+            'Warrly dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.',
           )}
         </p>
 

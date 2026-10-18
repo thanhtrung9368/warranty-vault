@@ -1,7 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // DeviceAttachmentsSection — inline attachments inside device detail

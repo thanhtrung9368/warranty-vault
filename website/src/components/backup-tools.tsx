@@ -55,7 +55,7 @@ export function BackupTools() {
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: 'application/json',
       });
-      triggerDownload(blob, `warrantyvault-backup-${format(new Date(), 'yyyyMMdd-HHmm')}.json`);
+      triggerDownload(blob, `warrly-backup-${format(new Date(), 'yyyyMMdd-HHmm')}.json`);
       toast.success(t('Đã xuất {count} thiết bị', { count: data.devices.length }));
     } catch {
       toast.error(t('Không xuất được dữ liệu'));
@@ -78,7 +78,7 @@ export function BackupTools() {
       const blob = await res.blob();
       const filename =
         filenameFromDisposition(res.headers.get('Content-Disposition')) ??
-        `warrantyvault-backup-${format(new Date(), 'yyyyMMdd-HHmm')}.zip`;
+        `warrly-backup-${format(new Date(), 'yyyyMMdd-HHmm')}.zip`;
       triggerDownload(blob, filename);
       toast.success(t('Đã xuất file .zip kèm nội dung ảnh đã mã hoá'));
     } catch {

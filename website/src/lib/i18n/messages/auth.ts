@@ -56,8 +56,8 @@ export const auth = defineMessages({
   // The Vietnamese original lives in `lib/email-change.ts`'s `CONFIRM_EMAIL_COPY`;
   // this is the same sentence, registered here so this screen can render it in
   // the active language without a locale-aware getter for that constant.
-  'Link này xác nhận địa chỉ email mới cho tài khoản WarrantyVault của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.':
-    'This link confirms a new email address for your WarrantyVault account. You can open it on your phone — no need to sign in first.',
+  'Link này xác nhận địa chỉ email mới cho tài khoản Warrly của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.':
+    'This link confirms a new email address for your Warrly account. You can open it on your phone — no need to sign in first.',
   'Đăng nhập bằng email mới': 'Sign in with the new email',
 
   // ── Dev-only credentials hint (`components/dev-credentials-hint.tsx`) ────

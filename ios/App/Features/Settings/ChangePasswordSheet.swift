@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // ChangePasswordSheet — Đổi mật khẩu bottom sheet.

@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // SessionsView — "Thiết bị đăng nhập" (device sessions)

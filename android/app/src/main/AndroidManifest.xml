@@ -12,7 +12,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.WarrantyVault"
+        android:theme="@style/Theme.Warrly"
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
 
@@ -26,14 +26,14 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.WarrantyVault">
+            android:theme="@style/Theme.Warrly">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
             <!-- Share target (FEATURE_IDEAS #10): "Chia sẻ" on a product page
-                 in Shopee / Lazada / Chrome → WarrantyVault → the link lands in
+                 in Shopee / Lazada / Chrome → Warrly → the link lands in
                  the wishlist form prefilled. text/plain only: an image/file
                  share is the attachment flow, not this one. No ACTION_VIEW
                  http/https filter on purpose — that would offer this app as a

@@ -1,6 +1,6 @@
-# WarrantyVault API (Go)
+# Warrly API (Go)
 
-Standalone Go service that owns the WarrantyVault backend: REST API under `/api/v1/*` (file streaming at `/api/files/{id}`), push fanout, and the cron worker. Web (`website/`) and mobile (`ios/`, `android/`) are pure clients of this service. See `../BACKEND_GO_PLAN.md` for the full migration plan.
+Standalone Go service that owns the Warrly backend: REST API under `/api/v1/*` (file streaming at `/api/files/{id}`), push fanout, and the cron worker. Web (`website/`) and mobile (`ios/`, `android/`) are pure clients of this service. See `../BACKEND_GO_PLAN.md` for the full migration plan.
 
 Stack: Go 1.22+ (`net/http` ServeMux), `pgx/v5` + `sqlc`, `pressly/goose` migrations, `go-playground/validator/v10`, stdlib `log/slog`. No frameworks (no gin/fiber/echo/gorm/viper).
 

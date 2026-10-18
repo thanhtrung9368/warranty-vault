@@ -247,7 +247,7 @@ record_result() { # rc name seconds
 }
 
 echo "════════════════════════════════════════════════════════════════"
-echo " WarrantyVault API — e2e suite"
+echo " Warrly API — e2e suite"
 echo " Postgres admin : ${ADMIN_DB_URL}"
 echo " DB tạm         : ${SCRATCH_DB}"
 echo " Server         : http://127.0.0.1:${PORT}"

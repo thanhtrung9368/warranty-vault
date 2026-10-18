@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 @MainActor
 public final class CatalogStore: ObservableObject {

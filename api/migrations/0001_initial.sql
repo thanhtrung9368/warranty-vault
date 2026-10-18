@@ -1,4 +1,4 @@
--- WarrantyVault initial schema, hand-translated from website/prisma/schema.prisma.
+-- Warrly initial schema, hand-translated from website/prisma/schema.prisma.
 -- Source-of-truth ownership transfers to this file (and subsequent goose migrations)
 -- after BACKEND_GO_PLAN.md Phase F. Until then, keep this file in sync if Prisma schema changes.
 --

@@ -37,7 +37,7 @@ Questions answered:
 
 _[tool: update_todos]_
 
-Ok tao bắt đầu. Đây là project khá lớn (17 trang) nên tao sẽ build theo lớp: design system → app shell → pages. Tao chọn **WarrantyVault** làm tên, palette coral/cream playful kiểu Duolingo, két sắt iconography.
+Ok tao bắt đầu. Đây là project khá lớn (17 trang) nên tao sẽ build theo lớp: design system → app shell → pages. Tao chọn **Warrly** làm tên, palette coral/cream playful kiểu Duolingo, két sắt iconography.
 
 _[tool: copy_starter_component]_
 
@@ -243,11 +243,11 @@ All pages look solid. Let me finalize:
 
 _[tool: done]_
 
-Xong rồi nha. Tao build hết **17 trang** trong 1 file `WarrantyVault.html` clickable:
+Xong rồi nha. Tao build hết **17 trang** trong 1 file `Warrly.html` clickable:
 
 _[tool: fork_verifier_agent]_
 
-Đã xong toàn bộ **17 trang** trong file `WarrantyVault.html` — clickable prototype với navigate, form validate, dialog, filter table đầy đủ.
+Đã xong toàn bộ **17 trang** trong file `Warrly.html` — clickable prototype với navigate, form validate, dialog, filter table đầy đủ.
 
 **Cấu trúc:**
 - **Public**: Landing, Privacy/Terms/Cookies

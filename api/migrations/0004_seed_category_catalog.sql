@@ -1,4 +1,4 @@
--- WarrantyVault — seed the global category catalog.
+-- Warrly — seed the global category catalog.
 --
 -- Why this migration exists
 -- -------------------------

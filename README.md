@@ -1,4 +1,4 @@
-# WarrantyVault
+# Warrly
 
 Quản lý thiết bị, bảo hành, gói đăng ký phần mềm và wishlist. Vietnamese 100%, multi-user. Có web (Next.js), iOS (Swift), Android (Kotlin) — tất cả nói chuyện với một Go API duy nhất.
 
@@ -30,7 +30,7 @@ warranty-vault/
 
 - **Backend chính**: Go (chi router, pgx, goose migrations, web-push + APNs HTTP/2 + FCM HTTP v1).
 - **Web UI**: Next.js 16 App Router + React 19 + Server Actions (proxy sang Go).
-- **iOS**: Swift + SwiftUI. SPM library `WarrantyVaultKit` chia sẻ model + API client.
+- **iOS**: Swift + SwiftUI. SPM library `WarrlyKit` chia sẻ model + API client.
 - **Android**: Kotlin + Jetpack Compose + Retrofit.
 - **DB**: Postgres 17 (production hosted Neon/Supabase/Render/RDS đều OK).
 - **Auth**: iron-session cookie cho web; bearer token (table `Session`) cho mobile.
@@ -117,7 +117,7 @@ Chi tiết phase plan: [BACKEND_GO_PLAN.md](BACKEND_GO_PLAN.md). Công việc k�
 ```bash
 bash api/scripts/check_openapi_drift.sh    # Go routes ↔ openapi.yaml → "in sync (67 endpoints)"; 48 path
 cd website && npm test                      # 430 test / 21 file (vitest)
-cd ios && swift test                        # 324 test (WarrantyVaultKit; đang tăng nhanh)
+cd ios && swift test                        # 324 test (WarrlyKit; đang tăng nhanh)
 cd android && ./gradlew :app:testDebugUnitTest --no-daemon   # 419 test / 41 class
 ```
 

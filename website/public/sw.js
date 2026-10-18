@@ -1,4 +1,4 @@
-/* WarrantyVault service worker — push receive + install */
+/* Warrly service worker — push receive + install */
 
 const CACHE = 'wv-v1';
 const OFFLINE_SHELL = ['/offline'];
@@ -37,7 +37,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'WarrantyVault', body: 'Có cập nhật bảo hành' };
+  let payload = { title: 'Warrly', body: 'Có cập nhật bảo hành' };
   try {
     if (event.data) payload = { ...payload, ...event.data.json() };
   } catch {
@@ -65,7 +65,7 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of clientList) {
         if (client.url.endsWith(url) && 'focus' in client) return client.focus();
       }
-      // Else, navigate any open WarrantyVault tab to the target URL — avoids
+      // Else, navigate any open Warrly tab to the target URL — avoids
       // opening a fresh tab when the user already has the app open.
       for (const client of clientList) {
         if ('navigate' in client && 'focus' in client) {

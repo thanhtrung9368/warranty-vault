@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // DashboardView — "Tổng quan" tab

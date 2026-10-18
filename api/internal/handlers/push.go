@@ -147,7 +147,7 @@ func TestPush(deps Deps) http.HandlerFunc {
 		}
 
 		payload := push.Payload{
-			Title: "Warranty Vault",
+			Title: "Warrly",
 			Body:  i18n.Text(ctx, "Đây là thông báo thử nghiệm"),
 			URL:   "/settings",
 			Tag:   "wv-test-push",

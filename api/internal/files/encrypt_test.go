@@ -178,7 +178,7 @@ func TestInteropWithNodeEncryption(t *testing.T) {
 	master := bytes.Repeat([]byte{0x9C}, 32)
 	masterB64 := base64.StdEncoding.EncodeToString(master)
 
-	plaintext := []byte("interop-fixture: " + strings.Repeat("WarrantyVault ", 40))
+	plaintext := []byte("interop-fixture: " + strings.Repeat("Warrly ", 40))
 	plainB64 := base64.StdEncoding.EncodeToString(plaintext)
 
 	// Inline Node script — uses only built-in `node:crypto`, mirroring TS files.ts.

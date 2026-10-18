@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultFrom    = "Warranty Vault <onboarding@resend.dev>"
+	defaultFrom    = "Warrly <onboarding@resend.dev>"
 	resetTTLMin    = 30
 	resendEndpoint = "https://api.resend.com/emails"
 )
@@ -79,7 +79,7 @@ type sendRequest struct {
 
 // SendPasswordReset emails the password-reset link, in `lang`.
 func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, resetLink string) error {
-	subject := i18n.Translate(lang, "Đặt lại mật khẩu Warranty Vault")
+	subject := i18n.Translate(lang, "Đặt lại mật khẩu Warrly")
 	heading := i18n.Translate(lang, "Đặt lại mật khẩu")
 
 	// Plain-text body. It is the same four sentences as the HTML in the same
@@ -105,7 +105,7 @@ func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, reset
 		// markup is added here and escaped here, so the catalog keeps one plain
 		// "Chào %s," shared by both bodies.
 		i18n.Translate(lang, "Chào %s,", "<strong>"+html.EscapeString(to)+"</strong>"),
-		i18n.Translate(lang, "Có yêu cầu đặt lại mật khẩu cho tài khoản Warranty Vault này."),
+		i18n.Translate(lang, "Có yêu cầu đặt lại mật khẩu cho tài khoản Warrly này."),
 		html.EscapeString(resetLink),
 		heading,
 		i18n.Translate(lang, "Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.", resetTTLMin),
@@ -128,10 +128,10 @@ func (c *Client) SendPasswordReset(ctx context.Context, lang i18n.Tag, to, reset
 // stored preference on that row is the right one even though the mail is
 // addressed to an address that is not yet the account's.
 func (c *Client) SendEmailChange(ctx context.Context, lang i18n.Tag, to, oldEmail, confirmLink, token string) error {
-	subject := i18n.Translate(lang, "Xác nhận đổi email Warranty Vault")
+	subject := i18n.Translate(lang, "Xác nhận đổi email Warrly")
 	heading := i18n.Translate(lang, "Xác nhận đổi email")
 	greeting := i18n.Translate(lang, "Chào bạn,")
-	changeLine := i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.", oldEmail)
+	changeLine := i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.", oldEmail)
 	orEnter := i18n.Translate(lang, "Hoặc nhập mã xác nhận trong ứng dụng:")
 
 	text := greeting + "\n\n" +
@@ -155,7 +155,7 @@ func (c *Client) SendEmailChange(ctx context.Context, lang i18n.Tag, to, oldEmai
 </div>`,
 		heading,
 		greeting,
-		i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.",
+		i18n.Translate(lang, "Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.",
 			"<strong>"+html.EscapeString(oldEmail)+"</strong>"),
 		html.EscapeString(confirmLink),
 		heading,

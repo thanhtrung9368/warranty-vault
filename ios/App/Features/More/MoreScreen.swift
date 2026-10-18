@@ -1,6 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // MoreScreen — landing tab for Nhắc nhở, Thống kê, Cài đặt,
@@ -13,7 +13,7 @@ struct MoreScreen: View {
     @EnvironmentObject private var auth: AuthStore
     @StateObject private var remindersStore: RemindersStore
 
-    // CSV export of the user's devices — built in WarrantyVaultKit
+    // CSV export of the user's devices — built in WarrlyKit
     // (`DeviceCSVExport`) and written through the app's shared `.fileExporter`.
     @State private var exportDoc: ExportFileDocument?
     @State private var showExporter = false
@@ -66,7 +66,7 @@ struct MoreScreen: View {
                 }
 
                 Spacer().frame(height: 8)
-                Text("WarrantyVault iOS · v1.0.0")
+                Text("Warrly iOS · v1.0.0")
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
                     .padding(.vertical, 20)
@@ -86,7 +86,7 @@ struct MoreScreen: View {
             isPresented: $showExporter,
             document: exportDoc,
             contentType: .commaSeparatedText,
-            defaultFilename: "warrantyvault-thiet-bi"
+            defaultFilename: "warrly-thiet-bi"
         ) { result in
             if case .failure = result { fileMessage = L.t("Không lưu được file CSV.") }
         }
@@ -313,7 +313,7 @@ struct MoreScreen: View {
 
             WVDivider(inset: 60)
 
-            WVRow(icon: "heart", iconColor: WVColor.pink, title: L.t("Đánh giá WarrantyVault ⭐️"), chevron: true)
+            WVRow(icon: "heart", iconColor: WVColor.pink, title: L.t("Đánh giá Warrly ⭐️"), chevron: true)
         }
     }
 }

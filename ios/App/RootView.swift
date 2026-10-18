@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 /// Auth gate. Mirrors the prototype: an authenticated user lands on the
 /// 5-tab shell; otherwise the login flow.
@@ -91,7 +91,7 @@ struct AppLockScreen: View {
                     .foregroundStyle(WVColor.tint)
                     .padding(.bottom, 4)
 
-                Text(L.t("WarrantyVault đang khoá"))
+                Text(L.t("Warrly đang khoá"))
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(WVColor.label)
 

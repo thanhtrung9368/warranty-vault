@@ -71,7 +71,7 @@
     <string name="push_test_sent_delivered_failed">Test sent: %1$s delivered, %2$s failed</string>
     <string name="push_send_a_test_notification">Send a test notification</string>
     <string name="push_remove_this_registration">Remove this registration?</string>
-    <string name="push_this_device_will_no_longer_receive">This device will no longer receive notifications from WarrantyVault.</string>
+    <string name="push_this_device_will_no_longer_receive">This device will no longer receive notifications from Warrly.</string>
     <string name="push_device_removed">Device removed</string>
     <string name="push_registered">Registered %1$s</string>
     <string name="pwd_change_password">Change password</string>

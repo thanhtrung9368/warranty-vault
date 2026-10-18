@@ -1,8 +1,8 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
-// WarrantyVault iOS — shared UI components
+// Warrly iOS — shared UI components
 //
 // SwiftUI port of the Claude Design handoff prototype
 // (project/ios/js/ios-ui.jsx). Screens compose these; the visual

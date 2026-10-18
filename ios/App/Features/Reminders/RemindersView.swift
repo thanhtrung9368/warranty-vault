@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // RemindersView — warranty expiry reminders bucketed by urgency,

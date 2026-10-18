@@ -113,26 +113,26 @@ export const publicPages = defineMessages({
   // ── Landing page — final CTA + footer ───────────────────────────────────
   'Sẵn sàng quản lý thiết bị?': 'Ready to get your devices in order?',
   'Free mãi mãi. Không cần thẻ. Không quảng cáo.': 'Free forever. No card. No ads.',
-  '© {year} WarrantyVault. Made with ♥ in Vietnam.':
-    '© {year} WarrantyVault. Made with ♥ in Vietnam.',
+  '© {year} Warrly. Made with ♥ in Vietnam.':
+    '© {year} Warrly. Made with ♥ in Vietnam.',
 
   // ── 404 (`app/not-found.tsx`) ───────────────────────────────────────────
-  'Không tìm thấy — WarrantyVault': 'Not found — WarrantyVault',
+  'Không tìm thấy — Warrly': 'Not found — Warrly',
   'Mã 404': 'Error 404',
   'Két sắt trống rỗng!': 'The vault is empty!',
   'Trang mày tìm chưa từng tồn tại — hoặc đã bị di chuyển đi nơi khác.':
     'The page you are looking for never existed — or it moved somewhere else.',
   'Về trang chủ': 'Go to the homepage',
   'Quay lại Dashboard': 'Back to the dashboard',
-  'Mã lỗi 404 · WarrantyVault': 'Error code 404 · WarrantyVault',
+  'Mã lỗi 404 · Warrly': 'Error code 404 · Warrly',
   'Két sắt trống rỗng': 'The vault is empty',
 
   // ── Offline (`app/offline/page.tsx`) ────────────────────────────────────
-  'Ngoại tuyến — WarrantyVault': 'Offline — WarrantyVault',
+  'Ngoại tuyến — Warrly': 'Offline — Warrly',
   'Trạng thái · Ngoại tuyến': 'Status · Offline',
   'Mất kết nối rồi 📡': 'You are offline 📡',
-  'Mày đang ngoại tuyến. WarrantyVault chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.':
-    'You are offline. WarrantyVault does not cache your data for offline viewing yet — devices, warranties and stats all need a connection. Once you are back online everything works as usual.',
+  'Mày đang ngoại tuyến. Warrly chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.':
+    'You are offline. Warrly does not cache your data for offline viewing yet — devices, warranties and stats all need a connection. Once you are back online everything works as usual.',
   'Ngoại tuyến thì chỉ mở được đúng trang này thôi. Thông báo đẩy vẫn do trình duyệt nhận giúp khi thiết bị có mạng — không cần mở web.':
     'Offline, this is the only page that opens. Push notifications are still received by your browser whenever the device has a connection — you do not need to open the site.',
   'Bước 1': 'Step 1',
@@ -151,12 +151,12 @@ export const publicPages = defineMessages({
   'Có thắc mắc:': 'Questions:',
 
   // ── Privacy (`app/(public)/privacy/page.tsx`) ───────────────────────────
-  'Chính sách bảo mật — Warranty Vault': 'Privacy policy — Warranty Vault',
-  'Chính sách bảo mật và xử lý dữ liệu của Warranty Vault':
-    'Warranty Vault privacy and data-handling policy',
+  'Chính sách bảo mật — Warrly': 'Privacy policy — Warrly',
+  'Chính sách bảo mật và xử lý dữ liệu của Warrly':
+    'Warrly privacy and data-handling policy',
   'Chính sách bảo mật': 'Privacy policy',
-  'Warranty Vault là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:':
-    'Warranty Vault is a personal tool for tracking devices, warranties, subscriptions and your “want” list. This page describes what we collect, how we store it and who we share it with. The short version:',
+  'Warrly là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:':
+    'Warrly is a personal tool for tracking devices, warranties, subscriptions and your “want” list. This page describes what we collect, how we store it and who we share it with. The short version:',
   'dữ liệu của mày là của mày': 'your data is yours',
   'bọn tao không bán, không quảng cáo, không tracking.':
     'we do not sell it, advertise against it or track you.',
@@ -206,14 +206,14 @@ export const publicPages = defineMessages({
   '7. Liên hệ': '7. Contact',
 
   // ── Terms (`app/(public)/terms/page.tsx`) ───────────────────────────────
-  'Điều khoản sử dụng — Warranty Vault': 'Terms of service — Warranty Vault',
-  'Điều khoản sử dụng dịch vụ Warranty Vault': 'Warranty Vault terms of service',
+  'Điều khoản sử dụng — Warrly': 'Terms of service — Warrly',
+  'Điều khoản sử dụng dịch vụ Warrly': 'Warrly terms of service',
   'Điều khoản sử dụng': 'Terms of service',
-  'Dùng Warranty Vault tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn và dễ hiểu.':
-    'Using Warranty Vault means you agree to the terms below. We try to keep them short and easy to read.',
+  'Dùng Warrly tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn và dễ hiểu.':
+    'Using Warrly means you agree to the terms below. We try to keep them short and easy to read.',
   '1. Dịch vụ & mục đích cá nhân': '1. The service & personal use',
-  'Warranty Vault là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.':
-    'Warranty Vault is a personal tool for managing your own devices, warranties, subscriptions and wishlist. Do not use it to store other people\'s data without their permission.',
+  'Warrly là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.':
+    'Warrly is a personal tool for managing your own devices, warranties, subscriptions and wishlist. Do not use it to store other people\'s data without their permission.',
   '2. Tài khoản & bảo mật': '2. Accounts & security',
   'Mày chịu trách nhiệm giữ mật khẩu an toàn và mọi hoạt động dưới tài khoản của mình. Báo cho bọn tao ngay nếu nghi ngờ tài khoản bị truy cập trái phép.':
     'You are responsible for keeping your password safe and for everything done under your account. Tell us right away if you suspect unauthorised access.',
@@ -234,11 +234,11 @@ export const publicPages = defineMessages({
     'You can delete your account at any time in Settings — all of your data is permanently erased. We may suspend an account if we find it being abused.',
 
   // ── Cookies (`app/(public)/cookies/page.tsx`) ───────────────────────────
-  'Chính sách Cookie — WarrantyVault': 'Cookie policy — WarrantyVault',
-  'Chính sách sử dụng cookie của WarrantyVault': 'How WarrantyVault uses cookies',
+  'Chính sách Cookie — Warrly': 'Cookie policy — Warrly',
+  'Chính sách sử dụng cookie của Warrly': 'How Warrly uses cookies',
   'Chính sách Cookie': 'Cookie policy',
-  'WarrantyVault dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.':
-    'WarrantyVault uses the bare minimum of cookies — just enough to sign you in and keep your session. There are no advertising or tracking cookies.',
+  'Warrly dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.':
+    'Warrly uses the bare minimum of cookies — just enough to sign you in and keep your session. There are no advertising or tracking cookies.',
   '1. Cookie thiết yếu': '1. Essential cookies',
   'Bọn tao dùng đúng một cookie cho phiên đăng nhập:':
     'We use exactly one cookie for the sign-in session:',

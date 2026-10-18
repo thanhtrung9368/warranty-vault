@@ -454,7 +454,7 @@ var sharePageKeys = struct {
 	NotFoundNote string
 }{
 	CertTitle:       "Phiếu bàn giao bảo hành",
-	CertSubtitle:    "Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warranty Vault.",
+	CertSubtitle:    "Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warrly.",
 	RemainingTo:     "Bảo hành còn lại tới",
 	SerialLabel:     "Số máy (IMEI/serial)",
 	SerialFull:      "đầy đủ: %s",

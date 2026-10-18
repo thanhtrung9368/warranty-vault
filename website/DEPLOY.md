@@ -1,4 +1,4 @@
-# Deploy web UI (WarrantyVault)
+# Deploy web UI (Warrly)
 
 Web này là **frontend mỏng**: nó không có DB, không giữ state, không cron — mọi thứ nằm ở Go API ([`../api`](../api)). Vì vậy có 2 kiểu deploy:
 

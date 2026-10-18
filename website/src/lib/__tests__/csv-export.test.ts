@@ -357,10 +357,10 @@ describe('dataset registry + file name', () => {
 
   it('builds an ASCII, timestamped .csv name', () => {
     const now = new Date(2025, 0, 15, 10, 30);
-    expect(csvFileName('devices', now)).toBe('warrantyvault-thiet-bi-20250115-1030.csv');
+    expect(csvFileName('devices', now)).toBe('warrly-thiet-bi-20250115-1030.csv');
     expect(csvFileName('subscriptions', now)).toBe(
-      'warrantyvault-goi-dang-ky-20250115-1030.csv',
+      'warrly-goi-dang-ky-20250115-1030.csv',
     );
-    expect(csvFileName('wishlist', now)).toBe('warrantyvault-wishlist-20250115-1030.csv');
+    expect(csvFileName('wishlist', now)).toBe('warrly-wishlist-20250115-1030.csv');
   });
 });

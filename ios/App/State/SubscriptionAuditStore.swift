@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 /// `GET /api/v1/subscriptions/audit` — the advisory self-audit.
 ///

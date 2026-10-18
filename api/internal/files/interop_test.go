@@ -56,7 +56,7 @@ import (
 //   node -e '
 //     const { createCipheriv, randomBytes } = require("node:crypto");
 //     const master = Buffer.alloc(32, 0x5A);
-//     const plain = Buffer.from("WarrantyVault interop fixture v1 — Tiếng Việt: bảo hành 12 tháng. \n", "utf8");
+//     const plain = Buffer.from("Warrly interop fixture v1 — Tiếng Việt: bảo hành 12 tháng. \n", "utf8");
 //     function gcm(p, k){ const iv = randomBytes(12); const c = createCipheriv("aes-256-gcm", k, iv); const enc = Buffer.concat([c.update(p), c.final()]); return { iv, ct: Buffer.concat([enc, c.getAuthTag()]) }; }
 //     const dataKey = randomBytes(32);
 //     const blob = gcm(plain, dataKey);

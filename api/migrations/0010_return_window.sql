@@ -1,4 +1,4 @@
--- WarrantyVault — hạn đổi trả ("1 đổi 1") theo từng thiết bị (FEATURE_IDEAS #1).
+-- Warrly — hạn đổi trả ("1 đổi 1") theo từng thiết bị (FEATURE_IDEAS #1).
 --
 -- Why this exists
 --   Cron only knows two milestones and both are counted BACKWARDS from

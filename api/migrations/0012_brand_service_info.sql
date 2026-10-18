@@ -1,4 +1,4 @@
--- WarrantyVault — danh bạ bảo hành theo HÃNG: "giờ tôi mang máy đi đâu?"
+-- Warrly — danh bạ bảo hành theo HÃNG: "giờ tôi mang máy đi đâu?"
 -- (FEATURE_IDEAS #15).
 --
 -- The problem this table answers

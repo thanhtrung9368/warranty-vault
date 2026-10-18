@@ -53,7 +53,7 @@ export function ConfirmEmailChange({ token }: { token: string }) {
         <h1 className="display text-2xl">{t('Xác nhận đổi email')}</h1>
         <p className="mt-1.5 text-sm text-muted">
           {t(
-            'Link này xác nhận địa chỉ email mới cho tài khoản WarrantyVault của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.',
+            'Link này xác nhận địa chỉ email mới cho tài khoản Warrly của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.',
           )}
         </p>
       </div>

@@ -1,4 +1,4 @@
--- WarrantyVault — phiếu bàn giao bảo hành: link chia sẻ có token, chỉ-đọc
+-- Warrly — phiếu bàn giao bảo hành: link chia sẻ có token, chỉ-đọc
 -- (FEATURE_IDEAS #2).
 --
 -- This is the first row in the schema that grants READ access to a party who is

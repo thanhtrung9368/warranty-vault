@@ -70,7 +70,7 @@
     <string name="push_test_sent_delivered_failed">Đã gửi thử: %1$s thành công, %2$s lỗi</string>
     <string name="push_send_a_test_notification">Gửi thông báo thử</string>
     <string name="push_remove_this_registration">Xoá đăng ký?</string>
-    <string name="push_this_device_will_no_longer_receive">Thiết bị này sẽ không còn nhận thông báo từ WarrantyVault.</string>
+    <string name="push_this_device_will_no_longer_receive">Thiết bị này sẽ không còn nhận thông báo từ Warrly.</string>
     <string name="push_device_removed">Đã xoá thiết bị</string>
     <string name="push_registered">Đăng ký %1$s</string>
     <string name="pwd_change_password">Đổi mật khẩu</string>

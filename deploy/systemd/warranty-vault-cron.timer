@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# WarrantyVault — daily cron timer (template)
+# Warrly — daily cron timer (template)
 #
 # Trigger `warranty-vault-cron.service` mỗi ngày lúc 09:00 giờ Hà Nội.
 # Asia/Ho_Chi_Minh = UTC+7 (không có DST) → 09:00 Hanoi = 02:00 UTC.
@@ -17,7 +17,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [Unit]
-Description=Run WarrantyVault cron daily at 09:00 Asia/Ho_Chi_Minh (02:00 UTC)
+Description=Run Warrly cron daily at 09:00 Asia/Ho_Chi_Minh (02:00 UTC)
 Requires=warranty-vault-cron.service
 
 [Timer]

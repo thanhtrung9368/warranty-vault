@@ -1,7 +1,7 @@
 import SwiftUI
 
 // ============================================================
-// WarrantyVault iOS — shared formatting + category helpers
+// Warrly iOS — shared formatting + category helpers
 //
 // One home for currency / date formatting and the category →
 // icon/color mapping (ported from project/ios/js/data.js) so

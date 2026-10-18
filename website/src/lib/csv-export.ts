@@ -252,10 +252,10 @@ export function csvTableToString(
 }
 
 /**
- * Download file name, e.g. `warrantyvault-thiet-bi-20250115-1030.csv`.
+ * Download file name, e.g. `warrly-thiet-bi-20250115-1030.csv`.
  * Mirrors the JSON backup naming (`backup-tools.tsx`). `now` is injectable so
  * the name is deterministic under test.
  */
 export function csvFileName(dataset: CsvDataset, now: Date = new Date()): string {
-  return `warrantyvault-${CSV_DATASET_META[dataset].fileSlug}-${format(now, 'yyyyMMdd-HHmm')}.csv`;
+  return `warrly-${CSV_DATASET_META[dataset].fileSlug}-${format(now, 'yyyyMMdd-HHmm')}.csv`;
 }

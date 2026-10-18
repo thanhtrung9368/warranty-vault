@@ -4,8 +4,8 @@ import { getI18n } from '@/lib/i18n/server';
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return {
-    title: t('Điều khoản sử dụng — Warranty Vault'),
-    description: t('Điều khoản sử dụng dịch vụ Warranty Vault'),
+    title: t('Điều khoản sử dụng — Warrly'),
+    description: t('Điều khoản sử dụng dịch vụ Warrly'),
   };
 }
 
@@ -23,7 +23,7 @@ export default async function TermsPage() {
       <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
         <p>
           {t(
-            'Dùng Warranty Vault tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn và dễ hiểu.',
+            'Dùng Warrly tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn và dễ hiểu.',
           )}
         </p>
 
@@ -31,7 +31,7 @@ export default async function TermsPage() {
           <h3 className="display text-lg">{t('1. Dịch vụ & mục đích cá nhân')}</h3>
           <p className="mt-2">
             {t(
-              'Warranty Vault là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.',
+              'Warrly là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.',
             )}
           </p>
         </div>
@@ -85,8 +85,8 @@ export default async function TermsPage() {
           <h3 className="display text-lg">{t('7. Liên hệ')}</h3>
           <p className="mt-2">
             {t('Có thắc mắc:')}{' '}
-            <a href="mailto:hi@warrantyvault.app" className="font-semibold text-primary hover:underline">
-              hi@warrantyvault.app
+            <a href="mailto:hi@warrly.com" className="font-semibold text-primary hover:underline">
+              hi@warrly.com
             </a>
           </p>
         </div>

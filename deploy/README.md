@@ -1,11 +1,11 @@
-# Deploy — WarrantyVault lên VPS (template)
+# Deploy — Warrly lên VPS (template)
 
-Hướng dẫn deploy WarrantyVault lên 1 VPS Linux đơn lẻ (Hetzner CX22 /
+Hướng dẫn deploy Warrly lên 1 VPS Linux đơn lẻ (Hetzner CX22 /
 DigitalOcean $6 droplet / Vultr / etc). Stack: Postgres + Go API + Next.js
 web + cron one-shot, đứng sau Caddy reverse proxy.
 
 > File trong `deploy/` đều là **template**. Đường dẫn `/opt/warranty-vault/`
-> và domain `warrantyvault.tld` là placeholder — sửa cho khớp môi trường
+> và domain `warrly.tld` là placeholder — sửa cho khớp môi trường
 > thật trước khi chạy.
 
 ---
@@ -22,10 +22,10 @@ web + cron one-shot, đứng sau Caddy reverse proxy.
   ```
   apt install -y caddy
   ```
-- Một domain (vd `warrantyvault.tld`) với 3 A record trỏ về IP VPS:
-  - `warrantyvault.tld`
-  - `www.warrantyvault.tld`
-  - `api.warrantyvault.tld`
+- Một domain (vd `warrly.tld`) với 3 A record trỏ về IP VPS:
+  - `warrly.tld`
+  - `www.warrly.tld`
+  - `api.warrly.tld`
 - Port 80 + 443 mở trên firewall (cho Caddy / Let's Encrypt). Port 3000 +
   4000 KHÔNG cần expose ra ngoài — chỉ Caddy nói chuyện với chúng qua
   `localhost`.
@@ -62,7 +62,7 @@ POSTGRES_PASSWORD=<random-strong-password>
 POSTGRES_DB=warranty_vault
 
 # App
-APP_URL=https://warrantyvault.tld
+APP_URL=https://warrly.tld
 
 # Secrets — sinh bằng `openssl rand -base64 32`
 SESSION_SECRET=<>=32-char-random>
@@ -72,12 +72,12 @@ CRON_SECRET=<random-32-char>
 # Push (optional, có thì điền)
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:admin@warrantyvault.tld
+VAPID_SUBJECT=mailto:admin@warrly.tld
 
 # APNs / FCM khi có Apple Dev / Firebase
 APNS_KEY_ID=
 APNS_TEAM_ID=
-APNS_BUNDLE_ID=app.warrantyvault
+APNS_BUNDLE_ID=app.warrly
 APNS_PRIVATE_KEY=
 APNS_PRODUCTION=true
 FCM_SERVICE_ACCOUNT_JSON=
@@ -85,7 +85,7 @@ FCM_PROJECT_ID=
 
 # Email reset link (optional, không có thì reset chỉ in log)
 RESEND_API_KEY=
-RESEND_FROM=no-reply@warrantyvault.tld
+RESEND_FROM=no-reply@warrly.tld
 ```
 
 > `chmod 600 /opt/warranty-vault/.env` — file chứa secret, không cho group/other đọc.
@@ -121,8 +121,8 @@ cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak
 
 # Copy template + sửa domain.
 cp /opt/warranty-vault/deploy/caddy/Caddyfile /etc/caddy/Caddyfile
-sed -i 's/warrantyvault.tld/<your-domain>/g' /etc/caddy/Caddyfile
-sed -i 's/admin@warrantyvault.tld/<your-email>/g' /etc/caddy/Caddyfile
+sed -i 's/warrly.tld/<your-domain>/g' /etc/caddy/Caddyfile
+sed -i 's/admin@warrly.tld/<your-email>/g' /etc/caddy/Caddyfile
 
 # Validate + reload.
 caddy validate --config /etc/caddy/Caddyfile
@@ -136,8 +136,8 @@ journalctl -u caddy -f
 
 Verify:
 ```bash
-curl -sIf https://warrantyvault.tld/login
-curl -sIf https://api.warrantyvault.tld/healthz
+curl -sIf https://warrly.tld/login
+curl -sIf https://api.warrly.tld/healthz
 ```
 
 ---
@@ -313,7 +313,7 @@ Lưu script sau thành `/usr/local/bin/wv-healthcheck.sh` (`chmod +x`), rồi th
 
 ```bash
 #!/bin/sh
-# WarrantyVault — API/web sống? disk còn chỗ? backup có tươi?
+# Warrly — API/web sống? disk còn chỗ? backup có tươi?
 # PING_URL (tuỳ chọn) = dead-man's switch kiểu healthchecks.io:
 # không ping được trong N giờ → dịch vụ đó tự alert.
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/warranty-vault}"

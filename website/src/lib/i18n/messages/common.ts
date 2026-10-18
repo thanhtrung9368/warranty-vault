@@ -154,8 +154,8 @@ export const common = defineMessages({
   // sentence, and shipping it untranslated would have advertised a Vietnamese
   // -only app to English readers. Every other Vietnamese string here is the
   // untouched original.
-  'Warranty Vault — Quản lý bảo hành & gói đăng ký':
-    'Warranty Vault — Warranty and subscription tracker',
+  'Warrly — Quản lý bảo hành & gói đăng ký':
+    'Warrly — Warranty and subscription tracker',
   'Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn gàng, song ngữ Việt–Anh.':
     'Track your devices, warranties, subscriptions and wishlist — simple, tidy, in Vietnamese and English.',
 

@@ -19,7 +19,7 @@ export default async function PublicLayout({
               <Vault className="h-[18px] w-[18px]" />
             </span>
             <span className="font-display text-base font-extrabold tracking-tight text-ink">
-              WarrantyVault
+              Warrly
             </span>
           </Link>
           {/* These pages have no session, so the switcher here is the only way a

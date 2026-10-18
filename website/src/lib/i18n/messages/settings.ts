@@ -27,7 +27,7 @@ export const settings = defineMessages({
   'Sao lưu & khôi phục': 'Backup & restore',
   'Xuất bảng tính (CSV)': 'Export a spreadsheet (CSV)',
   'Xoá tài khoản': 'Delete account',
-  'Về WarrantyVault': 'About WarrantyVault',
+  'Về Warrly': 'About Warrly',
   'App cá nhân theo dõi thiết bị, bảo hành và chi phí. Mỗi tài khoản dữ liệu riêng, không chia sẻ. Backup JSON xuất/nhập bất cứ lúc nào.':
     'A personal app for tracking devices, warranties and costs. Every account keeps its own data and nothing is shared. Export and import a JSON backup whenever you like.',
 

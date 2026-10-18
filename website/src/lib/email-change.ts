@@ -88,7 +88,7 @@ export const EMAIL_CHANGE_SUCCESS_HINT =
 export const CONFIRM_EMAIL_COPY = {
   title: 'Xác nhận đổi email',
   intro:
-    'Link này xác nhận địa chỉ email mới cho tài khoản WarrantyVault của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.',
+    'Link này xác nhận địa chỉ email mới cho tài khoản Warrly của bạn. Bạn có thể mở link trên điện thoại — không cần đăng nhập trước.',
   button: 'Xác nhận đổi email',
   pending: 'Đang xác nhận…',
 } as const;

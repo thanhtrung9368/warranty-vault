@@ -1,0 +1,370 @@
+package app.warrly.ui.screens.reminders
+
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import app.warrly.R
+import app.warrly.i18n.AppStrings
+import app.warrly.i18n.appStrings
+import app.warrly.network.ApiClient
+import app.warrly.network.ApiService
+import app.warrly.network.UpcomingReminder
+import app.warrly.network.WarrantyType
+import app.warrly.network.toUserMessage
+import app.warrly.ui.components.CategoryLabels
+import app.warrly.ui.components.EmptyState
+import app.warrly.ui.components.ErrorState
+import app.warrly.ui.components.PageHeader
+import app.warrly.ui.components.PillKind
+import app.warrly.ui.components.SkeletonList
+import app.warrly.ui.components.StatusPill
+import app.warrly.ui.components.pressScale
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+class RemindersViewModel(private val api: ApiService) : ViewModel() {
+    sealed interface State {
+        data object Loading : State
+        data class Loaded(val items: List<UpcomingReminder>) : State
+        data class Error(val message: String) : State
+    }
+
+    private val _state = MutableStateFlow<State>(State.Loading)
+    val state: StateFlow<State> = _state.asStateFlow()
+
+    fun load() {
+        viewModelScope.launch {
+            _state.value = State.Loading
+            try {
+                val items = api.listUpcomingReminders().reminders
+                _state.value = State.Loaded(items)
+            } catch (e: Exception) {
+                _state.value = State.Error(e.toUserMessage(ApiClient.json))
+            }
+        }
+    }
+
+    fun dismiss(warrantyId: String, onError: (String) -> Unit, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.dismissWarrantyReminder(warrantyId)
+                load()
+                onSuccess()
+            } catch (e: Exception) {
+                onError(e.toUserMessage(ApiClient.json))
+            }
+        }
+    }
+
+    /** Un-dismisses a reminder (the "Hoàn tác" undo action) and reloads. */
+    fun restore(warrantyId: String, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.restoreWarrantyReminder(warrantyId)
+                load()
+            } catch (e: Exception) {
+                onError(e.toUserMessage(ApiClient.json))
+            }
+        }
+    }
+}
+
+private fun parseIsoDate(raw: String): LocalDate? {
+    val ten = raw.take(10)
+    return try {
+        LocalDate.parse(ten)
+    } catch (_: DateTimeParseException) {
+        null
+    }
+}
+
+private fun daysLeftFromIso(raw: String): Long? {
+    val end = parseIsoDate(raw) ?: return null
+    return java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), end)
+}
+
+private fun warrantyTypeLabel(s: AppStrings, raw: String): String =
+    WarrantyType.entries.firstOrNull { it.name == raw }?.let { s.get(it.labelRes) } ?: raw
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RemindersScreen(
+    api: ApiService,
+    onOpenDevice: (String) -> Unit = {},
+) {
+    val vm = remember { RemindersViewModel(api) }
+    val state by vm.state.collectAsState()
+    var refreshing by remember { mutableStateOf(false) }
+    var actionError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Hoisted out of the coroutine below: `scope.launch { }` is not a
+    // composable scope, so stringResource() cannot be called inside it.
+    val hiddenMessage = stringResource(R.string.rem_reminder_hidden)
+    val undoLabel = stringResource(R.string.action_undo)
+
+    fun onDismiss(warrantyId: String) {
+        vm.dismiss(
+            warrantyId,
+            onError = { actionError = it },
+            onSuccess = {
+                scope.launch {
+                    val res = snackbarHostState.showSnackbar(
+                        message = hiddenMessage,
+                        actionLabel = undoLabel,
+                    )
+                    if (res == SnackbarResult.ActionPerformed) {
+                        vm.restore(warrantyId) { actionError = it }
+                    }
+                }
+            },
+        )
+    }
+
+    LaunchedEffect(Unit) { vm.load() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = {
+                scope.launch {
+                    refreshing = true
+                    vm.load()
+                    refreshing = false
+                }
+            },
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            Crossfade(
+                targetState = state,
+                animationSpec = tween(220),
+                label = "reminders-state",
+            ) { s ->
+                when (s) {
+                    is RemindersViewModel.State.Loading -> Column {
+                        PageHeader(stringResource(R.string.dash_warranty_expiring_soon), stringResource(R.string.state_loading))
+                        SkeletonList(count = 3)
+                    }
+                    is RemindersViewModel.State.Error -> ErrorState(
+                        icon = Icons.Outlined.WarningAmber,
+                        title = stringResource(R.string.dash_could_not_load_it),
+                        body = s.message,
+                        onRetry = { vm.load() },
+                    )
+                    is RemindersViewModel.State.Loaded -> {
+                        if (s.items.isEmpty()) {
+                            Column(Modifier.fillMaxSize()) {
+                                PageHeader(
+                                    stringResource(R.string.dash_warranty_expiring_soon),
+                                    stringResource(R.string.rem_we_will_ping_you_when_it),
+                                )
+                                EmptyState(
+                                    icon = Icons.Filled.NotificationsActive,
+                                    title = stringResource(R.string.rem_relax_nothing_is_expiring_yet),
+                                    body = stringResource(R.string.rem_all_of_your_devices_are_safely),
+                                    tone = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        } else {
+                            Column {
+                                actionError?.let {
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        ),
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    ) {
+                                        Row(
+                                            Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(Icons.Outlined.WarningAmber, null,
+                                                tint = MaterialTheme.colorScheme.onErrorContainer)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                it,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            TextButton(onClick = { actionError = null }) {
+                                                Text(stringResource(R.string.action_close))
+                                            }
+                                        }
+                                    }
+                                }
+                                LazyColumn(
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 24.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    item {
+                                        PageHeader(
+                                            stringResource(R.string.dash_warranty_expiring_soon),
+                                            pluralStringResource(R.plurals.rem_items_to_look_at, s.items.size, s.items.size),
+                                        )
+                                    }
+                                    items(s.items, key = { it.id }) { r ->
+                                        ReminderCard(
+                                            reminder = r,
+                                            onOpenDevice = { onOpenDevice(r.deviceId) },
+                                            onDismiss = { onDismiss(r.id) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderCard(
+    reminder: UpcomingReminder,
+    onOpenDevice: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val s = appStrings()
+    val cs = MaterialTheme.colorScheme
+    val days = daysLeftFromIso(reminder.endDate) ?: 0L
+    val pillKind = when {
+        days <= 3 -> PillKind.Danger
+        days <= 7 -> PillKind.Warning
+        else -> PillKind.Info
+    }
+    val pillLabel = when {
+        days < 0L -> stringResource(R.string.dash_expired)
+        days == 0L -> stringResource(R.string.dash_expires_today)
+        days == 1L -> stringResource(R.string.dash_1_day_left)
+        else -> pluralStringResource(R.plurals.dash_days_left, days.toInt(), days)
+    }
+    val interactionSource = remember { MutableInteractionSource() }
+    Card(
+        onClick = onOpenDevice,
+        interactionSource = interactionSource,
+        colors = CardDefaults.cardColors(containerColor = cs.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusPill(label = pillLabel, kind = pillKind)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    warrantyTypeLabel(s, reminder.type),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                reminder.device.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.onSurface,
+            )
+            if (reminder.device.category.isNotBlank()) {
+                Text(
+                    CategoryLabels.label(reminder.device.category),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.rem_expires, reminder.endDate.take(10)),
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+            reminder.provider?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    stringResource(R.string.rem_warranty_provider, it),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row {
+                TextButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.NotificationsOff, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.rem_seen), style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
+}

@@ -32,7 +32,7 @@
     <string name="profile_saved">Profile updated</string>
 
     <!-- ===== EmailChangeSheet.kt (POST /auth/change-email → /confirm-email-change).
-         The wording mirrors ios/Sources/WarrantyVaultKit/EmailChangeSheet.swift,
+         The wording mirrors ios/Sources/WarrlyKit/EmailChangeSheet.swift,
          which is the same screen on the other native client. ===== -->
     <string name="email_change_title">Change email</string>
     <string name="email_change_intro">Current sign-in email: %1$s. Once you confirm, every device is signed out and you have to sign in again with the new address.</string>

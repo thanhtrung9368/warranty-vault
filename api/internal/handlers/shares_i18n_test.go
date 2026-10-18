@@ -101,7 +101,7 @@ func TestPublicCertificatePageRendersInBothLanguages(t *testing.T) {
 				"20/11/2026",
 				// What the document says it is NOT: its disclaimer, and the link's own
 				// lifetime.
-				"Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault",
+				"Phiếu này do chủ máy tạo từ ứng dụng Warrly",
 				"Link này hết hiệu lực sau ngày",
 				"24 tháng",
 			},
@@ -282,7 +282,7 @@ func TestPublicCertificateJSONDisclaimerIsTranslated(t *testing.T) {
 		lang         string
 		wantContains string
 	}{
-		{"vi", "Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault"},
+		{"vi", "Phiếu này do chủ máy tạo từ ứng dụng Warrly"},
 		{"en", "This certificate was created by the device owner"},
 	} {
 		t.Run(tc.lang, func(t *testing.T) {

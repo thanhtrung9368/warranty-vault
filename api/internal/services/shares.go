@@ -138,7 +138,7 @@ type SharedCertificate struct {
 // RENDERED in, which is decided per request (see ViewSharedCertificate and
 // handlers/publicShareHandler for the certificate's language rule — the recipient
 // is a third party who never chose one).
-const SharedCertificateDisclaimer = "Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa " +
+const SharedCertificateDisclaimer = "Phiếu này do chủ máy tạo từ ứng dụng Warrly và chỉ chứa " +
 	"thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không " +
 	"kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận."
 

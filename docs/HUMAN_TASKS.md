@@ -213,10 +213,10 @@ npx web-push generate-vapid-keys
 
 **Tốn:** 0đ. FCM không tính phí. Gói Spark (miễn phí) là đủ.
 
-**Project:** `daring-tracer-277502` (display name `WarrantyVault`).
-**Package Android:** `app.warrantyvault`.
+**Project:** `daring-tracer-277502` (display name `Warrly`).
+**Package Android:** `app.warrly`.
 
-- **Đã cài `android/app/google-services.json`** (687 byte, `package_name: app.warrantyvault`).
+- **Đã cài `android/app/google-services.json`** (687 byte, `package_name: app.warrly`).
   Plugin Google Services đã bật và **sinh resource thật** — kiểm bằng bằng chứng chứ không chỉ
   "build không lỗi": `app/build/generated/res/processDebugGoogleServices/values/values.xml` có
   `google_app_id = 1:181364876291:android:2055795a0ec9a5660fda36`, `project_id`, `google_api_key` thật.
@@ -382,7 +382,7 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
 >    account."* Nghĩa là **không có domain thì reset mật khẩu cho người dùng thật KHÔNG chạy được**,
 >    dù đã có API key. ([nguồn](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain))
 > 2. **HTTPS trên VPS.** `deploy/caddy/Caddyfile` là **template** — nó ghi rõ phải thay
->    `warrantyvault.tld` bằng domain thật, và Let's Encrypt **không cấp cert cho IP trần**.
+>    `warrly.tld` bằng domain thật, và Let's Encrypt **không cấp cert cho IP trần**.
 >    Không HTTPS thì cookie `wv_session` (bật `secure` ở production) **không hoạt động**.
 > 3. **3.3 tên miền thương hiệu** — cùng một quyết định.
 
@@ -390,7 +390,7 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
 > Apple, không cần tên miền công khai. Nên **2.3 mở được ngay** — chỉ cần tạo APNs key (.p8)
 > trong Apple Developer portal rồi điền `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY`.
 >
-> ℹ️ **2.4 Google Play cũng không cần domain** — chỉ cần package name `app.warrantyvault`.
+> ℹ️ **2.4 Google Play cũng không cần domain** — chỉ cần package name `app.warrly`.
 
 > 💡 **Đường miễn phí (không khuyến khích):** DuckDNS hoặc tương tự cho một subdomain có
 > quyền sửa DNS, đủ để Resend verify. Nhưng email gửi từ một subdomain miễn phí **rất dễ vào
@@ -483,16 +483,16 @@ mày tự tra hoặc hỏi người có chuyên môn. Nếu chỉ dùng cá nhâ
 
 **Đã chốt tên sản phẩm, chưa chốt tên miền.**
 
-Tên sản phẩm là **`Warranty Vault`** (có dấu cách) — đã đổi xong ở cả 4 tầng: web, iOS,
-Android, Go, tài liệu, store listing. Bundle ID / package name là **`app.warrantyvault`**
-(không dấu cách, Play Console đã xác nhận `com.warrantyvault.app` bị chiếm).
+Tên sản phẩm là **`Warrly`** (có dấu cách) — đã đổi xong ở cả 4 tầng: web, iOS,
+Android, Go, tài liệu, store listing. Bundle ID / package name là **`app.warrly`**
+(không dấu cách, Play Console đã xác nhận `com.warrly.com` bị chiếm).
 
 > ⚠️ **`AssetVault` là tên CŨ của repo** (2 commit đầu tiên). Nó từng còn sót trong email
 > template — đã sửa 26 chỗ. Nếu thấy `AssetVault` ở đâu nữa thì đó là **rác**, không phải
 > tên thay thế.
 
-**Chưa ai quyết định mua tên miền nào.** Mọi chỗ có `warrantyvault.vn` trong repo đều là
-**ví dụ trong ngoặc** (`"vd warrantyvault.vn"`, `"Thay warrantyvault.tld bằng domain thật"`),
+**Chưa ai quyết định mua tên miền nào.** Mọi chỗ có `warrly.com` trong repo đều là
+**ví dụ trong ngoặc** (`"vd warrly.com"`, `"Thay warrly.tld bằng domain thật"`),
 không phải quyết định.
 
 Tình trạng tên miền, kiểm bằng **RDAP** (nguồn đăng ký chính thức, không phải DNS) ngày
@@ -500,12 +500,12 @@ Tình trạng tên miền, kiểm bằng **RDAP** (nguồn đăng ký chính th�
 
 | Tên miền | Trạng thái |
 |---|---|
-| `warrantyvault.com` | ❌ đã đăng ký từ **2006-07-18** |
-| `warrantyvault.app` | ❌ đã đăng ký **2026-04-06** |
-| `warrantyvault.net` | ❌ đã đăng ký **2026-07-04** |
-| **`warrantyvault.dev`** | ✅ **còn trống** |
-| **`warrantyvault.io`** | ✅ **còn trống** |
-| `warrantyvault.vn` | ❓ **không có RDAP công khai** — phải tra trên registrar VN (Tenten, PA Việt Nam, Mắt Bão) |
+| `warrly.com` | ❌ đã đăng ký từ **2006-07-18** |
+| `warrly.com` | ❌ đã đăng ký **2026-04-06** |
+| `warrly.net` | ❌ đã đăng ký **2026-07-04** |
+| **`warrly.dev`** | ✅ **còn trống** |
+| **`warrly.io`** | ✅ **còn trống** |
+| `warrly.com` | ❓ **không có RDAP công khai** — phải tra trên registrar VN (Tenten, PA Việt Nam, Mắt Bão) |
 
 **Cần mày chốt:** đuôi nào. Ghi chú để chọn:
 
@@ -519,12 +519,12 @@ Tình trạng tên miền, kiểm bằng **RDAP** (nguồn đăng ký chính th�
 
 > 🔴 **Dù chọn đuôi nào, đây vẫn là món chặn nhiều nhất** — xem ghi chú ở 2.1.
 
-#### ⚠️ Tên "WarrantyVault" đã có người dùng cho sản phẩm thật
+#### ⚠️ Tên "Warrly" đã có người dùng cho sản phẩm thật
 
-`warrantyvault.app` **không phải domain parking** — nó là sản phẩm đang bán:
+`warrly.com` **không phải domain parking** — nó là sản phẩm đang bán:
 
 - **Chủ sở hữu:** `Hope Built Advisory LLC` (công ty Mỹ), `© 2026`
-- **Sản phẩm:** *"WarrantyVault — Construction & Facilities Warranty Management"* — quản lý bảo hành
+- **Sản phẩm:** *"Warrly — Construction & Facilities Warranty Management"* — quản lý bảo hành
   cho nhà thầu, mái nhà, MEP, thiết bị trong các dự án xây dựng
 - **Đang bán thật:** có waitlist và giá launch `$199 one-time` (25 suất)
 - **Đăng ký domain:** 2026-04-06, hết hạn 2027-04-06, registrar Cloudflare
@@ -544,7 +544,7 @@ nhãn hiệu thật**, không phải chuyện nhỏ:
 
 | Hướng | Được | Mất |
 |---|---|---|
-| **Giữ tên, dùng đuôi khác** (`warrantyvault.dev` / `.io` / `warranty-vault.app`) | Không phải đổi gì trong code | **Rủi ro nhãn hiệu vẫn nguyên** — đổi đuôi không giảm rủi ro, vì nhãn hiệu là về *tên*, không phải domain |
+| **Giữ tên, dùng đuôi khác** (`warrly.dev` / `.io` / `warranty-vault.app`) | Không phải đổi gì trong code | **Rủi ro nhãn hiệu vẫn nguyên** — đổi đuôi không giảm rủi ro, vì nhãn hiệu là về *tên*, không phải domain |
 | **Đổi tên** (vd `SoBaoHanh`, `VaultBH`, `BaoHanhCaNhan`) | Xoá hẳn rủi ro · mở lại `.com`/`.app` | Phải đổi ở 4 tầng + bundle ID + store listing. **Play Console chưa tạo app** nên đây là lúc rẻ nhất để đổi |
 | **Giữ nguyên, chấp nhận rủi ro** | Không tốn công | Sống chung với khả năng bị khiếu nại/gỡ app |
 
@@ -558,7 +558,7 @@ Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, 
 |---|---|---|
 | "Xuất dữ liệu CSV" | Không có endpoint CSV | ✅ Chạy thật: `DeviceCSVExport` + `.fileExporter` (roadmap #14) |
 | "Import từ file" | Trùng chức năng backup | ✅ Chạy thật: dùng chung luồng import backup JSON |
-| "Face ID & Touch ID" | Chưa cài `LocalAuthentication` | ✅ Chạy thật: `ios/Sources/WarrantyVaultKit/AppLock.swift` + `AppLockStore`, khoá khi app quay lại foreground, mở bằng biometrics **hoặc** mã mở khoá thiết bị, tự tắt nếu máy không còn mã (không bao giờ khoá cứng người dùng) |
+| "Face ID & Touch ID" | Chưa cài `LocalAuthentication` | ✅ Chạy thật: `ios/Sources/WarrlyKit/AppLock.swift` + `AppLockStore`, khoá khi app quay lại foreground, mở bằng biometrics **hoặc** mã mở khoá thiết bị, tự tắt nếu máy không còn mã (không bao giờ khoá cứng người dùng) |
 | "Apple ID" | Control chết | ✅ Nói thật: hiện "Chưa khả dụng" kèm footer giải thích — **không** còn giả vờ bấm được |
 | "Nhắc trước" | Ghi vào `@State`, không lưu | ✅ Nói thật: hiện "Hệ thống tự gửi, chưa tuỳ chỉnh được — 7 & 30 ngày" (đúng lịch cron), bỏ hẳn picker giả |
 

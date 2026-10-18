@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 /// Owns "which language is the app in" and is the only thing that writes
 /// `L.language`.

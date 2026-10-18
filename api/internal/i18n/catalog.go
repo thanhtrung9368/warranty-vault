@@ -837,15 +837,15 @@ var messages = map[string]message{
 	// The certificate's own statement of what it is not. Translated faithfully and
 	// at full length: it is the only thing standing between a buyer and the
 	// assumption that this page is an invoice.
-	"Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận.": {
-		vi: "Phiếu này do chủ máy tạo từ ứng dụng Warranty Vault và chỉ chứa thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận.",
-		en: "This certificate was created by the device owner in the Warranty Vault app and contains the warranty information of one device only. It is not an invoice, it does not replace the original invoice, and it carries no photos of the paperwork. The recipient should check the serial/IMEI printed on the device against this certificate before accepting it.",
+	"Phiếu này do chủ máy tạo từ ứng dụng Warrly và chỉ chứa thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận.": {
+		vi: "Phiếu này do chủ máy tạo từ ứng dụng Warrly và chỉ chứa thông tin bảo hành của một thiết bị. Phiếu không phải hoá đơn, không thay thế hoá đơn gốc và không kèm ảnh chứng từ. Người nhận nên đối chiếu số máy (IMEI/serial) in trên máy với phiếu trước khi nhận.",
+		en: "This certificate was created by the device owner in the Warrly app and contains the warranty information of one device only. It is not an invoice, it does not replace the original invoice, and it carries no photos of the paperwork. The recipient should check the serial/IMEI printed on the device against this certificate before accepting it.",
 	},
 	// Certificate page labels.
 	"Phiếu bàn giao bảo hành": {vi: "Phiếu bàn giao bảo hành", en: "Warranty handover certificate"},
-	"Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warranty Vault.": {
-		vi: "Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warranty Vault.",
-		en: "The warranty information of one device, created by its owner in Warranty Vault.",
+	"Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warrly.": {
+		vi: "Thông tin bảo hành của một thiết bị, do chủ máy tạo từ Warrly.",
+		en: "The warranty information of one device, created by its owner in Warrly.",
 	},
 	"Bảo hành còn lại tới": {vi: "Bảo hành còn lại tới", en: "Warranty covered until"},
 	"Số máy (IMEI/serial)": {vi: "Số máy (IMEI/serial)", en: "Serial number (IMEI/serial)"},
@@ -1192,16 +1192,16 @@ var messages = map[string]message{
 	// address, so they are sent in the RECIPIENT's stored language
 	// (i18n.FromStored) rather than in the language of the request that happened
 	// to trigger them.
-	"Đặt lại mật khẩu Warranty Vault": {vi: "Đặt lại mật khẩu Warranty Vault", en: "Reset your Warranty Vault password"},
+	"Đặt lại mật khẩu Warrly": {vi: "Đặt lại mật khẩu Warrly", en: "Reset your Warrly password"},
 	"Đặt lại mật khẩu":            {vi: "Đặt lại mật khẩu", en: "Reset password"},
 	"Chào %s,":                    {vi: "Chào %s,", en: "Hi %s,"},
 	"Có yêu cầu đặt lại mật khẩu cho tài khoản này.": {
 		vi: "Có yêu cầu đặt lại mật khẩu cho tài khoản này.",
 		en: "Someone asked to reset the password for this account.",
 	},
-	"Có yêu cầu đặt lại mật khẩu cho tài khoản Warranty Vault này.": {
-		vi: "Có yêu cầu đặt lại mật khẩu cho tài khoản Warranty Vault này.",
-		en: "Someone asked to reset the password for this Warranty Vault account.",
+	"Có yêu cầu đặt lại mật khẩu cho tài khoản Warrly này.": {
+		vi: "Có yêu cầu đặt lại mật khẩu cho tài khoản Warrly này.",
+		en: "Someone asked to reset the password for this Warrly account.",
 	},
 	"Bấm link dưới (hiệu lực %d phút):": {
 		vi: "Bấm link dưới (hiệu lực %d phút):",
@@ -1215,12 +1215,12 @@ var messages = map[string]message{
 		vi: "Link có hiệu lực trong %d phút. Nếu không phải bạn, bỏ qua email này.",
 		en: "This link is valid for %d minutes. If this was not you, you can ignore this email.",
 	},
-	"Xác nhận đổi email Warranty Vault": {vi: "Xác nhận đổi email Warranty Vault", en: "Confirm your new Warranty Vault email"},
+	"Xác nhận đổi email Warrly": {vi: "Xác nhận đổi email Warrly", en: "Confirm your new Warrly email"},
 	"Xác nhận đổi email":            {vi: "Xác nhận đổi email", en: "Confirm email change"},
 	"Chào bạn,":                     {vi: "Chào bạn,", en: "Hi,"},
-	"Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.": {
-		vi: "Có yêu cầu đổi email của tài khoản Warranty Vault từ %s sang địa chỉ này.",
-		en: "Someone asked to change this Warranty Vault account's email from %s to this address.",
+	"Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.": {
+		vi: "Có yêu cầu đổi email của tài khoản Warrly từ %s sang địa chỉ này.",
+		en: "Someone asked to change this Warrly account's email from %s to this address.",
 	},
 	"Hoặc nhập mã xác nhận trong ứng dụng:": {
 		vi: "Hoặc nhập mã xác nhận trong ứng dụng:",

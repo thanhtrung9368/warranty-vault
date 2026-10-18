@@ -31,8 +31,8 @@ const categorySeedMigration = "0004_seed_category_catalog.sql"
 // parsed from source by TestCategorySeedMatchesWebsiteLabels so no copy can
 // drift unnoticed.
 const (
-	iosCategoryLabelsPath     = "ios/Sources/WarrantyVaultKit/CategoryLabels.swift"
-	androidCategoryLabelsPath = "android/app/src/main/java/com/warrantyvault/app/ui/components/CategoryLabels.kt"
+	iosCategoryLabelsPath     = "ios/Sources/WarrlyKit/CategoryLabels.swift"
+	androidCategoryLabelsPath = "android/app/src/main/java/app/warrly/ui/components/CategoryLabels.kt"
 )
 
 // activeCategoryCodes lists the codes CATEGORY_LABELS is expected to contain, in
@@ -87,7 +87,7 @@ func parseCategoryLabels(t *testing.T) []seededCategory {
 }
 
 // parseIOSCategoryLabels reads `CategoryLabels.table` from the Swift mirror in
-// WarrantyVaultKit. Anchored on `static let table ... = [` so a second dictionary
+// WarrlyKit. Anchored on `static let table ... = [` so a second dictionary
 // elsewhere in the file cannot be picked up by accident.
 func parseIOSCategoryLabels(t *testing.T) []seededCategory {
 	t.Helper()

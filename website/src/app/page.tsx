@@ -300,7 +300,7 @@ export default async function LandingPage() {
               <Vault className="h-[18px] w-[18px]" />
             </span>
             <span className="font-display text-base font-extrabold tracking-tight text-ink">
-              WarrantyVault
+              Warrly
             </span>
           </Link>
           <div className="flex items-center gap-3">
@@ -432,7 +432,7 @@ export default async function LandingPage() {
               <span className="h-3 w-3 rounded-full bg-[#FF6B5C]" />
               <span className="h-3 w-3 rounded-full bg-[#FBBF24]" />
               <span className="h-3 w-3 rounded-full bg-[#10B981]" />
-              <span className="ml-2 text-xs text-muted">warrantyvault.app/dashboard</span>
+              <span className="ml-2 text-xs text-muted">warrly.com/dashboard</span>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {STAT_CARDS.map((s) => {
@@ -557,13 +557,13 @@ export default async function LandingPage() {
                 <Vault className="h-4 w-4" />
               </span>
               <span className="font-display text-sm font-extrabold tracking-tight text-ink">
-                WarrantyVault
+                Warrly
               </span>
             </Link>
             {/* The year is interpolated rather than concatenated, so the
                 sentence stays one translatable key. */}
             <div className="text-[13px] text-muted">
-              {t('© {year} WarrantyVault. Made with ♥ in Vietnam.', {
+              {t('© {year} Warrly. Made with ♥ in Vietnam.', {
                 year: new Date().getFullYear(),
               })}
             </div>

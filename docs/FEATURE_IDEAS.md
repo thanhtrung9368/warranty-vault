@@ -25,7 +25,7 @@
 | # | Tên | Trạng thái | Bằng chứng / còn thiếu gì |
 |---|---|---|---|
 | 1 | Hạn đổi trả ("1 đổi 1") | ✅ **xong cả 4 client** | `api/migrations/0010_return_window.sql`; web `lib/device-return-window.ts`, iOS `DeviceReturnWindowTests.swift`, Android `ui/screens/devices/DeviceReturnWindow.kt` (dùng ở `DeviceDetailScreen` + `AddDeviceSheet`) |
-| 2 | Phiếu bàn giao + link chia sẻ | 🟡 **backend + web + Android xong; iOS đang được viết** | `0013_device_share.sql`, `services/shares.go`; web `components/device-shares.tsx`, Android `ShareLinks.kt` + `ShareCertificatesSection.kt`. iOS: `Sources/WarrantyVaultKit/ShareLinks.swift` (model + luật token dùng một lần) đã xong, và `ios/App/Features/Devices/ShareCertificatesSection.swift` **đang được viết** — ở thời điểm kiểm nó **chưa được gắn vào màn hình nào** (không file nào trong `ios/App/` tham chiếu tới nó). Mục này đang di chuyển; kiểm lại trước khi tin. |
+| 2 | Phiếu bàn giao + link chia sẻ | 🟡 **backend + web + Android xong; iOS đang được viết** | `0013_device_share.sql`, `services/shares.go`; web `components/device-shares.tsx`, Android `ShareLinks.kt` + `ShareCertificatesSection.kt`. iOS: `Sources/WarrlyKit/ShareLinks.swift` (model + luật token dùng một lần) đã xong, và `ios/App/Features/Devices/ShareCertificatesSection.swift` **đang được viết** — ở thời điểm kiểm nó **chưa được gắn vào màn hình nào** (không file nào trong `ios/App/` tham chiếu tới nó). Mục này đang di chuyển; kiểm lại trước khi tin. |
 | 3 | Hàng đợi "Việc cần xử lý" | ✅ **xong cả 4 client** | `0011_decision_snooze.sql`, `services/actions.go`; web `app/(app)/actions/`, iOS `ActionQueueScreen.swift`, Android `ActionQueueScreen.kt` |
 | 4 | Soát subscription | ✅ **xong cả 4 client** | `services/subscription_audit.go` + `handlers/subscriptions.go`; web `lib/subscription-audit.ts`, iOS `SubscriptionAuditScreen.swift`, Android `SubscriptionAuditScreen.kt` |
 | 5 | Xem & thu hồi phiên đăng nhập | ✅ **xong cả 4 client** | web `lib/__tests__/sessions.test.ts`, iOS `SessionsView.swift`, Android `SessionsScreen.kt` |
@@ -525,7 +525,7 @@ form — nhưng **không có gì nhận dữ liệu từ ngoài vào app**:
 Chuẩn hoá **MỘT** hợp đồng URL `/wishlist/new?ten=&link=&mota=` rồi cắm ba nguồn vào đúng hợp đồng đó:
 
 - **(a) PWA** — thêm `share_target` với `method: "GET"` vào `manifest.webmanifest`. Chrome Android sẽ gọi
-  `/wishlist/new?ten=…&link=…` khi người dùng chọn WarrantyVault trong share sheet. **GET không cần service
+  `/wishlist/new?ten=…&link=…` khi người dùng chọn Warrly trong share sheet. **GET không cần service
   worker** (dữ liệu đến dưới dạng query param), nên `sw.js` giữ nguyên.
 - **(b) Android** — thêm `<intent-filter>` cho `ACTION_SEND` (text/plain) + `ACTION_VIEW` (http/https) vào
   `MainActivity` (đang `exported="true"`); đọc `Intent.EXTRA_TEXT`/`EXTRA_SUBJECT`, tách URL http(s) đầu
@@ -897,8 +897,8 @@ EncryptedSharedPreferences + SharedPreferences. Nên phải xây thêm:
 
 - **iOS** — một widget extension target **thứ hai** (`project.yml` hiện chỉ có 1 target application,
   `:20-28`), một App Group + **Keychain access group** (`KeychainStore.swift:12` đang dùng service
-  `app.warrantyvault` **KHÔNG** có `kSecAttrAccessGroup`), và app ghi snapshot vào container dùng
-  chung. Lưu ý `ios/WarrantyVault.xcodeproj/project.pbxproj` **được git-track**, nên phải giữ đồng bộ
+  `app.warrly` **KHÔNG** có `kSecAttrAccessGroup`), và app ghi snapshot vào container dùng
+  chung. Lưu ý `ios/Warrly.xcodeproj/project.pbxproj` **được git-track**, nên phải giữ đồng bộ
   `project.yml` và `pbxproj`.
 - **Android** — thêm `androidx.glance:glance-appwidget` + WorkManager (cả hai đều **chưa có** trong
   `libs.versions.toml`), và một `AppWidgetProvider` trong manifest.
@@ -994,7 +994,7 @@ Ba việc này độc lập nhau, đều không cần hạ tầng mới, và #6 
 | **Cho mượn: "ai đang giữ máy này" + nhắc ngày hẹn trả** | **Chưa có bằng chứng nhu cầu** (cùng loại rủi ro mà roadmap #13 đã hoãn), effort `L`, và thêm bảng mới phải đi kèm: backup export/import + **đúng thứ tự xoá trong `ImportReplace`** + nới điều kiện `payload.Version != 5` (so sánh **BẰNG** — bump version mà không nới là mọi file backup cũ thành rác). |
 | **Trả lời câu hỏi check-in ngay trên thông báo đẩy** | Hay, nhưng đổi **hợp đồng payload push** (`Payload` hiện chỉ `title`/`body`/`url`/`tag`, `push/payload.go:13-18`) và phải sửa **cả 3 kênh** (APNs category, FCM action, `sw.js` `showNotification`); và câu trả lời "Đã mua" **vẫn buộc phải mở app** vì nó TẠO `Device` trong cùng transaction. Làm sau khi payload đã có lý do khác để đổi. |
 | **App Intent + phiên dài hạn cho Shortcuts/Tasker** | Phần "token dài hạn" đã được **#5 bao phủ một nửa** (phiên có nhãn + thu hồi được, bảng `Session` đã đủ cột); phần App Intent nên làm **cùng #20(a)**. Đứng riêng thì trùng. |
-| **Gói bàn giao số (.json/QR) để người mua tự nhập** | Chỉ đáng nếu **người mua cũng dùng WarrantyVault**; và blob khoá bằng `FILE_MASTER_KEY` nên **khác instance thì ảnh về mà không mở được** (giới hạn repo đã ghi cho backup). Nếu làm thì nên thiết kế **CHUNG một artifact với #2** (phần người đọc = phiếu in, phần máy đọc = JSON), đừng làm hai định dạng rời nhau. |
+| **Gói bàn giao số (.json/QR) để người mua tự nhập** | Chỉ đáng nếu **người mua cũng dùng Warrly**; và blob khoá bằng `FILE_MASTER_KEY` nên **khác instance thì ảnh về mà không mở được** (giới hạn repo đã ghi cho backup). Nếu làm thì nên thiết kế **CHUNG một artifact với #2** (phần người đọc = phiếu in, phần máy đọc = JSON), đừng làm hai định dạng rời nhau. |
 | **Định danh hoá đơn điện tử** (ký hiệu, số HĐ, MST, mã tra cứu, SĐT mua hàng) | `S` và đúng chỗ quầy bảo hành hỏi, nhưng (a) một phần chạm vào mục roadmap §5 đã loại (đọc hoá đơn điện tử từ cổng nhà bán lẻ), và (b) giá trị phụ thuộc người dùng có thực sự cần **hoá đơn VAT** hay không — **chưa có bằng chứng**. |
 | **Quỹ để dành cho wishlist** | Bám đúng nhịp check-in **đang chạy sẵn** nên không cần máy thông báo mới — nhưng **cầu CHƯA kiểm chứng** và phụ thuộc người dùng chịu ghi tay. Cùng loại rủi ro mà roadmap **#13** đã hoãn vì thiếu bằng chứng nhu cầu. Nếu phải bỏ một ý, bỏ ý này trước. |
 | **Quét mã QR trên tem để tra cứu thiết bị đã có** | Là bản **khác mục đích** của mục roadmap §5 đã loại (tra cứu ≠ điền form), và **không cần sửa backend một dòng** (dùng `GET /api/v1/search?q=` + index `serialNumber` đã có). Xếp sau vì phải thêm camera native trên 2 client + quyền `CAMERA` (manifest Android hiện **chưa có**) mà chỉ phục vụ tra cứu. |

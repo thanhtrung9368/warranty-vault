@@ -10,7 +10,7 @@ import { getI18n } from '@/lib/i18n/server';
 // `getI18n()` resolves the same locale the body renders in.
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
-  return { title: t('Không tìm thấy — WarrantyVault') };
+  return { title: t('Không tìm thấy — Warrly') };
 }
 
 export default async function NotFound() {
@@ -23,7 +23,7 @@ export default async function NotFound() {
             <Vault className="h-[18px] w-[18px]" />
           </span>
           <span className="font-display text-base font-extrabold tracking-tight text-ink">
-            WarrantyVault
+            Warrly
           </span>
         </Link>
       </header>
@@ -55,7 +55,7 @@ export default async function NotFound() {
           </div>
 
           <p className="mt-8 text-[11px] font-medium uppercase tracking-[0.12em] text-muted/80">
-            {t('Mã lỗi 404 · WarrantyVault')}
+            {t('Mã lỗi 404 · Warrly')}
           </p>
         </div>
       </main>

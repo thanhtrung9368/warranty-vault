@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 enum ThemePreference: String, CaseIterable, Identifiable {
     case system, light, dark

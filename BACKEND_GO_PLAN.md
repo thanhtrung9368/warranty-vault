@@ -295,7 +295,7 @@ Pattern đã áp đúng như plan cho từng resource: `internal/store/queries/<
 
 **Commit chốt: `33c79c4`** (2026-05-14), tag **`phase-f-done`**.
 
-- Mobile: đổi BASE_URL sang Go. ✅ iOS `WarrantyVaultApp.swift` → `http://localhost:4000`; Android `build.gradle.kts` → `BuildConfig.BASE_URL = "http://10.0.2.2:4000"` (emulator).
+- Mobile: đổi BASE_URL sang Go. ✅ iOS `WarrlyApp.swift` → `http://localhost:4000`; Android `build.gradle.kts` → `BuildConfig.BASE_URL = "http://10.0.2.2:4000"` (emulator).
 - Xoá các code path đã thay (E.3). ✅
 - Update `CLAUDE.md`: "Server actions are the API" → "Web gọi Go REST qua thin server actions", bỏ phần Prisma layout, giữ phần encrypted attachments nhưng note implementation ở Go. ✅ (CLAUDE.md hiện tại đúng như vậy).
 - Update `MOBILE_PLAN.md`: tick Phase 0 + note "BE migrated to Go". ✅ — chính là bản cập nhật này.

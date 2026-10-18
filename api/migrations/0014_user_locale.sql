@@ -1,4 +1,4 @@
--- WarrantyVault — the user's language preference.
+-- Warrly — the user's language preference.
 --
 -- This is i18n INFRASTRUCTURE, not a translation (docs/I18N_PLAN.md §2.3). It is
 -- the one piece of the bilingual feature that needs a schema change, because the

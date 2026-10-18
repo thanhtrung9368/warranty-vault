@@ -3,7 +3,7 @@ import Foundation
 import UIKit
 #endif
 import UserNotifications
-import WarrantyVaultKit
+import WarrlyKit
 
 /// Coordinates APNs registration and posts the resulting device token to the
 /// backend's `/api/v1/push/register` endpoint. The actual `application(_:

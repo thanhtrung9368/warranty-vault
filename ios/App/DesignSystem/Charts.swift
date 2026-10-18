@@ -1,7 +1,7 @@
 import SwiftUI
 
 // ============================================================
-// WarrantyVault iOS — lightweight charts
+// Warrly iOS — lightweight charts
 //
 // SwiftUI ports of the custom SVG charts in ios-ui.jsx
 // (BarChart / LineChart / Donut). No third-party chart library —

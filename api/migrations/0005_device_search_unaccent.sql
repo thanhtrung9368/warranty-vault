@@ -1,4 +1,4 @@
--- WarrantyVault — diacritic-insensitive device search (unaccent + pg_trgm).
+-- Warrly — diacritic-insensitive device search (unaccent + pg_trgm).
 --
 -- Problem: ListDevicesByUser searched with a raw `ILIKE '%' || $4 || '%'`, so a
 -- Vietnamese user typing "dien thoai" never matched "Điện thoại". The app is

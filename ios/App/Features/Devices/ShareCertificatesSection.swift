@@ -1,12 +1,12 @@
 import SwiftUI
 import UIKit
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // ShareCertificatesSection — "Phiếu bàn giao & link chia sẻ"
 //
 // The iOS half of FEATURE_IDEAS #2 (openapi `shares`). Web and Android shipped
-// this first; the rules live in `WarrantyVaultKit/ShareLinks.swift` and this file
+// this first; the rules live in `WarrlyKit/ShareLinks.swift` and this file
 // only renders them.
 //
 // ## The one thing this screen must not get wrong

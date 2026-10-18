@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Maintain ios/Sources/WarrantyVaultKit/Resources/Localizable.xcstrings.
+"""Maintain ios/Sources/WarrlyKit/Resources/Localizable.xcstrings.
 
 The .xcstrings file is the single source of truth (Xcode can edit it). This tool
 only exists to add entries in bulk without hand-writing JSON, and to report the
@@ -18,7 +18,7 @@ import sys
 import collections
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CATALOG = os.path.join(ROOT, "Sources/WarrantyVaultKit/Resources/Localizable.xcstrings")
+CATALOG = os.path.join(ROOT, "Sources/WarrlyKit/Resources/Localizable.xcstrings")
 
 CALL = re.compile(r'\bL\.([tp])\(\s*"((?:[^"\\]|\\.)*)"')
 # Strings that are the same in both languages on purpose (proper nouns, codes).

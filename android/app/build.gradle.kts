@@ -14,11 +14,11 @@ if (hasGoogleServices) {
 }
 
 android {
-    namespace = "com.warrantyvault.app"
+    namespace = "app.warrly"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "app.warrantyvault"
+        applicationId = "app.warrly"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

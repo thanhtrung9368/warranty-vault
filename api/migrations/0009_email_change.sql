@@ -1,4 +1,4 @@
--- WarrantyVault — email change verification (roadmap #10, second half).
+-- Warrly — email change verification (roadmap #10, second half).
 --
 -- Why this migration exists
 -- -------------------------

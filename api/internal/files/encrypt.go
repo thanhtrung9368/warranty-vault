@@ -1,5 +1,5 @@
 // Package files implements the AES-256-GCM encrypted attachment storage
-// scheme used by WarrantyVault. The on-disk + on-row layout matches the TS
+// scheme used by Warrly. The on-disk + on-row layout matches the TS
 // implementation in website/src/lib/files.ts byte-for-byte so a Go service
 // and the legacy Node service can decrypt each other's writes.
 //

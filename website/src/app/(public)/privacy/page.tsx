@@ -4,8 +4,8 @@ import { getI18n } from '@/lib/i18n/server';
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
   return {
-    title: t('Chính sách bảo mật — Warranty Vault'),
-    description: t('Chính sách bảo mật và xử lý dữ liệu của Warranty Vault'),
+    title: t('Chính sách bảo mật — Warrly'),
+    description: t('Chính sách bảo mật và xử lý dữ liệu của Warrly'),
   };
 }
 
@@ -27,7 +27,7 @@ export default async function PrivacyPage() {
       <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
         <p>
           {t(
-            'Warranty Vault là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:',
+            'Warrly là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:',
           )}{' '}
           <b>{t('dữ liệu của mày là của mày')}</b>
           {' — '}
@@ -117,8 +117,8 @@ export default async function PrivacyPage() {
           <h3 className="display text-lg">{t('7. Liên hệ')}</h3>
           <p className="mt-2">
             {t('Có thắc mắc về dữ liệu:')}{' '}
-            <a href="mailto:hi@warrantyvault.app" className="font-semibold text-primary hover:underline">
-              hi@warrantyvault.app
+            <a href="mailto:hi@warrly.com" className="font-semibold text-primary hover:underline">
+              hi@warrly.com
             </a>
           </p>
         </div>

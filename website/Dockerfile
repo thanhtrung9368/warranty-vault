@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ─────────────────────────────────────────────────────────────────────────────
-# WarrantyVault — multi-stage Docker build (web UI only)
+# Warrly — multi-stage Docker build (web UI only)
 #
 # Post Phase F: the website is a pure Next.js frontend that talks to the Go
 # API over HTTP. No Prisma, no Postgres driver, no native compile step.

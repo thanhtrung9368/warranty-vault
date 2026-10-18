@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // AccountView — Hồ sơ (profile). Port of AccountScreen in screens-3.jsx.
@@ -98,7 +98,7 @@ struct AccountView: View {
                     WVRow(icon: "users", iconColor: WVColor.blue,
                           title: "Google", detail: L.t("Chưa khả dụng"))
                 }
-                WVSectionFooter(L.t("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản WarrantyVault dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật."))
+                WVSectionFooter(L.t("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật."))
 
                 // Delete account
                 Spacer().frame(height: 20)

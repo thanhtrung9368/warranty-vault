@@ -23,7 +23,7 @@
     <string name="profile_saved">Đã cập nhật hồ sơ</string>
 
     <!-- ===== EmailChangeSheet.kt — chép nguyên văn từ
-         ios/Sources/WarrantyVaultKit/EmailChangeSheet.swift. ===== -->
+         ios/Sources/WarrlyKit/EmailChangeSheet.swift. ===== -->
     <string name="email_change_title">Đổi email</string>
     <string name="email_change_intro">Email đăng nhập hiện tại: %1$s. Sau khi xác nhận, mọi thiết bị sẽ bị đăng xuất và bạn phải đăng nhập lại bằng địa chỉ mới.</string>
     <string name="email_change_intro_empty">—</string>

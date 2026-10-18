@@ -1,4 +1,4 @@
--- WarrantyVault — "Việc cần xử lý": hoãn theo từng việc, dùng chung mọi thiết bị
+-- Warrly — "Việc cần xử lý": hoãn theo từng việc, dùng chung mọi thiết bị
 -- (FEATURE_IDEAS #3).
 --
 -- Why a NEW table and not "Reminder"

@@ -1127,14 +1127,14 @@ nối action Next.js (proxy) và client iOS/Android."* Nhãn tiếng Việt ph�
 - Sửa copy ở `src/app/page.tsx:51` — bỏ chữ `claim` hoặc chỉnh lại cho khớp sự thật sau khi ship.
 
 **iOS (`ios/`)**:
-- `Sources/WarrantyVaultKit/Models.swift` — `WarrantyClaim`, các enum, **và nhãn tiếng Việt** (file này
+- `Sources/WarrlyKit/Models.swift` — `WarrantyClaim`, các enum, **và nhãn tiếng Việt** (file này
   đang nhân bản nhãn từ web).
-- `Sources/WarrantyVaultKit/Endpoints.swift` — 5 endpoint mới.
-- `Sources/WarrantyVaultKit/APIClient.swift` — method tương ứng.
+- `Sources/WarrlyKit/Endpoints.swift` — 5 endpoint mới.
+- `Sources/WarrlyKit/APIClient.swift` — method tương ứng.
 - View mới: danh sách + chi tiết claim, dưới `App/Features/`.
 
 **Android (`android/`)**:
-- `app/src/main/java/com/warrantyvault/app/network/Models.kt` — DTO + nhãn (đang ở `:118` cho
+- `app/src/main/java/com/warrly/app/network/Models.kt` — DTO + nhãn (đang ở `:118` cho
   `Reminder`).
 - `ApiService` (Retrofit) — 5 endpoint.
 - `ui/screens/claims/ClaimsScreen.kt` + `ClaimsViewModel.kt` + test — port theo mẫu đã có ở

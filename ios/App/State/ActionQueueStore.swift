@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 /// The "Việc cần xử lý" queue (`GET /api/v1/actions`), shared by the dashboard
 /// badge and the full screen.

@@ -1,4 +1,4 @@
-/* Mock data for WarrantyVault demo. Vietnamese. */
+/* Mock data for Warrly demo. Vietnamese. */
 /* global */
 
 const today = new Date('2026-05-17');

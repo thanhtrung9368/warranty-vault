@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# backup.sh — dump the WarrantyVault Postgres database + the encrypted upload
+# backup.sh — dump the Warrly Postgres database + the encrypted upload
 # blobs into a timestamped pair of gzip archives, and prune old ones.
 #
 # Assumes the docker-compose stack at the repo root is up (services `postgres`

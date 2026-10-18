@@ -1,5 +1,5 @@
 import SwiftUI
-import WarrantyVaultKit
+import WarrlyKit
 
 // ============================================================
 // WarrantyFormView — add / edit a warranty (pushed as a screen)

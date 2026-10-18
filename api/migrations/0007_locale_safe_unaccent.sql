@@ -1,4 +1,4 @@
--- WarrantyVault — locale-independent Vietnamese search: swap the unaccent/lower order.
+-- Warrly — locale-independent Vietnamese search: swap the unaccent/lower order.
 --
 -- Bug (reproduced on PostgreSQL 17.11 against a cluster created with
 -- LC_ALL=C, and fixed/verified against both C and en_US.UTF-8 clusters):

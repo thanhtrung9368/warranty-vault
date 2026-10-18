@@ -6,7 +6,7 @@ import { RetryButton } from './retry-button';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
-  return { title: t('Ngoại tuyến — WarrantyVault') };
+  return { title: t('Ngoại tuyến — Warrly') };
 }
 
 // Served by the service worker when the network is gone. `getI18n()` still
@@ -22,7 +22,7 @@ export default async function OfflinePage() {
             <Vault className="h-[18px] w-[18px]" />
           </span>
           <span className="font-display text-base font-extrabold tracking-tight text-ink">
-            WarrantyVault
+            Warrly
           </span>
         </Link>
       </header>
@@ -42,7 +42,7 @@ export default async function OfflinePage() {
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-[15px]">
             {t(
-              'Mày đang ngoại tuyến. WarrantyVault chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.',
+              'Mày đang ngoại tuyến. Warrly chưa lưu dữ liệu để xem offline — thiết bị, bảo hành, thống kê… đều cần kết nối mạng. Có mạng lại là mọi thứ chạy như bình thường.',
             )}
           </p>
 

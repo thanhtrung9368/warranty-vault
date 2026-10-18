@@ -12,7 +12,7 @@ import { defineMessages } from '../types';
 // wherever the same sentence exists there — "Thiếu file" → "Missing file",
 // "Không tìm thấy file" → "File not found", "{months} tháng" → "{months} months".
 // Where the Go catalog has no such sentence, the wording mirrors the iOS string
-// catalog (`ios/Sources/WarrantyVaultKit/Resources/Localizable.xcstrings`), which
+// catalog (`ios/Sources/WarrlyKit/Resources/Localizable.xcstrings`), which
 // carries the same Vietnamese source sentences.
 export const warranties = defineMessages({
   // ── Warranty form (`components/warranty-form.tsx`) ──────────────────────

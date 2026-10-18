@@ -1,6 +1,6 @@
-name: WarrantyVault
+name: Warrly
 options:
-  bundleIdPrefix: app.warrantyvault
+  bundleIdPrefix: app.warrly
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -14,28 +14,28 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 
 packages:
-  WarrantyVaultKit:
+  WarrlyKit:
     path: .
 
 targets:
-  WarrantyVault:
+  Warrly:
     type: application
     platform: iOS
     sources:
       - path: App
         excludes:
-          - WarrantyVault.entitlements
+          - Warrly.entitlements
     dependencies:
-      - package: WarrantyVaultKit
-        product: WarrantyVaultKit
+      - package: WarrlyKit
+        product: WarrlyKit
     entitlements:
-      path: App/WarrantyVault.entitlements
+      path: App/Warrly.entitlements
       properties:
         aps-environment: development
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: Warranty Vault
+        CFBundleDisplayName: Warrly
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
@@ -44,7 +44,7 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
-        NSFaceIDUsageDescription: Warranty Vault dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.
+        NSFaceIDUsageDescription: Warrly dùng Face ID để mở khoá ứng dụng và bảo vệ dữ liệu bảo hành của bạn. Sinh trắc học chỉ được xác thực trên thiết bị, không gửi đi đâu cả.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
@@ -54,7 +54,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.warrantyvault
+        PRODUCT_BUNDLE_IDENTIFIER: app.warrly
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Automatic

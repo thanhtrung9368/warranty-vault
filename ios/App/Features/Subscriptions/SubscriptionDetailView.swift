@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-import WarrantyVaultKit
+import WarrlyKit
 
 // MARK: - SubscriptionDetailView
 

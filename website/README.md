@@ -1,4 +1,4 @@
-# WarrantyVault — Web UI
+# Warrly — Web UI
 
 Web app cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký phần mềm và danh sách "thèm". Multi-user, tiếng Việt 100%.
 

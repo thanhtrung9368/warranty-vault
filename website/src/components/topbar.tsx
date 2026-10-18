@@ -19,7 +19,7 @@ export async function Topbar({ user }: { user: CurrentUser }) {
           <Vault className="h-4 w-4" />
         </span>
         <span className="hidden font-display text-base font-extrabold tracking-tight text-ink sm:inline">
-          WarrantyVault
+          Warrly
         </span>
       </Link>
 

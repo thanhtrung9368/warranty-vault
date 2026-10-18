@@ -57,7 +57,7 @@ func TestSendPasswordReset_PostsExpectedBody(t *testing.T) {
 	if len(captured.To) != 1 || captured.To[0] != "user@example.com" {
 		t.Errorf("To=%v", captured.To)
 	}
-	if captured.Subject != "Đặt lại mật khẩu Warranty Vault" {
+	if captured.Subject != "Đặt lại mật khẩu Warrly" {
 		t.Errorf("Subject=%q", captured.Subject)
 	}
 	if !strings.Contains(captured.Text, "https://app.local/reset/tok") {
@@ -147,7 +147,7 @@ func TestSendEmailChange_PostsExpectedBody(t *testing.T) {
 	if len(captured.To) != 1 || captured.To[0] != "new@example.com" {
 		t.Errorf("To=%v, want the NEW address only", captured.To)
 	}
-	if captured.Subject != "Xác nhận đổi email Warranty Vault" {
+	if captured.Subject != "Xác nhận đổi email Warrly" {
 		t.Errorf("Subject=%q", captured.Subject)
 	}
 	for _, want := range []string{"old@example.com", "https://app.local/confirm-email/raw-token", "raw-token"} {
@@ -211,7 +211,7 @@ func TestPasswordResetEmailInBothLanguages(t *testing.T) {
 	}{
 		{
 			lang:    i18n.VI,
-			subject: "Đặt lại mật khẩu Warranty Vault",
+			subject: "Đặt lại mật khẩu Warrly",
 			mustHave: []string{
 				"Chào user@example.com,",
 				"Có yêu cầu đặt lại mật khẩu cho tài khoản này.",
@@ -223,7 +223,7 @@ func TestPasswordResetEmailInBothLanguages(t *testing.T) {
 		},
 		{
 			lang:    i18n.EN,
-			subject: "Reset your Warranty Vault password",
+			subject: "Reset your Warrly password",
 			mustHave: []string{
 				"Hi user@example.com,",
 				"Someone asked to reset the password for this account.",
@@ -277,10 +277,10 @@ func TestEmailChangeEmailInBothLanguages(t *testing.T) {
 	}{
 		{
 			lang:    i18n.VI,
-			subject: "Xác nhận đổi email Warranty Vault",
+			subject: "Xác nhận đổi email Warrly",
 			mustHave: []string{
 				"Chào bạn,",
-				"Có yêu cầu đổi email của tài khoản Warranty Vault từ old@example.com sang địa chỉ này.",
+				"Có yêu cầu đổi email của tài khoản Warrly từ old@example.com sang địa chỉ này.",
 				"Hoặc nhập mã xác nhận trong ứng dụng:",
 				"Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận.",
 				"Xác nhận đổi email",
@@ -289,10 +289,10 @@ func TestEmailChangeEmailInBothLanguages(t *testing.T) {
 		},
 		{
 			lang:    i18n.EN,
-			subject: "Confirm your new Warranty Vault email",
+			subject: "Confirm your new Warrly email",
 			mustHave: []string{
 				"Hi,",
-				"Someone asked to change this Warranty Vault account's email from old@example.com to this address.",
+				"Someone asked to change this Warrly account's email from old@example.com to this address.",
 				"Or enter the confirmation code in the app:",
 				"The old address keeps working until you confirm.",
 				"Confirm email change",

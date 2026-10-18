@@ -1,7 +1,7 @@
 import SwiftUI
 
 // ============================================================
-// WarrantyVault iOS — design tokens
+// Warrly iOS — design tokens
 //
 // Ported 1:1 from the Claude Design handoff prototype
 // (project/ios/styles.css `:root` + `[data-theme="dark"]`).
