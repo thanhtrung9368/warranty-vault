@@ -43,7 +43,10 @@ class DashboardViewModelTest {
         private val actions: suspend () -> ActionQueue = { Fixtures.actionQueue(items = emptyList()) },
     ) : FakeApiService() {
         override suspend fun getStats(): UserStats = stats()
-        override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse = reminders()
+        override suspend fun listUpcomingReminders(
+            withinDays: Int,
+            includeDismissed: Boolean?,
+        ): RemindersResponse = reminders()
         override suspend fun listSubscriptions(): SubscriptionListResponse = subscriptions()
         override suspend fun listWishlist(): WishlistListResponse = wishlist()
         override suspend fun listDevices(

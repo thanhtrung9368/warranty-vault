@@ -53,6 +53,13 @@
     <string name="rem_expires">Expires: %1$s</string>
     <string name="rem_warranty_provider">Warranty provider: %1$s</string>
     <string name="rem_seen">Seen</string>
+    <!-- ===== "Đã ẩn" — hidden reminders (RemindersScreen.kt). Same copy as the
+         web /reminders page and the iOS RemindersView. ===== -->
+    <string name="rem_hidden">Hidden</string>
+    <string name="rem_restore">Restore</string>
+    <string name="rem_hidden_empty">Nothing hidden yet. Anything you hide with “Seen, hide it” shows up here so you can bring it back.</string>
+    <string name="rem_hidden_unavailable">Could not load the hidden reminders — pull down to try again.</string>
+    <string name="rem_reminder_restored">Reminder shown again</string>
     <string name="act_un_snoozed_this_item_is_back">Un-snoozed — this item is back in the queue</string>
     <string name="act_nothing_left_waiting">Nothing left waiting</string>
     <string name="act_nothing_needs_your_attention">Nothing needs your attention</string>

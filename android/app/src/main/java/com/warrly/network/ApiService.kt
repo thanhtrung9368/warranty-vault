@@ -300,8 +300,18 @@ interface ApiService {
     suspend fun getForecast(@Query("months") months: Int? = null): Forecast
 
     // ---- Reminders ----
+    // `includeDismissed` is the opt-in widening of the same feed: `true` adds the
+    // rows the user hid ("Đã ẩn"), each carrying `isDismissed` and its device's
+    // `status`. Leave it `null` for the default read — Retrofit omits a null
+    // query parameter, so the request stays byte-identical to the pre-flag one
+    // (`?withinDays=30`) for every caller that does not ask for the widening.
+    // Passing `false` would send `includeDismissed=false` and is deliberately
+    // never done; `null` is the "off" value, matching `listActionItems(snoozed)`.
     @GET("api/v1/reminders")
-    suspend fun listUpcomingReminders(@Query("withinDays") withinDays: Int = 30): RemindersResponse
+    suspend fun listUpcomingReminders(
+        @Query("withinDays") withinDays: Int = 30,
+        @Query("includeDismissed") includeDismissed: Boolean? = null,
+    ): RemindersResponse
 
     // ---- "Việc cần xử lý" (action queue) ----
     // `snoozed = true` only ADDS the rows a snooze is currently hiding; `counts`

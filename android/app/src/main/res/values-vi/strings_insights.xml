@@ -51,6 +51,13 @@
     <string name="rem_expires">Hết hạn: %1$s</string>
     <string name="rem_warranty_provider">Đơn vị bảo hành: %1$s</string>
     <string name="rem_seen">Đã xem</string>
+    <!-- ===== "Đã ẩn" — nhắc nhở đã ẩn (RemindersScreen.kt). Dùng đúng câu của
+         trang /reminders bên web và RemindersView bên iOS. ===== -->
+    <string name="rem_hidden">Đã ẩn</string>
+    <string name="rem_restore">Khôi phục</string>
+    <string name="rem_hidden_empty">Chưa ẩn gói bảo hành nào. Gói nào bạn bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại.</string>
+    <string name="rem_hidden_unavailable">Không tải được danh sách nhắc nhở đã ẩn — kéo xuống để tải lại nhé.</string>
+    <string name="rem_reminder_restored">Đã hiện lại nhắc nhở</string>
     <string name="act_un_snoozed_this_item_is_back">Đã bỏ hoãn — việc này quay lại hàng đợi</string>
     <string name="act_nothing_left_waiting">Không còn việc nào đang chờ</string>
     <string name="act_nothing_needs_your_attention">Không có việc nào cần xử lý</string>

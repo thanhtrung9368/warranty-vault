@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,6 +60,7 @@ import com.warrly.i18n.AppStrings
 import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
+import com.warrly.network.DeviceStatus
 import com.warrly.network.UpcomingReminder
 import com.warrly.network.WarrantyType
 import com.warrly.network.toUserMessage
@@ -72,15 +74,42 @@ import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.pressScale
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * The widest horizon the reminders endpoint accepts (`withinDays` max 365),
+ * used for the "Đã ẩn" read.
+ *
+ * The server ignores `withinDays` for dismissed rows, so this is not a filter —
+ * it is simply the widest window available, and keeping a hidden reminder from
+ * falling out of the response for a reason the user cannot see. Mirrors
+ * `RemindersStore.dismissedWindowDays` on iOS.
+ */
+internal const val DISMISSED_WINDOW_DAYS = 365
+
 class RemindersViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
         data object Loading : State
-        data class Loaded(val items: List<UpcomingReminder>) : State
+
+        /**
+         * [items] is the default upcoming feed. [dismissed] is the "Đã ẩn"
+         * rollup from the same endpoint asked with `includeDismissed=true`.
+         *
+         * The two reads are independent on purpose: a hidden-rows failure must
+         * not hide the active reminders the user can still see. In that case
+         * [dismissedUnavailable] is true and the section says so instead of
+         * rendering an empty list (which would read as "nothing is hidden").
+         */
+        data class Loaded(
+            val items: List<UpcomingReminder>,
+            val dismissed: List<DismissedReminder> = emptyList(),
+            val dismissedUnavailable: Boolean = false,
+        ) : State
+
         data class Error(val message: String) : State
     }
 
@@ -91,8 +120,31 @@ class RemindersViewModel(private val api: ApiService) : ViewModel() {
         viewModelScope.launch {
             _state.value = State.Loading
             try {
-                val items = api.listUpcomingReminders().reminders
-                _state.value = State.Loaded(items)
+                // Two independent reads, run together, exactly like web/iOS:
+                // the plain feed stays the source of the upcoming list (its
+                // request is unchanged — no `includeDismissed` parameter), and
+                // a second call asks the server to add the hidden rows.
+                val upcoming = async { api.listUpcomingReminders() }
+                val widened = async {
+                    runCatching {
+                        api.listUpcomingReminders(
+                            withinDays = DISMISSED_WINDOW_DAYS,
+                            includeDismissed = true,
+                        )
+                    }
+                }
+
+                val items = upcoming.await().reminders
+                // A hidden-rows failure degrades to a flagged section, never to
+                // a blank screen: the active reminders already arrived.
+                val hidden = widened.await()
+                _state.value = State.Loaded(
+                    items = items,
+                    dismissed = hidden.getOrNull()
+                        ?.let { dismissedReminders(it.reminders) }
+                        .orEmpty(),
+                    dismissedUnavailable = hidden.isFailure,
+                )
             } catch (e: Exception) {
                 _state.value = State.Error(e.toUserMessage(ApiClient.json))
             }
@@ -111,12 +163,21 @@ class RemindersViewModel(private val api: ApiService) : ViewModel() {
         }
     }
 
-    /** Un-dismisses a reminder (the "Hoàn tác" undo action) and reloads. */
-    fun restore(warrantyId: String, onError: (String) -> Unit) {
+    /**
+     * Un-dismisses a reminder — the "Hoàn tác" undo *and* the explicit "Khôi
+     * phục" button in the "Đã ẩn" list — then reloads both feeds so the row
+     * moves back to wherever it belongs.
+     */
+    fun restore(
+        warrantyId: String,
+        onError: (String) -> Unit,
+        onSuccess: () -> Unit = {},
+    ) {
         viewModelScope.launch {
             try {
                 api.restoreWarrantyReminder(warrantyId)
                 load()
+                onSuccess()
             } catch (e: Exception) {
                 onError(e.toUserMessage(ApiClient.json))
             }
@@ -157,6 +218,7 @@ fun RemindersScreen(
     // Hoisted out of the coroutine below: `scope.launch { }` is not a
     // composable scope, so stringResource() cannot be called inside it.
     val hiddenMessage = stringResource(R.string.rem_reminder_hidden)
+    val restoredMessage = stringResource(R.string.rem_reminder_restored)
     val undoLabel = stringResource(R.string.action_undo)
 
     fun onDismiss(warrantyId: String) {
@@ -170,9 +232,20 @@ fun RemindersScreen(
                         actionLabel = undoLabel,
                     )
                     if (res == SnackbarResult.ActionPerformed) {
-                        vm.restore(warrantyId) { actionError = it }
+                        vm.restore(warrantyId, onError = { actionError = it })
                     }
                 }
+            },
+        )
+    }
+
+    fun onRestore(warrantyId: String) {
+        actionError = null
+        vm.restore(
+            warrantyId,
+            onError = { actionError = it },
+            onSuccess = {
+                scope.launch { snackbarHostState.showSnackbar(restoredMessage) }
             },
         )
     }
@@ -219,58 +292,63 @@ fun RemindersScreen(
                         onRetry = { vm.load() },
                     )
                     is RemindersViewModel.State.Loaded -> {
-                        if (s.items.isEmpty()) {
-                            Column(Modifier.fillMaxSize()) {
-                                PageHeader(
-                                    stringResource(R.string.dash_warranty_expiring_soon),
-                                    stringResource(R.string.rem_we_will_ping_you_when_it),
-                                )
-                                EmptyState(
-                                    icon = Icons.Filled.NotificationsActive,
-                                    title = stringResource(R.string.rem_relax_nothing_is_expiring_yet),
-                                    body = stringResource(R.string.rem_all_of_your_devices_are_safely),
-                                    tone = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        } else {
-                            Column {
-                                actionError?.let {
-                                    Card(
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        ),
-                                        shape = RoundedCornerShape(16.dp),
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        Column {
+                            actionError?.let {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    ),
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                ) {
+                                    Row(
+                                        Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Row(
-                                            Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(Icons.Outlined.WarningAmber, null,
-                                                tint = MaterialTheme.colorScheme.onErrorContainer)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                it,
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                            TextButton(onClick = { actionError = null }) {
-                                                Text(stringResource(R.string.action_close))
-                                            }
+                                        Icon(Icons.Outlined.WarningAmber, null,
+                                            tint = MaterialTheme.colorScheme.onErrorContainer)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            it,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        TextButton(onClick = { actionError = null }) {
+                                            Text(stringResource(R.string.action_close))
                                         }
                                     }
                                 }
-                                LazyColumn(
-                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 24.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
+                            }
+                            LazyColumn(
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 24.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                item {
+                                    PageHeader(
+                                        stringResource(R.string.dash_warranty_expiring_soon),
+                                        if (s.items.isEmpty()) {
+                                            stringResource(R.string.rem_we_will_ping_you_when_it)
+                                        } else {
+                                            pluralStringResource(
+                                                R.plurals.rem_items_to_look_at,
+                                                s.items.size,
+                                                s.items.size,
+                                            )
+                                        },
+                                    )
+                                }
+
+                                if (s.items.isEmpty()) {
                                     item {
-                                        PageHeader(
-                                            stringResource(R.string.dash_warranty_expiring_soon),
-                                            pluralStringResource(R.plurals.rem_items_to_look_at, s.items.size, s.items.size),
+                                        EmptyState(
+                                            icon = Icons.Filled.NotificationsActive,
+                                            title = stringResource(R.string.rem_relax_nothing_is_expiring_yet),
+                                            body = stringResource(R.string.rem_all_of_your_devices_are_safely),
+                                            tone = MaterialTheme.colorScheme.primary,
                                         )
                                     }
+                                } else {
                                     items(s.items, key = { it.id }) { r ->
                                         ReminderCard(
                                             reminder = r,
@@ -279,9 +357,195 @@ fun RemindersScreen(
                                         )
                                     }
                                 }
+
+                                // "Đã ẩn" is always rendered — even when empty or
+                                // when the hidden read failed — so the way to
+                                // restore a row is never a state the user has to
+                                // discover by accident. Its count is the number
+                                // of hidden rows, not the upcoming list's size.
+                                item(key = "dismissed-header") {
+                                    HiddenSectionHeader(
+                                        count = if (s.dismissedUnavailable) null else s.dismissed.size,
+                                    )
+                                }
+                                if (s.dismissedUnavailable) {
+                                    item(key = "dismissed-unavailable") {
+                                        HiddenMessageCard(stringResource(R.string.rem_hidden_unavailable))
+                                    }
+                                } else if (s.dismissed.isEmpty()) {
+                                    item(key = "dismissed-empty") {
+                                        HiddenMessageCard(stringResource(R.string.rem_hidden_empty))
+                                    }
+                                } else {
+                                    items(s.dismissed, key = { "dismissed-${it.warrantyId}" }) { d ->
+                                        DismissedReminderCard(
+                                            reminder = d,
+                                            onOpenDevice = { onOpenDevice(d.deviceId) },
+                                            onRestore = { onRestore(d.warrantyId) },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Count pill + "Đã ẩn" heading. `null` count renders "?" (the read failed). */
+@Composable
+private fun HiddenSectionHeader(count: Int?) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp, top = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatusPill(
+            label = count?.toString() ?: "?",
+            kind = PillKind.Neutral,
+        )
+        Spacer(Modifier.width(8.dp))
+        Icon(
+            Icons.Filled.NotificationsOff,
+            contentDescription = null,
+            tint = cs.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            stringResource(R.string.rem_hidden),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.onBackground,
+        )
+    }
+}
+
+/** Empty / unavailable copy for the hidden section — a muted card, not a pill. */
+@Composable
+private fun HiddenMessageCard(text: String) {
+    val cs = MaterialTheme.colorScheme
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * A hidden reminder. Deliberately *not* styled like [ReminderCard]:
+ *
+ *  * a neutral "Đã ẩn" pill on every row, plus the muted surface, says this row
+ *    is here because it was hidden — not because its end date is near;
+ *  * a device-status pill when the owning device is no longer ACTIVE explains
+ *    the row that would otherwise look impossible (the upcoming feed only ever
+ *    shows ACTIVE devices);
+ *  * "Khôi phục" is the explicit un-dismiss path, so the list can never become
+ *    a one-way trap. It calls the same `DELETE …/reminder` as the snackbar undo.
+ */
+@Composable
+private fun DismissedReminderCard(
+    reminder: DismissedReminder,
+    onOpenDevice: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    val s = appStrings()
+    val cs = MaterialTheme.colorScheme
+    val days = daysLeftFromIso(reminder.endDate) ?: 0L
+    val pillKind = when {
+        days <= 3 -> PillKind.Danger
+        days <= 7 -> PillKind.Warning
+        else -> PillKind.Info
+    }
+    val pillLabel = when {
+        days < 0L -> stringResource(R.string.dash_expired)
+        days == 0L -> stringResource(R.string.dash_expires_today)
+        days == 1L -> stringResource(R.string.dash_1_day_left)
+        else -> pluralStringResource(R.plurals.dash_days_left, days.toInt(), days)
+    }
+    val interactionSource = remember { MutableInteractionSource() }
+    Card(
+        onClick = onOpenDevice,
+        interactionSource = interactionSource,
+        colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pressScale(interactionSource),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusPill(
+                    label = stringResource(R.string.rem_hidden),
+                    kind = PillKind.Neutral,
+                    icon = Icons.Filled.NotificationsOff,
+                )
+                Spacer(Modifier.width(8.dp))
+                StatusPill(label = pillLabel, kind = pillKind)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    warrantyTypeLabel(s, reminder.warrantyType),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                reminder.deviceName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = cs.onSurface,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (reminder.deviceCategory.isNotBlank()) {
+                    Text(
+                        CategoryLabels.label(reminder.deviceCategory),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+                if (reminder.deviceStatus != DeviceStatus.ACTIVE) {
+                    Spacer(Modifier.width(8.dp))
+                    StatusPill(
+                        label = s.get(reminder.deviceStatus.labelRes),
+                        kind = PillKind.Neutral,
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.rem_expires, reminder.endDate.take(10)),
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+            )
+            reminder.warrantyProvider?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    stringResource(R.string.rem_warranty_provider, it),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row {
+                TextButton(onClick = onRestore) {
+                    Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(R.string.rem_restore),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
             }
         }

@@ -190,8 +190,10 @@ open class FakeApiService : ApiService {
 
     override suspend fun search(q: String?, limit: Int?): SearchResults = notStubbed("search")
 
-    override suspend fun listUpcomingReminders(withinDays: Int): RemindersResponse =
-        notStubbed("listUpcomingReminders")
+    override suspend fun listUpcomingReminders(
+        withinDays: Int,
+        includeDismissed: Boolean?,
+    ): RemindersResponse = notStubbed("listUpcomingReminders")
 
     override suspend fun listActionItems(snoozed: Boolean?): ActionQueue = notStubbed("listActionItems")
 

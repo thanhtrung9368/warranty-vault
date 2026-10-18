@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -109,6 +110,62 @@ class ApiClientNetworkTest {
         enqueueJson("""{"reminders":[]}""")
         api().listUpcomingReminders(withinDays = 7)
         assertEquals("/api/v1/reminders?withinDays=7", server.takeRequest().path)
+
+        // `includeDismissed` is only on the wire when the caller opts in; the
+        // default read above stayed exactly `?withinDays=30`.
+        enqueueJson("""{"reminders":[]}""")
+        api().listUpcomingReminders(withinDays = 365, includeDismissed = true)
+        assertEquals(
+            "/api/v1/reminders?withinDays=365&includeDismissed=true",
+            server.takeRequest().path,
+        )
+    }
+
+    @Test
+    fun widenedReminderFeed_decodesTheExtraHiddenRowsAndTheirDeviceStatus() = runBlocking {
+        enqueueJson(
+            """
+            {
+              "reminders": [
+                {
+                  "id": "war-visible",
+                  "deviceId": "dev-1",
+                  "device": {"id": "dev-1", "name": "iPhone 15", "category": "PHONE", "status": "ACTIVE"},
+                  "type": "STANDARD",
+                  "startDate": "2024-01-01T00:00:00",
+                  "endDate": "2026-11-01T00:00:00",
+                  "months": 24
+                },
+                {
+                  "id": "war-hidden",
+                  "deviceId": "dev-2",
+                  "device": {"id": "dev-2", "name": "Galaxy Tab S9", "category": "TABLET", "status": "SOLD"},
+                  "type": "STANDARD",
+                  "provider": "Samsung Care",
+                  "startDate": "2022-01-01T00:00:00",
+                  "endDate": "2024-01-01T00:00:00",
+                  "months": 24,
+                  "isDismissed": true
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val res = api().listUpcomingReminders(withinDays = 365, includeDismissed = true)
+
+        assertEquals(
+            "/api/v1/reminders?withinDays=365&includeDismissed=true",
+            server.takeRequest().path,
+        )
+        assertEquals(2, res.reminders.size)
+        // Absent `isDismissed` means visible; present-and-true is the hidden row
+        // the default feed would have dropped.
+        assertFalse(res.reminders[0].isDismissed)
+        assertEquals(DeviceStatus.ACTIVE, res.reminders[0].device.status)
+        assertTrue(res.reminders[1].isDismissed)
+        assertEquals(DeviceStatus.SOLD, res.reminders[1].device.status)
+        assertEquals("Samsung Care", res.reminders[1].provider)
     }
 
     @Test

@@ -1053,6 +1053,17 @@ data class UpcomingReminder(
     val startDate: String,
     val endDate: String,
     val months: Int,
+    /**
+     * True only on a row returned by `GET /api/v1/reminders?includeDismissed=true`
+     * that the user has hidden ("Đã xem, ẩn đi"). The server omits the field
+     * entirely on the default feed (openapi: `isDismissed` is serialised only
+     * when true), so a missing key means "visible" — hence the `false` default.
+     *
+     * Hidden rows are returned regardless of the `withinDays` window and
+     * regardless of the owning device's status, which is why the "Đã ẩn" list
+     * reads this flag instead of inferring hidden-ness from dates.
+     */
+    val isDismissed: Boolean = false,
 )
 
 @Serializable
@@ -1060,6 +1071,14 @@ data class ReminderDevice(
     val id: String,
     val name: String,
     val category: String,
+    /**
+     * Device status as of the read. Only hidden rows can carry a non-ACTIVE
+     * status (the default feed filters to ACTIVE devices); the "Đã ẩn" card
+     * renders the label so a reminder on a sold/broken/lost device explains
+     * itself. Defaults to ACTIVE for payloads from a server that predates the
+     * field — the same fallback web and iOS use.
+     */
+    val status: DeviceStatus = DeviceStatus.ACTIVE,
 )
 
 // ---- "Việc cần xử lý" — GET /api/v1/actions ----

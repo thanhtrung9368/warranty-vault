@@ -165,14 +165,22 @@ object Fixtures {
         id: String = "war-1",
         deviceId: String = "dev-1",
         endDate: String = "2025-06-01",
+        isDismissed: Boolean = false,
+        deviceStatus: DeviceStatus = DeviceStatus.ACTIVE,
     ) = UpcomingReminder(
         id = id,
         deviceId = deviceId,
-        device = ReminderDevice(id = deviceId, name = "iPhone 15 Pro", category = "PHONE"),
+        device = ReminderDevice(
+            id = deviceId,
+            name = "iPhone 15 Pro",
+            category = "PHONE",
+            status = deviceStatus,
+        ),
         type = WarrantyType.STANDARD.name,
         startDate = "2023-06-01",
         endDate = endDate,
         months = 24,
+        isDismissed = isDismissed,
     )
 
     fun stats(

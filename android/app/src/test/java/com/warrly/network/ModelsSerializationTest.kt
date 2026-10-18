@@ -435,6 +435,27 @@ class ModelsSerializationTest {
         )
         assertEquals("SOMETHING_NEW", reminder.type)
         assertEquals("iPhone", reminder.device.name)
+        // The default feed writes neither field: the flag is absent (so it must
+        // decode as visible) and `device.status` is absent on a server that
+        // predates it (falling back to ACTIVE, like web/iOS).
+        assertFalse(reminder.isDismissed)
+        assertEquals(DeviceStatus.ACTIVE, reminder.device.status)
+
+        // The widened feed (`includeDismissed=true`) adds the hidden rows and
+        // their device status — the two fields the "Đã ẩn" list renders.
+        val hidden = json.decodeFromString(
+            UpcomingReminder.serializer(),
+            """
+                {
+                  "id": "war-2", "deviceId": "dev-2",
+                  "device": {"id": "dev-2", "name": "Galaxy Tab", "category": "TABLET", "status": "SOLD"},
+                  "type": "STANDARD", "startDate": "2022-01-01", "endDate": "2023-01-01", "months": 12,
+                  "isDismissed": true
+                }
+            """.trimIndent(),
+        )
+        assertTrue(hidden.isDismissed)
+        assertEquals(DeviceStatus.SOLD, hidden.device.status)
     }
 
     // ---- Attachments (PATCH /api/v1/attachments/{id}) ----
