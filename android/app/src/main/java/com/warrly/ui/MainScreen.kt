@@ -357,6 +357,11 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                         api = App.instance.api,
                         onOpenDevice = { openDeviceId = it },
                         onOpenSearch = { openSearch = true },
+                        // The create sheet's OCR scan stores its file in the
+                        // inbox before the device exists. "Open the Inbox" closes
+                        // the sheet (the screen does it) and lands here, where
+                        // the fresh receipt can be filed or deleted.
+                        onOpenInbox = { selected = Tab.Inbox },
                     )
                     Tab.Inbox         -> InboxScreen(
                         api = App.instance.api,

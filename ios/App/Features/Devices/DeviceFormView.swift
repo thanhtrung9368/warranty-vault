@@ -19,6 +19,9 @@ struct DeviceFormView: View {
     let device: Device?   // nil = create mode
 
     @EnvironmentObject private var catalog: CatalogStore
+    /// Shared inbox state: an upload from this screen must move the "Thêm"
+    /// badge immediately, not on the next screen load.
+    @EnvironmentObject private var inboxStore: InboxStore
     @Environment(\.dismiss) private var dismiss
 
     // Form fields
@@ -108,6 +111,16 @@ struct DeviceFormView: View {
     @State private var scanning = false
     @State private var scanInfo: ScanInfo?
     @State private var aiEnabled = false
+    /// The inbox item created by the scan, kept even when extraction fails.
+    ///
+    /// The scan uploads first (no `deviceId`) so the OCR transcript can be
+    /// persisted and searched. That means the file exists on the server before
+    /// the user has decided anything, and it stays there if they abandon the
+    /// form or the model call fails. The UI says so under the draft instead of
+    /// pretending the photo only exists in the form.
+    @State private var scanUpload: AttachmentMeta?
+    @State private var scanError: String?
+    @State private var showScanInbox = false
 
     // Serial / IMEI camera scan. Feature-gated on `DataScannerViewController`
     // support (false on every simulator); permission is handled here, before the
@@ -135,6 +148,12 @@ struct DeviceFormView: View {
         /// Advisories about values it **did** use (`draft.warnings`). A different
         /// thing from `unmatched`, and shown as such.
         let warnings: [DeviceWarning]
+        /// `draft.extractedTextStored`: whether the server actually wrote the
+        /// transcript onto the uploaded attachment. Optional because an older
+        /// payload omits it; `nil` renders no claim either way.
+        let extractedTextStored: Bool?
+        /// Whether a non-empty transcript came back at all.
+        let hasExtractedText: Bool
     }
 
     private var isEditing: Bool { device != nil }
@@ -466,6 +485,21 @@ struct DeviceFormView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    // The file exists in the inbox before the draft does. Say so
+                    // under the draft, and keep saying it when extraction failed.
+                    if !scanning {
+                        if let upload = scanUpload {
+                            scanInboxNotice(upload)
+                        } else if let scanError {
+                            Text(scanError)
+                                .font(.system(size: 13))
+                                .foregroundStyle(WVColor.red)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 8)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
 
                     Spacer().frame(height: 16)
@@ -845,6 +879,22 @@ struct DeviceFormView: View {
         ) { result in
             Task { await handlePDFImport(result) }
         }
+        // The scan form can be pushed by the Devices tab **or** presented as a
+        // sheet from the dashboard's quick-add, so the inbox is shown in its own
+        // NavigationStack rather than as a `NavigationLink` (which would be a
+        // dead tap in the sheet context). It shares the tab's `InboxStore`
+        // through the environment, so filing the receipt there moves the badge.
+        .sheet(isPresented: $showScanInbox) {
+            NavigationStack {
+                InboxScreen(client: client)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(L.t("Đóng")) { showScanInbox = false }
+                                .foregroundStyle(WVColor.tint)
+                        }
+                    }
+            }
+        }
     }
 
     // MARK: - Serial / IMEI camera scan
@@ -905,6 +955,8 @@ struct DeviceFormView: View {
         defer { scanPhotoItem = nil }
         topError = nil
         scanInfo = nil
+        scanError = nil
+        scanUpload = nil
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
             guard data.count <= AttachmentFileType.maxBytes else {
@@ -943,6 +995,8 @@ struct DeviceFormView: View {
     private func handlePDFImport(_ result: Result<[URL], Error>) async {
         topError = nil
         scanInfo = nil
+        scanError = nil
+        scanUpload = nil
         guard case let .success(urls) = result, let url = urls.first else {
             if case .failure = result { topError = L.t("Không mở được file.") }
             return
@@ -968,27 +1022,131 @@ struct DeviceFormView: View {
         }
     }
 
-    /// The single place that calls `extractReceipt`, so both entry points fill
-    /// the form the same way.
+    /// The single place a scan runs, so both entry points behave the same.
+    ///
+    /// **Upload first, extract second.** The multipart branch of
+    /// `/ai/extract-receipt` returns a draft but cannot persist the transcript
+    /// (no `Attachment` row exists). Uploading into the inbox — no `deviceId` —
+    /// and then extracting with `attachmentId` is what makes the receipt's OCR
+    /// text searchable, and it also means the bytes are safe before the paid
+    /// model call happens.
+    ///
+    /// A failed extraction does **not** delete the upload: the receipt is worth
+    /// more than the scan, it is already in a real inbox where the user can file
+    /// it manually, and the notice under the draft says exactly that.
     private func scan(fileName: String, fileType: String, data: Data) async {
         scanning = true
         defer { scanning = false }
+        topError = nil
+        scanInfo = nil
+        scanError = nil
+        scanUpload = nil
         do {
-            let draft = try await client.extractReceipt(
-                fileName: fileName, fileType: fileType, data: data
+            let attachment = try await client.uploadAttachment(
+                deviceId: nil,
+                fileName: fileName,
+                fileType: fileType,
+                data: data,
+                description: nil
             )
+            scanUpload = attachment
+            // The badge must already show this receipt while the notice below
+            // says it is in the inbox; waiting for the next foreground load
+            // would make the two disagree.
+            inboxStore.noteUploaded(attachment)
+
+            // The API deliberately keeps a previously stored transcript when a
+            // re-scan comes back blank. This client must not "fix" that: the
+            // text already on the attachment stays searchable.
+            let draft = try await client.extractReceipt(attachmentId: attachment.id)
             applyDraft(draft)
-            scanInfo = ScanInfo(confidence: draft.confidence,
-                                unmatched: draft.unmatched,
-                                warnings: draft.warningsOrEmpty)
+            scanInfo = ScanInfo(
+                confidence: draft.confidence,
+                unmatched: draft.unmatched,
+                warnings: draft.warningsOrEmpty,
+                extractedTextStored: draft.extractedTextStored,
+                hasExtractedText: draft.hasExtractedText
+            )
         } catch let err as APIError {
-            topError = err.localizedDescription
+            scanError = err.localizedDescription
         } catch {
-            topError = L.t("Không quét được hoá đơn, thử lại sau")
+            scanError = scanUpload == nil
+                ? L.t("Không tải được tệp lên, thử lại sau.")
+                : L.t("Không quét được hoá đơn, thử lại sau")
         }
     }
 
     private static func stamp() -> Int { Int(Date().timeIntervalSince1970) }
+
+    /// The scan is upload-first, so the receipt exists in the inbox before the
+    /// draft does and stays there if the user abandons the form or the model
+    /// call fails. This card is the honest version of that: it names the file,
+    /// says where it is, and opens the inbox.
+    private func scanInboxNotice(_ upload: AttachmentMeta) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "tray.and.arrow.down.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(WVColor.tint)
+                Text(L.t("Đã thêm vào Hộp thư đến"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(WVColor.label)
+                Spacer(minLength: 0)
+            }
+
+            Text(upload.fileName)
+                .font(.system(size: 12))
+                .foregroundStyle(WVColor.label3)
+                .lineLimit(1)
+
+            if let scanError {
+                Text(scanError)
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(L.t("Không quét được hoá đơn, nhưng tệp vẫn nằm trong Hộp thư đến — không bị mất."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(L.t("Tệp vẫn nằm trong Hộp thư đến kể cả khi bạn chưa lưu thiết bị này."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // The server reports whether it actually stored the transcript. If
+            // it could not, the draft is still usable but this receipt will not
+            // be found by keyword — say that instead of letting search look
+            // broken later.
+            if let info = scanInfo,
+               info.hasExtractedText,
+               info.extractedTextStored == false {
+                Text(L.t("Chưa lưu được văn bản OCR nên hoá đơn này chưa tìm thấy bằng từ khoá."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button { showScanInbox = true } label: {
+                HStack(spacing: 4) {
+                    Text(L.t("Mở Hộp thư đến"))
+                        .font(.system(size: 13, weight: .semibold))
+                    WVIcon("arrowRight", size: 11)
+                }
+                .foregroundStyle(WVColor.tint)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WVColor.bg2)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
 
     /// Seeds the form from an extracted draft. Category is only applied when it
     /// matches a known catalog code; brand/place are set verbatim (free-text

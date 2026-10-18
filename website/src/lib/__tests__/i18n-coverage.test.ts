@@ -12,7 +12,7 @@ import {
   WISHLIST_PRIORITY_LABELS,
   WISHLIST_STATUS_LABELS,
 } from '@/lib/wishlist-types';
-import { SEARCH_GROUP_LABELS } from '@/lib/search';
+import { SEARCH_GROUP_LABELS, ATTACHMENT_SEARCH_STATUS_LABELS } from '@/lib/search';
 import { PASTE_FIELD_LABELS } from '@/lib/device-paste';
 import { SHARE_FAILURE_MESSAGES } from '@/lib/share-target';
 
@@ -154,6 +154,11 @@ describe('every enum/option label is registered', () => {
     WISHLIST_PRIORITY_LABELS,
     WISHLIST_STATUS_LABELS,
     SEARCH_GROUP_LABELS,
+    // The attachment row status is looked up dynamically
+    // (`t(ATTACHMENT_SEARCH_STATUS_LABELS[status])`), so the literal-key scan
+    // cannot see it; listing the map keeps both values under the same
+    // "registered and English" checks as the enum labels.
+    ATTACHMENT_SEARCH_STATUS_LABELS,
     PASTE_FIELD_LABELS,
     // The Web Share Target failure screen looks its sentence up dynamically
     // (`t(SHARE_FAILURE_MESSAGES[reason])`), so the literal-key scan cannot see

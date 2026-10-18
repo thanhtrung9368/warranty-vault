@@ -707,7 +707,9 @@ data class DeviceInput(
 
 // Draft from POST /api/v1/ai/extract-receipt. Mirrors Go DraftDevice / openapi.
 // Every field is nullable — the model returns null for anything it can't read.
-// NEVER persisted directly; the form pre-fills from it and the user confirms.
+// The DRAFT is never persisted directly; the form pre-fills from it and the user
+// confirms. `extractedText` is different: the server stores that transcript on
+// the Attachment when the request carries an `attachmentId` (see ExtractReceiptInput).
 @Serializable
 data class DraftDevice(
     val name: String? = null,
@@ -736,7 +738,39 @@ data class DraftDevice(
      * pre-warnings server.
      */
     val warnings: List<DeviceWarning> = emptyList(),
+    /**
+     * The transcript the model read off the document, already trimmed / NUL-free
+     * and capped at 8000 characters by the server. `null` when the model read no
+     * text at all. Not a Device field — never send it back into the form.
+     *
+     * On the `attachmentId` branch this same string is written to
+     * `Attachment.extractedText` and becomes searchable. A re-scan that yields no
+     * text does **not** erase a previously stored transcript, by design.
+     */
+    val extractedText: String? = null,
+    /**
+     * `true` only when [extractedText] was successfully written to an Attachment
+     * row. The Android scan flow now always uses that branch, but the write is
+     * best-effort: `false` means "this scan will not be found in search", which
+     * the sheet says out loud instead of implying the receipt is indexed.
+     */
+    val extractedTextStored: Boolean = false,
 )
+
+/**
+ * Body of the `attachmentId` branch of `POST /api/v1/ai/extract-receipt`.
+ *
+ * The endpoint takes **either** this JSON object **or** multipart `file`; the
+ * two differ in exactly one observable way: only this branch has an Attachment
+ * row to persist the transcript on. Android therefore uploads first (an inbox
+ * item, no `deviceId`) and extracts second — see
+ * `ui/screens/devices/ReceiptScan.kt` for the pure input-shape rule.
+ *
+ * A single property on purpose: the server rejects nothing else here, and the
+ * multipart field must not leak into the JSON body.
+ */
+@Serializable
+data class ExtractReceiptInput(val attachmentId: String)
 
 @Serializable
 data class DraftDeviceResponse(val draft: DraftDevice)
@@ -1017,12 +1051,12 @@ data class PriceLogInput(
 /**
  * Response of `GET /api/v1/search?q=&limit=` (openapi `SearchResults`).
  *
- * One round trip answers "where does this text appear at all?" across the three
- * entity kinds, so the search screen never fires three list requests and merges
+ * One round trip answers "where does this text appear at all?" across the four
+ * entity kinds, so the search screen never fires four list requests and merges
  * them client-side. `limit` is **per group** (server default 20, hard cap 50) —
- * 20 devices + 20 subscriptions + 20 wishlist rows at most.
+ * 20 devices + 20 subscriptions + 20 wishlist rows + 20 OCR hits at most.
  *
- * A blank query is a 200 with three empty groups, not a 400: clearing the search
+ * A blank query is a 200 with four empty groups, not a 400: clearing the search
  * box is a normal keystroke, so [isEmpty] can never be read as "the request
  * failed" (that is what an exception / [ApiErrorEnvelope] is for).
  *
@@ -1040,10 +1074,17 @@ data class SearchResults(
     val subscriptions: List<Subscription> = emptyList(),
     /** Matched wishlist items (name / brand / notes). */
     val wishlist: List<WishlistItem> = emptyList(),
+    /**
+     * Attachments whose stored OCR transcript matches. Each row is an
+     * [Attachment] with its `deviceId` present: `null` means the file is still
+     * in the inbox, a real id means it is filed on that device. Only OCR text is
+     * searched — a file that was never scanned never appears here.
+     */
+    val attachments: List<Attachment> = emptyList(),
 ) {
-    /** Rows across all three groups — what the results header counts. */
+    /** Rows across all four groups — what the results header counts. */
     val total: Int
-        get() = devices.size + subscriptions.size + wishlist.size
+        get() = devices.size + subscriptions.size + wishlist.size + attachments.size
 
     /** `true` when a non-blank query matched nothing at all. */
     val isEmpty: Boolean
@@ -1104,6 +1145,21 @@ data class Attachment(
     val fileSize: Long = 0,
     val description: String? = null,
     val uploadedAt: String? = null,
+    /**
+     * The OCR transcript the server stored on this row (`Attachment.extractedText`,
+     * migration 0019), plaintext in the database and searchable through the
+     * `attachments` group of `GET /api/v1/search`.
+     *
+     * **Absent when the file has never been scanned** — the server marks the
+     * field `omitempty`, so a pre-OCR payload and an unscanned file both arrive
+     * without the key. A default of `null` decodes both, and also keeps the
+     * device/inbox list payloads (which predate the field) working unchanged.
+     *
+     * A re-scan that reads no text deliberately leaves the stored value in
+     * place; the client must never treat a blank [extractedText] draft as
+     * permission to clear it.
+     */
+    val extractedText: String? = null,
 )
 
 @Serializable

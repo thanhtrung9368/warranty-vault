@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Star
@@ -32,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +63,7 @@ import com.warrly.R
 import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
+import com.warrly.network.Attachment
 import com.warrly.network.Device
 import com.warrly.network.DeviceStatus
 import com.warrly.network.SearchResults
@@ -74,6 +80,7 @@ import com.warrly.ui.components.SectionHeader
 import com.warrly.ui.components.SkeletonList
 import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.pressScale
+import com.warrly.ui.screens.attachments.openAttachment
 import com.warrly.ui.screens.devices.formatVnd
 import com.warrly.ui.screens.subscriptions.formatPriceCycle
 import com.warrly.ui.viewModelFactory
@@ -94,8 +101,12 @@ import kotlinx.coroutines.launch
  *    becomes an error — it goes back to [State.Blank];
  *  - a keyword over [SearchQuery.MAX_RUNES] runes is refused locally with the
  *    server's own wording instead of costing a round trip for a known 400;
- *  - `200` with three empty groups is [State.Empty] ("không tìm thấy"), which is
- *    a different thing from [State.Error] ("không tải được").
+ *  - `200` with four empty groups is [State.Empty] ("không tìm thấy"), which is
+ *    a different thing from [State.Error] ("không tải được"). The groups are
+ *    devices / subscriptions / wishlist / OCR attachments; the fourth one is
+ *    non-empty only for files that were actually scanned through the
+ *    `attachmentId` branch, so an empty attachments group must render no
+ *    heading at all (most accounts have never scanned a receipt).
  */
 class SearchViewModel(private val api: ApiService) : ViewModel() {
 
@@ -149,18 +160,19 @@ class SearchViewModel(private val api: ApiService) : ViewModel() {
         /**
          * Rows per group. The server defaults to exactly this and caps at 50
          * (`services.MaxSearchLimit`); sending it explicitly documents that the
-         * number is **per group**, not a total across the three groups.
+         * number is **per group**, not a total across the four groups.
          */
         const val SEARCH_LIMIT_PER_GROUP = 20
     }
 }
 
 /**
- * Full-screen cross-entity search: one box, three grouped result sections
- * (thiết bị / gói dịch vụ / wishlist), tapping a row opens that entity's detail
- * screen. Opened from the magnifier in the list screens' top bars
- * (`MainScreen` owns the route so a detail screen can stack on top and Back
- * returns to the results).
+ * Full-screen cross-entity search: one box, four grouped result sections
+ * (thiết bị / gói dịch vụ / wishlist / tệp có văn bản OCR), tapping a row opens
+ * that entity's detail screen — and for an attachment it opens the file itself
+ * (the same authenticated download the device detail uses). Opened from the
+ * magnifier in the list screens' top bars (`MainScreen` owns the route so a
+ * detail screen can stack on top and Back returns to the results).
  *
  * The keyword is hoisted to [MainScreen] on purpose: tapping a result leaves
  * this composable's tree, so a local `rememberSaveable` would come back empty
@@ -182,6 +194,12 @@ fun SearchScreen(
     )
     val state by vm.state.collectAsState()
     val focusRequester = remember { FocusRequester() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Attachment rows open a real file (download + viewer). A hit whose blob
+    // cannot be fetched is a transient failure on THIS screen — show it in a
+    // snackbar instead of replacing the whole result list with an error page.
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Same debounce as the per-list filter bars. A blank box is not an error —
     // SearchViewModel turns it back into the Blank invitation.
@@ -208,6 +226,7 @@ fun SearchScreen(
                 ),
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
@@ -252,6 +271,16 @@ fun SearchScreen(
                     onOpenDevice = onOpenDevice,
                     onOpenSubscription = onOpenSubscription,
                     onOpenWishlistItem = onOpenWishlistItem,
+                    onOpenAttachment = { att ->
+                        scope.launch {
+                            runCatching { openAttachment(context, att) }
+                                .onFailure {
+                                    snackbarHostState.showSnackbar(
+                                        it.toUserMessage(ApiClient.json, context),
+                                    )
+                                }
+                        }
+                    },
                 )
             }
         }
@@ -264,8 +293,8 @@ private fun SearchResultsList(
     onOpenDevice: (String) -> Unit,
     onOpenSubscription: (String) -> Unit,
     onOpenWishlistItem: (String) -> Unit,
+    onOpenAttachment: (Attachment) -> Unit,
 ) {
-    val context = LocalContext.current
     val s = appStrings()
     // Hoisted into the composable scope: the LazyColumn `item { }` content
     // lambda is a composable scope, but the surrounding function body is not.
@@ -342,6 +371,52 @@ private fun SearchResultsList(
                     ).joinToString(" • "),
                     trailing = { WishlistStatusPill(item.status) },
                     onClick = { onOpenWishlistItem(item.id) },
+                )
+            }
+        }
+        // OCR attachment hits (roadmap #13). An EMPTY group renders nothing at
+        // all — no heading, no "0 results" line: most accounts have no scanned
+        // receipt, and a permanent empty section would make the search screen
+        // look broken on every query. `attachmentResultRow` decides the two
+        // facts the row must state (upload time, filed vs inbox) so that rule
+        // is pinned by a JVM test rather than by layout.
+        if (results.attachments.isNotEmpty()) {
+            item(key = "header-attachments") {
+                SectionHeader(
+                    SearchGroups.header(
+                        stringResource(SearchGroups.ATTACHMENTS),
+                        results.attachments.size,
+                    ),
+                )
+            }
+            items(results.attachments, key = { "attachment-${it.id}" }) { att ->
+                val row = attachmentResultRow(s, att)
+                ResultCard(
+                    icon = if (att.fileType.startsWith("image/")) {
+                        Icons.Filled.Image
+                    } else {
+                        Icons.Filled.PictureAsPdf
+                    },
+                    title = att.fileName,
+                    // "Uploaded 02/01/2025" — empty when the server sent no
+                    // usable timestamp, which the card simply omits.
+                    subtitle = row.uploadedLabel,
+                    // The filing state is the trailing pill; there is no price
+                    // or target date left to put in `meta`.
+                    meta = "",
+                    trailing = {
+                        StatusPill(
+                            label = row.filingLabel,
+                            kind = when (row.filing) {
+                                AttachmentFiling.FILED -> PillKind.Info
+                                AttachmentFiling.INBOX -> PillKind.Warning
+                            },
+                        )
+                    },
+                    // Tapping opens the file itself through the same
+                    // authenticated download the device detail's attachment
+                    // list uses. `deviceId` is not needed for the bytes.
+                    onClick = { onOpenAttachment(att) },
                 )
             }
         }

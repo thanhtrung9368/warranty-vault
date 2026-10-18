@@ -223,6 +223,10 @@ export type AttachmentMeta = {
   fileSize: number;
   description: string | null;
   uploadedAt: string;
+  // OCR transcript (migration 0019), searchable through `GET /v1/search`.
+  // Absent — not `null` — for a file that was never scanned (openapi
+  // `AttachmentMeta.extractedText` is `omitempty`), hence the optional key.
+  extractedText?: string | null;
 };
 
 // `GET /v1/devices/{id}` returns `{ device: DeviceDetail }`.

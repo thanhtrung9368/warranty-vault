@@ -749,6 +749,239 @@ paths:
                     items: { $ref: '#/components/schemas/AttachmentMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/inbox/email:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    post:
+      tags: [attachments]
+      # The sender is a mail provider, not a user: this operation overrides the
+      # global bearer requirement with the shared-secret scheme. The RECIPIENT is
+      # authenticated separately — the local part of the address is a per-user
+      # secret, so the shared secret alone cannot direct mail to an arbitrary
+      # account.
+      security:
+        - inboxToken: []
+      summary: Nhận email hoá đơn và đưa file đính kèm vào hộp thư (provider-agnostic)
+      description: |
+        **Đường email vào hộp thư.** Dành cho NHÀ CUNG CẤP EMAIL, không phải người
+        dùng: endpoint không đọc bearer token, không có userID trong request và
+        không bao giờ trả về dữ liệu của tài khoản. Nó chỉ **ghi thêm** mục vào
+        hộp thư.
+
+        Xác thực hai lớp:
+
+          1. **Shared secret** `X-Warrly-Inbox-Token`, so sánh constant-time với
+             `INBOX_EMAIL_TOKEN` trên server. Thiếu hoặc sai ⇒ **401** với cùng
+             một body (không tiết lộ độ dài/giá trị của secret).
+          2. **Địa chỉ người nhận** `<token>@<INBOX_EMAIL_DOMAIN>`: phần local là
+             một secret 122-bit riêng của từng người dùng (migration 0020), không
+             suy ra được từ id/email/tên. Địa chỉ không khớp **bất kỳ** tài khoản
+             nào — sai token, sai domain, địa chỉ hỏng, tài khoản đã xoá — đều trả
+             **404 với cùng một body**, y hệt quy tắc của share token. Endpoint
+             không phải oracle để dò xem một địa chỉ có tồn tại hay không.
+
+        **Chưa cấu hình ⇒ 503.** Thiếu `INBOX_EMAIL_TOKEN` **hoặc**
+        `INBOX_EMAIL_DOMAIN` thì endpoint trả `503 feature_disabled` và server vẫn
+        boot bình thường (cùng contract với `ANTHROPIC_API_KEY`). Khi đó
+        `GET /api/v1/auth/me` **không có** trường `inboxAddress`, nên mọi payload
+        của client cũ giữ nguyên từng byte.
+
+        ## Hình dạng request — trung lập, không phải payload của vendor nào
+
+        Chủ dự án **chưa chọn** nhà cung cấp inbound, nên contract không bám theo
+        schema của ai. Hai hình dạng, cùng một nghĩa:
+
+          * **`multipart/form-data` — hình dạng CHÍNH.** File đi thẳng (không
+            base64, nhẹ hơn ~33% và không phải giải mã), cùng mô hình với
+            `POST /api/v1/attachments`; đây là thứ một mail worker dựng được dễ
+            nhất. Các field: `to` (bắt buộc), `from`, `subject`, `text` (tuỳ chọn)
+            và một hoặc nhiều part tên **`attachment`**.
+          * **`application/json` — hình dạng phụ**, cho worker chỉ có object
+            trong tay: `{to, from, subject, text, attachments: [{fileName,
+            contentType, contentBase64}]}`. `contentBase64` là base64 chuẩn (có
+            hoặc không padding; xuống dòng bị bỏ qua).
+
+        `from` / `subject` / `text` được **nhận để tương thích**, nhưng KHÔNG được
+        lưu: không có bảng email, và `text` không bao giờ được ghi vào
+        `Attachment.extractedText` (cột đó chỉ dành cho OCR mà người dùng đã bật
+        opt-in). Response cũng không echo chúng.
+
+        ## File đính kèm trở thành gì
+
+        Mỗi file được lưu bằng **đúng hàm** `POST /api/v1/attachments` dùng, với
+        `deviceId = NULL`:
+
+          * cùng hàng `Attachment` trong hộp thư, cùng `AttachmentMeta` khi đọc
+            lại, cùng blob AES-256-GCM dưới `_inbox/<uuid>.enc`;
+          * cùng whitelist magic-byte (JPG/PNG/WEBP/GIF/HEIC/PDF), cùng trần
+            **5 MB/file**, cùng trần **100 MB/người dùng**;
+          * mục trong hộp thư **không** chiếm suất 5 file/thiết bị cho tới khi
+            được gán bằng `POST /api/v1/attachments/{id}/file`.
+
+        **Email đến một phần là chuyện bình thường.** Một file sai loại, rỗng,
+        quá 5 MB hoặc làm vượt trần 100 MB bị **bỏ qua kèm lý do** trong
+        `skipped[]`; các file còn lại vẫn được lưu. Endpoint trả **200** ngay khi
+        địa chỉ phân giải được — kể cả khi mọi part bị bỏ qua — vì provider không
+        nên retry một message đã được xử lý xong. Lý do nằm trong `reason` (theo
+        ngôn ngữ của request, qua `?lang=` / `Accept-Language`) và `code` giữ
+        nguyên mã của pipeline upload (`bad_input`, `limit_reached`,
+        `internal_error`).
+
+        Ngoại lệ có chủ đích: nếu **không file nào** lưu được và ít nhất một part
+        lỗi phía server (thiếu `FILE_MASTER_KEY`, đĩa/DB), response là **500**
+        thay vì 200 — chưa có hàng nào nên retry không thể nhân bản, và provider
+        cần thử lại. Khi đã có ít nhất một file lưu được thì vẫn 200 (retry lúc
+        đó sẽ nhân bản file đã lưu), phần lỗi nằm trong `skipped`.
+
+        ## Giới hạn
+
+          * **Tối đa 10 part `attachment` / message.** Một hoá đơn thường có 1–3
+            file; 10 đủ cho lô lớn mà vẫn chặn được một message biến thành khối
+            lượng encrypt/ghi không giới hạn. Với trần 5 MB/file, một message tối
+            đa 50 MB — bằng nửa trần 100 MB/người dùng, nên một email không thể
+            tự nó vét sạch dung lượng tài khoản. Vượt 10 ⇒ **400** (không cắt bớt
+            im lặng).
+          * Envelope multipart tối đa 55 MB; JSON tối đa 70 MB (base64 phình ra).
+            Vượt ⇒ **413**.
+          * **60 request / 15 phút / IP** — cùng ngân sách với endpoint share công
+            khai. Request bị chặn ⇒ **429** + `Retry-After`.
+          * **Không idempotent.** Hình dạng trung lập không có message-id, nên
+            provider retry sẽ tạo thêm bản sao. Đây là giới hạn đã biết của wave
+            này, không phải hành vi tình cờ.
+
+        ## Bản sao lưu
+
+        Địa chỉ/token nhận email **không** đi theo `GET /api/v1/backup/export`:
+        payload không có object `User`, và token là credential chỉ-ghi nên không
+        được nhân bản vào một file người dùng hay sao chép đi nơi khác. Người dùng
+        luôn đọc lại được địa chỉ từ `GET /api/v1/auth/me`.
+      parameters:
+        - name: X-Warrly-Inbox-Token
+          in: header
+          required: true
+          schema: { type: string }
+          description: |
+            Shared secret của mail provider, khớp `INBOX_EMAIL_TOKEN`. So sánh
+            constant-time (hai bên được băm SHA-256 trước nên độ dài không lộ).
+            Thiếu hoặc sai ⇒ 401 với cùng một body.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to:
+                  type: string
+                  description: |
+                    Địa chỉ người nhận do provider chuyển tới. Chấp nhận dạng
+                    trần, `Tên <địa chỉ>` và danh sách phân cách bằng dấu phẩy;
+                    địa chỉ ĐẦU TIÊN có domain đúng `INBOX_EMAIL_DOMAIN` được
+                    dùng. Không hỗ trợ plus-addressing (`token+tag@…`).
+                from: { type: string, description: 'Người gửi. Được nhận, không lưu.' }
+                subject: { type: string, description: 'Tiêu đề. Được nhận, không lưu.' }
+                text: { type: string, description: 'Thân email dạng text. Được nhận, không lưu (không phải OCR).' }
+                attachment:
+                  type: array
+                  maxItems: 10
+                  items: { type: string, format: binary }
+                  description: |
+                    Tối đa 10 file, mỗi file tối đa 5 MB. Một message không có
+                    file vẫn được chấp nhận (no-op, 200). `Content-Type` của part
+                    được đối chiếu với magic bytes; thiếu header vẫn được (server
+                    tự nhận dạng), sai header ⇒ file bị bỏ qua kèm lý do.
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string, description: 'Như trên.' }
+                from: { type: string }
+                subject: { type: string }
+                text: { type: string }
+                attachments:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [contentBase64]
+                    properties:
+                      fileName:
+                        type: string
+                        description: 'Tên hiển thị; rỗng ⇒ attachment-<n>. Bị trim, bỏ ký tự điều khiển, chặn 255 rune.'
+                      contentType:
+                        type: string
+                        description: 'MIME khai báo; rỗng ⇒ chỉ tin magic bytes. Sai ⇒ file bị bỏ qua.'
+                      contentBase64:
+                        type: string
+                        format: byte
+                        description: 'Nội dung file, base64 chuẩn. Base64 hỏng ⇒ part đó bị bỏ qua kèm lý do, các part khác vẫn lưu.'
+      responses:
+        '200':
+          description: |
+            Message đã được xử lý. `attachments[]` là các mục **đã lưu** (cùng
+            `AttachmentMeta` với `GET /api/v1/inbox`), `skipped[]` là các part bị
+            bỏ qua kèm lý do. `stored + skippedCount = received`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, attachments, skipped, received, stored, skippedCount]
+                properties:
+                  ok: { type: boolean }
+                  attachments:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttachmentMeta' }
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      required: [fileName, code, reason]
+                      properties:
+                        fileName: { type: string }
+                        code: { type: string, enum: [bad_input, limit_reached, internal_error] }
+                        reason:
+                          type: string
+                          description: 'Câu đã dịch theo ngôn ngữ của request; cùng câu với lỗi tương ứng ở POST /api/v1/attachments.'
+                  received: { type: integer, description: 'Số part nhận được, gồm cả part bị bỏ qua.' }
+                  stored: { type: integer }
+                  skippedCount: { type: integer }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401':
+          description: 'Thiếu hoặc sai X-Warrly-Inbox-Token — cùng một body cho cả hai trường hợp.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: |
+            Địa chỉ người nhận không phân giải được: sai token, sai domain, địa
+            chỉ hỏng hoặc tài khoản đã xoá. **Mọi trường hợp dùng chung một body**
+            — endpoint không được dùng để kiểm tra một địa chỉ có tồn tại hay
+            không.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '413':
+          description: 'Body vượt 55 MB (multipart) hoặc 70 MB (JSON).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500':
+          description: |
+            Lỗi phía server khi **chưa file nào** lưu được (ví dụ thiếu
+            `FILE_MASTER_KEY`). Provider nên retry; không có hàng nào bị nhân bản.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '503':
+          description: |
+            `feature_disabled`: `INBOX_EMAIL_TOKEN` hoặc `INBOX_EMAIL_DOMAIN`
+            chưa được cấu hình. Server vẫn boot.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
   /api/v1/attachments/{id}/file:
     parameters:
       - { $ref: '#/components/parameters/IdPath' }
@@ -2305,6 +2538,22 @@ components:
       scheme: bearer
       bearerFormat: opaque
 
+    # The mail-provider credential for POST /api/v1/inbox/email. It is a SHARED
+    # secret (one per deployment, from INBOX_EMAIL_TOKEN), not a per-user token:
+    # the per-user half of the authentication is carried by the recipient address
+    # (its local part is a 122-bit secret). Both must be right for a message to be
+    # stored, so a leaked inbox address alone still cannot read anything and a
+    # leaked shared secret alone cannot target an arbitrary account.
+    inboxToken:
+      type: apiKey
+      in: header
+      name: X-Warrly-Inbox-Token
+      description: |
+        Shared secret của mail provider. Server so sánh với `INBOX_EMAIL_TOKEN`
+        bằng constant-time (hai bên băm SHA-256 trước, nên độ dài không lộ qua
+        timing). Thiếu hoặc sai ⇒ 401, cùng một body. Biến môi trường chưa đặt ⇒
+        503 `feature_disabled`, không phải 401.
+
   parameters:
     IdPath:
       name: id
@@ -2503,6 +2752,18 @@ components:
             Field này **vắng mặt** trong response khi người dùng chưa từng chọn
             ngôn ngữ, để response của client cũ không đổi một byte nào. Chỉ nhận
             hai mã hai chữ cái; gửi `vi-VN` thì server lưu `vi`.
+        inboxAddress:
+          type: string
+          description: |
+            Địa chỉ email **riêng của người dùng** để chuyển hoá đơn vào hộp thư
+            (`<inboxToken>@INBOX_EMAIL_DOMAIN`, migration 0020). Client hiển thị
+            nó ở Cài đặt để người dùng copy/forward.
+
+            **Vắng mặt** khi server chưa cấu hình `INBOX_EMAIL_DOMAIN` (hoặc khi
+            tài khoản chưa có token): payload của một deployment chưa bật tính
+            năng giống hệt trước migration 0020. Đây là một capability **chỉ
+            ghi** — ai biết địa chỉ cũng chỉ có thể gửi email vào hộp thư, không
+            đọc/list/tải/xoá được gì, và nó không đi theo bản sao lưu.
 
     RegisterInput:
       type: object
@@ -2664,6 +2925,22 @@ components:
         cho tới khi người dùng quét lại hoá đơn (hoặc một client nào đó gọi lại
         endpoint OCR với `attachmentId`). Import bỏ qua key `extractedText` nếu
         một payload tương lai có nó; phiên bản backup không đổi (v5/v6).
+
+        **Địa chỉ nhận email KHÔNG đi theo bản sao lưu (migration 0020).**
+        `User."inboxToken"` (phần local của `inboxAddress`) là **credential chỉ
+        ghi**: ai có nó chỉ có thể gửi thêm file vào hộp thư, nhưng nó vẫn là
+        chìa khoá vào một tài khoản cụ thể. Quyết định: không export, vì
+
+          * payload vốn không có object `User`, và thêm một object chỉ để chở
+            credential sẽ biến mọi file backup thành một bản sao của chìa khoá —
+            file này thường được copy sang ổ ngoài/cloud;
+          * khôi phục sang một tài khoản khác sẽ mang theo địa chỉ của tài khoản
+            cũ, tức là vô tình cấp quyền ghi vào hộp thư cũ cho người khôi phục;
+          * người dùng luôn đọc lại được địa chỉ từ `GET /api/v1/auth/me`, nên
+            không có dữ liệu nào bị mất.
+
+        Import bỏ qua key `inboxAddress` nếu một payload tương lai có nó; token
+        của tài khoản đích không đổi.
 
         Import chấp nhận **mọi** phiên bản trong khoảng
         [MinBackupVersion, BackupVersion] (hiện tại 5-6) thay vì so bằng đúng, nên

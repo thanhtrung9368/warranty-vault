@@ -110,6 +110,16 @@ fun AddDeviceSheet(
      */
     onSaved: (Device, List<DeviceWarning>) -> Unit,
     existing: Device? = null,
+    /**
+     * Opens the capture-first inbox. Only meaningful on the **create** flow,
+     * where a receipt scan has already uploaded its file there (see
+     * `startScan`); the edit flow cannot scan, so its host leaves this null.
+     *
+     * The host is expected to close this sheet before switching tabs — a file
+     * that is now in the inbox should be reachable from the screen that shows
+     * the inbox, not buried under a modal.
+     */
+    onOpenInbox: (() -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -249,9 +259,16 @@ fun AddDeviceSheet(
         d.warrantyMonths?.let { months = it.toString() }
     }
 
-    // One path for both pickers: sniff the real type → send as-is or transcode
-    // to JPEG → POST. A PDF takes the "as-is" branch, an image photo the same
-    // one (a HEIC/GIF image is re-encoded first, see ReceiptFiles.plan).
+    // One path for both pickers: upload the file to the inbox first, then ask
+    // the server to read that attachment. Uploading first is what makes the OCR
+    // transcript searchable: only the `attachmentId` branch has a row to persist
+    // it on (`extractedTextStored=true`). The old one-shot multipart call had no
+    // attachment, so it returned the draft and threw the text away.
+    //
+    // A successful upload is a real inbox item *before* the user saves anything.
+    // If extraction then fails there is no draft to explain it, so the flow
+    // deletes the file it just created (see `scanReceiptFromUri`); if that delete
+    // fails the error sentence says the file is still in the inbox.
     fun startScan(uri: Uri) {
         scope.launch {
             scanning = true
@@ -259,12 +276,23 @@ fun AddDeviceSheet(
             scanInfo = null
             scanWarnings = emptyList()
             try {
-                val draft = extractReceiptFromUri(context, s, api, uri)
+                val draft = scanReceiptFromUri(context, s, api, uri)
                 applyDraft(draft)
                 scanInfo = draft
                 scanWarnings = draft.warnings
+            } catch (e: ReceiptScanFailed) {
+                error = receiptScanFailureMessage(
+                    s,
+                    e.failure.toUserMessage(ApiClient.json, context),
+                    e.cleanup,
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Leaving the sheet mid-scan is a cancellation, not a failed
+                // scan: do not paint an error, and do not try to clean up in a
+                // coroutine that is already being torn down.
+                throw e
             } catch (e: Exception) {
-                error = e.toUserMessage(ApiClient.json)
+                error = e.toUserMessage(ApiClient.json, context)
             } finally {
                 scanning = false
             }
@@ -380,6 +408,22 @@ fun AddDeviceSheet(
                             fontSize = 12.sp,
                             color = WVAccent.current.warning,
                         )
+                    }
+                    // The file exists in the inbox NOW — before Save, and even
+                    // if the form is abandoned. The draft above only fills
+                    // fields; it does not own the upload. Say both things
+                    // plainly, and give the user the one tap that reaches the
+                    // file. `extractedTextStored` decides whether the second
+                    // sentence promises search or admits it did not persist.
+                    Text(
+                        receiptInboxNotice(s, d.extractedTextStored),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    onOpenInbox?.let { openInbox ->
+                        TextButton(onClick = openInbox) {
+                            Text(stringResource(R.string.devadd_open_inbox))
+                        }
                     }
                 }
             }
@@ -919,9 +963,13 @@ private fun today(): String =
         .format(Date())
 
 // Reads the picked receipt (an image from the photo picker, or a PDF from the
-// document picker), sends it to the Go OCR endpoint, returns the draft. The
-// server decrypts/validates/maps and never persists — the caller seeds the form
-// and the user confirms.
+// document picker) and runs the two-call scan:
+//
+//   1. POST /api/v1/attachments with **no deviceId** — an inbox item. This is
+//      the only way to give the OCR transcript an Attachment row to live on;
+//      it also means the bytes are safely stored before the form is finished.
+//   2. POST /api/v1/ai/extract-receipt `{"attachmentId": ...}` — the server
+//      reads that stored file, returns the draft and persists the transcript.
 //
 // The multipart Content-Type is what the MAGIC BYTES say, not what the content
 // provider claims: the handler compares the declared type against the received
@@ -929,7 +977,16 @@ private fun today(): String =
 // mislabel HEIC photos as `image/jpeg`. A PDF is sent byte-for-byte — it is a
 // `document` block on the server side and must never be decoded as an image;
 // only HEIC/GIF take the client-side JPEG transcode.
-private suspend fun extractReceiptFromUri(
+//
+// If step 2 fails there is no draft, and the file uploaded in step 1 would be
+// an unexplained inbox item. The compensating action is a best-effort DELETE:
+// a scan that produced nothing leaves nothing behind. A failed DELETE cannot be
+// retried here (the same network/token problem that failed the scan is the
+// likely cause), so the outcome is reported to the sheet and the sentence says
+// the file is still in the inbox. The user's original receipt is never deleted:
+// re-scanning always creates a NEW attachment, so an older scan's stored text
+// (and the API's deliberate "blank re-scan does not wipe it" rule) is untouched.
+private suspend fun scanReceiptFromUri(
     context: android.content.Context,
     s: AppStrings,
     api: ApiService,
@@ -939,16 +996,72 @@ private suspend fun extractReceiptFromUri(
     val bytes = withContext(Dispatchers.IO) {
         resolver.openInputStream(uri)?.use { it.readBytes() }
     } ?: throw IllegalStateException(context.getString(R.string.devadd_could_not_read_file))
-    val part = when (val plan = ReceiptFiles.plan(bytes)) {
-        is ReceiptPlan.SendAsIs -> receiptPart(bytes, plan.mime, plan.fileName)
-        ReceiptPlan.TranscodeToJpeg -> {
-            val jpeg = transcodeReceiptToJpeg(s, bytes)
-            receiptPart(jpeg, "image/jpeg", "receipt.jpg")
-        }
-        ReceiptPlan.Unsupported -> throw IllegalStateException(context.getString(ReceiptFiles.UNSUPPORTED_MESSAGE))
+
+    val payload = when (val plan = ReceiptFiles.plan(bytes)) {
+        is ReceiptPlan.SendAsIs -> ReceiptUpload(bytes, plan.mime, plan.fileName)
+        ReceiptPlan.TranscodeToJpeg -> ReceiptUpload(
+            transcodeReceiptToJpeg(s, bytes),
+            "image/jpeg",
+            "receipt.jpg",
+        )
+        ReceiptPlan.Unsupported -> throw IllegalStateException(
+            context.getString(ReceiptFiles.UNSUPPORTED_MESSAGE),
+        )
     }
-    return api.extractReceipt(part).draft
+    // The upload endpoint is now the one enforcing the 5 MB file cap. Check the
+    // bytes we are about to send (after any transcode) so an oversized photo is
+    // refused instantly instead of after a doomed upload.
+    if (isAttachmentTooLarge(payload.bytes.size.toLong())) {
+        throw IllegalStateException(context.getString(R.string.att_file_too_large))
+    }
+
+    // 1) Upload first, with NO deviceId: an inbox item.
+    val uploaded = api.uploadAttachment(
+        file = receiptPart(payload.bytes, payload.mime, payload.fileName),
+    ).attachment
+
+    // 2) Extract by id. This branch is what sets `extractedTextStored=true` and
+    //    puts the transcript into the `attachments` search group. A missing
+    //    id is treated inside the same try so the row is still cleaned up: an
+    //    unusable upload must not remain as an unexplained inbox item.
+    return try {
+        val input = extractReceiptInput(uploaded.id)
+            ?: throw IllegalStateException(context.getString(R.string.devadd_scan_upload_missing_id))
+        api.extractReceipt(input).draft
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        // The sheet is leaving the composition. Do not issue another request
+        // from a coroutine that is being cancelled.
+        throw e
+    } catch (e: Exception) {
+        val cleanup = try {
+            api.deleteAttachment(uploaded.id)
+            ReceiptCleanup.DELETED
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            // Cancellation is not a cleanup failure; let it propagate.
+            throw cancelled
+        } catch (_: Exception) {
+            ReceiptCleanup.LEFT_IN_INBOX
+        }
+        throw ReceiptScanFailed(e, cleanup)
+    }
 }
+
+/** The bytes and the type/name they must be uploaded under. */
+private data class ReceiptUpload(
+    val bytes: ByteArray,
+    val mime: String,
+    val fileName: String,
+)
+
+/**
+ * Extraction failed after the upload succeeded. [failure] is the original
+ * exception (its message is the user-facing detail) and [cleanup] says what
+ * happened to the file the flow uploaded on the user's behalf.
+ */
+private class ReceiptScanFailed(
+    val failure: Exception,
+    val cleanup: ReceiptCleanup,
+) : Exception(failure)
 
 private fun receiptPart(bytes: ByteArray, mime: String, fileName: String): MultipartBody.Part {
     val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())

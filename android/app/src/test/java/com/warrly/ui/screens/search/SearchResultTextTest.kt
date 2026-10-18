@@ -92,11 +92,91 @@ class SearchResultTextTest {
         assertEquals("Wishlist", SearchGroups.WISHLIST)
         assertEquals(R.string.nav_devices, SearchGroups.DEVICES)
         assertEquals(R.string.subs_subscriptions, SearchGroups.SUBSCRIPTIONS)
+        // The OCR group reuses the attachment section's own heading; a fourth
+        // copy of "Tệp đính kèm" is exactly how two languages drift apart.
+        assertEquals(R.string.dev_attachments, SearchGroups.ATTACHMENTS)
+        assertEquals("Tệp đính kèm", vi.get(SearchGroups.ATTACHMENTS))
+        assertEquals("Attachments", en.get(SearchGroups.ATTACHMENTS))
 
         assertEquals("Devices", en.get(SearchGroups.DEVICES))
         assertEquals("Subscriptions", en.get(SearchGroups.SUBSCRIPTIONS))
 
         assertEquals("Thiết bị (3)", SearchGroups.header(vi.get(SearchGroups.DEVICES), 3))
         assertEquals("Wishlist (0)", SearchGroups.header(SearchGroups.WISHLIST, 0))
+    }
+
+    // ---- attachments group (OCR search hits) ------------------------------
+
+    /**
+     * `deviceId` — and nothing else — decides filed vs inbox. The rule is the
+     * inbox's own `isUnfiled` imported, not re-derived here; null and blank are
+     * both missing data, so both must keep the row visible as an inbox item.
+     */
+    @Test
+    fun anAttachmentHitIsInTheInboxExactlyWhenItHasNoDevice() {
+        assertEquals(
+            AttachmentFiling.INBOX,
+            attachmentFiling(Fixtures.attachment(deviceId = null)),
+        )
+        assertEquals(
+            "blank is missing data, not a device",
+            AttachmentFiling.INBOX,
+            attachmentFiling(Fixtures.attachment(deviceId = "   ")),
+        )
+        assertEquals(
+            AttachmentFiling.FILED,
+            attachmentFiling(Fixtures.attachment(deviceId = "dev-1")),
+        )
+    }
+
+    /**
+     * The row mapping states what the requirement asks the group to state: the
+     * upload time in the app's one date convention, and the two placement words
+     * in the UI language. The filename stays on the row's `attachment`.
+     */
+    @Test
+    fun anAttachmentRowCarriesTheUploadTimeAndTheFiledInboxWord() {
+        val filed = Fixtures.attachment(id = "att-1", deviceId = "dev-1")
+        val inbox = Fixtures.attachment(id = "att-2", deviceId = null)
+
+        val filedRow = attachmentResultRow(en, filed)
+        assertEquals("hoa-don.pdf", filedRow.attachment.fileName)
+        assertEquals("Uploaded 02/01/2025", filedRow.uploadedLabel)
+        assertEquals(AttachmentFiling.FILED, filedRow.filing)
+        assertEquals("Filed", filedRow.filingLabel)
+
+        val inboxRow = attachmentResultRow(vi, inbox)
+        assertEquals("Tải lên 02/01/2025", inboxRow.uploadedLabel)
+        assertEquals(AttachmentFiling.INBOX, inboxRow.filing)
+        assertEquals("Trong hộp thư", inboxRow.filingLabel)
+    }
+
+    /**
+     * No timestamp is a missing line, never a fabricated date. The placement
+     * still renders, so the row remains useful (and openable).
+     */
+    @Test
+    fun aHitWithoutAUploadTimeKeepsThePlacementButDropsTheDateLine() {
+        val row = attachmentResultRow(en, Fixtures.attachment().copy(uploadedAt = null))
+
+        assertEquals("", row.uploadedLabel)
+        assertEquals("In the inbox", row.filingLabel)
+    }
+
+    @Test
+    fun mappingAGroupPreservesTheServersNewestFirstOrder() {
+        val rows = attachmentResultRows(
+            en,
+            listOf(
+                Fixtures.attachment(id = "a1", deviceId = "dev-1"),
+                Fixtures.attachment(id = "a2", deviceId = null),
+            ),
+        )
+
+        assertEquals(listOf("a1", "a2"), rows.map { it.attachment.id })
+        assertEquals(
+            listOf(AttachmentFiling.FILED, AttachmentFiling.INBOX),
+            rows.map { it.filing },
+        )
     }
 }

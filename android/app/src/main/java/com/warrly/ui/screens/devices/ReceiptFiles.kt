@@ -13,9 +13,9 @@ import java.io.ByteArrayOutputStream
  * Magic-byte detection for receipt scans, ported from the iOS
  * `AttachmentFileType.ocrPayload` so both clients decide the same way.
  *
- * Why sniff at all: [com.warrly.network.ApiService.extractReceipt]
- * posts a multipart part, and the Go handler validates the part's declared
- * Content-Type against the bytes it actually received
+ * Why sniff at all: the scan uploads the file through `POST /api/v1/attachments`
+ * (`ApiService.uploadAttachment`) and the Go upload handler validates the
+ * declared Content-Type against the bytes it actually received
  * (`files.DetectAndValidate` → "Nội dung file không khớp định dạng khai báo").
  * A content provider's `getType(uri)` is not trustworthy here (HEIC photos are
  * routinely labelled `image/jpeg`), so the client declares what the header says.

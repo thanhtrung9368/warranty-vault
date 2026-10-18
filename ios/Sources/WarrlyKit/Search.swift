@@ -2,9 +2,10 @@ import Foundation
 
 // MARK: - Cross-entity search (GET /api/v1/search)
 //
-// One round trip across devices, subscriptions and wishlist (roadmap #7). The
-// server rules live in `api/internal/services/search.go`; everything here is the
-// client-side mirror of them plus the grouping the screen renders.
+// One round trip across devices, subscriptions, wishlist and OCR transcripts
+// (roadmap #7 + #13). The server rules live in
+// `api/internal/services/search.go`; everything here is the client-side mirror
+// of them plus the grouping the screen renders.
 
 /// Client-side mirror of the query rules `services.Search` enforces, so the
 /// screen can classify what the user typed before (or instead of) asking the
@@ -25,7 +26,7 @@ public enum SearchQueryRules {
         raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// A blank query is not an error: `services.Search` answers 200 with three
+    /// A blank query is not an error: `services.Search` answers 200 with four
     /// empty groups, because clearing a search box is not a mistake. The screen
     /// shows its "type something" state instead of an error.
     public static func isBlank(_ raw: String) -> Bool { trimmed(raw).isEmpty }
@@ -66,15 +67,20 @@ public struct SearchResults: Decodable, Sendable, Equatable {
     public let devices: [Device]
     public let subscriptions: [Subscription]
     public let wishlist: [WishlistItem]
+    /// OCR-text hits (migration 0019). The group is always an array; a hit
+    /// carries its public attachment shape plus `deviceId` (nil = inbox).
+    public let attachments: [AttachmentSearchHit]
 
     public init(query: String,
                 devices: [Device] = [],
                 subscriptions: [Subscription] = [],
-                wishlist: [WishlistItem] = []) {
+                wishlist: [WishlistItem] = [],
+                attachments: [AttachmentSearchHit] = []) {
         self.query = query
         self.devices = devices
         self.subscriptions = subscriptions
         self.wishlist = wishlist
+        self.attachments = attachments
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,26 +92,69 @@ public struct SearchResults: Decodable, Sendable, Equatable {
         self.devices = try c.decodeIfPresent([Device].self, forKey: .devices) ?? []
         self.subscriptions = try c.decodeIfPresent([Subscription].self, forKey: .subscriptions) ?? []
         self.wishlist = try c.decodeIfPresent([WishlistItem].self, forKey: .wishlist) ?? []
+        self.attachments = try c.decodeIfPresent(
+            [AttachmentSearchHit].self, forKey: .attachments
+        ) ?? []
     }
 
     private enum CodingKeys: String, CodingKey {
-        case query, devices, subscriptions, wishlist
+        case query, devices, subscriptions, wishlist, attachments
     }
+}
+
+/// One hit of the search `attachments` group (openapi `AttachmentSearchHit`).
+///
+/// Flattened on the wire: all `AttachmentMeta` fields plus a `deviceId` that is
+/// **always present** in this shape (`null` = inbox). The nested `attachment`
+/// keeps the rest of the app using the same type it already decodes everywhere,
+/// while `filing` owns the inbox-vs-filed decision instead of letting the view
+/// interpret a raw id.
+public struct AttachmentSearchHit: Decodable, Sendable, Equatable, Hashable, Identifiable {
+    public let attachment: AttachmentMeta
+
+    /// `nil` means the file is still in the inbox. The key is required by the
+    /// contract; a missing key is treated as inbox because that is the safe
+    /// reading of "no device attached".
+    public let deviceId: String?
+
+    public init(attachment: AttachmentMeta, deviceId: String? = nil) {
+        self.attachment = attachment
+        self.deviceId = deviceId
+    }
+
+    public init(from decoder: Decoder) throws {
+        self.attachment = try AttachmentMeta(from: decoder)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.deviceId = try c.decodeIfPresent(String.self, forKey: .deviceId)
+    }
+
+    private enum CodingKeys: String, CodingKey { case deviceId }
+
+    public var id: String { attachment.id }
+
+    /// Filed-or-inbox, the one rule both the inbox and this group use.
+    public var filing: AttachmentFiling {
+        InboxRules.filing(deviceId: deviceId)
+    }
+
+    public var isInInbox: Bool { filing.isInbox }
 }
 
 /// One entity group of a search response, ready for a section header.
 public struct SearchSection: Identifiable, Equatable, Sendable {
 
     public enum Kind: String, Sendable, CaseIterable {
-        case devices, subscriptions, wishlist
+        case devices, subscriptions, wishlist, attachments
 
         /// Matches the tab label each entity lives under, so a result reads as
-        /// "that other tab's row".
+        /// "that other tab's row". Receipts have no tab of their own; they live
+        /// in the inbox, so their title is the thing that was scanned.
         public var title: String {
             switch self {
             case .devices:       return L.t("Thiết bị")
             case .subscriptions: return L.t("Đăng ký")
             case .wishlist:      return "Wishlist"
+            case .attachments:   return L.t("Hoá đơn")
             }
         }
     }
@@ -132,16 +181,17 @@ extension SearchResults {
         if !devices.isEmpty { out.append(.init(kind: .devices, count: devices.count)) }
         if !subscriptions.isEmpty { out.append(.init(kind: .subscriptions, count: subscriptions.count)) }
         if !wishlist.isEmpty { out.append(.init(kind: .wishlist, count: wishlist.count)) }
+        if !attachments.isEmpty { out.append(.init(kind: .attachments, count: attachments.count)) }
         return out
     }
 
     /// True when a real query matched nothing anywhere.
     public var isEmpty: Bool {
-        devices.isEmpty && subscriptions.isEmpty && wishlist.isEmpty
+        devices.isEmpty && subscriptions.isEmpty && wishlist.isEmpty && attachments.isEmpty
     }
 
     public var totalCount: Int {
-        devices.count + subscriptions.count + wishlist.count
+        devices.count + subscriptions.count + wishlist.count + attachments.count
     }
 }
 

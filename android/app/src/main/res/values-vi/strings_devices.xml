@@ -57,6 +57,17 @@
     <string name="devadd_choose_a_pdf_invoice">Chọn hoá đơn PDF</string>
     <string name="devadd_draft_filled_in_from_the_invoice">Đã điền nháp từ hoá đơn.</string>
     <string name="devadd_draft_filled_in_the_confidence_is">Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé.</string>
+    <!-- ===== Quét OCR hai bước (ReceiptScan.kt, AddDeviceSheet.kt).
+         Tệp được tải lên hộp thư TRƯỚC khi trích xuất, nên nó tồn tại kể cả khi
+         người dùng bỏ dở biểu mẫu — phần nháp phải nói rõ điều đó. Cặp đầu rẽ
+         theo `extractedTextStored`; cặp sau nói việc dọn dẹp đã làm gì với tệp
+         của lần quét không ra bản nháp. `%1$s` là lý do lỗi. ===== -->
+    <string name="devadd_receipt_in_inbox_searchable">Hoá đơn này đã được lưu trong hộp thư và văn bản của nó tìm kiếm được. Lưu thiết bị không gắn tệp vào máy — mở Hộp thư để gắn hoặc xoá.</string>
+    <string name="devadd_receipt_in_inbox_not_searchable">Hoá đơn này đã được lưu trong hộp thư nhưng chưa lưu được văn bản nên tìm kiếm sẽ không thấy. Lưu thiết bị không gắn tệp vào máy — mở Hộp thư để gắn hoặc xoá.</string>
+    <string name="devadd_open_inbox">Mở hộp thư</string>
+    <string name="devadd_scan_failed_receipt_deleted">Quét hoá đơn không thành công: %1$s Tệp vừa tải lên cho lần quét này đã được xoá nên hộp thư không bị thừa.</string>
+    <string name="devadd_scan_failed_receipt_kept">Quét hoá đơn không thành công: %1$s Không xoá được tệp vừa tải lên — tệp có thể vẫn nằm trong hộp thư, mở Hộp thư để gắn hoặc xoá.</string>
+    <string name="devadd_scan_upload_missing_id">Máy chủ không trả về tệp vừa tải lên nên không quét tiếp được.</string>
     <string name="devadd_device_name">Tên thiết bị *</string>
     <string name="devadd_serial_number">Số serial</string>
     <string name="devadd_price_vnd">Giá (VND)</string>

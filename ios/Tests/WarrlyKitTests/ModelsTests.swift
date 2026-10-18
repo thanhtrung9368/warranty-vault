@@ -188,6 +188,29 @@ final class ModelsTests: KitTestCase {
         XCTAssertFalse(AttachmentUploadInput(deviceId: "dev_1").isInboxUpload)
     }
 
+    func testAttachmentExtractedTextIsOptionalAndRoundTrips() throws {
+        // The server omits the key for a file that has never been scanned, so
+        // that payload must keep decoding exactly as it did before migration 0019.
+        let unscanned = try APIClient.decoder.decode(AttachmentMeta.self, from: Data(#"""
+        {"id": "att_old", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+         "fileSize": 10, "uploadedAt": "2025-03-12T09:30:00Z"}
+        """#.utf8))
+        XCTAssertNil(unscanned.extractedText)
+
+        let scanned = try APIClient.decoder.decode(AttachmentMeta.self, from: Data(#"""
+        {"id": "att_scan", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+         "fileSize": 10, "uploadedAt": "2025-03-12T09:30:00Z",
+         "extractedText": "Samsung Galaxy S24 Ultra\nHoá đơn VAT"}
+        """#.utf8))
+        XCTAssertEqual(scanned.extractedText, "Samsung Galaxy S24 Ultra\nHoá đơn VAT")
+        XCTAssertEqual(
+            try APIClient.decoder.decode(
+                AttachmentMeta.self, from: APIClient.encoder.encode(scanned)),
+            scanned,
+            "the transcript survives a decode/encode round trip"
+        )
+    }
+
     func testDeviceInputEncodesDateAsStringAndStatusAsRawValue() throws {
         var input = DeviceInput(name: "iPhone 16", category: "PHONE", purchaseDate: "2025-05-20")
         input.brand = "Apple"
@@ -535,8 +558,52 @@ final class ModelsTests: KitTestCase {
         XCTAssertNil(draft.category)
         XCTAssertNil(draft.brandId)
         XCTAssertNil(draft.warrantyMonths)
+        // Pre-0019 payloads have no transcript fields; they must still decode.
+        XCTAssertNil(draft.extractedText)
+        XCTAssertNil(draft.extractedTextStored)
+        XCTAssertFalse(draft.hasExtractedText)
 
         assertDecodingFails(DraftDevice.self, from: #"{"unmatched": []}"#)
+    }
+
+    func testDraftDeviceCarriesTheTranscriptAndWhetherItWasStored() throws {
+        let stored = try decode(DraftDevice.self, from: #"""
+        {
+          "name": "Samsung Galaxy S24",
+          "confidence": "high",
+          "unmatched": [],
+          "warnings": [],
+          "extractedText": "  Samsung Galaxy S24 Ultra 256GB  ",
+          "extractedTextStored": true
+        }
+        """#)
+        XCTAssertEqual(stored.extractedText, "  Samsung Galaxy S24 Ultra 256GB  ")
+        XCTAssertEqual(stored.extractedTextStored, true)
+        XCTAssertTrue(stored.hasExtractedText)
+
+        // The multipart branch returns text but cannot store it; the flag is
+        // what the scan UI reads instead of assuming persistence.
+        let notStored = try decode(DraftDevice.self, from: #"""
+        {
+          "confidence": "low",
+          "unmatched": [],
+          "extractedText": "Hoá đơn",
+          "extractedTextStored": false
+        }
+        """#)
+        XCTAssertEqual(notStored.extractedTextStored, false)
+        XCTAssertTrue(notStored.hasExtractedText)
+
+        // A blank transcript is present-but-unsearchable, not "stored".
+        let blank = try decode(DraftDevice.self, from: #"""
+        {
+          "confidence": "low",
+          "unmatched": [],
+          "extractedText": "   ",
+          "extractedTextStored": false
+        }
+        """#)
+        XCTAssertFalse(blank.hasExtractedText)
     }
 
     func testAuthSuccessUserAndImportResultDecode() throws {

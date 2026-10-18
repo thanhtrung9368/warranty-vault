@@ -4,6 +4,22 @@ SELECT * FROM "User" WHERE email = $1 LIMIT 1;
 -- name: GetUserByID :one
 SELECT * FROM "User" WHERE id = $1 LIMIT 1;
 
+-- name: GetUserIDByInboxToken :one
+-- PUBLIC routing probe for POST /api/v1/inbox/email (migration 0020). The
+-- recipient's local part is the credential, so this query has no userId and no
+-- other scoping: the token itself resolves the owner, exactly like
+-- GetShareByTokenHash resolves a share. `$1` is the lowercased local part
+-- (32 hex chars); normalize before calling.
+--
+-- Projection is `id` ONLY — deliberately narrow like the public share queries.
+-- This route is unauthenticated, and it has no business pulling passwordHash /
+-- email / locale into memory just to learn which inbox owns an address.
+--
+-- The caller MUST fold "no row" into the same 404 it returns for a wrong
+-- domain, a malformed address or an unknown token: this endpoint must not be an
+-- oracle for which inbox addresses exist. See services.ReceiveInboundEmail.
+SELECT id FROM "User" WHERE "inboxToken" = $1 LIMIT 1;
+
 -- name: CreateUser :one
 INSERT INTO "User" (id, email, "passwordHash", name, "createdAt", "updatedAt", "passwordChangedAt")
 VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())

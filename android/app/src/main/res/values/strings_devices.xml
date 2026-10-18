@@ -61,6 +61,18 @@
     <string name="devadd_choose_a_pdf_invoice">Choose a PDF invoice</string>
     <string name="devadd_draft_filled_in_from_the_invoice">Draft filled in from the invoice.</string>
     <string name="devadd_draft_filled_in_the_confidence_is">Draft filled in — the confidence is low, please check it carefully.</string>
+    <!-- ===== Two-call OCR scan (ReceiptScan.kt, AddDeviceSheet.kt).
+         The file is uploaded to the inbox BEFORE extraction, so it exists even
+         if the user abandons the form — the draft must say that. The first pair
+         forks on `extractedTextStored`; the second pair says what the
+         compensating delete did with a file whose scan produced no draft.
+         `%1$s` is the failure detail in both failure strings. ===== -->
+    <string name="devadd_receipt_in_inbox_searchable">This receipt is already saved in your inbox, and its text is searchable. Saving this device does not file it — open the Inbox to file or delete it.</string>
+    <string name="devadd_receipt_in_inbox_not_searchable">This receipt is already saved in your inbox, but its text could not be saved, so a search will not find it. Saving this device does not file it — open the Inbox to file or delete it.</string>
+    <string name="devadd_open_inbox">Open the Inbox</string>
+    <string name="devadd_scan_failed_receipt_deleted">Scan failed: %1$s The receipt that was uploaded for this scan has been deleted, so nothing extra is left in your inbox.</string>
+    <string name="devadd_scan_failed_receipt_kept">Scan failed: %1$s The uploaded receipt could not be deleted and may still be in your inbox — open the Inbox to file or remove it.</string>
+    <string name="devadd_scan_upload_missing_id">The server did not return the uploaded receipt, so it cannot be scanned.</string>
     <string name="devadd_device_name">Device name *</string>
     <string name="devadd_serial_number">Serial number</string>
     <string name="devadd_price_vnd">Price (VND)</string>

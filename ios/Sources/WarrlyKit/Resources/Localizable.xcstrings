@@ -3641,23 +3641,6 @@
         }
       }
     },
-    "Gõ tên thiết bị, gói đăng ký hoặc món trong wishlist. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Type a device, subscription or wishlist item. Accents are optional — “dien thoai” finds “Điện thoại”."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gõ tên thiết bị, gói đăng ký hoặc món trong wishlist. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”."
-          }
-        }
-      }
-    },
     "Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói).": {
       "extractionState": "manual",
       "localizations": {
@@ -4930,23 +4913,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không tìm thấy"
-          }
-        }
-      }
-    },
-    "Không tìm thấy thiết bị, gói đăng ký hay món wishlist nào. Thử từ khoá ngắn hơn.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No devices, subscriptions or wishlist items matched. Try a shorter search."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Không tìm thấy thiết bị, gói đăng ký hay món wishlist nào. Thử từ khoá ngắn hơn."
           }
         }
       }
@@ -8842,23 +8808,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thiết bị đăng nhập"
-          }
-        }
-      }
-    },
-    "Thiết bị, gói đăng ký, wishlist...": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Devices, subscriptions, wishlist…"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thiết bị, gói đăng ký, wishlist..."
           }
         }
       }
@@ -16522,6 +16471,278 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đang tải tệp được chia sẻ lên Hộp thư đến…"
+          }
+        }
+      }
+    },
+    "Hoá đơn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipts"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoá đơn"
+          }
+        }
+      }
+    },
+    "Trong hộp thư": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In inbox"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trong hộp thư"
+          }
+        }
+      }
+    },
+    "Đã gắn thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filed to a device"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã gắn thiết bị"
+          }
+        }
+      }
+    },
+    "Tệp đính kèm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attachment"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp đính kèm"
+          }
+        }
+      }
+    },
+    "Mở tệp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open file"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở tệp"
+          }
+        }
+      }
+    },
+    "Nội dung OCR": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OCR text"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nội dung OCR"
+          }
+        }
+      }
+    },
+    "Đang tải tệp…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading file…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải tệp…"
+          }
+        }
+      }
+    },
+    "Không tải được tệp.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not load the file."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được tệp."
+          }
+        }
+      }
+    },
+    "Mở Hộp thư đến": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inbox"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở Hộp thư đến"
+          }
+        }
+      }
+    },
+    "Tệp vẫn nằm trong Hộp thư đến kể cả khi bạn chưa lưu thiết bị này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file stays in the Inbox even if you do not save this device."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp vẫn nằm trong Hộp thư đến kể cả khi bạn chưa lưu thiết bị này."
+          }
+        }
+      }
+    },
+    "Không quét được hoá đơn, nhưng tệp vẫn nằm trong Hộp thư đến — không bị mất.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The receipt could not be scanned, but the file is still in the Inbox — nothing was lost."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không quét được hoá đơn, nhưng tệp vẫn nằm trong Hộp thư đến — không bị mất."
+          }
+        }
+      }
+    },
+    "Chưa lưu được văn bản OCR nên hoá đơn này chưa tìm thấy bằng từ khoá.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The OCR text was not stored, so this receipt is not searchable by keyword yet."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa lưu được văn bản OCR nên hoá đơn này chưa tìm thấy bằng từ khoá."
+          }
+        }
+      }
+    },
+    "Không tải được tệp lên, thử lại sau.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not upload the file. Try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được tệp lên, thử lại sau."
+          }
+        }
+      }
+    },
+    "Thiết bị, gói đăng ký, wishlist, hoá đơn...": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Devices, subscriptions, wishlist, receipts..."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị, gói đăng ký, wishlist, hoá đơn..."
+          }
+        }
+      }
+    },
+    "Gõ tên thiết bị, gói đăng ký, món trong wishlist hoặc nội dung hoá đơn. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a device, subscription, wishlist item or receipt text. Accents are optional — “dien thoai” finds “Điện thoại”."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gõ tên thiết bị, gói đăng ký, món trong wishlist hoặc nội dung hoá đơn. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”."
+          }
+        }
+      }
+    },
+    "Không tìm thấy thiết bị, gói đăng ký, món wishlist hay văn bản hoá đơn nào. Thử từ khoá ngắn hơn.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No devices, subscriptions, wishlist items or receipt text matched. Try a shorter keyword."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy thiết bị, gói đăng ký, món wishlist hay văn bản hoá đơn nào. Thử từ khoá ngắn hơn."
           }
         }
       }

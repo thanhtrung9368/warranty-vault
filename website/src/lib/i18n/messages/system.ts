@@ -40,15 +40,21 @@ import { defineMessages } from '../types';
 
 export const system = defineMessages({
   // ── Global search (`lib/search.ts`, `components/global-search.tsx`) ─────
-  'Tìm thiết bị, đăng ký, wishlist…': 'Search devices, subscriptions, wishlist…',
-  // The group headings repeat the sidebar's wording for the same three
+  'Tìm thiết bị, đăng ký, wishlist, hoá đơn…':
+    'Search devices, subscriptions, wishlist, receipts…',
+  // The group headings repeat the sidebar's wording for the same three entity
   // sections, so a dropdown row and the nav item it leads to cannot read as two
   // features: `SEARCH_GROUP_LABELS.devices` is `common.ts::'Thiết bị'`, its
   // `subscriptions` is `common.ts::'Gói đăng ký'` and its `wishlist` is
   // `dashboard.ts::'Đang thèm'` — all three already registered, none redefined
-  // here.
-  'Nhập từ khoá để tìm trong thiết bị, đăng ký và wishlist.':
-    'Type a keyword to search devices, subscriptions and the wishlist.',
+  // here. `attachments` is the OCR-text group (roadmap #13) and has no nav item
+  // of its own: a hit links to its device, or to the inbox when unfiled.
+  'Hoá đơn đã quét': 'Scanned receipts',
+  // Where an attachment hit currently lives (`ATTACHMENT_SEARCH_STATUS_LABELS`).
+  'Đã gắn thiết bị': 'Filed under a device',
+  'Trong hộp thư': 'In the inbox',
+  'Nhập từ khoá để tìm trong thiết bị, đăng ký, wishlist và nội dung hoá đơn đã quét.':
+    'Type a keyword to search devices, subscriptions, the wishlist and the text of scanned receipts.',
   'Đang tìm…': 'Searching…',
   'Không tìm thấy kết quả cho “{query}”.': 'No results for “{query}”.',
   'Không tìm thấy kết quả nào.': 'No results found.',
@@ -60,7 +66,8 @@ export const system = defineMessages({
     enOne: 'Invalid search query (at most {count} character).',
   },
   'Không tìm kiếm được, thử lại sau.': 'Could not search, try again later.',
-  'Tìm kiếm thiết bị, đăng ký, wishlist': 'Search devices, subscriptions, wishlist',
+  'Tìm kiếm thiết bị, đăng ký, wishlist, hoá đơn':
+    'Search devices, subscriptions, wishlist, receipts',
   'Xoá từ khoá': 'Clear the keyword',
   'Đóng tìm kiếm': 'Close search',
 

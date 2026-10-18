@@ -183,4 +183,17 @@ public final class InboxStore: ObservableObject {
     public func removeLocally(_ attachment: AttachmentMeta) {
         attachments.removeAll { $0.id == attachment.id }
     }
+
+    /// Records an inbox upload the app performed itself — currently the receipt
+    /// scan, which uploads before OCR so the transcript can be persisted.
+    ///
+    /// Without this the "Thêm" badge would keep showing the old count until the
+    /// next `load()` (launch/foreground/inbox screen), while the scan card says
+    /// the file is already in the inbox. Only unfiled rows belong in this list;
+    /// an upload that somehow carries a device id must not appear here.
+    public func noteUploaded(_ attachment: AttachmentMeta) {
+        guard InboxRules.isUnfiled(attachment) else { return }
+        guard !attachments.contains(where: { $0.id == attachment.id }) else { return }
+        attachments.insert(attachment, at: 0)
+    }
 }

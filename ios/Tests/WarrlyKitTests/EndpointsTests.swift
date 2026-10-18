@@ -167,10 +167,10 @@ final class EndpointsTests: KitTestCase {
     }
 
     /// Deleting the last character of the box must not raise: a blank `q` is a
-    /// plain 200 with three empty groups.
+    /// plain 200 with four empty groups.
     func testSearchWithBlankQueryIsA200WithEmptyGroups() async throws {
         StubURLProtocol.install(.json(#"""
-        {"query": "", "devices": [], "subscriptions": [], "wishlist": []}
+        {"query": "", "devices": [], "subscriptions": [], "wishlist": [], "attachments": []}
         """#))
         let client = makeStubbedClient(token: "tok_abc")
 
@@ -1028,5 +1028,66 @@ final class EndpointsTests: KitTestCase {
         XCTAssertEqual(request.httpMethod, "PUT")
         XCTAssertEqual(request.url?.path, "/api/v1/ai/opt-in")
         XCTAssertEqual(try request.jsonBody()["enabled"] as? Bool, true)
+    }
+
+    /// The scan flow uploads first and extracts with `attachmentId`, because
+    /// that is the only branch that persists (and indexes) the OCR transcript.
+    /// This pins the request shape the server needs for that: JSON, one key,
+    /// bearer auth — not multipart.
+    func testExtractReceiptByAttachmentIdPostsJSONAndDecodesTheStoredFlag() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"draft": {"name": "Samsung Galaxy S24", "confidence": "high",
+                   "unmatched": [], "warnings": [],
+                   "extractedText": "Samsung Galaxy S24 Ultra 256GB",
+                   "extractedTextStored": true}}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let draft = try await client.extractReceipt(attachmentId: "  att_1  ")
+
+        XCTAssertEqual(draft.extractedText, "Samsung Galaxy S24 Ultra 256GB")
+        XCTAssertEqual(draft.extractedTextStored, true)
+        XCTAssertTrue(draft.hasExtractedText)
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/ai/extract-receipt")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        let body = try request.jsonBody()
+        XCTAssertEqual(body.keys.sorted(), ["attachmentId"],
+                       "the JSON branch carries exactly {attachmentId}")
+        XCTAssertEqual(body["attachmentId"] as? String, "att_1",
+                       "the id is trimmed before it goes on the wire")
+    }
+
+    /// The legacy multipart branch still works, but it has no Attachment row and
+    /// therefore cannot store the transcript. Kept pinned so the difference does
+    /// not silently disappear from the client.
+    func testExtractReceiptMultipartBranchSendsTheFileAndNoAttachmentId() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"draft": {"confidence": "low", "unmatched": [],
+                   "extractedText": "Hoá đơn", "extractedTextStored": false}}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let draft = try await client.extractReceipt(
+            fileName: "receipt.jpg", fileType: "image/jpeg", data: Data([0xFF, 0xD8, 0xFF])
+        )
+
+        XCTAssertEqual(draft.extractedTextStored, false)
+        XCTAssertEqual(draft.extractedText, "Hoá đơn")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/ai/extract-receipt")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix(
+            "multipart/form-data; boundary="), true)
+        let body = String(decoding: request.capturedBody, as: UTF8.self)
+        XCTAssertTrue(body.contains("name=\"file\"; filename=\"receipt.jpg\""))
+        XCTAssertFalse(body.contains("attachmentId"),
+                       "the multipart branch must not pretend to carry an attachment id")
     }
 }

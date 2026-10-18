@@ -3,10 +3,13 @@ package com.warrly.ui.screens.search
 import androidx.annotation.StringRes
 import com.warrly.R
 import com.warrly.i18n.AppStrings
+import com.warrly.network.Attachment
 import com.warrly.network.Device
 import com.warrly.network.Subscription
 import com.warrly.network.WishlistItem
 import com.warrly.ui.components.CategoryLabels
+import com.warrly.ui.screens.inbox.inboxUploadedLabel
+import com.warrly.ui.screens.inbox.isUnfiled
 
 /**
  * Group headings of the search results, one per entity kind.
@@ -30,6 +33,15 @@ object SearchGroups {
     val SUBSCRIPTIONS = R.string.subs_subscriptions
 
     const val WISHLIST = "Wishlist"
+
+    /**
+     * The OCR `attachments` group. Reuses the attachment section's own label
+     * (`dev_attachments`) instead of a fourth copy of "Tệp đính kèm"; the rows
+     * are the same public `Attachment` shape the device detail and the inbox
+     * render, so the same word is the honest heading.
+     */
+    @StringRes
+    val ATTACHMENTS = R.string.dev_attachments
 
     /** `"Thiết bị (3)"` — the section header text. */
     fun header(label: String, count: Int): String = "$label ($count)"
@@ -75,3 +87,73 @@ fun wishlistSubtitle(item: WishlistItem): String {
     val category = item.category?.trim()
     return if (category.isNullOrEmpty()) "" else CategoryLabels.label(category)
 }
+
+// ---- The `attachments` group (OCR text, roadmap #13) ----------------------
+
+/**
+ * Where a search hit's file lives: **filed on a device**, or waiting in the
+ * capture-first inbox.
+ *
+ * This is the same rule the inbox itself is built on — [isUnfiled] is imported
+ * rather than re-derived, so "deviceId missing/blank means inbox" has exactly
+ * one definition in the app. A hit carries `deviceId` explicitly, and `null`
+ * there is the contract's "still in the inbox", not a decoding accident.
+ */
+enum class AttachmentFiling {
+    /** `deviceId` is a real id: the file belongs to that device. */
+    FILED,
+
+    /** `deviceId` is null/blank: the file is in the inbox, not on a device. */
+    INBOX,
+}
+
+/** Filed-vs-inbox decision for one search hit. */
+fun attachmentFiling(attachment: Attachment): AttachmentFiling =
+    if (isUnfiled(attachment)) AttachmentFiling.INBOX else AttachmentFiling.FILED
+
+/**
+ * A row of the `attachments` group, already mapped out of the wire shape.
+ *
+ * The screen must not do this mapping itself: it is the part with rules (which
+ * half of `Attachment` is the title, whether the timestamp is displayable, what
+ * the two placement words are), and a JVM test can pin all of it in both
+ * languages without a device.
+ */
+data class AttachmentResultRow(
+    /** The original hit, kept for opening the file (`openAttachment`). */
+    val attachment: Attachment,
+    /** `"Uploaded 02/01/2025"`, or empty when the server sent no usable time. */
+    val uploadedLabel: String,
+    val filing: AttachmentFiling,
+    /** `"Filed"` / `"In the inbox"` in the UI language. */
+    val filingLabel: String,
+)
+
+/**
+ * Maps ONE `attachments` hit to its render row.
+ *
+ * The filename (already on [Attachment]) is deliberately not copied here —
+ * truncation is a layout concern, and the screen passes `fileName` straight to
+ * `ResultCard`. The upload line goes through [inboxUploadedLabel], the app's one
+ * `dd/MM/yyyy` + "uploaded" convention, so a search hit and an inbox row cannot
+ * disagree about a timestamp; a missing/malformed time yields an empty line
+ * rather than a made-up date.
+ */
+fun attachmentResultRow(s: AppStrings, attachment: Attachment): AttachmentResultRow {
+    val filing = attachmentFiling(attachment)
+    return AttachmentResultRow(
+        attachment = attachment,
+        uploadedLabel = inboxUploadedLabel(s, attachment.uploadedAt).orEmpty(),
+        filing = filing,
+        filingLabel = s.get(
+            when (filing) {
+                AttachmentFiling.FILED -> R.string.search_attachment_filed
+                AttachmentFiling.INBOX -> R.string.search_attachment_inbox
+            },
+        ),
+    )
+}
+
+/** Maps the whole group, preserving the server's `uploadedAt DESC` order. */
+fun attachmentResultRows(s: AppStrings, attachments: List<Attachment>): List<AttachmentResultRow> =
+    attachments.map { attachmentResultRow(s, it) }

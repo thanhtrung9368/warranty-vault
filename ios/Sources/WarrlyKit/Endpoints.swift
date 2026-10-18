@@ -357,17 +357,55 @@ extension APIClient {
 
     // MARK: - AI receipt OCR
 
-    /// Sends a receipt / warranty-card image to the Go OCR endpoint and returns
-    /// the extracted draft. The server decrypts/validates, calls the model,
-    /// fuzzy-maps the catalog, and never persists — the caller pre-fills the
-    /// device form and the user confirms before saving.
-    public func extractReceipt(fileName: String, fileType: String, data: Data) async throws -> DraftDevice {
+    /// Sends a receipt / warranty-card document to the Go OCR endpoint and
+    /// returns the extracted draft.
+    ///
+    /// The server decrypts/validates, calls the model, fuzzy-maps the catalog,
+    /// and never creates a Device — the caller pre-fills the form and the user
+    /// confirms before saving. What happens to the **transcript** depends on the
+    /// branch, and that is why the scan flow uses `attachmentId`:
+    ///
+    ///   * `.attachment` → `{"attachmentId": ...}`. The server persists
+    ///     `draft.extractedText` on that attachment and indexes it for
+    ///     `GET /api/v1/search`; `extractedTextStored` is `true`.
+    ///   * `.file` → multipart. No Attachment row exists, so nothing is stored
+    ///     and `extractedTextStored` is `false`.
+    ///
+    /// Uploading first (`uploadAttachment(deviceId: nil, ...)`) is therefore the
+    /// only client-side way to make a receipt searchable.
+    public func extractReceipt(_ input: ReceiptExtractInput) async throws -> DraftDevice {
         struct Wrapper: Decodable { let draft: DraftDevice }
-        let w: Wrapper = try await uploadMultipart(
-            "/api/v1/ai/extract-receipt",
-            fileName: fileName, fileType: fileType, fileData: data
-        )
-        return w.draft
+        let wrapper: Wrapper
+        switch input {
+        case let .attachment(id):
+            wrapper = try await request(
+                "POST", "/api/v1/ai/extract-receipt",
+                body: ReceiptExtractAttachmentBody(attachmentId: id)
+            )
+        case let .file(fileName, fileType, data):
+            wrapper = try await uploadMultipart(
+                "/api/v1/ai/extract-receipt",
+                fileName: fileName, fileType: fileType, fileData: data
+            )
+        }
+        return wrapper.draft
+    }
+
+    /// The searchable path: extract from an attachment that was uploaded first.
+    ///
+    /// `attachmentId` must be a non-blank id. The scan flow gets it from
+    /// `uploadAttachment(deviceId: nil, ...)`, so the file is already an inbox
+    /// item before the model is called — if extraction fails, the file is still
+    /// there and the UI says so.
+    public func extractReceipt(attachmentId: String) async throws -> DraftDevice {
+        try await extractReceipt(ReceiptExtractInput(attachmentId: attachmentId))
+    }
+
+    /// The legacy multipart path. It still works, but it **cannot** persist the
+    /// transcript: there is no Attachment row to own it. Prefer
+    /// `extractReceipt(attachmentId:)` for anything that should be searchable.
+    public func extractReceipt(fileName: String, fileType: String, data: Data) async throws -> DraftDevice {
+        try await extractReceipt(.file(fileName: fileName, fileType: fileType, data: data))
     }
 
     /// Current AI opt-in state for the signed-in user.

@@ -1381,4 +1381,48 @@ var messages = map[string]message{
 		vi: "Link có hiệu lực trong %d phút. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận. Nếu không phải bạn, bỏ qua email này — không có gì thay đổi.",
 		en: "This link is valid for %d minutes. The old address keeps working until you confirm. If this was not you, ignore this email — nothing has changed.",
 	},
+
+	// ── Provider-agnostic inbound email (migration 0020,
+	// internal/services/inbound_email.go, internal/handlers/inbox_email.go).
+	//
+	// The four success-path skip reasons are NOT here: an attachment that is too
+	// large, empty, the wrong type or over the 100 MB ceiling is rejected by
+	// services.Upload and its message comes from the attachment section above, so
+	// the mail path and POST /api/v1/attachments cannot drift into two different
+	// sentences for the same refusal. Only the transport's own copy lives here.
+	//
+	// `feature_disabled` mirrors the AI endpoint's sentence with the same code but
+	// names the feature that is missing: a reader who sees 503 must know whether to
+	// configure an Anthropic key or an inbound domain.
+	"Tính năng nhận email chưa được bật": {
+		vi: "Tính năng nhận email chưa được bật",
+		en: "Inbound email is not configured",
+	},
+	"Token inbox không hợp lệ": {
+		vi: "Token inbox không hợp lệ",
+		en: "Invalid inbox token",
+	},
+	// The ONE 404 body. Deliberately says nothing about which part failed (wrong
+	// domain, unknown local part, deleted account): the endpoint must not tell a
+	// caller whether an inbox address exists.
+	"Địa chỉ nhận không hợp lệ": {
+		vi: "Địa chỉ nhận không hợp lệ",
+		en: "Unknown recipient address",
+	},
+	"Content-Type phải là multipart/form-data hoặc application/json": {
+		vi: "Content-Type phải là multipart/form-data hoặc application/json",
+		en: "Content-Type must be multipart/form-data or application/json",
+	},
+	"Thiếu địa chỉ nhận (to)": {
+		vi: "Thiếu địa chỉ nhận (to)",
+		en: "Missing recipient address (to)",
+	},
+	"Quá nhiều file đính kèm (tối đa %d)": {
+		vi: "Quá nhiều file đính kèm (tối đa %d)",
+		en: "Too many attachments (max %d)",
+	},
+	"Nội dung base64 không hợp lệ": {
+		vi: "Nội dung base64 không hợp lệ",
+		en: "Invalid base64 attachment content",
+	},
 }

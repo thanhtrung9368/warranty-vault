@@ -55,6 +55,16 @@ type userDTO struct {
 	// it to render which option is currently selected. Contrast `Name`, which has
 	// always been emitted as null; that shape is frozen.
 	Locale *string `json:"locale,omitempty"`
+	// InboxAddress is the user's personal inbound-email address
+	// ("<token>@INBOX_EMAIL_DOMAIN"), so a client can show it in Settings and the
+	// user can forward a receipt to it (migration 0020).
+	//
+	// `omitempty` for the same reason as Locale, and one stronger one: while the
+	// owner has not configured an inbound provider (INBOX_EMAIL_DOMAIN empty) this
+	// is nil, so GET /auth/me and the login/register responses are byte-identical
+	// to what they were before the feature existed. The address is not a bearer
+	// token and cannot read anything; it only lets a sender APPEND inbox items.
+	InboxAddress *string `json:"inboxAddress,omitempty"`
 }
 
 type authTokenResponse struct {
@@ -276,7 +286,7 @@ func Register(d Deps) http.HandlerFunc {
 		httpx.WriteJSON(w, http.StatusCreated, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
 		})
 	}
 }
@@ -382,7 +392,7 @@ func Login(d Deps) http.HandlerFunc {
 		httpx.WriteJSON(w, http.StatusOK, authTokenResponse{
 			AccessToken: issued.AccessToken,
 			ExpiresAt:   issued.ExpiresAt.UTC().Format(time.RFC3339Nano),
-			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale},
+			User:        userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
 		})
 	}
 }
@@ -428,21 +438,24 @@ func Me(d Deps) http.HandlerFunc {
 			unauthorized(w, ctx)
 			return
 		}
-		// aiOptIn and locale live on the User row, not on the session — read them
-		// so clients can render the Settings toggle state and the language picker.
+		// aiOptIn, locale and the inbound-email address live on the User row, not
+		// on the session — read them so clients can render the Settings toggle, the
+		// language picker and the "forward a receipt here" address.
 		//
 		// The session DOES carry locale (GetSessionByTokenHash selects it, so the
 		// auth middleware can seed the i18n precedence chain), but the row is read
-		// anyway for aiOptIn. Both answers come from this one row so the response
+		// anyway for aiOptIn. All answers come from this one row so the response
 		// can never disagree with what the middleware resolved.
 		aiOptIn := false
 		var locale *string
+		var inboxAddress *string
 		if u, uerr := store.New(d.DB).GetUserByID(r.Context(), us.UserID); uerr == nil {
 			aiOptIn = u.AiOptIn
 			locale = u.Locale
+			inboxAddress = services.InboxAddress(u.InboxToken)
 		}
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]userDTO{
-			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, Locale: locale},
+			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, Locale: locale, InboxAddress: inboxAddress},
 		})
 	}
 }
@@ -570,7 +583,7 @@ func updateMeHandler(d Deps) http.HandlerFunc {
 		}
 
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]any{
-			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale},
+			"user":    userDTO{ID: user.ID, Email: user.Email, Name: user.Name, AiOptIn: user.AiOptIn, Locale: user.Locale, InboxAddress: services.InboxAddress(user.InboxToken)},
 			"message": i18n.Text(ctx, "Đã cập nhật hồ sơ"),
 		})
 	}

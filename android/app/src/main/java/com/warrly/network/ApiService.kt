@@ -292,10 +292,16 @@ interface ApiService {
     // ---- AI receipt OCR ----
     // Returns a DRAFT only — the caller pre-fills the device form and the user
     // confirms before saving. Decryption/validation/catalog-mapping is server-side.
-    @Multipart
+    //
+    // The JSON `attachmentId` branch is the ONLY one Android uses now: a
+    // multipart `file` request has no Attachment row, so the server returns the
+    // transcript but persists nothing (`extractedTextStored=false`) and the
+    // receipt can never be found by `GET /api/v1/search`. The scan flow uploads
+    // the file to the inbox first and passes its id here; see
+    // `ui/screens/devices/ReceiptScan.kt`.
     @POST("api/v1/ai/extract-receipt")
     suspend fun extractReceipt(
-        @Part file: MultipartBody.Part,
+        @Body body: ExtractReceiptInput,
     ): DraftDeviceResponse
 
     // ---- Handover certificate / share links (FEATURE_IDEAS #2) ----

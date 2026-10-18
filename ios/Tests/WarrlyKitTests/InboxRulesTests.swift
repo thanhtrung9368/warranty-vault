@@ -69,6 +69,39 @@ final class InboxRulesTests: XCTestCase {
         XCTAssertTrue(InboxRules.isFiled(attachment(deviceId: "dev_1")))
     }
 
+    // MARK: - Filed vs inbox value
+
+    /// The search group and the inbox must answer "where is this file?" the same
+    /// way. This is the single rule both use, so a hit with `deviceId: null`
+    /// renders as an inbox row instead of as a file with an empty device name.
+    func testFilingResolvesNilAndBlankToInboxAndTrimsARealDevice() {
+        XCTAssertEqual(InboxRules.filing(deviceId: nil), .inbox)
+        XCTAssertEqual(InboxRules.filing(deviceId: ""), .inbox)
+        XCTAssertEqual(InboxRules.filing(deviceId: " \n "), .inbox)
+        XCTAssertEqual(InboxRules.filing(deviceId: " dev_1\t"), .filed(deviceId: "dev_1"))
+
+        XCTAssertTrue(AttachmentFiling.inbox.isInbox)
+        XCTAssertNil(AttachmentFiling.inbox.deviceId)
+        XCTAssertEqual(AttachmentFiling.filed(deviceId: "dev_1").deviceId, "dev_1")
+        XCTAssertFalse(AttachmentFiling.filed(deviceId: "dev_1").isInbox)
+
+        // The row convenience is exactly the same decision.
+        XCTAssertEqual(InboxRules.filing(attachment(deviceId: nil)), .inbox)
+        XCTAssertEqual(InboxRules.filing(attachment(deviceId: "dev_1")),
+                       .filed(deviceId: "dev_1"))
+    }
+
+    func testFilingLabelsFollowTheSelectedLanguage() {
+        L.withLanguage(.vi) {
+            XCTAssertEqual(AttachmentFiling.inbox.label, "Trong hộp thư")
+            XCTAssertEqual(AttachmentFiling.filed(deviceId: "dev_1").label, "Đã gắn thiết bị")
+        }
+        L.withLanguage(.en) {
+            XCTAssertEqual(AttachmentFiling.inbox.label, "In inbox")
+            XCTAssertEqual(AttachmentFiling.filed(deviceId: "dev_1").label, "Filed to a device")
+        }
+    }
+
     // MARK: - 409 → user-facing message
 
     func testLimitReachedMapsToDeviceFullWithBothWaysOut() throws {

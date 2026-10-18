@@ -23,6 +23,7 @@ import com.warrly.network.DeviceListResponse
 import com.warrly.network.DeviceResponse
 import com.warrly.network.DeviceShareListResponse
 import com.warrly.network.DraftDeviceResponse
+import com.warrly.network.ExtractReceiptInput
 import com.warrly.network.FileAttachmentInput
 import com.warrly.network.Forecast
 import com.warrly.network.ForgotRequest
@@ -191,7 +192,7 @@ open class FakeApiService : ApiService {
         notStubbed("updateAttachment")
 
     override suspend fun deleteAttachment(id: String): OkResponse = notStubbed("deleteAttachment")
-    override suspend fun extractReceipt(file: MultipartBody.Part): DraftDeviceResponse =
+    override suspend fun extractReceipt(body: ExtractReceiptInput): DraftDeviceResponse =
         notStubbed("extractReceipt")
 
     override suspend fun getAIOptIn(): AIOptInResponse = notStubbed("getAIOptIn")

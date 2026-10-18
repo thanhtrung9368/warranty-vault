@@ -165,6 +165,16 @@ export const devices = defineMessages({
   'Đã điền nháp từ hoá đơn — kiểm tra lại trước khi lưu nhé':
     'Draft filled in from the receipt — check it before saving',
   'Không quét được hoá đơn, thử lại sau': 'Could not scan the receipt, try again later',
+  // The scan uploads the file to the inbox BEFORE calling the AI endpoint (the
+  // only branch that persists the OCR transcript). The receipt therefore exists
+  // independently of this form, and both the success panel and the failure box
+  // must say so — no dead-end "scan failed" that hides a saved file.
+  'Hoá đơn đã được lưu trong Hộp thư — bạn có thể gán vào một thiết bị sau. Nội dung đọc được cũng đã được lưu để tìm kiếm.':
+    'The receipt is saved in the Inbox — you can file it under a device later. The text we read is saved for search too.',
+  'Hoá đơn đã được lưu trong Hộp thư — bạn có thể gán vào một thiết bị sau. Lần này chưa lưu được nội dung đọc để tìm kiếm.':
+    'The receipt is saved in the Inbox — you can file it under a device later. This time the text we read could not be saved for search.',
+  'Không quét được hoá đơn, nhưng file vẫn được lưu trong Hộp thư — mở Hộp thư để gán vào một thiết bị.':
+    'The receipt could not be scanned, but the file is still saved in the Inbox — open the Inbox to file it under a device.',
 
   // ── Device form — serial / IMEI barcode scan (native BarcodeDetector) ───
   // The feature exists only in Chromium: Safari and Firefox do not ship

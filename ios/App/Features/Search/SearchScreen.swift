@@ -6,9 +6,9 @@ import WarrlyKit
 //
 // The four entity tabs each have their own `.searchable`, but each one only
 // filters the rows it already holds — nothing searches *across* entities, so
-// "samsung" could not find a Samsung Cloud subscription or the Galaxy Buds on
-// the wishlist. `GET /api/v1/search?q=&limit=` answers all three groups in one
-// round trip, and this is the surface for it.
+// "samsung" could not find a Samsung Cloud subscription, the Galaxy Buds on the
+// wishlist, or the OCR text of a scanned receipt. `GET /api/v1/search?q=&limit=`
+// answers all four groups in one round trip, and this is the surface for it.
 //
 // Why a pushed screen instead of `.searchable` on the tab shell: the shell is a
 // five-tab `TabView` where each tab owns its own `NavigationStack`, and a search
@@ -16,6 +16,11 @@ import WarrlyKit
 // dedicated screen keeps the four list screens (and their existing per-screen
 // filters) untouched, and can be pushed from any tab's stack — it owns the three
 // list stores its detail destinations need.
+//
+// Receipts have no tab and no detail screen: a hit opens a sheet that shows the
+// file and the OCR transcript it matched, with the same inbox/file state the
+// inbox renders. The group is empty for an account that has never scanned, and
+// an empty group is not rendered at all.
 //
 // States: blank query (idle), typing/debounce (loading), results grouped by
 // entity, a real query with no matches, over-long input and transport failures.
@@ -34,6 +39,8 @@ struct SearchScreen: View {
     @State private var results: SearchResults?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    /// The receipt hit whose preview sheet is open. `nil` = closed.
+    @State private var previewHit: AttachmentSearchHit?
 
     /// Rows fetched **per group** (server default 20, cap 50).
     private static let limit = SearchQueryRules.defaultLimit
@@ -67,7 +74,7 @@ struct SearchScreen: View {
         .searchable(
             text: $query,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: L.t("Thiết bị, gói đăng ký, wishlist...")
+            prompt: L.t("Thiết bị, gói đăng ký, wishlist, hoá đơn...")
         )
         .autocorrectionDisabled()
         .textInputAutocapitalization(.never)
@@ -77,6 +84,9 @@ struct SearchScreen: View {
         .task(id: query) { await search() }
         .navigationDestination(for: SearchNav.self) { nav in
             destination(for: nav)
+        }
+        .sheet(item: $previewHit) { hit in
+            AttachmentSearchPreviewSheet(client: client, hit: hit)
         }
     }
 
@@ -89,7 +99,7 @@ struct SearchScreen: View {
             WVEmpty(
                 icon: "search",
                 title: L.t("Tìm mọi thứ"),
-                description: L.t("Gõ tên thiết bị, gói đăng ký hoặc món trong wishlist. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”.")
+                description: L.t("Gõ tên thiết bị, gói đăng ký, món trong wishlist hoặc nội dung hoá đơn. Không dấu vẫn khớp — “dien thoai” tìm ra “Điện thoại”.")
             )
 
         case .tooLong:
@@ -116,7 +126,7 @@ struct SearchScreen: View {
             WVEmpty(
                 icon: "search",
                 title: L.t("Không có gì khớp"),
-                description: L.t("Không tìm thấy thiết bị, gói đăng ký hay món wishlist nào. Thử từ khoá ngắn hơn.")
+                description: L.t("Không tìm thấy thiết bị, gói đăng ký, món wishlist hay văn bản hoá đơn nào. Thử từ khoá ngắn hơn.")
             )
 
         case .failed(let message):
@@ -179,6 +189,15 @@ struct SearchScreen: View {
                 if idx > 0 { WVDivider(inset: 60) }
                 NavigationLink(value: SearchNav.wishlist(item)) {
                     SearchWishlistRow(item: item)
+                }
+                .buttonStyle(WVRowButtonStyle())
+            }
+
+        case .attachments:
+            ForEach(Array(results.attachments.enumerated()), id: \.element.id) { idx, hit in
+                if idx > 0 { WVDivider(inset: 60) }
+                Button { previewHit = hit } label: {
+                    SearchAttachmentRow(hit: hit)
                 }
                 .buttonStyle(WVRowButtonStyle())
             }
@@ -380,6 +399,49 @@ private struct SearchWishlistRow: View {
                     .font(.system(size: 12))
                     .foregroundStyle(WVColor.label3)
             }
+            WVIcon("arrowRight", size: 13)
+                .foregroundStyle(WVColor.label4)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 52)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+}
+
+private struct SearchAttachmentRow: View {
+    let hit: AttachmentSearchHit
+
+    /// One line of the matched transcript, newlines flattened so a receipt
+    /// header does not turn the row into a paragraph.
+    private var snippet: String? {
+        guard let raw = hit.attachment.extractedText else { return nil }
+        let text = raw
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            WVLeadingIcon(icon: "receipt", color: WVColor.orange, size: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(hit.attachment.fileName)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                if let snippet {
+                    Text(snippet)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                }
+                Text(WVFormat.dateTime(hit.attachment.uploadedAt))
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label3)
+            }
+            Spacer(minLength: 8)
+            WVChip(hit.filing.label, tone: hit.isInInbox ? .orange : .blue)
             WVIcon("arrowRight", size: 13)
                 .foregroundStyle(WVColor.label4)
         }

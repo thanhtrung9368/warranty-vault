@@ -65,6 +65,23 @@ func CheckShareView(ctx context.Context, limiter Limiter, ip string) (Result, er
 	return limiter.Check(ctx, "share:view:ip:"+ip, 60, authWindowMs)
 }
 
+// CheckInboundEmail rate-limits POST /api/v1/inbox/email by IP.
+//
+// This is the service's only unauthenticated WRITE (the share view above is the
+// only unauthenticated read). 60 / 15 min per IP, the same budget as a share
+// view: an inbound provider delivers in bursts (a handful of messages, then
+// nothing), so a low per-minute ceiling would drop legitimate mail, while 60 in
+// 15 minutes still bounds the expensive part — each request can encrypt and write
+// up to ten 5 MB files.
+//
+// The bucket is keyed by action name, so it neither consumes nor interferes with
+// the login/forgot budget CheckAuth manages. When RATE_LIMITER=upstash this is
+// shared across instances; with the default memory backend it is per process,
+// exactly like every other bucket in this package.
+func CheckInboundEmail(ctx context.Context, limiter Limiter, ip string) (Result, error) {
+	return limiter.Check(ctx, "inbound:email:ip:"+ip, 60, authWindowMs)
+}
+
 // FormatRetry mirrors website/src/lib/rate-limit.ts::formatRetry, and renders it
 // in `tag`: >=60s -> "X phút" / "X minutes" (ceil); else "X giây" / "X seconds".
 //

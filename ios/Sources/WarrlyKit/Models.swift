@@ -536,8 +536,33 @@ public struct DraftDevice: Decodable, Sendable {
     /// the whole scan; read it through `warningsOrEmpty`.
     public let warnings: [DeviceWarning]?
 
+    /// The model's transcript of the document (openapi `draft.extractedText`).
+    ///
+    /// This is **not** a Device field: it is never sent back when the device is
+    /// saved. On the `attachmentId` branch it is also persisted on the
+    /// attachment and becomes searchable; on the multipart branch it is returned
+    /// but not stored.
+    public let extractedText: String?
+
+    /// Whether the server actually wrote `extractedText` onto an `Attachment`
+    /// row (openapi `draft.extractedTextStored`).
+    ///
+    /// Optional only so a payload that predates the field still decodes. `true`
+    /// means the transcript is searchable through the `attachments` group of
+    /// `GET /api/v1/search`; `false` means the draft is still usable but the
+    /// receipt is not searchable. The scan UI reads this flag instead of
+    /// assuming persistence happened.
+    public let extractedTextStored: Bool?
+
     /// Never-nil view for the scan result UI.
     public var warningsOrEmpty: [DeviceWarning] { warnings ?? [] }
+
+    /// Whether there is any transcript worth indexing. An empty/whitespace
+    /// transcript is not a searchable one.
+    public var hasExtractedText: Bool {
+        guard let text = extractedText else { return false }
+        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 }
 
 // MARK: - Warranty
@@ -689,8 +714,20 @@ public struct AttachmentMeta: Codable, Sendable, Identifiable, Hashable {
     /// read-only field here.
     public let deviceId: String?
 
+    /// The OCR transcript stored on this file, when one has been extracted
+    /// (openapi `AttachmentMeta.extractedText`, migration 0019).
+    ///
+    /// `nil` means the file has never been scanned — the key is **omitted** by
+    /// the server in that case, not sent as `null` — so an account that has
+    /// never used OCR decodes exactly as it did before the field existed. On a
+    /// search hit this is the text that matched, and it is plaintext by design:
+    /// it has to be readable to be indexed (see the privacy note in
+    /// `openapi.yaml`).
+    public let extractedText: String?
+
     public init(id: String, fileName: String, fileType: String, fileSize: Int,
-                description: String? = nil, uploadedAt: Date, deviceId: String? = nil) {
+                description: String? = nil, uploadedAt: Date, deviceId: String? = nil,
+                extractedText: String? = nil) {
         self.id = id
         self.fileName = fileName
         self.fileType = fileType
@@ -698,6 +735,7 @@ public struct AttachmentMeta: Codable, Sendable, Identifiable, Hashable {
         self.description = description
         self.uploadedAt = uploadedAt
         self.deviceId = deviceId
+        self.extractedText = extractedText
     }
 }
 

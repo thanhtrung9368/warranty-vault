@@ -67,6 +67,11 @@ import {
 import { extractReceipt } from '@/app/actions/ai';
 import type { DeviceWarning } from '@/lib/api/devices';
 import { deviceWarningTitle } from '@/lib/device-warnings';
+import {
+  SCAN_INBOX_HREF,
+  scanFailureInboxNotice,
+  scanInboxNotice,
+} from '@/lib/receipt-scan';
 import type {
   CategoryOption,
   BrandOption,
@@ -436,6 +441,16 @@ export function DeviceForm({
     // input honest: once the user edits the value away from it, the advisory no
     // longer describes what is in the box (the scan panel keeps the full report).
     serial: string | null;
+    // The API's own "the transcript was actually written" flag. `false` is not
+    // an error: the draft is complete, but this scan's text is not searchable.
+    extractedTextStored: boolean;
+  } | null>(null);
+  // A post-upload failure: the file is in the inbox, only the OCR failed. Kept
+  // separate from `scanInfo` so the draft panel never pretends a draft exists.
+  const [scanFailure, setScanFailure] = React.useState<{
+    message: string;
+    /** True when the upload succeeded, i.e. the file is waiting in the inbox. */
+    savedToInbox: boolean;
   } | null>(null);
 
   // The draft's serial advisory (if any) — surfaced next to the input itself so
@@ -477,11 +492,19 @@ export function DeviceForm({
     if (!file) return;
     setScanning(true);
     setScanInfo(null);
+    setScanFailure(null);
     try {
       const fd = new FormData();
       fd.append('file', file, file.name);
       const res = await extractReceipt(fd);
       if (!res.ok) {
+        // The action uploads first. When it reports an attachment, the file is
+        // in the inbox even though this scan failed — say that instead of
+        // showing a dead end.
+        setScanFailure({
+          message: res.message,
+          savedToInbox: res.attachment !== undefined,
+        });
         toast.error(res.message);
         return;
       }
@@ -491,6 +514,7 @@ export function DeviceForm({
         unmatched: res.draft.unmatched ?? [],
         warnings: res.draft.warnings ?? [],
         serial: res.draft.serialNumber ?? null,
+        extractedTextStored: res.draft.extractedTextStored === true,
       });
       setStep(0);
       toast.success(t('Đã điền nháp từ hoá đơn — kiểm tra lại trước khi lưu nhé'));
@@ -652,6 +676,7 @@ export function DeviceForm({
     setSerialNumber('');
     setScanFilledSerial(null);
     setScannerOpen(false);
+    setScanFailure(null);
     setStatus('ACTIVE');
     setPurchaseDate(format(new Date(), 'yyyy-MM-dd'));
     setPurchasePriceDisplay('');
@@ -752,6 +777,32 @@ export function DeviceForm({
                 </span>
               </button>
 
+              {/* A scan can fail AFTER the upload succeeded. The file is kept in
+                  the inbox (never deleted), so this box must not read as a dead
+                  end: it names the failure and links to the file's real home. */}
+              {scanFailure && (
+                <div
+                  role="alert"
+                  className="mt-3 rounded-xl border-[1.5px] border-rose-ink/20 bg-rose-soft px-3 py-2 text-xs text-rose-ink"
+                >
+                  <p className="flex items-start gap-1.5 font-semibold">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{scanFailure.message}</span>
+                  </p>
+                  {scanFailure.savedToInbox && (
+                    <p className="mt-1 pl-5">
+                      {scanFailureInboxNotice(locale)}{' '}
+                      <Link
+                        href={SCAN_INBOX_HREF}
+                        className="font-semibold underline underline-offset-2"
+                      >
+                        {t('Mở hộp thư')} →
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              )}
+
               {scanInfo && (
                 <div className="mt-3 space-y-2 rounded-xl bg-surface-2 px-3 py-2 text-xs">
                   <div className="flex items-start gap-2">
@@ -793,6 +844,21 @@ export function DeviceForm({
                       </ul>
                     </div>
                   )}
+
+                  {/* The draft pre-fills the form, but the receipt itself now
+                      exists in the inbox whether or not this form is saved.
+                      Saying so (and linking there) is the honest half of the
+                      upload-first flow. `extractedTextStored` only changes the
+                      search sentence — it never means earlier text was erased. */}
+                  <p className="border-t border-border pt-2 text-muted-foreground">
+                    {scanInboxNotice(scanInfo.extractedTextStored, locale)}{' '}
+                    <Link
+                      href={SCAN_INBOX_HREF}
+                      className="font-semibold text-primary underline underline-offset-2"
+                    >
+                      {t('Mở hộp thư')} →
+                    </Link>
+                  </p>
                 </div>
               )}
             </div>

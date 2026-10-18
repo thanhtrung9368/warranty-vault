@@ -54,6 +54,22 @@ public enum InboxRules {
 
     // MARK: - Filed / unfiled
 
+    /// The filed-vs-inbox decision, as a value.
+    ///
+    /// `deviceId` is the only input, and the rule is the contract's: `nil` or a
+    /// blank string means the file is still in the inbox. The trimming matters
+    /// because an empty form field is not a device id — treating `"  "` as one
+    /// would make the row vanish from the inbox forever.
+    public static func filing(deviceId: String?) -> AttachmentFiling {
+        AttachmentFiling.resolve(deviceId: deviceId)
+    }
+
+    /// Convenience for a decoded row. Search hits carry `deviceId` explicitly;
+    /// inbox rows omit it, which is why absence must mean "unfiled".
+    public static func filing(_ attachment: AttachmentMeta) -> AttachmentFiling {
+        filing(deviceId: attachment.deviceId)
+    }
+
     /// `true` when the attachment has no device yet — the inbox definition.
     ///
     /// `nil` and a whitespace-only string both mean "no device". `nil` is the
@@ -62,8 +78,7 @@ public enum InboxRules {
     /// rows. Treating absence as unfiled is therefore both safe and required —
     /// the opposite default would empty the inbox for every real server payload.
     public static func isUnfiled(_ attachment: AttachmentMeta) -> Bool {
-        guard let raw = attachment.deviceId else { return true }
-        return raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        filing(attachment).isInbox
     }
 
     /// `true` when the attachment is already on a device, i.e. the opposite of
@@ -105,6 +120,47 @@ public enum InboxRules {
             return .attachmentNotFound
         }
         return .other(envelope.message ?? apiError.localizedDescription)
+    }
+}
+
+/// Where an attachment lives, decided from its `deviceId` alone.
+///
+/// The search group renders this for every hit, and it is the same rule the
+/// inbox uses: `nil`/blank is the inbox, anything else is filed. Keeping it a
+/// value (rather than a pair of booleans computed in the view) makes the
+/// "filed or inbox" label testable without a server.
+public enum AttachmentFiling: Equatable, Sendable {
+    /// The file has no device yet — it is waiting in the inbox.
+    case inbox
+    /// The file is attached to `deviceId` (already trimmed and non-empty).
+    case filed(deviceId: String)
+
+    /// The contract's decision: absence and blank mean inbox.
+    public static func resolve(deviceId: String?) -> AttachmentFiling {
+        guard let raw = deviceId else { return .inbox }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .inbox }
+        return .filed(deviceId: trimmed)
+    }
+
+    public var isInbox: Bool {
+        if case .inbox = self { return true }
+        return false
+    }
+
+    /// The device id when filed, `nil` for an inbox item.
+    public var deviceId: String? {
+        if case let .filed(deviceId) = self { return deviceId }
+        return nil
+    }
+
+    /// Short status label for a search row. Follows the selected language like
+    /// every other user-visible string.
+    public var label: String {
+        switch self {
+        case .inbox:          return L.t("Trong hộp thư")
+        case .filed:          return L.t("Đã gắn thiết bị")
+        }
     }
 }
 

@@ -12,7 +12,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO "User" (id, email, "passwordHash", name, "createdAt", "updatedAt", "passwordChangedAt")
 VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken"
 `
 
 type CreateUserParams struct {
@@ -40,6 +40,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.AiOptIn,
 		&i.Locale,
+		&i.InboxToken,
 	)
 	return i, err
 }
@@ -54,7 +55,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale FROM "User" WHERE email = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken" FROM "User" WHERE email = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -70,12 +71,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.AiOptIn,
 		&i.Locale,
+		&i.InboxToken,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale FROM "User" WHERE id = $1 LIMIT 1
+SELECT id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken" FROM "User" WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -91,8 +93,33 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.UpdatedAt,
 		&i.AiOptIn,
 		&i.Locale,
+		&i.InboxToken,
 	)
 	return i, err
+}
+
+const getUserIDByInboxToken = `-- name: GetUserIDByInboxToken :one
+SELECT id FROM "User" WHERE "inboxToken" = $1 LIMIT 1
+`
+
+// PUBLIC routing probe for POST /api/v1/inbox/email (migration 0020). The
+// recipient's local part is the credential, so this query has no userId and no
+// other scoping: the token itself resolves the owner, exactly like
+// GetShareByTokenHash resolves a share. `$1` is the lowercased local part
+// (32 hex chars); normalize before calling.
+//
+// Projection is `id` ONLY — deliberately narrow like the public share queries.
+// This route is unauthenticated, and it has no business pulling passwordHash /
+// email / locale into memory just to learn which inbox owns an address.
+//
+// The caller MUST fold "no row" into the same 404 it returns for a wrong
+// domain, a malformed address or an unknown token: this endpoint must not be an
+// oracle for which inbox addresses exist. See services.ReceiveInboundEmail.
+func (q *Queries) GetUserIDByInboxToken(ctx context.Context, inboxtoken string) (string, error) {
+	row := q.db.QueryRow(ctx, getUserIDByInboxToken, inboxtoken)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const listUserLocales = `-- name: ListUserLocales :many
@@ -195,7 +222,7 @@ SET name = CASE WHEN $4::boolean THEN $2 ELSE name END,
     locale = CASE WHEN $5::boolean THEN $3 ELSE locale END,
     "updatedAt" = NOW()
 WHERE id = $1
-RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale
+RETURNING id, email, name, "passwordHash", "passwordChangedAt", "createdAt", "updatedAt", "aiOptIn", locale, "inboxToken"
 `
 
 type UpdateUserProfileParams struct {
@@ -239,6 +266,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.UpdatedAt,
 		&i.AiOptIn,
 		&i.Locale,
+		&i.InboxToken,
 	)
 	return i, err
 }

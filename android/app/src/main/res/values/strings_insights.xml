@@ -79,16 +79,25 @@
     <string name="act_open_details">Open details</string>
     <string name="act_snooze">Snooze</string>
     <string name="act_snooze_this_for">Snooze this for…</string>
-    <string name="search_search_devices_plans_wishlist">Search devices, plans, wishlist…</string>
+    <string name="search_search_devices_plans_wishlist">Search devices, plans, wishlist, receipts…</string>
     <string name="search_search_for_anything">Search for anything</string>
     <string name="search_search_failed">Search failed</string>
     <plurals name="search_results_for">
         <item quantity="one">%1$s result for "%2$s"</item>
         <item quantity="other">%1$s results for "%2$s"</item>
     </plurals>
-    <string name="search_blank_body">Type a device name, brand, model, serial, plan or wishlist item — accents are optional ("dien thoai" matches "Điện thoại").</string>
-    <string name="search_empty_body">No device, plan or wishlist item matches "%1$s". Try a shorter keyword.</string>
+    <string name="search_blank_body">Type a device name, brand, model, serial, plan, wishlist item or text from a scanned receipt — accents are optional ("dien thoai" matches "Điện thoại").</string>
+    <string name="search_empty_body">No device, plan, wishlist item or scanned receipt matches "%1$s". Try a shorter keyword.</string>
     <string name="search_nothing_matches">Nothing matches</string>
+    <!-- ===== `attachments` group of GET /api/v1/search (roadmap #13) =====
+         A hit is an Attachment plus a nullable `deviceId`; null means the file
+         is still in the capture-first inbox. These two words are the trailing
+         pill on the row, and the uploaded line reuses `inbox_uploaded_at` so
+         the same timestamp cannot be worded two different ways. `Filed` is a
+         state, not a device name: the search payload deliberately carries only
+         the id, not the device's name. -->
+    <string name="search_attachment_filed">Filed</string>
+    <string name="search_attachment_inbox">In the inbox</string>
     <!-- ===== Action queue (ActionQueueFormat.kt, ActionQueueScreen.kt). A few
          fixed durations rather than a free number field: the decision is "leave it
          for a while", and every option is inside the server's 1-365 day window. -->

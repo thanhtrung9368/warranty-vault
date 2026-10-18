@@ -102,6 +102,7 @@ func main() {
 	handlers.RegisterCron(mux, deps)
 	handlers.RegisterBackup(mux, deps)
 	handlers.RegisterAI(mux, deps)
+	handlers.RegisterInboxEmail(mux, deps)
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})

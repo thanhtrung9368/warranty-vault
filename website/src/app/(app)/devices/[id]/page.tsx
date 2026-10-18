@@ -624,7 +624,10 @@ export default async function DeviceDetailPage({
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-[1.5px]">
+          {/* `id="attachments"` is the target of a search hit for a filed
+              receipt (`attachmentSearchHref`); scroll-mt keeps it clear of the
+              sticky topbar. */}
+          <Card id="attachments" className="scroll-mt-24 rounded-2xl border-[1.5px]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Paperclip className="h-5 w-5 text-primary" />

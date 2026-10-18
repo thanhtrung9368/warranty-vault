@@ -145,6 +145,28 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun aGroupWithOnlyOcrAttachmentHitsIsNotAnEmptyState() = runTest(dispatcher) {
+        // The fourth group is what roadmap #13 added: a keyword can appear ONLY
+        // in a scanned receipt's transcript, and the screen must still render
+        // results instead of "không tìm thấy".
+        val vm = SearchViewModel(
+            FakeSearchApi(
+                results = {
+                    SearchResults(
+                        query = "củ sạc 65W",
+                        attachments = listOf(Fixtures.attachment(id = "att-1")),
+                    )
+                },
+            ),
+        )
+
+        vm.search("củ sạc 65W")
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value is SearchViewModel.State.Loaded)
+    }
+
+    @Test
     fun overlongQueryIsRefusedLocallyWithoutACall() = runTest(dispatcher) {
         var calls = 0
         val vm = SearchViewModel(FakeSearchApi(onCall = { calls++ }))

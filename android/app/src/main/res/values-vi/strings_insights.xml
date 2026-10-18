@@ -77,15 +77,21 @@
     <string name="act_open_details">Mở chi tiết</string>
     <string name="act_snooze">Hoãn</string>
     <string name="act_snooze_this_for">Hoãn việc này trong…</string>
-    <string name="search_search_devices_plans_wishlist">Tìm thiết bị, gói dịch vụ, wishlist…</string>
+    <string name="search_search_devices_plans_wishlist">Tìm thiết bị, gói dịch vụ, wishlist, hoá đơn…</string>
     <string name="search_search_for_anything">Tìm gì cũng được</string>
     <string name="search_search_failed">Tìm không được rồi</string>
     <plurals name="search_results_for">
         <item quantity="other">%1$s kết quả cho "%2$s"</item>
     </plurals>
-    <string name="search_blank_body">Gõ tên thiết bị, hãng, model, serial, gói dịch vụ hoặc món trong wishlist — không dấu vẫn ra ("dien thoai" khớp "Điện thoại").</string>
-    <string name="search_empty_body">Không có thiết bị, gói dịch vụ hay món wishlist nào khớp "%1$s". Thử một từ khoá ngắn hơn xem sao.</string>
+    <string name="search_blank_body">Gõ tên thiết bị, hãng, model, serial, gói dịch vụ, món trong wishlist hoặc chữ trên hoá đơn đã quét — không dấu vẫn ra ("dien thoai" khớp "Điện thoại").</string>
+    <string name="search_empty_body">Không có thiết bị, gói dịch vụ, món wishlist hay hoá đơn đã quét nào khớp "%1$s". Thử một từ khoá ngắn hơn xem sao.</string>
     <string name="search_nothing_matches">Không tìm thấy gì khớp</string>
+    <!-- ===== Nhóm `attachments` của GET /api/v1/search (roadmap #13) =====
+         Mỗi dòng là một Attachment kèm `deviceId` có thể null; null nghĩa là
+         tệp vẫn nằm trong hộp thư. Hai câu dưới là nhãn ở cuối dòng; dòng thời
+         gian dùng lại `inbox_uploaded_at` để một mốc không bị diễn đạt hai kiểu. -->
+    <string name="search_attachment_filed">Đã gắn thiết bị</string>
+    <string name="search_attachment_inbox">Trong hộp thư</string>
     <!-- ===== Việc cần xử lý / action queue (ActionQueueFormat.kt,
          ActionQueueScreen.kt). ===== -->
     <string name="act_snooze_1w">1 tuần</string>

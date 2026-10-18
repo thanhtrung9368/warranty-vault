@@ -2,23 +2,30 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Heart, Loader2, Package, Repeat, Search, X } from 'lucide-react';
+import { AlertTriangle, Heart, Loader2, Package, Paperclip, Repeat, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { searchAll } from '@/app/actions/search';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
 import {
+  ATTACHMENT_SEARCH_STATUS_LABELS,
   SEARCH_DEBOUNCE_MS,
   SEARCH_GROUP_LABELS,
   SEARCH_GROUP_ORDER,
   SEARCH_IDLE_HINT,
   SEARCH_LOADING_HINT,
   SEARCH_PLACEHOLDER,
+  attachmentSearchHref,
+  attachmentSearchStatus,
+  attachmentUploadedLabel,
   isBlankQuery,
   noResultsMessage,
   searchResultCount,
   searchResultHref,
   searchRowSubtitle,
+  searchTextExcerpt,
+  type EntitySearchGroupKey,
+  type SearchAttachmentRow,
   type SearchGroupKey,
   type SearchResultRow,
   type SearchState,
@@ -28,6 +35,7 @@ const GROUP_ICONS: Record<SearchGroupKey, React.ComponentType<{ className?: stri
   devices: Package,
   subscriptions: Repeat,
   wishlist: Heart,
+  attachments: Paperclip,
 };
 
 function GroupSection({
@@ -35,7 +43,7 @@ function GroupSection({
   rows,
   onNavigate,
 }: {
-  groupKey: SearchGroupKey;
+  groupKey: EntitySearchGroupKey;
   rows: SearchResultRow[];
   onNavigate: () => void;
 }) {
@@ -62,6 +70,80 @@ function GroupSection({
                 <span className="block truncate text-sm font-semibold text-ink">{row.name}</span>
                 {subtitle && (
                   <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function AttachmentGroupSection({
+  rows,
+  query,
+  onNavigate,
+}: {
+  rows: SearchAttachmentRow[];
+  query: string;
+  onNavigate: () => void;
+}) {
+  const t = useT();
+  const locale = useLocale();
+  // Empty group = nothing at all. The contract always sends `[]` for an account
+  // that has never scanned, and an empty "Scanned receipts" heading would be a
+  // claim that it did.
+  if (rows.length === 0) return null;
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Paperclip className="h-3.5 w-3.5" />
+        {t(SEARCH_GROUP_LABELS.attachments)}
+        <span className="ml-auto font-mono text-[11px] font-normal">{rows.length}</span>
+      </div>
+      <ul>
+        {rows.map((hit) => {
+          const status = attachmentSearchStatus(hit.deviceId);
+          const uploaded = attachmentUploadedLabel(hit.uploadedAt, locale);
+          const excerpt = searchTextExcerpt(hit.extractedText, query);
+          return (
+            <li key={hit.id}>
+              <Link
+                href={attachmentSearchHref(hit.deviceId)}
+                onClick={onNavigate}
+                className="block px-3 py-2 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
+              >
+                <span className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+                    {hit.fileName}
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                      status === 'filed'
+                        ? 'bg-emerald-soft text-emerald-ink'
+                        : 'bg-sky-soft text-sky-ink',
+                    )}
+                  >
+                    {t(ATTACHMENT_SEARCH_STATUS_LABELS[status])}
+                  </span>
+                </span>
+                {uploaded && (
+                  <span className="block truncate text-xs text-muted-foreground">{uploaded}</span>
+                )}
+                {excerpt && (
+                  <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
+                    {excerpt.truncatedStart && '…'}
+                    {excerpt.before}
+                    {excerpt.match && (
+                      <mark className="rounded-sm bg-primary/15 px-0.5 font-medium text-ink">
+                        {excerpt.match}
+                      </mark>
+                    )}
+                    {excerpt.after}
+                    {excerpt.truncatedEnd && '…'}
+                  </span>
                 )}
               </Link>
             </li>
@@ -133,14 +215,26 @@ function SearchResults({
 
   return (
     <div className={cn(shell, 'overflow-y-auto')} role="status">
-      {SEARCH_GROUP_ORDER.map((groupKey) => (
-        <GroupSection
-          key={groupKey}
-          groupKey={groupKey}
-          rows={state.groups[groupKey]}
-          onNavigate={onNavigate}
-        />
-      ))}
+      {SEARCH_GROUP_ORDER.map((groupKey) => {
+        if (groupKey === 'attachments') {
+          return (
+            <AttachmentGroupSection
+              key={groupKey}
+              rows={state.groups.attachments}
+              query={state.query}
+              onNavigate={onNavigate}
+            />
+          );
+        }
+        return (
+          <GroupSection
+            key={groupKey}
+            groupKey={groupKey}
+            rows={state.groups[groupKey]}
+            onNavigate={onNavigate}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -238,7 +332,7 @@ export function GlobalSearch() {
           onChange={(e) => onQueryChange(e.target.value)}
           onFocus={() => setOpen(true)}
           placeholder={t(SEARCH_PLACEHOLDER)}
-          aria-label={t('Tìm kiếm thiết bị, đăng ký, wishlist')}
+          aria-label={t('Tìm kiếm thiết bị, đăng ký, wishlist, hoá đơn')}
           aria-expanded={open}
           className="rounded-pill pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
         />
@@ -293,7 +387,7 @@ export function GlobalSearch() {
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
                 placeholder={t(SEARCH_PLACEHOLDER)}
-                aria-label={t('Tìm kiếm thiết bị, đăng ký, wishlist')}
+                aria-label={t('Tìm kiếm thiết bị, đăng ký, wishlist, hoá đơn')}
                 className="rounded-pill pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
               />
               <button

@@ -161,6 +161,13 @@ fun DevicesScreen(
     api: ApiService,
     onOpenDevice: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    /**
+     * Switches the shell to the capture-first inbox. Passed down to the create
+     * sheet because a receipt scan uploads its file there *before* the device is
+     * saved — the draft's "Open the Inbox" action must reach it without losing
+     * the device form's other fields.
+     */
+    onOpenInbox: () -> Unit = {},
 ) {
     val vm: DevicesViewModel = viewModel(
         factory = viewModelFactory { DevicesViewModel(api) },
@@ -300,6 +307,12 @@ fun DevicesScreen(
                 // shown above the list and can be dismissed whenever.
                 savedWarnings = warnings
                 reload()
+            },
+            // The file is already in the inbox; close the sheet first so the
+            // inbox is not hidden behind the modal the user just came from.
+            onOpenInbox = {
+                showAdd = false
+                onOpenInbox()
             },
         )
     }

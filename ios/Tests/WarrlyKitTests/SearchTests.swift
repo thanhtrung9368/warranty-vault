@@ -62,12 +62,13 @@ final class SearchTests: KitTestCase {
     // MARK: - Decoding
 
     func testEmptyGroupsDecodeAsEmptyArrays() throws {
-        let json = #"{"query":"","devices":[],"subscriptions":[],"wishlist":[]}"#
+        let json = #"{"query":"","devices":[],"subscriptions":[],"wishlist":[],"attachments":[]}"#
         let results = try APIClient.decoder.decode(SearchResults.self, from: Data(json.utf8))
 
         XCTAssertEqual(results.query, "")
         XCTAssertTrue(results.isEmpty)
         XCTAssertEqual(results.totalCount, 0)
+        XCTAssertTrue(results.attachments.isEmpty)
         XCTAssertTrue(results.sections.isEmpty)
     }
 
@@ -75,10 +76,11 @@ final class SearchTests: KitTestCase {
     /// the screen must show "no results" rather than throw a decoding error.
     func testMissingOrNullGroupsDecodeAsEmpty() throws {
         for json in [#"{"query":"x"}"#,
-                     #"{"query":"x","devices":null,"subscriptions":null,"wishlist":null}"#] {
+                     #"{"query":"x","devices":null,"subscriptions":null,"wishlist":null,"attachments":null}"#] {
             let results = try APIClient.decoder.decode(SearchResults.self, from: Data(json.utf8))
             XCTAssertEqual(results.query, "x")
             XCTAssertTrue(results.isEmpty, json)
+            XCTAssertTrue(results.attachments.isEmpty, json)
         }
     }
 
@@ -104,6 +106,67 @@ final class SearchTests: KitTestCase {
 
     // MARK: - Grouping
 
+    /// The OCR group is the whole point of the client fix: each hit must decode
+    /// as the shared `AttachmentMeta` shape **plus** the hit-only `deviceId`,
+    /// and that field decides filed-vs-inbox without looking at the file name.
+    func testAttachmentGroupDecodesEveryHitWithItsFiledState() throws {
+        let json = #"""
+        {"query":"samsung","devices":[],"subscriptions":[],"wishlist":[],
+         "attachments":[
+           {"id":"att_inbox","fileName":"hoa-don-1.jpg","fileType":"image/jpeg",
+            "fileSize":1024,"description":null,
+            "uploadedAt":"2025-03-12T09:30:00Z",
+            "extractedText":"Samsung Galaxy S24 Ultra 256GB","deviceId":null},
+           {"id":"att_filed","fileName":"hoa-don-2.pdf","fileType":"application/pdf",
+            "fileSize":2048,"description":"Hoá đơn Apple",
+            "uploadedAt":"2025-03-13T10:15:00Z",
+            "extractedText":"AppleCare+ MacBook Pro","deviceId":"dev_1"}
+         ]}
+        """#
+        let results = try APIClient.decoder.decode(SearchResults.self, from: Data(json.utf8))
+
+        XCTAssertEqual(results.attachments.map(\.id), ["att_inbox", "att_filed"])
+        XCTAssertEqual(results.totalCount, 2)
+        XCTAssertFalse(results.isEmpty)
+
+        let inbox = results.attachments[0]
+        XCTAssertEqual(inbox.attachment.fileName, "hoa-don-1.jpg")
+        XCTAssertEqual(inbox.attachment.extractedText, "Samsung Galaxy S24 Ultra 256GB")
+        XCTAssertNil(inbox.deviceId)
+        XCTAssertTrue(inbox.isInInbox)
+        XCTAssertEqual(inbox.filing, .inbox)
+        XCTAssertEqual(inbox.filing.label, "Trong hộp thư")
+
+        let filed = results.attachments[1]
+        XCTAssertEqual(filed.deviceId, "dev_1")
+        XCTAssertFalse(filed.isInInbox)
+        XCTAssertEqual(filed.filing, .filed(deviceId: "dev_1"))
+        XCTAssertEqual(filed.filing.label, "Đã gắn thiết bị")
+
+        // Filing is the same decision the inbox uses, not a second rule.
+        XCTAssertTrue(InboxRules.isUnfiled(inbox.attachment))
+        XCTAssertFalse(InboxRules.isUnfiled(filed.attachment))
+    }
+
+    func testAGroupWithOnlyReceiptsIsNotNoResults() throws {
+        let json = #"""
+        {"query":"applecare","devices":[],"subscriptions":[],"wishlist":[],
+         "attachments":[
+           {"id":"att_1","fileName":"hoa-don.pdf","fileType":"application/pdf",
+            "fileSize":10,"uploadedAt":"2025-03-12T09:30:00Z",
+            "extractedText":"AppleCare+","deviceId":null}
+         ]}
+        """#
+        let results = try APIClient.decoder.decode(SearchResults.self, from: Data(json.utf8))
+
+        XCTAssertEqual(results.sections.map(\.kind), [.attachments])
+        XCTAssertEqual(results.sections.map(\.title), ["Hoá đơn"])
+        XCTAssertEqual(results.sections.map(\.id), ["attachments"])
+        XCTAssertEqual(results.totalCount, 1)
+        XCTAssertEqual(SearchPhase.resolve(query: "applecare", isLoading: false,
+                                           results: results, error: nil), .results)
+    }
+
     func testSectionsListOnlyNonEmptyGroupsInTabOrder() throws {
         let devicesOnly = try APIClient.decoder.decode(SearchResults.self, from: Data(#"""
         {"query":"mac","devices":[\#(Fixtures.device)],"subscriptions":[],"wishlist":[]}
@@ -126,6 +189,15 @@ final class SearchTests: KitTestCase {
         XCTAssertEqual(SearchSection.Kind.devices.title, "Thiết bị")
         XCTAssertEqual(SearchSection.Kind.subscriptions.title, "Đăng ký")
         XCTAssertEqual(SearchSection.Kind.wishlist.title, "Wishlist")
+        XCTAssertEqual(SearchSection.Kind.attachments.title, "Hoá đơn")
+    }
+
+    func testSectionTitlesFollowTheSelectedLanguage() {
+        L.withLanguage(.en) {
+            XCTAssertEqual(SearchSection.Kind.attachments.title, "Receipts")
+            XCTAssertEqual(AttachmentFiling.inbox.label, "In inbox")
+            XCTAssertEqual(AttachmentFiling.filed(deviceId: "dev_1").label, "Filed to a device")
+        }
     }
 
     // MARK: - Phase

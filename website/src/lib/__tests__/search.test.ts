@@ -51,11 +51,12 @@ describe('query handling', () => {
 });
 
 describe('normalizeSearchGroups', () => {
-  it('always produces three arrays, even from a missing payload', () => {
+  it('always produces four arrays, even from a missing payload', () => {
     const groups = normalizeSearchGroups(null);
     expect(groups.devices).toEqual([]);
     expect(groups.subscriptions).toEqual([]);
     expect(groups.wishlist).toEqual([]);
+    expect(groups.attachments).toEqual([]);
     expect(Array.isArray(groups.devices)).toBe(true);
   });
 
@@ -66,10 +67,12 @@ describe('normalizeSearchGroups', () => {
       devices: null as unknown as SearchGroups['devices'],
       subscriptions: undefined,
       wishlist: [{ id: 'w1', name: 'Galaxy Buds' }],
+      attachments: undefined,
     });
     expect(groups.devices).toEqual([]);
     expect(groups.subscriptions).toEqual([]);
     expect(groups.wishlist).toHaveLength(1);
+    expect(groups.attachments).toEqual([]);
   });
 
   it('keeps the rows it was given, in order', () => {
@@ -80,9 +83,18 @@ describe('normalizeSearchGroups', () => {
       ],
       subscriptions: [{ id: 's1', name: 'Samsung Cloud' }],
       wishlist: [],
+      attachments: [
+        {
+          id: 'a1',
+          fileName: 'receipt.jpg',
+          deviceId: null,
+          extractedText: 'Sạc 65W',
+        },
+      ],
     });
     expect(groups.devices.map((d) => d.id)).toEqual(['d1', 'd2']);
     expect(groups.subscriptions.map((s) => s.name)).toEqual(['Samsung Cloud']);
+    expect(groups.attachments.map((a) => a.id)).toEqual(['a1']);
   });
 });
 
@@ -94,8 +106,21 @@ describe('counts and empty state', () => {
       devices: [{ id: 'd1', name: 'A' }],
       subscriptions: [{ id: 's1', name: 'B' }],
       wishlist: [{ id: 'w1', name: 'C' }],
+      attachments: [{ id: 'a1', fileName: 'receipt.jpg', deviceId: null }],
     });
-    expect(searchResultCount(groups)).toBe(3);
+    expect(searchResultCount(groups)).toBe(4);
+    expect(isEmptySearch(groups)).toBe(false);
+  });
+
+  it('counts an OCR-only result as a result, not as "no results"', () => {
+    // The attachments group is the whole point of roadmap #13: a query that
+    // only matches receipt text must still open the results panel.
+    const groups = normalizeSearchGroups({
+      attachments: [
+        { id: 'a1', fileName: 'receipt.jpg', deviceId: 'dev_1', extractedText: 'sạc 65W' },
+      ],
+    });
+    expect(searchResultCount(groups)).toBe(1);
     expect(isEmptySearch(groups)).toBe(false);
   });
 
@@ -184,12 +209,20 @@ describe('result rows', () => {
   });
 
   it('keeps the group labels in sync with the sidebar wording', () => {
-    expect(SEARCH_GROUP_ORDER).toEqual(['devices', 'subscriptions', 'wishlist']);
+    expect(SEARCH_GROUP_ORDER).toEqual([
+      'devices',
+      'subscriptions',
+      'wishlist',
+      'attachments',
+    ]);
     expect(SEARCH_GROUP_LABELS.devices).toBe('Thiết bị');
     // "Gói đăng ký", not "Đăng ký": the heading has to be the word the sidebar
     // uses for that section (`common.ts`), or the dropdown points at a place the
     // nav calls something else. ("Đăng ký" is also taken — it is "Sign up".)
     expect(SEARCH_GROUP_LABELS.subscriptions).toBe('Gói đăng ký');
     expect(SEARCH_GROUP_LABELS.wishlist).toBe('Đang thèm');
+    // The OCR group is a result type, not a nav section; its heading names the
+    // files so it cannot be mistaken for a fourth entity list.
+    expect(SEARCH_GROUP_LABELS.attachments).toBe('Hoá đơn đã quét');
   });
 });
