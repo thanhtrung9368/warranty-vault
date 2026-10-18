@@ -110,7 +110,11 @@ INSERT INTO "Subscription" (
     $10, $11, $12,
     COALESCE($19::text, 'ACTIVE'),
     $13, $14, $15, $16, $17,
-    COALESCE($20::int[], ARRAY[30, 7]::int[]),
+    -- The fallback MUST match migration 0015's column default for THIS table.
+    -- Subscription defaults to [3, 1, 0] and Device to [30, 7] because their old
+    -- crons ran different schedules; a shared [30, 7] here silently moved every
+    -- existing subscription's renewal warnings two weeks earlier.
+    COALESCE($20::int[], ARRAY[3, 1, 0]::int[]),
     NOW(), NOW()
 )
 RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDays", price, currency, "startedAt", "renewalDate", "autoRenew", status, "accountEmail", "paymentMethod", "manageUrl", "cancelUrl", notes, "lastNotifiedRenewalAt", "createdAt", "updatedAt", "leadDays", "lastNotifiedRenewalLeadDay"

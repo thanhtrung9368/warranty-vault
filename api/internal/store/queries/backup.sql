@@ -190,8 +190,9 @@ INSERT INTO "WishlistPrice" (
 -- "lastNotifiedRenewalLeadDay" and "leadDays" are the migration-0015 pair:
 -- carrying the lead day keeps a same-day restore from re-firing the reminder the
 -- user already saw, and carrying leadDays keeps the user's chosen schedule.
--- Older payloads decode to NULL; leadDays then falls back to [30, 7], the
--- schedule that payload was written under.
+-- Older payloads decode to NULL; leadDays then falls back to [3, 1, 0] — the
+-- schedule that payload was written under, because the pre-0015 renewal cron
+-- fired at 3, 1 and 0 days. (Device falls back to [30, 7] for the same reason.)
 INSERT INTO "Subscription" (
     id, "userId", name, category, brand, plan, "billingCycle",
     "intervalDays", price, currency, "startedAt", "renewalDate",
@@ -201,7 +202,7 @@ INSERT INTO "Subscription" (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20, $21, $22, $23,
-    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7])
+    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[3, 1, 0])
 );
 
 -- name: BackupInsertPayment :exec

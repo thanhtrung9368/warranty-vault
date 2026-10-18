@@ -46,7 +46,11 @@ INSERT INTO "Subscription" (
     $10, $11, $12,
     COALESCE(sqlc.narg('status')::text, 'ACTIVE'),
     $13, $14, $15, $16, $17,
-    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]::int[]),
+    -- The fallback MUST match migration 0015's column default for THIS table.
+    -- Subscription defaults to [3, 1, 0] and Device to [30, 7] because their old
+    -- crons ran different schedules; a shared [30, 7] here silently moved every
+    -- existing subscription's renewal warnings two weeks earlier.
+    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[3, 1, 0]::int[]),
     NOW(), NOW()
 )
 RETURNING *;
