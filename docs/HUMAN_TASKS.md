@@ -381,8 +381,8 @@ gia hạn sớm vài năm trước mốc đó để khoá giá $10.46.
 | **a** | **Trỏ DNS về VPS**: 3 A record `warrly.com`, `www.warrly.com`, `api.warrly.com` | registrar | Caddy xin cert Let's Encrypt cần domain trỏ đúng |
 | **b** | **Verify `warrly.com` trên Resend** (SPF/DKIM/DMARC) | resend.com/domains | 🔴 **mở khoá 1.3** — không có nó thì reset mật khẩu không gửi được cho ai ngoài chính mày |
 | **c** | **Hộp thư `admin@warrly.com`** | registrar / email host | Caddyfile đang dùng làm email Let's Encrypt; sai thì mày không nhận được cảnh báo cert hết hạn |
-| **d** | **Đăng ký lại Android app trên Firebase với package `app.warrly`** | console.firebase.google.com | 🔴 `google-services.json` đang bị **vá tay** sang `app.warrly`; FCM **sẽ không đăng ký được token** cho tới khi Firebase có app với package mới rồi tải lại file |
-| **e** | **Kiểm package `app.warrly` trên Play Console** | play.google.com/console | Package **vĩnh viễn** sau khi tạo app. Nếu bị chiếm phải chọn cái khác **trước** khi ship |
+| **d** | **Thêm Android app `com.warrly` trên Firebase** rồi tải lại `google-services.json` | console.firebase.google.com | 🔴 `google-services.json` đang bị **vá tay** sang `com.warrly`; FCM **sẽ không đăng ký được token** cho tới khi Firebase biết package này. Firebase cho **nhiều app** trong một project nên cứ thêm, đừng xoá app cũ |
+| ~~**e**~~ | ~~Kiểm package trên Play~~ | | ✅ **XONG 2026-10-18** — Play Console có app **`com.warrly`**, Draft |
 
 > ⚠️ **Đừng nhầm:** `warrantyvault.com` (2006) và `warrantyvault.app` (Hope Built Advisory LLC)
 > vẫn thuộc người khác. Không còn liên quan tới mình.
@@ -503,11 +503,25 @@ mày tự tra hoặc hỏi người có chuyên môn. Nếu chỉ dùng cá nhâ
 
 ### [ ] 3.3 — Tên miền thương hiệu
 
-**Đã chốt tên sản phẩm, chưa chốt tên miền.**
+**Đã chốt cả tên sản phẩm và tên miền (2026-10-18).**
 
-Tên sản phẩm là **`Warrly`** (có dấu cách) — đã đổi xong ở cả 4 tầng: web, iOS,
-Android, Go, tài liệu, store listing. Bundle ID / package name là **`app.warrly`**
-(không dấu cách, Play Console đã xác nhận `com.warrly.com` bị chiếm).
+Tên sản phẩm: **`Warrly`** — đã đổi xong ở cả 4 tầng (web, iOS, Android, Go, tài liệu).
+Tên miền: **`warrly.com`**.
+
+Định danh kỹ thuật, cả hai đều **đảo ngược `warrly.com`**:
+
+| | |
+|---|---|
+| **Bundle ID (iOS)** | `com.warrly` |
+| **Package (Android/Play)** | `com.warrly` — Draft tạo 2026-10-18 |
+| **Kotlin package / namespace** | `com.warrly` |
+
+> ⚠️ Bản đầu tao đặt `app.warrly` — **sai**, vì nó đảo ngược `warrly.app`, tên miền mình
+> **không sở hữu**. Cái cũ `app.warrantyvault` cũng sai y vậy (đảo ngược `warrantyvault.app`
+> của người khác). Quy ước reverse-domain chỉ có nghĩa khi mình **thật sự kiểm soát** tên miền đó.
+
+> 🗑️ **App Play cũ `app.warrantyvault` (tạo 4/10) nên xoá** — nó giữ một package vĩnh viễn
+> mà mình không dùng, và mang tên thương hiệu cũ.
 
 > ⚠️ **`AssetVault` là tên CŨ của repo** (2 commit đầu tiên). Nó từng còn sót trong email
 > template — đã sửa 26 chỗ. Nếu thấy `AssetVault` ở đâu nữa thì đó là **rác**, không phải
