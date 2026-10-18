@@ -98,11 +98,12 @@ func seedShareFixture(t *testing.T, pool *pgxpool.Pool) {
 		 VALUES ('share_war', 'share_dev', 'STANDARD', 'Trung tâm bảo hành Apple uỷ quyền',
 		         '2024-11-20', '2026-11-20', 24, 2500000,
 		         'Số 1 Lê Duẩn, Q.1', '028 3822 9999', 'GHI CHU BAO HANH RIENG TU', NOW())`},
-		{sql: `INSERT INTO "Attachment" (id, "deviceId", "fileName", "storagePath", "fileType", "fileSize",
+		{sql: `INSERT INTO "Attachment" (id, "userId", "deviceId", "fileName", "storagePath", "fileType", "fileSize",
 		                           iv, "wrappedKey", description, "uploadedAt")
-		 VALUES ('share_att', 'share_dev', 'hoa-don.jpg', 'share_dev/hoa-don.jpg.enc', 'image/jpeg', 1234,
+		 VALUES ('share_att', $1, 'share_dev', 'hoa-don.jpg', 'share_dev/hoa-don.jpg.enc', 'image/jpeg', 1234,
 		         '\x00112233445566778899aabb', '\x00112233445566778899aabbccddeeff00112233445566',
-		         'Hoá đơn gốc', NOW())`},
+		         'Hoá đơn gốc', NOW())`,
+			args: []any{shareOwner}},
 		{sql: `INSERT INTO "Device" (id, "userId", name, category, "purchaseDate", "purchasePrice", "updatedAt")
 		 VALUES ('share_dev_other', $1, 'THIET BI KHAC CUA CUNG NGUOI DUNG', 'LAPTOP', '2025-01-01', 999, NOW())`,
 			args: []any{shareOwner}},

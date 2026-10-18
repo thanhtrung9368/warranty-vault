@@ -12,6 +12,8 @@
     <!-- ===== Điều hướng dưới cùng (MainScreen.kt). ===== -->
     <string name="nav_overview">Tổng quan</string>
     <string name="nav_devices">Thiết bị</string>
+    <!-- Hộp thư vào: tệp đã lưu trước khi chọn thiết bị. -->
+    <string name="nav_inbox">Hộp thư</string>
     <string name="nav_reminders">Nhắc</string>
     <string name="nav_plans">Gói</string>
     <string name="nav_wishlist">Thèm</string>

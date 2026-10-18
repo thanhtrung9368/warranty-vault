@@ -94,8 +94,11 @@ object Fixtures {
         fileName: String = "hoa-don.pdf",
         fileType: String = "application/pdf",
         description: String? = null,
+        /** `null` = an inbox row (the capture-first case). */
+        deviceId: String? = null,
     ) = Attachment(
         id = id,
+        deviceId = deviceId,
         fileName = fileName,
         fileType = fileType,
         fileSize = 2048,

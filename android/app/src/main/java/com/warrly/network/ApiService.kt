@@ -214,11 +214,68 @@ interface ApiService {
 
     @Multipart
     @POST("api/v1/devices/{id}/attachments")
-    suspend fun uploadAttachment(
+    suspend fun uploadDeviceAttachment(
         @Path("id") deviceId: String,
         @Part file: MultipartBody.Part,
         @Part("description") description: RequestBody? = null,
     ): AttachmentResponse
+
+    // ---- Inbox (capture-first attachments) ----
+    //
+    // The inbox is "attachments with no device yet": the user photographed the
+    // receipt at the counter but does not know which device row it belongs to.
+    // `GET /api/v1/inbox` returns exactly those, newest first, in the same
+    // `Attachment` envelope as the device list (`attachments` is always `[]`,
+    // never null). An inbox item does NOT consume a device's 5 slots.
+    @GET("api/v1/inbox")
+    suspend fun getInbox(): AttachmentListResponse
+
+    /**
+     * `POST /api/v1/attachments` — the **device-optional** upload.
+     *
+     * [deviceId] is the optional multipart field, mirroring the contract's
+     * "`deviceId` now optional":
+     *
+     *  * `null` (the default) **omits the part**, which the server reads as
+     *    "no device": the bytes are stored as an inbox item. This is the
+     *    capture-first path — save the receipt now, choose the device later.
+     *  * a non-null part files the upload immediately, the same way
+     *    [uploadDeviceAttachment] does on its own route.
+     *
+     * The Android UI only calls the no-device form (the inbox entry point); the
+     * device detail keeps the older per-device route, so a change on this new
+     * endpoint cannot regress an existing upload.
+     */
+    @Multipart
+    @POST("api/v1/attachments")
+    suspend fun uploadAttachment(
+        @Part file: MultipartBody.Part,
+        @Part("deviceId") deviceId: RequestBody? = null,
+        @Part("description") description: RequestBody? = null,
+    ): AttachmentResponse
+
+    /**
+     * `POST /api/v1/attachments/{id}/file` — assign an inbox item to a device.
+     *
+     * The body is [FileAttachmentInput], whose hand-written serializer always
+     * emits `deviceId` (see its KDoc): `null` is the documented "return it to
+     * the inbox", not an omitted field.
+     *
+     * **409 `LIMIT_REACHED`** means the target device already has 5 attachments.
+     * The screen maps that code to a message with the two ways out; see
+     * `ui/screens/inbox/InboxRules.kt`.
+     *
+     * Deliberately returns `Unit`: the caller does not need the echoed row (it
+     * removes the item locally and reloads nothing), and the frozen contract
+     * fixes the request and the 409 but not a success payload. Leaving the body
+     * unmodelled means a 200 can never fail to decode after a write that
+     * actually succeeded.
+     */
+    @POST("api/v1/attachments/{id}/file")
+    suspend fun fileAttachment(
+        @Path("id") id: String,
+        @Body body: FileAttachmentInput,
+    )
 
     // Only the description is mutable; the file bytes need delete + re-upload.
     // Someone else's id answers 404 (not 403) — the server joins through the

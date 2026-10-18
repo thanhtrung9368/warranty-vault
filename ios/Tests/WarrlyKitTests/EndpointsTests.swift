@@ -667,6 +667,139 @@ final class EndpointsTests: KitTestCase {
         XCTAssertTrue(body["description"] is NSNull)
     }
 
+    // MARK: - Capture-first inbox
+
+    func testInboxReadsUnfiledAttachmentsNewestFirst() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"attachments": [
+          {"id": "att_2", "fileName": "hoa-don-moi.pdf", "fileType": "application/pdf",
+           "fileSize": 4096, "description": null, "uploadedAt": "2025-03-13T10:00:00Z",
+           "deviceId": null},
+          {"id": "att_1", "fileName": "hoa-don-cu.jpg", "fileType": "image/jpeg",
+           "fileSize": 2048, "description": "FPT", "uploadedAt": "2025-03-12T09:30:00Z"}
+        ]}
+        """#))
+
+        let rows = try await client.getInbox()
+
+        XCTAssertEqual(rows.map(\.id), ["att_2", "att_1"], "the server owns the order")
+        XCTAssertNil(rows[0].deviceId, "an explicit null is an inbox item")
+        XCTAssertNil(rows[1].deviceId, "a missing key is an inbox item too")
+        XCTAssertTrue(InboxRules.isUnfiled(rows[0]))
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/inbox")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+    }
+
+    func testInboxAlsoAcceptsTheSingularInboxEnvelope() async throws {
+        // The endpoint's name makes `{ "inbox": [...] }` plausible. Reading
+        // either spelling cannot mis-file anything; it only avoids an empty
+        // inbox if the server chooses the other key.
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"inbox": [
+          {"id": "att_1", "fileName": "a.jpg", "fileType": "image/jpeg",
+           "fileSize": 1, "uploadedAt": "2025-03-12T09:30:00Z"}
+        ]}
+        """#))
+
+        let rows = try await client.getInbox()
+
+        XCTAssertEqual(rows.map(\.id), ["att_1"])
+        XCTAssertTrue(InboxRules.isUnfiled(rows[0]))
+    }
+
+    func testFilingAnInboxItemPostsTheDeviceIdAndDecodesTheEcho() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"attachment": {
+            "id": "att_1", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+            "fileSize": 1024, "description": null,
+            "uploadedAt": "2025-03-12T09:30:00Z"
+        }}
+        """#))
+
+        let filed = try await client.fileAttachment(id: "att_1", deviceId: "dev_1")
+
+        // The implemented DTO omits `deviceId`; this assertion pins that the
+        // echo is not required for the UI to be correct (the store removes the
+        // row by id, and the inbox endpoint is the unfiled authority).
+        XCTAssertNil(filed.deviceId)
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/attachments/att_1/file")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        let body = try request.jsonBody()
+        XCTAssertEqual(body["deviceId"] as? String, "dev_1")
+        XCTAssertEqual(body.keys.sorted(), ["deviceId"], "filing has no other field")
+    }
+
+    func testReturningAnItemToTheInboxSendsAnExplicitNullDeviceId() async throws {
+        // `deviceId: null` is the documented way back to the inbox; an absent
+        // key would be a different body entirely.
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"attachment": {
+            "id": "att_1", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+            "fileSize": 1024, "description": null,
+            "uploadedAt": "2025-03-12T09:30:00Z"
+        }}
+        """#))
+
+        let unfiled = try await client.fileAttachment(id: "att_1", deviceId: nil)
+
+        XCTAssertNil(unfiled.deviceId)
+        XCTAssertTrue(InboxRules.isUnfiled(unfiled))
+
+        let body = try XCTUnwrap(StubURLProtocol.lastRequest).jsonBody()
+        XCTAssertTrue(body.keys.contains("deviceId"))
+        XCTAssertTrue(body["deviceId"] is NSNull)
+    }
+
+    func testFilingSurfaces409LimitReachedAsDeviceFull() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+        // Lowercase is the real wire value (the Go handler lowercases codes).
+        StubURLProtocol.install(.json(#"""
+        {"error": "limit_reached", "message": "Thiết bị đã có 5 tệp đính kèm"}
+        """#, statusCode: 409))
+
+        let error = await captureAPIError {
+            try await client.fileAttachment(id: "att_1", deviceId: "dev_full")
+        }
+        let failure = InboxRules.fileFailure(try XCTUnwrap(error))
+
+        XCTAssertEqual(failure, .deviceFull)
+        L.withLanguage(.en) {
+            XCTAssertTrue(failure.message.contains("Pick another device"))
+        }
+        // The item was never filed, so it must still count in the inbox.
+        XCTAssertTrue(InboxRules.isUnfiled(
+            AttachmentMeta(id: "att_1", fileName: "a.jpg", fileType: "image/jpeg",
+                           fileSize: 1, uploadedAt: Date(), deviceId: nil)))
+    }
+
+    func testAttachmentBytesAreFetchedThroughTheAuthenticatedFileRoute() async throws {
+        let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10])
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.raw(bytes, contentType: "image/jpeg"))
+
+        let data = try await client.attachmentData(id: "att_1")
+
+        XCTAssertEqual(data, bytes)
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/files/att_1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc",
+                       "the file route is bearer-gated; AsyncImage could not load it")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "*/*",
+                       "the bytes are an image/PDF, not JSON")
+    }
+
     // MARK: - Subscriptions
 
     func testSubscriptionDetailDefaultsPaymentsAndLogsPayment() async throws {

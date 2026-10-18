@@ -61,6 +61,13 @@ func assertNoForeignBackupIDs(ctx context.Context, db *pgxpool.Pool, userID stri
 			}
 		}
 	}
+	// Inbox attachments (migration 0018) share the Attachment id namespace with
+	// device-filed ones, so they take part in the same foreign-id probe.
+	for _, a := range payload.InboxAttachments {
+		if safeIDRE.MatchString(a.ID) {
+			attachmentIDs = append(attachmentIDs, a.ID)
+		}
+	}
 	wishlistIDs := make([]string, 0, len(payload.Wishlist))
 	var priceIDs []string
 	for _, w := range payload.Wishlist {

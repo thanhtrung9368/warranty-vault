@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -17,9 +18,12 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -49,6 +53,9 @@ import com.warrly.ui.screens.actions.ActionQueueScreen
 import com.warrly.ui.screens.dashboard.DashboardScreen
 import com.warrly.ui.screens.devices.DeviceDetailScreen
 import com.warrly.ui.screens.devices.DevicesScreen
+import com.warrly.ui.screens.inbox.InboxScreen
+import com.warrly.ui.screens.inbox.inboxBadgeCount
+import com.warrly.ui.screens.inbox.inboxBadgeLabel
 import com.warrly.ui.screens.reminders.RemindersScreen
 import com.warrly.ui.screens.search.SearchScreen
 import com.warrly.ui.screens.settings.PushDevicesScreen
@@ -68,6 +75,12 @@ private enum class Tab(
 ) {
     Dashboard(R.string.nav_overview, Icons.Outlined.GridView, Icons.Filled.GridView),
     Devices(R.string.nav_devices, Icons.Outlined.Devices, Icons.Filled.Devices),
+    // Capture-first inbox. It gets the eighth slot — unlike Search / action
+    // queue / subscription audit, which are routes — because its count badge
+    // has to be visible from every other tab: "you have receipts waiting to be
+    // filed" is only useful where the user already is. One tap from the
+    // counter matters here; the route-features are detours you return from.
+    Inbox(R.string.nav_inbox, Icons.Outlined.Inbox, Icons.Filled.Inbox),
     Reminders(R.string.nav_reminders, Icons.Outlined.Notifications, Icons.Filled.Notifications),
     Subscriptions(R.string.nav_plans, Icons.Outlined.CreditCard, Icons.Filled.CreditCard),
     Wishlist(R.string.nav_wishlist, Icons.Outlined.StarBorder, Icons.Filled.Star),
@@ -122,6 +135,18 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
     // Subscriptions tab. Checked after the detail routes as well, so tapping a
     // finding pushes the subscription on top of the report and Back returns here.
     var openAudit by rememberSaveable { mutableStateOf(false) }
+
+    // Capture-first inbox badge. The Inbox tab owns its own list, but the shell
+    // needs a number *before* that tab has ever been opened — the badge is the
+    // entry point. Fetched once here, then kept in step by the screen's
+    // `onCountChanged`. A failed fetch leaves the bubble off instead of drawing
+    // a confident "0", the same rule the Dashboard's action-queue badge follows.
+    var inboxCount by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) {
+        inboxCount = runCatching { App.instance.api.getInbox().attachments }
+            .getOrNull()
+            ?.let { inboxBadgeCount(it) }
+    }
 
     // Share target (#10). The Activity parks a captured product link in
     // ShareIntake; this screen is the first one that only exists *after* the
@@ -257,10 +282,24 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                         selected = isSelected,
                         onClick = { selected = tab },
                         icon = {
-                            Icon(
-                                if (isSelected) tab.filled else tab.outlined,
-                                null,
-                            )
+                            val badge = if (tab == Tab.Inbox) inboxCount else null
+                            if (badge != null && badge > 0) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge { Text(inboxBadgeLabel(badge)) }
+                                    },
+                                ) {
+                                    Icon(
+                                        if (isSelected) tab.filled else tab.outlined,
+                                        null,
+                                    )
+                                }
+                            } else {
+                                Icon(
+                                    if (isSelected) tab.filled else tab.outlined,
+                                    null,
+                                )
+                            }
                         },
                         label = {
                             Text(
@@ -299,6 +338,13 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                         api = App.instance.api,
                         onOpenDevice = { openDeviceId = it },
                         onOpenSearch = { openSearch = true },
+                    )
+                    Tab.Inbox         -> InboxScreen(
+                        api = App.instance.api,
+                        // Keeps the nav bubble in step with the list on screen:
+                        // the screen is the only place an item can be added,
+                        // filed or deleted, so it is the source of the count.
+                        onCountChanged = { inboxCount = it },
                     )
                     Tab.Reminders     -> RemindersScreen(
                         api = App.instance.api,

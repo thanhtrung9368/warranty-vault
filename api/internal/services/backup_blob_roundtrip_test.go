@@ -136,7 +136,7 @@ func TestBackupWithBlobsRoundTripToCleanDatabase(t *testing.T) {
 	// Upload through the real pipeline (encrypt → write blob → DB row).
 	original := tinyPNG(t)
 	att, err := Upload(ctx, source, userA, UploadAttachmentInput{
-		DeviceID:   deviceA,
+		DeviceID:   strp(deviceA),
 		FileName:   "hoa-don-dien-may-xanh.png",
 		DeclaredCT: "image/png",
 		Body:       original,
@@ -361,7 +361,7 @@ func TestMetadataOnlyExportStaysV5AndImportsIntoCleanDatabase(t *testing.T) {
 		t.Fatalf("insert device: %v", err)
 	}
 	if _, err := Upload(ctx, source, userA, UploadAttachmentInput{
-		DeviceID: deviceA, FileName: "hoa-don.png", DeclaredCT: "image/png", Body: tinyPNG(t),
+		DeviceID: strp(deviceA), FileName: "hoa-don.png", DeclaredCT: "image/png", Body: tinyPNG(t),
 	}); err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
@@ -512,7 +512,7 @@ func TestBlobExportRecordsMissingBlob(t *testing.T) {
 		t.Fatalf("insert device: %v", err)
 	}
 	att, err := Upload(ctx, pool, userID, UploadAttachmentInput{
-		DeviceID: deviceID, FileName: "hoa-don.png", DeclaredCT: "image/png", Body: tinyPNG(t),
+		DeviceID: strp(deviceID), FileName: "hoa-don.png", DeclaredCT: "image/png", Body: tinyPNG(t),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

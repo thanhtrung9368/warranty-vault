@@ -9,13 +9,59 @@ import (
 	"context"
 )
 
+const assignAttachmentToDevice = `-- name: AssignAttachmentToDevice :one
+UPDATE "Attachment" a
+SET "deviceId" = $3,
+    "storagePath" = $4
+WHERE a.id = $1 AND a."userId" = $2
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+`
+
+type AssignAttachmentToDeviceParams struct {
+	ID          string  `json:"id"`
+	UserId      string  `json:"userId"`
+	DeviceId    *string `json:"deviceId"`
+	StoragePath string  `json:"storagePath"`
+}
+
+// POST /api/v1/attachments/{id}/file. $3 is the target device, or NULL to return
+// the item to the inbox. $4 is the blob's storagePath after the service moved it
+// to (or from) the reserved `_inbox` segment; storagePath is part of the backup
+// payload, so it must keep matching where the bytes actually are.
+func (q *Queries) AssignAttachmentToDevice(ctx context.Context, arg AssignAttachmentToDeviceParams) (Attachment, error) {
+	row := q.db.QueryRow(ctx, assignAttachmentToDevice,
+		arg.ID,
+		arg.UserId,
+		arg.DeviceId,
+		arg.StoragePath,
+	)
+	var i Attachment
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceId,
+		&i.FileName,
+		&i.StoragePath,
+		&i.FileType,
+		&i.FileSize,
+		&i.Iv,
+		&i.WrappedKey,
+		&i.Description,
+		&i.UploadedAt,
+		&i.UserId,
+	)
+	return i, err
+}
+
 const countAttachmentsByDevice = `-- name: CountAttachmentsByDevice :one
 SELECT COUNT(*)::bigint AS count
 FROM "Attachment"
 WHERE "deviceId" = $1
 `
 
-func (q *Queries) CountAttachmentsByDevice(ctx context.Context, deviceid string) (int64, error) {
+// Filed attachments only, by construction: inbox rows have "deviceId" NULL and
+// NULL = $1 matches nothing. This is the per-device 5-file cap, so an inbox item
+// must never consume a slot.
+func (q *Queries) CountAttachmentsByDevice(ctx context.Context, deviceid *string) (int64, error) {
 	row := q.db.QueryRow(ctx, countAttachmentsByDevice, deviceid)
 	var count int64
 	err := row.Scan(&count)
@@ -36,13 +82,14 @@ type CountAttachmentsByDeviceIDsParams struct {
 }
 
 type CountAttachmentsByDeviceIDsRow struct {
-	DeviceID string `json:"device_id"`
-	Count    int64  `json:"count"`
+	DeviceID *string `json:"device_id"`
+	Count    int64   `json:"count"`
 }
 
 // Batch attachment counts for ListDevices: one grouped query instead of one
 // COUNT per device. Devices with zero attachments are simply absent from the
-// result set — the caller defaults missing ids to 0.
+// result set — the caller defaults missing ids to 0. Inbox rows are excluded
+// (`deviceId` is NULL), matching CountAttachmentsByDevice.
 func (q *Queries) CountAttachmentsByDeviceIDs(ctx context.Context, arg CountAttachmentsByDeviceIDsParams) ([]CountAttachmentsByDeviceIDsRow, error) {
 	rows, err := q.db.Query(ctx, countAttachmentsByDeviceIDs, arg.Column1, arg.UserId)
 	if err != nil {
@@ -66,6 +113,7 @@ func (q *Queries) CountAttachmentsByDeviceIDs(ctx context.Context, arg CountAtta
 const createAttachment = `-- name: CreateAttachment :one
 INSERT INTO "Attachment" (
     id,
+    "userId",
     "deviceId",
     "fileName",
     "storagePath",
@@ -76,14 +124,15 @@ INSERT INTO "Attachment" (
     description,
     "uploadedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()
 )
-RETURNING id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt"
+RETURNING id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId"
 `
 
 type CreateAttachmentParams struct {
 	ID          string  `json:"id"`
-	DeviceId    string  `json:"deviceId"`
+	UserId      string  `json:"userId"`
+	DeviceId    *string `json:"deviceId"`
 	FileName    string  `json:"fileName"`
 	StoragePath string  `json:"storagePath"`
 	FileType    string  `json:"fileType"`
@@ -93,9 +142,13 @@ type CreateAttachmentParams struct {
 	Description *string `json:"description"`
 }
 
+// One insert for both destinations: "deviceId" NULL creates an inbox item.
+// "userId" is always the caller (the owner does not change when the file is
+// later filed or returned to the inbox).
 func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentParams) (Attachment, error) {
 	row := q.db.QueryRow(ctx, createAttachment,
 		arg.ID,
+		arg.UserId,
 		arg.DeviceId,
 		arg.FileName,
 		arg.StoragePath,
@@ -117,15 +170,15 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 		&i.WrappedKey,
 		&i.Description,
 		&i.UploadedAt,
+		&i.UserId,
 	)
 	return i, err
 }
 
 const deleteAttachment = `-- name: DeleteAttachment :one
 DELETE FROM "Attachment" a
-USING "Device" d
-WHERE a.id = $1 AND a."deviceId" = d.id AND d."userId" = $2
-RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt"
+WHERE a.id = $1 AND a."userId" = $2
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
 `
 
 type DeleteAttachmentParams struct {
@@ -133,6 +186,7 @@ type DeleteAttachmentParams struct {
 	UserId string `json:"userId"`
 }
 
+// Works for filed AND inbox rows: ownership is the row's "userId" since 0018.
 // Returns the row (storagePath in particular) so the service can rm the
 // encrypted blob after the DB delete.
 func (q *Queries) DeleteAttachment(ctx context.Context, arg DeleteAttachmentParams) (Attachment, error) {
@@ -149,15 +203,15 @@ func (q *Queries) DeleteAttachment(ctx context.Context, arg DeleteAttachmentPara
 		&i.WrappedKey,
 		&i.Description,
 		&i.UploadedAt,
+		&i.UserId,
 	)
 	return i, err
 }
 
 const getAttachmentByID = `-- name: GetAttachmentByID :one
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
 FROM "Attachment" a
-JOIN "Device" d ON d.id = a."deviceId"
-WHERE a.id = $1 AND d."userId" = $2
+WHERE a.id = $1 AND a."userId" = $2
 LIMIT 1
 `
 
@@ -166,6 +220,9 @@ type GetAttachmentByIDParams struct {
 	UserId string `json:"userId"`
 }
 
+// Direct ownership since 0018. This row may be an inbox item (deviceId NULL) or
+// a filed one; both are read by the same owner check, which is what lets
+// GET /api/files/{id}, PATCH and AI extraction work on an inbox item.
 func (q *Queries) GetAttachmentByID(ctx context.Context, arg GetAttachmentByIDParams) (Attachment, error) {
 	row := q.db.QueryRow(ctx, getAttachmentByID, arg.ID, arg.UserId)
 	var i Attachment
@@ -180,12 +237,13 @@ func (q *Queries) GetAttachmentByID(ctx context.Context, arg GetAttachmentByIDPa
 		&i.WrappedKey,
 		&i.Description,
 		&i.UploadedAt,
+		&i.UserId,
 	)
 	return i, err
 }
 
 const getAttachmentByIDInternal = `-- name: GetAttachmentByIDInternal :one
-SELECT id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt"
+SELECT id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId"
 FROM "Attachment"
 WHERE id = $1
 LIMIT 1
@@ -207,13 +265,14 @@ func (q *Queries) GetAttachmentByIDInternal(ctx context.Context, id string) (Att
 		&i.WrappedKey,
 		&i.Description,
 		&i.UploadedAt,
+		&i.UserId,
 	)
 	return i, err
 }
 
 const listAttachmentsByDevice = `-- name: ListAttachmentsByDevice :many
 
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
 FROM "Attachment" a
 JOIN "Device" d ON d.id = a."deviceId"
 WHERE a."deviceId" = $1 AND d."userId" = $2
@@ -221,14 +280,19 @@ ORDER BY a."uploadedAt" DESC
 `
 
 type ListAttachmentsByDeviceParams struct {
-	DeviceId string `json:"deviceId"`
-	UserId   string `json:"userId"`
+	DeviceId *string `json:"deviceId"`
+	UserId   string  `json:"userId"`
 }
 
 // Attachment CRUD. Files themselves live encrypted on disk under
 // PRIVATE_UPLOAD_ROOT; this table only stores metadata + the wrapped data
 // key + IV. The file_master_key (env) is required to decrypt — disk alone
 // or DB alone is not enough.
+//
+// Migration 0018 made "deviceId" nullable (an inbox item has no device yet) and
+// added the stored owner "userId". Ownership is therefore direct for every row —
+// filed or inbox — instead of being derived through the owning device. The join
+// in ListAttachmentsByDevice is kept as a second guard.
 func (q *Queries) ListAttachmentsByDevice(ctx context.Context, arg ListAttachmentsByDeviceParams) ([]Attachment, error) {
 	rows, err := q.db.Query(ctx, listAttachmentsByDevice, arg.DeviceId, arg.UserId)
 	if err != nil {
@@ -249,6 +313,49 @@ func (q *Queries) ListAttachmentsByDevice(ctx context.Context, arg ListAttachmen
 			&i.WrappedKey,
 			&i.Description,
 			&i.UploadedAt,
+			&i.UserId,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInboxAttachments = `-- name: ListInboxAttachments :many
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+FROM "Attachment" a
+WHERE a."userId" = $1 AND a."deviceId" IS NULL
+ORDER BY a."uploadedAt" DESC
+`
+
+// GET /api/v1/inbox: the caller's unassigned attachments, newest first. Uses the
+// partial index Attachment_inbox_idx (userId, uploadedAt DESC) WHERE deviceId IS
+// NULL. Returns the same columns/shape as ListAttachmentsByDevice.
+func (q *Queries) ListInboxAttachments(ctx context.Context, userid string) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, listInboxAttachments, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.FileName,
+			&i.StoragePath,
+			&i.FileType,
+			&i.FileSize,
+			&i.Iv,
+			&i.WrappedKey,
+			&i.Description,
+			&i.UploadedAt,
+			&i.UserId,
 		); err != nil {
 			return nil, err
 		}
@@ -263,12 +370,13 @@ func (q *Queries) ListAttachmentsByDevice(ctx context.Context, arg ListAttachmen
 const sumAttachmentBytesByUser = `-- name: SumAttachmentBytesByUser :one
 SELECT COALESCE(SUM(a."fileSize"), 0)::bigint AS total_bytes
 FROM "Attachment" a
-JOIN "Device" d ON d.id = a."deviceId"
-WHERE d."userId" = $1
+WHERE a."userId" = $1
 `
 
-// For MAX_UPLOAD_BYTES_PER_USER (100 MB) cap. COALESCE so the empty-set
-// case returns 0 instead of NULL.
+// For MAX_UPLOAD_BYTES_PER_USER (100 MB) cap. Counts EVERYTHING the user owns,
+// inbox items included — the per-user ceiling is about bytes on disk, not about
+// whether the receipt has been filed yet. COALESCE so the empty-set case returns
+// 0 instead of NULL.
 func (q *Queries) SumAttachmentBytesByUser(ctx context.Context, userid string) (int64, error) {
 	row := q.db.QueryRow(ctx, sumAttachmentBytesByUser, userid)
 	var total_bytes int64
@@ -279,9 +387,8 @@ func (q *Queries) SumAttachmentBytesByUser(ctx context.Context, userid string) (
 const updateAttachmentDescription = `-- name: UpdateAttachmentDescription :one
 UPDATE "Attachment" a
 SET description = $3
-FROM "Device" d
-WHERE a.id = $1 AND a."deviceId" = d.id AND d."userId" = $2
-RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt"
+WHERE a.id = $1 AND a."userId" = $2
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
 `
 
 type UpdateAttachmentDescriptionParams struct {
@@ -290,10 +397,10 @@ type UpdateAttachmentDescriptionParams struct {
 	Description *string `json:"description"`
 }
 
-// PATCH /api/v1/attachments/{id}. Ownership is enforced through the owning
-// Device row (the same join used by GetAttachmentByID), and a non-owned id
-// simply matches no row → sqlc/pgx returns ErrNoRows → handler 404 (never 403,
-// matching downloadFileHandler's "leak nothing" policy).
+// PATCH /api/v1/attachments/{id}. Ownership is the row's "userId" since 0018, so
+// the same endpoint now also edits an inbox item's description. A non-owned id
+// matches no row → sqlc/pgx returns ErrNoRows → handler 404 (never 403, matching
+// downloadFileHandler's "leak nothing" policy).
 // A NULL $3 clears the description.
 func (q *Queries) UpdateAttachmentDescription(ctx context.Context, arg UpdateAttachmentDescriptionParams) (Attachment, error) {
 	row := q.db.QueryRow(ctx, updateAttachmentDescription, arg.ID, arg.UserId, arg.Description)
@@ -309,6 +416,7 @@ func (q *Queries) UpdateAttachmentDescription(ctx context.Context, arg UpdateAtt
 		&i.WrappedKey,
 		&i.Description,
 		&i.UploadedAt,
+		&i.UserId,
 	)
 	return i, err
 }

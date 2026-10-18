@@ -15929,6 +15929,397 @@
           }
         }
       }
+    },
+    "Thiết bị đã đầy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device is full"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị đã đầy"
+          }
+        }
+      }
+    },
+    "Không tìm thấy tệp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File not found"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy tệp"
+          }
+        }
+      }
+    },
+    "Không gán được tệp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not assign the file"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không gán được tệp"
+          }
+        }
+      }
+    },
+    "Không tìm thấy tệp đính kèm. Có thể nó đã bị xoá ở nơi khác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This attachment could not be found. It may have been deleted somewhere else."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy tệp đính kèm. Có thể nó đã bị xoá ở nơi khác."
+          }
+        }
+      }
+    },
+    "Hộp thư đến": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hộp thư đến"
+          }
+        }
+      }
+    },
+    "Tệp chưa gán thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files not yet assigned"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp chưa gán thiết bị"
+          }
+        }
+      }
+    },
+    "Gán tệp vào thiết bị để nó không còn trong hộp thư.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign a file to a device to take it out of the inbox."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gán tệp vào thiết bị để nó không còn trong hộp thư."
+          }
+        }
+      }
+    },
+    "Hộp thư đến đang trống": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your inbox is empty"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hộp thư đến đang trống"
+          }
+        }
+      }
+    },
+    "Ảnh hoá đơn hoặc PDF chưa gán thiết bị sẽ nằm ở đây.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipt photos or PDFs that are not assigned to a device show up here."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh hoá đơn hoặc PDF chưa gán thiết bị sẽ nằm ở đây."
+          }
+        }
+      }
+    },
+    "Gán vào thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign to device"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gán vào thiết bị"
+          }
+        }
+      }
+    },
+    "Thêm hoá đơn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a receipt"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm hoá đơn"
+          }
+        }
+      }
+    },
+    "Chọn thiết bị khác": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose another device"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn thiết bị khác"
+          }
+        }
+      }
+    },
+    "Xoá tệp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete file"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá tệp"
+          }
+        }
+      }
+    },
+    "Chưa có thiết bị nào. Tạo thiết bị trước rồi quay lại gán tệp.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No devices yet. Create a device first, then come back to assign the file."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có thiết bị nào. Tạo thiết bị trước rồi quay lại gán tệp."
+          }
+        }
+      }
+    },
+    "Chọn thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a device"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn thiết bị"
+          }
+        }
+      }
+    },
+    "Chọn ảnh hoá đơn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a receipt photo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn ảnh hoá đơn"
+          }
+        }
+      }
+    },
+    "Tệp sẽ vào Hộp thư đến và chưa thuộc thiết bị nào. Bạn gán thiết bị sau.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file goes to your inbox and belongs to no device yet. You assign a device later."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp sẽ vào Hộp thư đến và chưa thuộc thiết bị nào. Bạn gán thiết bị sau."
+          }
+        }
+      }
+    },
+    "Đã thêm vào Hộp thư đến": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added to your inbox"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã thêm vào Hộp thư đến"
+          }
+        }
+      }
+    },
+    "Mở hộp thư": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open inbox"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở hộp thư"
+          }
+        }
+      }
+    },
+    "Tệp sẽ được gán cho thiết bị bạn chọn.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file will be assigned to the device you choose."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp sẽ được gán cho thiết bị bạn chọn."
+          }
+        }
+      }
+    },
+    "Tệp sẽ bị xoá vĩnh viễn và không thể hoàn tác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file will be deleted for good and cannot be undone."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp sẽ bị xoá vĩnh viễn và không thể hoàn tác."
+          }
+        }
+      }
+    },
+    "Chụp ảnh hoá đơn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take a receipt photo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh hoá đơn"
+          }
+        }
+      }
+    },
+    "Thiết bị này đã có đủ 5 tệp đính kèm. Chọn thiết bị khác, hoặc xoá tệp này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device already has 5 attachments. Pick another device, or delete this file."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị này đã có đủ 5 tệp đính kèm. Chọn thiết bị khác, hoặc xoá tệp này."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

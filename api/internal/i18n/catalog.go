@@ -710,6 +710,14 @@ var messages = map[string]message{
 		en: "Invalid file path in \"%s\". This backup file may have been tampered with.",
 	},
 	"Khoá file hỏng trong \"%s\".": {vi: "Khoá file hỏng trong \"%s\".", en: "Corrupt file key in \"%s\"."},
+	"File đính kèm trong hộp thư chưa có thiết bị: đường dẫn không hợp lệ (%s).": {
+		vi: "File đính kèm trong hộp thư chưa có thiết bị: đường dẫn không hợp lệ (%s).",
+		en: "An unfiled attachment has an invalid storage path (%s).",
+	},
+	"File đính kèm trong hộp thư chưa có thiết bị: khoá file hỏng.": {
+		vi: "File đính kèm trong hộp thư chưa có thiết bị: khoá file hỏng.",
+		en: "An unfiled attachment has a corrupt file key.",
+	},
 	"Đường dẫn file không hợp lệ trong bản sao lưu: %s": {
 		vi: "Đường dẫn file không hợp lệ trong bản sao lưu: %s",
 		en: "Invalid file path inside this backup: %s",
@@ -803,6 +811,18 @@ var messages = map[string]message{
 	},
 	"Lỗi mã hoá file": {vi: "Lỗi mã hoá file", en: "Could not encrypt the file"},
 	"Lỗi ghi file":    {vi: "Lỗi ghi file", en: "Could not write the file"},
+
+	// Capture-first inbox copy (migration 0018, services/attachments.go and
+	// handlers/attachments.go). `Tối đa 5 file/thiết bị` above is reused verbatim
+	// for the 409 on POST /attachments/{id}/file — same ceiling, same sentence,
+	// only the status differs (409 there, frozen 400 on upload). `Device không
+	// hợp lệ` and `Không tìm thấy file` are reused too.
+	"Lỗi di chuyển file": {vi: "Lỗi di chuyển file", en: "Could not move the file"},
+	"Chỉ hỗ trợ gán file vào thiết bị": {
+		vi: "Chỉ hỗ trợ gán file vào thiết bị",
+		en: "Only filing an attachment to a device is supported",
+	},
+	"Thiếu deviceId": {vi: "Thiếu deviceId", en: "Missing deviceId"},
 
 	// internal/files copy. That package has no request context of its own and is
 	// called from two domains, so its error TEXT is the key and the caller that

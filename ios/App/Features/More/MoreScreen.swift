@@ -11,6 +11,8 @@ struct MoreScreen: View {
     let client: APIClient
 
     @EnvironmentObject private var auth: AuthStore
+    /// Owned by `MainTabView` so the tab badge and this row can never disagree.
+    @EnvironmentObject private var inbox: InboxStore
     @StateObject private var remindersStore: RemindersStore
 
     // CSV export of the user's devices — built in WarrlyKit
@@ -44,7 +46,7 @@ struct MoreScreen: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: 8)
 
-                // MARK: Main actions — Tìm kiếm / Nhắc nhở / Thống kê
+                // MARK: Main actions — Tìm kiếm / Hộp thư đến / Nhắc nhở / Thống kê
                 moreActionsSection
 
                 WVSectionHeader(L.t("Tài khoản"))
@@ -72,7 +74,12 @@ struct MoreScreen: View {
         .wvScreen()
         .navigationTitle(L.t("Thêm"))
         .navigationBarTitleDisplayMode(.large)
-        .task { await remindersStore.load() }
+        .task {
+            // Refresh both badges on every visit: a receipt filed from another
+            // client must not leave a stale number sitting on this row.
+            await remindersStore.load()
+            await inbox.load()
+        }
         .backupImportFlow(
             client: client,
             isPresented: $showImporter,
@@ -132,6 +139,34 @@ struct MoreScreen: View {
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
+                        WVIcon("arrowRight", size: 13, weight: .semibold)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(WVRowButtonStyle())
+
+                WVDivider(inset: 60)
+
+                // Capture-first inbox. Placed in the same actions group as
+                // Nhắc nhở because this is the existing "row + count badge"
+                // navigation pattern — the badge is the number of receipts
+                // waiting to be filed, not a device's attachment count.
+                NavigationLink {
+                    InboxScreen(client: client)
+                } label: {
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(icon: "receipt", color: WVColor.orange)
+                        Text(L.t("Hộp thư đến"))
+                            .font(.system(size: 17))
+                            .foregroundStyle(WVColor.label)
+                        Spacer(minLength: 8)
+                        if let badgeText = inbox.badgeText {
+                            MoreBadge(text: badgeText)
+                        }
                         WVIcon("arrowRight", size: 13, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
@@ -273,9 +308,13 @@ struct MoreScreen: View {
 // MARK: - Badge component
 
 private struct MoreBadge: View {
-    let count: Int
+    let text: String
+
+    init(text: String) { self.text = text }
+    init(count: Int) { self.text = "\(count)" }
+
     var body: some View {
-        Text("\(count)")
+        Text(text)
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 8)

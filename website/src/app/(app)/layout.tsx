@@ -3,6 +3,7 @@ import { Topbar } from '@/components/topbar';
 import { OfflineBridge } from '@/components/offline-bridge';
 import { api } from '@/lib/api';
 import { badgeCount } from '@/lib/action-queue';
+import { inboxCount } from '@/lib/inbox';
 import { requireUser } from '@/lib/auth';
 
 export default async function AppLayout({
@@ -11,24 +12,33 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  // Two sidebar badges, both derived server-side:
+  // Three sidebar badges, all derived server-side:
   //  - reminders: 30-day horizon to match the previous countActiveReminders()
   //    default. The Go endpoint already filters out dismissed reminders and only
   //    returns warranties on ACTIVE devices.
   //  - actions: `ActionQueue.counts.total`, asked for WITHOUT `snoozed=true` so
   //    the badge is the actionable subset only. `badgeCount()` is the single
   //    place that rule is written down.
-  const [remindersRes, actionsRes] = await Promise.all([
+  //  - inbox: unfiled attachments. There is no count endpoint yet, so this is
+  //    the length of `GET /v1/inbox`; a failed read leaves the badge at 0
+  //    rather than breaking every page in the group.
+  const [remindersRes, actionsRes, inboxRes] = await Promise.all([
     api.reminders.list(30),
     api.actions.list(),
+    api.inbox.getInbox(),
   ]);
   const reminderCount = remindersRes.ok ? remindersRes.data.length : 0;
   const actionCount = actionsRes.ok ? badgeCount(actionsRes.data.counts) : 0;
+  const inboxWaiting = inboxRes.ok ? inboxCount(inboxRes.data) : 0;
 
   return (
     <>
       <div className="flex min-h-screen">
-        <Sidebar reminderCount={reminderCount} actionCount={actionCount} />
+        <Sidebar
+          reminderCount={reminderCount}
+          actionCount={actionCount}
+          inboxCount={inboxWaiting}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar user={user} />
           <main className="flex-1 px-4 pb-28 pt-6 md:px-9 md:pb-12 md:pt-8">
@@ -36,7 +46,11 @@ export default async function AppLayout({
           </main>
         </div>
       </div>
-      <MobileBottomNav reminderCount={reminderCount} actionCount={actionCount} />
+      <MobileBottomNav
+        reminderCount={reminderCount}
+        actionCount={actionCount}
+        inboxCount={inboxWaiting}
+      />
       {/* Prime the offline cache and make offline link clicks document
           navigations. Renders nothing. */}
       <OfflineBridge />

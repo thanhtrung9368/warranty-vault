@@ -9,9 +9,17 @@ import (
 )
 
 // On-disk layout matches the TS implementation in
-// website/src/lib/files.ts:
+// website/src/lib/files.ts for device-filed attachments:
 //
 //	<PRIVATE_UPLOAD_ROOT>/<deviceId>/<uuid>.enc
+//
+// Since migration 0018 an attachment may not have a device yet (the
+// capture-first inbox). Those blobs live under a reserved segment instead:
+//
+//	<PRIVATE_UPLOAD_ROOT>/_inbox/<uuid>.enc
+//
+// Filing or unfiling an attachment renames the blob between the two layouts
+// (MoveEncrypted) so the row's storagePath always points at the bytes.
 //
 // We deliberately do NOT include userID in the path: the existing files
 // already living in private-uploads/ from the Node service don't have it,
@@ -93,6 +101,44 @@ func ReadEncrypted(root, storagePath string) ([]byte, error) {
 		return nil, err
 	}
 	return os.ReadFile(abs)
+}
+
+// MoveEncrypted relocates a ciphertext blob from one storage segment to another:
+//
+//	<root>/<fromStoragePath>  →  <root>/<toSegment>/<toFileBase>
+//
+// It exists for the capture-first inbox (migration 0018): filing an inbox item
+// to a device, re-filing it to a different device, or returning it to the inbox
+// changes the row's storagePath. The path is part of the backup payload, so it
+// must keep pointing at the bytes.
+//
+// The returned path is the destination relative path. It is returned even when
+// err is non-nil, so a caller that treats a missing source as tolerable (the blob
+// was already lost; the row still has to be updated) can persist the canonical
+// destination without reconstructing the path itself.
+func MoveEncrypted(root, fromStoragePath, toSegment, toFileBase string) (string, error) {
+	if !SafeSegment(toSegment) {
+		return "", errors.New("invalid destination segment")
+	}
+	if !SafeSegment(toFileBase) {
+		return "", errors.New("invalid destination filename")
+	}
+	newRel := filepath.Join(toSegment, toFileBase)
+	newAbs, err := ResolveSafe(root, newRel)
+	if err != nil {
+		return "", err
+	}
+	oldAbs, err := ResolveSafe(root, fromStoragePath)
+	if err != nil {
+		return newRel, err
+	}
+	if err := os.MkdirAll(filepath.Dir(newAbs), 0o750); err != nil {
+		return newRel, err
+	}
+	if err := os.Rename(oldAbs, newAbs); err != nil {
+		return newRel, err
+	}
+	return newRel, nil
 }
 
 // DeleteEncrypted best-effort removes <root>/<storagePath>. A missing file

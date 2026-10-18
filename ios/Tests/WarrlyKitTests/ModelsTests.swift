@@ -148,8 +148,40 @@ final class ModelsTests: KitTestCase {
         XCTAssertEqual(attachment.fileName, "hoa-don.pdf")
         XCTAssertEqual(attachment.fileSize, 20_480)
         XCTAssertEqual(attachment.description, "Hoá đơn FPT")
+        XCTAssertNil(attachment.deviceId, "an older device payload has no deviceId key")
         XCTAssertEqual(try APIClient.decoder.decode(
             AttachmentMeta.self, from: try APIClient.encoder.encode(attachment)), attachment)
+    }
+
+    func testAttachmentDeviceIdIsOptionalSoInboxRowsDecode() throws {
+        // Inbox rows carry no device (`null`) and device rows carry one. Both
+        // are the same `Attachment` shape, and the field is optional in the
+        // model so neither can fail to decode.
+        let inbox = try APIClient.decoder.decode(AttachmentMeta.self, from: Data(#"""
+        {"id": "att_inbox", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+         "fileSize": 10, "description": null, "uploadedAt": "2025-03-12T09:30:00Z",
+         "deviceId": null}
+        """#.utf8))
+        XCTAssertNil(inbox.deviceId)
+        XCTAssertTrue(InboxRules.isUnfiled(inbox))
+
+        let filed = try APIClient.decoder.decode(AttachmentMeta.self, from: Data(#"""
+        {"id": "att_filed", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+         "fileSize": 10, "description": null, "uploadedAt": "2025-03-12T09:30:00Z",
+         "deviceId": "dev_1"}
+        """#.utf8))
+        XCTAssertEqual(filed.deviceId, "dev_1")
+        XCTAssertFalse(InboxRules.isUnfiled(filed))
+
+        // Encoding a filed row keeps the device; an inbox row omits the key
+        // (the server reads absence and null as the same "no device").
+        let encoded = try JSONSerialization.jsonObject(
+            with: APIClient.encoder.encode(inbox)) as? [String: Any]
+        XCTAssertNil(encoded?["deviceId"] as? String)
+
+        XCTAssertTrue(AttachmentUploadInput(deviceId: nil).isInboxUpload)
+        XCTAssertTrue(AttachmentUploadInput(deviceId: " ").isInboxUpload)
+        XCTAssertFalse(AttachmentUploadInput(deviceId: "dev_1").isInboxUpload)
     }
 
     func testDeviceInputEncodesDateAsStringAndStatusAsRawValue() throws {

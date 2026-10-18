@@ -34,10 +34,21 @@ WHERE d."userId" = $1
 ORDER BY r."createdAt" ASC;
 
 -- name: BackupListAttachmentsForUser :many
+-- Filed attachments only: the export nests these under their device. Inbox items
+-- travel in their own top-level array (BackupListInboxAttachmentsForUser), which
+-- is a purely additive field in the otherwise-unchanged v5/v6 envelope.
 SELECT a.*
 FROM "Attachment" a
-JOIN "Device" d ON d.id = a."deviceId"
-WHERE d."userId" = $1
+WHERE a."userId" = $1 AND a."deviceId" IS NOT NULL
+ORDER BY a."uploadedAt" ASC;
+
+-- name: BackupListInboxAttachmentsForUser :many
+-- Unassigned attachments (migration 0018). Exported as `inboxAttachments[]` and
+-- restored as inbox rows, so a restore does not silently drop receipts the user
+-- captured but has not filed yet.
+SELECT a.*
+FROM "Attachment" a
+WHERE a."userId" = $1 AND a."deviceId" IS NULL
 ORDER BY a."uploadedAt" ASC;
 
 -- name: BackupListWishlistForUser :many
@@ -69,9 +80,10 @@ ORDER BY p."paidAt" ASC;
 -- ─── Import wipe (mode=replace) ───────────────────────────────────────────
 
 -- name: BackupDeleteAttachmentsForUser :exec
-DELETE FROM "Attachment" a
-USING "Device" d
-WHERE a."deviceId" = d.id AND d."userId" = $1;
+-- Direct ownership since 0018, so replace-mode also wipes the user's inbox rows
+-- (they belong to no device and the old join could not see them).
+DELETE FROM "Attachment"
+WHERE "userId" = $1;
 
 -- name: BackupDeleteRemindersForUser :exec
 DELETE FROM "Reminder" r
@@ -174,11 +186,13 @@ INSERT INTO "Reminder" (
 );
 
 -- name: BackupInsertAttachment :exec
+-- One insert for device-filed and inbox rows: a NULL "deviceId" ($3) creates an
+-- inbox item. "userId" ($2) is the importing account, which owns both.
 INSERT INTO "Attachment" (
-    id, "deviceId", "fileName", "storagePath", "fileType", "fileSize",
+    id, "userId", "deviceId", "fileName", "storagePath", "fileType", "fileSize",
     iv, "wrappedKey", description, "uploadedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 );
 
 -- name: BackupInsertWishlistItem :exec
@@ -268,11 +282,12 @@ WHERE r.id = ANY(sqlc.arg('ids')::text[])
   AND d."userId" <> sqlc.arg('userId')::text;
 
 -- name: BackupFindForeignAttachmentIDs :many
+-- Direct ownership since 0018; an inbox attachment has no device to join, so the
+-- old query would have missed it and the insert would fail on the primary key.
 SELECT a.id
 FROM "Attachment" a
-JOIN "Device" d ON d.id = a."deviceId"
 WHERE a.id = ANY(sqlc.arg('ids')::text[])
-  AND d."userId" <> sqlc.arg('userId')::text;
+  AND a."userId" <> sqlc.arg('userId')::text;
 
 -- name: BackupFindForeignWishlistIDs :many
 SELECT id FROM "WishlistItem"

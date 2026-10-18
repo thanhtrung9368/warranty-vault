@@ -1084,6 +1084,21 @@ data class TestPushResponse(
 @Serializable
 data class Attachment(
     val id: String,
+    /**
+     * Owning device, or **`null` for an inbox item** — an attachment that was
+     * saved before the user picked a device (the capture-first inbox).
+     *
+     * The inbox is defined by exactly this: no device means "not filed yet". An
+     * inbox item does **not** consume any device's 5 slots; that limit only
+     * applies to the device it is eventually filed on.
+     *
+     * Nullable and defaulted because the field is optional on the wire: the
+     * device-scoped reads (`GET /api/v1/devices/{id}/attachments`) predate the
+     * inbox and do not echo it, and a payload that omits it must still decode.
+     * The inbox endpoint returns only unfiled rows, so an absent value and an
+     * explicit `null` mean the same thing to every caller.
+     */
+    val deviceId: String? = null,
     val fileName: String,
     val fileType: String,
     val fileSize: Long = 0,
@@ -1113,6 +1128,68 @@ data class AttachmentResponse(val attachment: Attachment)
  */
 @Serializable
 data class AttachmentDescriptionInput(val description: String)
+
+/**
+ * Body of `POST /api/v1/attachments/{id}/file` — the "Gán vào thiết bị" action
+ * of the capture-first inbox.
+ *
+ * Three states, and all three are different:
+ *
+ *  * `deviceId = "<id>"` — file the attachment on that device. The server
+ *    answers **409 `LIMIT_REACHED`** when the target already holds 5 files
+ *    (`MAX_ATTACHMENTS_PER_DEVICE` in Go); an inbox item counts against no
+ *    device until this call succeeds.
+ *  * `deviceId = null` — send the attachment **back to the inbox**. This is the
+ *    contract's documented unfile, and it is why the key must reach the wire
+ *    even when it is null.
+ *  * (there is no third "leave it alone" state — this endpoint always names a
+ *    target).
+ *
+ * `ApiClient.json` sets `explicitNulls = false`, so a plain nullable property
+ * would DROP `deviceId` for the unfile case and send `{}`; the server would then
+ * have no target. The hand-written serializer below always writes the key, the
+ * same device [UpdateLocaleInputSerializer] uses for its tri-state `locale`.
+ *
+ * The upload path is the mirror image: `POST /api/v1/attachments` **omits** the
+ * optional `deviceId` part to create an inbox item (see
+ * [com.warrly.network.ApiService.uploadAttachment]), which is exactly what
+ * null-dropping gives it for free.
+ */
+@Serializable(with = FileAttachmentInputSerializer::class)
+data class FileAttachmentInput(val deviceId: String?)
+
+/**
+ * Writes `{"deviceId": …}` **including an explicit `null`**.
+ *
+ * Pinned by `InboxSerializationTest.fileAttachmentInput_alwaysSendsTheKeyAndCanSendAnExplicitNull`;
+ * without it the "return to inbox" call would silently send `{}`.
+ */
+object FileAttachmentInputSerializer : KSerializer<FileAttachmentInput> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("com.warrly.network.FileAttachmentInput") {
+            element<String?>("deviceId")
+        }
+
+    override fun serialize(encoder: Encoder, value: FileAttachmentInput) {
+        val jsonEncoder = encoder as? JsonEncoder
+            ?: throw SerializationException("FileAttachmentInput is only serialized as JSON")
+        jsonEncoder.encodeJsonElement(
+            buildJsonObject {
+                val target = value.deviceId
+                put("deviceId", if (target == null) JsonNull else JsonPrimitive(target))
+            },
+        )
+    }
+
+    override fun deserialize(decoder: Decoder): FileAttachmentInput {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: throw SerializationException("FileAttachmentInput is only deserialized from JSON")
+        val element = jsonDecoder.decodeJsonElement().jsonObject["deviceId"]
+        return FileAttachmentInput(
+            element?.takeIf { it !is JsonNull }?.jsonPrimitive?.content,
+        )
+    }
+}
 
 // ---- Account / Backup ----
 

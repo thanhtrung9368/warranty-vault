@@ -146,10 +146,14 @@ func wave5Body(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
 // can actually regress: every per-domain error writer has its own 500 branch, and
 // they are three separate lines of code in three files.
 //
-// The failure is forced by DROPPING THE TABLE the endpoint reads, on a scratch
+// The failure is forced by DROPPING THE TABLES the endpoints read, on a scratch
 // database, after the token was issued (so auth still resolves). That produces a
 // genuine non-domain error — exactly what the `slog.Error(...)` branch is for —
 // without weakening the handler or reaching into the writer directly.
+//
+// The attachment case drops "Attachment" too: since migration 0018 the PATCH
+// query reads the row's own "userId" instead of joining "Device", so dropping
+// only "Device" is no longer an internal error there (it is a clean 404).
 //
 // The three endpoints use three writers:
 //
@@ -164,6 +168,9 @@ func TestShared500HeadlineInBothLanguages(t *testing.T) {
 	// their rows and lose only the foreign key to "Device".
 	if _, err := env.pool.Exec(context.Background(), `DROP TABLE "Device" CASCADE`); err != nil {
 		t.Fatalf("drop Device: %v", err)
+	}
+	if _, err := env.pool.Exec(context.Background(), `DROP TABLE "Attachment" CASCADE`); err != nil {
+		t.Fatalf("drop Attachment: %v", err)
 	}
 
 	cases := []struct {

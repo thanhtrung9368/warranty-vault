@@ -206,19 +206,25 @@ public actor APIClient {
     /// the raw response bytes. Used for backup import, where the payload is a
     /// JSON file the user picked — we forward its bytes as-is rather than
     /// decoding+re-encoding through `Encodable`.
+    ///
+    /// `accept` is configurable because the same method streams attachment
+    /// bytes (`GET /api/files/{id}`, `image/*` or `application/pdf`) as well as
+    /// JSON. Declaring `application/json` for a receipt photo would be a lie
+    /// even where the Go handler happens to ignore it.
     func rawDataRequest(
         _ method: String,
         _ path: String,
         query: [URLQueryItem] = [],
         rawBody: Data? = nil,
         contentType: String? = nil,
+        accept: String = "application/json",
         authenticated: Bool = true
     ) async throws -> Data {
         let url = try Self.url(baseURL: baseURL, path: path, query: query)
 
         var req = URLRequest(url: url)
         req.httpMethod = method
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(accept, forHTTPHeaderField: "Accept")
         applyLanguage(to: &req)
         if let rawBody {
             req.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
@@ -249,6 +255,7 @@ public actor APIClient {
         fileName: String,
         fileType: String,
         fileData: Data,
+        deviceId: String? = nil,
         description: String? = nil,
         as outType: Out.Type = Out.self
     ) async throws -> Out {
@@ -265,6 +272,18 @@ public actor APIClient {
 
         var body = Data()
         let crlf = "\r\n".data(using: .utf8)!
+        // `deviceId` is a FORM field now, not a path segment (capture-first
+        // inbox). It is deliberately absent for an inbox upload: the contract
+        // makes the field optional, so a blank/absent value must never be sent
+        // as `deviceId=""` — that is not the same thing as "no device".
+        if let deviceId,
+           !deviceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"deviceId\"\r\n\r\n"
+                .data(using: .utf8)!)
+            body.append(deviceId.data(using: .utf8)!)
+            body.append(crlf)
+        }
         if let description, !description.isEmpty {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"description\"\r\n\r\n"

@@ -357,21 +357,21 @@ func TestAttachmentMessagesAreTranslated(t *testing.T) {
 			vi:   "Device không hợp lệ",
 			en:   "Invalid device",
 			code: "bad_input",
-			in:   UploadAttachmentInput{DeviceID: "../etc/passwd", Body: []byte("x")},
+			in:   UploadAttachmentInput{DeviceID: strp("../etc/passwd"), Body: []byte("x")},
 		},
 		{
 			name: "empty file",
 			vi:   "File trống",
 			en:   "File is empty",
 			code: "bad_input",
-			in:   UploadAttachmentInput{DeviceID: "zz_dev", Body: nil},
+			in:   UploadAttachmentInput{DeviceID: strp("zz_dev"), Body: nil},
 		},
 		{
 			name: "file over the per-file cap",
 			vi:   "File vượt quá 5MB",
 			en:   "File is larger than 5 MB",
 			code: "bad_input",
-			in:   UploadAttachmentInput{DeviceID: "zz_dev", Body: make([]byte, MaxAttachmentBytes+1)},
+			in:   UploadAttachmentInput{DeviceID: strp("zz_dev"), Body: make([]byte, MaxAttachmentBytes+1)},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

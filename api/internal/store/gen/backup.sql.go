@@ -13,12 +13,13 @@ import (
 
 const backupDeleteAttachmentsForUser = `-- name: BackupDeleteAttachmentsForUser :exec
 
-DELETE FROM "Attachment" a
-USING "Device" d
-WHERE a."deviceId" = d.id AND d."userId" = $1
+DELETE FROM "Attachment"
+WHERE "userId" = $1
 `
 
 // ─── Import wipe (mode=replace) ───────────────────────────────────────────
+// Direct ownership since 0018, so replace-mode also wipes the user's inbox rows
+// (they belong to no device and the old join could not see them).
 func (q *Queries) BackupDeleteAttachmentsForUser(ctx context.Context, userid string) error {
 	_, err := q.db.Exec(ctx, backupDeleteAttachmentsForUser, userid)
 	return err
@@ -103,9 +104,8 @@ func (q *Queries) BackupDeleteWishlistPricesForUser(ctx context.Context, userid 
 const backupFindForeignAttachmentIDs = `-- name: BackupFindForeignAttachmentIDs :many
 SELECT a.id
 FROM "Attachment" a
-JOIN "Device" d ON d.id = a."deviceId"
 WHERE a.id = ANY($1::text[])
-  AND d."userId" <> $2::text
+  AND a."userId" <> $2::text
 `
 
 type BackupFindForeignAttachmentIDsParams struct {
@@ -113,6 +113,8 @@ type BackupFindForeignAttachmentIDsParams struct {
 	UserId string   `json:"userId"`
 }
 
+// Direct ownership since 0018; an inbox attachment has no device to join, so the
+// old query would have missed it and the insert would fail on the primary key.
 func (q *Queries) BackupFindForeignAttachmentIDs(ctx context.Context, arg BackupFindForeignAttachmentIDsParams) ([]string, error) {
 	rows, err := q.db.Query(ctx, backupFindForeignAttachmentIDs, arg.Ids, arg.UserId)
 	if err != nil {
@@ -373,16 +375,17 @@ func (q *Queries) BackupFindForeignWishlistPriceIDs(ctx context.Context, arg Bac
 
 const backupInsertAttachment = `-- name: BackupInsertAttachment :exec
 INSERT INTO "Attachment" (
-    id, "deviceId", "fileName", "storagePath", "fileType", "fileSize",
+    id, "userId", "deviceId", "fileName", "storagePath", "fileType", "fileSize",
     iv, "wrappedKey", description, "uploadedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
 `
 
 type BackupInsertAttachmentParams struct {
 	ID          string           `json:"id"`
-	DeviceId    string           `json:"deviceId"`
+	UserId      string           `json:"userId"`
+	DeviceId    *string          `json:"deviceId"`
 	FileName    string           `json:"fileName"`
 	StoragePath string           `json:"storagePath"`
 	FileType    string           `json:"fileType"`
@@ -393,9 +396,12 @@ type BackupInsertAttachmentParams struct {
 	UploadedAt  pgtype.Timestamp `json:"uploadedAt"`
 }
 
+// One insert for device-filed and inbox rows: a NULL "deviceId" ($3) creates an
+// inbox item. "userId" ($2) is the importing account, which owns both.
 func (q *Queries) BackupInsertAttachment(ctx context.Context, arg BackupInsertAttachmentParams) error {
 	_, err := q.db.Exec(ctx, backupInsertAttachment,
 		arg.ID,
+		arg.UserId,
 		arg.DeviceId,
 		arg.FileName,
 		arg.StoragePath,
@@ -820,13 +826,15 @@ func (q *Queries) BackupInsertWishlistPrice(ctx context.Context, arg BackupInser
 }
 
 const backupListAttachmentsForUser = `-- name: BackupListAttachmentsForUser :many
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
 FROM "Attachment" a
-JOIN "Device" d ON d.id = a."deviceId"
-WHERE d."userId" = $1
+WHERE a."userId" = $1 AND a."deviceId" IS NOT NULL
 ORDER BY a."uploadedAt" ASC
 `
 
+// Filed attachments only: the export nests these under their device. Inbox items
+// travel in their own top-level array (BackupListInboxAttachmentsForUser), which
+// is a purely additive field in the otherwise-unchanged v5/v6 envelope.
 func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid string) ([]Attachment, error) {
 	rows, err := q.db.Query(ctx, backupListAttachmentsForUser, userid)
 	if err != nil {
@@ -847,6 +855,7 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 			&i.WrappedKey,
 			&i.Description,
 			&i.UploadedAt,
+			&i.UserId,
 		); err != nil {
 			return nil, err
 		}
@@ -915,6 +924,48 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.ActivationNotifiedAt,
 			&i.ExtendedCoverNotifiedAt,
 			&i.ExtendedCoverNotifiedLeadDay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupListInboxAttachmentsForUser = `-- name: BackupListInboxAttachmentsForUser :many
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+FROM "Attachment" a
+WHERE a."userId" = $1 AND a."deviceId" IS NULL
+ORDER BY a."uploadedAt" ASC
+`
+
+// Unassigned attachments (migration 0018). Exported as `inboxAttachments[]` and
+// restored as inbox rows, so a restore does not silently drop receipts the user
+// captured but has not filed yet.
+func (q *Queries) BackupListInboxAttachmentsForUser(ctx context.Context, userid string) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, backupListInboxAttachmentsForUser, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.FileName,
+			&i.StoragePath,
+			&i.FileType,
+			&i.FileSize,
+			&i.Iv,
+			&i.WrappedKey,
+			&i.Description,
+			&i.UploadedAt,
+			&i.UserId,
 		); err != nil {
 			return nil, err
 		}

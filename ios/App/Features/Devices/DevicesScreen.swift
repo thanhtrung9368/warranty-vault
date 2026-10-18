@@ -14,17 +14,39 @@ struct DevicesScreen: View {
 
     @StateObject private var store: DevicesStore
     @EnvironmentObject private var catalog: CatalogStore
+    /// Owned by `MainTabView`; capturing a receipt refreshes this so the
+    /// "Thêm" badge is already correct when the user goes looking for it.
+    @EnvironmentObject private var inbox: InboxStore
 
     // Search + filter state
     @State private var searchQuery = ""
     @State private var statusFilter: DeviceStatus? = nil
     @State private var categoryFilter: String? = nil
     @State private var sortOrder: DeviceSortOrder = .purchaseDesc
-    @State private var showFilterSheet = false
+
+    /// One sheet binding for both the filter and the capture flow: two
+    /// independent `.sheet` modifiers on the same view is a presentation race
+    /// waiting to happen.
+    @State private var activeSheet: DevicesSheet?
+    @State private var captureSucceeded = false
+    @State private var showCaptureAlert = false
+    @State private var showInbox = false
 
     init(client: APIClient) {
         self.client = client
         _store = StateObject(wrappedValue: DevicesStore(client: client))
+    }
+
+    private enum DevicesSheet: Identifiable {
+        case filter
+        case capture
+
+        var id: String {
+            switch self {
+            case .filter: return "filter"
+            case .capture: return "capture"
+            }
+        }
     }
 
     // MARK: - Filtered list
@@ -143,13 +165,25 @@ struct DevicesScreen: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
-                    showFilterSheet = true
+                    activeSheet = .filter
                 } label: {
                     Label(L.t("Lọc"), systemImage: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
                         .foregroundStyle(WVColor.tint)
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                // Capture-first entry point. It lives on the Devices tab — the
+                // place a user already goes to manage devices and receipts —
+                // but it never asks for a device, so it is usable at the
+                // counter before any row exists. The alternative (device
+                // detail) is exactly the detour this feature removes.
+                Button { activeSheet = .capture } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                }
+                .accessibilityLabel(L.t("Thêm hoá đơn"))
+
                 NavigationLink(value: DeviceFormNav.create) {
                     Image(systemName: "plus")
                         .font(.system(size: 17, weight: .semibold))
@@ -168,12 +202,40 @@ struct DevicesScreen: View {
         .navigationDestination(for: Device.self) { device in
             DeviceDetailView(client: client, devicesStore: store, device: device)
         }
+        // The confirmation alert can push here; a sheet-nested inbox would not
+        // share the tab's navigation stack.
+        .navigationDestination(isPresented: $showInbox) {
+            InboxScreen(client: client)
+        }
         // Dashboard push via DashDeviceNav (cross-tab usage doesn't apply here)
-        .sheet(isPresented: $showFilterSheet) {
-            DeviceFilterSheet(statusFilter: $statusFilter,
-                              categoryFilter: $categoryFilter,
-                              sortOrder: $sortOrder,
-                              categories: catalog.categories)
+        .sheet(item: $activeSheet, onDismiss: {
+            // The capture sheet dismisses itself after a successful upload. Its
+            // `onUploaded` only sets the flag; showing an alert while the sheet
+            // is still on screen would be a presentation conflict, so the alert
+            // waits for this callback.
+            if captureSucceeded {
+                captureSucceeded = false
+                showCaptureAlert = true
+            }
+        }) { sheet in
+            switch sheet {
+            case .filter:
+                DeviceFilterSheet(statusFilter: $statusFilter,
+                                  categoryFilter: $categoryFilter,
+                                  sortOrder: $sortOrder,
+                                  categories: catalog.categories)
+            case .capture:
+                InboxCaptureSheet(client: client) { _ in
+                    captureSucceeded = true
+                    Task { await inbox.load() }
+                }
+            }
+        }
+        .alert(L.t("Đã thêm vào Hộp thư đến"), isPresented: $showCaptureAlert) {
+            Button(L.t("Mở hộp thư")) { showInbox = true }
+            Button(L.t("Xong"), role: .cancel) {}
+        } message: {
+            Text(L.t("Gán tệp vào thiết bị để nó không còn trong hộp thư."))
         }
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -194,8 +256,17 @@ struct DevicesScreen: View {
                     : L.t("Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.")
             ) {
                 if !isFiltering {
-                    NavigationLink(value: DeviceFormNav.create) {
-                        WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
+                    VStack(spacing: 10) {
+                        NavigationLink(value: DeviceFormNav.create) {
+                            WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
+                        }
+                        // A brand-new account is the strongest capture-first
+                        // case: the receipt exists but there is no device row
+                        // yet. Offer the inbox path right where the empty
+                        // device list otherwise dead-ends.
+                        WVButton(L.t("Thêm hoá đơn"), icon: "camera", kind: .secondary) {
+                            activeSheet = .capture
+                        }
                     }
                 }
             }

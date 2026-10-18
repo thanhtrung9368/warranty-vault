@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Capture-first inbox (COMPETITOR_GAP_ANALYSIS §12) — ENGLISH, the product
+  default. `values-vi/strings_inbox.xml` is the Vietnamese side; the pair is
+  pinned key-for-key by `StringResourceParityTest` (which globs every
+  `strings*.xml`, so this file was covered the moment it existed).
+
+  Two facts about the screen's copy:
+
+  * `inbox_device_slots` and `inbox_device_full_body` carry format arguments
+    (%d / %s). Their verbs must match the Vietnamese file exactly — lint treats
+    `StringFormatMatches` as an error, and a dropped placeholder crashes at
+    render time, not at build time.
+  * The full-device sentence intentionally says what to DO next ("pick another
+    device, or delete the receipt"). The server's 409 explains the conflict; the
+    way out is this screen's job.
+-->
+<resources>
+
+    <string name="inbox_subtitle">Receipts with no device yet. Assign one now, or come back later.</string>
+    <string name="inbox_empty_title">Nothing waiting to be filed</string>
+    <string name="inbox_empty_body">Add a photo or a PDF now and choose the device later — the receipt stays safe in the inbox.</string>
+
+    <string name="inbox_uploaded_at">Uploaded %1$s</string>
+    <string name="inbox_assign_to_device">Assign to a device</string>
+    <string name="inbox_assigning">Assigning…</string>
+
+    <string name="inbox_pick_device_title">Assign to a device</string>
+    <string name="inbox_pick_device_subtitle">The receipt moves out of the inbox and onto the device you pick.</string>
+    <string name="inbox_loading_devices">Loading devices…</string>
+    <string name="inbox_could_not_load_devices">Could not load your devices.</string>
+    <string name="inbox_no_devices_to_pick">You have no devices to assign yet. Add one from the Devices tab first.</string>
+    <!-- A plural, not a string: the numerator is a file COUNT ("1/5 file"),
+         and the parity test pins the same quantities in both languages. -->
+    <plurals name="inbox_device_slots">
+        <item quantity="one">%1$d/%2$d file</item>
+        <item quantity="other">%1$d/%2$d files</item>
+    </plurals>
+
+    <string name="inbox_device_full_title">That device is full</string>
+    <!-- Also a plural: the cap is five today, but the sentence should still read
+         correctly if MAX_ATTACHMENTS_PER_DEVICE ever changes. -->
+    <plurals name="inbox_device_full_body">
+        <item quantity="one">%1$s already has %2$d file, so this receipt was not assigned. Pick another device, or delete the receipt.</item>
+        <item quantity="other">%1$s already has %2$d files, so this receipt was not assigned. Pick another device, or delete the receipt.</item>
+    </plurals>
+    <string name="inbox_pick_another_device">Pick another device</string>
+    <string name="inbox_delete_receipt">Delete receipt</string>
+
+</resources>

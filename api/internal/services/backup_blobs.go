@@ -13,8 +13,9 @@
 //	data.json                          the v6 BackupExport envelope
 //
 // `storagePath` is exactly the value stored on the Attachment row
-// (`<deviceId>/<uuid>.enc`), so an import can put the file back where the row
-// points without inventing a mapping.
+// (`<deviceId>/<uuid>.enc`, or `_inbox/<uuid>.enc` for an unfiled capture since
+// migration 0018), so an import can put the file back where the row points
+// without inventing a mapping.
 //
 // Coexistence with the JSON format
 // --------------------------------
@@ -82,31 +83,43 @@ func WriteBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, w io.W
 	// the blob pass has run. A partially-written archive therefore has no
 	// data.json at all, which the importer rejects loudly (better than a file that
 	// claims to be complete).
+	writeBlob := func(a *BackupAttachment) error {
+		ct, rerr := files.ReadEncrypted(root, a.StoragePath)
+		if rerr != nil {
+			// The row survived but the blob is gone (manual deletion, a volume
+			// restored without the blobs, ...). Shipping a backup that quietly
+			// omits it would be the same lie the metadata-only format told, so
+			// record the id in the envelope instead.
+			payload.MissingAttachmentIds = append(payload.MissingAttachmentIds, a.ID)
+			return nil
+		}
+		// Store, not Deflate: ciphertext does not compress, and storing keeps
+		// the archive byte layout predictable.
+		blobWriter, cerr := zw.CreateHeader(&zip.FileHeader{
+			Name:   backupAttachmentPrefix + a.StoragePath,
+			Method: zip.Store,
+		})
+		if cerr != nil {
+			return fmt.Errorf("zip create attachment %s: %w", a.StoragePath, cerr)
+		}
+		if _, werr := blobWriter.Write(ct); werr != nil {
+			return fmt.Errorf("zip write attachment %s: %w", a.StoragePath, werr)
+		}
+		return nil
+	}
 	for di := range payload.Devices {
 		d := &payload.Devices[di]
 		for ai := range d.Attachments {
-			a := &d.Attachments[ai]
-			ct, rerr := files.ReadEncrypted(root, a.StoragePath)
-			if rerr != nil {
-				// The row survived but the blob is gone (manual deletion, a volume
-				// restored without the blobs, ...). Shipping a backup that quietly
-				// omits it would be the same lie the metadata-only format told, so
-				// record the id in the envelope instead.
-				payload.MissingAttachmentIds = append(payload.MissingAttachmentIds, a.ID)
-				continue
+			if err := writeBlob(&d.Attachments[ai]); err != nil {
+				return nil, err
 			}
-			// Store, not Deflate: ciphertext does not compress, and storing keeps
-			// the archive byte layout predictable.
-			blobWriter, cerr := zw.CreateHeader(&zip.FileHeader{
-				Name:   backupAttachmentPrefix + a.StoragePath,
-				Method: zip.Store,
-			})
-			if cerr != nil {
-				return nil, fmt.Errorf("zip create attachment %s: %w", a.StoragePath, cerr)
-			}
-			if _, werr := blobWriter.Write(ct); werr != nil {
-				return nil, fmt.Errorf("zip write attachment %s: %w", a.StoragePath, werr)
-			}
+		}
+	}
+	// Inbox blobs use the same `attachments/<storagePath>` layout; their path
+	// simply starts with `_inbox/` instead of a device id.
+	for ai := range payload.InboxAttachments {
+		if err := writeBlob(&payload.InboxAttachments[ai]); err != nil {
+			return nil, err
 		}
 	}
 
@@ -255,6 +268,17 @@ func ImportBackupZip(ctx context.Context, db *pgxpool.Pool, userID string, archi
 			}
 			wantBlobs++
 		}
+	}
+	for _, a := range payload.InboxAttachments {
+		if _, ok := blobEntries[a.StoragePath]; !ok {
+			if knownMissing[a.ID] {
+				continue
+			}
+			return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+				"Bản sao lưu thiếu nội dung của file đính kèm \"%s\" (%s). File có thể đã hỏng hoặc bị sửa.",
+				a.FileName, a.StoragePath)}
+		}
+		wantBlobs++
 	}
 	if !payload.IncludesAttachmentBytes && len(blobEntries) > 0 {
 		return nil, &Error{Code: "VALIDATION",

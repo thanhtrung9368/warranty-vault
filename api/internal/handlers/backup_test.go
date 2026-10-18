@@ -72,8 +72,9 @@ func TestBackupExportImportWithBlobsOverHTTP(t *testing.T) {
 		 VALUES ($1, $2, 'Tủ lạnh Samsung', 'FRIDGE', '2025-01-01', 15000000, NOW())`, deviceA, userA); err != nil {
 		t.Fatalf("insert device: %v", err)
 	}
+	deviceAD := deviceA
 	att, err := services.Upload(ctx, pool, userA, services.UploadAttachmentInput{
-		DeviceID: deviceA, FileName: "hoa-don.png", DeclaredCT: "image/png", Body: tinyPNGBytes(t),
+		DeviceID: &deviceAD, FileName: "hoa-don.png", DeclaredCT: "image/png", Body: tinyPNGBytes(t),
 	})
 	if err != nil {
 		t.Fatalf("upload: %v", err)

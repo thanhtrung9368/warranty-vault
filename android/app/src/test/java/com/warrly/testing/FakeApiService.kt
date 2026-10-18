@@ -23,6 +23,7 @@ import com.warrly.network.DeviceListResponse
 import com.warrly.network.DeviceResponse
 import com.warrly.network.DeviceShareListResponse
 import com.warrly.network.DraftDeviceResponse
+import com.warrly.network.FileAttachmentInput
 import com.warrly.network.Forecast
 import com.warrly.network.ForgotRequest
 import com.warrly.network.ImportResultResponse
@@ -169,11 +170,22 @@ open class FakeApiService : ApiService {
     override suspend fun sendTestPush(): TestPushResponse = notStubbed("sendTestPush")
 
     override suspend fun listAttachments(id: String): AttachmentListResponse = notStubbed("listAttachments")
-    override suspend fun uploadAttachment(
+    override suspend fun uploadDeviceAttachment(
         deviceId: String,
         file: MultipartBody.Part,
         description: RequestBody?,
+    ): AttachmentResponse = notStubbed("uploadDeviceAttachment")
+
+    override suspend fun getInbox(): AttachmentListResponse = notStubbed("getInbox")
+
+    override suspend fun uploadAttachment(
+        file: MultipartBody.Part,
+        deviceId: RequestBody?,
+        description: RequestBody?,
     ): AttachmentResponse = notStubbed("uploadAttachment")
+
+    override suspend fun fileAttachment(id: String, body: FileAttachmentInput): Unit =
+        notStubbed("fileAttachment")
 
     override suspend fun updateAttachment(id: String, body: AttachmentDescriptionInput): AttachmentResponse =
         notStubbed("updateAttachment")

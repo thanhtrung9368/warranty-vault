@@ -675,6 +675,80 @@ public struct AttachmentMeta: Codable, Sendable, Identifiable, Hashable {
     public let fileSize: Int
     public let description: String?
     public let uploadedAt: Date
+
+    /// The device this attachment is filed under, or `nil` for a **capture-first
+    /// inbox** item.
+    ///
+    /// Optional for two reasons: the inbox endpoint deliberately returns rows
+    /// with no device, and an older device-attachment payload that predates the
+    /// field must keep decoding. A missing key decodes as `nil`.
+    ///
+    /// Filing is not a normal edit — `PATCH /api/v1/attachments/{id}` still
+    /// accepts only `description`. Moving an item between the inbox and a device
+    /// goes through `POST /api/v1/attachments/{id}/file`, which is why this is a
+    /// read-only field here.
+    public let deviceId: String?
+
+    public init(id: String, fileName: String, fileType: String, fileSize: Int,
+                description: String? = nil, uploadedAt: Date, deviceId: String? = nil) {
+        self.id = id
+        self.fileName = fileName
+        self.fileType = fileType
+        self.fileSize = fileSize
+        self.description = description
+        self.uploadedAt = uploadedAt
+        self.deviceId = deviceId
+    }
+}
+
+/// Non-file multipart fields of `POST /api/v1/attachments`.
+///
+/// The one endpoint serves both upload paths: a `deviceId` attaches the file to
+/// that device, while `nil` creates an **inbox item** that consumes none of the
+/// device's five attachment slots. The web client carries the same optional
+/// field for the same reason.
+public struct AttachmentUploadInput: Sendable, Equatable {
+    /// Omit/`nil` to upload into the inbox.
+    public var deviceId: String?
+    /// Trimmed by the server; blank is not sent at all.
+    public var description: String?
+
+    public init(deviceId: String? = nil, description: String? = nil) {
+        self.deviceId = deviceId
+        self.description = description
+    }
+
+    /// `true` when this upload will create an inbox item rather than consume a
+    /// device slot. Mirrors `InboxRules.isUnfiled`.
+    public var isInboxUpload: Bool {
+        guard let deviceId else { return true }
+        return deviceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+/// Body of `POST /api/v1/attachments/{id}/file`.
+///
+/// `deviceId: nil` returns the attachment to the inbox, and the contract means
+/// an **explicit JSON null**, not an absent key — so the encoder is hand-written
+/// for the same reason `AttachmentDescriptionInput`'s is.
+///
+/// A 409 `limit_reached` means the target device already holds five attachments;
+/// the item stays in the inbox. Map it through `InboxRules.fileFailure(_:)` so the
+/// UI can offer the way out instead of a generic error.
+public struct FileAttachmentInput: Encodable, Sendable {
+    public var deviceId: String?
+
+    public init(deviceId: String?) {
+        self.deviceId = deviceId
+    }
+
+    enum CodingKeys: String, CodingKey { case deviceId }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Unconditional: `nil` travels as an explicit JSON null.
+        try container.encode(deviceId, forKey: .deviceId)
+    }
 }
 
 /// Body of `PATCH /api/v1/attachments/{id}` — the only mutable attachment field.

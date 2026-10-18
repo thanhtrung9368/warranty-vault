@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT của hộp thư vào — xem chú thích ở `values/strings_inbox.xml`.
+  Các `%` phải trùng với bản tiếng Anh theo từng khoá: `%1$d`/`%2$d` cho số tệp,
+  `%1$s` cho tên thiết bị. Câu "thiết bị đã đầy" phải nói luôn cách xử lý
+  (chọn thiết bị khác, hoặc xoá hoá đơn) — đó là phần server không nói.
+-->
+<resources>
+
+    <string name="inbox_subtitle">Hoá đơn chưa gán thiết bị nào. Gán ngay, hoặc quay lại sau.</string>
+    <string name="inbox_empty_title">Không có hoá đơn nào chờ gán</string>
+    <string name="inbox_empty_body">Thêm ảnh hoặc PDF ngay bây giờ rồi chọn thiết bị sau — hoá đơn vẫn nằm an toàn trong hộp thư.</string>
+
+    <string name="inbox_uploaded_at">Tải lên %1$s</string>
+    <string name="inbox_assign_to_device">Gán vào thiết bị</string>
+    <string name="inbox_assigning">Đang gán…</string>
+
+    <string name="inbox_pick_device_title">Gán vào thiết bị</string>
+    <string name="inbox_pick_device_subtitle">Hoá đơn sẽ rời hộp thư và vào thiết bị bạn chọn.</string>
+    <string name="inbox_loading_devices">Đang tải thiết bị…</string>
+    <string name="inbox_could_not_load_devices">Không tải được danh sách thiết bị.</string>
+    <string name="inbox_no_devices_to_pick">Bạn chưa có thiết bị nào để gán. Hãy thêm thiết bị ở tab Thiết bị trước.</string>
+    <!-- Số tệp là số đếm: tiếng Việt không biến đổi theo số lượng nên chỉ có
+         `other`; bản tiếng Anh thêm `one` cho trường hợp 1 tệp. -->
+    <plurals name="inbox_device_slots">
+        <item quantity="other">%1$d/%2$d tệp</item>
+    </plurals>
+
+    <string name="inbox_device_full_title">Thiết bị đã đầy</string>
+    <plurals name="inbox_device_full_body">
+        <item quantity="other">%1$s đã có %2$d tệp nên hoá đơn này chưa được gán. Chọn thiết bị khác, hoặc xoá hoá đơn này.</item>
+    </plurals>
+    <string name="inbox_pick_another_device">Chọn thiết bị khác</string>
+    <string name="inbox_delete_receipt">Xoá hoá đơn</string>
+
+</resources>

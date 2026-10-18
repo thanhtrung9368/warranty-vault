@@ -13,6 +13,10 @@ export const common = defineMessages({
   'Gói đăng ký': 'Subscriptions',
   'Nhắc nhở': 'Reminders',
   'Việc cần xử lý': 'Action items',
+  // Capture-first inbox: attachments uploaded with no device yet. The page
+  // heading, the sidebar item and the bottom nav all use this one key, so they
+  // cannot drift apart.
+  'Hộp thư': 'Inbox',
   'Thống kê': 'Stats',
   'Cài đặt': 'Settings',
   'Wishlist': 'Wishlist',

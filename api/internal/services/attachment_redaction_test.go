@@ -22,7 +22,7 @@ func TestAttachmentMetaDoesNotLeakInternalColumns(t *testing.T) {
 	desc := "hoá đơn"
 	row := store.Attachment{
 		ID:          "att_1",
-		DeviceId:    "dev_1",
+		DeviceId:    strp("dev_1"),
 		FileName:    "hoa-don.pdf",
 		StoragePath: "/data/private-uploads/dev_1/att_1.bin",
 		FileType:    "application/pdf",
@@ -39,7 +39,7 @@ func TestAttachmentMetaDoesNotLeakInternalColumns(t *testing.T) {
 	}
 	got := string(blob)
 
-	for _, forbidden := range []string{"storagePath", "wrappedKey", `"iv"`, "/data/", "private-uploads"} {
+	for _, forbidden := range []string{"storagePath", "wrappedKey", `"iv"`, "userId", "/data/", "private-uploads"} {
 		if strings.Contains(got, forbidden) {
 			t.Errorf("redacted JSON still contains %q:\n%s", forbidden, got)
 		}

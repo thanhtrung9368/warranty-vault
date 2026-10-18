@@ -13,6 +13,7 @@ import {
   Heart,
   RefreshCw,
   ListChecks,
+  Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/client';
@@ -55,6 +56,15 @@ const items: NavItem[] = [
     match: (p) => p.startsWith('/actions'),
   },
   {
+    // Capture-first inbox: receipts uploaded before a device is chosen. Sits
+    // next to "Việc cần xử lý" because both are queues of things still waiting
+    // for a decision, and its badge is exactly the number of unfiled files.
+    href: '/inbox',
+    label: 'Hộp thư',
+    icon: Inbox,
+    match: (p) => p.startsWith('/inbox'),
+  },
+  {
     href: '/devices',
     label: 'Thiết bị',
     icon: Package,
@@ -95,23 +105,34 @@ const items: NavItem[] = [
 // Per-item badge. The reminders count is "gói bảo hành sắp hết"; the actions
 // count is `ActionQueue.counts.total`, i.e. the ACTIONABLE subset — the server
 // keeps snoozed rows out of it on purpose, so a snooze never inflates the badge.
-function navBadge(href: string, reminderCount: number, actionCount: number): number {
+// The inbox count is unfiled attachments, which by contract occupy no device
+// slot — it is not a fifth "device full" warning.
+function navBadge(
+  href: string,
+  reminderCount: number,
+  actionCount: number,
+  inboxCount: number,
+): number {
   if (href === '/reminders') return reminderCount;
   if (href === '/actions') return actionCount;
+  if (href === '/inbox') return inboxCount;
   return 0;
 }
 
 const BADGE_CLASS: Record<string, string> = {
   '/reminders': 'bg-primary text-primary-foreground',
   '/actions': 'bg-amber-soft text-amber-ink',
+  '/inbox': 'bg-sky-soft text-sky-ink',
 };
 
 export function Sidebar({
   reminderCount = 0,
   actionCount = 0,
+  inboxCount = 0,
 }: {
   reminderCount?: number;
   actionCount?: number;
+  inboxCount?: number;
 }) {
   const pathname = usePathname();
   const t = useT();
@@ -136,7 +157,7 @@ export function Sidebar({
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.match(pathname);
-          const badge = navBadge(item.href, reminderCount, actionCount);
+          const badge = navBadge(item.href, reminderCount, actionCount, inboxCount);
           return (
             <Link
               key={item.href}
@@ -181,16 +202,18 @@ export function Sidebar({
 
 /**
  * Mobile pill-shaped bottom navigation. Renders every section (same order +
- * labels as the desktop sidebar) in a horizontally scrollable strip — all 8
+ * labels as the desktop sidebar) in a horizontally scrollable strip — the 9
  * entries don't fit on a phone at once, so the active one is scrolled into
  * view. Hidden on desktop (sidebar takes over from md: up).
  */
 export function MobileBottomNav({
   reminderCount = 0,
   actionCount = 0,
+  inboxCount = 0,
 }: {
   reminderCount?: number;
   actionCount?: number;
+  inboxCount?: number;
 }) {
   const pathname = usePathname();
   const t = useT();
@@ -210,7 +233,7 @@ export function MobileBottomNav({
       {items.map((item) => {
         const Icon = item.icon;
         const active = item.match(pathname);
-        const badge = navBadge(item.href, reminderCount, actionCount);
+        const badge = navBadge(item.href, reminderCount, actionCount, inboxCount);
         return (
           <Link
             key={item.href}

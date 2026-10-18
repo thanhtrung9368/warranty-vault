@@ -167,9 +167,14 @@ final class APIClientTests: KitTestCase {
 
         XCTAssertEqual(attachment.id, "att_9")
         XCTAssertEqual(attachment.fileName, "hoa-don.jpg")
+        // The implemented `attachmentDTO` omits `deviceId`; the upload path
+        // must not depend on it coming back.
+        XCTAssertNil(attachment.deviceId)
         var request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.path, "/api/v1/devices/dev_1/attachments")
+        // One upload endpoint now serves both paths; a device upload carries
+        // its id as a multipart field.
+        XCTAssertEqual(request.url?.path, "/api/v1/attachments")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
 
         let contentType = try XCTUnwrap(request.value(forHTTPHeaderField: "Content-Type"))
@@ -180,6 +185,8 @@ final class APIClientTests: KitTestCase {
         let body = request.capturedBody
         let bodyText = try XCTUnwrap(String(data: body, encoding: .utf8))
         XCTAssertTrue(bodyText.contains("--\(boundary)\r\n"))
+        XCTAssertTrue(bodyText.contains(#"Content-Disposition: form-data; name="deviceId""#))
+        XCTAssertTrue(bodyText.contains("dev_1"))
         XCTAssertTrue(bodyText.contains(#"Content-Disposition: form-data; name="description""#))
         XCTAssertTrue(bodyText.contains("Hoá đơn"))
         XCTAssertTrue(bodyText.contains(#"Content-Disposition: form-data; name="file"; filename="hoa-don.jpg""#))
@@ -200,5 +207,53 @@ final class APIClientTests: KitTestCase {
         XCTAssertEqual(status, 413)
         XCTAssertEqual(envelope.error, "payload_too_large")
         XCTAssertEqual(error?.errorDescription, "Tệp vượt quá 5 MB")
+    }
+
+    func testInboxUploadOmitsTheDeviceIdFieldEntirely() async throws {
+        // Omitted — not `deviceId=""`. An empty value is not a device id, and the
+        // whole point of capture-first is that no device is chosen yet.
+        let client = makeStubbedClient(token: "tok_abc")
+        let fileBytes = Data("anh-hoa-don".utf8)
+        StubURLProtocol.install(.json(#"""
+        {"attachment": {"id": "att_10", "fileName": "hoa-don.jpg", "fileType": "image/jpeg",
+                        "fileSize": 11, "description": null,
+                        "uploadedAt": "2025-03-13T08:00:00Z"}}
+        """#))
+
+        let attachment = try await client.uploadAttachment(
+            AttachmentUploadInput(deviceId: nil, description: nil),
+            fileName: "hoa-don.jpg", fileType: "image/jpeg", data: fileBytes
+        )
+
+        XCTAssertNil(attachment.deviceId)
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.url?.path, "/api/v1/attachments")
+        let bodyText = try XCTUnwrap(String(data: request.capturedBody, encoding: .utf8))
+        XCTAssertFalse(bodyText.contains(#"name="deviceId""#),
+                       "an inbox upload must not send an empty deviceId field")
+        XCTAssertTrue(bodyText.contains(#"name="file""#))
+    }
+
+    func testBlankDeviceIdIsTreatedAsAnInboxUpload() async throws {
+        // Defensive: a caller that builds the input from an empty text field
+        // must not send `deviceId=""`. The contract's absent-vs-empty
+        // distinction is exactly what makes an inbox item.
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.json(#"""
+        {"attachment": {"id": "att_11", "fileName": "a.jpg", "fileType": "image/jpeg",
+                        "fileSize": 1, "description": null,
+                        "uploadedAt": "2025-03-13T08:00:00Z"}}
+        """#))
+
+        _ = try await client.uploadAttachment(
+            AttachmentUploadInput(deviceId: "   "),
+            fileName: "a.jpg", fileType: "image/jpeg", data: Data([0x01])
+        )
+
+        let bodyText = try XCTUnwrap(String(
+            data: try XCTUnwrap(StubURLProtocol.lastRequest).capturedBody,
+            encoding: .utf8
+        ))
+        XCTAssertFalse(bodyText.contains(#"name="deviceId""#))
     }
 }

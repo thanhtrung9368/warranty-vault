@@ -1,0 +1,782 @@
+package com.warrly.ui.screens.inbox
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.warrly.R
+import com.warrly.i18n.appStrings
+import com.warrly.network.ApiClient
+import com.warrly.network.ApiService
+import com.warrly.network.Attachment
+import com.warrly.network.Device
+import com.warrly.network.DeviceStatus
+import com.warrly.network.FileAttachmentInput
+import com.warrly.network.toUserMessage
+import com.warrly.ui.components.EmptyState
+import com.warrly.ui.components.ErrorState
+import com.warrly.ui.components.PageHeader
+import com.warrly.ui.components.SkeletonList
+import com.warrly.ui.screens.attachments.readPickedAttachment
+import com.warrly.ui.viewModelFactory
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+// ─── ViewModel ────────────────────────────────────────────────────────────────
+
+/**
+ * `GET /api/v1/inbox` plus the two write paths that change it: filing an item on
+ * a device and deleting one.
+ *
+ * The **upload** is deliberately not here: reading a content-provider `Uri`
+ * needs a `Context`, which a ViewModel must not hold. The screen reads the bytes
+ * through the shared `readPickedAttachment` and calls the service; this class
+ * owns the list, the filing call and the one 409 the contract defines.
+ */
+class InboxViewModel(private val api: ApiService) : ViewModel() {
+    sealed interface State {
+        data object Loading : State
+        data class Loaded(val attachments: List<Attachment>) : State
+        data class Error(val message: String) : State
+    }
+
+    /**
+     * A filing attempt the server refused with **409 `LIMIT_REACHED`**. The
+     * screen turns this into the dialog that offers the two ways out; keeping
+     * the failed [attachment] and the target's [deviceName] here means the
+     * dialog can name both without re-deriving them from a list that may have
+     * changed.
+     */
+    data class DeviceFull(val attachment: Attachment, val deviceName: String)
+
+    private val _state = MutableStateFlow<State>(State.Loading)
+    val state: StateFlow<State> = _state.asStateFlow()
+
+    /** Set only by the DEVICE_FULL branch of [file]; cleared by the dialog. */
+    private val _deviceFull = MutableStateFlow<DeviceFull?>(null)
+    val deviceFull: StateFlow<DeviceFull?> = _deviceFull.asStateFlow()
+
+    /**
+     * One transient sentence for an action that failed for a reason other than
+     * the full-device 409 (the server's translated message, or the localized
+     * fallback). The upload path reports through [reportError] so the screen
+     * still has a single place to show errors.
+     */
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
+
+    private val _filing = MutableStateFlow(false)
+    val filing: StateFlow<Boolean> = _filing.asStateFlow()
+
+    /**
+     * Loads the inbox. A reload **keeps the current list on screen** while it
+     * runs: this is a pull-to-refresh / post-write refresh, and swapping rows
+     * for a skeleton on every file action would be worse than a stale second.
+     */
+    fun load() {
+        viewModelScope.launch {
+            if (_state.value !is State.Loaded) _state.value = State.Loading
+            try {
+                _state.value = State.Loaded(api.getInbox().attachments)
+            } catch (e: Exception) {
+                _state.value = State.Error(e.toUserMessage(ApiClient.json))
+            }
+        }
+    }
+
+    /**
+     * `POST /api/v1/attachments/{id}/file`.
+     *
+     * A success removes the row locally (the item is no longer unfiled, so it
+     * left this list) — no refetch needed. A 409 `LIMIT_REACHED` sets
+     * [deviceFull] and leaves the row where it is, because the receipt was not
+     * assigned to anything and the user still has to decide.
+     */
+    fun file(attachment: Attachment, device: Device) {
+        viewModelScope.launch {
+            _filing.value = true
+            _deviceFull.value = null
+            _actionMessage.value = null
+            try {
+                api.fileAttachment(attachment.id, FileAttachmentInput(device.id))
+                removeLocally(attachment.id)
+            } catch (e: Exception) {
+                // One parse of the error body: it carries both the machine code
+                // (`LIMIT_REACHED`) and the server's translated sentence, and the
+                // body can only be read once.
+                val error = inboxFileError(e, ApiClient.json)
+                if (error.failure == InboxFileFailure.DEVICE_FULL) {
+                    _deviceFull.value = DeviceFull(attachment, device.name)
+                } else {
+                    _actionMessage.value = error.serverMessage ?: e.toUserMessage(ApiClient.json)
+                }
+            } finally {
+                _filing.value = false
+            }
+        }
+    }
+
+    /** `DELETE /api/v1/attachments/{id}` — also the "delete" way out of a 409. */
+    fun delete(attachment: Attachment) {
+        viewModelScope.launch {
+            _actionMessage.value = null
+            try {
+                api.deleteAttachment(attachment.id)
+                removeLocally(attachment.id)
+            } catch (e: Exception) {
+                _actionMessage.value = e.toUserMessage(ApiClient.json)
+            }
+        }
+    }
+
+    fun dismissDeviceFull() {
+        _deviceFull.value = null
+    }
+
+    fun dismissActionMessage() {
+        _actionMessage.value = null
+    }
+
+    /** The upload's error, routed through the same channel as the other actions. */
+    fun reportError(message: String) {
+        _actionMessage.value = message
+    }
+
+    private fun removeLocally(id: String) {
+        val current = _state.value as? State.Loaded ?: return
+        _state.value = current.copy(attachments = current.attachments.filterNot { it.id == id })
+    }
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+/**
+ * The capture-first inbox: receipts saved **before** a device was chosen.
+ *
+ * ### Where the upload entry point lives, and why
+ *
+ * On this screen, above the list: "Add photo" / "Add PDF". The device detail's
+ * attachment section cannot be the device-less entry point — it is scoped to a
+ * device by construction — and the inbox is the only surface that exists
+ * without one. Capture and its result therefore sit together: the user taps
+ * once, the bytes go to `POST /api/v1/attachments` with no `deviceId`, and the
+ * new row appears in the list below it. The empty state offers the same action
+ * so the first capture has a call to action rather than a blank page.
+ *
+ * ### The 409
+ *
+ * Filing can fail because the target device already holds five attachments
+ * (`409 LIMIT_REACHED`). That is not a generic error: it needs a way out. The
+ * dialog names the device and offers exactly the two exits the contract allows —
+ * pick another device, or delete the receipt.
+ *
+ * This is a tab of the shell (`ui/MainScreen.kt`) rather than a pushed route:
+ * the inbox is a place you come back to and its badge is visible from every
+ * other tab, not a detour like search.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InboxScreen(
+    api: ApiService,
+    /** The shell's nav badge; `null` means "hide the bubble". */
+    onCountChanged: (Int?) -> Unit = {},
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val vm: InboxViewModel = viewModel(
+        factory = viewModelFactory { InboxViewModel(api) },
+    )
+    val state by vm.state.collectAsState()
+    val deviceFull by vm.deviceFull.collectAsState()
+    val actionMessage by vm.actionMessage.collectAsState()
+    val filing by vm.filing.collectAsState()
+
+    var refreshing by remember { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
+    // The item a device picker is currently open for; null = no sheet.
+    var pickerFor by remember { mutableStateOf<Attachment?>(null) }
+    var devices by remember { mutableStateOf<List<Device>>(emptyList()) }
+    var devicesLoading by remember { mutableStateOf(false) }
+    var devicesError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) { vm.load() }
+
+    // Keep the shell's badge in step with the list on screen. A successful
+    // upload/file/delete changes this list, so this one effect covers all three
+    // without a second network call. `null` at zero hides the bubble.
+    val loadedAttachments = (state as? InboxViewModel.State.Loaded)?.attachments
+    LaunchedEffect(loadedAttachments) {
+        if (loadedAttachments != null) onCountChanged(inboxBadgeCount(loadedAttachments))
+    }
+
+    // A successful file call removes the row; close the picker that produced it.
+    LaunchedEffect(loadedAttachments, pickerFor) {
+        val target = pickerFor ?: return@LaunchedEffect
+        if (loadedAttachments != null && loadedAttachments.none { it.id == target.id }) {
+            pickerFor = null
+        }
+    }
+
+    // The 409 dialog takes over from the picker: the sheet would hide the two
+    // choices the user now has to make.
+    LaunchedEffect(deviceFull) {
+        if (deviceFull != null) pickerFor = null
+    }
+
+    fun startUpload(uri: Uri) {
+        scope.launch {
+            uploading = true
+            vm.dismissActionMessage()
+            try {
+                val picked = readPickedAttachment(context, uri)
+                // No `deviceId` part: the server stores it as an inbox item.
+                api.uploadAttachment(picked.toMultipart())
+                vm.load()
+            } catch (e: Exception) {
+                // The reader throws a localized sentence for "too large" / "could
+                // not read"; `localizedMessage` is that sentence.
+                vm.reportError(e.toUserMessage(ApiClient.json, context))
+            } finally {
+                uploading = false
+            }
+        }
+    }
+
+    fun openPicker(attachment: Attachment) {
+        pickerFor = attachment
+        devicesLoading = true
+        devicesError = null
+        scope.launch {
+            try {
+                // A sold device is not a place for a new receipt; everything else
+                // (broken, lost, expired) can still own its paperwork.
+                devices = api.listDevices().devices.filter { it.status != DeviceStatus.SOLD }
+            } catch (e: Exception) {
+                devicesError = e.toUserMessage(ApiClient.json, context)
+            } finally {
+                devicesLoading = false
+            }
+        }
+    }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> if (uri != null) startUpload(uri) }
+
+    val pdfPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) startUpload(uri) }
+
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = {
+                scope.launch {
+                    refreshing = true
+                    vm.load()
+                    refreshing = false
+                }
+            },
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+            when (val st = state) {
+                is InboxViewModel.State.Loading -> Column {
+                    PageHeader(
+                        stringResource(R.string.nav_inbox),
+                        stringResource(R.string.inbox_subtitle),
+                    )
+                    SkeletonList(count = 3)
+                }
+
+                is InboxViewModel.State.Error -> ErrorState(
+                    icon = Icons.Outlined.WarningAmber,
+                    title = stringResource(R.string.dash_could_not_load_it),
+                    body = st.message,
+                    onRetry = { vm.load() },
+                )
+
+                is InboxViewModel.State.Loaded -> InboxBody(
+                    attachments = st.attachments,
+                    uploading = uploading,
+                    actionMessage = actionMessage,
+                    onDismissMessage = { vm.dismissActionMessage() },
+                    onAddPhoto = {
+                        photoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                    onAddPdf = { pdfPicker.launch(arrayOf("application/pdf")) },
+                    onAssign = { openPicker(it) },
+                    onDelete = { vm.delete(it) },
+                )
+            }
+        }
+    }
+
+    pickerFor?.let { attachment ->
+        DevicePickerSheet(
+            attachment = attachment,
+            devices = devices,
+            loading = devicesLoading,
+            error = devicesError,
+            filing = filing,
+            onPick = { device -> vm.file(attachment, device) },
+            onRetry = { openPicker(attachment) },
+            onDismiss = { pickerFor = null },
+        )
+    }
+
+    deviceFull?.let { full ->
+        val s = appStrings()
+        AlertDialog(
+            onDismissRequest = { vm.dismissDeviceFull() },
+            icon = {
+                Icon(
+                    Icons.Outlined.WarningAmber,
+                    null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text(stringResource(R.string.inbox_device_full_title)) },
+            // The sentence names the device, the five-file cap AND both exits —
+            // the server's own 409 message explains the conflict but not what to
+            // do next.
+            text = {
+                Text(
+                    inboxFileFailureMessage(s, InboxFileFailure.DEVICE_FULL, full.deviceName)
+                        .orEmpty(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.dismissDeviceFull()
+                        openPicker(full.attachment)
+                    },
+                ) {
+                    Text(stringResource(R.string.inbox_pick_another_device))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        vm.dismissDeviceFull()
+                        vm.delete(full.attachment)
+                    },
+                ) {
+                    Text(stringResource(R.string.inbox_delete_receipt))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun InboxBody(
+    attachments: List<Attachment>,
+    uploading: Boolean,
+    actionMessage: String?,
+    onDismissMessage: () -> Unit,
+    onAddPhoto: () -> Unit,
+    onAddPdf: () -> Unit,
+    onAssign: (Attachment) -> Unit,
+    onDelete: (Attachment) -> Unit,
+) {
+    val s = appStrings()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            PageHeader(
+                stringResource(R.string.nav_inbox),
+                stringResource(R.string.inbox_subtitle),
+            )
+        }
+
+        // The capture entry point. It is here — not on the device detail — because
+        // this is the one screen that exists without a device to upload to.
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onAddPhoto,
+                    enabled = !uploading,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.Image, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.att_add_photo))
+                }
+                OutlinedButton(
+                    onClick = onAddPdf,
+                    enabled = !uploading,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.PictureAsPdf, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.att_add_pdf))
+                }
+            }
+        }
+
+        if (uploading) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.att_uploading), fontSize = 13.sp)
+                }
+            }
+        }
+
+        actionMessage?.let { message ->
+            item { InboxErrorCard(message = message, onDismiss = onDismissMessage) }
+        }
+
+        if (attachments.isEmpty() && !uploading) {
+            item {
+                EmptyState(
+                    icon = Icons.Outlined.Inbox,
+                    title = stringResource(R.string.inbox_empty_title),
+                    body = stringResource(R.string.inbox_empty_body),
+                    ctaLabel = stringResource(R.string.att_add_photo),
+                    onCta = onAddPhoto,
+                )
+            }
+        } else {
+            items(attachments, key = { it.id }) { attachment ->
+                InboxCard(
+                    attachment = attachment,
+                    uploadedLabel = inboxUploadedLabel(s, attachment.uploadedAt),
+                    enabled = !uploading,
+                    onAssign = { onAssign(attachment) },
+                    onDelete = { onDelete(attachment) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InboxCard(
+    attachment: Attachment,
+    uploadedLabel: String?,
+    enabled: Boolean,
+    onAssign: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.surface),
+        border = BorderStroke(1.dp, cs.outline),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AttachmentThumbnail(attachment)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        attachment.fileName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = cs.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    uploadedLabel?.let {
+                        Text(it, fontSize = 12.sp, color = cs.onSurfaceVariant)
+                    }
+                    if (!attachment.description.isNullOrBlank()) {
+                        Text(
+                            attachment.description,
+                            fontSize = 12.sp,
+                            color = cs.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        stringResource(R.string.action_delete),
+                        tint = cs.error,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onAssign,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.Devices, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.inbox_assign_to_device))
+            }
+        }
+    }
+}
+
+/**
+ * The picker for "Gán vào thiết bị". It is a sheet rather than a dropdown
+ * because the list is user data (up to 50 active devices) and each row has to
+ * carry its own slot count; a menu would be a scrollable popup on top of a
+ * scrollable screen.
+ *
+ * The `n/5` count is a **hint**, not a block: `Device.attachmentCount` is a list
+ * projection that can be stale or absent, so a full-looking row is still
+ * selectable and the server's 409 is what actually decides. Hiding that path
+ * would also hide the dialog that tells the user what to do next.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DevicePickerSheet(
+    attachment: Attachment,
+    devices: List<Device>,
+    loading: Boolean,
+    error: String?,
+    filing: Boolean,
+    onPick: (Device) -> Unit,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val cs = MaterialTheme.colorScheme
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        // One LazyColumn for the whole sheet, not a Column wrapping a second
+        // one: the header is small, the device list is user data, and a nested
+        // scroll inside an unbounded Column is the classic clipped-sheet bug.
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Text(
+                    stringResource(R.string.inbox_pick_device_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            item {
+                Text(
+                    attachment.fileName,
+                    fontSize = 13.sp,
+                    color = cs.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            item {
+                Text(
+                    stringResource(R.string.inbox_pick_device_subtitle),
+                    fontSize = 13.sp,
+                    color = cs.onSurfaceVariant,
+                )
+            }
+
+            when {
+                loading -> item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.inbox_loading_devices), fontSize = 13.sp)
+                    }
+                }
+
+                error != null -> item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            stringResource(R.string.inbox_could_not_load_devices),
+                            color = cs.error,
+                            fontSize = 13.sp,
+                        )
+                        Text(error, color = cs.onSurfaceVariant, fontSize = 12.sp)
+                        TextButton(onClick = onRetry) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                    }
+                }
+
+                devices.isEmpty() -> item {
+                    Text(
+                        stringResource(R.string.inbox_no_devices_to_pick),
+                        fontSize = 13.sp,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+
+                else -> {
+                    if (filing) {
+                        item {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.inbox_assigning), fontSize = 13.sp)
+                            }
+                        }
+                    }
+                    items(devices, key = { it.id }) { device ->
+                        DevicePickRow(
+                            device = device,
+                            enabled = !filing,
+                            onClick = { onPick(device) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DevicePickRow(
+    device: Device,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val full = inboxDeviceIsFull(device)
+    Card(
+        onClick = onClick,
+        enabled = enabled,
+        colors = CardDefaults.cardColors(containerColor = cs.surface),
+        border = BorderStroke(1.dp, cs.outline),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Devices, null, tint = cs.primary)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    device.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = cs.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                device.brand?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, fontSize = 12.sp, color = cs.onSurfaceVariant)
+                }
+            }
+            Text(
+                pluralStringResource(
+                    R.plurals.inbox_device_slots,
+                    device.attachmentCount,
+                    device.attachmentCount,
+                    MAX_ATTACHMENTS_PER_DEVICE,
+                ),
+                fontSize = 12.sp,
+                fontWeight = if (full) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (full) cs.error else cs.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Inline failure for anything that is not the full-device 409. */
+@Composable
+private fun InboxErrorCard(message: String, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.errorContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.WarningAmber, null, tint = cs.onErrorContainer)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                message,
+                color = cs.onErrorContainer,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_close))
+            }
+        }
+    }
+}

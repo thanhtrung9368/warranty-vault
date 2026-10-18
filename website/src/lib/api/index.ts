@@ -21,6 +21,11 @@ import * as warrantiesApi from './warranties';
 import * as attachmentsApi from './attachments';
 import * as remindersApi from './reminders';
 // AGENT_B_IMPORTS_END
+// AGENT_INBOX_IMPORTS_BEGIN
+// Capture-first inbox: unassigned attachments, plus the file/unfile endpoint
+// (the endpoint itself lives in `./attachments.ts` next to upload/delete).
+import * as inboxApi from './inbox';
+// AGENT_INBOX_IMPORTS_END
 // AGENT_SHARES_IMPORTS_BEGIN
 // Handover certificate share links (FEATURE_IDEAS #2) — owner half only; the
 // public certificate page belongs to the API and is linked to, never proxied.
@@ -50,6 +55,9 @@ export const api = {
   attachments: attachmentsApi,
   reminders: remindersApi,
   // AGENT_B_NAMESPACES_END
+  // AGENT_INBOX_NAMESPACES_BEGIN
+  inbox: inboxApi,
+  // AGENT_INBOX_NAMESPACES_END
   // AGENT_SHARES_NAMESPACES_BEGIN
   shares: sharesApi,
   directory: directoryApi,

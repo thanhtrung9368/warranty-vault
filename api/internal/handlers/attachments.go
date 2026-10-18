@@ -51,15 +51,26 @@ func toAttachmentDTO(a store.Attachment) attachmentDTO {
 // out of cmd/server/main.go per Phase C contract: the mux owner only calls
 // RegisterAttachments(mux, deps).
 //
-// i18n: the four JSON handlers below call i18n.Attach(r) themselves, so `?lang=`
+// Capture-first inbox (migration 0018): `POST /api/v1/attachments` is the same
+// upload pipeline with an OPTIONAL `deviceId` form field — omitted/null creates
+// an inbox item — and `GET /api/v1/inbox` lists those items. The historical
+// `POST /api/v1/devices/{id}/attachments` route is unchanged and still requires a
+// device, so a client that never touches the inbox sees the same requests,
+// responses and statuses as before.
+//
+// i18n: the JSON handlers below call i18n.Attach(r) themselves, so `?lang=`
 // works even in tests that build a mux without i18n.Middleware. The service
 // errors they pass on are already finished strings in the request's language
-// (services/attachments.go) and the code → status mapping is unchanged.
+// (services/attachments.go) and the code → status mapping is unchanged, except
+// for the one new filing endpoint whose 409 is documented as such.
 // downloadFileHandler is deliberately NOT converted: it answers 404 with an
 // empty body on every failure, so it has no copy to translate.
 func RegisterAttachments(mux *http.ServeMux, deps Deps) {
-	mux.HandleFunc("POST /api/v1/devices/{id}/attachments", uploadAttachmentHandler(deps))
+	mux.HandleFunc("POST /api/v1/devices/{id}/attachments", uploadDeviceAttachmentHandler(deps))
+	mux.HandleFunc("POST /api/v1/attachments", uploadInboxAttachmentHandler(deps))
 	mux.HandleFunc("GET /api/v1/devices/{id}/attachments", listAttachmentsHandler(deps))
+	mux.HandleFunc("GET /api/v1/inbox", listInboxHandler(deps))
+	mux.HandleFunc("POST /api/v1/attachments/{id}/file", fileAttachmentHandler(deps))
 	mux.HandleFunc("PATCH /api/v1/attachments/{id}", updateAttachmentHandler(deps))
 	mux.HandleFunc("DELETE /api/v1/attachments/{id}", deleteAttachmentHandler(deps))
 	mux.HandleFunc("GET /api/files/{id}", downloadFileHandler(deps))
@@ -89,7 +100,40 @@ func listAttachmentsHandler(d Deps) http.HandlerFunc {
 	}
 }
 
-func uploadAttachmentHandler(d Deps) http.HandlerFunc {
+// listInboxHandler is GET /api/v1/inbox. The envelope is deliberately identical
+// to the device attachment list (`{"attachments": [...]}`) and each element is
+// the same `AttachmentMeta` shape, so a client can reuse one decoder.
+func listInboxHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
+		if err != nil {
+			unauthorized(w, ctx)
+			return
+		}
+		rows, sErr := services.ListInbox(ctx, d.DB, us.UserID)
+		if sErr != nil {
+			writeAttachmentError(w, ctx, sErr)
+			return
+		}
+		out := make([]attachmentDTO, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, toAttachmentDTO(row))
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"attachments": out})
+	}
+}
+
+// uploadAttachmentHandler is shared by the two upload routes.
+//
+// deviceRoute distinguishes them:
+//   - true  → POST /api/v1/devices/{id}/attachments: the device comes from the
+//     path and is REQUIRED (an empty segment is rejected by the service, as it
+//     always was). A `deviceId` form field is ignored.
+//   - false → POST /api/v1/attachments: optional `deviceId` form field. Omitted,
+//     blank or the literal `null` creates an inbox item; otherwise the file is
+//     filed to that device, with the same checks as the path route.
+func uploadAttachmentHandler(d Deps, deviceRoute bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := i18n.Attach(r)
 		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
@@ -104,7 +148,6 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 			return
 		}
 
-		deviceID := r.PathValue("id")
 		ct := r.Header.Get("Content-Type")
 		if !strings.HasPrefix(strings.ToLower(ct), "multipart/form-data") {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
@@ -124,6 +167,17 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 			httpx.WriteErrorC(w, ctx, http.StatusBadRequest, "bad_input",
 				i18n.Text(ctx, "Không đọc được multipart payload"), nil)
 			return
+		}
+
+		var deviceID *string
+		if deviceRoute {
+			// Path is authoritative on the legacy route. Kept as a pointer to the
+			// (possibly empty) path value so the service rejects it exactly as
+			// before; this route can never create an inbox item.
+			id := r.PathValue("id")
+			deviceID = &id
+		} else if v := strings.TrimSpace(r.FormValue("deviceId")); v != "" && !strings.EqualFold(v, "null") {
+			deviceID = &v
 		}
 
 		file, header, ferr := r.FormFile("file")
@@ -171,6 +225,14 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 	}
 }
 
+func uploadDeviceAttachmentHandler(d Deps) http.HandlerFunc {
+	return uploadAttachmentHandler(d, true)
+}
+
+func uploadInboxAttachmentHandler(d Deps) http.HandlerFunc {
+	return uploadAttachmentHandler(d, false)
+}
+
 // updateAttachmentHandler edits an attachment's description. `description` is
 // the ONLY accepted field — file bytes are immutable once uploaded (replace by
 // delete + re-upload instead). Body:
@@ -178,8 +240,9 @@ func uploadAttachmentHandler(d Deps) http.HandlerFunc {
 //	{ "description": "Hoá đơn FPT Shop" }   → set (trimmed)
 //	{ "description": "" } / { "description": null }  → clear
 //
-// Ownership is resolved through the owning device inside the service query; a
-// row that belongs to someone else is a 404, exactly like GET /api/files/{id}.
+// Ownership is the row's stored "userId" inside the service query (migration
+// 0018), so this edits an inbox item exactly like a filed one; a row that
+// belongs to someone else is a 404, exactly like GET /api/files/{id}.
 func updateAttachmentHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := i18n.Attach(r)
@@ -233,6 +296,78 @@ func updateAttachmentHandler(d Deps) http.HandlerFunc {
 			services.NormalizeDescription(descIn))
 		if sErr != nil {
 			writeAttachmentError(w, ctx, sErr)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"attachment": toAttachmentDTO(att),
+		})
+	}
+}
+
+// fileAttachmentHandler implements POST /api/v1/attachments/{id}/file.
+//
+// Body: {"deviceId": "<id>"} to file the attachment under that device, or
+// {"deviceId": null} to return it to the inbox. This is deliberately a SEPARATE
+// endpoint from PATCH /api/v1/attachments/{id}, whose body stays
+// description-only: filing changes ownership of a slot on another resource (the
+// device), which is exactly the kind of write that endpoint is documented never
+// to accept.
+//
+// Errors:
+//   - 404 attachment not the caller's, or device not the caller's (never 403);
+//   - 409 LIMIT_REACHED when the target device already holds five attachments;
+//   - 400 for a missing/invalid body or deviceId.
+func fileAttachmentHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, err := auth.VerifyBearer(ctx, d.DB, r.Header.Get("Authorization"))
+		if err != nil {
+			unauthorized(w, ctx)
+			return
+		}
+		rl, _ := ratelimit.CheckUserWrite(ctx, d.Limiter, us.UserID)
+		if !rl.Ok {
+			rateLimited(w, ctx, rl.RetryAfterSec)
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			badInput(w, ctx, nil, i18n.Text(ctx, "Thiếu id file"))
+			return
+		}
+
+		// Raw-map decode so "key absent" is distinguishable from "explicit null"
+		// and so unknown fields get a field-level message, matching PATCH.
+		var raw map[string]json.RawMessage
+		if err := decodeJSON(r, &raw); err != nil {
+			badJSONBody(w, ctx)
+			return
+		}
+		unknown := map[string][]string{}
+		for k := range raw {
+			if k != "deviceId" {
+				unknown[k] = []string{i18n.Text(ctx, "Chỉ hỗ trợ gán file vào thiết bị")}
+			}
+		}
+		if len(unknown) > 0 {
+			badInput(w, ctx, unknown, i18n.Text(ctx, "Chỉ hỗ trợ gán file vào thiết bị"))
+			return
+		}
+		rawDevice, present := raw["deviceId"]
+		if !present {
+			badInput(w, ctx, map[string][]string{"deviceId": {i18n.Text(ctx, "Thiếu deviceId")}})
+			return
+		}
+		// JSON null → nil → return to the inbox. Any other non-string is a 400.
+		var deviceIn *string
+		if err := json.Unmarshal(rawDevice, &deviceIn); err != nil {
+			badInput(w, ctx, map[string][]string{"deviceId": {i18n.Text(ctx, "Device không hợp lệ")}})
+			return
+		}
+
+		att, sErr := services.FileAttachment(ctx, d.DB, us.UserID, id, deviceIn)
+		if sErr != nil {
+			writeFileAttachmentError(w, ctx, sErr)
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
@@ -315,6 +450,9 @@ func downloadFileHandler(d Deps) http.HandlerFunc {
 // has answered 400 since before i18n existed. openapi.yaml documents 409 for that
 // endpoint — a pre-existing disagreement this wave did not touch (reported, not
 // silently "fixed": changing it would move a status real clients key off).
+//
+// The NEW filing endpoint is the exception and does not come through here: it
+// answers 409 through writeFileAttachmentError below.
 func writeAttachmentError(w http.ResponseWriter, ctx context.Context, err error) {
 	if ae, ok := services.AsAttachmentError(err); ok {
 		switch ae.Code {
@@ -333,6 +471,19 @@ func writeAttachmentError(w http.ResponseWriter, ctx context.Context, err error)
 	}
 	slog.Error("attachment handler error", "err", err)
 	httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
+}
+
+// writeFileAttachmentError maps the filing endpoint's errors. It is a separate
+// writer from writeAttachmentError because the 5-file ceiling on THIS endpoint is
+// a 409 (services.FileAttachment returns *services.Error{LIMIT_REACHED}), while
+// the upload path's identical sentence stays a 400 — the old status is frozen by
+// "no behavioural change on existing endpoints".
+func writeFileAttachmentError(w http.ResponseWriter, ctx context.Context, err error) {
+	if _, ok := services.As(err); ok {
+		writeServiceError(w, ctx, err, "file attachment")
+		return
+	}
+	writeAttachmentError(w, ctx, err)
 }
 
 func sanitizeFilename(s string) string {

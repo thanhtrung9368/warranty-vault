@@ -31,6 +31,12 @@ enum WVFormat {
     /// `dd/MM/yyyy`.
     static func date(_ date: Date) -> String { dayFormatter.string(from: date) }
 
+    /// `dd/MM/yyyy HH:mm` — the upload timestamp of an inbox item.
+    ///
+    /// Date-only would blur two receipts captured the same morning, which is
+    /// exactly when the inbox is most crowded.
+    static func dateTime(_ date: Date) -> String { dateTimeFormatter.string(from: date) }
+
     /// `dd 'thg' M` — short day + month, Vietnamese style.
     static func dayMonth(_ date: Date) -> String { dayMonthFormatter.string(from: date) }
 
@@ -72,6 +78,7 @@ enum WVFormat {
         return f
     }()
     private static let dayFormatter = makeFormatter("dd/MM/yyyy")
+    private static let dateTimeFormatter = makeFormatter("dd/MM/yyyy HH:mm")
     private static let dayMonthFormatter = makeFormatter("dd 'thg' M")
     private static let monthYearFormatter = makeFormatter("'Thg' M, yyyy")
 

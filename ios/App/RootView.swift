@@ -62,7 +62,7 @@ struct RootView: View {
         case .unauthenticated:
             LoginView()
         case .authenticated:
-            MainTabView()
+            MainTabView(client: auth.client)
         }
     }
 }
@@ -164,8 +164,19 @@ struct AppLockScreen: View {
 /// Each tab owns its own `NavigationStack`; per-tab push navigation lives
 /// inside the feature screens.
 struct MainTabView: View {
-    @EnvironmentObject var auth: AuthStore
+    let client: APIClient
+
+    /// The account's inbox, shared by the "Thêm" tab badge, the inbox screen and
+    /// the Devices capture flow. Filing/deleting an item mutates this one
+    /// object, so no tab is left showing a stale count.
+    @StateObject private var inboxStore: InboxStore
+
     @State private var selection: Int = MainTabView.initialTab
+
+    init(client: APIClient) {
+        self.client = client
+        _inboxStore = StateObject(wrappedValue: InboxStore(client: client))
+    }
 
     /// In DEBUG, `WV_QA_TAB` (0–4) picks the launch tab for screenshot QA.
     private static var initialTab: Int {
@@ -181,35 +192,40 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                DashboardView(client: auth.client)
+                DashboardView(client: client)
             }
             .tabItem { Label(L.t("Tổng quan"), systemImage: "house.fill") }
             .tag(0)
 
             NavigationStack {
-                DevicesScreen(client: auth.client)
+                DevicesScreen(client: client)
             }
             .tabItem { Label(L.t("Thiết bị"), systemImage: "shippingbox.fill") }
             .tag(1)
 
             NavigationStack {
-                SubscriptionsScreen(client: auth.client)
+                SubscriptionsScreen(client: client)
             }
             .tabItem { Label(L.t("Đăng ký"), systemImage: "arrow.triangle.2.circlepath") }
             .tag(2)
 
             NavigationStack {
-                WishlistScreen(client: auth.client)
+                WishlistScreen(client: client)
             }
             .tabItem { Label("Wishlist", systemImage: "heart.fill") }
             .tag(3)
 
             NavigationStack {
-                MoreScreen(client: auth.client)
+                MoreScreen(client: client)
             }
             .tabItem { Label(L.t("Thêm"), systemImage: "ellipsis") }
+            .badge(inboxStore.count)
             .tag(4)
         }
         .tint(WVColor.tint)
+        .environmentObject(inboxStore)
+        // One launch read feeds every badge. The inbox screen refreshes it on
+        // appear and after every filing.
+        .task { await inboxStore.load() }
     }
 }

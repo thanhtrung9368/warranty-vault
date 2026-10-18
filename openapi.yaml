@@ -656,6 +656,147 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /api/v1/attachments:
+    # Capture-first inbox (migration 0018, roadmap #12). One upload endpoint:
+    # with a `deviceId` it behaves exactly like the device-scoped route above;
+    # without one it creates an inbox item.
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    post:
+      tags: [attachments]
+      summary: Upload an attachment with an OPTIONAL deviceId (inbox when omitted)
+      description: |
+        Ảnh/hoá đơn được lưu **trước**, gán thiết bị **sau** — đây là điều kiện
+        để không bỏ dở việc chụp hoá đơn ngay tại quầy, khi người dùng chưa biết
+        (hoặc chưa có) hàng thiết bị tương ứng.
+
+        `deviceId` là trường **tuỳ chọn** trong form:
+          * vắng mặt, chuỗi rỗng, hoặc chuỗi `"null"` ⇒ tạo **mục trong hộp
+            thư**: `deviceId` của hàng là NULL, file thuộc sở hữu người gọi và
+            xuất hiện ở `GET /api/v1/inbox`;
+          * có giá trị ⇒ gắn thẳng vào thiết bị đó, y hệt
+            `POST /api/v1/devices/{deviceId}/attachments` (route cũ vẫn còn và
+            vẫn bắt buộc thiết bị trên path).
+
+        Mọi thứ khác **không đổi**: cùng whitelist magic-byte
+        (JPG/PNG/WEBP/GIF/HEIC/PDF), cùng trần 5 MB/file, cùng trần 100 MB mỗi
+        người dùng, cùng pipeline mã hoá AES-256-GCM. **Mục trong hộp thư vẫn
+        tính vào 100 MB** (đó là dung lượng thật trên đĩa) nhưng **không** chiếm
+        một trong 5 suất của bất kỳ thiết bị nào cho tới khi được gán.
+
+        Ghi chú trạng thái: trần 5 file/thiết bị trên đường UPLOAD vẫn trả
+        **400** như từ trước (đường device ở trên cũng vậy — mô tả 409 ở đó là
+        lệch có từ trước, không phải hợp đồng mới). Riêng endpoint gán
+        `POST /api/v1/attachments/{id}/file` trả **409** đúng như mô tả của nó.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                deviceId:
+                  type: string
+                  nullable: true
+                  description: |
+                    Thiết bị đích. Vắng mặt / rỗng / `null` ⇒ mục trong hộp thư.
+                description: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Uploaded (filed to a device, or created as an inbox item)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { attachment: { $ref: '#/components/schemas/AttachmentMeta' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { description: 'File larger than 5 MB (multipart envelope capped at 50 MB)' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/inbox:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    get:
+      tags: [attachments]
+      summary: The caller's unassigned attachments (capture-first inbox)
+      description: |
+        **"Attachment chưa có thiết bị"** — chính là các hàng `Attachment` có
+        `deviceId` NULL, không phải một bảng file thứ hai. Mới nhất trước
+        (`uploadedAt DESC`).
+
+        Hình dạng trả về giống hệt `GET /api/v1/devices/{id}/attachments`: cùng
+        key `attachments`, cùng `AttachmentMeta`, nên client dùng chung một
+        decoder. **Không có dữ liệu thiết bị** vì chưa có thiết bị nào.
+
+        Mục rời danh sách khi được gán bằng
+        `POST /api/v1/attachments/{id}/file` hoặc bị xoá bằng
+        `DELETE /api/v1/attachments/{id}`. Trần 5 file/thiết bị **không** áp
+        dụng ở đây; trần 100 MB mỗi người dùng thì **có** (tính cả mục trong hộp
+        thư).
+      responses:
+        '200':
+          description: Inbox items, newest first (empty array when there are none)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachments:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttachmentMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/attachments/{id}/file:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
+    post:
+      tags: [attachments]
+      summary: File an attachment under a device, or return it to the inbox
+      description: |
+        Body `{ "deviceId": "<id>" }` gán file vào thiết bị đó. `deviceId: null`
+        đưa file **về hộp thư** (bỏ gắn thiết bị). Đây là endpoint **duy nhất**
+        thay đổi nơi lưu của một file; `PATCH /api/v1/attachments/{id}` vẫn chỉ
+        nhận `description` — bất biến đã tài liệu hoá.
+
+        Luật:
+          * **404** nếu file không thuộc người gọi **hoặc** thiết bị không thuộc
+            người gọi (không bao giờ 403 — không xác nhận id lạ tồn tại).
+          * **409 `limit_reached`** nếu thiết bị đích đã có
+            `MAX_ATTACHMENTS_PER_DEVICE` = **5** file đã gắn. Mã trên đường dây là
+            **chữ thường**: `handlers.writeServiceError` gọi `strings.ToLower`
+            trước khi ghi envelope, nên hằng số nội bộ `LIMIT_REACHED` không bao
+            giờ xuất hiện trong JSON. Client phải so **không phân biệt hoa thường**.
+            Mục bị từ chối **vẫn ở hộp thư** (hoặc ở thiết bị cũ), không mất dữ liệu.
+          * Gán một file **đã gắn** sang một thiết bị **khác** là hợp lệ (chọn
+            nhầm thiết bị là lỗi thật) và **tính vào suất của thiết bị đích**.
+          * Gán lại vào đúng thiết bị nó đang ở là no-op thành công — file không
+            tự tính mình là file thứ 6.
+          * Blob đi theo hàng: đường dẫn đổi giữa `<deviceId>/<uuid>.enc` và
+            `_inbox/<uuid>.enc` để `storagePath` trong bản backup vẫn trỏ đúng
+            byte. File đã mất trên đĩa không chặn việc gán (hàng vẫn chuyển; bản
+            export sau đó báo qua `missingAttachmentIds`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AttachmentFileInput' }
+      responses:
+        '200':
+          description: Updated attachment metadata (now filed, or back in the inbox)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { attachment: { $ref: '#/components/schemas/AttachmentMeta' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/devices/{id}/service-directory:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
@@ -969,12 +1110,15 @@ paths:
       summary: Sửa mô tả của file đính kèm
       description: |
         Updates the attachment's `description` — the only mutable field; the file
-        bytes themselves cannot be edited (delete + re-upload instead).
+        bytes themselves cannot be edited (delete + re-upload instead). In
+        particular this endpoint still REJECTS a `deviceId`: gán thiết bị là
+        `POST /api/v1/attachments/{id}/file`, một endpoint riêng.
 
-        Ownership is resolved through the owning `Device` (the query joins
-        `Attachment.deviceId = Device.id AND Device.userId = :currentUser`), so an
-        id that belongs to someone else matches no row and returns **404**, never
-        403 — same "confirm nothing" policy as `GET /api/files/{id}`.
+        Ownership is stored on the row (`Attachment.userId`, migration 0018), so
+        this works for an **inbox item** (`deviceId` NULL) exactly like a filed
+        one, and an id that belongs to someone else matches no row and returns
+        **404**, never 403 — same "confirm nothing" policy as
+        `GET /api/files/{id}`.
 
         Clearing: `"description": null`, `""` or whitespace-only all set it to
         null, mirroring the upload-time normalization. There is no length cap
@@ -1534,13 +1678,15 @@ paths:
         Mặc định (`includeBlobs` vắng mặt hoặc `false`): stream **một file JSON**
         chứa devices, warranties, reminders, attachments (metadata + IV /
         wrappedKey base64), wishlist + lịch sử giá, subscriptions + lịch sử thanh
-        toán. Phiên bản schema **5** — không đổi so với trước. Response có
+        toán, và `inboxAttachments` (file chưa gắn thiết bị, vắng mặt khi rỗng).
+        Phiên bản schema **5** — không đổi so với trước. Response có
         `Content-Disposition: attachment; filename=...`.
 
         Với `includeBlobs=true`: stream **một file .zip** (`application/zip`,
         filename `.zip`) chứa:
           * `attachments/<storagePath>` — nội dung **đã mã hoá** (AES-256-GCM) của
-            từng file đính kèm, đúng byte như trên đĩa (không base64, không nén);
+            từng file đính kèm, đúng byte như trên đĩa (không base64, không nén).
+            File trong hộp thư dùng `attachments/_inbox/<uuid>.enc`, cùng quy ước;
           * `data.json` — envelope phiên bản **6** với
             `includesAttachmentBytes: true` và `attachmentBytesNote` **theo ngôn
             ngữ của request** (`?lang=` → `Accept-Language` → `User.locale` → `en`),
@@ -1596,6 +1742,14 @@ paths:
           * **ZIP** do `GET /api/v1/backup/export?includeBlobs=true` tạo ra —
             `data.json` + các entry `attachments/<storagePath>`. Giới hạn body
             **110 MB** (trần upload mỗi người dùng là 100 MB + manifest).
+
+        `inboxAttachments[]` (nếu có) được khôi phục thành hàng `Attachment`
+        **chưa gắn thiết bị**, thuộc tài khoản đang import; blob của chúng nằm ở
+        `attachments/_inbox/<uuid>.enc`. Ở chế độ `merge`, id attachment đã tồn
+        tại (kể cả đang gắn thiết bị) bị bỏ qua nên nhập lại cùng một file không
+        nhân đôi; ở chế độ `replace`, toàn bộ attachment của người dùng — kể cả
+        hộp thư — bị xoá trước khi khôi phục. Payload cũ **không có** key này vẫn
+        import bình thường.
 
         Import **riêng file `data.json`** của một archive như vậy bị từ chối 400
         kèm hướng dẫn chọn chính file `.zip`: envelope đó khai báo
@@ -2396,6 +2550,13 @@ components:
         Round-trip ổn định: export rồi import lại trên tài khoản/database sạch
         (chế độ `replace`) cho cùng tập dòng dữ liệu.
 
+        **Hộp thư (migration 0018).** File chưa gắn thiết bị không nằm trong
+        `devices[].attachments` (không có thiết bị để lồng vào) mà ở mảng cấp cao
+        nhất `inboxAttachments[]`, cùng hình dạng phần tử. Đây là thay đổi
+        **additive**: vắng mặt khi người dùng không có mục nào, payload cũ vẫn
+        import được, và số phiên bản không đổi. Mục trong hộp thư không tiêu suất
+        5 file/thiết bị nhưng vẫn tính vào trần 100 MB.
+
         **Sự thật về file đính kèm.** Bản JSON (v5) KHÔNG chứa nội dung ảnh, nên
         khôi phục sang máy chủ mới sẽ mất ảnh hoá đơn. Bản ZIP (v6) CÓ chứa nội
         dung đã mã hoá, nhưng blob là ciphertext AES-256-GCM với khoá riêng từng
@@ -2455,6 +2616,26 @@ components:
         devices:
           type: array
           items: { $ref: '#/components/schemas/BackupDevice' }
+        inboxAttachments:
+          type: array
+          description: |
+            **Mới ở migration 0018, additive.** File đính kèm chưa gắn thiết bị
+            của người dùng (chính là các mục của `GET /api/v1/inbox`), cùng hình
+            dạng `BackupAttachment` như danh sách trong một `BackupDevice`.
+            `storagePath` của chúng bắt đầu bằng `_inbox/`; bản ZIP chứa blob ở
+            entry `attachments/_inbox/<uuid>.enc`, cùng quy ước
+            `attachments/<storagePath>`.
+
+            **Vắng mặt khi người dùng không có mục nào** (`omitempty`), nên file
+            JSON của một tài khoản chưa từng dùng hộp thư giống **từng byte** định
+            dạng v5 cũ. Payload cũ không có key này vẫn import bình thường (decode
+            thành rỗng). Phiên bản backup **không** tăng: importer cũ bỏ qua key
+            lạ, importer mới mặc định danh sách rỗng.
+
+            Import khôi phục chúng thành hàng `Attachment` có `deviceId` NULL,
+            thuộc tài khoản đang import; ở chế độ `merge`, id đã tồn tại thì bị
+            bỏ qua (nhập lại cùng một file không nhân đôi). Chúng **không** chiếm
+            suất 5 file của bất kỳ thiết bị nào nhưng vẫn tính vào trần 100 MB.
 
     BackupSubscription:
       type: object
@@ -2675,19 +2856,29 @@ components:
                     createdAt: { type: string, format: date-time }
         attachments:
           type: array
-          items:
-            type: object
-            required: [id, fileName, storagePath, fileType, fileSize, iv, wrappedKey, uploadedAt]
-            properties:
-              id: { type: string }
-              fileName: { type: string }
-              storagePath: { type: string, description: '<deviceId>/<uuid>.enc' }
-              fileType: { type: string }
-              fileSize: { type: integer }
-              iv: { type: string, description: 'base64-encoded 12-byte IV' }
-              wrappedKey: { type: string, description: 'base64-encoded wrapped per-file key' }
-              description: { type: string, nullable: true }
-              uploadedAt: { type: string, format: date-time }
+          items: { $ref: '#/components/schemas/BackupAttachment' }
+
+    # One attachment's metadata inside a backup payload. Shared by
+    # BackupDevice.attachments (filed) and BackupV1.inboxAttachments (unfiled,
+    # migration 0018).
+    BackupAttachment:
+      type: object
+      required: [id, fileName, storagePath, fileType, fileSize, iv, wrappedKey, uploadedAt]
+      properties:
+        id: { type: string }
+        fileName: { type: string }
+        storagePath:
+          type: string
+          description: |
+            `<deviceId>/<uuid>.enc` cho file đã gắn thiết bị, hoặc
+            `_inbox/<uuid>.enc` cho mục trong hộp thư (migration 0018). Trong
+            file .zip, blob nằm ở entry `attachments/<storagePath>`.
+        fileType: { type: string }
+        fileSize: { type: integer }
+        iv: { type: string, description: 'base64-encoded 12-byte IV' }
+        wrappedKey: { type: string, description: 'base64-encoded wrapped per-file key' }
+        description: { type: string, nullable: true }
+        uploadedAt: { type: string, format: date-time }
 
     ImportResult:
       type: object
@@ -3330,6 +3521,24 @@ components:
           description: |
             Mô tả mới. `null`, chuỗi rỗng hoặc chỉ khoảng trắng ⇒ XOÁ mô tả
             (`description` trở thành null). Giá trị được trim trước khi lưu.
+
+    # Body of POST /api/v1/attachments/{id}/file.
+    AttachmentFileInput:
+      type: object
+      description: |
+        `deviceId` là trường **duy nhất** được chấp nhận (trường khác ⇒ 400 kèm
+        `fieldErrors`). Thiếu key này cũng là 400 — `null` phải được gửi tường
+        minh để tránh một body rỗng vô tình đưa file về hộp thư.
+      required: [deviceId]
+      properties:
+        deviceId:
+          type: string
+          nullable: true
+          description: |
+            Id thiết bị đích (phải thuộc cùng người dùng), hoặc `null` để bỏ gắn
+            thiết bị và đưa file về hộp thư. Chuỗi rỗng hoặc id không hợp lệ ⇒ 400.
+            Thiết bị không tồn tại / không thuộc người gọi ⇒ 404. Thiết bị đã đủ
+            5 file ⇒ 409 `limit_reached`.
 
     Subscription:
       type: object

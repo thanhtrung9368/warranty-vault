@@ -31,12 +31,14 @@
 
     <string name="app_name">Warrly</string>
 
-    <!-- ===== Bottom navigation (MainScreen.kt). Short on purpose: seven
+    <!-- ===== Bottom navigation (MainScreen.kt). Short on purpose: eight
          destinations share one phone-width bar. "Gói" is rendered "Plans"
          because the API's own English for a subscription is "plan" (see
          api/internal/i18n/catalog.go, "The %s plan for …"). ===== -->
     <string name="nav_overview">Overview</string>
     <string name="nav_devices">Devices</string>
+    <!-- Capture-first inbox: attachments saved before a device is chosen. -->
+    <string name="nav_inbox">Inbox</string>
     <string name="nav_reminders">Reminders</string>
     <string name="nav_plans">Plans</string>
     <string name="nav_wishlist">Wishlist</string>

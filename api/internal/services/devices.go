@@ -360,7 +360,9 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 	}
 	countByDevice := map[string]int64{}
 	for _, c := range countRows {
-		countByDevice[c.DeviceID] = c.Count
+		if c.DeviceID != nil {
+			countByDevice[*c.DeviceID] = c.Count
+		}
 	}
 
 	for _, d := range rows {
@@ -444,7 +446,7 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 		return nil, fmt.Errorf("list warranties: %w", err)
 	}
 	atts, err := q.ListAttachmentsByDevice(ctx, store.ListAttachmentsByDeviceParams{
-		DeviceId: id,
+		DeviceId: &id,
 		UserId:   userID,
 	})
 	if err != nil {

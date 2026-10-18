@@ -3,7 +3,7 @@
 // shape (version 5) so existing exported files can be re-imported here and
 // vice-versa.
 //
-// Export issues 8 independent SELECTs (no joined gather query). Import is
+// Export issues 9 independent SELECTs (no joined gather query). Import is
 // wrapped in a single transaction; in `replace` mode we wipe the user's
 // existing rows first.
 
@@ -12,6 +12,7 @@ package services
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -128,6 +130,19 @@ type BackupExport struct {
 	Subscriptions           []BackupSubscription `json:"subscriptions"`
 	Wishlist                []BackupWishlistItem `json:"wishlist"`
 	Devices                 []BackupDevice       `json:"devices"`
+	// InboxAttachments are the user's unassigned attachments (migration 0018).
+	// They live at the top level because there is no device to nest them under;
+	// each entry has the same BackupAttachment shape as a device's list, and its
+	// storagePath starts with the reserved `_inbox/` segment.
+	//
+	// Additive and OMITEMPTY on purpose: a user with no inbox items gets the
+	// byte-identical v5 payload they got before this migration, and an older
+	// payload without the key decodes to nil and imports unchanged. The backup
+	// VERSION therefore does not move (still 5 for JSON, 6 for the ZIP) — the
+	// import range already accepts both, and an older server importing a newer
+	// file ignores the unknown key (the same forward-compatibility limit every
+	// additive field in this format has always had).
+	InboxAttachments []BackupAttachment `json:"inboxAttachments,omitempty"`
 	// MissingAttachmentIds lists attachments whose blob file was absent from disk
 	// at export time, so the archive could not carry them. Export still succeeds
 	// (one lost blob must not block a backup) but the payload says exactly which
@@ -416,6 +431,10 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 	if err != nil {
 		return nil, fmt.Errorf("backup list attachments: %w", err)
 	}
+	inboxAttachments, err := q.BackupListInboxAttachmentsForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("backup list inbox attachments: %w", err)
+	}
 	wishlist, err := q.BackupListWishlistForUser(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("backup list wishlist: %w", err)
@@ -444,7 +463,9 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 	}
 	attByDevice := map[string][]store.Attachment{}
 	for _, a := range attachments {
-		attByDevice[a.DeviceId] = append(attByDevice[a.DeviceId], a)
+		if a.DeviceId != nil {
+			attByDevice[*a.DeviceId] = append(attByDevice[*a.DeviceId], a)
+		}
 	}
 	priceByItem := map[string][]store.WishlistPrice{}
 	for _, p := range prices {
@@ -605,22 +626,36 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			bd.Warranties = append(bd.Warranties, bw)
 		}
 		for _, a := range attByDevice[d.ID] {
-			bd.Attachments = append(bd.Attachments, BackupAttachment{
-				ID:          a.ID,
-				FileName:    a.FileName,
-				StoragePath: a.StoragePath,
-				FileType:    a.FileType,
-				FileSize:    a.FileSize,
-				IV:          base64.StdEncoding.EncodeToString(a.Iv),
-				WrappedKey:  base64.StdEncoding.EncodeToString(a.WrappedKey),
-				Description: a.Description,
-				UploadedAt:  ts(a.UploadedAt),
-			})
+			bd.Attachments = append(bd.Attachments, toBackupAttachment(a))
 		}
 		out.Devices = append(out.Devices, bd)
 	}
 
+	// Inbox rows travel at the top level. `omitempty` keeps the JSON identical to
+	// the pre-0018 format for every user who has never captured an unfiled
+	// receipt — which is every user at upgrade time.
+	for _, a := range inboxAttachments {
+		out.InboxAttachments = append(out.InboxAttachments, toBackupAttachment(a))
+	}
+
 	return out, nil
+}
+
+// toBackupAttachment maps a stored Attachment row (filed or inbox) onto the
+// backup payload shape. Shared by the two export sections so a future column
+// cannot be added to one and forgotten in the other.
+func toBackupAttachment(a store.Attachment) BackupAttachment {
+	return BackupAttachment{
+		ID:          a.ID,
+		FileName:    a.FileName,
+		StoragePath: a.StoragePath,
+		FileType:    a.FileType,
+		FileSize:    a.FileSize,
+		IV:          base64.StdEncoding.EncodeToString(a.Iv),
+		WrappedKey:  base64.StdEncoding.EncodeToString(a.WrappedKey),
+		Description: a.Description,
+		UploadedAt:  ts(a.UploadedAt),
+	}
 }
 
 // ---- Import ---------------------------------------------------------------
@@ -681,15 +716,15 @@ func ImportBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	return importBackup(ctx, db, userID, payload, mode, nil)
 }
 
-// payloadHasAttachments reports whether any device in the payload carries an
-// attachment row (i.e. the manifest has blobs to account for).
+// payloadHasAttachments reports whether the payload carries any attachment row
+// (i.e. the manifest has blobs to account for) — device-filed or inbox.
 func payloadHasAttachments(payload *BackupExport) bool {
 	for _, d := range payload.Devices {
 		if len(d.Attachments) > 0 {
 			return true
 		}
 	}
-	return false
+	return len(payload.InboxAttachments) > 0
 }
 
 // blobGetter supplies the encrypted bytes for one attachment during a .zip
@@ -715,6 +750,14 @@ func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 		if !safeIDRE.MatchString(d.ID) {
 			return &Error{Code: "VALIDATION", Message: i18n.T(ctx, "ID thiết bị không hợp lệ: %s", d.ID)}
 		}
+		// The inbox segment is reserved for blobs that belong to no device. A
+		// payload device using it would make `<deviceId>/<uuid>.enc` and
+		// `_inbox/<uuid>.enc` the same namespace, so reject the collision before
+		// any row or file is written. (Real device ids are server-generated cuids;
+		// only a hand-edited backup can even attempt this.)
+		if d.ID == InboxStorageSegment {
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx, "ID thiết bị không hợp lệ: %s", d.ID)}
+		}
 		if len(d.Attachments) > MaxAttachmentsPerDevice {
 			// The upload path caps this (services/attachments.go). A backup cannot
 			// legitimately exceed it, so this can only be a tampered file — refuse it
@@ -732,15 +775,39 @@ func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 				return &Error{Code: "VALIDATION",
 					Message: i18n.T(ctx, "Đường dẫn file không hợp lệ trong \"%s\". File backup có thể đã bị sửa.", d.Name)}
 			}
-			iv, ivErr := base64.StdEncoding.DecodeString(a.IV)
-			wk, wkErr := base64.StdEncoding.DecodeString(a.WrappedKey)
-			if ivErr != nil || wkErr != nil || len(iv) != 12 || len(wk) < 28 {
+			if !validBackupAttachmentKey(a) {
 				return &Error{Code: "VALIDATION",
 					Message: i18n.T(ctx, "Khoá file hỏng trong \"%s\".", d.Name)}
 			}
 		}
 	}
+
+	// Inbox attachments (migration 0018) live at the top level and must point at
+	// the reserved inbox segment — a path under a device would let a hand-edited
+	// payload scatter an unfiled row's blob into a device directory, and the
+	// importer writes each one back to the segment its path names.
+	for _, a := range payload.InboxAttachments {
+		if !safeStoragePathRE.MatchString(a.StoragePath) ||
+			!strings.HasPrefix(a.StoragePath, InboxStorageSegment+"/") {
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+				"File đính kèm trong hộp thư chưa có thiết bị: đường dẫn không hợp lệ (%s).", a.StoragePath)}
+		}
+		if !validBackupAttachmentKey(a) {
+			return &Error{Code: "VALIDATION",
+				Message: i18n.Text(ctx, "File đính kèm trong hộp thư chưa có thiết bị: khoá file hỏng.")}
+		}
+	}
 	return nil
+}
+
+// validBackupAttachmentKey checks the base64 IV / wrapped-key pair shared by
+// device and inbox attachments. Only the structural sizes are validated; whether
+// the key actually decrypts is discovered during a blob import and reported as
+// `attachmentsUnreadable`, not rejected.
+func validBackupAttachmentKey(a BackupAttachment) bool {
+	iv, ivErr := base64.StdEncoding.DecodeString(a.IV)
+	wk, wkErr := base64.StdEncoding.DecodeString(a.WrappedKey)
+	return ivErr == nil && wkErr == nil && len(iv) == 12 && len(wk) >= 28
 }
 
 // assertBackupDeviceQuota applies the device ceilings (FEATURE_IDEAS #14) to an
@@ -889,6 +956,47 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 
 	res := &ImportResult{}
 
+	// restoreBlob writes one attachment's ciphertext to the segment its row
+	// belongs to and updates the import counters. Shared by device-filed and
+	// inbox rows so the .zip path cannot treat one class differently from the
+	// other. `segment` is the device id or InboxStorageSegment.
+	restoreBlob := func(a BackupAttachment, segment string) error {
+		if blobs == nil {
+			return nil
+		}
+		ct, berr := blobs(a)
+		if berr != nil {
+			return berr
+		}
+		if ct == nil {
+			// The envelope itself marked this attachment as missing on the export
+			// side: restore the row, no bytes. Counted as unreadable so the caller
+			// can tell the user which restore needs attention.
+			res.AttachmentsUnreadable++
+			return nil
+		}
+		if _, werr := files.WriteEncrypted(root, segment, filepath.Base(a.StoragePath), ct); werr != nil {
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+				"Không ghi được file đính kèm \"%s\" ra đĩa.", a.FileName)}
+		}
+		written = append(written, a.StoragePath)
+		// Verify while we still have the plaintext key material at hand: if the
+		// archive came from a server with a different FILE_MASTER_KEY the bytes
+		// are intact but unreadable here, and the caller must be told that
+		// instead of discovering it when the user opens the invoice.
+		iv, _ := base64.StdEncoding.DecodeString(a.IV)
+		wk, _ := base64.StdEncoding.DecodeString(a.WrappedKey)
+		if masterErr == nil {
+			if _, derr := files.Decrypt(ct, iv, wk, master); derr != nil {
+				res.AttachmentsUnreadable++
+			}
+		} else {
+			res.AttachmentsUnreadable++
+		}
+		res.AttachmentsImported++
+		return nil
+	}
+
 	for _, d := range payload.Devices {
 		if mode == ImportMerge {
 			// Skip if user already owns a device with this id.
@@ -985,9 +1093,11 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			}
 			iv, _ := base64.StdEncoding.DecodeString(a.IV)
 			wk, _ := base64.StdEncoding.DecodeString(a.WrappedKey)
+			deviceID := d.ID
 			if err := q.BackupInsertAttachment(ctx, store.BackupInsertAttachmentParams{
 				ID:          a.ID,
-				DeviceId:    d.ID,
+				UserId:      userID,
+				DeviceId:    &deviceID,
 				FileName:    a.FileName,
 				StoragePath: a.StoragePath,
 				FileType:    a.FileType,
@@ -999,39 +1109,51 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			}); err != nil {
 				return nil, fmt.Errorf("insert attachment: %w", err)
 			}
-			if blobs == nil {
-				continue
+			if err := restoreBlob(a, deviceID); err != nil {
+				return nil, err
 			}
-			ct, berr := blobs(a)
-			if berr != nil {
-				return nil, berr
-			}
-			if ct == nil {
-				// The envelope itself marked this attachment as missing on the export
-				// side: restore the row, no bytes. Counted as unreadable so the caller
-				// can tell the user which restore needs attention.
-				res.AttachmentsUnreadable++
-				continue
-			}
-			if _, werr := files.WriteEncrypted(root, d.ID, filepath.Base(a.StoragePath), ct); werr != nil {
-				return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
-					"Không ghi được file đính kèm \"%s\" ra đĩa.", a.FileName)}
-			}
-			written = append(written, a.StoragePath)
-			// Verify while we still have the plaintext key material at hand: if the
-			// archive came from a server with a different FILE_MASTER_KEY the bytes
-			// are intact but unreadable here, and the caller must be told that
-			// instead of discovering it when the user opens the invoice.
-			if masterErr == nil {
-				if _, derr := files.Decrypt(ct, iv, wk, master); derr != nil {
-					res.AttachmentsUnreadable++
-				}
-			} else {
-				res.AttachmentsUnreadable++
-			}
-			res.AttachmentsImported++
 		}
 		res.Imported++
+	}
+
+	// Inbox attachments (migration 0018) have no device to be skipped with, so
+	// merge-mode idempotency is enforced per row: an id the importing user
+	// already owns is skipped (a repeated merge import of the same backup must
+	// not 500 on the primary key), a foreign id was refused before the
+	// transaction by assertNoForeignBackupIDs.
+	for _, a := range payload.InboxAttachments {
+		if !safeIDRE.MatchString(a.ID) {
+			res.AttachmentsSkipped++
+			continue
+		}
+		if mode == ImportMerge {
+			if _, gerr := q.GetAttachmentByID(ctx, store.GetAttachmentByIDParams{ID: a.ID, UserId: userID}); gerr == nil {
+				res.AttachmentsSkipped++
+				continue
+			} else if !errors.Is(gerr, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("check inbox attachment: %w", gerr)
+			}
+		}
+		iv, _ := base64.StdEncoding.DecodeString(a.IV)
+		wk, _ := base64.StdEncoding.DecodeString(a.WrappedKey)
+		if err := q.BackupInsertAttachment(ctx, store.BackupInsertAttachmentParams{
+			ID:          a.ID,
+			UserId:      userID,
+			DeviceId:    nil, // inbox
+			FileName:    a.FileName,
+			StoragePath: a.StoragePath,
+			FileType:    a.FileType,
+			FileSize:    a.FileSize,
+			Iv:          iv,
+			WrappedKey:  wk,
+			Description: a.Description,
+			UploadedAt:  pgts(a.UploadedAt),
+		}); err != nil {
+			return nil, fmt.Errorf("insert inbox attachment: %w", err)
+		}
+		if err := restoreBlob(a, InboxStorageSegment); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, w := range payload.Wishlist {

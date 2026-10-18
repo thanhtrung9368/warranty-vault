@@ -72,9 +72,9 @@ func TestUpdateAttachmentDescriptionAgainstRealPostgres(t *testing.T) {
 		t.Fatalf("insert test device: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO "Attachment" (id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt")
-		 VALUES ($1, $2, 'hoa-don.jpg', $3, 'image/jpeg', 1234, '\x00'::bytea, '\x00'::bytea, 'mô tả cũ', NOW())`,
-		attID, deviceID, deviceID+"/blob.enc"); err != nil {
+		`INSERT INTO "Attachment" (id, "userId", "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt")
+		 VALUES ($1, $2, $3, 'hoa-don.jpg', $4, 'image/jpeg', 1234, '\x00'::bytea, '\x00'::bytea, 'mô tả cũ', NOW())`,
+		attID, ownerID, deviceID, deviceID+"/blob.enc"); err != nil {
 		t.Fatalf("insert test attachment: %v", err)
 	}
 	t.Cleanup(func() {

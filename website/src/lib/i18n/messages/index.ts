@@ -23,6 +23,7 @@ import { settings } from './settings';
 import { system } from './system';
 import { leadDays } from './lead-days';
 import { handover } from './handover';
+import { inbox } from './inbox';
 
 /** Domain file name → its catalog. `system` is the API/lib layer, not a page. */
 export const catalogs: Record<string, Catalog> = {
@@ -38,6 +39,7 @@ export const catalogs: Record<string, Catalog> = {
   system,
   leadDays,
   handover,
+  inbox,
 };
 
 export type CatalogConflict = {

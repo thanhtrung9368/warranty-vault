@@ -72,15 +72,12 @@ import com.warrly.network.Attachment
 import com.warrly.network.AttachmentDescriptionInput
 import com.warrly.network.fieldErrors
 import com.warrly.network.toUserMessage
+import com.warrly.ui.screens.attachments.readPickedAttachment
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
 import okhttp3.Request
-import okhttp3.RequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 
 @Composable
 fun AttachmentsSection(api: ApiService, deviceId: String) {
@@ -455,72 +452,17 @@ private fun formatBytes(b: Long): String {
     return String.format(java.util.Locale.US, "%.1f MB", b / (1024.0 * 1024.0))
 }
 
-// Reads the picked URI in chunks and uploads as multipart/form-data. We pull
-// the bytes through OkHttp's RequestBody so the whole file isn't held in
-// memory, but for an MVP simple readBytes is fine — backend caps at 5 MB.
-//
-// The 5 MB cap is enforced HERE, before the stream is opened: the provider's
-// reported size is checked first, so an oversized file on a slow connection is
-// rejected in milliseconds instead of after the whole upload (iOS
-// `AttachmentFileType.maxBytes` does the same). The post-read check covers
-// providers that do not report a size at all.
+// The picked URI is read and size-checked by the shared `readPickedAttachment`
+// (ui/screens/attachments/PickedAttachment.kt) — the inbox upload uses the same
+// reader, so the 5 MB boundary and the content-provider quirks have one home.
 private suspend fun uploadFromUri(
     context: Context,
     api: ApiService,
     deviceId: String,
     uri: Uri,
 ) {
-    val resolver = context.contentResolver
-    val mime = resolver.getType(uri) ?: "application/octet-stream"
-    val name = queryDisplayName(context, uri) ?: "file"
-
-    val declaredSize = queryFileSize(resolver, uri)
-    if (declaredSize != null && isAttachmentTooLarge(declaredSize)) {
-        throw IllegalStateException(context.getString(R.string.att_file_too_large))
-    }
-
-    val bytes = withContext(Dispatchers.IO) {
-        resolver.openInputStream(uri)?.use { it.readBytes() }
-    } ?: throw IllegalStateException(context.getString(R.string.att_could_not_read_file))
-    if (isAttachmentTooLarge(bytes.size.toLong())) {
-        throw IllegalStateException(context.getString(R.string.att_file_too_large))
-    }
-
-    val body: RequestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
-    val part = MultipartBody.Part.createFormData("file", name, body)
-    api.uploadAttachment(deviceId, part, null)
-}
-
-/**
- * The file's size as the content provider reports it, or `null` when it does
- * not know. Two sources, cheapest first: `OpenableColumns.SIZE` (what most
- * pickers — including the photo picker and SAF documents — expose) and the
- * asset file descriptor's declared length.
- */
-private fun queryFileSize(resolver: android.content.ContentResolver, uri: Uri): Long? {
-    var size: Long? = null
-    runCatching {
-        resolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)
-            ?.use { cursor ->
-                val idx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
-                if (idx >= 0 && cursor.moveToFirst() && !cursor.isNull(idx)) {
-                    size = cursor.getLong(idx)
-                }
-            }
-    }
-    if (size != null) return size
-    return runCatching {
-        resolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
-    }.getOrNull()?.takeIf { it >= 0 }
-}
-
-private fun queryDisplayName(context: Context, uri: Uri): String? {
-    return runCatching {
-        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
-            val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            if (idx >= 0 && c.moveToFirst()) c.getString(idx) else null
-        }
-    }.getOrNull()
+    val picked = readPickedAttachment(context, uri)
+    api.uploadDeviceAttachment(deviceId, picked.toMultipart(), null)
 }
 
 // Downloads encrypted attachment via authenticated GET, writes to cache, then

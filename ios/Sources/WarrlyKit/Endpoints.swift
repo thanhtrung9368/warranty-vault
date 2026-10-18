@@ -264,15 +264,73 @@ extension APIClient {
         return w.attachments
     }
 
+    /// Uploads a file to `POST /api/v1/attachments`, optionally filing it under
+    /// a device at the same time.
+    ///
+    /// `deviceId` is optional by contract. With one, this is the old per-device
+    /// upload (the endpoint it used to hit, `POST /api/v1/devices/{id}/attachments`,
+    /// was folded into this one so both paths share the same MIME/size/quota
+    /// rules). Without one, the file becomes an **inbox item**: it consumes none
+    /// of any device's five slots and waits in `GET /api/v1/inbox` until
+    /// `fileAttachment(id:deviceId:)` files it.
+    ///
+    /// The typed `AttachmentUploadInput` is the multipart metadata, not the file
+    /// bytes: a blank/absent `deviceId` is omitted from the form entirely rather
+    /// than sent as an empty string.
     public func uploadAttachment(
-        deviceId: String, fileName: String, fileType: String, data: Data,
-        description: String? = nil
+        _ input: AttachmentUploadInput, fileName: String, fileType: String, data: Data
     ) async throws -> AttachmentMeta {
         struct Wrapper: Decodable { let attachment: AttachmentMeta }
         let w: Wrapper = try await uploadMultipart(
-            "/api/v1/devices/\(deviceId)/attachments",
+            "/api/v1/attachments",
             fileName: fileName, fileType: fileType, fileData: data,
-            description: description
+            deviceId: input.deviceId, description: input.description
+        )
+        return w.attachment
+    }
+
+    /// Convenience overload for the two existing call shapes: a device upload
+    /// passes its id, an inbox capture passes `nil`.
+    public func uploadAttachment(
+        deviceId: String?, fileName: String, fileType: String, data: Data,
+        description: String? = nil
+    ) async throws -> AttachmentMeta {
+        try await uploadAttachment(
+            AttachmentUploadInput(deviceId: deviceId, description: description),
+            fileName: fileName, fileType: fileType, data: data
+        )
+    }
+
+    /// `GET /api/v1/inbox` — the caller's attachments with no device yet, newest
+    /// first. The server owns the order; this method does not re-sort.
+    ///
+    /// The envelope is `{ "attachments": [...] }` like the per-device list, but
+    /// an `inbox` key is accepted too: the endpoint's name makes that spelling
+    /// plausible, and reading either one cannot mis-file anything — it only
+    /// avoids an empty inbox if the server chooses the other key.
+    public func getInbox() async throws -> [AttachmentMeta] {
+        struct Body: Decodable {
+            let attachments: [AttachmentMeta]?
+            let inbox: [AttachmentMeta]?
+        }
+        let body: Body = try await request("GET", "/api/v1/inbox")
+        return body.attachments ?? body.inbox ?? []
+    }
+
+    /// `POST /api/v1/attachments/{id}/file` — files an inbox item under a device,
+    /// or returns a filed attachment to the inbox with `deviceId: nil`.
+    ///
+    /// 409 `limit_reached` means the target device already holds five
+    /// attachments; the item stays in the inbox. Map the thrown `APIError`
+    /// through `InboxRules.fileFailure(_:)` so the UI can offer the way out.
+    /// `PATCH /api/v1/attachments/{id}` remains description-only; filing never
+    /// goes through it.
+    @discardableResult
+    public func fileAttachment(id: String, deviceId: String?) async throws -> AttachmentMeta {
+        struct Wrapper: Decodable { let attachment: AttachmentMeta }
+        let w: Wrapper = try await request(
+            "POST", "/api/v1/attachments/\(id)/file",
+            body: FileAttachmentInput(deviceId: deviceId)
         )
         return w.attachment
     }
@@ -338,6 +396,16 @@ extension APIClient {
         )!
         if download { components.queryItems = [.init(name: "download", value: "1")] }
         return components.url!
+    }
+
+    /// Decrypted bytes of an attachment (`GET /api/files/{id}`).
+    ///
+    /// The stream is bearer-gated, so `AsyncImage(url:)` cannot load it — a
+    /// thumbnail has to go through the client. Kept deliberately separate from
+    /// `attachmentDownloadURL` (which is what a share sheet opens after the user
+    /// taps a row): this one is for in-app previews.
+    public func attachmentData(id: String) async throws -> Data {
+        try await rawDataRequest("GET", "/api/files/\(id)", accept: "*/*")
     }
 
     // MARK: - Subscriptions
