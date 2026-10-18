@@ -563,7 +563,7 @@ export default async function LandingPage() {
             {/* The year is interpolated rather than concatenated, so the
                 sentence stays one translatable key. */}
             <div className="text-[13px] text-muted">
-              {t('© {year} Warrly. Made with ♥ in Vietnam.', {
+              {t('© {year} Warrly.', {
                 year: new Date().getFullYear(),
               })}
             </div>

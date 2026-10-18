@@ -113,8 +113,8 @@ export const publicPages = defineMessages({
   // ── Landing page — final CTA + footer ───────────────────────────────────
   'Sẵn sàng quản lý thiết bị?': 'Ready to get your devices in order?',
   'Free mãi mãi. Không cần thẻ. Không quảng cáo.': 'Free forever. No card. No ads.',
-  '© {year} Warrly. Made with ♥ in Vietnam.':
-    '© {year} Warrly. Made with ♥ in Vietnam.',
+  '© {year} Warrly.':
+    '© {year} Warrly.',
 
   // ── 404 (`app/not-found.tsx`) ───────────────────────────────────────────
   'Không tìm thấy — Warrly': 'Not found — Warrly',
