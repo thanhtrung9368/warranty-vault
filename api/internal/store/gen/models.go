@@ -50,6 +50,25 @@ type Category struct {
 	IsActive  bool   `json:"isActive"`
 }
 
+type Claim struct {
+	ID                string           `json:"id"`
+	DeviceId          string           `json:"deviceId"`
+	WarrantyId        *string          `json:"warrantyId"`
+	Status            string           `json:"status"`
+	OpenedAt          pgtype.Timestamp `json:"openedAt"`
+	ExpectedReturnAt  pgtype.Timestamp `json:"expectedReturnAt"`
+	ClosedAt          pgtype.Timestamp `json:"closedAt"`
+	TicketNumber      *string          `json:"ticketNumber"`
+	ServiceCenter     *string          `json:"serviceCenter"`
+	Issue             string           `json:"issue"`
+	Diagnosis         *string          `json:"diagnosis"`
+	Outcome           *string          `json:"outcome"`
+	Cost              *int32           `json:"cost"`
+	CoveredByWarranty *bool            `json:"coveredByWarranty"`
+	CreatedAt         pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
+}
+
 type DecisionSnooze struct {
 	ID           string           `json:"id"`
 	UserId       string           `json:"userId"`

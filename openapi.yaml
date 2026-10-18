@@ -28,6 +28,7 @@ tags:
   - { name: auth }
   - { name: devices }
   - { name: warranties }
+  - { name: claims, description: 'Yêu cầu bảo hành / sửa chữa: một thiết bị hỏng đi đâu, bệnh viện nào, ai nói gì, bảo hành có trả tiền không. Migration 0021.' }
   - { name: attachments }
   - { name: shares, description: 'Phiếu bàn giao bảo hành + link chia sẻ có token. `GET /api/v1/public/shares/{token}` là endpoint DUY NHẤT không cần bearer.' }
   - { name: subscriptions }
@@ -521,7 +522,7 @@ paths:
       tags: [devices]
       responses:
         '200':
-          description: Device with warranties + attachments
+          description: Device with warranties + attachments + claims (`claims` is always an array, `[]` when none)
           content:
             application/json:
               schema:
@@ -1335,6 +1336,177 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
 
+  /api/v1/claims:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    get:
+      tags: [claims]
+      summary: Yêu cầu bảo hành của người gọi, mới nhất trước
+      description: |
+        Danh sách yêu cầu bảo hành thuộc tài khoản đang đăng nhập, sắp xếp theo
+        `openedAt` **giảm dần** (mới nhất trước); hai yêu cầu mở cùng ngày được
+        phân xử ổn định bằng `createdAt`. Luôn trả `claims: []` khi chưa có yêu
+        cầu nào — không bao giờ `null`.
+
+        Bộ lọc giống `GET /api/v1/devices`: giá trị rỗng (hoặc sentinel `ALL`)
+        nghĩa là **không lọc**. `deviceId` lạ / không thuộc tài khoản trả danh
+        sách rỗng chứ không 404. `status` không hợp lệ cũng chỉ khớp rỗng —
+        endpoint không từ chối giá trị lạ (cùng chính sách với device list).
+        Muốn lấy yêu cầu của một thiết bị, `GET /api/v1/devices/{id}` cũng đã
+        trả `claims` lồng sẵn, cùng thứ tự.
+      parameters:
+        - name: deviceId
+          in: query
+          description: 'Chỉ lấy yêu cầu của một thiết bị. Rỗng hoặc `ALL` = không lọc.'
+          schema: { type: string }
+        - name: status
+          in: query
+          description: |
+            Lọc theo trạng thái. Sentinel `ALL` (hoặc rỗng) = không lọc; giá trị
+            khác enum được truyền thẳng xuống SQL và chỉ đơn giản là không khớp
+            dòng nào (không phải 400).
+          schema:
+            type: string
+            enum: [OPEN, IN_REPAIR, RESOLVED, REJECTED, CANCELLED, ALL]
+      responses:
+        '200':
+          description: Claim list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  claims:
+                    type: array
+                    items: { $ref: '#/components/schemas/Claim' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [claims]
+      summary: Tạo yêu cầu bảo hành
+      description: |
+        Tạo một yêu cầu mới. `deviceId` phải là thiết bị của người gọi (không thì
+        **404**, không phải 403: id của người khác không được xác nhận là tồn
+        tại). `warrantyId` không bắt buộc; nếu có, gói bảo hành phải **thuộc đúng
+        thiết bị đó**, không thì 400 với `fieldErrors.warrantyId` — kể cả khi gói
+        thuộc người dùng nhưng gắn thiết bị khác.
+
+        `status` bỏ trống ⇒ `OPEN`. `openedAt` bỏ trống ⇒ **bây giờ**. Nếu
+        `status` đã là trạng thái kết thúc (`RESOLVED` / `REJECTED` /
+        `CANCELLED`) thì `closedAt` được server đặt tự động — client **không
+        được**, và không cần, gửi giá trị này.
+
+        **Tối đa một yêu cầu `OPEN` hoặc `IN_REPAIR` trên mỗi thiết bị.** Yêu
+        cầu thứ hai trả **409 `limit_reached`**. Luật được bảo đảm bằng partial
+        unique index `Claim_one_open_per_device_idx` (migration 0021) nên hai
+        request đồng thời cũng không thể cùng lọt; service chỉ kiểm tra trước để
+        trả lời thân thiện. Trần mỗi người dùng là **1000** yêu cầu, cũng trả 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { claim: { $ref: '#/components/schemas/Claim' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `limit_reached`. Hai trường hợp, cùng một code:
+
+            * thiết bị đã có yêu cầu đang mở (`OPEN`/`IN_REPAIR`) — một chiếc
+              máy không thể nằm ở hai cửa hàng cùng lúc;
+            * tài khoản đã đạt trần **1000** yêu cầu.
+
+            `message` được dịch theo ngôn ngữ của request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/claims/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
+    get:
+      tags: [claims]
+      summary: Một yêu cầu bảo hành
+      responses:
+        '200':
+          description: Claim
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { claim: { $ref: '#/components/schemas/Claim' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [claims]
+      summary: Thay thế toàn bộ yêu cầu bảo hành
+      description: |
+        **Full replacement**, cùng quy ước với các PATCH khác: trường nullable bỏ
+        trống (hoặc `null`) là **xoá**. Hai ngoại lệ có chủ ý, vì chúng là lịch
+        sử chứ không phải cấu hình:
+
+        * `openedAt` bỏ trống ⇒ **giữ ngày mở đã lưu** (không đặt lại thành bây
+          giờ). Gửi giá trị cụ thể thì thay.
+        * `status` bỏ trống ⇒ **giữ trạng thái đã lưu**. Nếu không, một client
+          cũ/PATCH thiếu trường sẽ vô tình mở lại hoặc đóng yêu cầu.
+
+        `deviceId` bắt buộc và phải là thiết bị của người gọi; đổi sang thiết bị
+        khác được phép, miễn là thiết bị đó thuộc tài khoản. `warrantyId` nếu có
+        phải thuộc **thiết bị mới** — không thì 400 `fieldErrors.warrantyId`.
+
+        **`closedAt` do server quản lý.** Khi `status` chuyển vào
+        `RESOLVED`/`REJECTED`/`CANCELLED`, server đặt `closedAt`; khi chuyển lại
+        `OPEN`/`IN_REPAIR`, server xoá về `null`. Giữ nguyên trạng thái kết thúc
+        thì ngày kết thúc cũ được giữ, không bị đẩy về hiện tại. Client gửi
+        `closedAt` cũng được chấp nhận nhưng **bị bỏ qua** trên đường API (bản
+        backup thì bảo toàn giá trị đã lưu — xem `BackupClaim`).
+
+        Chuyển sang `OPEN`/`IN_REPAIR` khi thiết bị đích đã có yêu cầu đang mở
+        khác trả **409 `limit_reached`**; áp dụng cả khi đổi `deviceId`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { claim: { $ref: '#/components/schemas/Claim' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `limit_reached`. Yêu cầu đang được chuyển sang `OPEN`/`IN_REPAIR`
+            nhưng thiết bị đích đã có một yêu cầu đang mở khác (kể cả khi yêu cầu
+            đó vừa được chuyển sang thiết bị này). Cùng partial unique index với
+            POST, nên hai PATCH đồng thời cũng không thể cùng lọt.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      tags: [claims]
+      summary: Xoá yêu cầu bảo hành
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/attachments/{id}:
     parameters:
       - { $ref: '#/components/parameters/IdPath' }
@@ -1934,7 +2106,8 @@ paths:
         Mặc định (`includeBlobs` vắng mặt hoặc `false`): stream **một file JSON**
         chứa devices, warranties, reminders, attachments (metadata + IV /
         wrappedKey base64), wishlist + lịch sử giá, subscriptions + lịch sử thanh
-        toán, và `inboxAttachments` (file chưa gắn thiết bị, vắng mặt khi rỗng).
+        toán, `inboxAttachments` (file chưa gắn thiết bị) và `claims` (yêu cầu bảo
+        hành, migration 0021) — hai mảng cấp cao nhất cuối cùng vắng mặt khi rỗng.
         Phiên bản schema **5** — không đổi so với trước. Response có
         `Content-Disposition: attachment; filename=...`.
 
@@ -2006,6 +2179,14 @@ paths:
         nhân đôi; ở chế độ `replace`, toàn bộ attachment của người dùng — kể cả
         hộp thư — bị xoá trước khi khôi phục. Payload cũ **không có** key này vẫn
         import bình thường.
+
+        `claims[]` (nếu có, migration 0021) được khôi phục sau device/warranty:
+        id đã tồn tại bị bỏ qua ở `merge`; `warrantyId` không thuộc đúng thiết bị
+        bị hạ về `null`; `closedAt` được giữ nguyên. Payload có nhiều hơn một yêu
+        cầu đang mở cho cùng thiết bị (file chỉnh tay) bị từ chối 400 **trước khi
+        mở transaction** — partial unique index sẽ ném 23505, và replace-mode đã
+        xoá dữ liệu cũ thì không được phép hỏng giữa chừng. Payload cũ không có
+        key này vẫn import bình thường, không tạo yêu cầu nào.
 
         Import **riêng file `data.json`** của một archive như vậy bị từ chối 400
         kèm hướng dẫn chọn chính file `.zip`: envelope đó khai báo
@@ -3012,6 +3193,33 @@ components:
             thuộc tài khoản đang import; ở chế độ `merge`, id đã tồn tại thì bị
             bỏ qua (nhập lại cùng một file không nhân đôi). Chúng **không** chiếm
             suất 5 file của bất kỳ thiết bị nào nhưng vẫn tính vào trần 100 MB.
+        claims:
+          type: array
+          description: |
+            **Mới ở migration 0021, additive.** Toàn bộ yêu cầu bảo hành của
+            người dùng, ở **mảng cấp cao nhất** giống `inboxAttachments` — mỗi
+            phần tử mang `deviceId` của chính nó và `warrantyId` có thể null, nên
+            lồng vào `devices[]` sẽ lặp lại id và làm hình dạng phụ thuộc việc
+            thiết bị có được export hay không.
+
+            **Vắng mặt khi người dùng không có yêu cầu nào** (`omitempty`), nên
+            file JSON của tài khoản chưa từng đi sửa giống **từng byte** định dạng
+            v5 cũ; payload cũ không có key này import bình thường (decode thành
+            rỗng) và phiên bản backup **không** tăng.
+
+            `closedAt` được export/import nguyên vẹn: trên đường API nó do server
+            quản lý, nhưng trong backup nó là **lịch sử** — bỏ đi sẽ đẩy ngày kết
+            thúc của mọi yêu cầu đã đóng về thời điểm restore. `warrantyId` trỏ
+            tới gói bảo hành không thuộc thiết bị tương ứng bị **đặt về null** khi
+            import (giữ dòng yêu cầu, bỏ liên kết hỏng — cùng quy ước với
+            `purchasedDeviceId` của wishlist), vì file chỉnh tay không được làm
+            hỏng toàn bộ lần khôi phục.
+
+            Import từ chối payload có **nhiều hơn một** yêu cầu `OPEN`/`IN_REPAIR`
+            cho cùng một thiết bị (400 trước khi mở transaction), đúng luật của
+            partial unique index; ở chế độ `replace` toàn bộ yêu cầu của người
+            dùng bị xoá trước, ở `merge` id đã tồn tại thì bị bỏ qua. Trần
+            **1000** yêu cầu/người dùng cũng được áp trước khi ghi (409).
 
     BackupSubscription:
       type: object
@@ -3262,9 +3470,47 @@ components:
         description: { type: string, nullable: true }
         uploadedAt: { type: string, format: date-time }
 
+    # One warranty claim inside a backup payload (migration 0021). Same field set
+    # as the API entity plus both timestamps; closedAt is preserved here even
+    # though the API write path derives it, because in a backup it is history.
+    BackupClaim:
+      type: object
+      required: [id, deviceId, status, openedAt, issue, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        deviceId:
+          type: string
+          description: 'Thiết bị của yêu cầu. Phải là thiết bị có trong payload hoặc đã thuộc tài khoản đang import; nếu không, yêu cầu bị bỏ qua (đếm vào `claimsSkipped`).'
+        warrantyId:
+          type: string
+          nullable: true
+          description: 'Gói bảo hành của **cùng** thiết bị. Nếu trỏ tới gói không thuộc thiết bị đó (file chỉnh tay), import đặt về `null` chứ không từ chối cả file.'
+        status: { $ref: '#/components/schemas/ClaimStatus' }
+        openedAt: { type: string, format: date-time }
+        expectedReturnAt: { type: string, format: date-time, nullable: true }
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Ngày yêu cầu kết thúc — được export/import **nguyên vẹn** (khác với
+            đường API, nơi server tự tính). Payload thiếu giá trị này cho một
+            trạng thái kết thúc thì import dùng `openedAt` làm mốc dự phòng, giữ
+            đúng bất biến "trạng thái kết thúc ⇒ có closedAt"; trạng thái còn mở
+            thì luôn import thành `null`.
+        ticketNumber: { type: string, nullable: true }
+        serviceCenter: { type: string, nullable: true }
+        issue: { type: string }
+        diagnosis: { type: string, nullable: true }
+        outcome: { type: string, nullable: true }
+        cost: { type: integer, nullable: true, minimum: 0 }
+        coveredByWarranty: { type: boolean, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
     ImportResult:
       type: object
-      required: [imported, skipped, wishlistImported, wishlistSkipped, subImported, subSkipped, attachmentsImported, attachmentsSkipped, attachmentsUnreadable]
+      required: [imported, skipped, wishlistImported, wishlistSkipped, subImported, subSkipped, attachmentsImported, attachmentsSkipped, attachmentsUnreadable, claimsImported, claimsSkipped]
       properties:
         imported: { type: integer }
         skipped: { type: integer }
@@ -3291,6 +3537,18 @@ components:
             hình khoá — bản backup đến từ máy chủ khác), hoặc manifest đã đánh dấu
             là thiếu blob từ lúc export (`missingAttachmentIds`). Dòng dữ liệu và
             byte vẫn được khôi phục; con số này để client cảnh báo người dùng.
+        claimsImported:
+          type: integer
+          description: |
+            Số yêu cầu bảo hành (migration 0021) đã chèn. 0 với payload cũ không
+            có key `claims`.
+        claimsSkipped:
+          type: integer
+          description: |
+            Số yêu cầu bị bỏ qua: id đã tồn tại (chế độ `merge`), thiết bị của
+            yêu cầu không có trong payload và không thuộc tài khoản đang import,
+            hoặc id không phải id payload hợp lệ. Dữ liệu không bị nhân đôi và
+            không tạo liên kết nửa vời.
 
     DeviceStatus:
       type: string
@@ -3299,6 +3557,179 @@ components:
     WarrantyType:
       type: string
       enum: [STANDARD, EXTENDED, THIRD_PARTY]
+
+    ClaimStatus:
+      type: string
+      enum: [OPEN, IN_REPAIR, RESOLVED, REJECTED, CANCELLED]
+      description: |
+        Trạng thái yêu cầu bảo hành (migration 0021).
+
+        * `OPEN` / `IN_REPAIR` — **đang mở**, thiết bị đang ở cửa hàng. Chỉ một
+          yêu cầu thuộc hai trạng thái này cho mỗi thiết bị.
+        * `RESOLVED` / `REJECTED` / `CANCELLED` — **kết thúc**. Khi chuyển vào
+          một trong ba trạng thái này, server tự đặt `closedAt`; chuyển ngược lại
+          `OPEN`/`IN_REPAIR` thì server xoá `closedAt`.
+
+    Claim:
+      type: object
+      description: |
+        Một yêu cầu bảo hành / sửa chữa (migration 0021). Server luôn trả đủ mọi
+        khoá; trường nullable có mặt với giá trị `null` chứ không bị bỏ đi.
+      required: [id, deviceId, status, openedAt, issue, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        deviceId:
+          type: string
+          description: 'Thiết bị của yêu cầu. Luôn thuộc tài khoản đang đọc (ownership kiểm qua `Device.userId`).'
+        warrantyId:
+          type: string
+          nullable: true
+          description: 'Gói bảo hành mà yêu cầu này dựa vào; `null` = không gắn gói cụ thể. Khi có, gói luôn thuộc đúng `deviceId` (write path từ chối 400 nếu không).'
+        status: { $ref: '#/components/schemas/ClaimStatus' }
+        openedAt:
+          type: string
+          format: date-time
+          description: |
+            Khi thiết bị được mang tới cửa hàng. Bắt buộc trên thực tế nhưng
+            không bắt client gửi: thiếu thì POST dùng **bây giờ**, PATCH giữ giá
+            trị đã lưu.
+
+            Định dạng trả về giống `Device.purchaseDate` (cột `timestamp` không
+            kèm offset): `YYYY-MM-DDTHH:MM:SS[.fff]`, **không** có `Z`.
+        expectedReturnAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày cửa hàng hẹn trả (ước lượng của người dùng, không phải cam kết); `null` = không ghi.'
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            **Server quản lý.** Thời điểm yêu cầu kết thúc; `null` khi còn
+            `OPEN`/`IN_REPAIR`. Được đặt tự động khi `status` chuyển vào
+            `RESOLVED`/`REJECTED`/`CANCELLED` và xoá khi chuyển ngược lại. Giữ
+            nguyên một trạng thái kết thúc thì ngày cũ không đổi. Client không
+            cần gửi; giá trị client gửi bị bỏ qua trên đường API.
+        ticketNumber:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: 'Mã phiếu / số biên nhận của cửa hàng. Tối đa 100 ký tự (rune).'
+        serviceCenter:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: 'Nơi đang giữ máy (tên trung tâm bảo hành / cửa hàng / địa chỉ). Tối đa 200 ký tự (rune).'
+        issue:
+          type: string
+          maxLength: 1000
+          description: 'Mô tả lỗi — **bắt buộc**, tối đa 1000 ký tự (rune), khoảng một đoạn văn. Bản scan phiếu sửa chữa thuộc về `Attachment`, không phải cột này.'
+        diagnosis:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: 'Cửa hàng chẩn đoán ra bệnh gì. Tối đa 500 ký tự (rune).'
+        outcome:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: 'Kết quả tự do: sửa được / đổi máy / hoàn tiền / từ chối. Tối đa 500 ký tự (rune).'
+        cost:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: 'Số tiền người dùng đã trả, VND (số nguyên không âm). `null` = không ghi. Số âm là 400 `fieldErrors.cost`.'
+        coveredByWarranty:
+          type: boolean
+          nullable: true
+          description: |
+            Ba trạng thái có chủ đích: `null` = **chưa biết** (cửa hàng chưa nói),
+            `true` = bảo hành trả, `false` = người dùng tự trả. Gộp `null` vào
+            `false` sẽ khẳng định một điều chưa xảy ra.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ClaimInput:
+      type: object
+      required: [deviceId, issue]
+      description: |
+        Body của `POST /api/v1/claims` và `PATCH /api/v1/claims/{id}`.
+
+        **PATCH là full replacement**, cùng quy ước với các PATCH khác: trường
+        nullable bỏ trống/`null` là xoá. Hai ngoại lệ có chủ ý vì chúng là lịch
+        sử: `openedAt` bỏ trống ⇒ giữ ngày đã lưu; `status` bỏ trống ⇒ giữ trạng
+        thái đã lưu. Trên POST, `status` bỏ trống ⇒ `OPEN` và `openedAt` bỏ trống
+        ⇒ bây giờ.
+
+        `closedAt` được chấp nhận trong body (một client làm full replacement có
+        thể gửi lại nguyên entity) nhưng **bị bỏ qua**: server tự quyết định theo
+        luật chuyển trạng thái.
+
+        Giới hạn độ dài là **rune**: `issue` 1000, `diagnosis`/`outcome` 500,
+        `serviceCenter` 200, `ticketNumber` 100. `cost` phải ≥ 0.
+      properties:
+        deviceId:
+          type: string
+          description: 'Thiết bị của người gọi. Không thuộc tài khoản ⇒ 404. Đổi thiết bị trên PATCH được phép nếu thiết bị đích thuộc tài khoản.'
+        warrantyId:
+          type: string
+          nullable: true
+          description: 'Gói bảo hành, phải thuộc **cùng** thiết bị với `deviceId`; không thì 400 `fieldErrors.warrantyId`. `null` = không gắn gói.'
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ClaimStatus'
+          description: 'Bỏ trống: POST ⇒ `OPEN`; PATCH ⇒ giữ trạng thái đã lưu. Giá trị khác enum ⇒ 400 `fieldErrors.status`.'
+        openedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày mở. Bỏ trống: POST ⇒ bây giờ; PATCH ⇒ giữ ngày đã lưu. Nhận `YYYY-MM-DD` hoặc RFC3339.'
+        expectedReturnAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày hẹn trả; bỏ trống/`null` ⇒ xoá (PATCH) hoặc `null` (POST).'
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: 'Chỉ để tương thích với full replacement. **Bị bỏ qua** — server tự đặt/xoá theo `status`. Đừng dựa vào giá trị gửi lên.'
+        ticketNumber:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: 'Mã phiếu của cửa hàng; tối đa 100 ký tự (rune).'
+        serviceCenter:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: 'Nơi đang giữ máy; tối đa 200 ký tự (rune).'
+        issue:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: 'Mô tả lỗi — bắt buộc, tối đa 1000 ký tự (rune).'
+        diagnosis:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: 'Chẩn đoán của cửa hàng; tối đa 500 ký tự (rune).'
+        outcome:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: 'Kết quả; tối đa 500 ký tự (rune).'
+        cost:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: 'Số tiền đã trả, VND. Số âm ⇒ 400 `fieldErrors.cost`.'
+        coveredByWarranty:
+          type: boolean
+          nullable: true
+          description: 'Ba trạng thái: `null` chưa biết, `true` bảo hành trả, `false` người dùng trả.'
 
     Device:
       type: object
@@ -3516,6 +3947,15 @@ components:
             warranties:
               type: array
               items: { $ref: '#/components/schemas/WarrantyWithReminders' }
+            claims:
+              type: array
+              items: { $ref: '#/components/schemas/Claim' }
+              description: |
+                Lịch sử yêu cầu bảo hành của thiết bị (migration 0021), mới nhất
+                trước (cùng thứ tự `GET /api/v1/claims`). **Luôn là mảng** — `[]`
+                khi thiết bị chưa từng đi sửa, không bao giờ `null`. Đây là thay
+                đổi additive: người dùng chưa có yêu cầu nhận payload cũ cộng
+                thêm một mảng rỗng.
 
     DeviceInput:
       type: object

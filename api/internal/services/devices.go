@@ -124,11 +124,16 @@ type DeviceListItem struct {
 }
 
 // DeviceDetail is the full device read: device + warranties (with reminders) +
-// attachments. Mirrors website/src/lib/devices.ts::getDevice.
+// attachments + claims. Mirrors website/src/lib/devices.ts::getDevice.
 type DeviceDetail struct {
 	store.Device
 	Warranties  []WarrantyWithReminders `json:"warranties"`
 	Attachments []AttachmentMeta        `json:"attachments"`
+	// Claims is the device's warranty-claim history (migration 0021), newest
+	// openedAt first. Always an array — [] when the device has no claims, never
+	// null — so a client can render it unconditionally. Additive: a user with no
+	// claims gets the same device payload as before, plus an empty array.
+	Claims []store.Claim `json:"claims"`
 	// ReturnDeadline mirrors DeviceListItem.ReturnDeadline; see the comment there.
 	ReturnDeadline *time.Time `json:"returnDeadline"`
 }
@@ -461,6 +466,17 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	if err != nil {
 		return nil, fmt.Errorf("list attachments: %w", err)
 	}
+	// Warranty claims (migration 0021). Additive and always an array: a device
+	// with no claims serialises `claims: []`, exactly what a client needs to
+	// render the section unconditionally. Newest openedAt first, matching the
+	// top-level GET /api/v1/claims ordering.
+	claims, err := q.ListClaimsByDevice(ctx, store.ListClaimsByDeviceParams{
+		DeviceId: id,
+		UserId:   userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list claims: %w", err)
+	}
 
 	wr := make([]WarrantyWithReminders, 0, len(warranties))
 	for _, w := range warranties {
@@ -478,10 +494,13 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	for _, a := range atts {
 		metas = append(metas, toAttachmentMeta(a))
 	}
+	claimRows := make([]store.Claim, 0, len(claims))
+	claimRows = append(claimRows, claims...)
 	return &DeviceDetail{
 		Device:         d,
 		Warranties:     wr,
 		Attachments:    metas,
+		Claims:         claimRows,
 		ReturnDeadline: deviceReturnDeadline(d),
 	}, nil
 }

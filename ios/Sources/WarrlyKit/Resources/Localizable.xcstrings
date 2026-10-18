@@ -16746,6 +16746,941 @@
           }
         }
       }
+    },
+    "Bảo hành chi trả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Covered by warranty"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo hành chi trả"
+          }
+        }
+      }
+    },
+    "Bắt đầu sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu sửa chữa"
+          }
+        }
+      }
+    },
+    "Bị từ chối": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejected"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bị từ chối"
+          }
+        }
+      }
+    },
+    "Chi phí không được âm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cost cannot be negative."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi phí không được âm."
+          }
+        }
+      }
+    },
+    "Chi tiết": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chi tiết"
+          }
+        }
+      }
+    },
+    "Chưa có lần sửa chữa nào.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No repairs recorded yet."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có lần sửa chữa nào."
+          }
+        }
+      }
+    },
+    "Chưa rõ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sure"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa rõ"
+          }
+        }
+      }
+    },
+    "Chẩn đoán": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnosis"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chẩn đoán"
+          }
+        }
+      }
+    },
+    "Chỉ các gói bảo hành của thiết bị này được chọn. Để trống nếu sửa ngoài bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only this device's warranty plans can be picked. Leave it empty for an out-of-warranty repair."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ các gói bảo hành của thiết bị này được chọn. Để trống nếu sửa ngoài bảo hành."
+          }
+        }
+      }
+    },
+    "Chọn Có hoặc Không khi trung tâm đã trả lời; để Chưa rõ nếu chưa biết.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Yes or No once the service center has answered; leave Not sure if you don't know yet."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn Có hoặc Không khi trung tâm đã trả lời; để Chưa rõ nếu chưa biết."
+          }
+        }
+      }
+    },
+    "Có ngày dự kiến trả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expected return date"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có ngày dự kiến trả"
+          }
+        }
+      }
+    },
+    "Dự kiến trả %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expected back %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dự kiến trả %@"
+          }
+        }
+      }
+    },
+    "Ghi lại nơi sửa, số phiếu và ngày dự kiến trả để lần đi bảo hành này không bị quên.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record the shop, the ticket number and the expected return date so this repair isn't forgotten."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi lại nơi sửa, số phiếu và ngày dự kiến trả để lần đi bảo hành này không bị quên."
+          }
+        }
+      }
+    },
+    "Gói bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty plan"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói bảo hành"
+          }
+        }
+      }
+    },
+    "Không gắn gói nào": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No warranty plan"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không gắn gói nào"
+          }
+        }
+      }
+    },
+    "Không lưu được lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save the repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Không tìm thấy lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repair not found"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Không đổi được thiết bị của một lần sửa chữa.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A repair's device can't be changed."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đổi được thiết bị của một lần sửa chữa."
+          }
+        }
+      }
+    },
+    "Kết quả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outcome"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết quả"
+          }
+        }
+      }
+    },
+    "Lần sửa chữa này không còn tồn tại. Có thể nó đã bị xoá ở nơi khác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This repair no longer exists. It may have been deleted elsewhere."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần sửa chữa này không còn tồn tại. Có thể nó đã bị xoá ở nơi khác."
+          }
+        }
+      }
+    },
+    "Lần sửa chữa này sẽ bị xoá vĩnh viễn. Không thể hoàn tác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This repair will be deleted for good. This can't be undone."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần sửa chữa này sẽ bị xoá vĩnh viễn. Không thể hoàn tác."
+          }
+        }
+      }
+    },
+    "Lần sửa chữa thuộc thiết bị này": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This repair belongs to this device"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần sửa chữa thuộc thiết bị này"
+          }
+        }
+      }
+    },
+    "Mô tả lỗi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Problem"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mô tả lỗi"
+          }
+        }
+      }
+    },
+    "Mô tả lỗi là bắt buộc; các mục còn lại có thể để trống. Kết quả do trung tâm trả lời.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The problem description is required; the other fields can be left empty. The outcome comes from the service center."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mô tả lỗi là bắt buộc; các mục còn lại có thể để trống. Kết quả do trung tâm trả lời."
+          }
+        }
+      }
+    },
+    "Mô tả ngắn lỗi bạn mang máy đi sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Briefly describe what went wrong"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mô tả ngắn lỗi bạn mang máy đi sửa"
+          }
+        }
+      }
+    },
+    "Mỗi thiết bị chỉ có một lần sửa chữa đang mở tại một thời điểm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A device can have only one open repair at a time."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mỗi thiết bị chỉ có một lần sửa chữa đang mở tại một thời điểm."
+          }
+        }
+      }
+    },
+    "Mỗi thiết bị chỉ có một lần sửa chữa đang mở. Cập nhật lần đang mở thay vì tạo lần mới.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A device can have only one open repair. Update the open one instead of creating a new one."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mỗi thiết bị chỉ có một lần sửa chữa đang mở. Cập nhật lần đang mở thay vì tạo lần mới."
+          }
+        }
+      }
+    },
+    "Mở %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở %@"
+          }
+        }
+      }
+    },
+    "Ngày dự kiến trả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expected return"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày dự kiến trả"
+          }
+        }
+      }
+    },
+    "Ngày mở": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened on"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày mở"
+          }
+        }
+      }
+    },
+    "Ngày đóng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed on"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày đóng"
+          }
+        }
+      }
+    },
+    "Ngày đóng do máy chủ đặt khi lần sửa chữa kết thúc; biểu mẫu không gửi ngày này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server sets the closing date when the repair ends; this form never sends it."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày đóng do máy chủ đặt khi lần sửa chữa kết thúc; biểu mẫu không gửi ngày này."
+          }
+        }
+      }
+    },
+    "Nơi sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service center"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nơi sửa"
+          }
+        }
+      }
+    },
+    "Phiếu %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ticket %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phiếu %@"
+          }
+        }
+      }
+    },
+    "Số phiếu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ticket number"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Số phiếu"
+          }
+        }
+      }
+    },
+    "Sửa chữa & bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repairs & warranty"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sửa chữa & bảo hành"
+          }
+        }
+      }
+    },
+    "Sửa lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sửa lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Sửa xong, đổi máy, hoàn tiền…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repaired, replaced, refunded…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sửa xong, đổi máy, hoàn tiền…"
+          }
+        }
+      }
+    },
+    "Thiết bị chưa có gói bảo hành nào.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device has no warranty plans."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị chưa có gói bảo hành nào."
+          }
+        }
+      }
+    },
+    "Thiết bị đang Hỏng nhưng chưa có lần sửa chữa nào đang mở": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device is marked Broken but has no open repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị đang Hỏng nhưng chưa có lần sửa chữa nào đang mở"
+          }
+        }
+      }
+    },
+    "Thiết bị đã có lần sửa chữa đang mở": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device already has an open repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị đã có lần sửa chữa đang mở"
+          }
+        }
+      }
+    },
+    "Thêm lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Thời gian": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeline"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thời gian"
+          }
+        }
+      }
+    },
+    "Trung tâm nói gì": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What the service center said"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trung tâm nói gì"
+          }
+        }
+      }
+    },
+    "Vui lòng nhập mô tả lỗi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please describe the problem."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng nhập mô tả lỗi."
+          }
+        }
+      }
+    },
+    "Ví dụ: BH-2026-0312": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. BH-2026-0312"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ví dụ: BH-2026-0312"
+          }
+        }
+      }
+    },
+    "Ví dụ: FPT Shop Quận 1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. FPT Shop District 1"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ví dụ: FPT Shop Quận 1"
+          }
+        }
+      }
+    },
+    "Xem lần đang mở": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View the open repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem lần đang mở"
+          }
+        }
+      }
+    },
+    "Xoá lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Xoá lần sửa chữa?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this repair?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá lần sửa chữa?"
+          }
+        }
+      }
+    },
+    "Đang mở": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang mở"
+          }
+        }
+      }
+    },
+    "Đang sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang sửa chữa"
+          }
+        }
+      }
+    },
+    "Đã xử lý": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolved"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã xử lý"
+          }
+        }
+      }
+    },
+    "Đóng %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng %@"
+          }
+        }
+      }
+    },
+    "Đóng lần sửa chữa bằng cách chọn Đã xử lý, Bị từ chối hoặc Đã huỷ; máy chủ tự ghi ngày đóng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close a repair by choosing Resolved, Rejected or Cancelled; the server writes the closing date."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng lần sửa chữa bằng cách chọn Đã xử lý, Bị từ chối hoặc Đã huỷ; máy chủ tự ghi ngày đóng."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

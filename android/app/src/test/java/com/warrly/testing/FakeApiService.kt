@@ -13,6 +13,9 @@ import com.warrly.network.ChangeEmailRequest
 import com.warrly.network.ChangeEmailResult
 import com.warrly.network.ChangePasswordRequest
 import com.warrly.network.ChangePasswordResponse
+import com.warrly.network.ClaimInput
+import com.warrly.network.ClaimListResponse
+import com.warrly.network.ClaimResponse
 import com.warrly.network.ConfirmEmailChangeRequest
 import com.warrly.network.ConfirmEmailChangeResult
 import com.warrly.network.CreateShareInput
@@ -136,6 +139,18 @@ open class FakeApiService : ApiService {
 
     override suspend fun restoreWarrantyReminder(id: String): OkResponse =
         notStubbed("restoreWarrantyReminder")
+
+    // Warranty claims (`GET/POST/PATCH/DELETE /api/v1/claims`). A separate
+    // entity from the warranty plans above — one live claim per device.
+    override suspend fun listClaims(deviceId: String?, status: String?): ClaimListResponse =
+        notStubbed("listClaims")
+
+    override suspend fun createClaim(body: ClaimInput): ClaimResponse = notStubbed("createClaim")
+    override suspend fun getClaim(id: String): ClaimResponse = notStubbed("getClaim")
+    override suspend fun updateClaim(id: String, body: ClaimInput): ClaimResponse =
+        notStubbed("updateClaim")
+
+    override suspend fun deleteClaim(id: String): OkResponse = notStubbed("deleteClaim")
 
     override suspend fun listSubscriptions(): SubscriptionListResponse = notStubbed("listSubscriptions")
     override suspend fun createSubscription(body: SubscriptionInput): SubscriptionResponse =

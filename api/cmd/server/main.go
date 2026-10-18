@@ -85,6 +85,7 @@ func main() {
 
 	handlers.RegisterDevices(mux, deps)
 	handlers.RegisterWarranties(mux, deps)
+	handlers.RegisterClaims(mux, deps)
 	handlers.RegisterReminders(mux, deps)
 	handlers.RegisterReturnWindows(mux, deps)
 	handlers.RegisterActions(mux, deps)

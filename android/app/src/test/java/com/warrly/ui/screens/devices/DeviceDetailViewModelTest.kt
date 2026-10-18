@@ -1,6 +1,7 @@
 package com.warrly.ui.screens.devices
 
 import com.warrly.network.DeviceResponse
+import com.warrly.network.DeviceStatus
 import com.warrly.testing.FakeApiService
 import com.warrly.testing.Fixtures
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +80,30 @@ class DeviceDetailViewModelTest {
         )
         assertEquals(1, after.warranties.size)
         assertEquals(2, after.attachmentCount)
+    }
+
+    /**
+     * `claims` is a detail-only projection, exactly like `warranties`: the bare
+     * device row a PATCH returns does not carry it. If the list were dropped
+     * here, the whole "Sửa chữa & bảo hành" card — and the BROKEN nudge that is
+     * the point of the feature — would disappear after editing the device name.
+     */
+    @Test
+    fun replaceDevice_carriesOverTheLoadedClaims() = runTest(dispatcher) {
+        val detail = Fixtures.device(
+            status = DeviceStatus.BROKEN,
+            claims = listOf(Fixtures.claim(id = "claim-1")),
+        )
+        val vm = loadedViewModel(detail)
+        advanceUntilIdle()
+
+        // What PATCH returns: the columns, no detail projection.
+        vm.replaceDevice(detail.copy(claims = emptyList(), name = "iPhone 15 Pro Max"))
+
+        val after = (vm.state.value as DeviceDetailViewModel.State.Loaded).device
+        assertEquals("iPhone 15 Pro Max", after.name)
+        assertEquals(1, after.claims.size)
+        assertEquals("claim-1", after.claims.single().id)
     }
 
     /**

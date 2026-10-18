@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ListChecks,
   Inbox,
+  Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/client';
@@ -69,6 +70,15 @@ const items: NavItem[] = [
     label: 'Thiết bị',
     icon: Package,
     match: (p) => p.startsWith('/devices'),
+  },
+  {
+    // Cross-device repair cases. Deliberately a sibling of /devices rather
+    // than a tab inside it: "what is at the shop right now" spans every
+    // device, which is exactly what the per-device card cannot answer.
+    href: '/claims',
+    label: 'Sửa chữa',
+    icon: Wrench,
+    match: (p) => p.startsWith('/claims'),
   },
   {
     href: '/subscriptions',
@@ -202,7 +212,7 @@ export function Sidebar({
 
 /**
  * Mobile pill-shaped bottom navigation. Renders every section (same order +
- * labels as the desktop sidebar) in a horizontally scrollable strip — the 9
+ * labels as the desktop sidebar) in a horizontally scrollable strip — the 10
  * entries don't fit on a phone at once, so the active one is scrolled into
  * view. Hidden on desktop (sidebar takes over from md: up).
  */

@@ -256,6 +256,136 @@ extension APIClient {
         )
     }
 
+    // MARK: - Claims ("Sửa chữa & bảo hành")
+
+    /// Optional filters on `GET /api/v1/claims`. Both are optional and both are
+    /// server-side; omitting them returns the caller's claims across every
+    /// device. The device detail uses `deviceId` through `WarrantiesStore`; the
+    /// status filter exists for a future cross-device "đang sửa" read and is
+    /// tested so it cannot silently rot.
+    public struct ClaimListFilter: Sendable {
+        public var deviceId: String?
+        public var status: ClaimStatus?
+
+        public init(deviceId: String? = nil, status: ClaimStatus? = nil) {
+            self.deviceId = deviceId
+            self.status = status
+        }
+
+        var queryItems: [URLQueryItem] {
+            var items: [URLQueryItem] = []
+            if let deviceId { items.append(.init(name: "deviceId", value: deviceId)) }
+            if let status { items.append(.init(name: "status", value: status.rawValue)) }
+            return items
+        }
+    }
+
+    /// `GET /api/v1/claims` — the caller's claims, optionally filtered.
+    ///
+    /// The documented response is the list-shaped `{"claims": [...]}` used by
+    /// every other collection in this API. A bare JSON array is accepted too,
+    /// so a differently wrapped server cannot make the whole feature look
+    /// empty. A payload with no rows is `[]` in both shapes.
+    public func listClaims(filter: ClaimListFilter = ClaimListFilter()) async throws -> [Claim] {
+        let data = try await rawRequest("GET", "/api/v1/claims", query: filter.queryItems)
+        return try Self.decodeClaimList(data)
+    }
+
+    /// `GET /api/v1/claims/{id}` — one claim.
+    ///
+    /// Same envelope leniency as `listClaims`: `{"claim": {...}}` or the bare
+    /// object.
+    public func getClaim(id: String) async throws -> Claim {
+        let data = try await rawRequest("GET", "/api/v1/claims/\(id)")
+        guard let claim = Self.decodeClaimIfPresent(data) else {
+            throw APIError.decoding("claim response contained no claim")
+        }
+        return claim
+    }
+
+    /// `POST /api/v1/claims`.
+    ///
+    /// A second `OPEN`/`IN_REPAIR` claim for the same device is a **409**
+    /// `limit_reached`; map the thrown error through `ClaimRules.saveFailure`
+    /// so the form can offer the claim that is already open instead of a
+    /// generic failure.
+    ///
+    /// The return value is best-effort. The claim exists once this returns
+    /// successfully (2xx), and the device-detail section re-reads the list
+    /// afterwards; a server that answers 201 with no body therefore still
+    /// counts as success. `nil` means "saved, but the response carried no
+    /// claim to decode", never "not saved".
+    @discardableResult
+    public func createClaim(_ input: ClaimInput) async throws -> Claim? {
+        let data = try await rawRequest("POST", "/api/v1/claims", body: input)
+        return Self.decodeClaimIfPresent(data)
+    }
+
+    /// `PATCH /api/v1/claims/{id}`. Same body and same 409 rule as
+    /// `createClaim`.
+    ///
+    /// `closedAt` is not part of `ClaimInput` and is never sent: the server sets
+    /// it when the status becomes closed.
+    @discardableResult
+    public func updateClaim(id: String, _ input: ClaimInput) async throws -> Claim? {
+        let data = try await rawRequest("PATCH", "/api/v1/claims/\(id)", body: input)
+        return Self.decodeClaimIfPresent(data)
+    }
+
+    public func deleteClaim(id: String) async throws {
+        let _: EmptyResponse = try await request("DELETE", "/api/v1/claims/\(id)")
+    }
+
+    /// `{"claims": [...]}` — the list envelope used by every other collection.
+    private struct ClaimListBody: Decodable {
+        let claims: [Claim]
+
+        init(from decoder: Decoder) throws {
+            if let keyed = try? decoder.container(keyedBy: CodingKeys.self),
+               keyed.contains(.claims) {
+                claims = try keyed.decodeIfPresent([Claim].self, forKey: .claims) ?? []
+            } else {
+                claims = try decoder.singleValueContainer().decode([Claim].self)
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case claims }
+    }
+
+    /// `{"claim": {...}}` — the single-object envelope.
+    private struct ClaimBody: Decodable {
+        let claim: Claim
+
+        init(from decoder: Decoder) throws {
+            if let keyed = try? decoder.container(keyedBy: CodingKeys.self),
+               keyed.contains(.claim) {
+                claim = try keyed.decode(Claim.self, forKey: .claim)
+            } else {
+                claim = try decoder.singleValueContainer().decode(Claim.self)
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case claim }
+    }
+
+    private static func decodeClaimList(_ data: Data) throws -> [Claim] {
+        do {
+            return try decoder.decode(ClaimListBody.self, from: data).claims
+        } catch {
+            throw APIError.decoding(error.localizedDescription)
+        }
+    }
+
+    /// A write/get response that may be empty (204) or use either envelope.
+    /// `nil` only when there are no bytes at all.
+    private static func decodeClaimIfPresent(_ data: Data) -> Claim? {
+        guard !data.isEmpty else { return nil }
+        if let body = try? decoder.decode(ClaimBody.self, from: data) {
+            return body.claim
+        }
+        return try? decoder.decode(Claim.self, from: data)
+    }
+
     // MARK: - Attachments
 
     public func listAttachments(deviceId: String) async throws -> [AttachmentMeta] {

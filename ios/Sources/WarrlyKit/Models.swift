@@ -373,6 +373,20 @@ public struct DeviceDetailBody: Decodable, Sendable {
     /// server that has not shipped it yet.
     public let leadDays: [Int]?
 
+    /// The device's repair claims ("Sửa chữa & bảo hành"), newest first.
+    ///
+    /// `GET /api/v1/devices/{id}` gained this array with the claims feature, so
+    /// the device detail is the anchor for a claim: there is no separate read to
+    /// perform before listing one device's repairs. The contract makes it `[]`
+    /// for a device with no claims — never `null` — but it stays optional here
+    /// so a payload from a server that has not shipped the field yet still
+    /// decodes. `nil` means **"not returned"**, not "no claims"; read it through
+    /// `claimsOrEmpty`.
+    public let claims: [Claim]?
+
+    /// Never-nil view of `claims` for the section that lists them.
+    public var claimsOrEmpty: [Claim] { claims ?? [] }
+
     // Warranty activation / extended-cover deadline, on the detail read. The
     // detail endpoint embeds the whole `store.Device`, so the three fields have
     // the same wire shape and rules as their `Device` counterparts:
@@ -688,6 +702,174 @@ public struct WarrantyInput: Encodable, Sendable {
 
     public init(type: WarrantyType, startDate: String, months: Int) {
         self.type = type; self.startDate = startDate; self.months = months
+    }
+}
+
+// MARK: - Warranty claim ("Sửa chữa & bảo hành")
+
+// A claim is what happens **after** a device is marked broken: the ticket, the
+// shop, the diagnosis, whether the warranty paid, and when the machine comes
+// back. It belongs to the **device**, not to a warranty plan: a repair can be
+// paid for out of pocket, and deleting a warranty must not delete the history.
+// `warrantyId` is an optional pointer at the plan invoked, enforced server-side
+// to belong to the same device.
+//
+// One device may have at most one claim in `OPEN` or `IN_REPAIR` at a time. A
+// second one is a **409 `limit_reached`** (lowercase on the wire) — see
+// `ClaimRules.saveFailure`, which is the only supported way to turn that error
+// into copy and a way out.
+
+/// Where a repair is in its life.
+///
+/// The first two are **open** (`ClaimRules.isOpen`) and are the ones the
+/// one-open-per-device rule counts; the last three are **closed**. `closedAt`
+/// is set by the server when a claim reaches a closed status and is never sent
+/// **up** by this client (see `ClaimInput`).
+public enum ClaimStatus: String, Codable, CaseIterable, Sendable {
+    /// Created, but the machine has not been handed over / accepted yet.
+    case OPEN
+    /// The service center has the device and is working on it.
+    case IN_REPAIR
+    /// Finished: repaired, replaced or refunded.
+    case RESOLVED
+    /// The service center refused the repair (out of scope, damage, …).
+    case REJECTED
+    /// The user withdrew the repair.
+    case CANCELLED
+
+    /// User-facing label in the selected language. Mirrors the other domain
+    /// enums in this file; the catalog carries both Vietnamese and English.
+    public var label: String {
+        switch self {
+        case .OPEN:      return L.t("Đang mở")
+        case .IN_REPAIR: return L.t("Đang sửa chữa")
+        case .RESOLVED:  return L.t("Đã xử lý")
+        case .REJECTED:  return L.t("Bị từ chối")
+        case .CANCELLED: return L.t("Đã huỷ")
+        }
+    }
+}
+
+/// One repair claim, exactly as `GET /api/v1/claims` returns it.
+///
+/// ## Dates are calendar days
+///
+/// `openedAt` / `expectedReturnAt` / `closedAt` stay the server's **raw wire
+/// strings**, not `Date`s. Only their calendar day is ever shown, and parsing a
+/// Z-less value as an instant would move the day in a negative-offset zone —
+/// the same rule `Device.soldAt` and `Device.receivedAt` follow. Read them
+/// through `ClaimRules.dayLabel` and never by parsing them here.
+///
+/// `closedAt` is **server-owned**: it is written when the status becomes
+/// `RESOLVED`, `REJECTED` or `CANCELLED`. It is deliberately absent from
+/// `ClaimInput`, so no save from this client can set or clear it.
+///
+/// `coveredByWarranty` is **tri-state**: `nil` = "the service center has not
+/// said / not recorded", `false` = "I paid for it", `true` = "warranty covered
+/// it". `false` is a real answer and must never collapse into `nil`.
+public struct Claim: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let deviceId: String
+    public let warrantyId: String?
+    public let status: ClaimStatus
+    /// The server's date-time wire string; a date-only value (`YYYY-MM-DD`) is
+    /// accepted by the write side and is normal on a claim opened in the past.
+    public let openedAt: String
+    public let expectedReturnAt: String?
+    /// Server-owned. See the type doc.
+    public let closedAt: String?
+    public let ticketNumber: String?
+    public let serviceCenter: String?
+    public let diagnosis: String?
+    public let outcome: String?
+    public let issue: String
+    /// VND; `nil` = not recorded, `0` = a real number (a free repair).
+    public let cost: Int?
+    public let coveredByWarranty: Bool?
+}
+
+/// Body of `POST /api/v1/claims` and `PATCH /api/v1/claims/{id}`.
+///
+/// ## Why the encoder is hand-written
+///
+/// Two rules cannot be expressed by a synthesized `Codable` here:
+///
+/// 1. **`closedAt` must never be sent.** It is server-owned (see `Claim`), so
+///    the key does not exist on this type at all. There is no way for a caller
+///    to include it, even by accident.
+/// 2. **A cleared nullable field must travel as an explicit JSON `null`.** The
+///    synthesized conformance uses `encodeIfPresent` and simply *drops* a `nil`,
+///    which the server cannot distinguish from "this client does not know the
+///    field". For a PATCH — and for the form, which loads the stored claim and
+///    sends it straight back — dropping the key would silently keep a value the
+///    user just cleared. This is the same failure `AttachmentDescriptionInput`
+///    documents; the encoder below writes every nullable key unconditionally.
+///
+/// ## `coveredByWarranty` is tri-state
+///
+/// `nil` is written as an explicit `null` ("not recorded"), `false` as `false`
+/// ("I paid"), `true` as `true`. The distinction between unset and `false`
+/// survives the wire, which is the entire reason this is `Bool?` rather than
+/// `Bool` with a default.
+public struct ClaimInput: Encodable, Sendable {
+    /// Required. A claim always belongs to the device whose detail screen
+    /// created it.
+    public var deviceId: String
+    /// The warranty plan invoked, or `nil` for "no plan / paid out of pocket".
+    /// The server rejects an id belonging to a different device.
+    public var warrantyId: String?
+    public var status: ClaimStatus
+    /// `YYYY-MM-DD` or a full ISO date-time. The form sends the calendar day the
+    /// picker showed, written with `WireDay.string(from:)` so the day cannot
+    /// move with the device's zone.
+    public var openedAt: String
+    public var expectedReturnAt: String?
+    public var ticketNumber: String?
+    public var serviceCenter: String?
+    public var diagnosis: String?
+    /// Free text; the contract does not constrain it to an enum.
+    public var outcome: String?
+    /// Required by the server. The form trims it before sending.
+    public var issue: String
+    /// VND, non-negative. `nil` = not recorded; `0` is a real number.
+    public var cost: Int?
+    /// Tri-state — see the type doc.
+    public var coveredByWarranty: Bool?
+
+    public init(deviceId: String, issue: String, openedAt: String,
+                status: ClaimStatus = .OPEN, warrantyId: String? = nil) {
+        self.deviceId = deviceId
+        self.issue = issue
+        self.openedAt = openedAt
+        self.status = status
+        self.warrantyId = warrantyId
+    }
+
+    // `closedAt` is intentionally missing: the server owns it and sending it is
+    // forbidden by the contract.
+    enum CodingKeys: String, CodingKey {
+        case deviceId, warrantyId, status, openedAt, expectedReturnAt
+        case ticketNumber, serviceCenter, diagnosis, outcome, issue, cost
+        case coveredByWarranty
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Unconditional on purpose: every nullable key below travels as an
+        // explicit JSON null when it is `nil`, which is how the client says
+        // "clear this" instead of "I have never heard of this field".
+        try container.encode(deviceId, forKey: .deviceId)
+        try container.encode(warrantyId, forKey: .warrantyId)
+        try container.encode(status, forKey: .status)
+        try container.encode(openedAt, forKey: .openedAt)
+        try container.encode(expectedReturnAt, forKey: .expectedReturnAt)
+        try container.encode(ticketNumber, forKey: .ticketNumber)
+        try container.encode(serviceCenter, forKey: .serviceCenter)
+        try container.encode(diagnosis, forKey: .diagnosis)
+        try container.encode(outcome, forKey: .outcome)
+        try container.encode(issue, forKey: .issue)
+        try container.encode(cost, forKey: .cost)
+        try container.encode(coveredByWarranty, forKey: .coveredByWarranty)
     }
 }
 

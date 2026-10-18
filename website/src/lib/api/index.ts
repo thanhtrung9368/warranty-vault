@@ -33,6 +33,12 @@ import * as sharesApi from './shares';
 // Warranty service directory for one device (FEATURE_IDEAS #15).
 import * as directoryApi from './directory';
 // AGENT_SHARES_IMPORTS_END
+// AGENT_CLAIMS_IMPORTS_BEGIN
+// Repair / warranty cases (one trip to the shop per claim). The device detail
+// embeds its own claims; these endpoints back the standalone /claims list and
+// every write from the device card.
+import * as claimsApi from './claims';
+// AGENT_CLAIMS_IMPORTS_END
 // AGENT_C_IMPORTS_BEGIN
 import * as subscriptionsApi from './subscriptions';
 import * as wishlistApi from './wishlist';
@@ -62,6 +68,9 @@ export const api = {
   shares: sharesApi,
   directory: directoryApi,
   // AGENT_SHARES_NAMESPACES_END
+  // AGENT_CLAIMS_NAMESPACES_BEGIN
+  claims: claimsApi,
+  // AGENT_CLAIMS_NAMESPACES_END
   // AGENT_C_NAMESPACES_BEGIN
   subscriptions: subscriptionsApi,
   wishlist: wishlistApi,

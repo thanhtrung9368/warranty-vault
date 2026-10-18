@@ -15,6 +15,7 @@ import {
 import { SEARCH_GROUP_LABELS, ATTACHMENT_SEARCH_STATUS_LABELS } from '@/lib/search';
 import { PASTE_FIELD_LABELS } from '@/lib/device-paste';
 import { SHARE_FAILURE_MESSAGES } from '@/lib/share-target';
+import { CLAIM_COVERAGE_LABELS, CLAIM_STATUS_LABELS } from '@/lib/claims';
 
 // Every string that is WRAPPED must also be REGISTERED.
 //
@@ -166,6 +167,11 @@ describe('every enum/option label is registered', () => {
     // spreading keeps them in the same "every value is registered" check as the
     // enum label maps below.
     SHARE_FAILURE_MESSAGES: { ...SHARE_FAILURE_MESSAGES },
+    // Warranty claims. Status and tri-state coverage are looked up dynamically
+    // (`claimStatusLabel` / `claimCoverageLabel`), so both maps are listed here
+    // to keep every value registered and translated like the enum labels.
+    CLAIM_STATUS_LABELS,
+    CLAIM_COVERAGE_LABELS,
   };
 
   it('registers every value of every label map', () => {

@@ -51,6 +51,20 @@ FROM "Attachment" a
 WHERE a."userId" = $1 AND a."deviceId" IS NULL
 ORDER BY a."uploadedAt" ASC;
 
+-- name: BackupListClaimsForUser :many
+-- Warranty claims (migration 0021). Exported as the TOP-LEVEL `claims[]` array,
+-- not nested under a device: a claim carries its own "deviceId" and may or may
+-- not reference a warranty, so nesting it would duplicate that id and make the
+-- shape depend on whether the device was exported.
+--
+-- Ownership is joined through Device (a claim has no userId column of its own).
+-- Ordered oldest-first like the other child arrays so the payload is stable.
+SELECT c.*
+FROM "Claim" c
+JOIN "Device" d ON d.id = c."deviceId"
+WHERE d."userId" = $1
+ORDER BY c."openedAt" ASC, c."createdAt" ASC;
+
 -- name: BackupListWishlistForUser :many
 SELECT *
 FROM "WishlistItem"
@@ -84,6 +98,15 @@ ORDER BY p."paidAt" ASC;
 -- (they belong to no device and the old join could not see them).
 DELETE FROM "Attachment"
 WHERE "userId" = $1;
+
+-- name: BackupDeleteClaimsForUser :exec
+-- Replace-mode wipe (migration 0021). Claims are deleted FIRST, before
+-- warranties and devices: their "warrantyId" FK is ON DELETE SET NULL and their
+-- "deviceId" FK is ON DELETE CASCADE, so deleting them explicitly keeps the
+-- wipe order obvious instead of relying on cascade side effects.
+DELETE FROM "Claim" c
+USING "Device" d
+WHERE c."deviceId" = d.id AND d."userId" = $1;
 
 -- name: BackupDeleteRemindersForUser :exec
 DELETE FROM "Reminder" r
@@ -195,6 +218,21 @@ INSERT INTO "Attachment" (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 );
 
+-- name: BackupInsertClaim :exec
+-- Claims (migration 0021) preserve their ids, both timestamps and the
+-- server-managed closedAt so a restore does not rewrite the repair history.
+-- The service resolves a "warrantyId" that does not belong to the claim's
+-- device to NULL before this runs (the FK alone cannot express that rule), and
+-- pre-validates the single-open rule because the partial unique index would
+-- otherwise abort the whole import with a 23505.
+INSERT INTO "Claim" (
+    id, "deviceId", "warrantyId", status, "openedAt", "expectedReturnAt",
+    "closedAt", "ticketNumber", "serviceCenter", issue, diagnosis, outcome,
+    cost, "coveredByWarranty", "createdAt", "updatedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+);
+
 -- name: BackupInsertWishlistItem :exec
 INSERT INTO "WishlistItem" (
     id, "userId", name, category, brand, "initialPrice", "currentPrice",
@@ -288,6 +326,16 @@ SELECT a.id
 FROM "Attachment" a
 WHERE a.id = ANY(sqlc.arg('ids')::text[])
   AND a."userId" <> sqlc.arg('userId')::text;
+
+-- name: BackupFindForeignClaimIDs :many
+-- Claims (migration 0021) have global ids too; ownership is joined through
+-- Device. Without this probe a claim from another account's backup would fail
+-- the insert on the primary key and surface as a 500.
+SELECT c.id
+FROM "Claim" c
+JOIN "Device" d ON d.id = c."deviceId"
+WHERE c.id = ANY(sqlc.arg('ids')::text[])
+  AND d."userId" <> sqlc.arg('userId')::text;
 
 -- name: BackupFindForeignWishlistIDs :many
 SELECT id FROM "WishlistItem"

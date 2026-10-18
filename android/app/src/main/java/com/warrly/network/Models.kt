@@ -454,6 +454,21 @@ data class Device(
     val effectiveWarrantyEnd: String? = null,
     /** `GET /api/v1/devices` only — the list projection's attachment count. */
     val attachmentCount: Int = 0,
+    /**
+     * `GET /api/v1/devices/{id}` only (`openapi.yaml` `DeviceDetail.claims`):
+     * the device's repair tickets, newest state included.
+     *
+     * The **list** endpoint does not carry them, so this defaults to empty there
+     * and the device-list screen must not read it as "this device has no
+     * claims". The detail screen is the anchor: it is the one payload that says
+     * whether an open repair exists — which is what the BROKEN nudge in
+     * `ui/screens/devices/ClaimRules.kt` needs.
+     *
+     * A write response (`POST`/`PATCH /api/v1/devices/{id}`) is a bare device
+     * row and omits the array; `DeviceDetailViewModel.replaceDevice` carries the
+     * loaded list over for the same reason it does warranties.
+     */
+    val claims: List<Claim> = emptyList(),
 )
 
 @Serializable
@@ -701,6 +716,138 @@ data class DeviceInput(
     val warrantyPhone: String? = null,
     val warrantyNotes: String? = null,
     val fromWishlistId: String? = null,
+)
+
+// ---- Warranty claims (GET/POST/PATCH/DELETE /api/v1/claims) ----
+//
+// What happens AFTER a device breaks. Before this model existed, `BROKEN` was a
+// dead end: the status said something was wrong, and there was nowhere to put
+// the ticket number, the shop, the diagnosis or what the warranty actually paid.
+//
+// Three contract facts drive the UI and are easy to get wrong:
+//
+//  * **`deviceId` is required** — a claim belongs to exactly one device, which
+//    is why the only list surface in the app is the device detail (see
+//    `ui/screens/devices/DeviceClaimsSection.kt`).
+//  * **`closedAt` is set by the server.** It is deliberately absent from
+//    [ClaimInput]: sending it would be a contract violation, and the closing
+//    date is the server's record of when the status became terminal.
+//  * **One OPEN/IN_REPAIR claim per device.** A second create is
+//    **409 `limit_reached`** (lowercase on the wire, compared case-insensitively
+//    in `ui/screens/devices/ClaimRules.kt`, exactly like `InboxRules` does for
+//    the attachment cap). The client does not pre-block the attempt: the
+//    server's 409 carries the constraint, and the screen offers a way to the
+//    ticket that is already open.
+
+/**
+ * `OPEN | IN_REPAIR | RESOLVED | REJECTED | CANCELLED` (openapi `Claim.status`).
+ *
+ * `OPEN`/`IN_REPAIR` are the **live** pair — the ones the one-per-device rule
+ * applies to. The other three are terminal; `closedAt` is non-null once one of
+ * them is stored (the server sets it; the client never sends it).
+ */
+@Serializable
+enum class ClaimStatus(@StringRes val labelRes: Int) {
+    OPEN(R.string.enum_claim_status_open),
+    IN_REPAIR(R.string.enum_claim_status_in_repair),
+    RESOLVED(R.string.enum_claim_status_resolved),
+    REJECTED(R.string.enum_claim_status_rejected),
+    CANCELLED(R.string.enum_claim_status_cancelled),
+}
+
+/**
+ * One repair ticket (openapi `Claim`).
+ *
+ * Dates use the file's existing convention: a naive-UTC timestamp such as
+ * `"2026-03-02T00:00:00"` with **no** `Z`; a date-only `"2026-03-02"` is also
+ * accepted by the API. Only the date half is ever read (`take(10)` /
+ * [com.warrly.ui.screens.vietnamDate]), never parsed as an instant.
+ *
+ * `cost` is VND and **`Int`**, like every other per-row money field in this
+ * file. `null` means "not recorded" and is not the same as `0` (a real free
+ * repair); negative values are rejected by the server and can never be typed in
+ * the form (digit-only input).
+ *
+ * `coveredByWarranty` is **tri-state**: `true` / `false` are facts the user
+ * recorded, `null` means unknown. Because `ApiClient.json` has
+ * `explicitNulls = false`, a `null` in [ClaimInput] is dropped from the request
+ * instead of being sent as an explicit `null` — which is exactly the "unknown"
+ * state the contract describes.
+ */
+@Serializable
+data class Claim(
+    val id: String,
+    val deviceId: String,
+    /** Must belong to [deviceId]; `null` = the claim is not tied to a plan. */
+    val warrantyId: String? = null,
+    val status: ClaimStatus = ClaimStatus.OPEN,
+    val openedAt: String,
+    val expectedReturnAt: String? = null,
+    /** Server-set. Read-only on the client; never present in [ClaimInput]. */
+    val closedAt: String? = null,
+    val ticketNumber: String? = null,
+    /** The shop / service centre, in the user's own words. */
+    val serviceCenter: String? = null,
+    val diagnosis: String? = null,
+    /** What happened in the end, in the user's own words. */
+    val outcome: String? = null,
+    /** Required by the contract: what went wrong in the first place. */
+    val issue: String,
+    /** VND. `null` = not recorded; `0` is a real amount (a free repair). */
+    val cost: Int? = null,
+    /** `null` = unknown, which is different from an explicit "No". */
+    val coveredByWarranty: Boolean? = null,
+    /**
+     * Server bookkeeping (`createdAt` / `updatedAt` in the response; the frozen
+     * field table in the brief lists only the user-facing fields). The app does
+     * not display them today, but they are part of the payload the server always
+     * sends, and a stable tie-breaker for "same openedAt" rows. Defaulted so a
+     * partial payload and every existing test fixture keep decoding.
+     */
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+)
+
+/** `GET /api/v1/claims` (optional `?deviceId=` / `?status=` filters). */
+@Serializable
+data class ClaimListResponse(val claims: List<Claim> = emptyList())
+
+/** `{"claim": {...}}` — the POST / PATCH / GET-by-id envelope. */
+@Serializable
+data class ClaimResponse(val claim: Claim)
+
+/**
+ * Body of `POST /api/v1/claims` and `PATCH /api/v1/claims/{id}`.
+ *
+ * Mirrors exactly the writable half of [Claim]. **No `closedAt`**: the contract
+ * makes it server-owned, and the form never exposes it. `status` and the
+ * nullable text fields are always sent (`encodeDefaults = true` sends the
+ * status; a `null` text field is dropped by `explicitNulls = false`, which the
+ * contract reads as "not recorded").
+ *
+ * `issue` is non-nullable because the API requires it. The form keeps Save
+ * disabled until it is non-blank.
+ *
+ * `warrantyId` must name a warranty that belongs to [deviceId] — the form only
+ * offers that device's plans (see `ClaimEditSheet`).
+ */
+@Serializable
+data class ClaimInput(
+    val deviceId: String,
+    val warrantyId: String? = null,
+    val status: ClaimStatus = ClaimStatus.OPEN,
+    /** `YYYY-MM-DD` (a full date-time is also accepted by the server). */
+    val openedAt: String,
+    val expectedReturnAt: String? = null,
+    val ticketNumber: String? = null,
+    val serviceCenter: String? = null,
+    val diagnosis: String? = null,
+    val outcome: String? = null,
+    val issue: String,
+    /** VND, non-negative. `null` = not recorded; `0` is a real amount. */
+    val cost: Int? = null,
+    /** Tri-state; `null` is dropped from the JSON and means "unknown". */
+    val coveredByWarranty: Boolean? = null,
 )
 
 // ---- AI receipt OCR ----

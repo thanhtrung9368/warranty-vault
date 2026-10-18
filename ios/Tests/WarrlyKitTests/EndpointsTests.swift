@@ -667,6 +667,156 @@ final class EndpointsTests: KitTestCase {
         XCTAssertTrue(body["description"] is NSNull)
     }
 
+    // MARK: - Claims ("Sửa chữa & bảo hành")
+
+    /// One claim as the server returns it. Kept as a raw literal so the tests
+    /// assert the wire shape (`closedAt` present on reads, `coveredByWarranty`
+    /// true) rather than a Swift-built object.
+    private static let claimJSON = #"""
+    {
+      "id": "claim_1",
+      "deviceId": "dev_1",
+      "warrantyId": "war_1",
+      "status": "OPEN",
+      "openedAt": "2026-03-02T00:00:00Z",
+      "expectedReturnAt": "2026-03-10",
+      "closedAt": null,
+      "ticketNumber": "BH-2026-0312",
+      "serviceCenter": "FPT Shop Quận 1",
+      "diagnosis": "Màn hình lỗi",
+      "outcome": null,
+      "issue": "Màn hình bị sọc",
+      "cost": 500000,
+      "coveredByWarranty": true
+    }
+    """#
+
+    func testListClaimsSendsTheDeviceAndStatusFilters() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"claims": [\#(Self.claimJSON)]}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let claims = try await client.listClaims(
+            filter: .init(deviceId: "dev_1", status: .OPEN)
+        )
+
+        XCTAssertEqual(claims.map(\.id), ["claim_1"])
+        XCTAssertEqual(claims.first?.status, .OPEN)
+        XCTAssertEqual(claims.first?.issue, "Màn hình bị sọc")
+        XCTAssertEqual(claims.first?.ticketNumber, "BH-2026-0312")
+        XCTAssertNil(claims.first?.closedAt)
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/claims")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        XCTAssertEqual(queryItems(of: request), ["deviceId": "dev_1", "status": "OPEN"])
+    }
+
+    func testListClaimsWithoutFiltersSendsNoQueryAndAcceptsABareArray() async throws {
+        // The contract does not pin the envelope. A bare array is as valid a
+        // `GET /claims` answer as `{"claims": [...]}`, and decoding only one of
+        // them would make the whole feature look empty for half the servers.
+        StubURLProtocol.install(.json("[\(Self.claimJSON)]"))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let claims = try await client.listClaims()
+
+        XCTAssertEqual(claims.map(\.id), ["claim_1"])
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.url?.path, "/api/v1/claims")
+        XCTAssertNil(request.url?.query, "no filters means no query string")
+    }
+
+    func testCreateClaimSendsEveryFieldAndNeverClosedAt() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"claim": \#(Self.claimJSON)}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        var input = ClaimInput(deviceId: "dev_1",
+                               issue: "Màn hình bị sọc",
+                               openedAt: "2026-03-02",
+                               status: .OPEN,
+                               warrantyId: "war_1")
+        input.expectedReturnAt = "2026-03-10"
+        input.ticketNumber = "BH-2026-0312"
+        input.serviceCenter = "FPT Shop Quận 1"
+        input.diagnosis = "Màn hình lỗi"
+        input.cost = 500_000
+        input.coveredByWarranty = true
+
+        let created = try await client.createClaim(input)
+        XCTAssertEqual(created?.id, "claim_1")
+        XCTAssertEqual(created?.deviceId, "dev_1")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/claims")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        let body = try request.jsonBody()
+        XCTAssertEqual(Set(body.keys), [
+            "deviceId", "warrantyId", "status", "openedAt", "expectedReturnAt",
+            "ticketNumber", "serviceCenter", "diagnosis", "outcome", "issue",
+            "cost", "coveredByWarranty",
+        ])
+        XCTAssertNil(body["closedAt"], "closedAt is server-owned and never sent")
+        XCTAssertEqual(body["deviceId"] as? String, "dev_1")
+        XCTAssertEqual(body["warrantyId"] as? String, "war_1")
+        XCTAssertEqual(body["openedAt"] as? String, "2026-03-02")
+        XCTAssertEqual(body["issue"] as? String, "Màn hình bị sọc")
+        XCTAssertEqual(body["cost"] as? Int, 500_000)
+        XCTAssertEqual(body["coveredByWarranty"] as? Bool, true)
+        XCTAssertTrue(body["outcome"] is NSNull, "cleared optional fields travel as null")
+    }
+
+    func testGetUpdateAndDeleteClaimUseTheClaimPath() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+
+        StubURLProtocol.install(.json(Self.claimJSON))
+        let fetched = try await client.getClaim(id: "claim_1")
+        XCTAssertEqual(fetched.id, "claim_1")
+        var request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/claims/claim_1")
+
+        StubURLProtocol.install(.empty(statusCode: 204))
+        let updated = try await client.updateClaim(
+            id: "claim_1",
+            ClaimInput(deviceId: "dev_1", issue: "Màn hình bị sọc",
+                       openedAt: "2026-03-02", status: .RESOLVED)
+        )
+        XCTAssertNil(updated, "204 carries no claim; the save still succeeded")
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "PATCH")
+        XCTAssertEqual(request.url?.path, "/api/v1/claims/claim_1")
+        XCTAssertEqual(try request.jsonBody()["status"] as? String, "RESOLVED")
+
+        StubURLProtocol.install(.empty(statusCode: 204))
+        try await client.deleteClaim(id: "claim_1")
+        request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.path, "/api/v1/claims/claim_1")
+    }
+
+    func testCreateClaimLimitReachedReachesTheFormAsTheOpenClaimConflict() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"error": "limit_reached", "message": "Thiết bị đã có lần sửa chữa đang mở"}
+        """#, statusCode: 409))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let error = await captureAPIError {
+            try await client.createClaim(
+                ClaimInput(deviceId: "dev_1", issue: "Lỗi nguồn", openedAt: "2026-03-02")
+            )
+        }
+
+        let failure = ClaimRules.saveFailure(try XCTUnwrap(error))
+        XCTAssertEqual(failure, .openClaimExists,
+                       "the 409 must be recoverable, not a generic error")
+    }
+
     // MARK: - Capture-first inbox
 
     func testInboxReadsUnfiledAttachmentsNewestFirst() async throws {

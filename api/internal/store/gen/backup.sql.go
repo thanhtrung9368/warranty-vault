@@ -25,6 +25,21 @@ func (q *Queries) BackupDeleteAttachmentsForUser(ctx context.Context, userid str
 	return err
 }
 
+const backupDeleteClaimsForUser = `-- name: BackupDeleteClaimsForUser :exec
+DELETE FROM "Claim" c
+USING "Device" d
+WHERE c."deviceId" = d.id AND d."userId" = $1
+`
+
+// Replace-mode wipe (migration 0021). Claims are deleted FIRST, before
+// warranties and devices: their "warrantyId" FK is ON DELETE SET NULL and their
+// "deviceId" FK is ON DELETE CASCADE, so deleting them explicitly keeps the
+// wipe order obvious instead of relying on cascade side effects.
+func (q *Queries) BackupDeleteClaimsForUser(ctx context.Context, userid string) error {
+	_, err := q.db.Exec(ctx, backupDeleteClaimsForUser, userid)
+	return err
+}
+
 const backupDeleteDevicesForUser = `-- name: BackupDeleteDevicesForUser :exec
 DELETE FROM "Device"
 WHERE "userId" = $1
@@ -117,6 +132,42 @@ type BackupFindForeignAttachmentIDsParams struct {
 // old query would have missed it and the insert would fail on the primary key.
 func (q *Queries) BackupFindForeignAttachmentIDs(ctx context.Context, arg BackupFindForeignAttachmentIDsParams) ([]string, error) {
 	rows, err := q.db.Query(ctx, backupFindForeignAttachmentIDs, arg.Ids, arg.UserId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupFindForeignClaimIDs = `-- name: BackupFindForeignClaimIDs :many
+SELECT c.id
+FROM "Claim" c
+JOIN "Device" d ON d.id = c."deviceId"
+WHERE c.id = ANY($1::text[])
+  AND d."userId" <> $2::text
+`
+
+type BackupFindForeignClaimIDsParams struct {
+	Ids    []string `json:"ids"`
+	UserId string   `json:"userId"`
+}
+
+// Claims (migration 0021) have global ids too; ownership is joined through
+// Device. Without this probe a claim from another account's backup would fail
+// the insert on the primary key and surface as a 500.
+func (q *Queries) BackupFindForeignClaimIDs(ctx context.Context, arg BackupFindForeignClaimIDsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, backupFindForeignClaimIDs, arg.Ids, arg.UserId)
 	if err != nil {
 		return nil, err
 	}
@@ -411,6 +462,63 @@ func (q *Queries) BackupInsertAttachment(ctx context.Context, arg BackupInsertAt
 		arg.WrappedKey,
 		arg.Description,
 		arg.UploadedAt,
+	)
+	return err
+}
+
+const backupInsertClaim = `-- name: BackupInsertClaim :exec
+INSERT INTO "Claim" (
+    id, "deviceId", "warrantyId", status, "openedAt", "expectedReturnAt",
+    "closedAt", "ticketNumber", "serviceCenter", issue, diagnosis, outcome,
+    cost, "coveredByWarranty", "createdAt", "updatedAt"
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+)
+`
+
+type BackupInsertClaimParams struct {
+	ID                string           `json:"id"`
+	DeviceId          string           `json:"deviceId"`
+	WarrantyId        *string          `json:"warrantyId"`
+	Status            string           `json:"status"`
+	OpenedAt          pgtype.Timestamp `json:"openedAt"`
+	ExpectedReturnAt  pgtype.Timestamp `json:"expectedReturnAt"`
+	ClosedAt          pgtype.Timestamp `json:"closedAt"`
+	TicketNumber      *string          `json:"ticketNumber"`
+	ServiceCenter     *string          `json:"serviceCenter"`
+	Issue             string           `json:"issue"`
+	Diagnosis         *string          `json:"diagnosis"`
+	Outcome           *string          `json:"outcome"`
+	Cost              *int32           `json:"cost"`
+	CoveredByWarranty *bool            `json:"coveredByWarranty"`
+	CreatedAt         pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
+}
+
+// Claims (migration 0021) preserve their ids, both timestamps and the
+// server-managed closedAt so a restore does not rewrite the repair history.
+// The service resolves a "warrantyId" that does not belong to the claim's
+// device to NULL before this runs (the FK alone cannot express that rule), and
+// pre-validates the single-open rule because the partial unique index would
+// otherwise abort the whole import with a 23505.
+func (q *Queries) BackupInsertClaim(ctx context.Context, arg BackupInsertClaimParams) error {
+	_, err := q.db.Exec(ctx, backupInsertClaim,
+		arg.ID,
+		arg.DeviceId,
+		arg.WarrantyId,
+		arg.Status,
+		arg.OpenedAt,
+		arg.ExpectedReturnAt,
+		arg.ClosedAt,
+		arg.TicketNumber,
+		arg.ServiceCenter,
+		arg.Issue,
+		arg.Diagnosis,
+		arg.Outcome,
+		arg.Cost,
+		arg.CoveredByWarranty,
+		arg.CreatedAt,
+		arg.UpdatedAt,
 	)
 	return err
 }
@@ -857,6 +965,58 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 			&i.UploadedAt,
 			&i.UserId,
 			&i.ExtractedText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backupListClaimsForUser = `-- name: BackupListClaimsForUser :many
+SELECT c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expectedReturnAt", c."closedAt", c."ticketNumber", c."serviceCenter", c.issue, c.diagnosis, c.outcome, c.cost, c."coveredByWarranty", c."createdAt", c."updatedAt"
+FROM "Claim" c
+JOIN "Device" d ON d.id = c."deviceId"
+WHERE d."userId" = $1
+ORDER BY c."openedAt" ASC, c."createdAt" ASC
+`
+
+// Warranty claims (migration 0021). Exported as the TOP-LEVEL `claims[]` array,
+// not nested under a device: a claim carries its own "deviceId" and may or may
+// not reference a warranty, so nesting it would duplicate that id and make the
+// shape depend on whether the device was exported.
+//
+// Ownership is joined through Device (a claim has no userId column of its own).
+// Ordered oldest-first like the other child arrays so the payload is stable.
+func (q *Queries) BackupListClaimsForUser(ctx context.Context, userid string) ([]Claim, error) {
+	rows, err := q.db.Query(ctx, backupListClaimsForUser, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Claim
+	for rows.Next() {
+		var i Claim
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.WarrantyId,
+			&i.Status,
+			&i.OpenedAt,
+			&i.ExpectedReturnAt,
+			&i.ClosedAt,
+			&i.TicketNumber,
+			&i.ServiceCenter,
+			&i.Issue,
+			&i.Diagnosis,
+			&i.Outcome,
+			&i.Cost,
+			&i.CoveredByWarranty,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

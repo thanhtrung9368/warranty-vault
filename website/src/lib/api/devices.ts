@@ -19,6 +19,7 @@
 
 import { apiFetch, type ApiResult } from './client';
 import { normalizeDeviceWarnings } from '@/lib/device-warnings';
+import type { Claim } from './claims';
 
 // ---- Filter / input shapes ---------------------------------------------------
 
@@ -237,6 +238,10 @@ export type DeviceDetail = Device & {
   returnDeadline: string | null;
   warranties: WarrantyWithReminders[];
   attachments: AttachmentMeta[];
+  // Repair cases for this device, newest/open first (server order). The
+  // contract says the key is always present; it is typed optional so an older
+  // server cannot crash a page that already has the rest of the detail.
+  claims?: Claim[];
 };
 
 // Advisory, NON-BLOCKING findings attached to a serial number (openapi

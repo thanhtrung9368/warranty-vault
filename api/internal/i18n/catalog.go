@@ -1425,4 +1425,86 @@ var messages = map[string]message{
 		vi: "Nội dung base64 không hợp lệ",
 		en: "Invalid base64 attachment content",
 	},
+
+	// ── Warranty claims (migration 0021, internal/services/claims.go,
+	// internal/handlers/claims.go).
+	//
+	// Every string below is a Vietnamese SOURCE text and its own catalog key, so
+	// the service can build the error with `i18n.Text`/`i18n.T` and the handler
+	// renders it in the request's language. "Trạng thái không hợp lệ" and
+	// "Chi phí không hợp lệ" are deliberately NOT repeated here: the claims
+	// validator reuses the device/warranty entries for the same sentences.
+	"Thiết bị bắt buộc": {
+		vi: "Thiết bị bắt buộc",
+		en: "Device is required",
+	},
+	"Nội dung lỗi bắt buộc": {
+		vi: "Nội dung lỗi bắt buộc",
+		en: "Issue description is required",
+	},
+	"Nội dung lỗi tối đa %d ký tự": {
+		vi: "Nội dung lỗi tối đa %d ký tự",
+		en: "Issue description must be at most %d characters",
+	},
+	"Chẩn đoán tối đa %d ký tự": {
+		vi: "Chẩn đoán tối đa %d ký tự",
+		en: "Diagnosis must be at most %d characters",
+	},
+	"Kết quả tối đa %d ký tự": {
+		vi: "Kết quả tối đa %d ký tự",
+		en: "Outcome must be at most %d characters",
+	},
+	"Mã phiếu tối đa %d ký tự": {
+		vi: "Mã phiếu tối đa %d ký tự",
+		en: "Ticket number must be at most %d characters",
+	},
+	"Trung tâm bảo hành tối đa %d ký tự": {
+		vi: "Trung tâm bảo hành tối đa %d ký tự",
+		en: "Service center must be at most %d characters",
+	},
+	"Ngày mở yêu cầu không hợp lệ": {
+		vi: "Ngày mở yêu cầu không hợp lệ",
+		en: "Invalid claim opening date",
+	},
+	"Ngày trả dự kiến không hợp lệ": {
+		vi: "Ngày trả dự kiến không hợp lệ",
+		en: "Invalid expected return date",
+	},
+	"Không tìm thấy yêu cầu bảo hành": {
+		vi: "Không tìm thấy yêu cầu bảo hành",
+		en: "Claim not found",
+	},
+	"Thiếu id yêu cầu bảo hành": {
+		vi: "Thiếu id yêu cầu bảo hành",
+		en: "Missing claim id",
+	},
+	"Đã đạt giới hạn %d yêu cầu bảo hành.": {
+		vi: "Đã đạt giới hạn %d yêu cầu bảo hành.",
+		en: "You have reached the limit of %d claims.",
+	},
+	"Thiết bị đã có yêu cầu bảo hành đang mở. Hãy đóng yêu cầu cũ trước khi tạo yêu cầu mới.": {
+		vi: "Thiết bị đã có yêu cầu bảo hành đang mở. Hãy đóng yêu cầu cũ trước khi tạo yêu cầu mới.",
+		en: "This device already has an open claim. Close the existing claim before creating a new one.",
+	},
+	"Gói bảo hành không thuộc thiết bị này": {
+		vi: "Gói bảo hành không thuộc thiết bị này",
+		en: "That warranty does not belong to this device",
+	},
+	// Backup copy (internal/services/backup.go, backup_ids.go).
+	"yêu cầu bảo hành": {
+		vi: "yêu cầu bảo hành",
+		en: "claim",
+	},
+	"Bản sao lưu có nhiều hơn một yêu cầu bảo hành đang mở cho thiết bị \"%s\". Mỗi thiết bị chỉ được có một yêu cầu đang mở.": {
+		vi: "Bản sao lưu có nhiều hơn một yêu cầu bảo hành đang mở cho thiết bị \"%s\". Mỗi thiết bị chỉ được có một yêu cầu đang mở.",
+		en: "The backup has more than one open claim for device \"%s\". A device can only have one open claim.",
+	},
+	"Không thể khôi phục yêu cầu bảo hành cho thiết bị \"%s\": thiết bị đã có một yêu cầu đang mở khác.": {
+		vi: "Không thể khôi phục yêu cầu bảo hành cho thiết bị \"%s\": thiết bị đã có một yêu cầu đang mở khác.",
+		en: "Cannot restore the claim for device \"%s\": the device already has another open claim.",
+	},
+	"Đã đạt giới hạn %d yêu cầu bảo hành khi khôi phục. Xoá bớt yêu cầu cũ rồi thử lại.": {
+		vi: "Đã đạt giới hạn %d yêu cầu bảo hành khi khôi phục. Xoá bớt yêu cầu cũ rồi thử lại.",
+		en: "Restoring this backup would exceed the limit of %d claims. Delete some old claims and try again.",
+	},
 }

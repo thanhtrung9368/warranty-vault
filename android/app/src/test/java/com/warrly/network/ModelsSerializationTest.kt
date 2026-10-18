@@ -535,6 +535,15 @@ class ModelsSerializationTest {
         assertLabel(WishlistStatus.PURCHASED.labelRes, "Đã mua", "Purchased")
     }
 
+    @Test
+    fun claimStatus_labelsAreExactInBothLanguages() {
+        assertLabel(ClaimStatus.OPEN.labelRes, "Đang mở", "Open")
+        assertLabel(ClaimStatus.IN_REPAIR.labelRes, "Đang sửa", "In repair")
+        assertLabel(ClaimStatus.RESOLVED.labelRes, "Đã xử lý xong", "Resolved")
+        assertLabel(ClaimStatus.REJECTED.labelRes, "Bị từ chối", "Rejected")
+        assertLabel(ClaimStatus.CANCELLED.labelRes, "Đã huỷ", "Cancelled")
+    }
+
     /**
      * Every enum member resolves in **both** catalogs. `StringResourceParityTest`
      * proves the two files have the same keys; this proves the Kotlin side
@@ -546,6 +555,7 @@ class ModelsSerializationTest {
     fun everyEnumLabelResolvesInBothLanguages() {
         val ids = DeviceStatus.entries.map { it.labelRes } +
             WarrantyType.entries.map { it.labelRes } +
+            ClaimStatus.entries.map { it.labelRes } +
             SubscriptionStatus.entries.map { it.labelRes } +
             BillingCycle.entries.map { it.labelRes } +
             WishlistPriority.entries.map { it.labelRes } +

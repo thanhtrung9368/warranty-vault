@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Plus,
   Zap,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import {
 } from '@/lib/subscription-types';
 import { WISHLIST_ACTIVE_STATUSES } from '@/lib/wishlist-types';
 import { requireUser } from '@/lib/auth';
+import { brokenDevicesWithoutOpenClaim } from '@/lib/claims';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
@@ -208,15 +210,26 @@ async function SectionCard({
 export default async function DashboardPage() {
   const user = await requireUser();
   const { locale, t } = await getI18n();
-  const [devicesRes, wishlistRes, subsRes] = await Promise.all([
+  const [devicesRes, wishlistRes, subsRes, claimsRes] = await Promise.all([
     api.devices.list(),
     api.wishlist.list({ status: 'ALL' }),
     api.subscriptions.list({ status: 'ALL' }),
+    // One extra read powers the "broken but no repair case" nudge below. A
+    // failed read leaves the nudge out instead of breaking the dashboard.
+    api.claims.list(),
   ]);
-  const stats = computeDeviceStats(devicesRes.ok ? devicesRes.data : []);
+  const devices = devicesRes.ok ? devicesRes.data : [];
+  const stats = computeDeviceStats(devices);
   const wishlist = computeWishlistTotals(wishlistRes.ok ? wishlistRes.data.items : []);
   const subs = computeSubscriptionTotals(
     subsRes.ok ? subsRes.data.subscriptions : [],
+  );
+  // The dead end this feature removes, surfaced ONCE on the dashboard: a device
+  // marked BROKEN with no OPEN/IN_REPAIR case. Non-BROKEN devices are never
+  // returned, so this cannot become a wall of alerts.
+  const brokenWithoutClaim = brokenDevicesWithoutOpenClaim(
+    devices,
+    claimsRes.ok ? claimsRes.data : [],
   );
 
   const cards: StatCardProps[] = [
@@ -270,6 +283,56 @@ export default async function DashboardPage() {
           <StatCard key={c.label} {...c} />
         ))}
       </div>
+
+      {/* The "Hỏng" dead end, nudged once and only when it is real: a device
+          marked BROKEN with no OPEN/IN_REPAIR case. Capped to four shortcuts
+          plus a link to the broken-device filter; it never becomes a list of
+          every alert in the account. */}
+      {brokenWithoutClaim.length > 0 && (
+        <div className="rounded-[var(--radius)] border-[1.5px] border-amber-ink/25 bg-amber-soft p-5">
+          <div className="flex flex-wrap items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-amber-ink">
+              <Wrench className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-lg font-bold tracking-tight text-amber-ink">
+                {t('{count} thiết bị đang hỏng mà chưa có phiếu sửa chữa.', {
+                  count: brokenWithoutClaim.length,
+                })}
+              </h2>
+              <p className="mt-0.5 text-sm text-amber-ink/85">
+                {t('Tạo phiếu để ghi lại nơi sửa, số phiếu và chi phí.')}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {brokenWithoutClaim.slice(0, 4).map((device) => (
+                  <Link
+                    key={device.id}
+                    href={`/devices/${device.id}#claims`}
+                    className="inline-flex max-w-full items-center gap-2 rounded-pill border-[1.5px] border-amber-ink/25 bg-card px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-surface-2"
+                  >
+                    <CategoryIconBadge category={device.category} size="sm" />
+                    <span className="truncate">{device.name}</span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  </Link>
+                ))}
+                {brokenWithoutClaim.length > 4 && (
+                  <span className="inline-flex items-center px-1 text-xs font-semibold text-amber-ink">
+                    {t('và {count} thiết bị khác', {
+                      count: brokenWithoutClaim.length - 4,
+                    })}
+                  </span>
+                )}
+                <Link
+                  href="/devices?status=BROKEN"
+                  className="inline-flex items-center gap-1 rounded-pill px-2 py-1.5 text-xs font-bold text-amber-ink underline underline-offset-2"
+                >
+                  {t('Xem thiết bị đang hỏng')}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main grid — section cards */}
       <div className="grid gap-4 lg:grid-cols-2">

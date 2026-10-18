@@ -24,6 +24,7 @@ import { system } from './system';
 import { leadDays } from './lead-days';
 import { handover } from './handover';
 import { inbox } from './inbox';
+import { claims } from './claims';
 
 /** Domain file name → its catalog. `system` is the API/lib layer, not a page. */
 export const catalogs: Record<string, Catalog> = {
@@ -40,6 +41,7 @@ export const catalogs: Record<string, Catalog> = {
   leadDays,
   handover,
   inbox,
+  claims,
 };
 
 export type CatalogConflict = {

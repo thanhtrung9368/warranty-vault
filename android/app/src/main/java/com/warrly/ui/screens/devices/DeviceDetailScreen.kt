@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,6 +68,7 @@ import com.warrly.R
 import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
+import com.warrly.network.Claim
 import com.warrly.network.Device
 import com.warrly.network.DeviceWarning
 import com.warrly.network.Warranty
@@ -129,6 +131,11 @@ class DeviceDetailViewModel(
         _state.value = State.Loaded(
             device.copy(
                 warranties = device.warranties.ifEmpty { current?.warranties ?: emptyList() },
+                // `claims` is the same kind of detail-only projection: the bare
+                // device row returned by PATCH does not carry it. Dropping the
+                // loaded list here would make the whole "Sửa chữa & bảo hành"
+                // section — and the BROKEN nudge — vanish after an edit.
+                claims = device.claims.ifEmpty { current?.claims ?: emptyList() },
                 effectiveWarrantyEnd = device.effectiveWarrantyEnd
                     ?: current?.effectiveWarrantyEnd,
                 // Derived server-side, so a write response never carries it — but
@@ -183,9 +190,27 @@ fun DeviceDetailScreen(
     // saved, so they are informational and dismissible.
     var savedWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
 
+    // Warranty claims. The repair ticket sheet is opened from the section on
+    // this screen; `pendingClaim` holds the ticket found through a 409 that the
+    // loaded device payload did not know about yet, so the edit sheet still has
+    // the row it was asked to open.
+    var showAddClaim by rememberSaveable { mutableStateOf(false) }
+    var editingClaimId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deletingClaimId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingClaim by remember { mutableStateOf<Claim?>(null) }
+    var claimsError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(deviceId) { vm.load() }
 
     val deviceLoaded = (state as? DeviceDetailViewModel.State.Loaded)?.device
+    val editingClaim = editingClaimId?.let { id ->
+        deviceLoaded?.claims?.firstOrNull { it.id == id }
+            ?: pendingClaim?.takeIf { it.id == id }
+    }
+    val deletingClaim = deletingClaimId?.let { id ->
+        deviceLoaded?.claims?.firstOrNull { it.id == id }
+            ?: pendingClaim?.takeIf { it.id == id }
+    }
 
     Scaffold(
         topBar = {
@@ -257,6 +282,22 @@ fun DeviceDetailScreen(
                         device = s.device,
                         actionError = actionError,
                         onClearError = { actionError = null },
+                        claimsError = claimsError,
+                        onClearClaimsError = { claimsError = null },
+                        onAddClaim = {
+                            claimsError = null
+                            showAddClaim = true
+                        },
+                        onEditClaim = { claim ->
+                            claimsError = null
+                            pendingClaim = null
+                            editingClaimId = claim.id
+                        },
+                        onDeleteClaim = { claim ->
+                            claimsError = null
+                            pendingClaim = claim
+                            deletingClaimId = claim.id
+                        },
                         onEdit = { editingWarrantyId = it.id },
                         onDelete = { deletingWarrantyId = it.id },
                         onToggleReminder = { warranty ->
@@ -357,6 +398,88 @@ fun DeviceDetailScreen(
         )
     }
 
+    // Claim create: the device and its plans are prefilled, and the already
+    // loaded claims are handed over so a 409 can point at the live ticket
+    // without a second round trip.
+    if (showAddClaim && deviceLoaded != null) {
+        ClaimEditSheet(
+            api = api,
+            device = deviceLoaded,
+            existing = null,
+            existingClaims = deviceLoaded.claims,
+            onDismiss = { showAddClaim = false },
+            onSaved = {
+                showAddClaim = false
+                vm.load()
+            },
+            onOpenExistingClaim = { claim ->
+                showAddClaim = false
+                pendingClaim = claim
+                editingClaimId = claim.id
+            },
+        )
+    }
+
+    // Claim edit. `key` gives the sheet a fresh field set when the row changes
+    // (notably after the 409 button jumps from one ticket to another); without
+    // it `remember` would keep the previous ticket's values.
+    if (editingClaim != null && deviceLoaded != null) {
+        key(editingClaim.id) {
+            ClaimEditSheet(
+                api = api,
+                device = deviceLoaded,
+                existing = editingClaim,
+                existingClaims = deviceLoaded.claims,
+                onDismiss = {
+                    editingClaimId = null
+                    pendingClaim = null
+                },
+                onSaved = {
+                    editingClaimId = null
+                    pendingClaim = null
+                    vm.load()
+                },
+                onOpenExistingClaim = { claim ->
+                    pendingClaim = claim
+                    editingClaimId = claim.id
+                },
+            )
+        }
+    }
+
+    if (deletingClaim != null) {
+        AlertDialog(
+            onDismissRequest = { deletingClaimId = null },
+            title = { Text(stringResource(R.string.claim_delete_title)) },
+            text = { Text(stringResource(R.string.claim_delete_body, deletingClaim.issue)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val claim = deletingClaim
+                    deletingClaimId = null
+                    claimsError = null
+                    scope.launch {
+                        try {
+                            api.deleteClaim(claim.id)
+                            vm.load()
+                        } catch (e: Exception) {
+                            claimsError = e.toUserMessage(ApiClient.json)
+                        }
+                    }
+                }) {
+                    Text(
+                        stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingClaimId = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
     // Delete the whole device (web: DeleteDeviceButton). Cascades server-side.
     if (showDeleteDevice && deviceLoaded != null) {
         AlertDialog(
@@ -401,6 +524,11 @@ private fun DeviceDetailBody(
     device: Device,
     actionError: String?,
     onClearError: () -> Unit,
+    claimsError: String?,
+    onClearClaimsError: () -> Unit,
+    onAddClaim: () -> Unit,
+    onEditClaim: (Claim) -> Unit,
+    onDeleteClaim: (Claim) -> Unit,
     onEdit: (Warranty) -> Unit,
     onDelete: (Warranty) -> Unit,
     onToggleReminder: (Warranty) -> Unit,
@@ -411,8 +539,23 @@ private fun DeviceDetailBody(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { DeviceSummaryCard(device) }
-        // "Đi bảo hành ở đâu" (#15) sits directly under the summary: when the
-        // question is "where do I take this", it is the answer being looked for.
+        // "Sửa chữa & bảo hành" sits directly under the summary. A claim is the
+        // next thing that happens to a device, and the BROKEN nudge inside it is
+        // the entry point this feature exists for — it must not be buried under
+        // the directory, certificates and the warranty list.
+        item {
+            DeviceClaimsSection(
+                device = device,
+                error = claimsError,
+                onClearError = onClearClaimsError,
+                onAdd = onAddClaim,
+                onEdit = onEditClaim,
+                onDelete = onDeleteClaim,
+            )
+        }
+        // "Đi bảo hành ở đâu" (#15) follows the claims card: when the question
+        // is "where do I take this", it is the answer being looked for on the
+        // same trip the repair ticket records.
         item { ServiceDirectorySection(api = api, deviceId = device.id) }
         // Pre-service handover checklist. Placed next to the service directory
         // because the two answer the same trip: the directory says WHERE to take

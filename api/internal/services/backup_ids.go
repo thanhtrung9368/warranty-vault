@@ -68,6 +68,14 @@ func assertNoForeignBackupIDs(ctx context.Context, db *pgxpool.Pool, userID stri
 			attachmentIDs = append(attachmentIDs, a.ID)
 		}
 	}
+	// Claims (migration 0021) are a top-level array; their ids are globally
+	// unique like every other entity id.
+	claimIDs := make([]string, 0, len(payload.Claims))
+	for _, c := range payload.Claims {
+		if safeIDRE.MatchString(c.ID) {
+			claimIDs = append(claimIDs, c.ID)
+		}
+	}
 	wishlistIDs := make([]string, 0, len(payload.Wishlist))
 	var priceIDs []string
 	for _, w := range payload.Wishlist {
@@ -117,6 +125,9 @@ func assertNoForeignBackupIDs(ctx context.Context, db *pgxpool.Pool, userID stri
 		}},
 		{"file đính kèm", attachmentIDs, func(ids []string) ([]string, error) {
 			return q.BackupFindForeignAttachmentIDs(ctx, store.BackupFindForeignAttachmentIDsParams{Ids: ids, UserId: userID})
+		}},
+		{"yêu cầu bảo hành", claimIDs, func(ids []string) ([]string, error) {
+			return q.BackupFindForeignClaimIDs(ctx, store.BackupFindForeignClaimIDsParams{Ids: ids, UserId: userID})
 		}},
 		{"món wishlist", wishlistIDs, func(ids []string) ([]string, error) {
 			return q.BackupFindForeignWishlistIDs(ctx, store.BackupFindForeignWishlistIDsParams{Ids: ids, UserId: userID})

@@ -163,6 +163,14 @@ struct DeviceDetailView: View {
                         .padding(.top, 12)
                 }
 
+                // Repairs ("Sửa chữa & bảo hành"). A claim belongs to a device,
+                // so the device detail is its anchor: the section lists this
+                // device's claims and carries the add/edit form. It sits high on
+                // the screen on purpose — when the device is marked BROKEN and
+                // no claim is open, its inline nudge is the way out of the dead
+                // end that used to be the end of the journey.
+                ClaimsSection(store: store, device: currentDevice)
+
                 // Info group — purchase
                 WVSectionHeader(L.t("Mua hàng"))
                 WVGroup {

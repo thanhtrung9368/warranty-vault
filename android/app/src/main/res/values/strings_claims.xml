@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the default catalog.
+
+  Warranty claims (`ui/screens/devices/DeviceClaimsSection.kt` and
+  `ClaimEditSheet.kt`, model in `network/Models.kt`). A claim is what happens
+  after a device is marked BROKEN: the ticket, the shop, the diagnosis, what the
+  warranty paid.
+
+  Two rules this pair must satisfy are enforced by
+  `StringResourceParityTest`: identical key sets, identical format verbs. The
+  Vietnamese file is the original (`values-vi/`); this one is the translation.
+-->
+<resources>
+
+    <!-- ===== The "Sửa chữa & bảo hành" section on the device detail. ===== -->
+    <string name="claim_section_title">Repairs &amp; warranty</string>
+    <string name="claim_add">Add ticket</string>
+    <string name="claim_add_first">Add the first repair ticket</string>
+    <string name="claim_empty_title">No repair ticket yet</string>
+    <string name="claim_empty_body">Record the ticket number, the shop, the diagnosis and the cost, so the next visit has a paper trail.</string>
+
+    <!-- The BROKEN dead end: a device marked broken with no live claim. -->
+    <string name="claim_broken_nudge_title">This device is marked broken, but no repair is open</string>
+    <string name="claim_broken_nudge_body">Open a repair ticket so the ticket number, the shop, the diagnosis and the cost stay with the device instead of in your head.</string>
+    <string name="claim_broken_nudge_action">Open a repair ticket</string>
+
+    <!-- ===== Domain-enum labels (`ClaimStatus` in network/Models.kt). ===== -->
+    <string name="enum_claim_status_open">Open</string>
+    <string name="enum_claim_status_in_repair">In repair</string>
+    <string name="enum_claim_status_resolved">Resolved</string>
+    <string name="enum_claim_status_rejected">Rejected</string>
+    <string name="enum_claim_status_cancelled">Cancelled</string>
+
+    <!-- ===== Row labels on one claim card. ===== -->
+    <string name="claim_ticket_number">Ticket</string>
+    <string name="claim_opened_on">Opened</string>
+    <string name="claim_expected_return">Expected back</string>
+    <string name="claim_closed_on">Closed</string>
+    <string name="claim_service_center">Shop</string>
+    <string name="claim_diagnosis">Diagnosis</string>
+    <string name="claim_outcome">Outcome</string>
+    <string name="claim_cost">Cost</string>
+    <string name="claim_covered_by_warranty">Warranty pays</string>
+    <string name="claim_covered_yes">Yes</string>
+    <string name="claim_covered_no">No</string>
+    <string name="claim_covered_unknown">Not specified</string>
+
+    <!-- ===== The add/edit form (`ClaimEditSheet.kt`). ===== -->
+    <string name="claim_form_title_add">Add a repair ticket</string>
+    <string name="claim_form_title_edit">Edit the repair ticket</string>
+    <string name="claim_form_device">Device</string>
+    <string name="claim_form_warranty">Warranty plan</string>
+    <string name="claim_form_no_warranty">No plan linked</string>
+    <string name="claim_form_warranty_missing">Plan no longer on this device</string>
+    <string name="claim_form_status">Status</string>
+    <string name="claim_form_opened_at">Opened on (YYYY-MM-DD) *</string>
+    <string name="claim_form_expected_return">Expected back (YYYY-MM-DD)</string>
+    <string name="claim_form_ticket_number">Ticket number</string>
+    <string name="claim_form_service_center">Shop / service centre</string>
+    <string name="claim_form_issue">Issue *</string>
+    <string name="claim_form_issue_hint">Required — what went wrong.</string>
+    <string name="claim_form_diagnosis">Diagnosis</string>
+    <string name="claim_form_outcome">Outcome</string>
+    <string name="claim_form_cost">Cost (VND)</string>
+    <string name="claim_form_cost_note">Leave blank if not recorded.</string>
+    <string name="claim_form_cost_invalid">Enter a whole VND amount, 0 or more.</string>
+    <string name="claim_form_covered">Warranty pays</string>
+    <string name="claim_form_closed_note">The server sets the closing date when the ticket reaches a final status.</string>
+
+    <!-- ===== The 409: one live claim per device. ===== -->
+    <string name="claim_limit_reached_title">This device already has an open repair</string>
+    <string name="claim_limit_reached_body">Only one ticket can be open per device at a time. Open the existing ticket to update it instead of creating a second one.</string>
+    <string name="claim_open_existing">Open the existing ticket</string>
+    <string name="claim_looking_up_open">Finding the open ticket…</string>
+    <!-- The same wire code also covers the account-wide claim ceiling, so the
+         generic title must not claim a repair is open. -->
+    <string name="claim_limit_reached_generic_title">Could not save this repair</string>
+    <string name="claim_lookup_failed">Could not load the open ticket here. Pull to refresh the device, then try again.</string>
+
+    <!-- ===== Delete confirmation. ===== -->
+    <string name="claim_delete_title">Delete this repair ticket?</string>
+    <string name="claim_delete_body">The ticket “%1$s” will be removed. This cannot be undone.</string>
+
+</resources>

@@ -142,6 +142,42 @@ interface ApiService {
     @DELETE("api/v1/warranties/{id}/reminder")
     suspend fun restoreWarrantyReminder(@Path("id") id: String): OkResponse
 
+    // ---- Warranty claims ----
+    //
+    // A claim belongs to one device (`deviceId` is required by the contract).
+    // Both filters are optional and a null one is OMITTED by Retrofit, so a bare
+    // `GET /api/v1/claims` stays a bare request. `status` is a raw string on
+    // purpose, like `listDevices(status=)` — it keeps an unknown server member
+    // from failing here, and callers pass `ClaimStatus.name`.
+    //
+    // `notes` on the 409: POST/PATCH answer **409 `limit_reached`** when the
+    // device already has an OPEN/IN_REPAIR claim. The code is lowercased by the
+    // Go envelope writer; `ui/screens/devices/ClaimRules.kt` compares it
+    // case-insensitively, the same rule `InboxRules` uses for the attachment cap.
+    @GET("api/v1/claims")
+    suspend fun listClaims(
+        @Query("deviceId") deviceId: String? = null,
+        @Query("status") status: String? = null,
+    ): ClaimListResponse
+
+    @POST("api/v1/claims")
+    suspend fun createClaim(@Body body: ClaimInput): ClaimResponse
+
+    @GET("api/v1/claims/{id}")
+    suspend fun getClaim(@Path("id") id: String): ClaimResponse
+
+    // The body carries the whole writable row (see ClaimInput). `closedAt` is
+    // server-owned and deliberately absent: the server stamps it when the status
+    // becomes terminal.
+    @PATCH("api/v1/claims/{id}")
+    suspend fun updateClaim(
+        @Path("id") id: String,
+        @Body body: ClaimInput,
+    ): ClaimResponse
+
+    @DELETE("api/v1/claims/{id}")
+    suspend fun deleteClaim(@Path("id") id: String): OkResponse
+
     // ---- Subscriptions ----
     @GET("api/v1/subscriptions")
     suspend fun listSubscriptions(): SubscriptionListResponse

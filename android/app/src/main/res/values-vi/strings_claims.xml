@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc.
+
+  Phiếu sửa chữa / bảo hành (`ui/screens/devices/DeviceClaimsSection.kt` và
+  `ClaimEditSheet.kt`, model ở `network/Models.kt`). Đây là thứ xảy ra SAU khi
+  thiết bị bị đánh dấu Hỏng: số phiếu, nơi sửa, chẩn đoán, bảo hành có chi trả
+  hay không.
+
+  Hai luật của cặp file này do `StringResourceParityTest` giữ: khoá phải trùng
+  nhau, và các `%` phải trùng nhau. Bản tiếng Anh nằm ở `values/`.
+-->
+<resources>
+
+    <!-- ===== Mục "Sửa chữa & bảo hành" trên chi tiết thiết bị. ===== -->
+    <string name="claim_section_title">Sửa chữa &amp; bảo hành</string>
+    <string name="claim_add">Thêm phiếu</string>
+    <string name="claim_add_first">Thêm phiếu sửa chữa đầu tiên</string>
+    <string name="claim_empty_title">Chưa có phiếu sửa chữa nào</string>
+    <string name="claim_empty_body">Ghi lại số phiếu, nơi sửa, chẩn đoán và chi phí để lần sau còn hồ sơ mà đối chiếu.</string>
+
+    <!-- Ngõ cụt của trạng thái Hỏng: thiết bị Hỏng mà không có phiếu đang mở. -->
+    <string name="claim_broken_nudge_title">Thiết bị đang được đánh dấu Hỏng nhưng chưa có phiếu sửa chữa nào đang mở</string>
+    <string name="claim_broken_nudge_body">Tạo phiếu sửa chữa để số phiếu, nơi sửa, chẩn đoán và chi phí nằm cùng thiết bị, không phải nhớ trong đầu.</string>
+    <string name="claim_broken_nudge_action">Tạo phiếu sửa chữa</string>
+
+    <!-- ===== Nhãn enum miền (`ClaimStatus` trong network/Models.kt). ===== -->
+    <string name="enum_claim_status_open">Đang mở</string>
+    <string name="enum_claim_status_in_repair">Đang sửa</string>
+    <string name="enum_claim_status_resolved">Đã xử lý xong</string>
+    <string name="enum_claim_status_rejected">Bị từ chối</string>
+    <string name="enum_claim_status_cancelled">Đã huỷ</string>
+
+    <!-- ===== Nhãn từng dòng trên thẻ phiếu sửa chữa. ===== -->
+    <string name="claim_ticket_number">Số phiếu</string>
+    <string name="claim_opened_on">Ngày mở</string>
+    <string name="claim_expected_return">Hẹn trả</string>
+    <string name="claim_closed_on">Ngày đóng</string>
+    <string name="claim_service_center">Nơi sửa</string>
+    <string name="claim_diagnosis">Chẩn đoán</string>
+    <string name="claim_outcome">Kết quả</string>
+    <string name="claim_cost">Chi phí</string>
+    <string name="claim_covered_by_warranty">Bảo hành chi trả</string>
+    <string name="claim_covered_yes">Có</string>
+    <string name="claim_covered_no">Không</string>
+    <string name="claim_covered_unknown">Không rõ</string>
+
+    <!-- ===== Form thêm/sửa (`ClaimEditSheet.kt`). ===== -->
+    <string name="claim_form_title_add">Thêm phiếu sửa chữa</string>
+    <string name="claim_form_title_edit">Sửa phiếu sửa chữa</string>
+    <string name="claim_form_device">Thiết bị</string>
+    <string name="claim_form_warranty">Gói bảo hành</string>
+    <string name="claim_form_no_warranty">Không gắn gói nào</string>
+    <string name="claim_form_warranty_missing">Gói không còn trên thiết bị này</string>
+    <string name="claim_form_status">Trạng thái</string>
+    <string name="claim_form_opened_at">Ngày mở (YYYY-MM-DD) *</string>
+    <string name="claim_form_expected_return">Hẹn trả (YYYY-MM-DD)</string>
+    <string name="claim_form_ticket_number">Số phiếu</string>
+    <string name="claim_form_service_center">Cửa hàng / trung tâm bảo hành</string>
+    <string name="claim_form_issue">Vấn đề *</string>
+    <string name="claim_form_issue_hint">Bắt buộc — điều gì đã hỏng.</string>
+    <string name="claim_form_diagnosis">Chẩn đoán</string>
+    <string name="claim_form_outcome">Kết quả</string>
+    <string name="claim_form_cost">Chi phí (VND)</string>
+    <string name="claim_form_cost_note">Để trống nếu chưa ghi.</string>
+    <string name="claim_form_cost_invalid">Nhập số nguyên VND, từ 0 trở lên.</string>
+    <string name="claim_form_covered">Bảo hành chi trả</string>
+    <string name="claim_form_closed_note">Ngày đóng do máy chủ đặt khi phiếu sang trạng thái kết thúc.</string>
+
+    <!-- ===== 409: mỗi thiết bị chỉ có một phiếu đang mở. ===== -->
+    <string name="claim_limit_reached_title">Thiết bị đã có phiếu sửa chữa đang mở</string>
+    <string name="claim_limit_reached_body">Mỗi thiết bị chỉ có một phiếu mở tại một thời điểm. Mở phiếu đang có để cập nhật thay vì tạo phiếu thứ hai.</string>
+    <string name="claim_open_existing">Mở phiếu đang có</string>
+    <string name="claim_looking_up_open">Đang tìm phiếu đang mở…</string>
+    <!-- Cùng một mã lỗi cũng dùng cho trần số phiếu của cả tài khoản,
+         nên tiêu đề chung không được khẳng định là đang có phiếu mở. -->
+    <string name="claim_limit_reached_generic_title">Không lưu được lần sửa chữa này</string>
+    <string name="claim_lookup_failed">Không tải được phiếu đang mở ở đây. Kéo xuống làm mới thiết bị rồi thử lại.</string>
+
+    <!-- ===== Xác nhận xoá. ===== -->
+    <string name="claim_delete_title">Xoá phiếu sửa chữa này?</string>
+    <string name="claim_delete_body">Phiếu “%1$s” sẽ bị xoá. Không hoàn tác được.</string>
+
+</resources>

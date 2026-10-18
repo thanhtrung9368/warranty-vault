@@ -143,6 +143,20 @@ type BackupExport struct {
 	// file ignores the unknown key (the same forward-compatibility limit every
 	// additive field in this format has always had).
 	InboxAttachments []BackupAttachment `json:"inboxAttachments,omitempty"`
+	// Claims are the user's warranty claims (migration 0021). Like the inbox,
+	// they live at the TOP LEVEL rather than nested under a device: a claim
+	// carries its own deviceId and its warrantyId is optional, so nesting it
+	// under a device would duplicate an id and make the shape depend on which
+	// device was exported.
+	//
+	// Additive and OMITEMPTY on purpose: a user with no claims gets the
+	// byte-identical v5 payload they got before this migration, an older payload
+	// without the key decodes to nil and imports unchanged, and the payload
+	// VERSION does not move (still 5 for JSON, 6 for the ZIP). A claim that was
+	// not written by this server (a hand-edited file) is checked for the
+	// single-open rule before anything is inserted — see validateBackupPayload —
+	// because the partial unique index would otherwise abort the whole import.
+	Claims []BackupClaim `json:"claims,omitempty"`
 	// MissingAttachmentIds lists attachments whose blob file was absent from disk
 	// at export time, so the archive could not carry them. Export still succeeds
 	// (one lost blob must not block a backup) but the payload says exactly which
@@ -374,6 +388,37 @@ type BackupAttachment struct {
 	UploadedAt  string  `json:"uploadedAt"`
 }
 
+// BackupClaim is one warranty claim in the backup payload (migration 0021).
+//
+// Every column is carried, including closedAt: closedAt is server-managed on
+// the API write path, but in a backup it is HISTORY, and dropping it on restore
+// would move every resolved claim's resolution date to the import time. The
+// timestamps use the same RFC3339 form as the rest of the envelope (not the
+// database's offset-less form).
+//
+// Additive: a payload written before 0021 has no `claims` key and decodes to an
+// empty list. The version stays 5/6 because an older payload imports CORRECTLY
+// (the format's own rule: raise the version only when an older payload would
+// import wrongly).
+type BackupClaim struct {
+	ID                string  `json:"id"`
+	DeviceID          string  `json:"deviceId"`
+	WarrantyID        *string `json:"warrantyId"`
+	Status            string  `json:"status"`
+	OpenedAt          string  `json:"openedAt"`
+	ExpectedReturnAt  *string `json:"expectedReturnAt"`
+	ClosedAt          *string `json:"closedAt"`
+	TicketNumber      *string `json:"ticketNumber"`
+	ServiceCenter     *string `json:"serviceCenter"`
+	Issue             string  `json:"issue"`
+	Diagnosis         *string `json:"diagnosis"`
+	Outcome           *string `json:"outcome"`
+	Cost              *int32  `json:"cost"`
+	CoveredByWarranty *bool   `json:"coveredByWarranty"`
+	CreatedAt         string  `json:"createdAt"`
+	UpdatedAt         string  `json:"updatedAt"`
+}
+
 // ImportResult is returned by Import — handler folds it into the JSON envelope.
 type ImportResult struct {
 	Imported         int `json:"imported"`
@@ -398,6 +443,16 @@ type ImportResult struct {
 	AttachmentsImported   int `json:"attachmentsImported"`
 	AttachmentsSkipped    int `json:"attachmentsSkipped"`
 	AttachmentsUnreadable int `json:"attachmentsUnreadable"`
+	// Claim counters (migration 0021). Additive fields — an older client that
+	// does not know them ignores them.
+	//
+	//   ClaimsImported — claim rows inserted.
+	//   ClaimsSkipped  — claim rows not inserted: their id already existed in
+	//                    merge mode, their device is not in the payload / not
+	//                    owned by the importing account, or the id is not a safe
+	//                    payload id. Their data is not duplicated or half-linked.
+	ClaimsImported int `json:"claimsImported"`
+	ClaimsSkipped  int `json:"claimsSkipped"`
 }
 
 // ---- Export ---------------------------------------------------------------
@@ -434,6 +489,10 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 	inboxAttachments, err := q.BackupListInboxAttachmentsForUser(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("backup list inbox attachments: %w", err)
+	}
+	claims, err := q.BackupListClaimsForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("backup list claims: %w", err)
 	}
 	wishlist, err := q.BackupListWishlistForUser(ctx, userID)
 	if err != nil {
@@ -638,6 +697,32 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 		out.InboxAttachments = append(out.InboxAttachments, toBackupAttachment(a))
 	}
 
+	// Claims (migration 0021) travel at the top level too, for the same reason
+	// the inbox does: there is no single parent shape to nest them under. A
+	// claim's deviceId is carried explicitly, and warrantyId is optional. The
+	// slice stays nil when the user has no claims, so `omitempty` keeps the
+	// payload byte-identical to the pre-0021 format for every existing account.
+	for _, c := range claims {
+		out.Claims = append(out.Claims, BackupClaim{
+			ID:                c.ID,
+			DeviceID:          c.DeviceId,
+			WarrantyID:        c.WarrantyId,
+			Status:            c.Status,
+			OpenedAt:          ts(c.OpenedAt),
+			ExpectedReturnAt:  tsPtr(c.ExpectedReturnAt),
+			ClosedAt:          tsPtr(c.ClosedAt),
+			TicketNumber:      c.TicketNumber,
+			ServiceCenter:     c.ServiceCenter,
+			Issue:             c.Issue,
+			Diagnosis:         c.Diagnosis,
+			Outcome:           c.Outcome,
+			Cost:              c.Cost,
+			CoveredByWarranty: c.CoveredByWarranty,
+			CreatedAt:         ts(c.CreatedAt),
+			UpdatedAt:         ts(c.UpdatedAt),
+		})
+	}
+
 	return out, nil
 }
 
@@ -797,6 +882,38 @@ func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 				Message: i18n.Text(ctx, "File đính kèm trong hộp thư chưa có thiết bị: khoá file hỏng.")}
 		}
 	}
+
+	// Claims (migration 0021) must respect the single-open-per-device rule. A
+	// payload written by this server always does; a hand-edited one might not,
+	// and the partial unique index would abort the whole import with a raw 23505
+	// (a 500). Refuse it here, before the transaction, with a sentence that names
+	// the device. This is the same "refuse before we wipe anything" discipline as
+	// the attachment caps above; it is not a general validation of every claim
+	// field, because a backup is restored rather than composed.
+	//
+	// The seen-set walks the payload in order, so the reported duplicate is
+	// deterministic (the second open claim for that device) rather than whichever
+	// map key happened to iterate first.
+	namesByDevice := make(map[string]string, len(payload.Devices))
+	for _, d := range payload.Devices {
+		namesByDevice[d.ID] = d.Name
+	}
+	openSeen := map[string]bool{}
+	for _, c := range payload.Claims {
+		if !isOpenClaimStatus(c.Status) {
+			continue
+		}
+		if openSeen[c.DeviceID] {
+			name := namesByDevice[c.DeviceID]
+			if name == "" {
+				name = c.DeviceID
+			}
+			return &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+				"Bản sao lưu có nhiều hơn một yêu cầu bảo hành đang mở cho thiết bị \"%s\". Mỗi thiết bị chỉ được có một yêu cầu đang mở.",
+				name)}
+		}
+		openSeen[c.DeviceID] = true
+	}
 	return nil
 }
 
@@ -861,6 +978,69 @@ func assertBackupDeviceQuota(ctx context.Context, db *pgxpool.Pool, userID strin
 	return enforceDeviceQuota(ctx, baseActive, baseTotal, incomingActive, incomingTotal)
 }
 
+// assertBackupClaimQuota applies MAX_CLAIMS_PER_USER to an import before
+// anything is written. It mirrors assertBackupDeviceQuota:
+//
+//   - `replace` deletes every claim the user owns inside the transaction, so the
+//     base is ZERO (restoring an at-the-limit account onto itself is legal), and
+//     only claims whose device is in the payload can be inserted afterwards (the
+//     rest were just wiped with their device).
+//   - `merge` keeps them, so they count; a payload claim whose id the user
+//     already owns is skipped by the insert loop and is not counted as incoming.
+//     Every other safe claim id is counted, even one whose device is not in the
+//     payload: merge leaves that device in place, the loop can still attach the
+//     claim to it, and over-counting is the safe direction for a ceiling.
+func assertBackupClaimQuota(ctx context.Context, db *pgxpool.Pool, userID string, payload *BackupExport, mode ImportMode) error {
+	if payload == nil || len(payload.Claims) == 0 {
+		return nil
+	}
+	q := store.New(db)
+
+	var base int64
+	owned := map[string]bool{}
+	if mode != ImportReplace {
+		var err error
+		base, err = q.CountClaimsByUser(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("count claims: %w", err)
+		}
+	}
+	if mode == ImportMerge {
+		rows, err := q.BackupListClaimsForUser(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("list claims: %w", err)
+		}
+		for _, r := range rows {
+			owned[r.ID] = true
+		}
+	}
+
+	deviceInPayload := make(map[string]bool, len(payload.Devices))
+	for _, d := range payload.Devices {
+		deviceInPayload[d.ID] = true
+	}
+	var incoming int64
+	for _, c := range payload.Claims {
+		if !safeIDRE.MatchString(c.ID) {
+			continue
+		}
+		if mode == ImportMerge {
+			if owned[c.ID] {
+				continue
+			}
+		} else if !deviceInPayload[c.DeviceID] {
+			continue
+		}
+		incoming++
+	}
+	if base+incoming > MaxClaimsPerUser {
+		return ErrLimit(i18n.T(ctx,
+			"Đã đạt giới hạn %d yêu cầu bảo hành khi khôi phục. Xoá bớt yêu cầu cũ rồi thử lại.",
+			MaxClaimsPerUser))
+	}
+	return nil
+}
+
 // importBackup is the shared import body. `blobs` is non-nil only for the .zip
 // path; when it is set, each attachment row that is actually inserted gets its
 // ciphertext written to <PRIVATE_UPLOAD_ROOT>/<storagePath> in the same pass, and
@@ -901,6 +1081,13 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 		return nil, err
 	}
 
+	// Claim ceiling (migration 0021), same discipline: this is the second write
+	// path into "Claim" and must enforce MAX_CLAIMS_PER_USER before the
+	// transaction (and before the replace-mode wipe).
+	if err := assertBackupClaimQuota(ctx, db, userID, payload, mode); err != nil {
+		return nil, err
+	}
+
 	root := files.PrivateUploadRoot()
 	written := make([]string, 0, 8)
 	committed := false
@@ -928,6 +1115,12 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 	if mode == ImportReplace {
 		// Order matters: child rows first to satisfy FK in the absence of
 		// CASCADE delete (some FKs use CASCADE, but a single pass is safer).
+		// Claims go before warranties/devices: their warrantyId FK would SET NULL
+		// and their deviceId FK would CASCADE, so deleting them explicitly keeps
+		// the wipe deterministic and makes a future FK change harmless.
+		if err := q.BackupDeleteClaimsForUser(ctx, userID); err != nil {
+			return nil, fmt.Errorf("wipe claims: %w", err)
+		}
 		if err := q.BackupDeleteAttachmentsForUser(ctx, userID); err != nil {
 			return nil, fmt.Errorf("wipe attachments: %w", err)
 		}
@@ -1156,6 +1349,117 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 		}
 	}
 
+	// Claims (migration 0021) are inserted after the device loop so their device
+	// (and, for a new device, its warranties) already exist. Three cases are
+	// skipped rather than failed:
+	//
+	//   * merge mode and the claim id already belongs to the user — a repeated
+	//     merge import must not 500 on the primary key;
+	//   * the claim's device is not in the payload and is not owned by the user
+	//     (a hand-edited file, or a claim for a device that was itself skipped);
+	//   * the id is not a safe payload id.
+	//
+	// A warrantyId that does not resolve to a warranty of the SAME device is
+	// nulled rather than failing the whole restore: the same "drop a broken link,
+	// do not lose the row" rule the wishlist importer uses for purchasedDeviceId.
+	// The FK cannot express that rule (it only knows the warranty exists), and
+	// the claim's own fields are still valid history.
+	for _, c := range payload.Claims {
+		if !safeIDRE.MatchString(c.ID) {
+			res.ClaimsSkipped++
+			continue
+		}
+		claimDevice, gerr := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{
+			ID: c.DeviceID, UserId: userID,
+		})
+		if gerr != nil {
+			if errors.Is(gerr, pgx.ErrNoRows) {
+				res.ClaimsSkipped++
+				continue
+			}
+			return nil, fmt.Errorf("check claim device: %w", gerr)
+		}
+		if mode == ImportMerge {
+			if _, gerr := q.GetClaimByID(ctx, store.GetClaimByIDParams{
+				ID: c.ID, UserId: userID,
+			}); gerr == nil {
+				res.ClaimsSkipped++
+				continue
+			} else if !errors.Is(gerr, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("check claim: %w", gerr)
+			}
+		}
+
+		var warrantyID *string
+		if c.WarrantyID != nil && *c.WarrantyID != "" {
+			w, werr := q.GetWarrantyByID(ctx, store.GetWarrantyByIDParams{
+				ID: *c.WarrantyID, UserId: userID,
+			})
+			if werr == nil && w.DeviceId == c.DeviceID {
+				id := *c.WarrantyID
+				warrantyID = &id
+			} else if werr != nil && !errors.Is(werr, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("check claim warranty: %w", werr)
+			}
+		}
+
+		// The API always writes openedAt, so a missing/unparseable one can only
+		// come from a hand-edited file; fall back to createdAt and then to now
+		// so the NOT NULL column is always satisfied.
+		openedAt := pgts(c.OpenedAt)
+		if !openedAt.Valid {
+			openedAt = pgts(c.CreatedAt)
+		}
+		if !openedAt.Valid {
+			openedAt = pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}
+		}
+		createdAt := pgts(c.CreatedAt)
+		if !createdAt.Valid {
+			createdAt = openedAt
+		}
+		updatedAt := pgts(c.UpdatedAt)
+		if !updatedAt.Valid {
+			updatedAt = createdAt
+		}
+
+		// closedAt is server-managed on the API path, but a backup preserves the
+		// date the claim actually closed. Normalise it to the same invariant the
+		// API enforces: terminal status ⇒ a value (falling back to openedAt for
+		// a hand-edited file), open/unknown status ⇒ NULL. Shared with the API
+		// rule through isClosedClaimStatus.
+		if err := q.BackupInsertClaim(ctx, store.BackupInsertClaimParams{
+			ID:                c.ID,
+			DeviceId:          c.DeviceID,
+			WarrantyId:        warrantyID,
+			Status:            c.Status,
+			OpenedAt:          openedAt,
+			ExpectedReturnAt:  pgtsPtr(c.ExpectedReturnAt),
+			ClosedAt:          closedAtValue(c.Status, c.ClosedAt, openedAt),
+			TicketNumber:      c.TicketNumber,
+			ServiceCenter:     c.ServiceCenter,
+			Issue:             c.Issue,
+			Diagnosis:         c.Diagnosis,
+			Outcome:           c.Outcome,
+			Cost:              c.Cost,
+			CoveredByWarranty: c.CoveredByWarranty,
+			CreatedAt:         createdAt,
+			UpdatedAt:         updatedAt,
+		}); err != nil {
+			// A merge import can collide with an open claim the account already
+			// has on this device (a hand-edited payload, or two exports merged by
+			// hand). validateBackupPayload caught duplicates WITHIN the payload;
+			// this is the conflict with the database. Refuse with a 400 naming the
+			// device instead of letting the partial unique index surface as a 500.
+			if isClaimOpenUniqueViolation(err) {
+				return nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+					"Không thể khôi phục yêu cầu bảo hành cho thiết bị \"%s\": thiết bị đã có một yêu cầu đang mở khác.",
+					claimDevice.Name)}
+			}
+			return nil, fmt.Errorf("insert claim: %w", err)
+		}
+		res.ClaimsImported++
+	}
+
 	for _, w := range payload.Wishlist {
 		if !safeIDRE.MatchString(w.ID) {
 			continue
@@ -1326,4 +1630,24 @@ func pgtsPtr(s *string) pgtype.Timestamp {
 		return pgtype.Timestamp{}
 	}
 	return pgts(*s)
+}
+
+// closedAtValue resolves the closedAt column for an imported claim
+// (migration 0021). The row must satisfy the same invariant as the API write
+// path, because clients rely on it:
+//
+//   - terminal status (RESOLVED / REJECTED / CANCELLED) ⇒ a timestamp. The
+//     payload's value wins; a hand-edited file without one falls back to
+//     openedAt (not NOW), so the resolution cannot look later than a closure
+//     that is already in the past.
+//   - OPEN / IN_REPAIR (or an unknown status) ⇒ NULL. "Cleared if it moves
+//     back" is the same rule resolveClaimClosedAt applies on PATCH.
+func closedAtValue(status string, raw *string, openedAt pgtype.Timestamp) pgtype.Timestamp {
+	if !isClosedClaimStatus(status) {
+		return pgtype.Timestamp{}
+	}
+	if t := pgtsPtr(raw); t.Valid {
+		return t
+	}
+	return openedAt
 }

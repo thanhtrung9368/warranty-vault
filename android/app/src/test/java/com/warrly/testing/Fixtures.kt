@@ -6,6 +6,8 @@ import com.warrly.network.ActionQueue
 import com.warrly.network.Attachment
 import com.warrly.network.BillingCycle
 import com.warrly.network.BrandServiceInfo
+import com.warrly.network.Claim
+import com.warrly.network.ClaimStatus
 import com.warrly.network.CreatedDeviceShare
 import com.warrly.network.Device
 import com.warrly.network.DeviceShare
@@ -40,6 +42,7 @@ object Fixtures {
         category: String = "PHONE",
         status: DeviceStatus = DeviceStatus.ACTIVE,
         warranties: List<Warranty> = emptyList(),
+        claims: List<Claim> = emptyList(),
         effectiveWarrantyEnd: String? = null,
         attachmentCount: Int = 0,
         brand: String? = "Apple",
@@ -67,6 +70,7 @@ object Fixtures {
         receivedAt = receivedAt,
         returnDeadline = returnDeadline,
         warranties = warranties,
+        claims = claims,
         effectiveWarrantyEnd = effectiveWarrantyEnd,
         attachmentCount = attachmentCount,
     )
@@ -117,6 +121,42 @@ object Fixtures {
         startDate = "2024-03-01",
         endDate = endDate,
         months = 24,
+    )
+
+    /**
+     * One repair ticket. The defaults describe a live repair on `dev-1`;
+     * `status`/`closedAt` are what a "closed" test overrides together.
+     */
+    fun claim(
+        id: String = "claim-1",
+        deviceId: String = "dev-1",
+        warrantyId: String? = null,
+        status: ClaimStatus = ClaimStatus.OPEN,
+        openedAt: String = "2026-03-02T00:00:00",
+        expectedReturnAt: String? = null,
+        closedAt: String? = null,
+        ticketNumber: String? = null,
+        serviceCenter: String? = null,
+        diagnosis: String? = null,
+        outcome: String? = null,
+        issue: String = "Màn hình nhấp nháy",
+        cost: Int? = null,
+        coveredByWarranty: Boolean? = null,
+    ) = Claim(
+        id = id,
+        deviceId = deviceId,
+        warrantyId = warrantyId,
+        status = status,
+        openedAt = openedAt,
+        expectedReturnAt = expectedReturnAt,
+        closedAt = closedAt,
+        ticketNumber = ticketNumber,
+        serviceCenter = serviceCenter,
+        diagnosis = diagnosis,
+        outcome = outcome,
+        issue = issue,
+        cost = cost,
+        coveredByWarranty = coveredByWarranty,
     )
 
     fun subscription(

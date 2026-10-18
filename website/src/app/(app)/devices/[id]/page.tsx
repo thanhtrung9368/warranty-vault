@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   ArrowRight,
   CalendarClock,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,7 @@ import { AttachmentUploader } from '@/components/attachment-uploader';
 import { DeviceWarningsBanner } from '@/components/device-warnings-banner';
 import { DeviceShares } from '@/components/device-shares';
 import { ServiceDirectoryCard } from '@/components/service-directory-card';
+import { ClaimList } from '@/components/claim-list';
 import { api } from '@/lib/api';
 import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
@@ -470,6 +472,38 @@ export default async function DeviceDetailPage({
                   transferable: w.transferable,
                   claimsAllowed: w.claimsAllowed,
                   claimsUsed: w.claimsUsed,
+                }))}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Sửa chữa & bảo hành — the anchor surface for claims. A claim
+              belongs to a device, so this is where the full lifecycle lives:
+              the ticket number, the shop, the diagnosis, the money and the
+              tri-state "did the warranty pay". The standalone /claims page is
+              only the cross-device "what is at the shop right now" view.
+
+              `id="claims"` is the fallback target of the 409 link when the
+              follow-up read could not name the open case; each row carries its
+              own `claim-<id>` anchor. */}
+          <Card id="claims" className="scroll-mt-24 rounded-2xl border-[1.5px]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wrench className="h-5 w-5 text-amber-ink" />
+                {t('Sửa chữa & bảo hành')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ClaimList
+                deviceId={device.id}
+                deviceName={device.name}
+                deviceStatus={device.status}
+                claims={device.claims ?? []}
+                warranties={device.warranties.map((w) => ({
+                  id: w.id,
+                  type: w.type,
+                  provider: w.provider,
+                  endDate: w.endDate,
                 }))}
               />
             </CardContent>
