@@ -137,6 +137,14 @@ func wantClaimError(t *testing.T, err error, code, field string) *Error {
 	return svc
 }
 
+// checkClaimError asserts the error shape when the caller does not need the
+// parsed error back. wantClaimError hands it over for the call sites that do,
+// and is deliberately not used directly here so every discard is explicit.
+func checkClaimError(t *testing.T, err error, code, field string) {
+	t.Helper()
+	_ = wantClaimError(t, err, code, field)
+}
+
 // ── 1. Create defaults + the single-open rule ────────────────────────────────
 
 func TestClaimCreateDefaultsAndSingleOpen(t *testing.T) {
@@ -172,7 +180,7 @@ func TestClaimCreateDefaultsAndSingleOpen(t *testing.T) {
 	_, err = CreateClaim(viCtx(), e.pool, e.userID, ClaimInput{
 		DeviceID: e.deviceID, Issue: "Đang sửa", Status: ClaimStatusInRepair,
 	})
-	wantClaimError(t, err, "LIMIT_REACHED", "")
+	checkClaimError(t, err, "LIMIT_REACHED", "")
 
 	// A CLOSED claim does not occupy the open slot. This is how a device builds
 	// a repair history over the years.
@@ -366,7 +374,7 @@ func TestClaimWarrantyMustBelongToSameDevice(t *testing.T) {
 	_, err = CreateClaim(ctx, e.pool, e.userID, ClaimInput{
 		DeviceID: e.deviceID, WarrantyID: &missing, Issue: "Sai gói",
 	})
-	wantClaimError(t, err, "VALIDATION", "warrantyId")
+	checkClaimError(t, err, "VALIDATION", "warrantyId")
 
 	// A warranty owned by ANOTHER user is also 400 (and must not leak that it
 	// exists).
@@ -376,7 +384,7 @@ func TestClaimWarrantyMustBelongToSameDevice(t *testing.T) {
 	_, err = CreateClaim(ctx, e.pool, e.userID, ClaimInput{
 		DeviceID: e.deviceID, WarrantyID: &otherWarranty, Issue: "Sai gói",
 	})
-	wantClaimError(t, err, "VALIDATION", "warrantyId")
+	checkClaimError(t, err, "VALIDATION", "warrantyId")
 
 	// The correct warranty is accepted.
 	claim := mustCreateClaim(t, e, ClaimInput{
@@ -390,7 +398,7 @@ func TestClaimWarrantyMustBelongToSameDevice(t *testing.T) {
 	_, err = UpdateClaim(ctx, e.pool, e.userID, claim.ID, ClaimInput{
 		DeviceID: deviceB, WarrantyID: &e.warrantyID, Issue: "Đúng gói",
 	})
-	wantClaimError(t, err, "VALIDATION", "warrantyId")
+	checkClaimError(t, err, "VALIDATION", "warrantyId")
 
 	// Device B + its own warranty is a legal move.
 	moved, err := UpdateClaim(ctx, e.pool, e.userID, claim.ID, ClaimInput{
@@ -422,33 +430,33 @@ func TestClaimOwnership404(t *testing.T) {
 	if _, err := GetClaim(ctx, e.pool, e.userID, otherClaim.ID); err == nil {
 		t.Fatal("GetClaim(foreign) = nil, want 404")
 	} else {
-		wantClaimError(t, err, "NOT_FOUND", "")
+		checkClaimError(t, err, "NOT_FOUND", "")
 	}
 	if _, err := UpdateClaim(ctx, e.pool, e.userID, otherClaim.ID, ClaimInput{
 		DeviceID: e.deviceID, Issue: "Chiếm đoạt",
 	}); err == nil {
 		t.Fatal("UpdateClaim(foreign) = nil, want 404")
 	} else {
-		wantClaimError(t, err, "NOT_FOUND", "")
+		checkClaimError(t, err, "NOT_FOUND", "")
 	}
 	if err := DeleteClaim(ctx, e.pool, e.userID, otherClaim.ID); err == nil {
 		t.Fatal("DeleteClaim(foreign) = nil, want 404")
 	} else {
-		wantClaimError(t, err, "NOT_FOUND", "")
+		checkClaimError(t, err, "NOT_FOUND", "")
 	}
 
 	// Creating against someone else's device is a 404 too (not a leak).
 	_, err = CreateClaim(ctx, e.pool, e.userID, ClaimInput{
 		DeviceID: otherDevice, Issue: "Thiết bị của người khác",
 	})
-	wantClaimError(t, err, "NOT_FOUND", "")
+	checkClaimError(t, err, "NOT_FOUND", "")
 
 	// Moving your own claim onto someone else's device is a 404.
 	own := mustCreateClaim(t, e, ClaimInput{DeviceID: e.deviceID, Issue: "Của tôi"})
 	_, err = UpdateClaim(ctx, e.pool, e.userID, own.ID, ClaimInput{
 		DeviceID: otherDevice, Issue: "Của tôi",
 	})
-	wantClaimError(t, err, "NOT_FOUND", "")
+	checkClaimError(t, err, "NOT_FOUND", "")
 
 	// The owner can delete their own claim.
 	if err := DeleteClaim(ctx, e.pool, e.userID, own.ID); err != nil {
@@ -486,7 +494,7 @@ func TestClaimValidation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := CreateClaim(ctx, e.pool, e.userID, tc.in)
-			wantClaimError(t, err, "VALIDATION", tc.field)
+			checkClaimError(t, err, "VALIDATION", tc.field)
 		})
 	}
 
