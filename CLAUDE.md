@@ -44,7 +44,7 @@ Android (`cd android/`): `./gradlew :app:testDebugUnitTest --no-daemon` (needs `
 
 ## Architecture
 
-Multi-user, Vietnamese-only Next.js 16 (App Router, React 19) personal **device + warranty + subscription + wishlist** tracker. All persistence is in Postgres 17, owned by the Go service.
+Multi-user, **bilingual Vietnamese + English (English is the default)** Next.js 16 (App Router, React 19) personal **device + warranty + subscription + wishlist** tracker. All persistence is in Postgres 17, owned by the Go service.
 
 **Routing layout (`src/app/`).** Three route groups + one HTTP route:
 - `(app)/` — protected. `(app)/layout.tsx` calls `requireUser()` (redirects to `/login`); every page below assumes an authenticated user is present. Sections: `dashboard`, `devices`, `subscriptions`, `wishlist`, `reminders`, `stats`, `settings`.
@@ -119,7 +119,9 @@ Import accepts **both** on the same route, deciding by ZIP magic (`PK\x03\x04`) 
 
 ## Conventions
 
-- **All user-facing strings are Vietnamese.** Validation copy comes from the Go server (Go writes Vietnamese into `message` + `fieldErrors`); web only adds Vietnamese for transport errors. Static labels live in `src/lib/types.ts`, `subscription-types.ts`, `wishlist-types.ts`.
+- **The app is bilingual Vietnamese + English, and English is the default.** Server copy is keyed on the **Vietnamese source string** and translated in the Go catalog (`api/internal/i18n/catalog.go`); the client sends `Accept-Language` or `?lang=` and Go answers in that language. On iOS the catalog is `ios/Sources/WarrlyKit/Localizable.xcstrings` (declared `.copy` in `Package.swift`, looked up through `L.t` / `L.p`); on Android the `values-vi` + `values` resource pairs under `android/app/src/main/res/`, kept in parity by `StringResourceParityTest`.
+  - **Artifacts are Vietnamese; requests are English.** A screen the user is looking at follows their language setting. A thing that leaves the system and is read later by someone else — a transactional email, a push notification, a public certificate or share page — is rendered in **Vietnamese**, because it may be opened on a device that never chose a language. The password-reset and email-change mails are the reference implementation (`api/internal/email/`).
+  - When adding a string: add the Vietnamese key and its English translation in the same commit. A missing translation is a bug, not a follow-up.
 - Path alias `@/*` → `src/*` (see `tsconfig.json`).
 - Server actions call `api.*`; the result is mapped to `{ ok, errors?, message? }` for `useFormState` via `toFormState()` in `src/lib/api/client.ts`. A local Zod schema guards `FormData` only in the public auth flows (`auth.ts`, `password-reset.ts`) — the rest pass raw values through and surface Go's validator errors. There is no form library: forms are plain React + `useFormState`.
 - After mutating, call `revalidatePath` for every page that reads the changed data.
