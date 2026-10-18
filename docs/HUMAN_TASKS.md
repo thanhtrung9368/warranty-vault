@@ -209,7 +209,7 @@ npx web-push generate-vapid-keys
 
 ## Nhóm 1 — Tài khoản miễn phí (chỉ cần đăng ký)
 
-### [x] 1.1 — Firebase project → FCM cho Android — ✅ **XONG 2026-10-04**
+### [x] 1.1 — Firebase project → FCM cho Android — ✅ **XONG 2026-10-04**, cập nhật package `com.warrly` 2026-10-18
 
 **Tốn:** 0đ. FCM không tính phí. Gói Spark (miễn phí) là đủ.
 
@@ -381,7 +381,7 @@ gia hạn sớm vài năm trước mốc đó để khoá giá $10.46.
 | **a** | **Trỏ DNS về VPS**: 3 A record `warrly.com`, `www.warrly.com`, `api.warrly.com` | registrar | Caddy xin cert Let's Encrypt cần domain trỏ đúng |
 | **b** | **Verify `warrly.com` trên Resend** (SPF/DKIM/DMARC) | resend.com/domains | 🔴 **mở khoá 1.3** — không có nó thì reset mật khẩu không gửi được cho ai ngoài chính mày |
 | **c** | **Hộp thư `admin@warrly.com`** | registrar / email host | Caddyfile đang dùng làm email Let's Encrypt; sai thì mày không nhận được cảnh báo cert hết hạn |
-| **d** | **Thêm Android app `com.warrly` trên Firebase** rồi tải lại `google-services.json` | console.firebase.google.com | 🔴 `google-services.json` đang bị **vá tay** sang `com.warrly`; FCM **sẽ không đăng ký được token** cho tới khi Firebase biết package này. Firebase cho **nhiều app** trong một project nên cứ thêm, đừng xoá app cũ |
+| ~~**d**~~ | ~~Thêm Android app `com.warrly` trên Firebase~~ | | ✅ **XONG 2026-10-18** — Firebase đã có app `com.warrly` (`mobilesdk_app_id` `1:181364876291:android:a6fa4f7363697d180fda36`), `google-services.json` thật đã cài (mode 600, gitignored). Đã verify trong APK: package `com.warrly`, project `daring-tracer-277502` |
 | ~~**e**~~ | ~~Kiểm package trên Play~~ | | ✅ **XONG 2026-10-18** — Play Console có app **`com.warrly`**, Draft |
 
 > ⚠️ **Đừng nhầm:** `warrantyvault.com` (2006) và `warrantyvault.app` (Hope Built Advisory LLC)
