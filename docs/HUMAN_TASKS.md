@@ -326,7 +326,7 @@ chế độ "bên thứ ba chết thì mất bảo vệ"**.
 *(Chưa test được SRH ở máy này — Docker daemon không dùng được. Docs Upstash nói tương thích hoàn
 toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trước khi tin.)*
 
-### [ ] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email — 🟢 **ĐÃ HẾT CHẶN, chỉ còn verify domain**
+### [x] 1.3 — Resend → email đặt lại mật khẩu **và** xác nhận đổi email — ✅ **XONG 2026-10-18, đã gửi thật**
 
 **Tốn:** 0đ ở free tier (giới hạn số email/ngày — kiểm tra lại khi đăng ký).
 
@@ -334,8 +334,16 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
 2. → `RESEND_API_KEY`. Đặt `RESEND_FROM` (phải là domain đã verify với Resend).
 3. Cần domain riêng để verify → phụ thuộc mục 2.1.
 
-- **Không làm cũng "chạy":** chức năng quên mật khẩu **chỉ ghi link ra log**, user
-  không nhận được email. Với app thật thì coi như **hỏng**.
+- ✅ **ĐÃ XONG 2026-10-18.** Domain `warrly.com` verified trên Resend (DKIM + SPF +
+  DMARC, cả 4 bản ghi đã kiểm bằng `dig`), API key cấu hình trong `/opt/warrly/.env`,
+  và **đã gửi thật tới một hộp thư ngoài**: subject "Đặt lại mật khẩu Warrly", nội dung
+  tiếng Việt, link trỏ `https://warrly.com/reset/...`.
+  - **DMARC ban đầu KHÔNG có trong DNS** — Resend chỉ hiện nó như gợi ý chứ không verify,
+    nên dễ tưởng đã thêm. Đã thêm `TXT _dmarc = v=DMARC1; p=none;`.
+  - Key Resend bị giới hạn **chỉ gửi email** (không đọc được danh sách domain) — đúng
+    nguyên tắc quyền tối thiểu, và là lý do `GET /domains` trả lỗi nếu ai đó thử.
+  - Trang `/confirm-email/<token>` trên web: **đã có** (không còn thiếu như ghi chú cũ).
+
 - 🆕 **Mục này nay chặn 2 tính năng, không còn 1.** Backend vừa thêm luồng **đổi email**
   (`POST /api/v1/auth/change-email` + `confirm-email-change`, migration `0009`): token xác nhận gửi tới
   **địa chỉ email mới**, nên không có Resend thật thì người dùng đổi email xong sẽ **kẹt** — địa chỉ cũ
@@ -455,11 +463,25 @@ gia hạn sớm vài năm trước mốc đó để khoá giá $10.46.
   sai và đã được sửa.
 - **Mở khoá:** push trên iOS + TestFlight để test trên máy thật.
 
-### [ ] 2.4 — Google Play Console → internal testing Android — 🟡 **app `com.warrly` đã tạo, chờ upload AAB**
+### [ ] 2.4 — Google Play Console → internal testing Android — 🟡 **AAB đã sẵn sàng, chờ upload**
 
 - **Tốn:** phí đăng ký **một lần** (theo trí nhớ là $25 USD — **xác nhận lại** tại
   <https://play.google.com/console/about/>).
 - **Mở khoá:** phát nội bộ cho máy Android thật, không phải sideload APK.
+
+  - ✅ **AAB build được rồi (2026-10-18).** `android/app/build/outputs/bundle/release/app-release.aab`
+    — `versionCode 2`, `targetSdk 36`, ký bằng `CN=Warrly`.
+    - Lần upload đầu bị Play từ chối: *"must target at least API level 36"*. Đã nâng
+      `compileSdk`/`targetSdk` lên 36 **và** AGP 8.9.1 + Gradle 8.11.1 — AGP 8.7.2 build
+      được nhưng in `suppressUnsupportedCompileSdk`, tức là nó đang đoán.
+    - `versionCode` là **2** chứ không dùng lại 1: bundle version 1 đã nằm trong Play từ
+      lần upload hỏng, và không rõ Play có trả lại version code khi Discard không.
+  - 🔑 **BẢO QUẬN 2 FILE NÀY:** `android/keystore/warrly-upload.jks` và
+    `android/keystore.properties`. Đây là thứ duy nhất chứng minh app là của mày; cả hai
+    đã gitignore. Mất cả hai thì phải reset upload key qua Play App Signing.
+  - ⚠️ **Chưa chạy bản release lần nào** — máy không có emulator/thiết bị. R8 bật với chỉ
+    rule của thư viện. Việc đầu tiên cần kiểm khi internal testing: app **mở được** và
+    **hiện danh sách thiết bị**. Crash thì tắt `isMinifyEnabled` rồi build lại.
 
 ### [ ] 2.5 — Diễn tập restore backup (cần VPS/DB staging) — **việc quan trọng nhất còn lại**
 
