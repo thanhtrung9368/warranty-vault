@@ -89,6 +89,12 @@ export default async function RootLayout({
       className={`${jakarta.variable} ${inter.variable} ${fraunces.variable}`}
     >
       <body className={jakarta.className}>
+        {/* Answered by the service worker: empty for a fresh page, a generated
+            stale-data bar when it just served this document from cache. It is
+            part of the React tree, so no DOM injection and no hydration
+            mismatch. See `public/sw.js` → offlineIndicatorResponse. */}
+        {/* eslint-disable-next-line @next/next/no-css-tags -- a standalone URL is the point: the service worker answers it */}
+        <link rel="stylesheet" href="/offline-indicator.css" />
         <Script id="wv-prefs" strategy="beforeInteractive">
           {PREFS_BOOTSTRAP}
         </Script>

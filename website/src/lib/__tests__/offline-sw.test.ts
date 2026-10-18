@@ -33,6 +33,7 @@ type SwCore = {
   CURRENT_CACHES: string[];
   PAGE_CACHE_PREFIX: string;
   OFFLINE_URL: string;
+  OFFLINE_INDICATOR_PATH: string;
   SHELL_URLS: string[];
   PRIME_URLS: string[];
   PRIME_MAX_AGE_MS: number;
@@ -48,7 +49,6 @@ type SwCore = {
   formatCachedAt(timestamp: number | null, locale: string): string | null;
   staleMessage(locale: string, timestamp: number | null): string;
   staleBannerCss(locale: string, timestamp: number | null): string;
-  injectStaleBanner(html: string, css: string): string;
   parseShellAssetUrls(html: string): string[];
   staleCacheNames(names: string[]): string[];
 };
@@ -114,14 +114,14 @@ function fakeResponse(
 
 describe('cache versioning', () => {
   it('uses versioned cache names and drops every older wv-* cache', () => {
-    expect(core.CACHE_VERSION).toBe(2);
-    expect(core.SHELL_CACHE).toBe('wv-shell-v2');
-    expect(core.PAGE_CACHE).toBe('wv-pages-v2');
-    expect(core.ASSET_CACHE).toBe('wv-assets-v2');
+    expect(core.CACHE_VERSION).toBe(3);
+    expect(core.SHELL_CACHE).toBe('wv-shell-v3');
+    expect(core.PAGE_CACHE).toBe('wv-pages-v3');
+    expect(core.ASSET_CACHE).toBe('wv-assets-v3');
     expect(core.CURRENT_CACHES).toEqual([
-      'wv-shell-v2',
-      'wv-pages-v2',
-      'wv-assets-v2',
+      'wv-shell-v3',
+      'wv-pages-v3',
+      'wv-assets-v3',
     ]);
 
     expect(
@@ -129,18 +129,30 @@ describe('cache versioning', () => {
         'wv-v1',
         'wv-pages-v1',
         'wv-pages-v2',
+        'wv-pages-v3',
         'wv-assets-v1',
         'wv-assets-v2',
+        'wv-assets-v3',
         'wv-shell-v1',
         'wv-shell-v2',
+        'wv-shell-v3',
         'unrelated-cache',
       ]),
-    ).toEqual(['wv-v1', 'wv-pages-v1', 'wv-assets-v1', 'wv-shell-v1']);
+    ).toEqual([
+      'wv-v1',
+      'wv-pages-v1',
+      'wv-pages-v2',
+      'wv-assets-v1',
+      'wv-assets-v2',
+      'wv-shell-v1',
+      'wv-shell-v2',
+    ]);
   });
 
   it('keeps the page-cache prefix in sync with the client-side cleaner', () => {
     expect(core.PAGE_CACHE_PREFIX).toBe(OFFLINE_PAGE_CACHE_PREFIX);
     expect(core.OFFLINE_URL).toBe('/offline');
+    expect(core.OFFLINE_INDICATOR_PATH).toBe('/offline-indicator.css');
     expect(core.SHELL_URLS).toContain('/offline');
   });
 });
@@ -363,32 +375,6 @@ describe('stale banner', () => {
     expect(css).toContain('z-index:2147483647');
     expect(css).toContain('#FEF3C7');
     expect(css).toContain('content:"');
-  });
-
-  it('injects the style into head without touching the React-managed body', () => {
-    const html =
-      '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head>' +
-      '<body><main>Thiết bị</main></body></html>';
-    const result = core.injectStaleBanner(html, core.staleBannerCss('vi', null));
-
-    expect(result.indexOf('data-warrly-offline-banner')).toBeGreaterThan(-1);
-    expect(result.indexOf('data-warrly-offline-banner')).toBeLessThan(
-      result.indexOf('</head>'),
-    );
-    expect(result).toContain('<body><main>Thiết bị</main></body>');
-  });
-
-  it('is idempotent', () => {
-    const html = '<html><head></head><body>x</body></html>';
-    const once = core.injectStaleBanner(html, core.staleBannerCss('en', null));
-    const twice = core.injectStaleBanner(once, core.staleBannerCss('en', null));
-    expect(twice).toBe(once);
-    expect(twice.match(/data-warrly-offline-banner/g)?.length).toBe(1);
-  });
-
-  it('falls back to prepending when a document has no head', () => {
-    const result = core.injectStaleBanner('<p>x</p>', 'body::before{content:"x"}');
-    expect(result.startsWith('<style data-warrly-offline-banner="1">')).toBe(true);
   });
 });
 

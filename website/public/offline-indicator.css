@@ -1,0 +1,12 @@
+/*
+ * Warrly's offline stale indicator.
+ *
+ * The root layout links this file on every page. When the service worker has
+ * just served a document from its page cache it answers this request with a
+ * generated `body::before` amber bar naming the save time; on a network-fresh
+ * page it answers with this empty stylesheet. Keeping the marker in a
+ * stylesheet (instead of injecting a <style> into cached HTML) means React
+ * hydration sees exactly the tree the server rendered.
+ *
+ * This file is the no-service-worker fallback: it intentionally has no rules.
+ */

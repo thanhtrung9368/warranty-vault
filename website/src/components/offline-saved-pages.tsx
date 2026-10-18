@@ -32,6 +32,24 @@ function formatSavedAt(timestamp: number, locale: string): string {
   }
 }
 
+/**
+ * The sidebar already owns the section labels; reuse them instead of showing a
+ * dashboard `<h1>` such as "Hi, Demo 👋" as a link label. Device detail pages
+ * fall through to the device name parsed from the cached `<h1>`.
+ */
+function pageLabel(page: OfflinePageEntry, t: ReturnType<typeof useT>): string {
+  if (page.url === '/dashboard' || page.url.indexOf('/dashboard?') === 0) {
+    return t('Tổng quan');
+  }
+  if (page.url === '/devices' || page.url.indexOf('/devices?') === 0) {
+    return t('Thiết bị');
+  }
+  if (page.url === '/reminders' || page.url.indexOf('/reminders?') === 0) {
+    return t('Nhắc nhở');
+  }
+  return page.title;
+}
+
 export function OfflineSavedPages() {
   const t = useT();
   const locale = useLocale();
@@ -73,7 +91,7 @@ export function OfflineSavedPages() {
                 className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md px-1.5 py-1.5 text-sm hover:bg-surface-2"
               >
                 <span className="font-semibold text-primary hover:underline">
-                  {page.title}
+                  {pageLabel(page, t)}
                 </span>
                 {page.cachedAt !== null && (
                   <span className="text-xs text-muted">

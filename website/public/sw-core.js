@@ -28,12 +28,13 @@
  *
  * ── What about staleness? ─────────────────────────────────────────────────
  *
- * Cached documents are served only when the network is unreachable. Before
- * they are returned, a small `<style>` element is injected into `<head>` that
- * renders a full-width amber `body::before` bar: "saved at … — may be out of
- * date". A CSS pseudo-element is deliberate: it cannot be removed by React
- * hydration (it is not a DOM node in the tree), it is visible before any JS
- * runs, and it needs no extra bytes from a cached JS bundle.
+ * The root layout links a tiny `/offline-indicator.css` on every page. The
+ * service worker answers that request with an empty stylesheet online and with
+ * a `body::before` amber bar when it has just served this document from the
+ * page cache: "saved at … — this data may be out of date". No DOM is injected
+ * into the cached HTML, so React hydration compares exactly the tree the
+ * server rendered; the banner is a normal same-origin stylesheet request and
+ * is visible before any client JS runs.
  *
  * ── Privacy ───────────────────────────────────────────────────────────────
  *
@@ -51,7 +52,7 @@
 
   // Bump this when the cache shape changes. Activate drops every other
   // `wv-*` cache, including the legacy single-cache `wv-v1`.
-  const CACHE_VERSION = 2;
+  const CACHE_VERSION = 3;
   const CACHE_PREFIX = 'wv-';
   const SHELL_CACHE = 'wv-shell-v' + CACHE_VERSION;
   const PAGE_CACHE = 'wv-pages-v' + CACHE_VERSION;
@@ -63,6 +64,8 @@
   const PAGE_CACHE_PREFIX = 'wv-pages-';
 
   const OFFLINE_URL = '/offline';
+  // Linked from the root layout; the SW generates its content per navigation.
+  const OFFLINE_INDICATOR_PATH = '/offline-indicator.css';
 
   // `addAll` would reject the whole shell if one icon 404s, so these are
   // fetched individually and failures are ignored.
@@ -271,8 +274,9 @@
   /**
    * A `body::before` banner. Sticky so it stays visible while the user scrolls
    * a long warranty list, and with a high z-index so an app-level overlay
-   * cannot hide it. Inline (not a stylesheet) because the cached page's CSS
-   * chunk may be missing on the first offline visit.
+   * cannot hide it. This string is served as `/offline-indicator.css`; it does
+   * not depend on any app stylesheet, so the first offline view is marked even
+   * if the page's CSS chunk was never cached.
    */
   function staleBannerCss(locale, timestamp) {
     const message = escapeCssString(staleMessage(locale, timestamp));
@@ -286,31 +290,6 @@
       'text-align:center;white-space:normal;' +
       'box-shadow:0 2px 8px rgba(120,53,15,.12);}'
     );
-  }
-
-  function staleBannerStyleTag(css) {
-    return '<style data-warrly-offline-banner="1">' + css + '</style>';
-  }
-
-  /**
-   * Put the banner style in `<head>` without touching the React-managed body.
-   * Hydration never sees a new body node; the browser applies the pseudo-element
-   * before, during and after hydration.
-   */
-  function injectStaleBanner(html, css) {
-    if (!html) return html;
-    if (html.indexOf('data-warrly-offline-banner') !== -1) return html;
-    const tag = staleBannerStyleTag(css);
-    const headClose = html.search(/<\/head\s*>/i);
-    if (headClose !== -1) return html.slice(0, headClose) + tag + html.slice(headClose);
-    const headOpen = /<head\b[^>]*>/i.exec(html);
-    if (headOpen) {
-      const at = headOpen.index + headOpen[0].length;
-      return html.slice(0, at) + tag + html.slice(at);
-    }
-    // Not a complete document (or no head at all): prepend. The caller only
-    // reaches here for text/html, so this is a defensive fallback.
-    return tag + html;
   }
 
   /** Assets referenced by the precached offline page, so the first offline view is styled. */
@@ -348,6 +327,7 @@
     CURRENT_CACHES: CURRENT_CACHES,
     PAGE_CACHE_PREFIX: PAGE_CACHE_PREFIX,
     OFFLINE_URL: OFFLINE_URL,
+    OFFLINE_INDICATOR_PATH: OFFLINE_INDICATOR_PATH,
     SHELL_URLS: SHELL_URLS,
     PRIME_URLS: PRIME_URLS,
     PRIME_MAX_AGE_MS: PRIME_MAX_AGE_MS,
@@ -364,7 +344,6 @@
     formatCachedAt: formatCachedAt,
     staleMessage: staleMessage,
     staleBannerCss: staleBannerCss,
-    injectStaleBanner: injectStaleBanner,
     parseShellAssetUrls: parseShellAssetUrls,
     staleCacheNames: staleCacheNames,
   };

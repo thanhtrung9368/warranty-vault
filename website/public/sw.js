@@ -1,12 +1,13 @@
 /* Warrly service worker — push receive + honest offline document cache. */
 
-importScripts('/sw-core.js?v=2');
+importScripts('/sw-core.js?v=3');
 
 const {
   SHELL_CACHE,
   PAGE_CACHE,
   ASSET_CACHE,
   OFFLINE_URL,
+  OFFLINE_INDICATOR_PATH,
   SHELL_URLS,
   PRIME_URLS,
   PRIME_MAX_AGE_MS,
@@ -19,7 +20,6 @@ const {
   isOlderThan,
   localeFromHtml,
   staleBannerCss,
-  injectStaleBanner,
   parseShellAssetUrls,
   staleCacheNames,
 } = self.WVOffline;
@@ -50,6 +50,38 @@ async function clearPageCache() {
   } catch {
     // Best effort. The client-side sign-out path runs the same deletion.
   }
+}
+
+// When a document is served from the page cache, remember its save time so
+// the very next request for `/offline-indicator.css` (the <link> in the root
+// layout) can render the stale bar. This is a short-lived, per-URL marker:
+// the stylesheet request lands milliseconds after the document, and a fresh
+// 200 for the same URL deletes the marker before its stylesheet is requested,
+// so a second tab cannot be marked stale. A page served from the network with
+// no marker gets an empty stylesheet.
+const INDICATOR_TTL_MS = 60 * 1000;
+const recentlyStale = new Map();
+
+function rememberStale(url, cachedAt, locale) {
+  if (!url) return;
+  const now = Date.now();
+  if (recentlyStale.size > 40) {
+    for (const [key, entry] of recentlyStale) {
+      if (now - entry.servedAt > INDICATOR_TTL_MS) recentlyStale.delete(key);
+    }
+  }
+  recentlyStale.set(url, { cachedAt, locale, servedAt: now });
+}
+
+function recentStaleFor(url) {
+  if (!url) return null;
+  const entry = recentlyStale.get(url);
+  if (!entry) return null;
+  if (Date.now() - entry.servedAt > INDICATOR_TTL_MS) {
+    recentlyStale.delete(url);
+    return null;
+  }
+  return entry;
 }
 
 function fetchWithReload(input) {
@@ -177,11 +209,12 @@ async function primeCorePages() {
 
 // ── fetch ─────────────────────────────────────────────────────────────────
 //
-// Three lanes:
-//   1. `/_next/static/*` + PWA icons → cache-first (hashed, immutable).
-//   2. Full document navigations        → network-first, cached document when
+// Four lanes:
+//   1. `/offline-indicator.css` → generated locally; stale bar or empty.
+//   2. `/_next/static/*` + PWA icons → cache-first (hashed, immutable).
+//   3. Full document navigations        → network-first, cached document when
 //      the network fails, offline shell when even that is missing.
-//   3. Everything else (RSC payloads, `/api/files/*`, backup routes, images)
+//   4. Everything else (RSC payloads, `/api/files/*`, backup routes, images)
 //      → untouched. We deliberately do not cache RSC or attachment bytes.
 
 self.addEventListener('fetch', (event) => {
@@ -196,6 +229,15 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.origin !== self.location.origin) return;
 
+  // The root layout links this on every page. It is the stale marker: an empty
+  // stylesheet for a network-fresh page, a `body::before` bar for a page this
+  // worker just served from the page cache. Generating it here (instead of
+  // injecting DOM into the cached HTML) keeps hydration byte-for-byte clean.
+  if (url.pathname === OFFLINE_INDICATOR_PATH) {
+    event.respondWith(offlineIndicatorResponse(request));
+    return;
+  }
+
   // Attachment bytes, backup downloads and any future API read stay online-only.
   if (url.pathname.indexOf('/api/') === 0) return;
 
@@ -208,6 +250,21 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirstDocument(request));
   }
 });
+
+function offlineIndicatorResponse(request) {
+  const stale = recentStaleFor(request.referrer || '');
+  const css = stale ? staleBannerCss(stale.locale, stale.cachedAt) : '';
+
+  return new Response(css, {
+    status: 200,
+    headers: {
+      'content-type': 'text/css; charset=utf-8',
+      // Never let the browser cache the empty version and serve it later to a
+      // stale document (or vice versa).
+      'cache-control': 'no-store',
+    },
+  });
+}
 
 async function cacheFirstAsset(request) {
   let cache;
@@ -234,6 +291,10 @@ async function networkFirstDocument(request) {
   try {
     const response = await fetch(request);
 
+    // A fresh 200 for this URL is the authority: any stale marker from an
+    // earlier cached view must not leak onto it (or onto a second tab).
+    if (response.ok && response.status === 200) recentlyStale.delete(request.url);
+
     if (shouldCacheDocument(request, response)) {
       await putInCache(PAGE_CACHE, request, response.clone());
     } else {
@@ -255,7 +316,19 @@ async function networkFirstDocument(request) {
   } catch {
     // The network is unreachable (the only case where we serve stale data).
     const cached = await matchCachedDocument(request);
-    if (cached) return staleDocumentResponse(cached);
+    if (cached) {
+      const cachedAt = cachedAtFrom(cached);
+      let locale = 'en';
+      try {
+        locale = localeFromHtml(await cached.clone().text());
+      } catch {
+        // Keep the default; the banner is still shown.
+      }
+      // The <link rel=stylesheet> request arrives immediately after this
+      // response is parsed; its Referer is this URL.
+      rememberStale(request.url, cachedAt, locale);
+      return cached;
+    }
 
     try {
       const shell = await caches.match(OFFLINE_URL);
@@ -285,43 +358,6 @@ async function matchCachedDocument(request) {
     return null;
   } catch {
     return null;
-  }
-}
-
-async function staleDocumentResponse(cached) {
-  const cachedAt = cachedAtFrom(cached);
-  try {
-    const html = await cached.clone().text();
-    const locale = localeFromHtml(html);
-    const body = injectStaleBanner(html, staleBannerCss(locale, cachedAt));
-
-    const headers = new Headers(cached.headers);
-    // We have decoded and rewritten the body, so the original transport
-    // headers no longer describe it.
-    headers.delete('content-encoding');
-    headers.delete('content-length');
-    headers.delete('transfer-encoding');
-    headers.delete('etag');
-    headers.delete('last-modified');
-    headers.set('cache-control', 'no-store');
-    headers.set('x-warrly-offline', '1');
-    if (cachedAt !== null) headers.set('x-warrly-cached-at', String(cachedAt));
-
-    return new Response(body, {
-      status: 200,
-      statusText: 'OK',
-      headers,
-    });
-  } catch {
-    // The cached entry is not readable as text. Returning it unchanged would
-    // skip the stale warning, so keep the offline shell's honesty instead.
-    try {
-      const shell = await caches.match(OFFLINE_URL);
-      if (shell) return shell;
-    } catch {
-      // Fall through.
-    }
-    return minimalOfflineResponse();
   }
 }
 
