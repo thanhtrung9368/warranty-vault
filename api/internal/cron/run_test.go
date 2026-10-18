@@ -399,9 +399,9 @@ func TestRun_SubRenewalWarningIdempotent(t *testing.T) {
 	}
 
 	// renewalDate at noon today (matches the 0-day warning window). leadDays is
-	// pinned to [0] because migration 0015's default is [30, 7]: a subscription
-	// that renews TODAY is no longer a 0-day warning unless the user asked for
-	// one. This test is about same-day idempotency, not about the default.
+	// pinned to [0] so the assertion does not depend on the column default,
+	// which migration 0015 sets to [3, 1, 0] for subscriptions (and [30, 7] for
+	// devices). This test is about same-day idempotency, not about the default.
 	now := time.Now()
 	todayNoon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
 	q := store.New(pool)

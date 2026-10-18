@@ -360,7 +360,7 @@ func TestRunWarrantyLeadDayZeroFiresOnExpiryDay(t *testing.T) {
 	}
 }
 
-// ─── Subscription: default [30, 7] + the same per-lead-day key ──────────────
+// ─── Subscription: default [3, 1, 0] + the same per-lead-day key ────────────
 
 func TestRunSubscriptionLeadDaysDefaultAndPerLeadDayKey(t *testing.T) {
 	ctx := context.Background()
@@ -371,24 +371,25 @@ func TestRunSubscriptionLeadDaysDefaultAndPerLeadDayKey(t *testing.T) {
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	// nil leadDays -> the service's create default [30, 7]. The subscription
-	// mapping is natural: 30 means renewalDate is 30 days out, 7 means 7 days
-	// out.
-	leadDaysSubscription(t, q, userID, "ld_sub_30", "Gói 30", midnight.AddDate(0, 0, 30).Add(12*time.Hour), nil)
-	leadDaysSubscription(t, q, userID, "ld_sub_7", "Gói 7", midnight.AddDate(0, 0, 7).Add(12*time.Hour), nil)
+	// nil leadDays -> the column default [3, 1, 0], which is the OLD renewal
+	// cron's schedule. It is deliberately not the device default [30, 7]:
+	// sharing one default would have moved every existing subscription's
+	// renewal warnings two weeks earlier.
+	leadDaysSubscription(t, q, userID, "ld_sub_3", "Gói 3", midnight.AddDate(0, 0, 3).Add(12*time.Hour), nil)
+	leadDaysSubscription(t, q, userID, "ld_sub_1", "Gói 1", midnight.AddDate(0, 0, 1).Add(12*time.Hour), nil)
 
 	mock := &mockDispatcher{}
 	if _, err := Run(ctx, pool, mock); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	subTags := sendsByTag(mock.sends, "sub-d")
-	if _, ok := subTags["sub-d30-ld_sub_30"]; !ok {
-		t.Errorf("no 30-day subscription push; got tags %v", tagsOf(mock.sends))
+	if _, ok := subTags["sub-d3-ld_sub_3"]; !ok {
+		t.Errorf("no 3-day subscription push; got tags %v", tagsOf(mock.sends))
 	}
-	if _, ok := subTags["sub-d7-ld_sub_7"]; !ok {
-		t.Errorf("no 7-day subscription push; got tags %v", tagsOf(mock.sends))
+	if _, ok := subTags["sub-d1-ld_sub_1"]; !ok {
+		t.Errorf("no 1-day subscription push; got tags %v", tagsOf(mock.sends))
 	}
-	for _, tag := range []string{"sub-d30-ld_sub_30", "sub-d7-ld_sub_7"} {
+	for _, tag := range []string{"sub-d3-ld_sub_3", "sub-d1-ld_sub_1"} {
 		if got := subTags[tag]; !strings.Contains(got, "ngày") {
 			t.Errorf("%s title = %q, want a day count", tag, got)
 		}

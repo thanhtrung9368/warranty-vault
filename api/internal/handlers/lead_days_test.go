@@ -151,7 +151,9 @@ func TestDeviceLeadDaysOverHTTP(t *testing.T) {
 func TestSubscriptionLeadDaysOverHTTP(t *testing.T) {
 	env := setupSubsI18nEnv(t)
 
-	// Absent on create -> [30, 7].
+	// Absent on create -> [3, 1, 0], the old renewal cron's schedule. NOT [30, 7]:
+	// that is the device default, and sharing it would move every existing
+	// subscription's renewal warnings two weeks earlier.
 	rr := env.do(t, http.MethodPost, "/api/v1/subscriptions", "", `{
 		"name":"Netflix mặc định","billingCycle":"MONTHLY","price":1000,"startedAt":"2026-01-15"
 	}`)
@@ -159,7 +161,7 @@ func TestSubscriptionLeadDaysOverHTTP(t *testing.T) {
 		t.Fatalf("create without leadDays = %d, want 201 (%s)", rr.Code, rr.Body.String())
 	}
 	_, got := leadDaysFromObject(t, decodeResponse(t, rr), "subscription")
-	assertLeadDays(t, got, []int32{30, 7})
+	assertLeadDays(t, got, []int32{3, 1, 0})
 
 	// Explicit unsorted values are sorted descending.
 	rr = env.do(t, http.MethodPost, "/api/v1/subscriptions", "", `{

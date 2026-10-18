@@ -378,8 +378,8 @@ func TestLeadDaysRoundTripAgainstRealPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSubscription(default): %v", err)
 	}
-	if !reflect.DeepEqual(sub.LeadDays, []int32{30, 7}) {
-		t.Errorf("created subscription leadDays = %v, want the [30 7] default", sub.LeadDays)
+	if !reflect.DeepEqual(sub.LeadDays, []int32{3, 1, 0}) {
+		t.Errorf("created subscription leadDays = %v, want the [3 1 0] default", sub.LeadDays)
 	}
 
 	subCustom := validSubscriptionInput()

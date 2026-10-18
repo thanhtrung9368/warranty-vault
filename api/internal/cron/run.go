@@ -509,10 +509,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// ends on a day, a subscription renews on a day. Keeping each side's
 	// established count is more important than pretending the two are identical.
 	//
-	// NOTE: Subscription also gets the default [30, 7] (migration 0015), so a
-	// subscription that used to warn at 3/1/0 now warns at 30/7. That is the
-	// contract's deliberate default, not a preservation of the old schedule. A
-	// user who wants the old milestones can set leadDays [3, 1, 0].
+	// The two subjects also have DIFFERENT defaults (migration 0015): a device
+	// gets [30, 7], a subscription [3, 1, 0]. That is not an inconsistency — it
+	// is what each cron fired before leadDays existed, so a user who never opens
+	// the setting keeps exactly the reminders they had.
 	subLeadDays, err := q.ListActiveSubscriptionLeadDays(ctx)
 	if err != nil {
 		return stats, fmt.Errorf("list active subscription lead days: %w", err)
