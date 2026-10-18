@@ -365,7 +365,29 @@ toàn và chạy chính test suite của Upstash qua nó, nhưng nên thử trư
 > Giá dưới đây là **giá niêm yết tham khảo** — tao không verify được bảng giá trực tiếp
 > từ trang chủ Apple (trang trả về menu, không có giá). **Mày xác nhận lại lúc đăng ký.**
 
-### [ ] 2.1 — Domain — 🔴 **GIỜ LÀ THỨ CHẶN NHIỀU NHẤT, và rẻ nhất**
+### [x] 2.1 — Domain — ✅ **ĐÃ MUA `warrly.com` (2026-10-18)**
+
+**Tên sản phẩm đã chốt: `Warrly`** (bỏ `Warranty Vault` — xem 3.3 để biết vì sao).
+Đã đổi toàn bộ 4 tầng: hiển thị, bundle ID `app.warrly`, package Android `app.warrly`,
+iOS module `WarrlyKit`, catalog i18n, Caddyfile.
+
+`.com` đã mua, Active tới **2027-10-18**. Giá `.com` tăng lên $11.17 từ **1/11/2026** —
+gia hạn sớm vài năm trước mốc đó để khoá giá $10.46.
+
+**Việc còn lại sau khi có domain — 5 mục, KHÔNG mục nào chặn nhau:**
+
+| # | Việc | Ở đâu | Vì sao cần |
+|---|---|---|---|
+| **a** | **Trỏ DNS về VPS**: 3 A record `warrly.com`, `www.warrly.com`, `api.warrly.com` | registrar | Caddy xin cert Let's Encrypt cần domain trỏ đúng |
+| **b** | **Verify `warrly.com` trên Resend** (SPF/DKIM/DMARC) | resend.com/domains | 🔴 **mở khoá 1.3** — không có nó thì reset mật khẩu không gửi được cho ai ngoài chính mày |
+| **c** | **Hộp thư `admin@warrly.com`** | registrar / email host | Caddyfile đang dùng làm email Let's Encrypt; sai thì mày không nhận được cảnh báo cert hết hạn |
+| **d** | **Đăng ký lại Android app trên Firebase với package `app.warrly`** | console.firebase.google.com | 🔴 `google-services.json` đang bị **vá tay** sang `app.warrly`; FCM **sẽ không đăng ký được token** cho tới khi Firebase có app với package mới rồi tải lại file |
+| **e** | **Kiểm package `app.warrly` trên Play Console** | play.google.com/console | Package **vĩnh viễn** sau khi tạo app. Nếu bị chiếm phải chọn cái khác **trước** khi ship |
+
+> ⚠️ **Đừng nhầm:** `warrantyvault.com` (2006) và `warrantyvault.app` (Hope Built Advisory LLC)
+> vẫn thuộc người khác. Không còn liên quan tới mình.
+
+### ~~2.1 cũ — Domain (đã xong)~~
 
 - **Tốn:** ~$10–15/năm tuỳ đuôi.
 - **Lấy gì:** 1 domain, trỏ **3 A record** về IP VPS:
