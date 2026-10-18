@@ -396,6 +396,11 @@ type sharePageData struct {
 
 type sharePageWarranty struct {
 	TypeLabel string
+	// Component is the user-typed part this row covers (migration 0017); empty
+	// means the whole unit. It is rendered next to the type so a 10-year motor
+	// clock cannot be mistaken for whole-device cover. The value is escaped by
+	// html/template like every other interpolated string.
+	Component string
 	Provider  string
 	Period    string
 	Months    string
@@ -642,6 +647,14 @@ func buildSharePageData(c *services.SharedCertificate, now time.Time, tag i18n.T
 			Period:    strings.TrimSpace(shareDate(tag, w.StartDate) + " — " + shareDate(tag, w.EndDate)),
 			Months:    shareMonths(tag, w.Months),
 		}
+		if w.Component != nil && strings.TrimSpace(*w.Component) != "" {
+			// A label, not the bare part name: the recipient is a stranger and
+			// the cell already says the plan type, so "Bộ phận: Động cơ" /
+			// "Component: motor" is unambiguous where a lone noun is not. The
+			// user-typed value is the Sprintf argument, so a literal `%` in it
+			// is safe, and html/template escapes the finished string.
+			row.Component = i18n.Translate(tag, "Bộ phận: %s", *w.Component)
+		}
 		if w.Provider != nil {
 			row.Provider = *w.Provider
 		}
@@ -820,7 +833,7 @@ const shareTemplateHTML = `<!doctype html>
     <tbody>
     {{range .Cert.Warranties}}
       <tr>
-        <td>{{.TypeLabel}}{{if .Months}}<br><span class="muted">{{.Months}}</span>{{end}}</td>
+        <td>{{.TypeLabel}}{{if .Component}}<br><span class="muted">{{.Component}}</span>{{end}}{{if .Months}}<br><span class="muted">{{.Months}}</span>{{end}}</td>
         <td>{{.Period}}</td>
         <td>
           {{if .Provider}}{{.Provider}}<br>{{end}}

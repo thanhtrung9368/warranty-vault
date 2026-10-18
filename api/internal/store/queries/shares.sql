@@ -126,9 +126,18 @@ LIMIT 1;
 -- PUBLIC read, device-scoped. `cost` and `notes` are absent from the SELECT list
 -- on purpose (see the file header): the recipient needs the coverage window and
 -- the place to claim it, not what the seller paid or wrote.
+--
+-- `component` (migration 0017) IS included, and it is the one contract-term
+-- column this projection carries: the recipient must be able to see that a row
+-- covers a part rather than the whole device. Without it the certificate would
+-- present a 10-year motor clock as if the whole unit were covered. The
+-- money/terms columns (cap, deductible, exclusions, …) stay out: the certificate
+-- is proof of the coverage window and the place to claim it, not a copy of the
+-- contract the seller bought.
 SELECT
     id,
     type,
+    component,
     provider,
     "startDate",
     "endDate",

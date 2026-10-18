@@ -456,6 +456,33 @@ var messages = map[string]message{
 		vi: "Mỗi thiết bị tối đa %d gói bảo hành.",
 		en: "A device can have at most %d warranties.",
 	},
+	// Contract terms (migration 0017). The negative-value sentence is shared by
+	// cap / deductible / claimsAllowed / claimsUsed because the field key already
+	// names the number that is wrong; the over-use sentence is its own rule.
+	"Giá trị không được âm": {
+		vi: "Giá trị không được âm",
+		en: "Value must not be negative",
+	},
+	"Số lần đã dùng không được vượt quá số lần được phép": {
+		vi: "Số lần đã dùng không được vượt quá số lần được phép",
+		en: "Claims used cannot exceed claims allowed",
+	},
+	"Bộ phận được bảo hành tối đa %d ký tự": {
+		vi: "Bộ phận được bảo hành tối đa %d ký tự",
+		en: "Covered component must be at most %d characters",
+	},
+	"Khu vực áp dụng tối đa %d ký tự": {
+		vi: "Khu vực áp dụng tối đa %d ký tự",
+		en: "Coverage region must be at most %d characters",
+	},
+	"Phạm vi bảo hành tối đa %d ký tự": {
+		vi: "Phạm vi bảo hành tối đa %d ký tự",
+		en: "Coverage scope must be at most %d characters",
+	},
+	"Nội dung loại trừ tối đa %d ký tự": {
+		vi: "Nội dung loại trừ tối đa %d ký tự",
+		en: "Exclusions must be at most %d characters",
+	},
 
 	// ── Serial / IMEI advisories (internal/services/serial_validation.go).
 	//
@@ -957,6 +984,10 @@ var messages = map[string]message{
 	},
 	"Gói bảo hành": {vi: "Gói bảo hành", en: "Warranty plan"},
 	"Thời gian":    {vi: "Thời gian", en: "Period"},
+	// Certificate row label for a component-scoped plan (migration 0017). Without
+	// the label the recipient sees a bare noun under the plan type; with it, the
+	// row says exactly which part the longer clock belongs to.
+	"Bộ phận: %s":  {vi: "Bộ phận: %s", en: "Component: %s"},
 	"Nơi bảo hành": {vi: "Nơi bảo hành", en: "Warranty centre"},
 	"ĐT: %s":       {vi: "ĐT: %s", en: "Phone: %s"},
 	"Chưa ghi số điện thoại": {

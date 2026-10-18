@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -703,6 +704,13 @@ private fun WarrantyCard(
                     color = cs.onSurfaceVariant,
                     textDecoration = TextDecoration.None)
             }
+            // Contract terms — appended only when the plan actually has one, so
+            // a card with no terms keeps the exact layout it had before these
+            // nine fields existed. The derived wording/number rules live in
+            // WarrantyTerms.kt and are unit-tested without Compose.
+            if (warranty.hasContractTerms()) {
+                WarrantyTermsBlock(warranty)
+            }
             Spacer(Modifier.height(8.dp))
             Row {
                 TextButton(onClick = onToggleReminder) {
@@ -718,6 +726,74 @@ private fun WarrantyCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * The contract terms on one warranty card: what the plan covers, what a claim
+ * costs, and what is excluded.
+ *
+ * Only reached when [hasContractTerms] is true. That is the whole "looks exactly
+ * as today" guarantee: the caller adds nothing to a card whose nine fields are
+ * all empty, so the ordinary plan's card is untouched.
+ *
+ * `null` and `0` are kept apart on purpose. A `0` cap or `0` deductible is money
+ * and is printed as `0 ₫`; a `null` one is "not recorded" and is simply absent.
+ * `claimsAllowed = null` prints the unbounded wording rather than "0 claims", and
+ * `transferable = false` prints "Không"/"No" rather than being hidden as falsy.
+ */
+@Composable
+private fun WarrantyTermsBlock(warranty: Warranty) {
+    val s = appStrings()
+    val cs = MaterialTheme.colorScheme
+    Spacer(Modifier.height(10.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Description, null,
+            tint = cs.primary,
+            modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(stringResource(R.string.warr_terms_title),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.primary)
+        Spacer(Modifier.weight(1f))
+        // The component wins over the "whole unit" wording when one is recorded:
+        // the contract's null component already means the whole unit.
+        Text(warrantyComponentTitle(s, warranty.component),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = cs.onSurface)
+    }
+    Spacer(Modifier.height(2.dp))
+    warranty.cap?.let {
+        DetailRow(stringResource(R.string.warr_terms_cap), formatVnd(it))
+    }
+    warranty.deductible?.let {
+        DetailRow(stringResource(R.string.warr_terms_deductible), formatVnd(it))
+    }
+    if (warranty.claimsAllowed != null || warranty.claimsUsed > 0) {
+        DetailRow(
+            stringResource(R.string.warr_terms_claims),
+            warrantyClaimsLabel(s, warranty.claimsUsed, warranty.claimsAllowed),
+        )
+    }
+    if (!warranty.scope.isNullOrBlank()) {
+        DetailRow(stringResource(R.string.warr_terms_scope), warranty.scope)
+    }
+    if (!warranty.region.isNullOrBlank()) {
+        DetailRow(stringResource(R.string.warr_terms_region), warranty.region)
+    }
+    warranty.transferable?.let {
+        DetailRow(stringResource(R.string.warr_terms_transferable), transferableLabel(s, it))
+    }
+    if (!warranty.exclusions.isNullOrBlank()) {
+        Spacer(Modifier.height(4.dp))
+        Text(stringResource(R.string.warr_terms_exclusions),
+            fontSize = 12.sp,
+            color = cs.onSurfaceVariant)
+        Text(warranty.exclusions,
+            fontSize = 13.sp,
+            color = cs.onSurface)
     }
 }
 

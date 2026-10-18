@@ -34,6 +34,7 @@
 		7C90CD9D820A0B3185341FA9 /* PushDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */; };
 		7EFE65D6734D6DEF14DA2218 /* WarrlyKit in Frameworks */ = {isa = PBXBuildFile; productRef = E58C7131256E714F3F1D4AD5 /* WarrlyKit */; };
 		81E15CD5A52173973033472C /* WarrlyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AF10732BDC065E9C23D22A0 /* WarrlyApp.swift */; };
+		8D886912F7AB3BE46EB87E36 /* WarrantyTermsBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */; };
 		99725CA6FAD2BB436E164772 /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3758D84A200AD988C79FAD6C /* StatsStore.swift */; };
 		9A71C5FF3F31634A44CD3967 /* WishlistFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F7348BDEAEFE1709F1196E /* WishlistFormView.swift */; };
 		9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */; };
@@ -105,6 +106,7 @@
 		837638321876BA6937EC02F1 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		888F7704865BD2666E99290B /* LeadDaysSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeadDaysSection.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
+		98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyTermsBlock.swift; sourceTree = "<group>"; };
 		A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCertificatesSection.swift; sourceTree = "<group>"; };
 		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 			isa = PBXGroup;
 			children = (
 				0DCDE32D624D890090538C46 /* WarrantyFormView.swift */,
+				98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */,
 			);
 			path = Warranties;
 			sourceTree = "<group>";
@@ -507,6 +510,7 @@
 				E1C940AABCE749C5DACDE428 /* ThemeStore.swift in Sources */,
 				D294F0EB52D56C10EEEAFD28 /* WarrantiesStore.swift in Sources */,
 				C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */,
+				8D886912F7AB3BE46EB87E36 /* WarrantyTermsBlock.swift in Sources */,
 				81E15CD5A52173973033472C /* WarrlyApp.swift in Sources */,
 				5F6F8924B4C1D6A26F2A8379 /* WishlistDetailView.swift in Sources */,
 				9A71C5FF3F31634A44CD3967 /* WishlistFormView.swift in Sources */,

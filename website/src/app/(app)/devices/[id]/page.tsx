@@ -459,6 +459,17 @@ export default async function DeviceDetailPage({
                   address: w.address,
                   phone: w.phone,
                   notes: w.notes,
+                  // Contract terms — spread through so the row can render
+                  // them and the edit form can prefill them.
+                  component: w.component,
+                  scope: w.scope,
+                  cap: w.cap,
+                  deductible: w.deductible,
+                  exclusions: w.exclusions,
+                  region: w.region,
+                  transferable: w.transferable,
+                  claimsAllowed: w.claimsAllowed,
+                  claimsUsed: w.claimsUsed,
                 }))}
               />
             </CardContent>

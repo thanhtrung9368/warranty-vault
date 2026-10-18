@@ -523,6 +523,54 @@ data class Warranty(
     val address: String? = null,
     val phone: String? = null,
     val notes: String? = null,
+    // ---- Contract terms (all optional) ----
+    //
+    // What the plan actually covers, and what a claim costs. The derived
+    // presentation lives in `ui/screens/devices/WarrantyTerms.kt`; every
+    // `null` below means "not recorded", and a plan with all nine fields empty
+    // must render exactly as it did before these fields existed.
+    /**
+     * The part this plan covers. `null` means the **whole unit** — the contract
+     * defines it that way, not "unknown". A blank string is treated as `null`
+     * by the UI and is dropped when saving.
+     */
+    val component: String? = null,
+    /** What is covered, in the user's own words. `null` = not recorded. */
+    val scope: String? = null,
+    /**
+     * Maximum payout in VND. `null` = no cap recorded; `0` is a real cap of
+     * zero and must not be collapsed into "absent". Negative is a 400.
+     */
+    val cap: Int? = null,
+    /**
+     * VND the user pays per claim. `null` = no deductible recorded; `0` is a
+     * real "no deductible" and is displayed as money, not hidden.
+     */
+    val deductible: Int? = null,
+    /** What the plan excludes. `null` = not recorded. */
+    val exclusions: String? = null,
+    /** Where the cover applies. `null` = not recorded. */
+    val region: String? = null,
+    /**
+     * Whether the cover survives a resale. Three states, all different:
+     * `null` = not recorded, `true` = transferable, `false` = explicitly not
+     * transferable.
+     */
+    val transferable: Boolean? = null,
+    /**
+     * How many claims the plan allows. `null` = unbounded (not "zero"); `0`
+     * is a real "no claims at all" and counts as a recorded term.
+     */
+    val claimsAllowed: Int? = null,
+    /**
+     * How many claims have been used. The server defaults this to `0`, so a
+     * plan with only `claimsUsed = 0` still has no terms recorded. The server
+     * rejects `claimsUsed > claimsAllowed` with a 400 on
+     * `fieldErrors.claimsUsed`; `claimsExceedAllowed` in
+     * `ui/screens/devices/WarrantyTerms.kt` mirrors that rule in the form so an
+     * invalid pair is never sent.
+     */
+    val claimsUsed: Int = 0,
     val reminders: List<Reminder> = emptyList(),
 ) {
     val isDismissed: Boolean
@@ -539,6 +587,34 @@ data class WarrantyInput(
     val address: String? = null,
     val phone: String? = null,
     val notes: String? = null,
+    // ---- Contract terms (all optional) ----
+    //
+    // `ApiClient.json` sets `explicitNulls = false`, so a `null` here is DROPPED
+    // from the request body instead of being sent as an explicit null — the
+    // server sees an absent key, not `null`. A blank text field is therefore
+    // sent as `null` and disappears from the wire.
+    /** Part covered; `null` = the whole unit (the contract's own meaning). */
+    val component: String? = null,
+    /** What is covered. */
+    val scope: String? = null,
+    /** Maximum payout in VND; `0` is a real value, not "unset". */
+    val cap: Int? = null,
+    /** Deductible per claim in VND; `0` means "no deductible". */
+    val deductible: Int? = null,
+    /** What is excluded. */
+    val exclusions: String? = null,
+    /** Where the cover applies. */
+    val region: String? = null,
+    /** Tri-state resale transferability: `null` = not specified. */
+    val transferable: Boolean? = null,
+    /** Claims allowed; `null` = unbounded, `0` = none allowed. */
+    val claimsAllowed: Int? = null,
+    /**
+     * Claims used so far. Non-nullable because the contract gives it the
+     * default `0`, and `encodeDefaults = true` means it is always sent — a
+     * create that never opens the terms group still says `"claimsUsed":0`.
+     */
+    val claimsUsed: Int = 0,
 )
 
 @Serializable

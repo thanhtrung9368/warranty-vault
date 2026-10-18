@@ -554,6 +554,43 @@ public struct Warranty: Codable, Sendable, Identifiable, Hashable {
     public let address: String?
     public let phone: String?
     public let notes: String?
+
+    // MARK: Contract terms (all optional)
+
+    // Nine optional fields that turn a row from "cover ends on X" into the
+    // contract it actually is. Every one is nullable on the wire because the
+    // common plan is still just a date range; `nil` means "not recorded", never
+    // "zero". Money is VND in `Int`, like every other amount in this file.
+    //
+    // Read them through `WarrantyTerms` (WarrantyTerms.swift) rather than one
+    // by one: it owns the nil-vs-zero rules, the claims label and the
+    // whole-unit fallback title, and it is what both the form and the detail
+    // rows use. `WarrantyTerms.hasAnyTerms` is also the "does this row have a
+    // contract visible" switch.
+
+    /// What part this row covers; `null` = the whole unit.
+    public let component: String?
+    /// What is covered, in the user's words.
+    public let scope: String?
+    /// Maximum payout in VND.
+    public let cap: Int?
+    /// VND the user pays per claim.
+    public let deductible: Int?
+    /// What the contract excludes.
+    public let exclusions: String?
+    /// Where the cover applies.
+    public let region: String?
+    /// Whether the cover survives a resale. `false` is a real answer and is
+    /// deliberately different from `nil` ("not recorded").
+    public let transferable: Bool?
+    /// How many claims the contract allows; `null` = unbounded.
+    public let claimsAllowed: Int?
+    /// How many claims were used. The contract's server-side default is `0`
+    /// and the key is only nullable here so an older/partial payload still
+    /// decodes; `nil` reads as 0 (`WarrantyTerms.claimsLabel`). Because 0 is
+    /// the default for every warranty, it must not be read as "terms exist".
+    public let claimsUsed: Int?
+
     /// Present on `GET /devices/:id` (nested), absent on create/update responses.
     public let reminders: [Reminder]?
 
@@ -563,6 +600,11 @@ public struct Warranty: Codable, Sendable, Identifiable, Hashable {
         guard let reminders, !reminders.isEmpty else { return false }
         return reminders.allSatisfy { $0.isDismissed }
     }
+
+    /// The nine contract fields as the pure derived-presentation type. The
+    /// device-detail rows and the form both go through this rather than
+    /// re-deciding what an empty component means.
+    public var terms: WarrantyTerms { WarrantyTerms(self) }
 }
 
 public struct Reminder: Codable, Sendable, Identifiable, Hashable {
@@ -581,6 +623,43 @@ public struct WarrantyInput: Encodable, Sendable {
     public var address: String?
     public var phone: String?
     public var notes: String?
+
+    // MARK: Contract terms
+
+    // The same nine fields as `Warranty`, on the create/update body
+    // (`WarrantyInput` in the contract). They are dropped from the JSON by the
+    // synthesized encoder when nil, which Go reads exactly like an explicit
+    // `null`. Note that absent `claimsUsed` is **not** "clear" on update — the
+    // contract keeps the stored counter — which is why the form goes through
+    // `WarrantyTerms.apply(to:)` and always sends a concrete number.
+
+    /// What part this row covers; `nil` = whole unit.
+    public var component: String?
+    /// What is covered.
+    public var scope: String?
+    /// Maximum payout in VND.
+    public var cap: Int?
+    /// VND the user pays per claim.
+    public var deductible: Int?
+    /// What is excluded.
+    public var exclusions: String?
+    /// Where the cover applies.
+    public var region: String?
+    /// Whether the cover survives a resale; `nil` = not recorded.
+    public var transferable: Bool?
+    /// How many claims the contract allows; `nil` = unbounded.
+    public var claimsAllowed: Int?
+
+    /// How many claims were used.
+    ///
+    /// Optional because the contract gives this key **different** absent
+    /// semantics on the two write paths: create treats absent/`null` as the
+    /// column default `0`, while update treats it as "keep the stored counter"
+    /// (so an older client that does not know the field cannot wipe a counter a
+    /// newer one recorded). The form never relies on that: `WarrantyTerms.apply`
+    /// always writes a concrete number, which is what makes clearing the field
+    /// clear the counter. A hand-built payload can leave it `nil` to keep.
+    public var claimsUsed: Int?
 
     public init(type: WarrantyType, startDate: String, months: Int) {
         self.type = type; self.startDate = startDate; self.months = months

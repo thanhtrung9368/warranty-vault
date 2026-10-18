@@ -18,6 +18,25 @@ import (
 // MaxWarrantiesPerDevice mirrors website/src/lib/services/warranties.ts.
 const MaxWarrantiesPerDevice = 5
 
+// String bounds for the contract terms (migration 0017). These are RUNE counts,
+// matching every other user-typed cap in this service (subscription name,
+// wishlist note): a Vietnamese character is one character to the user even
+// though it is several bytes.
+//
+//   - component / region are names — "Động cơ", "Việt Nam" — and 200 runes is
+//     already far more than a name needs while still bounding a pasted document.
+//   - scope / exclusions are the contract's prose. 500 runes is a solid
+//     paragraph (roughly 8–12 lines on a phone). The point of the feature is to
+//     carry the sentence that decides a claim, NOT to become a document store:
+//     a scanned contract belongs in an attachment, and an unbounded text column
+//     would make every warranty read carry a document-sized payload.
+const (
+	MaxWarrantyComponentRunes  = 200
+	MaxWarrantyRegionRunes     = 200
+	MaxWarrantyScopeRunes      = 500
+	MaxWarrantyExclusionsRunes = 500
+)
+
 var validWarrantyTypes = map[string]bool{
 	"STANDARD":    true,
 	"EXTENDED":    true,
@@ -25,6 +44,19 @@ var validWarrantyTypes = map[string]bool{
 }
 
 // WarrantyInput mirrors website/src/lib/services/warranties.ts::warrantyInputSchema.
+//
+// The nine fields below are the contract terms added by migration 0017. They are
+// deliberately independent of Type: a THIRD_PARTY plan can carry a cap and a
+// STANDARD plan can carry exclusions. Nothing in this file infers one from the
+// other, and there is a test pinning that.
+//
+// ClaimsUsed is a POINTER only to distinguish "the client sent 0" from "an older
+// client does not know this field exists". On create nil means 0 (the column's
+// default); on update nil means "keep the stored counter" and an explicit 0
+// resets it. Without that, a client that predates this feature would silently
+// wipe a claim count a newer client recorded — exactly the kind of data loss the
+// additive-field convention elsewhere in this repo exists to prevent. The other
+// eight fields follow the existing WarrantyInput convention: omitted/null clears.
 type WarrantyInput struct {
 	Type      string  `json:"type"`
 	Provider  *string `json:"provider,omitempty"`
@@ -34,6 +66,18 @@ type WarrantyInput struct {
 	Address   *string `json:"address,omitempty"`
 	Phone     *string `json:"phone,omitempty"`
 	Notes     *string `json:"notes,omitempty"`
+
+	// Contract terms (migration 0017). See the type doc comment and the
+	// openapi.yaml descriptions for the exact rules.
+	Component     *string `json:"component,omitempty"`
+	Scope         *string `json:"scope,omitempty"`
+	Cap           *int32  `json:"cap,omitempty"`
+	Deductible    *int32  `json:"deductible,omitempty"`
+	Exclusions    *string `json:"exclusions,omitempty"`
+	Region        *string `json:"region,omitempty"`
+	Transferable  *bool   `json:"transferable,omitempty"`
+	ClaimsAllowed *int32  `json:"claimsAllowed,omitempty"`
+	ClaimsUsed    *int32  `json:"claimsUsed,omitempty"`
 }
 
 // ValidateWarrantyInput mirrors warrantyInputSchema.
@@ -45,13 +89,42 @@ type WarrantyInput struct {
 // English column added in internal/i18n/catalog.go. The envelope headline is the
 // generic "Dữ liệu không hợp lệ", rendered through ErrValidationHeadline so it
 // follows the same language as the field messages under it.
+//
+// # Contract terms (migration 0017)
+//
+// The nine fields are validated here and nowhere else — no DB CHECK, because a
+// bad request must be a 400 with the offending field named, not a 500 from a
+// constraint. The rules are intentionally narrow:
+//
+//   - cap / deductible / claimsUsed / claimsAllowed are non-negative;
+//   - claimsUsed > claimsAllowed is a field error on claimsUsed, and only when
+//     BOTH are set; claimsAllowed == nil means "no allowance recorded", so any
+//     claimsUsed is accepted;
+//   - component/region ≤ 200 runes and scope/exclusions ≤ 500 runes.
+//
+// There is NO rule that ties any of them to Type. Do not add one: real plans
+// violate the intuition (a THIRD_PARTY plan can have a cap, a STANDARD plan can
+// have exclusions), and an inferred value would be shown to a user who is about
+// to make a claim.
+//
+// storedClaimsUsed is the fallback used when in.ClaimsUsed is nil. Create passes
+// 0 (the column default); update passes the row's current counter after it has
+// been read, so the pair check runs against the state the write will produce.
 func ValidateWarrantyInput(ctx context.Context, in *WarrantyInput) error {
+	return validateWarrantyInput(ctx, in, 0)
+}
+
+func validateWarrantyInput(ctx context.Context, in *WarrantyInput, storedClaimsUsed int32) error {
 	in.Type = strings.TrimSpace(in.Type)
 	in.StartDate = strings.TrimSpace(in.StartDate)
 	trimPtr(&in.Provider)
 	trimPtr(&in.Address)
 	trimPtr(&in.Phone)
 	trimPtr(&in.Notes)
+	trimPtr(&in.Component)
+	trimPtr(&in.Scope)
+	trimPtr(&in.Exclusions)
+	trimPtr(&in.Region)
 
 	fieldErrors := FieldErrors{}
 	if !validWarrantyTypes[in.Type] {
@@ -66,6 +139,56 @@ func ValidateWarrantyInput(ctx context.Context, in *WarrantyInput) error {
 	if in.Cost != nil && *in.Cost < 0 {
 		fieldErrors["cost"] = []string{i18n.Text(ctx, "Chi phí không hợp lệ")}
 	}
+
+	// Contract terms. Each refusal names its own field; the negative-value
+	// sentence is shared because the field key already says which number is
+	// wrong.
+	if in.Cap != nil && *in.Cap < 0 {
+		fieldErrors["cap"] = []string{i18n.Text(ctx, "Giá trị không được âm")}
+	}
+	if in.Deductible != nil && *in.Deductible < 0 {
+		fieldErrors["deductible"] = []string{i18n.Text(ctx, "Giá trị không được âm")}
+	}
+	if in.ClaimsAllowed != nil && *in.ClaimsAllowed < 0 {
+		fieldErrors["claimsAllowed"] = []string{i18n.Text(ctx, "Giá trị không được âm")}
+	}
+	claimsUsed := storedClaimsUsed
+	if in.ClaimsUsed != nil {
+		claimsUsed = *in.ClaimsUsed
+		if claimsUsed < 0 {
+			fieldErrors["claimsUsed"] = []string{i18n.Text(ctx, "Giá trị không được âm")}
+		}
+	}
+	// The cross-field rule. "A contract cannot be over-used" is the whole point
+	// of carrying the counter, so it is enforced on the state the row will have,
+	// not on what the client happened to include in this request. claimsAllowed
+	// nil means no recorded allowance → no ceiling. Both operands must be valid
+	// (non-negative) first: comparing against a negative allowance would add a
+	// spurious claimsUsed error next to the claimsAllowed one that actually
+	// explains the request.
+	if in.ClaimsAllowed != nil && *in.ClaimsAllowed >= 0 && claimsUsed >= 0 &&
+		claimsUsed > *in.ClaimsAllowed {
+		fieldErrors["claimsUsed"] = []string{
+			i18n.Text(ctx, "Số lần đã dùng không được vượt quá số lần được phép"),
+		}
+	}
+	if in.Component != nil && len([]rune(*in.Component)) > MaxWarrantyComponentRunes {
+		fieldErrors["component"] = []string{i18n.T(ctx,
+			"Bộ phận được bảo hành tối đa %d ký tự", MaxWarrantyComponentRunes)}
+	}
+	if in.Region != nil && len([]rune(*in.Region)) > MaxWarrantyRegionRunes {
+		fieldErrors["region"] = []string{i18n.T(ctx,
+			"Khu vực áp dụng tối đa %d ký tự", MaxWarrantyRegionRunes)}
+	}
+	if in.Scope != nil && len([]rune(*in.Scope)) > MaxWarrantyScopeRunes {
+		fieldErrors["scope"] = []string{i18n.T(ctx,
+			"Phạm vi bảo hành tối đa %d ký tự", MaxWarrantyScopeRunes)}
+	}
+	if in.Exclusions != nil && len([]rune(*in.Exclusions)) > MaxWarrantyExclusionsRunes {
+		fieldErrors["exclusions"] = []string{i18n.T(ctx,
+			"Nội dung loại trừ tối đa %d ký tự", MaxWarrantyExclusionsRunes)}
+	}
+
 	if len(fieldErrors) > 0 {
 		// ErrValidationHeadline, not ErrValidation: this validator has translated
 		// its fieldErrors, so the envelope headline has to move with them or the
@@ -145,17 +268,28 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 	endDate := addMonths(startDate, int(in.Months))
 
 	row, err := q.CreateWarranty(ctx, store.CreateWarrantyParams{
-		ID:        auth.NewID(),
-		DeviceId:  deviceID,
-		Type:      in.Type,
-		Provider:  in.Provider,
-		StartDate: pgtype.Timestamp{Time: startDate, Valid: true},
-		EndDate:   pgtype.Timestamp{Time: endDate, Valid: true},
-		Months:    in.Months,
-		Cost:      in.Cost,
-		Address:   in.Address,
-		Phone:     in.Phone,
-		Notes:     in.Notes,
+		ID:            auth.NewID(),
+		DeviceId:      deviceID,
+		Type:          in.Type,
+		Provider:      in.Provider,
+		StartDate:     pgtype.Timestamp{Time: startDate, Valid: true},
+		EndDate:       pgtype.Timestamp{Time: endDate, Valid: true},
+		Months:        in.Months,
+		Cost:          in.Cost,
+		Address:       in.Address,
+		Phone:         in.Phone,
+		Notes:         in.Notes,
+		Component:     in.Component,
+		Scope:         in.Scope,
+		Cap:           in.Cap,
+		Deductible:    in.Deductible,
+		Exclusions:    in.Exclusions,
+		Region:        in.Region,
+		Transferable:  in.Transferable,
+		ClaimsAllowed: in.ClaimsAllowed,
+		// nil = the column's DEFAULT 0. ValidateWarrantyInput already rejected a
+		// negative value; this is the create half of the pointer convention.
+		ClaimsUsed: claimsUsedValue(in.ClaimsUsed),
 	})
 	if err != nil {
 		return store.Warranty{}, fmt.Errorf("create warranty: %w", err)
@@ -166,11 +300,38 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 // UpdateWarranty mirrors website/src/lib/services/warranties.ts::updateWarranty.
 // Returns the updated warranty + its parent deviceId so callers can revalidate
 // the device detail path.
+//
+// claimsUsed is the one additive field with "omitted means keep" semantics (see
+// WarrantyInput). The row is read first so the counter and the cross-field rule
+// are evaluated against what the write will actually produce: a client that
+// sends only `claimsAllowed: 1` while the stored counter is 2 gets a 400 on
+// `claimsUsed`, not a silently impossible contract.
 func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID string, in WarrantyInput) (store.Warranty, error) {
 	if err := ValidateWarrantyInput(ctx, &in); err != nil {
 		return store.Warranty{}, err
 	}
 	q := store.New(db)
+
+	current, err := q.GetWarrantyByID(ctx, store.GetWarrantyByIDParams{
+		ID:     warrantyID,
+		UserId: userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return store.Warranty{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy gói bảo hành"))
+		}
+		return store.Warranty{}, fmt.Errorf("get warranty: %w", err)
+	}
+	if in.ClaimsUsed == nil {
+		// The request omits the counter, so the pair rule must use the stored
+		// one. The first validation pass used 0 as the fallback (the create
+		// default), which cannot catch "stored 2, requested allowance 1".
+		if err := validateWarrantyInput(ctx, &in, current.ClaimsUsed); err != nil {
+			return store.Warranty{}, err
+		}
+		used := current.ClaimsUsed
+		in.ClaimsUsed = &used
+	}
 
 	startDate, err := parseDate(in.StartDate)
 	if err != nil {
@@ -181,17 +342,26 @@ func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID st
 	endDate := addMonths(startDate, int(in.Months))
 
 	row, err := q.UpdateWarranty(ctx, store.UpdateWarrantyParams{
-		ID:        warrantyID,
-		UserId:    userID,
-		Type:      in.Type,
-		Provider:  in.Provider,
-		StartDate: pgtype.Timestamp{Time: startDate, Valid: true},
-		EndDate:   pgtype.Timestamp{Time: endDate, Valid: true},
-		Months:    in.Months,
-		Cost:      in.Cost,
-		Address:   in.Address,
-		Phone:     in.Phone,
-		Notes:     in.Notes,
+		ID:            warrantyID,
+		UserId:        userID,
+		Type:          in.Type,
+		Provider:      in.Provider,
+		StartDate:     pgtype.Timestamp{Time: startDate, Valid: true},
+		EndDate:       pgtype.Timestamp{Time: endDate, Valid: true},
+		Months:        in.Months,
+		Cost:          in.Cost,
+		Address:       in.Address,
+		Phone:         in.Phone,
+		Notes:         in.Notes,
+		Component:     in.Component,
+		Scope:         in.Scope,
+		Cap:           in.Cap,
+		Deductible:    in.Deductible,
+		Exclusions:    in.Exclusions,
+		Region:        in.Region,
+		Transferable:  in.Transferable,
+		ClaimsAllowed: in.ClaimsAllowed,
+		ClaimsUsed:    claimsUsedValue(in.ClaimsUsed),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -200,6 +370,16 @@ func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID st
 		return store.Warranty{}, fmt.Errorf("update warranty: %w", err)
 	}
 	return row, nil
+}
+
+// claimsUsedValue turns the optional counter into the column value. nil is 0 by
+// the time this is called on the create path (the column default) and has been
+// resolved to the stored counter on the update path.
+func claimsUsedValue(p *int32) int32 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 // DeleteWarranty removes a warranty after enforcing the ownership chain.

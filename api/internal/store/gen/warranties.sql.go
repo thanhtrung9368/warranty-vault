@@ -92,28 +92,51 @@ INSERT INTO "Warranty" (
     address,
     phone,
     notes,
+    component,
+    scope,
+    cap,
+    deductible,
+    exclusions,
+    region,
+    transferable,
+    "claimsAllowed",
+    "claimsUsed",
     "createdAt",
     "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+    $12, $13, $14, $15, $16, $17, $18, $19, $20,
+    NOW(), NOW()
 )
-RETURNING id, "deviceId", type, provider, "startDate", "endDate", months, cost, address, phone, notes, "createdAt", "updatedAt"
+RETURNING id, "deviceId", type, provider, "startDate", "endDate", months, cost, address, phone, notes, "createdAt", "updatedAt", component, scope, cap, deductible, exclusions, region, transferable, "claimsAllowed", "claimsUsed"
 `
 
 type CreateWarrantyParams struct {
-	ID        string           `json:"id"`
-	DeviceId  string           `json:"deviceId"`
-	Type      string           `json:"type"`
-	Provider  *string          `json:"provider"`
-	StartDate pgtype.Timestamp `json:"startDate"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	Months    int32            `json:"months"`
-	Cost      *int32           `json:"cost"`
-	Address   *string          `json:"address"`
-	Phone     *string          `json:"phone"`
-	Notes     *string          `json:"notes"`
+	ID            string           `json:"id"`
+	DeviceId      string           `json:"deviceId"`
+	Type          string           `json:"type"`
+	Provider      *string          `json:"provider"`
+	StartDate     pgtype.Timestamp `json:"startDate"`
+	EndDate       pgtype.Timestamp `json:"endDate"`
+	Months        int32            `json:"months"`
+	Cost          *int32           `json:"cost"`
+	Address       *string          `json:"address"`
+	Phone         *string          `json:"phone"`
+	Notes         *string          `json:"notes"`
+	Component     *string          `json:"component"`
+	Scope         *string          `json:"scope"`
+	Cap           *int32           `json:"cap"`
+	Deductible    *int32           `json:"deductible"`
+	Exclusions    *string          `json:"exclusions"`
+	Region        *string          `json:"region"`
+	Transferable  *bool            `json:"transferable"`
+	ClaimsAllowed *int32           `json:"claimsAllowed"`
+	ClaimsUsed    int32            `json:"claimsUsed"`
 }
 
+// Carries the nine contract terms added by migration 0017. They are nullable
+// except "claimsUsed" (NOT NULL DEFAULT 0), and no rule ties them to `type`:
+// a THIRD_PARTY plan may have a cap and a STANDARD one may have exclusions.
 func (q *Queries) CreateWarranty(ctx context.Context, arg CreateWarrantyParams) (Warranty, error) {
 	row := q.db.QueryRow(ctx, createWarranty,
 		arg.ID,
@@ -127,6 +150,15 @@ func (q *Queries) CreateWarranty(ctx context.Context, arg CreateWarrantyParams) 
 		arg.Address,
 		arg.Phone,
 		arg.Notes,
+		arg.Component,
+		arg.Scope,
+		arg.Cap,
+		arg.Deductible,
+		arg.Exclusions,
+		arg.Region,
+		arg.Transferable,
+		arg.ClaimsAllowed,
+		arg.ClaimsUsed,
 	)
 	var i Warranty
 	err := row.Scan(
@@ -143,6 +175,15 @@ func (q *Queries) CreateWarranty(ctx context.Context, arg CreateWarrantyParams) 
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Component,
+		&i.Scope,
+		&i.Cap,
+		&i.Deductible,
+		&i.Exclusions,
+		&i.Region,
+		&i.Transferable,
+		&i.ClaimsAllowed,
+		&i.ClaimsUsed,
 	)
 	return i, err
 }
@@ -203,7 +244,7 @@ func (q *Queries) GetActiveReminderForWarranty(ctx context.Context, warrantyid s
 }
 
 const getStandardWarrantyForDevice = `-- name: GetStandardWarrantyForDevice :one
-SELECT id, "deviceId", type, provider, "startDate", "endDate", months, cost, address, phone, notes, "createdAt", "updatedAt"
+SELECT id, "deviceId", type, provider, "startDate", "endDate", months, cost, address, phone, notes, "createdAt", "updatedAt", component, scope, cap, deductible, exclusions, region, transferable, "claimsAllowed", "claimsUsed"
 FROM "Warranty"
 WHERE "deviceId" = $1 AND type = 'STANDARD'
 ORDER BY "createdAt" ASC
@@ -229,12 +270,21 @@ func (q *Queries) GetStandardWarrantyForDevice(ctx context.Context, deviceid str
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Component,
+		&i.Scope,
+		&i.Cap,
+		&i.Deductible,
+		&i.Exclusions,
+		&i.Region,
+		&i.Transferable,
+		&i.ClaimsAllowed,
+		&i.ClaimsUsed,
 	)
 	return i, err
 }
 
 const getWarrantyByID = `-- name: GetWarrantyByID :one
-SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt"
+SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed"
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE w.id = $1 AND d."userId" = $2
@@ -263,12 +313,21 @@ func (q *Queries) GetWarrantyByID(ctx context.Context, arg GetWarrantyByIDParams
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Component,
+		&i.Scope,
+		&i.Cap,
+		&i.Deductible,
+		&i.Exclusions,
+		&i.Region,
+		&i.Transferable,
+		&i.ClaimsAllowed,
+		&i.ClaimsUsed,
 	)
 	return i, err
 }
 
 const getWarrantyForCron = `-- name: GetWarrantyForCron :one
-SELECT id, "deviceId", type, provider, "startDate", "endDate", months, cost, address, phone, notes, "createdAt", "updatedAt"
+SELECT id, "deviceId", type, provider, "startDate", "endDate", months, cost, address, phone, notes, "createdAt", "updatedAt", component, scope, cap, deductible, exclusions, region, transferable, "claimsAllowed", "claimsUsed"
 FROM "Warranty"
 WHERE id = $1
 LIMIT 1
@@ -293,6 +352,15 @@ func (q *Queries) GetWarrantyForCron(ctx context.Context, id string) (Warranty, 
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Component,
+		&i.Scope,
+		&i.Cap,
+		&i.Deductible,
+		&i.Exclusions,
+		&i.Region,
+		&i.Transferable,
+		&i.ClaimsAllowed,
+		&i.ClaimsUsed,
 	)
 	return i, err
 }
@@ -300,7 +368,7 @@ func (q *Queries) GetWarrantyForCron(ctx context.Context, id string) (Warranty, 
 const listUpcomingReminders = `-- name: ListUpcomingReminders :many
 
 SELECT
-    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt",
+    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed",
     d.id            AS device_id,
     d.name          AS device_name,
     d.category      AS device_category,
@@ -347,6 +415,15 @@ type ListUpcomingRemindersRow struct {
 	Notes          *string          `json:"notes"`
 	CreatedAt      pgtype.Timestamp `json:"createdAt"`
 	UpdatedAt      pgtype.Timestamp `json:"updatedAt"`
+	Component      *string          `json:"component"`
+	Scope          *string          `json:"scope"`
+	Cap            *int32           `json:"cap"`
+	Deductible     *int32           `json:"deductible"`
+	Exclusions     *string          `json:"exclusions"`
+	Region         *string          `json:"region"`
+	Transferable   *bool            `json:"transferable"`
+	ClaimsAllowed  *int32           `json:"claimsAllowed"`
+	ClaimsUsed     int32            `json:"claimsUsed"`
 	DeviceID       string           `json:"device_id"`
 	DeviceName     string           `json:"device_name"`
 	DeviceCategory string           `json:"device_category"`
@@ -414,6 +491,15 @@ func (q *Queries) ListUpcomingReminders(ctx context.Context, arg ListUpcomingRem
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
 			&i.DeviceID,
 			&i.DeviceName,
 			&i.DeviceCategory,
@@ -432,7 +518,7 @@ func (q *Queries) ListUpcomingReminders(ctx context.Context, arg ListUpcomingRem
 
 const listWarrantiesByDevice = `-- name: ListWarrantiesByDevice :many
 
-SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt"
+SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed"
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE w."deviceId" = $1 AND d."userId" = $2
@@ -474,6 +560,15 @@ func (q *Queries) ListWarrantiesByDevice(ctx context.Context, arg ListWarranties
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
 		); err != nil {
 			return nil, err
 		}
@@ -486,7 +581,7 @@ func (q *Queries) ListWarrantiesByDevice(ctx context.Context, arg ListWarranties
 }
 
 const listWarrantiesByDeviceIDs = `-- name: ListWarrantiesByDeviceIDs :many
-SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt"
+SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed"
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE w."deviceId" = ANY($1::text[]) AND d."userId" = $2
@@ -524,6 +619,15 @@ func (q *Queries) ListWarrantiesByDeviceIDs(ctx context.Context, arg ListWarrant
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
 		); err != nil {
 			return nil, err
 		}
@@ -538,7 +642,7 @@ func (q *Queries) ListWarrantiesByDeviceIDs(ctx context.Context, arg ListWarrant
 const listWarrantiesInWindow = `-- name: ListWarrantiesInWindow :many
 
 SELECT
-    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt",
+    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed",
     d."userId"  AS user_id,
     d.name      AS device_name
 FROM "Warranty" w
@@ -568,21 +672,30 @@ type ListWarrantiesInWindowParams struct {
 }
 
 type ListWarrantiesInWindowRow struct {
-	ID         string           `json:"id"`
-	DeviceId   string           `json:"deviceId"`
-	Type       string           `json:"type"`
-	Provider   *string          `json:"provider"`
-	StartDate  pgtype.Timestamp `json:"startDate"`
-	EndDate    pgtype.Timestamp `json:"endDate"`
-	Months     int32            `json:"months"`
-	Cost       *int32           `json:"cost"`
-	Address    *string          `json:"address"`
-	Phone      *string          `json:"phone"`
-	Notes      *string          `json:"notes"`
-	CreatedAt  pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt  pgtype.Timestamp `json:"updatedAt"`
-	UserID     string           `json:"user_id"`
-	DeviceName string           `json:"device_name"`
+	ID            string           `json:"id"`
+	DeviceId      string           `json:"deviceId"`
+	Type          string           `json:"type"`
+	Provider      *string          `json:"provider"`
+	StartDate     pgtype.Timestamp `json:"startDate"`
+	EndDate       pgtype.Timestamp `json:"endDate"`
+	Months        int32            `json:"months"`
+	Cost          *int32           `json:"cost"`
+	Address       *string          `json:"address"`
+	Phone         *string          `json:"phone"`
+	Notes         *string          `json:"notes"`
+	CreatedAt     pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
+	Component     *string          `json:"component"`
+	Scope         *string          `json:"scope"`
+	Cap           *int32           `json:"cap"`
+	Deductible    *int32           `json:"deductible"`
+	Exclusions    *string          `json:"exclusions"`
+	Region        *string          `json:"region"`
+	Transferable  *bool            `json:"transferable"`
+	ClaimsAllowed *int32           `json:"claimsAllowed"`
+	ClaimsUsed    int32            `json:"claimsUsed"`
+	UserID        string           `json:"user_id"`
+	DeviceName    string           `json:"device_name"`
 }
 
 // ─── Cron: warranty bucket fan-out ────────────────────────────────────────
@@ -625,6 +738,15 @@ func (q *Queries) ListWarrantiesInWindow(ctx context.Context, arg ListWarranties
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
 			&i.UserID,
 			&i.DeviceName,
 		); err != nil {
@@ -693,26 +815,49 @@ UPDATE "Warranty" w SET
     address = $9,
     phone = $10,
     notes = $11,
+    component = $12,
+    scope = $13,
+    cap = $14,
+    deductible = $15,
+    exclusions = $16,
+    region = $17,
+    transferable = $18,
+    "claimsAllowed" = $19,
+    "claimsUsed" = $20,
     "updatedAt" = NOW()
 FROM "Device" d
 WHERE w.id = $1 AND w."deviceId" = d.id AND d."userId" = $2
-RETURNING w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt"
+RETURNING w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed"
 `
 
 type UpdateWarrantyParams struct {
-	ID        string           `json:"id"`
-	UserId    string           `json:"userId"`
-	Type      string           `json:"type"`
-	Provider  *string          `json:"provider"`
-	StartDate pgtype.Timestamp `json:"startDate"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	Months    int32            `json:"months"`
-	Cost      *int32           `json:"cost"`
-	Address   *string          `json:"address"`
-	Phone     *string          `json:"phone"`
-	Notes     *string          `json:"notes"`
+	ID            string           `json:"id"`
+	UserId        string           `json:"userId"`
+	Type          string           `json:"type"`
+	Provider      *string          `json:"provider"`
+	StartDate     pgtype.Timestamp `json:"startDate"`
+	EndDate       pgtype.Timestamp `json:"endDate"`
+	Months        int32            `json:"months"`
+	Cost          *int32           `json:"cost"`
+	Address       *string          `json:"address"`
+	Phone         *string          `json:"phone"`
+	Notes         *string          `json:"notes"`
+	Component     *string          `json:"component"`
+	Scope         *string          `json:"scope"`
+	Cap           *int32           `json:"cap"`
+	Deductible    *int32           `json:"deductible"`
+	Exclusions    *string          `json:"exclusions"`
+	Region        *string          `json:"region"`
+	Transferable  *bool            `json:"transferable"`
+	ClaimsAllowed *int32           `json:"claimsAllowed"`
+	ClaimsUsed    int32            `json:"claimsUsed"`
 }
 
+// Full replacement of the warranty row. The caller (services.UpdateWarranty)
+// resolves "claimsUsed omitted" to the stored counter before it gets here, so a
+// client that predates migration 0017 cannot silently reset a counter a newer
+// client set. The device form's inline STANDARD warranty edit reuses this query
+// and passes the stored terms through untouched.
 func (q *Queries) UpdateWarranty(ctx context.Context, arg UpdateWarrantyParams) (Warranty, error) {
 	row := q.db.QueryRow(ctx, updateWarranty,
 		arg.ID,
@@ -726,6 +871,15 @@ func (q *Queries) UpdateWarranty(ctx context.Context, arg UpdateWarrantyParams) 
 		arg.Address,
 		arg.Phone,
 		arg.Notes,
+		arg.Component,
+		arg.Scope,
+		arg.Cap,
+		arg.Deductible,
+		arg.Exclusions,
+		arg.Region,
+		arg.Transferable,
+		arg.ClaimsAllowed,
+		arg.ClaimsUsed,
 	)
 	var i Warranty
 	err := row.Scan(
@@ -742,6 +896,15 @@ func (q *Queries) UpdateWarranty(ctx context.Context, arg UpdateWarrantyParams) 
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Component,
+		&i.Scope,
+		&i.Cap,
+		&i.Deductible,
+		&i.Exclusions,
+		&i.Region,
+		&i.Transferable,
+		&i.ClaimsAllowed,
+		&i.ClaimsUsed,
 	)
 	return i, err
 }

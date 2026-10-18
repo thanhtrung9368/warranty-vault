@@ -829,14 +829,18 @@ paths:
         **Nội dung trả về (projection hẹp, cố định).** Đúng những trường trong
         `SharedCertificate`: tên máy, loại, hãng, model, ngày mua, nơi mua, trạng
         thái, `soldAt`, serial (che giữa; đầy đủ chỉ khi chủ máy chọn
-        `includeSerial`), danh sách gói bảo hành (loại, nhà bảo hành, thời gian, địa
-        chỉ/số điện thoại **do người dùng ghi**), `effectiveWarrantyEnd`, ngày hết
-        hạn của link và disclaimer.
+        `includeSerial`), danh sách gói bảo hành (loại, **bộ phận**, nhà bảo hành,
+        thời gian, địa chỉ/số điện thoại **do người dùng ghi**),
+        `effectiveWarrantyEnd`, ngày hết hạn của link và disclaimer.
 
         **Không bao giờ** có: `id` thiết bị, `notes`, `purchasePrice`, `soldPrice`,
         `Warranty.cost`, `Warranty.notes`, ảnh/hoá đơn (`Attachment`), hay bất kỳ
-        thiết bị nào khác của chủ máy. Việc lọc nằm ở **câu SQL** (không select cột
-        đó), không phải ở một bộ lọc Go mà lần sửa sau có thể bỏ quên.
+        thiết bị nào khác của chủ máy. Trong chín trường điều khoản của migration
+        0017, **chỉ `component`** có mặt (để người nhận biết một mốc thuộc bộ phận
+        nào); `cap`, `deductible`, `exclusions`, `region`, `transferable`,
+        `claimsAllowed`, `claimsUsed` và `scope` bị loại. Việc lọc nằm ở **câu SQL**
+        (không select cột đó), không phải ở một bộ lọc Go mà lần sửa sau có thể bỏ
+        quên.
 
         **Ảnh hoá đơn: chưa hỗ trợ, có chủ ý.** Một route file công khai sẽ là bề mặt
         không xác thực thứ hai, và ảnh hoá đơn chứa nhiều dữ liệu cá nhân của người
@@ -2631,6 +2635,20 @@ components:
               address: { type: string, nullable: true }
               phone: { type: string, nullable: true }
               notes: { type: string, nullable: true }
+              # Contract terms (migration 0017). Optional in the payload on
+              # purpose: a file exported before 0017 has none of these keys,
+              # decodes to null/0, and still imports — payload versions stay
+              # 5/6. Omitting them on restore would delete the terms a user
+              # typed for a claim.
+              component: { type: string, nullable: true, maxLength: 200, description: 'Bộ phận được bảo hành; null = cả máy (migration 0017).' }
+              scope: { type: string, nullable: true, maxLength: 500, description: 'Phạm vi bảo hành (migration 0017).' }
+              cap: { type: integer, nullable: true, minimum: 0, description: 'Mức chi trả tối đa, VND (migration 0017).' }
+              deductible: { type: integer, nullable: true, minimum: 0, description: 'Khấu trừ mỗi lần yêu cầu, VND (migration 0017).' }
+              exclusions: { type: string, nullable: true, maxLength: 500, description: 'Nội dung loại trừ (migration 0017).' }
+              region: { type: string, nullable: true, maxLength: 200, description: 'Khu vực áp dụng (migration 0017).' }
+              transferable: { type: boolean, nullable: true, description: 'Chuyển được cho chủ mới; null = chưa ghi (migration 0017).' }
+              claimsAllowed: { type: integer, nullable: true, minimum: 0, description: 'Số lần được phép (migration 0017).' }
+              claimsUsed: { type: integer, minimum: 0, default: 0, description: 'Số lần đã dùng; vắng mặt ở file cũ = 0 (migration 0017).' }
               createdAt: { type: string, format: date-time }
               updatedAt: { type: string, format: date-time }
               reminders:
@@ -3059,7 +3077,7 @@ components:
 
     Warranty:
       type: object
-      required: [id, deviceId, type, startDate, endDate, months]
+      required: [id, deviceId, type, startDate, endDate, months, claimsUsed]
       properties:
         id: { type: string }
         deviceId: { type: string }
@@ -3072,6 +3090,87 @@ components:
         address: { type: string, nullable: true }
         phone: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        # ── Contract terms (migration 0017) ──────────────────────────────────
+        # Nine fields, all returned on every read. They are NOT tied to `type`
+        # in either direction: a THIRD_PARTY plan may carry a cap and a STANDARD
+        # plan may carry exclusions. The server never infers one from the other.
+        component:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: |
+            Bộ phận mà dòng này bảo hành (vd. `"Động cơ"`, `"Màn hình"`); `null`
+            = bảo hành **cả máy**. Đây là trường làm cho bảo hành nhiều mốc thời
+            gian đọc đúng: một gói 24 tháng cho cả máy và một gói 10 năm cho động
+            cơ là **hai dòng với hai mốc**, không phải một ngày hết hạn bị thổi
+            phồng.
+
+            Tối đa 200 ký tự (rune). `Reminder` vẫn gắn theo từng `Warranty`, nên
+            mỗi dòng đã có nhắc nhở riêng — hành vi đó không đổi. Trên phiếu chia
+            sẻ, `effectiveWarrantyEnd` **chỉ tính các dòng có `component = null`**,
+            nên mốc của động cơ không thể được trình bày như bảo hành toàn máy.
+        scope:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: |
+            Phạm vi được bảo hành, văn bản tự do. Tối đa 500 ký tự (rune) — đủ
+            cho một đoạn điều khoản (khoảng 8–12 dòng trên điện thoại), **không**
+            phải nơi lưu cả hợp đồng: bản scan thuộc về `Attachment`.
+        cap:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Mức chi trả tối đa, đơn vị VND (`null` = không ghi). Số nguyên không
+            âm; số âm là 400 với `fieldErrors.cap`. **Không** bị suy ra từ `type`.
+        deductible:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Số tiền người dùng phải trả cho mỗi lần yêu cầu bảo hành, VND (`null`
+            = không ghi). Số nguyên không âm; số âm là 400 với
+            `fieldErrors.deductible`. **Không** bị suy ra từ `type`.
+        exclusions:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: |
+            Nội dung loại trừ, văn bản tự do. Tối đa 500 ký tự (rune), cùng lý do
+            với `scope`. **Không** bị suy ra từ `type`.
+        region:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: |
+            Khu vực áp dụng bảo hành (vd. `"Việt Nam"`, `"Toàn quốc"`). Tối đa
+            200 ký tự (rune).
+        transferable:
+          type: boolean
+          nullable: true
+          description: |
+            Bảo hành có chuyển cho chủ mới khi bán máy hay không. Ba trạng thái
+            có chủ đích: `null` = chưa ghi, `false` = **đã ghi là không chuyển
+            được**, `true` = chuyển được. Gộp `null` vào `false` sẽ khẳng định
+            một điều người dùng chưa từng nói.
+        claimsAllowed:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Số lần yêu cầu bảo hành mà hợp đồng cho phép (`null` = không ghi giới
+            hạn). Số nguyên không âm. Cùng `claimsUsed` tạo thành cặp: nếu cả hai
+            đều có và `claimsUsed > claimsAllowed` thì đó là 400 trên
+            `fieldErrors.claimsUsed` — hợp đồng không thể bị dùng quá.
+        claimsUsed:
+          type: integer
+          minimum: 0
+          default: 0
+          description: |
+            Số lần đã dùng. Luôn có trong response (`NOT NULL DEFAULT 0` ở DB).
+            Số nguyên không âm. Khi `claimsAllowed` là `null` thì mọi giá trị
+            `claimsUsed` đều hợp lệ.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -3110,6 +3209,25 @@ components:
     WarrantyInput:
       type: object
       required: [type, startDate, months]
+      description: |
+        Body của `POST /api/v1/devices/{id}/warranties` và
+        `PATCH /api/v1/warranties/{id}`.
+
+        Chín trường hợp đồng (migration 0017) đều được chấp nhận ở cả hai
+        endpoint. Chúng **độc lập với `type`**: không có quy tắc nào suy ra
+        `cap`/`deductible`/`exclusions` từ `STANDARD`, `EXTENDED` hay
+        `THIRD_PARTY`. Một gói `THIRD_PARTY` có thể có `cap`; một gói `STANDARD`
+        có thể có `exclusions`.
+
+        Quy tắc 400 (tất cả đều là `fieldErrors.<field>`):
+        `cap`, `deductible`, `claimsUsed`, `claimsAllowed` âm; hoặc
+        `claimsUsed > claimsAllowed` khi **cả hai** đều được đặt — trường hợp đó
+        báo trên `fieldErrors.claimsUsed`, vì hợp đồng không thể bị dùng quá.
+        Khi `claimsAllowed` là `null`, mọi `claimsUsed` đều hợp lệ.
+
+        Chuỗi bị chặn độ dài (đếm theo rune): `component`/`region` ≤ 200,
+        `scope`/`exclusions` ≤ 500. Đây là độ dài của một đoạn điều khoản, không
+        phải của một tài liệu.
       properties:
         type: { $ref: '#/components/schemas/WarrantyType' }
         provider: { type: string, nullable: true }
@@ -3119,6 +3237,74 @@ components:
         address: { type: string, nullable: true }
         phone: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        component:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: |
+            Bộ phận được bảo hành; `null`/vắng mặt = cả máy. Tối đa 200 ký tự
+            (rune). Gửi `null` hoặc chuỗi rỗng để xoá (chuỗi được trim trước khi
+            lưu).
+        scope:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: |
+            Phạm vi bảo hành, tối đa 500 ký tự (rune); `null` để xoá.
+        cap:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Mức chi trả tối đa, VND. Số nguyên không âm; số âm ⇒ 400
+            `fieldErrors.cap`. `null` để xoá.
+        deductible:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Khấu trừ mỗi lần yêu cầu, VND. Số nguyên không âm; số âm ⇒ 400
+            `fieldErrors.deductible`. `null` để xoá.
+        exclusions:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: |
+            Nội dung loại trừ, tối đa 500 ký tự (rune); `null` để xoá.
+        region:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: |
+            Khu vực áp dụng, tối đa 200 ký tự (rune); `null` để xoá.
+        transferable:
+          type: boolean
+          nullable: true
+          description: |
+            Có chuyển được cho chủ mới không. Ba trạng thái: `null` = chưa ghi,
+            `false` = không, `true` = có. Gửi `null` để xoá.
+        claimsAllowed:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Số lần được phép. Số nguyên không âm; `null` để xoá giới hạn. Nếu
+            `claimsUsed` (đã ghi hoặc gửi kèm) lớn hơn giá trị này ⇒ 400
+            `fieldErrors.claimsUsed`.
+        claimsUsed:
+          type: integer
+          minimum: 0
+          description: |
+            Số lần đã dùng. Số nguyên không âm; số âm ⇒ 400
+            `fieldErrors.claimsUsed`.
+
+            - **Create**: vắng mặt/`null` ⇒ `0` (mặc định của cột).
+            - **Update**: vắng mặt/`null` ⇒ **giữ nguyên** giá trị đang lưu; gửi
+              số cụ thể (kể cả `0`) ⇒ đặt giá trị đó. Quy ước này giống
+              `leadDays` của thiết bị: một client cũ chưa biết trường này không
+              được xoá bộ đếm mà một client mới đã ghi.
+
+            Khi `claimsAllowed` là `null`, mọi `claimsUsed` đều hợp lệ.
 
     AttachmentMeta:
       type: object
@@ -4075,10 +4261,21 @@ components:
 
     SharedWarranty:
       type: object
-      required: [type, startDate, endDate, months]
-      description: 'Một gói bảo hành trong phiếu. **Không** có `cost` và **không** có `notes`: người nhận cần thời hạn và nơi bảo hành, không cần biết người bán đã trả bao nhiêu.'
+      required: [type, startDate, endDate, months, component]
+      description: |
+        Một gói bảo hành trong phiếu. **Không** có `cost` và **không** có `notes`:
+        người nhận cần thời hạn và nơi bảo hành, không cần biết người bán đã trả
+        bao nhiêu.
+
+        `component` (migration 0017) là trường điều khoản DUY NHẤT đi ra phiếu,
+        vì lý do trung thực: một dòng có thể chỉ bảo hành **một bộ phận** (mốc 10
+        năm của động cơ). Không có nhãn này, người nhận sẽ đọc ngày hết hạn đó
+        như bảo hành toàn máy. Các trường tiền/điều khoản khác (`cap`,
+        `deductible`, `exclusions`, …) vẫn bị loại: phiếu là bằng chứng về thời
+        hạn và nơi bảo hành, không phải bản sao hợp đồng người bán đã mua.
       properties:
         type: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
+        component: { type: string, nullable: true, description: 'Bộ phận dòng này bảo hành; `null` = cả máy. Hiển thị cạnh loại gói để mốc của một bộ phận không bị đọc thành mốc toàn máy.' }
         provider: { type: string, nullable: true }
         startDate: { type: string, format: date-time }
         endDate: { type: string, format: date-time }
@@ -4095,7 +4292,10 @@ components:
         Danh sách này là hợp đồng bảo mật: thêm một trường vào đây là mở rộng thứ mà
         một người lạ đọc được. Những gì **cố ý vắng mặt**: `id` thiết bị, `notes`,
         `purchasePrice`, `soldPrice`, `Warranty.cost`, `Warranty.notes`, danh sách
-        `Attachment`/ảnh hoá đơn, và mọi thiết bị khác của chủ máy.
+        `Attachment`/ảnh hoá đơn, và mọi thiết bị khác của chủ máy. Trong chín
+        trường điều khoản của migration 0017, **chỉ `component`** đi ra phiếu
+        (xem `SharedWarranty`): người nhận phải biết một mốc thuộc về bộ phận nào,
+        còn tiền và điều khoản loại trừ thì không.
       properties:
         deviceName: { type: string }
         category: { type: string }
@@ -4113,7 +4313,20 @@ components:
           type: string
           nullable: true
           description: 'Luôn có khi máy có serial: giữ tối đa 4 ký tự đầu và 4 ký tự cuối, che giữa bằng `*` (độ dài giữ nguyên). Luôn che ít nhất 1 ký tự, nên không độ dài nào dựng lại được số đầy đủ.'
-        effectiveWarrantyEnd: { type: string, format: date-time, nullable: true, description: '`max(endDate)` của các gói — con số người mua thật sự cần.' }
+        effectiveWarrantyEnd:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            `max(endDate)` của các gói **toàn máy** — tức các dòng có
+            `component = null` — con số người mua thật sự cần.
+
+            Dòng có `component` bị loại khỏi phép max này (migration 0017): mốc
+            10 năm của động cơ **không** được biến thành "cả máy còn bảo hành tới
+            2035". Khi mọi dòng đều là bộ phận, trường này là `null` (không có
+            mốc toàn máy), và phiếu liệt kê từng mốc bộ phận kèm tên ở bảng bên
+            dưới. Với dữ liệu cũ — mọi dòng đều `component = null` — giá trị
+            giống hệt trước đây.
         warranties:
           type: array
           items: { $ref: '#/components/schemas/SharedWarranty' }

@@ -82,8 +82,16 @@ type CreateShareInput struct {
 
 // SharedWarranty is one warranty package as the RECIPIENT sees it: coverage and
 // where to claim it. No cost, no notes, no ids beyond the warranty's own.
+//
+// Component (migration 0017) is the one contract-term field the certificate
+// carries, and it is here for an honesty reason rather than completeness: a row
+// may cover a PART (the 10-year motor clock) rather than the whole unit. Without
+// the label the recipient would read that end date as whole-device cover. The
+// certificate's headline `effectiveWarrantyEnd` is computed only from rows whose
+// Component is nil, so a component clock can never inflate the whole-unit answer.
 type SharedWarranty struct {
 	Type      string  `json:"type"`
+	Component *string `json:"component"`
 	Provider  *string `json:"provider"`
 	StartDate string  `json:"startDate"`
 	EndDate   string  `json:"endDate"`
@@ -116,8 +124,15 @@ type SharedCertificate struct {
 	// opt-in: the buyer can confirm the sticker matches without the link itself
 	// carrying a full identifier.
 	SerialMasked *string `json:"serialNumberMasked"`
-	// EffectiveWarrantyEnd is max(endDate) over the packages below — the single
-	// number the buyer actually asked for. nil when no package has an end date.
+	// EffectiveWarrantyEnd is max(endDate) over the WHOLE-UNIT packages below
+	// (Component == nil). A component row is deliberately excluded: a 10-year
+	// motor clock must not make the certificate claim the whole device is
+	// covered for ten years. nil when no whole-unit package has an end date —
+	// including the case where EVERY row in the table is a component row, which
+	// is honest ("no whole-unit end date on record") and leaves the per-row
+	// periods to speak for themselves. For a device whose rows all have a NULL
+	// component (every row written before migration 0017), this is byte-for-byte
+	// the same max it has always been.
 	EffectiveWarrantyEnd *string          `json:"effectiveWarrantyEnd"`
 	Warranties           []SharedWarranty `json:"warranties"`
 	// ExpiresAt is when the link stops working, so the recipient knows the
@@ -350,6 +365,7 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 	for _, w := range warranties {
 		out.Warranties = append(out.Warranties, SharedWarranty{
 			Type:      w.Type,
+			Component: w.Component,
 			Provider:  w.Provider,
 			StartDate: tsString(w.StartDate),
 			EndDate:   tsString(w.EndDate),
@@ -358,7 +374,7 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 			Phone:     w.Phone,
 		})
 	}
-	out.EffectiveWarrantyEnd = maxEndDate(warranties)
+	out.EffectiveWarrantyEnd = maxWholeUnitEndDate(warranties)
 
 	// Best-effort telemetry for the owner. A failure here must never cost the
 	// recipient their certificate.
@@ -430,11 +446,30 @@ func shareDTO(row store.DeviceShare) DeviceShare {
 	}
 }
 
-// maxEndDate returns the latest end date as RFC3339, or nil.
-func maxEndDate(rows []store.ListWarrantiesForShareRow) *string {
+// maxWholeUnitEndDate returns the latest end date among WHOLE-UNIT rows
+// (Component == nil) as RFC3339, or nil.
+//
+// The component filter is the certificate's honesty fix (migration 0017). A
+// device can carry several clocks: a 24-month whole-device plan and a 10-year
+// motor plan are two rows, and only the first says anything about the device as
+// a whole. Taking max(endDate) across every row would present the motor clock as
+// whole-unit cover — the exact lie this helper exists to prevent.
+//
+// Legacy data is unaffected: every row written before 0017 has Component NULL,
+// so the filter skips nothing and this returns the same value the old maxEndDate
+// did. When every row is component-scoped, the answer is nil; the certificate
+// then shows "no expiry date" for the whole unit and lists each component clock
+// with its own name and period, rather than inventing a whole-unit number.
+func maxWholeUnitEndDate(rows []store.ListWarrantiesForShareRow) *string {
 	var max time.Time
 	found := false
 	for _, w := range rows {
+		// An empty component is treated as whole-unit: the service normalizes ""
+		// to NULL on write, but a hand-edited row must not be silently excluded
+		// from the headline while also rendering without a label.
+		if w.Component != nil && strings.TrimSpace(*w.Component) != "" {
+			continue
+		}
 		if !w.EndDate.Valid {
 			continue
 		}

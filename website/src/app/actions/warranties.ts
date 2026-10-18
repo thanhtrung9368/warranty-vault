@@ -19,6 +19,18 @@ function num(formData: FormData, key: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+// `transferable` is a NULLABLE boolean: `null` means "the contract does not
+// say", which is not the same answer as an explicit `false`. The form's
+// tri-state select submits the literals `'true'` / `'false'` / `'unset'`, so
+// anything else — including a missing key from an older form — stays null
+// instead of being coerced to false.
+function boolOrNull(formData: FormData, key: string): boolean | null {
+  const v = formData.get(key);
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return null;
+}
+
 function buildWarrantyInput(formData: FormData): WarrantyInput {
   const cost = num(formData, 'cost');
   return {
@@ -30,6 +42,20 @@ function buildWarrantyInput(formData: FormData): WarrantyInput {
     address: str(formData, 'address') ?? null,
     phone: str(formData, 'phone') ?? null,
     notes: str(formData, 'notes') ?? null,
+    // Contract terms. Blank strings/numbers become null (the server's "not
+    // recorded" value), and the two non-nullable defaults are explicit:
+    // `claimsUsed` is 0 when the input was cleared, matching the wire default.
+    // No clamping here — Go is the validator, and a `claimsUsed` it rejects
+    // must surface on `fieldErrors.claimsUsed` rather than be silently fixed.
+    component: str(formData, 'component') ?? null,
+    scope: str(formData, 'scope') ?? null,
+    cap: num(formData, 'cap') ?? null,
+    deductible: num(formData, 'deductible') ?? null,
+    exclusions: str(formData, 'exclusions') ?? null,
+    region: str(formData, 'region') ?? null,
+    transferable: boolOrNull(formData, 'transferable'),
+    claimsAllowed: num(formData, 'claimsAllowed') ?? null,
+    claimsUsed: num(formData, 'claimsUsed') ?? 0,
   };
 }
 

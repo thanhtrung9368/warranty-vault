@@ -25,6 +25,19 @@ struct WarrantyFormView: View {
     @State private var phone: String
     @State private var notes: String
 
+    // Contract terms ("Điều khoản hợp đồng"). Nine fields that most plans do
+    // not have, kept behind a disclosure so the everyday form — type, dates,
+    // provider, fee — never grows by nine rows.
+    @State private var component: String
+    @State private var scope: String
+    @State private var cap: Int?
+    @State private var deductible: Int?
+    @State private var exclusions: String
+    @State private var region: String
+    @State private var transferable: TransferableChoice
+    @State private var claimsAllowed: String
+    @State private var claimsUsed: String
+
     // UI state
     @State private var isSubmitting = false
     @State private var isDeleting = false
@@ -32,6 +45,12 @@ struct WarrantyFormView: View {
     @State private var fieldErrors: [String: [String]] = [:]
     @State private var showDiscardAlert = false
     @State private var showDeleteAlert = false
+
+    /// Collapsed by default when all nine terms are empty, expanded when any is
+    /// set. The decision uses the same `WarrantyTerms.hasAnyTerms` rule the
+    /// detail rows use, so "the form shows the section" and "the row shows the
+    /// terms" can never disagree about whether a contract exists.
+    @State private var termsExpanded: Bool
 
     private var isEditing: Bool { warranty != nil }
 
@@ -46,11 +65,42 @@ struct WarrantyFormView: View {
         _address = State(initialValue: warranty?.address ?? "")
         _phone = State(initialValue: warranty?.phone ?? "")
         _notes = State(initialValue: warranty?.notes ?? "")
+
+        let terms = warranty.map { WarrantyTerms($0) } ?? WarrantyTerms()
+        _component = State(initialValue: terms.component ?? "")
+        _scope = State(initialValue: terms.scope ?? "")
+        _cap = State(initialValue: terms.cap)
+        _deductible = State(initialValue: terms.deductible)
+        _exclusions = State(initialValue: terms.exclusions ?? "")
+        _region = State(initialValue: terms.region ?? "")
+        _transferable = State(initialValue: TransferableChoice(terms.transferable))
+        _claimsAllowed = State(initialValue: terms.claimsAllowed.map(String.init) ?? "")
+        _claimsUsed = State(initialValue: terms.claimsUsed.map(String.init) ?? "")
+        _termsExpanded = State(initialValue: terms.hasAnyTerms)
     }
 
     // MARK: - Validation
 
-    private var isValid: Bool { (Int(months) ?? 0) >= 1 }
+    private var isValid: Bool {
+        (Int(months) ?? 0) >= 1 && !currentTerms.hasClaimsConflict
+    }
+
+    /// The nine fields as the pure derived-presentation type, rebuilt from the
+    /// live form state. One source of truth for the section's collapsed
+    /// summary, the client-side claims check and the save payload.
+    private var currentTerms: WarrantyTerms {
+        WarrantyTerms(
+            component: component,
+            scope: scope,
+            cap: cap,
+            deductible: deductible,
+            exclusions: exclusions,
+            region: region,
+            transferable: transferable.value,
+            claimsAllowed: Int(claimsAllowed),
+            claimsUsed: Int(claimsUsed)
+        )
+    }
 
     // MARK: - Suggestions
 
@@ -267,6 +317,12 @@ struct WarrantyFormView: View {
                         .padding(.vertical, 10)
                 }
 
+                // Contract terms. Collapsed by default unless the saved row
+                // already carries one. Everything that is true for every plan
+                // stays above this line; a user who never opens a contract
+                // never sees the nine fields.
+                contractTermsSection
+
                 // Error banner
                 if let topError {
                     Text(topError)
@@ -355,6 +411,228 @@ struct WarrantyFormView: View {
         .task { await catalog.loadIfNeeded() }
     }
 
+    // MARK: - Contract terms
+
+    /// The collapsible "Điều khoản hợp đồng" section.
+    ///
+    /// Design decision: the nine fields are a contract appendix, not part of
+    /// the everyday answer ("this device is covered until March"). They live in
+    /// their own disclosure below the fields every warranty has:
+    ///
+    ///  * **collapsed by default when all nine are empty** — a user who does
+    ///    not care about payout caps never sees nine extra rows in an add form
+    ///    that used to have eight;
+    ///  * **expanded when any is set** — editing an existing contract must show
+    ///    it, otherwise the form would silently hide data it is about to send;
+    ///  * the header itself is the control (the chevron turns), and when the
+    ///    user collapses a section that has content, the component title stays
+    ///    in the header so the saved contract is still discoverable.
+    ///
+    /// The open/closed decision is `WarrantyTerms.hasAnyTerms`, the same rule
+    /// the device-detail row uses, and `claimsUsed == 0` does not count — the
+    /// server sends 0 for every warranty, so counting it would leave the
+    /// section permanently expanded for everybody.
+    private var contractTermsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { termsExpanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(L.t("Điều khoản hợp đồng").uppercased())
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(WVColor.label3)
+                        .rotationEffect(.degrees(termsExpanded ? 90 : 0))
+                    Spacer(minLength: 8)
+                    if !termsExpanded, currentTerms.hasAnyTerms {
+                        Text(currentTerms.componentTitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 20)
+                .padding(.bottom, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L.t("Điều khoản hợp đồng"))
+
+            if termsExpanded {
+                WVGroup {
+                    componentRow
+                    WVDivider()
+                    termsTextFieldRow(label: L.t("Phạm vi"),
+                                      placeholder: L.t("Ví dụ: lỗi kỹ thuật"),
+                                      text: $scope,
+                                      lines: 1...3,
+                                      limit: 500)
+                    WVDivider()
+                    termsMoneyRow(L.t("Mức tối đa"), value: $cap)
+                    WVDivider()
+                    termsMoneyRow(L.t("Khấu trừ"), value: $deductible)
+                    WVDivider()
+                    termsTextFieldRow(label: L.t("Loại trừ"),
+                                      placeholder: L.t("Ví dụ: rơi vỡ, vào nước"),
+                                      text: $exclusions,
+                                      lines: 2...4,
+                                      limit: 500)
+                    WVDivider()
+                    termsTextFieldRow(label: L.t("Khu vực"),
+                                      placeholder: L.t("Ví dụ: Toàn quốc"),
+                                      text: $region,
+                                      lines: 1...1,
+                                      limit: 200)
+                    WVDivider()
+                    transferableRow
+                    WVDivider()
+                    termsCountRow(L.t("Số lần BH"), text: $claimsAllowed)
+                    WVDivider()
+                    termsCountRow(L.t("Đã dùng"), text: $claimsUsed)
+
+                    // The server's one cross-field rule, stated locally before
+                    // a round trip: used > allowed is a 400 on
+                    // `fieldErrors.claimsUsed`.
+                    if currentTerms.hasClaimsConflict {
+                        WVDivider()
+                        Text(L.t("Số lần đã dùng không được lớn hơn số lần cho phép."))
+                            .font(.system(size: 12))
+                            .foregroundStyle(WVColor.red)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if let msg = termsFieldError {
+                        WVDivider()
+                        Text(msg)
+                            .font(.system(size: 12))
+                            .foregroundStyle(WVColor.red)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                WVSectionFooter(L.t("Lấy từ hợp đồng bảo hành. Để trống ô Bộ phận nếu gói áp dụng cho toàn bộ máy."))
+            }
+        }
+    }
+
+    private var componentRow: some View {
+        termsTextFieldRow(label: L.t("Bộ phận"),
+                          placeholder: L.t("Ví dụ: Pin"),
+                          text: $component,
+                          lines: 1...1,
+                          limit: 200)
+    }
+
+    /// The first server error among the nine fields, shown once beneath the
+    /// group. The contract limits are real (`component`/`region` 200 runes,
+    /// `scope`/`exclusions` 500, non-negative money and counts); the form stops
+    /// the length cases at the keystroke and surfaces anything else the server
+    /// refuses here, next to the fields it belongs to.
+    private var termsFieldError: String? {
+        let keys = ["component", "scope", "cap", "deductible", "exclusions",
+                    "region", "transferable", "claimsAllowed", "claimsUsed"]
+        for key in keys {
+            if let message = fieldErrors[key]?.first { return message }
+        }
+        return nil
+    }
+
+    /// Text field with its label above it. Component / scope / exclusions /
+    /// region can all be sentences, so they get full width rather than a
+    /// squeezed trailing field next to a label. `limit` mirrors the rune caps
+    /// in the contract (`component`/`region` 200, `scope`/`exclusions` 500) and
+    /// is enforced as the user types, so a very long contract note cannot be
+    /// typed and then rejected. Counted in Unicode scalars, which is what Go's
+    /// `[]rune` counts — a grapheme-cluster count would let a decomposed string
+    /// through that the server then refuses.
+    private func termsTextFieldRow(label: String,
+                                   placeholder: String,
+                                   text: Binding<String>,
+                                   lines: ClosedRange<Int>,
+                                   limit: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundStyle(WVColor.label3)
+            TextField(placeholder, text: text, axis: .vertical)
+                .font(.system(size: 17))
+                .foregroundStyle(WVColor.label)
+                .lineLimit(lines)
+                .autocorrectionDisabled()
+                .onChange(of: text.wrappedValue) { _, newValue in
+                    guard newValue.unicodeScalars.count > limit else { return }
+                    var truncated = String.UnicodeScalarView()
+                    truncated.append(contentsOf: newValue.unicodeScalars.prefix(limit))
+                    text.wrappedValue = String(truncated)
+                }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// VND row, matching the existing "Phí gói" input: nil (empty) stays nil
+    /// on the wire, and 0 — a real answer — is typed as 0.
+    private func termsMoneyRow(_ label: String, value: Binding<Int?>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 17))
+                .foregroundStyle(WVColor.label)
+                .frame(width: 110, alignment: .leading)
+            WVMoneyField(value: value, placeholder: L.t("Tuỳ chọn"))
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+    }
+
+    /// Small non-negative count (claims). Empty means "not recorded": for
+    /// `claimsAllowed` that is nil (unbounded); for `claimsUsed` the wire
+    /// default of 0 is written by `WarrantyTerms.apply`.
+    private func termsCountRow(_ label: String, text: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 17))
+                .foregroundStyle(WVColor.label)
+                .frame(width: 110, alignment: .leading)
+            TextField(L.t("Tuỳ chọn"), text: text)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .font(.system(size: 17))
+                .foregroundStyle(WVColor.label)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+    }
+
+    /// Three-state transferable switch. A plain `Toggle` has only two states,
+    /// so it could not tell "the contract does not say" (null) from "no" — and
+    /// an automatic `false` here would make every saved warranty look like it
+    /// has a contract term. "Chưa đặt" keeps the key out of the payload.
+    private var transferableRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L.t("Chuyển nhượng"))
+                .font(.system(size: 13))
+                .foregroundStyle(WVColor.label3)
+            WVSegmented(
+                options: TransferableChoice.allCases.map { (value: $0, label: $0.label) },
+                selection: $transferable
+            )
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     // MARK: - Delete
 
     /// Deletes the plan currently being edited.
@@ -394,6 +672,11 @@ struct WarrantyFormView: View {
         input.address = address.isEmpty ? nil : address
         input.phone = phone.isEmpty ? nil : phone
         input.notes = notes.isEmpty ? nil : notes
+        // The nine contract-term fields are a full-replacement block too: the
+        // form sends what it loaded, so a save from this screen cannot clear a
+        // contract recorded on the web or on Android. `claimsUsed` is always
+        // sent because 0 is its contract default.
+        currentTerms.apply(to: &input)
 
         do {
             if let warranty {
@@ -407,6 +690,44 @@ struct WarrantyFormView: View {
             fieldErrors = err.fieldErrors
         } catch {
             topError = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Transferable choice
+
+/// The tri-state value of the nullable `transferable` wire field.
+///
+/// `Bool?` cannot be expressed by a `Toggle` without inventing a `false`, and
+/// `false` is a real contract term ("không chuyển nhượng được") that must stay
+/// distinguishable from "the contract does not say". The segmented control in
+/// the terms section is this enum, and `.unset` simply leaves the key out.
+private enum TransferableChoice: String, CaseIterable, Hashable {
+    case unset
+    case yes
+    case no
+
+    var label: String {
+        switch self {
+        case .unset: return L.t("Chưa đặt")
+        case .yes:   return L.t("Có")
+        case .no:    return L.t("Không")
+        }
+    }
+
+    var value: Bool? {
+        switch self {
+        case .unset: return nil
+        case .yes:   return true
+        case .no:    return false
+        }
+    }
+
+    init(_ value: Bool?) {
+        switch value {
+        case .none:      self = .unset
+        case .some(true):  self = .yes
+        case .some(false): self = .no
         }
     }
 }

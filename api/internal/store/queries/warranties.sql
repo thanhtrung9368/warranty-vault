@@ -29,6 +29,9 @@ WHERE id = $1
 LIMIT 1;
 
 -- name: CreateWarranty :one
+-- Carries the nine contract terms added by migration 0017. They are nullable
+-- except "claimsUsed" (NOT NULL DEFAULT 0), and no rule ties them to `type`:
+-- a THIRD_PARTY plan may have a cap and a STANDARD one may have exclusions.
 INSERT INTO "Warranty" (
     id,
     "deviceId",
@@ -41,14 +44,30 @@ INSERT INTO "Warranty" (
     address,
     phone,
     notes,
+    component,
+    scope,
+    cap,
+    deductible,
+    exclusions,
+    region,
+    transferable,
+    "claimsAllowed",
+    "claimsUsed",
     "createdAt",
     "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+    $12, $13, $14, $15, $16, $17, $18, $19, $20,
+    NOW(), NOW()
 )
 RETURNING *;
 
 -- name: UpdateWarranty :one
+-- Full replacement of the warranty row. The caller (services.UpdateWarranty)
+-- resolves "claimsUsed omitted" to the stored counter before it gets here, so a
+-- client that predates migration 0017 cannot silently reset a counter a newer
+-- client set. The device form's inline STANDARD warranty edit reuses this query
+-- and passes the stored terms through untouched.
 UPDATE "Warranty" w SET
     type = $3,
     provider = $4,
@@ -59,6 +78,15 @@ UPDATE "Warranty" w SET
     address = $9,
     phone = $10,
     notes = $11,
+    component = $12,
+    scope = $13,
+    cap = $14,
+    deductible = $15,
+    exclusions = $16,
+    region = $17,
+    transferable = $18,
+    "claimsAllowed" = $19,
+    "claimsUsed" = $20,
     "updatedAt" = NOW()
 FROM "Device" d
 WHERE w.id = $1 AND w."deviceId" = d.id AND d."userId" = $2

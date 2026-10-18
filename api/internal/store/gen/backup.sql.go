@@ -671,28 +671,42 @@ func (q *Queries) BackupInsertSubscription(ctx context.Context, arg BackupInsert
 const backupInsertWarranty = `-- name: BackupInsertWarranty :exec
 INSERT INTO "Warranty" (
     id, "deviceId", type, provider, "startDate", "endDate", months, cost,
-    address, phone, notes, "createdAt", "updatedAt"
+    address, phone, notes, component, scope, cap, deductible, exclusions,
+    region, transferable, "claimsAllowed", "claimsUsed", "createdAt", "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+    $17, $18, $19, $20, $21, $22
 )
 `
 
 type BackupInsertWarrantyParams struct {
-	ID        string           `json:"id"`
-	DeviceId  string           `json:"deviceId"`
-	Type      string           `json:"type"`
-	Provider  *string          `json:"provider"`
-	StartDate pgtype.Timestamp `json:"startDate"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	Months    int32            `json:"months"`
-	Cost      *int32           `json:"cost"`
-	Address   *string          `json:"address"`
-	Phone     *string          `json:"phone"`
-	Notes     *string          `json:"notes"`
-	CreatedAt pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt pgtype.Timestamp `json:"updatedAt"`
+	ID            string           `json:"id"`
+	DeviceId      string           `json:"deviceId"`
+	Type          string           `json:"type"`
+	Provider      *string          `json:"provider"`
+	StartDate     pgtype.Timestamp `json:"startDate"`
+	EndDate       pgtype.Timestamp `json:"endDate"`
+	Months        int32            `json:"months"`
+	Cost          *int32           `json:"cost"`
+	Address       *string          `json:"address"`
+	Phone         *string          `json:"phone"`
+	Notes         *string          `json:"notes"`
+	Component     *string          `json:"component"`
+	Scope         *string          `json:"scope"`
+	Cap           *int32           `json:"cap"`
+	Deductible    *int32           `json:"deductible"`
+	Exclusions    *string          `json:"exclusions"`
+	Region        *string          `json:"region"`
+	Transferable  *bool            `json:"transferable"`
+	ClaimsAllowed *int32           `json:"claimsAllowed"`
+	ClaimsUsed    int32            `json:"claimsUsed"`
+	CreatedAt     pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
 }
 
+// The nine contract terms (migration 0017) ride along additively. A payload
+// exported before 0017 has no such keys, decodes them to NULL/0, and inserts
+// exactly the pre-0017 state — the import must not require a newer format.
 func (q *Queries) BackupInsertWarranty(ctx context.Context, arg BackupInsertWarrantyParams) error {
 	_, err := q.db.Exec(ctx, backupInsertWarranty,
 		arg.ID,
@@ -706,6 +720,15 @@ func (q *Queries) BackupInsertWarranty(ctx context.Context, arg BackupInsertWarr
 		arg.Address,
 		arg.Phone,
 		arg.Notes,
+		arg.Component,
+		arg.Scope,
+		arg.Cap,
+		arg.Deductible,
+		arg.Exclusions,
+		arg.Region,
+		arg.Transferable,
+		arg.ClaimsAllowed,
+		arg.ClaimsUsed,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -1031,7 +1054,7 @@ func (q *Queries) BackupListSubscriptionsForUser(ctx context.Context, userid str
 }
 
 const backupListWarrantiesForUser = `-- name: BackupListWarrantiesForUser :many
-SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt"
+SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed"
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
@@ -1061,6 +1084,15 @@ func (q *Queries) BackupListWarrantiesForUser(ctx context.Context, userid string
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
 		); err != nil {
 			return nil, err
 		}

@@ -20,6 +20,19 @@ export type WarrantyInput = {
   address?: string | null;
   phone?: string | null;
   notes?: string | null;
+  // Contract terms. All are nullable/omittable; `claimsUsed` defaults to 0 on
+  // the server. The Go validator owns the rules (non-negative integers, and
+  // `claimsUsed > claimsAllowed` → 400 on `fieldErrors.claimsUsed`), so this
+  // client passes whatever the form parsed instead of clamping it.
+  component?: string | null;
+  scope?: string | null;
+  cap?: number | null;
+  deductible?: number | null;
+  exclusions?: string | null;
+  region?: string | null;
+  transferable?: boolean | null;
+  claimsAllowed?: number | null;
+  claimsUsed?: number;
 };
 
 // `GET /v1/devices/{id}/warranties` is auth + ownership-checked on Go side.

@@ -158,6 +158,12 @@ export type DeviceListItem = Device & {
 export type WarrantyType = 'STANDARD' | 'EXTENDED' | 'THIRD_PARTY';
 
 // Wire shape from `store.Warranty`. `createdAt`/`updatedAt` come from the DB.
+//
+// The nine contract-term fields are nullable on purpose: `null` means "not
+// recorded", which is different from a recorded zero (`cap: 0`, `deductible: 0`)
+// and from an explicit `transferable: false`. `claimsUsed` is the one exception
+// — the server defaults it to 0, so it is non-null on every row. See
+// `lib/warranty-terms.ts` for the "has terms" rule that depends on that.
 export type Warranty = {
   id: string;
   deviceId: string;
@@ -170,6 +176,24 @@ export type Warranty = {
   address: string | null;
   phone: string | null;
   notes: string | null;
+  /** What part this row covers; null = whole unit. */
+  component: string | null;
+  /** What is covered. */
+  scope: string | null;
+  /** Maximum payout, VND. */
+  cap: number | null;
+  /** VND the user pays per claim. */
+  deductible: number | null;
+  /** What is excluded. */
+  exclusions: string | null;
+  /** Where the cover applies. */
+  region: string | null;
+  /** Whether the cover survives resale. */
+  transferable: boolean | null;
+  /** How many claims the contract allows. */
+  claimsAllowed: number | null;
+  /** How many have been used. Server default: 0. */
+  claimsUsed: number;
   createdAt: string;
   updatedAt: string;
 };

@@ -95,6 +95,19 @@ func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string,
 				Notes:     r.Notes,
 				CreatedAt: r.CreatedAt,
 				UpdatedAt: r.UpdatedAt,
+				// Contract terms (migration 0017). This projection is hand-built,
+				// so a field missing here disappears from the reminders feed even
+				// though `SELECT w.*` selected it. "Returned on every read" includes
+				// this one: a reminder card can then say what the plan covers.
+				Component:     r.Component,
+				Scope:         r.Scope,
+				Cap:           r.Cap,
+				Deductible:    r.Deductible,
+				Exclusions:    r.Exclusions,
+				Region:        r.Region,
+				Transferable:  r.Transferable,
+				ClaimsAllowed: r.ClaimsAllowed,
+				ClaimsUsed:    r.ClaimsUsed,
 			},
 			IsDismissed: r.IsDismissed,
 			Device: ReminderDeviceRef{

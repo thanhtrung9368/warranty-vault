@@ -72,6 +72,56 @@ export const warranties = defineMessages({
   'Hết hôm nay': 'Ends today',
   'Còn {months} tháng': { en: '{months} months left', enOne: '{months} month left' },
 
+  // ── Warranty contract terms ─────────────────────────────────────────────
+  // `lib/warranty-terms.ts` + the collapsible section in `warranty-form.tsx`
+  // and the terms block in `warranty-list.tsx`. Vietnamese is the contract's
+  // own vocabulary (`mức chi trả`, `khấu trừ`, `loại trừ`), not a literal
+  // translation of the English column.
+  'Điều khoản hợp đồng': 'Contract terms',
+  'Không bắt buộc — mở mục này nếu gói bảo hành có điều khoản riêng.':
+    'Optional — open this section if the plan has its own terms.',
+  'Bộ phận được bảo hành': 'Covered component',
+  'vd: Màn hình (bỏ trống = toàn bộ máy)':
+    'e.g. Screen (leave blank for the whole device)',
+  'Phạm vi bảo hành': 'Coverage scope',
+  'vd: lỗi phần cứng, cháy nổ do điện': 'e.g. hardware faults, electrical damage',
+  'Mức chi trả tối đa (VND)': 'Maximum payout (VND)',
+  'Khấu trừ mỗi lần (VND)': 'Deductible per claim (VND)',
+  'Loại trừ': 'Exclusions',
+  'vd: rơi vỡ, vào nước, hao mòn tự nhiên':
+    'e.g. drops, liquid damage, normal wear',
+  'Khu vực áp dụng': 'Coverage region',
+  'vd: Toàn quốc': 'e.g. Nationwide',
+  'Chuyển nhượng được': 'Transferable',
+  // The tri-state select's "contract does not say" option. Distinct from
+  // `'Không'` (an explicit no) on purpose.
+  'Chưa rõ': 'Not recorded',
+  // Same sentence as `messages/devices.ts`'s entries — a duplicate key is
+  // allowed only because the English agrees byte-for-byte (`i18n.test.ts`).
+  'Có': 'Yes',
+  'Không': 'No',
+  'Số lượt yêu cầu tối đa': 'Maximum claims allowed',
+  'Số lượt đã dùng': 'Claims used',
+  // Display labels in the device-detail terms block.
+  'Bộ phận': 'Component',
+  'Toàn bộ thiết bị': 'Whole device',
+  'Mức chi trả tối đa': 'Maximum payout',
+  'Khấu trừ mỗi lần': 'Deductible per claim',
+  // The noun follows `claimsAllowed`, so the singular fires on a one-claim
+  // contract ("0/1 claim used"), not on a single used claim.
+  'Đã dùng {used}/{allowed} lượt': {
+    en: '{used}/{allowed} claims used',
+    enOne: '{used}/{allowed} claim used',
+  },
+  'Tối đa {allowed} lượt': {
+    en: 'Up to {allowed} claims',
+    enOne: 'Up to {allowed} claim',
+  },
+  'Đã dùng {used} lượt': {
+    en: '{used} claims used',
+    enOne: '{used} claim used',
+  },
+
   // ── Attachment gallery (`components/attachment-gallery.tsx`) ────────────
   'Không lưu được mô tả': 'Could not save the description',
   'Đã lưu mô tả': 'Description saved',

@@ -292,6 +292,7 @@ const listWarrantiesForShare = `-- name: ListWarrantiesForShare :many
 SELECT
     id,
     type,
+    component,
     provider,
     "startDate",
     "endDate",
@@ -306,6 +307,7 @@ ORDER BY "endDate" DESC, id ASC
 type ListWarrantiesForShareRow struct {
 	ID        string           `json:"id"`
 	Type      string           `json:"type"`
+	Component *string          `json:"component"`
 	Provider  *string          `json:"provider"`
 	StartDate pgtype.Timestamp `json:"startDate"`
 	EndDate   pgtype.Timestamp `json:"endDate"`
@@ -317,6 +319,14 @@ type ListWarrantiesForShareRow struct {
 // PUBLIC read, device-scoped. `cost` and `notes` are absent from the SELECT list
 // on purpose (see the file header): the recipient needs the coverage window and
 // the place to claim it, not what the seller paid or wrote.
+//
+// `component` (migration 0017) IS included, and it is the one contract-term
+// column this projection carries: the recipient must be able to see that a row
+// covers a part rather than the whole device. Without it the certificate would
+// present a 10-year motor clock as if the whole unit were covered. The
+// money/terms columns (cap, deductible, exclusions, …) stay out: the certificate
+// is proof of the coverage window and the place to claim it, not a copy of the
+// contract the seller bought.
 func (q *Queries) ListWarrantiesForShare(ctx context.Context, deviceid string) ([]ListWarrantiesForShareRow, error) {
 	rows, err := q.db.Query(ctx, listWarrantiesForShare, deviceid)
 	if err != nil {
@@ -329,6 +339,7 @@ func (q *Queries) ListWarrantiesForShare(ctx context.Context, deviceid string) (
 		if err := rows.Scan(
 			&i.ID,
 			&i.Type,
+			&i.Component,
 			&i.Provider,
 			&i.StartDate,
 			&i.EndDate,

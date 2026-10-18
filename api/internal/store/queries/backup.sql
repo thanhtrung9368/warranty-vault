@@ -147,11 +147,16 @@ INSERT INTO "Device" (
 );
 
 -- name: BackupInsertWarranty :exec
+-- The nine contract terms (migration 0017) ride along additively. A payload
+-- exported before 0017 has no such keys, decodes them to NULL/0, and inserts
+-- exactly the pre-0017 state — the import must not require a newer format.
 INSERT INTO "Warranty" (
     id, "deviceId", type, provider, "startDate", "endDate", months, cost,
-    address, phone, notes, "createdAt", "updatedAt"
+    address, phone, notes, component, scope, cap, deductible, exclusions,
+    region, transferable, "claimsAllowed", "claimsUsed", "createdAt", "updatedAt"
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+    $17, $18, $19, $20, $21, $22
 );
 
 -- name: BackupInsertReminder :exec

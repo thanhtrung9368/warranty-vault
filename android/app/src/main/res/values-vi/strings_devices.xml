@@ -137,6 +137,39 @@
     <string name="warr_address">Địa chỉ</string>
     <string name="warr_note">Ghi chú</string>
     <string name="warr_warranty_type">Loại bảo hành</string>
+
+    <!-- ===== Điều khoản hợp đồng của gói bảo hành (WarrantyTerms.kt,
+         WarrantyEditSheet.kt, DeviceDetailScreen.kt). Chín trường đều tuỳ chọn:
+         nhóm trong form đóng sẵn cho tới khi có một trường được điền, và gói
+         không có điều khoản nào phải trông y như trước. "null" và "0" là hai
+         chuyện khác nhau — xem KDoc trong WarrantyTerms.kt. ===== -->
+    <string name="warr_terms_title">Điều khoản hợp đồng</string>
+    <string name="warr_terms_subtitle">Mức chi tối đa, khấu trừ, số lần bảo hành</string>
+    <string name="warr_terms_expand">Mở điều khoản hợp đồng</string>
+    <string name="warr_terms_collapse">Thu gọn điều khoản hợp đồng</string>
+    <string name="warr_terms_component">Bộ phận</string>
+    <string name="warr_terms_component_hint">Để trống nếu bảo hành cả máy.</string>
+    <string name="warr_terms_scope">Phạm vi bảo hành</string>
+    <string name="warr_terms_cap_vnd">Mức chi tối đa (VND)</string>
+    <string name="warr_terms_cap">Mức chi tối đa</string>
+    <string name="warr_terms_deductible_vnd">Khấu trừ mỗi lần (VND)</string>
+    <string name="warr_terms_deductible">Khấu trừ</string>
+    <string name="warr_terms_exclusions">Loại trừ</string>
+    <string name="warr_terms_region">Khu vực áp dụng</string>
+    <string name="warr_terms_transferable">Chuyển nhượng khi bán</string>
+    <string name="warr_terms_transferable_unknown">Không rõ</string>
+    <string name="warr_terms_transferable_yes">Có</string>
+    <string name="warr_terms_transferable_no">Không</string>
+    <string name="warr_terms_claims_allowed">Số lần bảo hành tối đa</string>
+    <string name="warr_terms_claims_used">Số lần đã dùng</string>
+    <string name="warr_terms_claims">Số lần bảo hành</string>
+    <string name="warr_terms_claims_unlimited">Không giới hạn</string>
+    <plurals name="warr_terms_claims_used_unbounded">
+        <item quantity="other">Đã dùng %1$d lần · không giới hạn</item>
+    </plurals>
+    <string name="warr_terms_claims_over_limit">Số lần đã dùng không được vượt quá số lần tối đa.</string>
+    <string name="warr_terms_whole_unit">Toàn máy</string>
+
     <string name="dir_where_to_get_warranty_service">Đi bảo hành ở đâu</string>
     <string name="dir_checking_the_directory">Đang tra danh bạ...</string>
     <string name="dir_the_brand_s_authorised_service_centres">Trung tâm uỷ quyền của hãng</string>

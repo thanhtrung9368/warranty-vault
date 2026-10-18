@@ -664,6 +664,11 @@ private struct DeviceStatusBadge: View {
 private struct WarrantyTimelineRow: View {
     let warranty: Warranty
 
+    /// The nine optional contract fields, already reduced to the presentation
+    /// rules. `hasAnyTerms` guards the whole block, so a warranty with no
+    /// contract renders exactly as before.
+    private var terms: WarrantyTerms { warranty.terms }
+
     private var daysLeft: Int { warrantyDaysLeft(warranty) }
     private var isExpired: Bool { daysLeft < 0 }
 
@@ -721,6 +726,12 @@ private struct WarrantyTimelineRow: View {
                     .font(.system(size: 11))
                     .foregroundStyle(WVColor.label3)
             }
+            // Contract terms when the row has any. Compact: this card is the
+            // overview, the full terms live in the warranty list below.
+            if terms.hasAnyTerms {
+                WarrantyTermsBlock(terms: terms, compact: true)
+                    .padding(.top, 2)
+            }
         }
     }
 }
@@ -729,6 +740,11 @@ private struct WarrantyTimelineRow: View {
 
 private struct WarrantyListRow: View {
     let warranty: Warranty
+
+    /// Same derived terms as the timeline row. Rendered below the existing
+    /// three-fragment subtitle only when there is something to show, so a
+    /// no-terms row is byte-for-byte the old layout.
+    private var terms: WarrantyTerms { warranty.terms }
 
     private var typeTone: WVChipTone {
         switch warranty.type {
@@ -773,6 +789,14 @@ private struct WarrantyListRow: View {
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
+                // Full contract terms: component (or "Toàn bộ máy"), cap and
+                // deductible as money, claims used out of allowed, scope,
+                // region, transferability and exclusions. Absent for a row with
+                // no terms, which therefore looks exactly as before.
+                if terms.hasAnyTerms {
+                    WarrantyTermsBlock(terms: terms)
+                        .padding(.top, 2)
+                }
             }
             Spacer(minLength: 8)
             WVIcon("arrowRight", size: 13)

@@ -684,18 +684,32 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if in.WarrantyMonths > 0 {
 		end := addMonths(purchaseDate, int(in.WarrantyMonths))
 		if hasExisting {
+			// The device form edits the coverage WINDOW, not the contract terms.
+			// UpdateWarranty is a full replacement, so the nine migration-0017
+			// columns must be carried through from the stored row or saving an
+			// unrelated device edit would silently delete the user's cap,
+			// deductible, exclusions and claim counter.
 			if _, uerr := tq.UpdateWarranty(ctx, store.UpdateWarrantyParams{
-				ID:        existing.ID,
-				UserId:    userID,
-				Type:      "STANDARD",
-				Provider:  in.WarrantyProvider,
-				StartDate: pgtype.Timestamp{Time: purchaseDate, Valid: true},
-				EndDate:   pgtype.Timestamp{Time: end, Valid: true},
-				Months:    in.WarrantyMonths,
-				Cost:      existing.Cost,
-				Address:   in.WarrantyAddress,
-				Phone:     in.WarrantyPhone,
-				Notes:     in.WarrantyNotes,
+				ID:            existing.ID,
+				UserId:        userID,
+				Type:          "STANDARD",
+				Provider:      in.WarrantyProvider,
+				StartDate:     pgtype.Timestamp{Time: purchaseDate, Valid: true},
+				EndDate:       pgtype.Timestamp{Time: end, Valid: true},
+				Months:        in.WarrantyMonths,
+				Cost:          existing.Cost,
+				Address:       in.WarrantyAddress,
+				Phone:         in.WarrantyPhone,
+				Notes:         in.WarrantyNotes,
+				Component:     existing.Component,
+				Scope:         existing.Scope,
+				Cap:           existing.Cap,
+				Deductible:    existing.Deductible,
+				Exclusions:    existing.Exclusions,
+				Region:        existing.Region,
+				Transferable:  existing.Transferable,
+				ClaimsAllowed: existing.ClaimsAllowed,
+				ClaimsUsed:    existing.ClaimsUsed,
 			}); uerr != nil {
 				return store.Device{}, fmt.Errorf("update warranty: %w", uerr)
 			}

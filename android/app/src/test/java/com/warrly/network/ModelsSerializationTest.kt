@@ -346,6 +346,140 @@ class ModelsSerializationTest {
         )
     }
 
+    // ---- Warranty contract terms -----------------------------------------
+
+    /**
+     * The nine optional contract-term fields decode onto the warranty DTO.
+     * `claimsUsed` is the one non-nullable field and its contract default is 0,
+     * so an older server that omits it still decodes to a sensible number.
+     */
+    @Test
+    fun warranty_decodesContractTermsAndDefaultsClaimsUsedToZero() {
+        val full = json.decodeFromString(
+            Warranty.serializer(),
+            """
+                {
+                  "id": "war-1",
+                  "deviceId": "dev-1",
+                  "type": "EXTENDED",
+                  "startDate": "2024-03-01",
+                  "endDate": "2026-03-01",
+                  "months": 24,
+                  "component": "Pin",
+                  "scope": "Pin chai và cổng sạc",
+                  "cap": 5000000,
+                  "deductible": 500000,
+                  "exclusions": "Rơi vỡ, vào nước",
+                  "region": "Việt Nam",
+                  "transferable": false,
+                  "claimsAllowed": 3,
+                  "claimsUsed": 2
+                }
+            """.trimIndent(),
+        )
+
+        assertEquals("Pin", full.component)
+        assertEquals("Pin chai và cổng sạc", full.scope)
+        assertEquals(5_000_000, full.cap)
+        assertEquals(500_000, full.deductible)
+        assertEquals("Rơi vỡ, vào nước", full.exclusions)
+        assertEquals("Việt Nam", full.region)
+        assertEquals(false, full.transferable)
+        assertEquals(3, full.claimsAllowed)
+        assertEquals(2, full.claimsUsed)
+        assertEquals(
+            full,
+            json.decodeFromString(
+                Warranty.serializer(),
+                json.encodeToString(Warranty.serializer(), full),
+            ),
+        )
+
+        // A plan written before these fields existed: every term is absent and
+        // `claimsUsed` falls back to the contract default.
+        val sparse = json.decodeFromString(
+            Warranty.serializer(),
+            """{"id":"war-1","deviceId":"dev-1","startDate":"2024-03-01","endDate":"2026-03-01"}""",
+        )
+        assertNull(sparse.component)
+        assertNull(sparse.scope)
+        assertNull(sparse.cap)
+        assertNull(sparse.deductible)
+        assertNull(sparse.exclusions)
+        assertNull(sparse.region)
+        assertNull(sparse.transferable)
+        assertNull("null is UNBOUNDED, never 0 claims", sparse.claimsAllowed)
+        assertEquals(0, sparse.claimsUsed)
+    }
+
+    /**
+     * Create/update send every recorded term. `0` must survive as `0` (a real
+     * cap/deductible/limit), and `transferable = false` must be sent rather than
+     * dropped as falsy.
+     */
+    @Test
+    fun warrantyInput_encodesContractTermsIncludingRealZerosAndFalse() {
+        val input = WarrantyInput(
+            type = WarrantyType.EXTENDED,
+            startDate = "2024-03-01",
+            months = 24,
+            component = "Pin",
+            scope = "Pin chai",
+            cap = 0,
+            deductible = 0,
+            exclusions = "Rơi vỡ",
+            region = "Việt Nam",
+            transferable = false,
+            claimsAllowed = 3,
+            claimsUsed = 2,
+        )
+
+        val encoded = json.encodeToString(WarrantyInput.serializer(), input)
+
+        assertTrue("component must reach the server: $encoded", encoded.contains("\"component\":\"Pin\""))
+        assertTrue(encoded.contains("\"scope\":\"Pin chai\""))
+        assertTrue("a 0 cap is not 'unset': $encoded", encoded.contains("\"cap\":0"))
+        assertTrue("a 0 deductible is not 'unset': $encoded", encoded.contains("\"deductible\":0"))
+        assertTrue(encoded.contains("\"exclusions\":\"Rơi vỡ\""))
+        assertTrue(encoded.contains("\"region\":\"Việt Nam\""))
+        assertTrue("false is a value, not a missing key: $encoded", encoded.contains("\"transferable\":false"))
+        assertTrue(encoded.contains("\"claimsAllowed\":3"))
+        assertTrue(encoded.contains("\"claimsUsed\":2"))
+
+        assertEquals(input, json.decodeFromString(WarrantyInput.serializer(), encoded))
+    }
+
+    /**
+     * The note that matters for update: `ApiClient.json` has
+     * `explicitNulls = false`, so an untouched term is an ABSENT key, never
+     * `"component":null`. `claimsUsed` is the exception — it is non-nullable and
+     * always encoded, including its default 0.
+     */
+    @Test
+    fun warrantyInput_dropsNullContractTermsButAlwaysSendsClaimsUsed() {
+        val untouched = json.encodeToString(
+            WarrantyInput.serializer(),
+            WarrantyInput(startDate = "2024-03-01", months = 12),
+        )
+
+        for (key in listOf(
+            "component",
+            "scope",
+            "cap",
+            "deductible",
+            "exclusions",
+            "region",
+            "transferable",
+            "claimsAllowed",
+        )) {
+            assertFalse("$key is null and must be dropped: $untouched", untouched.contains("\"$key\""))
+        }
+        assertTrue(
+            "claimsUsed is non-nullable and always sent: $untouched",
+            untouched.contains("\"claimsUsed\":0"),
+        )
+    }
+
     // ---- Display labels: resource-backed, pinned in BOTH languages --------
     //
     // These used to assert `DeviceStatus.ACTIVE.label` — a hardcoded Vietnamese

@@ -62,6 +62,17 @@ function warranty(
     address: null,
     phone: null,
     notes: null,
+    // Contract terms — present for the wire shape; the money rollups ignore
+    // them.
+    component: null,
+    scope: null,
+    cap: null,
+    deductible: null,
+    exclusions: null,
+    region: null,
+    transferable: null,
+    claimsAllowed: null,
+    claimsUsed: 0,
     createdAt: '2026-03-15T00:00:00Z',
     updatedAt: '2026-03-15T00:00:00Z',
     ...over,

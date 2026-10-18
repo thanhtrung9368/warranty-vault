@@ -302,19 +302,34 @@ type BackupDevice struct {
 }
 
 type BackupWarranty struct {
-	ID        string           `json:"id"`
-	Type      string           `json:"type"`
-	Provider  *string          `json:"provider"`
-	StartDate string           `json:"startDate"`
-	EndDate   string           `json:"endDate"`
-	Months    int32            `json:"months"`
-	Cost      *int32           `json:"cost"`
-	Address   *string          `json:"address"`
-	Phone     *string          `json:"phone"`
-	Notes     *string          `json:"notes"`
-	CreatedAt string           `json:"createdAt"`
-	UpdatedAt string           `json:"updatedAt"`
-	Reminders []BackupReminder `json:"reminders"`
+	ID        string  `json:"id"`
+	Type      string  `json:"type"`
+	Provider  *string `json:"provider"`
+	StartDate string  `json:"startDate"`
+	EndDate   string  `json:"endDate"`
+	Months    int32   `json:"months"`
+	Cost      *int32  `json:"cost"`
+	Address   *string `json:"address"`
+	Phone     *string `json:"phone"`
+	Notes     *string `json:"notes"`
+	// Contract terms (migration 0017). Additive and optional in exactly the way
+	// the device's leadDays / activation fields are: a payload exported before
+	// 0017 has no such keys, decodes to nil/0, and imports as the pre-0017 state
+	// (no recorded terms, zero claims used). The payload version does NOT move.
+	// Dropping them on restore would delete the cap / deductible / exclusions a
+	// user typed for a claim, which is the whole reason they were added.
+	Component     *string          `json:"component"`
+	Scope         *string          `json:"scope"`
+	Cap           *int32           `json:"cap"`
+	Deductible    *int32           `json:"deductible"`
+	Exclusions    *string          `json:"exclusions"`
+	Region        *string          `json:"region"`
+	Transferable  *bool            `json:"transferable"`
+	ClaimsAllowed *int32           `json:"claimsAllowed"`
+	ClaimsUsed    int32            `json:"claimsUsed"`
+	CreatedAt     string           `json:"createdAt"`
+	UpdatedAt     string           `json:"updatedAt"`
+	Reminders     []BackupReminder `json:"reminders"`
 }
 
 type BackupReminder struct {
@@ -555,19 +570,28 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 		}
 		for _, w := range warByDevice[d.ID] {
 			bw := BackupWarranty{
-				ID:        w.ID,
-				Type:      w.Type,
-				Provider:  w.Provider,
-				StartDate: ts(w.StartDate),
-				EndDate:   ts(w.EndDate),
-				Months:    w.Months,
-				Cost:      w.Cost,
-				Address:   w.Address,
-				Phone:     w.Phone,
-				Notes:     w.Notes,
-				CreatedAt: ts(w.CreatedAt),
-				UpdatedAt: ts(w.UpdatedAt),
-				Reminders: []BackupReminder{},
+				ID:            w.ID,
+				Type:          w.Type,
+				Provider:      w.Provider,
+				StartDate:     ts(w.StartDate),
+				EndDate:       ts(w.EndDate),
+				Months:        w.Months,
+				Cost:          w.Cost,
+				Address:       w.Address,
+				Phone:         w.Phone,
+				Notes:         w.Notes,
+				Component:     w.Component,
+				Scope:         w.Scope,
+				Cap:           w.Cap,
+				Deductible:    w.Deductible,
+				Exclusions:    w.Exclusions,
+				Region:        w.Region,
+				Transferable:  w.Transferable,
+				ClaimsAllowed: w.ClaimsAllowed,
+				ClaimsUsed:    w.ClaimsUsed,
+				CreatedAt:     ts(w.CreatedAt),
+				UpdatedAt:     ts(w.UpdatedAt),
+				Reminders:     []BackupReminder{},
 			}
 			for _, r := range remByWarranty[w.ID] {
 				bw.Reminders = append(bw.Reminders, BackupReminder{
@@ -913,19 +937,28 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 				continue
 			}
 			if err := q.BackupInsertWarranty(ctx, store.BackupInsertWarrantyParams{
-				ID:        w.ID,
-				DeviceId:  d.ID,
-				Type:      w.Type,
-				Provider:  w.Provider,
-				StartDate: pgts(w.StartDate),
-				EndDate:   pgts(w.EndDate),
-				Months:    w.Months,
-				Cost:      w.Cost,
-				Address:   w.Address,
-				Phone:     w.Phone,
-				Notes:     w.Notes,
-				CreatedAt: pgts(w.CreatedAt),
-				UpdatedAt: pgts(w.UpdatedAt),
+				ID:            w.ID,
+				DeviceId:      d.ID,
+				Type:          w.Type,
+				Provider:      w.Provider,
+				StartDate:     pgts(w.StartDate),
+				EndDate:       pgts(w.EndDate),
+				Months:        w.Months,
+				Cost:          w.Cost,
+				Address:       w.Address,
+				Phone:         w.Phone,
+				Notes:         w.Notes,
+				Component:     w.Component,
+				Scope:         w.Scope,
+				Cap:           w.Cap,
+				Deductible:    w.Deductible,
+				Exclusions:    w.Exclusions,
+				Region:        w.Region,
+				Transferable:  w.Transferable,
+				ClaimsAllowed: w.ClaimsAllowed,
+				ClaimsUsed:    w.ClaimsUsed,
+				CreatedAt:     pgts(w.CreatedAt),
+				UpdatedAt:     pgts(w.UpdatedAt),
 			}); err != nil {
 				return nil, fmt.Errorf("insert warranty: %w", err)
 			}

@@ -216,6 +216,14 @@ extension APIClient {
 
     // MARK: - Warranties
 
+    /// Creates a warranty on a device.
+    ///
+    /// The whole contract-terms block rides in the same `WarrantyInput` body:
+    /// `component`, `scope`, `cap`, `deductible`, `exclusions`, `region`,
+    /// `transferable`, `claimsAllowed`, `claimsUsed`. Build it through
+    /// `WarrantyTerms.apply(to:)` rather than setting the fields one by one —
+    /// that helper is what keeps the nine fields and their nil/zero rules in one
+    /// place, and it always sends `claimsUsed` (`0` is the contract's default).
     public func createWarranty(deviceId: String, _ input: WarrantyInput) async throws -> Warranty {
         struct Wrapper: Decodable { let warranty: Warranty }
         let w: Wrapper = try await request(
@@ -224,6 +232,8 @@ extension APIClient {
         return w.warranty
     }
 
+    /// Updates a warranty. Same body and same nine contract-term fields as
+    /// `createWarranty`; the response carries them back on the `Warranty`.
     public func updateWarranty(id: String, _ input: WarrantyInput) async throws -> Warranty {
         struct Wrapper: Decodable { let warranty: Warranty }
         let w: Wrapper = try await request("PATCH", "/api/v1/warranties/\(id)", body: input)

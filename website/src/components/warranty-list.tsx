@@ -21,6 +21,13 @@ import { type WarrantyType } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
 import { warrantyTypeLabel } from '@/lib/i18n/labels';
 import { useLocale, useT } from '@/lib/i18n/client';
+import {
+  claimsUsedLabel,
+  hasWarrantyTerms,
+  warrantyAmountLabel,
+  warrantyComponentLabel,
+  warrantyTransferableLabel,
+} from '@/lib/warranty-terms';
 import { cn } from '@/lib/utils';
 
 type WarrantyItem = {
@@ -34,6 +41,16 @@ type WarrantyItem = {
   address: string | null;
   phone: string | null;
   notes: string | null;
+  // Contract terms — all optional/nullable; `null` means "not recorded".
+  component?: string | null;
+  scope?: string | null;
+  cap?: number | null;
+  deductible?: number | null;
+  exclusions?: string | null;
+  region?: string | null;
+  transferable?: boolean | null;
+  claimsAllowed?: number | null;
+  claimsUsed?: number | null;
 };
 
 // Coral-palette badge backgrounds by warranty type, mirrors design.
@@ -73,6 +90,23 @@ function InfoLine({
   );
 }
 
+function TermLine({
+  label,
+  value,
+  wide,
+}: {
+  label?: string;
+  value: React.ReactNode;
+  wide?: boolean;
+}) {
+  return (
+    <p className={cn('min-w-0 break-words', wide && 'sm:col-span-2')}>
+      {label && <span className="text-muted-foreground">{label}: </span>}
+      <span className="text-ink">{value}</span>
+    </p>
+  );
+}
+
 function WarrantyCard({
   w,
   onEdit,
@@ -87,6 +121,14 @@ function WarrantyCard({
   const mapsHref = w.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(w.address)}`
     : undefined;
+  // Contract terms (`lib/warranty-terms.ts`). A row with none renders exactly
+  // the card it rendered before this feature: the block below is the only
+  // addition and it is gated on `hasWarrantyTerms`.
+  const component = warrantyComponentLabel(w.component);
+  const capLabel = warrantyAmountLabel(w.cap, locale);
+  const deductibleLabel = warrantyAmountLabel(w.deductible, locale);
+  const claims = claimsUsedLabel(w, locale);
+  const transferable = warrantyTransferableLabel(w.transferable, locale);
 
   return (
     <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
@@ -171,6 +213,35 @@ function WarrantyCard({
           </div>
         )}
       </div>
+
+      {hasWarrantyTerms(w) && (
+        <div className="mt-4 rounded-xl border border-border bg-surface px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+            {t('Điều khoản hợp đồng')}
+          </p>
+          <div className="mt-2 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            <TermLine
+              label={t('Bộ phận')}
+              value={
+                component.kind === 'whole' ? t('Toàn bộ thiết bị') : component.label
+              }
+            />
+            {w.scope && <TermLine label={t('Phạm vi bảo hành')} value={w.scope} />}
+            {capLabel && <TermLine label={t('Mức chi trả tối đa')} value={capLabel} />}
+            {deductibleLabel && (
+              <TermLine label={t('Khấu trừ mỗi lần')} value={deductibleLabel} />
+            )}
+            {claims && <TermLine value={claims} />}
+            {w.region && <TermLine label={t('Khu vực áp dụng')} value={w.region} />}
+            {transferable && (
+              <TermLine label={t('Chuyển nhượng được')} value={transferable} />
+            )}
+            {w.exclusions && (
+              <TermLine wide label={t('Loại trừ')} value={w.exclusions} />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -218,6 +289,15 @@ export function WarrantyList({
                 address: w.address,
                 phone: w.phone,
                 notes: w.notes,
+                component: w.component,
+                scope: w.scope,
+                cap: w.cap,
+                deductible: w.deductible,
+                exclusions: w.exclusions,
+                region: w.region,
+                transferable: w.transferable,
+                claimsAllowed: w.claimsAllowed,
+                claimsUsed: w.claimsUsed,
               }}
               onCancel={() => setEditingId(null)}
             />

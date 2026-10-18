@@ -147,6 +147,40 @@
     <string name="warr_address">Address</string>
     <string name="warr_note">Note</string>
     <string name="warr_warranty_type">Warranty type</string>
+
+    <!-- ===== Contract terms on a warranty plan (WarrantyTerms.kt,
+         WarrantyEditSheet.kt, DeviceDetailScreen.kt). The nine fields are
+         optional: the form group is collapsed until one is set, and a plan with
+         none must look exactly as it did before these fields existed. "null"
+         and "0" are different facts here — see the KDoc in WarrantyTerms.kt. ===== -->
+    <string name="warr_terms_title">Contract terms</string>
+    <string name="warr_terms_subtitle">Payout cap, deductible, claims</string>
+    <string name="warr_terms_expand">Open contract terms</string>
+    <string name="warr_terms_collapse">Collapse contract terms</string>
+    <string name="warr_terms_component">Component</string>
+    <string name="warr_terms_component_hint">Leave empty if the plan covers the whole unit.</string>
+    <string name="warr_terms_scope">Coverage</string>
+    <string name="warr_terms_cap_vnd">Payout cap (VND)</string>
+    <string name="warr_terms_cap">Payout cap</string>
+    <string name="warr_terms_deductible_vnd">Deductible per claim (VND)</string>
+    <string name="warr_terms_deductible">Deductible</string>
+    <string name="warr_terms_exclusions">Exclusions</string>
+    <string name="warr_terms_region">Region</string>
+    <string name="warr_terms_transferable">Transferable on resale</string>
+    <string name="warr_terms_transferable_unknown">Not specified</string>
+    <string name="warr_terms_transferable_yes">Yes</string>
+    <string name="warr_terms_transferable_no">No</string>
+    <string name="warr_terms_claims_allowed">Claims allowed</string>
+    <string name="warr_terms_claims_used">Claims used</string>
+    <string name="warr_terms_claims">Claims</string>
+    <string name="warr_terms_claims_unlimited">Unlimited</string>
+    <plurals name="warr_terms_claims_used_unbounded">
+        <item quantity="one">%1$d used · unlimited</item>
+        <item quantity="other">%1$d used · unlimited</item>
+    </plurals>
+    <string name="warr_terms_claims_over_limit">Claims used cannot exceed claims allowed.</string>
+    <string name="warr_terms_whole_unit">Whole unit</string>
+
     <string name="dir_where_to_get_warranty_service">Where to get warranty service</string>
     <string name="dir_checking_the_directory">Checking the directory…</string>
     <string name="dir_the_brand_s_authorised_service_centres">The brand\'s authorised service centres</string>

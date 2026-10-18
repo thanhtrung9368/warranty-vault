@@ -14,7 +14,7 @@ import (
 const listWarrantiesExpiringBetween = `-- name: ListWarrantiesExpiringBetween :many
 
 SELECT
-    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt",
+    w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed",
     d.name AS device_name
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
@@ -32,20 +32,29 @@ type ListWarrantiesExpiringBetweenParams struct {
 }
 
 type ListWarrantiesExpiringBetweenRow struct {
-	ID         string           `json:"id"`
-	DeviceId   string           `json:"deviceId"`
-	Type       string           `json:"type"`
-	Provider   *string          `json:"provider"`
-	StartDate  pgtype.Timestamp `json:"startDate"`
-	EndDate    pgtype.Timestamp `json:"endDate"`
-	Months     int32            `json:"months"`
-	Cost       *int32           `json:"cost"`
-	Address    *string          `json:"address"`
-	Phone      *string          `json:"phone"`
-	Notes      *string          `json:"notes"`
-	CreatedAt  pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt  pgtype.Timestamp `json:"updatedAt"`
-	DeviceName string           `json:"device_name"`
+	ID            string           `json:"id"`
+	DeviceId      string           `json:"deviceId"`
+	Type          string           `json:"type"`
+	Provider      *string          `json:"provider"`
+	StartDate     pgtype.Timestamp `json:"startDate"`
+	EndDate       pgtype.Timestamp `json:"endDate"`
+	Months        int32            `json:"months"`
+	Cost          *int32           `json:"cost"`
+	Address       *string          `json:"address"`
+	Phone         *string          `json:"phone"`
+	Notes         *string          `json:"notes"`
+	CreatedAt     pgtype.Timestamp `json:"createdAt"`
+	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
+	Component     *string          `json:"component"`
+	Scope         *string          `json:"scope"`
+	Cap           *int32           `json:"cap"`
+	Deductible    *int32           `json:"deductible"`
+	Exclusions    *string          `json:"exclusions"`
+	Region        *string          `json:"region"`
+	Transferable  *bool            `json:"transferable"`
+	ClaimsAllowed *int32           `json:"claimsAllowed"`
+	ClaimsUsed    int32            `json:"claimsUsed"`
+	DeviceName    string           `json:"device_name"`
 }
 
 // ─── Spending forecast (GET /api/v1/forecast) ─────────────────────────────
@@ -88,6 +97,15 @@ func (q *Queries) ListWarrantiesExpiringBetween(ctx context.Context, arg ListWar
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
 			&i.DeviceName,
 		); err != nil {
 			return nil, err
