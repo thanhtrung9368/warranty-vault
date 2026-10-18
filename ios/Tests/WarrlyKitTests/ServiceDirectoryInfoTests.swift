@@ -249,7 +249,10 @@ final class ServiceDirectoryInfoTests: KitTestCase {
                        "tel:+840901-234-567")
         XCTAssertEqual(ServiceDirectoryInfo.dialURL(for: "090.123.4567")?.absoluteString,
                        "tel:0901234567")
-        XCTAssertEqual(ServiceDirectoryInfo.dialURL(for: "*123#")?.absoluteString, "tel:*123#")
+        // Assert the number the dialler receives, not the serialised URL: `#` has
+        // to survive as part of the number, and older Foundation versions drop an
+        // empty fragment from absoluteString, which made this a moving target.
+        XCTAssertEqual(ServiceDirectoryInfo.dialURL(for: "*123#")?.path, "*123#")
     }
 
     /// The line that must be on screen wherever a phone is (or is not).

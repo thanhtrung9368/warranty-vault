@@ -24,6 +24,14 @@ jobs:
     defaults:
       run:
         working-directory: website
+    env:
+      # src/lib/auth-cookie.ts throws at import when this is missing, and `next
+      # build` imports it while collecting page data — so a build needs the
+      # variable even though nothing encrypts a session here. This placeholder
+      # only exists to let the build run; it is never used at runtime and the
+      # real secret lives in the deployment's .env.
+      SESSION_SECRET: "ci-build-placeholder-not-a-real-secret-0123456789"
+      GO_API_URL: "http://127.0.0.1:4000/api"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,7 +39,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: website/package-lock.json
 

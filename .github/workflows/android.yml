@@ -35,10 +35,19 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        # v3 installed the legacy `tools` package, which Google removed
+        # from the SDK repository, so the action itself failed before the
+        # build ever started. (comment belongs to the step above)
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
+
+      # compileSdk 36 is not guaranteed preinstalled on the runner image.
+      # Ask for it explicitly so the build never depends on what the image
+      # happens to ship.
+      - name: Install SDK platform 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon

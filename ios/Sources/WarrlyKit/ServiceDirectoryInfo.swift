@@ -382,7 +382,13 @@ public enum ServiceDirectoryInfo {
         let cleaned = phone.filter { !$0.isWhitespace && !"().".contains($0) }
         guard !cleaned.isEmpty,
               cleaned.allSatisfy({ $0.isNumber || "+*#-".contains($0) }) else { return nil }
-        return URL(string: "tel:\(cleaned)")
+        // `#` is a fragment delimiter in a URL, so `tel:*123#` parses as the number
+        // `*123` with an empty fragment — the dialler never sees the `#`, and a USSD
+        // code like `*123#` becomes a different, useless number. Percent-encoding it
+        // keeps it inside the number. `+`, `*` and `-` are legal unencoded and the
+        // existing tests pin them, so only `#` is escaped.
+        let encoded = cleaned.replacingOccurrences(of: "#", with: "%23")
+        return URL(string: "tel:\(encoded)")
     }
 
     // MARK: Centre tier

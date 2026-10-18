@@ -99,7 +99,7 @@
 		837638321876BA6937EC02F1 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCertificatesSection.swift; sourceTree = "<group>"; };
-		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
 		AE23F30DA617EBC2492BA2FE /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionQueueStore.swift; sourceTree = "<group>"; };
@@ -119,7 +119,7 @@
 		F055799E348F2DDE968C3E04 /* SubscriptionAuditStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionAuditStore.swift; sourceTree = "<group>"; };
 		F14D4F5DC2451792F25172A9 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		F47C1974502CB1C3B5831E36 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
-		FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -398,7 +398,6 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					7095207B2D902D146CD8346B = {
-						DevelopmentTeam = RNCMNPBA9L;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -633,7 +632,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/Warrly.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = RNCMNPBA9L;
+				DEVELOPMENT_TEAM = H572CC5N6D;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -654,7 +653,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/Warrly.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = RNCMNPBA9L;
+				DEVELOPMENT_TEAM = H572CC5N6D;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
