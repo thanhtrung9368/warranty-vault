@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -32,12 +34,33 @@ android {
         buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:4000\"")
     }
 
+    // Ký release bằng keystore upload. File `keystore.properties` và `.jks`
+    // KHÔNG vào git (xem .gitignore) — chúng là thứ duy nhất chứng minh app này
+    // là của bạn. Mất cả hai thì Play App Signing mới cứu được bằng cách reset
+    // upload key; mất luôn tài khoản Play là mất app.
+    //
+    // Không có file thì signingConfig vẫn tạo nhưng rỗng, và release build sẽ
+    // báo lỗi rõ ràng thay vì lặng lẽ ký bằng debug key.
+    signingConfigs {
+        create("release") {
+            val propsFile = rootProject.file("keystore.properties")
+            if (propsFile.exists()) {
+                val props = Properties().apply { propsFile.inputStream().use { load(it) } }
+                storeFile = rootProject.file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Allow cleartext for dev backend; release uses HTTPS-only.
             isMinifyEnabled = false
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

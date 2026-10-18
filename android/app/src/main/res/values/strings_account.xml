@@ -68,7 +68,7 @@
     <string name="push_notification_devices">Notification devices</string>
     <string name="push_no_devices_yet">No devices yet</string>
     <string name="push_open_the_app_on_another_phone">Open the app on another phone or computer to register more.</string>
-    <string name="push_test_sent_delivered_failed">Test sent: %1$s delivered, %2$s failed</string>
+    <string name="push_test_sent_delivered_failed">Test sent: %1$d delivered, %2$d failed</string>
     <string name="push_send_a_test_notification">Send a test notification</string>
     <string name="push_remove_this_registration">Remove this registration?</string>
     <string name="push_this_device_will_no_longer_receive">This device will no longer receive notifications from Warrly.</string>
@@ -122,8 +122,8 @@
         <item quantity="one">%1$s year ago</item>
         <item quantity="other">%1$s years ago</item>
     </plurals>
-    <string name="set_import_summary">Imported %1$s devices, %2$s plans and %3$s wishlist items</string>
-    <string name="set_import_summary_skipped">Imported %1$s devices, %2$s plans and %3$s wishlist items · skipped %4$s duplicates</string>
+    <string name="set_import_summary">Imported %1$d devices, %2$d plans and %3$d wishlist items</string>
+    <string name="set_import_summary_skipped">Imported %1$d devices, %2$d plans and %3$d wishlist items · skipped %4$d duplicates</string>
     <string name="set_could_not_update_the_setting">Could not update the setting: %1$s</string>
     <string name="set_import_mode_body">“Merge” adds the file\'s data to what you already have. “Replace” DELETES ALL current data before loading — this cannot be undone.</string>
     <string name="set_delete_account_body">Every device, invoice, warranty photo and setting is deleted permanently — this cannot be undone. Enter your password to confirm.</string>

@@ -67,7 +67,7 @@
     <string name="push_notification_devices">Thiết bị nhận thông báo</string>
     <string name="push_no_devices_yet">Chưa có thiết bị nào</string>
     <string name="push_open_the_app_on_another_phone">Mở app trên điện thoại/máy tính khác để đăng ký thêm.</string>
-    <string name="push_test_sent_delivered_failed">Đã gửi thử: %1$s thành công, %2$s lỗi</string>
+    <string name="push_test_sent_delivered_failed">Đã gửi thử: %1$d thành công, %2$d lỗi</string>
     <string name="push_send_a_test_notification">Gửi thông báo thử</string>
     <string name="push_remove_this_registration">Xoá đăng ký?</string>
     <string name="push_this_device_will_no_longer_receive">Thiết bị này sẽ không còn nhận thông báo từ Warrly.</string>
@@ -116,8 +116,8 @@
     <plurals name="push_years_ago">
         <item quantity="other">%1$s năm trước</item>
     </plurals>
-    <string name="set_import_summary">Đã nhập %1$s thiết bị, %2$s gói, %3$s mục</string>
-    <string name="set_import_summary_skipped">Đã nhập %1$s thiết bị, %2$s gói, %3$s mục · bỏ qua %4$s bản trùng</string>
+    <string name="set_import_summary">Đã nhập %1$d thiết bị, %2$d gói, %3$d mục</string>
+    <string name="set_import_summary_skipped">Đã nhập %1$d thiết bị, %2$d gói, %3$d mục · bỏ qua %4$d bản trùng</string>
     <string name="set_could_not_update_the_setting">Không cập nhật được cài đặt: %1$s</string>
     <string name="set_import_mode_body">“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.</string>
     <string name="set_delete_account_body">Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác. Nhập mật khẩu để xác nhận.</string>

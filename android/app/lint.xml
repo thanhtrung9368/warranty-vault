@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      MainActivity uses registerForActivityResult from androidx.activity on a plain
+      ComponentActivity. Lint's check wants Fragment >= 1.3.0, but androidx.fragment
+      is not on the classpath at all — there is no Fragment version to be too old
+      for. Scoped to this one file so that a real Fragment dependency added later
+      would still be checked everywhere else.
+    -->
+    <issue id="InvalidFragmentVersionForActivityResult">
+        <ignore path="src/main/java/com/warrly/MainActivity.kt" />
+    </issue>
+</lint>

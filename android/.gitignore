@@ -1,0 +1,6 @@
+
+# Upload keystore — thứ chứng minh app này là của bạn. Không bao giờ commit.
+keystore/
+keystore.properties
+*.jks
+*.keystore
