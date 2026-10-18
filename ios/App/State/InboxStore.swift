@@ -26,13 +26,32 @@ public final class InboxStore: ObservableObject {
     @Published public private(set) var attachments: [AttachmentMeta] = []
     @Published public private(set) var state: LoadState = .idle
 
+    /// Files the Share Extension has left in the App Group queue that the app
+    /// has not uploaded yet.
+    ///
+    /// Kept separate from `attachments` on purpose: these rows do not exist on
+    /// the server, so they must never be filed or deleted through the inbox API.
+    /// They only become real inbox rows after `importSharedFiles()` succeeds.
+    @Published public private(set) var pendingSharedCount = 0
+    @Published public private(set) var isImportingShared = false
+    @Published public private(set) var sharedImportError: String?
+
     private let client: APIClient
+    /// `nil` when the App Group container is unavailable (missing entitlement).
+    /// The app then simply has nothing to drain.
+    private let sharedInbox: SharedInboxStore?
     /// In-flight guard, separate from the published `state`: a cancelled
     /// `URLSession` task must not leave the store permanently unable to load
     /// again. `defer` always clears it.
     private var isLoading = false
 
-    public init(client: APIClient) { self.client = client }
+    public init(
+        client: APIClient,
+        sharedInbox: SharedInboxStore? = SharedInboxStore()
+    ) {
+        self.client = client
+        self.sharedInbox = sharedInbox
+    }
 
     /// The number the badge shows. Derived from the rows, never stored
     /// separately, so it cannot drift from the list.
@@ -59,6 +78,87 @@ public final class InboxStore: ObservableObject {
         } catch {
             state = .error(error.localizedDescription)
         }
+    }
+
+    /// Uploads every file the Share Extension left in the App Group queue.
+    ///
+    /// Each file is uploaded with `deviceId: nil` — the whole point of the inbox
+    /// — and a successful upload removes it from the queue and inserts the
+    /// returned row into `attachments`, so the "Thêm" badge moves immediately.
+    /// Callers still call `load()` afterwards to reconcile with the server.
+    ///
+    /// A failed upload is **kept**: `markFailure` records the message and the
+    /// next open (or the banner's "Thử lại") tries again. Nothing is deleted
+    /// except after the server accepted the bytes, so a shared receipt can only
+    /// ever be duplicated (crash between upload and removal), never lost.
+    ///
+    /// The extension already validated the file. The checks below are repeated
+    /// because the App Group container is shared state and the server enforces
+    /// the same rules; walking through the type/size gate again is how a
+    /// corrupted or foreign payload is caught before it becomes a 4xx.
+    public func importSharedFiles() async {
+        guard !isImportingShared else { return }
+        guard let sharedInbox else { return }
+
+        let items = sharedInbox.pendingItems()
+        guard !items.isEmpty else {
+            pendingSharedCount = 0
+            sharedImportError = nil
+            return
+        }
+
+        isImportingShared = true
+        sharedImportError = nil
+        pendingSharedCount = items.count
+        defer { isImportingShared = false }
+
+        for item in items {
+            do {
+                let data = try sharedInbox.payload(for: item)
+                guard data.count <= AttachmentFileType.maxBytes else {
+                    throw SharedInboxError.tooLarge
+                }
+                guard let detected = AttachmentFileType.detect(data),
+                      SharedInbox.acceptedMIMEs.contains(detected.mimeType) else {
+                    throw SharedInboxError.unsupportedType
+                }
+
+                let meta = try await client.uploadAttachment(
+                    deviceId: nil,
+                    fileName: item.fileName,
+                    fileType: detected.mimeType,
+                    data: data,
+                    description: nil
+                )
+
+                // Only after the server answered 2xx. A crash between the upload
+                // and this line re-uploads on the next drain (at-least-once).
+                sharedInbox.remove(item)
+                if !attachments.contains(where: { $0.id == meta.id }) {
+                    attachments.insert(meta, at: 0)
+                }
+            } catch {
+                let message = Self.sharedImportMessage(for: error)
+                sharedInbox.markFailure(item, message: message)
+                sharedImportError = message
+
+                // A transport error means the network is down, not that this
+                // particular file is bad: stop instead of waiting out one
+                // timeout per queued file. The next open retries everything.
+                if let apiError = error as? APIError, case .transport = apiError {
+                    break
+                }
+            }
+        }
+
+        pendingSharedCount = sharedInbox.pendingCount()
+        if pendingSharedCount == 0 { sharedImportError = nil }
+    }
+
+    private static func sharedImportMessage(for error: Error) -> String {
+        if let sharedError = error as? SharedInboxError { return sharedError.message }
+        if let apiError = error as? APIError { return apiError.localizedDescription }
+        return error.localizedDescription
     }
 
     /// Files an inbox item under a device and removes it from the local list.

@@ -14,7 +14,7 @@ UPDATE "Attachment" a
 SET "deviceId" = $3,
     "storagePath" = $4
 WHERE a.id = $1 AND a."userId" = $2
-RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 `
 
 type AssignAttachmentToDeviceParams struct {
@@ -48,6 +48,7 @@ func (q *Queries) AssignAttachmentToDevice(ctx context.Context, arg AssignAttach
 		&i.Description,
 		&i.UploadedAt,
 		&i.UserId,
+		&i.ExtractedText,
 	)
 	return i, err
 }
@@ -126,7 +127,7 @@ INSERT INTO "Attachment" (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()
 )
-RETURNING id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId"
+RETURNING id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId", "extractedText"
 `
 
 type CreateAttachmentParams struct {
@@ -171,6 +172,7 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 		&i.Description,
 		&i.UploadedAt,
 		&i.UserId,
+		&i.ExtractedText,
 	)
 	return i, err
 }
@@ -178,7 +180,7 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 const deleteAttachment = `-- name: DeleteAttachment :one
 DELETE FROM "Attachment" a
 WHERE a.id = $1 AND a."userId" = $2
-RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 `
 
 type DeleteAttachmentParams struct {
@@ -204,12 +206,13 @@ func (q *Queries) DeleteAttachment(ctx context.Context, arg DeleteAttachmentPara
 		&i.Description,
 		&i.UploadedAt,
 		&i.UserId,
+		&i.ExtractedText,
 	)
 	return i, err
 }
 
 const getAttachmentByID = `-- name: GetAttachmentByID :one
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 FROM "Attachment" a
 WHERE a.id = $1 AND a."userId" = $2
 LIMIT 1
@@ -238,12 +241,13 @@ func (q *Queries) GetAttachmentByID(ctx context.Context, arg GetAttachmentByIDPa
 		&i.Description,
 		&i.UploadedAt,
 		&i.UserId,
+		&i.ExtractedText,
 	)
 	return i, err
 }
 
 const getAttachmentByIDInternal = `-- name: GetAttachmentByIDInternal :one
-SELECT id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId"
+SELECT id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId", "extractedText"
 FROM "Attachment"
 WHERE id = $1
 LIMIT 1
@@ -266,13 +270,14 @@ func (q *Queries) GetAttachmentByIDInternal(ctx context.Context, id string) (Att
 		&i.Description,
 		&i.UploadedAt,
 		&i.UserId,
+		&i.ExtractedText,
 	)
 	return i, err
 }
 
 const listAttachmentsByDevice = `-- name: ListAttachmentsByDevice :many
 
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 FROM "Attachment" a
 JOIN "Device" d ON d.id = a."deviceId"
 WHERE a."deviceId" = $1 AND d."userId" = $2
@@ -314,6 +319,7 @@ func (q *Queries) ListAttachmentsByDevice(ctx context.Context, arg ListAttachmen
 			&i.Description,
 			&i.UploadedAt,
 			&i.UserId,
+			&i.ExtractedText,
 		); err != nil {
 			return nil, err
 		}
@@ -326,7 +332,7 @@ func (q *Queries) ListAttachmentsByDevice(ctx context.Context, arg ListAttachmen
 }
 
 const listInboxAttachments = `-- name: ListInboxAttachments :many
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 FROM "Attachment" a
 WHERE a."userId" = $1 AND a."deviceId" IS NULL
 ORDER BY a."uploadedAt" DESC
@@ -356,6 +362,7 @@ func (q *Queries) ListInboxAttachments(ctx context.Context, userid string) ([]At
 			&i.Description,
 			&i.UploadedAt,
 			&i.UserId,
+			&i.ExtractedText,
 		); err != nil {
 			return nil, err
 		}
@@ -365,6 +372,50 @@ func (q *Queries) ListInboxAttachments(ctx context.Context, userid string) ([]At
 		return nil, err
 	}
 	return items, nil
+}
+
+const setAttachmentExtractedText = `-- name: SetAttachmentExtractedText :one
+UPDATE "Attachment" a
+SET "extractedText" = $3
+WHERE a.id = $1 AND a."userId" = $2
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
+`
+
+type SetAttachmentExtractedTextParams struct {
+	ID            string  `json:"id"`
+	UserId        string  `json:"userId"`
+	ExtractedText *string `json:"extractedText"`
+}
+
+// POST /api/v1/ai/extract-receipt, attachmentId branch (migration 0019). Writes
+// the text the model read off this attachment so GET /api/v1/search can find the
+// receipt by its contents later.
+//
+// The text is PLAINTEXT in Postgres on purpose — the GIN trigram index in 0019 is
+// built over lower(public.wv_unaccent("extractedText")), and an encrypted value
+// could not be indexed or substring-searched. See the migration header and the
+// openapi.yaml privacy note for the trade-off.
+//
+// $3 is the already-normalized text (trimmed, NUL-free, length-capped) or NULL;
+// "userId" keeps the write owner-scoped exactly like every other attachment read.
+func (q *Queries) SetAttachmentExtractedText(ctx context.Context, arg SetAttachmentExtractedTextParams) (Attachment, error) {
+	row := q.db.QueryRow(ctx, setAttachmentExtractedText, arg.ID, arg.UserId, arg.ExtractedText)
+	var i Attachment
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceId,
+		&i.FileName,
+		&i.StoragePath,
+		&i.FileType,
+		&i.FileSize,
+		&i.Iv,
+		&i.WrappedKey,
+		&i.Description,
+		&i.UploadedAt,
+		&i.UserId,
+		&i.ExtractedText,
+	)
+	return i, err
 }
 
 const sumAttachmentBytesByUser = `-- name: SumAttachmentBytesByUser :one
@@ -388,7 +439,7 @@ const updateAttachmentDescription = `-- name: UpdateAttachmentDescription :one
 UPDATE "Attachment" a
 SET description = $3
 WHERE a.id = $1 AND a."userId" = $2
-RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+RETURNING a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 `
 
 type UpdateAttachmentDescriptionParams struct {
@@ -417,6 +468,7 @@ func (q *Queries) UpdateAttachmentDescription(ctx context.Context, arg UpdateAtt
 		&i.Description,
 		&i.UploadedAt,
 		&i.UserId,
+		&i.ExtractedText,
 	)
 	return i, err
 }

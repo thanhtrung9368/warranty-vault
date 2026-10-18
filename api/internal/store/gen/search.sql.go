@@ -9,6 +9,70 @@ import (
 	"context"
 )
 
+const searchAttachments = `-- name: SearchAttachments :many
+SELECT id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId", "extractedText"
+FROM "Attachment"
+WHERE "userId" = $1::text
+  AND lower(public.wv_unaccent("extractedText")) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
+ORDER BY "uploadedAt" DESC
+LIMIT $3::int
+`
+
+type SearchAttachmentsParams struct {
+	UserId   string `json:"userId"`
+	Q        string `json:"q"`
+	RowLimit int32  `json:"rowLimit"`
+}
+
+// Full-text OCR search (roadmap #13, migration 0019). Only `extractedText` is
+// searched, not fileName/description: the feature is "find the receipt that says
+// 65W", and a NULL extractedText (never OCR'd) matches nothing — exactly like a
+// receipt that was never scanned should.
+//
+// The expression is byte-for-byte the index definition in migration 0019:
+//
+//	index: lower(public.wv_unaccent("extractedText"))
+//	query: lower(public.wv_unaccent("extractedText")) LIKE ...
+//
+// Do not add an alias, a cast or a different function ordering here without
+// rebuilding that index in the same migration.
+//
+// The result is the full Attachment row; the service redacts it through
+// toAttachmentMeta and adds the owning deviceId, because the raw row carries
+// storagePath / iv / wrappedKey.
+func (q *Queries) SearchAttachments(ctx context.Context, arg SearchAttachmentsParams) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, searchAttachments, arg.UserId, arg.Q, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.FileName,
+			&i.StoragePath,
+			&i.FileType,
+			&i.FileSize,
+			&i.Iv,
+			&i.WrappedKey,
+			&i.Description,
+			&i.UploadedAt,
+			&i.UserId,
+			&i.ExtractedText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchDevices = `-- name: SearchDevices :many
 
 SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
@@ -32,7 +96,7 @@ type SearchDevicesParams struct {
 
 // Cross-entity search (GET /api/v1/search).
 //
-// One query per entity instead of one UNION: the three result sets have
+// One query per entity instead of one UNION: the four result sets have
 // different shapes and different ORDER BY needs, and the service merges them into
 // a grouped payload. Each query is scoped to the caller ("userId") and capped by
 // a LIMIT, so a one-character query cannot return the whole account.
@@ -48,6 +112,7 @@ type SearchDevicesParams struct {
 //	Device       name, brand, model, serialNumber      (same set as GET /devices?q=)
 //	Subscription name, brand, plan, accountEmail
 //	WishlistItem name, brand, notes
+//	Attachment   extractedText (the OCR text, migration 0019)
 //
 // Index note: migration 0007's trigram indexes cover exactly the four Device
 // expressions used here (and the pattern is built with `'%' || <immutable expr> ||
@@ -56,6 +121,12 @@ type SearchDevicesParams struct {
 // the write path caps them at 100 and 200 rows per user (services/subscriptions.go,
 // services/wishlist.go), so scanning the caller's own rows is cheap by
 // construction and an index would only add write cost.
+//
+// Attachment DOES have one (migration 0019), on the same
+// `lower(public.wv_unaccent(...))` expression used by SearchAttachments below.
+// The expression must stay byte-for-byte identical to the index definition or the
+// planner silently stops using it; TestSearchPersistedOCRTextAgainstRealPostgres
+// pins both the index definition and the plan.
 func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([]Device, error) {
 	rows, err := q.db.Query(ctx, searchDevices, arg.UserId, arg.Q, arg.RowLimit)
 	if err != nil {

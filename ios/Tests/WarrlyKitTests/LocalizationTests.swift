@@ -172,7 +172,7 @@ final class LocalizationTests: XCTestCase {
         var problems: [String] = []
         var scanned = 0
 
-        for directory in ["Sources", "App"] {
+        for directory in ["Sources", "App", "ShareExtension"] {
             let base = root.appendingPathComponent(directory)
             guard let enumerator = FileManager.default.enumerator(
                 at: base, includingPropertiesForKeys: nil
@@ -232,7 +232,7 @@ final class LocalizationTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         var sources = ""
-        for directory in ["Sources", "App"] {
+        for directory in ["Sources", "App", "ShareExtension"] {
             let base = root.appendingPathComponent(directory)
             guard let enumerator = FileManager.default.enumerator(
                 at: base, includingPropertiesForKeys: nil

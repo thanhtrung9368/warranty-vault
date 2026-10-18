@@ -63,6 +63,10 @@ final class LocalizationStore: ObservableObject {
         self.storedChoice = cached
         self.language = cached ?? Self.deviceLanguage() ?? AppLanguage.productDefault
         L.language = self.language
+        // The Share Extension runs in its own process and cannot read this
+        // store. Mirror the *explicit* choice (not the device fallback) into the
+        // App Group defaults so its small UI follows the same language.
+        SharedInboxLanguage.publish(cached)
     }
 
     /// The device's own preference, resolved to a language this build ships.
@@ -81,6 +85,7 @@ final class LocalizationStore: ObservableObject {
     func adopt(user: User) {
         let fromServer = user.preferredLanguage
         storedChoice = fromServer
+        SharedInboxLanguage.publish(fromServer)
         if let fromServer {
             defaults.set(fromServer.rawValue, forKey: Self.cacheKey)
             apply(fromServer)
@@ -94,6 +99,7 @@ final class LocalizationStore: ObservableObject {
     /// device does not inherit it.
     func reset() {
         storedChoice = nil
+        SharedInboxLanguage.publish(nil)
         defaults.removeObject(forKey: Self.cacheKey)
         apply(Self.deviceLanguage() ?? AppLanguage.productDefault)
     }
@@ -113,6 +119,7 @@ final class LocalizationStore: ObservableObject {
         let previousLanguage = language
 
         storedChoice = choice
+        SharedInboxLanguage.publish(choice)
         if let choice {
             defaults.set(choice.rawValue, forKey: Self.cacheKey)
             apply(choice)
@@ -133,12 +140,14 @@ final class LocalizationStore: ObservableObject {
             saveError = nil
         } catch let APIError.server(_, envelope) {
             storedChoice = previous
+            SharedInboxLanguage.publish(previous)
             apply(previousLanguage)
             saveError = envelope.fieldErrors?["locale"]?.first
                 ?? envelope.message
                 ?? L.t("Không lưu được ngôn ngữ.")
         } catch {
             storedChoice = previous
+            SharedInboxLanguage.publish(previous)
             apply(previousLanguage)
             saveError = L.t("Không kết nối được máy chủ.")
         }

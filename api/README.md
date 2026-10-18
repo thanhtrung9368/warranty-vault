@@ -141,6 +141,27 @@ sqlc generate
 
 The generated package lands in `internal/store/gen/`. It is committed so contributors don't need sqlc installed just to build.
 
+## OCR text search (migration 0019)
+
+`POST /api/v1/ai/extract-receipt` now keeps the text the model read. On the
+`attachmentId` branch it is written to `Attachment.extractedText`; the multipart
+branch has no attachment to own it, so it returns `draft.extractedText` but stores
+nothing (`draft.extractedTextStored: false`). Clients that want a scanned receipt
+to be searchable upload it first (`POST /api/v1/attachments`, optionally as an
+inbox item) and then call the OCR endpoint with that id.
+
+`GET /api/v1/search` returns a fourth group, `attachments`, matched by the same
+`lower(public.wv_unaccent(...))` expression and GIN trigram index as the device
+search; the index expression in migration 0019 and the predicate in
+`internal/store/queries/search.sql` must stay byte-for-byte identical.
+
+**Privacy:** the blob stays AES-256-GCM encrypted, but `extractedText` is
+**plaintext in Postgres** — the trigram index has to read the unaccented value.
+The write only happens after the user opts in to AI, every read is owner-scoped,
+and the text is deliberately **not** included in backups (it is a derived search
+projection; see `openapi.yaml` → `BackupV1`). The value is trimmed, NUL-free and
+capped at 8000 runes before it is stored or returned.
+
 ## Profile editing — email change is NOT supported
 
 `PATCH /api/v1/auth/me` accepts exactly one field, `displayName` (trimmed, max 80 bytes; `null`/`""` clears it). It returns the same `{ "user": ... }` envelope as `GET /api/v1/auth/me` plus a Vietnamese `message`.
@@ -149,7 +170,7 @@ The generated package lands in `internal/store/gen/`. It is committed so contrib
 
 ## Backups: attachments are metadata only
 
-`GET /api/v1/backup/export` is JSON schema version 5 and contains attachment **metadata** (`fileName`, `fileType`, `fileSize`, `iv`, `wrappedKey`, `storagePath`) — never the encrypted blob bytes. Restoring onto a fresh server therefore does not bring invoice images back: the blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need `FILE_MASTER_KEY` to decrypt. The payload states this itself via `includesAttachmentBytes: false` + `attachmentBytesNote` (Vietnamese) so clients warn from the data instead of hardcoding it. A zip-with-blobs format is deliberately deferred.
+`GET /api/v1/backup/export` is JSON schema version 5 and contains attachment **metadata** (`fileName`, `fileType`, `fileSize`, `iv`, `wrappedKey`, `storagePath`) — never the encrypted blob bytes. Restoring onto a fresh server therefore does not bring invoice images back: the blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need `FILE_MASTER_KEY` to decrypt. The payload states this itself via `includesAttachmentBytes: false` + `attachmentBytesNote` (Vietnamese) so clients warn from the data instead of hardcoding it. A zip-with-blobs format is deliberately deferred. The OCR transcript (`Attachment.extractedText`, migration 0019) is **not** exported either: it is a derived search projection, it would invalidate the metadata-only note above, and the ZIP format can regenerate it by re-running OCR on the restored blob.
 
 `POST /api/v1/backup/import` accepts any payload whose `version` falls in `[MinBackupVersion, BackupVersion]` (see `internal/services/backup.go`) rather than testing for equality: an equality check means a routine version bump instantly makes every backup a user already holds unimportable. Older versions import by letting added fields decode to their zero values; newer versions are refused with a Vietnamese message naming the received version.
 

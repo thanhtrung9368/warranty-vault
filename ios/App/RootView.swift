@@ -172,6 +172,7 @@ struct MainTabView: View {
     @StateObject private var inboxStore: InboxStore
 
     @State private var selection: Int = MainTabView.initialTab
+    @Environment(\.scenePhase) private var scenePhase
 
     init(client: APIClient) {
         self.client = client
@@ -219,13 +220,33 @@ struct MainTabView: View {
                 MoreScreen(client: client)
             }
             .tabItem { Label(L.t("Thêm"), systemImage: "ellipsis") }
-            .badge(inboxStore.count)
+            // Server inbox plus files still in the Share Extension queue: a
+            // shared receipt that has not uploaded yet is still waiting for the
+            // user, and a failed drain must not make the badge claim "0".
+            .badge(inboxStore.count + inboxStore.pendingSharedCount)
             .tag(4)
         }
         .tint(WVColor.tint)
         .environmentObject(inboxStore)
         // One launch read feeds every badge. The inbox screen refreshes it on
         // appear and after every filing.
-        .task { await inboxStore.load() }
+        //
+        // The Share Extension cannot assume the app is running, so it leaves
+        // files in the App Group queue; this is the first point where the app
+        // has an authenticated client, and therefore the first point where they
+        // can be uploaded (device-less, straight into the inbox).
+        .task {
+            await inboxStore.importSharedFiles()
+            await inboxStore.load()
+        }
+        // Coming back to the foreground is the other retry point: the user may
+        // have shared a file while the app sat in the background.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task {
+                await inboxStore.importSharedFiles()
+                await inboxStore.load()
+            }
+        }
     }
 }

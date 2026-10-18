@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		004A105AD1AA1B87DAEED1F0 /* WishlistStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 962356363C6D6FB924763757 /* WishlistStore.swift */; };
 		0E3B00937D901B8A205AB34C /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 837638321876BA6937EC02F1 /* DashboardView.swift */; };
+		118E17ECDA119D2E9D58E011 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A3956B240EAD6471240BC1E /* ShareViewController.swift */; };
 		17C652BA6D2AB371559121C1 /* ServiceChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC795856CE9A07B871A7C09D /* ServiceChecklistView.swift */; };
 		18B4CC7B7F08AC5969307F04 /* EmailChangeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163670807C633A5A52D2510E /* EmailChangeSheet.swift */; };
 		27C182B72105AFB5B23B17C6 /* SerialScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */; };
@@ -36,11 +37,13 @@
 		81E15CD5A52173973033472C /* WarrlyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AF10732BDC065E9C23D22A0 /* WarrlyApp.swift */; };
 		89B038570B2F0FD30D5C5BA0 /* InboxStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FD9C4BD9E35D997B9A8C02 /* InboxStore.swift */; };
 		8D886912F7AB3BE46EB87E36 /* WarrantyTermsBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */; };
+		97FBF70440A1661DCC8FCD5B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0C5A5578DCF334E06E81790 /* PrivacyInfo.xcprivacy */; };
 		99725CA6FAD2BB436E164772 /* StatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3758D84A200AD988C79FAD6C /* StatsStore.swift */; };
 		9A71C5FF3F31634A44CD3967 /* WishlistFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F7348BDEAEFE1709F1196E /* WishlistFormView.swift */; };
 		9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */; };
 		A31C0E6ED724BE35006B72C9 /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744CF576C6B50B3F556BFE6 /* PushRegistrar.swift */; };
 		A6F3F0FC77F9880AC8684810 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */; };
+		AD34D9F99E42D9BBD07F91B8 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCDE32D624D890090538C46 /* WarrantyFormView.swift */; };
 		C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60CE06298DACE1DDBD26D736 /* Formatters.swift */; };
 		C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32BE9FC3440CF94FF17362FA /* LocalizationStore.swift */; };
@@ -59,6 +62,7 @@
 		DCC93DF47EAA149597DA3E8D /* InboxDevicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23D7D4336A3CAF74FD81A6F8 /* InboxDevicePickerSheet.swift */; };
 		E1524099522387F2AD015C4E /* RemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A47D0B0765A0678521BC688 /* RemindersStore.swift */; };
 		E1C940AABCE749C5DACDE428 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C83ECFDE18B85BE8BAFB7400 /* ThemeStore.swift */; };
+		E4FDC98D47CAA1510975E41A /* WarrlyKit in Frameworks */ = {isa = PBXBuildFile; productRef = E4573EDC097B2DB80F8B0EFB /* WarrlyKit */; };
 		E553F3177CC743A471A10D78 /* SubscriptionAuditScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143D541B310E553009B6714B /* SubscriptionAuditScreen.swift */; };
 		E58C901A22989264A0B43B6F /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B77EA8F6EF481AE458216A6 /* AccountView.swift */; };
 		E612F1B69AB506A3D47F3743 /* InboxCaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B68DB1972C47F9D9D6B3540 /* InboxCaptureSheet.swift */; };
@@ -72,6 +76,30 @@
 		FC403E418D10DF6F0ABC6696 /* SubscriptionsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754A1427254BBB1F95F2C9A1 /* SubscriptionsScreen.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		147AF31464C03B5AF8A00309 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8684A7B6C2C103097723CB0B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6E23CCB09F8BF3928CD6271D;
+			remoteInfo = ShareExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		62FDA70CEF3BC3D1BC8CE62F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AD34D9F99E42D9BBD07F91B8 /* ShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
 		09877AAA02E03009FC63EF7B /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
@@ -79,6 +107,7 @@
 		143D541B310E553009B6714B /* SubscriptionAuditScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionAuditScreen.swift; sourceTree = "<group>"; };
 		163670807C633A5A52D2510E /* EmailChangeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailChangeSheet.swift; sourceTree = "<group>"; };
 		17993834773F9CB178159EEA /* SearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchScreen.swift; sourceTree = "<group>"; };
+		1A3956B240EAD6471240BC1E /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Charts.swift; sourceTree = "<group>"; };
 		1D11EEAC0E4F8A6C395327AB /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		214A3A631831A2AB422519AE /* RemindersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersView.swift; sourceTree = "<group>"; };
@@ -114,11 +143,13 @@
 		8B68DB1972C47F9D9D6B3540 /* InboxCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxCaptureSheet.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyTermsBlock.swift; sourceTree = "<group>"; };
+		A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCertificatesSection.swift; sourceTree = "<group>"; };
 		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
 		AE23F30DA617EBC2492BA2FE /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionQueueStore.swift; sourceTree = "<group>"; };
+		B0C5A5578DCF334E06E81790 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B0F0DFA33018B41748664EBF /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushDevicesView.swift; sourceTree = "<group>"; };
 		B3552F34924BA68A7F154BE7 /* SubscriptionsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsStore.swift; sourceTree = "<group>"; };
@@ -143,6 +174,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		890A4001CF2447F712EBDC3B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4FDC98D47CAA1510975E41A /* WarrlyKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8AA3C61F93D32711C9293DB5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -165,6 +204,7 @@
 		2DC56853FB997C7C7465127F /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */,
 				A68B1C27E2E7AB61E0D8105C /* Warrly.app */,
 			);
 			name = Products;
@@ -349,6 +389,7 @@
 				33621D5EBDAB4C05BEF13457 /* App */,
 				B018E09CD8DDBBF170811CC0 /* Config */,
 				63F30EBE37EBBED59C4FA238 /* Packages */,
+				ED30C9DFAF112FCC2D2195A5 /* ShareExtension */,
 				2DC56853FB997C7C7465127F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -403,9 +444,38 @@
 			path = Auth;
 			sourceTree = "<group>";
 		};
+		ED30C9DFAF112FCC2D2195A5 /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B0C5A5578DCF334E06E81790 /* PrivacyInfo.xcprivacy */,
+				1A3956B240EAD6471240BC1E /* ShareViewController.swift */,
+			);
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		6E23CCB09F8BF3928CD6271D /* ShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 53D4999CC1B707F8F76E5705 /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildPhases = (
+				78F032F66F50E2A79187DAA1 /* Sources */,
+				6798F6362F28B18E146A6917 /* Resources */,
+				890A4001CF2447F712EBDC3B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ShareExtension;
+			packageProductDependencies = (
+				E4573EDC097B2DB80F8B0EFB /* WarrlyKit */,
+			);
+			productName = ShareExtension;
+			productReference = A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		7095207B2D902D146CD8346B /* Warrly */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 16826222D2B48F9C7C6246E2 /* Build configuration list for PBXNativeTarget "Warrly" */;
@@ -413,10 +483,12 @@
 				BA4BB3C7BEAA7282426EFD3B /* Sources */,
 				7780E5777C5F109F8B70CFD8 /* Resources */,
 				8AA3C61F93D32711C9293DB5 /* Frameworks */,
+				62FDA70CEF3BC3D1BC8CE62F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				71B78885CCA3DC852A388C94 /* PBXTargetDependency */,
 			);
 			name = Warrly;
 			packageProductDependencies = (
@@ -435,6 +507,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					6E23CCB09F8BF3928CD6271D = {
+						DevelopmentTeam = RNCMNPBA9L;
+						ProvisioningStyle = Automatic;
+					};
 					7095207B2D902D146CD8346B = {
 						DevelopmentTeam = RNCMNPBA9L;
 						ProvisioningStyle = Automatic;
@@ -458,12 +534,21 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				6E23CCB09F8BF3928CD6271D /* ShareExtension */,
 				7095207B2D902D146CD8346B /* Warrly */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		6798F6362F28B18E146A6917 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97FBF70440A1661DCC8FCD5B /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7780E5777C5F109F8B70CFD8 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -476,6 +561,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		78F032F66F50E2A79187DAA1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				118E17ECDA119D2E9D58E011 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BA4BB3C7BEAA7282426EFD3B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -545,6 +638,14 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		71B78885CCA3DC852A388C94 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6E23CCB09F8BF3928CD6271D /* ShareExtension */;
+			targetProxy = 147AF31464C03B5AF8A00309 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		1F66B59334FFDC8376E2596D /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -612,6 +713,50 @@
 				SWIFT_VERSION = 5.10;
 			};
 			name = Debug;
+		};
+		2B06F1BB41D622F4AD46210F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RNCMNPBA9L;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.warrly.ShareExtension;
+				PRODUCT_NAME = ShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		502ECEADA5552D63604621A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RNCMNPBA9L;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.warrly.ShareExtension;
+				PRODUCT_NAME = ShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
 		};
 		53879D6010B6B5E0804A2D92 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -727,6 +872,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		53D4999CC1B707F8F76E5705 /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B06F1BB41D622F4AD46210F /* Debug */,
+				502ECEADA5552D63604621A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7DC7AD364054D8A08BA0DA30 /* Build configuration list for PBXProject "Warrly" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -746,6 +900,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E4573EDC097B2DB80F8B0EFB /* WarrlyKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WarrlyKit;
+		};
 		E58C7131256E714F3F1D4AD5 /* WarrlyKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = WarrlyKit;

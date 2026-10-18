@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Bản gốc tiếng Việt của hai câu từ chối link chia sẻ — xem chú thích ở
+<!-- Bản gốc tiếng Việt của các câu từ chối chia sẻ — xem chú thích ở
      `values/strings_shell.xml`. Chép nguyên văn từ `ShareTarget.MESSAGE_*`. -->
 <resources>
 
     <string name="share_rejected_no_link">Không thấy link sản phẩm trong nội dung bạn chia sẻ. Mở tab Thèm và dán link vào ô “URL mua hàng” nhé.</string>
     <string name="share_rejected_unsupported_scheme">Chỉ nhận link http/https. Link bạn chia sẻ dùng giao thức khác nên không mở được.</string>
+    <string name="share_rejected_unsupported_file">Warrly chỉ nhận ảnh (JPG/PNG/WEBP/GIF/HEIC) hoặc tệp PDF khi chia sẻ. Tệp bạn chọn chưa được hỗ trợ nên chưa được thêm vào hộp thư.</string>
+    <string name="share_rejected_no_file">Không thấy tệp đính kèm trong nội dung bạn chia sẻ. Hãy chọn một ảnh hoặc tệp PDF rồi thử lại.</string>
+    <string name="share_rejected_multiple_files">Mỗi lần chỉ chia sẻ được một ảnh hoặc một tệp PDF. Chưa có tệp nào được thêm vào hộp thư.</string>
 
     <!-- Kênh thông báo của Android (WVMessagingService.kt). -->
     <string name="push_channel_warranty_name">Thông báo bảo hành</string>

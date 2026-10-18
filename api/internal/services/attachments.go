@@ -426,6 +426,34 @@ func UpdateDescription(ctx context.Context, db *pgxpool.Pool, userID, attachment
 	return att, nil
 }
 
+// SetAttachmentExtractedText stores the OCR transcript on an attachment the
+// caller owns (migration 0019). It is the only writer of the column; the read
+// side is GET /api/v1/search (SearchAttachments) and the public AttachmentMeta
+// shape.
+//
+// The text must already be normalized (services.normalizeExtractedText): trimmed,
+// NUL-free, capped at MaxExtractedTextRunes. Passing nil clears it, though the AI
+// path deliberately does not call this with nil: a blank/failed re-scan keeps the
+// text stored by an earlier successful scan instead of wiping it.
+//
+// Ownership is in the query (`a."userId" = $2`), so someone else's attachment
+// matches no row and comes back as notFound — the same rule as every other
+// attachment write. The AI service treats that as a best-effort miss and still
+// returns the draft, because the extraction itself succeeded.
+func SetAttachmentExtractedText(ctx context.Context, db *pgxpool.Pool, userID, attachmentID string, text *string) error {
+	if _, err := store.New(db).SetAttachmentExtractedText(ctx, store.SetAttachmentExtractedTextParams{
+		ID:            attachmentID,
+		UserId:        userID,
+		ExtractedText: text,
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return notFound(i18n.Text(ctx, "Không tìm thấy file"))
+		}
+		return fmt.Errorf("set attachment extracted text: %w", err)
+	}
+	return nil
+}
+
 // Delete removes the attachment row and its on-disk blob. The blob removal
 // is best-effort: if the file is already missing we still drop the DB row.
 //

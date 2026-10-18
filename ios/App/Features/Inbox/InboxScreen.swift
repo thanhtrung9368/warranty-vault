@@ -45,6 +45,8 @@ struct InboxScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer().frame(height: 8)
 
+                sharedImportBanner
+
                 content
             }
         }
@@ -163,10 +165,76 @@ struct InboxScreen: View {
         }
     }
 
+    // MARK: - Shared import
+
+    /// The Share Extension queue is invisible to the server until the app drains
+    /// it, so this card is where a pending/failed hand-off becomes visible.
+    /// The file is still on disk — "not in the inbox yet" must never look like
+    /// "lost".
+    @ViewBuilder
+    private var sharedImportBanner: some View {
+        if inbox.pendingSharedCount > 0 || inbox.isImportingShared
+            || inbox.sharedImportError != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    if inbox.isImportingShared {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "tray.and.arrow.down.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(WVColor.tint)
+                    }
+                    Text(sharedImportTitle)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(WVColor.label)
+                    Spacer(minLength: 4)
+                }
+
+                if let error = inbox.sharedImportError {
+                    Text(error)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(L.t("Tệp vẫn được giữ lại trên máy và sẽ thử lại."))
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if !inbox.isImportingShared {
+                    Button(L.t("Thử lại")) {
+                        Task { await load() }
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(WVColor.tint)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(WVColor.bg2)
+            .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private var sharedImportTitle: String {
+        if inbox.isImportingShared {
+            return L.t("Đang tải tệp được chia sẻ lên Hộp thư đến…")
+        }
+        if inbox.pendingSharedCount > 0 {
+            return L.p("%d tệp được chia sẻ đang chờ tải lên.", inbox.pendingSharedCount)
+        }
+        return L.t("Không tải lên được tệp được chia sẻ.")
+    }
+
     // MARK: - Actions
 
     private func load() async {
         loadError = nil
+        // Drain the App Group queue first: a retry after a failed upload belongs
+        // on the same pull-to-refresh / appearance that reloads the list.
+        await inbox.importSharedFiles()
         await inbox.load()
         if case let .error(message) = inbox.state, !inbox.attachments.isEmpty {
             loadError = message

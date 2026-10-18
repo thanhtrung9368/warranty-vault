@@ -16320,6 +16320,211 @@
           }
         }
       }
+    },
+    "%d tệp được chia sẻ đang chờ tải lên.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 shared file is waiting to upload."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d shared files are waiting to upload."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d tệp được chia sẻ đang chờ tải lên."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Chỉ chấp nhận ảnh JPG/PNG/HEIC hoặc PDF.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only JPG, PNG, HEIC images or PDFs are accepted."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ chấp nhận ảnh JPG/PNG/HEIC hoặc PDF."
+          }
+        }
+      }
+    },
+    "Không chia sẻ được tệp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not share the file"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không chia sẻ được tệp"
+          }
+        }
+      }
+    },
+    "Không lưu được tệp để tải lên sau.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save the file to upload later."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được tệp để tải lên sau."
+          }
+        }
+      }
+    },
+    "Không tìm thấy tệp để chia sẻ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No file was found to share."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy tệp để chia sẻ."
+          }
+        }
+      }
+    },
+    "Không tải lên được tệp được chia sẻ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not upload the shared file."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải lên được tệp được chia sẻ."
+          }
+        }
+      }
+    },
+    "Không đọc được tệp được chia sẻ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not read the shared file."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đọc được tệp được chia sẻ."
+          }
+        }
+      }
+    },
+    "Tệp sẽ được tải lên khi bạn mở Warrly.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It will upload when you open Warrly."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp sẽ được tải lên khi bạn mở Warrly."
+          }
+        }
+      }
+    },
+    "Tệp vẫn được giữ lại trên máy và sẽ thử lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file stays on this device and will be retried."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp vẫn được giữ lại trên máy và sẽ thử lại."
+          }
+        }
+      }
+    },
+    "Warrly chưa sẵn sàng nhận tệp được chia sẻ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warrly is not ready to receive shared files yet."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warrly chưa sẵn sàng nhận tệp được chia sẻ."
+          }
+        }
+      }
+    },
+    "Đang tải tệp được chia sẻ lên Hộp thư đến…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uploading shared files to your inbox…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải tệp được chia sẻ lên Hộp thư đến…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

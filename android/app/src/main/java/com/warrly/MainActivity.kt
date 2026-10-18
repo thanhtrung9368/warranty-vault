@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -16,6 +17,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
+import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -24,10 +27,17 @@ import com.warrly.auth.AuthStore
 import com.warrly.auth.BiometricAppLockAuthenticator
 import com.warrly.i18n.LanguageStore
 import com.warrly.i18n.LocaleSupport
+import com.warrly.network.ApiClient
+import com.warrly.network.toUserMessage
 import com.warrly.share.ShareTarget
+import com.warrly.share.SharedFile
 import com.warrly.ui.RootScreen
+import com.warrly.ui.screens.attachments.readPickedAttachment
 import com.warrly.ui.theme.WarrlyTheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * `FragmentActivity`, not `ComponentActivity`: the app lock's
@@ -180,22 +190,92 @@ class MainActivity : FragmentActivity() {
                 // picks it up as soon as it exists.
                 App.instance.shareIntake.hold(delivery.product)
 
+            is ShareTarget.Delivery.CapturedFile -> readSharedFile(delivery.file)
+
             is ShareTarget.Delivery.Rejected ->
-                // No link we can use. Say so — opening an empty form (or
-                // nothing at all) would look like the share worked.
+                // Nothing usable. Say so — opening an empty form (or nothing
+                // at all) would look like the share worked.
                 //
                 // Rendered from resources rather than `ShareTarget.message()`
                 // so it follows the UI language; `ShareTarget` stays plain
                 // Kotlin (no `R`, no `android.*`) and keeps the Vietnamese
                 // mirror that ShareTargetTest pins.
-                Toast.makeText(
-                    this,
-                    getString(messageRes(delivery.reason)),
-                    Toast.LENGTH_LONG,
-                ).show()
+                toast(getString(messageRes(delivery.reason)))
 
             ShareTarget.Delivery.Ignored -> Unit
         }
+    }
+
+    /**
+     * Copies a shared photo/PDF out of its content URI **now**.
+     *
+     * `EXTRA_STREAM` is a transient grant: the receiver may read the URI while
+     * the activity that received the intent is alive, and not necessarily after
+     * it is gone. The bytes therefore have to be read in this callback, not from
+     * a worker, a WorkManager job, or "when the user gets to the inbox later".
+     * `readPickedAttachment` is the one shared reader: it enforces the same 5 MB
+     * cap as every other attachment path and throws a localized sentence when
+     * the file is too large or unreadable.
+     *
+     * [App.ioScope] rather than `lifecycleScope`: a rotation cancels
+     * `lifecycleScope` and would abandon the copy halfway, losing a share whose
+     * URI grant disappears with the activity. The copy starts immediately
+     * either way; the process scope only lets that already-started read finish.
+     *
+     * The bytes are parked in [com.warrly.share.ShareIntake] for the Inbox
+     * screen's confirmation card. If this fails, a Toast says why and no
+     * half-read file is left behind. The Toast is posted to the main thread
+     * because this runs on IO and may outlive the Activity instance.
+     */
+    private fun readSharedFile(file: ShareTarget.FileShare) {
+        val uri = file.uri.toUri()
+        // The Activity context (not `applicationContext`) is passed to the
+        // reader because `readPickedAttachment` resolves its "too large" /
+        // "cannot read" sentence from resources, and only the Activity is
+        // wrapped with the language the user picked. The coroutine keeps this
+        // reference for the duration of one short copy; the Toast itself uses
+        // the application context so a destroyed Activity is not retained.
+        val uiContext = this
+        App.instance.ioScope.launch {
+            try {
+                val picked = readPickedAttachment(
+                    context = uiContext,
+                    uri = uri,
+                    // A wildcard declared type (`image/*`) is not a usable
+                    // multipart Content-Type; only a concrete one can stand in
+                    // for a provider that reports nothing.
+                    fallbackMimeType = file.mimeType
+                        .takeIf { it != ShareTarget.MIME_TYPE_IMAGE_WILDCARD },
+                )
+                val resolvedMime = ShareTarget.baseMime(picked.mimeType) ?: picked.mimeType
+                if (!ShareTarget.isStorableFileMime(resolvedMime)) {
+                    // The OS filter's image wildcard let a type through that the
+                    // upload pipeline cannot store (BMP/SVG/TIFF/…): refuse it
+                    // here rather than after a doomed upload.
+                    val message = uiContext.getString(R.string.share_rejected_unsupported_file)
+                    withContext(Dispatchers.Main) { toast(message) }
+                    return@launch
+                }
+                App.instance.shareIntake.hold(
+                    SharedFile(
+                        fileName = picked.fileName,
+                        // Store the normalised type: the multipart part needs a
+                        // bare media type, not `image/jpeg; name=…`.
+                        mimeType = resolvedMime,
+                        bytes = picked.bytes,
+                    ),
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val message = e.toUserMessage(ApiClient.json, uiContext)
+                withContext(Dispatchers.Main) { toast(message) }
+            }
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
     }
 
     private fun maybeRequestNotificationPermission() {
@@ -210,20 +290,56 @@ class MainActivity : FragmentActivity() {
 }
 
 /**
- * The only Android-aware step of the share intake: flatten the two extras this
+ * The only Android-aware step of the share flattening: turn the extras this
  * feature reads into the pure [ShareTarget.Payload]. `EXTRA_TEXT` is a
  * `CharSequence` — several senders pass a `Spanned` string — so it is flattened
  * with `getCharSequenceExtra` rather than cast to `String`.
+ *
+ * A stream can arrive in two places, both handled: `EXTRA_STREAM` (the normal
+ * single-file share) and `ClipData` (some senders put the URI only in the clip,
+ * and it is also where a multi-select share carries its list). Both are read
+ * with the AndroidX compat helpers so API 33's typed-Parcelable API and the
+ * older untyped one behave the same.
  */
-private fun Intent.toSharePayload(): ShareTarget.Payload = ShareTarget.Payload(
-    action = action,
-    type = type,
-    text = getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
-    subject = getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString(),
-)
+private fun Intent.toSharePayload(): ShareTarget.Payload {
+    val streams = sharedStreamUris()
+    return ShareTarget.Payload(
+        action = action,
+        type = type,
+        text = getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
+        subject = getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString(),
+        stream = streams.firstOrNull()?.toString(),
+        streamCount = streams.size,
+    )
+}
 
 /**
- * Why a shared link was refused, as a string resource. The mapping lives here
+ * Every `content://`-ish URI the intent carries, from `EXTRA_STREAM` first and
+ * `ClipData` second. The size matters: [ShareTarget.deliver] rejects more than
+ * one, because this app keeps one pending share and the manifest advertises
+ * `ACTION_SEND` only.
+ *
+ * `runCatching` around the parcelable reads is deliberate: a malformed sender
+ * that puts an `ArrayList` where a single URI is expected would otherwise
+ * throw a `ClassCastException` while the share is being classified.
+ */
+private fun Intent.sharedStreamUris(): List<Uri> {
+    val single = runCatching {
+        IntentCompat.getParcelableExtra(this, Intent.EXTRA_STREAM, Uri::class.java)
+    }.getOrNull()
+    if (single != null) return listOf(single)
+
+    val multiple = runCatching {
+        IntentCompat.getParcelableArrayListExtra(this, Intent.EXTRA_STREAM, Uri::class.java)
+    }.getOrNull()
+    if (!multiple.isNullOrEmpty()) return multiple
+
+    val clip = clipData ?: return emptyList()
+    return (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+}
+
+/**
+ * Why a shared item was refused, as a string resource. The mapping lives here
  * rather than in `ShareTarget` so that file stays free of `R` / Android types
  * (it is unit-tested as ordinary JVM code).
  */
@@ -231,4 +347,7 @@ private fun Intent.toSharePayload(): ShareTarget.Payload = ShareTarget.Payload(
 private fun messageRes(reason: ShareTarget.Reason): Int = when (reason) {
     ShareTarget.Reason.NO_LINK -> R.string.share_rejected_no_link
     ShareTarget.Reason.UNSUPPORTED_SCHEME -> R.string.share_rejected_unsupported_scheme
+    ShareTarget.Reason.UNSUPPORTED_FILE_TYPE -> R.string.share_rejected_unsupported_file
+    ShareTarget.Reason.FILE_WITHOUT_STREAM -> R.string.share_rejected_no_file
+    ShareTarget.Reason.MULTIPLE_FILES -> R.string.share_rejected_multiple_files
 }

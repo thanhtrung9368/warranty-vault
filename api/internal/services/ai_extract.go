@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,6 +42,13 @@ const matchThreshold = 0.82
 const (
 	maxDraftWarrantyMonths = 120
 	maxDraftSerialBytes    = 120
+	// MaxExtractedTextRunes bounds the OCR transcript persisted on the attachment
+	// (migration 0019). Receipts are small documents; 8000 runes is far beyond a
+	// real one, so this is a guard against a runaway model/response rather than a
+	// product limit. The stored value is what GET /api/v1/search indexes and what
+	// AttachmentMeta returns, so an unbounded value would also make every
+	// attachment list heavier.
+	MaxExtractedTextRunes = 8000
 )
 
 // ReceiptExtractor is the AI boundary the service depends on. *ai.Client
@@ -82,11 +91,40 @@ type DraftDevice struct {
 	Confidence         string    `json:"confidence"`
 	Unmatched          []string  `json:"unmatched"`
 	Warnings           []Warning `json:"warnings"`
+	// ExtractedText is the OCR transcript the model read off the document
+	// (roadmap #13), normalized by normalizeExtractedText — trimmed, NUL-free and
+	// capped at MaxExtractedTextRunes. It is returned on both branches so a
+	// stateless multipart scan still gives the caller the text, but it is only
+	// STORED on the attachmentId branch: a direct upload has no Attachment row to
+	// own it (see ExtractedTextStored).
+	ExtractedText *string `json:"extractedText"`
+	// ExtractedTextStored reports whether ExtractedText was actually written to
+	// the attachment. False means either "no attachment in this request" (the
+	// multipart branch) or "the text was empty" or "the write failed" — the draft
+	// is still returned in every case, because the user paid for the extraction
+	// and a storage hiccup must not throw it away. Clients that need searchable
+	// receipts should upload first and call this endpoint with attachmentId.
+	ExtractedTextStored bool `json:"extractedTextStored"`
 }
 
 // ExtractReceipt resolves the image bytes (attachment or upload), calls the AI
 // extractor, maps free-text to the curated catalog, and returns a draft. It
 // never writes a Device row.
+//
+// Since migration 0019 it DOES write one thing: when the request names an
+// attachment (`in.AttachmentID`), the text the model read is stored on that
+// attachment's `extractedText` column so `GET /api/v1/search` can find the
+// receipt by its contents. The write is best-effort — a storage failure is
+// logged, `draft.ExtractedTextStored` stays false, and the draft is still
+// returned. The direct-upload branch has no attachment to own the text, so it
+// returns the text in the draft without persisting it; clients that want the
+// searchable behaviour upload to the inbox first and call this endpoint with
+// `attachmentId`.
+//
+// The stored text is PLAINTEXT in Postgres (the search index needs it), unlike
+// the AES-256-GCM blob it was derived from. The trade-off is named in migration
+// 0019 and in openapi.yaml; do not quietly encrypt this column without moving
+// search off the trigram index.
 //
 // i18n (docs/I18N_PLAN.md §3, Phase 1): every message below is the EXISTING
 // Vietnamese literal wrapped in `i18n.Text(ctx, …)`, so the ctx must be the
@@ -177,6 +215,21 @@ func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtract
 	// duplicate lookup across this user's other devices — the draft has no device
 	// id yet, so there is nothing to exclude.
 	draft.Warnings = DeviceSerialWarnings(ctx, db, userID, draft.SerialNumber, "")
+
+	// Persist the OCR text on the attachment it was read from (migration 0019).
+	// Only the attachmentId branch has a row to own it; a multipart scan returns
+	// the text in the draft but has nowhere to store it. The write is best-effort:
+	// a failure is logged and reported through ExtractedTextStored=false rather
+	// than failing an extraction the user already paid for.
+	draft.ExtractedText = normalizeExtractedText(extracted.ExtractedText)
+	if in.AttachmentID != "" && draft.ExtractedText != nil {
+		if perr := SetAttachmentExtractedText(ctx, db, userID, in.AttachmentID, draft.ExtractedText); perr != nil {
+			slog.Warn("persist OCR text failed",
+				"err", perr, "attachmentId", in.AttachmentID, "userId", userID)
+		} else {
+			draft.ExtractedTextStored = true
+		}
+	}
 
 	return draft, nil
 }
@@ -294,6 +347,36 @@ func sanitizeWarrantyMonths(raw *int) (*int, bool) {
 		return nil, false
 	}
 	return raw, true
+}
+
+// normalizeExtractedText prepares the model's OCR transcript for storage and for
+// the response: nil/blank becomes nil, NUL bytes are dropped (Postgres text
+// cannot hold them and pgx would reject the insert), invalid UTF-8 is replaced,
+// and the value is capped at MaxExtractedTextRunes on a rune boundary.
+//
+// The cap is applied AFTER trimming so a transcript that is only whitespace
+// beyond the cap still collapses to nil rather than storing a meaningless blob.
+// No other rewriting happens: the text is data the user may search verbatim, not
+// copy, so it is not translated, normalised or otherwise "improved".
+func normalizeExtractedText(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	v := strings.ToValidUTF8(*raw, "")
+	v = strings.ReplaceAll(v, "\x00", "")
+	v = strings.ReplaceAll(v, "\r\n", "\n")
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return nil
+	}
+	if utf8.RuneCountInString(v) > MaxExtractedTextRunes {
+		runes := []rune(v)
+		v = strings.TrimSpace(string(runes[:MaxExtractedTextRunes]))
+		if v == "" {
+			return nil
+		}
+	}
+	return &v
 }
 
 func matchBrand(text string, brands []BrandOption) (string, bool) {

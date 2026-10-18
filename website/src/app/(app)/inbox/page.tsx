@@ -21,10 +21,20 @@ export const dynamic = 'force-dynamic';
  * slots: the contract makes the server the quota authority (409
  * `LIMIT_REACHED`), and the 409 itself is the screen's most important state.
  * Full devices are labelled in the picker but stay selectable on purpose.
+ *
+ * `?shared=1` is set by the Web Share Target route's success redirect
+ * (`app/share-target/route.ts`). It only drives the confirmation banner; the
+ * new row itself comes from `GET /v1/inbox` on this force-dynamic render.
  */
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ shared?: string }>;
+}) {
   await requireUser();
   const { t } = await getI18n();
+  const sp = await searchParams;
+  const justShared = sp.shared === '1';
 
   const [inboxRes, devicesRes] = await Promise.all([
     api.inbox.getInbox(),
@@ -53,6 +63,15 @@ export default async function InboxPage() {
         </p>
       </div>
 
+      {justShared && (
+        <p
+          role="status"
+          className="rounded-xl border border-emerald-ink/20 bg-emerald-soft px-4 py-3 text-sm font-semibold text-emerald-ink"
+        >
+          {t('Đã nhận file từ chia sẻ. File đang chờ gán thiết bị.')}
+        </p>
+      )}
+
       <Card className="rounded-2xl border-[1.5px]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -60,8 +79,17 @@ export default async function InboxPage() {
             {t('Tải file lên hộp thư')}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <InboxUploader />
+          {/* The share sheet is the only OS-level entry point, and only
+              Chromium implements `share_target`. Saying so here is honest
+              without hiding the uploader from anyone: this box works in every
+              browser. */}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {t(
+              'Trên Android, trình duyệt Chromium (Chrome, Edge, Samsung Internet) cho phép chia sẻ ảnh hoặc PDF thẳng vào hộp thư này sau khi cài Warrly. Safari và Firefox không hỗ trợ.',
+            )}
+          </p>
         </CardContent>
       </Card>
 

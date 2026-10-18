@@ -21,6 +21,16 @@
     <string name="inbox_empty_title">Nothing waiting to be filed</string>
     <string name="inbox_empty_body">Add a photo or a PDF now and choose the device later — the receipt stays safe in the inbox.</string>
 
+    <!-- A photo/PDF received from another app's share sheet. The bytes are
+         copied while the share URI is live, but they are NOT in the inbox
+         until the user taps "Save to inbox" — the body says that explicitly so
+         the two states cannot be confused. `%1$s` = file name, `%2$s` = size. -->
+    <string name="inbox_shared_file_title">Shared into Warrly</string>
+    <string name="inbox_shared_file_body">%1$s (%2$s) is ready to save. It is not in the inbox yet.</string>
+    <string name="inbox_shared_file_save">Save to inbox</string>
+    <string name="inbox_shared_file_discard">Discard</string>
+    <string name="inbox_shared_file_uploading">Saving to the inbox…</string>
+
     <string name="inbox_uploaded_at">Uploaded %1$s</string>
     <string name="inbox_assign_to_device">Assign to a device</string>
     <string name="inbox_assigning">Assigning…</string>

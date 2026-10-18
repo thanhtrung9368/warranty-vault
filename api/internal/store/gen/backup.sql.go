@@ -826,7 +826,7 @@ func (q *Queries) BackupInsertWishlistPrice(ctx context.Context, arg BackupInser
 }
 
 const backupListAttachmentsForUser = `-- name: BackupListAttachmentsForUser :many
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 FROM "Attachment" a
 WHERE a."userId" = $1 AND a."deviceId" IS NOT NULL
 ORDER BY a."uploadedAt" ASC
@@ -856,6 +856,7 @@ func (q *Queries) BackupListAttachmentsForUser(ctx context.Context, userid strin
 			&i.Description,
 			&i.UploadedAt,
 			&i.UserId,
+			&i.ExtractedText,
 		); err != nil {
 			return nil, err
 		}
@@ -936,7 +937,7 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 }
 
 const backupListInboxAttachmentsForUser = `-- name: BackupListInboxAttachmentsForUser :many
-SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId"
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 FROM "Attachment" a
 WHERE a."userId" = $1 AND a."deviceId" IS NULL
 ORDER BY a."uploadedAt" ASC
@@ -966,6 +967,7 @@ func (q *Queries) BackupListInboxAttachmentsForUser(ctx context.Context, userid 
 			&i.Description,
 			&i.UploadedAt,
 			&i.UserId,
+			&i.ExtractedText,
 		); err != nil {
 			return nil, err
 		}

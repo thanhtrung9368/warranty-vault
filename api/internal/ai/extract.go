@@ -24,6 +24,13 @@ func (e *Error) Error() string { return e.Message }
 // tool-use. Every field is a pointer because the model returns null for
 // anything it cannot read with confidence. Free-text fields (brand, place) are
 // returned verbatim — the service maps them to catalog rows.
+//
+// ExtractedText (roadmap #13) is the other half of the response: the text the
+// model read off the document, which the service persists on the attachment so
+// GET /api/v1/search can match "which receipt was the 65W charger". It is NOT a
+// device field and never reaches the form; it is bounded/cleaned by the service
+// before storage (services/ai_extract.go) and is never invented when the model
+// could not read anything.
 type ExtractedReceipt struct {
 	Name           *string `json:"name"`
 	Brand          *string `json:"brand"`
@@ -35,6 +42,7 @@ type ExtractedReceipt struct {
 	WarrantyMonths *int    `json:"warrantyMonths"` // duration in months if printed
 	Category       *string `json:"category"`       // model's free-text guess
 	Confidence     *string `json:"confidence"`     // "high" | "medium" | "low"
+	ExtractedText  *string `json:"extractedText"`  // OCR transcript, kept for search
 }
 
 // systemPrompt is cached (cache_control ephemeral) so repeated uploads only pay
@@ -51,6 +59,7 @@ Nhiệm vụ: đọc tài liệu (ảnh chụp, ảnh scan, hoặc PDF nhiều t
 - warrantyMonths: số tháng bảo hành nếu in trên phiếu (ví dụ "Bảo hành 12 tháng" -> 12). Chỉ nhận giá trị từ 0 đến 120; lớn hơn hoặc không rõ thì để null.
 - purchasePlace: tên cửa hàng/hệ thống bán (ví dụ "Thế Giới Di Động"). brand: hãng sản phẩm (ví dụ "Apple", "Samsung").
 - confidence: "high" nếu tài liệu rõ và chắc chắn, "medium" nếu mờ một phần, "low" nếu khó đọc.
+- extractedText: chép lại toàn bộ chữ quan trọng đọc được trên tài liệu (tên sản phẩm, linh kiện/phụ kiện đi kèm, tên gói bảo hành hoặc gói chăm sóc mở rộng, đơn giá, ghi chú trên hoá đơn...), giữ nguyên tiếng Việt và thứ tự đọc. Đây là văn bản dùng để TÌM KIẾM hoá đơn sau này nên càng đầy đủ càng tốt; bỏ logo, địa chỉ website lặp lại và điều khoản chung in quá nhỏ. Tối đa khoảng 2000 ký tự. KHÔNG bịa thêm chữ không có trên tài liệu; không đọc được chữ nào thì để null.
 
 Đây CHỈ là bản nháp để người dùng tự xác nhận trước khi lưu — không bao giờ coi là chính xác tuyệt đối.`
 
@@ -72,6 +81,7 @@ var emitReceiptTool = map[string]any{
 			"purchasePlace":  nullable("string", "Tên cửa hàng/nơi mua"),
 			"warrantyMonths": nullable("integer", "Số tháng bảo hành (0-120; ngoài khoảng này để null)"),
 			"category":       nullable("string", "Loại thiết bị (đoán)"),
+			"extractedText":  nullable("string", "Văn bản đọc được trên tài liệu, giữ nguyên tiếng Việt (tối đa ~2000 ký tự), dùng để tìm kiếm hoá đơn sau này"),
 			"confidence": map[string]any{
 				"type":        []string{"string", "null"},
 				"enum":        []any{"high", "medium", "low", nil},
@@ -146,9 +156,15 @@ func (c *Client) ExtractReceipt(ctx context.Context, docBytes []byte, mediaType 
 		promptText = "Trích xuất thông tin từ tài liệu PDF này (có thể nhiều trang)."
 	}
 
+	// 4096 output tokens, not 1024: the forced tool call now also carries the
+	// `extractedText` transcript (up to ~2000 characters of Vietnamese, which is
+	// token-heavy). The structured fields alone fit in 1024, but a model that hit
+	// the cap mid-transcript would truncate the JSON and turn a usable scan into a
+	// `bad_output`. Output tokens are billed, so this ceiling only raises the cost
+	// of a document that actually has that much text to read.
 	reqBody := messageReq{
 		Model:     c.model,
-		MaxTokens: 1024,
+		MaxTokens: 4096,
 		System: []map[string]any{{
 			"type":          "text",
 			"text":          systemPrompt,

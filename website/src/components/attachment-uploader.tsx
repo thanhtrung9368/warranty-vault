@@ -6,10 +6,11 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { uploadAttachment } from '@/app/actions/attachments';
+import {
+  ATTACHMENT_ACCEPT,
+  attachmentRuleRejection,
+} from '@/lib/attachment-rules';
 import { useT } from '@/lib/i18n/client';
-
-const MAX_BYTES = 5 * 1024 * 1024;
-const ACCEPT = 'image/*,application/pdf';
 
 export function AttachmentUploader({
   deviceId,
@@ -35,12 +36,14 @@ export function AttachmentUploader({
 
   const accept = (incoming: FileList | File[]) => {
     const arr = Array.from(incoming).filter((f) => {
-      if (f.size > MAX_BYTES) {
+      // Shared with the inbox uploader and the Web Share Target route: one
+      // definition of the 5 MB cap and the accepted families.
+      const rejection = attachmentRuleRejection(f);
+      if (rejection === 'too_large') {
         toast.error(t('{name} vượt quá 5MB', { name: f.name }));
         return false;
       }
-      const ok = f.type.startsWith('image/') || f.type === 'application/pdf';
-      if (!ok) {
+      if (rejection === 'wrong_type') {
         toast.error(t('{name}: chỉ chấp nhận ảnh hoặc PDF', { name: f.name }));
         return false;
       }
@@ -104,7 +107,7 @@ export function AttachmentUploader({
         <input
           ref={inputRef}
           type="file"
-          accept={ACCEPT}
+          accept={ATTACHMENT_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => e.target.files && accept(e.target.files)}

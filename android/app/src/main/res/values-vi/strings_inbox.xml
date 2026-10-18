@@ -11,6 +11,16 @@
     <string name="inbox_empty_title">Không có hoá đơn nào chờ gán</string>
     <string name="inbox_empty_body">Thêm ảnh hoặc PDF ngay bây giờ rồi chọn thiết bị sau — hoá đơn vẫn nằm an toàn trong hộp thư.</string>
 
+    <!-- Ảnh/PDF nhận từ trình chia sẻ của ứng dụng khác. Byte đã được đọc khi
+         URI chia sẻ còn hiệu lực, nhưng CHƯA nằm trong hộp thư cho tới khi
+         người dùng bấm "Lưu vào hộp thư" — câu này phải nói rõ điều đó.
+         `%1$s` = tên tệp, `%2$s` = dung lượng; trùng với bản tiếng Anh. -->
+    <string name="inbox_shared_file_title">Được chia sẻ vào Warrly</string>
+    <string name="inbox_shared_file_body">%1$s (%2$s) đã sẵn sàng để lưu. Tệp chưa nằm trong hộp thư.</string>
+    <string name="inbox_shared_file_save">Lưu vào hộp thư</string>
+    <string name="inbox_shared_file_discard">Bỏ qua</string>
+    <string name="inbox_shared_file_uploading">Đang lưu vào hộp thư…</string>
+
     <string name="inbox_uploaded_at">Tải lên %1$s</string>
     <string name="inbox_assign_to_device">Gán vào thiết bị</string>
     <string name="inbox_assigning">Đang gán…</string>

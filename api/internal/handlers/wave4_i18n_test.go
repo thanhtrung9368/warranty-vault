@@ -254,10 +254,27 @@ func TestSearchOverlongQueryIsTranslated(t *testing.T) {
 
 	// A BLANK query is still a 200 with empty groups in both languages. The
 	// conversion must not have turned "the search box was cleared" into an error.
+	// The four groups — including `attachments` (roadmap #13) — must be `[]`, never
+	// `null`, because clients iterate them unconditionally.
 	for _, lang := range []string{"vi", "en"} {
 		rr := env.do(t, http.MethodGet, "/api/v1/search?q=&lang="+lang, "", nil)
 		if rr.Code != http.StatusOK {
 			t.Errorf("blank q (%s) = %d, want 200 (%s)", lang, rr.Code, rr.Body.String())
+			continue
+		}
+		var body map[string]json.RawMessage
+		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+			t.Fatalf("blank q (%s): decode body: %v", lang, err)
+		}
+		for _, group := range []string{"devices", "subscriptions", "wishlist", "attachments"} {
+			raw, ok := body[group]
+			if !ok {
+				t.Errorf("blank q (%s) is missing group %q: %s", lang, group, rr.Body.String())
+				continue
+			}
+			if got := strings.TrimSpace(string(raw)); got != "[]" {
+				t.Errorf("blank q (%s) group %q = %s, want [] (never null)", lang, group, got)
+			}
 		}
 	}
 }

@@ -12,14 +12,12 @@ import {
   uploadAttachmentForm,
   type AttachmentUploadState,
 } from '@/app/actions/attachments';
+import {
+  ATTACHMENT_ACCEPT,
+  attachmentRuleRejection,
+} from '@/lib/attachment-rules';
 import { useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
-
-const MAX_BYTES = 5 * 1024 * 1024;
-// Mirrors the accepted-types hint on the device uploader. The server is the
-// authority (magic bytes, not the extension) — this only avoids a round trip
-// for a file the browser already knows is the wrong kind.
-const ACCEPT = 'image/*,application/pdf';
 
 function SubmitButton() {
   const t = useT();
@@ -72,11 +70,14 @@ export function InboxUploader() {
   }, [state.ok, state.uploadedAt, t, router]);
 
   const validate = (file: File): boolean => {
-    if (file.size > MAX_BYTES) {
+    // Shared with the device uploader and the Web Share Target route: one
+    // definition of the 5 MB cap and the accepted families.
+    const rejection = attachmentRuleRejection(file);
+    if (rejection === 'too_large') {
       toast.error(t('{name} vượt quá 5MB', { name: file.name }));
       return false;
     }
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+    if (rejection === 'wrong_type') {
       toast.error(t('{name}: chỉ chấp nhận ảnh hoặc PDF', { name: file.name }));
       return false;
     }
@@ -150,7 +151,7 @@ export function InboxUploader() {
           ref={inputRef}
           type="file"
           name="file"
-          accept={ACCEPT}
+          accept={ATTACHMENT_ACCEPT}
           className="hidden"
           onChange={onPick}
         />

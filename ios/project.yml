@@ -36,6 +36,15 @@ targets:
     dependencies:
       - package: WarrlyKit
         product: WarrlyKit
+      # The share sheet's host. `embed: true` puts it in the app's
+      # "Embed App Extensions" copy phase; without that the extension builds but
+      # never appears in the share sheet.
+      - target: ShareExtension
+        embed: true
+        # Re-sign the embedded appex as part of the app copy phase, so the
+        # archive carries one signature/identity even if the extension target
+        # was built separately.
+        codeSign: true
     # Per-configuration API endpoint. These feed `WV_API_BASE_URL`, which the
     # generated Info.plist exposes as `WVAPIBaseURL` and WarrlyKit's
     # `BaseURLResolver` reads at launch. Debug: http://localhost:4000.
@@ -51,6 +60,12 @@ targets:
         # phục vụ cả hai. Hardcode 'development' thì archive cho TestFlight sẽ
         # mang entitlement development, và APNs production từ chối token.
         aps-environment: $(APS_ENVIRONMENT)
+        # Shared container for the Share Extension queue. The SAME group must be
+        # in ShareExtension/ShareExtension.entitlements below and enabled for
+        # both bundle ids in the Apple developer portal, otherwise
+        # `containerURL(forSecurityApplicationGroupIdentifier:)` returns nil.
+        com.apple.security.application-groups:
+          - group.com.warrly
     info:
       path: App/Info.plist
       properties:
@@ -93,3 +108,70 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: RNCMNPBA9L
+
+  # Share Extension: the OS-level path into the capture-first inbox.
+  #
+  # It accepts images (JPEG/PNG/HEIC) and PDFs, writes the file into the App
+  # Group queue (`SharedInboxStore`) and exits. It deliberately has no network
+  # client and no Keychain access: the app drains the queue on next launch.
+  ShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+        excludes:
+          - Info.plist
+          - ShareExtension.entitlements
+    dependencies:
+      - package: WarrlyKit
+        product: WarrlyKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.warrly.ShareExtension
+        PRODUCT_NAME: ShareExtension
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        # No UIApplication / UIApplication.shared usage is reachable from this
+        # target; keeping this on makes an accidental one a compile error.
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: RNCMNPBA9L
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Warrly
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          # $(PRODUCT_MODULE_NAME) expands to `ShareExtension`, so the class
+          # stays linkable without an @objc name.
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            # Images come from Photos/Mail as `public.image`; PDFs and other
+            # files arrive as a file. The extension itself narrows the file path
+            # to JPEG/PNG/HEIC/PDF and shows a clear message for anything else —
+            # the sheet cannot express "only these UTIs" with the dictionary
+            # form, so a bare `.txt` reaches the extension and is rejected there.
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsFileWithMaxCount: 1
+    entitlements:
+      path: ShareExtension/ShareExtension.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.warrly
+
+schemes:
+  # XcodeGen does not create a shared scheme for an extension target by default,
+  # which would make "build the extension's scheme" impossible in CI. Declare
+  # one explicitly; the app's own scheme stays Xcode-managed.
+  ShareExtension:
+    build:
+      targets:
+        ShareExtension: all
+    run:
+      config: Debug
+    archive:
+      config: Release

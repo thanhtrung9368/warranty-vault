@@ -14,6 +14,7 @@ import {
 } from '@/lib/wishlist-types';
 import { SEARCH_GROUP_LABELS } from '@/lib/search';
 import { PASTE_FIELD_LABELS } from '@/lib/device-paste';
+import { SHARE_FAILURE_MESSAGES } from '@/lib/share-target';
 
 // Every string that is WRAPPED must also be REGISTERED.
 //
@@ -154,6 +155,12 @@ describe('every enum/option label is registered', () => {
     WISHLIST_STATUS_LABELS,
     SEARCH_GROUP_LABELS,
     PASTE_FIELD_LABELS,
+    // The Web Share Target failure screen looks its sentence up dynamically
+    // (`t(SHARE_FAILURE_MESSAGES[reason])`), so the literal-key scan cannot see
+    // it. The map is source-adjacent but its VALUES are the catalog keys;
+    // spreading keeps them in the same "every value is registered" check as the
+    // enum label maps below.
+    SHARE_FAILURE_MESSAGES: { ...SHARE_FAILURE_MESSAGES },
   };
 
   it('registers every value of every label map', () => {

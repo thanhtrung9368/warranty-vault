@@ -13,6 +13,9 @@ import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
 import com.warrly.share.ShareIntake
 import com.warrly.ui.theme.ThemeStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Manual DI — small enough that we don't need Hilt yet. Holds the singletons
@@ -59,6 +62,21 @@ class App : Application() {
     lateinit var shareIntake: ShareIntake
         private set
 
+    /**
+     * Process-scoped IO for the one job that must not be cancelled by an
+     * Activity recreation: copying a shared photo/PDF out of its content URI.
+     *
+     * The URI's read grant lives with the receiving activity's task, so the copy
+     * has to start **immediately** when the share arrives (the Activity does
+     * that) — but it must also be allowed to *finish* if the user rotates or the
+     * system recreates the Activity mid-read. `lifecycleScope` would cancel the
+     * copy halfway and silently lose a share the user cannot re-share. This
+     * scope is only for that short-lived copy plus the Toast on failure; it is
+     * not a general escape hatch from lifecycle scoping.
+     */
+    lateinit var ioScope: CoroutineScope
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -84,6 +102,7 @@ class App : Application() {
             capabilities = AndroidAppLockCapabilities(this)::read,
         )
         shareIntake = ShareIntake()
+        ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     companion object {

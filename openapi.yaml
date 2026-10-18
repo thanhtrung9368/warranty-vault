@@ -631,8 +631,9 @@ paths:
         purpose (they can carry executable content). Max 5 MB per file, 5 files
         per device, 100 MB total per user.
 
-        Note: PDF is accepted *as an attachment* but is not supported by the OCR
-        endpoint (`/api/v1/ai/extract-receipt`), which is image-only.
+        Note: PDF is accepted as an attachment **and** is supported by the OCR
+        endpoint (`/api/v1/ai/extract-receipt`), which sends it as a `document`
+        block. GIF/HEIC are the types OCR refuses (there is no block for them).
       requestBody:
         required: true
         content:
@@ -1450,17 +1451,37 @@ paths:
   /api/v1/search:
     get:
       tags: [search]
-      summary: Tìm kiếm xuyên thực thể (thiết bị, subscription, wishlist)
+      summary: Tìm kiếm xuyên thực thể (thiết bị, subscription, wishlist, văn bản OCR)
       description: |
         Roadmap #7. Trước endpoint này, `q` chỉ tồn tại trên `GET /api/v1/devices`,
         nên gõ "samsung" không tìm được subscription "Samsung Cloud" hay món
         wishlist "Galaxy Buds".
 
+        **Roadmap #13 — nhóm `attachments`:** văn bản OCR mà người dùng đã quét
+        trên một file đính kèm (lưu ở `Attachment.extractedText`, migration 0019)
+        được tìm như một nhóm thứ tư. Nhờ vậy câu hỏi thật — "hoá đơn nào là củ
+        sạc 65W", "hoá đơn nào có gói bảo hành mở rộng" — trả lời được dù người
+        dùng chưa từng gõ hai chữ đó vào trường nào. Chỉ `extractedText` được
+        tìm trong nhóm này; `fileName`/`description` không nằm trong index.
+        File chưa từng quét OCR (hoặc lần quét không đọc được chữ) có
+        `extractedText` NULL nên không bao giờ khớp — đúng nghĩa "chưa có gì để
+        tìm".
+
+        **Quyền riêng tư — đọc kỹ:** file đính kèm vẫn được mã hoá AES-256-GCM
+        trên đĩa, nhưng `extractedText` là **plaintext trong Postgres**. Đây là
+        cái giá của tìm kiếm: index trigram (và predicate `LIKE`) buộc phải đọc
+        được giá trị đã giải mã, nếu không sẽ phải giải mã toàn bộ bảng mỗi lần
+        query. Văn bản chỉ được ghi sau khi người dùng đã bật opt-in AI (tức là
+        đã đồng ý gửi bản giải mã tới Anthropic), mọi truy vấn đều giới hạn theo
+        người dùng, và văn bản **không** nằm trong bản sao lưu (xem `BackupV1`).
+        Nếu cần mã hoá at-rest cho cột này thì phải đổi cả cách tìm kiếm, không
+        chỉ đổi kiểu cột.
+
         **Vì sao thêm endpoint mới thay vì mở rộng 3 endpoint danh sách:** một
-        truy vấn trả cả ba nhóm (client không phải gọi 3 lần rồi tự trộn), không
+        truy vấn trả cả bốn nhóm (client không phải gọi 4 lần rồi tự trộn), không
         đụng vào hành vi `q` hiện có của từng danh sách (không rủi ro hồi quy cho
         web/iOS/Android đang chạy), và hợp đồng rõ ràng cho màn hình "Tìm kiếm"
-        chung. Ba endpoint danh sách giữ nguyên `q`/`status` như cũ.
+        chung. Các endpoint danh sách giữ nguyên `q`/`status` như cũ.
 
         **Khớp không dấu:** dùng đúng biểu thức của migration 0007 —
         `lower(public.wv_unaccent(x))` — nên `dien thoai` khớp `Điện thoại`, và
@@ -1471,21 +1492,23 @@ paths:
           * `devices`: `name`, `brand`, `model`, `serialNumber` (giống `GET /api/v1/devices?q=`)
           * `subscriptions`: `name`, `brand`, `plan`, `accountEmail`
           * `wishlist`: `name`, `brand`, `notes`
+          * `attachments`: `extractedText` (văn bản OCR, migration 0019)
 
-        `q` rỗng hoặc chỉ có khoảng trắng trả về 200 với ba mảng rỗng (không phải
-        400) — người dùng xoá hết chữ trong ô tìm kiếm không phải là lỗi. `q` dài
-        hơn 200 ký tự trả 400. Mỗi nhóm bị chặn bởi `limit` (mặc định 20, tối đa
-        50) và luôn nằm trong tài khoản đang đăng nhập.
+        `q` rỗng hoặc chỉ có khoảng trắng trả về 200 với **bốn** mảng rỗng (không
+        phải 400) — người dùng xoá hết chữ trong ô tìm kiếm không phải là lỗi.
+        `q` dài hơn 200 ký tự trả 400. Mỗi nhóm bị chặn bởi `limit` (mặc định 20,
+        tối đa 50) và luôn nằm trong tài khoản đang đăng nhập. Mọi nhóm luôn là
+        mảng, không bao giờ `null`.
       parameters:
         - name: q
           in: query
           required: false
-          description: Từ khoá. Không dấu vẫn khớp có dấu. Rỗng ⇒ ba mảng rỗng. Tối đa 200 ký tự.
+          description: Từ khoá. Không dấu vẫn khớp có dấu. Rỗng ⇒ bốn mảng rỗng. Tối đa 200 ký tự.
           schema: { type: string, maxLength: 200 }
         - name: limit
           in: query
           required: false
-          description: Số dòng tối đa cho MỖI nhóm (thiết bị / subscription / wishlist). Mặc định 20, tối đa 50.
+          description: Số dòng tối đa cho MỖI nhóm (thiết bị / subscription / wishlist / attachment). Mặc định 20, tối đa 50.
           schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
       responses:
         '200':
@@ -2155,12 +2178,40 @@ paths:
   /api/v1/ai/extract-receipt:
     post:
       tags: [ai]
-      summary: OCR ảnh hoặc PDF hoá đơn / phiếu bảo hành, trả về DRAFT để người dùng xác nhận (không tự lưu)
-      description: >
+      summary: OCR ảnh/PDF hoá đơn, trả DRAFT (và lưu văn bản OCR vào attachment khi có attachmentId)
+      description: |
         Nhận tài liệu (multipart file HOẶC attachmentId của file đã upload), gửi
         qua dịch vụ AI để trích xuất thông tin thiết bị + bảo hành, trả về bản
         nháp. KHÔNG bao giờ tạo Device — client tự điền form và người dùng xác
         nhận. Cần ANTHROPIC_API_KEY trên server; nếu chưa cấu hình trả về 503.
+
+        **Lưu văn bản OCR (roadmap #13, migration 0019).** Hai nhánh request khác
+        nhau ở đúng một điểm:
+
+          * **`attachmentId`** — văn bản model đọc được lưu vào chính file đó
+            (`Attachment.extractedText`) và trở thành nhóm `attachments` của
+            `GET /api/v1/search`. Response trả `draft.extractedText` và
+            `draft.extractedTextStored: true`. Đây là đường client nên dùng khi
+            muốn hoá đơn tìm kiếm được: upload trước bằng
+            `POST /api/v1/attachments` (có thể không kèm `deviceId` — mục trong
+            hộp thư), rồi gọi endpoint này với id đó.
+          * **multipart `file`** — không có hàng `Attachment` nào để sở hữu văn
+            bản, nên **không lưu gì**. Response vẫn trả `draft.extractedText` để
+            client hiển thị, nhưng `draft.extractedTextStored: false`. Muốn tìm
+            kiếm được thì dùng nhánh trên.
+
+        Ghi văn bản là best-effort: nếu DB lỗi sau khi model đã trả kết quả,
+        request vẫn 200 với draft đầy đủ và `extractedTextStored: false` (người
+        dùng đã trả tiền cho lượt gọi AI, không nên mất bản nháp vì lỗi lưu). Một
+        lần quét lại không đọc được chữ **không** xoá văn bản đã lưu trước đó.
+
+        **Quyền riêng tư:** văn bản OCR là **plaintext trong Postgres** (cột
+        `Attachment.extractedText`), trong khi blob ảnh/PDF vẫn được mã hoá
+        AES-256-GCM trên đĩa. Index trigram buộc phải đọc được giá trị đã giải
+        mã — mã hoá cột này sẽ làm tìm kiếm ngừng hoạt động. Văn bản chỉ được ghi
+        sau khi người dùng bật opt-in AI (tức đã đồng ý gửi bản giải mã tới
+        Anthropic), không nằm trong bản sao lưu, và không bao giờ trả cho người
+        dùng khác. Xem thêm mô tả `GET /api/v1/search` và `AttachmentMeta`.
 
         Hỗ trợ **JPEG/PNG/WEBP và PDF** (mỗi file tối đa 5MB theo giới hạn
         attachment). PDF được gửi dưới dạng `document` block của Anthropic
@@ -2182,16 +2233,21 @@ paths:
               type: object
               required: [attachmentId]
               properties:
-                attachmentId: { type: string, description: 'ID file đã upload (reuse decrypt path). Nếu không phải JPEG/PNG/WEBP/PDF ⇒ 400.' }
+                attachmentId:
+                  type: string
+                  description: |
+                    ID file đã upload (reuse decrypt path). Nếu không phải
+                    JPEG/PNG/WEBP/PDF ⇒ 400. Văn bản OCR được lưu vào file này
+                    và tìm kiếm được qua `GET /api/v1/search`.
           multipart/form-data:
             schema:
               type: object
               required: [file]
               properties:
-                file: { type: string, format: binary, description: 'Ảnh JPEG/PNG/WEBP hoặc PDF, tối đa 5MB' }
+                file: { type: string, format: binary, description: 'Ảnh JPEG/PNG/WEBP hoặc PDF, tối đa 5MB. Không lưu văn bản vì không có attachment.' }
       responses:
         '200':
-          description: Bản nháp (chưa lưu)
+          description: Bản nháp (không tạo Device) + văn bản OCR và trạng thái lưu
           content:
             application/json:
               schema:
@@ -2351,8 +2407,10 @@ components:
         Bản nháp trích xuất từ ảnh hoá đơn / phiếu bảo hành. Tên trường khớp
         DeviceInput để client điền thẳng vào form. Mọi trường đều nullable. Các
         *Id chỉ được set khi map chắc chắn với danh mục; còn lại giữ free-text và
-        liệt kê trong `unmatched`. Bản nháp KHÔNG bao giờ được lưu tự động.
-      required: [confidence, unmatched, warnings]
+        liệt kê trong `unmatched`. Bản nháp KHÔNG bao giờ tạo/lưu Device tự động;
+        riêng `extractedText` có thể được lưu trên attachment (xem
+        `extractedTextStored`).
+      required: [confidence, unmatched, warnings, extractedText, extractedTextStored]
       properties:
         name: { type: string, nullable: true }
         category: { type: string, nullable: true, description: 'Mã danh mục nếu map được, ngược lại free-text' }
@@ -2402,6 +2460,28 @@ components:
             serial không phải lúc nào cũng là IMEI, từ chối một serial hợp lệ còn tệ
             hơn lỗi gõ mà nó ngăn. Luôn có mặt, `[]` khi không có gì.
           items: { $ref: '#/components/schemas/DeviceWarning' }
+        extractedText:
+          type: string
+          nullable: true
+          description: |
+            Văn bản model đọc được trên tài liệu (transcript), đã trim/bỏ NUL và
+            chặn ở 8000 ký tự. Luôn có mặt; `null` khi model không đọc được chữ
+            nào. Đây **không** phải trường của Device — client có thể hiển thị nó
+            như "nội dung đã đọc", nhưng không gửi vào form thiết bị.
+
+            Trên nhánh `attachmentId`, cùng chuỗi này được lưu vào
+            `Attachment.extractedText` và tìm kiếm được (`GET /api/v1/search`,
+            nhóm `attachments`). Trên nhánh multipart thì chỉ trả về, không lưu.
+        extractedTextStored:
+          type: boolean
+          description: |
+            `true` chỉ khi `extractedText` đã được ghi vào một hàng `Attachment`
+            (nhánh `attachmentId`, lưu thành công). `false` khi request dùng
+            multipart (không có attachment để lưu), khi model không trả văn bản,
+            hoặc khi lần ghi DB thất bại — trong mọi trường hợp request vẫn 200
+            với draft đầy đủ. Client muốn chắc chắn hoá đơn tìm kiếm được thì
+            upload trước rồi gọi bằng `attachmentId`, và có thể dùng cờ này để
+            xác nhận.
 
     User:
       type: object
@@ -2565,6 +2645,25 @@ components:
         nói đúng điều đó ngay trong payload để client cảnh báo chính xác thay vì
         hardcode. Hai trường này là metadata của bản export: import bỏ qua chúng
         khi quyết định, và payload cũ thiếu chúng vẫn import được.
+
+        **Văn bản OCR KHÔNG đi theo bản sao lưu (migration 0019).**
+        `Attachment.extractedText` là dữ liệu **dẫn xuất** từ blob — một projection
+        để tìm kiếm, không phải nguồn sự thật. Quyết định: không export nó, vì
+
+          * bản JSON v5 phải giữ **từng byte** như trước và câu
+            `attachmentBytesNote` của nó nói thật rằng payload chỉ có tên file /
+            loại file / kích thước — thêm văn bản sẽ làm câu đó sai;
+          * đây là bản **plaintext** duy nhất của nội dung hoá đơn, và bản sao lưu
+            là file người dùng thường lưu ở nơi khác; không tạo thêm bản sao
+            plaintext ngoài DB;
+          * bản ZIP (v6) khôi phục được blob, nên có thể quét lại để tái tạo văn
+            bản. Bản JSON (v5) vốn không có blob, nên văn bản cũng không phải thứ
+            duy nhất sống sót.
+
+        Hệ quả cần biết: restore xong, nhóm `attachments` của tìm kiếm **rỗng**
+        cho tới khi người dùng quét lại hoá đơn (hoặc một client nào đó gọi lại
+        endpoint OCR với `attachmentId`). Import bỏ qua key `extractedText` nếu
+        một payload tương lai có nó; phiên bản backup không đổi (v5/v6).
 
         Import chấp nhận **mọi** phiên bản trong khoảng
         [MinBackupVersion, BackupVersion] (hiện tại 5-6) thay vì so bằng đúng, nên
@@ -2863,6 +2962,12 @@ components:
     # migration 0018).
     BackupAttachment:
       type: object
+      description: |
+        Metadata của một file đính kèm trong bản sao lưu. **Không có**
+        `extractedText` (migration 0019): văn bản OCR là dữ liệu dẫn xuất dùng
+        cho tìm kiếm và cố ý không đi theo export — xem lý do ở `BackupV1`.
+        Restore xong thì nhóm `attachments` của tìm kiếm rỗng cho tới khi quét
+        lại.
       required: [id, fileName, storagePath, fileType, fileSize, iv, wrappedKey, uploadedAt]
       properties:
         id: { type: string }
@@ -3499,6 +3604,11 @@ components:
 
     AttachmentMeta:
       type: object
+      description: |
+        Hình dạng public của một file đính kèm (dùng cho device detail, danh sách
+        file của thiết bị, hộp thư và nhóm `attachments` của tìm kiếm). Các cột
+        nội bộ (`storagePath`, `iv`, `wrappedKey`, `userId`) không bao giờ được
+        trả về.
       required: [id, fileName, fileType, fileSize, uploadedAt]
       properties:
         id: { type: string }
@@ -3507,6 +3617,24 @@ components:
         fileSize: { type: integer, description: 'plaintext bytes' }
         description: { type: string, nullable: true }
         uploadedAt: { type: string, format: date-time }
+        extractedText:
+          type: string
+          nullable: true
+          description: |
+            **Văn bản OCR** đọc được từ file này (migration 0019), dùng cho
+            `GET /api/v1/search` và để client hiển thị/đánh dấu đoạn khớp.
+
+            **Vắng mặt** khi file chưa từng được quét OCR — nên payload của một
+            tài khoản chưa dùng tính năng này giống hệt trước migration 0019
+            (`omitempty`, không có key `null`). Có mặt khi lần quét gần nhất đọc
+            được chữ; giá trị đã trim, bỏ NUL và chặn ở 8000 ký tự.
+
+            **Quyền riêng tư:** field này là **plaintext trong Postgres** (và
+            trong response), khác với blob đính kèm vẫn được mã hoá AES-256-GCM
+            trên đĩa. Index tìm kiếm trigram buộc phải đọc được giá trị đã giải
+            mã; mã hoá cột này sẽ làm tìm kiếm không còn hoạt động. Văn bản không
+            nằm trong bản sao lưu (xem `BackupV1`). Chi tiết trade-off ở mô tả
+            `GET /api/v1/search` và header migration 0019.
 
     # Body of PATCH /api/v1/attachments/{id}.
     AttachmentDescriptionInput:
@@ -4112,12 +4240,13 @@ components:
               type: integer
               description: 'Sum of currentPrice for items in WATCHING or DECIDED'
 
-    # GET /api/v1/search — cross-entity search (roadmap #7). Each group is a plain
-    # projection of the same rows the per-entity list endpoints return, capped at
-    # the `limit` query parameter.
+    # GET /api/v1/search — cross-entity search (roadmap #7 + #13). Each group is a
+    # plain projection of the same rows the per-entity list endpoints return,
+    # capped at the `limit` query parameter. The `attachments` group is the
+    # OCR-text projection added by migration 0019.
     SearchResults:
       type: object
-      required: [query, devices, subscriptions, wishlist]
+      required: [query, devices, subscriptions, wishlist, attachments]
       properties:
         query:
           type: string
@@ -4134,6 +4263,35 @@ components:
           type: array
           description: 'Món wishlist khớp (name/brand/notes), sắp xếp theo `createdAt` giảm dần. Luôn là mảng.'
           items: { $ref: '#/components/schemas/WishlistItem' }
+        attachments:
+          type: array
+          description: |
+            File đính kèm có **văn bản OCR** khớp `q` (chỉ trường
+            `extractedText`, migration 0019), sắp xếp theo `uploadedAt` giảm dần.
+            Luôn là mảng, không bao giờ `null` — kể cả người dùng chưa từng quét
+            OCR, khi đó nhóm này là `[]`. Mỗi phần tử là `AttachmentSearchHit`
+            (public attachment + `deviceId`) để client vừa mở được file vừa điều
+            hướng được tới thiết bị.
+          items: { $ref: '#/components/schemas/AttachmentSearchHit' }
+
+    # Một hit của nhóm `attachments` trong GET /api/v1/search. AttachmentMeta là
+    # public shape dùng chung (device detail / list / inbox / search); `deviceId`
+    # chỉ được thêm ở đây vì một hit có thể là file đã gắn thiết bị hoặc mục
+    # trong hộp thư, và client cần biết điều đó — các endpoint attachment khác đã
+    # có deviceId trong path hoặc (với inbox) chủ động không trả.
+    AttachmentSearchHit:
+      allOf:
+        - $ref: '#/components/schemas/AttachmentMeta'
+        - type: object
+          required: [deviceId]
+          properties:
+            deviceId:
+              type: string
+              nullable: true
+              description: |
+                Thiết bị chứa file, hoặc `null` nếu file vẫn nằm trong hộp thư
+                (chưa gắn thiết bị, migration 0018). Trường luôn có mặt — khác với
+                `extractedText`, vốn chỉ có khi đã quét OCR.
 
     ReminderWarranty:
       allOf:

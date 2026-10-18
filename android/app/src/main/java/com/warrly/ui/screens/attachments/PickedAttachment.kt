@@ -51,6 +51,12 @@ internal data class PickedAttachment(
 /**
  * Reads [uri] and returns its bytes plus the metadata the request needs.
  *
+ * [fallbackMimeType] is used only when the content provider reports **no type
+ * or the opaque `application/octet-stream`** — the shape some document
+ * providers use for a perfectly readable PDF. It is the share intent's declared
+ * type, which is more informative than the generic fallback. Callers that do
+ * not have one (the photo/document picker) omit it and keep the old behaviour.
+ *
  * @throws IllegalStateException carrying a **localized** message (from the
  *   `strings_devices.xml` catalogs) when the file is over 5 MB or cannot be
  *   opened. Callers surface `e.localizedMessage`; they cannot do better than
@@ -59,9 +65,14 @@ internal data class PickedAttachment(
 internal suspend fun readPickedAttachment(
     context: Context,
     uri: Uri,
+    fallbackMimeType: String? = null,
 ): PickedAttachment {
     val resolver = context.contentResolver
-    val mime = resolver.getType(uri) ?: FALLBACK_MIME
+    val reportedMime = resolver.getType(uri)?.takeIf { it.isNotBlank() }
+    val mime = when (reportedMime) {
+        null, FALLBACK_MIME -> fallbackMimeType ?: reportedMime ?: FALLBACK_MIME
+        else -> reportedMime
+    }
     val name = queryDisplayName(resolver, uri) ?: FALLBACK_NAME
 
     val declaredSize = queryFileSize(resolver, uri)

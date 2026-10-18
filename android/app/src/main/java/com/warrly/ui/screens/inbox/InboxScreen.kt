@@ -1,6 +1,7 @@
 package com.warrly.ui.screens.inbox
 
 import android.net.Uri
+import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,10 +73,13 @@ import com.warrly.network.Device
 import com.warrly.network.DeviceStatus
 import com.warrly.network.FileAttachmentInput
 import com.warrly.network.toUserMessage
+import com.warrly.share.ShareTarget
+import com.warrly.share.SharedFile
 import com.warrly.ui.components.EmptyState
 import com.warrly.ui.components.ErrorState
 import com.warrly.ui.components.PageHeader
 import com.warrly.ui.components.SkeletonList
+import com.warrly.ui.screens.attachments.PickedAttachment
 import com.warrly.ui.screens.attachments.readPickedAttachment
 import com.warrly.ui.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,13 +90,16 @@ import kotlinx.coroutines.launch
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 /**
- * `GET /api/v1/inbox` plus the two write paths that change it: filing an item on
- * a device and deleting one.
+ * `GET /api/v1/inbox` plus the write paths that change it: uploading a shared
+ * file, filing an item on a device and deleting one.
  *
- * The **upload** is deliberately not here: reading a content-provider `Uri`
- * needs a `Context`, which a ViewModel must not hold. The screen reads the bytes
- * through the shared `readPickedAttachment` and calls the service; this class
- * owns the list, the filing call and the one 409 the contract defines.
+ * Reading a content-provider `Uri` still happens in the composable — that needs
+ * a `Context`, which a ViewModel must not hold. But once the Activity has turned
+ * a share into bytes, the **upload** lives here: this view model is scoped to
+ * the activity, so switching tabs mid-upload cannot cancel the request the way
+ * `rememberCoroutineScope()` would. The bytes are passed in as a [SharedFile];
+ * a failure stays visible in [sharedError] and the caller keeps the pending
+ * file, so the user can retry.
  */
 class InboxViewModel(private val api: ApiService) : ViewModel() {
     sealed interface State {
@@ -127,6 +135,58 @@ class InboxViewModel(private val api: ApiService) : ViewModel() {
 
     private val _filing = MutableStateFlow(false)
     val filing: StateFlow<Boolean> = _filing.asStateFlow()
+
+    /**
+     * Uploading a file that arrived from another app's share sheet.
+     *
+     * Its own flag (rather than the local `uploading` in the composable) so the
+     * request survives a tab switch and the progress is still correct when the
+     * user comes back. [sharedError] is the visible failure: the pending file is
+     * **not** consumed by this class, so a failed upload keeps the card and its
+     * retry button on screen.
+     */
+    private val _sharedUploading = MutableStateFlow(false)
+    val sharedUploading: StateFlow<Boolean> = _sharedUploading.asStateFlow()
+
+    private val _sharedError = MutableStateFlow<String?>(null)
+    val sharedError: StateFlow<String?> = _sharedError.asStateFlow()
+
+    /**
+     * `POST /api/v1/attachments` with **no `deviceId`** for a shared photo/PDF.
+     *
+     * [onUploaded] runs only after the server accepted the bytes; the screen
+     * uses it to clear the pending share. On failure [sharedError] is set and
+     * [onUploaded] is *not* called — the bytes stay in memory and the user can
+     * retry rather than losing the share to a dead socket.
+     */
+    fun uploadShared(file: SharedFile, onUploaded: () -> Unit) {
+        viewModelScope.launch {
+            _sharedUploading.value = true
+            _sharedError.value = null
+            try {
+                api.uploadAttachment(
+                    PickedAttachment(
+                        fileName = file.fileName,
+                        mimeType = file.mimeType,
+                        bytes = file.bytes,
+                    ).toMultipart(),
+                )
+                onUploaded()
+                // The row is now on the server; refresh the list behind the
+                // disappearing confirmation card.
+                load()
+            } catch (e: Exception) {
+                _sharedError.value = e.toUserMessage(ApiClient.json)
+            } finally {
+                _sharedUploading.value = false
+            }
+        }
+    }
+
+    /** Clears the failure line when the user discards the pending card. */
+    fun dismissSharedError() {
+        _sharedError.value = null
+    }
 
     /**
      * Loads the inbox. A reload **keeps the current list on screen** while it
@@ -230,6 +290,15 @@ class InboxViewModel(private val api: ApiService) : ViewModel() {
  * dialog names the device and offers exactly the two exits the contract allows —
  * pick another device, or delete the receipt.
  *
+ * ### A share from another app
+ *
+ * A photo/PDF shared into Warrly reaches this screen as [sharedFile]: the bytes
+ * were copied at intent time, and a card above the list offers "Save to inbox"
+ * or "Discard". Confirmation (rather than an immediate upload) is deliberate —
+ * the user sees what was shared before it becomes a row, and a failed upload
+ * keeps the bytes and the error on screen so the share cannot be lost to an
+ * invisible network failure.
+ *
  * This is a tab of the shell (`ui/MainScreen.kt`) rather than a pushed route:
  * the inbox is a place you come back to and its badge is visible from every
  * other tab, not a detour like search.
@@ -238,6 +307,14 @@ class InboxViewModel(private val api: ApiService) : ViewModel() {
 @Composable
 fun InboxScreen(
     api: ApiService,
+    /**
+     * A file the Activity copied out of a live share URI, waiting for
+     * confirmation. `null` = no share. The screen never consumes it directly:
+     * [onSharedFileHandled] is called only after the server accepted the bytes
+     * or the user explicitly discarded them.
+     */
+    sharedFile: SharedFile? = null,
+    onSharedFileHandled: (SharedFile) -> Unit = {},
     /** The shell's nav badge; `null` means "hide the bubble". */
     onCountChanged: (Int?) -> Unit = {},
 ) {
@@ -250,6 +327,8 @@ fun InboxScreen(
     val deviceFull by vm.deviceFull.collectAsState()
     val actionMessage by vm.actionMessage.collectAsState()
     val filing by vm.filing.collectAsState()
+    val sharedUploading by vm.sharedUploading.collectAsState()
+    val sharedError by vm.sharedError.collectAsState()
 
     var refreshing by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
@@ -260,6 +339,10 @@ fun InboxScreen(
     var devicesError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { vm.load() }
+
+    // A new share (or a discard) must not inherit the previous file's failure
+    // sentence. Keyed on the file itself, not on every recomposition.
+    LaunchedEffect(sharedFile) { vm.dismissSharedError() }
 
     // Keep the shell's badge in step with the list on screen. A successful
     // upload/file/delete changes this list, so this one effect covers all three
@@ -358,8 +441,20 @@ fun InboxScreen(
                 is InboxViewModel.State.Loaded -> InboxBody(
                     attachments = st.attachments,
                     uploading = uploading,
+                    sharedFile = sharedFile,
+                    sharedUploading = sharedUploading,
+                    sharedError = sharedError,
                     actionMessage = actionMessage,
                     onDismissMessage = { vm.dismissActionMessage() },
+                    onSaveShared = { file ->
+                        // Consume only after the server accepted the bytes; a
+                        // failure keeps the card (and the bytes) for a retry.
+                        vm.uploadShared(file) { onSharedFileHandled(file) }
+                    },
+                    onDiscardShared = { file ->
+                        vm.dismissSharedError()
+                        onSharedFileHandled(file)
+                    },
                     onAddPhoto = {
                         photoPicker.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
@@ -435,8 +530,13 @@ fun InboxScreen(
 private fun InboxBody(
     attachments: List<Attachment>,
     uploading: Boolean,
+    sharedFile: SharedFile?,
+    sharedUploading: Boolean,
+    sharedError: String?,
     actionMessage: String?,
     onDismissMessage: () -> Unit,
+    onSaveShared: (SharedFile) -> Unit,
+    onDiscardShared: (SharedFile) -> Unit,
     onAddPhoto: () -> Unit,
     onAddPdf: () -> Unit,
     onAssign: (Attachment) -> Unit,
@@ -455,13 +555,28 @@ private fun InboxBody(
             )
         }
 
+        // A file shared from another app, already copied out of its URI and
+        // waiting for confirmation. It sits above the capture buttons because
+        // it is the freshest user action and the only one with unsaved bytes.
+        sharedFile?.let { file ->
+            item {
+                SharedFileCard(
+                    file = file,
+                    uploading = sharedUploading,
+                    error = sharedError,
+                    onSave = { onSaveShared(file) },
+                    onDiscard = { onDiscardShared(file) },
+                )
+            }
+        }
+
         // The capture entry point. It is here — not on the device detail — because
         // this is the one screen that exists without a device to upload to.
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = onAddPhoto,
-                    enabled = !uploading,
+                    enabled = !uploading && !sharedUploading,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.Image, null)
@@ -470,7 +585,7 @@ private fun InboxBody(
                 }
                 OutlinedButton(
                     onClick = onAddPdf,
-                    enabled = !uploading,
+                    enabled = !uploading && !sharedUploading,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.PictureAsPdf, null)
@@ -494,7 +609,7 @@ private fun InboxBody(
             item { InboxErrorCard(message = message, onDismiss = onDismissMessage) }
         }
 
-        if (attachments.isEmpty() && !uploading) {
+        if (attachments.isEmpty() && !uploading && sharedFile == null) {
             item {
                 EmptyState(
                     icon = Icons.Outlined.Inbox,
@@ -513,6 +628,91 @@ private fun InboxBody(
                     onAssign = { onAssign(attachment) },
                     onDelete = { onDelete(attachment) },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The confirmation card for a photo/PDF shared from another app.
+ *
+ * It shows the file **before** it is in the inbox, and it is deliberately not a
+ * dismissible modal: a swipe-away would lose a file whose content URI is already
+ * gone, with no trace. Saving and discarding are both explicit buttons. On
+ * failure the error line stays inside the card and "Save to inbox" remains
+ * available — the bytes are still in memory (see `SharedFile`).
+ */
+@Composable
+private fun SharedFileCard(
+    file: SharedFile,
+    uploading: Boolean,
+    error: String?,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val isPdf = ShareTarget.baseMime(file.mimeType) == ShareTarget.MIME_TYPE_PDF
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cs.primaryContainer),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (isPdf) Icons.Filled.PictureAsPdf else Icons.Filled.Image,
+                    null,
+                    tint = cs.primary,
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.inbox_shared_file_title),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = cs.onPrimaryContainer,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        stringResource(
+                            R.string.inbox_shared_file_body,
+                            file.fileName,
+                            Formatter.formatShortFileSize(context, file.sizeBytes),
+                        ),
+                        fontSize = 12.sp,
+                        color = cs.onPrimaryContainer,
+                    )
+                }
+            }
+
+            if (uploading) {
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.inbox_shared_file_uploading), fontSize = 13.sp)
+                }
+            }
+
+            error?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, fontSize = 12.sp, color = cs.error)
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onSave,
+                    enabled = !uploading,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.inbox_shared_file_save))
+                }
+                TextButton(onClick = onDiscard, enabled = !uploading) {
+                    Text(stringResource(R.string.inbox_shared_file_discard))
+                }
             }
         }
     }

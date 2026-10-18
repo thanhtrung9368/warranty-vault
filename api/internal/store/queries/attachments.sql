@@ -92,6 +92,23 @@ SET "deviceId" = $3,
 WHERE a.id = $1 AND a."userId" = $2
 RETURNING a.*;
 
+-- name: SetAttachmentExtractedText :one
+-- POST /api/v1/ai/extract-receipt, attachmentId branch (migration 0019). Writes
+-- the text the model read off this attachment so GET /api/v1/search can find the
+-- receipt by its contents later.
+--
+-- The text is PLAINTEXT in Postgres on purpose — the GIN trigram index in 0019 is
+-- built over lower(public.wv_unaccent("extractedText")), and an encrypted value
+-- could not be indexed or substring-searched. See the migration header and the
+-- openapi.yaml privacy note for the trade-off.
+--
+-- $3 is the already-normalized text (trimmed, NUL-free, length-capped) or NULL;
+-- "userId" keeps the write owner-scoped exactly like every other attachment read.
+UPDATE "Attachment" a
+SET "extractedText" = $3
+WHERE a.id = $1 AND a."userId" = $2
+RETURNING a.*;
+
 -- name: CountAttachmentsByDevice :one
 -- Filed attachments only, by construction: inbox rows have "deviceId" NULL and
 -- NULL = $1 matches nothing. This is the per-device 5-file cap, so an inbox item

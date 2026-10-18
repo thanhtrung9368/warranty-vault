@@ -49,10 +49,22 @@
 
             <!-- Share target (FEATURE_IDEAS #10): "Chia sẻ" on a product page
                  in Shopee / Lazada / Chrome → Warrly → the link lands in
-                 the wishlist form prefilled. text/plain only: an image/file
-                 share is the attachment flow, not this one. No ACTION_VIEW
-                 http/https filter on purpose — that would offer this app as a
-                 *browser* for every link on the phone.
+                 the wishlist form prefilled.
+
+                 It is also the OS-level entry point for receipts: an
+                 `image/*` or `application/pdf` share (Gallery, Gmail, Files)
+                 is copied while the intent is still live and lands on the
+                 Inbox screen for confirmation. The MIME type is what routes
+                 it — text/plain still goes to the wishlist exactly as before.
+
+                 Data elements inside ONE filter mean "any of these types".
+                 No ACTION_SEND_MULTIPLE on purpose: the code reads exactly one
+                 stream (one SharedFile in memory, one confirmation card), and
+                 advertising multi-select without that flow would show the app
+                 in the chooser and then drop all but one file.
+
+                 No ACTION_VIEW http/https filter on purpose — that would offer
+                 this app as a *browser* for every link on the phone.
 
                  ⚠️ This is the mirror of the OUTGOING share added with the
                  handover certificate (#2): `ShareCertificatesSection` sends the
@@ -68,6 +80,8 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
 

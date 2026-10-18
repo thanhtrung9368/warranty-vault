@@ -2,9 +2,11 @@ package com.warrly.ui.screens.inbox
 
 import com.warrly.network.Attachment
 import com.warrly.network.AttachmentListResponse
+import com.warrly.network.AttachmentResponse
 import com.warrly.network.Device
 import com.warrly.network.FileAttachmentInput
 import com.warrly.network.OkResponse
+import com.warrly.share.SharedFile
 import com.warrly.testing.FakeApiService
 import com.warrly.testing.Fixtures
 import com.warrly.testing.httpError
@@ -15,8 +17,11 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,13 +29,15 @@ import org.junit.Test
 import java.io.IOException
 
 /**
- * `InboxViewModel` — loading the inbox, filing an item on a device, and the one
- * 409 the contract defines.
+ * `InboxViewModel` — loading the inbox, uploading a shared receipt, filing an
+ * item on a device, and the one 409 the contract defines.
  *
  * These are the paths that must not be wrong: a successful file must remove the
  * row **and** send the chosen device id; a `LIMIT_REACHED` 409 must keep the row
  * (nothing was assigned) and expose the target so the dialog can name it; every
- * other failure must surface the server's message instead.
+ * other failure must surface the server's message instead. A shared upload must
+ * call back (and only then may the caller clear the pending share) **only** on
+ * success — a failed one keeps the error and the bytes for a retry.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class InboxViewModelTest {
@@ -54,6 +61,9 @@ class InboxViewModelTest {
         },
         private val file: suspend (String, FileAttachmentInput) -> Unit = { _, _ -> },
         private val delete: suspend (String) -> OkResponse = { OkResponse() },
+        private val upload: suspend (MultipartBody.Part, RequestBody?) -> AttachmentResponse = { _, _ ->
+            AttachmentResponse(Fixtures.attachment(id = "att-3"))
+        },
     ) : FakeApiService() {
         override suspend fun getInbox(): AttachmentListResponse = inbox()
 
@@ -61,6 +71,12 @@ class InboxViewModelTest {
             file(id, body)
 
         override suspend fun deleteAttachment(id: String): OkResponse = delete(id)
+
+        override suspend fun uploadAttachment(
+            file: MultipartBody.Part,
+            deviceId: RequestBody?,
+            description: RequestBody?,
+        ): AttachmentResponse = upload(file, deviceId)
     }
 
     private val device: Device = Fixtures.device(id = "dev-1", name = "iPhone 15 Pro")
@@ -192,5 +208,71 @@ class InboxViewModelTest {
         assertEquals("offline", vm.actionMessage.value)
         val loaded = vm.state.value as InboxViewModel.State.Loaded
         assertTrue(loaded.attachments.any { it.id == "att-1" })
+    }
+
+    // ---- the shared photo/PDF upload ---------------------------------------
+
+    @Test
+    fun aSharedFileUploadsWithNoDeviceAndCallsBackOnlyOnSuccess() = runTest(dispatcher) {
+        data class Sent(val deviceId: String?, val contentType: String?, val bytes: Long)
+
+        var inboxCalls = 0
+        val sent = mutableListOf<Sent>()
+        val vm = InboxViewModel(
+            FakeInboxApi(
+                inbox = {
+                    inboxCalls++
+                    AttachmentListResponse(listOf(Fixtures.attachment(id = "att-1")))
+                },
+                upload = { part, deviceId ->
+                    sent += Sent(
+                        deviceId = deviceId?.toString(),
+                        contentType = part.body.contentType()?.toString(),
+                        bytes = part.body.contentLength(),
+                    )
+                    AttachmentResponse(Fixtures.attachment(id = "att-9"))
+                },
+            ),
+        )
+        vm.load()
+        advanceUntilIdle()
+
+        val file = SharedFile(
+            fileName = "hoa-don.jpg",
+            mimeType = "image/jpeg",
+            bytes = byteArrayOf(1, 2, 3),
+        )
+        var handled: SharedFile? = null
+        vm.uploadShared(file) { handled = file }
+        advanceUntilIdle()
+
+        // No `deviceId` part: the server stores the bytes as an inbox item.
+        assertEquals(listOf(Sent(null, "image/jpeg", 3)), sent)
+        assertTrue("the caller must be told to clear the pending share", handled === file)
+        assertNull(vm.sharedError.value)
+        assertFalse(vm.sharedUploading.value)
+        // The row is on the server; the list behind the card is refreshed.
+        assertEquals(2, inboxCalls)
+    }
+
+    @Test
+    fun aFailedSharedUploadKeepsTheBytesAndShowsTheError() = runTest(dispatcher) {
+        val vm = InboxViewModel(
+            FakeInboxApi(upload = { _, _ -> throw IOException("offline") }),
+        )
+        vm.load()
+        advanceUntilIdle()
+
+        var handled = false
+        val file = SharedFile("bao-hanh.pdf", "application/pdf", byteArrayOf(7))
+        vm.uploadShared(file) { handled = true }
+        advanceUntilIdle()
+
+        // Not consumed: the screen keeps the card, the bytes and the retry
+        // button. That is the whole "a share is never lost to an invisible
+        // failure" contract.
+        assertFalse("a failure must not clear the pending share", handled)
+        assertEquals("offline", vm.sharedError.value)
+        assertFalse(vm.sharedUploading.value)
     }
 }

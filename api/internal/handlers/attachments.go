@@ -23,13 +23,16 @@ const maxMultipartBytes = 50 * 1024 * 1024
 
 // attachmentDTO matches the shape the TS REST surface returns
 // (`fileSize` = plaintext bytes; encryption-internal fields are not exposed).
+// `extractedText` is the OCR transcript (migration 0019) and is omitted for an
+// attachment that was never OCR'd, so existing payloads stay byte-identical.
 type attachmentDTO struct {
-	ID          string  `json:"id"`
-	FileName    string  `json:"fileName"`
-	FileType    string  `json:"fileType"`
-	FileSize    int32   `json:"fileSize"`
-	Description *string `json:"description"`
-	UploadedAt  string  `json:"uploadedAt"`
+	ID            string  `json:"id"`
+	FileName      string  `json:"fileName"`
+	FileType      string  `json:"fileType"`
+	FileSize      int32   `json:"fileSize"`
+	Description   *string `json:"description"`
+	UploadedAt    string  `json:"uploadedAt"`
+	ExtractedText *string `json:"extractedText,omitempty"`
 }
 
 func toAttachmentDTO(a store.Attachment) attachmentDTO {
@@ -38,12 +41,13 @@ func toAttachmentDTO(a store.Attachment) attachmentDTO {
 		uploaded = a.UploadedAt.Time.UTC().Format(time.RFC3339Nano)
 	}
 	return attachmentDTO{
-		ID:          a.ID,
-		FileName:    a.FileName,
-		FileType:    a.FileType,
-		FileSize:    a.FileSize,
-		Description: a.Description,
-		UploadedAt:  uploaded,
+		ID:            a.ID,
+		FileName:      a.FileName,
+		FileType:      a.FileType,
+		FileSize:      a.FileSize,
+		Description:   a.Description,
+		UploadedAt:    uploaded,
+		ExtractedText: a.ExtractedText,
 	}
 }
 

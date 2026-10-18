@@ -141,13 +141,21 @@ type DeviceDetail struct {
 // response — the openapi contract has always declared `attachments` as
 // AttachmentMeta, and handlers.attachmentDTO already redacts on the list
 // endpoint. This type closes the same hole on the device-detail endpoint.
+//
+// ExtractedText (migration 0019) is the OCR transcript, not an encryption
+// internal, so it IS exposed — but only when the user has actually OCR'd this
+// attachment. The field is `omitempty`, so an attachment that was never scanned
+// serialises exactly as it did before the column existed. It is PLAINTEXT in the
+// DB and in this response; the blob remains AES-256-GCM. See the openapi
+// AttachmentMeta description for the trade-off.
 type AttachmentMeta struct {
-	ID          string  `json:"id"`
-	FileName    string  `json:"fileName"`
-	FileType    string  `json:"fileType"`
-	FileSize    int32   `json:"fileSize"`
-	Description *string `json:"description"`
-	UploadedAt  string  `json:"uploadedAt"`
+	ID            string  `json:"id"`
+	FileName      string  `json:"fileName"`
+	FileType      string  `json:"fileType"`
+	FileSize      int32   `json:"fileSize"`
+	Description   *string `json:"description"`
+	UploadedAt    string  `json:"uploadedAt"`
+	ExtractedText *string `json:"extractedText,omitempty"`
 }
 
 // toAttachmentMeta strips a store row down to the public shape. Kept in sync
@@ -158,12 +166,13 @@ func toAttachmentMeta(a store.Attachment) AttachmentMeta {
 		uploaded = a.UploadedAt.Time.UTC().Format(time.RFC3339Nano)
 	}
 	return AttachmentMeta{
-		ID:          a.ID,
-		FileName:    a.FileName,
-		FileType:    a.FileType,
-		FileSize:    a.FileSize,
-		Description: a.Description,
-		UploadedAt:  uploaded,
+		ID:            a.ID,
+		FileName:      a.FileName,
+		FileType:      a.FileType,
+		FileSize:      a.FileSize,
+		Description:   a.Description,
+		UploadedAt:    uploaded,
+		ExtractedText: a.ExtractedText,
 	}
 }
 

@@ -23,7 +23,8 @@ func TestParseToolResult_OK(t *testing.T) {
 				"purchasePrice":28990000,
 				"purchasePlace":"Thế Giới Di Động",
 				"warrantyMonths":12,
-				"confidence":"high"
+				"confidence":"high",
+				"extractedText":"Sạc nhanh 65W\nGói bảo hành mở rộng"
 			}}
 		]
 	}`)
@@ -40,6 +41,9 @@ func TestParseToolResult_OK(t *testing.T) {
 	if got.WarrantyMonths == nil || *got.WarrantyMonths != 12 {
 		t.Errorf("warrantyMonths not parsed: %+v", got.WarrantyMonths)
 	}
+	if got.ExtractedText == nil || *got.ExtractedText != "Sạc nhanh 65W\nGói bảo hành mở rộng" {
+		t.Errorf("extractedText not parsed: %+v", got.ExtractedText)
+	}
 	if got.SerialNumber == nil || *got.SerialNumber != "356789012345678" {
 		t.Errorf("serialNumber not parsed: %+v", got.SerialNumber)
 	}
@@ -51,7 +55,8 @@ func TestParseToolResult_OK(t *testing.T) {
 // The forced tool's input schema is the model-facing contract; the two
 // warranty-identifier fields (roadmap #15) must stay declared, nullable, and
 // carry the [0, 120] bound in their description so a client reading the schema
-// sees the same rule the service enforces.
+// sees the same rule the service enforces. `extractedText` (roadmap #13) is the
+// searchable transcript and must be declared too.
 func TestEmitReceiptToolDeclaresSerialAndWarrantyMonths(t *testing.T) {
 	schema, ok := emitReceiptTool["input_schema"].(map[string]any)
 	if !ok {
@@ -61,7 +66,7 @@ func TestEmitReceiptToolDeclaresSerialAndWarrantyMonths(t *testing.T) {
 	if !ok {
 		t.Fatal("input_schema has no properties")
 	}
-	for _, field := range []string{"serialNumber", "warrantyMonths"} {
+	for _, field := range []string{"serialNumber", "warrantyMonths", "extractedText"} {
 		if _, ok := props[field]; !ok {
 			t.Errorf("tool schema is missing %q", field)
 		}
@@ -81,8 +86,18 @@ func TestEmitReceiptToolDeclaresSerialAndWarrantyMonths(t *testing.T) {
 	if desc == "" || !strings.Contains(desc, "120") {
 		t.Errorf("warrantyMonths description = %q, want it to state the 0-120 bound", desc)
 	}
+	et, _ := props["extractedText"].(map[string]any)
+	if et == nil {
+		t.Fatal("extractedText is not an object schema")
+	}
+	if types, ok := et["type"].([]string); !ok || len(types) != 2 {
+		t.Errorf("extractedText type = %v, want [string null]", et["type"])
+	}
 	if !strings.Contains(systemPrompt, "serialNumber") || !strings.Contains(systemPrompt, "IMEI") {
 		t.Error("system prompt should instruct the model about serialNumber/IMEI extraction")
+	}
+	if !strings.Contains(systemPrompt, "extractedText") {
+		t.Error("system prompt should instruct the model about the searchable extractedText transcript")
 	}
 }
 
@@ -210,14 +225,20 @@ func TestExtractReceipt_SendsPdfAsDocumentBlock(t *testing.T) {
 			if len(captured.Tools) != 1 {
 				t.Errorf("tools = %d, want the single emit_receipt tool", len(captured.Tools))
 			}
+			// The transcript adds output tokens; 1024 was enough for the structured
+			// fields alone but not for a ~2000-character Vietnamese transcript.
+			if captured.MaxTokens < 2048 {
+				t.Errorf("max_tokens = %d, want at least 2048 so the transcript cannot truncate the tool call", captured.MaxTokens)
+			}
 		})
 	}
 }
 
 // The system prompt is prompt-cached, so its content matters for cache hits and
-// for model accuracy; pdf work must not have dropped the Vietnamese rules.
+// for model accuracy; pdf work must not have dropped the Vietnamese rules, and
+// the searchable transcript instruction has to stay in the cached prefix.
 func TestSystemPromptCoversPdfAndStaysVietnamese(t *testing.T) {
-	for _, want := range []string{"PDF", "serialNumber", "IMEI", "warrantyMonths", "confidence"} {
+	for _, want := range []string{"PDF", "serialNumber", "IMEI", "warrantyMonths", "confidence", "extractedText"} {
 		if !strings.Contains(systemPrompt, want) {
 			t.Errorf("system prompt lost %q", want)
 		}

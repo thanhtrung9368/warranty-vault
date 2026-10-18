@@ -9,17 +9,18 @@ import (
 )
 
 type Attachment struct {
-	ID          string           `json:"id"`
-	DeviceId    *string          `json:"deviceId"`
-	FileName    string           `json:"fileName"`
-	StoragePath string           `json:"storagePath"`
-	FileType    string           `json:"fileType"`
-	FileSize    int32            `json:"fileSize"`
-	Iv          []byte           `json:"iv"`
-	WrappedKey  []byte           `json:"wrappedKey"`
-	Description *string          `json:"description"`
-	UploadedAt  pgtype.Timestamp `json:"uploadedAt"`
-	UserId      string           `json:"userId"`
+	ID            string           `json:"id"`
+	DeviceId      *string          `json:"deviceId"`
+	FileName      string           `json:"fileName"`
+	StoragePath   string           `json:"storagePath"`
+	FileType      string           `json:"fileType"`
+	FileSize      int32            `json:"fileSize"`
+	Iv            []byte           `json:"iv"`
+	WrappedKey    []byte           `json:"wrappedKey"`
+	Description   *string          `json:"description"`
+	UploadedAt    pgtype.Timestamp `json:"uploadedAt"`
+	UserId        string           `json:"userId"`
+	ExtractedText *string          `json:"extractedText"`
 }
 
 type Brand struct {

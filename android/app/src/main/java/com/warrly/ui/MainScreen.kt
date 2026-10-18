@@ -178,6 +178,25 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
         App.instance.shareIntake.consume(product)
     }
 
+    // Shared photo/PDF → Inbox. Unlike the link above, this effect does NOT
+    // consume the mailbox: the bytes stay parked until the Inbox screen's
+    // confirmation card uploads them or the user discards them. All this does
+    // is leave whatever route was open and show that card — a share is a
+    // top-level entry point and must not land under a detail screen.
+    val pendingFile by App.instance.shareIntake.pendingFile.collectAsState()
+    LaunchedEffect(pendingFile) {
+        if (pendingFile == null) return@LaunchedEffect
+        openDeviceId = null
+        openSubscriptionId = null
+        openWishlistId = null
+        openPushDevices = false
+        openSessions = false
+        openSearch = false
+        openActions = false
+        openAudit = false
+        selected = Tab.Inbox
+    }
+
     val devId = openDeviceId
     if (devId != null) {
         DeviceDetailScreen(
@@ -341,6 +360,12 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                     )
                     Tab.Inbox         -> InboxScreen(
                         api = App.instance.api,
+                        // The file the Activity copied out of a live share URI.
+                        // The screen shows the "save or discard" card and only
+                        // consumes the mailbox after a successful upload (or an
+                        // explicit discard) — a failed upload stays visible.
+                        sharedFile = pendingFile,
+                        onSharedFileHandled = { App.instance.shareIntake.consume(it) },
                         // Keeps the nav bubble in step with the list on screen:
                         // the screen is the only place an item can be added,
                         // filed or deleted, so it is the source of the count.
