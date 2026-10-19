@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const consumeAllPasswordResetsForUser = `-- name: ConsumeAllPasswordResetsForUser :exec
@@ -43,11 +43,11 @@ RETURNING id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt", "pendin
 `
 
 type CreateEmailChangeParams struct {
-	ID           string           `json:"id"`
-	UserId       string           `json:"userId"`
-	TokenHash    string           `json:"tokenHash"`
-	PendingEmail *string          `json:"pendingEmail"`
-	ExpiresAt    pgtype.Timestamp `json:"expiresAt"`
+	ID           string       `json:"id"`
+	UserId       string       `json:"userId"`
+	TokenHash    string       `json:"tokenHash"`
+	PendingEmail *string      `json:"pendingEmail"`
+	ExpiresAt    wire.Instant `json:"expiresAt"`
 }
 
 // Email-change token (migration 0009): same table and lifecycle as a password
@@ -81,10 +81,10 @@ RETURNING id, "userId", "tokenHash", "expiresAt", "usedAt", "createdAt", "pendin
 `
 
 type CreatePasswordResetParams struct {
-	ID        string           `json:"id"`
-	UserId    string           `json:"userId"`
-	TokenHash string           `json:"tokenHash"`
-	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
+	ID        string       `json:"id"`
+	UserId    string       `json:"userId"`
+	TokenHash string       `json:"tokenHash"`
+	ExpiresAt wire.Instant `json:"expiresAt"`
 }
 
 func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (PasswordReset, error) {

@@ -86,7 +86,7 @@ SELECT
     COALESCE(SUM("purchasePrice"), 0)::bigint AS total
 FROM "Device"
 WHERE "userId" = $1
-  AND "purchaseDate" >= $2
+  AND "purchaseDate" >= sqlc.arg('purchaseFrom')::timestamp
 GROUP BY 1, 2
 ORDER BY 1 ASC, 2 ASC;
 
@@ -96,8 +96,8 @@ SELECT
     COALESCE(SUM("purchasePrice"), 0)::bigint AS total
 FROM "Device"
 WHERE "userId" = $1
-  AND "purchaseDate" >= $2
-  AND "purchaseDate" <  $3;
+  AND "purchaseDate" >= sqlc.arg('purchaseFrom')::timestamp
+  AND "purchaseDate" <  sqlc.arg('purchaseTo')::timestamp;
 
 -- name: StatsYearsWithData :many
 -- Distinct years where the user has at least one device purchase. Caller
@@ -114,13 +114,13 @@ ORDER BY 1 DESC;
 -- devices and excluding warranties with a dismissed Reminder. Caller passes
 -- the [now, +7d] and [now, +30d] window bounds.
 SELECT
-    SUM(CASE WHEN w."endDate" <= $2 THEN 1 ELSE 0 END)::bigint AS expiring_7d,
-    SUM(CASE WHEN w."endDate" <= $3 THEN 1 ELSE 0 END)::bigint AS expiring_30d
+    SUM(CASE WHEN w."endDate" <= sqlc.arg('within7')::timestamp THEN 1 ELSE 0 END)::bigint AS expiring_7d,
+    SUM(CASE WHEN w."endDate" <= sqlc.arg('within30')::timestamp THEN 1 ELSE 0 END)::bigint AS expiring_30d
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" >= $4
+  AND w."endDate" >= sqlc.arg('windowStart')::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
@@ -231,8 +231,8 @@ FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" >= $2
-  AND w."endDate" <  $3
+  AND w."endDate" >= sqlc.arg('from')::timestamp
+  AND w."endDate" <  sqlc.arg('to')::timestamp
 ORDER BY w."endDate" ASC;
 
 -- name: ListWishlistTargetsBetween :many
@@ -245,6 +245,6 @@ FROM "WishlistItem"
 WHERE "userId" = $1
   AND status IN ('WATCHING', 'DECIDED')
   AND "targetDate" IS NOT NULL
-  AND "targetDate" >= $2
-  AND "targetDate" <  $3
+  AND "targetDate" >= sqlc.arg('from')::timestamp
+  AND "targetDate" <  sqlc.arg('to')::timestamp
 ORDER BY "targetDate" ASC;

@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // AI claim assessment (gap #7, POST /api/v1/ai/assess-claim).
@@ -215,7 +215,7 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 			Brand:        device.Brand,
 			Model:        device.Model,
 			SerialNumber: device.SerialNumber,
-			PurchaseDate: formatAssessDate(device.PurchaseDate),
+			PurchaseDate: formatAssessDate(device.PurchaseDate.Instant()),
 			Status:       device.Status,
 		},
 		Warranties: make([]ai.WarrantyFacts, 0, len(warranties)),
@@ -225,8 +225,8 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 			ID:            w.ID,
 			Type:          w.Type,
 			Provider:      w.Provider,
-			StartDate:     formatAssessDate(w.StartDate),
-			EndDate:       formatAssessDate(w.EndDate),
+			StartDate:     formatAssessDate(w.StartDate.Instant()),
+			EndDate:       formatAssessDate(w.EndDate.Instant()),
 			Months:        w.Months,
 			Component:     w.Component,
 			Scope:         w.Scope,
@@ -242,7 +242,7 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 	return in
 }
 
-func formatAssessDate(ts pgtype.Timestamp) string {
+func formatAssessDate(ts wire.Instant) string {
 	if !ts.Valid {
 		return ""
 	}

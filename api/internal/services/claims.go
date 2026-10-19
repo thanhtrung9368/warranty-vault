@@ -54,12 +54,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // MaxClaimsPerUser is the per-account claim ceiling.
@@ -245,36 +245,36 @@ func validateClaimFields(ctx context.Context, in *ClaimInput) error {
 // error: on create it means "the claim was opened now", on update it means
 // "keep the stored opening date". `fallback` is the stored value on update and
 // the zero time on create.
-func parseClaimOpenedAt(ctx context.Context, raw *string, fallback time.Time) (pgtype.Timestamp, error) {
+func parseClaimOpenedAt(ctx context.Context, raw *string, fallback time.Time) (wire.Instant, error) {
 	if raw == nil {
 		if !fallback.IsZero() {
-			return pgtype.Timestamp{Time: fallback, Valid: true}, nil
+			return wire.At(fallback), nil
 		}
-		return pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}, nil
+		return wire.At(time.Now().UTC()), nil
 	}
 	t, err := parseDate(*raw)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+		return wire.Instant{}, ErrValidationHeadline(FieldErrors{
 			"openedAt": {i18n.Text(ctx, "Ngày mở yêu cầu không hợp lệ")},
 		})
 	}
-	return pgtype.Timestamp{Time: t, Valid: true}, nil
+	return wire.At(t), nil
 }
 
 // parseClaimNullableTimestamp parses an optional date-time field. nil/blank →
 // SQL NULL (the "not recorded" state). `field` is both the fieldErrors key and
 // the message's subject, so the two can never drift.
-func parseClaimNullableTimestamp(ctx context.Context, field, messageKey string, raw *string) (pgtype.Timestamp, error) {
+func parseClaimNullableTimestamp(ctx context.Context, field, messageKey string, raw *string) (wire.Day, error) {
 	if raw == nil {
-		return pgtype.Timestamp{}, nil
+		return wire.Day{}, nil
 	}
 	t, err := parseDate(*raw)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+		return wire.Day{}, ErrValidationHeadline(FieldErrors{
 			field: {i18n.Text(ctx, messageKey)},
 		})
 	}
-	return pgtype.Timestamp{Time: t, Valid: true}, nil
+	return wire.Date(t), nil
 }
 
 // resolveClaimClosedAt implements the automatic closedAt rule. `current` is nil
@@ -286,14 +286,14 @@ func parseClaimNullableTimestamp(ctx context.Context, field, messageKey string, 
 //     not move);
 //   - otherwise the claim is entering a terminal state now → NOW.
 //   - new status open → NULL. This is the "cleared if it moves back" half.
-func resolveClaimClosedAt(current *store.Claim, status string, now time.Time) pgtype.Timestamp {
+func resolveClaimClosedAt(current *store.Claim, status string, now time.Time) wire.Instant {
 	if !isClosedClaimStatus(status) {
-		return pgtype.Timestamp{}
+		return wire.Instant{}
 	}
 	if current != nil && isClosedClaimStatus(current.Status) && current.ClosedAt.Valid {
 		return current.ClosedAt
 	}
-	return pgtype.Timestamp{Time: now, Valid: true}
+	return wire.At(now)
 }
 
 // GetClaim fetches one claim with the ownership chain. A claim owned by someone

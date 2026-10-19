@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // ErrSessionNotFound means "no such session row FOR THIS USER". It is returned
@@ -44,7 +44,7 @@ type SessionSummary struct {
 func ListSessions(ctx context.Context, db *pgxpool.Pool, userID, currentSessionID string, now time.Time) ([]SessionSummary, error) {
 	rows, err := store.New(db).ListActiveSessionsForUser(ctx, store.ListActiveSessionsForUserParams{
 		UserId:    userID,
-		ExpiresAt: pgtype.Timestamp{Time: now.UTC(), Valid: true},
+		ExpiresAt: wire.At(now),
 	})
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func RevokeSessionForUser(ctx context.Context, db *pgxpool.Pool, userID, session
 	return false, nil
 }
 
-func formatSessionTime(ts pgtype.Timestamp) string {
+func formatSessionTime(ts wire.Instant) string {
 	if !ts.Valid {
 		return ""
 	}

@@ -35,7 +35,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
@@ -43,6 +42,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // pushFanoutLimit caps how many push deliveries run concurrently within a
@@ -351,9 +351,9 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 		start, end := dayWindow(now, windowDays)
 		rows, err := q.ListWarrantiesInWindow(ctx, store.ListWarrantiesInWindowParams{
-			EndDate:   pgtype.Timestamp{Time: start, Valid: true},
-			EndDate_2: pgtype.Timestamp{Time: end, Valid: true},
-			LeadDay:   leadDay,
+			WindowStart: wire.At(start),
+			WindowEnd:   wire.At(end),
+			LeadDay:     leadDay,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list warranties in window (%dd): %w", days, err)
@@ -458,8 +458,8 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		rows, err := q.ListExtendedCoverInWindow(ctx, store.ListExtendedCoverInWindowParams{
-			WindowStart: pgtype.Timestamp{Time: start, Valid: true},
-			WindowEnd:   pgtype.Timestamp{Time: end, Valid: true},
+			WindowStart: wire.At(start),
+			WindowEnd:   wire.At(end),
 			LeadDay:     leadDay,
 		})
 		if err != nil {
@@ -500,8 +500,8 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	for _, days := range []int{0, 7, 30} {
 		start, end := dayWindow(now, days)
 		rows, err := q.ListWishlistTargetDateDue(ctx, store.ListWishlistTargetDateDueParams{
-			TargetDate:   pgtype.Timestamp{Time: start, Valid: true},
-			TargetDate_2: pgtype.Timestamp{Time: end, Valid: true},
+			WindowStart: wire.At(start),
+			WindowEnd:   wire.At(end),
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list wishlist target-date due (%dd): %w", days, err)
@@ -618,9 +618,9 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		subs, err := q.ListSubscriptionsDueForRenewal(ctx, store.ListSubscriptionsDueForRenewalParams{
-			RenewalDate:   pgtype.Timestamp{Time: start, Valid: true},
-			RenewalDate_2: pgtype.Timestamp{Time: end, Valid: true},
-			LeadDay:       leadDay,
+			WindowStart: wire.At(start),
+			WindowEnd:   wire.At(end),
+			LeadDay:     leadDay,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list subs due for renewal (%dd): %w", days, err)
@@ -714,9 +714,9 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		subs, err := q.ListSubscriptionsTrialEndingInWindow(ctx, store.ListSubscriptionsTrialEndingInWindowParams{
-			TrialEndsAt:   pgtype.Timestamp{Time: start, Valid: true},
-			TrialEndsAt_2: pgtype.Timestamp{Time: end, Valid: true},
-			LeadDay:       leadDay,
+			WindowStart: wire.At(start),
+			WindowEnd:   wire.At(end),
+			LeadDay:     leadDay,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list subscriptions with trial ending (%dd): %w", days, err)
@@ -771,7 +771,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// ─── 8. Subscription auto-bill / expire ────────────────────────────────
 	todayStart, _ := dayWindow(now, 0)
 	overdue, err := q.ListSubscriptionsOverdue(ctx,
-		pgtype.Timestamp{Time: todayStart, Valid: true})
+		wire.At(todayStart))
 	if err != nil {
 		return stats, fmt.Errorf("list subs overdue: %w", err)
 	}
@@ -795,7 +795,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 				ID:             uuid.NewString(),
 				SubscriptionId: s.ID,
 				Amount:         s.Price,
-				PaidAt:         pgtype.Timestamp{Time: oldRenewal, Valid: true},
+				PaidAt:         wire.At(oldRenewal),
 				Note:           &payNote,
 			}); err != nil {
 				_ = tx.Rollback(ctx)
@@ -804,8 +804,8 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			}
 			if _, err := qtx.AdvanceSubscriptionRenewal(ctx, store.AdvanceSubscriptionRenewalParams{
 				ID:                    s.ID,
-				RenewalDate:           pgtype.Timestamp{Time: next, Valid: true},
-				LastNotifiedRenewalAt: pgtype.Timestamp{Time: now.UTC(), Valid: true},
+				RenewalDate:           wire.Date(next),
+				LastNotifiedRenewalAt: wire.At(now.UTC()),
 			}); err != nil {
 				_ = tx.Rollback(ctx)
 				slog.Error("cron: advance renewal", "sub", s.ID, "err", err)
@@ -870,8 +870,8 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	for _, days := range []int{3, 1} {
 		start, end := dayWindow(now, days)
 		rows, err := q.ListReturnWindowsInWindow(ctx, store.ListReturnWindowsInWindowParams{
-			WindowStart: pgtype.Timestamp{Time: start, Valid: true},
-			WindowEnd:   pgtype.Timestamp{Time: end, Valid: true},
+			WindowStart: wire.At(start),
+			WindowEnd:   wire.At(end),
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list return windows in window (%dd): %w", days, err)
@@ -925,7 +925,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// Share links (FEATURE_IDEAS #2) die 30 days after they expire, so the table
 	// does not grow forever. Same housekeeping step, same "log and carry on"
 	// contract as the session prune: a failure here must not fail the cron run.
-	if _, err := q.PruneExpiredShares(ctx, pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}); err != nil {
+	if _, err := q.PruneExpiredShares(ctx, wire.At(time.Now().UTC())); err != nil {
 		slog.Error("cron: prune expired shares", "err", err)
 	}
 

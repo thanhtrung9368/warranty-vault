@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // MaxDevicesPerUser is the ACTIVE-device quota (FEATURE_IDEAS #14): a device
@@ -937,10 +937,10 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 // different defaults — exactly what the bulk contract forbids.
 type deviceCreateValues struct {
 	purchaseDate       time.Time
-	soldAt             pgtype.Timestamp
-	receivedAt         pgtype.Timestamp
-	activatedAt        pgtype.Timestamp
-	extendedCoverBuyBy pgtype.Timestamp
+	soldAt             wire.Day
+	receivedAt         wire.Day
+	activatedAt        wire.Day
+	extendedCoverBuyBy wire.Day
 	currency           string
 	fxRate             *int32
 	brandWarranty      brandWarrantyValues
@@ -1010,7 +1010,7 @@ func createDeviceParams(userID string, in DeviceInput, values deviceCreateValues
 		Brand:         in.Brand,
 		Model:         in.Model,
 		SerialNumber:  in.SerialNumber,
-		PurchaseDate:  pgtype.Timestamp{Time: values.purchaseDate, Valid: true},
+		PurchaseDate:  wire.Date(values.purchaseDate),
 		PurchasePrice: in.PurchasePrice,
 		PurchasePlace: in.PurchasePlace,
 		Notes:         in.Notes,
@@ -1053,8 +1053,8 @@ func createDeviceWithWarranty(ctx context.Context, tq *store.Queries, userID str
 			DeviceId:  created.ID,
 			Type:      "STANDARD",
 			Provider:  in.WarrantyProvider,
-			StartDate: pgtype.Timestamp{Time: values.purchaseDate, Valid: true},
-			EndDate:   pgtype.Timestamp{Time: end, Valid: true},
+			StartDate: wire.Date(values.purchaseDate),
+			EndDate:   wire.Date(end),
 			Months:    in.WarrantyMonths,
 			Cost:      nil,
 			Address:   in.WarrantyAddress,
@@ -1138,7 +1138,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		Brand:         in.Brand,
 		Model:         in.Model,
 		SerialNumber:  in.SerialNumber,
-		PurchaseDate:  pgtype.Timestamp{Time: purchaseDate, Valid: true},
+		PurchaseDate:  wire.Date(purchaseDate),
 		PurchasePrice: in.PurchasePrice,
 		PurchasePlace: in.PurchasePlace,
 		Status:        in.Status,
@@ -1189,8 +1189,8 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 				UserId:        userID,
 				Type:          "STANDARD",
 				Provider:      in.WarrantyProvider,
-				StartDate:     pgtype.Timestamp{Time: purchaseDate, Valid: true},
-				EndDate:       pgtype.Timestamp{Time: end, Valid: true},
+				StartDate:     wire.Date(purchaseDate),
+				EndDate:       wire.Date(end),
 				Months:        in.WarrantyMonths,
 				Cost:          existing.Cost,
 				Address:       in.WarrantyAddress,
@@ -1214,8 +1214,8 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 				DeviceId:  id,
 				Type:      "STANDARD",
 				Provider:  in.WarrantyProvider,
-				StartDate: pgtype.Timestamp{Time: purchaseDate, Valid: true},
-				EndDate:   pgtype.Timestamp{Time: end, Valid: true},
+				StartDate: wire.Date(purchaseDate),
+				EndDate:   wire.Date(end),
 				Months:    in.WarrantyMonths,
 				Cost:      nil,
 				Address:   in.WarrantyAddress,
@@ -1463,80 +1463,80 @@ func parseDate(s string) (time.Time, error) {
 }
 
 // parseSoldAt converts the optional `soldAt` input (same accepted formats as
-// purchaseDate: YYYY-MM-DD or RFC3339) into a pgtype.Timestamp for the write
+// purchaseDate: YYYY-MM-DD or RFC3339) into the calendar-day column for the write
 // path. nil / absent → zero (invalid) timestamp, which pgx writes as SQL NULL —
 // the "not sold" state.
-func parseSoldAt(ctx context.Context, in *string) (pgtype.Timestamp, error) {
+func parseSoldAt(ctx context.Context, in *string) (wire.Day, error) {
 	if in == nil {
-		return pgtype.Timestamp{}, nil
+		return wire.Day{}, nil
 	}
 	t, err := parseDate(*in)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+		return wire.Day{}, ErrValidationHeadline(FieldErrors{
 			"soldAt": {i18n.Text(ctx, "Ngày bán không hợp lệ")},
 		})
 	}
-	return pgtype.Timestamp{Time: t, Valid: true}, nil
+	return wire.Date(t), nil
 }
 
 // parseReceivedAt converts the optional `receivedAt` input (same accepted formats
-// as purchaseDate: YYYY-MM-DD or RFC3339) into a pgtype.Timestamp for the write
+// as purchaseDate: YYYY-MM-DD or RFC3339) into the calendar-day column for the write
 // path. nil / absent → zero (invalid) timestamp, which pgx writes as SQL NULL —
 // "delivery date not recorded", which is deliberately different from "delivered on
 // the purchase date": the deadline falls back to purchaseDate but the UI can still
 // say the date is unknown.
-func parseReceivedAt(ctx context.Context, in *string) (pgtype.Timestamp, error) {
+func parseReceivedAt(ctx context.Context, in *string) (wire.Day, error) {
 	if in == nil {
-		return pgtype.Timestamp{}, nil
+		return wire.Day{}, nil
 	}
 	t, err := parseDate(*in)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+		return wire.Day{}, ErrValidationHeadline(FieldErrors{
 			"receivedAt": {i18n.Text(ctx, "Ngày nhận hàng không hợp lệ")},
 		})
 	}
-	return pgtype.Timestamp{Time: t, Valid: true}, nil
+	return wire.Date(t), nil
 }
 
 // parseActivatedAt converts the optional `activatedAt` input (YYYY-MM-DD or
-// RFC3339) into a pgtype.Timestamp. nil / absent → SQL NULL = "not activated",
+// RFC3339) into its calendar-day column. nil / absent → SQL NULL = "not activated",
 // which is also what the once-only activation reminder keys on.
 //
 // There is NO comparison against purchaseDate here, on purpose. An activation
 // timestamp BEFORE the invoice is a legitimate state — a shop can activate stock
 // before selling it — and the frozen contract says so explicitly. Rejecting it
 // would turn real data into a validation error.
-func parseActivatedAt(ctx context.Context, in *string) (pgtype.Timestamp, error) {
+func parseActivatedAt(ctx context.Context, in *string) (wire.Day, error) {
 	if in == nil {
-		return pgtype.Timestamp{}, nil
+		return wire.Day{}, nil
 	}
 	t, err := parseDate(*in)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+		return wire.Day{}, ErrValidationHeadline(FieldErrors{
 			"activatedAt": {i18n.Text(ctx, "Ngày kích hoạt không hợp lệ")},
 		})
 	}
-	return pgtype.Timestamp{Time: t, Valid: true}, nil
+	return wire.Date(t), nil
 }
 
 // parseExtendedCoverBuyBy converts the optional `extendedCoverBuyBy` input
-// (YYYY-MM-DD or RFC3339) into a pgtype.Timestamp. nil / absent → SQL NULL =
+// (YYYY-MM-DD or RFC3339) into its calendar-day column. nil / absent → SQL NULL =
 // "no extended-cover deadline".
 //
 // No day count is added or subtracted: the deadline is whatever the user entered.
 // The API does not know, and must not pretend to know, AppleCare+'s or any other
 // brand's window.
-func parseExtendedCoverBuyBy(ctx context.Context, in *string) (pgtype.Timestamp, error) {
+func parseExtendedCoverBuyBy(ctx context.Context, in *string) (wire.Day, error) {
 	if in == nil {
-		return pgtype.Timestamp{}, nil
+		return wire.Day{}, nil
 	}
 	t, err := parseDate(*in)
 	if err != nil {
-		return pgtype.Timestamp{}, ErrValidationHeadline(FieldErrors{
+		return wire.Day{}, ErrValidationHeadline(FieldErrors{
 			"extendedCoverBuyBy": {i18n.Text(ctx, "Hạn mua bảo hiểm mở rộng không hợp lệ")},
 		})
 	}
-	return pgtype.Timestamp{Time: t, Valid: true}, nil
+	return wire.Date(t), nil
 }
 
 // addMonths mirrors date-fns/addMonths: clamps the day-of-month to the last

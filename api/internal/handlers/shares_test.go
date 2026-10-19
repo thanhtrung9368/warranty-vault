@@ -9,14 +9,13 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // FEATURE_IDEAS #2 — phiếu bàn giao bảo hành + link chia sẻ có token.
@@ -859,7 +858,7 @@ func TestPruneExpiredSharesRemovesOnlyLongDeadLinks(t *testing.T) {
 		t.Fatalf("expire a share: %v", err)
 	}
 
-	n, err := store.New(env.pool).PruneExpiredShares(ctx, pgtype.Timestamp{Time: time.Now(), Valid: true})
+	n, err := store.New(env.pool).PruneExpiredShares(ctx, wire.At(time.Now()))
 	if err != nil {
 		t.Fatalf("prune: %v", err)
 	}

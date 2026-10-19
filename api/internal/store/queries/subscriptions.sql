@@ -141,8 +141,8 @@ FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
   AND sqlc.arg('leadDay')::int = ANY("leadDays")
-  AND "renewalDate" >= $1
-  AND "renewalDate" <  $2
+  AND "renewalDate" >= sqlc.arg('windowStart')::timestamp
+  AND "renewalDate" <  sqlc.arg('windowEnd')::timestamp
   AND (
       "lastNotifiedRenewalAt" IS NULL
       OR "lastNotifiedRenewalAt"::date < CURRENT_DATE
@@ -167,7 +167,7 @@ SELECT *
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
-  AND "renewalDate" < $1;
+  AND "renewalDate" < sqlc.arg('today')::timestamp;
 
 -- name: AdvanceSubscriptionRenewal :one
 -- Called inside a transaction with CreateSubscriptionPayment. Stamps
@@ -241,8 +241,8 @@ FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "trialEndsAt" IS NOT NULL
   AND sqlc.arg('leadDay')::int = ANY("leadDays")
-  AND "trialEndsAt" >= $1
-  AND "trialEndsAt" <  $2
+  AND "trialEndsAt" >= sqlc.arg('windowStart')::timestamp
+  AND "trialEndsAt" <  sqlc.arg('windowEnd')::timestamp
   AND (
       "trialNotifiedAt" IS NULL
       OR "trialNotifiedAt"::date < CURRENT_DATE

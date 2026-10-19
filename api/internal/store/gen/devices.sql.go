@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const countActiveDevicesByUser = `-- name: CountActiveDevicesByUser :one
@@ -134,8 +134,8 @@ INSERT INTO "Device" (
     COALESCE(NULLIF($21::text, ''), 'VND'),
     $22::int,
     $23::text,
-    $24::timestamp,
-    $25::timestamp,
+    $24,
+    $25,
     $26::timestamp,
     $27::text,
     NOW(),
@@ -145,33 +145,33 @@ RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseD
 `
 
 type CreateDeviceParams struct {
-	ID                  string           `json:"id"`
-	UserId              string           `json:"userId"`
-	Name                string           `json:"name"`
-	Category            string           `json:"category"`
-	Brand               *string          `json:"brand"`
-	Model               *string          `json:"model"`
-	SerialNumber        *string          `json:"serialNumber"`
-	PurchaseDate        pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice       int32            `json:"purchasePrice"`
-	PurchasePlace       *string          `json:"purchasePlace"`
-	Notes               *string          `json:"notes"`
-	SoldAt              pgtype.Timestamp `json:"soldAt"`
-	SoldPrice           *int32           `json:"soldPrice"`
-	ReturnWindowDays    *int32           `json:"returnWindowDays"`
-	ReceivedAt          pgtype.Timestamp `json:"receivedAt"`
-	ActivationRequired  bool             `json:"activationRequired"`
-	ActivatedAt         pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy  pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	Status              *string          `json:"status"`
-	LeadDays            []int32          `json:"leadDays"`
-	Currency            string           `json:"currency"`
-	FxRate              *int32           `json:"fxRate"`
-	BrandWarrantyStatus *string          `json:"brandWarrantyStatus"`
-	BrandWarrantyStart  pgtype.Timestamp `json:"brandWarrantyStart"`
-	BrandWarrantyEnd    pgtype.Timestamp `json:"brandWarrantyEnd"`
-	BrandCheckedAt      pgtype.Timestamp `json:"brandCheckedAt"`
-	BrandLookupUrl      *string          `json:"brandLookupUrl"`
+	ID                  string       `json:"id"`
+	UserId              string       `json:"userId"`
+	Name                string       `json:"name"`
+	Category            string       `json:"category"`
+	Brand               *string      `json:"brand"`
+	Model               *string      `json:"model"`
+	SerialNumber        *string      `json:"serialNumber"`
+	PurchaseDate        wire.Day     `json:"purchaseDate"`
+	PurchasePrice       int32        `json:"purchasePrice"`
+	PurchasePlace       *string      `json:"purchasePlace"`
+	Notes               *string      `json:"notes"`
+	SoldAt              wire.Day     `json:"soldAt"`
+	SoldPrice           *int32       `json:"soldPrice"`
+	ReturnWindowDays    *int32       `json:"returnWindowDays"`
+	ReceivedAt          wire.Day     `json:"receivedAt"`
+	ActivationRequired  bool         `json:"activationRequired"`
+	ActivatedAt         wire.Day     `json:"activatedAt"`
+	ExtendedCoverBuyBy  wire.Day     `json:"extendedCoverBuyBy"`
+	Status              *string      `json:"status"`
+	LeadDays            []int32      `json:"leadDays"`
+	Currency            string       `json:"currency"`
+	FxRate              *int32       `json:"fxRate"`
+	BrandWarrantyStatus *string      `json:"brandWarrantyStatus"`
+	BrandWarrantyStart  wire.Day     `json:"brandWarrantyStart"`
+	BrandWarrantyEnd    wire.Day     `json:"brandWarrantyEnd"`
+	BrandCheckedAt      wire.Instant `json:"brandCheckedAt"`
+	BrandLookupUrl      *string      `json:"brandLookupUrl"`
 }
 
 // currency/fxRate (migration 0022): fxRate is the VND value of one unit of
@@ -660,16 +660,16 @@ WHERE d.status = 'ACTIVE'
 `
 
 type ListExtendedCoverInWindowParams struct {
-	LeadDay     int32            `json:"leadDay"`
-	WindowStart pgtype.Timestamp `json:"windowStart"`
-	WindowEnd   pgtype.Timestamp `json:"windowEnd"`
+	LeadDay     int32        `json:"leadDay"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 type ListExtendedCoverInWindowRow struct {
-	ID                 string           `json:"id"`
-	UserID             string           `json:"user_id"`
-	DeviceName         string           `json:"device_name"`
-	ExtendedCoverBuyBy pgtype.Timestamp `json:"extended_cover_buy_by"`
+	ID                 string   `json:"id"`
+	UserID             string   `json:"user_id"`
+	DeviceName         string   `json:"device_name"`
+	ExtendedCoverBuyBy wire.Day `json:"extended_cover_buy_by"`
 }
 
 // Cron support (migration 0016, Feature A). ACTIVE devices whose
@@ -773,8 +773,8 @@ UPDATE "Device" SET
     currency = $21,
     "fxRate" = $22,
     "brandWarrantyStatus" = $23::text,
-    "brandWarrantyStart" = $24::timestamp,
-    "brandWarrantyEnd" = $25::timestamp,
+    "brandWarrantyStart" = $24,
+    "brandWarrantyEnd" = $25,
     "brandCheckedAt" = $26::timestamp,
     "brandLookupUrl" = $27::text,
     "updatedAt" = NOW()
@@ -783,33 +783,33 @@ RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseD
 `
 
 type UpdateDeviceParams struct {
-	ID                  string           `json:"id"`
-	UserId              string           `json:"userId"`
-	Name                string           `json:"name"`
-	Category            string           `json:"category"`
-	Brand               *string          `json:"brand"`
-	Model               *string          `json:"model"`
-	SerialNumber        *string          `json:"serialNumber"`
-	PurchaseDate        pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice       int32            `json:"purchasePrice"`
-	PurchasePlace       *string          `json:"purchasePlace"`
-	Status              string           `json:"status"`
-	Notes               *string          `json:"notes"`
-	SoldAt              pgtype.Timestamp `json:"soldAt"`
-	SoldPrice           *int32           `json:"soldPrice"`
-	ReturnWindowDays    *int32           `json:"returnWindowDays"`
-	ReceivedAt          pgtype.Timestamp `json:"receivedAt"`
-	LeadDays            []int32          `json:"leadDays"`
-	ActivationRequired  bool             `json:"activationRequired"`
-	ActivatedAt         pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy  pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	Currency            string           `json:"currency"`
-	FxRate              *int32           `json:"fxRate"`
-	BrandWarrantyStatus *string          `json:"brandWarrantyStatus"`
-	BrandWarrantyStart  pgtype.Timestamp `json:"brandWarrantyStart"`
-	BrandWarrantyEnd    pgtype.Timestamp `json:"brandWarrantyEnd"`
-	BrandCheckedAt      pgtype.Timestamp `json:"brandCheckedAt"`
-	BrandLookupUrl      *string          `json:"brandLookupUrl"`
+	ID                  string       `json:"id"`
+	UserId              string       `json:"userId"`
+	Name                string       `json:"name"`
+	Category            string       `json:"category"`
+	Brand               *string      `json:"brand"`
+	Model               *string      `json:"model"`
+	SerialNumber        *string      `json:"serialNumber"`
+	PurchaseDate        wire.Day     `json:"purchaseDate"`
+	PurchasePrice       int32        `json:"purchasePrice"`
+	PurchasePlace       *string      `json:"purchasePlace"`
+	Status              string       `json:"status"`
+	Notes               *string      `json:"notes"`
+	SoldAt              wire.Day     `json:"soldAt"`
+	SoldPrice           *int32       `json:"soldPrice"`
+	ReturnWindowDays    *int32       `json:"returnWindowDays"`
+	ReceivedAt          wire.Day     `json:"receivedAt"`
+	LeadDays            []int32      `json:"leadDays"`
+	ActivationRequired  bool         `json:"activationRequired"`
+	ActivatedAt         wire.Day     `json:"activatedAt"`
+	ExtendedCoverBuyBy  wire.Day     `json:"extendedCoverBuyBy"`
+	Currency            string       `json:"currency"`
+	FxRate              *int32       `json:"fxRate"`
+	BrandWarrantyStatus *string      `json:"brandWarrantyStatus"`
+	BrandWarrantyStart  wire.Day     `json:"brandWarrantyStart"`
+	BrandWarrantyEnd    wire.Day     `json:"brandWarrantyEnd"`
+	BrandCheckedAt      wire.Instant `json:"brandCheckedAt"`
+	BrandLookupUrl      *string      `json:"brandLookupUrl"`
 }
 
 // Brand lookup fields are part of the full replacement, like soldAt/returnWindowDays:

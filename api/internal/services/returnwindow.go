@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Return / exchange window ("1 đổi 1") — FEATURE_IDEAS #1.
@@ -116,7 +115,7 @@ func ListReturnWindows(ctx context.Context, db *pgxpool.Pool, userID string, now
 
 	rows, err := store.New(db).ListOpenReturnWindows(ctx, store.ListOpenReturnWindowsParams{
 		UserId:       userID,
-		StartOfToday: pgtype.Timestamp{Time: startOfToday.UTC(), Valid: true},
+		StartOfToday: wire.At(startOfToday.UTC()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list open return windows: %w", err)
@@ -138,7 +137,7 @@ func ListReturnWindows(ctx context.Context, db *pgxpool.Pool, userID string, now
 			Model:            r.Model,
 			SerialNumber:     r.SerialNumber,
 			Status:           r.Status,
-			ReceivedAt:       tsPtrUTC(r.ReceivedAt),
+			ReceivedAt:       tsPtrUTC(r.ReceivedAt.Instant()),
 			ReturnWindowDays: *r.ReturnWindowDays,
 			ReturnDeadline:   r.ReturnDeadline.Time.UTC().Format(time.RFC3339Nano),
 			DaysLeft:         DaysUntil(r.ReturnDeadline.Time, now),
@@ -174,7 +173,7 @@ func deviceReturnDeadline(d store.Device) *time.Time {
 // tsPtrUTC formats an optional timestamp as RFC3339Nano UTC, or nil when absent.
 // Mirrors the convention used by ForecastWarranty.EndDate and
 // AttachmentMeta.UploadedAt.
-func tsPtrUTC(t pgtype.Timestamp) *string {
+func tsPtrUTC(t wire.Instant) *string {
 	if !t.Valid {
 		return nil
 	}

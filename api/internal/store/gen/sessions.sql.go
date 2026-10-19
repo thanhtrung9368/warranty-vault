@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const createSession = `-- name: CreateSession :one
@@ -18,12 +18,12 @@ RETURNING id, "userId", "tokenHash", "deviceLabel", platform, "lastSeenAt", "exp
 `
 
 type CreateSessionParams struct {
-	ID          string           `json:"id"`
-	UserId      string           `json:"userId"`
-	TokenHash   string           `json:"tokenHash"`
-	DeviceLabel *string          `json:"deviceLabel"`
-	Platform    *string          `json:"platform"`
-	ExpiresAt   pgtype.Timestamp `json:"expiresAt"`
+	ID          string       `json:"id"`
+	UserId      string       `json:"userId"`
+	TokenHash   string       `json:"tokenHash"`
+	DeviceLabel *string      `json:"deviceLabel"`
+	Platform    *string      `json:"platform"`
+	ExpiresAt   wire.Instant `json:"expiresAt"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
@@ -58,8 +58,8 @@ WHERE id = $1
 `
 
 type ExtendSessionParams struct {
-	ID        string           `json:"id"`
-	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
+	ID        string       `json:"id"`
+	ExpiresAt wire.Instant `json:"expiresAt"`
 }
 
 func (q *Queries) ExtendSession(ctx context.Context, arg ExtendSessionParams) error {
@@ -126,20 +126,20 @@ LIMIT 1
 `
 
 type GetSessionByTokenHashRow struct {
-	SessionID          string           `json:"session_id"`
-	UserID             string           `json:"user_id"`
-	TokenHash          string           `json:"token_hash"`
-	DeviceLabel        *string          `json:"device_label"`
-	Platform           *string          `json:"platform"`
-	LastSeenAt         pgtype.Timestamp `json:"last_seen_at"`
-	ExpiresAt          pgtype.Timestamp `json:"expires_at"`
-	RevokedAt          pgtype.Timestamp `json:"revoked_at"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	UID                string           `json:"u_id"`
-	UEmail             string           `json:"u_email"`
-	UName              *string          `json:"u_name"`
-	ULocale            *string          `json:"u_locale"`
-	UPasswordChangedAt pgtype.Timestamp `json:"u_password_changed_at"`
+	SessionID          string       `json:"session_id"`
+	UserID             string       `json:"user_id"`
+	TokenHash          string       `json:"token_hash"`
+	DeviceLabel        *string      `json:"device_label"`
+	Platform           *string      `json:"platform"`
+	LastSeenAt         wire.Instant `json:"last_seen_at"`
+	ExpiresAt          wire.Instant `json:"expires_at"`
+	RevokedAt          wire.Instant `json:"revoked_at"`
+	CreatedAt          wire.Instant `json:"created_at"`
+	UID                string       `json:"u_id"`
+	UEmail             string       `json:"u_email"`
+	UName              *string      `json:"u_name"`
+	ULocale            *string      `json:"u_locale"`
+	UPasswordChangedAt wire.Instant `json:"u_password_changed_at"`
 }
 
 func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenhash string) (GetSessionByTokenHashRow, error) {
@@ -182,17 +182,17 @@ LIMIT 100
 `
 
 type ListActiveSessionsForUserParams struct {
-	UserId    string           `json:"userId"`
-	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
+	UserId    string       `json:"userId"`
+	ExpiresAt wire.Instant `json:"expiresAt"`
 }
 
 type ListActiveSessionsForUserRow struct {
-	ID          string           `json:"id"`
-	DeviceLabel *string          `json:"deviceLabel"`
-	Platform    *string          `json:"platform"`
-	LastSeenAt  pgtype.Timestamp `json:"lastSeenAt"`
-	ExpiresAt   pgtype.Timestamp `json:"expiresAt"`
-	CreatedAt   pgtype.Timestamp `json:"createdAt"`
+	ID          string       `json:"id"`
+	DeviceLabel *string      `json:"deviceLabel"`
+	Platform    *string      `json:"platform"`
+	LastSeenAt  wire.Instant `json:"lastSeenAt"`
+	ExpiresAt   wire.Instant `json:"expiresAt"`
+	CreatedAt   wire.Instant `json:"createdAt"`
 }
 
 // ─── Per-session management (GET/DELETE /api/v1/auth/sessions) ────────────

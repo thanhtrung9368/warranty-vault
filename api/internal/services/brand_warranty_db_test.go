@@ -6,9 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Real-Postgres proof for brand warranty lookup (gap #11, migration 0023).
@@ -41,7 +40,7 @@ func brandWarrantyUser(t *testing.T, pool *pgxpool.Pool, id string) string {
 }
 
 func readBrandWarrantyColumns(t *testing.T, pool *pgxpool.Pool, id string) (
-	status *string, start, end, checked pgtype.Timestamp, lookupURL *string,
+	status *string, start, end, checked wire.Instant, lookupURL *string,
 ) {
 	t.Helper()
 	err := pool.QueryRow(context.Background(),

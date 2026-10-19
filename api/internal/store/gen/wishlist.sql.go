@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const countWishlistByUser = `-- name: CountWishlistByUser :one
@@ -53,20 +53,20 @@ RETURNING id, "userId", name, category, brand, "initialPrice", "currentPrice", "
 `
 
 type CreateWishlistParams struct {
-	ID                   string           `json:"id"`
-	UserId               string           `json:"userId"`
-	Name                 string           `json:"name"`
-	Category             *string          `json:"category"`
-	Brand                *string          `json:"brand"`
-	InitialPrice         *int32           `json:"initialPrice"`
-	CurrentPrice         *int32           `json:"currentPrice"`
-	BuyUrl               *string          `json:"buyUrl"`
-	ImageUrl             *string          `json:"imageUrl"`
-	TargetDate           pgtype.Timestamp `json:"targetDate"`
-	Notes                *string          `json:"notes"`
-	ReminderIntervalDays *int32           `json:"reminderIntervalDays"`
-	Priority             *string          `json:"priority"`
-	Status               *string          `json:"status"`
+	ID                   string   `json:"id"`
+	UserId               string   `json:"userId"`
+	Name                 string   `json:"name"`
+	Category             *string  `json:"category"`
+	Brand                *string  `json:"brand"`
+	InitialPrice         *int32   `json:"initialPrice"`
+	CurrentPrice         *int32   `json:"currentPrice"`
+	BuyUrl               *string  `json:"buyUrl"`
+	ImageUrl             *string  `json:"imageUrl"`
+	TargetDate           wire.Day `json:"targetDate"`
+	Notes                *string  `json:"notes"`
+	ReminderIntervalDays *int32   `json:"reminderIntervalDays"`
+	Priority             *string  `json:"priority"`
+	Status               *string  `json:"status"`
 }
 
 func (q *Queries) CreateWishlist(ctx context.Context, arg CreateWishlistParams) (WishlistItem, error) {
@@ -360,14 +360,14 @@ SELECT id, "userId", name, category, brand, "initialPrice", "currentPrice", "buy
 FROM "WishlistItem"
 WHERE status IN ('WATCHING', 'DECIDED')
   AND "targetDate" IS NOT NULL
-  AND "targetDate" >= $1
-  AND "targetDate" <  $2
+  AND "targetDate" >= $1::timestamp
+  AND "targetDate" <  $2::timestamp
   AND ("lastNotifiedAt" IS NULL OR "lastNotifiedAt"::date < CURRENT_DATE)
 `
 
 type ListWishlistTargetDateDueParams struct {
-	TargetDate   pgtype.Timestamp `json:"targetDate"`
-	TargetDate_2 pgtype.Timestamp `json:"targetDate_2"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 // ─── Cron fan-out queries ─────────────────────────────────────────────────
@@ -376,7 +376,7 @@ type ListWishlistTargetDateDueParams struct {
 // guard against re-firing the same target-date push when the cron runs more
 // than once in a day. The cron stamps lastNotifiedAt = NOW() after firing.
 func (q *Queries) ListWishlistTargetDateDue(ctx context.Context, arg ListWishlistTargetDateDueParams) ([]WishlistItem, error) {
-	rows, err := q.db.Query(ctx, listWishlistTargetDateDue, arg.TargetDate, arg.TargetDate_2)
+	rows, err := q.db.Query(ctx, listWishlistTargetDateDue, arg.WindowStart, arg.WindowEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -593,20 +593,20 @@ RETURNING id, "userId", name, category, brand, "initialPrice", "currentPrice", "
 `
 
 type UpdateWishlistParams struct {
-	ID                   string           `json:"id"`
-	UserId               string           `json:"userId"`
-	Name                 string           `json:"name"`
-	Category             *string          `json:"category"`
-	Brand                *string          `json:"brand"`
-	InitialPrice         *int32           `json:"initialPrice"`
-	CurrentPrice         *int32           `json:"currentPrice"`
-	BuyUrl               *string          `json:"buyUrl"`
-	ImageUrl             *string          `json:"imageUrl"`
-	TargetDate           pgtype.Timestamp `json:"targetDate"`
-	Priority             string           `json:"priority"`
-	Status               string           `json:"status"`
-	Notes                *string          `json:"notes"`
-	ReminderIntervalDays *int32           `json:"reminderIntervalDays"`
+	ID                   string   `json:"id"`
+	UserId               string   `json:"userId"`
+	Name                 string   `json:"name"`
+	Category             *string  `json:"category"`
+	Brand                *string  `json:"brand"`
+	InitialPrice         *int32   `json:"initialPrice"`
+	CurrentPrice         *int32   `json:"currentPrice"`
+	BuyUrl               *string  `json:"buyUrl"`
+	ImageUrl             *string  `json:"imageUrl"`
+	TargetDate           wire.Day `json:"targetDate"`
+	Priority             string   `json:"priority"`
+	Status               string   `json:"status"`
+	Notes                *string  `json:"notes"`
+	ReminderIntervalDays *int32   `json:"reminderIntervalDays"`
 }
 
 func (q *Queries) UpdateWishlist(ctx context.Context, arg UpdateWishlistParams) (WishlistItem, error) {

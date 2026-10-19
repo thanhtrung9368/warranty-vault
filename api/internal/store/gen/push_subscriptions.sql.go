@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const createPushSubscription = `-- name: CreatePushSubscription :one
@@ -165,14 +165,14 @@ ORDER BY "createdAt" DESC
 `
 
 type ListPushSubscriptionsByUserRow struct {
-	ID        string           `json:"id"`
-	UserId    string           `json:"userId"`
-	Endpoint  string           `json:"endpoint"`
-	P256dh    *string          `json:"p256dh"`
-	Auth      *string          `json:"auth"`
-	UserAgent *string          `json:"userAgent"`
-	Platform  string           `json:"platform"`
-	CreatedAt pgtype.Timestamp `json:"createdAt"`
+	ID        string       `json:"id"`
+	UserId    string       `json:"userId"`
+	Endpoint  string       `json:"endpoint"`
+	P256dh    *string      `json:"p256dh"`
+	Auth      *string      `json:"auth"`
+	UserAgent *string      `json:"userAgent"`
+	Platform  string       `json:"platform"`
+	CreatedAt wire.Instant `json:"createdAt"`
 }
 
 // PushSubscription CRUD.
@@ -221,14 +221,14 @@ type ListPushSubscriptionsByUserAndPlatformParams struct {
 }
 
 type ListPushSubscriptionsByUserAndPlatformRow struct {
-	ID        string           `json:"id"`
-	UserId    string           `json:"userId"`
-	Endpoint  string           `json:"endpoint"`
-	P256dh    *string          `json:"p256dh"`
-	Auth      *string          `json:"auth"`
-	UserAgent *string          `json:"userAgent"`
-	Platform  string           `json:"platform"`
-	CreatedAt pgtype.Timestamp `json:"createdAt"`
+	ID        string       `json:"id"`
+	UserId    string       `json:"userId"`
+	Endpoint  string       `json:"endpoint"`
+	P256dh    *string      `json:"p256dh"`
+	Auth      *string      `json:"auth"`
+	UserAgent *string      `json:"userAgent"`
+	Platform  string       `json:"platform"`
+	CreatedAt wire.Instant `json:"createdAt"`
 }
 
 func (q *Queries) ListPushSubscriptionsByUserAndPlatform(ctx context.Context, arg ListPushSubscriptionsByUserAndPlatformParams) ([]ListPushSubscriptionsByUserAndPlatformRow, error) {

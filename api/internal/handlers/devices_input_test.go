@@ -184,7 +184,7 @@ func TestDeviceCreateAcceptsEveryDocumentedFieldAndLinksWishlist(t *testing.T) {
 	if d.Name != "iPhone 17 Pro" || d.Currency != "USD" ||
 		d.FxRate == nil || *d.FxRate != 26000 ||
 		d.ReturnWindowDays == nil || *d.ReturnWindowDays != 30 ||
-		d.ReceivedAt == nil || *d.ReceivedAt != "2026-01-20T00:00:00" ||
+		d.ReceivedAt == nil || *d.ReceivedAt != "2026-01-20" ||
 		len(d.LeadDays) != 2 || d.LeadDays[0] != 30 || d.LeadDays[1] != 7 ||
 		d.BrandWarrantyStatus == nil || *d.BrandWarrantyStatus != "ACTIVE" {
 		t.Fatalf("created device does not round-trip the documented fields: %+v", d)
@@ -343,10 +343,10 @@ func TestDevicePatchAcceptsEveryDocumentedField(t *testing.T) {
 	if d.ID != deviceID || d.Name != "iPhone 17 Pro Max" || d.Currency != "USD" ||
 		d.FxRate == nil || *d.FxRate != 26000 ||
 		d.ReturnWindowDays == nil || *d.ReturnWindowDays != 14 ||
-		d.ReceivedAt == nil || *d.ReceivedAt != "2026-01-20T00:00:00" ||
+		d.ReceivedAt == nil || *d.ReceivedAt != "2026-01-20" ||
 		len(d.LeadDays) != 2 || d.LeadDays[0] != 14 || d.LeadDays[1] != 3 ||
 		d.BrandWarrantyStatus == nil || *d.BrandWarrantyStatus != "EXPIRED" ||
-		d.SoldAt == nil || *d.SoldAt != "2026-06-01T00:00:00" ||
+		d.SoldAt == nil || *d.SoldAt != "2026-06-01" ||
 		d.SoldPrice == nil || *d.SoldPrice != 600 {
 		t.Fatalf("updated device does not round-trip the documented fields: %+v", d)
 	}

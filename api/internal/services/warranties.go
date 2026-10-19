@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // MaxWarrantiesPerDevice mirrors website/src/lib/services/warranties.ts.
@@ -312,8 +312,8 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 		DeviceId:      deviceID,
 		Type:          in.Type,
 		Provider:      in.Provider,
-		StartDate:     pgtype.Timestamp{Time: startDate, Valid: true},
-		EndDate:       pgtype.Timestamp{Time: endDate, Valid: true},
+		StartDate:     wire.Date(startDate),
+		EndDate:       wire.Date(endDate),
 		Months:        in.Months,
 		Cost:          in.Cost,
 		Address:       in.Address,
@@ -389,8 +389,8 @@ func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID st
 		UserId:        userID,
 		Type:          in.Type,
 		Provider:      in.Provider,
-		StartDate:     pgtype.Timestamp{Time: startDate, Valid: true},
-		EndDate:       pgtype.Timestamp{Time: endDate, Valid: true},
+		StartDate:     wire.Date(startDate),
+		EndDate:       wire.Date(endDate),
 		Months:        in.Months,
 		Cost:          in.Cost,
 		Address:       in.Address,

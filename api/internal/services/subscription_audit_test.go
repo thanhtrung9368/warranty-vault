@@ -4,10 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Subscription audit (FEATURE_IDEAS #4) — the threshold logic, against fixtures.
@@ -27,7 +26,9 @@ import (
 
 var auditNow = time.Date(2026, time.September, 15, 12, 0, 0, 0, time.UTC)
 
-func tsForAudit(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t, Valid: true} }
+func tsForAudit(t time.Time) wire.Instant { return wire.At(t) }
+
+func dayForAudit(t time.Time) wire.Day { return wire.Date(t) }
 
 func auditSub(id, name, cycle string, price int32, autoRenew bool) store.ListSubscriptionPaymentAuditRow {
 	return store.ListSubscriptionPaymentAuditRow{
@@ -37,8 +38,8 @@ func auditSub(id, name, cycle string, price int32, autoRenew bool) store.ListSub
 		Price:        price,
 		AutoRenew:    autoRenew,
 		Status:       SubscriptionStatusActive,
-		RenewalDate:  tsForAudit(auditNow.AddDate(0, 0, 3)),
-		StartedAt:    tsForAudit(auditNow.AddDate(-1, 0, 0)),
+		RenewalDate:  dayForAudit(auditNow.AddDate(0, 0, 3)),
+		StartedAt:    dayForAudit(auditNow.AddDate(-1, 0, 0)),
 	}
 }
 
@@ -115,8 +116,8 @@ func TestAuditQuietAutoRenewIsSuppressed(t *testing.T) {
 		{"no payments at all", func(r *store.ListSubscriptionPaymentAuditRow) {
 			r.AutoRenewCount = 0
 			r.PaymentCount = 0
-			r.FirstPaidAt = pgtype.Timestamp{}
-			r.LastPaidAt = pgtype.Timestamp{}
+			r.FirstPaidAt = wire.Instant{}
+			r.LastPaidAt = wire.Instant{}
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

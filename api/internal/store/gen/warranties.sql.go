@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const countActiveReminders = `-- name: CountActiveReminders :one
@@ -17,8 +17,8 @@ FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" >= $2
-  AND w."endDate" <= $3
+  AND w."endDate" >= $2::timestamp
+  AND w."endDate" <= $3::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
@@ -26,15 +26,15 @@ WHERE d."userId" = $1
 `
 
 type CountActiveRemindersParams struct {
-	UserId    string           `json:"userId"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	EndDate_2 pgtype.Timestamp `json:"endDate_2"`
+	UserId      string       `json:"userId"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 // Used by dashboard badge — same predicate as ListUpcomingReminders but with
 // a fixed [now, now+30d] window.
 func (q *Queries) CountActiveReminders(ctx context.Context, arg CountActiveRemindersParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countActiveReminders, arg.UserId, arg.EndDate, arg.EndDate_2)
+	row := q.db.QueryRow(ctx, countActiveReminders, arg.UserId, arg.WindowStart, arg.WindowEnd)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -112,26 +112,26 @@ RETURNING id, "deviceId", type, provider, "startDate", "endDate", months, cost, 
 `
 
 type CreateWarrantyParams struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	Type          string           `json:"type"`
-	Provider      *string          `json:"provider"`
-	StartDate     pgtype.Timestamp `json:"startDate"`
-	EndDate       pgtype.Timestamp `json:"endDate"`
-	Months        int32            `json:"months"`
-	Cost          *int32           `json:"cost"`
-	Address       *string          `json:"address"`
-	Phone         *string          `json:"phone"`
-	Notes         *string          `json:"notes"`
-	Component     *string          `json:"component"`
-	Scope         *string          `json:"scope"`
-	Cap           *int32           `json:"cap"`
-	Deductible    *int32           `json:"deductible"`
-	Exclusions    *string          `json:"exclusions"`
-	Region        *string          `json:"region"`
-	Transferable  *bool            `json:"transferable"`
-	ClaimsAllowed *int32           `json:"claimsAllowed"`
-	ClaimsUsed    int32            `json:"claimsUsed"`
+	ID            string   `json:"id"`
+	DeviceId      string   `json:"deviceId"`
+	Type          string   `json:"type"`
+	Provider      *string  `json:"provider"`
+	StartDate     wire.Day `json:"startDate"`
+	EndDate       wire.Day `json:"endDate"`
+	Months        int32    `json:"months"`
+	Cost          *int32   `json:"cost"`
+	Address       *string  `json:"address"`
+	Phone         *string  `json:"phone"`
+	Notes         *string  `json:"notes"`
+	Component     *string  `json:"component"`
+	Scope         *string  `json:"scope"`
+	Cap           *int32   `json:"cap"`
+	Deductible    *int32   `json:"deductible"`
+	Exclusions    *string  `json:"exclusions"`
+	Region        *string  `json:"region"`
+	Transferable  *bool    `json:"transferable"`
+	ClaimsAllowed *int32   `json:"claimsAllowed"`
+	ClaimsUsed    int32    `json:"claimsUsed"`
 }
 
 // Carries the nine contract terms added by migration 0017. They are nullable
@@ -395,40 +395,40 @@ ORDER BY w."endDate" ASC
 `
 
 type ListUpcomingRemindersParams struct {
-	UserId           string           `json:"userId"`
-	IncludeDismissed bool             `json:"includeDismissed"`
-	EndDateFrom      pgtype.Timestamp `json:"endDateFrom"`
-	EndDateTo        pgtype.Timestamp `json:"endDateTo"`
+	UserId           string       `json:"userId"`
+	IncludeDismissed bool         `json:"includeDismissed"`
+	EndDateFrom      wire.Instant `json:"endDateFrom"`
+	EndDateTo        wire.Instant `json:"endDateTo"`
 }
 
 type ListUpcomingRemindersRow struct {
-	ID             string           `json:"id"`
-	DeviceId       string           `json:"deviceId"`
-	Type           string           `json:"type"`
-	Provider       *string          `json:"provider"`
-	StartDate      pgtype.Timestamp `json:"startDate"`
-	EndDate        pgtype.Timestamp `json:"endDate"`
-	Months         int32            `json:"months"`
-	Cost           *int32           `json:"cost"`
-	Address        *string          `json:"address"`
-	Phone          *string          `json:"phone"`
-	Notes          *string          `json:"notes"`
-	CreatedAt      pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt      pgtype.Timestamp `json:"updatedAt"`
-	Component      *string          `json:"component"`
-	Scope          *string          `json:"scope"`
-	Cap            *int32           `json:"cap"`
-	Deductible     *int32           `json:"deductible"`
-	Exclusions     *string          `json:"exclusions"`
-	Region         *string          `json:"region"`
-	Transferable   *bool            `json:"transferable"`
-	ClaimsAllowed  *int32           `json:"claimsAllowed"`
-	ClaimsUsed     int32            `json:"claimsUsed"`
-	DeviceID       string           `json:"device_id"`
-	DeviceName     string           `json:"device_name"`
-	DeviceCategory string           `json:"device_category"`
-	DeviceStatus   string           `json:"device_status"`
-	IsDismissed    bool             `json:"is_dismissed"`
+	ID             string       `json:"id"`
+	DeviceId       string       `json:"deviceId"`
+	Type           string       `json:"type"`
+	Provider       *string      `json:"provider"`
+	StartDate      wire.Day     `json:"startDate"`
+	EndDate        wire.Day     `json:"endDate"`
+	Months         int32        `json:"months"`
+	Cost           *int32       `json:"cost"`
+	Address        *string      `json:"address"`
+	Phone          *string      `json:"phone"`
+	Notes          *string      `json:"notes"`
+	CreatedAt      wire.Instant `json:"createdAt"`
+	UpdatedAt      wire.Instant `json:"updatedAt"`
+	Component      *string      `json:"component"`
+	Scope          *string      `json:"scope"`
+	Cap            *int32       `json:"cap"`
+	Deductible     *int32       `json:"deductible"`
+	Exclusions     *string      `json:"exclusions"`
+	Region         *string      `json:"region"`
+	Transferable   *bool        `json:"transferable"`
+	ClaimsAllowed  *int32       `json:"claimsAllowed"`
+	ClaimsUsed     int32        `json:"claimsUsed"`
+	DeviceID       string       `json:"device_id"`
+	DeviceName     string       `json:"device_name"`
+	DeviceCategory string       `json:"device_category"`
+	DeviceStatus   string       `json:"device_status"`
+	IsDismissed    bool         `json:"is_dismissed"`
 }
 
 // ─── Reminders list (GET /v1/reminders) ───────────────────────────────────
@@ -704,9 +704,9 @@ SELECT
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d.status = 'ACTIVE'
-  AND $3::int = ANY(d."leadDays")
-  AND w."endDate" >= $1
-  AND w."endDate" <  $2
+  AND $1::int = ANY(d."leadDays")
+  AND w."endDate" >= $2::timestamp
+  AND w."endDate" <  $3::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
@@ -717,41 +717,41 @@ WHERE d.status = 'ACTIVE'
         AND r."lastNotifiedAt" IS NOT NULL
         AND r."lastNotifiedAt"::date >= CURRENT_DATE
         AND (r."lastNotifiedLeadDay" IS NULL
-             OR r."lastNotifiedLeadDay" = $3::int)
+             OR r."lastNotifiedLeadDay" = $1::int)
   )
 `
 
 type ListWarrantiesInWindowParams struct {
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	EndDate_2 pgtype.Timestamp `json:"endDate_2"`
-	LeadDay   int32            `json:"leadDay"`
+	LeadDay     int32        `json:"leadDay"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 type ListWarrantiesInWindowRow struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	Type          string           `json:"type"`
-	Provider      *string          `json:"provider"`
-	StartDate     pgtype.Timestamp `json:"startDate"`
-	EndDate       pgtype.Timestamp `json:"endDate"`
-	Months        int32            `json:"months"`
-	Cost          *int32           `json:"cost"`
-	Address       *string          `json:"address"`
-	Phone         *string          `json:"phone"`
-	Notes         *string          `json:"notes"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
-	Component     *string          `json:"component"`
-	Scope         *string          `json:"scope"`
-	Cap           *int32           `json:"cap"`
-	Deductible    *int32           `json:"deductible"`
-	Exclusions    *string          `json:"exclusions"`
-	Region        *string          `json:"region"`
-	Transferable  *bool            `json:"transferable"`
-	ClaimsAllowed *int32           `json:"claimsAllowed"`
-	ClaimsUsed    int32            `json:"claimsUsed"`
-	UserID        string           `json:"user_id"`
-	DeviceName    string           `json:"device_name"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	Type          string       `json:"type"`
+	Provider      *string      `json:"provider"`
+	StartDate     wire.Day     `json:"startDate"`
+	EndDate       wire.Day     `json:"endDate"`
+	Months        int32        `json:"months"`
+	Cost          *int32       `json:"cost"`
+	Address       *string      `json:"address"`
+	Phone         *string      `json:"phone"`
+	Notes         *string      `json:"notes"`
+	CreatedAt     wire.Instant `json:"createdAt"`
+	UpdatedAt     wire.Instant `json:"updatedAt"`
+	Component     *string      `json:"component"`
+	Scope         *string      `json:"scope"`
+	Cap           *int32       `json:"cap"`
+	Deductible    *int32       `json:"deductible"`
+	Exclusions    *string      `json:"exclusions"`
+	Region        *string      `json:"region"`
+	Transferable  *bool        `json:"transferable"`
+	ClaimsAllowed *int32       `json:"claimsAllowed"`
+	ClaimsUsed    int32        `json:"claimsUsed"`
+	UserID        string       `json:"user_id"`
+	DeviceName    string       `json:"device_name"`
 }
 
 // ─── Cron: warranty bucket fan-out ────────────────────────────────────────
@@ -772,7 +772,7 @@ type ListWarrantiesInWindowRow struct {
 // means the row was stamped by the pre-0015 code: treat it as suppressing all
 // lead days for the rest of that day, so a deploy-day re-run cannot duplicate.
 func (q *Queries) ListWarrantiesInWindow(ctx context.Context, arg ListWarrantiesInWindowParams) ([]ListWarrantiesInWindowRow, error) {
-	rows, err := q.db.Query(ctx, listWarrantiesInWindow, arg.EndDate, arg.EndDate_2, arg.LeadDay)
+	rows, err := q.db.Query(ctx, listWarrantiesInWindow, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -887,26 +887,26 @@ RETURNING w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.
 `
 
 type UpdateWarrantyParams struct {
-	ID            string           `json:"id"`
-	UserId        string           `json:"userId"`
-	Type          string           `json:"type"`
-	Provider      *string          `json:"provider"`
-	StartDate     pgtype.Timestamp `json:"startDate"`
-	EndDate       pgtype.Timestamp `json:"endDate"`
-	Months        int32            `json:"months"`
-	Cost          *int32           `json:"cost"`
-	Address       *string          `json:"address"`
-	Phone         *string          `json:"phone"`
-	Notes         *string          `json:"notes"`
-	Component     *string          `json:"component"`
-	Scope         *string          `json:"scope"`
-	Cap           *int32           `json:"cap"`
-	Deductible    *int32           `json:"deductible"`
-	Exclusions    *string          `json:"exclusions"`
-	Region        *string          `json:"region"`
-	Transferable  *bool            `json:"transferable"`
-	ClaimsAllowed *int32           `json:"claimsAllowed"`
-	ClaimsUsed    int32            `json:"claimsUsed"`
+	ID            string   `json:"id"`
+	UserId        string   `json:"userId"`
+	Type          string   `json:"type"`
+	Provider      *string  `json:"provider"`
+	StartDate     wire.Day `json:"startDate"`
+	EndDate       wire.Day `json:"endDate"`
+	Months        int32    `json:"months"`
+	Cost          *int32   `json:"cost"`
+	Address       *string  `json:"address"`
+	Phone         *string  `json:"phone"`
+	Notes         *string  `json:"notes"`
+	Component     *string  `json:"component"`
+	Scope         *string  `json:"scope"`
+	Cap           *int32   `json:"cap"`
+	Deductible    *int32   `json:"deductible"`
+	Exclusions    *string  `json:"exclusions"`
+	Region        *string  `json:"region"`
+	Transferable  *bool    `json:"transferable"`
+	ClaimsAllowed *int32   `json:"claimsAllowed"`
+	ClaimsUsed    int32    `json:"claimsUsed"`
 }
 
 // Full replacement of the warranty row. The caller (services.UpdateWarranty)

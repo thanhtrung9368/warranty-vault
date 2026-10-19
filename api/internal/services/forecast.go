@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Spending forecast (FEATURE_IDEAS #8).
@@ -401,8 +400,8 @@ func GetForecast(ctx context.Context, db *pgxpool.Pool, userID string, months in
 		return nil, ErrValidationKeyed(msg, FieldErrors{"months": {msg}})
 	}
 	start, end, _ := ForecastWindow(now, months)
-	rng := pgtype.Timestamp{Time: start, Valid: true}
-	rngEnd := pgtype.Timestamp{Time: end, Valid: true}
+	rng := wire.At(start)
+	rngEnd := wire.At(end)
 
 	q := store.New(db)
 	var (
@@ -426,9 +425,9 @@ func GetForecast(ctx context.Context, db *pgxpool.Pool, userID string, months in
 	})
 	g.Go(func() error {
 		rows, err := q.ListWarrantiesExpiringBetween(gctx, store.ListWarrantiesExpiringBetweenParams{
-			UserId:    userID,
-			EndDate:   rng,
-			EndDate_2: rngEnd,
+			UserId: userID,
+			From:   rng,
+			To:     rngEnd,
 		})
 		if err != nil {
 			return fmt.Errorf("list expiring warranties: %w", err)
@@ -438,9 +437,9 @@ func GetForecast(ctx context.Context, db *pgxpool.Pool, userID string, months in
 	})
 	g.Go(func() error {
 		rows, err := q.ListWishlistTargetsBetween(gctx, store.ListWishlistTargetsBetweenParams{
-			UserId:       userID,
-			TargetDate:   rng,
-			TargetDate_2: rngEnd,
+			UserId: userID,
+			From:   rng,
+			To:     rngEnd,
 		})
 		if err != nil {
 			return fmt.Errorf("list wishlist targets: %w", err)

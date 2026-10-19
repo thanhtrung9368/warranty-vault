@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // ReminderRow is the hydrated row returned to clients for the reminders feed.
@@ -71,8 +70,8 @@ func ListUpcomingReminders(ctx context.Context, db *pgxpool.Pool, userID string,
 	rows, err := q.ListUpcomingReminders(ctx, store.ListUpcomingRemindersParams{
 		UserId:           userID,
 		IncludeDismissed: includeDismissed,
-		EndDateFrom:      pgtype.Timestamp{Time: startOfToday.UTC(), Valid: true},
-		EndDateTo:        pgtype.Timestamp{Time: horizon.UTC(), Valid: true},
+		EndDateFrom:      wire.At(startOfToday.UTC()),
+		EndDateTo:        wire.At(horizon.UTC()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list upcoming reminders: %w", err)

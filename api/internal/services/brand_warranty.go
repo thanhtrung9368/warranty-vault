@@ -6,10 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Brand warranty lookup + mismatch flag (gap #11, migration 0023).
@@ -109,9 +108,9 @@ const mismatchDateLayout = "2006-01-02"
 // pointer/parse dance after ValidateDeviceInput.
 type brandWarrantyValues struct {
 	Status    *string
-	Start     pgtype.Timestamp
-	End       pgtype.Timestamp
-	CheckedAt pgtype.Timestamp
+	Start     wire.Day
+	End       wire.Day
+	CheckedAt wire.Instant
 	LookupURL *string
 }
 
@@ -157,19 +156,19 @@ func parseBrandWarranty(ctx context.Context, in *DeviceInput) (brandWarrantyValu
 		}
 	}
 
-	parse := func(raw *string, field, message string) pgtype.Timestamp {
+	parse := func(raw *string, field, message string) wire.Instant {
 		if raw == nil {
-			return pgtype.Timestamp{}
+			return wire.Instant{}
 		}
 		t, err := parseDate(*raw)
 		if err != nil {
 			fieldErrors[field] = []string{i18n.Text(ctx, message)}
-			return pgtype.Timestamp{}
+			return wire.Instant{}
 		}
-		return pgtype.Timestamp{Time: t, Valid: true}
+		return wire.At(t)
 	}
-	out.Start = parse(in.BrandWarrantyStart, "brandWarrantyStart", "Ngày bắt đầu bảo hành hãng không hợp lệ")
-	out.End = parse(in.BrandWarrantyEnd, "brandWarrantyEnd", "Ngày hết hạn bảo hành hãng không hợp lệ")
+	out.Start = parse(in.BrandWarrantyStart, "brandWarrantyStart", "Ngày bắt đầu bảo hành hãng không hợp lệ").Day()
+	out.End = parse(in.BrandWarrantyEnd, "brandWarrantyEnd", "Ngày hết hạn bảo hành hãng không hợp lệ").Day()
 	out.CheckedAt = parse(in.BrandCheckedAt, "brandCheckedAt", "Thời điểm kiểm tra bảo hành hãng không hợp lệ")
 
 	// Only compare when BOTH parsed. A malformed date has its own field error;

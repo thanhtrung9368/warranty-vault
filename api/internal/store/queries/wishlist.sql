@@ -138,8 +138,8 @@ SELECT *
 FROM "WishlistItem"
 WHERE status IN ('WATCHING', 'DECIDED')
   AND "targetDate" IS NOT NULL
-  AND "targetDate" >= $1
-  AND "targetDate" <  $2
+  AND "targetDate" >= sqlc.arg('windowStart')::timestamp
+  AND "targetDate" <  sqlc.arg('windowEnd')::timestamp
   AND ("lastNotifiedAt" IS NULL OR "lastNotifiedAt"::date < CURRENT_DATE);
 
 -- name: ListWishlistDueForCheckin :many

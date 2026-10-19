@@ -6,9 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // A store.Attachment carries internal columns that must never leave the
@@ -30,7 +29,7 @@ func TestAttachmentMetaDoesNotLeakInternalColumns(t *testing.T) {
 		Iv:          []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		WrappedKey:  []byte{9, 8, 7, 6, 5, 4, 3, 2},
 		Description: &desc,
-		UploadedAt:  pgtype.Timestamp{Time: time.Date(2026, 5, 1, 10, 30, 0, 0, time.UTC), Valid: true},
+		UploadedAt:  wire.At(time.Date(2026, 5, 1, 10, 30, 0, 0, time.UTC)),
 	}
 
 	blob, err := json.Marshal(toAttachmentMeta(row))
@@ -79,7 +78,7 @@ func TestAttachmentMetaExposesExtractedTextOnlyWhenPresent(t *testing.T) {
 		FileType:      "image/png",
 		FileSize:      10,
 		ExtractedText: &text,
-		UploadedAt:    pgtype.Timestamp{Time: time.Date(2026, 5, 1, 10, 30, 0, 0, time.UTC), Valid: true},
+		UploadedAt:    wire.At(time.Date(2026, 5, 1, 10, 30, 0, 0, time.UTC)),
 	}))
 	if err != nil {
 		t.Fatalf("marshal: %v", err)

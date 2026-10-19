@@ -199,8 +199,8 @@ INSERT INTO "Device" (
     COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]),
     $26, $27,
     sqlc.narg('brandWarrantyStatus')::text,
-    sqlc.narg('brandWarrantyStart')::timestamp,
-    sqlc.narg('brandWarrantyEnd')::timestamp,
+    sqlc.narg('brandWarrantyStart'),
+    sqlc.narg('brandWarrantyEnd'),
     sqlc.narg('brandCheckedAt')::timestamp,
     sqlc.narg('brandLookupUrl')::text
 );

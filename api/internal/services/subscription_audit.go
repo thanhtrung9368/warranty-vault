@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"sort"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Subscription audit (FEATURE_IDEAS #4): "gói bị bỏ quên / tăng giá / trùng nhau".
@@ -254,7 +253,7 @@ func BuildSubscriptionAudit(
 		if r.LastPaidAt.Valid {
 			it.LastRecordedAt = tsPtrUTC(r.LastPaidAt)
 		}
-		attachRenewal(&it, r.RenewalDate, now)
+		attachRenewal(&it, r.RenewalDate.Instant(), now)
 		it.Title = textIn(lang, quietAutoRenewTitle)
 		// Singular/plural PAIR with a separate argument list per form: the count
 		// is what makes it singular, so the singular template has no `%d` slot.
@@ -399,7 +398,7 @@ func BuildSubscriptionAudit(
 // attachRenewal fills NextRenewalAt / DaysUntilRenewal when the subscription has
 // a renewal date, so a client can sort "what is about to be charged" without
 // recomputing cycle arithmetic.
-func attachRenewal(it *AuditFinding, renewal pgtype.Timestamp, now time.Time) {
+func attachRenewal(it *AuditFinding, renewal wire.Instant, now time.Time) {
 	if !renewal.Valid {
 		return
 	}

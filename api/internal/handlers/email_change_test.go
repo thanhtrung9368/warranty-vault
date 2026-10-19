@@ -9,12 +9,11 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // The email-change flow (roadmap #10) is two endpoints over the PasswordReset
@@ -405,7 +404,7 @@ func TestPasswordResetTokenKindSplitAtStoreLevel(t *testing.T) {
 		UserId:       userID,
 		TokenHash:    changeHash,
 		PendingEmail: &pending,
-		ExpiresAt:    pgtype.Timestamp{Time: time.Now().Add(10 * time.Minute).UTC(), Valid: true},
+		ExpiresAt:    wire.At(time.Now().Add(10 * time.Minute).UTC()),
 	}); err != nil {
 		t.Fatalf("CreateEmailChange: %v", err)
 	}
@@ -414,7 +413,7 @@ func TestPasswordResetTokenKindSplitAtStoreLevel(t *testing.T) {
 		ID:        auth.NewID(),
 		UserId:    userID,
 		TokenHash: resetHash,
-		ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(10 * time.Minute).UTC(), Valid: true},
+		ExpiresAt: wire.At(time.Now().Add(10 * time.Minute).UTC()),
 	}); err != nil {
 		t.Fatalf("CreatePasswordReset: %v", err)
 	}

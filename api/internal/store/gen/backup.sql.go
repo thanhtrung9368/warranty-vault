@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const backupDeleteAttachmentsForUser = `-- name: BackupDeleteAttachmentsForUser :exec
@@ -434,17 +434,17 @@ INSERT INTO "Attachment" (
 `
 
 type BackupInsertAttachmentParams struct {
-	ID          string           `json:"id"`
-	UserId      string           `json:"userId"`
-	DeviceId    *string          `json:"deviceId"`
-	FileName    string           `json:"fileName"`
-	StoragePath string           `json:"storagePath"`
-	FileType    string           `json:"fileType"`
-	FileSize    int32            `json:"fileSize"`
-	Iv          []byte           `json:"iv"`
-	WrappedKey  []byte           `json:"wrappedKey"`
-	Description *string          `json:"description"`
-	UploadedAt  pgtype.Timestamp `json:"uploadedAt"`
+	ID          string       `json:"id"`
+	UserId      string       `json:"userId"`
+	DeviceId    *string      `json:"deviceId"`
+	FileName    string       `json:"fileName"`
+	StoragePath string       `json:"storagePath"`
+	FileType    string       `json:"fileType"`
+	FileSize    int32        `json:"fileSize"`
+	Iv          []byte       `json:"iv"`
+	WrappedKey  []byte       `json:"wrappedKey"`
+	Description *string      `json:"description"`
+	UploadedAt  wire.Instant `json:"uploadedAt"`
 }
 
 // One insert for device-filed and inbox rows: a NULL "deviceId" ($3) creates an
@@ -477,22 +477,22 @@ INSERT INTO "Claim" (
 `
 
 type BackupInsertClaimParams struct {
-	ID                string           `json:"id"`
-	DeviceId          string           `json:"deviceId"`
-	WarrantyId        *string          `json:"warrantyId"`
-	Status            string           `json:"status"`
-	OpenedAt          pgtype.Timestamp `json:"openedAt"`
-	ExpectedReturnAt  pgtype.Timestamp `json:"expectedReturnAt"`
-	ClosedAt          pgtype.Timestamp `json:"closedAt"`
-	TicketNumber      *string          `json:"ticketNumber"`
-	ServiceCenter     *string          `json:"serviceCenter"`
-	Issue             string           `json:"issue"`
-	Diagnosis         *string          `json:"diagnosis"`
-	Outcome           *string          `json:"outcome"`
-	Cost              *int32           `json:"cost"`
-	CoveredByWarranty *bool            `json:"coveredByWarranty"`
-	CreatedAt         pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
+	ID                string       `json:"id"`
+	DeviceId          string       `json:"deviceId"`
+	WarrantyId        *string      `json:"warrantyId"`
+	Status            string       `json:"status"`
+	OpenedAt          wire.Instant `json:"openedAt"`
+	ExpectedReturnAt  wire.Day     `json:"expectedReturnAt"`
+	ClosedAt          wire.Instant `json:"closedAt"`
+	TicketNumber      *string      `json:"ticketNumber"`
+	ServiceCenter     *string      `json:"serviceCenter"`
+	Issue             string       `json:"issue"`
+	Diagnosis         *string      `json:"diagnosis"`
+	Outcome           *string      `json:"outcome"`
+	Cost              *int32       `json:"cost"`
+	CoveredByWarranty *bool        `json:"coveredByWarranty"`
+	CreatedAt         wire.Instant `json:"createdAt"`
+	UpdatedAt         wire.Instant `json:"updatedAt"`
 }
 
 // Claims (migration 0021) preserve their ids, both timestamps and the
@@ -541,47 +541,47 @@ INSERT INTO "Device" (
     COALESCE($28::int[], ARRAY[30, 7]),
     $26, $27,
     $29::text,
-    $30::timestamp,
-    $31::timestamp,
+    $30,
+    $31,
     $32::timestamp,
     $33::text
 )
 `
 
 type BackupInsertDeviceParams struct {
-	ID                           string           `json:"id"`
-	UserId                       string           `json:"userId"`
-	Name                         string           `json:"name"`
-	Category                     string           `json:"category"`
-	Brand                        *string          `json:"brand"`
-	Model                        *string          `json:"model"`
-	SerialNumber                 *string          `json:"serialNumber"`
-	PurchaseDate                 pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice                int32            `json:"purchasePrice"`
-	PurchasePlace                *string          `json:"purchasePlace"`
-	Status                       string           `json:"status"`
-	Notes                        *string          `json:"notes"`
-	SoldAt                       pgtype.Timestamp `json:"soldAt"`
-	SoldPrice                    *int32           `json:"soldPrice"`
-	ReturnWindowDays             *int32           `json:"returnWindowDays"`
-	ReceivedAt                   pgtype.Timestamp `json:"receivedAt"`
-	ReturnWindowNotifiedAt       pgtype.Timestamp `json:"returnWindowNotifiedAt"`
-	CreatedAt                    pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt                    pgtype.Timestamp `json:"updatedAt"`
-	ActivationRequired           bool             `json:"activationRequired"`
-	ActivatedAt                  pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy           pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
-	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
-	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
-	Currency                     string           `json:"currency"`
-	FxRate                       *int32           `json:"fxRate"`
-	LeadDays                     []int32          `json:"leadDays"`
-	BrandWarrantyStatus          *string          `json:"brandWarrantyStatus"`
-	BrandWarrantyStart           pgtype.Timestamp `json:"brandWarrantyStart"`
-	BrandWarrantyEnd             pgtype.Timestamp `json:"brandWarrantyEnd"`
-	BrandCheckedAt               pgtype.Timestamp `json:"brandCheckedAt"`
-	BrandLookupUrl               *string          `json:"brandLookupUrl"`
+	ID                           string       `json:"id"`
+	UserId                       string       `json:"userId"`
+	Name                         string       `json:"name"`
+	Category                     string       `json:"category"`
+	Brand                        *string      `json:"brand"`
+	Model                        *string      `json:"model"`
+	SerialNumber                 *string      `json:"serialNumber"`
+	PurchaseDate                 wire.Day     `json:"purchaseDate"`
+	PurchasePrice                int32        `json:"purchasePrice"`
+	PurchasePlace                *string      `json:"purchasePlace"`
+	Status                       string       `json:"status"`
+	Notes                        *string      `json:"notes"`
+	SoldAt                       wire.Day     `json:"soldAt"`
+	SoldPrice                    *int32       `json:"soldPrice"`
+	ReturnWindowDays             *int32       `json:"returnWindowDays"`
+	ReceivedAt                   wire.Day     `json:"receivedAt"`
+	ReturnWindowNotifiedAt       wire.Instant `json:"returnWindowNotifiedAt"`
+	CreatedAt                    wire.Instant `json:"createdAt"`
+	UpdatedAt                    wire.Instant `json:"updatedAt"`
+	ActivationRequired           bool         `json:"activationRequired"`
+	ActivatedAt                  wire.Day     `json:"activatedAt"`
+	ExtendedCoverBuyBy           wire.Day     `json:"extendedCoverBuyBy"`
+	ActivationNotifiedAt         wire.Instant `json:"activationNotifiedAt"`
+	ExtendedCoverNotifiedAt      wire.Instant `json:"extendedCoverNotifiedAt"`
+	ExtendedCoverNotifiedLeadDay *int32       `json:"extendedCoverNotifiedLeadDay"`
+	Currency                     string       `json:"currency"`
+	FxRate                       *int32       `json:"fxRate"`
+	LeadDays                     []int32      `json:"leadDays"`
+	BrandWarrantyStatus          *string      `json:"brandWarrantyStatus"`
+	BrandWarrantyStart           wire.Day     `json:"brandWarrantyStart"`
+	BrandWarrantyEnd             wire.Day     `json:"brandWarrantyEnd"`
+	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
+	BrandLookupUrl               *string      `json:"brandLookupUrl"`
 }
 
 // ─── Import inserts (preserve ids + timestamps) ──────────────────────────
@@ -671,11 +671,11 @@ INSERT INTO "SubscriptionPayment" (
 `
 
 type BackupInsertPaymentParams struct {
-	ID             string           `json:"id"`
-	SubscriptionId string           `json:"subscriptionId"`
-	Amount         int32            `json:"amount"`
-	PaidAt         pgtype.Timestamp `json:"paidAt"`
-	Note           *string          `json:"note"`
+	ID             string       `json:"id"`
+	SubscriptionId string       `json:"subscriptionId"`
+	Amount         int32        `json:"amount"`
+	PaidAt         wire.Instant `json:"paidAt"`
+	Note           *string      `json:"note"`
 }
 
 func (q *Queries) BackupInsertPayment(ctx context.Context, arg BackupInsertPaymentParams) error {
@@ -699,12 +699,12 @@ INSERT INTO "Reminder" (
 `
 
 type BackupInsertReminderParams struct {
-	ID                  string           `json:"id"`
-	WarrantyId          string           `json:"warrantyId"`
-	IsDismissed         bool             `json:"isDismissed"`
-	LastNotifiedAt      pgtype.Timestamp `json:"lastNotifiedAt"`
-	CreatedAt           pgtype.Timestamp `json:"createdAt"`
-	LastNotifiedLeadDay *int32           `json:"lastNotifiedLeadDay"`
+	ID                  string       `json:"id"`
+	WarrantyId          string       `json:"warrantyId"`
+	IsDismissed         bool         `json:"isDismissed"`
+	LastNotifiedAt      wire.Instant `json:"lastNotifiedAt"`
+	CreatedAt           wire.Instant `json:"createdAt"`
+	LastNotifiedLeadDay *int32       `json:"lastNotifiedLeadDay"`
 }
 
 // "lastNotifiedAt" is the cron dedup marker (migration 0002): dropping it on
@@ -741,34 +741,34 @@ INSERT INTO "Subscription" (
 `
 
 type BackupInsertSubscriptionParams struct {
-	ID                         string           `json:"id"`
-	UserId                     string           `json:"userId"`
-	Name                       string           `json:"name"`
-	Category                   *string          `json:"category"`
-	Brand                      *string          `json:"brand"`
-	Plan                       *string          `json:"plan"`
-	BillingCycle               string           `json:"billingCycle"`
-	IntervalDays               *int32           `json:"intervalDays"`
-	Price                      int32            `json:"price"`
-	Currency                   string           `json:"currency"`
-	StartedAt                  pgtype.Timestamp `json:"startedAt"`
-	RenewalDate                pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew                  bool             `json:"autoRenew"`
-	Status                     string           `json:"status"`
-	AccountEmail               *string          `json:"accountEmail"`
-	PaymentMethod              *string          `json:"paymentMethod"`
-	ManageUrl                  *string          `json:"manageUrl"`
-	CancelUrl                  *string          `json:"cancelUrl"`
-	Notes                      *string          `json:"notes"`
-	LastNotifiedRenewalAt      pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
-	CreatedAt                  pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamp `json:"updatedAt"`
-	LastNotifiedRenewalLeadDay *int32           `json:"lastNotifiedRenewalLeadDay"`
-	TrialEndsAt                pgtype.Timestamp `json:"trialEndsAt"`
-	ConvertsToPrice            *int32           `json:"convertsToPrice"`
-	TrialNotifiedAt            pgtype.Timestamp `json:"trialNotifiedAt"`
-	TrialNotifiedLeadDay       *int32           `json:"trialNotifiedLeadDay"`
-	LeadDays                   []int32          `json:"leadDays"`
+	ID                         string       `json:"id"`
+	UserId                     string       `json:"userId"`
+	Name                       string       `json:"name"`
+	Category                   *string      `json:"category"`
+	Brand                      *string      `json:"brand"`
+	Plan                       *string      `json:"plan"`
+	BillingCycle               string       `json:"billingCycle"`
+	IntervalDays               *int32       `json:"intervalDays"`
+	Price                      int32        `json:"price"`
+	Currency                   string       `json:"currency"`
+	StartedAt                  wire.Day     `json:"startedAt"`
+	RenewalDate                wire.Day     `json:"renewalDate"`
+	AutoRenew                  bool         `json:"autoRenew"`
+	Status                     string       `json:"status"`
+	AccountEmail               *string      `json:"accountEmail"`
+	PaymentMethod              *string      `json:"paymentMethod"`
+	ManageUrl                  *string      `json:"manageUrl"`
+	CancelUrl                  *string      `json:"cancelUrl"`
+	Notes                      *string      `json:"notes"`
+	LastNotifiedRenewalAt      wire.Instant `json:"lastNotifiedRenewalAt"`
+	CreatedAt                  wire.Instant `json:"createdAt"`
+	UpdatedAt                  wire.Instant `json:"updatedAt"`
+	LastNotifiedRenewalLeadDay *int32       `json:"lastNotifiedRenewalLeadDay"`
+	TrialEndsAt                wire.Day     `json:"trialEndsAt"`
+	ConvertsToPrice            *int32       `json:"convertsToPrice"`
+	TrialNotifiedAt            wire.Instant `json:"trialNotifiedAt"`
+	TrialNotifiedLeadDay       *int32       `json:"trialNotifiedLeadDay"`
+	LeadDays                   []int32      `json:"leadDays"`
 }
 
 // "lastNotifiedRenewalAt" is the cron renewal-warning dedup marker; like the
@@ -832,28 +832,28 @@ INSERT INTO "Warranty" (
 `
 
 type BackupInsertWarrantyParams struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	Type          string           `json:"type"`
-	Provider      *string          `json:"provider"`
-	StartDate     pgtype.Timestamp `json:"startDate"`
-	EndDate       pgtype.Timestamp `json:"endDate"`
-	Months        int32            `json:"months"`
-	Cost          *int32           `json:"cost"`
-	Address       *string          `json:"address"`
-	Phone         *string          `json:"phone"`
-	Notes         *string          `json:"notes"`
-	Component     *string          `json:"component"`
-	Scope         *string          `json:"scope"`
-	Cap           *int32           `json:"cap"`
-	Deductible    *int32           `json:"deductible"`
-	Exclusions    *string          `json:"exclusions"`
-	Region        *string          `json:"region"`
-	Transferable  *bool            `json:"transferable"`
-	ClaimsAllowed *int32           `json:"claimsAllowed"`
-	ClaimsUsed    int32            `json:"claimsUsed"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	Type          string       `json:"type"`
+	Provider      *string      `json:"provider"`
+	StartDate     wire.Day     `json:"startDate"`
+	EndDate       wire.Day     `json:"endDate"`
+	Months        int32        `json:"months"`
+	Cost          *int32       `json:"cost"`
+	Address       *string      `json:"address"`
+	Phone         *string      `json:"phone"`
+	Notes         *string      `json:"notes"`
+	Component     *string      `json:"component"`
+	Scope         *string      `json:"scope"`
+	Cap           *int32       `json:"cap"`
+	Deductible    *int32       `json:"deductible"`
+	Exclusions    *string      `json:"exclusions"`
+	Region        *string      `json:"region"`
+	Transferable  *bool        `json:"transferable"`
+	ClaimsAllowed *int32       `json:"claimsAllowed"`
+	ClaimsUsed    int32        `json:"claimsUsed"`
+	CreatedAt     wire.Instant `json:"createdAt"`
+	UpdatedAt     wire.Instant `json:"updatedAt"`
 }
 
 // The nine contract terms (migration 0017) ride along additively. A payload
@@ -900,24 +900,24 @@ INSERT INTO "WishlistItem" (
 `
 
 type BackupInsertWishlistItemParams struct {
-	ID                   string           `json:"id"`
-	UserId               string           `json:"userId"`
-	Name                 string           `json:"name"`
-	Category             *string          `json:"category"`
-	Brand                *string          `json:"brand"`
-	InitialPrice         *int32           `json:"initialPrice"`
-	CurrentPrice         *int32           `json:"currentPrice"`
-	BuyUrl               *string          `json:"buyUrl"`
-	ImageUrl             *string          `json:"imageUrl"`
-	TargetDate           pgtype.Timestamp `json:"targetDate"`
-	Priority             string           `json:"priority"`
-	Status               string           `json:"status"`
-	Notes                *string          `json:"notes"`
-	ReminderIntervalDays *int32           `json:"reminderIntervalDays"`
-	LastNotifiedAt       pgtype.Timestamp `json:"lastNotifiedAt"`
-	PurchasedDeviceId    *string          `json:"purchasedDeviceId"`
-	CreatedAt            pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt            pgtype.Timestamp `json:"updatedAt"`
+	ID                   string       `json:"id"`
+	UserId               string       `json:"userId"`
+	Name                 string       `json:"name"`
+	Category             *string      `json:"category"`
+	Brand                *string      `json:"brand"`
+	InitialPrice         *int32       `json:"initialPrice"`
+	CurrentPrice         *int32       `json:"currentPrice"`
+	BuyUrl               *string      `json:"buyUrl"`
+	ImageUrl             *string      `json:"imageUrl"`
+	TargetDate           wire.Day     `json:"targetDate"`
+	Priority             string       `json:"priority"`
+	Status               string       `json:"status"`
+	Notes                *string      `json:"notes"`
+	ReminderIntervalDays *int32       `json:"reminderIntervalDays"`
+	LastNotifiedAt       wire.Instant `json:"lastNotifiedAt"`
+	PurchasedDeviceId    *string      `json:"purchasedDeviceId"`
+	CreatedAt            wire.Instant `json:"createdAt"`
+	UpdatedAt            wire.Instant `json:"updatedAt"`
 }
 
 func (q *Queries) BackupInsertWishlistItem(ctx context.Context, arg BackupInsertWishlistItemParams) error {
@@ -953,11 +953,11 @@ INSERT INTO "WishlistPrice" (
 `
 
 type BackupInsertWishlistPriceParams struct {
-	ID         string           `json:"id"`
-	ItemId     string           `json:"itemId"`
-	Price      int32            `json:"price"`
-	Note       *string          `json:"note"`
-	RecordedAt pgtype.Timestamp `json:"recordedAt"`
+	ID         string       `json:"id"`
+	ItemId     string       `json:"itemId"`
+	Price      int32        `json:"price"`
+	Note       *string      `json:"note"`
+	RecordedAt wire.Instant `json:"recordedAt"`
 }
 
 func (q *Queries) BackupInsertWishlistPrice(ctx context.Context, arg BackupInsertWishlistPriceParams) error {

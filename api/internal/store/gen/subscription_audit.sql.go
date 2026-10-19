@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const listSubscriptionDuplicatePairs = `-- name: ListSubscriptionDuplicatePairs :many
@@ -62,23 +62,23 @@ ORDER BY a.name ASC, b.name ASC
 `
 
 type ListSubscriptionDuplicatePairsRow struct {
-	IDA           string           `json:"id_a"`
-	NameA         string           `json:"name_a"`
-	BrandA        *string          `json:"brand_a"`
-	CategoryA     *string          `json:"category_a"`
-	PriceA        int32            `json:"price_a"`
-	BillingCycleA string           `json:"billing_cycle_a"`
-	IntervalDaysA *int32           `json:"interval_days_a"`
-	RenewalDateA  pgtype.Timestamp `json:"renewal_date_a"`
-	IDB           string           `json:"id_b"`
-	NameB         string           `json:"name_b"`
-	BrandB        *string          `json:"brand_b"`
-	CategoryB     *string          `json:"category_b"`
-	PriceB        int32            `json:"price_b"`
-	BillingCycleB string           `json:"billing_cycle_b"`
-	IntervalDaysB *int32           `json:"interval_days_b"`
-	RenewalDateB  pgtype.Timestamp `json:"renewal_date_b"`
-	Reason        string           `json:"reason"`
+	IDA           string   `json:"id_a"`
+	NameA         string   `json:"name_a"`
+	BrandA        *string  `json:"brand_a"`
+	CategoryA     *string  `json:"category_a"`
+	PriceA        int32    `json:"price_a"`
+	BillingCycleA string   `json:"billing_cycle_a"`
+	IntervalDaysA *int32   `json:"interval_days_a"`
+	RenewalDateA  wire.Day `json:"renewal_date_a"`
+	IDB           string   `json:"id_b"`
+	NameB         string   `json:"name_b"`
+	BrandB        *string  `json:"brand_b"`
+	CategoryB     *string  `json:"category_b"`
+	PriceB        int32    `json:"price_b"`
+	BillingCycleB string   `json:"billing_cycle_b"`
+	IntervalDaysB *int32   `json:"interval_days_b"`
+	RenewalDateB  wire.Day `json:"renewal_date_b"`
+	Reason        string   `json:"reason"`
 }
 
 // Likely duplicates: two ACTIVE subscriptions of the same user that are the same
@@ -164,21 +164,21 @@ ORDER BY s."renewalDate" ASC
 `
 
 type ListSubscriptionPaymentAuditRow struct {
-	ID               string           `json:"id"`
-	Name             string           `json:"name"`
-	BillingCycle     string           `json:"billing_cycle"`
-	IntervalDays     *int32           `json:"interval_days"`
-	Price            int32            `json:"price"`
-	AutoRenew        bool             `json:"auto_renew"`
-	Status           string           `json:"status"`
-	RenewalDate      pgtype.Timestamp `json:"renewal_date"`
-	StartedAt        pgtype.Timestamp `json:"started_at"`
-	PaymentCount     int64            `json:"payment_count"`
-	AutoRenewCount   int64            `json:"auto_renew_count"`
-	ManualCount      int64            `json:"manual_count"`
-	FirstPaidAt      pgtype.Timestamp `json:"first_paid_at"`
-	LastPaidAt       pgtype.Timestamp `json:"last_paid_at"`
-	AutoChargedTotal int64            `json:"auto_charged_total"`
+	ID               string       `json:"id"`
+	Name             string       `json:"name"`
+	BillingCycle     string       `json:"billing_cycle"`
+	IntervalDays     *int32       `json:"interval_days"`
+	Price            int32        `json:"price"`
+	AutoRenew        bool         `json:"auto_renew"`
+	Status           string       `json:"status"`
+	RenewalDate      wire.Day     `json:"renewal_date"`
+	StartedAt        wire.Day     `json:"started_at"`
+	PaymentCount     int64        `json:"payment_count"`
+	AutoRenewCount   int64        `json:"auto_renew_count"`
+	ManualCount      int64        `json:"manual_count"`
+	FirstPaidAt      wire.Instant `json:"first_paid_at"`
+	LastPaidAt       wire.Instant `json:"last_paid_at"`
+	AutoChargedTotal int64        `json:"auto_charged_total"`
 }
 
 // Subscription audit (FEATURE_IDEAS #4) — "gói bị bỏ quên / tăng giá / trùng nhau".
@@ -262,13 +262,13 @@ ORDER BY pr."paidAt" DESC
 `
 
 type ListSubscriptionPriceRisesRow struct {
-	SubscriptionID   string           `json:"subscription_id"`
-	SubscriptionName string           `json:"subscription_name"`
-	BillingCycle     string           `json:"billing_cycle"`
-	PaidAt           pgtype.Timestamp `json:"paid_at"`
-	Amount           int32            `json:"amount"`
-	PrevAmount       int32            `json:"prev_amount"`
-	PrevPaidAt       pgtype.Timestamp `json:"prev_paid_at"`
+	SubscriptionID   string       `json:"subscription_id"`
+	SubscriptionName string       `json:"subscription_name"`
+	BillingCycle     string       `json:"billing_cycle"`
+	PaidAt           wire.Instant `json:"paid_at"`
+	Amount           int32        `json:"amount"`
+	PrevAmount       int32        `json:"prev_amount"`
+	PrevPaidAt       wire.Instant `json:"prev_paid_at"`
 }
 
 // Price rises between CONSECUTIVE payments. LAG over the whole history means one

@@ -21,13 +21,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // safeID mirrors the Prisma backup importer regex.
@@ -581,8 +581,8 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			IntervalDays:               s.IntervalDays,
 			Price:                      s.Price,
 			Currency:                   s.Currency,
-			StartedAt:                  ts(s.StartedAt),
-			RenewalDate:                ts(s.RenewalDate),
+			StartedAt:                  ts(s.StartedAt.Instant()),
+			RenewalDate:                ts(s.RenewalDate.Instant()),
 			AutoRenew:                  s.AutoRenew,
 			Status:                     s.Status,
 			AccountEmail:               s.AccountEmail,
@@ -593,7 +593,7 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			LastNotifiedRenewalAt:      tsPtr(s.LastNotifiedRenewalAt),
 			LastNotifiedRenewalLeadDay: s.LastNotifiedRenewalLeadDay,
 			LeadDays:                   s.LeadDays,
-			TrialEndsAt:                tsPtr(s.TrialEndsAt),
+			TrialEndsAt:                tsPtr(s.TrialEndsAt.Instant()),
 			ConvertsToPrice:            s.ConvertsToPrice,
 			TrialNotifiedAt:            tsPtr(s.TrialNotifiedAt),
 			TrialNotifiedLeadDay:       s.TrialNotifiedLeadDay,
@@ -622,7 +622,7 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			CurrentPrice:         w.CurrentPrice,
 			BuyUrl:               w.BuyUrl,
 			ImageUrl:             w.ImageUrl,
-			TargetDate:           tsPtr(w.TargetDate),
+			TargetDate:           tsPtr(w.TargetDate.Instant()),
 			Priority:             w.Priority,
 			Status:               w.Status,
 			Notes:                w.Notes,
@@ -652,31 +652,31 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			Brand:         d.Brand,
 			Model:         d.Model,
 			SerialNumber:  d.SerialNumber,
-			PurchaseDate:  ts(d.PurchaseDate),
+			PurchaseDate:  ts(d.PurchaseDate.Instant()),
 			PurchasePrice: d.PurchasePrice,
 			PurchasePlace: d.PurchasePlace,
 			Status:        d.Status,
 			Notes:         d.Notes,
-			SoldAt:        tsPtr(d.SoldAt),
+			SoldAt:        tsPtr(d.SoldAt.Instant()),
 			SoldPrice:     d.SoldPrice,
 
 			Currency: backupCurrencyForExport(d.Currency),
 			FxRate:   d.FxRate,
 
 			BrandWarrantyStatus: d.BrandWarrantyStatus,
-			BrandWarrantyStart:  tsPtr(d.BrandWarrantyStart),
-			BrandWarrantyEnd:    tsPtr(d.BrandWarrantyEnd),
+			BrandWarrantyStart:  tsPtr(d.BrandWarrantyStart.Instant()),
+			BrandWarrantyEnd:    tsPtr(d.BrandWarrantyEnd.Instant()),
 			BrandCheckedAt:      tsPtr(d.BrandCheckedAt),
 			BrandLookupUrl:      d.BrandLookupUrl,
 
 			ReturnWindowDays:       d.ReturnWindowDays,
-			ReceivedAt:             tsPtr(d.ReceivedAt),
+			ReceivedAt:             tsPtr(d.ReceivedAt.Instant()),
 			ReturnWindowNotifiedAt: tsPtr(d.ReturnWindowNotifiedAt),
 			LeadDays:               d.LeadDays,
 
 			ActivationRequired:           d.ActivationRequired,
-			ActivatedAt:                  tsPtr(d.ActivatedAt),
-			ExtendedCoverBuyBy:           tsPtr(d.ExtendedCoverBuyBy),
+			ActivatedAt:                  tsPtr(d.ActivatedAt.Instant()),
+			ExtendedCoverBuyBy:           tsPtr(d.ExtendedCoverBuyBy.Instant()),
 			ActivationNotifiedAt:         tsPtr(d.ActivationNotifiedAt),
 			ExtendedCoverNotifiedAt:      tsPtr(d.ExtendedCoverNotifiedAt),
 			ExtendedCoverNotifiedLeadDay: d.ExtendedCoverNotifiedLeadDay,
@@ -690,8 +690,8 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 				ID:            w.ID,
 				Type:          w.Type,
 				Provider:      w.Provider,
-				StartDate:     ts(w.StartDate),
-				EndDate:       ts(w.EndDate),
+				StartDate:     ts(w.StartDate.Instant()),
+				EndDate:       ts(w.EndDate.Instant()),
 				Months:        w.Months,
 				Cost:          w.Cost,
 				Address:       w.Address,
@@ -746,7 +746,7 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			WarrantyID:        c.WarrantyId,
 			Status:            c.Status,
 			OpenedAt:          ts(c.OpenedAt),
-			ExpectedReturnAt:  tsPtr(c.ExpectedReturnAt),
+			ExpectedReturnAt:  tsPtr(c.ExpectedReturnAt.Instant()),
 			ClosedAt:          tsPtr(c.ClosedAt),
 			TicketNumber:      c.TicketNumber,
 			ServiceCenter:     c.ServiceCenter,
@@ -1368,12 +1368,12 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			Brand:         d.Brand,
 			Model:         d.Model,
 			SerialNumber:  d.SerialNumber,
-			PurchaseDate:  pgts(d.PurchaseDate),
+			PurchaseDate:  pgts(d.PurchaseDate).Day(),
 			PurchasePrice: d.PurchasePrice,
 			PurchasePlace: d.PurchasePlace,
 			Status:        d.Status,
 			Notes:         d.Notes,
-			SoldAt:        pgtsPtr(d.SoldAt),
+			SoldAt:        pgtsPtr(d.SoldAt).Day(),
 			SoldPrice:     d.SoldPrice,
 
 			Currency: currency,
@@ -1386,12 +1386,12 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			BrandLookupUrl:      brandWarranty.LookupURL,
 
 			ReturnWindowDays:             d.ReturnWindowDays,
-			ReceivedAt:                   pgtsPtr(d.ReceivedAt),
+			ReceivedAt:                   pgtsPtr(d.ReceivedAt).Day(),
 			ReturnWindowNotifiedAt:       pgtsPtr(d.ReturnWindowNotifiedAt),
 			LeadDays:                     backupLeadDays(d.LeadDays),
 			ActivationRequired:           d.ActivationRequired,
-			ActivatedAt:                  pgtsPtr(d.ActivatedAt),
-			ExtendedCoverBuyBy:           pgtsPtr(d.ExtendedCoverBuyBy),
+			ActivatedAt:                  pgtsPtr(d.ActivatedAt).Day(),
+			ExtendedCoverBuyBy:           pgtsPtr(d.ExtendedCoverBuyBy).Day(),
 			ActivationNotifiedAt:         pgtsPtr(d.ActivationNotifiedAt),
 			ExtendedCoverNotifiedAt:      pgtsPtr(d.ExtendedCoverNotifiedAt),
 			ExtendedCoverNotifiedLeadDay: d.ExtendedCoverNotifiedLeadDay,
@@ -1409,8 +1409,8 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 				DeviceId:      d.ID,
 				Type:          w.Type,
 				Provider:      w.Provider,
-				StartDate:     pgts(w.StartDate),
-				EndDate:       pgts(w.EndDate),
+				StartDate:     pgts(w.StartDate).Day(),
+				EndDate:       pgts(w.EndDate).Day(),
 				Months:        w.Months,
 				Cost:          w.Cost,
 				Address:       w.Address,
@@ -1578,7 +1578,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			openedAt = pgts(c.CreatedAt)
 		}
 		if !openedAt.Valid {
-			openedAt = pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}
+			openedAt = wire.At(time.Now().UTC())
 		}
 		createdAt := pgts(c.CreatedAt)
 		if !createdAt.Valid {
@@ -1600,7 +1600,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			WarrantyId:        warrantyID,
 			Status:            c.Status,
 			OpenedAt:          openedAt,
-			ExpectedReturnAt:  pgtsPtr(c.ExpectedReturnAt),
+			ExpectedReturnAt:  pgtsPtr(c.ExpectedReturnAt).Day(),
 			ClosedAt:          closedAtValue(c.Status, c.ClosedAt, openedAt),
 			TicketNumber:      c.TicketNumber,
 			ServiceCenter:     c.ServiceCenter,
@@ -1656,7 +1656,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			CurrentPrice:         w.CurrentPrice,
 			BuyUrl:               w.BuyUrl,
 			ImageUrl:             w.ImageUrl,
-			TargetDate:           pgtsPtr(w.TargetDate),
+			TargetDate:           pgtsPtr(w.TargetDate).Day(),
 			Priority:             w.Priority,
 			Status:               w.Status,
 			Notes:                w.Notes,
@@ -1710,8 +1710,8 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			IntervalDays:               s.IntervalDays,
 			Price:                      s.Price,
 			Currency:                   currency,
-			StartedAt:                  pgts(s.StartedAt),
-			RenewalDate:                pgts(s.RenewalDate),
+			StartedAt:                  pgts(s.StartedAt).Day(),
+			RenewalDate:                pgts(s.RenewalDate).Day(),
 			AutoRenew:                  s.AutoRenew,
 			Status:                     s.Status,
 			AccountEmail:               s.AccountEmail,
@@ -1722,7 +1722,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			LastNotifiedRenewalAt:      pgtsPtr(s.LastNotifiedRenewalAt),
 			LastNotifiedRenewalLeadDay: s.LastNotifiedRenewalLeadDay,
 			LeadDays:                   backupLeadDays(s.LeadDays),
-			TrialEndsAt:                pgtsPtr(s.TrialEndsAt),
+			TrialEndsAt:                pgtsPtr(s.TrialEndsAt).Day(),
 			ConvertsToPrice:            s.ConvertsToPrice,
 			TrialNotifiedAt:            pgtsPtr(s.TrialNotifiedAt),
 			TrialNotifiedLeadDay:       s.TrialNotifiedLeadDay,
@@ -1757,14 +1757,14 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 
 // ---- helpers --------------------------------------------------------------
 
-func ts(t pgtype.Timestamp) string {
+func ts(t wire.Instant) string {
 	if !t.Valid {
 		return ""
 	}
 	return t.Time.UTC().Format(time.RFC3339Nano)
 }
 
-func tsPtr(t pgtype.Timestamp) *string {
+func tsPtr(t wire.Instant) *string {
 	if !t.Valid {
 		return nil
 	}
@@ -1773,28 +1773,28 @@ func tsPtr(t pgtype.Timestamp) *string {
 }
 
 // pgts parses an RFC3339 (with or without nanos) or "YYYY-MM-DD" string into
-// a pgtype.Timestamp. Empty / unparseable strings yield an invalid timestamp
+// a wire.Instant. Empty / unparseable strings yield an invalid timestamp
 // — caller is expected to have validated upstream.
-func pgts(s string) pgtype.Timestamp {
+func pgts(s string) wire.Instant {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return pgtype.Timestamp{}
+		return wire.Instant{}
 	}
 	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return pgtype.Timestamp{Time: t.UTC(), Valid: true}
+		return wire.At(t.UTC())
 	}
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return pgtype.Timestamp{Time: t.UTC(), Valid: true}
+		return wire.At(t.UTC())
 	}
 	if t, err := time.Parse("2006-01-02", s); err == nil {
-		return pgtype.Timestamp{Time: t.UTC(), Valid: true}
+		return wire.At(t.UTC())
 	}
-	return pgtype.Timestamp{}
+	return wire.Instant{}
 }
 
-func pgtsPtr(s *string) pgtype.Timestamp {
+func pgtsPtr(s *string) wire.Instant {
 	if s == nil {
-		return pgtype.Timestamp{}
+		return wire.Instant{}
 	}
 	return pgts(*s)
 }
@@ -1809,9 +1809,9 @@ func pgtsPtr(s *string) pgtype.Timestamp {
 //     that is already in the past.
 //   - OPEN / IN_REPAIR (or an unknown status) ⇒ NULL. "Cleared if it moves
 //     back" is the same rule resolveClaimClosedAt applies on PATCH.
-func closedAtValue(status string, raw *string, openedAt pgtype.Timestamp) pgtype.Timestamp {
+func closedAtValue(status string, raw *string, openedAt wire.Instant) wire.Instant {
 	if !isClosedClaimStatus(status) {
-		return pgtype.Timestamp{}
+		return wire.Instant{}
 	}
 	if t := pgtsPtr(raw); t.Valid {
 		return t

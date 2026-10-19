@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const listOpenReturnWindows = `-- name: ListOpenReturnWindows :many
@@ -28,45 +28,45 @@ ORDER BY "returnDeadline" ASC
 `
 
 type ListOpenReturnWindowsParams struct {
-	UserId       string           `json:"userId"`
-	StartOfToday pgtype.Timestamp `json:"startOfToday"`
+	UserId       string       `json:"userId"`
+	StartOfToday wire.Instant `json:"startOfToday"`
 }
 
 type ListOpenReturnWindowsRow struct {
-	ID                           string           `json:"id"`
-	UserId                       string           `json:"userId"`
-	Name                         string           `json:"name"`
-	Category                     string           `json:"category"`
-	Brand                        *string          `json:"brand"`
-	Model                        *string          `json:"model"`
-	SerialNumber                 *string          `json:"serialNumber"`
-	PurchaseDate                 pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice                int32            `json:"purchasePrice"`
-	PurchasePlace                *string          `json:"purchasePlace"`
-	Status                       string           `json:"status"`
-	Notes                        *string          `json:"notes"`
-	CreatedAt                    pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt                    pgtype.Timestamp `json:"updatedAt"`
-	SoldAt                       pgtype.Timestamp `json:"soldAt"`
-	SoldPrice                    *int32           `json:"soldPrice"`
-	ReturnWindowDays             *int32           `json:"returnWindowDays"`
-	ReceivedAt                   pgtype.Timestamp `json:"receivedAt"`
-	ReturnWindowNotifiedAt       pgtype.Timestamp `json:"returnWindowNotifiedAt"`
-	LeadDays                     []int32          `json:"leadDays"`
-	ActivationRequired           bool             `json:"activationRequired"`
-	ActivatedAt                  pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy           pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
-	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
-	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
-	Currency                     string           `json:"currency"`
-	FxRate                       *int32           `json:"fxRate"`
-	BrandWarrantyStatus          *string          `json:"brandWarrantyStatus"`
-	BrandWarrantyStart           pgtype.Timestamp `json:"brandWarrantyStart"`
-	BrandWarrantyEnd             pgtype.Timestamp `json:"brandWarrantyEnd"`
-	BrandCheckedAt               pgtype.Timestamp `json:"brandCheckedAt"`
-	BrandLookupUrl               *string          `json:"brandLookupUrl"`
-	ReturnDeadline               pgtype.Timestamp `json:"returnDeadline"`
+	ID                           string       `json:"id"`
+	UserId                       string       `json:"userId"`
+	Name                         string       `json:"name"`
+	Category                     string       `json:"category"`
+	Brand                        *string      `json:"brand"`
+	Model                        *string      `json:"model"`
+	SerialNumber                 *string      `json:"serialNumber"`
+	PurchaseDate                 wire.Day     `json:"purchaseDate"`
+	PurchasePrice                int32        `json:"purchasePrice"`
+	PurchasePlace                *string      `json:"purchasePlace"`
+	Status                       string       `json:"status"`
+	Notes                        *string      `json:"notes"`
+	CreatedAt                    wire.Instant `json:"createdAt"`
+	UpdatedAt                    wire.Instant `json:"updatedAt"`
+	SoldAt                       wire.Day     `json:"soldAt"`
+	SoldPrice                    *int32       `json:"soldPrice"`
+	ReturnWindowDays             *int32       `json:"returnWindowDays"`
+	ReceivedAt                   wire.Day     `json:"receivedAt"`
+	ReturnWindowNotifiedAt       wire.Instant `json:"returnWindowNotifiedAt"`
+	LeadDays                     []int32      `json:"leadDays"`
+	ActivationRequired           bool         `json:"activationRequired"`
+	ActivatedAt                  wire.Day     `json:"activatedAt"`
+	ExtendedCoverBuyBy           wire.Day     `json:"extendedCoverBuyBy"`
+	ActivationNotifiedAt         wire.Instant `json:"activationNotifiedAt"`
+	ExtendedCoverNotifiedAt      wire.Instant `json:"extendedCoverNotifiedAt"`
+	ExtendedCoverNotifiedLeadDay *int32       `json:"extendedCoverNotifiedLeadDay"`
+	Currency                     string       `json:"currency"`
+	FxRate                       *int32       `json:"fxRate"`
+	BrandWarrantyStatus          *string      `json:"brandWarrantyStatus"`
+	BrandWarrantyStart           wire.Day     `json:"brandWarrantyStart"`
+	BrandWarrantyEnd             wire.Day     `json:"brandWarrantyEnd"`
+	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
+	BrandLookupUrl               *string      `json:"brandLookupUrl"`
+	ReturnDeadline               wire.Instant `json:"returnDeadline"`
 }
 
 // Hạn đổi trả / "1 đổi 1" (FEATURE_IDEAS #1).
@@ -170,18 +170,18 @@ WHERE d.status = 'ACTIVE'
 `
 
 type ListReturnWindowsInWindowParams struct {
-	WindowStart pgtype.Timestamp `json:"windowStart"`
-	WindowEnd   pgtype.Timestamp `json:"windowEnd"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 type ListReturnWindowsInWindowRow struct {
-	ID               string           `json:"id"`
-	UserID           string           `json:"user_id"`
-	DeviceName       string           `json:"device_name"`
-	PurchaseDate     pgtype.Timestamp `json:"purchase_date"`
-	ReceivedAt       pgtype.Timestamp `json:"received_at"`
-	ReturnWindowDays *int32           `json:"return_window_days"`
-	ReturnDeadline   pgtype.Timestamp `json:"returnDeadline"`
+	ID               string       `json:"id"`
+	UserID           string       `json:"user_id"`
+	DeviceName       string       `json:"device_name"`
+	PurchaseDate     wire.Day     `json:"purchase_date"`
+	ReceivedAt       wire.Day     `json:"received_at"`
+	ReturnWindowDays *int32       `json:"return_window_days"`
+	ReturnDeadline   wire.Instant `json:"returnDeadline"`
 }
 
 // Cron bucket (T-3 / T-1). Same shape as ListWarrantiesInWindow: the caller

@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // MaxWishlistPerUser mirrors website/src/lib/services/wishlist.ts::MAX_WISHLIST_PER_USER.
@@ -239,7 +239,7 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 			i18n.T(ctx, wishlistLimitMessage, MaxWishlistPerUser))
 	}
 
-	var targetTS pgtype.Timestamp
+	var targetTS wire.Day
 	if in.TargetDate != nil {
 		t, err := parseDate(*in.TargetDate)
 		if err != nil {
@@ -248,7 +248,7 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 				FieldErrors{"targetDate": {i18n.Text(ctx, "Ngày không hợp lệ")}},
 			)
 		}
-		targetTS = pgtype.Timestamp{Time: t, Valid: true}
+		targetTS = wire.Date(t)
 	}
 
 	tx, err := db.Begin(ctx)
@@ -345,7 +345,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 		return store.WishlistItem{}, fmt.Errorf("get wishlist: %w", err)
 	}
 
-	var targetTS pgtype.Timestamp
+	var targetTS wire.Day
 	if in.TargetDate != nil {
 		t, perr := parseDate(*in.TargetDate)
 		if perr != nil {
@@ -354,7 +354,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 				FieldErrors{"targetDate": {i18n.Text(ctx, "Ngày không hợp lệ")}},
 			)
 		}
-		targetTS = pgtype.Timestamp{Time: t, Valid: true}
+		targetTS = wire.Date(t)
 	}
 
 	tx, err := db.Begin(ctx)
@@ -459,7 +459,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 			Brand:         updated.Brand,
 			Model:         nil,
 			SerialNumber:  nil,
-			PurchaseDate:  pgtype.Timestamp{Time: now, Valid: true},
+			PurchaseDate:  wire.Date(now),
 			PurchasePrice: price,
 			PurchasePlace: nil,
 			Notes:         updated.Notes,

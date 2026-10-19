@@ -166,19 +166,36 @@ func TestMigrationCorrectsLegacyRowsAndLeavesUTCRowsAlone(t *testing.T) {
 	}
 
 	oldID, utcID := cuid.New(), cuid.New()
-	before := time.Now().UTC()
+	// Derive each row's clock from the timestamp embedded in its OWN cuid id,
+	// never from NOW(). The migration's classification evidence IS that embedded
+	// clock, so constructing the legacy value as `cuidClock + 7h` makes the row
+	// genuinely 7 hours ahead on every machine. Using NOW() made the test depend
+	// on the environment: on a UTC database (CI) NOW() is already UTC, the
+	// migration correctly computed offsetSeconds = 0, and this test failed even
+	// though the migration was right.
+	//
+	// `AT TIME ZONE 'UTC'` converts the timestamptz to a `timestamp` in UTC
+	// explicitly, so the stored wall clock does not depend on the session
+	// timezone either; `+ interval '7 hours'` is then pure timestamp arithmetic.
+	oldClock := cuidClock(t, oldID)
+	utcClock := cuidClock(t, utcID)
 	if _, err := db.Exec(`INSERT INTO "User" (id, email, "passwordHash", "createdAt", "updatedAt")
-		VALUES ($1, 'legacy@example.invalid', 'x', NOW(), NOW())`, oldID); err != nil {
+		VALUES ($1, 'legacy@example.invalid', 'x',
+		        (to_timestamp($2::double precision / 1000) AT TIME ZONE 'UTC') + interval '7 hours',
+		        (to_timestamp($2::double precision / 1000) AT TIME ZONE 'UTC') + interval '7 hours')`,
+		oldID, oldClock.UnixMilli()); err != nil {
 		t.Fatalf("insert legacy row: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO "User" (id, email, "passwordHash", "createdAt", "updatedAt")
-		VALUES ($1, 'utc@example.invalid', 'x', (NOW() AT TIME ZONE 'UTC'), (NOW() AT TIME ZONE 'UTC'))`, utcID); err != nil {
+		VALUES ($1, 'utc@example.invalid', 'x',
+		        to_timestamp($2::double precision / 1000) AT TIME ZONE 'UTC',
+		        to_timestamp($2::double precision / 1000) AT TIME ZONE 'UTC')`,
+		utcID, utcClock.UnixMilli()); err != nil {
 		t.Fatalf("insert UTC row: %v", err)
 	}
 	if err := goose.Up(db, dir); err != nil {
 		t.Fatalf("goose up to 24: %v", err)
 	}
-	after := time.Now().UTC()
 
 	readCreated := func(id string) time.Time {
 		t.Helper()
@@ -189,18 +206,23 @@ func TestMigrationCorrectsLegacyRowsAndLeavesUTCRowsAlone(t *testing.T) {
 		return created.UTC()
 	}
 
-	// Both rows should now be the real UTC instant of the insert (within the
-	// few seconds the migration itself took). The legacy row was +7h before.
+	// Both rows should now hold exactly the instant their cuid id was minted,
+	// which is what the migration reconstructs. Comparing against that instant
+	// (rather than a wall-clock window) keeps the assertion meaningful on any
+	// host timezone.
 	for _, tc := range []struct {
 		name string
 		id   string
+		want time.Time
 	}{
-		{"legacy", oldID},
-		{"already-UTC", utcID},
+		{"legacy", oldID, oldClock},
+		{"already-UTC", utcID, utcClock},
 	} {
 		got := readCreated(tc.id)
-		if got.Before(before.Add(-5*time.Second)) || got.After(after.Add(5*time.Second)) {
-			t.Errorf("%s createdAt = %s, want the real UTC instant in [%s, %s]", tc.name, got, before, after)
+		if !got.Equal(tc.want) {
+			t.Errorf("%s createdAt = %s, want %s (the instant embedded in the cuid id; stored=%s)",
+				tc.name, got.Format(time.RFC3339Nano), tc.want.Format(time.RFC3339Nano),
+				readCreatedRaw(t, db, tc.id))
 		}
 	}
 
@@ -224,6 +246,38 @@ func TestMigrationCorrectsLegacyRowsAndLeavesUTCRowsAlone(t *testing.T) {
 	if corrected != 0 {
 		t.Errorf("already-UTC row was shifted; it must be left untouched")
 	}
+}
+
+// cuidClock decodes the millisecond Unix timestamp embedded in a cuid v1 id
+// (`c` + 8 base-36 chars + ...). Migration 0024 uses the same evidence in SQL;
+// decoding it here is what lets the test construct a +7h legacy row explicitly
+// instead of asking the environment to produce one.
+func cuidClock(t *testing.T, id string) time.Time {
+	t.Helper()
+	if len(id) != 25 || id[0] != 'c' {
+		t.Fatalf("cuidClock(%q): not a cuid v1 id", id)
+	}
+	var ms int64
+	for _, r := range id[1:9] {
+		d := strings.IndexRune("0123456789abcdefghijklmnopqrstuvwxyz", r)
+		if d < 0 {
+			t.Fatalf("cuidClock(%q): %q is not base36", id, string(r))
+		}
+		ms = ms*36 + int64(d)
+	}
+	return time.UnixMilli(ms).UTC()
+}
+
+// readCreatedRaw formats the stored column the way PostgreSQL sees it, so a
+// failure message includes the actual row values instead of only the decoded
+// instant.
+func readCreatedRaw(t *testing.T, db *sql.DB, id string) string {
+	t.Helper()
+	var raw string
+	if err := db.QueryRow(`SELECT "createdAt"::text FROM "User" WHERE id = $1`, id).Scan(&raw); err != nil {
+		return "unreadable: " + err.Error()
+	}
+	return raw
 }
 
 // createScratchDB creates an isolated database from the admin DSN in

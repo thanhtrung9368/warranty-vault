@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Reminder lead days (migration 0015), on a real migrated Postgres.
@@ -80,8 +80,8 @@ func leadDaysSubscription(t *testing.T, q *store.Queries, userID, id, name strin
 		Name:         name,
 		BillingCycle: "MONTHLY",
 		Price:        100000,
-		StartedAt:    pgtype.Timestamp{Time: renewal.AddDate(0, -1, 0), Valid: true},
-		RenewalDate:  pgtype.Timestamp{Time: renewal, Valid: true},
+		StartedAt:    wire.Date(renewal.AddDate(0, -1, 0)),
+		RenewalDate:  wire.Date(renewal),
 		AutoRenew:    true,
 		LeadDays:     leadDays,
 	}); err != nil {

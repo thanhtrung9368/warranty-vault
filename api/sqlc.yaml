@@ -10,3 +10,54 @@ sql:
         sql_package: pgx/v5
         emit_json_tags: true
         emit_pointers_for_null_types: true
+        overrides:
+          # Every `timestamp` column is an instant unless a per-column override
+          # below says otherwise, so a new column defaults to the one shape that
+          # is always a valid `format: date-time`. See internal/wire/wire.go.
+          #
+          # Two entries because sqlc matches `nullable` explicitly: without a
+          # nullable or not-null match the override does not apply to a NULL-able
+          # column, and the generated field silently falls back to
+          # pgtype.Timestamp (naive JSON). Keep both.
+          - db_type: "pg_catalog.timestamp"
+            nullable: true
+            go_type:
+              import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire"
+              type: "Instant"
+          - db_type: "pg_catalog.timestamp"
+            go_type:
+              import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire"
+              type: "Instant"
+          # Calendar days. These are NOT instants: they are the day a user picked
+          # (or a day computed from one), serialised `YYYY-MM-DD` / `format: date`
+          # so a timezone conversion cannot move a warranty's end date by a day.
+          # Keep this list in sync with internal/wire/wire_test.go, which fails
+          # when a timestamp column is neither an Instant nor listed here.
+          - column: "Device.purchaseDate"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Device.soldAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Device.receivedAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Device.activatedAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Device.extendedCoverBuyBy"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Device.brandWarrantyStart"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Device.brandWarrantyEnd"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Warranty.startDate"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Warranty.endDate"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Subscription.startedAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Subscription.renewalDate"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Subscription.trialEndsAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "WishlistItem.targetDate"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }
+          - column: "Claim.expectedReturnAt"
+            go_type: { import: "github.com/thanhtrung9368/warranty-vault/api/internal/wire", type: "Day" }

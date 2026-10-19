@@ -100,7 +100,7 @@ func TestWarrantyCreateAcceptsTheExactReportedBody(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode warranty: %v (%s)", err, rr.Body.String())
 	}
-	if body.Warranty.EndDate != "2026-11-20T00:00:00" {
+	if body.Warranty.EndDate != "2026-11-20" {
 		t.Errorf("endDate = %q, want the explicit 2026-11-20", body.Warranty.EndDate)
 	}
 }
@@ -141,8 +141,8 @@ func TestWarrantyCreateAcceptsFullDocumentedFieldSet(t *testing.T) {
 
 	if w.Type != "THIRD_PARTY" ||
 		w.Provider == nil || *w.Provider != "Samsung" ||
-		w.StartDate != "2025-11-20T00:00:00" ||
-		w.EndDate != "2026-11-20T00:00:00" ||
+		w.StartDate != "2025-11-20" ||
+		w.EndDate != "2026-11-20" ||
 		w.Months != 12 ||
 		w.Cost == nil || *w.Cost != 100000 ||
 		w.Address == nil || *w.Address != "12 Nguyen Hue" ||
@@ -174,7 +174,7 @@ func TestWarrantyEndDateIsHonouredWhenItDiffersFromTheDerivedDate(t *testing.T) 
 		t.Fatalf("create explicit endDate = %d (%s)", rr.Code, rr.Body.String())
 	}
 	w := decodeWarrantyWire(t, rr.Body.Bytes())
-	if w.EndDate != "2026-11-30T00:00:00" {
+	if w.EndDate != "2026-11-30" {
 		t.Errorf("endDate = %q, want the explicit 2026-11-30, not startDate + months", w.EndDate)
 	}
 
@@ -185,7 +185,7 @@ func TestWarrantyEndDateIsHonouredWhenItDiffersFromTheDerivedDate(t *testing.T) 
 		t.Fatalf("patch explicit endDate = %d (%s)", rr.Code, rr.Body.String())
 	}
 	patched := decodeWarrantyWire(t, rr.Body.Bytes())
-	if patched.EndDate != "2027-01-15T00:00:00" {
+	if patched.EndDate != "2027-01-15" {
 		t.Errorf("patched endDate = %q, want 2027-01-15", patched.EndDate)
 	}
 
@@ -196,7 +196,7 @@ func TestWarrantyEndDateIsHonouredWhenItDiffersFromTheDerivedDate(t *testing.T) 
 		t.Fatalf("patch without endDate = %d (%s)", rr.Code, rr.Body.String())
 	}
 	derived := decodeWarrantyWire(t, rr.Body.Bytes())
-	if derived.EndDate != "2026-11-20T00:00:00" {
+	if derived.EndDate != "2026-11-20" {
 		t.Errorf("endDate after omitted-field PATCH = %q, want startDate + months", derived.EndDate)
 	}
 }
@@ -212,7 +212,7 @@ func TestWarrantyEndDateIsDerivedWhenOmitted(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create without endDate = %d (%s)", rr.Code, rr.Body.String())
 	}
-	if w := decodeWarrantyWire(t, rr.Body.Bytes()); w.EndDate != "2026-11-20T00:00:00" {
+	if w := decodeWarrantyWire(t, rr.Body.Bytes()); w.EndDate != "2026-11-20" {
 		t.Errorf("derived endDate = %q, want 2026-11-20", w.EndDate)
 	}
 }

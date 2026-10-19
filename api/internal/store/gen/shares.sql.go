@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const countActiveSharesForDevice = `-- name: CountActiveSharesForDevice :one
@@ -20,8 +20,8 @@ WHERE "deviceId" = $1
 `
 
 type CountActiveSharesForDeviceParams struct {
-	DeviceId  string           `json:"deviceId"`
-	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
+	DeviceId  string       `json:"deviceId"`
+	ExpiresAt wire.Instant `json:"expiresAt"`
 }
 
 // Live shares = not revoked and not yet expired at $2. The caller passes its own
@@ -53,12 +53,12 @@ RETURNING id, "deviceId", "userId", "tokenHash", "expiresAt", "revokedAt", "incl
 `
 
 type CreateDeviceShareParams struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	UserId        string           `json:"userId"`
-	TokenHash     string           `json:"tokenHash"`
-	ExpiresAt     pgtype.Timestamp `json:"expiresAt"`
-	IncludeSerial bool             `json:"includeSerial"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	UserId        string       `json:"userId"`
+	TokenHash     string       `json:"tokenHash"`
+	ExpiresAt     wire.Instant `json:"expiresAt"`
+	IncludeSerial bool         `json:"includeSerial"`
 }
 
 // DeviceShare queries (FEATURE_IDEAS #2 — phiếu bàn giao bảo hiểm / share link).
@@ -162,25 +162,25 @@ LIMIT 1
 `
 
 type GetShareByTokenHashParams struct {
-	TokenHash string           `json:"tokenHash"`
-	ExpiresAt pgtype.Timestamp `json:"expiresAt"`
+	TokenHash string       `json:"tokenHash"`
+	ExpiresAt wire.Instant `json:"expiresAt"`
 }
 
 type GetShareByTokenHashRow struct {
-	ShareID             string           `json:"share_id"`
-	ShareExpiresAt      pgtype.Timestamp `json:"share_expires_at"`
-	ShareCreatedAt      pgtype.Timestamp `json:"share_created_at"`
-	ShareIncludeSerial  bool             `json:"share_include_serial"`
-	DeviceID            string           `json:"device_id"`
-	DeviceName          string           `json:"device_name"`
-	DeviceCategory      string           `json:"device_category"`
-	DeviceBrand         *string          `json:"device_brand"`
-	DeviceModel         *string          `json:"device_model"`
-	DeviceSerialNumber  *string          `json:"device_serial_number"`
-	DevicePurchaseDate  pgtype.Timestamp `json:"device_purchase_date"`
-	DevicePurchasePlace *string          `json:"device_purchase_place"`
-	DeviceStatus        string           `json:"device_status"`
-	DeviceSoldAt        pgtype.Timestamp `json:"device_sold_at"`
+	ShareID             string       `json:"share_id"`
+	ShareExpiresAt      wire.Instant `json:"share_expires_at"`
+	ShareCreatedAt      wire.Instant `json:"share_created_at"`
+	ShareIncludeSerial  bool         `json:"share_include_serial"`
+	DeviceID            string       `json:"device_id"`
+	DeviceName          string       `json:"device_name"`
+	DeviceCategory      string       `json:"device_category"`
+	DeviceBrand         *string      `json:"device_brand"`
+	DeviceModel         *string      `json:"device_model"`
+	DeviceSerialNumber  *string      `json:"device_serial_number"`
+	DevicePurchaseDate  wire.Day     `json:"device_purchase_date"`
+	DevicePurchasePlace *string      `json:"device_purchase_place"`
+	DeviceStatus        string       `json:"device_status"`
+	DeviceSoldAt        wire.Day     `json:"device_sold_at"`
 }
 
 // THE public read (no bearer token). One indexed probe on "tokenHash", and the
@@ -242,14 +242,14 @@ type ListSharesForDeviceParams struct {
 }
 
 type ListSharesForDeviceRow struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	ExpiresAt     pgtype.Timestamp `json:"expiresAt"`
-	RevokedAt     pgtype.Timestamp `json:"revokedAt"`
-	IncludeSerial bool             `json:"includeSerial"`
-	ViewCount     int32            `json:"viewCount"`
-	LastViewedAt  pgtype.Timestamp `json:"lastViewedAt"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	ExpiresAt     wire.Instant `json:"expiresAt"`
+	RevokedAt     wire.Instant `json:"revokedAt"`
+	IncludeSerial bool         `json:"includeSerial"`
+	ViewCount     int32        `json:"viewCount"`
+	LastViewedAt  wire.Instant `json:"lastViewedAt"`
+	CreatedAt     wire.Instant `json:"createdAt"`
 }
 
 // Owner-facing list. "tokenHash" is deliberately NOT selected: it is credential
@@ -305,15 +305,15 @@ ORDER BY "endDate" DESC, id ASC
 `
 
 type ListWarrantiesForShareRow struct {
-	ID        string           `json:"id"`
-	Type      string           `json:"type"`
-	Component *string          `json:"component"`
-	Provider  *string          `json:"provider"`
-	StartDate pgtype.Timestamp `json:"startDate"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	Months    int32            `json:"months"`
-	Address   *string          `json:"address"`
-	Phone     *string          `json:"phone"`
+	ID        string   `json:"id"`
+	Type      string   `json:"type"`
+	Component *string  `json:"component"`
+	Provider  *string  `json:"provider"`
+	StartDate wire.Day `json:"startDate"`
+	EndDate   wire.Day `json:"endDate"`
+	Months    int32    `json:"months"`
+	Address   *string  `json:"address"`
+	Phone     *string  `json:"phone"`
 }
 
 // PUBLIC read, device-scoped. `cost` and `notes` are absent from the SELECT list
@@ -371,7 +371,7 @@ WHERE "expiresAt" < $1::timestamp - INTERVAL '30 days'
 // is equally dead — requiring revocation too would keep those rows forever.
 // 30 days of grace is what lets an owner still see "link đã hết hạn" in the list
 // for a month instead of watching it vanish.
-func (q *Queries) PruneExpiredShares(ctx context.Context, dollar_1 pgtype.Timestamp) (int64, error) {
+func (q *Queries) PruneExpiredShares(ctx context.Context, dollar_1 wire.Instant) (int64, error) {
 	result, err := q.db.Exec(ctx, pruneExpiredShares, dollar_1)
 	if err != nil {
 		return 0, err
@@ -411,8 +411,8 @@ WHERE id = $1
 `
 
 type TouchShareViewParams struct {
-	ID           string           `json:"id"`
-	LastViewedAt pgtype.Timestamp `json:"lastViewedAt"`
+	ID           string       `json:"id"`
+	LastViewedAt wire.Instant `json:"lastViewedAt"`
 }
 
 // View telemetry for the OWNER ("link này đã được mở mấy lần"), never exposed to

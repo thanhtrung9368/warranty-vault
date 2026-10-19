@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Session lifetime mirrors website/src/lib/api-auth.ts.
@@ -58,7 +58,7 @@ func IssueToken(ctx context.Context, db *pgxpool.Pool, userID string, deviceLabe
 		TokenHash:   hash,
 		DeviceLabel: deviceLabel,
 		Platform:    platform,
-		ExpiresAt:   pgtype.Timestamp{Time: expiresAt, Valid: true},
+		ExpiresAt:   wire.At(expiresAt),
 	})
 	if err != nil {
 		return nil, err
@@ -105,9 +105,9 @@ func VerifyBearer(ctx context.Context, db *pgxpool.Pool, authHeader string) (*Us
 		newExpiry := now.Add(SessionTTL).UTC()
 		_ = q.ExtendSession(ctx, store.ExtendSessionParams{
 			ID:        row.SessionID,
-			ExpiresAt: pgtype.Timestamp{Time: newExpiry, Valid: true},
+			ExpiresAt: wire.At(newExpiry),
 		})
-		row.ExpiresAt = pgtype.Timestamp{Time: newExpiry, Valid: true}
+		row.ExpiresAt = wire.At(newExpiry)
 	} else {
 		_ = q.TouchSession(ctx, row.SessionID)
 	}

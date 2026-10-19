@@ -2,14 +2,13 @@ package services
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Spending forecast (FEATURE_IDEAS #8).
@@ -21,7 +20,7 @@ import (
 // so "partial current month" and "partial last bucket" are both exercised.
 var fixedNow = time.Date(2026, 3, 15, 10, 30, 0, 0, time.UTC)
 
-func tsAt(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t, Valid: true} }
+func dayAt(t time.Time) wire.Day { return wire.Date(t) }
 
 func i32pForTest(v int32) *int32 { return &v }
 
@@ -33,7 +32,7 @@ func subFixture(id, cycle string, price int32, renewal time.Time, autoRenew bool
 		BillingCycle: cycle,
 		Price:        price,
 		Currency:     "VND",
-		RenewalDate:  tsAt(renewal),
+		RenewalDate:  dayAt(renewal),
 		AutoRenew:    autoRenew,
 		Status:       status,
 	}
@@ -219,35 +218,35 @@ func TestBuildForecastFixture(t *testing.T) {
 	paused := subFixture("paused", BillingCycleMonthly, 999_000, time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), true)
 	paused.Status = SubscriptionStatusPaused
 	noRenewal := subFixture("no_renewal_date", BillingCycleMonthly, 700_000, time.Time{}, true)
-	noRenewal.RenewalDate = pgtype.Timestamp{}
+	noRenewal.RenewalDate = wire.Day{}
 	subs = append(subs, lifetime, customMissing, paused, noRenewal)
 
 	warranties := []store.ListWarrantiesExpiringBetweenRow{
 		{
 			ID: "w1", DeviceId: "dev1", Type: "STANDARD", Provider: strp("Apple"),
-			EndDate: tsAt(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)), Months: 24, Cost: i32pForTest(2_500_000),
+			EndDate: dayAt(time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)), Months: 24, Cost: i32pForTest(2_500_000),
 			DeviceName: "MacBook Pro",
 		},
 		{
 			// Exactly on a month boundary, and with NO recorded cost: counts, adds 0.
 			ID: "w2", DeviceId: "dev2", Type: "THIRD_PARTY",
-			EndDate: tsAt(time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)), Months: 12,
+			EndDate: dayAt(time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)), Months: 12,
 			DeviceName: "Tủ lạnh",
 		},
 		{
 			// Tail bucket.
 			ID: "w3", DeviceId: "dev3", Type: "EXTENDED",
-			EndDate: tsAt(time.Date(2027, 3, 10, 0, 0, 0, 0, time.UTC)), Months: 36, Cost: i32pForTest(1_000_000),
+			EndDate: dayAt(time.Date(2027, 3, 10, 0, 0, 0, 0, time.UTC)), Months: 36, Cost: i32pForTest(1_000_000),
 			DeviceName: "Máy giặt",
 		},
 		{ // After the horizon → ignored even if the caller passes it.
 			ID: "w4", DeviceId: "dev4", Type: "STANDARD",
-			EndDate: tsAt(time.Date(2027, 5, 1, 0, 0, 0, 0, time.UTC)), Months: 12, Cost: i32pForTest(9_000_000),
+			EndDate: dayAt(time.Date(2027, 5, 1, 0, 0, 0, 0, time.UTC)), Months: 12, Cost: i32pForTest(9_000_000),
 			DeviceName: "Ngoài cửa sổ",
 		},
 		{ // Before `now` → ignored.
 			ID: "w5", DeviceId: "dev5", Type: "STANDARD",
-			EndDate: tsAt(time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)), Months: 12, Cost: i32pForTest(9_000_000),
+			EndDate: dayAt(time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)), Months: 12, Cost: i32pForTest(9_000_000),
 			DeviceName: "Đã hết hạn",
 		},
 		{ // No end date at all.
@@ -259,19 +258,19 @@ func TestBuildForecastFixture(t *testing.T) {
 	wishlist := []store.WishlistItem{
 		{
 			ID: "i1", Name: "Sony WH-1000XM6", Status: "WATCHING", Priority: "WANT",
-			TargetDate: tsAt(time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)), CurrentPrice: i32pForTest(8_500_000),
+			TargetDate: dayAt(time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)), CurrentPrice: i32pForTest(8_500_000),
 		},
 		{ // Same month, no price recorded.
 			ID: "i2", Name: "iPad mini", Status: "DECIDED", Priority: "MAYBE",
-			TargetDate: tsAt(time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)),
+			TargetDate: dayAt(time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)),
 		},
 		{ // Exactly on the first instant of the tail bucket's month.
 			ID: "i3", Name: "Máy lọc nước", Status: "WATCHING", Priority: "MUST",
-			TargetDate: tsAt(time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)), CurrentPrice: i32pForTest(15_000_000),
+			TargetDate: dayAt(time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)), CurrentPrice: i32pForTest(15_000_000),
 		},
 		{ // After the horizon.
 			ID: "i4", Name: "Ngoài cửa sổ", Status: "WATCHING", Priority: "WANT",
-			TargetDate: tsAt(time.Date(2027, 4, 1, 0, 0, 0, 0, time.UTC)), CurrentPrice: i32pForTest(20_000_000),
+			TargetDate: dayAt(time.Date(2027, 4, 1, 0, 0, 0, 0, time.UTC)), CurrentPrice: i32pForTest(20_000_000),
 		},
 		{ // No target date.
 			ID: "i5", Name: "Không có ngày", Status: "WATCHING", Priority: "WANT",

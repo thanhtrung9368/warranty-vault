@@ -214,8 +214,8 @@ FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" >= $2
-  AND w."endDate" <= $3
+  AND w."endDate" >= sqlc.arg('windowStart')::timestamp
+  AND w."endDate" <= sqlc.arg('windowEnd')::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
@@ -246,8 +246,8 @@ FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d.status = 'ACTIVE'
   AND sqlc.arg('leadDay')::int = ANY(d."leadDays")
-  AND w."endDate" >= $1
-  AND w."endDate" <  $2
+  AND w."endDate" >= sqlc.arg('windowStart')::timestamp
+  AND w."endDate" <  sqlc.arg('windowEnd')::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true

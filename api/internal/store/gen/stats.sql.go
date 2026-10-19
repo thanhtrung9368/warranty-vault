@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const listWarrantiesExpiringBetween = `-- name: ListWarrantiesExpiringBetween :many
@@ -20,41 +20,41 @@ FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" >= $2
-  AND w."endDate" <  $3
+  AND w."endDate" >= $2::timestamp
+  AND w."endDate" <  $3::timestamp
 ORDER BY w."endDate" ASC
 `
 
 type ListWarrantiesExpiringBetweenParams struct {
-	UserId    string           `json:"userId"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	EndDate_2 pgtype.Timestamp `json:"endDate_2"`
+	UserId string       `json:"userId"`
+	From   wire.Instant `json:"from"`
+	To     wire.Instant `json:"to"`
 }
 
 type ListWarrantiesExpiringBetweenRow struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	Type          string           `json:"type"`
-	Provider      *string          `json:"provider"`
-	StartDate     pgtype.Timestamp `json:"startDate"`
-	EndDate       pgtype.Timestamp `json:"endDate"`
-	Months        int32            `json:"months"`
-	Cost          *int32           `json:"cost"`
-	Address       *string          `json:"address"`
-	Phone         *string          `json:"phone"`
-	Notes         *string          `json:"notes"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
-	Component     *string          `json:"component"`
-	Scope         *string          `json:"scope"`
-	Cap           *int32           `json:"cap"`
-	Deductible    *int32           `json:"deductible"`
-	Exclusions    *string          `json:"exclusions"`
-	Region        *string          `json:"region"`
-	Transferable  *bool            `json:"transferable"`
-	ClaimsAllowed *int32           `json:"claimsAllowed"`
-	ClaimsUsed    int32            `json:"claimsUsed"`
-	DeviceName    string           `json:"device_name"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	Type          string       `json:"type"`
+	Provider      *string      `json:"provider"`
+	StartDate     wire.Day     `json:"startDate"`
+	EndDate       wire.Day     `json:"endDate"`
+	Months        int32        `json:"months"`
+	Cost          *int32       `json:"cost"`
+	Address       *string      `json:"address"`
+	Phone         *string      `json:"phone"`
+	Notes         *string      `json:"notes"`
+	CreatedAt     wire.Instant `json:"createdAt"`
+	UpdatedAt     wire.Instant `json:"updatedAt"`
+	Component     *string      `json:"component"`
+	Scope         *string      `json:"scope"`
+	Cap           *int32       `json:"cap"`
+	Deductible    *int32       `json:"deductible"`
+	Exclusions    *string      `json:"exclusions"`
+	Region        *string      `json:"region"`
+	Transferable  *bool        `json:"transferable"`
+	ClaimsAllowed *int32       `json:"claimsAllowed"`
+	ClaimsUsed    int32        `json:"claimsUsed"`
+	DeviceName    string       `json:"device_name"`
 }
 
 // ─── Spending forecast (GET /api/v1/forecast) ─────────────────────────────
@@ -75,7 +75,7 @@ type ListWarrantiesExpiringBetweenRow struct {
 // push-suppression flag (see docs/SPEC-MAINTENANCE-SCHEDULES.md §2.3), while this
 // is a money plan the user asked to look at.
 func (q *Queries) ListWarrantiesExpiringBetween(ctx context.Context, arg ListWarrantiesExpiringBetweenParams) ([]ListWarrantiesExpiringBetweenRow, error) {
-	rows, err := q.db.Query(ctx, listWarrantiesExpiringBetween, arg.UserId, arg.EndDate, arg.EndDate_2)
+	rows, err := q.db.Query(ctx, listWarrantiesExpiringBetween, arg.UserId, arg.From, arg.To)
 	if err != nil {
 		return nil, err
 	}
@@ -124,15 +124,15 @@ FROM "WishlistItem"
 WHERE "userId" = $1
   AND status IN ('WATCHING', 'DECIDED')
   AND "targetDate" IS NOT NULL
-  AND "targetDate" >= $2
-  AND "targetDate" <  $3
+  AND "targetDate" >= $2::timestamp
+  AND "targetDate" <  $3::timestamp
 ORDER BY "targetDate" ASC
 `
 
 type ListWishlistTargetsBetweenParams struct {
-	UserId       string           `json:"userId"`
-	TargetDate   pgtype.Timestamp `json:"targetDate"`
-	TargetDate_2 pgtype.Timestamp `json:"targetDate_2"`
+	UserId string       `json:"userId"`
+	From   wire.Instant `json:"from"`
+	To     wire.Instant `json:"to"`
 }
 
 // Wishlist items with a targetDate in [from, to), restricted to the "still
@@ -140,7 +140,7 @@ type ListWishlistTargetsBetweenParams struct {
 // push and StatsWishlistActiveValue treat as active. A PURCHASED or SKIPPED item
 // is not an upcoming spend.
 func (q *Queries) ListWishlistTargetsBetween(ctx context.Context, arg ListWishlistTargetsBetweenParams) ([]WishlistItem, error) {
-	rows, err := q.db.Query(ctx, listWishlistTargetsBetween, arg.UserId, arg.TargetDate, arg.TargetDate_2)
+	rows, err := q.db.Query(ctx, listWishlistTargetsBetween, arg.UserId, arg.From, arg.To)
 	if err != nil {
 		return nil, err
 	}
@@ -297,14 +297,14 @@ SELECT
     COALESCE(SUM("purchasePrice"), 0)::bigint AS total
 FROM "Device"
 WHERE "userId" = $1
-  AND "purchaseDate" >= $2
+  AND "purchaseDate" >= $2::timestamp
 GROUP BY 1, 2
 ORDER BY 1 ASC, 2 ASC
 `
 
 type StatsMonthlySpendParams struct {
-	UserId       string           `json:"userId"`
-	PurchaseDate pgtype.Timestamp `json:"purchaseDate"`
+	UserId       string       `json:"userId"`
+	PurchaseFrom wire.Instant `json:"purchaseFrom"`
 }
 
 type StatsMonthlySpendRow struct {
@@ -317,7 +317,7 @@ type StatsMonthlySpendRow struct {
 // row per (year, month) with the device-purchase total. Caller right-fills
 // empty months in app code so the histogram has a value for every bucket.
 func (q *Queries) StatsMonthlySpend(ctx context.Context, arg StatsMonthlySpendParams) ([]StatsMonthlySpendRow, error) {
-	rows, err := q.db.Query(ctx, statsMonthlySpend, arg.UserId, arg.PurchaseDate)
+	rows, err := q.db.Query(ctx, statsMonthlySpend, arg.UserId, arg.PurchaseFrom)
 	if err != nil {
 		return nil, err
 	}
@@ -459,12 +459,12 @@ type StatsTopExpensiveDevicesParams struct {
 }
 
 type StatsTopExpensiveDevicesRow struct {
-	ID            string           `json:"id"`
-	Name          string           `json:"name"`
-	Brand         *string          `json:"brand"`
-	Category      string           `json:"category"`
-	PurchasePrice int32            `json:"purchasePrice"`
-	PurchaseDate  pgtype.Timestamp `json:"purchaseDate"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Brand         *string  `json:"brand"`
+	Category      string   `json:"category"`
+	PurchasePrice int32    `json:"purchasePrice"`
+	PurchaseDate  wire.Day `json:"purchaseDate"`
 }
 
 func (q *Queries) StatsTopExpensiveDevices(ctx context.Context, arg StatsTopExpensiveDevicesParams) ([]StatsTopExpensiveDevicesRow, error) {
@@ -533,13 +533,13 @@ func (q *Queries) StatsTotalWarrantyCost(ctx context.Context, userid string) (in
 const statsWarrantyExpiring = `-- name: StatsWarrantyExpiring :one
 
 SELECT
-    SUM(CASE WHEN w."endDate" <= $2 THEN 1 ELSE 0 END)::bigint AS expiring_7d,
-    SUM(CASE WHEN w."endDate" <= $3 THEN 1 ELSE 0 END)::bigint AS expiring_30d
+    SUM(CASE WHEN w."endDate" <= $2::timestamp THEN 1 ELSE 0 END)::bigint AS expiring_7d,
+    SUM(CASE WHEN w."endDate" <= $3::timestamp THEN 1 ELSE 0 END)::bigint AS expiring_30d
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" >= $4
+  AND w."endDate" >= $4::timestamp
   AND NOT EXISTS (
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id AND r."isDismissed" = true
@@ -547,10 +547,10 @@ WHERE d."userId" = $1
 `
 
 type StatsWarrantyExpiringParams struct {
-	UserId    string           `json:"userId"`
-	EndDate   pgtype.Timestamp `json:"endDate"`
-	EndDate_2 pgtype.Timestamp `json:"endDate_2"`
-	EndDate_3 pgtype.Timestamp `json:"endDate_3"`
+	UserId      string       `json:"userId"`
+	Within7     wire.Instant `json:"within7"`
+	Within30    wire.Instant `json:"within30"`
+	WindowStart wire.Instant `json:"windowStart"`
 }
 
 type StatsWarrantyExpiringRow struct {
@@ -565,9 +565,9 @@ type StatsWarrantyExpiringRow struct {
 func (q *Queries) StatsWarrantyExpiring(ctx context.Context, arg StatsWarrantyExpiringParams) (StatsWarrantyExpiringRow, error) {
 	row := q.db.QueryRow(ctx, statsWarrantyExpiring,
 		arg.UserId,
-		arg.EndDate,
-		arg.EndDate_2,
-		arg.EndDate_3,
+		arg.Within7,
+		arg.Within30,
+		arg.WindowStart,
 	)
 	var i StatsWarrantyExpiringRow
 	err := row.Scan(&i.Expiring7d, &i.Expiring30d)
@@ -630,14 +630,14 @@ SELECT
     COALESCE(SUM("purchasePrice"), 0)::bigint AS total
 FROM "Device"
 WHERE "userId" = $1
-  AND "purchaseDate" >= $2
-  AND "purchaseDate" <  $3
+  AND "purchaseDate" >= $2::timestamp
+  AND "purchaseDate" <  $3::timestamp
 `
 
 type StatsYearlySpendParams struct {
-	UserId         string           `json:"userId"`
-	PurchaseDate   pgtype.Timestamp `json:"purchaseDate"`
-	PurchaseDate_2 pgtype.Timestamp `json:"purchaseDate_2"`
+	UserId       string       `json:"userId"`
+	PurchaseFrom wire.Instant `json:"purchaseFrom"`
+	PurchaseTo   wire.Instant `json:"purchaseTo"`
 }
 
 type StatsYearlySpendRow struct {
@@ -646,7 +646,7 @@ type StatsYearlySpendRow struct {
 }
 
 func (q *Queries) StatsYearlySpend(ctx context.Context, arg StatsYearlySpendParams) (StatsYearlySpendRow, error) {
-	row := q.db.QueryRow(ctx, statsYearlySpend, arg.UserId, arg.PurchaseDate, arg.PurchaseDate_2)
+	row := q.db.QueryRow(ctx, statsYearlySpend, arg.UserId, arg.PurchaseFrom, arg.PurchaseTo)
 	var i StatsYearlySpendRow
 	err := row.Scan(&i.Count, &i.Total)
 	return i, err

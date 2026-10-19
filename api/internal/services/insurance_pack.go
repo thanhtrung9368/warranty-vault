@@ -15,13 +15,13 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/pdfpack"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 
 	_ "image/gif"  // register GIF with image.Decode
 	_ "image/jpeg" // register JPEG with image.Decode
@@ -232,13 +232,13 @@ func buildInsuranceDocument(
 			Brand:                ptrString(d.Brand),
 			Model:                ptrString(d.Model),
 			SerialNumber:         ptrString(d.SerialNumber),
-			PurchaseDate:         timePtr(d.PurchaseDate),
+			PurchaseDate:         timePtr(d.PurchaseDate.Instant()),
 			PurchasePrice:        d.PurchasePrice,
 			Currency:             d.Currency,
 			PurchasePriceVND:     vndValue(d.PurchasePrice, d.Currency, d.FxRate),
 			EffectiveWarrantyEnd: insuranceWarrantyEnd(warranties),
 			Status:               d.Status,
-			SoldAt:               timePtr(d.SoldAt),
+			SoldAt:               timePtr(d.SoldAt.Instant()),
 			SoldPrice:            d.SoldPrice,
 			Warranties:           make([]pdfpack.Warranty, 0, len(warranties)),
 			Claims:               make([]pdfpack.Claim, 0, len(claims)),
@@ -330,7 +330,7 @@ func ptrString(p *string) string {
 	return strings.TrimSpace(*p)
 }
 
-func timePtr(t pgtype.Timestamp) *time.Time {
+func timePtr(t wire.Instant) *time.Time {
 	if !t.Valid {
 		return nil
 	}
@@ -360,8 +360,8 @@ func toPDFWarranty(w store.Warranty) pdfpack.Warranty {
 	return pdfpack.Warranty{
 		Type:          w.Type,
 		Provider:      ptrString(w.Provider),
-		StartDate:     timePtr(w.StartDate),
-		EndDate:       timePtr(w.EndDate),
+		StartDate:     timePtr(w.StartDate.Instant()),
+		EndDate:       timePtr(w.EndDate.Instant()),
 		Months:        w.Months,
 		Cost:          w.Cost,
 		Address:       ptrString(w.Address),

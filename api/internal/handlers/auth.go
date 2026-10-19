@@ -14,7 +14,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
@@ -28,6 +27,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Deps bundles the per-process dependencies the handler closures capture.
@@ -658,7 +658,7 @@ func Forgot(d Deps) http.HandlerFunc {
 					ID:        auth.NewID(),
 					UserId:    user.ID,
 					TokenHash: hash,
-					ExpiresAt: pgtype.Timestamp{Time: expires, Valid: true},
+					ExpiresAt: wire.At(expires),
 				})
 				if perr == nil {
 					appURL := os.Getenv("APP_URL")
@@ -1022,7 +1022,7 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 			UserId:       user.ID,
 			TokenHash:    hash,
 			PendingEmail: &newEmail,
-			ExpiresAt:    pgtype.Timestamp{Time: expires, Valid: true},
+			ExpiresAt:    wire.At(expires),
 		}); perr != nil {
 			slog.Error("create email change failed", "err", perr)
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)

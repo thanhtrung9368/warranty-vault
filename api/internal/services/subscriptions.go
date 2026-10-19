@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // MaxSubscriptionsPerUser mirrors website/src/lib/services/subscriptions.ts::MAX_SUBS_PER_USER.
@@ -282,8 +282,8 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 		BillingCycle:    in.BillingCycle,
 		IntervalDays:    in.IntervalDays,
 		Price:           in.Price,
-		StartedAt:       subPgts(in.StartedAt),
-		RenewalDate:     subPgts(renewal),
+		StartedAt:       subPgday(in.StartedAt),
+		RenewalDate:     subPgday(renewal),
 		AutoRenew:       in.AutoRenew,
 		AccountEmail:    trimToPtr(in.AccountEmail),
 		PaymentMethod:   trimToPtr(in.PaymentMethod),
@@ -291,7 +291,7 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 		CancelUrl:       trimToPtr(in.CancelURL),
 		Notes:           trimToPtr(in.Notes),
 		LeadDays:        leadDaysForCreate(in.LeadDays, DefaultSubscriptionLeadDays),
-		TrialEndsAt:     subPgtsPtr(in.TrialEndsAt),
+		TrialEndsAt:     subPgdayPtr(in.TrialEndsAt),
 		ConvertsToPrice: in.ConvertsToPrice,
 		Currency:        nil, // → SQL COALESCE → 'VND'
 		Status:          &status,
@@ -320,7 +320,7 @@ func UpdateSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string
 
 	renewal := existing.RenewalDate
 	if in.RenewalDate != nil && !in.RenewalDate.IsZero() {
-		renewal = subPgts(*in.RenewalDate)
+		renewal = subPgday(*in.RenewalDate)
 	}
 
 	status := in.Status
@@ -339,7 +339,7 @@ func UpdateSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string
 		IntervalDays:    in.IntervalDays,
 		Price:           in.Price,
 		Currency:        existing.Currency,
-		StartedAt:       subPgts(in.StartedAt),
+		StartedAt:       subPgday(in.StartedAt),
 		RenewalDate:     renewal,
 		AutoRenew:       in.AutoRenew,
 		Status:          status,
@@ -349,7 +349,7 @@ func UpdateSubscription(ctx context.Context, db *pgxpool.Pool, userID, id string
 		CancelUrl:       trimToPtr(in.CancelURL),
 		Notes:           trimToPtr(in.Notes),
 		LeadDays:        leadDaysForUpdate(in.LeadDays, existing.LeadDays),
-		TrialEndsAt:     subPgtsPtr(in.TrialEndsAt),
+		TrialEndsAt:     subPgdayPtr(in.TrialEndsAt),
 		ConvertsToPrice: in.ConvertsToPrice,
 	})
 	if err != nil {
@@ -463,7 +463,7 @@ func Renew(ctx context.Context, db *pgxpool.Pool, userID, subID string) (store.S
 		ID:             auth.NewID(),
 		SubscriptionId: subID,
 		Amount:         existing.Price,
-		PaidAt:         existing.RenewalDate,
+		PaidAt:         existing.RenewalDate.Instant(),
 		Note:           &manualNote,
 	}); err != nil {
 		return store.Subscription{}, fmt.Errorf("create payment: %w", err)
@@ -471,7 +471,7 @@ func Renew(ctx context.Context, db *pgxpool.Pool, userID, subID string) (store.S
 
 	updated, err := tq.AdvanceSubscriptionRenewal(ctx, store.AdvanceSubscriptionRenewalParams{
 		ID:                    subID,
-		RenewalDate:           subPgts(next),
+		RenewalDate:           subPgday(next),
 		LastNotifiedRenewalAt: existing.LastNotifiedRenewalAt,
 	})
 	if err != nil {
@@ -574,21 +574,31 @@ func trimToPtr(p *string) *string {
 	return &v
 }
 
-func subPgts(t time.Time) pgtype.Timestamp {
+func subPgts(t time.Time) wire.Instant {
 	if t.IsZero() {
-		return pgtype.Timestamp{}
+		return wire.Instant{}
 	}
-	return pgtype.Timestamp{Time: t.UTC(), Valid: true}
+	return wire.At(t.UTC())
 }
 
 // subPgtsPtr is subPgts for an optional date: nil / zero → SQL NULL. Used by the
 // trial pair (migration 0016) so "no trial" is stored as NULL rather than the
 // zero timestamp, which would otherwise look like year 1 to every read path.
-func subPgtsPtr(t *time.Time) pgtype.Timestamp {
-	if t == nil {
-		return pgtype.Timestamp{}
+// subPgday / subPgdayPtr are subPgts for the three DATE columns on the row
+// (startedAt, renewalDate, trialEndsAt). They serialize as YYYY-MM-DD; the
+// value is stored at UTC midnight, exactly as before.
+func subPgday(t time.Time) wire.Day {
+	if t.IsZero() {
+		return wire.Day{}
 	}
-	return subPgts(*t)
+	return wire.Date(t)
+}
+
+func subPgdayPtr(t *time.Time) wire.Day {
+	if t == nil {
+		return wire.Day{}
+	}
+	return subPgday(*t)
 }
 
 // Compile-time check: tx satisfies the store DBTX interface used by Queries.

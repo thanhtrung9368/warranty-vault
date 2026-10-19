@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const countSnoozesByUser = `-- name: CountSnoozesByUser :one
@@ -160,14 +160,14 @@ ORDER BY MAX(w."endDate") ASC
 `
 
 type ListActionDevicesStatusStaleParams struct {
-	UserId    string           `json:"userId"`
-	OlderThan pgtype.Timestamp `json:"olderThan"`
+	UserId    string       `json:"userId"`
+	OlderThan wire.Instant `json:"olderThan"`
 }
 
 type ListActionDevicesStatusStaleRow struct {
-	DeviceID    string           `json:"device_id"`
-	DeviceName  string           `json:"device_name"`
-	LastEndDate pgtype.Timestamp `json:"last_end_date"`
+	DeviceID    string       `json:"device_id"`
+	DeviceName  string       `json:"device_name"`
+	LastEndDate wire.Instant `json:"last_end_date"`
 }
 
 // `status = 'ACTIVE'` while the newest warranty ended before the lookback
@@ -211,9 +211,9 @@ ORDER BY d."purchaseDate" ASC
 `
 
 type ListActionDevicesWithoutWarrantyRow struct {
-	DeviceID     string           `json:"device_id"`
-	DeviceName   string           `json:"device_name"`
-	PurchaseDate pgtype.Timestamp `json:"purchase_date"`
+	DeviceID     string   `json:"device_id"`
+	DeviceName   string   `json:"device_name"`
+	PurchaseDate wire.Day `json:"purchase_date"`
 }
 
 // An ACTIVE device the app knows nothing about, protection-wise: zero Warranty
@@ -254,15 +254,15 @@ ORDER BY d."purchaseDate" DESC
 `
 
 type ListActionReturnWindowUnknownParams struct {
-	UserId       string           `json:"userId"`
-	PurchaseFrom pgtype.Timestamp `json:"purchaseFrom"`
-	PurchaseTo   pgtype.Timestamp `json:"purchaseTo"`
+	UserId       string       `json:"userId"`
+	PurchaseFrom wire.Instant `json:"purchaseFrom"`
+	PurchaseTo   wire.Instant `json:"purchaseTo"`
 }
 
 type ListActionReturnWindowUnknownRow struct {
-	DeviceID     string           `json:"device_id"`
-	DeviceName   string           `json:"device_name"`
-	PurchaseDate pgtype.Timestamp `json:"purchase_date"`
+	DeviceID     string   `json:"device_id"`
+	DeviceName   string   `json:"device_name"`
+	PurchaseDate wire.Day `json:"purchase_date"`
 }
 
 // A device bought inside the cold-start horizon (the service passes
@@ -308,15 +308,15 @@ ORDER BY "returnDeadline" ASC
 `
 
 type ListActionReturnWindowsClosingParams struct {
-	UserId      string           `json:"userId"`
-	WindowStart pgtype.Timestamp `json:"windowStart"`
-	WindowEnd   pgtype.Timestamp `json:"windowEnd"`
+	UserId      string       `json:"userId"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 type ListActionReturnWindowsClosingRow struct {
-	DeviceID       string           `json:"device_id"`
-	DeviceName     string           `json:"device_name"`
-	ReturnDeadline pgtype.Timestamp `json:"returnDeadline"`
+	DeviceID       string       `json:"device_id"`
+	DeviceName     string       `json:"device_name"`
+	ReturnDeadline wire.Instant `json:"returnDeadline"`
 }
 
 // The exchange window is closing inside [startOfToday, horizon] (the service
@@ -368,17 +368,17 @@ ORDER BY s."renewalDate" ASC
 `
 
 type ListActionSubscriptionsPaidNotAdvancedParams struct {
-	UserId        string           `json:"userId"`
-	RenewalBefore pgtype.Timestamp `json:"renewalBefore"`
+	UserId        string       `json:"userId"`
+	RenewalBefore wire.Instant `json:"renewalBefore"`
 }
 
 type ListActionSubscriptionsPaidNotAdvancedRow struct {
-	ID             string           `json:"id"`
-	Name           string           `json:"name"`
-	Price          int32            `json:"price"`
-	RenewalDate    pgtype.Timestamp `json:"renewal_date"`
-	LastPaidAt     pgtype.Timestamp `json:"last_paid_at"`
-	LastPaidAmount int32            `json:"last_paid_amount"`
+	ID             string       `json:"id"`
+	Name           string       `json:"name"`
+	Price          int32        `json:"price"`
+	RenewalDate    wire.Day     `json:"renewal_date"`
+	LastPaidAt     wire.Instant `json:"last_paid_at"`
+	LastPaidAmount int32        `json:"last_paid_amount"`
 }
 
 // The newest recorded payment already covers (or postdates) a renewalDate that is
@@ -437,17 +437,17 @@ ORDER BY s."renewalDate" ASC
 `
 
 type ListActionSubscriptionsRenewingNoCancelUrlParams struct {
-	UserId      string           `json:"userId"`
-	RenewalFrom pgtype.Timestamp `json:"renewalFrom"`
-	RenewalTo   pgtype.Timestamp `json:"renewalTo"`
+	UserId      string       `json:"userId"`
+	RenewalFrom wire.Instant `json:"renewalFrom"`
+	RenewalTo   wire.Instant `json:"renewalTo"`
 }
 
 type ListActionSubscriptionsRenewingNoCancelUrlRow struct {
-	ID           string           `json:"id"`
-	Name         string           `json:"name"`
-	Price        int32            `json:"price"`
-	BillingCycle string           `json:"billing_cycle"`
-	RenewalDate  pgtype.Timestamp `json:"renewal_date"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Price        int32    `json:"price"`
+	BillingCycle string   `json:"billing_cycle"`
+	RenewalDate  wire.Day `json:"renewal_date"`
 }
 
 // autoRenew = true and the next charge is inside the horizon, but there is no
@@ -498,18 +498,18 @@ ORDER BY w."endDate" DESC
 `
 
 type ListActionWarrantiesJustExpiredParams struct {
-	UserId        string           `json:"userId"`
-	ExpiredBefore pgtype.Timestamp `json:"expiredBefore"`
-	ExpiredAfter  pgtype.Timestamp `json:"expiredAfter"`
+	UserId        string       `json:"userId"`
+	ExpiredBefore wire.Instant `json:"expiredBefore"`
+	ExpiredAfter  wire.Instant `json:"expiredAfter"`
 }
 
 type ListActionWarrantiesJustExpiredRow struct {
-	WarrantyID   string           `json:"warranty_id"`
-	DeviceID     string           `json:"device_id"`
-	DeviceName   string           `json:"device_name"`
-	WarrantyType string           `json:"warranty_type"`
-	Provider     *string          `json:"provider"`
-	EndDate      pgtype.Timestamp `json:"end_date"`
+	WarrantyID   string   `json:"warranty_id"`
+	DeviceID     string   `json:"device_id"`
+	DeviceName   string   `json:"device_name"`
+	WarrantyType string   `json:"warranty_type"`
+	Provider     *string  `json:"provider"`
+	EndDate      wire.Day `json:"end_date"`
 }
 
 // "Việc cần xử lý" — hàng đợi việc cần người dùng quyết định (FEATURE_IDEAS #3).
@@ -574,17 +574,17 @@ ORDER BY i."targetDate" ASC
 `
 
 type ListActionWishlistTargetPassedParams struct {
-	UserId       string           `json:"userId"`
-	TargetBefore pgtype.Timestamp `json:"targetBefore"`
+	UserId       string       `json:"userId"`
+	TargetBefore wire.Instant `json:"targetBefore"`
 }
 
 type ListActionWishlistTargetPassedRow struct {
-	ID           string           `json:"id"`
-	Name         string           `json:"name"`
-	TargetDate   pgtype.Timestamp `json:"target_date"`
-	Priority     string           `json:"priority"`
-	Status       string           `json:"status"`
-	CurrentPrice *int32           `json:"current_price"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	TargetDate   wire.Day `json:"target_date"`
+	Priority     string   `json:"priority"`
+	Status       string   `json:"status"`
+	CurrentPrice *int32   `json:"current_price"`
 }
 
 // The date the user themselves set has gone by while the item is still being
@@ -627,8 +627,8 @@ ORDER BY "snoozedUntil" ASC
 `
 
 type ListActiveSnoozesByUserParams struct {
-	UserId       string           `json:"userId"`
-	SnoozedUntil pgtype.Timestamp `json:"snoozedUntil"`
+	UserId       string       `json:"userId"`
+	SnoozedUntil wire.Instant `json:"snoozedUntil"`
 }
 
 // ─── Snooze ("hoãn") ──────────────────────────────────────────────────────
@@ -671,10 +671,10 @@ RETURNING id, "userId", "itemKey", "snoozedUntil", "createdAt"
 `
 
 type UpsertDecisionSnoozeParams struct {
-	ID           string           `json:"id"`
-	UserId       string           `json:"userId"`
-	ItemKey      string           `json:"itemKey"`
-	SnoozedUntil pgtype.Timestamp `json:"snoozedUntil"`
+	ID           string       `json:"id"`
+	UserId       string       `json:"userId"`
+	ItemKey      string       `json:"itemKey"`
+	SnoozedUntil wire.Instant `json:"snoozedUntil"`
 }
 
 // One row per (user, item) — re-snoozing overwrites the previous deadline instead

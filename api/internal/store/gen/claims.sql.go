@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const countClaimsByUser = `-- name: CountClaimsByUser :one
@@ -83,20 +83,20 @@ RETURNING id, "deviceId", "warrantyId", status, "openedAt", "expectedReturnAt", 
 `
 
 type CreateClaimParams struct {
-	ID                string           `json:"id"`
-	DeviceId          string           `json:"deviceId"`
-	WarrantyId        *string          `json:"warrantyId"`
-	Status            string           `json:"status"`
-	OpenedAt          pgtype.Timestamp `json:"openedAt"`
-	ExpectedReturnAt  pgtype.Timestamp `json:"expectedReturnAt"`
-	ClosedAt          pgtype.Timestamp `json:"closedAt"`
-	TicketNumber      *string          `json:"ticketNumber"`
-	ServiceCenter     *string          `json:"serviceCenter"`
-	Issue             string           `json:"issue"`
-	Diagnosis         *string          `json:"diagnosis"`
-	Outcome           *string          `json:"outcome"`
-	Cost              *int32           `json:"cost"`
-	CoveredByWarranty *bool            `json:"coveredByWarranty"`
+	ID                string       `json:"id"`
+	DeviceId          string       `json:"deviceId"`
+	WarrantyId        *string      `json:"warrantyId"`
+	Status            string       `json:"status"`
+	OpenedAt          wire.Instant `json:"openedAt"`
+	ExpectedReturnAt  wire.Day     `json:"expectedReturnAt"`
+	ClosedAt          wire.Instant `json:"closedAt"`
+	TicketNumber      *string      `json:"ticketNumber"`
+	ServiceCenter     *string      `json:"serviceCenter"`
+	Issue             string       `json:"issue"`
+	Diagnosis         *string      `json:"diagnosis"`
+	Outcome           *string      `json:"outcome"`
+	Cost              *int32       `json:"cost"`
+	CoveredByWarranty *bool        `json:"coveredByWarranty"`
 }
 
 // All user-editable fields plus the server-resolved closedAt. status is written
@@ -348,21 +348,21 @@ RETURNING c.id, c."deviceId", c."warrantyId", c.status, c."openedAt", c."expecte
 `
 
 type UpdateClaimParams struct {
-	ID                string           `json:"id"`
-	UserId            string           `json:"userId"`
-	DeviceId          string           `json:"deviceId"`
-	WarrantyId        *string          `json:"warrantyId"`
-	Status            string           `json:"status"`
-	OpenedAt          pgtype.Timestamp `json:"openedAt"`
-	ExpectedReturnAt  pgtype.Timestamp `json:"expectedReturnAt"`
-	ClosedAt          pgtype.Timestamp `json:"closedAt"`
-	TicketNumber      *string          `json:"ticketNumber"`
-	ServiceCenter     *string          `json:"serviceCenter"`
-	Issue             string           `json:"issue"`
-	Diagnosis         *string          `json:"diagnosis"`
-	Outcome           *string          `json:"outcome"`
-	Cost              *int32           `json:"cost"`
-	CoveredByWarranty *bool            `json:"coveredByWarranty"`
+	ID                string       `json:"id"`
+	UserId            string       `json:"userId"`
+	DeviceId          string       `json:"deviceId"`
+	WarrantyId        *string      `json:"warrantyId"`
+	Status            string       `json:"status"`
+	OpenedAt          wire.Instant `json:"openedAt"`
+	ExpectedReturnAt  wire.Day     `json:"expectedReturnAt"`
+	ClosedAt          wire.Instant `json:"closedAt"`
+	TicketNumber      *string      `json:"ticketNumber"`
+	ServiceCenter     *string      `json:"serviceCenter"`
+	Issue             string       `json:"issue"`
+	Diagnosis         *string      `json:"diagnosis"`
+	Outcome           *string      `json:"outcome"`
+	Cost              *int32       `json:"cost"`
+	CoveredByWarranty *bool        `json:"coveredByWarranty"`
 }
 
 // Full replacement of the editable fields (the same convention as warranties).

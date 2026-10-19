@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver used by goose below
 	"github.com/pressly/goose/v3"
@@ -22,6 +21,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // ─── Pure helpers (no DB) ────────────────────────────────────────────────────
@@ -159,8 +159,8 @@ func TestRun_AgainstDevDB(t *testing.T) {
 		ID:        warrantyID,
 		DeviceId:  deviceID,
 		Type:      "STANDARD",
-		StartDate: pgtype.Timestamp{Time: nowLocal, Valid: true},
-		EndDate:   pgtype.Timestamp{Time: in7d.Add(12 * time.Hour), Valid: true},
+		StartDate: wire.Date(nowLocal),
+		EndDate:   wire.Date(in7d.Add(12 * time.Hour)),
 		Months:    12,
 	}); err != nil {
 		t.Fatalf("create warranty: %v", err)
@@ -178,8 +178,8 @@ func TestRun_AgainstDevDB(t *testing.T) {
 		Name:         "ChatGPT Plus",
 		BillingCycle: "MONTHLY",
 		Price:        480000,
-		StartedAt:    pgtype.Timestamp{Time: yesterday.AddDate(0, -1, 0), Valid: true},
-		RenewalDate:  pgtype.Timestamp{Time: yesterday, Valid: true},
+		StartedAt:    wire.Date(yesterday.AddDate(0, -1, 0)),
+		RenewalDate:  wire.Date(yesterday),
 		AutoRenew:    true,
 	}); err != nil {
 		t.Fatalf("create autoRenew sub: %v", err)
@@ -190,8 +190,8 @@ func TestRun_AgainstDevDB(t *testing.T) {
 		Name:         "Old Hosting",
 		BillingCycle: "YEARLY",
 		Price:        1200000,
-		StartedAt:    pgtype.Timestamp{Time: yesterday.AddDate(-1, 0, 0), Valid: true},
-		RenewalDate:  pgtype.Timestamp{Time: yesterday, Valid: true},
+		StartedAt:    wire.Date(yesterday.AddDate(-1, 0, 0)),
+		RenewalDate:  wire.Date(yesterday),
 		AutoRenew:    false,
 	}); err != nil {
 		t.Fatalf("create manual sub: %v", err)
@@ -202,8 +202,8 @@ func TestRun_AgainstDevDB(t *testing.T) {
 		Name:         "Lifetime Deal",
 		BillingCycle: "LIFETIME",
 		Price:        5000000,
-		StartedAt:    pgtype.Timestamp{Time: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC), Valid: true},
-		RenewalDate:  pgtype.Timestamp{Time: time.Date(2125, time.January, 1, 0, 0, 0, 0, time.UTC), Valid: true},
+		StartedAt:    wire.Date(time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)),
+		RenewalDate:  wire.Date(time.Date(2125, time.January, 1, 0, 0, 0, 0, time.UTC)),
 		AutoRenew:    true,
 	}); err != nil {
 		t.Fatalf("create lifetime sub: %v", err)
@@ -219,7 +219,7 @@ func TestRun_AgainstDevDB(t *testing.T) {
 		UserId:       userID,
 		Name:         "Sony WH-1000XM6",
 		CurrentPrice: &currentPrice,
-		TargetDate:   pgtype.Timestamp{Time: todayMid, Valid: true},
+		TargetDate:   wire.Date(todayMid),
 	}); err != nil {
 		t.Fatalf("create wishlist today: %v", err)
 	}
@@ -412,8 +412,8 @@ func TestRun_SubRenewalWarningIdempotent(t *testing.T) {
 		Name:         "Warning Sub",
 		BillingCycle: "MONTHLY",
 		Price:        100000,
-		StartedAt:    pgtype.Timestamp{Time: todayNoon.AddDate(0, -1, 0), Valid: true},
-		RenewalDate:  pgtype.Timestamp{Time: todayNoon, Valid: true},
+		StartedAt:    wire.Date(todayNoon.AddDate(0, -1, 0)),
+		RenewalDate:  wire.Date(todayNoon),
 		AutoRenew:    true,
 		LeadDays:     []int32{0},
 	}); err != nil {
@@ -508,8 +508,8 @@ func TestRun_DispatchGoneDeletesRow(t *testing.T) {
 		Name:         "Gone Test Sub",
 		BillingCycle: "YEARLY",
 		Price:        100000,
-		StartedAt:    pgtype.Timestamp{Time: yesterday.AddDate(-1, 0, 0), Valid: true},
-		RenewalDate:  pgtype.Timestamp{Time: yesterday, Valid: true},
+		StartedAt:    wire.Date(yesterday.AddDate(-1, 0, 0)),
+		RenewalDate:  wire.Date(yesterday),
 		AutoRenew:    false,
 	}); err != nil {
 		t.Fatalf("create sub: %v", err)

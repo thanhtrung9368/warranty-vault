@@ -5,22 +5,22 @@
 package store
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 type Attachment struct {
-	ID            string           `json:"id"`
-	DeviceId      *string          `json:"deviceId"`
-	FileName      string           `json:"fileName"`
-	StoragePath   string           `json:"storagePath"`
-	FileType      string           `json:"fileType"`
-	FileSize      int32            `json:"fileSize"`
-	Iv            []byte           `json:"iv"`
-	WrappedKey    []byte           `json:"wrappedKey"`
-	Description   *string          `json:"description"`
-	UploadedAt    pgtype.Timestamp `json:"uploadedAt"`
-	UserId        string           `json:"userId"`
-	ExtractedText *string          `json:"extractedText"`
+	ID            string       `json:"id"`
+	DeviceId      *string      `json:"deviceId"`
+	FileName      string       `json:"fileName"`
+	StoragePath   string       `json:"storagePath"`
+	FileType      string       `json:"fileType"`
+	FileSize      int32        `json:"fileSize"`
+	Iv            []byte       `json:"iv"`
+	WrappedKey    []byte       `json:"wrappedKey"`
+	Description   *string      `json:"description"`
+	UploadedAt    wire.Instant `json:"uploadedAt"`
+	UserId        string       `json:"userId"`
+	ExtractedText *string      `json:"extractedText"`
 }
 
 type Brand struct {
@@ -52,121 +52,121 @@ type Category struct {
 }
 
 type Claim struct {
-	ID                string           `json:"id"`
-	DeviceId          string           `json:"deviceId"`
-	WarrantyId        *string          `json:"warrantyId"`
-	Status            string           `json:"status"`
-	OpenedAt          pgtype.Timestamp `json:"openedAt"`
-	ExpectedReturnAt  pgtype.Timestamp `json:"expectedReturnAt"`
-	ClosedAt          pgtype.Timestamp `json:"closedAt"`
-	TicketNumber      *string          `json:"ticketNumber"`
-	ServiceCenter     *string          `json:"serviceCenter"`
-	Issue             string           `json:"issue"`
-	Diagnosis         *string          `json:"diagnosis"`
-	Outcome           *string          `json:"outcome"`
-	Cost              *int32           `json:"cost"`
-	CoveredByWarranty *bool            `json:"coveredByWarranty"`
-	CreatedAt         pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
+	ID                string       `json:"id"`
+	DeviceId          string       `json:"deviceId"`
+	WarrantyId        *string      `json:"warrantyId"`
+	Status            string       `json:"status"`
+	OpenedAt          wire.Instant `json:"openedAt"`
+	ExpectedReturnAt  wire.Day     `json:"expectedReturnAt"`
+	ClosedAt          wire.Instant `json:"closedAt"`
+	TicketNumber      *string      `json:"ticketNumber"`
+	ServiceCenter     *string      `json:"serviceCenter"`
+	Issue             string       `json:"issue"`
+	Diagnosis         *string      `json:"diagnosis"`
+	Outcome           *string      `json:"outcome"`
+	Cost              *int32       `json:"cost"`
+	CoveredByWarranty *bool        `json:"coveredByWarranty"`
+	CreatedAt         wire.Instant `json:"createdAt"`
+	UpdatedAt         wire.Instant `json:"updatedAt"`
 }
 
 type DecisionSnooze struct {
-	ID           string           `json:"id"`
-	UserId       string           `json:"userId"`
-	ItemKey      string           `json:"itemKey"`
-	SnoozedUntil pgtype.Timestamp `json:"snoozedUntil"`
-	CreatedAt    pgtype.Timestamp `json:"createdAt"`
+	ID           string       `json:"id"`
+	UserId       string       `json:"userId"`
+	ItemKey      string       `json:"itemKey"`
+	SnoozedUntil wire.Instant `json:"snoozedUntil"`
+	CreatedAt    wire.Instant `json:"createdAt"`
 }
 
 type Device struct {
-	ID                           string           `json:"id"`
-	UserId                       string           `json:"userId"`
-	Name                         string           `json:"name"`
-	Category                     string           `json:"category"`
-	Brand                        *string          `json:"brand"`
-	Model                        *string          `json:"model"`
-	SerialNumber                 *string          `json:"serialNumber"`
-	PurchaseDate                 pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice                int32            `json:"purchasePrice"`
-	PurchasePlace                *string          `json:"purchasePlace"`
-	Status                       string           `json:"status"`
-	Notes                        *string          `json:"notes"`
-	CreatedAt                    pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt                    pgtype.Timestamp `json:"updatedAt"`
-	SoldAt                       pgtype.Timestamp `json:"soldAt"`
-	SoldPrice                    *int32           `json:"soldPrice"`
-	ReturnWindowDays             *int32           `json:"returnWindowDays"`
-	ReceivedAt                   pgtype.Timestamp `json:"receivedAt"`
-	ReturnWindowNotifiedAt       pgtype.Timestamp `json:"returnWindowNotifiedAt"`
-	LeadDays                     []int32          `json:"leadDays"`
-	ActivationRequired           bool             `json:"activationRequired"`
-	ActivatedAt                  pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy           pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
-	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
-	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
-	Currency                     string           `json:"currency"`
-	FxRate                       *int32           `json:"fxRate"`
-	BrandWarrantyStatus          *string          `json:"brandWarrantyStatus"`
-	BrandWarrantyStart           pgtype.Timestamp `json:"brandWarrantyStart"`
-	BrandWarrantyEnd             pgtype.Timestamp `json:"brandWarrantyEnd"`
-	BrandCheckedAt               pgtype.Timestamp `json:"brandCheckedAt"`
-	BrandLookupUrl               *string          `json:"brandLookupUrl"`
+	ID                           string       `json:"id"`
+	UserId                       string       `json:"userId"`
+	Name                         string       `json:"name"`
+	Category                     string       `json:"category"`
+	Brand                        *string      `json:"brand"`
+	Model                        *string      `json:"model"`
+	SerialNumber                 *string      `json:"serialNumber"`
+	PurchaseDate                 wire.Day     `json:"purchaseDate"`
+	PurchasePrice                int32        `json:"purchasePrice"`
+	PurchasePlace                *string      `json:"purchasePlace"`
+	Status                       string       `json:"status"`
+	Notes                        *string      `json:"notes"`
+	CreatedAt                    wire.Instant `json:"createdAt"`
+	UpdatedAt                    wire.Instant `json:"updatedAt"`
+	SoldAt                       wire.Day     `json:"soldAt"`
+	SoldPrice                    *int32       `json:"soldPrice"`
+	ReturnWindowDays             *int32       `json:"returnWindowDays"`
+	ReceivedAt                   wire.Day     `json:"receivedAt"`
+	ReturnWindowNotifiedAt       wire.Instant `json:"returnWindowNotifiedAt"`
+	LeadDays                     []int32      `json:"leadDays"`
+	ActivationRequired           bool         `json:"activationRequired"`
+	ActivatedAt                  wire.Day     `json:"activatedAt"`
+	ExtendedCoverBuyBy           wire.Day     `json:"extendedCoverBuyBy"`
+	ActivationNotifiedAt         wire.Instant `json:"activationNotifiedAt"`
+	ExtendedCoverNotifiedAt      wire.Instant `json:"extendedCoverNotifiedAt"`
+	ExtendedCoverNotifiedLeadDay *int32       `json:"extendedCoverNotifiedLeadDay"`
+	Currency                     string       `json:"currency"`
+	FxRate                       *int32       `json:"fxRate"`
+	BrandWarrantyStatus          *string      `json:"brandWarrantyStatus"`
+	BrandWarrantyStart           wire.Day     `json:"brandWarrantyStart"`
+	BrandWarrantyEnd             wire.Day     `json:"brandWarrantyEnd"`
+	BrandCheckedAt               wire.Instant `json:"brandCheckedAt"`
+	BrandLookupUrl               *string      `json:"brandLookupUrl"`
 }
 
 type DeviceShare struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	UserId        string           `json:"userId"`
-	TokenHash     string           `json:"tokenHash"`
-	ExpiresAt     pgtype.Timestamp `json:"expiresAt"`
-	RevokedAt     pgtype.Timestamp `json:"revokedAt"`
-	IncludeSerial bool             `json:"includeSerial"`
-	ViewCount     int32            `json:"viewCount"`
-	LastViewedAt  pgtype.Timestamp `json:"lastViewedAt"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	UserId        string       `json:"userId"`
+	TokenHash     string       `json:"tokenHash"`
+	ExpiresAt     wire.Instant `json:"expiresAt"`
+	RevokedAt     wire.Instant `json:"revokedAt"`
+	IncludeSerial bool         `json:"includeSerial"`
+	ViewCount     int32        `json:"viewCount"`
+	LastViewedAt  wire.Instant `json:"lastViewedAt"`
+	CreatedAt     wire.Instant `json:"createdAt"`
 }
 
 type PasswordReset struct {
-	ID           string           `json:"id"`
-	UserId       string           `json:"userId"`
-	TokenHash    string           `json:"tokenHash"`
-	ExpiresAt    pgtype.Timestamp `json:"expiresAt"`
-	UsedAt       pgtype.Timestamp `json:"usedAt"`
-	CreatedAt    pgtype.Timestamp `json:"createdAt"`
-	PendingEmail *string          `json:"pendingEmail"`
+	ID           string       `json:"id"`
+	UserId       string       `json:"userId"`
+	TokenHash    string       `json:"tokenHash"`
+	ExpiresAt    wire.Instant `json:"expiresAt"`
+	UsedAt       wire.Instant `json:"usedAt"`
+	CreatedAt    wire.Instant `json:"createdAt"`
+	PendingEmail *string      `json:"pendingEmail"`
 }
 
 type PushSubscription struct {
-	ID        string           `json:"id"`
-	UserId    string           `json:"userId"`
-	Endpoint  string           `json:"endpoint"`
-	P256dh    *string          `json:"p256dh"`
-	Auth      *string          `json:"auth"`
-	UserAgent *string          `json:"userAgent"`
-	CreatedAt pgtype.Timestamp `json:"createdAt"`
-	Platform  string           `json:"platform"`
+	ID        string       `json:"id"`
+	UserId    string       `json:"userId"`
+	Endpoint  string       `json:"endpoint"`
+	P256dh    *string      `json:"p256dh"`
+	Auth      *string      `json:"auth"`
+	UserAgent *string      `json:"userAgent"`
+	CreatedAt wire.Instant `json:"createdAt"`
+	Platform  string       `json:"platform"`
 }
 
 type Reminder struct {
-	ID                  string           `json:"id"`
-	WarrantyId          string           `json:"warrantyId"`
-	IsDismissed         bool             `json:"isDismissed"`
-	CreatedAt           pgtype.Timestamp `json:"createdAt"`
-	LastNotifiedAt      pgtype.Timestamp `json:"lastNotifiedAt"`
-	LastNotifiedLeadDay *int32           `json:"lastNotifiedLeadDay"`
+	ID                  string       `json:"id"`
+	WarrantyId          string       `json:"warrantyId"`
+	IsDismissed         bool         `json:"isDismissed"`
+	CreatedAt           wire.Instant `json:"createdAt"`
+	LastNotifiedAt      wire.Instant `json:"lastNotifiedAt"`
+	LastNotifiedLeadDay *int32       `json:"lastNotifiedLeadDay"`
 }
 
 type Session struct {
-	ID          string           `json:"id"`
-	UserId      string           `json:"userId"`
-	TokenHash   string           `json:"tokenHash"`
-	DeviceLabel *string          `json:"deviceLabel"`
-	Platform    *string          `json:"platform"`
-	LastSeenAt  pgtype.Timestamp `json:"lastSeenAt"`
-	ExpiresAt   pgtype.Timestamp `json:"expiresAt"`
-	RevokedAt   pgtype.Timestamp `json:"revokedAt"`
-	CreatedAt   pgtype.Timestamp `json:"createdAt"`
+	ID          string       `json:"id"`
+	UserId      string       `json:"userId"`
+	TokenHash   string       `json:"tokenHash"`
+	DeviceLabel *string      `json:"deviceLabel"`
+	Platform    *string      `json:"platform"`
+	LastSeenAt  wire.Instant `json:"lastSeenAt"`
+	ExpiresAt   wire.Instant `json:"expiresAt"`
+	RevokedAt   wire.Instant `json:"revokedAt"`
+	CreatedAt   wire.Instant `json:"createdAt"`
 }
 
 type Store struct {
@@ -178,81 +178,99 @@ type Store struct {
 }
 
 type Subscription struct {
-	ID                         string           `json:"id"`
-	UserId                     string           `json:"userId"`
-	Name                       string           `json:"name"`
-	Category                   *string          `json:"category"`
-	Brand                      *string          `json:"brand"`
-	Plan                       *string          `json:"plan"`
-	BillingCycle               string           `json:"billingCycle"`
-	IntervalDays               *int32           `json:"intervalDays"`
-	Price                      int32            `json:"price"`
-	Currency                   string           `json:"currency"`
-	StartedAt                  pgtype.Timestamp `json:"startedAt"`
-	RenewalDate                pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew                  bool             `json:"autoRenew"`
-	Status                     string           `json:"status"`
-	AccountEmail               *string          `json:"accountEmail"`
-	PaymentMethod              *string          `json:"paymentMethod"`
-	ManageUrl                  *string          `json:"manageUrl"`
-	CancelUrl                  *string          `json:"cancelUrl"`
-	Notes                      *string          `json:"notes"`
-	LastNotifiedRenewalAt      pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
-	CreatedAt                  pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt                  pgtype.Timestamp `json:"updatedAt"`
-	LeadDays                   []int32          `json:"leadDays"`
-	LastNotifiedRenewalLeadDay *int32           `json:"lastNotifiedRenewalLeadDay"`
-	TrialEndsAt                pgtype.Timestamp `json:"trialEndsAt"`
-	ConvertsToPrice            *int32           `json:"convertsToPrice"`
-	TrialNotifiedAt            pgtype.Timestamp `json:"trialNotifiedAt"`
-	TrialNotifiedLeadDay       *int32           `json:"trialNotifiedLeadDay"`
+	ID                         string       `json:"id"`
+	UserId                     string       `json:"userId"`
+	Name                       string       `json:"name"`
+	Category                   *string      `json:"category"`
+	Brand                      *string      `json:"brand"`
+	Plan                       *string      `json:"plan"`
+	BillingCycle               string       `json:"billingCycle"`
+	IntervalDays               *int32       `json:"intervalDays"`
+	Price                      int32        `json:"price"`
+	Currency                   string       `json:"currency"`
+	StartedAt                  wire.Day     `json:"startedAt"`
+	RenewalDate                wire.Day     `json:"renewalDate"`
+	AutoRenew                  bool         `json:"autoRenew"`
+	Status                     string       `json:"status"`
+	AccountEmail               *string      `json:"accountEmail"`
+	PaymentMethod              *string      `json:"paymentMethod"`
+	ManageUrl                  *string      `json:"manageUrl"`
+	CancelUrl                  *string      `json:"cancelUrl"`
+	Notes                      *string      `json:"notes"`
+	LastNotifiedRenewalAt      wire.Instant `json:"lastNotifiedRenewalAt"`
+	CreatedAt                  wire.Instant `json:"createdAt"`
+	UpdatedAt                  wire.Instant `json:"updatedAt"`
+	LeadDays                   []int32      `json:"leadDays"`
+	LastNotifiedRenewalLeadDay *int32       `json:"lastNotifiedRenewalLeadDay"`
+	TrialEndsAt                wire.Day     `json:"trialEndsAt"`
+	ConvertsToPrice            *int32       `json:"convertsToPrice"`
+	TrialNotifiedAt            wire.Instant `json:"trialNotifiedAt"`
+	TrialNotifiedLeadDay       *int32       `json:"trialNotifiedLeadDay"`
 }
 
 type SubscriptionPayment struct {
-	ID             string           `json:"id"`
-	SubscriptionId string           `json:"subscriptionId"`
-	Amount         int32            `json:"amount"`
-	PaidAt         pgtype.Timestamp `json:"paidAt"`
-	Note           *string          `json:"note"`
-	CreatedAt      pgtype.Timestamp `json:"createdAt"`
+	ID             string       `json:"id"`
+	SubscriptionId string       `json:"subscriptionId"`
+	Amount         int32        `json:"amount"`
+	PaidAt         wire.Instant `json:"paidAt"`
+	Note           *string      `json:"note"`
+	CreatedAt      wire.Instant `json:"createdAt"`
 }
 
 type User struct {
-	ID                string           `json:"id"`
-	Email             string           `json:"email"`
-	Name              *string          `json:"name"`
-	PasswordHash      string           `json:"passwordHash"`
-	PasswordChangedAt pgtype.Timestamp `json:"passwordChangedAt"`
-	CreatedAt         pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt         pgtype.Timestamp `json:"updatedAt"`
-	AiOptIn           bool             `json:"aiOptIn"`
-	Locale            *string          `json:"locale"`
-	InboxToken        string           `json:"inboxToken"`
+	ID                string       `json:"id"`
+	Email             string       `json:"email"`
+	Name              *string      `json:"name"`
+	PasswordHash      string       `json:"passwordHash"`
+	PasswordChangedAt wire.Instant `json:"passwordChangedAt"`
+	CreatedAt         wire.Instant `json:"createdAt"`
+	UpdatedAt         wire.Instant `json:"updatedAt"`
+	AiOptIn           bool         `json:"aiOptIn"`
+	Locale            *string      `json:"locale"`
+	InboxToken        string       `json:"inboxToken"`
+}
+
+type WVUTCTimezoneBaseline struct {
+	ID            string       `json:"id"`
+	AppliedAt     wire.Instant `json:"appliedAt"`
+	OffsetSeconds int32        `json:"offsetSeconds"`
+	Note          string       `json:"note"`
+}
+
+type WVUTCTimezoneCorrected struct {
+	TableName string `json:"tableName"`
+	RowId     string `json:"rowId"`
+}
+
+type WVUTCTimezoneSkipped struct {
+	TableName string `json:"tableName"`
+	RowId     string `json:"rowId"`
+	Reason    string `json:"reason"`
 }
 
 type Warranty struct {
-	ID            string           `json:"id"`
-	DeviceId      string           `json:"deviceId"`
-	Type          string           `json:"type"`
-	Provider      *string          `json:"provider"`
-	StartDate     pgtype.Timestamp `json:"startDate"`
-	EndDate       pgtype.Timestamp `json:"endDate"`
-	Months        int32            `json:"months"`
-	Cost          *int32           `json:"cost"`
-	Address       *string          `json:"address"`
-	Phone         *string          `json:"phone"`
-	Notes         *string          `json:"notes"`
-	CreatedAt     pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt     pgtype.Timestamp `json:"updatedAt"`
-	Component     *string          `json:"component"`
-	Scope         *string          `json:"scope"`
-	Cap           *int32           `json:"cap"`
-	Deductible    *int32           `json:"deductible"`
-	Exclusions    *string          `json:"exclusions"`
-	Region        *string          `json:"region"`
-	Transferable  *bool            `json:"transferable"`
-	ClaimsAllowed *int32           `json:"claimsAllowed"`
-	ClaimsUsed    int32            `json:"claimsUsed"`
+	ID            string       `json:"id"`
+	DeviceId      string       `json:"deviceId"`
+	Type          string       `json:"type"`
+	Provider      *string      `json:"provider"`
+	StartDate     wire.Day     `json:"startDate"`
+	EndDate       wire.Day     `json:"endDate"`
+	Months        int32        `json:"months"`
+	Cost          *int32       `json:"cost"`
+	Address       *string      `json:"address"`
+	Phone         *string      `json:"phone"`
+	Notes         *string      `json:"notes"`
+	CreatedAt     wire.Instant `json:"createdAt"`
+	UpdatedAt     wire.Instant `json:"updatedAt"`
+	Component     *string      `json:"component"`
+	Scope         *string      `json:"scope"`
+	Cap           *int32       `json:"cap"`
+	Deductible    *int32       `json:"deductible"`
+	Exclusions    *string      `json:"exclusions"`
+	Region        *string      `json:"region"`
+	Transferable  *bool        `json:"transferable"`
+	ClaimsAllowed *int32       `json:"claimsAllowed"`
+	ClaimsUsed    int32        `json:"claimsUsed"`
 }
 
 type WarrantyProvider struct {
@@ -267,30 +285,30 @@ type WarrantyProvider struct {
 }
 
 type WishlistItem struct {
-	ID                   string           `json:"id"`
-	UserId               string           `json:"userId"`
-	Name                 string           `json:"name"`
-	Category             *string          `json:"category"`
-	Brand                *string          `json:"brand"`
-	InitialPrice         *int32           `json:"initialPrice"`
-	CurrentPrice         *int32           `json:"currentPrice"`
-	BuyUrl               *string          `json:"buyUrl"`
-	ImageUrl             *string          `json:"imageUrl"`
-	TargetDate           pgtype.Timestamp `json:"targetDate"`
-	Priority             string           `json:"priority"`
-	Status               string           `json:"status"`
-	Notes                *string          `json:"notes"`
-	ReminderIntervalDays *int32           `json:"reminderIntervalDays"`
-	LastNotifiedAt       pgtype.Timestamp `json:"lastNotifiedAt"`
-	PurchasedDeviceId    *string          `json:"purchasedDeviceId"`
-	CreatedAt            pgtype.Timestamp `json:"createdAt"`
-	UpdatedAt            pgtype.Timestamp `json:"updatedAt"`
+	ID                   string       `json:"id"`
+	UserId               string       `json:"userId"`
+	Name                 string       `json:"name"`
+	Category             *string      `json:"category"`
+	Brand                *string      `json:"brand"`
+	InitialPrice         *int32       `json:"initialPrice"`
+	CurrentPrice         *int32       `json:"currentPrice"`
+	BuyUrl               *string      `json:"buyUrl"`
+	ImageUrl             *string      `json:"imageUrl"`
+	TargetDate           wire.Day     `json:"targetDate"`
+	Priority             string       `json:"priority"`
+	Status               string       `json:"status"`
+	Notes                *string      `json:"notes"`
+	ReminderIntervalDays *int32       `json:"reminderIntervalDays"`
+	LastNotifiedAt       wire.Instant `json:"lastNotifiedAt"`
+	PurchasedDeviceId    *string      `json:"purchasedDeviceId"`
+	CreatedAt            wire.Instant `json:"createdAt"`
+	UpdatedAt            wire.Instant `json:"updatedAt"`
 }
 
 type WishlistPrice struct {
-	ID         string           `json:"id"`
-	ItemId     string           `json:"itemId"`
-	Price      int32            `json:"price"`
-	Note       *string          `json:"note"`
-	RecordedAt pgtype.Timestamp `json:"recordedAt"`
+	ID         string       `json:"id"`
+	ItemId     string       `json:"itemId"`
+	Price      int32        `json:"price"`
+	Note       *string      `json:"note"`
+	RecordedAt wire.Instant `json:"recordedAt"`
 }

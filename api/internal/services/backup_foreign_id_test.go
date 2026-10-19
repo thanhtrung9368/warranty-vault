@@ -64,7 +64,7 @@ func TestForeignDeviceIDSQLStateAndImportGuard(t *testing.T) {
 		UserId:        importer,
 		Name:          "Máy ảnh Canon",
 		Category:      "CAMERA",
-		PurchaseDate:  pgts("2025-01-01"),
+		PurchaseDate:  pgts("2025-01-01").Day(),
 		PurchasePrice: 9000000,
 		Status:        "ACTIVE",
 		CreatedAt:     pgts("2025-01-01"),

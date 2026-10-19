@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // "Việc cần xử lý" — the action queue (FEATURE_IDEAS #3).
@@ -238,7 +238,7 @@ func ListActionItems(ctx context.Context, db *pgxpool.Pool, userID string, now t
 
 	snoozes, err := q.ListActiveSnoozesByUser(ctx, store.ListActiveSnoozesByUserParams{
 		UserId:       userID,
-		SnoozedUntil: pgtype.Timestamp{Time: now.UTC(), Valid: true},
+		SnoozedUntil: wire.At(now.UTC()),
 	})
 	if err != nil {
 		return ActionQueue{}, fmt.Errorf("list active snoozes: %w", err)
@@ -359,7 +359,7 @@ func SnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey str
 		ID:           auth.NewID(),
 		UserId:       userID,
 		ItemKey:      itemKey,
-		SnoozedUntil: pgtype.Timestamp{Time: until.UTC(), Valid: true},
+		SnoozedUntil: wire.At(until.UTC()),
 	})
 	if err != nil {
 		return SnoozeResult{}, fmt.Errorf("upsert snooze: %w", err)
@@ -398,7 +398,7 @@ func UnSnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey s
 // wishlist items, and the first error tells the caller which rule failed.
 func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now time.Time) ([]ActionItem, error) {
 	startOfToday := startOfDay(now)
-	ts := func(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t.UTC(), Valid: true} }
+	ts := func(t time.Time) wire.Instant { return wire.At(t.UTC()) }
 
 	// One language for the whole queue, read once. It drives the words AND the
 	// two value formats inside them; see the file header.
@@ -429,7 +429,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		}
 		if r.EndDate.Valid {
 			days := -DaysUntil(r.EndDate.Time, now)
-			it.DueDate = tsPtrUTC(r.EndDate)
+			it.DueDate = tsPtrUTC(r.EndDate.Instant())
 			it.Title = textIn(lang, "Bảo hành đã hết hạn")
 			// A count-bearing sentence, so it is a singular/plural pair with a
 			// separate argument list per form: `days` is >= 1 by construction
@@ -575,7 +575,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			DeviceID: ptrOf(r.DeviceID),
 		}
 		if r.PurchaseDate.Valid {
-			it.DueDate = tsPtrUTC(r.PurchaseDate)
+			it.DueDate = tsPtrUTC(r.PurchaseDate.Instant())
 			it.Detail = i18n.Translate(lang, "«%s» mua ngày %s nhưng chưa ghi hạn đổi trả, nên app không thể nhắc bạn trước khi hết hạn đổi/trả.",
 				r.DeviceName, date(r.PurchaseDate.Time))
 		} else {
@@ -603,7 +603,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			AmountVnd:      ptrOf(int64(r.Price)),
 		}
 		if r.RenewalDate.Valid {
-			it.DueDate = tsPtrUTC(r.RenewalDate)
+			it.DueDate = tsPtrUTC(r.RenewalDate.Instant())
 			it.Detail = i18n.Translate(lang, "«%s» sẽ tự gia hạn ngày %s (%s) và chưa có link huỷ — muốn dừng thì phải vào tận trang của nhà cung cấp.",
 				r.Name, date(r.RenewalDate.Time), money(int64(r.Price)))
 		} else {
@@ -630,7 +630,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			AmountVnd:      ptrOf(int64(r.LastPaidAmount)),
 		}
 		if r.RenewalDate.Valid && r.LastPaidAt.Valid {
-			it.DueDate = tsPtrUTC(r.RenewalDate)
+			it.DueDate = tsPtrUTC(r.RenewalDate.Instant())
 			// The renewal date is strictly before today (the query says so), so
 			// the count reaches 1 and the singular form is reachable.
 			elapsed := -DaysUntil(r.RenewalDate.Time, now)
@@ -665,7 +665,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			it.AmountVnd = ptrOf(int64(*r.CurrentPrice))
 		}
 		if r.TargetDate.Valid {
-			it.DueDate = tsPtrUTC(r.TargetDate)
+			it.DueDate = tsPtrUTC(r.TargetDate.Instant())
 			// The optional price is its own sentence appended after the base one
 			// rather than a `%s` slot inside it: a slot would force every
 			// translation to keep a trailing fragment's punctuation, and the

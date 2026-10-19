@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Handover certificate + tokenised read-only share link (FEATURE_IDEAS #2).
@@ -191,7 +191,7 @@ func CreateDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, deviceID s
 	now := time.Now().UTC()
 	active, err := q.CountActiveSharesForDevice(ctx, store.CountActiveSharesForDeviceParams{
 		DeviceId:  deviceID,
-		ExpiresAt: pgtype.Timestamp{Time: now, Valid: true},
+		ExpiresAt: wire.At(now),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("count shares: %w", err)
@@ -213,7 +213,7 @@ func CreateDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, deviceID s
 		DeviceId:      deviceID,
 		UserId:        userID,
 		TokenHash:     hash,
-		ExpiresAt:     pgtype.Timestamp{Time: expiresAt, Valid: true},
+		ExpiresAt:     wire.At(expiresAt),
 		IncludeSerial: in.IncludeSerial,
 	})
 	if err != nil {
@@ -321,7 +321,7 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 
 	row, err := q.GetShareByTokenHash(ctx, store.GetShareByTokenHashParams{
 		TokenHash: auth.HashToken(token),
-		ExpiresAt: pgtype.Timestamp{Time: now, Valid: true},
+		ExpiresAt: wire.At(now),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -342,10 +342,10 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 		Category:      row.DeviceCategory,
 		Brand:         row.DeviceBrand,
 		Model:         row.DeviceModel,
-		PurchaseDate:  tsString(row.DevicePurchaseDate),
+		PurchaseDate:  tsString(row.DevicePurchaseDate.Instant()),
 		PurchasePlace: row.DevicePurchasePlace,
 		Status:        row.DeviceStatus,
-		SoldAt:        tsPtrString(row.DeviceSoldAt),
+		SoldAt:        tsPtrString(row.DeviceSoldAt.Instant()),
 		ExpiresAt:     tsString(row.ShareExpiresAt),
 		IssuedAt:      tsString(row.ShareCreatedAt),
 		Warranties:    make([]SharedWarranty, 0, len(warranties)),
@@ -367,8 +367,8 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 			Type:      w.Type,
 			Component: w.Component,
 			Provider:  w.Provider,
-			StartDate: tsString(w.StartDate),
-			EndDate:   tsString(w.EndDate),
+			StartDate: tsString(w.StartDate.Instant()),
+			EndDate:   tsString(w.EndDate.Instant()),
 			Months:    w.Months,
 			Address:   w.Address,
 			Phone:     w.Phone,
@@ -380,7 +380,7 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 	// recipient their certificate.
 	_ = q.TouchShareView(ctx, store.TouchShareViewParams{
 		ID:           row.ShareID,
-		LastViewedAt: pgtype.Timestamp{Time: now, Valid: true},
+		LastViewedAt: wire.At(now),
 	})
 	return out, nil
 }
@@ -485,14 +485,14 @@ func maxWholeUnitEndDate(rows []store.ListWarrantiesForShareRow) *string {
 	return &s
 }
 
-func tsString(ts pgtype.Timestamp) string {
+func tsString(ts wire.Instant) string {
 	if !ts.Valid {
 		return ""
 	}
 	return ts.Time.UTC().Format(time.RFC3339)
 }
 
-func tsPtrString(ts pgtype.Timestamp) *string {
+func tsPtrString(ts wire.Instant) *string {
 	if !ts.Valid {
 		return nil
 	}

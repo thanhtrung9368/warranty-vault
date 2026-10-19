@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Brand warranty lookup + mismatch flag (gap #11, migration 0023).
@@ -27,14 +26,14 @@ func deviceWithBrand(purchase string, brandStart, brandEnd *string) store.Device
 		ID:            "dev_brand",
 		Name:          "Máy",
 		Category:      "PHONE",
-		PurchaseDate:  pgtype.Timestamp{Time: mustDate(purchase), Valid: true},
+		PurchaseDate:  wire.Date(mustDate(purchase)),
 		PurchasePrice: 1,
 	}
 	if brandStart != nil {
-		d.BrandWarrantyStart = pgtype.Timestamp{Time: mustDate(*brandStart), Valid: true}
+		d.BrandWarrantyStart = wire.Date(mustDate(*brandStart))
 	}
 	if brandEnd != nil {
-		d.BrandWarrantyEnd = pgtype.Timestamp{Time: mustDate(*brandEnd), Valid: true}
+		d.BrandWarrantyEnd = wire.Date(mustDate(*brandEnd))
 	}
 	return d
 }
@@ -52,8 +51,8 @@ func wholeUnitWarranty(end string) store.Warranty {
 		ID:        "war_whole",
 		DeviceId:  "dev_brand",
 		Type:      "STANDARD",
-		StartDate: pgtype.Timestamp{Time: mustDate("2025-01-01"), Valid: true},
-		EndDate:   pgtype.Timestamp{Time: mustDate(end), Valid: true},
+		StartDate: wire.Date(mustDate("2025-01-01")),
+		EndDate:   wire.Date(mustDate(end)),
 		Months:    12,
 	}
 }
@@ -65,8 +64,8 @@ func componentWarranty(end string) store.Warranty {
 		DeviceId:  "dev_brand",
 		Type:      "STANDARD",
 		Component: &component,
-		StartDate: pgtype.Timestamp{Time: mustDate("2025-01-01"), Valid: true},
-		EndDate:   pgtype.Timestamp{Time: mustDate(end), Valid: true},
+		StartDate: wire.Date(mustDate("2025-01-01")),
+		EndDate:   wire.Date(mustDate(end)),
 		Months:    120,
 	}
 }

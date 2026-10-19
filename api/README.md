@@ -32,6 +32,24 @@ remember that pgx encodes a local `time.Time` as its local wall clock even when
 the session is UTC (normalise with `.UTC()` for instant columns; calendar dates
 from `parseDate` are already UTC midnight).
 
+### Timestamps on the wire
+
+`pgtype.Timestamp` marshals as a *zoneless* RFC 3339 string, which violates
+`openapi.yaml`'s `format: date-time` and is read as local time by JavaScript
+clients. Every timestamp column is therefore generated as one of the two scalars
+in `internal/wire` (mapped by the overrides in `sqlc.yaml`):
+
+* `wire.Instant` — a point in time, JSON `2026-10-19T13:03:39.428Z`
+  (`format: date-time`). This is the default for a new timestamp column.
+* `wire.Day` — a calendar day, JSON `2026-10-19` (`format: date`). The fourteen
+  date-only columns are listed explicitly in `sqlc.yaml`; a day has no timezone,
+  so no client can move a warranty's end date by applying one.
+  `internal/wire/wire_test.go` fails when a timestamp column is neither an
+  Instant nor in that inventory.
+
+Do not hand-format timestamps in a response DTO — the model's type is the
+contract.
+
 Migration `0024_utc_timestamp_baseline.sql` corrects legacy rows. It classifies
 each row from the millisecond clock embedded in its cuid id, shifts only the rows
 that provably used the +07 wall clock, records them in

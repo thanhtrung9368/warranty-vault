@@ -3405,7 +3405,7 @@ components:
             Đã trim. `null` khi ảnh không có/không đọc được, HOẶC khi giá trị dài
             bất thường (> 120 byte — rác OCR); trường hợp sau được liệt kê trong
             `unmatched` để client yêu cầu người dùng tự nhập.
-        purchaseDate: { type: string, nullable: true, description: 'YYYY-MM-DD' }
+        purchaseDate: { type: string, format: date, nullable: true, description: 'YYYY-MM-DD — ngày lịch, không phải instant.' }
         purchasePrice: { type: integer, format: int64, nullable: true, description: 'VND' }
         purchasePlace: { type: string, nullable: true }
         storeId: { type: string, nullable: true }
@@ -4197,13 +4197,14 @@ components:
             không bắt client gửi: thiếu thì POST dùng **bây giờ**, PATCH giữ giá
             trị đã lưu.
 
-            Định dạng trả về giống `Device.purchaseDate` (cột `timestamp` không
-            kèm offset): `YYYY-MM-DDTHH:MM:SS[.fff]`, **không** có `Z`.
+            Là **instant**: RFC 3339 UTC kèm `Z` (`2026-10-16T12:00:00Z`). Đây
+            là mốc có giờ — server có thể tự đặt "bây giờ" — nên khác với
+            `expectedReturnAt` bên dưới.
         expectedReturnAt:
           type: string
-          format: date-time
+          format: date
           nullable: true
-          description: 'Ngày cửa hàng hẹn trả (ước lượng của người dùng, không phải cam kết); `null` = không ghi.'
+          description: 'Ngày cửa hàng hẹn trả — **ngày lịch** (`YYYY-MM-DD`), không phải instant; `null` = không ghi. Client không được đổi ngày này theo múi giờ.'
         closedAt:
           type: string
           format: date-time
@@ -4345,7 +4346,15 @@ components:
         brand: { type: string, nullable: true }
         model: { type: string, nullable: true }
         serialNumber: { type: string, nullable: true }
-        purchaseDate: { type: string, format: date-time }
+        purchaseDate:
+          type: string
+          format: date
+          description: |
+            Ngày mua — **ngày lịch** (`YYYY-MM-DD`), không phải instant. Một
+            ngày không có múi giờ, nên client không được cộng/trừ offset: làm
+            vậy sẽ đổi ngày mua (và mọi phép tính ngày mua) sang hôm trước/hôm
+            sau ở múi giờ âm/dương. Ghi vào vẫn nhận `YYYY-MM-DD` hoặc ISO đầy
+            đủ (xem `DeviceInput.purchaseDate`).
         purchasePrice:
           type: integer
           description: |
@@ -4412,18 +4421,17 @@ components:
         notes: { type: string, nullable: true }
         soldAt:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
-            Thời điểm bán (resale, roadmap #12). `null` = chưa bán hoặc chưa ghi
-            nhận. Luôn đi kèm `soldPrice` — write path từ chối payload chỉ có một
+            Ngày bán (resale, roadmap #12) — **ngày lịch** (`YYYY-MM-DD`), cùng
+            hình dạng với `purchaseDate`. `null` = chưa bán hoặc chưa ghi nhận.
+            Luôn đi kèm `soldPrice` — write path từ chối payload chỉ có một
             trong hai trường.
 
-            Định dạng trả về giống hệt `purchaseDate`/`createdAt` (cột
-            `timestamp without time zone`, ngữ nghĩa UTC):
-            `YYYY-MM-DDTHH:MM:SS[.fff]` — **không** có hậu tố `Z`/offset. Ví dụ
-            `"2026-03-01T00:00:00"`. (Trong file backup JSON thì ngược lại:
-            `soldAt` ở đó dùng RFC3339 kèm `Z`.)
+            Đây **không** phải instant: `createdAt`/`updatedAt` mới mang `Z`.
+            (Trong file backup JSON thì khác: ở đó mọi ngày đều là RFC 3339 kèm
+            `Z`, vì đó là định dạng snapshot có version riêng.)
         soldPrice:
           type: integer
           minimum: 0
@@ -4456,11 +4464,12 @@ components:
             dán màn hình, và với tủ lạnh/máy giặt thì phụ thuộc hãng).
         receivedAt:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
-            Ngày người dùng **thực nhận** thiết bị. Tách khỏi `purchaseDate` vì
-            đơn online thường xuất hoá đơn trước khi giao. Khi có, đây là mốc bắt
+            Ngày người dùng **thực nhận** thiết bị — **ngày lịch**
+            (`YYYY-MM-DD`), không phải instant. Tách khỏi `purchaseDate` vì đơn
+            online thường xuất hoá đơn trước khi giao. Khi có, đây là mốc bắt
             đầu của cửa sổ đổi/trả; khi `null`, deadline tính từ `purchaseDate`.
             `null` nghĩa là "chưa ghi", **không** phải "nhận đúng ngày mua".
         returnWindowNotifiedAt:
@@ -4509,10 +4518,11 @@ components:
             bỏ qua thông báo. Ghi `activatedAt` cũng dừng nhắc ngay.
         activatedAt:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
-            Thời điểm thiết bị được kích hoạt bảo hành. Khi có và **muộn hơn**
+            Ngày thiết bị được kích hoạt bảo hành — **ngày lịch**
+            (`YYYY-MM-DD`), không phải instant. Khi có và **muộn hơn**
             `purchaseDate`, đây là mốc bắt đầu bảo hành thật.
 
             `null` = chưa kích hoạt / chưa ghi nhận.
@@ -4522,10 +4532,11 @@ components:
             thể kích hoạt sẵn máy trước khi xuất hoá đơn; API không coi đó là vô
             lý và không có kiểm tra chéo nào giữa hai trường.
 
-            Định dạng trả về giống `purchaseDate` (timestamp không kèm offset).
+            Định dạng trả về giống `purchaseDate`: `YYYY-MM-DD`, **không** có
+            giờ và không có offset.
         extendedCoverBuyBy:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
             **Ngày cuối cùng** còn mua được gói bảo hiểm/bảo hành mở rộng
@@ -4589,18 +4600,19 @@ components:
             trường nào trong bốn trường còn lại được ghi; một mình nó thì hợp lệ.
         brandWarrantyStart:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
-            Ngày **hãng** báo là bắt đầu bảo hành (migration 0023). Không phải
+            Ngày **hãng** báo là bắt đầu bảo hành (migration 0023) — **ngày
+            lịch** (`YYYY-MM-DD`), không phải instant. Không phải
             `purchaseDate`: đây chính là chỗ hai ngày có thể lệch nhau. `null` =
             hãng không cho biết, hoặc người dùng không ghi.
 
-            Định dạng trả về giống `purchaseDate` (timestamp không kèm offset).
-            Khi ghi, nhận `YYYY-MM-DD` hoặc ISO đầy đủ.
+            Định dạng trả về giống `purchaseDate`. Khi ghi, nhận `YYYY-MM-DD`
+            hoặc ISO đầy đủ.
         brandWarrantyEnd:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
             Ngày **hãng** báo là hết hạn bảo hành (migration 0023). Không được
@@ -5197,11 +5209,14 @@ components:
         deviceId: { type: string }
         type: { $ref: '#/components/schemas/WarrantyType' }
         provider: { type: string, nullable: true }
-        startDate: { type: string, format: date-time }
+        startDate:
+          type: string
+          format: date
+          description: 'Ngày bắt đầu — **ngày lịch** (`YYYY-MM-DD`), không phải instant. Client không được đổi ngày này theo múi giờ.'
         endDate:
           type: string
-          format: date-time
-          description: 'Ngày kết thúc. Bằng `WarrantyInput.endDate` khi client gửi ngày tường minh, ngược lại `startDate + months`. Trường này có mặt trên **mọi** lần đọc, nên nó cũng được chấp nhận khi ghi (`WarrantyInput.endDate`) để client đọc-rồi-ghi không bị 400.'
+          format: date
+          description: 'Ngày kết thúc — **ngày lịch** (`YYYY-MM-DD`), không phải instant. Bằng `WarrantyInput.endDate` khi client gửi ngày tường minh, ngược lại `startDate + months`. Trường này có mặt trên **mọi** lần đọc, nên nó cũng được chấp nhận khi ghi (`WarrantyInput.endDate`) để client đọc-rồi-ghi không bị 400.'
         months: { type: integer, minimum: 1 }
         cost:
           type: integer
@@ -5533,8 +5548,14 @@ components:
         intervalDays: { type: integer, nullable: true }
         price: { type: integer, description: 'VND per cycle' }
         currency: { type: string, default: 'VND' }
-        startedAt: { type: string, format: date-time }
-        renewalDate: { type: string, format: date-time }
+        startedAt:
+          type: string
+          format: date
+          description: 'Ngày bắt đầu — **ngày lịch** (`YYYY-MM-DD`), không phải instant.'
+        renewalDate:
+          type: string
+          format: date
+          description: 'Ngày gia hạn kế tiếp — **ngày lịch** (`YYYY-MM-DD`), không phải instant. Client đếm ngày trên ngày lịch, không trên khoảng 24 giờ.'
         autoRenew: { type: boolean }
         status: { type: string, enum: [ACTIVE, PAUSED, CANCELED, EXPIRED] }
         accountEmail: { type: string, nullable: true }
@@ -5576,11 +5597,12 @@ components:
             (migration 0016) — không có lịch thứ hai.
         trialEndsAt:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
-            Thời điểm kết thúc giai đoạn dùng thử miễn phí và bắt đầu tính phí
-            (migration 0016). `null` = không có dùng thử.
+            Ngày kết thúc giai đoạn dùng thử miễn phí và bắt đầu tính phí
+            (migration 0016) — **ngày lịch** (`YYYY-MM-DD`), không phải instant.
+            `null` = không có dùng thử.
 
             Một `renewalDate` không biểu diễn được "miễn phí tới 12/11, sau đó
             260k/tháng": ngày gia hạn là ngày bị trừ tiền của chu kỳ hiện tại,
@@ -5733,7 +5755,11 @@ components:
         currentPrice: { type: integer, nullable: true }
         buyUrl: { type: string, nullable: true }
         imageUrl: { type: string, nullable: true }
-        targetDate: { type: string, format: date-time, nullable: true }
+        targetDate:
+          type: string
+          format: date
+          nullable: true
+          description: 'Ngày dự kiến mua — **ngày lịch** (`YYYY-MM-DD`), không phải instant; `null` = chưa đặt.'
         priority: { type: string, enum: [MUST, WANT, MAYBE] }
         status: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
         notes: { type: string, nullable: true }

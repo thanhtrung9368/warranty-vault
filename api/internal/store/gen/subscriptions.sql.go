@@ -8,7 +8,7 @@ package store
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const advanceSubscriptionRenewal = `-- name: AdvanceSubscriptionRenewal :one
@@ -22,9 +22,9 @@ RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDa
 `
 
 type AdvanceSubscriptionRenewalParams struct {
-	ID                    string           `json:"id"`
-	RenewalDate           pgtype.Timestamp `json:"renewalDate"`
-	LastNotifiedRenewalAt pgtype.Timestamp `json:"lastNotifiedRenewalAt"`
+	ID                    string       `json:"id"`
+	RenewalDate           wire.Day     `json:"renewalDate"`
+	LastNotifiedRenewalAt wire.Instant `json:"lastNotifiedRenewalAt"`
 }
 
 // Called inside a transaction with CreateSubscriptionPayment. Stamps
@@ -127,28 +127,28 @@ RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDa
 `
 
 type CreateSubscriptionParams struct {
-	ID              string           `json:"id"`
-	UserId          string           `json:"userId"`
-	Name            string           `json:"name"`
-	Category        *string          `json:"category"`
-	Brand           *string          `json:"brand"`
-	Plan            *string          `json:"plan"`
-	BillingCycle    string           `json:"billingCycle"`
-	IntervalDays    *int32           `json:"intervalDays"`
-	Price           int32            `json:"price"`
-	StartedAt       pgtype.Timestamp `json:"startedAt"`
-	RenewalDate     pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew       bool             `json:"autoRenew"`
-	AccountEmail    *string          `json:"accountEmail"`
-	PaymentMethod   *string          `json:"paymentMethod"`
-	ManageUrl       *string          `json:"manageUrl"`
-	CancelUrl       *string          `json:"cancelUrl"`
-	Notes           *string          `json:"notes"`
-	TrialEndsAt     pgtype.Timestamp `json:"trialEndsAt"`
-	ConvertsToPrice *int32           `json:"convertsToPrice"`
-	Currency        *string          `json:"currency"`
-	Status          *string          `json:"status"`
-	LeadDays        []int32          `json:"leadDays"`
+	ID              string   `json:"id"`
+	UserId          string   `json:"userId"`
+	Name            string   `json:"name"`
+	Category        *string  `json:"category"`
+	Brand           *string  `json:"brand"`
+	Plan            *string  `json:"plan"`
+	BillingCycle    string   `json:"billingCycle"`
+	IntervalDays    *int32   `json:"intervalDays"`
+	Price           int32    `json:"price"`
+	StartedAt       wire.Day `json:"startedAt"`
+	RenewalDate     wire.Day `json:"renewalDate"`
+	AutoRenew       bool     `json:"autoRenew"`
+	AccountEmail    *string  `json:"accountEmail"`
+	PaymentMethod   *string  `json:"paymentMethod"`
+	ManageUrl       *string  `json:"manageUrl"`
+	CancelUrl       *string  `json:"cancelUrl"`
+	Notes           *string  `json:"notes"`
+	TrialEndsAt     wire.Day `json:"trialEndsAt"`
+	ConvertsToPrice *int32   `json:"convertsToPrice"`
+	Currency        *string  `json:"currency"`
+	Status          *string  `json:"status"`
+	LeadDays        []int32  `json:"leadDays"`
 }
 
 func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error) {
@@ -226,11 +226,11 @@ RETURNING id, "subscriptionId", amount, "paidAt", note, "createdAt"
 `
 
 type CreateSubscriptionPaymentParams struct {
-	ID             string           `json:"id"`
-	SubscriptionId string           `json:"subscriptionId"`
-	Amount         int32            `json:"amount"`
-	PaidAt         pgtype.Timestamp `json:"paidAt"`
-	Note           *string          `json:"note"`
+	ID             string       `json:"id"`
+	SubscriptionId string       `json:"subscriptionId"`
+	Amount         int32        `json:"amount"`
+	PaidAt         wire.Instant `json:"paidAt"`
+	Note           *string      `json:"note"`
 }
 
 // ─── Payments ─────────────────────────────────────────────────────────────
@@ -547,21 +547,21 @@ SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays"
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
-  AND $3::int = ANY("leadDays")
-  AND "renewalDate" >= $1
-  AND "renewalDate" <  $2
+  AND $1::int = ANY("leadDays")
+  AND "renewalDate" >= $2::timestamp
+  AND "renewalDate" <  $3::timestamp
   AND (
       "lastNotifiedRenewalAt" IS NULL
       OR "lastNotifiedRenewalAt"::date < CURRENT_DATE
       OR ("lastNotifiedRenewalLeadDay" IS NOT NULL
-          AND "lastNotifiedRenewalLeadDay" <> $3::int)
+          AND "lastNotifiedRenewalLeadDay" <> $1::int)
   )
 `
 
 type ListSubscriptionsDueForRenewalParams struct {
-	RenewalDate   pgtype.Timestamp `json:"renewalDate"`
-	RenewalDate_2 pgtype.Timestamp `json:"renewalDate_2"`
-	LeadDay       int32            `json:"leadDay"`
+	LeadDay     int32        `json:"leadDay"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 // ─── Cron / renewal helpers ───────────────────────────────────────────────
@@ -581,7 +581,7 @@ type ListSubscriptionsDueForRenewalParams struct {
 // marks "handled today" for every lead day): treat it as suppressing all lead
 // days for the rest of that day, so a deploy-day re-run cannot duplicate.
 func (q *Queries) ListSubscriptionsDueForRenewal(ctx context.Context, arg ListSubscriptionsDueForRenewalParams) ([]Subscription, error) {
-	rows, err := q.db.Query(ctx, listSubscriptionsDueForRenewal, arg.RenewalDate, arg.RenewalDate_2, arg.LeadDay)
+	rows, err := q.db.Query(ctx, listSubscriptionsDueForRenewal, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -634,13 +634,13 @@ SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays"
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "billingCycle" <> 'LIFETIME'
-  AND "renewalDate" < $1
+  AND "renewalDate" < $1::timestamp
 `
 
 // ACTIVE, non-LIFETIME subs whose renewalDate has passed (< today midnight).
 // Caller decides per-row whether to auto-bill or expire based on autoRenew.
-func (q *Queries) ListSubscriptionsOverdue(ctx context.Context, renewaldate pgtype.Timestamp) ([]Subscription, error) {
-	rows, err := q.db.Query(ctx, listSubscriptionsOverdue, renewaldate)
+func (q *Queries) ListSubscriptionsOverdue(ctx context.Context, today wire.Instant) ([]Subscription, error) {
+	rows, err := q.db.Query(ctx, listSubscriptionsOverdue, today)
 	if err != nil {
 		return nil, err
 	}
@@ -693,21 +693,21 @@ SELECT id, "userId", name, category, brand, plan, "billingCycle", "intervalDays"
 FROM "Subscription"
 WHERE status = 'ACTIVE'
   AND "trialEndsAt" IS NOT NULL
-  AND $3::int = ANY("leadDays")
-  AND "trialEndsAt" >= $1
-  AND "trialEndsAt" <  $2
+  AND $1::int = ANY("leadDays")
+  AND "trialEndsAt" >= $2::timestamp
+  AND "trialEndsAt" <  $3::timestamp
   AND (
       "trialNotifiedAt" IS NULL
       OR "trialNotifiedAt"::date < CURRENT_DATE
       OR ("trialNotifiedLeadDay" IS NOT NULL
-          AND "trialNotifiedLeadDay" <> $3::int)
+          AND "trialNotifiedLeadDay" <> $1::int)
   )
 `
 
 type ListSubscriptionsTrialEndingInWindowParams struct {
-	TrialEndsAt   pgtype.Timestamp `json:"trialEndsAt"`
-	TrialEndsAt_2 pgtype.Timestamp `json:"trialEndsAt_2"`
-	LeadDay       int32            `json:"leadDay"`
+	LeadDay     int32        `json:"leadDay"`
+	WindowStart wire.Instant `json:"windowStart"`
+	WindowEnd   wire.Instant `json:"windowEnd"`
 }
 
 // Cron support (migration 0016, Feature B). ACTIVE subscriptions whose
@@ -727,7 +727,7 @@ type ListSubscriptionsTrialEndingInWindowParams struct {
 // trial ends in 3 days" and "your renewal is in 3 days" on the same run, and
 // those two notices must not suppress each other.
 func (q *Queries) ListSubscriptionsTrialEndingInWindow(ctx context.Context, arg ListSubscriptionsTrialEndingInWindowParams) ([]Subscription, error) {
-	rows, err := q.db.Query(ctx, listSubscriptionsTrialEndingInWindow, arg.TrialEndsAt, arg.TrialEndsAt_2, arg.LeadDay)
+	rows, err := q.db.Query(ctx, listSubscriptionsTrialEndingInWindow, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -893,28 +893,28 @@ RETURNING id, "userId", name, category, brand, plan, "billingCycle", "intervalDa
 `
 
 type UpdateSubscriptionParams struct {
-	ID              string           `json:"id"`
-	UserId          string           `json:"userId"`
-	Name            string           `json:"name"`
-	Category        *string          `json:"category"`
-	Brand           *string          `json:"brand"`
-	Plan            *string          `json:"plan"`
-	BillingCycle    string           `json:"billingCycle"`
-	IntervalDays    *int32           `json:"intervalDays"`
-	Price           int32            `json:"price"`
-	Currency        string           `json:"currency"`
-	StartedAt       pgtype.Timestamp `json:"startedAt"`
-	RenewalDate     pgtype.Timestamp `json:"renewalDate"`
-	AutoRenew       bool             `json:"autoRenew"`
-	Status          string           `json:"status"`
-	AccountEmail    *string          `json:"accountEmail"`
-	PaymentMethod   *string          `json:"paymentMethod"`
-	ManageUrl       *string          `json:"manageUrl"`
-	CancelUrl       *string          `json:"cancelUrl"`
-	Notes           *string          `json:"notes"`
-	LeadDays        []int32          `json:"leadDays"`
-	TrialEndsAt     pgtype.Timestamp `json:"trialEndsAt"`
-	ConvertsToPrice *int32           `json:"convertsToPrice"`
+	ID              string   `json:"id"`
+	UserId          string   `json:"userId"`
+	Name            string   `json:"name"`
+	Category        *string  `json:"category"`
+	Brand           *string  `json:"brand"`
+	Plan            *string  `json:"plan"`
+	BillingCycle    string   `json:"billingCycle"`
+	IntervalDays    *int32   `json:"intervalDays"`
+	Price           int32    `json:"price"`
+	Currency        string   `json:"currency"`
+	StartedAt       wire.Day `json:"startedAt"`
+	RenewalDate     wire.Day `json:"renewalDate"`
+	AutoRenew       bool     `json:"autoRenew"`
+	Status          string   `json:"status"`
+	AccountEmail    *string  `json:"accountEmail"`
+	PaymentMethod   *string  `json:"paymentMethod"`
+	ManageUrl       *string  `json:"manageUrl"`
+	CancelUrl       *string  `json:"cancelUrl"`
+	Notes           *string  `json:"notes"`
+	LeadDays        []int32  `json:"leadDays"`
+	TrialEndsAt     wire.Day `json:"trialEndsAt"`
+	ConvertsToPrice *int32   `json:"convertsToPrice"`
 }
 
 func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) (Subscription, error) {

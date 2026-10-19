@@ -155,14 +155,13 @@ func TestDeviceResaleRoundTripAgainstRealPostgres(t *testing.T) {
 	// 2. The wire shape the clients bind to: these exact JSON names, and a NULL
 	//    soldAt/soldPrice must serialise as null (not "" or 0).
 	//
-	//    Note the timestamp format: pgtype.Timestamp marshals as
-	//    "2006-01-02T15:04:05.999999999" — no "Z"/offset — exactly like the
-	//    existing purchaseDate/createdAt fields (the DB column is
-	//    `timestamp without time zone`, UTC by convention). The backup payload,
-	//    by contrast, uses RFC3339Nano with "Z" for its dates.
+	//    Note the date format: soldAt is one of the calendar-day columns (see
+	//    api/sqlc.yaml), so it marshals as "YYYY-MM-DD" — a day, not an instant.
+	//    createdAt/purchaseDate's INSTANT fields, by contrast, carry an explicit
+	//    "Z". The backup payload keeps RFC3339Nano with "Z" for every date.
 	wire := marshalToMap(t, created)
-	if got := wire["soldAt"]; got != "2026-03-01T00:00:00" {
-		t.Errorf(`wire[%q] = %v, want "2026-03-01T00:00:00" (same shape as purchaseDate)`, "soldAt", got)
+	if got := wire["soldAt"]; got != "2026-03-01" {
+		t.Errorf(`wire[%q] = %v, want "2026-03-01" (same shape as purchaseDate)`, "soldAt", got)
 	}
 	if got := wire["soldPrice"]; got != float64(price) {
 		t.Errorf(`wire[%q] = %v, want %d`, "soldPrice", got, price)
