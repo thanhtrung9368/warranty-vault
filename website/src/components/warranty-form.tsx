@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { WARRANTY_TYPES, type WarrantyType } from '@/lib/types';
 import { formatNumber, parseVNDInput } from '@/lib/format';
+import { dayToInputValue } from '@/lib/api-day';
 import { currencySuffix } from '@/lib/currency';
 import { warrantyTypeLabel } from '@/lib/i18n/labels';
 import { useLocale, useT } from '@/lib/i18n/client';
@@ -168,7 +169,9 @@ export function WarrantyForm({
         : 'unset';
 
   const startDateDefault = initial?.startDate
-    ? format(new Date(initial.startDate), 'yyyy-MM-dd')
+    ? // Calendar day: sliced, so editing never shows (or saves) the previous
+      // day west of UTC.
+      dayToInputValue(initial.startDate)
     : format(new Date(), 'yyyy-MM-dd');
 
   return (

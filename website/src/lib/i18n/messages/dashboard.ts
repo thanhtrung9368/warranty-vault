@@ -68,8 +68,17 @@ export const dashboard = defineMessages({
 
   // ── Stats — KPI row ─────────────────────────────────────────────────────
   'Tổng chi {year}': 'Total spend {year}',
-  '{devices} thiết bị • {warranties} gói bảo hành':
-    '{devices} devices • {warranties} warranty plans',
+  // The KPI sub-line is TWO counted nouns ("1 device • 3 warranty plans"). The
+  // catalog's `enOne` form is one whole sentence, so it cannot inflect both
+  // nouns; the sentence is split into the two countable fragments and joined
+  // with the same " • " the Vietnamese uses. Each fragment carries its own
+  // `count`, so English is grammatical for every combination and Vietnamese
+  // (which does not inflect) is unchanged.
+  '{count} thiết bị': { en: '{count} devices', enOne: '{count} device' },
+  '{count} gói bảo hành': {
+    en: '{count} warranty plans',
+    enOne: '{count} warranty plan',
+  },
   'Tổng chi mua sắm': 'Total purchase spend',
   'Tài sản còn bảo hành': 'Assets still under warranty',
   '{count}/{total} thiết bị': '{count}/{total} devices',
@@ -91,8 +100,11 @@ export const dashboard = defineMessages({
 
   // ── Stats — year breakdown + Top 5 ──────────────────────────────────────
   'Tổng chi theo năm': 'Spending by year',
-  '({devices} thiết bị • {warranties} gói trong {year})':
-    '({devices} devices • {warranties} warranty plans in {year})',
+  // Same split as the KPI sub-line above; `{year}` stays in the second fragment.
+  '{count} gói trong {year}': {
+    en: '{count} warranty plans in {year}',
+    enOne: '{count} warranty plan in {year}',
+  },
   'Chưa có chi phí nào trong năm {year}.': 'No spending recorded in {year}.',
   'Top 5 thiết bị đắt nhất': 'Top 5 most expensive devices',
   'Xếp theo giá mua thiết bị (chưa gồm gói bảo hành).':
@@ -141,6 +153,8 @@ export const dashboard = defineMessages({
     'Exactly the “Recurring fees per month” figure above',
   'Kỳ gia hạn theo từng tháng. Cột xếp chồng: phần dưới là tiền sẽ tự động bị trừ, phần trên là gói bạn phải tự gia hạn. Biểu đồ chỉ gồm khoản đăng ký.':
     'Renewals month by month. The stacked bar: the lower part is money charged automatically, the upper part is plans you renew yourself. The chart covers subscriptions only.',
+  'Chưa có khoản đăng ký nào trong cửa sổ này để vẽ biểu đồ. Thêm gói đăng ký rồi quay lại nhé.':
+    'There is no subscription charge to chart in this window yet. Add a subscription and come back.',
   'Tự động trừ': 'Charged automatically',
   'Có thể phát sinh trong {months} tháng tới — tham khảo, không phải khoản chắc chắn trả và không cộng vào tổng ở trên':
     'May come up in the next {months} months — for reference only, not a certain charge, and not added to the totals above',

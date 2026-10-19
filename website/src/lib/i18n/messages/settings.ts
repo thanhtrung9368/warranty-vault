@@ -42,7 +42,7 @@ export const settings = defineMessages({
     'This is the address you sign in with. You can change it under',
   'ngay bên dưới — cần mật khẩu hiện tại và một bước xác nhận qua email gửi tới địa chỉ mới.':
     'just below — it needs your current password and a confirmation step by email sent to the new address.',
-  'Đang dùng: {name}': 'In use: {name}',
+  'Tên hiển thị đang dùng: {name}': 'Display name in use: {name}',
   'Chưa đặt tên hiển thị.': 'No display name set.',
 
   // ── Change password (`components/change-password-form.tsx`) ─────────────

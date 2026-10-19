@@ -31,6 +31,7 @@
 // generates every variant in English and fails if any string is still
 // Vietnamese, so an unregistered key cannot ship silently.
 
+import { toDayDate } from '@/lib/api-day';
 import { formatDate } from '@/lib/format';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
@@ -93,9 +94,11 @@ function clean(value: string | null | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function formatDay(value: string | Date | null | undefined, locale: Locale): string | null {
+function formatDayValue(value: string | Date | null | undefined, locale: Locale): string | null {
   if (value == null) return null;
-  const date = typeof value === 'string' ? new Date(value) : value;
+  // Local midnight for a calendar day: `new Date('2027-06-15')` is UTC midnight
+  // and printed the 14th to an English reader west of UTC.
+  const date = toDayDate(value);
   if (Number.isNaN(date.getTime())) return null;
   return formatDate(date, locale);
 }
@@ -296,7 +299,7 @@ function paperworkItems(
 ): HandoverChecklistItem[] {
   const place = clean(input.purchasePlace);
   const serial = clean(input.serialNumber);
-  const warrantyEnd = formatDay(input.warrantyEnd, locale);
+  const warrantyEnd = formatDayValue(input.warrantyEnd, locale);
 
   return [
     place

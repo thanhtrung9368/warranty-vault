@@ -20,7 +20,7 @@
 // would let an unconverted call site print Vietnamese inside an English page.
 
 import { differenceInCalendarDays } from 'date-fns';
-import { formatDate } from './format';
+import { formatDay, parseDayValue } from './api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -52,7 +52,9 @@ export function activationStateLabel(
   const activatedAt = device.activatedAt?.trim();
   if (activatedAt) {
     return translate(locale, 'Đã kích hoạt ngày {date}', {
-      date: formatDate(activatedAt, locale),
+      // `activatedAt` is a `format: date` field. Formatting it through a `Date`
+      // is what made it render a day early west of UTC; `formatDay` slices it.
+      date: formatDay(activatedAt, locale),
     });
   }
   if (device.activationRequired) return translate(locale, 'Chưa kích hoạt');
@@ -77,8 +79,10 @@ export function extendedCoverBuyByNote(
   if (buyBy == null) return null;
   const trimmed = buyBy.trim();
   if (trimmed === '') return null;
-  const end = new Date(trimmed);
-  if (Number.isNaN(end.getTime())) return null;
+  // A calendar day (`YYYY-MM-DD`) anchored at local midnight. `new Date(day)`
+  // would be UTC midnight — "today is the last day" one day early west of UTC.
+  const end = parseDayValue(trimmed);
+  if (!end) return null;
 
   const days = differenceInCalendarDays(end, now);
   if (days > 0) {

@@ -24,7 +24,6 @@
 import * as React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { format } from 'date-fns';
 import { ExternalLink, Loader2, PencilLine, Save, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,15 +49,15 @@ import {
   type BrandWarrantyAnswerSource,
   type BrandWarrantyValues,
 } from '@/lib/brand-warranty';
+import { dayToInputValue } from '@/lib/api-day';
 import { saveBrandWarrantyCheck, type DeviceFormState } from '@/app/actions/devices';
 
 /** Sentinel because Radix Select forbids an empty-string item value. */
 const STATUS_NONE = 'unset';
 
 function dateInputValue(value: string | null): string {
-  if (!value) return '';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : format(date, 'yyyy-MM-dd');
+  // Calendar days — sliced, never UTC-midnight round-tripped.
+  return dayToInputValue(value);
 }
 
 function FieldError({ errors }: { errors?: string[] }) {

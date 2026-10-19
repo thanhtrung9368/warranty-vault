@@ -7,8 +7,15 @@
 
 import { differenceInDays } from 'date-fns';
 import { formatDate, warrantyState } from '@/lib/format';
+import { parseDayValue } from '@/lib/api-day';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
+
+/** Local midnight for a calendar day (or a server-derived day instant). */
+function dayDate(value: Date | string): Date {
+  if (value instanceof Date) return value;
+  return parseDayValue(value) ?? new Date(value);
+}
 
 export function WarrantyTimeline({
   purchaseDate,
@@ -19,8 +26,11 @@ export function WarrantyTimeline({
 }) {
   const t = useT();
   const locale = useLocale();
-  const start = typeof purchaseDate === 'string' ? new Date(purchaseDate) : purchaseDate;
-  const end = typeof warrantyEndDate === 'string' ? new Date(warrantyEndDate) : warrantyEndDate;
+  // Both inputs are calendar days. A `new Date(day)` is UTC midnight, so the
+  // bar's elapsed/total days and the two printed dates all shifted a day west
+  // of UTC.
+  const start = dayDate(purchaseDate);
+  const end = dayDate(warrantyEndDate);
   const total = Math.max(1, differenceInDays(end, start));
   const elapsed = Math.max(0, Math.min(total, differenceInDays(new Date(), start)));
   const pct = Math.min(100, Math.round((elapsed / total) * 100));

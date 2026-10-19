@@ -25,7 +25,8 @@ import {
   wishlistPriorityLabel,
   wishlistStatusLabel,
 } from '@/lib/forecast-rollup';
-import { formatDate, formatVND } from '@/lib/format';
+import { formatVND } from '@/lib/format';
+import { formatDayValue } from '@/lib/api-day';
 import { getI18n } from '@/lib/i18n/server';
 import { cn } from '@/lib/utils';
 
@@ -132,7 +133,20 @@ export async function ForecastPanel({
                 'Kỳ gia hạn theo từng tháng. Cột xếp chồng: phần dưới là tiền sẽ tự động bị trừ, phần trên là gói bạn phải tự gia hạn. Biểu đồ chỉ gồm khoản đăng ký.',
               )}
             </p>
-            <ForecastBar data={forecastChartData(rows)} />
+            {/* With no scheduled subscription charge the chart has nothing to
+                plot: an all-zero bar chart is an empty axes frame, which reads
+                as a broken chart rather than "you have no subscriptions". The
+                fixed height matches the chart so the card does not jump when
+                one is added. */}
+            {totals.chargesCount === 0 ? (
+              <p className="flex h-[280px] items-center justify-center rounded-lg border-[1.5px] border-dashed border-border bg-surface-2 px-6 text-center text-sm text-muted-foreground">
+                {t(
+                  'Chưa có khoản đăng ký nào trong cửa sổ này để vẽ biểu đồ. Thêm gói đăng ký rồi quay lại nhé.',
+                )}
+              </p>
+            ) : (
+              <ForecastBar data={forecastChartData(rows)} />
+            )}
           </div>
 
           {/* Reference money, deliberately NOT part of the totals above. */}
@@ -309,7 +323,7 @@ export async function ForecastPanel({
                         {w.deviceName}
                       </Link>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {formatDate(w.endDate, locale)}
+                        {formatDayValue(w.endDate, locale)}
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -362,7 +376,7 @@ export async function ForecastPanel({
                         {w.name}
                       </Link>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {formatDate(w.targetDate, locale)}
+                        {formatDayValue(w.targetDate, locale)}
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">

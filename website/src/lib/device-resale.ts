@@ -5,16 +5,13 @@
 // `src/lib/__tests__/` and reused by both the device form (client) and the
 // device detail page (RSC).
 //
-// Wire format caution (openapi.yaml `Device.soldAt`): the Go service serialises
-// the column exactly like `purchaseDate` —
-// `YYYY-MM-DDTHH:MM:SS[.fff]`, **no `Z`, no offset** (`"2026-03-01T00:00:00"`).
-// The write path accepts `YYYY-MM-DD` or full RFC3339. Everything here follows
-// the same rule the rest of the web already uses for that column
-// (see `csvDate` in `./csv.ts` and `purchaseDate` in `components/device-form.tsx`):
-// take the calendar day from the string itself instead of round-tripping it
-// through UTC.
+// Wire format caution (openapi.yaml `Device.soldAt`): the Go service emits a
+// CALENDAR DAY, `YYYY-MM-DD` (`format: date`) — the same shape as
+// `purchaseDate`. The write path accepts `YYYY-MM-DD` or full RFC3339.
+// Parsing/formatting goes through `lib/api-day.ts`; `new Date(day)` is UTC
+// midnight and would move the day for a reader west of UTC.
 
-import { format } from 'date-fns';
+import { dayToInputValue, formatDay, tryParseDay } from './api-day';
 import { parseVNDInput } from './format';
 import { formatMoney } from './currency';
 import { translate } from '@/lib/i18n/catalog';
@@ -48,47 +45,35 @@ export type SaleFieldErrors = {
   soldPrice?: string[];
 };
 
-const ISO_DAY_PREFIX = /^(\d{4}-\d{2}-\d{2})/;
 
 /**
  * Format a `Device.soldAt` wire value for an `<input type="date">`.
  *
- * `"2026-03-01T00:00:00"` → `"2026-03-01"`. The calendar day is sliced out of
- * the string, so the value cannot shift by a day for a machine in a different
- * timezone — `new Date(...).toISOString()` would turn
- * `"2026-03-01T00:00:00+07:00"` into `"2026-02-28"`. Non-matching values fall
- * back to the `purchaseDate` handling in the device form (local parse + local
- * format); unparseable input yields `''` so the field simply renders empty.
+ * The contract value is `"2026-03-01"`; it is sliced rather than
+ * `new Date(...)`d so it cannot shift by a day on a machine in another
+ * timezone. A legacy pre-migration value (`"2026-03-01T00:00:00"`) keeps its
+ * leading day too — leaving the input empty would silently clear the recorded
+ * sale on the next save. Anything still unreadable yields `''`.
  */
 export function soldAtToInputValue(value: string | null | undefined): string {
-  if (value == null) return '';
+  const exact = dayToInputValue(value);
+  if (exact || value == null) return exact;
   const trimmed = value.trim();
   if (trimmed === '') return '';
-
-  const match = ISO_DAY_PREFIX.exec(trimmed);
-  if (match) return match[1];
-
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) return '';
-  return format(parsed, 'yyyy-MM-dd');
+  const legacyPrefix = trimmed.slice(0, 10);
+  return tryParseDay(legacyPrefix) ? legacyPrefix : '';
 }
 
 /**
  * Display a `YYYY-MM-DD` value (what the form's date input holds) as a plain
  * calendar day in the reader's convention — `dd/MM/yyyy` in Vietnamese,
- * `MM/dd/yyyy` in English (the same split as `formatDate`).
+ * `MM/dd/yyyy` in English.
  *
- * Sliced rather than passed through `new Date()`: a date-only string is parsed
- * as UTC midnight, which `formatDate` would then render as the *previous* day
- * for anyone west of UTC. Falls back to the input unchanged when it is not a
- * plain calendar day.
+ * `formatDay` slices the day; `new Date(day)` would be UTC midnight and render
+ * the *previous* day for anyone west of UTC. Empty for input that is not a day.
  */
 export function saleDayLabel(day: string | null | undefined, locale: Locale): string {
-  if (!day) return '';
-  const match = ISO_DAY_PREFIX.exec(day.trim());
-  if (!match) return day;
-  const [year, month, date] = match[1].split('-');
-  return locale === 'en' ? `${month}/${date}/${year}` : `${date}/${month}/${year}`;
+  return day ? formatDay(day, locale) : '';
 }
 
 /**

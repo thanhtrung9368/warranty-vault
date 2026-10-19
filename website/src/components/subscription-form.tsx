@@ -21,6 +21,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { formatNumber, parseVNDInput } from '@/lib/format';
+import { dayToInputValue as dayDateInputValue, parseDay } from '@/lib/api-day';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { billingCycleLabel, subscriptionStatusLabel } from '@/lib/i18n/labels';
 import {
@@ -217,7 +218,11 @@ function autoRenewalDate(
   intervalDays: string,
 ): string {
   if (!startedAt) return '';
-  const start = new Date(startedAt);
+  // `startedAt` is the value of an `<input type="date">`, i.e. a calendar day.
+  // Anchoring it at local midnight keeps the computed renewal on the same day:
+  // `new Date('2026-10-20')` is UTC midnight and `addMonths` + `format` would
+  // print 2026-11-19 for a reader west of UTC.
+  const start = parseDay(startedAt);
   let next: Date;
   if (cycle === 'MONTHLY') next = addMonths(start, 1);
   else if (cycle === 'QUARTERLY') next = addMonths(start, 3);
@@ -324,12 +329,14 @@ export function SubscriptionForm({
     initial?.price ? formatNumber(initial.price, locale) : '',
   );
   const [startedAt, setStartedAt] = React.useState<string>(
+    // `initial.startedAt` is a calendar day; slicing it avoids the UTC-midnight
+    // round-trip that showed the previous day in a date input west of UTC.
     initial?.startedAt
-      ? format(new Date(initial.startedAt), 'yyyy-MM-dd')
+      ? dayDateInputValue(initial.startedAt)
       : format(new Date(), 'yyyy-MM-dd'),
   );
   const [renewalOverride, setRenewalOverride] = React.useState<string | null>(
-    initial?.renewalDate ? format(new Date(initial.renewalDate), 'yyyy-MM-dd') : null,
+    initial?.renewalDate ? dayDateInputValue(initial.renewalDate) : null,
   );
   const renewalDate =
     renewalOverride ?? autoRenewalDate(startedAt, billingCycle, intervalDays);
@@ -353,7 +360,7 @@ export function SubscriptionForm({
   // while a date exists, and clearing the date clears the price in the same
   // handler — so the invalid combination cannot be submitted from this form.
   const [trialEndsAt, setTrialEndsAt] = React.useState<string>(
-    initial?.trialEndsAt ? format(new Date(initial.trialEndsAt), 'yyyy-MM-dd') : '',
+    initial?.trialEndsAt ? dayDateInputValue(initial.trialEndsAt) : '',
   );
   const [convertsToPrice, setConvertsToPrice] = React.useState<string>(
     initial?.trialEndsAt && initial.convertsToPrice != null

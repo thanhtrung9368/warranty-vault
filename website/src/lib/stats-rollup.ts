@@ -35,6 +35,7 @@
 import { startOfMonth, subMonths, format } from 'date-fns';
 import { enUS, vi } from 'date-fns/locale';
 import type { DeviceListItem, Warranty } from '@/lib/api/devices';
+import { daysUntil, toDayDate } from '@/lib/api-day';
 import { translate } from '@/lib/i18n/catalog';
 import { categoryLabel } from '@/lib/i18n/labels';
 import type { Locale } from '@/lib/i18n/locale';
@@ -77,7 +78,11 @@ export function buildSpendEntries(
       // rate): it contributes 0 and `countUnknownPurchaseVnd` reports it, so the
       // page never quietly treats the raw number as đồng.
       amount: d.purchasePriceVnd ?? 0,
-      date: new Date(d.purchaseDate),
+      // `purchaseDate` is a calendar day. `new Date(day)` is UTC midnight, so a
+      // purchase on the 1st of a month landed in the previous month (and year)
+      // for every reader west of UTC; `toDayDate` anchors a day at local
+      // midnight and still accepts the pre-contract Z-less shape.
+      date: toDayDate(d.purchaseDate),
       category: d.category,
       kind: 'device',
     });
@@ -89,7 +94,7 @@ export function buildSpendEntries(
       if (needsFxRate(d.currency)) continue;
       entries.push({
         amount: w.cost,
-        date: new Date(w.startDate),
+        date: toDayDate(w.startDate),
         category: d.category,
         kind: 'warranty',
       });
@@ -216,7 +221,11 @@ export function activeAssetValue(devices: DeviceListItem[]) {
     (d) =>
       d.status === 'ACTIVE' &&
       d.effectiveWarrantyEnd != null &&
-      new Date(d.effectiveWarrantyEnd) > now,
+      // `effectiveWarrantyEnd` is a server-derived instant at UTC midnight of
+      // the last covered DAY, so read it as a day (`daysUntil` does) instead of
+      // comparing the UTC instant to `now` — the latter retires a device one day
+      // early in any negative-offset zone.
+      daysUntil(d.effectiveWarrantyEnd, now) >= 0,
   );
   return {
     total: active.reduce((sum, d) => sum + (d.purchasePriceVnd ?? 0), 0),
@@ -236,7 +245,9 @@ export function topExpensiveRollup(devices: DeviceListItem[], limit = 5): Device
 
 export function yearsWithData(devices: DeviceListItem[]): number[] {
   const set = new Set<number>();
-  for (const d of devices) set.add(new Date(d.purchaseDate).getFullYear());
+  // Local midnight of the purchase DAY; `new Date('2026-01-01')` is UTC midnight
+  // and would report the previous year in any negative-offset timezone.
+  for (const d of devices) set.add(toDayDate(d.purchaseDate).getFullYear());
   set.add(new Date().getFullYear());
   return Array.from(set).sort((a, b) => b - a);
 }

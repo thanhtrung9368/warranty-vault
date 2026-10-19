@@ -39,12 +39,23 @@ import {
 import { isForecastEmpty, normalizeForecastMonths } from '@/lib/forecast-rollup';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
+import type { Translator } from '@/lib/i18n/catalog';
 import { formatDate, formatVND } from '@/lib/format';
 import { formatMoney } from '@/lib/currency';
 import { requireUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
+
+// "3 devices • 2 warranty plans" — two COUNTED nouns, each with its own English
+// singular. The catalog's whole-sentence `enOne` can only inflect one noun, so
+// the line is composed from two fragments (each carries `count`); Vietnamese,
+// which does not inflect, reads exactly as before.
+function deviceWarrantyCounts(t: Translator, devices: number, warranties: number): string {
+  return `${t('{count} thiết bị', { count: devices })} • ${t('{count} gói bảo hành', {
+    count: warranties,
+  })}`;
+}
 
 // Money rollups are computed in-RSC from per-user reads:
 //   - `GET /v1/devices` for the device rows,
@@ -222,20 +233,14 @@ export default async function StatsPage({
         <KpiCard
           eyebrow={t('Tổng chi {year}', { year })}
           value={formatVND(yearTotal.total, locale)}
-          sub={t('{devices} thiết bị • {warranties} gói bảo hành', {
-            devices: yearTotal.deviceCount,
-            warranties: yearTotal.warrantyCount,
-          })}
+          sub={deviceWarrantyCounts(t, yearTotal.deviceCount, yearTotal.warrantyCount)}
           tint="tint-amber"
           icon={<TrendingUp className="h-5 w-5" />}
         />
         <KpiCard
           eyebrow={t('Tổng chi mua sắm')}
           value={formatVND(allTime.total, locale)}
-          sub={t('{devices} thiết bị • {warranties} gói bảo hành', {
-            devices: allTime.deviceCount,
-            warranties: allTime.warrantyCount,
-          })}
+          sub={deviceWarrantyCounts(t, allTime.deviceCount, allTime.warrantyCount)}
           tint="tint-violet"
           icon={<Wallet className="h-5 w-5" />}
         />
@@ -320,11 +325,11 @@ export default async function StatsPage({
                 {formatVND(yearTotal.total, locale)}
               </span>
               <span className="pb-1 text-sm text-muted-foreground">
-                {t('({devices} thiết bị • {warranties} gói trong {year})', {
-                  devices: yearTotal.deviceCount,
-                  warranties: yearTotal.warrantyCount,
+                ({t('{count} thiết bị', { count: yearTotal.deviceCount })} •{' '}
+                {t('{count} gói trong {year}', {
+                  count: yearTotal.warrantyCount,
                   year,
-                })}
+                })})
               </span>
             </div>
             {yearByCategory.length === 0 ? (

@@ -1,5 +1,6 @@
 import { format, differenceInCalendarDays } from 'date-fns';
 import { enUS, vi } from 'date-fns/locale';
+import { formatDay, isApiDay, parseDayValue, toDayDate } from '@/lib/api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -66,12 +67,18 @@ export function parseVNDInput(input: string): number {
 }
 
 export function formatDate(date: Date | string, locale: Locale): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  // A bare `YYYY-MM-DD` is a CALENDAR DAY, not an instant. `new Date(day)` is
+  // defined to be UTC midnight, which renders as the previous day west of UTC —
+  // the bug `lib/api-day.ts` exists to remove. Every day-bearing wire field has
+  // that exact shape, so this safety net fixes render sites the moment they
+  // move to the new contract; arithmetic must still go through `api-day.ts`.
+  if (typeof date === 'string' && isApiDay(date)) return formatDay(date, locale);
+  const d = toDayDate(date);
   return format(d, DATE_PATTERN[locale], { locale: locale === 'vi' ? vi : enUS });
 }
 
 export function formatDateLong(date: Date | string, locale: Locale): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = toDayDate(date);
   const { pattern, locale: dateLocale } = DATE_LONG[locale];
   return format(d, pattern, { locale: dateLocale });
 }
@@ -86,9 +93,10 @@ export function formatRelativeDay(
   locale: Locale,
   now: Date = new Date(),
 ): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = toDayDate(date);
   // Compare on day boundaries so a record at 23:59 yesterday reads "hôm qua",
-  // not "vài giờ trước".
+  // not "vài giờ trước". `toDayDate` anchors a bare day at LOCAL midnight, so
+  // the boundary is the reader's own day in every timezone.
   const startOf = (x: Date) => {
     const c = new Date(x);
     c.setHours(0, 0, 0, 0);
@@ -133,11 +141,17 @@ export type WarrantyState = {
 };
 
 export function warrantyState(warrantyEnd: Date | string, locale: Locale): WarrantyState {
-  const end = typeof warrantyEnd === 'string' ? new Date(warrantyEnd) : warrantyEnd;
-  // Calendar days, not elapsed 24-hour periods. Warranty ends arrive as
-  // date-only values (`2026-10-28T00:00:00Z`), so at 18:00 on the 19th there
-  // are 9 calendar days left but only 8 full days — the old `differenceInDays`
-  // said "Còn 8 ngày" while the same page printed "Hết 28/10/2026".
+  // Local midnight for a bare day (and for the server-derived day instant),
+  // so `differenceInCalendarDays` compares the two local calendar dates. The
+  // old `new Date('2026-10-28')` was UTC midnight, which is the 27th in New
+  // York — "Còn 8 ngày" beside "Hết 28/10/2026" in the same card.
+  const end =
+    typeof warrantyEnd === 'string'
+      ? (parseDayValue(warrantyEnd) ?? new Date(warrantyEnd))
+      : warrantyEnd;
+  // Calendar days, not elapsed 24-hour periods. At 18:00 on the 19th there are
+  // 9 calendar days left but only 8 full days — the old `differenceInDays` said
+  // "Còn 8 ngày" while the same page printed "Hết 28/10/2026".
   const days = differenceInCalendarDays(end, new Date());
   if (days < 0) {
     const n = Math.abs(days);

@@ -267,7 +267,10 @@ export const devices = defineMessages({
   'Không tải được thiết bị': 'Could not load the device',
   'Tổng quan bảo hành': 'Warranty overview',
   'Có {count} gói bảo hành. Gói xa nhất hết {date}.':
-    '{count} warranty plans, the furthest ending on {date}.',
+    {
+      en: '{count} warranty plans, the furthest ending on {date}.',
+      enOne: '{count} warranty plan, the furthest ending on {date}.',
+    },
   'Quản lý chi tiết từng gói ở mục bên dưới.':
     'Manage each plan in detail in the section below.',
   'Thiết bị chưa có gói bảo hành nào.': 'This device has no warranty plan yet.',

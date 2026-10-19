@@ -25,7 +25,10 @@ describe('warrantyState day counting', () => {
 
   it('counts calendar days to a date-only warranty end (9, not 8)', () => {
     // The seeded iPhone 15 Pro: ends 2026-10-28, nine calendar days away.
-    const state = warrantyState(new Date('2026-10-28T00:00:00Z'), 'vi');
+    // Passed as the WIRE value (a `YYYY-MM-DD` day), not a `Date`: a Date built
+    // from `'2026-10-28T00:00:00Z'` is an INSTANT and is correctly the 27th in
+    // New York. The bug was parsing the day itself as that instant.
+    const state = warrantyState('2026-10-28', 'vi');
     expect(state.daysLeft).toBe(9);
     expect(state.label).toBe('Còn 9 ngày');
     expect(state.tone).toBe('danger');

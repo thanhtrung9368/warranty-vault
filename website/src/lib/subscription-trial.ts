@@ -17,6 +17,7 @@
 // and the normal "Gia hạn tới …" card must not compete with it. With no trial,
 // these helpers return `null` and the page keeps its existing renewal copy.
 
+import { daysUntil } from './api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 import { formatDate, formatVND } from './format';
@@ -30,13 +31,16 @@ export type TrialSource = {
 export type TrialPhase = 'none' | 'trial' | 'ended';
 
 /**
- * Which billing phase the recorded trial is in, day-time resolution:
+ * Which billing phase the recorded trial is in:
  *   `none`   — no trial date (or an unreadable one): the plan is a normal plan.
- *   `trial`  — the free period is still running (`trialEndsAt` in the future).
+ *   `trial`  — the free period is still running (`trialEndsAt` today or later).
  *   `ended`  — the conversion date has passed; billing has started.
  *
- * Compared as instants, not calendar days: the field is a date-time, so a trial
- * ending at 00:00 today is already over at 09:00 today.
+ * `trialEndsAt` is a CALENDAR DAY (`format: date`), not an instant: a trial
+ * recorded as ending on the 1st is still running through the 1st, and billing
+ * starts on the 2nd. Comparing it as an instant (`new Date(day)` is UTC
+ * midnight) ended the trial at 07:00 on the last day in UTC+7 and at 20:00 the
+ * previous day in New York — before the day the user recorded.
  */
 export function trialPhase(
   source: TrialSource,
@@ -44,9 +48,9 @@ export function trialPhase(
 ): TrialPhase {
   const raw = source.trialEndsAt?.trim();
   if (!raw) return 'none';
-  const end = new Date(raw);
-  if (Number.isNaN(end.getTime())) return 'none';
-  return end.getTime() > now.getTime() ? 'trial' : 'ended';
+  const days = daysUntil(raw, now);
+  if (!Number.isFinite(days)) return 'none';
+  return days >= 0 ? 'trial' : 'ended';
 }
 
 /**

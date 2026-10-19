@@ -263,4 +263,96 @@ describe('plurals', () => {
   it('keeps the generic form when no count is supplied', () => {
     expect(translate('en', key)).toBe('Could not reach the server, please try again.');
   });
+
+  it('uses the singular English form only for exactly one', () => {
+    expect(translate('en', 'Còn {days} ngày', { days: 1, count: 1 })).toBe('1 day left');
+    expect(translate('en', 'Còn {days} ngày', { days: 2, count: 2 })).toBe('2 days left');
+    expect(translate('en', 'Còn {days} ngày', { days: 0, count: 0 })).toBe('0 days left');
+  });
+});
+
+// The reported English defects: "1 warranty plans…" and "1 plans not matched…".
+//
+// The mechanism above is whole-sentence (`enOne`), so it can only inflect ONE
+// counted noun. These two sentences have two, which is why they fell through.
+// A sentence with two counted nouns is now either split into two fragments
+// (each with its own `count`) or phrased so the second number has no noun to
+// inflect. Vietnamese must read exactly as before: it does not inflect, and the
+// source sentence is the key.
+describe('multi-count plural fixes', () => {
+  it('renders the device warranty summary with a singular plan', () => {
+    const key = 'Có {count} gói bảo hành. Gói xa nhất hết {date}.';
+    expect(translate('en', key, { count: 1, date: '28/10/2026' })).toBe(
+      '1 warranty plan, the furthest ending on 28/10/2026.',
+    );
+    expect(translate('en', key, { count: 2, date: '28/10/2026' })).toBe(
+      '2 warranty plans, the furthest ending on 28/10/2026.',
+    );
+    expect(translate('vi', key, { count: 1, date: '28/10/2026' })).toBe(
+      'Có 1 gói bảo hành. Gói xa nhất hết 28/10/2026.',
+    );
+  });
+
+  it('inflects each fragment of the stats KPI sub-line independently', () => {
+    // The composition the stats page performs: one `count` per noun.
+    const devices = (n: number) => translate('en', '{count} thiết bị', { count: n });
+    const plans = (n: number) => translate('en', '{count} gói bảo hành', { count: n });
+    expect(`${devices(1)} • ${plans(1)}`).toBe('1 device • 1 warranty plan');
+    expect(`${devices(3)} • ${plans(1)}`).toBe('3 devices • 1 warranty plan');
+    expect(`${devices(1)} • ${plans(4)}`).toBe('1 device • 4 warranty plans');
+    // Vietnamese does not inflect: the same fragments read as the original.
+    expect(translate('vi', '{count} thiết bị', { count: 1 })).toBe('1 thiết bị');
+    expect(translate('vi', '{count} gói bảo hành', { count: 1 })).toBe('1 gói bảo hành');
+  });
+
+  it('inflects the year-breakdown line', () => {
+    expect(
+      translate('en', '{count} gói trong {year}', { count: 1, year: 2026 }),
+    ).toBe('1 warranty plan in 2026');
+    expect(
+      translate('en', '{count} gói trong {year}', { count: 2, year: 2026 }),
+    ).toBe('2 warranty plans in 2026');
+    expect(translate('vi', '{count} gói trong {year}', { count: 1, year: 2026 })).toBe(
+      '1 gói trong 2026',
+    );
+  });
+
+  it('inflects the subscriptions "active" sub-label', () => {
+    // Spotted on the subscriptions page next to the count: "1 active plans".
+    expect(translate('en', 'gói đang chạy', { count: 1 })).toBe('active plan');
+    expect(translate('en', 'gói đang chạy', { count: 2 })).toBe('active plans');
+    expect(translate('vi', 'gói đang chạy', { count: 1 })).toBe('gói đang chạy');
+  });
+
+  it('never prints "1 plans" in the provider-summary sentence', () => {
+    const key =
+      '{withPhone}/{total} gói có số điện thoại do bạn tự ghi · {unmatched} gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.';
+    // One plan, with a phone, unmatched: both numbers are 1.
+    const singular = translate('en', key, {
+      withPhone: 1,
+      total: 1,
+      count: 1,
+      unmatched: 1,
+    });
+    expect(singular).toContain('You recorded a phone number on 1/1 plan');
+    expect(singular).toContain('1 not matched');
+    expect(singular).not.toContain('1/1 plans');
+    expect(singular).not.toContain('1 not matcheds');
+    // Several plans, one unmatched: the first clause is plural, the second is
+    // still "1 not matched" (no noun, so no bad inflection).
+    const plural = translate('en', key, {
+      withPhone: 1,
+      total: 3,
+      count: 3,
+      unmatched: 1,
+    });
+    expect(plural).toContain('You recorded a phone number on 1/3 plans');
+    expect(plural).toContain('1 not matched');
+    // Vietnamese is untouched by any of this.
+    expect(
+      translate('vi', key, { withPhone: 1, total: 1, count: 1, unmatched: 1 }),
+    ).toBe(
+      '1/1 gói có số điện thoại do bạn tự ghi · 1 gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.',
+    );
+  });
 });

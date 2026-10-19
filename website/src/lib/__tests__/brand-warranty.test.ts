@@ -46,7 +46,7 @@ const EN = 'en' as const;
 
 // Z-less dates, like the Go wire (`purchaseDate`'s shape). Local-midnight
 // parsing keeps the calendar day stable in every timezone.
-const PURCHASE = '2026-01-10T00:00:00';
+const PURCHASE = '2026-01-10';
 
 describe('brand warranty status labels', () => {
   it.each([
@@ -102,7 +102,7 @@ describe('mismatch copy selector — all four kinds', () => {
       {
         kind: 'STARTS_BEFORE',
         days: 47,
-        brandDate: '2025-11-24T00:00:00',
+        brandDate: '2025-11-24',
         purchaseDate: PURCHASE,
       },
       VI,
@@ -122,7 +122,7 @@ describe('mismatch copy selector — all four kinds', () => {
     const mismatch = {
       kind: 'STARTS_AFTER' as const,
       days: 1,
-      brandDate: '2026-01-11T00:00:00',
+      brandDate: '2026-01-11',
       purchaseDate: PURCHASE,
     };
     expect(mismatchCopy(mismatch, VI).sentence).toBe(
@@ -142,8 +142,8 @@ describe('mismatch copy selector — all four kinds', () => {
       {
         kind: 'ENDED_EARLIER',
         days: 47,
-        brandDate: '2026-02-01T00:00:00',
-        purchaseDate: '2026-03-20T00:00:00',
+        brandDate: '2026-02-01',
+        purchaseDate: '2026-03-20',
       },
       VI,
     );
@@ -159,8 +159,8 @@ describe('mismatch copy selector — all four kinds', () => {
     const mismatch = {
       kind: 'ENDED_LATER' as const,
       days: 12,
-      brandDate: '2027-01-22T00:00:00',
-      purchaseDate: '2027-01-10T00:00:00',
+      brandDate: '2027-01-22',
+      purchaseDate: '2027-01-10',
     };
     expect(mismatchCopy(mismatch, VI).sentence).toBe(
       'Hãng ghi bảo hành kết thúc muộn hơn 12 ngày so với mốc bạn đang tính — máy có thể còn bảo hành lâu hơn bạn tưởng.',
@@ -223,8 +223,8 @@ describe('mismatch copy selector — all four kinds', () => {
 describe('agreement / no registration — no mismatch is information too', () => {
   const base = {
     brandWarrantyStatus: 'ACTIVE',
-    brandWarrantyStart: '2026-01-10T00:00:00',
-    brandWarrantyEnd: '2027-01-10T00:00:00',
+    brandWarrantyStart: '2026-01-10',
+    brandWarrantyEnd: '2027-01-10',
     warrantyMismatch: null,
   };
 
@@ -355,28 +355,28 @@ describe('the no-lookup-URL state', () => {
 describe('date arithmetic display', () => {
   it('counts calendar days between the brand start and end', () => {
     expect(
-      brandWarrantySpanDays('2026-01-01T00:00:00', '2026-12-31T00:00:00'),
+      brandWarrantySpanDays('2026-01-01', '2026-12-31'),
     ).toBe(364);
-    expect(brandWarrantySpanDays('2026-01-01T00:00:00', '2026-01-02T00:00:00')).toBe(1);
-    expect(brandWarrantySpanDays(null, '2026-01-02T00:00:00')).toBeNull();
-    expect(brandWarrantySpanDays('bad', '2026-01-02T00:00:00')).toBeNull();
+    expect(brandWarrantySpanDays('2026-01-01', '2026-01-02')).toBe(1);
+    expect(brandWarrantySpanDays(null, '2026-01-02')).toBeNull();
+    expect(brandWarrantySpanDays('bad', '2026-01-02')).toBeNull();
   });
 
   it('renders the span with the right plural in both languages', () => {
     expect(
-      brandWarrantySpanLabel('2026-01-01T00:00:00', '2027-01-01T00:00:00', VI),
+      brandWarrantySpanLabel('2026-01-01', '2027-01-01', VI),
     ).toBe('Hãng ghi bảo hành kéo dài 365 ngày.');
     expect(
-      brandWarrantySpanLabel('2026-01-01T00:00:00', '2027-01-01T00:00:00', EN),
+      brandWarrantySpanLabel('2026-01-01', '2027-01-01', EN),
     ).toBe('The brand records 365 days of cover.');
     expect(
-      brandWarrantySpanLabel('2026-01-01T00:00:00', '2026-01-02T00:00:00', EN),
+      brandWarrantySpanLabel('2026-01-01', '2026-01-02', EN),
     ).toBe('The brand records 1 day of cover.');
   });
 
   it('omits the span for an inverted or unparseable pair', () => {
     expect(
-      brandWarrantySpanLabel('2026-02-01T00:00:00', '2026-01-01T00:00:00', VI),
+      brandWarrantySpanLabel('2026-02-01', '2026-01-01', VI),
     ).toBeNull();
     expect(brandWarrantySpanLabel(null, null, VI)).toBeNull();
   });

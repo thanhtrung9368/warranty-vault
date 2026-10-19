@@ -34,6 +34,7 @@ import {
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
 import { formatDate, formatVND, formatRelativeDay } from '@/lib/format';
+import { formatDay, parseDay } from '@/lib/api-day';
 import { leadDaysLabel } from '@/lib/lead-days';
 import { trialLabel, trialPhase, conversionPriceLabel } from '@/lib/subscription-trial';
 import { cn } from '@/lib/utils';
@@ -73,7 +74,10 @@ export default async function SubscriptionDetailPage({
   }
   const sub = res.data.subscription;
 
-  const renewalDate = new Date(sub.renewalDate);
+  // `renewalDate` is a calendar day (`YYYY-MM-DD`), anchored at local midnight.
+  // `new Date(day)` is UTC midnight, which moves both the printed date and the
+  // "Còn N ngày" count by a day west of UTC.
+  const renewalDate = parseDay(sub.renewalDate);
   const monthly = monthlyEquivalent(
     sub.price,
     sub.billingCycle as BillingCycle,
@@ -381,7 +385,7 @@ export default async function SubscriptionDetailPage({
                 <div className="min-w-0 flex-1">
                   <div className="info-row-label">{t('Bắt đầu từ')}</div>
                   <div className="info-row-value">
-                    {formatDate(new Date(sub.startedAt), locale)}
+                    {formatDay(sub.startedAt, locale)}
                   </div>
                 </div>
               </div>

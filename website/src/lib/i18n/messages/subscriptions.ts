@@ -45,7 +45,7 @@ export const subscriptions = defineMessages({
         'Showing {count} plan{filtered}. Track your recurring costs — know where the money goes each month.',
     },
   '~ {amount} / năm': '~ {amount} / year',
-  'gói đang chạy': 'active plans',
+  'gói đang chạy': { en: 'active plans', enOne: 'active plan' },
   'Chưa có gói nào sắp charge': 'No plan is about to be charged yet',
   'Lỗi tải danh sách: {message}': 'Could not load the list: {message}',
   // Renewal badge on a card / upcoming row (`renewalLabel`).

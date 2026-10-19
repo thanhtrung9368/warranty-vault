@@ -10,6 +10,7 @@ import type {
   BillingCycle,
   SubscriptionStatus,
 } from '@/lib/subscription-types';
+import { parseDay } from '@/lib/api-day';
 
 export default async function EditSubscriptionPage({
   params,
@@ -59,8 +60,9 @@ export default async function EditSubscriptionPage({
           billingCycle: sub.billingCycle as BillingCycle,
           intervalDays: sub.intervalDays,
           price: sub.price,
-          startedAt: new Date(sub.startedAt),
-          renewalDate: new Date(sub.renewalDate),
+          // Calendar days (`YYYY-MM-DD`): local midnight, not UTC midnight.
+          startedAt: parseDay(sub.startedAt),
+          renewalDate: parseDay(sub.renewalDate),
           autoRenew: sub.autoRenew,
           status: sub.status as SubscriptionStatus,
           accountEmail: sub.accountEmail,

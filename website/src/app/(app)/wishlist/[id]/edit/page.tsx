@@ -10,6 +10,7 @@ import type {
   WishlistPriority,
   WishlistStatus,
 } from '@/lib/wishlist-types';
+import { parseDay } from '@/lib/api-day';
 
 export default async function EditWishlistPage({
   params,
@@ -59,7 +60,8 @@ export default async function EditWishlistPage({
           currentPrice: item.currentPrice,
           buyUrl: item.buyUrl,
           imageUrl: item.imageUrl,
-          targetDate: item.targetDate ? new Date(item.targetDate) : null,
+          // Calendar day (`YYYY-MM-DD`) → local midnight, not UTC midnight.
+          targetDate: item.targetDate ? parseDay(item.targetDate) : null,
           priority: item.priority as WishlistPriority,
           status: item.status as WishlistStatus,
           notes: item.notes,

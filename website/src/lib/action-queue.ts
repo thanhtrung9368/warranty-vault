@@ -23,7 +23,7 @@
 // straight to `t(...)`. Re-wording them here would mean typing the Vietnamese
 // sentence twice, which is the one thing this migration must not do.
 
-import { differenceInCalendarDays } from 'date-fns';
+import { daysUntil as apiDaysUntil } from '@/lib/api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 // Type-only import: a pure module must stay importable without the API client's
@@ -155,11 +155,13 @@ export function entityLabel(
 
 // ---- Dates -------------------------------------------------------------------
 
-// Whole-day distance from `now`, negative when the date already passed. Uses the
-// same `new Date(string)` boundary handling as the rest of the web app
-// (`lib/format.ts`), so a date never reads a day off from a neighbouring label.
+// Whole-day distance from `now`, negative when the date already passed. The
+// parser lives in `lib/api-day.ts`: a calendar day is anchored at local
+// midnight, while the server-computed `dueDate` (a UTC-midnight instant) is
+// read on its UTC day. Before that, `new Date('2026-04-13')` was UTC midnight
+// and read as the 12th in any negative-offset zone.
 export function daysUntil(date: string, now: Date = new Date()): number {
-  return differenceInCalendarDays(new Date(date), now);
+  return apiDaysUntil(date, now);
 }
 
 // Short Vietnamese phrase for a deadline, translated at the call site. Matches

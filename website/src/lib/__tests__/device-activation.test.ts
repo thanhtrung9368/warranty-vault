@@ -16,10 +16,10 @@ import {
 
 describe('activationStateLabel', () => {
   it('renders the activation date when one is recorded', () => {
-    expect(activationStateLabel({ activatedAt: '2026-03-01T00:00:00' }, 'vi')).toBe(
+    expect(activationStateLabel({ activatedAt: '2026-03-01' }, 'vi')).toBe(
       'Đã kích hoạt ngày 01/03/2026',
     );
-    expect(activationStateLabel({ activatedAt: '2026-03-01T00:00:00' }, 'en')).toBe(
+    expect(activationStateLabel({ activatedAt: '2026-03-01' }, 'en')).toBe(
       'Activated on 03/01/2026',
     );
   });
@@ -28,7 +28,7 @@ describe('activationStateLabel', () => {
     // A device can be activated without the app knowing it was ever required.
     expect(
       activationStateLabel(
-        { activationRequired: false, activatedAt: '2026-03-01T00:00:00' },
+        { activationRequired: false, activatedAt: '2026-03-01' },
         'en',
       ),
     ).toBe('Activated on 03/01/2026');
@@ -55,8 +55,8 @@ describe('activationStateLabel', () => {
     // activate before handing the device over. The label must not flag it.
     const device = {
       activationRequired: true,
-      activatedAt: '2026-01-05T00:00:00',
-      purchaseDate: '2026-02-10T00:00:00',
+      activatedAt: '2026-01-05',
+      purchaseDate: '2026-02-10',
     };
     expect(activationStateLabel(device, 'vi')).toBe('Đã kích hoạt ngày 05/01/2026');
     expect(activationStateLabel(device, 'en')).toBe('Activated on 01/05/2026');
@@ -69,34 +69,34 @@ describe('extendedCoverBuyByNote', () => {
   const now = new Date(2026, 3, 7, 15, 0, 0);
 
   it('counts the days left', () => {
-    expect(extendedCoverBuyByNote('2026-04-10T00:00:00', 'vi', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-10', 'vi', now)).toBe(
       'Còn 3 ngày để mua gói mở rộng',
     );
-    expect(extendedCoverBuyByNote('2026-04-10T00:00:00', 'en', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-10', 'en', now)).toBe(
       '3 days left to buy extended cover',
     );
   });
 
   it('uses the singular English form for one day', () => {
-    expect(extendedCoverBuyByNote('2026-04-08T00:00:00', 'en', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-08', 'en', now)).toBe(
       '1 day left to buy extended cover',
     );
   });
 
   it('says the last day is today instead of "0 days left"', () => {
-    expect(extendedCoverBuyByNote('2026-04-07T23:59:00', 'vi', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-07', 'vi', now)).toBe(
       'Hôm nay là ngày cuối mua gói mở rộng',
     );
-    expect(extendedCoverBuyByNote('2026-04-07T23:59:00', 'en', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-07', 'en', now)).toBe(
       'Today is the last day to buy extended cover',
     );
   });
 
   it('stays past-tense once the window has closed', () => {
-    expect(extendedCoverBuyByNote('2026-04-05T00:00:00', 'vi', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-05', 'vi', now)).toBe(
       'Đã hết hạn mua gói mở rộng (2 ngày trước)',
     );
-    expect(extendedCoverBuyByNote('2026-04-05T00:00:00', 'en', now)).toBe(
+    expect(extendedCoverBuyByNote('2026-04-05', 'en', now)).toBe(
       'The extended-cover deadline passed 2 days ago',
     );
   });

@@ -14,6 +14,8 @@
 //
 // Pure + synchronous so it can be unit-tested without a backend.
 
+import { parseDayValue } from './api-day';
+
 // Structural subset of `services.ReminderRow` — just what this rollup needs.
 // Keeping it structural means the page can hand over `res.data` without a cast
 // and the tests can build tiny fixtures.
@@ -73,6 +75,8 @@ export function dismissedReminders(feed: DismissedReminderSource): DismissedRemi
     });
   }
   return out.sort(
-    (a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
+    (a, b) =>
+      (parseDayValue(b.endDate)?.getTime() ?? 0) -
+      (parseDayValue(a.endDate)?.getTime() ?? 0),
   );
 }

@@ -19,12 +19,13 @@ import {
 } from '@/components/ui/table';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
+import { DeviceStatusPill } from '@/components/device-status-pill';
 import { EmptyState } from '@/components/empty-state';
 import { DevicesFilterBar } from '@/components/devices-filter-bar';
 import { api } from '@/lib/api';
 import type { DeviceListFilter } from '@/lib/api/devices';
 import { requireUser } from '@/lib/auth';
-import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
+import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { getCategories } from '@/app/actions/catalog';
 import { type Status } from '@/lib/types';
@@ -32,15 +33,6 @@ import { formatDate, formatVND } from '@/lib/format';
 import { formatMoney } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
-
-// Soft pill backgrounds keyed off the device status. Mirrors design tokens.
-const STATUS_PILL: Record<Status, string> = {
-  ACTIVE: 'bg-emerald-soft text-emerald-ink',
-  EXPIRED: 'bg-amber-soft text-amber-ink',
-  SOLD: 'bg-sky-soft text-sky-ink',
-  BROKEN: 'bg-rose-soft text-rose-ink',
-  LOST: 'bg-zinc-soft text-ink-2',
-};
 
 export default async function DevicesPage({
   searchParams,
@@ -185,7 +177,17 @@ export default async function DevicesPage({
                       >
                         <CategoryIconBadge category={d.category} size="sm" />
                         <div className="min-w-0">
-                          <p className="font-bold text-ink">{d.name}</p>
+                          {/* Status is folded into the name cell below `md`.
+                              The dedicated column disappears at that width, and
+                              hiding it entirely made a BROKEN washer look
+                              exactly like a healthy one on a phone — the one
+                              thing the list exists to answer at a glance. The
+                              same chip is rendered by both branches, so the
+                              desktop and phone presentations cannot drift. */}
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <p className="font-bold text-ink">{d.name}</p>
+                            <DeviceStatusPill status={status} className="md:hidden" />
+                          </div>
                           <p className="truncate text-xs text-muted-foreground">
                             {d.brand}
                             {d.brand && d.model ? ' • ' : ''}
@@ -231,13 +233,7 @@ export default async function DevicesPage({
                       )}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <span
-                        className={`inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-semibold ${
-                          STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2'
-                        }`}
-                      >
-                        {statusLabel(status, locale)}
-                      </span>
+                      <DeviceStatusPill status={status} />
                     </TableCell>
                   </TableRow>
                 );

@@ -115,7 +115,12 @@ export function ProfileForm({ email, initialName }: { email: string; initialName
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          {trimmed ? t('Đang dùng: {name}', { name: trimmed }) : t('Chưa đặt tên hiển thị.')}
+          {/* Names the field it describes. The old "Đang dùng: …" sat directly
+              under the email input and read as a description of the email
+              address; "Đang dùng" is also the device-status label ("In use"). */}
+          {trimmed
+            ? t('Tên hiển thị đang dùng: {name}', { name: trimmed })
+            : t('Chưa đặt tên hiển thị.')}
         </p>
         <SubmitButton />
       </div>

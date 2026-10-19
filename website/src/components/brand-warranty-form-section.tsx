@@ -21,7 +21,6 @@
 'use client';
 
 import * as React from 'react';
-import { format } from 'date-fns';
 import { ExternalLink, Loader2, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,14 +40,16 @@ import {
   brandWarrantyStatusLabel,
   type BrandWarrantyValues,
 } from '@/lib/brand-warranty';
+import { dayToInputValue } from '@/lib/api-day';
 import { lookupBrandWarranty } from '@/app/actions/brands';
 
 const STATUS_NONE = 'unset';
 
 function dateInputValue(value: string | null): string {
-  if (!value) return '';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : format(date, 'yyyy-MM-dd');
+  // `brandWarrantyStart` / `brandWarrantyEnd` are calendar days. A Date
+  // round-trip is UTC midnight and would fill the input with the previous day
+  // west of UTC (and then save it back).
+  return dayToInputValue(value);
 }
 
 function FieldError({ errors }: { errors?: string[] }) {

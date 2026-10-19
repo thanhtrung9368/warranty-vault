@@ -30,6 +30,7 @@ import { brokenDevicesWithoutOpenClaim } from '@/lib/claims';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
+import { daysUntil, parseDay, parseDayValue, todayDay } from '@/lib/api-day';
 import { formatMoney } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
@@ -56,7 +57,8 @@ function computeWishlistTotals(items: WishlistItem[]): WishlistTotals {
     .filter((i) => i.targetDate)
     .sort(
       (a, b) =>
-        new Date(a.targetDate ?? 0).getTime() - new Date(b.targetDate ?? 0).getTime(),
+        parseDay(a.targetDate ?? todayDay()).getTime() -
+        parseDay(b.targetDate ?? todayDay()).getTime(),
     )
     .slice(0, 3)
     .map((i) => ({ id: i.id, name: i.name, targetDate: i.targetDate }));
@@ -82,7 +84,7 @@ function computeSubscriptionTotals(subs: Subscription[]): SubscriptionTotals {
     .filter((s) => s.status === 'ACTIVE' && s.autoRenew && s.billingCycle !== 'LIFETIME')
     .sort(
       (a, b) =>
-        new Date(a.renewalDate).getTime() - new Date(b.renewalDate).getTime(),
+        parseDay(a.renewalDate).getTime() - parseDay(b.renewalDate).getTime(),
     )
     .slice(0, 5)
     .map((s) => ({ id: s.id, name: s.name, renewalDate: s.renewalDate, price: s.price }));
@@ -93,12 +95,6 @@ export const dynamic = 'force-dynamic';
 
 function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[]) {
   const now = new Date();
-  // Day boundaries, not instants: a warranty ending today is still in force, and
-  // one that ended an hour ago is not. Comparing raw timestamps put both cases in
-  // neither bucket.
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const in30 = new Date(today);
-  in30.setDate(today.getDate() + 30);
 
   let active = 0;
   let soon = 0;
@@ -117,13 +113,19 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
 
   for (const d of devices) {
     if (!d.effectiveWarrantyEnd) continue;
-    const end = new Date(d.effectiveWarrantyEnd);
+    // Day boundaries, not instants: a warranty ending today is still in force,
+    // and one that ended a day ago is not. `effectiveWarrantyEnd` is a calendar
+    // day on the wire (the server also sent it as a UTC-midnight instant before
+    // the wire change), so it is read as a day — comparing `new Date(...)` to a
+    // local midnight retired the device a day early west of UTC.
+    const daysLeft = daysUntil(d.effectiveWarrantyEnd, now);
     // `soon` is a SUBSET of `active` — a device that expires in 9 days is still
     // covered today. Subtracting one from the other (the old "Còn bảo hành" tile)
     // removed exactly the devices the card below was pointing at.
-    if (d.status === 'ACTIVE' && end >= today) active++;
-    if (end < today) expired++;
-    if (d.status === 'ACTIVE' && end >= today && end <= in30) {
+    const stillCovered = daysLeft >= 0;
+    if (d.status === 'ACTIVE' && stillCovered) active++;
+    if (!stillCovered) expired++;
+    if (d.status === 'ACTIVE' && stillCovered && daysLeft <= 30) {
       soon++;
       soonItems.push({
         id: d.id,
@@ -141,8 +143,8 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
 
   soonItems.sort(
     (a, b) =>
-      new Date(a.effectiveWarrantyEnd).getTime() -
-      new Date(b.effectiveWarrantyEnd).getTime(),
+      (parseDayValue(a.effectiveWarrantyEnd)?.getTime() ?? 0) -
+      (parseDayValue(b.effectiveWarrantyEnd)?.getTime() ?? 0),
   );
 
   return {

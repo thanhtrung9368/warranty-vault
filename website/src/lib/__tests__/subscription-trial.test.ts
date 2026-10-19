@@ -24,14 +24,17 @@ describe('trialPhase', () => {
   });
 
   it('is "trial" while the end is in the future', () => {
-    expect(trialPhase({ trialEndsAt: '2026-04-20T00:00:00' }, now)).toBe('trial');
+    expect(trialPhase({ trialEndsAt: '2026-04-20' }, now)).toBe('trial');
   });
 
-  it('is "ended" once the conversion instant has passed', () => {
-    // Compared as instants, not calendar days: a trial ending at 00:00 today is
-    // already over at 10:00 today.
-    expect(trialPhase({ trialEndsAt: '2026-04-07T00:00:00' }, now)).toBe('ended');
-    expect(trialPhase({ trialEndsAt: '2026-03-01T00:00:00' }, now)).toBe('ended');
+  it('keeps the trial running THROUGH its end day, and ends it the next day', () => {
+    // `trialEndsAt` is a calendar day, not an instant: a trial recorded as
+    // ending on the 7th is still running at 10:00 on the 7th, and billing
+    // starts on the 8th. Reading it as an instant ended the trial at the UTC
+    // midnight before the day the user recorded.
+    expect(trialPhase({ trialEndsAt: '2026-04-07' }, now)).toBe('trial');
+    expect(trialPhase({ trialEndsAt: '2026-04-06' }, now)).toBe('ended');
+    expect(trialPhase({ trialEndsAt: '2026-03-01' }, now)).toBe('ended');
   });
 
   it('treats an unreadable date as no trial rather than crashing', () => {
@@ -43,19 +46,19 @@ describe('trialLabel', () => {
   const now = new Date('2026-04-07T10:00:00');
 
   it('leads with the trial end while the free period is running', () => {
-    expect(trialLabel({ trialEndsAt: '2026-04-20T00:00:00' }, 'vi', now)).toBe(
+    expect(trialLabel({ trialEndsAt: '2026-04-20' }, 'vi', now)).toBe(
       'Dùng thử đến 20/04/2026',
     );
-    expect(trialLabel({ trialEndsAt: '2026-04-20T00:00:00' }, 'en', now)).toBe(
+    expect(trialLabel({ trialEndsAt: '2026-04-20' }, 'en', now)).toBe(
       'Trial until 04/20/2026',
     );
   });
 
   it('says the trial has ended once it converted', () => {
-    expect(trialLabel({ trialEndsAt: '2026-03-01T00:00:00' }, 'vi', now)).toBe(
+    expect(trialLabel({ trialEndsAt: '2026-03-01' }, 'vi', now)).toBe(
       'Đã hết dùng thử từ 01/03/2026',
     );
-    expect(trialLabel({ trialEndsAt: '2026-03-01T00:00:00' }, 'en', now)).toBe(
+    expect(trialLabel({ trialEndsAt: '2026-03-01' }, 'en', now)).toBe(
       'Trial ended 03/01/2026',
     );
   });

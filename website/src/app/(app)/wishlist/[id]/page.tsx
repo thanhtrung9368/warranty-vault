@@ -232,11 +232,11 @@ export default async function WishlistDetailPage({
               <Calendar className="h-3 w-3" /> {t('Ngày dự kiến')}
             </p>
             <p className="display mt-1 text-xl">
-              {item.targetDate ? formatDate(new Date(item.targetDate), locale) : t('Chưa đặt')}
+              {item.targetDate ? formatDate(item.targetDate, locale) : t('Chưa đặt')}
             </p>
             {item.targetDate && (
               <p className="text-xs text-muted-foreground">
-                {formatRelativeDay(new Date(item.targetDate), locale)}
+                {formatRelativeDay(item.targetDate, locale)}
               </p>
             )}
           </div>

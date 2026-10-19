@@ -1,4 +1,5 @@
 import { differenceInCalendarDays } from 'date-fns';
+import { toDayDate } from './api-day';
 
 export const BILLING_CYCLES = [
   'MONTHLY',
@@ -147,14 +148,16 @@ export function nextRenewalDate(
 /**
  * Whole calendar days until a renewal, not elapsed 24-hour periods.
  *
- * `renewalDate` arrives date-only (`2026-11-01T00:00:00`), so at 18:00 on
+ * `renewalDate` is a calendar day (`YYYY-MM-DD`) on the wire, so at 18:00 on
  * Oct 19 there are 13 calendar days left but only 12 full days. Both
  * `/subscriptions` and `/subscriptions/[id]` used `differenceInDays` and
  * printed "Còn 12 ngày" beside "Gia hạn 01/11/2026" — the same page
  * disagreeing with its own date, and with every other day count in the app
  * (`action-queue.ts` and the warranty pill already use calendar days).
+ *
+ * Parsed through `parseDay`, never `new Date(day)`: the latter is UTC midnight
+ * and would shift the count by one west of UTC.
  */
 export function renewalDaysLeft(renewalDate: Date | string, now: Date = new Date()): number {
-  const date = typeof renewalDate === 'string' ? new Date(renewalDate) : renewalDate;
-  return differenceInCalendarDays(date, now);
+  return differenceInCalendarDays(toDayDate(renewalDate), now);
 }

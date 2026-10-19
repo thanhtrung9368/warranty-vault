@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 import { getCurrentUser } from '@/lib/auth';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
@@ -280,7 +281,10 @@ function HeroIllustration() {
 }
 
 export default async function LandingPage() {
-  const { t } = await getI18n();
+  // `locale` is needed for the compact language switch, not just for `t`: the
+  // switcher marks the active language and posts the chosen one to the same
+  // Server Action the public legal pages use (cookie + `User.locale`).
+  const { locale, t } = await getI18n();
   const user = await getCurrentUser();
 
   const FEATURES = buildFeatures(t);
@@ -294,7 +298,10 @@ export default async function LandingPage() {
         className="sticky top-0 z-30 border-b-[1.5px] border-border backdrop-blur-md"
         style={{ background: 'hsl(var(--background) / 0.85)' }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 md:px-8">
+        {/* `flex-wrap`: the logo row keeps its size and the controls drop to a
+            second, right-aligned row on narrow phones instead of pushing the
+            header into horizontal overflow. */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-4 py-3.5 md:px-8">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="brand-mark">
               <Vault className="h-[18px] w-[18px]" />
@@ -303,7 +310,14 @@ export default async function LandingPage() {
               Warrly
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            {/* The same compact switcher `/privacy`, `/terms` and `/cookies`
+                render. `/` is public and has no session, so without it a
+                Vietnamese visitor landing here could not choose a language at
+                all — their copy would be whatever `Accept-Language` happened to
+                say. The action writes the `wv_locale` cookie (and `User.locale`
+                when signed in), then revalidates the shell. */}
+            <LocaleSwitcher current={locale} variant="compact" />
             <ThemeToggle />
             {user ? (
               <Button asChild>

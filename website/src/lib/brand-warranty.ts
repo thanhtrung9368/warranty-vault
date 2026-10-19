@@ -32,6 +32,7 @@
 // it renders them directly.
 
 import { differenceInCalendarDays } from 'date-fns';
+import { parseDayValue } from './api-day';
 import { formatDate, formatRelativeDay } from './format';
 import { safeExternalUrl } from './service-directory';
 import { translate } from '@/lib/i18n/catalog';
@@ -169,13 +170,11 @@ function dateObj(value: unknown): Date | null {
   const raw = clean(value);
   if (!raw) return null;
   // A bare `YYYY-MM-DD` is a CALENDAR DAY (the contract's mismatch dates are
-  // `format: date`). `new Date('2026-01-10')` parses as UTC midnight and would
-  // render as the previous day in a negative-offset timezone, so anchor date-only
-  // values at local midnight instead.
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw)
-    ? new Date(`${raw}T00:00:00`)
-    : new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
+  // `format: date`), anchored at LOCAL midnight by `parseDayValue`.
+  // `new Date('2026-01-10')` is UTC midnight and renders as the previous day in
+  // a negative-offset timezone. The helper also accepts the server-derived
+  // UTC-midnight instant, so a field that changes shape cannot shift the card.
+  return parseDayValue(raw);
 }
 
 function dateText(value: unknown, locale: Locale): string | null {

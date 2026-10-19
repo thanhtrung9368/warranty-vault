@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { CATEGORY_LABELS, STATUSES, type Status } from '@/lib/types';
 import { formatNumber, parseVNDInput, formatVND, formatDate } from '@/lib/format';
+import { dayToInputValue } from '@/lib/api-day';
 import {
   DEVICE_CURRENCIES,
   currencySuffix,
@@ -416,8 +417,10 @@ export function DeviceForm({
   const [status, setStatus] = React.useState<Status>(initial?.status ?? 'ACTIVE');
 
   const [purchaseDate, setPurchaseDate] = React.useState<string>(
+    // `purchaseDate` is a calendar day; a `new Date(day)` round-trip would feed
+    // the previous day into the edit form west of UTC and save it back.
     initial?.purchaseDate
-      ? format(new Date(initial.purchaseDate), 'yyyy-MM-dd')
+      ? dayToInputValue(initial.purchaseDate)
       : format(new Date(), 'yyyy-MM-dd'),
   );
   const [purchasePriceDisplay, setPurchasePriceDisplay] = React.useState<string>(
@@ -485,12 +488,10 @@ export function DeviceForm({
     Boolean(initial?.activationRequired),
   );
   const [activatedAt, setActivatedAt] = React.useState<string>(
-    initial?.activatedAt ? format(new Date(initial.activatedAt), 'yyyy-MM-dd') : '',
+    dayToInputValue(initial?.activatedAt),
   );
   const [extendedCoverBuyBy, setExtendedCoverBuyBy] = React.useState<string>(
-    initial?.extendedCoverBuyBy
-      ? format(new Date(initial.extendedCoverBuyBy), 'yyyy-MM-dd')
-      : '',
+    dayToInputValue(initial?.extendedCoverBuyBy),
   );
   const showActivatedAt = activationRequired || activatedAt !== '';
 

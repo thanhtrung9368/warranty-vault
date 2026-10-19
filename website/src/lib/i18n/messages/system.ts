@@ -189,17 +189,22 @@ export const system = defineMessages({
   'Chưa ghi nhà bảo hành cho gói này.': 'No warranty provider recorded for this plan.',
   'Link dưới đây do chính hãng duy trì — app chỉ dẫn lại, không chép hotline.':
     'The link below is maintained by the manufacturer itself — the app only points to it, it does not copy a hotline.',
+  // Two counts in one sentence: the catalog's `enOne` can inflect ONE counted
+  // noun, so only the first clause carries `count` (driven by `total`, the
+  // denominator the reader sees). The unmatched figure is deliberately rendered
+  // as "N not matched …" — no noun to inflect, grammatical for every N — instead
+  // of "N plans not matched", which read "1 plans not matched" on screen.
   '{withPhone}/{total} gói có số điện thoại do bạn tự ghi. App không có hotline nào trong hai con số đó.':
     {
-      en: '{withPhone}/{total} plans have a phone number you recorded yourself. The app has no hotline among those two figures.',
+      en: 'You recorded a phone number on {withPhone}/{total} plans. The app has no hotline among those two figures.',
       enOne:
-        '{withPhone}/{total} plan has a phone number you recorded yourself. The app has no hotline among those two figures.',
+        'You recorded a phone number on {withPhone}/{total} plan. The app has no hotline among those two figures.',
     },
-  '{withPhone}/{total} gói có số điện thoại do bạn tự ghi · {count} gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.':
+  '{withPhone}/{total} gói có số điện thoại do bạn tự ghi · {unmatched} gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.':
     {
-      en: '{withPhone}/{total} plans have a phone number you recorded yourself · {count} plans not matched to the warranty-provider directory. The app has no hotline among those two figures.',
+      en: 'You recorded a phone number on {withPhone}/{total} plans · {unmatched} not matched to the warranty-provider directory. The app has no hotline among those two figures.',
       enOne:
-        '{withPhone}/{total} plan has a phone number you recorded yourself · {count} plans not matched to the warranty-provider directory. The app has no hotline among those two figures.',
+        'You recorded a phone number on {withPhone}/{total} plan · {unmatched} not matched to the warranty-provider directory. The app has no hotline among those two figures.',
     },
   'Không tải được danh bạ bảo hành — thử tải lại trang nhé.':
     'Could not load the warranty directory — try reloading the page.',

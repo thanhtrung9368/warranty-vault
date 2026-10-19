@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DeviceListItem, Warranty } from '@/lib/api/devices';
+import { parseDay } from '@/lib/api-day';
 import {
   activeAssetValue,
   allTimeSpend,
@@ -24,7 +25,7 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     brand: null,
     model: null,
     serialNumber: null,
-    purchaseDate: '2026-03-15T00:00:00Z',
+    purchaseDate: '2026-03-15',
     purchasePrice: 0,
     // Multi-currency defaults: a VND device, whose server-computed VND value
     // equals the raw price.
@@ -85,8 +86,8 @@ function warranty(
   return {
     type: 'STANDARD',
     provider: null,
-    startDate: '2026-03-15T00:00:00Z',
-    endDate: '2028-03-15T00:00:00Z',
+    startDate: '2026-03-15',
+    endDate: '2028-03-15',
     months: 24,
     cost: null,
     address: null,
@@ -115,16 +116,16 @@ const devices: DeviceListItem[] = [
   device({
     id: 'phone',
     category: 'PHONE',
-    purchaseDate: '2026-03-15T00:00:00Z',
+    purchaseDate: '2026-03-15',
     purchasePrice: 20_000_000,
-    effectiveWarrantyEnd: '2028-03-15T00:00:00Z',
+    effectiveWarrantyEnd: '2028-03-15',
   }),
   device({
     id: 'laptop',
     category: 'LAPTOP',
-    purchaseDate: '2026-06-10T00:00:00Z',
+    purchaseDate: '2026-06-10',
     purchasePrice: 30_000_000,
-    effectiveWarrantyEnd: '2027-06-10T00:00:00Z',
+    effectiveWarrantyEnd: '2027-06-10',
   }),
 ];
 
@@ -136,13 +137,13 @@ const warrantiesByDevice = new Map<string, Warranty[]>([
         id: 'w1',
         deviceId: 'phone',
         cost: 2_000_000,
-        startDate: '2026-04-01T00:00:00Z',
+        startDate: '2026-04-01',
       }),
       warranty({
         id: 'w2',
         deviceId: 'phone',
         cost: null,
-        startDate: '2027-04-01T00:00:00Z',
+        startDate: '2027-04-01',
       }),
     ],
   ],
@@ -156,19 +157,19 @@ describe('buildSpendEntries', () => {
     expect(entries).toEqual([
       {
         amount: 20_000_000,
-        date: new Date('2026-03-15T00:00:00Z'),
+        date: parseDay('2026-03-15'),
         category: 'PHONE',
         kind: 'device',
       },
       {
         amount: 2_000_000,
-        date: new Date('2026-04-01T00:00:00Z'),
+        date: parseDay('2026-04-01'),
         category: 'PHONE',
         kind: 'warranty',
       },
       {
         amount: 30_000_000,
-        date: new Date('2026-06-10T00:00:00Z'),
+        date: parseDay('2026-06-10'),
         category: 'LAPTOP',
         kind: 'device',
       },
@@ -249,12 +250,12 @@ describe('activeAssetValue', () => {
         id: 'sold',
         status: 'SOLD',
         purchasePrice: 99_000_000,
-        effectiveWarrantyEnd: '2030-01-01T00:00:00Z',
+        effectiveWarrantyEnd: '2030-01-01',
       }),
       device({
         id: 'expired',
         purchasePrice: 50_000_000,
-        effectiveWarrantyEnd: '2020-01-01T00:00:00Z',
+        effectiveWarrantyEnd: '2020-01-01',
       }),
       device({ id: 'nowarranty', purchasePrice: 10_000_000, effectiveWarrantyEnd: null }),
     ]);
@@ -271,8 +272,8 @@ describe('topExpensiveRollup / yearsWithData', () => {
   it('lists purchase years, newest first, always including the current year', () => {
     const currentYear = new Date().getFullYear();
     const years = yearsWithData([
-      device({ id: 'a', purchaseDate: '2022-05-01T00:00:00Z' }),
-      device({ id: 'b', purchaseDate: '2024-05-01T00:00:00Z' }),
+      device({ id: 'a', purchaseDate: '2022-05-01' }),
+      device({ id: 'b', purchaseDate: '2024-05-01' }),
     ]);
     expect(years).toContain(currentYear);
     expect(years).toEqual([...years].sort((a, b) => b - a));
@@ -288,7 +289,7 @@ describe('costPerDay', () => {
 
   it('divides (giá mua + gói bảo hành) by days owned', () => {
     const cost = costPerDay(
-      device({ id: 'a', purchaseDate: '2026-05-16T00:00:00', purchasePrice: 30_000_000 }),
+      device({ id: 'a', purchaseDate: '2026-05-16', purchasePrice: 30_000_000 }),
       [warranty({ id: 'w1', deviceId: 'a', cost: 3_000_000 })],
       'vi',
       now,
@@ -339,7 +340,7 @@ describe('costPerDay', () => {
 
   it('treats an unrecorded warranty cost as unknown, not as zero', () => {
     const cost = costPerDay(
-      device({ id: 'a', purchaseDate: '2026-05-16T00:00:00', purchasePrice: 30_000_000 }),
+      device({ id: 'a', purchaseDate: '2026-05-16', purchasePrice: 30_000_000 }),
       [
         warranty({ id: 'w1', deviceId: 'a', cost: null }),
         warranty({ id: 'w2', deviceId: 'a', cost: 3_000_000 }),
@@ -354,7 +355,7 @@ describe('costPerDay', () => {
 
   it('does not flag a recorded 0 ₫ package, and ignores negative / NaN costs', () => {
     const free = costPerDay(
-      device({ id: 'a', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 5_000_000 }),
+      device({ id: 'a', purchaseDate: '2026-06-15', purchasePrice: 5_000_000 }),
       [warranty({ id: 'w1', deviceId: 'a', cost: 0 })],
       'vi',
       now,
@@ -363,7 +364,7 @@ describe('costPerDay', () => {
     expect(free?.warrantyPart).toBe(0);
 
     const bad = costPerDay(
-      device({ id: 'b', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 5_000_000 }),
+      device({ id: 'b', purchaseDate: '2026-06-15', purchasePrice: 5_000_000 }),
       [
         warranty({ id: 'w1', deviceId: 'b', cost: -1_000_000 }),
         warranty({ id: 'w2', deviceId: 'b', cost: Number.NaN }),
@@ -380,9 +381,9 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({
         id: 'sold',
-        purchaseDate: '2026-01-15T00:00:00',
+        purchaseDate: '2026-01-15',
         purchasePrice: 20_000_000,
-        soldAt: '2026-06-15T00:00:00',
+        soldAt: '2026-06-15',
         soldPrice: 14_000_000,
       }),
       [warranty({ id: 'w1', deviceId: 'sold', cost: 1_000_000 })],
@@ -405,9 +406,9 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({
         id: 'bad',
-        purchaseDate: '2026-06-01T00:00:00',
+        purchaseDate: '2026-06-01',
         purchasePrice: 10_000_000,
-        soldAt: '2026-05-01T00:00:00',
+        soldAt: '2026-05-01',
         soldPrice: 2_000_000,
       }),
       [],
@@ -425,9 +426,9 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({
         id: 'profit',
-        purchaseDate: '2026-01-15T00:00:00',
+        purchaseDate: '2026-01-15',
         purchasePrice: 10_000_000,
-        soldAt: '2026-06-15T00:00:00',
+        soldAt: '2026-06-15',
         soldPrice: 15_000_000,
       }),
       [],
@@ -444,7 +445,7 @@ describe('costPerDay', () => {
     const cost = costPerDay(
       device({
         id: 'half',
-        purchaseDate: '2026-06-15T00:00:00',
+        purchaseDate: '2026-06-15',
         purchasePrice: 10_000_000,
         soldAt: null,
         soldPrice: 4_000_000,
@@ -461,7 +462,7 @@ describe('costPerDay', () => {
 
   it('rounds to whole đồng and flags a device with nothing recorded', () => {
     const cost = costPerDay(
-      device({ id: 'round', purchaseDate: '2026-06-01T00:00:00', purchasePrice: 1_000 }),
+      device({ id: 'round', purchaseDate: '2026-06-01', purchasePrice: 1_000 }),
       [],
       'vi',
       now,
@@ -472,7 +473,7 @@ describe('costPerDay', () => {
     expect(Number.isInteger(cost?.perDay)).toBe(true);
 
     const unrecorded = costPerDay(
-      device({ id: 'free', purchaseDate: '2026-06-01T00:00:00', purchasePrice: 0 }),
+      device({ id: 'free', purchaseDate: '2026-06-01', purchasePrice: 0 }),
       [warranty({ id: 'w1', deviceId: 'free', cost: 0 })],
       'vi',
       now,
@@ -489,17 +490,17 @@ describe('costPerDayRollup', () => {
     device({
       id: 'short',
       name: 'Máy ảnh',
-      purchaseDate: '2026-05-16T00:00:00',
+      purchaseDate: '2026-05-16',
       purchasePrice: 30_000_000,
     }),
     device({
       id: 'long',
       name: 'Laptop',
-      purchaseDate: '2021-06-15T00:00:00',
+      purchaseDate: '2021-06-15',
       purchasePrice: 30_000_000,
     }),
     device({ id: 'undated', name: 'Không rõ ngày', purchaseDate: '' }),
-    device({ id: 'unpriced', name: 'Chưa ghi giá', purchaseDate: '2026-06-01T00:00:00' }),
+    device({ id: 'unpriced', name: 'Chưa ghi giá', purchaseDate: '2026-06-01' }),
   ];
   const warranties = new Map<string, Warranty[]>([
     ['short', [warranty({ id: 'w1', deviceId: 'short', cost: 3_000_000 })]],
@@ -525,8 +526,8 @@ describe('costPerDayRollup', () => {
 
   it('breaks ties deterministically and honours the limit', () => {
     const ties = [
-      device({ id: 'b', name: 'Beta', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 100 }),
-      device({ id: 'a', name: 'Alpha', purchaseDate: '2026-06-15T00:00:00', purchasePrice: 100 }),
+      device({ id: 'b', name: 'Beta', purchaseDate: '2026-06-15', purchasePrice: 100 }),
+      device({ id: 'a', name: 'Alpha', purchaseDate: '2026-06-15', purchasePrice: 100 }),
     ];
     const { priciest } = costPerDayRollup(ties, new Map(), { now, limit: 1, locale: 'vi' });
     expect(priciest.map((r) => r.device.id)).toEqual(['a']);
@@ -548,20 +549,20 @@ describe('multi-currency totals', () => {
   const usdPhone: DeviceListItem = device({
     id: 'usd-phone',
     category: 'PHONE',
-    purchaseDate: '2026-05-01T00:00:00Z',
+    purchaseDate: '2026-05-01',
     purchasePrice: 999,
     currency: 'USD',
     fxRate: 25_400,
     purchasePriceVnd: 25_374_600,
-    effectiveWarrantyEnd: '2030-01-01T00:00:00Z',
+    effectiveWarrantyEnd: '2030-01-01',
   });
   const vndLaptop: DeviceListItem = device({
     id: 'vnd-laptop',
     category: 'LAPTOP',
-    purchaseDate: '2026-06-01T00:00:00Z',
+    purchaseDate: '2026-06-01',
     purchasePrice: 20_000_000,
     purchasePriceVnd: 20_000_000,
-    effectiveWarrantyEnd: '2030-01-01T00:00:00Z',
+    effectiveWarrantyEnd: '2030-01-01',
   });
 
   it('buildSpendEntries sums the server VND value, not the raw foreign price', () => {
@@ -607,12 +608,12 @@ describe('multi-currency totals', () => {
     const cost = costPerDay(
       device({
         id: 'usd-sold',
-        purchaseDate: '2026-01-15T00:00:00',
+        purchaseDate: '2026-01-15',
         purchasePrice: 999,
         currency: 'USD',
         fxRate: 25_400,
         purchasePriceVnd: 25_374_600,
-        soldAt: '2026-06-15T00:00:00',
+        soldAt: '2026-06-15',
         soldPrice: 500,
         soldPriceVnd: 12_700_000,
       }),
@@ -644,7 +645,7 @@ describe('unknown server VND values', () => {
     fxRate: null,
     purchasePrice: 999,
     purchasePriceVnd: null,
-    purchaseDate: '2026-06-01T00:00:00Z',
+    purchaseDate: '2026-06-01',
   });
 
   it('counts the row instead of treating the raw price as đồng', () => {
@@ -672,7 +673,7 @@ describe('costPerDayRollup with an unknown purchase value', () => {
       fxRate: null,
       purchasePrice: 999,
       purchasePriceVnd: null,
-      purchaseDate: '2026-06-01T00:00:00',
+      purchaseDate: '2026-06-01',
     });
     const { priciest, skipped } = costPerDayRollup([unknown], new Map(), {
       now: new Date(2026, 5, 15, 12, 0),

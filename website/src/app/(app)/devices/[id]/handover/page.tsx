@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
+import { tryParseDay } from '@/lib/api-day';
 
 // Reads the device through the same thin proxy as the detail page; the
 // checklist is generated locally from fields the API already returns, so no new
@@ -28,15 +29,15 @@ export default async function DeviceHandoverPage({
     throw new Error(res.message ?? t('Không tải được thiết bị'));
   }
   const device = res.data;
-  // The API returns Z-less ISO timestamps, so lexicographic max is the latest
-  // end date. Pass the STRING, not `toISOString()`: converting the Z-less local
-  // date to UTC can move it a day back for positive offsets, and the checklist
-  // is a day-resolution document. An unparseable row is dropped rather than
-  // allowed to become the "latest" date.
+  // `Warranty.endDate` is a calendar day (`YYYY-MM-DD`); lexicographic max is
+  // the latest end date, and an unreadable row is dropped rather than allowed
+  // to become the "latest" date. The checklist is a day-resolution document, so
+  // the value is passed as the string — no `new Date()` / `toISOString()`
+  // round-trip that could move it a day.
   const warrantyEnd =
     device.warranties
       .map((warranty) => warranty.endDate)
-      .filter((end) => !Number.isNaN(new Date(end).getTime()))
+      .filter((end) => tryParseDay(end) !== null)
       .sort()
       .at(-1) ?? null;
 

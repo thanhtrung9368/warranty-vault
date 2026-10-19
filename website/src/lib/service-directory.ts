@@ -25,6 +25,7 @@
 
 import { WARRANTY_TYPE_LABELS, type WarrantyType } from '@/lib/types';
 import { translate } from '@/lib/i18n/catalog';
+import { daysUntil } from '@/lib/api-day';
 import { labelOf } from '@/lib/i18n/labels';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -430,13 +431,16 @@ export function centreStatus(
   now: Date = new Date(),
 ): CentreStatus {
   const end = str(centre.endDate);
-  const endTime = end ? new Date(end).getTime() : Number.NaN;
+  // `endDate` is a calendar day (`wire.Day`). `daysUntil` reads a day (or the
+  // pre-rebuild UTC-midnight instant) on the day it stands for, so the fallback
+  // cannot retire a package a day early west of UTC.
+  const daysLeft = end ? daysUntil(end, now) : Number.NaN;
   const active =
     typeof centre.isActive === 'boolean'
       ? centre.isActive
-      : Number.isFinite(endTime) && endTime > now.getTime();
+      : Number.isFinite(daysLeft) && daysLeft >= 0;
   if (active) return { kind: 'active', label: translate(locale, 'Còn hạn') };
-  if (!end || !Number.isFinite(endTime)) {
+  if (!end || !Number.isFinite(daysLeft)) {
     return { kind: 'undated', label: translate(locale, 'Chưa ghi hạn') };
   }
   return { kind: 'expired', label: translate(locale, 'Đã hết hạn') };
@@ -531,16 +535,18 @@ export function directorySummaryLine(
   const phones = {
     withPhone: summary.withUserPhone,
     total: summary.centres,
-    count: summary.withUserPhone,
+    // The counted noun is "plans" in the fraction's denominator, so `total`
+    // (not `withPhone`) decides singular vs plural: "1/1 plan", "2/3 plans".
+    count: summary.centres,
   };
-  const unmatched = { count: summary.unmatchedProviders };
+  const unmatched = { unmatched: summary.unmatchedProviders };
   // Each branch is ONE sentence, not two fragments joined with a separator:
   // English reorders the clause, so a concatenated line would read as two
   // half-translated halves.
   if (summary.unmatchedProviders > 0) {
     return translate(
       locale,
-      '{withPhone}/{total} gói có số điện thoại do bạn tự ghi · {count} gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.',
+      '{withPhone}/{total} gói có số điện thoại do bạn tự ghi · {unmatched} gói chưa khớp danh bạ nhà bảo hành. App không có hotline nào trong hai con số đó.',
       { ...phones, ...unmatched },
     );
   }

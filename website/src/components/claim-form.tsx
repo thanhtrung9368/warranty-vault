@@ -47,6 +47,7 @@ import type { Claim } from '@/lib/api/claims';
 import type { WarrantyType } from '@/lib/types';
 import { warrantyTypeLabel } from '@/lib/i18n/labels';
 import { formatDate, formatNumber, parseVNDInput } from '@/lib/format';
+import { dayToInputValue } from '@/lib/api-day';
 import { useLocale, useT } from '@/lib/i18n/client';
 import {
   createClaim,
@@ -98,11 +99,16 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-/** `yyyy-MM-dd` for a date input; never invents a day for a missing value. */
-function dateInputValue(value: string | null | undefined): string {
+/**
+ * `yyyy-MM-dd` for a date input holding an INSTANT (`claimedAt`): the reader's
+ * local day is the right one. Day fields (`expectedReturnAt`) use
+ * `dayToInputValue` instead — a `new Date(day)` round-trip is UTC midnight and
+ * shifts the value a day west of UTC.
+ */
+function instantInputValue(value: string | null | undefined): string {
   if (!value) return '';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  if (Number.isNaN(date.getTime())) return '';
   return format(date, 'yyyy-MM-dd');
 }
 
@@ -192,8 +198,9 @@ export function ClaimForm({
         : 'unset';
 
   const openedDefault =
-    dateInputValue(initial?.openedAt) || format(new Date(), 'yyyy-MM-dd');
-  const expectedDefault = dateInputValue(initial?.expectedReturnAt);
+    instantInputValue(initial?.openedAt) || format(new Date(), 'yyyy-MM-dd');
+  // `expectedReturnAt` is a calendar day (`format: date`).
+  const expectedDefault = dayToInputValue(initial?.expectedReturnAt);
 
   // Only explain the server-owned close date when this save actually closes an
   // OPEN/IN_REPAIR case; re-saving an already-closed case has nothing to say.

@@ -26,31 +26,23 @@ describe('soldAtToInputValue', () => {
     expect(soldAtToInputValue('   ')).toBe('');
   });
 
-  it('slices the calendar day out of the Go wire shape (no Z, no offset)', () => {
-    expect(soldAtToInputValue('2026-03-01T00:00:00')).toBe('2026-03-01');
-    expect(soldAtToInputValue('2026-03-01T00:00:00.000')).toBe('2026-03-01');
-    expect(soldAtToInputValue('2026-03-01T23:59:59')).toBe('2026-03-01');
-  });
-
-  it('accepts the plain YYYY-MM-DD form the date input itself produces', () => {
+  it('keeps the exact calendar day the API sends', () => {
     expect(soldAtToInputValue('2026-03-01')).toBe('2026-03-01');
   });
 
-  it('does not shift the day through a UTC round-trip', () => {
-    // `new Date('2026-03-01T00:00:00+07:00').toISOString()` is 2026-02-28T17:00Z,
-    // so a naive implementation would hand the user the previous day.
+  it('keeps a legacy timestamp’s leading day rather than clearing the field', () => {
+    // Pre-contract rows were Z-less timestamps. Slicing the first ten characters
+    // is timezone-free; returning '' would silently clear the sale on save.
+    expect(soldAtToInputValue('2026-03-01T00:00:00')).toBe('2026-03-01');
+    expect(soldAtToInputValue('2026-03-01T00:00:00.000')).toBe('2026-03-01');
+    expect(soldAtToInputValue('2026-03-01T23:59:59')).toBe('2026-03-01');
     expect(soldAtToInputValue('2026-03-01T00:00:00+07:00')).toBe('2026-03-01');
-    // …and a value already in UTC keeps its own calendar day rather than
-    // drifting forward in a positive-offset timezone.
     expect(soldAtToInputValue('2026-02-28T17:00:00Z')).toBe('2026-02-28');
   });
 
-  it('falls back to the purchaseDate handling for other parseable input', () => {
-    expect(soldAtToInputValue('March 1, 2026')).toBe('2026-03-01');
-  });
-
-  it('returns an empty input for unparseable input', () => {
+  it('returns an empty input for input that is not a date', () => {
     expect(soldAtToInputValue('31/03/2026')).toBe('');
+    expect(soldAtToInputValue('March 1, 2026')).toBe('');
     expect(soldAtToInputValue('không phải ngày')).toBe('');
   });
 });
@@ -58,15 +50,17 @@ describe('soldAtToInputValue', () => {
 describe('saleDayLabel', () => {
   it('renders a YYYY-MM-DD day as dd/MM/yyyy without a Date round-trip', () => {
     expect(saleDayLabel('2026-03-01', 'vi')).toBe('01/03/2026');
-    expect(saleDayLabel('2026-03-01T00:00:00', 'vi')).toBe('01/03/2026');
     expect(saleDayLabel(' 2026-12-31 ', 'vi')).toBe('31/12/2026');
+    // The day is sliced, so it cannot move in a negative-offset timezone the
+    // way `new Date('2026-03-01')` + a formatter would.
+    expect(saleDayLabel('2026-03-01', 'en')).toBe('03/01/2026');
   });
 
-  it('is empty for the unset states and unchanged for non-days', () => {
+  it('is empty for the unset states and for input that is not a day', () => {
     expect(saleDayLabel(null, 'vi')).toBe('');
     expect(saleDayLabel(undefined, 'vi')).toBe('');
     expect(saleDayLabel('', 'vi')).toBe('');
-    expect(saleDayLabel('hôm qua', 'vi')).toBe('hôm qua');
+    expect(saleDayLabel('hôm qua', 'vi')).toBe('');
   });
 });
 

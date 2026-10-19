@@ -17,6 +17,7 @@ import {
 import { categoryLabel, statusLabel, warrantyTypeLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate } from '@/lib/format';
+import { daysUntil } from '@/lib/api-day';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -73,7 +74,10 @@ const WARRANTY_TYPE_TINT: Record<WarrantyType, string> = {
 };
 
 function bucketFor(endDate: string, now: Date): Bucket {
-  const days = Math.round((new Date(endDate).getTime() - now.getTime()) / 86_400_000);
+  // Day-resolution, not a millisecond window: `endDate` is a calendar day and
+  // `new Date(day)` is UTC midnight, so a deadline exactly 30 days out could
+  // fall into the 60-day bucket west of UTC.
+  const days = daysUntil(endDate, now);
   if (days <= 30) return '30';
   if (days <= 60) return '60';
   return '90';

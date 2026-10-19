@@ -4,9 +4,9 @@ import * as React from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
-import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Check, Loader2, Save } from 'lucide-react';
+import { dayToInputValue } from '@/lib/api-day';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -221,7 +221,9 @@ export function WishlistForm({
   const [buyUrl, setBuyUrl] = React.useState<string>(initial?.buyUrl ?? '');
   const [imageUrl, setImageUrl] = React.useState<string>(initial?.imageUrl ?? '');
   const [targetDate, setTargetDate] = React.useState<string>(
-    initial?.targetDate ? format(new Date(initial.targetDate), 'yyyy-MM-dd') : '',
+    // `targetDate` is a calendar day (`YYYY-MM-DD`); a Date round-trip reads it
+    // as UTC midnight and prints the previous day west of UTC.
+    dayToInputValue(initial?.targetDate),
   );
   const [reminderIntervalDays, setReminderIntervalDays] = React.useState<string>(
     initial?.reminderIntervalDays != null ? String(initial.reminderIntervalDays) : '',

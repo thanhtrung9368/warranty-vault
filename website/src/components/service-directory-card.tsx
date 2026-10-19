@@ -26,7 +26,7 @@
 
 import { AlertTriangle, ExternalLink, Info, MapPin, Phone, Store } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/format';
+import { formatDayValue } from '@/lib/api-day';
 import { useLocale, useT } from '@/lib/i18n/client';
 import {
   DIRECTORY_ADDRESS_NONE,
@@ -176,7 +176,7 @@ function CentreRow({ centre }: { centre: WarrantyCentre }) {
         </Badge>
         {centre.endDate && (
           <span className="text-xs text-muted-foreground">
-            {t('Hết hạn {date}', { date: formatDate(centre.endDate, locale) })}
+            {t('Hết hạn {date}', { date: formatDayValue(centre.endDate, locale) })}
           </span>
         )}
       </div>

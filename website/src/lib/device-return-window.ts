@@ -31,7 +31,7 @@
 //     component carries no meaning here and dropping it keeps the stored value
 //     canonical instead of letting sub-second noise propagate on every edit.
 
-import { differenceInCalendarDays } from 'date-fns';
+import { daysUntil } from '@/lib/api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -132,7 +132,12 @@ export function returnDeadlineNote(
   locale: Locale,
   now: Date = new Date(),
 ): string {
-  const days = differenceInCalendarDays(new Date(deadline), now);
+  // `returnDeadline` is computed server-side from calendar days and serialised
+  // at UTC midnight. `daysUntil` reads a derived instant on its UTC day; the old
+  // `new Date(deadline)` read it as a local instant, which is a day early in any
+  // negative-offset zone.
+  const days = daysUntil(deadline, now);
+  if (!Number.isFinite(days)) return '';
   if (days > 0) return translate(locale, 'còn {days} ngày', { days, count: days });
   if (days === 0) return translate(locale, 'hôm nay là ngày cuối');
   const past = Math.abs(days);

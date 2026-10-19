@@ -23,6 +23,7 @@ import {
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
 import { formatDate, formatVND } from '@/lib/format';
+import { parseDay } from '@/lib/api-day';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -131,7 +132,7 @@ function applyFilter(rows: Subscription[], f: SubFilter): Subscription[] {
       return cmp(ma, mb);
     }
     // default renewal
-    return cmp(new Date(a.renewalDate).getTime(), new Date(b.renewalDate).getTime());
+    return cmp(parseDay(a.renewalDate).getTime(), parseDay(b.renewalDate).getTime());
   });
   return out;
 }
@@ -148,7 +149,7 @@ function computeTotals(rows: Subscription[]) {
   const yearly = monthly * 12;
   const upcoming = active
     .filter((s) => s.status === 'ACTIVE' && s.autoRenew && s.billingCycle !== 'LIFETIME')
-    .map((s) => ({ ...s, _renewalAt: new Date(s.renewalDate).getTime() }))
+    .map((s) => ({ ...s, _renewalAt: parseDay(s.renewalDate).getTime() }))
     .sort((a, b) => a._renewalAt - b._renewalAt)
     .slice(0, 5);
   return { count: active.length, monthly, yearly, upcoming };
@@ -244,7 +245,9 @@ export default async function SubscriptionsPage({
             <p className="display mt-1.5 text-3xl tabular-nums text-primary-ink">
               {totals.count}
             </p>
-            <p className="mt-1 text-xs opacity-80">{t('gói đang chạy')}</p>
+            <p className="mt-1 text-xs opacity-80">
+              {t('gói đang chạy', { count: totals.count })}
+            </p>
           </div>
           <div className="stat-card tint-amber">
             <p className="stat-eyebrow">{t('Sắp gia hạn')}</p>
@@ -254,7 +257,7 @@ export default async function SubscriptionsPage({
               <ul className="mt-2 space-y-1 text-sm">
                 {totals.upcoming.slice(0, 3).map((u) => {
                   const { text } = renewalLabel(
-                    new Date(u.renewalDate),
+                    parseDay(u.renewalDate),
                     u.billingCycle,
                     locale,
                   );
@@ -306,7 +309,7 @@ export default async function SubscriptionsPage({
               s.billingCycle as BillingCycle,
               s.intervalDays,
             );
-            const renewalAt = new Date(s.renewalDate);
+            const renewalAt = parseDay(s.renewalDate);
             const { text: rText, tone: rTone } = renewalLabel(
               renewalAt,
               s.billingCycle,

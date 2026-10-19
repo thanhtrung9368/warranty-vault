@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { CategoryIconBadge } from '@/components/category-icon';
+import { DeviceStatusPill } from '@/components/device-status-pill';
 import { WarrantyPill } from '@/components/warranty-pill';
 import { WarrantyList } from '@/components/warranty-list';
 import { DeleteDeviceButton } from '@/components/delete-device-button';
@@ -50,10 +51,11 @@ import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
 import { brandWarrantyValues } from '@/lib/brand-warranty';
 import { resolveBrandWarrantyLookup } from '@/lib/brand-warranty-lookup';
-import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
+import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
+import { formatDayValue } from '@/lib/api-day';
 import { formatMoney, needsFxRate } from '@/lib/currency';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
@@ -67,15 +69,6 @@ import { costPerDay } from '@/lib/stats-rollup';
 import { buildHandoverChecklist } from '@/lib/handover-checklist';
 
 export const dynamic = 'force-dynamic';
-
-// Soft pill backgrounds keyed off the device status, mirrors the list page.
-const STATUS_PILL: Record<Status, string> = {
-  ACTIVE: 'bg-emerald-soft text-emerald-ink',
-  EXPIRED: 'bg-amber-soft text-amber-ink',
-  SOLD: 'bg-sky-soft text-sky-ink',
-  BROKEN: 'bg-rose-soft text-rose-ink',
-  LOST: 'bg-zinc-soft text-ink-2',
-};
 
 function InfoRow({
   icon: Icon,
@@ -151,7 +144,8 @@ export default async function DeviceDetailPage({
 
   const category = categoryLabel(device.category, locale);
   const status = device.status as Status;
-  const statusName = statusLabel(status, locale);
+  // The chip is shared with `/devices` (`components/device-status-pill.tsx`),
+  // so the two pages cannot disagree about how a status looks.
   const effectiveEnd = effectiveWarrantyEnd(device.warranties);
   // Generated from this device's own facts (category, serial, store, warranty
   // end). The detail card only needs the count + section names; the full list
@@ -228,13 +222,7 @@ export default async function DeviceDetailPage({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="display text-2xl text-ink md:text-3xl">{device.name}</h1>
-              <span
-                className={`inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-semibold ${
-                  STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2'
-                }`}
-              >
-                {statusName}
-              </span>
+              <DeviceStatusPill status={status} />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {category}
@@ -416,7 +404,7 @@ export default async function DeviceDetailPage({
                 <p className="border-t border-dashed border-border pt-2 text-sm text-ink-2">
                   {t('Hạn đổi/trả:')}{' '}
                   <span className="font-semibold text-ink">
-                    {formatDate(device.returnDeadline, locale)}
+                    {formatDayValue(device.returnDeadline, locale)}
                   </span>{' '}
                   <span className="text-muted-foreground">
                     ({returnDeadlineNote(device.returnDeadline, locale)})

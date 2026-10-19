@@ -37,13 +37,13 @@ describe('BrandWarrantyNote', () => {
   it('renders the mismatch sentence, the day count and both dates', () => {
     const html = renderVi({
       brandWarrantyStatus: 'ACTIVE',
-      brandWarrantyStart: '2025-11-24T00:00:00',
-      brandWarrantyEnd: '2026-11-24T00:00:00',
+      brandWarrantyStart: '2025-11-24',
+      brandWarrantyEnd: '2026-11-24',
       warrantyMismatch: {
         kind: 'STARTS_BEFORE',
         days: 47,
-        brandDate: '2025-11-24T00:00:00',
-        purchaseDate: '2026-01-10T00:00:00',
+        brandDate: '2025-11-24',
+        purchaseDate: '2026-01-10',
       },
     });
     expect(html).toContain(
@@ -59,8 +59,8 @@ describe('BrandWarrantyNote', () => {
       warrantyMismatch: {
         kind: 'ENDED_EARLIER',
         days: 30,
-        brandDate: '2026-02-01T00:00:00',
-        purchaseDate: '2026-03-03T00:00:00',
+        brandDate: '2026-02-01',
+        purchaseDate: '2026-03-03',
       },
     });
     expect(html).not.toContain('text-destructive');
@@ -72,8 +72,8 @@ describe('BrandWarrantyNote', () => {
   it('says the two sides agree when the computed mismatch is null', () => {
     const html = renderVi({
       brandWarrantyStatus: 'ACTIVE',
-      brandWarrantyStart: '2026-01-10T00:00:00',
-      brandWarrantyEnd: '2027-01-10T00:00:00',
+      brandWarrantyStart: '2026-01-10',
+      brandWarrantyEnd: '2027-01-10',
       warrantyMismatch: null,
     });
     expect(html).toContain('Không có lệch');

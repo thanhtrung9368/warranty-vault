@@ -26,6 +26,7 @@ import {
   type WishlistStatus,
 } from '@/lib/wishlist-types';
 import { formatDate, formatVND } from '@/lib/format';
+import { parseDay } from '@/lib/api-day';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -93,16 +94,16 @@ function applyFilter(rows: WishlistItem[], f: WFilter): WishlistItem[] {
       return cmp(a.currentPrice ?? 0, b.currentPrice ?? 0);
     }
     if (sort === 'target') {
-      const ta = a.targetDate ? new Date(a.targetDate).getTime() : Number.POSITIVE_INFINITY;
-      const tb = b.targetDate ? new Date(b.targetDate).getTime() : Number.POSITIVE_INFINITY;
+      const ta = a.targetDate ? parseDay(a.targetDate).getTime() : Number.POSITIVE_INFINITY;
+      const tb = b.targetDate ? parseDay(b.targetDate).getTime() : Number.POSITIVE_INFINITY;
       return cmp(ta, tb);
     }
     // priority
     const ra = WISHLIST_PRIORITY_RANK[a.priority as WishlistPriority] ?? 99;
     const rb = WISHLIST_PRIORITY_RANK[b.priority as WishlistPriority] ?? 99;
     if (ra !== rb) return dir === 'asc' ? ra - rb : rb - ra;
-    const ta = a.targetDate ? new Date(a.targetDate).getTime() : Number.POSITIVE_INFINITY;
-    const tb = b.targetDate ? new Date(b.targetDate).getTime() : Number.POSITIVE_INFINITY;
+    const ta = a.targetDate ? parseDay(a.targetDate).getTime() : Number.POSITIVE_INFINITY;
+    const tb = b.targetDate ? parseDay(b.targetDate).getTime() : Number.POSITIVE_INFINITY;
     return ta - tb;
   });
   return out;
@@ -118,7 +119,7 @@ function computeTotals(rows: WishlistItem[]) {
   );
   const upcoming = active
     .filter((i) => i.targetDate)
-    .map((i) => ({ ...i, _t: i.targetDate ? new Date(i.targetDate).getTime() : 0 }))
+    .map((i) => ({ ...i, _t: i.targetDate ? parseDay(i.targetDate).getTime() : 0 }))
     .sort((a, b) => a._t - b._t)
     .slice(0, 3);
   return { count: active.length, totalPrice, upcoming };
@@ -225,7 +226,7 @@ export default async function WishlistPage({
                       {u.name}
                     </Link>
                     <span className="ml-auto shrink-0 text-xs opacity-80">
-                      {u.targetDate ? formatDate(new Date(u.targetDate), locale) : ''}
+                      {u.targetDate ? formatDate(u.targetDate, locale) : ''}
                     </span>
                   </li>
                 ))}
@@ -354,7 +355,7 @@ export default async function WishlistPage({
                     {it.targetDate && (
                       <span className="mt-0.5 inline-flex items-center gap-1 rounded-pill bg-amber-soft px-2 py-0.5 text-[10px] font-semibold text-amber-ink">
                         <Calendar className="h-3 w-3" />
-                        {formatDate(new Date(it.targetDate), locale)}
+                        {formatDate(it.targetDate, locale)}
                       </span>
                     )}
                   </div>
