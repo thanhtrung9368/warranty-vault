@@ -54,20 +54,16 @@ struct DashboardView: View {
     }
 
     private var totalDevices: Int { statsStore.snapshot.totalDevices }
-    private var activeDevices: Int { (statsStore.snapshot.devicesByStatus[.ACTIVE] ?? 0) }
-    /// Devices whose effective warranty ends within 30 days.
-    private var expiringSoon: Int { statsStore.snapshot.expiringIn30Days }
-    /// "Đã hết" counts devices whose effective warranty end has passed —
-    /// not devices whose *status* is EXPIRED. Mirrors `computeDeviceStats()`
-    /// on the web dashboard.
-    private var expiredDevices: Int {
-        let now = Date()
-        return devicesStore.devices.filter { device in
-            guard let end = device.effectiveWarrantyEnd else { return false }
-            return end < now
-        }.count
-    }
-    private var safeActive: Int { max(0, activeDevices - expiringSoon) }
+    /// The four warranty tiles, computed in `WarrlyKit.warrantyRollup` so the
+    /// boundaries are testable and match Android and the web.
+    ///
+    /// This used to be `max(0, activeDevices - expiringSoon)`: `activeDevices`
+    /// came from the server's `devicesByStatus[.ACTIVE]` (which counts any ACTIVE
+    /// row, warranty expired or not) while `expiringSoon` was a *subset* of the
+    /// genuinely covered ones — so the tile subtracted the very devices the card
+    /// below was pointing at and read 0 for an account with one device 9 days
+    /// out, and simultaneously kept devices whose warranty had already lapsed.
+    private var warranty: WarrantyRollup { warrantyRollup(devices: devicesStore.devices) }
 
     private var activeSubs: [Subscription] {
         subsStore.subscriptions.filter { $0.status == .ACTIVE }
@@ -248,19 +244,19 @@ struct DashboardView: View {
             )
             WVWidget(
                 eyebrow: L.t("Còn BH"),
-                value: "\(safeActive)",
+                value: "\(warranty.inWarranty)",
                 sub: L.t("được bảo vệ"),
                 icon: "shieldCheck"
             )
             WVWidget(
                 eyebrow: L.t("Sắp hết ≤30d"),
-                value: "\(expiringSoon)",
-                sub: expiringSoon > 0 ? L.t("để ý nha") : L.t("không có"),
+                value: "\(warranty.soon)",
+                sub: warranty.soon > 0 ? L.t("để ý nha") : L.t("không có"),
                 icon: "alert"
             )
             WVWidget(
                 eyebrow: L.t("Đã hết"),
-                value: "\(expiredDevices)",
+                value: "\(warranty.expired)",
                 sub: L.t("hết kèo"),
                 icon: "shieldX"
             )

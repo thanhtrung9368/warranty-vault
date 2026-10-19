@@ -105,15 +105,19 @@ public final class StatsStore: ObservableObject {
             // "Sắp hết" is about the device's *effective warranty end*
             // (max `endDate` across its packages), not about a warranty row —
             // this is how the web dashboard and stats page count it.
+            // Day boundaries, not instants: a warranty ending later today is
+            // still in force, and the same device must not read "9 days" here
+            // and "expired" on the dashboard. `warrantyRollup` is the single
+            // source of that rule; the snapshot only needs the 7/30-day split.
+            let rollup = warrantyRollup(devices: devices, today: now)
             let in7Days = now.addingTimeInterval(7 * 86_400)
-            let in30Days = now.addingTimeInterval(30 * 86_400)
             for device in devices {
                 guard device.status == .ACTIVE,
                       let end = device.effectiveWarrantyEnd,
-                      end > now else { continue }
+                      CalendarDay.days(from: now, to: end) >= 0 else { continue }
                 if end <= in7Days { snap.expiringIn7Days += 1 }
-                if end <= in30Days { snap.expiringIn30Days += 1 }
             }
+            snap.expiringIn30Days = rollup.soon
             // Devices
             snap.totalDevices = stats.devices.total
             // The hero total is summed here, in VND, from each device's

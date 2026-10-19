@@ -8,10 +8,16 @@
   `targetCell*` is the Android 12+ hint; `min*` is the fallback the older
   launcher maths uses.
 
-  Preview — a generated PNG (`drawable-nodpi/widget_preview.png`). A
-  `previewLayout` would render the real layout without the renderer having run,
-  i.e. an empty card in the picker; the static PNG shows what the user will
-  actually get.
+  Preview — `drawable-nodpi/widget_preview.png`, cropped from a screenshot of
+  the widget running on a device. A `previewLayout` would render the static
+  layout XML without the renderer having run, i.e. an empty card in the picker,
+  so the PNG is the only way to show real content.
+
+  The previous PNG was hand-drawn and had drifted: it showed two rows above a
+  hole and English copy ("12 days left", "as of 09:41") in an app whose default
+  language is Vietnamese. It was a picture of the very layout bug that was then
+  fixed. Regenerate it from a fresh screenshot whenever the row layout changes —
+  a preview that lies about the widget is worse than no preview.
 
   Update period — SIX HOURS. Android floors periodic widget updates at 30
   minutes and batches them; a widget update is not a free background job. The
