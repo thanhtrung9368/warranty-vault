@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -129,6 +130,60 @@ func deleteUsers(t *testing.T, pool *pgxpool.Pool, ids ...string) {
 // newScratchDatabaseDSN creates a brand-new empty database on the server behind
 // base and returns its DSN, dropping it again when the test ends. No migrations
 // are applied — callers run gooseUp on the returned DSN.
+// httpTemplateDatabase builds — once per test process — a database with the full
+// migration chain applied, to be used as a CREATE DATABASE template.
+//
+// Returns the database name. The template is left behind on purpose: dropping it
+// from a test cleanup would run at the end of whichever test happened to create
+// it, which is far too early. CI runners are ephemeral; a local `go test` leaves
+// one `wv_http_template_<pid>` database that is cheap to remove by hand.
+var (
+	httpTemplateOnce sync.Once
+	httpTemplateName string
+	httpTemplateErr  error
+)
+
+func httpTemplateDatabase(t *testing.T, base string) (string, error) {
+	t.Helper()
+	httpTemplateOnce.Do(func() {
+		name := fmt.Sprintf("wv_http_template_%d", os.Getpid())
+		ctx := context.Background()
+
+		admin, err := pgx.Connect(ctx, base)
+		if err != nil {
+			httpTemplateErr = err
+			return
+		}
+		_, err = admin.Exec(ctx, `DROP DATABASE IF EXISTS "`+name+`" WITH (FORCE)`)
+		if err == nil {
+			_, err = admin.Exec(ctx, `CREATE DATABASE "`+name+`"`)
+		}
+		_ = admin.Close(ctx)
+		if err != nil {
+			httpTemplateErr = err
+			return
+		}
+
+		u, err := url.Parse(base)
+		if err != nil {
+			httpTemplateErr = err
+			return
+		}
+		u.Path = "/" + name
+		gooseUp(t, u.String())
+
+		// A template must have no connections open to it, or every clone fails.
+		if admin, err = pgx.Connect(ctx, base); err == nil {
+			_, _ = admin.Exec(ctx,
+				`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+				  WHERE datname = $1 AND pid <> pg_backend_pid()`, name)
+			_ = admin.Close(ctx)
+		}
+		httpTemplateName = name
+	})
+	return httpTemplateName, httpTemplateErr
+}
+
 func newScratchDatabaseDSN(t *testing.T, base string) string {
 	t.Helper()
 	u, err := url.Parse(base)
@@ -138,11 +193,26 @@ func newScratchDatabaseDSN(t *testing.T, base string) string {
 	name := fmt.Sprintf("wv_http_rt_%d", time.Now().UnixNano())
 	ctx := context.Background()
 
+	// Every handler test used to create an empty database and run the whole
+	// migration chain on it — 24 migrations per test, roughly two hundred times.
+	// That put this package at 595 of go test's 600-second default timeout, and
+	// then over it, so CI failed on the deadline rather than on an assertion.
+	//
+	// The schema is identical for every test, so it is migrated once into a
+	// template database and every scratch database is cloned from it. The
+	// per-database timezone is deliberately NOT part of the template (Postgres
+	// does not copy `ALTER DATABASE ... SET`), so `gooseUp` still runs per test —
+	// it finds the version already current and only pins the timezone.
+	tmpl, err := httpTemplateDatabase(t, base)
+	if err != nil {
+		t.Skipf("cannot build the scratch template (%v) — the DB-backed handler tests need a createdb role", err)
+	}
+
 	admin, err := pgx.Connect(ctx, base)
 	if err != nil {
 		t.Fatalf("connect admin: %v", err)
 	}
-	if _, err := admin.Exec(ctx, `CREATE DATABASE "`+name+`"`); err != nil {
+	if _, err := admin.Exec(ctx, `CREATE DATABASE "`+name+`" TEMPLATE "`+tmpl+`"`); err != nil {
 		_ = admin.Close(ctx)
 		t.Skipf("cannot CREATE DATABASE (%v) — the DB-backed handler tests need a createdb role", err)
 	}

@@ -66,7 +66,17 @@ jobs:
       - name: go test (race, with real Postgres)
         env:
           WV_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/wv_test?sslmode=disable
-        run: go test ./... -race
+        # `internal/handlers` is DB-backed: each test gets a scratch database from
+        # a migrated template and hashes a password with bcrypt (deliberately
+        # slow), then drives real HTTP under the race detector. On a CI runner it
+        # takes ~9 minutes, which is 90% of `go test`'s 600-second default — it hit
+        # that deadline and failed with a goroutine dump instead of an assertion,
+        # which is the worst kind of red: it says nothing about the code.
+        #
+        # 20 minutes is margin, not a substitute for speed. The per-test migration
+        # was already removed (one template database per process); if this creeps
+        # up again, the next thing to look at is the per-test bcrypt hash.
+        run: go test ./... -race -timeout 20m
 
       # Guard against the DB-gated tests silently skipping again. If Postgres
       # is unreachable the tests above still "pass" by skipping, so assert the
