@@ -2,6 +2,9 @@
 name: ios
 
 on:
+  # Manual re-run: a macOS runner can wedge in the middle of `swift test`, and
+  # without this trigger the only way back was an empty commit.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
