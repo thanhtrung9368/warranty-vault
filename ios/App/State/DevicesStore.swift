@@ -36,6 +36,25 @@ public final class DevicesStore: ObservableObject {
         return result
     }
 
+    /// Creates a batch with partial success.
+    ///
+    /// Only the devices the server says it created are inserted; a rejected row
+    /// never reaches the list. A 409 is thrown untouched — nothing was created,
+    /// so the caller keeps every draft and shows the quota card instead of
+    /// treating the batch as a normal failure.
+    ///
+    /// The bulk response carries the bare `Device` projection, so the list is
+    /// refreshed once after the insert exactly like `create` does; without it
+    /// the new rows would be missing `effectiveWarrantyEnd` / `attachmentCount`.
+    public func createBulk(_ inputs: [DeviceInput]) async throws -> BulkCreateDevicesResult {
+        let result = try await client.createDevicesBulk(inputs)
+        if !result.created.isEmpty {
+            devices.insert(contentsOf: result.created, at: 0)
+            await refreshProjection()
+        }
+        return result
+    }
+
     public func update(id: String, _ input: DeviceInput) async throws -> DeviceSaveResult {
         let result = try await client.updateDevice(id: id, input)
         if let idx = devices.firstIndex(where: { $0.id == id }) {

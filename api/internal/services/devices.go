@@ -823,46 +823,37 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 
 // CreateDevice mirrors website/src/lib/services/devices.ts::createDevice
 // including the optional inline-warranty side effect when warrantyMonths > 0.
+//
+// The quota rule is checked TWICE, deliberately:
+//
+//  1. before the date/currency parsing, exactly where it has always been. A
+//     request at the ceiling must keep returning 409 even when another field is
+//     also malformed; moving the only check into the transaction would make the
+//     error precedence depend on the transaction's position.
+//  2. again inside the transaction, after taking the per-user device-write
+//     advisory lock. The first check races with a concurrent create (two
+//     requests can both read 49 and both insert), so the second is the one that
+//     actually enforces the ceiling. Both create paths take the same lock — see
+//     lockUserDeviceWrites.
+//
+// The two checks use the same counter queries and the same error, so a
+// sequential request sees byte-identical behaviour to the pre-bulk version.
 func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in DeviceInput, fromWishlistID string) (DeviceVND, error) {
 	if err := ValidateDeviceInput(ctx, &in); err != nil {
 		return DeviceVND{}, err
 	}
-	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
+	q := store.New(db)
+	if err := assertCategoryExists(ctx, q, in.Category); err != nil {
 		return DeviceVND{}, err
 	}
 
-	q := store.New(db)
+	// Cheap pre-check, kept at its historic position for error precedence. It is
+	// NOT the concurrency-safe check; the one under the lock below is.
 	if err := assertDeviceQuota(ctx, q, userID, deviceActiveIncoming(in.Status), 1); err != nil {
 		return DeviceVND{}, err
 	}
 
-	purchaseDate, err := parseDate(in.PurchaseDate)
-	if err != nil {
-		return DeviceVND{}, ErrValidationHeadline(FieldErrors{
-			"purchaseDate": {i18n.Text(ctx, "Ngày mua không hợp lệ")},
-		})
-	}
-	soldAt, err := parseSoldAt(ctx, in.SoldAt)
-	if err != nil {
-		return DeviceVND{}, err
-	}
-	receivedAt, err := parseReceivedAt(ctx, in.ReceivedAt)
-	if err != nil {
-		return DeviceVND{}, err
-	}
-	activatedAt, err := parseActivatedAt(ctx, in.ActivatedAt)
-	if err != nil {
-		return DeviceVND{}, err
-	}
-	extendedCoverBuyBy, err := parseExtendedCoverBuyBy(ctx, in.ExtendedCoverBuyBy)
-	if err != nil {
-		return DeviceVND{}, err
-	}
-	currency, fxRate, err := resolveCreateCurrency(ctx, in)
-	if err != nil {
-		return DeviceVND{}, err
-	}
-	brandWarranty, err := brandWarrantyForWrite(ctx, &in)
+	values, err := prepareDeviceCreate(ctx, in)
 	if err != nil {
 		return DeviceVND{}, err
 	}
@@ -872,65 +863,21 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		return DeviceVND{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockUserDeviceWrites(ctx, tx, userID); err != nil {
+		return DeviceVND{}, err
+	}
 	tq := q.WithTx(tx)
 
-	status := in.Status
-	statusPtr := &status
-	created, err := tq.CreateDevice(ctx, store.CreateDeviceParams{
-		ID:            auth.NewID(),
-		UserId:        userID,
-		Name:          in.Name,
-		Category:      in.Category,
-		Brand:         in.Brand,
-		Model:         in.Model,
-		SerialNumber:  in.SerialNumber,
-		PurchaseDate:  pgtype.Timestamp{Time: purchaseDate, Valid: true},
-		PurchasePrice: in.PurchasePrice,
-		PurchasePlace: in.PurchasePlace,
-		Notes:         in.Notes,
-		SoldAt:        soldAt,
-		SoldPrice:     in.SoldPrice,
-		Status:        statusPtr,
-
-		ReturnWindowDays: in.ReturnWindowDays,
-		ReceivedAt:       receivedAt,
-		LeadDays:         leadDaysForCreate(in.LeadDays, DefaultDeviceLeadDays),
-
-		ActivationRequired: in.ActivationRequired,
-		ActivatedAt:        activatedAt,
-		ExtendedCoverBuyBy: extendedCoverBuyBy,
-
-		Currency: currency,
-		FxRate:   fxRate,
-
-		BrandWarrantyStatus: brandWarranty.Status,
-		BrandWarrantyStart:  brandWarranty.Start,
-		BrandWarrantyEnd:    brandWarranty.End,
-		BrandCheckedAt:      brandWarranty.CheckedAt,
-		BrandLookupUrl:      brandWarranty.LookupURL,
-	})
-	if err != nil {
-		return DeviceVND{}, fmt.Errorf("create device: %w", err)
+	// The authoritative check: count and insert now happen in one transaction
+	// serialised per user, so two concurrent creates cannot both pass a 49→50
+	// read and write a 51st active row.
+	if err := assertDeviceQuota(ctx, tq, userID, deviceActiveIncoming(in.Status), 1); err != nil {
+		return DeviceVND{}, err
 	}
 
-	if in.WarrantyMonths > 0 {
-		end := addMonths(purchaseDate, int(in.WarrantyMonths))
-		_, err := tq.CreateWarranty(ctx, store.CreateWarrantyParams{
-			ID:        auth.NewID(),
-			DeviceId:  created.ID,
-			Type:      "STANDARD",
-			Provider:  in.WarrantyProvider,
-			StartDate: pgtype.Timestamp{Time: purchaseDate, Valid: true},
-			EndDate:   pgtype.Timestamp{Time: end, Valid: true},
-			Months:    in.WarrantyMonths,
-			Cost:      nil,
-			Address:   in.WarrantyAddress,
-			Phone:     in.WarrantyPhone,
-			Notes:     in.WarrantyNotes,
-		})
-		if err != nil {
-			return DeviceVND{}, fmt.Errorf("create warranty: %w", err)
-		}
+	created, err := createDeviceWithWarranty(ctx, tq, userID, in, values)
+	if err != nil {
+		return DeviceVND{}, err
 	}
 
 	// Wishlist cross-link: if the device was seeded from a wishlist item, mark
@@ -967,6 +914,146 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
 	return withVNDAndWarranties(created, warranties), nil
+}
+
+// deviceCreateValues is the result of the create-only preparation step: every
+// input value that needs parsing, normalising or resolving before the INSERT.
+//
+// It exists so the single create and the bulk create run the SAME preparation
+// code. Duplicating parseSoldAt/resolveCreateCurrency/... in the bulk service
+// would be the fastest way for the two paths to drift into different messages or
+// different defaults — exactly what the bulk contract forbids.
+type deviceCreateValues struct {
+	purchaseDate       time.Time
+	soldAt             pgtype.Timestamp
+	receivedAt         pgtype.Timestamp
+	activatedAt        pgtype.Timestamp
+	extendedCoverBuyBy pgtype.Timestamp
+	currency           string
+	fxRate             *int32
+	brandWarranty      brandWarrantyValues
+}
+
+// prepareDeviceCreate parses and resolves a DeviceInput that has ALREADY passed
+// ValidateDeviceInput. It is the create half of the old CreateDevice body,
+// extracted verbatim so both create paths reuse it.
+//
+// The caller must run ValidateDeviceInput first (it normalises status, currency,
+// leadDays and the optional pointers); this function deliberately does not
+// repeat it so each caller can keep its own category-check position. The parse
+// functions still defend themselves, as they did before.
+func prepareDeviceCreate(ctx context.Context, in DeviceInput) (deviceCreateValues, error) {
+	purchaseDate, err := parseDate(in.PurchaseDate)
+	if err != nil {
+		return deviceCreateValues{}, ErrValidationHeadline(FieldErrors{
+			"purchaseDate": {i18n.Text(ctx, "Ngày mua không hợp lệ")},
+		})
+	}
+	soldAt, err := parseSoldAt(ctx, in.SoldAt)
+	if err != nil {
+		return deviceCreateValues{}, err
+	}
+	receivedAt, err := parseReceivedAt(ctx, in.ReceivedAt)
+	if err != nil {
+		return deviceCreateValues{}, err
+	}
+	activatedAt, err := parseActivatedAt(ctx, in.ActivatedAt)
+	if err != nil {
+		return deviceCreateValues{}, err
+	}
+	extendedCoverBuyBy, err := parseExtendedCoverBuyBy(ctx, in.ExtendedCoverBuyBy)
+	if err != nil {
+		return deviceCreateValues{}, err
+	}
+	currency, fxRate, err := resolveCreateCurrency(ctx, in)
+	if err != nil {
+		return deviceCreateValues{}, err
+	}
+	brandWarranty, err := brandWarrantyForWrite(ctx, &in)
+	if err != nil {
+		return deviceCreateValues{}, err
+	}
+	return deviceCreateValues{
+		purchaseDate:       purchaseDate,
+		soldAt:             soldAt,
+		receivedAt:         receivedAt,
+		activatedAt:        activatedAt,
+		extendedCoverBuyBy: extendedCoverBuyBy,
+		currency:           currency,
+		fxRate:             fxRate,
+		brandWarranty:      brandWarranty,
+	}, nil
+}
+
+// createDeviceParams is the single place a DeviceInput becomes a store row. Both
+// create paths call it through createDeviceWithWarranty, so field mapping,
+// defaulting (leadDays) and the status pointer cannot differ between them.
+func createDeviceParams(userID string, in DeviceInput, values deviceCreateValues) store.CreateDeviceParams {
+	status := in.Status
+	return store.CreateDeviceParams{
+		ID:            auth.NewID(),
+		UserId:        userID,
+		Name:          in.Name,
+		Category:      in.Category,
+		Brand:         in.Brand,
+		Model:         in.Model,
+		SerialNumber:  in.SerialNumber,
+		PurchaseDate:  pgtype.Timestamp{Time: values.purchaseDate, Valid: true},
+		PurchasePrice: in.PurchasePrice,
+		PurchasePlace: in.PurchasePlace,
+		Notes:         in.Notes,
+		SoldAt:        values.soldAt,
+		SoldPrice:     in.SoldPrice,
+		Status:        &status,
+
+		ReturnWindowDays: in.ReturnWindowDays,
+		ReceivedAt:       values.receivedAt,
+		LeadDays:         leadDaysForCreate(in.LeadDays, DefaultDeviceLeadDays),
+
+		ActivationRequired: in.ActivationRequired,
+		ActivatedAt:        values.activatedAt,
+		ExtendedCoverBuyBy: values.extendedCoverBuyBy,
+
+		Currency: values.currency,
+		FxRate:   values.fxRate,
+
+		BrandWarrantyStatus: values.brandWarranty.Status,
+		BrandWarrantyStart:  values.brandWarranty.Start,
+		BrandWarrantyEnd:    values.brandWarranty.End,
+		BrandCheckedAt:      values.brandWarranty.CheckedAt,
+		BrandLookupUrl:      values.brandWarranty.LookupURL,
+	}
+}
+
+// createDeviceWithWarranty inserts the device and its optional inline STANDARD
+// warranty in the caller's transaction. Shared by CreateDevice and
+// BulkCreateDevices so the two paths write the same rows from the same input.
+func createDeviceWithWarranty(ctx context.Context, tq *store.Queries, userID string, in DeviceInput, values deviceCreateValues) (store.Device, error) {
+	created, err := tq.CreateDevice(ctx, createDeviceParams(userID, in, values))
+	if err != nil {
+		return store.Device{}, fmt.Errorf("create device: %w", err)
+	}
+
+	if in.WarrantyMonths > 0 {
+		end := addMonths(values.purchaseDate, int(in.WarrantyMonths))
+		if _, err := tq.CreateWarranty(ctx, store.CreateWarrantyParams{
+			ID:        auth.NewID(),
+			DeviceId:  created.ID,
+			Type:      "STANDARD",
+			Provider:  in.WarrantyProvider,
+			StartDate: pgtype.Timestamp{Time: values.purchaseDate, Valid: true},
+			EndDate:   pgtype.Timestamp{Time: end, Valid: true},
+			Months:    in.WarrantyMonths,
+			Cost:      nil,
+			Address:   in.WarrantyAddress,
+			Phone:     in.WarrantyPhone,
+			Notes:     in.WarrantyNotes,
+		}); err != nil {
+			return store.Device{}, fmt.Errorf("create warranty: %w", err)
+		}
+	}
+
+	return created, nil
 }
 
 // UpdateDevice mirrors website/src/lib/services/devices.ts::updateDevice.
@@ -1251,6 +1338,47 @@ func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string,
 		return fmt.Errorf("count active devices: %w", err)
 	}
 	return enforceDeviceQuota(ctx, active, total, incomingActive, incomingTotal)
+}
+
+// lockUserDeviceWrites serialises every device-creating transaction for one
+// user. It is a PostgreSQL transaction-scoped advisory lock, so it is released
+// automatically on COMMIT or ROLLBACK — there is no unlock call to forget.
+//
+// # Why a count-and-check needs this
+//
+// Read-committed counting is not a constraint: two concurrent creates can both
+// read "49 active" and both insert, leaving 51. There is no row to lock for a
+// row that does not exist yet, and a unique index cannot express "at most 50
+// rows per user". A per-user advisory lock gives the count and the INSERTs one
+// serial order per user, which is what makes the ceiling true rather than
+// best-effort:
+//
+//	BEGIN
+//	SELECT pg_advisory_xact_lock('device-write', <userId>)
+//	SELECT count(active), count(all)          -- now stable for this user
+//	INSERT ... (all candidates)
+//	COMMIT                                    -- lock released here
+//
+// Both create paths take this lock — CreateDevice and BulkCreateDevices — so a
+// single create and a 50-row batch cannot interleave their count/insert pairs.
+// Different users use different second keys and never block each other. The
+// fixed first key keeps the lock namespace separate from any future advisory
+// lock in this service.
+//
+// The other two Device write paths (backup import and wishlist → PURCHASED) keep
+// their existing pre-checks; adding the lock there would change behaviour this
+// task was told not to touch. The guarantee here is specifically about creates.
+func lockUserDeviceWrites(ctx context.Context, tx pgx.Tx, userID string) error {
+	// hashtext() maps the string keys onto the two int4 arguments of the
+	// two-key advisory-lock overload. A hash collision between two users can
+	// only make them wait for each other — never let one past a ceiling — so the
+	// failure mode is safe. The lock is held until the transaction ends.
+	if _, err := tx.Exec(ctx,
+		`SELECT pg_advisory_xact_lock(hashtext('wv:device-write'), hashtext($1))`,
+		userID); err != nil {
+		return fmt.Errorf("lock device writes: %w", err)
+	}
+	return nil
 }
 
 // enforceDeviceQuota is the pure ceiling arithmetic shared by CreateDevice

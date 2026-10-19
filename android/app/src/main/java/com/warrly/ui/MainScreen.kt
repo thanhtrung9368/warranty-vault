@@ -51,6 +51,7 @@ import com.warrly.auth.AuthStore
 import com.warrly.share.ShareTarget
 import com.warrly.ui.screens.actions.ActionQueueScreen
 import com.warrly.ui.screens.dashboard.DashboardScreen
+import com.warrly.ui.screens.devices.BulkAddDevicesScreen
 import com.warrly.ui.screens.devices.DeviceDetailScreen
 import com.warrly.ui.screens.devices.DevicesScreen
 import com.warrly.ui.screens.inbox.InboxScreen
@@ -131,6 +132,11 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
     // carries seven destinations, and the Dashboard is where a workload is
     // noticed, so that is where the entry point (and its badge) lives.
     var openActions by rememberSaveable { mutableStateOf(false) }
+    // "Add several devices" (POST /api/v1/devices/bulk) — a full-screen route
+    // hung off the Devices tab. It is a detour, not an eighth tab: setting up a
+    // new flat is a one-off task, and the route returns to the list where the
+    // created rows are reloaded by DevicesScreen's own LaunchedEffect.
+    var openBulkAdd by rememberSaveable { mutableStateOf(false) }
     // "Soát gói đăng ký" (GET /api/v1/subscriptions/audit) — hung off the
     // Subscriptions tab. Checked after the detail routes as well, so tapping a
     // finding pushes the subscription on top of the report and Back returns here.
@@ -171,6 +177,7 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
         openSearch = false
         openActions = false
         openAudit = false
+        openBulkAdd = false
         sharedLink = product
         selected = Tab.Wishlist
         // Emptied last: clearing the mailbox re-keys this effect, and the work
@@ -194,6 +201,7 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
         openSearch = false
         openActions = false
         openAudit = false
+        openBulkAdd = false
         selected = Tab.Inbox
     }
 
@@ -302,6 +310,13 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
         )
         return
     }
+    if (openBulkAdd) {
+        BulkAddDevicesScreen(
+            api = App.instance.api,
+            onBack = { openBulkAdd = false },
+        )
+        return
+    }
 
     Scaffold(
         bottomBar = {
@@ -371,6 +386,7 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                         api = App.instance.api,
                         onOpenDevice = { openDeviceId = it },
                         onOpenSearch = { openSearch = true },
+                        onOpenBulkAdd = { openBulkAdd = true },
                         // The create sheet's OCR scan stores its file in the
                         // inbox before the device exists. "Open the Inbox" closes
                         // the sheet (the screen does it) and lands here, where

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản dịch của `values/strings_bulk.xml`.
+
+  Tính năng thêm nhiều thiết bị. Màn hình dành cho người vừa dọn vào nhà mới và
+  đang nhập vài món đồ gia dụng một lúc: mỗi thiết bị một dòng nhỏ, lưu độc lập,
+  chỉ cần những trường tối thiểu để hồ sơ thiết bị có ích.
+
+  Parity với bản tiếng Anh (khoá + format verb) do `StringResourceParityTest`
+  kiểm tra; lint coi lệch `%d`/`%s` là lỗi.
+-->
+<resources>
+    <string name="bulk_title">Thêm nhiều thiết bị</string>
+    <string name="bulk_entry_action">Thêm nhiều</string>
+    <string name="bulk_intro">Mỗi dòng là một thiết bị. Mỗi dòng được lưu riêng nên một dòng sai không chặn các dòng còn lại.</string>
+    <string name="bulk_fields_hint">Chỉ cần tên, loại, ngày mua và giá. Hãng, serial, bảo hành và hoá đơn có thể bổ sung cho từng máy sau. Giá tính bằng VND; có thể đổi tiền tệ của từng máy sau.</string>
+    <string name="bulk_row_label">Dòng %1$d</string>
+    <string name="bulk_remove_row">Xoá dòng này</string>
+    <string name="bulk_add_row">Thêm dòng</string>
+    <string name="bulk_row_count">Dòng %1$d / %2$d</string>
+    <string name="bulk_name_label">Tên thiết bị *</string>
+    <string name="bulk_category_label">Loại</string>
+    <string name="bulk_date_label">Ngày mua (YYYY-MM-DD) *</string>
+    <string name="bulk_price_label">Giá (VND)</string>
+    <string name="bulk_price_hint">Để trống nếu chưa biết giá.</string>
+
+    <plurals name="bulk_submit_count">
+        <item quantity="other">Thêm %1$d thiết bị</item>
+    </plurals>
+    <string name="bulk_submit_empty">Thêm thiết bị</string>
+    <plurals name="bulk_retry_count">
+        <item quantity="other">Thử lại %1$d dòng lỗi</item>
+    </plurals>
+    <plurals name="bulk_success_all">
+        <item quantity="other">Đã thêm %1$d thiết bị.</item>
+    </plurals>
+    <string name="bulk_success_all_body">Các máy này đã có trong danh sách thiết bị.</string>
+    <plurals name="bulk_partial_title">
+        <item quantity="other">Đã thêm %1$d trong %2$d thiết bị.</item>
+    </plurals>
+    <plurals name="bulk_failed_fix_hint">
+        <item quantity="other">Sửa %1$d dòng bên dưới rồi chỉ thử lại các dòng đó.</item>
+    </plurals>
+    <plurals name="bulk_unaccounted_warning">
+        <item quantity="other">Máy chủ không báo kết quả cho %1$d dòng. Kiểm tra danh sách thiết bị trước khi thêm lại.</item>
+    </plurals>
+
+    <!-- ===== 409 giới hạn thiết bị (`limit_reached`).
+         Khác với một dòng lỗi: cả lô bị từ chối TRƯỚC khi lưu bất cứ thứ gì.
+         Phần thân nói rõ điều đó; số suất còn lại tính từ danh sách thiết bị
+         hiện tại của tài khoản (`bulkQuota`). ===== -->
+    <string name="bulk_limit_title">Không thêm thiết bị nào</string>
+    <string name="bulk_limit_body">Lô này sẽ vượt giới hạn thiết bị nên máy chủ từ chối cả lô trước khi lưu. Không dòng nào được tạo.</string>
+    <plurals name="bulk_limit_remaining">
+        <item quantity="other">Tài khoản còn nhận được %1$d thiết bị mới.</item>
+    </plurals>
+    <string name="bulk_limit_remaining_zero">Tài khoản không còn suất cho thiết bị mới.</string>
+    <string name="bulk_limit_remaining_unknown">Tài khoản đã chạm giới hạn thiết bị.</string>
+    <string name="bulk_limit_hint">Đánh dấu thiết bị cũ là đã bán, hoặc xoá bớt một máy, rồi thử lại lô này.</string>
+
+    <string name="bulk_error_title">Không thêm được thiết bị</string>
+    <string name="bulk_dismiss">Đóng</string>
+    <string name="bulk_done">Xong</string>
+</resources>

@@ -385,6 +385,18 @@ var messages = map[string]message{
 	// bị bắt buộc" is "Device name is required", not "Name device mandatory".
 	"Tên thiết bị bắt buộc":  {vi: "Tên thiết bị bắt buộc", en: "Device name is required"},
 	"Loại thiết bị bắt buộc": {vi: "Loại thiết bị bắt buộc", en: "Device category is required"},
+	// Batch shape (POST /api/v1/devices/bulk, internal/services/devices_bulk.go).
+	// Both are `fieldErrors.devices`, so the sentence only has to explain the
+	// rule the `devices` array broke; the client puts it under the batch, not
+	// under an individual row.
+	"Cần ít nhất một thiết bị": {
+		vi: "Cần ít nhất một thiết bị",
+		en: "At least one device is required",
+	},
+	"Mỗi lần chỉ thêm tối đa 50 thiết bị": {
+		vi: "Mỗi lần chỉ thêm tối đa 50 thiết bị",
+		en: "You can add at most 50 devices per batch",
+	},
 	"Ngày mua bắt buộc":      {vi: "Ngày mua bắt buộc", en: "Purchase date is required"},
 	"Giá mua không hợp lệ":   {vi: "Giá mua không hợp lệ", en: "Invalid purchase price"},
 	"Giá bán không hợp lệ":   {vi: "Giá bán không hợp lệ", en: "Invalid sale price"},

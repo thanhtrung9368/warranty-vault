@@ -952,6 +952,85 @@ data class DeviceInput(
     val fromWishlistId: String? = null,
 )
 
+// ---- Bulk device create (POST /api/v1/devices/bulk) ----
+//
+// The frozen contract for the one-call "add the whole flat" flow:
+//
+//   POST /api/v1/devices/bulk
+//   { "devices": [ <DeviceInput>, … ] }          // at most 50 rows
+//
+//   200 { "created": [ <Device>, … ],
+//         "failed":  [ { index, code, message, fieldErrors }, … ] }
+//
+// Three properties of that contract drive the client and are easy to get
+// wrong, so they are restated at the DTO:
+//
+//  1. **Partial success is the normal result.** A row that fails does not roll
+//     back the rows that succeeded. `created` carries the persisted rows and
+//     `failed` carries per-index refusals; a 200 with both arrays populated is
+//     what "added 3 of 5" looks like on the wire.
+//  2. **`index` is the position in the REQUEST array**, not a device id and not
+//     a position in `failed`. The pure reconciliation in
+//     `ui/screens/devices/BulkAddRules.kt` joins it back to the submitted row.
+//  3. **The quota 409 is all-or-nothing.** `LIMIT_REACHED` (lowercase on the
+//     wire) means the batch would push the account over a device ceiling, so the
+//     whole request was refused *before* any row was saved. It is therefore a
+//     top-level error, never a `failed[]` row — see `bulkRequestError`.
+//
+// There is deliberately no `warnings` field: the contract has none for bulk,
+// and the advisory warnings of the single-device create are a separate shape.
+
+/**
+ * Request body of `POST /api/v1/devices/bulk`.
+ *
+ * `devices` is a plain array of [DeviceInput] — the same object
+ * `POST /api/v1/devices` takes — so the bulk path cannot drift from the
+ * single-device contract. The server rejects more than 50 rows with a 400 and
+ * `fieldErrors.devices`; the screen prevents that locally too, but the server
+ * stays the authority.
+ */
+@Serializable
+data class BulkDeviceRequest(val devices: List<DeviceInput>)
+
+/**
+ * One row the bulk endpoint refused (openapi bulk response `failed[]`).
+ *
+ * [index] points into the **request** array, so a caller that drops blank rows
+ * before sending must reconcile against the filtered list it actually sent.
+ *
+ * [code] is a machine-readable string (e.g. `validation_failed`), [message] is
+ * the server's translated sentence for the row, and [fieldErrors] is the same
+ * field-keyed map the single-device 400 uses (`name`, `category`,
+ * `purchaseDate`, `purchasePrice`, …). The client shows the field errors under
+ * *that row's* inputs, never as one generic error.
+ *
+ * Only [index] is required by the contract. The other three default so a
+ * server that omits an empty `fieldErrors` (or a detail the app cannot use)
+ * still yields an actionable row failure instead of failing to decode the
+ * whole successful batch.
+ */
+@Serializable
+data class BulkDeviceFailure(
+    val index: Int,
+    val code: String = "",
+    val message: String = "",
+    val fieldErrors: Map<String, List<String>> = emptyMap(),
+)
+
+/**
+ * The 200 answer of `POST /api/v1/devices/bulk`.
+ *
+ * Both arrays default to empty: a fully successful batch omits `failed` and a
+ * fully failed batch omits `created` in some server implementations, and either
+ * omission must not turn a 200 into a decode error that hides the [created]
+ * rows which really were stored.
+ */
+@Serializable
+data class BulkDeviceResponse(
+    val created: List<Device> = emptyList(),
+    val failed: List<BulkDeviceFailure> = emptyList(),
+)
+
 // ---- Warranty claims (GET/POST/PATCH/DELETE /api/v1/claims) ----
 //
 // What happens AFTER a device breaks. Before this model existed, `BROKEN` was a

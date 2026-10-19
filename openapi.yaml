@@ -569,6 +569,108 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+  /api/v1/devices/bulk:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    post:
+      tags: [devices]
+      summary: Create up to 50 devices in one batch
+      description: |
+        **Tạo nhiều thiết bị trong một request, có thành công một phần.**
+
+        Đây là endpoint của "dán bảng từ xác nhận đơn hàng" và "vừa mua căn hộ
+        với năm thiết bị": một người có mười hai món trong nhà sẽ không điền
+        mười hai lần, và lần bỏ dở đầu tiên là lần app chỉ còn giữ một nửa dữ
+        liệu của họ.
+
+        ### Kích thước batch
+
+        * `devices` phải có **1..50** phần tử. Mảng rỗng ⇒ **400**
+          `fieldErrors.devices`; quá 50 ⇒ **400** `fieldErrors.devices` (cùng
+          khoá, cùng code `validation`).
+        * Mỗi phần tử là **đúng `DeviceInput`** của `POST /api/v1/devices`, được
+          kiểm tra bằng **cùng** validator, cùng thứ tự kiểm tra và cùng câu
+          thông báo. Không có schema riêng cho bulk.
+
+        ### Thành công một phần
+
+        * Một dòng lỗi **không** làm hỏng 49 dòng còn lại. Dòng lỗi được trả
+          trong `failed`; các dòng hợp lệ được tạo và trả trong `created`.
+        * `failed[].index` là vị trí trong **mảng `devices` của request** (bắt
+          đầu từ 0), không phải vị trí trong danh sách lỗi. Nhờ vậy client đặt
+          được lỗi về đúng dòng dù các dòng thành công xen giữa.
+        * `created` giữ **thứ tự request** (bỏ qua các dòng lỗi, không sắp xếp
+          lại).
+        * `failed[].code` là code **chữ thường** giống endpoint tạo đơn:
+          `validation` hoặc `category_invalid`; `failed[].fieldErrors` dùng
+          đúng khoá của form đơn (`name`, `category`, `purchaseDate`, …).
+        * `created` và `failed` **luôn là mảng**, không bao giờ `null`. Batch
+          toàn lỗi trả **200** với `created: []` và đầy đủ `failed` — không phải
+          409, vì không có dòng nào sắp được ghi.
+
+        ### Hạn mức — kiểm tra cho CẢ batch, trước khi ghi
+
+        Trần thiết bị vẫn là hai trần của `POST /api/v1/devices` (50 thiết bị
+        chưa bán / 500 dòng lưu trữ). Chúng được kiểm tra trên **toàn bộ các
+        dòng hợp lệ của batch**, trước khi INSERT dòng đầu tiên:
+
+        * Nếu batch **sẽ vượt** trần ⇒ **409 `limit_reached`**, **toàn bộ**
+          request bị từ chối, **không tạo dòng nào**. Không bao giờ có chuyện
+          tạo được 37/50 rồi mới chạm tường.
+        * Dòng **không qua validation** không được tính vào phép cộng này: nó
+          sẽ không bao giờ thành row, nên batch 50 dòng với 1 dòng lỗi là batch
+          49 writes.
+        * Phép đếm và mọi INSERT nằm trong **một transaction**, khoá theo
+          `userId`, nên hai request tạo đồng thời không thể cùng đọc "49" rồi
+          cùng ghi thành 51. Đây là lý do 409 xảy ra trước mọi write.
+
+        ### Tính nguyên tử
+
+        Validate từng dòng xảy ra **trước** transaction, nên dòng lỗi chỉ là
+        kết quả `failed` chứ không phải rollback. Nhưng khi đã bắt đầu ghi:
+        **hoặc tất cả các dòng hợp lệ cùng commit, hoặc không dòng nào**. Một
+        lỗi ghi (constraint, mất kết nối, context bị huỷ) rollback cả
+        transaction và trả 500 — không có trạng thái nửa batch.
+
+        ### Danh mục và rate limit
+
+        * `category` của từng dòng được kiểm tra với **catalog đã cache**
+          (`GET /api/v1/catalog` cùng nguồn, TTL 60 giây), không query lại cho
+          từng dòng. Code lạ ⇒ dòng đó `category_invalid`, các dòng khác vẫn
+          chạy.
+        * Rate limit dùng **cùng bucket 60 writes/phút** của người dùng, nhưng
+          **tính theo số dòng**: batch 50 dòng tiêu 50 token, không phải 1.
+          Vượt ⇒ 429 như mọi endpoint ghi.
+        * Response **không** có `warnings` (cảnh báo serial/IMEI) như
+          `POST /api/v1/devices`; contract bulk trả `Device`, không trả
+          `DeviceWriteResult`. Client nào cần cảnh báo serial thì gọi lại
+          `GET /api/v1/devices/{id}` hoặc dùng endpoint đơn.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkDeviceCreateRequest' }
+      responses:
+        '200':
+          description: |
+            Batch đã xử lý. `created` là các thiết bị đã tạo (đúng thứ tự
+            request, không có `warnings`), `failed` là các dòng bị từ chối với
+            `index` trỏ về mảng request. Cả hai luôn là mảng.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkDeviceCreateResponse' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: |
+            **LIMIT_REACHED** — batch sẽ vượt trần thiết bị (50 đang sở hữu
+            hoặc 500 dòng lưu trữ). **Toàn bộ request bị từ chối, không tạo
+            dòng nào.** Đây là 409 của `POST /api/v1/devices`, không phải lỗi
+            theo dòng.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/devices/{id}:
     parameters:
       - { $ref: '#/components/parameters/IdPath' }
@@ -4651,6 +4753,80 @@ components:
                 khi thiết bị chưa từng đi sửa, không bao giờ `null`. Đây là thay
                 đổi additive: người dùng chưa có yêu cầu nhận payload cũ cộng
                 thêm một mảng rỗng.
+
+    # Body of POST /api/v1/devices/bulk. Deliberately wraps the SAME DeviceInput
+    # the single create uses; there is no bulk-only row schema to drift.
+    BulkDeviceCreateRequest:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/DeviceInput' }
+          description: |
+            1..50 thiết bị, mỗi phần tử là đúng `DeviceInput` của
+            `POST /api/v1/devices`. Mảng rỗng hoặc quá 50 ⇒ **400**
+            `fieldErrors.devices`; không có dòng nào được tạo.
+
+            Thứ tự trong mảng là thứ tự của `created` (các dòng lỗi bị bỏ qua,
+            không sắp xếp lại) và là hệ quy chiếu của `failed[].index`.
+
+    # One row that did not become a Device. `index` is the request-array index,
+    # not the failure-list index.
+    BulkDeviceFailure:
+      type: object
+      required: [index, code, message, fieldErrors]
+      properties:
+        index:
+          type: integer
+          minimum: 0
+          description: |
+            Vị trí của dòng trong `devices` của request (bắt đầu từ 0). Dùng
+            khoá này để đặt lỗi về đúng dòng, kể cả khi các dòng thành công xen
+            giữa.
+        code:
+          type: string
+          enum: [validation, category_invalid]
+          description: |
+            Code **chữ thường** giống endpoint tạo đơn: `validation` cho lỗi
+            trường dữ liệu (kể cả ngày sai định dạng), `category_invalid` cho
+            category không có trong catalog. Các code khác không xuất hiện
+            trong `failed`; hạn mức là 409 của cả request.
+        message:
+          type: string
+          description: |
+            Câu thông báo đã render theo ngôn ngữ của request (`lang`, mặc định
+            `en`) — client hiển thị nguyên văn.
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+          description: |
+            Cùng khoá và cùng câu với `fieldErrors` của endpoint tạo đơn
+            (`name`, `category`, `purchaseDate`, `purchasePrice`, …). Luôn là
+            object, `{}` khi lỗi không gắn với trường cụ thể.
+
+    BulkDeviceCreateResponse:
+      type: object
+      required: [created, failed]
+      properties:
+        created:
+          type: array
+          items: { $ref: '#/components/schemas/Device' }
+          description: |
+            Các thiết bị đã tạo, đúng thứ tự request (các dòng lỗi bị bỏ qua,
+            không sắp xếp lại). Không có `warnings`: contract bulk trả `Device`,
+            không phải `DeviceWriteResult`.
+        failed:
+          type: array
+          items: { $ref: '#/components/schemas/BulkDeviceFailure' }
+          description: |
+            Các dòng bị từ chối, cũng theo thứ tự request. Luôn là mảng; rỗng
+            khi cả batch thành công. Batch toàn lỗi trả 200 với `created: []`
+            và đầy đủ `failed`, không phải 409.
 
     DeviceInput:
       type: object

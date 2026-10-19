@@ -22,6 +22,11 @@ func RegisterDevices(mux *http.ServeMux, deps Deps) {
 
 	mux.Handle("GET /api/v1/devices", requireUser(http.HandlerFunc(listDevicesHandler(deps))))
 	mux.Handle("POST /api/v1/devices", requireUser(http.HandlerFunc(createDeviceHandler(deps))))
+	// The literal segment is more specific than the {id} wildcard below, so Go's
+	// ServeMux routes "bulk" here and never into getDeviceHandler's path. The
+	// registration order is irrelevant, but keeping it next to the single create
+	// makes the pair obvious.
+	mux.Handle("POST /api/v1/devices/bulk", requireUser(http.HandlerFunc(bulkCreateDevicesHandler(deps))))
 	mux.Handle("GET /api/v1/devices/{id}", requireUser(http.HandlerFunc(getDeviceHandler(deps))))
 	mux.Handle("PATCH /api/v1/devices/{id}", requireUser(http.HandlerFunc(updateDeviceHandler(deps))))
 	mux.Handle("DELETE /api/v1/devices/{id}", requireUser(http.HandlerFunc(deleteDeviceHandler(deps))))
@@ -93,6 +98,50 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 		// field is additive: the device WAS created, the status stays 201.
 		warnings := services.DeviceSerialWarnings(ctx, deps.DB, us.UserID, device.SerialNumber, device.ID)
 		httpx.WriteJSONC(w, ctx, http.StatusCreated, map[string]any{"device": device, "warnings": warnings})
+	}
+}
+
+// bulkCreateDevicesHandler implements POST /api/v1/devices/bulk.
+//
+// The body is decoded LOOSELY, exactly like the single create (which decodes a
+// map and then remarshals it): unknown top-level or per-row fields are ignored
+// rather than rejecting the whole batch. The contract only names `devices`, and
+// a client that adds a future field must not lose 49 good rows to a 400.
+//
+// Order of operations:
+//  1. decode and enforce the 1..50 shape before anything else, so a 51-row body
+//     is a 400 rather than consuming 51 write tokens;
+//  2. charge the per-user write bucket once per ROW, not once per request — see
+//     ratelimit.CheckUserWriteN and the contract's "a batch is one request but
+//     50 writes";
+//  3. hand the batch to the service, which validates each row independently and
+//     writes the passing ones in one transaction.
+func bulkCreateDevicesHandler(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := i18n.Attach(r)
+		us, _ := auth.UserFromContext(ctx)
+
+		var body struct {
+			Devices []services.DeviceInput `json:"devices"`
+		}
+		if err := decodeJSONLoose(r, &body); err != nil {
+			badJSONBody(w, ctx)
+			return
+		}
+		if err := services.ValidateBulkBatchSize(ctx, len(body.Devices)); err != nil {
+			writeDevicesErr(w, ctx, err, "bulk create devices")
+			return
+		}
+		if !ensureUserWriteRateN(w, r, deps, us.UserID, len(body.Devices)) {
+			return
+		}
+
+		result, err := services.BulkCreateDevices(ctx, deps.DB, us.UserID, body.Devices)
+		if err != nil {
+			writeDevicesErr(w, ctx, err, "bulk create devices")
+			return
+		}
+		httpx.WriteJSONC(w, ctx, http.StatusOK, result)
 	}
 }
 
@@ -170,8 +219,17 @@ func deleteDeviceHandler(deps Deps) http.HandlerFunc {
 // of mutating the request, so `r.Context()` here would carry only the
 // middleware's Accept-Language tag and the 429 would ignore `?lang=`.
 func ensureUserWriteRate(w http.ResponseWriter, r *http.Request, deps Deps, userID string) bool {
+	return ensureUserWriteRateN(w, r, deps, userID, 1)
+}
+
+// ensureUserWriteRateN is ensureUserWriteRate with an explicit cost. The bulk
+// endpoint charges one token per device row (a 50-row batch costs 50 of the
+// 60/minute budget), because treating it as a single write would multiply the
+// effective write ceiling by the batch size. The reply and language handling are
+// identical to the single-write helper.
+func ensureUserWriteRateN(w http.ResponseWriter, r *http.Request, deps Deps, userID string, cost int) bool {
 	ctx := i18n.Attach(r)
-	rl, _ := ratelimit.CheckUserWrite(ctx, deps.Limiter, userID)
+	rl, _ := ratelimit.CheckUserWriteN(ctx, deps.Limiter, userID, cost)
 	if !rl.Ok {
 		rateLimited(w, ctx, rl.RetryAfterSec)
 		return false

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the default language.
+
+  Bulk device add (`BulkAddRules.kt`, `BulkAddViewModel.kt`,
+  `BulkAddDevicesScreen.kt`). The screen is shaped for the person who just moved
+  into a flat and is entering a handful of appliances in one sitting: one small
+  row per device, saved independently, with only the fields needed for a useful
+  device record.
+
+  Format specifiers are load-bearing: `StringResourceParityTest` requires the
+  same verbs in `values-vi/strings_bulk.xml`, and Android lint treats a
+  `%d`/`%s` mismatch against the Kotlin arguments as an error.
+-->
+<resources>
+    <string name="bulk_title">Add several devices</string>
+    <string name="bulk_entry_action">Add several</string>
+    <string name="bulk_intro">One row per device. Each row is saved on its own, so one bad row does not stop the rest.</string>
+    <string name="bulk_fields_hint">Name, category, purchase date and price are enough. Add brand, serial, warranty and receipts to each device afterwards. Prices are in VND; you can change the currency on a device later.</string>
+    <string name="bulk_row_label">Row %1$d</string>
+    <string name="bulk_remove_row">Remove this row</string>
+    <string name="bulk_add_row">Add another row</string>
+    <string name="bulk_row_count">Rows %1$d / %2$d</string>
+    <string name="bulk_name_label">Device name *</string>
+    <string name="bulk_category_label">Category</string>
+    <string name="bulk_date_label">Purchase date (YYYY-MM-DD) *</string>
+    <string name="bulk_price_label">Price (VND)</string>
+    <string name="bulk_price_hint">Leave empty if you do not know the price.</string>
+
+    <plurals name="bulk_submit_count">
+        <item quantity="one">Add %1$d device</item>
+        <item quantity="other">Add %1$d devices</item>
+    </plurals>
+    <string name="bulk_submit_empty">Add devices</string>
+    <plurals name="bulk_retry_count">
+        <item quantity="one">Retry %1$d failed row</item>
+        <item quantity="other">Retry %1$d failed rows</item>
+    </plurals>
+    <plurals name="bulk_success_all">
+        <item quantity="one">Added %1$d device.</item>
+        <item quantity="other">Added %1$d devices.</item>
+    </plurals>
+    <string name="bulk_success_all_body">They are already in your device list.</string>
+    <plurals name="bulk_partial_title">
+        <item quantity="one">Added %1$d of %2$d device.</item>
+        <item quantity="other">Added %1$d of %2$d devices.</item>
+    </plurals>
+    <plurals name="bulk_failed_fix_hint">
+        <item quantity="one">Fix the row below and retry only that row.</item>
+        <item quantity="other">Fix the %1$d rows below and retry only those rows.</item>
+    </plurals>
+    <plurals name="bulk_unaccounted_warning">
+        <item quantity="one">The server did not report on %1$d row. Check the device list before adding it again.</item>
+        <item quantity="other">The server did not report on %1$d rows. Check the device list before adding them again.</item>
+    </plurals>
+
+    <!-- ===== The all-or-nothing quota 409 (`limit_reached`).
+         Unlike a failed row, this refused the WHOLE batch before saving
+         anything. The body says that explicitly, and the remaining count is
+         computed from the account's current device list (`bulkQuota`). ===== -->
+    <string name="bulk_limit_title">No devices were added</string>
+    <string name="bulk_limit_body">This batch would go over the device limit, so the server refused the whole request before saving anything. None of these rows were created.</string>
+    <plurals name="bulk_limit_remaining">
+        <item quantity="one">Your account can still take %1$d more new device.</item>
+        <item quantity="other">Your account can still take %1$d more new devices.</item>
+    </plurals>
+    <string name="bulk_limit_remaining_zero">Your account has no slots left for a new device.</string>
+    <string name="bulk_limit_remaining_unknown">Your account has hit the device limit.</string>
+    <string name="bulk_limit_hint">Mark an old device as sold, or delete one, then try this batch again.</string>
+
+    <string name="bulk_error_title">Could not add the devices</string>
+    <string name="bulk_dismiss">Dismiss</string>
+    <string name="bulk_done">Done</string>
+</resources>

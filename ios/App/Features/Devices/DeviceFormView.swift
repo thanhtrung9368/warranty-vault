@@ -1828,7 +1828,10 @@ private struct AutocompleteRow: View {
 
 // MARK: - Category picker sheet
 
-private struct CategoryPickerSheet: View {
+/// Shared by the single-device form and `BulkDeviceAddView`: both pick from the
+/// same catalog, and a second copy of this list would be a second place for the
+/// selected-checkmark rule to drift.
+struct CategoryPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selected: String
     let options: [CategoryOption]
@@ -1864,7 +1867,9 @@ private struct CategoryPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { dismiss() }
+                    // `L.t`, not a literal: this sheet is now also part of the
+                    // bulk flow, and an English UI must not show "Xong".
+                    Button(L.t("Xong")) { dismiss() }
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                 }

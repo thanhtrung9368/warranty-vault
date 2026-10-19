@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { Plus, Paperclip, Package, Search, Coins, ClipboardPaste } from 'lucide-react';
+import {
+  Plus,
+  Paperclip,
+  Package,
+  Search,
+  Coins,
+  ClipboardPaste,
+  ListPlus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -88,6 +96,12 @@ export default async function DevicesPage({
             <Link href="/devices/import">
               <ClipboardPaste className="mr-1 h-4 w-4" />
               {t('Dán bảng')}
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="rounded-pill">
+            <Link href="/devices/bulk">
+              <ListPlus className="mr-1 h-4 w-4" />
+              {t('Thêm hàng loạt')}
             </Link>
           </Button>
           <Button asChild size="lg" className="rounded-pill">

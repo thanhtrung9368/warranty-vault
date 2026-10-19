@@ -139,6 +139,24 @@ interface ApiService {
     @POST("api/v1/devices")
     suspend fun createDevice(@Body body: DeviceInput): DeviceResponse
 
+    /**
+     * `POST /api/v1/devices/bulk` — many devices in one request, **partial
+     * success** per row.
+     *
+     * The answer is a normal 200 even when some rows failed; a row's refusal
+     * lives in `failed[]` (matched by request index), not in the HTTP status.
+     * Only a batch-level problem is an error:
+     *
+     *  * **409 `limit_reached`** — the whole batch would exceed the device
+     *    quota. Nothing was created; the screen says so and shows the remaining
+     *    slots (see `ui/screens/devices/BulkAddRules.kt`).
+     *  * **400 `fieldErrors.devices`** — more than 50 rows in the body.
+     *
+     * Both are read from the one-shot error body by `bulkRequestError`.
+     */
+    @POST("api/v1/devices/bulk")
+    suspend fun bulkCreateDevices(@Body body: BulkDeviceRequest): BulkDeviceResponse
+
     @PATCH("api/v1/devices/{id}")
     suspend fun updateDevice(@Path("id") id: String, @Body body: DeviceInput): DeviceResponse
 

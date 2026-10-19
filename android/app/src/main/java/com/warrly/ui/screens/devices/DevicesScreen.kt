@@ -162,6 +162,13 @@ fun DevicesScreen(
     onOpenDevice: (String) -> Unit = {},
     onOpenSearch: () -> Unit = {},
     /**
+     * Opens the bulk-add screen (many devices in one batch, partial success per
+     * row). The entry point lives in the top bar rather than as a second FAB:
+     * the single-device FAB is the common action, and "add several" is a
+     * deliberate detour for the move-in / new-household case.
+     */
+    onOpenBulkAdd: () -> Unit = {},
+    /**
      * Switches the shell to the capture-first inbox. Passed down to the create
      * sheet because a receipt scan uploads its file there *before* the device is
      * saved — the draft's "Open the Inbox" action must reach it without losing
@@ -208,6 +215,12 @@ fun DevicesScreen(
             TopAppBar(
                 title = { Text("") },
                 actions = {
+                    // Bulk add: the entry point for a new household entering
+                    // several devices at once. The single-device sheet stays on
+                    // the FAB; this is a detour, not the default.
+                    TextButton(onClick = onOpenBulkAdd) {
+                        Text(stringResource(R.string.bulk_entry_action))
+                    }
                     // Global search (`GET /v1/search`), distinct from the filter
                     // box below: that one narrows this list server-side, this one
                     // looks across devices, subscriptions and wishlist.

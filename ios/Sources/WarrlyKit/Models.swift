@@ -953,6 +953,111 @@ public struct DeviceInput: Encodable, Sendable {
     }
 }
 
+// MARK: - Bulk device create
+//
+// `POST /api/v1/devices/bulk` — the frozen contract this file mirrors:
+//
+//   request   `{"devices": [<DeviceInput>, ...]}`, at most 50 rows
+//             (over 50 → 400 with `fieldErrors.devices`)
+//   response  `{"created": [<Device>], "failed": [{index, code, message,
+//              fieldErrors}]}`
+//
+// The endpoint is deliberately **partial-success**: a bad row does not roll back
+// the good ones. `index` refers to the request array, which is what lets the
+// caller keep a failed row editable and resubmit only that row. A batch that
+// would break the account's device quota is the one all-or-nothing case: 409
+// `LIMIT_REACHED`, and nothing is created.
+//
+// These are wire types only. The decision-making (row → input, reconciling
+// `created`/`failed` back onto the request rows, the 409 branch, quota
+// arithmetic) lives in `BulkDevices.swift` so it can be tested before the
+// server exists.
+
+/// Body of `POST /api/v1/devices/bulk`.
+public struct BulkCreateDevicesRequest: Encodable, Sendable {
+    public let devices: [DeviceInput]
+
+    public init(devices: [DeviceInput]) {
+        self.devices = devices
+    }
+}
+
+/// One row the bulk endpoint refused, keyed by its position in the **request**
+/// array (`index`), never by the position of the failure in `failed`.
+public struct BulkDeviceFailure: Decodable, Sendable, Equatable {
+    /// Index into the request array. This is the only correlation the contract
+    /// gives us between a failure and the row the user has to fix.
+    public let index: Int
+
+    /// Wire code (`VALIDATION`, `CATEGORY_INVALID`, ...). Kept as a string so a
+    /// code this build has never heard of still decodes; the UI shows the
+    /// server's `message` and `fieldErrors` rather than switching on the code.
+    public let code: String
+
+    /// Vietnamese/localised sentence written to be shown as-is. Optional
+    /// because an older/foreign payload may omit it; the caller then falls back
+    /// to its own "this row was not saved" copy.
+    public let message: String?
+
+    /// Per-field validation errors for this one row, in the same shape as the
+    /// single-device endpoints. Optional for the same reason as `message`.
+    public let fieldErrors: [String: [String]]?
+
+    /// Never-nil view for the UI.
+    public var fieldErrorsOrEmpty: [String: [String]] { fieldErrors ?? [:] }
+
+    /// `message` with blank/whitespace-only treated as absent. The server's
+    /// sentence is surfaced verbatim when present.
+    public var messageOrNil: String? {
+        guard let message else { return nil }
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case index, code, message, fieldErrors
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // `index` is required: without it the failure cannot be attached to a
+        // row at all. `code` is display-only, so a missing one degrades to ""
+        // instead of throwing the whole row away.
+        index = try c.decode(Int.self, forKey: .index)
+        code = try c.decodeIfPresent(String.self, forKey: .code) ?? ""
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        fieldErrors = try c.decodeIfPresent([String: [String]].self, forKey: .fieldErrors)
+    }
+}
+
+/// Response of `POST /api/v1/devices/bulk`.
+///
+/// ## Lenient decode on purpose
+///
+/// `created`/`failed` are required by the contract, but a strict decode here
+/// has the worst possible failure mode: the HTTP request succeeded, devices
+/// **were** created, and the client would report an error — inviting the user to
+/// retry the same batch and create duplicates. An absent array therefore means
+/// "none reported" (`[]`), and the reconciliation treats a row that is neither
+/// created nor failed as unconfirmed rather than silently successful.
+public struct BulkCreateDevicesResult: Decodable, Sendable, Equatable {
+    /// The devices the server actually created. The contract attaches no index
+    /// to these, so their order is the request order of the successful rows —
+    /// see `BulkDeviceRules.reconcile`.
+    public let created: [Device]
+
+    /// Per-row failures, each carrying the request `index` it belongs to.
+    public let failed: [BulkDeviceFailure]
+
+    enum CodingKeys: String, CodingKey { case created, failed }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        created = try c.decodeIfPresent([Device].self, forKey: .created) ?? []
+        failed = try c.decodeIfPresent([BulkDeviceFailure].self, forKey: .failed) ?? []
+    }
+}
+
 // MARK: - FX rates
 //
 // `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale}`. The app

@@ -358,7 +358,10 @@ export const devices = defineMessages({
   'Tự nhận diện': 'Detect automatically',
   'Là tiêu đề cột': 'It is a header row',
   'Là dữ liệu': 'It is data',
-  'Tạo {count} thiết bị': 'Create {count} devices',
+  'Tạo {count} thiết bị': {
+    en: 'Create {count} devices',
+    enOne: 'Create {count} device',
+  },
   'Tạo thiết bị': 'Create a device',
   'Đang tạo…': 'Creating…',
   'Xem trước': 'Preview',
@@ -494,4 +497,77 @@ export const devices = defineMessages({
     'No row was valid enough to create ({count} bad rows).',
   'Không tạo được thiết bị nào — xem lý do ở từng dòng bên dưới.':
     'No device could be created — see the reason on each row below.',
+
+  // ── Bulk add (`devices/bulk`, `components/device-bulk-add.tsx`) ──────────
+  //
+  // This screen is the row-editor shape, not a paste box: the existing
+  // `devices/import` already covers "paste a table from a shop / spreadsheet".
+  // The copy therefore explains the four minimum fields and the partial-success
+  // rule, and keeps the paste flow one click away.
+  'Thêm hàng loạt': 'Bulk add',
+  'Thêm nhiều thiết bị một lúc': 'Add several devices at once',
+  'Mỗi dòng một thiết bị. Chỉ cần tên, loại, ngày mua và giá — phần còn lại thêm sau ở trang chi tiết.':
+    'One device per row. Just the name, category, purchase date and price — everything else can be added later on the detail page.',
+  'Mỗi dòng chỉ cần bốn thông tin: tên, loại, ngày mua và giá.':
+    'Each row only needs four things: name, category, purchase date and price.',
+  'Hãng, model, serial, bảo hành, nơi mua, ghi chú... thêm sau ở trang chi tiết.':
+    'Brand, model, serial, warranty, store and notes can be added later on the detail page.',
+  'Giá trong bảng này tính bằng VND. Thiết bị mua bằng ngoại tệ cần thêm ở form đơn để có tỷ giá.':
+    'Prices in this table are in VND. Devices bought in a foreign currency need the single-device form so the exchange rate can be recorded.',
+  'Tối đa 50 dòng mỗi lần. Dòng hợp lệ vẫn được tạo kể cả khi dòng khác lỗi — sửa dòng lỗi rồi gửi lại, các dòng đã tạo không bị tạo lại.':
+    'Up to 50 rows at a time. Valid rows are still created even when another row fails — fix the failed one and resubmit; created rows are not created again.',
+  'Có sẵn danh sách từ cửa hàng?': 'Already have a list from the shop?',
+  'Thêm dòng': 'Add row',
+  'Xoá dòng': 'Remove row',
+  '{count}/{max} dòng': '{count} of {max} rows',
+  'Đã đạt tối đa {max} dòng mỗi lần.':
+    'You can add at most {max} rows at a time.',
+  'Đã tạo': 'Created',
+  'Cần sửa': 'Needs fixing',
+  'Chưa rõ kết quả': 'Unclear result',
+  'Sửa lỗi ở các dòng được đánh dấu rồi gửi lại — chỉ những dòng lỗi được gửi đi.':
+    'Fix the highlighted rows and resubmit — only the rows that failed are sent.',
+  'vd: Tủ lạnh Samsung': 'e.g. Samsung fridge',
+  'Các dòng đã tạo giữ nguyên; lần gửi sau chỉ gồm các dòng còn lỗi hoặc dòng mới.':
+    'Created rows stay as they are; the next submission only includes failed or new rows.',
+  'Không đọc được dữ liệu các dòng — tải lại trang rồi thử lại.':
+    'Could not read the row data — reload the page and try again.',
+  'Chưa có dòng nào để tạo — nhập ít nhất một thiết bị.':
+    'There is nothing to create yet — fill in at least one device.',
+  'Không tạo được thiết bị nào — cả lô vượt giới hạn thiết bị của tài khoản.':
+    'No device was created — the whole batch would exceed this account’s device limit.',
+  'Đã tạo {created}/{total} thiết bị.': {
+    en: 'Created {created} of {total} devices.',
+    enOne: 'Created {created} of {total} device.',
+  },
+  'Đã tạo 0/{total} thiết bị — sửa các dòng lỗi rồi gửi lại.': {
+    en: 'Created 0 of {total} devices — fix the failed rows and resubmit.',
+    enOne: 'Created 0 of {total} device — fix the failed row and resubmit.',
+  },
+  'Đã tạo {created}/{total} thiết bị. Còn {failed} dòng cần sửa.':
+    'Created {created} of {total} devices. Rows still needing a fix: {failed}.',
+  'Chỉ được thêm tối đa {max} thiết bị mỗi lần.':
+    'You can add at most {max} devices per batch.',
+  'Không có thiết bị nào trong lô này được tạo.':
+    'No device in this batch was created.',
+  'Tài khoản còn nhận thêm {remaining} thiết bị.': {
+    en: 'The account can take {remaining} more devices.',
+    enOne: 'The account can take {remaining} more device.',
+  },
+  'Đang có {active}/{max} thiết bị chưa bán.':
+    'Currently {active} of {max} unsold devices.',
+  'Đang có {total}/{max} hồ sơ thiết bị (tính cả thiết bị đã bán).':
+    'Currently {total} of {max} device records, sold devices included.',
+  'Bớt còn tối đa {remaining} dòng rồi gửi lại.': {
+    en: 'Reduce the batch to at most {remaining} rows and resubmit.',
+    enOne: 'Reduce the batch to at most {remaining} row and resubmit.',
+  },
+  'Tài khoản đã đầy — xoá bớt thiết bị rồi thử lại.':
+    'The account is full — delete some devices and try again.',
+  'Không đọc được số suất còn lại — kiểm tra danh sách thiết bị rồi thử lại.':
+    'Could not read the remaining device slots — check the device list and try again.',
+  'Không tải được danh mục loại thiết bị — tải lại trang rồi thử lại.':
+    'Could not load the category catalog — reload the page and try again.',
+  'Dòng này chưa có kết quả từ máy chủ — kiểm tra danh sách thiết bị trước khi gửi lại.':
+    'This row has no result from the server — check the device list before resubmitting.',
 });

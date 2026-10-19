@@ -6,7 +6,7 @@ import WarrlyKit
 //
 // Ports DevicesScreen from project/ios/js/screens-1.jsx.
 // Searchable list of devices, status filter, sort sheet.
-// "+" toolbar button → push DeviceFormView (create mode).
+// "+" toolbar menu → DeviceFormView (one device) or BulkDeviceAddView (a batch).
 // ============================================================
 
 struct DevicesScreen: View {
@@ -31,6 +31,11 @@ struct DevicesScreen: View {
     @State private var captureSucceeded = false
     @State private var showCaptureAlert = false
     @State private var showInbox = false
+    /// The "+" menu's two pushes. Value-based links inside a `Menu` are
+    /// unreliable across iOS versions, so the menu buttons drive these flags and
+    /// the destinations below own the navigation.
+    @State private var showCreateForm = false
+    @State private var showBulkAdd = false
 
     init(client: APIClient) {
         self.client = client
@@ -184,11 +189,27 @@ struct DevicesScreen: View {
                 }
                 .accessibilityLabel(L.t("Thêm hoá đơn"))
 
-                NavigationLink(value: DeviceFormNav.create) {
+                // Two ways to add: one device (the long form) or a batch (the
+                // four-field rows). The batch lives one tap behind the same "+"
+                // so a new account discovers it where it already looks, without
+                // displacing the single-device path every existing flow uses.
+                Menu {
+                    Button {
+                        showCreateForm = true
+                    } label: {
+                        Label(L.t("Thêm thiết bị"), systemImage: "plus")
+                    }
+                    Button {
+                        showBulkAdd = true
+                    } label: {
+                        Label(BulkDeviceCopy.title, systemImage: "square.stack.3d.up")
+                    }
+                } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(WVColor.tint)
                 }
+                .accessibilityLabel(L.t("Thêm thiết bị"))
             }
         }
         .navigationDestination(for: DeviceFormNav.self) { nav in
@@ -198,6 +219,12 @@ struct DevicesScreen: View {
             case .edit(let device):
                 DeviceFormView(client: client, store: store, device: device)
             }
+        }
+        .navigationDestination(isPresented: $showCreateForm) {
+            DeviceFormView(client: client, store: store, device: nil)
+        }
+        .navigationDestination(isPresented: $showBulkAdd) {
+            BulkDeviceAddView(store: store)
         }
         .navigationDestination(for: Device.self) { device in
             DeviceDetailView(client: client, devicesStore: store, device: device)
@@ -259,6 +286,13 @@ struct DevicesScreen: View {
                     VStack(spacing: 10) {
                         NavigationLink(value: DeviceFormNav.create) {
                             WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
+                        }
+                        // The empty list is the strongest bulk case: someone
+                        // setting up a new flat has nothing here yet and a
+                        // stack of appliances to enter. Offer it before the
+                        // receipt path, which is not about device rows at all.
+                        WVButton(BulkDeviceCopy.title, icon: "package", kind: .secondary) {
+                            showBulkAdd = true
                         }
                         // A brand-new account is the strongest capture-first
                         // case: the receipt exists but there is no device row

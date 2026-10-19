@@ -353,6 +353,40 @@ export type DeviceWriteResult = {
   warnings: DeviceWarning[];
 };
 
+// ── Bulk create (POST /v1/devices/bulk) ─────────────────────────────────────
+//
+// The frozen contract:
+//
+//   POST /api/v1/devices/bulk
+//   body   { devices: DeviceInput[] }   — at most 50 rows
+//   200    { created: Device[], failed: BulkDeviceFailure[] }
+//   409    LIMIT_REACHED — the whole batch is refused and nothing is created
+//
+// This endpoint is deliberately NOT all-or-nothing for validation: a bad row is
+// reported in `failed` while the other rows are created. `created` carries no
+// index, because a created device already has everything a caller needs; the
+// `index` on each failure is the position in the request array, which is what
+// lets a client put the error back on the row that produced it
+// (`lib/device-bulk.ts::reconcileBulkRows`).
+//
+// `fieldErrors` uses the same keys as the single-device endpoint (`name`,
+// `category`, `purchaseDate`, `purchasePrice`, …), so a bulk row can render the
+// server's field-level copy exactly like the full device form does.
+export type BulkDeviceFailure = {
+  /** Position in the request's `devices` array. */
+  index: number;
+  /** `validation`, `category_invalid`, … (lower-case on the wire). */
+  code: string;
+  /** Already localised by Go — render as-is. */
+  message: string;
+  fieldErrors?: Record<string, string[]>;
+};
+
+export type BulkDeviceResponse = {
+  created: Device[];
+  failed: BulkDeviceFailure[];
+};
+
 // ---- Methods -----------------------------------------------------------------
 
 function toQueryString(filter: DeviceListFilter | undefined): string {
@@ -390,6 +424,32 @@ export async function create(input: DeviceInput): Promise<ApiResult<DeviceWriteR
   return {
     ok: true,
     data: { device: res.data.device, warnings: normalizeDeviceWarnings(res.data.warnings) },
+  };
+}
+
+/**
+ * `POST /v1/devices/bulk` — up to 50 devices in one request, partial success.
+ *
+ * The row cap is enforced before the call (`lib/device-bulk.ts`), but the server
+ * is still the authority: a batch over the cap answers 400 with
+ * `fieldErrors.devices`. A batch that would break the account's device quota is
+ * refused whole with 409 `LIMIT_REACHED` — see `isBulkLimitFailure`.
+ *
+ * `created` and `failed` are normalised to arrays so a malformed/older server
+ * cannot make the UI crash on iteration. The created devices intentionally carry
+ * no `warnings`: the bulk contract returns `Device`, not `DeviceWriteResult`.
+ */
+export async function bulkCreate(
+  devices: DeviceInput[],
+): Promise<ApiResult<BulkDeviceResponse>> {
+  const res = await apiFetch<BulkDeviceResponse>('POST', '/v1/devices/bulk', { devices });
+  if (!res.ok) return res;
+  return {
+    ok: true,
+    data: {
+      created: res.data.created ?? [],
+      failed: res.data.failed ?? [],
+    },
   };
 }
 

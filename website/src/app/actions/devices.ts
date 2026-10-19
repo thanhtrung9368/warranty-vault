@@ -3,7 +3,12 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { api, toFormState, type ApiResult, type FormState } from '@/lib/api';
-import type { DeviceDetail, DeviceInput } from '@/lib/api/devices';
+import type {
+  BulkDeviceFailure,
+  Device,
+  DeviceDetail,
+  DeviceInput,
+} from '@/lib/api/devices';
 import { returnWindowFieldsFromFormData } from '@/lib/device-return-window';
 import { leadDaysError, leadDaysFromFormData } from '@/lib/lead-days';
 import {
@@ -19,6 +24,16 @@ import {
   normalizeCurrency,
   type FxRateProblem,
 } from '@/lib/currency';
+import {
+  BULK_DEVICE_MAX_ROWS,
+  bulkDeviceInputFromDraft,
+  bulkDeviceQuotaFromStats,
+  bulkRowCapErrorKey,
+  isBlankBulkDeviceDraft,
+  isBulkLimitFailure,
+  parseBulkDeviceRowsJson,
+  type BulkDeviceQuota,
+} from '@/lib/device-bulk';
 import {
   clearDeviceWarningsFlash,
   setDeviceWarningsFlash,
@@ -560,5 +575,164 @@ export async function importDevicesFromPaste(
     notAttemptedCount,
     stopReason,
     stopMessage,
+  };
+}
+
+// ── Bulk add (POST /api/v1/devices/bulk) ────────────────────────────────────
+//
+// One request for up to 50 rows, with PARTIAL SUCCESS: Go creates every row it
+// accepts and returns the refused ones with their request-array index. The
+// action does not pre-validate device fields — that would turn "row 3 has no
+// purchase date" into a local rejection before the valid rows reach the server,
+// which is the opposite of the contract. Only the batch-level rules live here:
+// nothing to submit, the 50-row cap, and the 409 branch.
+//
+// The client sends the rows as JSON in one hidden field. It already sends only
+// the rows that still need work (the created ones are removed from the payload),
+// and this action re-filters blank rows so a stray empty row cannot consume a
+// request slot. The row ids ride along purely for reconciliation: they are not
+// sent to Go.
+
+export type BulkDeviceFormState = FormState & {
+  /** Rows the action actually forwarded (blank rows filtered out). */
+  submittedCount?: number;
+  /** Client row ids, in the same order as the forwarded rows. */
+  submittedIds?: string[];
+  createdCount?: number;
+  failedCount?: number;
+  /** Raw 200 payload; `reconcileBulkRows` maps it back onto the rows. */
+  created?: Device[];
+  failed?: BulkDeviceFailure[];
+  /**
+   * 409 LIMIT_REACHED: the whole batch was refused and NOTHING was created.
+   * This must never be rendered like a per-row validation failure.
+   */
+  limitReached?: boolean;
+  /** Fresh active-device snapshot, fetched for the 409 banner. */
+  quota?: BulkDeviceQuota | null;
+};
+
+/**
+ * How many devices the account can still take. A failed stats read is not an
+ * error in its own right — the 409 is already the error — so the banner falls
+ * back to an honest "could not read the remaining slots" line.
+ *
+ * `bulkDeviceQuotaFromStats` folds the active-device ceiling and the total-row
+ * storage ceiling into one `remaining`, because either can be why the batch was
+ * refused.
+ */
+async function readBulkDeviceQuota(): Promise<BulkDeviceQuota | null> {
+  const stats = await api.stats.get();
+  return stats.ok ? bulkDeviceQuotaFromStats(stats.data) : null;
+}
+
+export async function bulkCreateDevices(
+  _prev: BulkDeviceFormState,
+  formData: FormData,
+): Promise<BulkDeviceFormState> {
+  // The page is behind requireUser(), but this action is a public endpoint of
+  // the app and must not be usable without an identity (the API would 401 too).
+  await requireUser();
+  const { t } = await getI18n();
+
+  const raw = formData.get('rows');
+  const parsed = parseBulkDeviceRowsJson(typeof raw === 'string' ? raw : null);
+  if (parsed == null) {
+    return {
+      ok: false,
+      message: t('Không đọc được dữ liệu các dòng — tải lại trang rồi thử lại.'),
+    };
+  }
+
+  const rows = parsed.filter((row) => !isBlankBulkDeviceDraft(row));
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      message: t('Chưa có dòng nào để tạo — nhập ít nhất một thiết bị.'),
+    };
+  }
+
+  // The contract's cap is 50 rows. The UI already stops there, so this is the
+  // server-action backstop and produces the same `fieldErrors.devices` shape a
+  // server-side 400 would.
+  const capKey = bulkRowCapErrorKey(rows.length);
+  if (capKey) {
+    const message = t(capKey, { max: BULK_DEVICE_MAX_ROWS });
+    return {
+      ok: false,
+      message,
+      errors: { devices: [message] },
+      submittedCount: rows.length,
+    };
+  }
+
+  const inputs = rows.map(bulkDeviceInputFromDraft);
+  const res = await api.devices.bulkCreate(inputs);
+  const submitted = {
+    submittedCount: rows.length,
+    submittedIds: rows.map((row) => row.id),
+  };
+
+  if (!res.ok) {
+    // 409 is the one failure where the batch is atomic in the OPPOSITE
+    // direction: nothing was created, so no row may be marked as failed or
+    // created. The UI renders this as a separate whole-batch refusal and shows
+    // the remaining slots from the fresh stats snapshot.
+    if (isBulkLimitFailure(res)) {
+      const quota = await readBulkDeviceQuota();
+      return {
+        ...submitted,
+        ok: false,
+        limitReached: true,
+        quota,
+        message:
+          res.message ??
+          t('Không tạo được thiết bị nào — cả lô vượt giới hạn thiết bị của tài khoản.'),
+      };
+    }
+
+    // Any other failure is batch-level too (transport, 401, 429, an over-cap
+    // 400). Rows stay editable and are not reconciled against a response that
+    // does not exist.
+    return { ...submitted, ...(await toFormState(res)) };
+  }
+
+  // Every page that reads devices is force-dynamic, so this is defensive — the
+  // same reasoning as `importDevicesFromPaste` above. A bulk write is simply the
+  // case where a stale view is most visible.
+  revalidatePath('/devices');
+
+  const createdCount = res.data.created.length;
+  const failedCount = res.data.failed.length;
+  const total = rows.length;
+  const message =
+    failedCount === 0
+      ? t('Đã tạo {created}/{total} thiết bị.', {
+          created: createdCount,
+          total,
+          count: total,
+        })
+      : createdCount === 0
+        ? t('Đã tạo 0/{total} thiết bị — sửa các dòng lỗi rồi gửi lại.', {
+            total,
+            count: total,
+          })
+        : t('Đã tạo {created}/{total} thiết bị. Còn {failed} dòng cần sửa.', {
+            created: createdCount,
+            total,
+            failed: failedCount,
+            count: total,
+          });
+
+  return {
+    ...submitted,
+    // Partial success is still a success for the caller: the created rows are
+    // real. The per-row state (not this flag) drives the row badges.
+    ok: createdCount > 0,
+    message,
+    createdCount,
+    failedCount,
+    created: res.data.created,
+    failed: res.data.failed,
   };
 }

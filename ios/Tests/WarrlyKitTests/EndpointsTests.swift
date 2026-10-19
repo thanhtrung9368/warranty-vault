@@ -302,6 +302,85 @@ final class EndpointsTests: KitTestCase {
                        "IMEI đủ 15 chữ số nhưng sai số kiểm tra — có thể gõ nhầm một chữ số.")
     }
 
+    // MARK: - Bulk device add
+
+    /// The body is exactly `{"devices": [...]}`, every row is a normal
+    /// `DeviceInput`, and the response carries both halves of the partial
+    /// success. A bulk row must not silently grow fields the screen never asked
+    /// the user for.
+    func testBulkDeviceCreatePostsDevicesArrayAndDecodesPartialSuccess() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"created": [
+          {"id": "dev_1", "name": "Tủ lạnh", "category": "FRIDGE",
+           "purchaseDate": "2025-04-02", "purchasePrice": 12000000, "status": "ACTIVE"}
+         ],
+         "failed": [
+          {"index": 0, "code": "VALIDATION", "message": "Tên thiết bị bắt buộc",
+           "fieldErrors": {"name": ["Tên thiết bị bắt buộc"]}}
+         ]}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+        var first = DeviceInput(name: "", category: "FRIDGE", purchaseDate: "2025-04-02")
+        first.purchasePrice = 12_000_000
+        let second = DeviceInput(name: "Máy giặt", category: "WASHING",
+                                 purchaseDate: "2025-04-02")
+
+        let result = try await client.createDevicesBulk([first, second])
+
+        XCTAssertEqual(result.created.map(\.id), ["dev_1"])
+        XCTAssertEqual(result.failed.map(\.index), [0])
+        XCTAssertEqual(result.failed.first?.fieldErrorsOrEmpty["name"],
+                       ["Tên thiết bị bắt buộc"])
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/devices/bulk")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+
+        let body = try request.jsonBody()
+        XCTAssertEqual(body.keys.sorted(), ["devices"],
+                       "the bulk body has exactly one key: devices")
+        let devices = try XCTUnwrap(body["devices"] as? [[String: Any]])
+        XCTAssertEqual(devices.count, 2)
+        XCTAssertEqual(devices[0]["name"] as? String, "")
+        XCTAssertEqual(devices[0]["category"] as? String, "FRIDGE")
+        XCTAssertEqual(devices[0]["purchaseDate"] as? String, "2025-04-02")
+        XCTAssertEqual(devices[0]["purchasePrice"] as? Int, 12_000_000)
+        XCTAssertEqual(devices[0]["currency"] as? String, "VND")
+        XCTAssertTrue(devices[0]["fxRate"] is NSNull)
+        XCTAssertNil(devices[0]["brand"], "a bulk row does not invent extra fields")
+        XCTAssertNil(devices[0]["serialNumber"])
+        XCTAssertEqual(devices[1]["name"] as? String, "Máy giặt")
+    }
+
+    /// The quota 409 is a **whole-batch** rejection: the HTTP call throws, and
+    /// `BulkDeviceRules.submitFailure` classifies it separately so the screen
+    /// can keep every draft. The endpoint itself must not turn it into a
+    /// successful partial result.
+    func testBulkDeviceCreateSurfacesWholeBatchLimitReached() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"error": "LIMIT_REACHED", "message": "Bạn đã đạt giới hạn thiết bị"}
+        """#, statusCode: 409))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let captured = await captureAPIError {
+            try await client.createDevicesBulk([
+                DeviceInput(name: "Tủ lạnh", category: "FRIDGE",
+                            purchaseDate: "2025-04-02"),
+            ])
+        }
+        let error = try XCTUnwrap(captured)
+
+        XCTAssertEqual(error.statusCode, 409)
+        let failure = BulkDeviceRules.submitFailure(error)
+        XCTAssertTrue(failure.isLimitReached)
+        XCTAssertEqual(failure.serverMessage, "Bạn đã đạt giới hạn thiết bị")
+        XCTAssertEqual(StubURLProtocol.lastRequest?.httpMethod, "POST")
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/devices/bulk")
+    }
+
     // MARK: - Device sessions
 
     func testSessionListAndRevokeUseTheExactContract() async throws {

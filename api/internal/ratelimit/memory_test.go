@@ -146,3 +146,107 @@ func TestRetryMessageIsMonolingual(t *testing.T) {
 		}
 	}
 }
+
+// CheckN is the bulk endpoint's charging primitive: one request, N tokens. The
+// refusal must be all-or-nothing — a 50-token batch that cannot fit must not
+// consume the remaining 10 and then also be refused.
+func TestMemoryLimiter_CheckNChargesAtomically(t *testing.T) {
+	t.Parallel()
+	m := NewMemoryLimiter()
+	ctx := context.Background()
+
+	r, err := m.CheckN(ctx, "batch", 50, 60, 60_000)
+	if err != nil || !r.Ok || r.Remaining != 10 {
+		t.Fatalf("CheckN(50/60) = %+v, %v; want ok, remaining 10", r, err)
+	}
+
+	r, err = m.CheckN(ctx, "batch", 11, 60, 60_000)
+	if err != nil {
+		t.Fatalf("CheckN(11/60) err = %v", err)
+	}
+	if r.Ok {
+		t.Fatal("CheckN(11/60) = ok, want refused (50+11 > 60)")
+	}
+	if r.RetryAfterSec <= 0 {
+		t.Errorf("refused CheckN retry = %d, want > 0", r.RetryAfterSec)
+	}
+
+	// The refusal consumed nothing: exactly 10 tokens remain.
+	r, _ = m.CheckN(ctx, "batch", 10, 60, 60_000)
+	if !r.Ok || r.Remaining != 0 {
+		t.Fatalf("CheckN(10/60) after refusal = %+v, want ok, remaining 0", r)
+	}
+	if r, _ = m.CheckN(ctx, "batch", 1, 60, 60_000); r.Ok {
+		t.Fatal("CheckN(1/60) at 60/60 = ok, want refused")
+	}
+}
+
+func TestMemoryLimiter_CheckNCostOverMaxNeverCreatesABucket(t *testing.T) {
+	t.Parallel()
+	m := NewMemoryLimiter()
+	ctx := context.Background()
+
+	r, _ := m.CheckN(ctx, "impossible", 61, 60, 1500)
+	if r.Ok || r.Remaining != 0 {
+		t.Fatalf("CheckN(61/60) = %+v, want refused with no remaining", r)
+	}
+	if r.RetryAfterSec != 2 {
+		t.Errorf("CheckN retry = %d, want ceil(1500ms)=2s", r.RetryAfterSec)
+	}
+	// The failed request must not have spent the whole window.
+	r, _ = m.CheckN(ctx, "impossible", 60, 60, 1500)
+	if !r.Ok || r.Remaining != 0 {
+		t.Fatalf("CheckN(60/60) after impossible cost = %+v, want ok", r)
+	}
+}
+
+type countingWriteLimiter struct{ calls int }
+
+func (c *countingWriteLimiter) Check(context.Context, string, int, int) (Result, error) {
+	c.calls++
+	return Result{Ok: true, Remaining: 60 - c.calls}, nil
+}
+
+// A plain Limiter (the tests' permissive limiter, or any external
+// implementation) still charges the full cost via repeated Check calls.
+func TestCheckUserWriteNFallsBackToRepeatedChecks(t *testing.T) {
+	t.Parallel()
+	c := &countingWriteLimiter{}
+	r, err := CheckUserWriteN(context.Background(), c, "user", 5)
+	if err != nil || !r.Ok {
+		t.Fatalf("CheckUserWriteN = %+v, %v; want ok", r, err)
+	}
+	if c.calls != 5 {
+		t.Errorf("fallback calls = %d, want 5 (one per row)", c.calls)
+	}
+}
+
+type recordingCostLimiter struct {
+	calls int
+	cost  int
+}
+
+func (l *recordingCostLimiter) Check(context.Context, string, int, int) (Result, error) {
+	l.calls++
+	return Result{Ok: true, Remaining: 60}, nil
+}
+
+func (l *recordingCostLimiter) CheckN(_ context.Context, _ string, cost, _ int, _ int) (Result, error) {
+	l.calls++
+	l.cost = cost
+	return Result{Ok: true, Remaining: 60 - cost}, nil
+}
+
+// A CostLimiter is charged in ONE call, not `cost` calls — this is what keeps a
+// 50-row batch to one Upstash round trip.
+func TestCheckUserWriteNUsesCostLimiterOnce(t *testing.T) {
+	t.Parallel()
+	l := &recordingCostLimiter{}
+	r, err := CheckUserWriteN(context.Background(), l, "user", 50)
+	if err != nil || !r.Ok {
+		t.Fatalf("CheckUserWriteN = %+v, %v; want ok", r, err)
+	}
+	if l.calls != 1 || l.cost != 50 {
+		t.Errorf("cost limiter calls=%d cost=%d, want 1/50", l.calls, l.cost)
+	}
+}

@@ -45,6 +45,44 @@ func CheckUserWrite(ctx context.Context, limiter Limiter, userID string) (Result
 	return limiter.Check(ctx, "write:user:"+userID, writeLimit, writeWindow)
 }
 
+// CheckUserWriteN enforces the same 60 writes/60s budget as CheckUserWrite, but
+// charges `cost` tokens for one request. POST /api/v1/devices/bulk uses it with
+// cost = len(devices): a 50-row batch is one HTTP request but 50 writes, and
+// letting it consume a single token would raise the effective write budget from
+// 60 rows/minute to 3,000.
+//
+// The real limiters implement CostLimiter, so the charge is atomic on both
+// backends (one INCRBY on Upstash, one lock on memory). A custom Limiter that
+// does not implement it falls back to `cost` ordinary Check calls — correct, if
+// slower; the fallback exists for the tests' permissive/deny limiters, not for
+// production.
+//
+// Refusal semantics match CheckUserWrite: the first failing call returns the
+// result that carries the Retry-After hint. On the memory backend a refused
+// batch consumes nothing; on Upstash the counter was already incremented, which
+// is the backend's existing fixed-window behaviour for every endpoint.
+func CheckUserWriteN(ctx context.Context, limiter Limiter, userID string, cost int) (Result, error) {
+	if cost < 1 {
+		cost = 1
+	}
+	if cl, ok := limiter.(CostLimiter); ok {
+		return cl.CheckN(ctx, "write:user:"+userID, cost, writeLimit, writeWindow)
+	}
+
+	var last Result
+	for i := 0; i < cost; i++ {
+		r, err := CheckUserWrite(ctx, limiter, userID)
+		if err != nil {
+			return r, err
+		}
+		if !r.Ok {
+			return r, nil
+		}
+		last = r
+	}
+	return last, nil
+}
+
 // CheckFXRate rate-limits GET /api/v1/fx/rates per authenticated user: 60
 // requests / 60s, the same budget as a write.
 //

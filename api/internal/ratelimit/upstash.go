@@ -39,21 +39,34 @@ type pipelineEntry struct {
 }
 
 func (u *UpstashLimiter) Check(ctx context.Context, key string, max int, windowMs int) (Result, error) {
+	return u.check(ctx, key, 1, max, windowMs)
+}
+
+// CheckN implements CostLimiter with a single INCRBY, so a 50-row batch is one
+// pipeline / one network round trip rather than 50.
+func (u *UpstashLimiter) CheckN(ctx context.Context, key string, cost, max int, windowMs int) (Result, error) {
+	return u.check(ctx, key, cost, max, windowMs)
+}
+
+func (u *UpstashLimiter) check(ctx context.Context, key string, cost, max int, windowMs int) (Result, error) {
+	if cost < 1 {
+		cost = 1
+	}
 	k := u.prefix + key
 	body, err := json.Marshal([][]any{
-		{"INCR", k},
+		{"INCRBY", k, cost},
 		{"PEXPIRE", k, fmt.Sprintf("%d", windowMs), "NX"},
 		{"PTTL", k},
 	})
 	if err != nil {
 		slog.Warn("rate-limit upstash marshal", "err", err)
-		return Result{Ok: true, Remaining: max - 1}, nil
+		return Result{Ok: true, Remaining: max - cost}, nil
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.url+"/pipeline", bytes.NewReader(body))
 	if err != nil {
 		slog.Warn("rate-limit upstash request", "err", err)
-		return Result{Ok: true, Remaining: max - 1}, nil
+		return Result{Ok: true, Remaining: max - cost}, nil
 	}
 	req.Header.Set("Authorization", "Bearer "+u.token)
 	req.Header.Set("Content-Type", "application/json")
@@ -61,25 +74,25 @@ func (u *UpstashLimiter) Check(ctx context.Context, key string, max int, windowM
 	res, err := u.httpClient.Do(req)
 	if err != nil {
 		slog.Warn("rate-limit upstash transport; failing open", "err", err)
-		return Result{Ok: true, Remaining: max - 1}, nil
+		return Result{Ok: true, Remaining: max - cost}, nil
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		slog.Warn("rate-limit upstash non-2xx; failing open", "status", res.StatusCode)
-		return Result{Ok: true, Remaining: max - 1}, nil
+		return Result{Ok: true, Remaining: max - cost}, nil
 	}
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
 		slog.Warn("rate-limit upstash read; failing open", "err", err)
-		return Result{Ok: true, Remaining: max - 1}, nil
+		return Result{Ok: true, Remaining: max - cost}, nil
 	}
 
 	var entries []pipelineEntry
 	if err := json.Unmarshal(raw, &entries); err != nil || len(entries) < 3 {
 		slog.Warn("rate-limit upstash parse; failing open", "err", err, "body", string(raw))
-		return Result{Ok: true, Remaining: max - 1}, nil
+		return Result{Ok: true, Remaining: max - cost}, nil
 	}
 
 	count := toInt(entries[0].Result)

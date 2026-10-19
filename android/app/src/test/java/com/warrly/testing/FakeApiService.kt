@@ -10,6 +10,8 @@ import com.warrly.network.AttachmentListResponse
 import com.warrly.network.AttachmentResponse
 import com.warrly.network.AuthSuccess
 import com.warrly.network.BrandServiceInfoResponse
+import com.warrly.network.BulkDeviceRequest
+import com.warrly.network.BulkDeviceResponse
 import com.warrly.network.Catalog
 import com.warrly.network.ChangeEmailRequest
 import com.warrly.network.ChangeEmailResult
@@ -134,6 +136,8 @@ open class FakeApiService : ApiService {
 
     override suspend fun getDevice(id: String): DeviceResponse = notStubbed("getDevice")
     override suspend fun createDevice(body: DeviceInput): DeviceResponse = notStubbed("createDevice")
+    override suspend fun bulkCreateDevices(body: BulkDeviceRequest): BulkDeviceResponse =
+        notStubbed("bulkCreateDevices")
     override suspend fun updateDevice(id: String, body: DeviceInput): DeviceResponse =
         notStubbed("updateDevice")
 

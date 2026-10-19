@@ -19914,6 +19914,692 @@
           }
         }
       }
+    },
+    "Thêm nhiều thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add multiple devices"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm nhiều thiết bị"
+          }
+        }
+      }
+    },
+    "Vừa mua nhiều thiết bị cùng lúc? Nhập nhanh từng dòng: tên, loại, ngày mua và giá. Hãng, model, serial và bảo hành bổ sung sau ở trang chi tiết.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bought several devices at once? Add them row by row: name, category, purchase date and price. Brand, model, serial and warranty can be filled in later on the device detail page."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vừa mua nhiều thiết bị cùng lúc? Nhập nhanh từng dòng: tên, loại, ngày mua và giá. Hãng, model, serial và bảo hành bổ sung sau ở trang chi tiết."
+          }
+        }
+      }
+    },
+    "Giá nhập bằng đồng (₫). Thiết bị mua bằng ngoại tệ: thêm xong rồi sửa ở trang chi tiết.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prices are entered in Vietnamese dong (₫). For a device bought in another currency, add it here and change the currency on its detail page."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giá nhập bằng đồng (₫). Thiết bị mua bằng ngoại tệ: thêm xong rồi sửa ở trang chi tiết."
+          }
+        }
+      }
+    },
+    "Thêm dòng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add row"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm dòng"
+          }
+        }
+      }
+    },
+    "Dòng mới lấy ngày mua của dòng trước. Sửa riêng từng dòng nếu khác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new row inherits the previous row's purchase date. Change it on each row if different."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dòng mới lấy ngày mua của dòng trước. Sửa riêng từng dòng nếu khác."
+          }
+        }
+      }
+    },
+    "Thiết bị %d": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device %d"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị %d"
+          }
+        }
+      }
+    },
+    "Xoá dòng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove row"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá dòng"
+          }
+        }
+      }
+    },
+    "Tên thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device name"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên thiết bị"
+          }
+        }
+      }
+    },
+    "Ví dụ: Tủ lạnh Toshiba": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. Toshiba fridge"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ví dụ: Tủ lạnh Toshiba"
+          }
+        }
+      }
+    },
+    "Tối đa %d dòng mỗi lần.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to %d rows per batch."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tối đa %d dòng mỗi lần."
+          }
+        }
+      }
+    },
+    "%d/%d dòng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d/%d rows"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d/%d dòng"
+          }
+        }
+      }
+    },
+    "Mỗi lần chỉ thêm được tối đa %d thiết bị.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can add at most %d devices per batch."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mỗi lần chỉ thêm được tối đa %d thiết bị."
+          }
+        }
+      }
+    },
+    "Kiểm tra lại các dòng được đánh dấu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the highlighted rows."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra lại các dòng được đánh dấu."
+          }
+        }
+      }
+    },
+    "Chỉ các dòng còn lại được gửi lại. Các thiết bị đã tạo sẽ không bị tạo trùng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the remaining rows are resubmitted. Devices already created are not created again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ các dòng còn lại được gửi lại. Các thiết bị đã tạo sẽ không bị tạo trùng."
+          }
+        }
+      }
+    },
+    "Có dòng máy chủ không trả lời kết quả. Kiểm tra tab Thiết bị trước khi gửi lại — gửi lại có thể tạo trùng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server did not report an outcome for some rows. Check the Devices tab before resubmitting — retrying could create duplicates."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có dòng máy chủ không trả lời kết quả. Kiểm tra tab Thiết bị trước khi gửi lại — gửi lại có thể tạo trùng."
+          }
+        }
+      }
+    },
+    "Cần sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs fixing"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần sửa"
+          }
+        }
+      }
+    },
+    "Chưa rõ kết quả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unconfirmed"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa rõ kết quả"
+          }
+        }
+      }
+    },
+    "Không lưu được dòng này. Sửa rồi gửi lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This row wasn't saved. Fix it and resubmit."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được dòng này. Sửa rồi gửi lại."
+          }
+        }
+      }
+    },
+    "Không lưu được dòng này. Kiểm tra tab Thiết bị trước khi gửi lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This row wasn't confirmed saved. Check the Devices tab before resubmitting."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được dòng này. Kiểm tra tab Thiết bị trước khi gửi lại."
+          }
+        }
+      }
+    },
+    "Lần gửi này không tạo thiết bị nào": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was created this time"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần gửi này không tạo thiết bị nào"
+          }
+        }
+      }
+    },
+    "Tài khoản đã đạt giới hạn thiết bị. Bán hoặc xoá bớt một thiết bị đang dùng rồi thử lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your account is at its device limit. Sell or delete an active device, then try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài khoản đã đạt giới hạn thiết bị. Bán hoặc xoá bớt một thiết bị đang dùng rồi thử lại."
+          }
+        }
+      }
+    },
+    "Danh sách thiết bị có thể chưa cập nhật. Mở tab Thiết bị, làm mới rồi thử lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device list may be out of date. Open the Devices tab, refresh it, then try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh sách thiết bị có thể chưa cập nhật. Mở tab Thiết bị, làm mới rồi thử lại."
+          }
+        }
+      }
+    },
+    "Không đọc được số thiết bị còn lại. Mở tab Thiết bị để kiểm tra.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read the remaining device allowance. Open the Devices tab to check."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đọc được số thiết bị còn lại. Mở tab Thiết bị để kiểm tra."
+          }
+        }
+      }
+    },
+    "Không gửi được lô thiết bị. Thử lại nhé.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't submit the batch. Please try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không gửi được lô thiết bị. Thử lại nhé."
+          }
+        }
+      }
+    },
+    "Tên thiết bị bắt buộc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device name is required"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tên thiết bị bắt buộc"
+          }
+        }
+      }
+    },
+    "Loại thiết bị bắt buộc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device category is required"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loại thiết bị bắt buộc"
+          }
+        }
+      }
+    },
+    "Giá mua không hợp lệ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase price is invalid"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giá mua không hợp lệ"
+          }
+        }
+      }
+    },
+    "Thêm %d thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Add %d device"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Add %d devices"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Thêm %d thiết bị"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Đã thêm %d thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Added %d device"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Added %d devices"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Đã thêm %d thiết bị"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%d dòng cần sửa và gửi lại": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d row needs attention — fix it and resubmit"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d rows need attention — fix them and resubmit"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d dòng cần sửa và gửi lại"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Tài khoản còn có thể thêm %d thiết bị.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Your account can still take %d device."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Your account can still take %d devices."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tài khoản còn có thể thêm %d thiết bị."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Bớt ít nhất %d dòng rồi gửi lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove at least %d row, then resubmit."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove at least %d rows, then resubmit."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Bớt ít nhất %d dòng rồi gửi lại."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "… và %d thiết bị khác": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "… and %d more device"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "… and %d more devices"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "… và %d thiết bị khác"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Cả lô bị từ chối vì vượt giới hạn thiết bị của tài khoản. Không dòng nào trong lần gửi này được lưu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The whole batch was rejected because it would exceed your account's device limit. No rows from this send were saved."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cả lô bị từ chối vì vượt giới hạn thiết bị của tài khoản. Không dòng nào trong lần gửi này được lưu."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

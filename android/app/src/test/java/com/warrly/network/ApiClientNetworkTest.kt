@@ -208,6 +208,60 @@ class ApiClientNetworkTest {
     }
 
     @Test
+    fun bulkCreate_postsTheDevicesEnvelopeAndDecodesPartialSuccess() = runBlocking {
+        enqueueJson(
+            """
+            {
+              "created": [
+                {"id":"d1","name":"Tủ lạnh","category":"FRIDGE","purchaseDate":"2026-09-01","purchasePrice":12990000}
+              ],
+              "failed": [
+                {
+                  "index": 1,
+                  "code": "validation",
+                  "message": "Ngày mua không hợp lệ",
+                  "fieldErrors": {"purchaseDate": ["Ngày mua không hợp lệ"]}
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val response = api().bulkCreateDevices(
+            BulkDeviceRequest(
+                listOf(
+                    DeviceInput(
+                        name = "Tủ lạnh",
+                        category = "FRIDGE",
+                        purchaseDate = "2026-09-01",
+                        purchasePrice = 12_990_000,
+                    ),
+                    DeviceInput(
+                        name = "Máy giặt",
+                        category = "WASHING",
+                        purchaseDate = "31/12/2025",
+                    ),
+                ),
+            ),
+        )
+
+        val recorded = server.takeRequest()
+        assertEquals("POST", recorded.method)
+        assertEquals("/api/v1/devices/bulk", recorded.path)
+        val body = recorded.body.readUtf8()
+        assertTrue("frozen envelope: $body", body.startsWith("""{"devices":["""))
+        assertTrue(body.contains("\"name\":\"Tủ lạnh\""))
+        assertTrue("both rows travel in one devices array: $body", body.contains("\"name\":\"Máy giặt\""))
+        assertFalse("explicitNulls = false must drop nulls: $body", body.contains(":null"))
+
+        assertEquals(listOf("d1"), response.created.map(Device::id))
+        val failure = response.failed.single()
+        assertEquals(1, failure.index)
+        assertEquals("validation", failure.code)
+        assertEquals(listOf("Ngày mua không hợp lệ"), failure.fieldErrors["purchaseDate"])
+    }
+
+    @Test
     fun errorResponse_surfacesAsHttpExceptionCarryingTheVietnameseMessage() {
         enqueueJson("""{"error":"unauthorized","message":"Phiên đăng nhập đã hết hạn"}""", code = 401)
 

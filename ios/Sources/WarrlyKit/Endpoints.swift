@@ -214,6 +214,36 @@ extension APIClient {
         let _: EmptyResponse = try await request("DELETE", "/api/v1/devices/\(id)")
     }
 
+    /// `POST /api/v1/devices/bulk` — add several devices in one call, with
+    /// **partial success**.
+    ///
+    /// Each element of `inputs` is a normal `DeviceInput`, so the same server
+    /// validation runs per row. The response separates the rows that were
+    /// created from the ones that were not, and each failure carries the
+    /// **request index** it belongs to; `BulkDeviceRules.reconcile` is the only
+    /// supported way to turn that back into per-row outcomes. Without it a
+    /// client would have to guess which draft survived, which is exactly how a
+    /// partially failed batch turns into duplicate devices on retry.
+    ///
+    /// Contract edges:
+    ///
+    /// * **more than 50 rows** → `400` with `fieldErrors.devices`; nothing is
+    ///   created. `BulkDeviceRules.rowCountError` catches this before the trip.
+    /// * **over the device quota** → `409 LIMIT_REACHED` and **nothing** is
+    ///   created. That is not a per-row failure: do not drop the drafts (see
+    ///   `BulkDeviceRules.submitFailure` and `DeviceQuota`).
+    ///
+    /// The returned `created` devices are the **bare `Device` projection**
+    /// (openapi `Device`, not the list row), so `effectiveWarrantyEnd` and
+    /// `attachmentCount` are absent — a device list refreshed afterwards fills
+    /// them in.
+    public func createDevicesBulk(_ inputs: [DeviceInput]) async throws -> BulkCreateDevicesResult {
+        try await request(
+            "POST", "/api/v1/devices/bulk",
+            body: BulkCreateDevicesRequest(devices: inputs)
+        )
+    }
+
     // MARK: - Warranties
 
     /// Creates a warranty on a device.
