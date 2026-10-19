@@ -373,9 +373,14 @@ export const devices = defineMessages({
   'Tách bằng {delimiter} · không có tiêu đề, đọc theo thứ tự cột chuẩn':
     'Split by {delimiter} · no header, read in the standard column order',
   'Sẽ tạo {count} thiết bị': { en: 'Will create {count} devices', enOne: 'Will create {count} device' },
-  'Sẽ tạo {count} thiết bị · bỏ qua {skipped} dòng lỗi': {
-    en: 'Will create {count} devices · skipping {skipped} bad rows',
-    enOne: 'Will create {count} device · skipping {skipped} bad rows',
+  // The preview used to be ONE key with two counted nouns, and its single
+  // `enOne` could only inflect the first ("Will create 1 device · skipping 1
+  // bad rows"). The sentence is now composed from these two fragments, each
+  // carrying its own `count`; Vietnamese joins them with the same " · " and
+  // reads byte-for-byte as before.
+  'bỏ qua {skipped} dòng lỗi': {
+    en: 'skipping {skipped} bad rows',
+    enOne: 'skipping {skipped} bad row',
   },
   'Cột đọc được:': 'Columns read:',
   'Cột bỏ qua:': 'Columns skipped:',
@@ -424,8 +429,11 @@ export const devices = defineMessages({
     'Invalid price: “{value}” — counted as 0 for now',
   'Loại không có trong danh mục: "{value}"': 'Category not in the catalog: “{value}”',
   'Chưa ghi loại — dùng "{value}"': 'No category recorded — using “{value}”',
-  'Thừa {count} ô so với bảng — phần thừa bị bỏ qua':
-    'There are {count} more cells than the table has columns — the extras are ignored',
+  'Thừa {count} ô so với bảng — phần thừa bị bỏ qua': {
+    en: 'There are {count} more cells than the table has columns — the extras are ignored',
+    enOne:
+      'There is {count} more cell than the table has columns — the extra is ignored',
+  },
   'Cột "{header}" bị trùng — chỉ dùng cột đầu tiên.':
     'Duplicate column “{header}” — only the first one is used.',
   'Không thấy dấu phân cách (tab, ; hoặc ,) — mỗi dòng đang chỉ có 1 cột.':
@@ -442,7 +450,10 @@ export const devices = defineMessages({
   'Dấu phẩy — hợp với Google Sheets, Excel bản tiếng Anh, hoặc khi gửi file cho người khác.':
     'Comma — works with Google Sheets, English Excel, or when you send the file to someone else.',
   'Tải CSV': 'Download CSV',
-  'Đã xuất {count} dòng {dataset}': 'Exported {count} rows of {dataset}',
+  'Đã xuất {count} dòng {dataset}': {
+    en: 'Exported {count} rows of {dataset}',
+    enOne: 'Exported {count} row of {dataset}',
+  },
   'Không xuất được dữ liệu': 'Could not export the data',
   'Không có dữ liệu để xuất': 'There is no data to export',
   'Tải danh sách ra file': 'Download a list as a',
@@ -492,12 +503,26 @@ export const devices = defineMessages({
     'Not created — the run stopped at the device limit.',
   'Chưa tạo — đã dừng vì thao tác quá nhanh.':
     'Not created — the run stopped because the requests came too fast.',
-  'Đã tạo {created} thiết bị.': 'Created {created} devices.',
-  'Bỏ qua {skipped} dòng lỗi.': 'Skipped {skipped} bad rows.',
-  '{failed} dòng máy chủ từ chối.': 'The server rejected {failed} rows.',
-  '{missing} dòng chưa tạo.': '{missing} rows were not created.',
-  'Không có dòng nào hợp lệ để tạo ({count} dòng lỗi).':
-    'No row was valid enough to create ({count} bad rows).',
+  'Đã tạo {created} thiết bị.': {
+    en: 'Created {created} devices.',
+    enOne: 'Created {created} device.',
+  },
+  'Bỏ qua {skipped} dòng lỗi.': {
+    en: 'Skipped {skipped} bad rows.',
+    enOne: 'Skipped {skipped} bad row.',
+  },
+  '{failed} dòng máy chủ từ chối.': {
+    en: 'The server rejected {failed} rows.',
+    enOne: 'The server rejected {failed} row.',
+  },
+  '{missing} dòng chưa tạo.': {
+    en: '{missing} rows were not created.',
+    enOne: '{missing} row was not created.',
+  },
+  'Không có dòng nào hợp lệ để tạo ({count} dòng lỗi).': {
+    en: 'No row was valid enough to create ({count} bad rows).',
+    enOne: 'No row was valid enough to create ({count} bad row).',
+  },
   'Không tạo được thiết bị nào — xem lý do ở từng dòng bên dưới.':
     'No device could be created — see the reason on each row below.',
 

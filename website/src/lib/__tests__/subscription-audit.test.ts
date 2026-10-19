@@ -5,6 +5,7 @@ import {
   findingTag,
   findingTone,
   isMinorPriceRise,
+  renewalCountdownLabel,
   thresholdLines,
 } from '@/lib/subscription-audit';
 import type {
@@ -188,5 +189,57 @@ describe('findingCount', () => {
     expect(
       findingCount({ counts: undefined as unknown as SubscriptionAuditCounts }),
     ).toBe(0);
+  });
+});
+
+describe('renewalCountdownLabel', () => {
+  // `nextRenewalAt` is a calendar DAY (openapi `format: date`), so the count is
+  // calendar days in the reader's zone, not elapsed 24-hour periods. The fixed
+  // `now` is built from LOCAL components, and every assertion is a rendered
+  // string — never `toISOString()` — so this passes in both Asia/Saigon and
+  // America/New_York (the suite is run under both).
+  //
+  // The finding deliberately carries a stale `daysUntilRenewal` computed by the
+  // API host (Asia/Saigon): it must be ignored, because on a New York evening
+  // that number can be one day ahead of the reader's calendar.
+  const findingWith = (nextRenewalAt: string | null) => ({
+    nextRenewalAt,
+    daysUntilRenewal: 999,
+  });
+
+  it('counts calendar days from the reader clock, ignoring the server number', () => {
+    // 23:59 on Oct 20 is still Oct 20: there are 9 calendar days to Oct 29,
+    // even though fewer than 9 full 24-hour periods remain.
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-29'), 'en', new Date(2026, 9, 20, 23, 59)),
+    ).toBe('10/29/2026 · 9 days left');
+    // 00:01 the same day must produce the same count — this is the assertion
+    // that fails if someone swaps calendar-day arithmetic for elapsed time.
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-29'), 'en', new Date(2026, 9, 20, 0, 1)),
+    ).toBe('10/29/2026 · 9 days left');
+    // The Vietnamese column is unchanged and does not inflect.
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-29'), 'vi', new Date(2026, 9, 20, 23, 59)),
+    ).toBe('29/10/2026 · còn 9 ngày');
+  });
+
+  it('inflects the English count for one and zero', () => {
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-21'), 'en', new Date(2026, 9, 20, 12)),
+    ).toBe('10/21/2026 · 1 day left');
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-20'), 'en', new Date(2026, 9, 20, 12)),
+    ).toBe('10/20/2026 · 0 days left');
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-21'), 'vi', new Date(2026, 9, 20, 12)),
+    ).toBe('21/10/2026 · còn 1 ngày');
+  });
+
+  it('returns null when there is no usable day', () => {
+    expect(renewalCountdownLabel(findingWith(null), 'en', new Date(2026, 9, 20, 12))).toBeNull();
+    expect(
+      renewalCountdownLabel(findingWith('2026-10-29T00:00:00Z'), 'en', new Date(2026, 9, 20, 12)),
+    ).toBeNull();
   });
 });

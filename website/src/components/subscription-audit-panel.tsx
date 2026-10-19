@@ -21,6 +21,7 @@ import {
   thresholdLines,
   type AuditTone,
 } from '@/lib/subscription-audit';
+import { RenewalCountdown } from '@/components/renewal-countdown';
 import { formatDate, formatVND } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -131,15 +132,12 @@ function FindingRow({
             {finding.nextRenewalAt && (
               <Metric
                 label={t('Lần trừ tới:')}
-                value={
-                  finding.daysUntilRenewal != null
-                    ? t('{date} · còn {days} ngày', {
-                        date: formatDate(finding.nextRenewalAt, locale),
-                        days: finding.daysUntilRenewal,
-                        count: finding.daysUntilRenewal,
-                      })
-                    : formatDate(finding.nextRenewalAt, locale)
-                }
+                // The countdown is a client island on purpose: this panel is a
+                // Server Component, so a count computed here would use the web
+                // HOST's calendar day, not the reader's. `daysUntilRenewal`
+                // from the API is ignored for the same reason (Go's day is
+                // Asia/Saigon); the date comes from `nextRenewalAt`.
+                value={<RenewalCountdown nextRenewalAt={finding.nextRenewalAt} />}
               />
             )}
           </>

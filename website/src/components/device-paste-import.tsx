@@ -225,9 +225,16 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
                 : 'bg-amber-soft text-amber-ink',
             )}
           >
-            {t('Sẽ tạo {count} thiết bị · bỏ qua {skipped} dòng lỗi', {
-              count: preview.validCount,
+            {/* Composed from two independently pluralised fragments: the old
+                single key had two counted nouns but only one `enOne`, so
+                "1 device · skipping 1 bad rows" leaked. The " · " join is the
+                same one the Vietnamese sentence already used, so the rendered
+                Vietnamese is unchanged. */}
+            {t('Sẽ tạo {count} thiết bị', { count: preview.validCount })}
+            {' · '}
+            {t('bỏ qua {skipped} dòng lỗi', {
               skipped: preview.skippedCount,
+              count: preview.skippedCount,
             })}
           </p>
 

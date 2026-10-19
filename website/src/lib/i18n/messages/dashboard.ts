@@ -81,7 +81,12 @@ export const dashboard = defineMessages({
   },
   'Tổng chi mua sắm': 'Total purchase spend',
   'Tài sản còn bảo hành': 'Assets still under warranty',
-  '{count}/{total} thiết bị': '{count}/{total} devices',
+  // A fraction's noun belongs to its DENOMINATOR, so `enOne` (which keys on
+  // `count`) cannot inflect it: 1 device in total and none covered is "0/1
+  // devices", not "0/1 device". The English drops the noun instead — the card's
+  // eyebrow already says "Assets still under warranty", so "1/5 covered" is the
+  // same statement without a number-dependent noun. Vietnamese is unchanged.
+  '{count}/{total} thiết bị': '{count}/{total} covered',
   'Phí định kỳ mỗi tháng': 'Recurring fees per month',
   '{count} gói đang hoạt động • ~{amount}/năm':
     { en: '{count} active plans • ~{amount}/year', enOne: '{count} active plan • ~{amount}/year' },
@@ -139,7 +144,7 @@ export const dashboard = defineMessages({
 
   // ── Forecast panel ──────────────────────────────────────────────────────
   'Dự báo chi tiêu': 'Spending forecast',
-  '{months} tháng tới': 'Next {months} months',
+  '{months} tháng tới': { en: 'Next {months} months', enOne: 'Next {months} month' },
   'chỉ tính các gói đăng ký đang hoạt động.':
     'only active subscriptions are counted.',
   'Sẽ bị trừ tự động': 'Charged automatically',
@@ -157,7 +162,11 @@ export const dashboard = defineMessages({
     'There is no subscription charge to chart in this window yet. Add a subscription and come back.',
   'Tự động trừ': 'Charged automatically',
   'Có thể phát sinh trong {months} tháng tới — tham khảo, không phải khoản chắc chắn trả và không cộng vào tổng ở trên':
-    'May come up in the next {months} months — for reference only, not a certain charge, and not added to the totals above',
+    {
+      en: 'May come up in the next {months} months — for reference only, not a certain charge, and not added to the totals above',
+      enOne:
+        'May come up in the next {months} month — for reference only, not a certain charge, and not added to the totals above',
+    },
   'Bảo hành hết hạn: {amount}': 'Warranty expiring: {amount}',
   '{packages} • giá gói cũ, để tham khảo khi để dành tiền mua gói mới':
     '{packages} • the old plan’s price, as a reference when saving up for a new one',

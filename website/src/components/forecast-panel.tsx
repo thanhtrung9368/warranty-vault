@@ -75,7 +75,7 @@ export async function ForecastPanel({
               {t('Dự báo chi tiêu')}
             </CardTitle>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              {t('{months} tháng tới', { months: forecast.months })}
+              {t('{months} tháng tới', { months: forecast.months, count: forecast.months })}
               {windowLabel ? ` · ${windowLabel}` : ''} ·{' '}
               {t('chỉ tính các gói đăng ký đang hoạt động.')}
             </p>
@@ -154,7 +154,7 @@ export async function ForecastPanel({
             <p className="text-xs font-semibold text-ink-2">
               {t(
                 'Có thể phát sinh trong {months} tháng tới — tham khảo, không phải khoản chắc chắn trả và không cộng vào tổng ở trên',
-                { months: forecast.months },
+                { months: forecast.months, count: forecast.months },
               )}
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">

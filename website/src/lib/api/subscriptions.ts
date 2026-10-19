@@ -220,7 +220,12 @@ export type SubscriptionAuditFinding = {
   // Newest recorded payment — explicitly NOT the last day of use; the app has no
   // such data.
   lastRecordedAt?: string | null;
+  // A calendar DAY (`YYYY-MM-DD`, `format: date`), despite the `At` suffix.
   nextRenewalAt?: string | null;
+  // Computed by Go against the API host's calendar day. DELIBERATELY IGNORED by
+  // the web: `lib/subscription-audit.ts::renewalCountdownLabel` recomputes the
+  // count from `nextRenewalAt` so the reader's zone decides "today". Kept in
+  // the type because it is still in the wire contract.
   daysUntilRenewal?: number | null;
   previousAmountVnd?: number | null;
   amountVnd?: number | null;

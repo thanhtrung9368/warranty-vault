@@ -312,8 +312,12 @@ export const settings = defineMessages({
     en: 'Sending failed for {count} devices',
     enOne: 'Sending failed for {count} device',
   },
-  'Đã gửi {sent} thông báo (lỗi: {failed})':
-    'Sent {sent} notifications ({failed} failed)',
+  // One inflected noun ("notifications"); `{failed} failed` has no noun to
+  // agree, so `enOne` keyed on `sent` is enough. The call site passes `count`.
+  'Đã gửi {sent} thông báo (lỗi: {failed})': {
+    en: 'Sent {sent} notifications ({failed} failed)',
+    enOne: 'Sent {sent} notification ({failed} failed)',
+  },
   'Đã gửi {count} thông báo thử': {
     en: 'Sent {count} test notifications',
     enOne: 'Sent {count} test notification',

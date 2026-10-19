@@ -24,6 +24,8 @@ import type {
 // and report nothing.
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
+import { daysUntil, isApiDay } from '@/lib/api-day';
+import { formatDate } from '@/lib/format';
 
 export type AuditTone = 'rose' | 'amber' | 'zinc';
 
@@ -147,4 +149,36 @@ export function thresholdLines(
 // server computes over the same list — never recomputed from a filtered array.
 export function findingCount(audit: Pick<SubscriptionAudit, 'counts'>): number {
   return audit.counts?.total ?? 0;
+}
+
+/**
+ * The QUIET_AUTO_RENEW countdown: `29/10/2026 · 9 days left`.
+ *
+ * `nextRenewalAt` is a calendar DAY (`format: date`, `YYYY-MM-DD`), so the count
+ * is calendar days in the reader's zone — `daysUntil` anchors the day at local
+ * midnight and compares day components, which is the correct arithmetic for a
+ * date-only field.
+ *
+ * Deliberately NOT `finding.daysUntilRenewal`: the API computed that against the
+ * Go server's calendar day (Asia/Saigon), so a reader west of UTC saw the count
+ * as of the server's today. The payload carries the date, and the web is the
+ * only side that can use the reader's clock; the server's number is ignored.
+ *
+ * `null` when the finding has no renewal day (or a malformed one), so the caller
+ * can render the date without a countdown instead of a misleading zero.
+ */
+export function renewalCountdownLabel(
+  finding: Pick<SubscriptionAuditFinding, 'nextRenewalAt' | 'daysUntilRenewal'>,
+  locale: Locale,
+  now: Date = new Date(),
+): string | null {
+  const day = finding.nextRenewalAt;
+  if (!day || !isApiDay(day)) return null;
+  const days = daysUntil(day, now);
+  if (!Number.isFinite(days)) return null;
+  return translate(locale, '{date} · còn {days} ngày', {
+    date: formatDate(day, locale),
+    days,
+    count: days,
+  });
 }

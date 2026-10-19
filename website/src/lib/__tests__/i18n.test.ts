@@ -356,3 +356,165 @@ describe('multi-count plural fixes', () => {
     );
   });
 });
+
+// The follow-up audit: every count-bearing sentence that could still print a
+// plural noun next to `1`. Same rules as above — `enOne` (keyed on `count`) for
+// a sentence with ONE counted noun, fragments for a sentence with two, and the
+// Vietnamese column is never touched.
+describe('plural audit — bulk import, export, push and forecast', () => {
+  it('inflects the bulk-import result fragments', () => {
+    const cases: Array<{
+      key: string;
+      params: Record<string, number>;
+      one: string;
+      many: string;
+      vi: string;
+    }> = [
+      {
+        key: 'Đã tạo {created} thiết bị.',
+        params: { created: 1 },
+        one: 'Created 1 device.',
+        many: 'Created 2 devices.',
+        vi: 'Đã tạo 1 thiết bị.',
+      },
+      {
+        key: 'Bỏ qua {skipped} dòng lỗi.',
+        params: { skipped: 1 },
+        one: 'Skipped 1 bad row.',
+        many: 'Skipped 2 bad rows.',
+        vi: 'Bỏ qua 1 dòng lỗi.',
+      },
+      {
+        key: '{failed} dòng máy chủ từ chối.',
+        params: { failed: 1 },
+        one: 'The server rejected 1 row.',
+        many: 'The server rejected 2 rows.',
+        vi: '1 dòng máy chủ từ chối.',
+      },
+      {
+        key: '{missing} dòng chưa tạo.',
+        params: { missing: 1 },
+        one: '1 row was not created.',
+        many: '2 rows were not created.',
+        vi: '1 dòng chưa tạo.',
+      },
+      {
+        key: 'Không có dòng nào hợp lệ để tạo ({count} dòng lỗi).',
+        params: { count: 1 },
+        one: 'No row was valid enough to create (1 bad row).',
+        many: 'No row was valid enough to create (2 bad rows).',
+        vi: 'Không có dòng nào hợp lệ để tạo (1 dòng lỗi).',
+      },
+    ];
+    for (const c of cases) {
+      expect(translate('en', c.key, { ...c.params, count: c.params.count ?? 1 })).toBe(c.one);
+      const pluralParams = Object.fromEntries(
+        Object.entries(c.params).map(([k, v]) => [k, v + 1]),
+      );
+      expect(
+        translate('en', c.key, { ...pluralParams, count: pluralParams.count ?? 2 }),
+      ).toBe(c.many);
+      expect(translate('vi', c.key, { ...c.params, count: c.params.count ?? 1 })).toBe(c.vi);
+    }
+  });
+
+  it('inflects the CSV export row count', () => {
+    expect(translate('en', 'Đã xuất {count} dòng {dataset}', { count: 1, dataset: 'devices' })).toBe(
+      'Exported 1 row of devices',
+    );
+    expect(translate('en', 'Đã xuất {count} dòng {dataset}', { count: 3, dataset: 'devices' })).toBe(
+      'Exported 3 rows of devices',
+    );
+    expect(translate('vi', 'Đã xuất {count} dòng {dataset}', { count: 1, dataset: 'thiết bị' })).toBe(
+      'Đã xuất 1 dòng thiết bị',
+    );
+  });
+
+  it('inflects the push-test result without inflecting the failure count', () => {
+    const key = 'Đã gửi {sent} thông báo (lỗi: {failed})';
+    expect(translate('en', key, { sent: 1, failed: 0, count: 1 })).toBe(
+      'Sent 1 notification (0 failed)',
+    );
+    expect(translate('en', key, { sent: 2, failed: 1, count: 2 })).toBe(
+      'Sent 2 notifications (1 failed)',
+    );
+    // `{failed} failed` has no noun, so 1 there is already grammatical.
+    expect(translate('vi', key, { sent: 1, failed: 1, count: 1 })).toBe(
+      'Đã gửi 1 thông báo (lỗi: 1)',
+    );
+  });
+
+  it('inflects the forecast-window months (reachable with ?fm=1)', () => {
+    expect(translate('en', '{months} tháng tới', { months: 1, count: 1 })).toBe('Next 1 month');
+    expect(translate('en', '{months} tháng tới', { months: 3, count: 3 })).toBe('Next 3 months');
+    expect(translate('vi', '{months} tháng tới', { months: 1, count: 1 })).toBe('1 tháng tới');
+
+    const key =
+      'Có thể phát sinh trong {months} tháng tới — tham khảo, không phải khoản chắc chắn trả và không cộng vào tổng ở trên';
+    expect(translate('en', key, { months: 1, count: 1 })).toContain(
+      'May come up in the next 1 month —',
+    );
+    expect(translate('en', key, { months: 12, count: 12 })).toContain(
+      'May come up in the next 12 months —',
+    );
+    expect(translate('vi', key, { months: 1, count: 1 })).toContain(
+      'Có thể phát sinh trong 1 tháng tới',
+    );
+  });
+
+  it('inflects the extra-cell warning, including its verb', () => {
+    const key = 'Thừa {count} ô so với bảng — phần thừa bị bỏ qua';
+    expect(translate('en', key, { count: 1 })).toBe(
+      'There is 1 more cell than the table has columns — the extra is ignored',
+    );
+    expect(translate('en', key, { count: 2 })).toBe(
+      'There are 2 more cells than the table has columns — the extras are ignored',
+    );
+    expect(translate('vi', key, { count: 1 })).toBe(
+      'Thừa 1 ô so với bảng — phần thừa bị bỏ qua',
+    );
+  });
+
+  it('never puts a plural noun after a fraction whose total is one', () => {
+    // The noun belongs to the DENOMINATOR, which `enOne` (keyed on `count`)
+    // cannot reach — so the English drops the noun instead.
+    expect(translate('en', '{count}/{total} thiết bị', { count: 0, total: 1 })).toBe(
+      '0/1 covered',
+    );
+    expect(translate('en', '{count}/{total} thiết bị', { count: 1, total: 1 })).toBe(
+      '1/1 covered',
+    );
+    expect(translate('en', '{count}/{total} thiết bị', { count: 1, total: 5 })).toBe(
+      '1/5 covered',
+    );
+    expect(translate('vi', '{count}/{total} thiết bị', { count: 0, total: 1 })).toBe(
+      '0/1 thiết bị',
+    );
+  });
+
+  it('composes the paste-import preview from two independently pluralised fragments', () => {
+    // The old single sentence had two counted nouns but only one `enOne`:
+    // "Will create 1 device · skipping 1 bad rows". Each fragment now carries its
+    // own `count`, and the " · " join reproduces the old Vietnamese sentence.
+    const preview = (locale: 'en' | 'vi', created: number, skipped: number) =>
+      `${translate(locale, 'Sẽ tạo {count} thiết bị', { count: created })} · ${translate(
+        locale,
+        'bỏ qua {skipped} dòng lỗi',
+        { skipped, count: skipped },
+      )}`;
+
+    expect(preview('en', 1, 1)).toBe('Will create 1 device · skipping 1 bad row');
+    expect(preview('en', 2, 1)).toBe('Will create 2 devices · skipping 1 bad row');
+    expect(preview('en', 1, 3)).toBe('Will create 1 device · skipping 3 bad rows');
+    expect(preview('en', 2, 3)).toBe('Will create 2 devices · skipping 3 bad rows');
+
+    // Byte-for-byte the sentence the single key used to render in Vietnamese.
+    // The old key still interpolates as its own fallback, so this compares the
+    // composed string against the exact text the previous implementation output.
+    const oldSentence = 'Sẽ tạo {count} thiết bị · bỏ qua {skipped} dòng lỗi';
+    expect(preview('vi', 1, 1)).toBe(translate('vi', oldSentence, { count: 1, skipped: 1 }));
+    expect(preview('vi', 12, 3)).toBe(translate('vi', oldSentence, { count: 12, skipped: 3 }));
+    expect(preview('vi', 1, 1)).toBe('Sẽ tạo 1 thiết bị · bỏ qua 1 dòng lỗi');
+    expect(preview('vi', 12, 3)).toBe('Sẽ tạo 12 thiết bị · bỏ qua 3 dòng lỗi');
+  });
+});

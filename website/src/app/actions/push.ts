@@ -53,7 +53,10 @@ export async function sendTestPush() {
     return { ok: false, message: t('Gửi thất bại cho {count} thiết bị', { count: failed }) };
   }
   if (failed > 0) {
-    return { ok: true, message: t('Đã gửi {sent} thông báo (lỗi: {failed})', { sent, failed }) };
+    return {
+      ok: true,
+      message: t('Đã gửi {sent} thông báo (lỗi: {failed})', { sent, failed, count: sent }),
+    };
   }
   return { ok: true, message: t('Đã gửi {count} thông báo thử', { count: sent }) };
 }
