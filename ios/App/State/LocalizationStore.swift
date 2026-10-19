@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import WarrlyKit
+import WidgetKit
 
 /// Owns "which language is the app in" and is the only thing that writes
 /// `L.language`.
@@ -158,6 +159,10 @@ final class LocalizationStore: ObservableObject {
         guard next != language else { return }
         language = next
         L.language = next
+        // The widget renders off-process from the mirrored App Group value.
+        // Ask WidgetKit to rebuild now so the home screen follows the switch
+        // instead of waiting for the next midnight timeline entry.
+        WidgetCenter.shared.reloadTimelines(ofKind: WarrlySurface.widgetKind)
     }
 }
 

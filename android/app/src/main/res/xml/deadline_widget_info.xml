@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppWidgetProviderInfo for the first widget this app ships.
+
+  Sizing — 4x2 cells (250dp x 110dp minimum), which fits the two-row layout and
+  the header/footer. `targetCell*` is the Android 12+ hint; `min*` is the
+  fallback the older launcher maths uses.
+
+  Preview — a generated PNG (`drawable-nodpi/widget_preview.png`). A
+  `previewLayout` would render the real layout without the renderer having run,
+  i.e. an empty card in the picker; the static PNG shows what the user will
+  actually get.
+
+  Update period — SIX HOURS. Android floors periodic widget updates at 30
+  minutes and batches them; a widget update is not a free background job. The
+  app pushes an immediate repaint whenever it captures a new snapshot (foreground
+  or a deadline-changing write), so the periodic tick only exists to roll the
+  day-count over and let the "as of" footer age. Four local repaints a day is
+  enough for a value that changes at midnight, and `onUpdate` does no network
+  I/O — only a preferences read plus RemoteViews construction. See
+  `WarrlyDeadlineWidgetProvider` for the full rationale.
+
+  Category — `home_screen` only, never `keyguard`: a deadline list with the
+  user's device names is not lock-screen content. See the privacy note next to
+  the receiver in AndroidManifest.xml.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/warrly_deadline_widget"
+    android:minHeight="110dp"
+    android:minWidth="250dp"
+    android:previewImage="@drawable/widget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="21600000"
+    android:widgetCategory="home_screen"
+    tools:targetApi="31" />

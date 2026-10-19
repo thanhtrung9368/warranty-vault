@@ -11,8 +11,10 @@ import com.warrly.core.push.PushRegistrar
 import com.warrly.i18n.LanguageStore
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
+import com.warrly.navigation.NavigationIntake
 import com.warrly.share.ShareIntake
 import com.warrly.ui.theme.ThemeStore
+import com.warrly.widget.DeadlineSnapshotUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -63,6 +65,28 @@ class App : Application() {
         private set
 
     /**
+     * A destination asked for by a launcher shortcut or the home-screen widget.
+     *
+     * Process-scoped for the same reason as [shareIntake]: the shortcut can be
+     * tapped while the login screen is up, and the request has to survive until
+     * the signed-in shell exists. `MainScreen` consumes it once and switches
+     * tabs.
+     */
+    lateinit var navigationIntake: NavigationIntake
+        private set
+
+    /**
+     * Keeps the home-screen widget's local snapshot in step with the account.
+     *
+     * The widget never calls the API itself; this updater captures
+     * `GET /api/v1/reminders?withinDays=365` on foreground and after any
+     * deadline-changing write (hooked centrally through OkHttp — see
+     * `ApiClient.build`).
+     */
+    lateinit var deadlineSnapshots: DeadlineSnapshotUpdater
+        private set
+
+    /**
      * Process-scoped IO for the one job that must not be cancelled by an
      * Activity recreation: copying a shared photo/PDF out of its content URI.
      *
@@ -70,9 +94,12 @@ class App : Application() {
      * has to start **immediately** when the share arrives (the Activity does
      * that) — but it must also be allowed to *finish* if the user rotates or the
      * system recreates the Activity mid-read. `lifecycleScope` would cancel the
-     * copy halfway and silently lose a share the user cannot re-share. This
-     * scope is only for that short-lived copy plus the Toast on failure; it is
-     * not a general escape hatch from lifecycle scoping.
+     * copy halfway and silently lose a share the user cannot re-share.
+     *
+     * It also hosts the widget snapshot refresh: that is a short background
+     * write whose result must survive the Activity that triggered it (a rotation
+     * during the request must not cancel the capture). It is deliberately not a
+     * general escape hatch from lifecycle scoping.
      */
     lateinit var ioScope: CoroutineScope
         private set
@@ -81,14 +108,21 @@ class App : Application() {
         super.onCreate()
         instance = this
         tokenStore = TokenStore(this)
+        ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        deadlineSnapshots = DeadlineSnapshotUpdater(this, ioScope, tokenStore)
+        navigationIntake = NavigationIntake()
         languageStore = LanguageStore(this)
         // Both providers are lambdas read per request, so a language change in
         // Settings takes effect on the next call without rebuilding Retrofit.
+        // `onDeadlineMutation` is the widget's write hook: it fires only for
+        // successful writes that can move a warranty end date.
         api = ApiClient.build(
             baseUrl = BuildConfig.BASE_URL,
             tokenProvider = { tokenStore.read() },
             languageProvider = { languageStore.language.value.tag },
+            onDeadlineMutation = { deadlineSnapshots.onMutation() },
         )
+        deadlineSnapshots.attach(api)
         auth = AuthStore(tokenStore, api, languageStore = languageStore)
         pushRegistrar = PushRegistrar(api, tokenStore, auth)
         pushRegistrar.start()
@@ -102,7 +136,6 @@ class App : Application() {
             capabilities = AndroidAppLockCapabilities(this)::read,
         )
         shareIntake = ShareIntake()
-        ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     companion object {

@@ -80,6 +80,9 @@ public final class RemindersStore: ObservableObject {
             dismissed.append(mirrored)
             dismissed.sort { $0.endDate > $1.endDate }
         }
+        // Hiding a reminder also hides that deadline from the widget, which
+        // reads the same non-dismissed feed.
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     /// Un-dismisses a reminder ("Hoàn tác" / the "Đã ẩn" restore button): the
@@ -88,6 +91,7 @@ public final class RemindersStore: ObservableObject {
         try await client.restoreReminder(warrantyId: warrantyId)
         dismissed.removeAll { $0.warrantyId == warrantyId }
         await reloadUpcoming()
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     // MARK: - Helpers

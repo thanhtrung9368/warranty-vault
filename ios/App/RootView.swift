@@ -1,3 +1,4 @@
+import CoreSpotlight
 import SwiftUI
 import WarrlyKit
 
@@ -11,6 +12,7 @@ import WarrlyKit
 struct RootView: View {
     @EnvironmentObject var auth: AuthStore
     @EnvironmentObject var appLock: AppLockStore
+    @EnvironmentObject var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
 
     private var isAuthenticated: Bool {
@@ -35,6 +37,10 @@ struct RootView: View {
                 // and locking there would prompt Face ID mid-gesture.
                 appLock.handleEnterBackground()
             case .active:
+                // An App Intent can queue a device while the app is suspended;
+                // pick it up on every activation, authenticated or not (the id
+                // waits in the router until the devices screen exists).
+                router.restorePendingFromSharedDefaults()
                 // Capabilities can change while we're away (Face ID removed,
                 // passcode deleted). Cheap, never prompts.
                 if isAuthenticated {
@@ -46,10 +52,33 @@ struct RootView: View {
                 break
             }
         }
-        .onChange(of: isAuthenticated) { _, nowAuthenticated in
-            // Signing out clears the session, so drop the lock with it; the next
-            // launch re-locks from the stored preference.
-            if !nowAuthenticated { appLock.clearLock() }
+        .onOpenURL { url in
+            router.open(url)
+        }
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            // A Spotlight hit carries the item's unique identifier, not a URL.
+            // The prefix is what makes it ours; the rest is the device id.
+            guard let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier]
+                    as? String,
+                  let deviceId = DeviceSpotlightRules.deviceId(fromIdentifier: identifier)
+            else { return }
+            router.openDevice(id: deviceId)
+        }
+        .task {
+            // Cold launch from a Spotlight hit or an App Intent: the id may
+            // already be in the App Group before this view exists.
+            router.restorePendingFromSharedDefaults()
+        }
+        .onChange(of: auth.status) { _, status in
+            guard case .unauthenticated = status else { return }
+            // Signing out (or bootstrap discovering a dead token) must drop
+            // every out-of-app surface, including a destination queued before
+            // the app knew who was signed in.
+            appLock.clearLock()
+            router.clear()
+            // A widget and a Spotlight index are readable outside the app.
+            // Neither may keep the previous account's device names.
+            Task { await DeadlineSurface.shared.clear() }
         }
     }
 
@@ -173,6 +202,7 @@ struct MainTabView: View {
 
     @State private var selection: Int = MainTabView.initialTab
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var router: AppRouter
 
     init(client: APIClient) {
         self.client = client
@@ -236,17 +266,39 @@ struct MainTabView: View {
         // has an authenticated client, and therefore the first point where they
         // can be uploaded (device-less, straight into the inbox).
         .task {
+            // A pending destination from Spotlight / a URL / an App Intent
+            // wins over the default tab; the devices screen consumes the id
+            // once its list has loaded.
+            router.restorePendingFromSharedDefaults()
+            if router.pendingDeviceId != nil { selection = 1 }
+            DeadlineSurface.shared.beginSession()
+            // First authenticated surface fill: the widget and Spotlight have
+            // no data until this runs at least once. Start it alongside the
+            // inbox drain so a large shared receipt cannot delay the widget.
+            Task { await DeadlineSurface.shared.refresh(client: client) }
             await inboxStore.importSharedFiles()
             await inboxStore.load()
         }
         // Coming back to the foreground is the other retry point: the user may
-        // have shared a file while the app sat in the background.
+        // have shared a file while the app sat in the background, and the
+        // deadlines may have changed on another device.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
+            router.restorePendingFromSharedDefaults()
+            if router.pendingDeviceId != nil { selection = 1 }
+            DeadlineSurface.shared.beginSession()
             Task {
                 await inboxStore.importSharedFiles()
                 await inboxStore.load()
             }
+            Task {
+                await DeadlineSurface.shared.refresh(client: client)
+            }
+        }
+        .onChange(of: router.pendingDeviceId) { _, id in
+            // The app may already be showing this tab; switching is enough for
+            // DevicesScreen's own onChange/task to push the detail view.
+            if id != nil { selection = 1 }
         }
     }
 }

@@ -52,7 +52,10 @@
 
   // Bump this when the cache shape changes. Activate drops every other
   // `wv-*` cache, including the legacy single-cache `wv-v1`.
-  const CACHE_VERSION = 3;
+  //
+  // v4: the manifest stopped being a cache-first static asset (it is generated
+  // per request in the reader's language); the bump evicts the copy v3 pinned.
+  const CACHE_VERSION = 4;
   const CACHE_PREFIX = 'wv-';
   const SHELL_CACHE = 'wv-shell-v' + CACHE_VERSION;
   const PAGE_CACHE = 'wv-pages-v' + CACHE_VERSION;
@@ -69,9 +72,13 @@
 
   // `addAll` would reject the whole shell if one icon 404s, so these are
   // fetched individually and failures are ignored.
+  //
+  // The manifest is deliberately absent: it is generated per request from the
+  // reader's language (`app/manifest.ts`), so precaching one copy would pin the
+  // installed app's shortcut labels to whichever language was active at install
+  // time. There is nothing in it that is needed offline.
   const SHELL_URLS = [
     OFFLINE_URL,
-    '/manifest.webmanifest',
     '/icon.svg',
     '/icon-192.png',
     '/icon-512.png',
@@ -93,9 +100,11 @@
   const CACHEABLE_PATHS = new Set(['/dashboard', '/devices', '/reminders']);
   const DEVICE_DETAIL = /^\/devices\/([^/]+)$/;
 
+  // Fixed assets only. `/manifest.webmanifest` is NOT here: it is a dynamic,
+  // per-language route now, and a cache-first entry would freeze the manifest
+  // (and its shortcut labels) at the language it was first fetched in.
   const STATIC_ASSET_PATHS = new Set([
     '/icon.svg',
-    '/manifest.webmanifest',
     '/apple-touch-icon.png',
     '/icon-192.png',
     '/icon-512.png',

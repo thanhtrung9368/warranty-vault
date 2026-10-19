@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The widget reads the mirrored language choice through
+	     `UserDefaults(suiteName: "group.com.warrly")` (`SharedInboxLanguage`).
+	     Reason 1C8F.1 is the App Group variant of the UserDefaults reason;
+	     CA92.1 alone would only cover defaults private to this bundle. The
+	     snapshot itself is a file in the App Group container, not a
+	     required-reason API. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

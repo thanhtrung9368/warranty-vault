@@ -114,14 +114,14 @@ function fakeResponse(
 
 describe('cache versioning', () => {
   it('uses versioned cache names and drops every older wv-* cache', () => {
-    expect(core.CACHE_VERSION).toBe(3);
-    expect(core.SHELL_CACHE).toBe('wv-shell-v3');
-    expect(core.PAGE_CACHE).toBe('wv-pages-v3');
-    expect(core.ASSET_CACHE).toBe('wv-assets-v3');
+    expect(core.CACHE_VERSION).toBe(4);
+    expect(core.SHELL_CACHE).toBe('wv-shell-v4');
+    expect(core.PAGE_CACHE).toBe('wv-pages-v4');
+    expect(core.ASSET_CACHE).toBe('wv-assets-v4');
     expect(core.CURRENT_CACHES).toEqual([
-      'wv-shell-v3',
-      'wv-pages-v3',
-      'wv-assets-v3',
+      'wv-shell-v4',
+      'wv-pages-v4',
+      'wv-assets-v4',
     ]);
 
     expect(
@@ -130,22 +130,28 @@ describe('cache versioning', () => {
         'wv-pages-v1',
         'wv-pages-v2',
         'wv-pages-v3',
+        'wv-pages-v4',
         'wv-assets-v1',
         'wv-assets-v2',
         'wv-assets-v3',
+        'wv-assets-v4',
         'wv-shell-v1',
         'wv-shell-v2',
         'wv-shell-v3',
+        'wv-shell-v4',
         'unrelated-cache',
       ]),
     ).toEqual([
       'wv-v1',
       'wv-pages-v1',
       'wv-pages-v2',
+      'wv-pages-v3',
       'wv-assets-v1',
       'wv-assets-v2',
+      'wv-assets-v3',
       'wv-shell-v1',
       'wv-shell-v2',
+      'wv-shell-v3',
     ]);
   });
 
@@ -190,9 +196,16 @@ describe('which documents are cacheable', () => {
     expect(core.isStaticAsset('/_next/static/chunks/a.js')).toBe(true);
     expect(core.isStaticAsset('/_next/static/media/font.woff2')).toBe(true);
     expect(core.isStaticAsset('/icon.svg')).toBe(true);
-    expect(core.isStaticAsset('/manifest.webmanifest')).toBe(true);
     expect(core.isStaticAsset('/devices')).toBe(false);
     expect(core.isStaticAsset('/api/files/1')).toBe(false);
+  });
+
+  it('never cache-firsts the per-language manifest', () => {
+    // The manifest is generated per request (`app/manifest.ts`); a cache-first
+    // asset entry would keep serving the language it was first fetched in, so
+    // the shortcut labels would stop matching the app's language.
+    expect(core.isStaticAsset('/manifest.webmanifest')).toBe(false);
+    expect(core.SHELL_URLS).not.toContain('/manifest.webmanifest');
   });
 });
 

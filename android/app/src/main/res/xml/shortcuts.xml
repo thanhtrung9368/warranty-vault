@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Long-press launcher shortcuts — the two actions this app is opened for
+  repeatedly: add the device you just bought, and file a receipt waiting in the
+  inbox. (Checking a deadline is the widget's job now, so it is not a third
+  shortcut.)
+
+  There was NO `shortcuts` resource before this change, and no
+  `android.app.shortcuts` metadata on `MainActivity`; both are added together
+  (`AndroidManifest.xml` + this file). If a future feature adds shortcuts, extend
+  this file rather than declaring a second resource.
+
+  The intents are plain `MainActivity` starts carrying
+  `com.warrly.extra.DESTINATION`; `MainActivity` parks the value in the
+  process-scoped `NavigationIntake` and `MainScreen` opens the tab/sheet. That
+  keeps a shortcut tapped on the login screen alive until the shell exists, and
+  keeps a rotation from replaying it (`AppDestination.fromSavedState`).
+
+  `targetPackage` is the literal `com.warrly` because Android does not expand
+  `${applicationId}` placeholders inside res/xml — only in the manifest. The
+  module has no applicationIdSuffix or flavor, so the literal is exact; if that
+  ever changes, update this line with it (a unit test cannot see it).
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutId="add_device"
+        android:shortcutLongLabel="@string/shortcut_add_device_long"
+        android:shortcutShortLabel="@string/shortcut_add_device_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.warrly.MainActivity"
+            android:targetPackage="com.warrly">
+            <extra
+                android:name="com.warrly.extra.DESTINATION"
+                android:value="add_device" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_inbox"
+        android:shortcutId="open_inbox"
+        android:shortcutLongLabel="@string/shortcut_inbox_long"
+        android:shortcutShortLabel="@string/shortcut_inbox_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.warrly.MainActivity"
+            android:targetPackage="com.warrly">
+            <extra
+                android:name="com.warrly.extra.DESTINATION"
+                android:value="inbox" />
+        </intent>
+    </shortcut>
+
+</shortcuts>

@@ -48,6 +48,7 @@ import com.warrly.App
 import com.warrly.R
 import com.warrly.auth.AppLockStore
 import com.warrly.auth.AuthStore
+import com.warrly.navigation.AppDestination
 import com.warrly.share.ShareTarget
 import com.warrly.ui.screens.actions.ActionQueueScreen
 import com.warrly.ui.screens.dashboard.DashboardScreen
@@ -141,6 +142,10 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
     // Subscriptions tab. Checked after the detail routes as well, so tapping a
     // finding pushes the subscription on top of the report and Back returns here.
     var openAudit by rememberSaveable { mutableStateOf(false) }
+    // A launcher shortcut ("Add device") asks the Devices tab to open its create
+    // sheet on the next composition. One-shot: DevicesScreen calls back once the
+    // sheet is up, so a rotation cannot reopen it after the user closed it.
+    var addDeviceRequest by rememberSaveable { mutableStateOf(false) }
 
     // Capture-first inbox badge. The Inbox tab owns its own list, but the shell
     // needs a number *before* that tab has ever been opened — the badge is the
@@ -203,6 +208,35 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
         openAudit = false
         openBulkAdd = false
         selected = Tab.Inbox
+    }
+
+    // Launcher shortcuts and the widget. Same mailbox pattern as the share
+    // above: the Activity parks the request, this is the first screen that only
+    // exists after sign-in, and applying it means closing whatever route was
+    // open — a shortcut is a top-level entry point, not a push under a detail
+    // screen. Consumed only after the tab switch, so a recomposition cannot drop
+    // a request that arrived while the shell was still rendering.
+    val pendingDestination by App.instance.navigationIntake.pending.collectAsState()
+    LaunchedEffect(pendingDestination) {
+        val destination = pendingDestination ?: return@LaunchedEffect
+        openDeviceId = null
+        openSubscriptionId = null
+        openWishlistId = null
+        openPushDevices = false
+        openSessions = false
+        openSearch = false
+        openActions = false
+        openAudit = false
+        openBulkAdd = false
+        when (destination) {
+            AppDestination.AddDevice -> {
+                selected = Tab.Devices
+                addDeviceRequest = true
+            }
+            AppDestination.Inbox -> selected = Tab.Inbox
+            AppDestination.Reminders -> selected = Tab.Reminders
+        }
+        App.instance.navigationIntake.consume(destination)
     }
 
     val devId = openDeviceId
@@ -392,6 +426,11 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                         // the sheet (the screen does it) and lands here, where
                         // the fresh receipt can be filed or deleted.
                         onOpenInbox = { selected = Tab.Inbox },
+                        // Launcher shortcut / widget destination: open the
+                        // create sheet on first composition, then let the sheet
+                        // be dismissed normally.
+                        startAdd = addDeviceRequest,
+                        onStartAddConsumed = { addDeviceRequest = false },
                     )
                     Tab.Inbox         -> InboxScreen(
                         api = App.instance.api,

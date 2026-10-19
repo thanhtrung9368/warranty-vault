@@ -62,17 +62,20 @@ public final class WarrantiesStore: ObservableObject {
         let w = try await client.createWarranty(deviceId: deviceId, input)
         // Reload so we get the merged reminders[] state.
         await load()
+        DeadlineSurface.refreshSoon(client: client)
         return w
     }
 
     public func update(id: String, _ input: WarrantyInput) async throws {
         _ = try await client.updateWarranty(id: id, input)
         await load()
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     public func delete(id: String) async throws {
         try await client.deleteWarranty(id: id)
         warranties.removeAll { $0.id == id }
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     // MARK: - Claims
@@ -105,10 +108,12 @@ public final class WarrantiesStore: ObservableObject {
     public func dismissReminder(warrantyId id: String) async throws {
         try await client.dismissReminder(warrantyId: id)
         await load()
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     public func restoreReminder(warrantyId id: String) async throws {
         try await client.restoreReminder(warrantyId: id)
         await load()
+        DeadlineSurface.refreshSoon(client: client)
     }
 }

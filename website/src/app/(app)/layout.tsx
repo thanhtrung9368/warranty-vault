@@ -1,7 +1,9 @@
 import { Sidebar, MobileBottomNav } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
 import { OfflineBridge } from '@/components/offline-bridge';
+import { AppBadge } from '@/components/app-badge';
 import { api } from '@/lib/api';
+import { APP_BADGE_WITHIN_DAYS, dueBadgeCount } from '@/lib/app-badge';
 import { badgeCount } from '@/lib/action-queue';
 import { inboxCount } from '@/lib/inbox';
 import { requireUser } from '@/lib/auth';
@@ -15,7 +17,9 @@ export default async function AppLayout({
   // Three sidebar badges, all derived server-side:
   //  - reminders: 30-day horizon to match the previous countActiveReminders()
   //    default. The Go endpoint already filters out dismissed reminders and only
-  //    returns warranties on ACTIVE devices.
+  //    returns warranties on ACTIVE devices. This is ALSO the single feed behind
+  //    the installed-PWA icon badge — `AppBadge` below receives the same count,
+  //    so the web badge costs no second request.
   //  - actions: `ActionQueue.counts.total`, asked for WITHOUT `snoozed=true` so
   //    the badge is the actionable subset only. `badgeCount()` is the single
   //    place that rule is written down.
@@ -23,11 +27,11 @@ export default async function AppLayout({
   //    the length of `GET /v1/inbox`; a failed read leaves the badge at 0
   //    rather than breaking every page in the group.
   const [remindersRes, actionsRes, inboxRes] = await Promise.all([
-    api.reminders.list(30),
+    api.reminders.list(APP_BADGE_WITHIN_DAYS),
     api.actions.list(),
     api.inbox.getInbox(),
   ]);
-  const reminderCount = remindersRes.ok ? remindersRes.data.length : 0;
+  const reminderCount = remindersRes.ok ? dueBadgeCount(remindersRes.data) : 0;
   const actionCount = actionsRes.ok ? badgeCount(actionsRes.data.counts) : 0;
   const inboxWaiting = inboxRes.ok ? inboxCount(inboxRes.data) : 0;
 
@@ -54,6 +58,8 @@ export default async function AppLayout({
       {/* Prime the offline cache and make offline link clicks document
           navigations. Renders nothing. */}
       <OfflineBridge />
+      {/* The installed-PWA icon badge. Renders nothing; feature-detected. */}
+      <AppBadge count={reminderCount} />
     </>
   );
 }

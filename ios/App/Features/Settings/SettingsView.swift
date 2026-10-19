@@ -79,6 +79,10 @@ struct BackupImportFlow: ViewModifier {
             do {
                 let data = try Data(contentsOf: url)
                 let res = try await client.importBackup(data, mode: mode)
+                // A backup can replace every device row in one request. The
+                // widget and Spotlight must follow it immediately, not at the
+                // next launch.
+                DeadlineSurface.refreshSoon(client: client)
                 // Composed from per-count fragments rather than one sentence
                 // carrying three numbers: English inflects each noun separately
                 // ("1 device" / "2 devices") and a single `%d` template cannot

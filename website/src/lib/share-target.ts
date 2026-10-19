@@ -1,9 +1,9 @@
 // Pure logic for the Web Share Target entry point.
 //
 // A receipt opened in another Android app can be sent to Warrly because the
-// manifest declares a `share_target` (`public/manifest.webmanifest`) whose
-// action is `POST /share-target`. This module is the part of that route that
-// does not need Next, React or the network:
+// manifest (`app/manifest.ts`, served at `/manifest.webmanifest`) declares a
+// `share_target` whose action is `POST /share-target`. This module is the part
+// of that route that does not need Next, React or the network:
 //
 //   * the accept/size pre-check lives in `attachment-rules.ts` (shared with the
 //     two uploaders);

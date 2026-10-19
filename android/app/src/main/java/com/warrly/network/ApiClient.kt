@@ -40,7 +40,13 @@ object ApiClient {
      * API's error copy comes back in the language on screen. It defaults to
      * `null` so the network tests can build a client without one.
      *
-     * It deliberately sits BEFORE [tokenProvider] so that the long-standing
+     * [onDeadlineMutation] fires after a successful write that can change a
+     * warranty date (see [affectsDeadlineSnapshot]). The home-screen widget's
+     * snapshot is refreshed from it, which is why it lives here rather than in
+     * each ViewModel. It defaults to a no-op so the network tests never touch
+     * widget storage.
+     *
+     * Both deliberately sit BEFORE [tokenProvider] so that the long-standing
      * trailing-lambda form `ApiClient.build(url) { token }` keeps binding to the
      * token provider — a defaulted parameter appended at the end would silently
      * steal the lambda instead (it did, and the compiler caught it, but the
@@ -49,6 +55,7 @@ object ApiClient {
     fun build(
         baseUrl: String,
         languageProvider: () -> String? = { null },
+        onDeadlineMutation: () -> Unit = {},
         tokenProvider: () -> String?,
     ): ApiService {
         val logging = HttpLoggingInterceptor().apply {
@@ -56,6 +63,7 @@ object ApiClient {
         }
         val ok = baseClient.newBuilder()
             .addInterceptor(AuthInterceptor(tokenProvider, languageProvider))
+            .addInterceptor(DeadlineMutationInterceptor(onDeadlineMutation))
             .addInterceptor(logging)
             .build()
 

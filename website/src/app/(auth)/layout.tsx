@@ -3,6 +3,7 @@ import { Vault } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { OfflineCacheCleaner } from '@/components/offline-cache-cleaner';
+import { AppBadge } from '@/components/app-badge';
 import { getI18n } from '@/lib/i18n/server';
 
 // Chrome for the public auth flows. The "already signed in → /dashboard" guard
@@ -27,6 +28,9 @@ export default async function AuthLayout({
       {/* A signed-out browser must not keep the previous account's cached
           device pages. Covers sign-out redirects and expired sessions. */}
       <OfflineCacheCleaner />
+      {/* …and it must not keep yesterday's "2 deadlines due" icon badge either.
+          There is no reminders read on these pages, so the honest count is 0. */}
+      <AppBadge count={0} />
       <header className="flex items-center justify-between gap-3 px-4 py-5 md:px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <span className="brand-mark">

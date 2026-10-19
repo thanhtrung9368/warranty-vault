@@ -12,6 +12,8 @@ struct WarrlyApp: App {
     @StateObject private var appLock = AppLockStore()
     /// Which language the app renders in — and what `Accept-Language` carries.
     @StateObject private var localization: LocalizationStore
+    /// Spotlight / URL / App Intent destination hand-off.
+    @StateObject private var router = AppRouter()
 
     init() {
         let authStore = AuthStore(baseURL: AppConfig.baseURL)
@@ -33,6 +35,7 @@ struct WarrlyApp: App {
                 .environmentObject(toasts)
                 .environmentObject(appLock)
                 .environmentObject(localization)
+                .environmentObject(router)
                 .wvToastHost(toasts)
                 .preferredColorScheme(theme.preference.colorScheme)
                 // `L.t(...)` is a plain function call, so SwiftUI cannot see

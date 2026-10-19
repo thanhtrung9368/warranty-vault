@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { hasMessage, translate } from '@/lib/i18n/catalog';
+import { buildWebManifest } from '@/lib/pwa-manifest';
 import {
   SHARE_FAILURE_MESSAGES,
   SHARE_FAILURE_REASONS,
@@ -19,6 +20,10 @@ import {
 // the failure→copy mapping, and the redirect URLs. The route itself needs a
 // Next request/response and Go, so it is exercised only by lint/tsc/build — but
 // every decision it makes before/after the network call lives here.
+//
+// `public/manifest.webmanifest` no longer exists: the manifest is generated per
+// request in `app/manifest.ts` (it is bilingual). The contract below reads the
+// same builder the route serves, so the test cannot drift from the payload.
 
 const WEBSITE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -33,9 +38,8 @@ type Manifest = {
 };
 
 function readManifest(): Manifest {
-  return JSON.parse(
-    readFileSync(join(WEBSITE_ROOT, 'public', 'manifest.webmanifest'), 'utf8'),
-  ) as Manifest;
+  // English is the product default, the same locale an anonymous install gets.
+  return buildWebManifest('en') as Manifest;
 }
 
 describe('manifest share_target', () => {

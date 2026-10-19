@@ -147,6 +147,27 @@ public enum L {
         render(key: key, language: effectiveLanguage, args: [count] + args, count: count)
     }
 
+    /// Renders `key` in an **explicit** language instead of the process-wide
+    /// `L.language`.
+    ///
+    /// This exists for code that renders copy outside the app's views: the
+    /// widget timeline provider, the App Intents that answer Siri, and the pure
+    /// rules under test. Those run where mutating the global `L.language` would
+    /// race with whatever the UI is drawing, and a test that pins a language by
+    /// mutating global state cannot run in parallel with another one. Passing
+    /// the language in keeps the rules pure and the test deterministic.
+    public static func t(_ key: String, language: AppLanguage,
+                         _ args: CVarArg...) -> String {
+        render(key: key, language: language, args: args, count: nil)
+    }
+
+    /// Plural-aware counterpart of `t(_:language:_:)`. The count still selects
+    /// the English plural category and is passed as the first format argument.
+    public static func p(_ key: String, language: AppLanguage, _ count: Int,
+                         _ args: CVarArg...) -> String {
+        render(key: key, language: language, args: [count] + args, count: count)
+    }
+
     /// Whether the catalog knows `key` at all. Used by the parity tests and by
     /// callers that must decide which of two keys to render before rendering it
     /// (the server's `Lookup` exists for the same reason).

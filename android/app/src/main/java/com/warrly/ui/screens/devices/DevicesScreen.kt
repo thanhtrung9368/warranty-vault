@@ -175,12 +175,29 @@ fun DevicesScreen(
      * the device form's other fields.
      */
     onOpenInbox: () -> Unit = {},
+    /**
+     * One-shot request to open the create sheet immediately.
+     *
+     * Set by `MainScreen` when the "Add device" launcher shortcut (or a future
+     * widget action) lands here. The sheet itself owns its open/closed state, so
+     * the flag is consumed as soon as the sheet is up: a rotation must not
+     * reopen a sheet the user closed. Mirrors the `shareIntake` one-shot pattern.
+     */
+    startAdd: Boolean = false,
+    /** Called after [startAdd] has been applied, so the shell can clear it. */
+    onStartAddConsumed: () -> Unit = {},
 ) {
     val vm: DevicesViewModel = viewModel(
         factory = viewModelFactory { DevicesViewModel(api) },
     )
     val state by vm.state.collectAsState()
     var showAdd by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(startAdd) {
+        if (startAdd) {
+            showAdd = true
+            onStartAddConsumed()
+        }
+    }
     var refreshing by remember { mutableStateOf(false) }
     // Advisories from the last successful save ("đã lưu, nhưng…"). Held here
     // rather than in the sheet because the sheet closes on success — a warning

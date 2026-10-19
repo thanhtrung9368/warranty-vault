@@ -95,7 +95,51 @@
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
+
+            <!-- Launcher shortcuts (long-press the icon): "Add device" and
+                 "Open the inbox". There was NO shortcuts resource before this
+                 change; `res/xml/shortcuts.xml` is the first one. The intents
+                 carry `com.warrly.extra.DESTINATION`, parked by MainActivity in
+                 `NavigationIntake` and consumed by MainScreen — see
+                 `AppDestination`. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Home-screen widget — the app's first AppWidgetProvider. Draws the
+             next two warranty expiries from a locally cached snapshot; it never
+             makes an authenticated call (see `DeadlineSnapshotUpdater`). The
+             metadata (sizing, six-hour update period, preview) is
+             `res/xml/deadline_widget_info.xml`.
+
+             PRIVACY: a home-screen widget is visible to anyone holding the
+             phone. We DO show the device name — a deadline with no device is not
+             actionable, and the name is already the most prominent field in a
+             lock-screen push notification — but the exposure is bounded:
+               * `widgetCategory="home_screen"` (never `keyguard`) in that
+                  metadata, so the card is not offered to lock-screen/widget
+                  hosts;
+               * at most two rows, ellipsized, plus a capture time;
+               * the snapshot contains no price, serial, email, attachment or
+                  provider data — only device id/name and the warranty end date;
+               * `DeadlineSnapshotUpdater.clear()` wipes it on sign-out, so the
+                  previous account's names cannot survive a logout.
+
+             `exported="false"`: the system may deliver the explicit
+             APPWIDGET_UPDATE broadcast, but no other app may invoke this
+             receiver. -->
+        <receiver
+            android:name=".widget.WarrlyDeadlineWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/deadline_widget_info" />
+        </receiver>
 
         <!-- FCM token + inbound notification handler. Inert until a real
              google-services.json + Firebase project are configured. -->

@@ -12,6 +12,10 @@ export const common = defineMessages({
   'Thiết bị': 'Devices',
   'Gói đăng ký': 'Subscriptions',
   'Nhắc nhở': 'Reminders',
+  // Short label for the installed-PWA "see what is due" shortcut
+  // (`lib/pwa-manifest.ts`). The OS truncates shortcut labels, so the manifest
+  // uses this form while the long form above stays the nav/page heading.
+  'Nhắc': 'Due',
   'Việc cần xử lý': 'Action items',
   // Capture-first inbox: attachments uploaded with no device yet. The page
   // heading, the sidebar item and the bottom nav all use this one key, so they

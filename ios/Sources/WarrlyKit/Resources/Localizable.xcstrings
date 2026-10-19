@@ -20600,6 +20600,314 @@
           }
         }
       }
+    },
+    "%1$@ hết hạn ngày %2$@ — %3$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ expires on %2$@ — %3$@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ hết hạn ngày %2$@ — %3$@."
+          }
+        }
+      }
+    },
+    "Bảo hành sắp hết hạn, ngay trên màn hình chính.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranties expiring soon, right on your Home Screen."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo hành sắp hết hạn, ngay trên màn hình chính."
+          }
+        }
+      }
+    },
+    "Chưa ghi bảo hành cho %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No warranty recorded for %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa ghi bảo hành cho %@."
+          }
+        }
+      }
+    },
+    "Hết hạn hôm nay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expires today"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hết hạn hôm nay"
+          }
+        }
+      }
+    },
+    "Hết hạn ngày mai": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expires tomorrow"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hết hạn ngày mai"
+          }
+        }
+      }
+    },
+    "Không có gì sắp hết hạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing due soon"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có gì sắp hết hạn"
+          }
+        }
+      }
+    },
+    "Không tìm thấy thiết bị này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That device couldn't be found."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy thiết bị này."
+          }
+        }
+      }
+    },
+    "Không đọc được dữ liệu bảo hành. Mở Warrly để thử lại.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read warranty data. Open Warrly and try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đọc được dữ liệu bảo hành. Mở Warrly để thử lại."
+          }
+        }
+      }
+    },
+    "Mốc gần nhất: %1$@ — %2$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next deadline: %1$@ — %2$@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc gần nhất: %1$@ — %2$@."
+          }
+        }
+      }
+    },
+    "Mở Warrly để cập nhật": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Warrly to refresh"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở Warrly để cập nhật"
+          }
+        }
+      }
+    },
+    "Mở ứng dụng một lần để đồng bộ hạn bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the app once to sync your deadlines."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở ứng dụng một lần để đồng bộ hạn bảo hành."
+          }
+        }
+      }
+    },
+    "Sắp hết hạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expiring soon"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sắp hết hạn"
+          }
+        }
+      }
+    },
+    "Theo dữ liệu lưu trên máy (%1$@), %2$@ hết hạn ngày %3$@ — %4$@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From on-device data (%1$@), %2$@ expires on %3$@ — %4$@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo dữ liệu lưu trên máy (%1$@), %2$@ hết hạn ngày %3$@ — %4$@."
+          }
+        }
+      }
+    },
+    "Tính đến %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As of %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính đến %@"
+          }
+        }
+      }
+    },
+    "Đã hết hạn %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Expired 1 day ago"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Expired %d days ago"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Đã hết hạn %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Không có nhắc nhở nào trong %d ngày tới.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No reminders in the next day."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "No reminders in the next %d days."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Không có nhắc nhở nào trong %d ngày tới."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.0"

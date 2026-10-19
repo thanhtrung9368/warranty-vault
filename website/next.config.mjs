@@ -62,6 +62,20 @@ const nextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // The manifest is generated per request (`app/manifest.ts`) because it is
+      // bilingual. A metadata route otherwise gets `Cache-Control: public`,
+      // which would let a shared cache hand the English manifest to a
+      // Vietnamese reader (or vice versa). Keep it private to this request.
+      {
+        source: '/manifest.webmanifest',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+          { key: 'Vary', value: 'Cookie, Accept-Language' },
+        ],
+      },
       // User attachments are served through the auth-gated /api/files/[id]
       // route — that route sets its own private cache + nosniff + sandbox CSP.
     ];

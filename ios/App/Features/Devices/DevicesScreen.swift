@@ -36,6 +36,12 @@ struct DevicesScreen: View {
     /// the destinations below own the navigation.
     @State private var showCreateForm = false
     @State private var showBulkAdd = false
+    /// Destination requested by Spotlight / a URL / an App Intent. It is only
+    /// resolved after the list is loaded, so a cold launch from a search result
+    /// still lands on the right device.
+    @EnvironmentObject private var router: AppRouter
+    @State private var deepLinkedDevice: Device?
+    @State private var showMissingDeviceAlert = false
 
     init(client: APIClient) {
         self.client = client
@@ -229,6 +235,12 @@ struct DevicesScreen: View {
         .navigationDestination(for: Device.self) { device in
             DeviceDetailView(client: client, devicesStore: store, device: device)
         }
+        // A Spotlight hit or App Intent can arrive while this screen is already
+        // on the stack. It is a separate destination from the value-based link
+        // above because there is no `Device` value yet at request time.
+        .navigationDestination(item: $deepLinkedDevice) { device in
+            DeviceDetailView(client: client, devicesStore: store, device: device)
+        }
         // The confirmation alert can push here; a sheet-nested inbox would not
         // share the tab's navigation stack.
         .navigationDestination(isPresented: $showInbox) {
@@ -264,8 +276,38 @@ struct DevicesScreen: View {
         } message: {
             Text(L.t("Gán tệp vào thiết bị để nó không còn trong hộp thư."))
         }
-        .task { await store.load() }
+        .alert(L.t("Không tìm thấy thiết bị này."), isPresented: $showMissingDeviceAlert) {
+            Button(L.t("Xong"), role: .cancel) {}
+        }
+        .task {
+            router.restorePendingFromSharedDefaults()
+            if router.pendingDeviceId != nil {
+                await openPendingDeviceIfNeeded()
+            } else {
+                await store.load()
+            }
+        }
+        .onChange(of: router.pendingDeviceId) { _, id in
+            guard id != nil else { return }
+            Task { await openPendingDeviceIfNeeded() }
+        }
         .refreshable { await store.load() }
+    }
+
+    /// Loads the list and pushes the requested device.
+    ///
+    /// The id is consumed only after the load: consuming it first would lose the
+    /// destination on a cold launch where the list request fails or is slow.
+    /// A missing device is reported honestly instead of silently doing nothing —
+    /// the row may have been deleted on another device since it was indexed.
+    private func openPendingDeviceIfNeeded() async {
+        guard let id = router.consume() else { return }
+        await store.load()
+        if let device = store.devices.first(where: { $0.id == id }) {
+            deepLinkedDevice = device
+        } else {
+            showMissingDeviceAlert = true
+        }
     }
 
     // MARK: - List content

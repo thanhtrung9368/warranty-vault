@@ -45,6 +45,11 @@ targets:
         # archive carries one signature/identity even if the extension target
         # was built separately.
         codeSign: true
+      # The home-screen deadline widget. Same App Group as the share queue; the
+      # app is the only writer (see `App/Core/Surface/DeadlineSurface.swift`).
+      - target: WarrlyWidget
+        embed: true
+        codeSign: true
     # Per-configuration API endpoint. These feed `WV_API_BASE_URL`, which the
     # generated Info.plist exposes as `WVAPIBaseURL` and WarrlyKit's
     # `BaseURLResolver` reads at launch. Debug: http://localhost:4000.
@@ -60,9 +65,11 @@ targets:
         # phục vụ cả hai. Hardcode 'development' thì archive cho TestFlight sẽ
         # mang entitlement development, và APNs production từ chối token.
         aps-environment: $(APS_ENVIRONMENT)
-        # Shared container for the Share Extension queue. The SAME group must be
-        # in ShareExtension/ShareExtension.entitlements below and enabled for
-        # both bundle ids in the Apple developer portal, otherwise
+        # Shared container for the Share Extension queue, the widget snapshot
+        # and the Spotlight/intent hand-off. The SAME group must be in
+        # ShareExtension/ShareExtension.entitlements and
+        # WidgetExtension/WarrlyWidget.entitlements below, and enabled for all
+        # three bundle ids in the Apple developer portal, otherwise
         # `containerURL(forSecurityApplicationGroupIdentifier:)` returns nil.
         com.apple.security.application-groups:
           - group.com.warrly
@@ -80,6 +87,13 @@ targets:
           UIColorName: ""
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        # `warrly://device/<id>` — the widget's tap target and the URL half of
+        # the "open this device" flow. Parsed by `WarrlyDeepLink`; the
+        # Spotlight path uses `NSUserActivity` instead of this scheme.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.warrly.device
+            CFBundleURLSchemes:
+              - warrly
         # No blanket ATS exception: production traffic is HTTPS and needs none.
         # The only cleartext allowance is `localhost`, for the Go API a Debug
         # build talks to on the simulator. `NSAllowsArbitraryLoads` was removed
@@ -163,6 +177,49 @@ targets:
         com.apple.security.application-groups:
           - group.com.warrly
 
+  # WidgetKit extension: small + medium home-screen widget fed by the App
+  # Group snapshot. It has no network client, no Keychain access group and no
+  # bearer token on purpose — the app writes what it needs, and the widget says
+  # "as of …" once that snapshot is old.
+  #
+  # No `.accessory*` family is listed in the widget configuration, so this
+  # extension never renders on the Lock Screen. See the privacy note in
+  # `WidgetExtension/WarrlyDeadlineWidget.swift`.
+  WarrlyWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: WidgetExtension
+        excludes:
+          - Info.plist
+          - WarrlyWidget.entitlements
+    dependencies:
+      - package: WarrlyKit
+        product: WarrlyKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.warrly.WarrlyWidget
+        PRODUCT_NAME: WarrlyWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: RNCMNPBA9L
+    info:
+      path: WidgetExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Warrly
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: WidgetExtension/WarrlyWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.warrly
+
 schemes:
   # XcodeGen does not create a shared scheme for an extension target by default,
   # which would make "build the extension's scheme" impossible in CI. Declare
@@ -171,6 +228,15 @@ schemes:
     build:
       targets:
         ShareExtension: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+  WarrlyWidget:
+    build:
+      targets:
+        WarrlyWidget: all
     run:
       config: Debug
     archive:

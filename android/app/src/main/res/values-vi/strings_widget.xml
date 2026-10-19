@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản gốc của widget + shortcut. Xem chú thích ở
+  `values/strings_widget.xml` để biết hai luật (khoá trùng nhau, `%` trùng
+  nhau) do `StringResourceParityTest` giữ.
+
+  Widget hiển thị ngoài app nhưng KHÔNG theo ngôn ngữ của launcher: nó đọc
+  `LanguageStore.current(context)` rồi tự wrap context, nên người dùng chọn
+  tiếng Anh trong Cài đặt sẽ thấy widget tiếng Anh trên màn hình chính.
+-->
+<resources>
+
+    <!-- ===== Widget màn hình chính ===== -->
+
+    <string name="widget_name">Hạn bảo hành</string>
+    <string name="widget_description">Hiển thị những ngày hết hạn bảo hành gần nhất bạn đã lưu trong Warrly.</string>
+    <string name="widget_title">Hạn bảo hành</string>
+    <string name="widget_open">Mở Warrly</string>
+
+    <string name="widget_no_data_title">Chưa có dữ liệu hạn</string>
+    <string name="widget_no_data_body">Mở Warrly một lần để tải các bảo hành đã lưu.</string>
+
+    <string name="widget_empty_title">Không có hạn nào trong 12 tháng tới</string>
+    <string name="widget_empty_body">Mở Warrly để thêm thiết bị hoặc gói bảo hành.</string>
+
+    <string name="widget_unnamed_device">Thiết bị chưa đặt tên</string>
+
+    <!-- 0 và 1 có câu riêng; các số còn lại dùng plural (tiếng Việt chỉ có
+         `other`, đúng như `StringResourceParityTest` yêu cầu). -->
+    <string name="widget_expires_today">Hết hạn hôm nay</string>
+    <string name="widget_expires_tomorrow">Hết hạn ngày mai</string>
+    <plurals name="widget_days_left">
+        <item quantity="other">Còn %1$d ngày</item>
+    </plurals>
+
+    <!-- Dòng "tính đến". Luôn hiện khi có snapshot; càng cũ chữ càng rõ. -->
+    <string name="widget_as_of">tính đến %1$s</string>
+    <string name="widget_stale_as_of">Dữ liệu cũ · tính đến %1$s</string>
+    <string name="widget_old_as_of">Dữ liệu từ %1$s · mở Warrly</string>
+
+    <plurals name="widget_more_deadlines">
+        <item quantity="other">+%1$d mốc nữa</item>
+    </plurals>
+
+    <!-- ===== Shortcut ngoài launcher ===== -->
+    <string name="shortcut_add_device_short">Thêm thiết bị</string>
+    <string name="shortcut_add_device_long">Thêm thiết bị mới</string>
+    <string name="shortcut_inbox_short">Hộp thư</string>
+    <string name="shortcut_inbox_long">Mở hộp thư</string>
+
+</resources>

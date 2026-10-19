@@ -27,6 +27,7 @@ import com.warrly.auth.AuthStore
 import com.warrly.auth.BiometricAppLockAuthenticator
 import com.warrly.i18n.LanguageStore
 import com.warrly.i18n.LocaleSupport
+import com.warrly.navigation.AppDestination
 import com.warrly.network.ApiClient
 import com.warrly.network.toUserMessage
 import com.warrly.share.ShareTarget
@@ -34,6 +35,7 @@ import com.warrly.share.SharedFile
 import com.warrly.ui.RootScreen
 import com.warrly.ui.screens.attachments.readPickedAttachment
 import com.warrly.ui.theme.WarrlyTheme
+import com.warrly.widget.DeadlineWidgetPublisher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -93,13 +95,21 @@ class MainActivity : FragmentActivity() {
                 // protect on the login screen). `isAuthenticating` inside the
                 // store makes this a no-op while a prompt is already on screen, so
                 // a recreation or a second `ON_START` cannot stack two.
-                Lifecycle.Event.ON_START -> lifecycleScope.launch {
+                Lifecycle.Event.ON_START -> {
+                    // A foregrounded app is the widget's freshness trigger:
+                    // capture the current reminder feed once, so the home-screen
+                    // list is no older than the last time the user looked.
                     if (App.instance.auth.status.value is AuthStore.Status.Authenticated) {
-                        appLock.handleForeground(promptReason)
-                    } else {
-                        // Capabilities can change while signed out too (the user
-                        // may have removed the screen lock); cheap, no prompt.
-                        appLock.refreshAvailability()
+                        App.instance.deadlineSnapshots.refresh()
+                    }
+                    lifecycleScope.launch {
+                        if (App.instance.auth.status.value is AuthStore.Status.Authenticated) {
+                            appLock.handleForeground(promptReason)
+                        } else {
+                            // Capabilities can change while signed out too (the user
+                            // may have removed the screen lock); cheap, no prompt.
+                            appLock.refreshAvailability()
+                        }
                     }
                 }
 
@@ -120,6 +130,16 @@ class MainActivity : FragmentActivity() {
                     lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
                 ) {
                     appLock.handleForeground(promptReason)
+                    // Covers the cold-launch case: ON_START ran while the
+                    // session was still Idle, so the first authenticated
+                    // emission is the one that may capture the widget snapshot.
+                    App.instance.deadlineSnapshots.refresh()
+                }
+                // A signed-out app must not leave the previous account's
+                // device names on the home screen. This also runs on a cold
+                // launch whose stored token no longer validates.
+                if (status is AuthStore.Status.Unauthenticated) {
+                    App.instance.deadlineSnapshots.clear()
                 }
                 wasAuthenticated = nowAuthenticated
             }
@@ -134,6 +154,12 @@ class MainActivity : FragmentActivity() {
             App.instance.languageStore.language.collect { language ->
                 if (language != applied) {
                     applied = language
+                    // A placed widget is not recreated by the Activity. Repaint
+                    // it now so its title/footer switch language with the rest
+                    // of the app instead of waiting up to six hours for the
+                    // periodic update. `LanguageStore` already holds the new
+                    // value here; the renderer reads it back.
+                    DeadlineWidgetPublisher.updateAll(this@MainActivity)
                     recreate()
                 }
             }
@@ -151,6 +177,12 @@ class MainActivity : FragmentActivity() {
         // is the classic bug in this feature. ShareTarget.deliver() owns that
         // rule so it is unit-tested instead of trusted.
         handleShareIntent(intent, fromSavedState = savedInstanceState != null)
+
+        // Launcher shortcuts and the widget. Same recreation rule as the share
+        // above: a redelivered intent must not yank the user back to the inbox
+        // after a rotation. The destination is parked, never navigated to here —
+        // the signed-in shell may not exist yet.
+        handleDestinationIntent(intent, fromSavedState = savedInstanceState != null)
 
         setContent {
             val themePref by App.instance.themeStore.preference.collectAsState()
@@ -180,6 +212,24 @@ class MainActivity : FragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleShareIntent(intent, fromSavedState = false)
+        handleDestinationIntent(intent, fromSavedState = false)
+    }
+
+    /**
+     * Parks a shortcut/widget destination for [com.warrly.ui.MainScreen].
+     *
+     * There is no navigation graph to push onto here: the shell owns the tabs
+     * and the route stack, and it may not exist yet (login screen, app lock).
+     * `NavigationIntake` is the process-scoped mailbox `MainScreen` drains once.
+     * The pure `AppDestination.fromSavedState` rule is what keeps a rotation
+     * from replaying the intent.
+     */
+    private fun handleDestinationIntent(intent: Intent?, fromSavedState: Boolean) {
+        val destination = AppDestination.fromSavedState(
+            raw = intent?.getStringExtra(AppDestination.EXTRA),
+            fromSavedState = fromSavedState,
+        ) ?: return
+        App.instance.navigationIntake.hold(destination)
     }
 
     private fun handleShareIntent(intent: Intent?, fromSavedState: Boolean) {

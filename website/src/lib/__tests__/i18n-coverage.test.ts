@@ -15,6 +15,7 @@ import {
 import { SEARCH_GROUP_LABELS, ATTACHMENT_SEARCH_STATUS_LABELS } from '@/lib/search';
 import { PASTE_FIELD_LABELS } from '@/lib/device-paste';
 import { SHARE_FAILURE_MESSAGES } from '@/lib/share-target';
+import { PWA_SHORTCUTS } from '@/lib/pwa-manifest';
 import { CLAIM_COVERAGE_LABELS, CLAIM_STATUS_LABELS } from '@/lib/claims';
 import {
   CLAIM_ASSESSMENT_ADVICE_BODIES,
@@ -181,6 +182,19 @@ describe('every enum/option label is registered', () => {
     // spreading keeps them in the same "every value is registered" check as the
     // enum label maps below.
     SHARE_FAILURE_MESSAGES: { ...SHARE_FAILURE_MESSAGES },
+    // The installed-PWA shortcut labels are selected at runtime by
+    // `buildWebManifest()` (`translate(locale, shortcut.name)`), so the
+    // literal-key scan cannot see them. Both columns of every shortcut go
+    // through the same "registered and really English" checks.
+    PWA_SHORTCUT_NAMES: Object.fromEntries(
+      PWA_SHORTCUTS.map((shortcut, index) => [`${index}-${shortcut.url}`, shortcut.name]),
+    ),
+    PWA_SHORTCUT_SHORT_NAMES: Object.fromEntries(
+      PWA_SHORTCUTS.map((shortcut, index) => [
+        `${index}-${shortcut.url}`,
+        shortcut.shortName,
+      ]),
+    ),
     // Warranty claims. Status and tri-state coverage are looked up dynamically
     // (`claimStatusLabel` / `claimCoverageLabel`), so both maps are listed here
     // to keep every value registered and translated like the enum labels.

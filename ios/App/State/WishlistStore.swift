@@ -37,6 +37,9 @@ public final class WishlistStore: ObservableObject {
         try await client.updateWishlistItem(id: id, input)
         // PATCH returns empty — reload to pick up server-derived fields.
         await load()
+        // Marking an item PURCHASED creates a Device server-side; that new row
+        // belongs in the widget snapshot and in Spotlight immediately.
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     public func delete(id: String) async throws {

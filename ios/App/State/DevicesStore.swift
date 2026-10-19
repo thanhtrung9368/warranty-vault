@@ -33,6 +33,7 @@ public final class DevicesStore: ObservableObject {
         let result = try await client.createDevice(input)
         devices.insert(result.device, at: 0)
         await refreshProjection()
+        DeadlineSurface.refreshSoon(client: client)
         return result
     }
 
@@ -51,6 +52,7 @@ public final class DevicesStore: ObservableObject {
         if !result.created.isEmpty {
             devices.insert(contentsOf: result.created, at: 0)
             await refreshProjection()
+            DeadlineSurface.refreshSoon(client: client)
         }
         return result
     }
@@ -61,12 +63,16 @@ public final class DevicesStore: ObservableObject {
             devices[idx] = result.device
         }
         await refreshProjection()
+        DeadlineSurface.refreshSoon(client: client)
         return result
     }
 
     public func delete(_ id: String) async throws {
         try await client.deleteDevice(id: id)
         devices.removeAll { $0.id == id }
+        // The row is gone from Spotlight and the widget on the next snapshot;
+        // do not wait for the next foreground to remove a deleted device.
+        DeadlineSurface.refreshSoon(client: client)
     }
 
     /// Re-reads the list without touching `state`.

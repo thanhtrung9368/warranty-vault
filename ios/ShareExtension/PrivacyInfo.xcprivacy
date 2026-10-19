@@ -5,8 +5,10 @@
 	<!-- The extension reads the language choice from App Group `UserDefaults`
 	     (SharedInboxLanguage). WarrlyKit's own manifest covers the library
 	     bundle; an app extension is a separate bundle, so it carries the same
-	     required-reason declaration. The shared file itself is only written to
-	     the App Group container, never uploaded from here. -->
+	     required-reason declaration. 1C8F.1 is the App Group variant — CA92.1
+	     would only cover defaults private to this bundle. The shared file
+	     itself is only written to the App Group container, never uploaded from
+	     here. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyAccessedAPITypes</key>
@@ -16,7 +18,7 @@
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
-				<string>CA92.1</string>
+				<string>1C8F.1</string>
 			</array>
 		</dict>
 	</array>

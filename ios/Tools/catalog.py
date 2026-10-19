@@ -85,7 +85,7 @@ def cmd_add(path):
 def scan_sources():
     """Every (file, key, plural?) the Swift sources pass to L.t / L.p."""
     hits = []
-    for base in ("Sources", "App", "ShareExtension"):
+    for base in ("Sources", "App", "ShareExtension", "WidgetExtension"):
         for dirpath, _, files in os.walk(os.path.join(ROOT, base)):
             if ".build" in dirpath:
                 continue

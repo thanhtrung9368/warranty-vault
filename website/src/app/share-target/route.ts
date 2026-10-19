@@ -14,8 +14,8 @@ import {
 
 // POST /share-target — the Web Share Target receiver.
 //
-// The manifest (`public/manifest.webmanifest`) registers this exact URL as the
-// app's share destination:
+// The manifest (`app/manifest.ts`, served at `/manifest.webmanifest`) registers
+// this exact URL as the app's share destination:
 //
 //   "share_target": {
 //     "action": "/share-target",

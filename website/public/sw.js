@@ -1,6 +1,6 @@
 /* Warrly service worker — push receive + honest offline document cache. */
 
-importScripts('/sw-core.js?v=3');
+importScripts('/sw-core.js?v=4');
 
 const {
   SHELL_CACHE,

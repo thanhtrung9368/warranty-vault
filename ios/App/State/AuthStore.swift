@@ -45,12 +45,17 @@ public final class AuthStore: ObservableObject {
                 status = .authenticated(user)
             } catch {
                 status = .unauthenticated
+                await DeadlineSurface.shared.clear()
             }
             return
         }
 #endif
         guard keychain.read() != nil else {
             status = .unauthenticated
+            // No session means no widget / Spotlight data either. This is also
+            // the path after a reinstall that left the App Group container
+            // behind: the next account must start from an empty surface.
+            await DeadlineSurface.shared.clear()
             return
         }
         do {
@@ -59,6 +64,7 @@ public final class AuthStore: ObservableObject {
         } catch {
             keychain.clear()
             status = .unauthenticated
+            await DeadlineSurface.shared.clear()
         }
     }
 
@@ -83,6 +89,7 @@ public final class AuthStore: ObservableObject {
     public func logout() async {
         try? await client.logout()
         keychain.clear()
+        await DeadlineSurface.shared.clear()
         status = .unauthenticated
     }
 
@@ -110,6 +117,7 @@ public final class AuthStore: ObservableObject {
     public func deleteAccount(password: String) async throws {
         try await client.deleteAccount(password: password)
         keychain.clear()
+        await DeadlineSurface.shared.clear()
         status = .unauthenticated
     }
 

@@ -131,6 +131,7 @@ src/
 │   │   └── subscriptions.ts  wishlist.ts  reminders.ts  push.ts  backup.ts
 │   ├── offline/
 │   ├── page.tsx            # landing
+│   ├── manifest.ts         # PWA manifest, sinh theo ngôn ngữ của request
 │   └── layout.tsx          # root layout (theme, PWA register, toaster)
 ├── components/
 │   ├── ui/                 # shadcn-style primitives
@@ -143,7 +144,6 @@ src/
     └── __tests__/          # vitest unit tests
 
 public/
-├── manifest.webmanifest    # PWA manifest
 ├── sw.js                   # Service worker (push + offline)
 └── icon*.png / icon.svg    # App icons
 ```

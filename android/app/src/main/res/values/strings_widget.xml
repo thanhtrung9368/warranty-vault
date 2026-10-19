@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the product default. The Vietnamese side is
+  `values-vi/strings_widget.xml`, and `StringResourceParityTest` enforces both
+  key parity and matching format verbs.
+
+  Two surfaces live here because both are seen OUTSIDE the app:
+    * the home-screen widget (`widget/*`, `res/xml/deadline_widget_info.xml`);
+    * launcher shortcuts (`shortcut_*`, `res/xml/shortcuts.xml`).
+
+  Widget strings are rendered by `DeadlineWidgetRenderer` through the same
+  `AppStrings` the Compose screens use, so a widget follows the in-app language
+  switch — the launcher's own locale is not consulted. The capture-time line is
+  always present; a widget cannot claim to be live.
+-->
+<resources>
+
+    <!-- ===== Home-screen widget ===== -->
+
+    <!-- Launcher/widget-picker name (also the receiver label). -->
+    <string name="widget_name">Warranty deadlines</string>
+    <!-- `android:description` on the appwidget-provider (Android 12+). -->
+    <string name="widget_description">Shows the next warranty expiry dates you saved in Warrly.</string>
+    <string name="widget_title">Warranty deadlines</string>
+    <!-- Accessibility label for the whole clickable card. -->
+    <string name="widget_open">Open Warrly</string>
+
+    <!-- No snapshot has ever been captured: fresh install, signed out, or the
+         session stopped validating (the updater clears on sign-out). -->
+    <string name="widget_no_data_title">No deadline data yet</string>
+    <string name="widget_no_data_body">Open Warrly once to load your saved warranties.</string>
+
+    <!-- A snapshot exists but has no upcoming expiry. Ten months from now is
+         still "nothing in 12 months" — the horizon is WIDGET_HORIZON_DAYS. -->
+    <string name="widget_empty_title">Nothing expires in the next 12 months</string>
+    <string name="widget_empty_body">Open Warrly to add a device or a warranty plan.</string>
+
+    <string name="widget_unnamed_device">Unnamed device</string>
+
+    <!-- Day-count labels. 0 and 1 get named days; the rest are a plural. -->
+    <string name="widget_expires_today">Expires today</string>
+    <string name="widget_expires_tomorrow">Expires tomorrow</string>
+    <plurals name="widget_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+
+    <!-- "as of" footer. Always shown when a snapshot exists; the wording gets
+         stronger as the capture ages (see STALE_AFTER_MILLIS /
+         OLD_AFTER_MILLIS in DeadlineWidgetRules.kt). %1$s is a formatted
+         local timestamp, never a raw epoch. -->
+    <string name="widget_as_of">as of %1$s</string>
+    <string name="widget_stale_as_of">Stale · as of %1$s</string>
+    <string name="widget_old_as_of">Old data from %1$s · open Warrly</string>
+
+    <!-- "+N more" beyond the two rows the 4x2 layout draws. -->
+    <plurals name="widget_more_deadlines">
+        <item quantity="one">+%1$d more</item>
+        <item quantity="other">+%1$d more</item>
+    </plurals>
+
+    <!-- ===== Launcher shortcuts (res/xml/shortcuts.xml) ===== -->
+    <string name="shortcut_add_device_short">Add device</string>
+    <string name="shortcut_add_device_long">Add a new device</string>
+    <string name="shortcut_inbox_short">Inbox</string>
+    <string name="shortcut_inbox_long">Open the inbox</string>
+
+</resources>

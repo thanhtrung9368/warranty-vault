@@ -12,6 +12,9 @@
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>CA92.1</string>
+				<!-- `SharedInboxLanguage` and `WarrlyIntentBridge` read/write the
+				     App Group suite, not just this bundle's own defaults. -->
+				<string>1C8F.1</string>
 			</array>
 		</dict>
 	</array>

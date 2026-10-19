@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark-mode widget palette; see `values/colors.xml`. -->
+<resources>
+    <color name="widget_background">#1C1B1F</color>
+    <color name="widget_on_background">#E6E1E5</color>
+    <color name="widget_muted">#CAC4D0</color>
+    <color name="widget_accent">#D0BCFF</color>
+    <color name="widget_stale">#F2B8B5</color>
+    <color name="widget_divider">#49454F</color>
+</resources>

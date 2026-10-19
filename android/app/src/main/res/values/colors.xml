@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget colours. The Compose theme (`ui/theme/Theme.kt`) does not expose
+  `?attr` colours a launcher's RemoteViews inflation can resolve, so the widget
+  owns a tiny Material-ish palette. `values-night/colors.xml` overrides it for
+  dark mode; the launcher resolves the qualifier from the system configuration.
+-->
+<resources>
+    <color name="widget_background">#FFFBFE</color>
+    <color name="widget_on_background">#1C1B1F</color>
+    <color name="widget_muted">#79747E</color>
+    <color name="widget_accent">#6750A4</color>
+    <color name="widget_stale">#B3261E</color>
+    <color name="widget_divider">#E7E0EC</color>
+</resources>

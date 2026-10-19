@@ -99,6 +99,9 @@
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>CA92.1</string>
+				<!-- SharedInboxLanguage, the pending-device hand-off and the
+				     Spotlight identifier cache use the App Group suite. -->
+				<string>1C8F.1</string>
 			</array>
 		</dict>
 	</array>
