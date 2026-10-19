@@ -70,6 +70,7 @@
 		E553F3177CC743A471A10D78 /* SubscriptionAuditScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143D541B310E553009B6714B /* SubscriptionAuditScreen.swift */; };
 		E58C901A22989264A0B43B6F /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B77EA8F6EF481AE458216A6 /* AccountView.swift */; };
 		E612F1B69AB506A3D47F3743 /* InboxCaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B68DB1972C47F9D9D6B3540 /* InboxCaptureSheet.swift */; };
+		E9729603B53E25B7DC2B4E12 /* InsurancePackSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DDFFAB3C88D8425E8016D4A /* InsurancePackSheet.swift */; };
 		EBE3FAD1276413E3A5F74365 /* InboxScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5409F5513C1FDE5B33A354 /* InboxScreen.swift */; };
 		ECE57D2FE911D880F2DB872F /* AutocompleteChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */; };
 		EF7988881CB8B823F3301B27 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7FFA6DAD7BA79660B9B450 /* RootView.swift */; };
@@ -147,6 +148,7 @@
 		837638321876BA6937EC02F1 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		888F7704865BD2666E99290B /* LeadDaysSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeadDaysSection.swift; sourceTree = "<group>"; };
 		8B68DB1972C47F9D9D6B3540 /* InboxCaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxCaptureSheet.swift; sourceTree = "<group>"; };
+		8DDFFAB3C88D8425E8016D4A /* InsurancePackSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsurancePackSheet.swift; sourceTree = "<group>"; };
 		962356363C6D6FB924763757 /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		98BA507A3214DC81D4416E2A /* WarrantyTermsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyTermsBlock.swift; sourceTree = "<group>"; };
 		A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -379,6 +381,7 @@
 				5C9F4F43537DC73663D292E1 /* ChangePasswordSheet.swift */,
 				7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */,
 				163670807C633A5A52D2510E /* EmailChangeSheet.swift */,
+				8DDFFAB3C88D8425E8016D4A /* InsurancePackSheet.swift */,
 				B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */,
 				B0F0DFA33018B41748664EBF /* SessionsView.swift */,
 				33AE91C9B8486FF06C36BF43 /* SettingsView.swift */,
@@ -614,6 +617,7 @@
 				DCC93DF47EAA149597DA3E8D /* InboxDevicePickerSheet.swift in Sources */,
 				EBE3FAD1276413E3A5F74365 /* InboxScreen.swift in Sources */,
 				89B038570B2F0FD30D5C5BA0 /* InboxStore.swift in Sources */,
+				E9729603B53E25B7DC2B4E12 /* InsurancePackSheet.swift in Sources */,
 				4AA650E2E9999B6296460CE4 /* LeadDaysSection.swift in Sources */,
 				C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */,
 				605266B4D8EE7B981A281741 /* LoginView.swift in Sources */,

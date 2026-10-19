@@ -331,6 +331,52 @@ func (q *Queries) ListAttachmentsByDevice(ctx context.Context, arg ListAttachmen
 	return items, nil
 }
 
+const listAttachmentsByUser = `-- name: ListAttachmentsByUser :many
+SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE a."userId" = $1 AND a."deviceId" IS NOT NULL
+ORDER BY a."deviceId" ASC, a."uploadedAt" DESC
+`
+
+// One batch for the insurance pack: every attachment FILED to one of the
+// caller's devices. Inbox items are excluded (deviceId IS NULL) because the
+// pack is a schedule of devices; they have no row in the schedule to hang from.
+// The join through Device is the ownership guard; "userId" is checked too so a
+// legacy row with a stale owner cannot leak in.
+func (q *Queries) ListAttachmentsByUser(ctx context.Context, userid string) ([]Attachment, error) {
+	rows, err := q.db.Query(ctx, listAttachmentsByUser, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attachment
+	for rows.Next() {
+		var i Attachment
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.FileName,
+			&i.StoragePath,
+			&i.FileType,
+			&i.FileSize,
+			&i.Iv,
+			&i.WrappedKey,
+			&i.Description,
+			&i.UploadedAt,
+			&i.UserId,
+			&i.ExtractedText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInboxAttachments = `-- name: ListInboxAttachments :many
 SELECT a.id, a."deviceId", a."fileName", a."storagePath", a."fileType", a."fileSize", a.iv, a."wrappedKey", a.description, a."uploadedAt", a."userId", a."extractedText"
 FROM "Attachment" a

@@ -113,6 +113,14 @@ open class FakeApiService : ApiService {
     override suspend fun importBackup(mode: String, body: RequestBody): ImportResultResponse =
         notStubbed("importBackup")
 
+    // Insurance PDF pack — a binary download, not a JSON body. No screen test
+    // calls it today (the Settings row is the only caller), but the fake must
+    // implement it or the whole test source set stops compiling.
+    override suspend fun downloadInsurancePack(
+        deviceIds: String?,
+        includeSold: Boolean?,
+    ): ResponseBody = notStubbed("downloadInsurancePack")
+
     override suspend fun catalog(): Catalog = notStubbed("catalog")
 
     override suspend fun listDevices(

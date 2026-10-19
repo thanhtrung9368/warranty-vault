@@ -39,6 +39,22 @@
     <string name="set_download_every_device_plan_and_wishlist">Tải toàn bộ thiết bị, gói &amp; wishlist ra 1 file JSON.</string>
     <string name="set_export_csv_excel">Xuất CSV (Excel)</string>
     <string name="set_download_the_device_list_as_a">Tải danh sách thiết bị ra file CSV (UTF-8) để mở bằng Excel / Google Sheets.</string>
+    <!-- Bảng kê bảo hiểm (Cài đặt → Dữ liệu; insurance/InsurancePackShare.kt).
+         Tiêu đề nói rõ tài liệu bằng tiếng Việt; phụ đề nói vì sao — người đọc
+         là công ty bảo hiểm, không phải người dùng app. -->
+    <string name="set_insurance_pack_title">Bảng kê cho bảo hiểm (tiếng Việt)</string>
+    <string name="set_insurance_pack_subtitle">File PDF gồm thiết bị, giá trị và điều khoản bảo hành. Luôn bằng tiếng Việt để công ty bảo hiểm đọc được.</string>
+    <string name="set_insurance_pack_dialog_body">Warrly tạo một file PDF gồm trang bìa, bảng kê thiết bị kèm giá mua, điều khoản bảo hành và ảnh hoá đơn của từng thiết bị, cùng danh mục tệp đính kèm. Tài liệu luôn bằng tiếng Việt — người đọc là công ty bảo hiểm, không phải bạn — nên đừng ngạc nhiên nếu nó khác ngôn ngữ bạn chọn trong app.</string>
+    <string name="set_insurance_pack_include_sold">Gồm cả thiết bị đã bán</string>
+    <string name="set_insurance_pack_create">Tạo và gửi</string>
+    <string name="set_insurance_pack_failed">Không tạo được PDF bảo hiểm: %1$s</string>
+    <string name="insurance_pack_chooser_title">Gửi bảng kê cho bảo hiểm</string>
+    <!-- Tiếng Việt ở CẢ HAI ngôn ngữ: đây là thứ rời khỏi app và do công ty bảo
+         hiểm đọc, không phải màn hình cho người dùng. -->
+    <string name="insurance_pack_share_subject">Bảng kê tài sản cho bảo hiểm — Warrly</string>
+    <string name="insurance_pack_error_cache">Không chuẩn bị được file tạm cho PDF bảo hiểm.</string>
+    <string name="insurance_pack_error_empty">Máy chủ trả về file PDF rỗng.</string>
+    <string name="insurance_pack_error_no_target">Không có ứng dụng nào trên điện thoại nhận được file PDF.</string>
     <string name="set_restore_from_a_backup">Khôi phục từ sao lưu</string>
     <string name="set_import_your_data_back_from_an">Nhập lại dữ liệu từ file JSON đã xuất.</string>
     <string name="set_system">Hệ thống</string>

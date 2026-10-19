@@ -40,6 +40,24 @@
     <string name="set_download_every_device_plan_and_wishlist">Download every device, plan and wishlist item as one JSON file.</string>
     <string name="set_export_csv_excel">Export CSV (Excel)</string>
     <string name="set_download_the_device_list_as_a">Download the device list as a UTF-8 CSV for Excel / Google Sheets.</string>
+    <!-- Insurance PDF pack (Settings → Data; insurance/InsurancePackShare.kt).
+         The "(Vietnamese)" in the title is part of the label, not a language
+         tag: the document really is Vietnamese whatever this app is showing,
+         because its reader is a Vietnamese insurer. The subtitle carries the
+         one-line why so the mismatch does not read as a bug. -->
+    <string name="set_insurance_pack_title">Insurance schedule (Vietnamese)</string>
+    <string name="set_insurance_pack_subtitle">A PDF of your devices, values and warranty terms. Always in Vietnamese so your insurer can read it.</string>
+    <string name="set_insurance_pack_dialog_body">Warrly creates a PDF with a cover page, a schedule of devices and purchase prices, each device\'s warranty terms and receipt photos, plus a list of attachments. It is always written in Vietnamese — the insurer reads it, not this app — so do not expect the language you chose here.</string>
+    <string name="set_insurance_pack_include_sold">Include devices you have sold</string>
+    <string name="set_insurance_pack_create">Create and send</string>
+    <string name="set_insurance_pack_failed">Could not create the insurance PDF: %1$s</string>
+    <string name="insurance_pack_chooser_title">Send the insurance schedule</string>
+    <!-- Vietnamese in BOTH catalogs on purpose: this is an artifact that leaves
+         the app and is read by the insurer, not a screen for the user. -->
+    <string name="insurance_pack_share_subject">Bảng kê tài sản cho bảo hiểm — Warrly</string>
+    <string name="insurance_pack_error_cache">Could not prepare the cache file for the insurance PDF.</string>
+    <string name="insurance_pack_error_empty">The server returned an empty PDF.</string>
+    <string name="insurance_pack_error_no_target">No app on this phone can receive a PDF.</string>
     <string name="set_restore_from_a_backup">Restore from a backup</string>
     <string name="set_import_your_data_back_from_an">Import your data back from an exported JSON file.</string>
     <string name="set_system">System</string>

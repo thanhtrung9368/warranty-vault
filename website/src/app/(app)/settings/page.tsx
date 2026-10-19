@@ -1,7 +1,8 @@
-import { Bell, Database, FileSpreadsheet, Info, Languages, Lock, MonitorSmartphone, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
+import { Bell, Database, FileSpreadsheet, FileText, Info, Languages, Lock, MonitorSmartphone, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
 import { CsvExport } from '@/components/csv-export';
+import { InsurancePackDownload } from '@/components/insurance-pack-download';
 import { PushSettings } from '@/components/push-settings';
 import { PushDevices } from '@/components/push-devices';
 import { SessionList } from '@/components/session-list';
@@ -88,6 +89,18 @@ export default async function SettingsPage() {
 
       <Section icon={<Database className="h-4 w-4" />} tint="tint-sky" title={t('Sao lưu & khôi phục')}>
         <BackupTools />
+      </Section>
+
+      {/* A document for a third party, not a screen: the insurer/adjuster reads
+          it, so the PDF is always Vietnamese. It lives with the other data
+          exports (backup, CSV) rather than on the devices list — that is where
+          a user goes when an insurer asks for a property schedule. */}
+      <Section
+        icon={<FileText className="h-4 w-4" />}
+        tint="tint-amber"
+        title={t('Bảng kê cho bảo hiểm')}
+      >
+        <InsurancePackDownload />
       </Section>
 
       <Section

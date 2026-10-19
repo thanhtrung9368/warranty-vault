@@ -104,6 +104,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/push/test", handlers.TestPush(deps))
 	handlers.RegisterCron(mux, deps)
 	handlers.RegisterBackup(mux, deps)
+	handlers.RegisterInsurance(mux, deps)
 	handlers.RegisterAI(mux, deps)
 	handlers.RegisterInboxEmail(mux, deps)
 	handlers.RegisterFX(mux, deps)

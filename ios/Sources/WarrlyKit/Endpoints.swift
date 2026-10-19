@@ -606,6 +606,36 @@ extension APIClient {
         try await rawDataRequest("GET", "/api/files/\(id)", accept: "*/*")
     }
 
+    // MARK: - Insurance pack
+
+    /// Downloads the insurance property schedule PDF
+    /// (`GET /api/v1/insurance-pack`) as bytes.
+    ///
+    /// This is an authenticated binary fetch, exactly like `attachmentData(id:)`
+    /// — the body is `application/pdf`, not JSON, so it goes through
+    /// `rawDataRequest` with an explicit `Accept`.
+    ///
+    /// The query is built by `InsurancePackRules` so the wire shape is tested
+    /// without a server: `deviceIds` is omitted for "all devices" and
+    /// `includeSold` is omitted when false (the server default).
+    ///
+    /// The document is **always Vietnamese**; the insurer / loss adjuster reads
+    /// it, not the app user. Do not translate its contents. `InsurancePackRules`
+    /// also carries the filename and the `%PDF-` header check the caller needs
+    /// before writing a shareable temp file.
+    public func insurancePack(
+        deviceIds: [String] = [],
+        includeSold: Bool = false
+    ) async throws -> Data {
+        try await rawDataRequest(
+            "GET", InsurancePackRules.path,
+            query: InsurancePackRules.queryItems(
+                deviceIds: deviceIds, includeSold: includeSold
+            ),
+            accept: InsurancePackRules.contentType
+        )
+    }
+
     // MARK: - Subscriptions
 
     public func listSubscriptions() async throws -> [Subscription] {

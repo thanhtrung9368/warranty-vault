@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhonelinkLock
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.TableChart
@@ -41,6 +42,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -86,6 +88,8 @@ import com.warrly.auth.AuthStore
 import com.warrly.export.csvFileName
 import com.warrly.export.devicesCsvBytes
 import com.warrly.i18n.appStrings
+import com.warrly.insurance.downloadAndShareInsurancePack
+import com.warrly.insurance.insurancePackRequest
 import com.warrly.network.AIOptInRequest
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
@@ -158,6 +162,14 @@ fun SettingsScreen(
     var pendingCsv by remember { mutableStateOf<ByteArray?>(null) }
     var pendingCsvCount by remember { mutableStateOf(0) }
 
+    // Insurance PDF pack (Settings → Data). The document is rendered server-side
+    // by `GET /api/v1/insurance-pack` — Android never builds the PDF and never
+    // needs a device list to do it. `includeSold` is the only option exposed here;
+    // the account-wide pack covers every device, so no device picker is needed.
+    var insuranceBusy by remember { mutableStateOf(false) }
+    var showInsuranceDialog by remember { mutableStateOf(false) }
+    var insuranceIncludeSold by rememberSaveable { mutableStateOf(false) }
+
     fun snack(msg: String) { scope.launch { snackbarHostState.showSnackbar(msg) } }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -223,6 +235,38 @@ fun SettingsScreen(
                 snack(context.getString(R.string.set_csv_export_failed, e.toUserMessage(ApiClient.json, context)))
             } finally {
                 csvBusy = false
+            }
+        }
+    }
+
+    /**
+     * Download the pack and open the system share sheet.
+     *
+     * There is deliberately no silent branch: a failed download, an empty body,
+     * an unusable FileProvider path or a chooser that cannot open all become a
+     * snackbar carrying the server's message where there is one (401/403/5xx are
+     * `HttpException`s) and a localized fallback where there is not.
+     */
+    fun startInsurancePack(includeSold: Boolean) {
+        if (insuranceBusy) return
+        showInsuranceDialog = false
+        insuranceBusy = true
+        scope.launch {
+            try {
+                downloadAndShareInsurancePack(
+                    context = context,
+                    api = api,
+                    request = insurancePackRequest(includeSold = includeSold),
+                )
+            } catch (e: Exception) {
+                snack(
+                    context.getString(
+                        R.string.set_insurance_pack_failed,
+                        e.toUserMessage(ApiClient.json, context),
+                    ),
+                )
+            } finally {
+                insuranceBusy = false
             }
         }
     }
@@ -592,6 +636,23 @@ fun SettingsScreen(
                         onClick = { startCsvExport() },
                         showDivider = true,
                     )
+                    // Insurance PDF pack. Sits in Data/Export, next to backup and
+                    // CSV, because it is the same kind of action — "give me my
+                    // data as a document" — not a per-device feature. The title
+                    // says "(tiếng Việt)" and the subtitle says why: the PDF is
+                    // always Vietnamese because the insurer reads it.
+                    SettingsRow(
+                        icon = Icons.Filled.PictureAsPdf,
+                        title = if (insuranceBusy) stringResource(R.string.set_working) else stringResource(R.string.set_insurance_pack_title),
+                        subtitle = stringResource(R.string.set_insurance_pack_subtitle),
+                        onClick = {
+                            if (!insuranceBusy) {
+                                insuranceIncludeSold = false
+                                showInsuranceDialog = true
+                            }
+                        },
+                        showDivider = true,
+                    )
                     SettingsRow(
                         icon = Icons.Filled.Restore,
                         title = stringResource(R.string.set_restore_from_a_backup),
@@ -697,6 +758,55 @@ fun SettingsScreen(
                     showImportModeDialog = false
                     importLauncher.launch(arrayOf("application/json"))
                 }) { Text(stringResource(R.string.set_replace), color = cs.error) }
+            },
+        )
+    }
+
+    // Insurance PDF confirmation. Shown before the download so the Vietnamese
+    // language rule is stated up front (the row title says "(tiếng Việt)"; this
+    // body says the insurer is the reader, so it does not look like a bug), and
+    // so the one optional flag — include sold devices — is a deliberate choice.
+    if (showInsuranceDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!insuranceBusy) showInsuranceDialog = false },
+            title = { Text(stringResource(R.string.set_insurance_pack_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.set_insurance_pack_dialog_body))
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !insuranceBusy) {
+                                insuranceIncludeSold = !insuranceIncludeSold
+                            }
+                            .padding(vertical = 4.dp),
+                    ) {
+                        Checkbox(
+                            checked = insuranceIncludeSold,
+                            onCheckedChange = { insuranceIncludeSold = it },
+                            enabled = !insuranceBusy,
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            stringResource(R.string.set_insurance_pack_include_sold),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !insuranceBusy,
+                    onClick = { startInsurancePack(insuranceIncludeSold) },
+                ) { Text(stringResource(R.string.set_insurance_pack_create)) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !insuranceBusy,
+                    onClick = { showInsuranceDialog = false },
+                ) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }

@@ -1,5 +1,6 @@
 package com.warrly.network
 
+import com.warrly.insurance.insurancePackRequest
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -680,5 +681,56 @@ class ApiClientNetworkTest {
         assertEquals("2026-10-19T00:00:00Z", rates.fetchedAt)
         assertEquals(false, rates.stale)
         assertEquals("/api/v1/fx/rates?base=USD", server.takeRequest().path)
+    }
+
+    /**
+     * `GET /api/v1/insurance-pack` — the authenticated binary download behind
+     * Settings → Data → "Insurance schedule (Vietnamese)".
+     *
+     * Three things are pinned here that no unit test of the pure request rules
+     * can prove: the bearer token is attached (the PDF endpoint is auth-gated),
+     * the default request really is the bare path (both optional parameters
+     * omitted), and the filtered request puts the comma-joined ids and the
+     * `includeSold` flag on the wire in the contract's spelling. The body must
+     * come back untouched — `@Streaming` returns the raw `ResponseBody`, not a
+     * decoded JSON envelope.
+     */
+    @Test
+    fun insurancePack_downloadsThePdfWithTheBearerTokenAndTheChosenFilters() = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/pdf")
+                .setBody("%PDF-1.7\n% Warrly insurance pack\n"),
+        )
+
+        val defaultRequest = insurancePackRequest()
+        val body = api().downloadInsurancePack(defaultRequest.deviceIds, defaultRequest.includeSold)
+
+        assertEquals("%PDF-1.7\n% Warrly insurance pack\n", body.string())
+        server.takeRequest().let { recorded ->
+            assertEquals("GET", recorded.method)
+            assertEquals("/api/v1/insurance-pack", recorded.path)
+            assertEquals("Bearer tok-123", recorded.getHeader("Authorization"))
+        }
+
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/pdf")
+                .setBody("%PDF-1.7\nfiltered\n"),
+        )
+
+        val filtered = insurancePackRequest(listOf("dev-1", "dev-2"), includeSold = true)
+        api().downloadInsurancePack(filtered.deviceIds, filtered.includeSold).string()
+
+        // Retrofit/OkHttp percent-encode the comma inside the single `deviceIds`
+        // query value. Go's URL query parser decodes `%2C` back to `,`, so the
+        // server receives the contract's comma-separated list; the wire spelling
+        // of the separator is not part of the contract.
+        assertEquals(
+            "/api/v1/insurance-pack?deviceIds=dev-1%2Cdev-2&includeSold=true",
+            server.takeRequest().path,
+        )
     }
 }

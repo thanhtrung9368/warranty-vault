@@ -141,6 +141,9 @@ struct SettingsView: View {
     @State private var showImporter = false
     @State private var backupMessage: String?
 
+    // Insurance PDF pack (account-wide, always Vietnamese).
+    @State private var showInsurancePack = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -195,6 +198,9 @@ struct SettingsView: View {
         .wvScreen()
         .sheet(isPresented: $showChangePassword) {
             ChangePasswordSheet(client: client)
+        }
+        .sheet(isPresented: $showInsurancePack) {
+            InsurancePackSheet(client: client)
         }
         .navigationDestination(isPresented: $showPushDevices) {
             PushDevicesView(client: client)
@@ -493,6 +499,19 @@ struct SettingsView: View {
                   title: L.t("Khôi phục từ sao lưu"), chevron: true) {
                 guard !backupBusy else { return }
                 showImporter = true
+            }
+            WVDivider(inset: 60)
+
+            // An account-wide document, not a per-device screen: the insurer
+            // asks for the household's schedule, and this is where the other
+            // "take my data out" controls live. The title names the language
+            // and the subtitle says why, so the Vietnamese PDF does not read
+            // as a localization bug.
+            WVRow(icon: "shieldCheck", iconColor: WVColor.blue,
+                  title: L.t("Bảng kê cho bảo hiểm (tiếng Việt)"),
+                  subtitle: L.t("PDF · luôn ở tiếng Việt cho công ty bảo hiểm"),
+                  chevron: true) {
+                showInsurancePack = true
             }
         }
     }

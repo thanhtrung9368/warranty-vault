@@ -278,3 +278,15 @@ WITH updated AS (
 INSERT INTO "Reminder" (id, "warrantyId", "isDismissed", "lastNotifiedAt", "lastNotifiedLeadDay", "createdAt")
 SELECT $2, $1, false, NOW(), sqlc.arg('leadDay')::int, NOW()
 WHERE NOT EXISTS (SELECT 1 FROM updated);
+
+-- ─── Insurance pack (document export) ─────────────────────────────────────
+
+-- name: ListWarrantiesByUser :many
+-- One batch for the insurance pack: every warranty on every device the user
+-- owns. Ownership is enforced by the join, exactly like the per-device query.
+-- The caller groups by "deviceId" and filters to the devices it selected.
+SELECT w.*
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE d."userId" = $1
+ORDER BY w."deviceId" ASC, w.type ASC, w."endDate" DESC;

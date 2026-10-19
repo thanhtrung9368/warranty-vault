@@ -869,6 +869,7 @@ var messages = map[string]message{
 	// ("Lỗi hệ thống") is deliberately NOT here: it is shared by every domain and
 	// is added when the last of them is converted (handlers/handlers.go).
 	"Tham số includeBlobs không hợp lệ": {vi: "Tham số includeBlobs không hợp lệ", en: "Invalid includeBlobs parameter"},
+	"Tham số includeSold không hợp lệ":  {vi: "Tham số includeSold không hợp lệ", en: "Invalid includeSold parameter"},
 	"Phải là true hoặc false":           {vi: "Phải là true hoặc false", en: "Must be true or false"},
 	"File backup quá lớn (giới hạn %s)": {
 		vi: "File backup quá lớn (giới hạn %s)",

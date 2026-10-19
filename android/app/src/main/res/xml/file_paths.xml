@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="attachments" path="attachments/" />
+    <!-- Insurance PDF pack (insurance/InsurancePackShare.kt). A separate narrow
+         cache path rather than reusing `attachments/`: the pack is a generated
+         document, not a decrypted receipt blob, and each feature keeping its own
+         directory makes it obvious what the FileProvider can expose. -->
+    <cache-path name="insurance_pack" path="insurance-pack/" />
 </paths>

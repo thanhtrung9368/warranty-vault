@@ -72,6 +72,18 @@ func CheckAIAssess(ctx context.Context, limiter Limiter, userID string) (Result,
 	return limiter.Check(ctx, "ai:assess:user:"+userID, 10, writeWindow)
 }
 
+// CheckInsurancePack rate-limits GET /api/v1/insurance-pack: 5 requests / 60 s
+// per authenticated user.
+//
+// This is the most expensive read in the service: it can decrypt and re-encode
+// 100 images, read five batched tables and render a multi-hundred-page PDF. The
+// shared write bucket (60/min) would let one account start sixty of those in a
+// minute. Five is enough to retry a failed download or regenerate after adding a
+// device, and low enough that the per-request work cannot be amplified.
+func CheckInsurancePack(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "insurance:pack:user:"+userID, 5, writeWindow)
+}
+
 // CheckShareView rate-limits the PUBLIC share endpoint (FEATURE_IDEAS #2) by IP.
 // This is the only unauthenticated read in the service, so its bucket is the
 // first line of defence against someone walking the token space — even though

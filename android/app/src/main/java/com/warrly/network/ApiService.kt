@@ -94,6 +94,31 @@ interface ApiService {
         @Body body: RequestBody,
     ): ImportResultResponse
 
+    // ---- Insurance PDF pack ----
+    //
+    // `GET /api/v1/insurance-pack` (authenticated) renders a Vietnamese schedule
+    // for a property insurer: cover page, values incl. `purchasePriceVnd`,
+    // warranty terms, receipt photos and an attachment manifest.
+    //
+    // Auth is the same bearer token as every other call here: the Retrofit
+    // client's `AuthInterceptor` attaches `Authorization: Bearer` from
+    // `TokenStore.read()` on each request. That is the same token the thumbnail
+    // fetch (`ui/screens/inbox/AttachmentThumbnail.kt`) hand-attaches to its raw
+    // OkHttp call — this endpoint can use the normal client because the answer is
+    // a plain body, not a bitmap.
+    //
+    // `@Streaming` keeps the PDF out of memory: the caller copies the byte
+    // stream straight into the cache file it will share. `deviceIds` is a
+    // comma-separated list and `includeSold` defaults to false server-side, so
+    // both stay nullable — a null query parameter is OMITTED by Retrofit, and
+    // the pure rules in `insurance/InsurancePack.kt` decide when to send one.
+    @Streaming
+    @GET("api/v1/insurance-pack")
+    suspend fun downloadInsurancePack(
+        @Query("deviceIds") deviceIds: String? = null,
+        @Query("includeSold") includeSold: Boolean? = null,
+    ): ResponseBody
+
     // ---- Catalog ----
     @GET("api/v1/catalog")
     suspend fun catalog(): Catalog

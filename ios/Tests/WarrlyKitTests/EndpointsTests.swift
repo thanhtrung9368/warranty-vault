@@ -950,6 +950,67 @@ final class EndpointsTests: KitTestCase {
                        "the bytes are an image/PDF, not JSON")
     }
 
+    // MARK: - Insurance pack
+
+    /// The PDF is an authenticated binary fetch: exact path, bearer header and
+    /// `Accept: application/pdf`. The query comes from `InsurancePackRules`, so
+    /// this test only has to pin that the endpoint actually uses it.
+    func testInsurancePackRequestsThePDFWithTheOptionalQuery() async throws {
+        let pdf = Data("%PDF-1.7\nfake body".utf8)
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.raw(pdf, contentType: "application/pdf"))
+
+        let data = try await client.insurancePack(
+            deviceIds: [" dev_1 ", "dev_2", "dev_1"],
+            includeSold: true
+        )
+
+        XCTAssertEqual(data, pdf)
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/insurance-pack")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc",
+                       "the pack is account data and must be bearer-gated")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/pdf",
+                       "the response is a PDF, not JSON")
+        XCTAssertEqual(queryItems(of: request),
+                       ["deviceIds": "dev_1,dev_2", "includeSold": "true"])
+    }
+
+    /// Defaults must arrive as an ABSENT query, not as `deviceIds=` or
+    /// `includeSold=false`: the server's own default is the contract.
+    func testInsurancePackDefaultsSendNoQueryString() async throws {
+        let pdf = Data("%PDF-1.7\n".utf8)
+        let client = makeStubbedClient(token: "tok_abc")
+        StubURLProtocol.install(.raw(pdf, contentType: "application/pdf"))
+
+        let data = try await client.insurancePack()
+
+        XCTAssertEqual(data, pdf)
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/insurance-pack")
+        XCTAssertNil(request.url?.query, "all devices + owned only is the server default")
+    }
+
+    /// A failed pack must throw the server's message so the sheet can show it.
+    /// A missing API is the worst-case version of "nothing happened".
+    func testInsurancePackSurfacesTheServerFailure() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"error": "internal", "message": "Không tạo được bảng kê lúc này."}
+        """#, statusCode: 500))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let error = await captureAPIError {
+            try await client.insurancePack(includeSold: true)
+        }
+        guard case let .server(status, envelope)? = error else {
+            return XCTFail("expected APIError.server, got \(String(describing: error))")
+        }
+        XCTAssertEqual(status, 500)
+        XCTAssertEqual(envelope.message, "Không tạo được bảng kê lúc này.")
+    }
+
     // MARK: - Subscriptions
 
     func testSubscriptionDetailDefaultsPaymentsAndLogsPayment() async throws {

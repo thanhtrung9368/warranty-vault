@@ -639,6 +639,62 @@ func (q *Queries) ListWarrantiesByDeviceIDs(ctx context.Context, arg ListWarrant
 	return items, nil
 }
 
+const listWarrantiesByUser = `-- name: ListWarrantiesByUser :many
+
+SELECT w.id, w."deviceId", w.type, w.provider, w."startDate", w."endDate", w.months, w.cost, w.address, w.phone, w.notes, w."createdAt", w."updatedAt", w.component, w.scope, w.cap, w.deductible, w.exclusions, w.region, w.transferable, w."claimsAllowed", w."claimsUsed"
+FROM "Warranty" w
+JOIN "Device" d ON d.id = w."deviceId"
+WHERE d."userId" = $1
+ORDER BY w."deviceId" ASC, w.type ASC, w."endDate" DESC
+`
+
+// ─── Insurance pack (document export) ─────────────────────────────────────
+// One batch for the insurance pack: every warranty on every device the user
+// owns. Ownership is enforced by the join, exactly like the per-device query.
+// The caller groups by "deviceId" and filters to the devices it selected.
+func (q *Queries) ListWarrantiesByUser(ctx context.Context, userid string) ([]Warranty, error) {
+	rows, err := q.db.Query(ctx, listWarrantiesByUser, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Warranty
+	for rows.Next() {
+		var i Warranty
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeviceId,
+			&i.Type,
+			&i.Provider,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Months,
+			&i.Cost,
+			&i.Address,
+			&i.Phone,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Component,
+			&i.Scope,
+			&i.Cap,
+			&i.Deductible,
+			&i.Exclusions,
+			&i.Region,
+			&i.Transferable,
+			&i.ClaimsAllowed,
+			&i.ClaimsUsed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWarrantiesInWindow = `-- name: ListWarrantiesInWindow :many
 
 SELECT

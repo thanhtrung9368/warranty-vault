@@ -136,3 +136,15 @@ GROUP BY a."deviceId";
 SELECT COALESCE(SUM(a."fileSize"), 0)::bigint AS total_bytes
 FROM "Attachment" a
 WHERE a."userId" = $1;
+
+-- name: ListAttachmentsByUser :many
+-- One batch for the insurance pack: every attachment FILED to one of the
+-- caller's devices. Inbox items are excluded (deviceId IS NULL) because the
+-- pack is a schedule of devices; they have no row in the schedule to hang from.
+-- The join through Device is the ownership guard; "userId" is checked too so a
+-- legacy row with a stale owner cannot leak in.
+SELECT a.*
+FROM "Attachment" a
+JOIN "Device" d ON d.id = a."deviceId"
+WHERE a."userId" = $1 AND a."deviceId" IS NOT NULL
+ORDER BY a."deviceId" ASC, a."uploadedAt" DESC;

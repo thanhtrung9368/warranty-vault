@@ -18582,6 +18582,278 @@
           }
         }
       }
+    },
+    "Bảng kê cho bảo hiểm (tiếng Việt)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insurance property schedule (Vietnamese)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảng kê cho bảo hiểm (tiếng Việt)"
+          }
+        }
+      }
+    },
+    "PDF · luôn ở tiếng Việt cho công ty bảo hiểm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF · always in Vietnamese for the insurer"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF · luôn ở tiếng Việt cho công ty bảo hiểm"
+          }
+        }
+      }
+    },
+    "Bảng kê cho bảo hiểm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insurance property schedule"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảng kê cho bảo hiểm"
+          }
+        }
+      }
+    },
+    "Tải một tệp PDF để gửi cho công ty bảo hiểm khi họ yêu cầu bảng kê tài sản: trang bìa, bảng kê giá trị và giá mua, từng thiết bị kèm điều khoản bảo hành và ảnh, cùng danh mục tệp đính kèm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download a PDF to send to your insurer when they ask for a schedule of property: a cover page, a schedule of values and purchase prices, a page for each device with its warranty terms and photos, and a manifest of attachments."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tải một tệp PDF để gửi cho công ty bảo hiểm khi họ yêu cầu bảng kê tài sản: trang bìa, bảng kê giá trị và giá mua, từng thiết bị kèm điều khoản bảo hành và ảnh, cùng danh mục tệp đính kèm."
+          }
+        }
+      }
+    },
+    "Tệp PDF luôn ở tiếng Việt vì người đọc là công ty bảo hiểm hoặc giám định viên, không phải người dùng ứng dụng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The PDF is always in Vietnamese because it is read by the insurer or the adjuster, not by the app user."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp PDF luôn ở tiếng Việt vì người đọc là công ty bảo hiểm hoặc giám định viên, không phải người dùng ứng dụng."
+          }
+        }
+      }
+    },
+    "Bao gồm cả thiết bị đã bán": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include sold devices"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bao gồm cả thiết bị đã bán"
+          }
+        }
+      }
+    },
+    "Mặc định chỉ liệt kê thiết bị bạn đang sở hữu. Bật nếu hồ sơ bảo hiểm cần cả tài sản đã bán trong kỳ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By default only devices you still own are listed. Turn this on if the insurance file also needs items sold during the period."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mặc định chỉ liệt kê thiết bị bạn đang sở hữu. Bật nếu hồ sơ bảo hiểm cần cả tài sản đã bán trong kỳ."
+          }
+        }
+      }
+    },
+    "Phạm vi: tất cả thiết bị, kể cả đã bán.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scope: all devices, including sold ones."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phạm vi: tất cả thiết bị, kể cả đã bán."
+          }
+        }
+      }
+    },
+    "Phạm vi: tất cả thiết bị đang sở hữu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scope: all devices you own."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phạm vi: tất cả thiết bị đang sở hữu."
+          }
+        }
+      }
+    },
+    "Đang tạo bảng kê…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating the schedule…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tạo bảng kê…"
+          }
+        }
+      }
+    },
+    "Tạo và chia sẻ PDF": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create and share PDF"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo và chia sẻ PDF"
+          }
+        }
+      }
+    },
+    "Tệp được chia sẻ qua bảng chia sẻ của iOS — bạn chọn nơi gửi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file is shared through the iOS share sheet — you choose where it goes."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp được chia sẻ qua bảng chia sẻ của iOS — bạn chọn nơi gửi."
+          }
+        }
+      }
+    },
+    "Tệp tải về trống — thử lại nhé.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded file is empty — please try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tệp tải về trống — thử lại nhé."
+          }
+        }
+      }
+    },
+    "Máy chủ trả về một tệp không phải PDF — thử lại nhé.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server returned a file that is not a PDF — please try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy chủ trả về một tệp không phải PDF — thử lại nhé."
+          }
+        }
+      }
+    },
+    "Không ghi được tệp PDF tạm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not write the temporary PDF file."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không ghi được tệp PDF tạm."
+          }
+        }
+      }
+    },
+    "Không tải được bảng kê cho bảo hiểm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not download the insurance property schedule."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được bảng kê cho bảo hiểm."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

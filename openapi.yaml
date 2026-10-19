@@ -31,6 +31,7 @@ tags:
   - { name: claims, description: 'Yêu cầu bảo hành / sửa chữa: một thiết bị hỏng đi đâu, bệnh viện nào, ai nói gì, bảo hành có trả tiền không. Migration 0021.' }
   - { name: attachments }
   - { name: shares, description: 'Phiếu bàn giao bảo hành + link chia sẻ có token. `GET /api/v1/public/shares/{token}` là endpoint DUY NHẤT không cần bearer.' }
+  - { name: insurance, description: 'Bảng kê tài sản dạng PDF để nộp cho công ty bảo hiểm / đơn vị giám định. Luôn là tiếng Việt, bất kể ngôn ngữ của request.' }
   - { name: subscriptions }
   - { name: wishlist }
   - { name: push }
@@ -2335,6 +2336,92 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/insurance-pack:
+    # Tài liệu luôn là tiếng Việt. `lang` ở đây chỉ chọn ngôn ngữ của envelope lỗi
+    # JSON (400/401/429), KHÔNG đổi ngôn ngữ của file PDF — xem phần mô tả.
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    get:
+      tags: [insurance]
+      summary: Tải bảng kê tài sản dạng PDF để nộp cho bảo hiểm / giám định
+      description: |
+        Trả về **một file PDF** (`application/pdf`, `Content-Disposition: attachment`)
+        liệt kê tài sản của chính tài khoản đang đăng nhập, theo đúng thứ tự:
+
+          1. **Trang bìa** — tiêu đề "Bảng kê tài sản được bảo vệ", tên hiển thị và
+             email của chủ tài khoản, thời điểm tạo (GMT+7), và câu nói rõ tài liệu
+             do Warrly tạo từ chính dữ liệu người dùng đã nhập.
+          2. **Bảng danh mục** — mỗi thiết bị một dòng: tên, hãng, model, số serial,
+             ngày mua, giá mua **kèm loại tiền**, `purchasePriceVnd`, ngày hết bảo
+             hành hiệu lực; cuối bảng có dòng tổng cho các giá trị VND.
+          3. **Mỗi thiết bị một phần** (có thể nhiều trang) — thông tin thiết bị, toàn
+             bộ gói bảo hành với `component`/`scope`/`cap`/`deductible`/`exclusions`/
+             `claimsAllowed`/`claimsUsed`, toàn bộ yêu cầu bảo hành với trạng thái và
+             kết quả, và **ảnh chứng từ được nhúng** nếu tệp là ảnh.
+          4. **Bảng kê tệp đính kèm** — mọi tệp của mọi thiết bị trong tài liệu, kể cả
+             tệp không nhúng được, kèm tên tệp, loại và lý do (HEIC/PDF không nhúng
+             được vào PDF; ảnh vượt giới hạn cũng được ghi rõ). Nhờ vậy một ảnh bị
+             thiếu hiện ra **có lý do**, không âm thầm biến mất.
+
+        **Ngôn ngữ: tài liệu LUÔN là tiếng Việt.** Đây là quy tắc của artifact trong
+        repo này (giống email giao dịch và phiếu bàn giao công khai): người đọc là
+        công ty bảo hiểm / giám định viên Việt Nam, không phải người đã chọn ngôn
+        ngữ trong app. `?lang=` và `Accept-Language` **không** đổi chữ trong PDF;
+        chúng chỉ đổi ngôn ngữ của envelope lỗi JSON nếu request thất bại. Đừng
+        "sửa" điều này bằng cách cho client chọn ngôn ngữ tài liệu.
+
+        **Phạm vi:** mặc định mọi thiết bị của tài khoản, **trừ thiết bị đã bán**
+        (`status = SOLD`). `?deviceIds=` giới hạn vào một danh sách id; id không
+        thuộc tài khoản (hoặc không tồn tại) bị bỏ qua và **không bao giờ** làm lộ
+        thiết bị của người khác — không có 403/404 xác nhận sự tồn tại. Danh sách
+        được cắt ở 500 id (bằng trần số thiết bị mỗi tài khoản). `?includeSold=true`
+        thêm thiết bị đã bán và in `soldAt`/`soldPrice` ở phần chi tiết.
+
+        **Giới hạn ảnh (bắt buộc, để request có chi phí hữu hạn):** tối đa **2 ảnh
+        mỗi thiết bị** (trong 5 tệp được phép của write path — thường là hoá đơn và
+        ảnh sản phẩm/hộp), tối đa **100 ảnh mỗi tài liệu** (2 × 50 thiết bị đang sở
+        hữu), cạnh dài tối đa **1200 px**, ảnh được giải mã qua pipeline tệp đính
+        kèm hiện có rồi nén lại thành JPEG. Ảnh gốc > 24 megapixel bị coi là không
+        đọc được (chặn decompression bomb) và được ghi lý do trong bảng kê. HEIC và
+        PDF **không nhúng được** — chúng vẫn nằm trong bảng kê kèm ghi chú, không
+        làm hỏng cả tài liệu.
+
+        **Tài khoản rỗng:** trả **200** với PDF một trang nói rằng không có thiết bị
+        nào để kê khai — không phải 404, không phải lỗi.
+
+        **Rate limit:** 5 request / 60 giây mỗi người dùng (`429` + `Retry-After`).
+        Đây là endpoint đọc đắt nhất của service.
+      parameters:
+        - name: deviceIds
+          in: query
+          required: false
+          description: |
+            Danh sách id thiết bị, phân tách bằng dấu phẩy. Bỏ trống = mọi thiết bị
+            của tài khoản (trừ thiết bị đã bán). Id không thuộc tài khoản bị bỏ qua
+            im lặng; tối đa 500 id được xét.
+          schema: { type: string }
+          example: 'clx1abc,clx1def'
+        - name: includeSold
+          in: query
+          required: false
+          description: |
+            `true` để gồm cả thiết bị `status = SOLD`; khi đó `soldAt`/`soldPrice`
+            được in ở phần chi tiết. Mặc định `false`. Chỉ nhận `true`/`false` (và
+            `1`/`0`); giá trị khác trả 400.
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: |
+            File PDF. Luôn tiếng Việt; một trang khi tài khoản không có thiết bị nào
+            trong phạm vi. `Content-Language: vi`.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/reminders:
