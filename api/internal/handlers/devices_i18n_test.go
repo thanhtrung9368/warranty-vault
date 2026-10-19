@@ -52,6 +52,7 @@ import (
 type devicesI18nEnv struct {
 	mux   *http.ServeMux
 	token string
+	pool  *pgxpool.Pool
 }
 
 func setupDevicesI18nEnv(t *testing.T) *devicesI18nEnv {
@@ -84,7 +85,7 @@ func setupDevicesI18nEnv(t *testing.T) *devicesI18nEnv {
 	// Search is in the same mux so a test can assert that a device's computed
 	// fields agree across list, detail and search on one seeded fixture.
 	RegisterSearch(mux, deps)
-	return &devicesI18nEnv{mux: mux, token: issued.AccessToken}
+	return &devicesI18nEnv{mux: mux, token: issued.AccessToken, pool: pool}
 }
 
 // do issues one request with the language pinned by `lang` (an Accept-Language

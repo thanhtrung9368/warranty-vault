@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Check that Go HTTP routes registered in cmd/server/main.go + internal/handlers
-# match the paths/methods declared in ../openapi.yaml.
+# Check two things against ../openapi.yaml:
+#   1. the Go HTTP routes registered in cmd/server/main.go + internal/handlers
+#      match the paths/methods the spec declares, and
+#   2. each strictly-decoded request struct's JSON field set matches the schema
+#      its endpoint documents (see check_request_field_drift.py).
 #
 # Convention: every router registration uses a string literal of the form
 #   "METHOD /api/...". This script greps for that pattern and compares against
 #   openapi.yaml. CI should fail when the two diverge so the spec, the website
 #   client, and the mobile clients stay in lock-step with the Go service.
 #
-# Requires: bash, grep, sort, diff, python3 (any 3.x; uses only the stdlib).
+# Requires: bash, grep, sort, diff, python3 + PyYAML (the latter is already
+# required by the request-field pass).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -65,3 +69,27 @@ if ! diff -u "${OPENAPI_ROUTES}" "${GO_ROUTES}"; then
 fi
 
 echo "OpenAPI ↔ Go routes in sync ($(wc -l < "${GO_ROUTES}" | tr -d ' ') endpoints)."
+
+# Routes can match while the request bodies do not. `decodeJSON` uses
+# DisallowUnknownFields, so a schema field missing from its Go struct is a 400
+# for a client that followed the docs; the reverse is undocumented functionality.
+# The sibling script resolves every strict `decodeJSON(r, &x)` call in
+# internal/handlers and compares the struct's json tags with the schema its
+# endpoint documents. It fails loudly on a decode site it cannot map, so this is
+# not a hand-picked sample that can silently stop covering endpoints.
+echo
+set +e
+python3 "${SCRIPT_DIR}/check_request_field_drift.py" "${OPENAPI}" "${API_DIR}"
+field_rc=$?
+set -e
+if [ "${field_rc}" -eq 1 ]; then
+    echo
+    echo "OpenAPI request-field drift detected."
+    echo "Reconcile the Go request struct and the schema for each pair above."
+    exit 1
+elif [ "${field_rc}" -ne 0 ]; then
+    echo
+    echo "OpenAPI request-field check could not run (exit ${field_rc}); fix the"
+    echo "environment or the checker instead of treating this as a pass."
+    exit "${field_rc}"
+fi

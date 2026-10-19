@@ -92,17 +92,11 @@ func decodeJSONLoose(r *http.Request, dst any) error {
 	return json.NewDecoder(r.Body).Decode(dst)
 }
 
-// remarshal round-trips a generic decoded body through JSON to populate a
-// strongly-typed struct. Used by handlers that accept extra optional fields
-// (e.g. fromWishlistId) alongside the typed input schema, where the strict
-// `DisallowUnknownFields` decode would otherwise reject those extras.
-func remarshal(src, dst any) error {
-	b, err := json.Marshal(src)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(b, dst)
-}
+// Decode helpers deliberately keep the strict decoder as the default. A
+// handler that accepts one extra field beyond a shared input struct (e.g.
+// POST /api/v1/devices with `fromWishlistId`) declares its own request struct
+// embedding that input; it does not re-decode a loose map and drop keys it does
+// not understand.
 
 // badJSONBody / badInput / rateLimited / unauthorized are shared by every handler
 // file in this package, so the context argument they now take is about the

@@ -58,7 +58,8 @@ Biến do runner export luôn **đè** giá trị trong `api/.env` (`DATABASE_UR
 | `test_cron_flow.sh` | seed sub/wishlist quá hạn, gọi cron 2 lần, kiểm tra side-effect + idempotency ở tầng DB |
 | `test_push.sh` | register/list/delete push subscription (web/apns/fcm), validate platform |
 | `test_seed_dev.sh` | chạy `seed_dev.sql` qua `dbtool`: khớp schema, idempotent, đọc lại được qua API |
-| `check_openapi_drift.sh` | kiểm tra tĩnh: route Go ↔ `openapi.yaml` (không cần server; bỏ qua nếu thiếu PyYAML) |
+| `check_openapi_drift.sh` | kiểm tra tĩnh: route Go ↔ `openapi.yaml` **và** field set của mọi request struct giải mã strict ↔ schema tương ứng (không cần server; cần PyYAML) |
+| `check_request_field_drift.py` | phần request-shape của script trên: quét mọi `decodeJSON(r, &x)`, so json tag của struct với `components.schemas` (raw-map decoder phải nằm trong allowlist) |
 
 Log từng lần chạy nằm ở `api/tmp/e2e/run-*/logs/` (đã gitignore, runner tự dọn chỉ giữ 5 lần gần nhất).
 

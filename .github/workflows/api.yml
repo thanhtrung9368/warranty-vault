@@ -6,10 +6,12 @@ on:
     paths:
       - "api/**"
       - ".github/workflows/api.yml"
+      - "openapi.yaml"
   pull_request:
     paths:
       - "api/**"
       - ".github/workflows/api.yml"
+      - "openapi.yaml"
 
 # Cancel in-flight runs for the same ref.
 concurrency:

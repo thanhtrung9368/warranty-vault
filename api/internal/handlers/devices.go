@@ -61,6 +61,26 @@ func listDevicesHandler(deps Deps) http.HandlerFunc {
 	}
 }
 
+// deviceCreateRequest is the POST /api/v1/devices body.
+//
+// It is the shared services.DeviceInput plus the ONE field that exists only on
+// create: `fromWishlistId` names the wishlist item this device is replacing, so
+// there is nothing for it to mean on PATCH (the device already exists; an
+// update must not retroactively mark an unrelated wishlist item as purchased).
+//
+// The split is deliberate and is the reason this type exists rather than the
+// handler decoding a loose map: the decoder below keeps DisallowUnknownFields,
+// so POST accepts exactly the create schema and PATCH accepts exactly the
+// update schema. Anything else — a typo, a read-only response field such as
+// `warrantyMismatch`, or `fromWishlistId` on PATCH — is a 400 instead of being
+// silently ignored. openapi.yaml has the same split
+// (`DeviceCreateInput` / `DeviceUpdateInput`), and
+// scripts/check_request_field_drift.py pins the two field sets to this file.
+type deviceCreateRequest struct {
+	services.DeviceInput
+	FromWishlistID *string `json:"fromWishlistId,omitempty"`
+}
+
 func createDeviceHandler(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := i18n.Attach(r)
@@ -69,25 +89,18 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
-		// Decode into a flexible map first so we can pull `fromWishlistId`
-		// without polluting the strict service input struct.
-		var raw map[string]any
-		if err := decodeJSON(r, &raw); err != nil {
-			badJSONBody(w, ctx)
-			return
-		}
-		var input services.DeviceInput
-		if err := remarshal(raw, &input); err != nil {
+		var body deviceCreateRequest
+		if err := decodeJSON(r, &body); err != nil {
 			badJSONBody(w, ctx)
 			return
 		}
 
 		fromWishlistID := ""
-		if v, ok := raw["fromWishlistId"].(string); ok {
-			fromWishlistID = strings.TrimSpace(v)
+		if body.FromWishlistID != nil {
+			fromWishlistID = strings.TrimSpace(*body.FromWishlistID)
 		}
 
-		device, err := services.CreateDevice(ctx, deps.DB, us.UserID, input, fromWishlistID)
+		device, err := services.CreateDevice(ctx, deps.DB, us.UserID, body.DeviceInput, fromWishlistID)
 		if err != nil {
 			writeDevicesErr(w, ctx, err, "create device")
 			return
@@ -103,10 +116,13 @@ func createDeviceHandler(deps Deps) http.HandlerFunc {
 
 // bulkCreateDevicesHandler implements POST /api/v1/devices/bulk.
 //
-// The body is decoded LOOSELY, exactly like the single create (which decodes a
-// map and then remarshals it): unknown top-level or per-row fields are ignored
-// rather than rejecting the whole batch. The contract only names `devices`, and
-// a client that adds a future field must not lose 49 good rows to a 400.
+// The body is decoded LOOSELY, unlike the single create/update (which are
+// strict): unknown top-level or per-row fields are ignored rather than rejecting
+// the whole batch. The contract only names `devices`, and a client that adds a
+// future field must not lose 49 good rows to a 400. In particular a row may
+// carry `fromWishlistId`; bulk has no single wishlist item to mark, so the
+// field is ignored here rather than being a 400 for the whole batch.
+// openapi.yaml's BulkDeviceCreateRequest documents that leniency.
 //
 // Order of operations:
 //  1. decode and enforce the 1..50 shape before anything else, so a 51-row body

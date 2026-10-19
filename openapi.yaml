@@ -542,11 +542,16 @@ paths:
           lịch sử chi tiêu. Chỉ **hạn mức** thay đổi, không phải luật báo cáo.
         * Thông báo lỗi nói rõ đang chạm trần nào và còn cách nào (đánh dấu đã bán, hay
           xoá hồ sơ cũ).
+
+        Body là `DeviceCreateInput`: toàn bộ trường chung của `DeviceInput` cộng
+        `fromWishlistId` — trường **chỉ có nghĩa khi tạo** một thiết bị từ một món
+        trong wishlist. `PATCH /api/v1/devices/{id}` dùng `DeviceUpdateInput` và
+        **không** nhận trường này (xem mô tả schema).
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/DeviceInput' }
+            schema: { $ref: '#/components/schemas/DeviceCreateInput' }
       responses:
         '201':
           description: |
@@ -587,9 +592,11 @@ paths:
         * `devices` phải có **1..50** phần tử. Mảng rỗng ⇒ **400**
           `fieldErrors.devices`; quá 50 ⇒ **400** `fieldErrors.devices` (cùng
           khoá, cùng code `validation`).
-        * Mỗi phần tử là **đúng `DeviceInput`** của `POST /api/v1/devices`, được
-          kiểm tra bằng **cùng** validator, cùng thứ tự kiểm tra và cùng câu
-          thông báo. Không có schema riêng cho bulk.
+        * Mỗi phần tử dùng bộ trường **chung** `DeviceInput` (cùng trường với
+          create/update, **không** có `fromWishlistId`), được kiểm tra bằng
+          **cùng** validator, cùng thứ tự kiểm tra và cùng câu thông báo. Không
+          có schema riêng cho bulk; body bulk được giải mã lenient (field lạ bị
+          bỏ qua) — xem mô tả `BulkDeviceCreateRequest`.
 
         ### Thành công một phần
 
@@ -694,7 +701,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/DeviceInput' }
+            schema: { $ref: '#/components/schemas/DeviceUpdateInput' }
       responses:
         '200':
           description: |
@@ -3517,10 +3524,14 @@ components:
     UpdateProfileInput:
       type: object
       description: |
-        Chỉ `displayName` được chấp nhận. Đổi email **không** gửi ở đây — có luồng
-        riêng hai bước (`POST /api/v1/auth/change-email` rồi
+        Chỉ hai field dưới đây được chấp nhận: `displayName` và `locale`. Đổi
+        email **không** gửi ở đây — có luồng riêng hai bước
+        (`POST /api/v1/auth/change-email` rồi
         `POST /api/v1/auth/confirm-email-change`). Gửi thêm `email`/`newEmail` vào
         endpoint này sẽ trả 400 kèm `fieldErrors` chỉ đúng hai endpoint đó.
+
+        (Câu cũ ở đây nói "chỉ `displayName`", mâu thuẫn với `locale` ngay bên
+        dưới và với handler — đã sửa.)
       properties:
         displayName:
           type: string
@@ -4765,8 +4776,9 @@ components:
                 đổi additive: người dùng chưa có yêu cầu nhận payload cũ cộng
                 thêm một mảng rỗng.
 
-    # Body of POST /api/v1/devices/bulk. Deliberately wraps the SAME DeviceInput
-    # the single create uses; there is no bulk-only row schema to drift.
+    # Body of POST /api/v1/devices/bulk. Deliberately wraps the shared
+    # DeviceInput field set; there is no bulk-only row schema to drift, and no
+    # per-row wishlist link (bulk has no single item to mark).
     BulkDeviceCreateRequest:
       type: object
       required: [devices]
@@ -4777,9 +4789,16 @@ components:
           maxItems: 50
           items: { $ref: '#/components/schemas/DeviceInput' }
           description: |
-            1..50 thiết bị, mỗi phần tử là đúng `DeviceInput` của
-            `POST /api/v1/devices`. Mảng rỗng hoặc quá 50 ⇒ **400**
-            `fieldErrors.devices`; không có dòng nào được tạo.
+            1..50 thiết bị, mỗi phần tử dùng bộ trường chung `DeviceInput` (cùng
+            trường với create/update). **Không** có `fromWishlistId`: bulk không
+            có một món wishlist đơn lẻ nào để đánh dấu. Mảng rỗng hoặc quá 50 ⇒
+            **400** `fieldErrors.devices`; không có dòng nào được tạo.
+
+            Body của bulk được giải mã **lenient** (khác với create/update
+            strict): field lạ ở cấp ngoài hoặc trong một dòng bị **bỏ qua** thay
+            vì làm hỏng cả batch — một client thêm field tương lai không được
+            làm mất 49 dòng tốt. Vì vậy `fromWishlistId` trong một dòng cũng bị
+            bỏ qua, không phải 400.
 
             Thứ tự trong mảng là thứ tự của `created` (các dòng lỗi bị bỏ qua,
             không sắp xếp lại) và là hệ quy chiếu của `failed[].index`.
@@ -4842,7 +4861,32 @@ components:
     DeviceInput:
       type: object
       description: |
-        Body của `POST /api/v1/devices` và `PATCH /api/v1/devices/{id}`.
+        Bộ trường **chung** của hai endpoint ghi thiết bị:
+
+          * `POST /api/v1/devices` dùng `DeviceCreateInput` = bộ này **cộng**
+            `fromWishlistId` (trường chỉ có nghĩa khi tạo);
+          * `PATCH /api/v1/devices/{id}` dùng `DeviceUpdateInput` = đúng bộ này,
+            **không** có `fromWishlistId`.
+
+        `POST /api/v1/devices/bulk` dùng đúng bộ này cho mỗi dòng (không có
+        `fromWishlistId`) — xem `BulkDeviceCreateRequest`.
+
+        Việc tách schema không phải để cho đẹp: server giải mã body bằng bộ giải
+        mã **strict**, nên key không có trong schema của endpoint đó là 400
+        `bad_input`. Trước đây một schema duy nhất được dùng cho cả hai, nên
+        `fromWishlistId` được quảng cáo trên PATCH trong khi PATCH từ chối nó —
+        client làm đúng tài liệu vẫn nhận 400.
+
+        ### Trường lạ bị từ chối
+
+        Key không được khai báo trong schema tương ứng **không** bị bỏ qua: nó
+        trả 400 `bad_input` (không có `fieldErrors` vì lỗi thuộc về hình dạng
+        body). Vì vậy đừng gửi lại các trường chỉ có trên response — `id`,
+        `userId`, `createdAt`, `updatedAt`, `purchasePriceVnd`,
+        `soldPriceVnd`, `warrantyMismatch`, `warnings`, … — và đừng gửi
+        `fromWishlistId` trên PATCH. Đây là chủ ý: bộ giải mã strict là thứ biến
+        một lỗi gõ tên trường thành 400 thay vì một lần ghi âm thầm bỏ qua dữ
+        liệu.
 
         ### Tiền tệ (migration 0022)
 
@@ -4878,8 +4922,10 @@ components:
             400 `fieldErrors.brandWarrantyEnd`.
           * `brandLookupUrl` chỉ nhận URL tuyệt đối `http`/`https`; vi phạm ⇒ 400
             `fieldErrors.brandLookupUrl`. Server **không** fetch URL.
-          * `warrantyMismatch` **không bao giờ được gửi** — nó là trường tính
-            sẵn trên response; gửi lên sẽ bị bỏ qua.
+          * `warrantyMismatch` **không được gửi** — nó là trường tính sẵn trên
+            response và không có trong schema của request; bộ giải mã strict trả
+            400 `bad_input` nếu client gửi nó (giống mọi key không được khai
+            báo).
           * PATCH **thay thế** cả nhóm: không gửi cả năm trường nghĩa là **xoá**
             dữ liệu hãng đã lưu. Đây là ngoại lệ thứ ba của PATCH (sau
             `leadDays` và `currency`), và client nào có hiển thị dữ liệu hãng phải
@@ -5100,7 +5146,48 @@ components:
         warrantyAddress: { type: string, nullable: true }
         warrantyPhone: { type: string, nullable: true }
         warrantyNotes: { type: string, nullable: true }
-        fromWishlistId: { type: string, nullable: true, description: 'Optional. Marks the wishlist item as PURCHASED on success.' }
+
+    # Body of POST /api/v1/devices: the shared fields plus the one create-only
+    # field. PATCH uses DeviceUpdateInput below — a wishlist item is consumed by
+    # a NEW device, so `fromWishlistId` has no meaning on update and the strict
+    # decoder rejects it there.
+    DeviceCreateInput:
+      allOf:
+        - $ref: '#/components/schemas/DeviceInput'
+        - type: object
+          properties:
+            fromWishlistId:
+              type: string
+              nullable: true
+              description: |
+                Id của món trong wishlist mà thiết bị mới này thay thế. Trường
+                này **chỉ có ở POST** vì chỉ ở đó mới có một thiết bị mới để gắn
+                với một món đang muốn mua.
+
+                Khi gửi một id hợp lệ và thuộc người gọi, server đánh dấu món đó
+                là `PURCHASED` và ghi `purchasedDeviceId` trong **cùng
+                transaction** với việc tạo thiết bị — không có trạng thái nửa
+                vời. Id không tồn tại, không thuộc người gọi hoặc không hợp lệ
+                **không** làm hỏng việc tạo thiết bị; nó chỉ không được đánh
+                dấu. `null`/vắng mặt = không gắn wishlist.
+
+                `PATCH /api/v1/devices/{id}` **không** nhận trường này: gửi lên
+                đó là 400 `bad_input`.
+
+    # Body of PATCH /api/v1/devices/{id}. Kept as a named schema so the two
+    # write endpoints have two names in generated clients and nobody reuses the
+    # create shape (which would re-introduce fromWishlistId on PATCH).
+    DeviceUpdateInput:
+      allOf:
+        - $ref: '#/components/schemas/DeviceInput'
+      description: |
+        Body của `PATCH /api/v1/devices/{id}`: đúng bộ trường chung của
+        `DeviceInput`, **không** có `fromWishlistId` — trường đó chỉ có nghĩa
+        khi tạo một thiết bị mới từ wishlist, và PATCH không tạo thiết bị nào.
+        Gửi `fromWishlistId` ở đây là 400 `bad_input`.
+
+        Giống mọi PATCH khác, đây là **full replacement** trừ các ngoại lệ có
+        chủ ý được ghi trong mô tả `DeviceInput` (`leadDays` và `currency`).
 
     Warranty:
       type: object
@@ -5619,10 +5706,18 @@ components:
 
     PaymentInput:
       type: object
-      required: [amount, paidAt]
+      # `paidAt` is NOT required: an absent or blank value is stamped with the
+      # server's current time (`services/subscriptions.go`). The schema used to
+      # list it as required, which told clients to send a field the server was
+      # happy to invent.
+      required: [amount]
       properties:
         amount: { type: integer, minimum: 0 }
-        paidAt: { type: string }
+        paidAt:
+          type: string
+          description: |
+            Thời điểm thanh toán. **Vắng mặt hoặc chuỗi rỗng ⇒ server lấy thời
+            điểm hiện tại.** Gửi kèm khi ghi lại một khoản đã trả trước đó.
         note: { type: string, maxLength: 500, nullable: true }
 
     WishlistItem:

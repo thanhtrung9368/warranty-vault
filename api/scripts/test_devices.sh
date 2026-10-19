@@ -131,6 +131,60 @@ status=$(wv_curl_status -X DELETE "${BASE}/api/v1/warranties/${WARRANTY_ID}/remi
 assert "$cond" "restore reminder trả 200 (nhận $status)"
 
 echo
+echo "→ fromWishlistId: POST tạo thiết bị từ wishlist → wishlist PURCHASED"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/wishlist" \
+  -H "$H_AUTH" -H 'content-type: application/json' \
+  -d '{"name":"Wishlist Phone","priority":"WANT"}')
+[ "$status" = "201" ] && cond=true || cond=false
+assert "$cond" "tạo wishlist trả 201 (nhận $status)"
+WISHLIST_ID=$(jq -r '.item.id' "$WV_BODY_FILE")
+
+status=$(wv_curl_status -X POST "${BASE}/api/v1/devices" \
+  -H "$H_AUTH" -H 'content-type: application/json' \
+  -d "{\"name\":\"Phone From Wishlist\",\"category\":\"PHONE\",\"purchaseDate\":\"2026-02-01\",\"fromWishlistId\":\"${WISHLIST_ID}\"}")
+[ "$status" = "201" ] && cond=true || cond=false
+assert "$cond" "POST kèm fromWishlistId trả 201 (nhận $status)"
+WISHLIST_DEVICE_ID=$(jq -r '.device.id' "$WV_BODY_FILE")
+
+status=$(wv_curl_status -X GET "${BASE}/api/v1/wishlist/${WISHLIST_ID}" -H "$H_AUTH")
+[ "$status" = "200" ] && cond=true || cond=false
+assert "$cond" "đọc lại wishlist trả 200 (nhận $status)"
+WL_STATUS=$(jq -r '.item.status' "$WV_BODY_FILE")
+[ "$WL_STATUS" = "PURCHASED" ] && cond=true || cond=false
+assert "$cond" "wishlist đã PURCHASED (nhận $WL_STATUS)"
+WL_DEVICE=$(jq -r '.item.purchasedDeviceId' "$WV_BODY_FILE")
+[ "$WL_DEVICE" = "$WISHLIST_DEVICE_ID" ] && cond=true || cond=false
+assert "$cond" "wishlist trỏ đúng thiết bị vừa tạo (nhận $WL_DEVICE)"
+
+echo
+echo "→ fromWishlistId chỉ có nghĩa khi tạo: PATCH phải từ chối"
+status=$(wv_curl_status -X PATCH "${BASE}/api/v1/devices/${WISHLIST_DEVICE_ID}" \
+  -H "$H_AUTH" -H 'content-type: application/json' \
+  -d "{\"name\":\"Phone From Wishlist\",\"category\":\"PHONE\",\"purchaseDate\":\"2026-02-01\",\"fromWishlistId\":\"${WISHLIST_ID}\"}")
+[ "$status" = "400" ] && cond=true || cond=false
+assert "$cond" "PATCH kèm fromWishlistId trả 400 (nhận $status)"
+ERR=$(jq -r '.error' "$WV_BODY_FILE")
+[ "$ERR" = "bad_input" ] && cond=true || cond=false
+assert "$cond" "PATCH kèm fromWishlistId là bad_input (nhận $ERR)"
+
+status=$(wv_curl_status -X PATCH "${BASE}/api/v1/devices/${WISHLIST_DEVICE_ID}" \
+  -H "$H_AUTH" -H 'content-type: application/json' \
+  -d '{"name":"Phone From Wishlist","category":"PHONE","purchaseDate":"2026-02-01"}')
+[ "$status" = "200" ] && cond=true || cond=false
+assert "$cond" "PATCH không có fromWishlistId trả 200 (nhận $status)"
+
+echo
+echo "→ POST vẫn strict: trường chỉ có trên response bị 400, không bị bỏ qua"
+status=$(wv_curl_status -X POST "${BASE}/api/v1/devices" \
+  -H "$H_AUTH" -H 'content-type: application/json' \
+  -d '{"name":"Strict Body Phone","category":"PHONE","purchaseDate":"2026-02-01","warrantyMismatch":null}')
+[ "$status" = "400" ] && cond=true || cond=false
+assert "$cond" "POST kèm warrantyMismatch trả 400 (nhận $status)"
+ERR=$(jq -r '.error' "$WV_BODY_FILE")
+[ "$ERR" = "bad_input" ] && cond=true || cond=false
+assert "$cond" "POST kèm warrantyMismatch là bad_input (nhận $ERR)"
+
+echo
 echo "→ Xoá thiết bị"
 status=$(wv_curl_status -X DELETE "${BASE}/api/v1/devices/${DEVICE_ID}" -H "$H_AUTH")
 [ "$status" = "200" ] && cond=true || cond=false
