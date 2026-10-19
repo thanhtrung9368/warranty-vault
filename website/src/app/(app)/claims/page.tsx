@@ -8,6 +8,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { EmptyState } from '@/components/empty-state';
+import { ClaimAssessmentPanel } from '@/components/claim-assessment';
 import { api } from '@/lib/api';
 import type { Claim } from '@/lib/api/claims';
 import type { DeviceListItem } from '@/lib/api/devices';
@@ -64,74 +65,87 @@ function ClaimRow({
   const costLabel = formatClaimCost(claim.cost, locale);
   return (
     <li>
-      <Link
-        href={`/devices/${claim.deviceId}#claim-${claim.id}`}
-        className="block rounded-2xl border-[1.5px] border-border bg-card p-4 transition-colors hover:bg-surface-2"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink">
-              {device?.name ?? claim.deviceId}
-            </p>
-            <p className="mt-0.5 line-clamp-2 text-sm text-ink-2">{claim.issue}</p>
+      <div className="rounded-2xl border-[1.5px] border-border bg-card">
+        <Link
+          href={`/devices/${claim.deviceId}#claim-${claim.id}`}
+          className="block rounded-t-2xl p-4 transition-colors hover:bg-surface-2"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-ink">
+                {device?.name ?? claim.deviceId}
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-sm text-ink-2">{claim.issue}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-bold',
+                  CLAIM_STATUS_TONE[claim.status] ?? 'bg-zinc-soft text-ink-2',
+                )}
+              >
+                {claimStatusLabel(claim.status, locale)}
+              </span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span
-              className={cn(
-                'inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-bold',
-                CLAIM_STATUS_TONE[claim.status] ?? 'bg-zinc-soft text-ink-2',
-              )}
-            >
-              {claimStatusLabel(claim.status, locale)}
-            </span>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-          </div>
-        </div>
 
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <CalendarClock className="h-3.5 w-3.5" />
-            {t('Mở ngày {date}', {
-              date: formatDate(claim.openedAt, locale),
-            })}
-          </span>
-          {claim.expectedReturnAt && !claim.closedAt && (
-            <span className="inline-flex items-center gap-1 font-medium text-amber-ink">
-              <CalendarClock className="h-3.5 w-3.5" />
-              {t('Dự kiến trả {date}', {
-                date: formatDate(claim.expectedReturnAt, locale),
-              })}
-            </span>
-          )}
-          {claim.closedAt && (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="h-3.5 w-3.5" />
-              {t('Đã đóng {date}', {
-                date: formatDate(claim.closedAt, locale),
+              {t('Mở ngày {date}', {
+                date: formatDate(claim.openedAt, locale),
               })}
             </span>
-          )}
-          {claim.ticketNumber && (
-            <span className="inline-flex items-center gap-1 font-mono font-semibold text-ink-2">
-              <Ticket className="h-3.5 w-3.5" />
-              {claim.ticketNumber}
-            </span>
-          )}
-          {claim.serviceCenter && (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
-              {claim.serviceCenter}
-            </span>
-          )}
-          {costLabel && (
-            <span className="inline-flex items-center gap-1">
-              <Wallet className="h-3.5 w-3.5" />
-              {costLabel}
-            </span>
-          )}
-          <span>{claimCoverageLabel(claim.coveredByWarranty, locale)}</span>
+            {claim.expectedReturnAt && !claim.closedAt && (
+              <span className="inline-flex items-center gap-1 font-medium text-amber-ink">
+                <CalendarClock className="h-3.5 w-3.5" />
+                {t('Dự kiến trả {date}', {
+                  date: formatDate(claim.expectedReturnAt, locale),
+                })}
+              </span>
+            )}
+            {claim.closedAt && (
+              <span className="inline-flex items-center gap-1">
+                <CalendarClock className="h-3.5 w-3.5" />
+                {t('Đã đóng {date}', {
+                  date: formatDate(claim.closedAt, locale),
+                })}
+              </span>
+            )}
+            {claim.ticketNumber && (
+              <span className="inline-flex items-center gap-1 font-mono font-semibold text-ink-2">
+                <Ticket className="h-3.5 w-3.5" />
+                {claim.ticketNumber}
+              </span>
+            )}
+            {claim.serviceCenter && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                {claim.serviceCenter}
+              </span>
+            )}
+            {costLabel && (
+              <span className="inline-flex items-center gap-1">
+                <Wallet className="h-3.5 w-3.5" />
+                {costLabel}
+              </span>
+            )}
+            <span>{claimCoverageLabel(claim.coveredByWarranty, locale)}</span>
+          </div>
+        </Link>
+
+        {/* The same advice panel as the device card, on the cross-device list:
+            a claim listed here is a claim the user may be about to take to the
+            counter, so it must not require a detour to the device page. It is
+            outside the link so the button is not nested interactive content. */}
+        <div className="border-t border-dashed border-border px-4 py-3">
+          <ClaimAssessmentPanel
+            claimId={claim.id}
+            deviceId={claim.deviceId}
+          />
         </div>
-      </Link>
+      </div>
     </li>
   );
 }

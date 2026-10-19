@@ -82,7 +82,7 @@ export default async function SettingsPage() {
         <SessionList sessions={sessions.sessions} unavailable={!sessions.ok} />
       </Section>
 
-      <Section icon={<ScanLine className="h-4 w-4" />} tint="tint-primary" title={t('Quét hoá đơn (AI)')}>
+      <Section icon={<ScanLine className="h-4 w-4" />} tint="tint-primary" title={t('Trợ lý AI (tuỳ chọn)')}>
         <AISettings initialEnabled={user.aiOptIn} />
       </Section>
 

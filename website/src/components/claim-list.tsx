@@ -34,6 +34,7 @@ import {
   type ClaimInitial,
   type ClaimWarrantyOption,
 } from '@/components/claim-form';
+import { ClaimAssessmentPanel } from '@/components/claim-assessment';
 import type { Claim } from '@/lib/api/claims';
 import {
   CLAIM_STATUS_TONE,
@@ -201,6 +202,17 @@ function ClaimCard({
           )}
         </div>
       )}
+
+      {/* AI advice lives on the claim itself, below the recorded facts: the
+          claim is the unit being assessed, and this card is the anchor surface
+          for it. The panel writes nothing — it only reads the claim + contract
+          terms and returns advice, questions and a letter. */}
+      <div className="mt-3 border-t border-dashed border-border pt-3">
+        <ClaimAssessmentPanel
+          claimId={claim.id}
+          deviceId={claim.deviceId}
+        />
+      </div>
     </div>
   );
 }

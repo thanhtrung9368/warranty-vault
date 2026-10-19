@@ -82,4 +82,48 @@
     <string name="claim_delete_title">Delete this repair ticket?</string>
     <string name="claim_delete_body">The ticket “%1$s” will be removed. This cannot be undone.</string>
 
+    <!-- ===== AI claim assessment (`ClaimAssessmentSheet.kt` + `ClaimAssessmentRules.kt`). =====
+         Advice, NOT a verdict: "Likely covered" must never read as "approved".
+         `draftLetter` is Vietnamese on purpose (the service centre reads it) and
+         is never translated by the app. -->
+    <string name="claim_assess_action">Assess warranty</string>
+    <string name="claim_assess_title">Warranty advice</string>
+    <string name="claim_assess_subtitle">Advice, not a decision. Nothing is saved.</string>
+    <string name="claim_assess_loading">Reading the repair ticket and the warranty terms…</string>
+    <string name="claim_assess_disclaimer_title">Advice, not a decision</string>
+    <string name="claim_assess_disclaimer_body">This is an AI estimate from the repair ticket and the warranty terms you recorded. The service centre decides whether the claim is covered.</string>
+    <string name="claim_assess_coverage_likely_covered">Likely covered</string>
+    <string name="claim_assess_coverage_unclear">Unclear</string>
+    <string name="claim_assess_coverage_likely_not_covered">Likely not covered</string>
+    <string name="claim_assess_confidence_low">Low confidence</string>
+    <string name="claim_assess_confidence_medium">Medium confidence</string>
+    <string name="claim_assess_confidence_high">High confidence</string>
+    <string name="claim_assess_advice_likely_covered">The terms you recorded suggest this repair is likely covered. Take the questions and the draft letter to the counter.</string>
+    <string name="claim_assess_advice_unclear">The terms you recorded do not clearly settle this. That is still useful: the questions below are exactly what to ask at the counter.</string>
+    <string name="claim_assess_advice_likely_not_covered">The terms you recorded suggest this repair is likely not covered. Ask the questions below before you agree to pay.</string>
+    <string name="claim_assess_reasoning_title">Why</string>
+    <string name="claim_assess_questions_title">Questions the counter may ask</string>
+    <string name="claim_assess_questions_title_unclear">Useful questions for an unclear answer</string>
+    <string name="claim_assess_questions_none">No specific questions came back. Ask the service centre whether the warranty covers this fault.</string>
+    <string name="claim_assess_letter_title">Draft letter to the service centre</string>
+    <string name="claim_assess_letter_language_badge">Vietnamese</string>
+    <string name="claim_assess_letter_language_note">Kept in Vietnamese on purpose: the service centre reads Vietnamese. The app does not translate it.</string>
+    <string name="claim_assess_letter_draft_note">This is a draft. Edit it before sending.</string>
+    <string name="claim_assess_letter_copy">Copy letter</string>
+    <string name="claim_assess_letter_share">Share letter</string>
+    <string name="claim_assess_letter_copied">Letter copied</string>
+    <string name="claim_assess_letter_chooser">Send the Vietnamese letter via</string>
+    <string name="claim_assess_letter_clip_label">Warranty letter</string>
+    <string name="claim_assess_letter_no_target">No app on this device can receive a text share. You can still copy the letter.</string>
+    <string name="claim_assess_footer">The service centre makes the final decision. This is advice, not an approval.</string>
+    <string name="claim_assess_generated_by">Generated %1$s · %2$s</string>
+    <string name="claim_assess_generated_on">Generated %1$s</string>
+    <string name="claim_assess_gate_optin_title">AI features are off</string>
+    <string name="claim_assess_gate_optin_body">Warranty advice uses AI. Turn AI on in Settings (AI features), then reopen this claim. The repair ticket, the device details and the warranty terms are sent to a third-party AI service; nothing is saved.</string>
+    <string name="claim_assess_gate_optin_action">Open Settings</string>
+    <string name="claim_assess_gate_disabled_title">AI assessment is not available right now</string>
+    <string name="claim_assess_gate_disabled_body">This is not a problem with your claim. The service centre decides anyway — bring the ticket and the warranty terms to the counter.</string>
+    <string name="claim_assess_error_title">Could not get an assessment</string>
+    <string name="claim_assess_error_body">The claim is unchanged. Check the connection and try again.</string>
+
 </resources>

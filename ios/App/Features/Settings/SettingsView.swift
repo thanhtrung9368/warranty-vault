@@ -171,9 +171,13 @@ struct SettingsView: View {
                 sessionsSection
                 WVSectionFooter(L.t("“Thiết bị đăng nhập” là các phiên còn quyền truy cập dữ liệu của bạn. Khác với “Thiết bị nhận thông báo” ở trên — xoá một đích push chỉ ngừng gửi thông báo, không thu hồi quyền truy cập."))
 
-                // AI receipt scan
-                WVSectionHeader(L.t("Quét hoá đơn (AI)"))
-                WVSectionFooter(L.t("Khi bật, ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền thông tin. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
+                // Shared AI opt-in. There is deliberately ONE switch (and one
+                // `PUT /api/v1/ai/opt-in`) for both receipt scanning and claim
+                // assessment: the flag is a privacy decision about sending data
+                // to a third-party model, and a second toggle would let the two
+                // features disagree about it. The assessment sheet points here.
+                WVSectionHeader(L.t("Trợ lý AI"))
+                WVSectionFooter(L.t("Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
                 aiSection
 
                 // Data
@@ -314,8 +318,8 @@ struct SettingsView: View {
     private var aiSection: some View {
         WVGroup {
             HStack(spacing: 12) {
-                WVLeadingIcon(icon: "receipt", color: WVColor.tint)
-                Text(L.t("Quét hoá đơn bằng AI"))
+                WVLeadingIcon(icon: "sparkles", color: WVColor.tint)
+                Text(L.t("Quét hoá đơn & đánh giá bảo hành"))
                     .font(.system(size: 17))
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 8)

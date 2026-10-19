@@ -1031,6 +1031,76 @@ data class AIOptInRequest(val enabled: Boolean)
 @Serializable
 data class AIOptInResponse(val aiOptIn: Boolean)
 
+// ---- AI claim assessment ----
+//
+// `POST /api/v1/ai/assess-claim` is advice, **not** a decision, and it writes
+// nothing. The server reads the claim and the device's warranty terms; the
+// request carries only the claim id.
+//
+// Three contract facts shape the models:
+//
+//  * `coverage` is an estimate (`LIKELY_…` / `UNCLEAR`), never an approval.
+//    The UI must not render it as one — see `ClaimAssessmentRules.kt`.
+//  * `reasoning` and `questions` are in the user's language; `draftLetter` is
+//    ALWAYS Vietnamese, because it is read at a Vietnamese service centre. The
+//    app shows it as-is and never translates it.
+//  * `questions` can be empty (and is still a successful answer); `draftLetter`
+//    is defaulted so a partial payload cannot throw away an otherwise useful
+//    result. `generatedAt` / `model` are provenance, not inputs.
+
+/** `LIKELY_COVERED | UNCLEAR | LIKELY_NOT_COVERED` (openapi `ClaimAssessment.coverage`). */
+@Serializable
+enum class ClaimCoverage(@StringRes val labelRes: Int) {
+    LIKELY_COVERED(R.string.claim_assess_coverage_likely_covered),
+    UNCLEAR(R.string.claim_assess_coverage_unclear),
+    LIKELY_NOT_COVERED(R.string.claim_assess_coverage_likely_not_covered),
+}
+
+/** `LOW | MEDIUM | HIGH` — how sure the model is, not how sure the shop is. */
+@Serializable
+enum class ClaimConfidence(@StringRes val labelRes: Int) {
+    LOW(R.string.claim_assess_confidence_low),
+    MEDIUM(R.string.claim_assess_confidence_medium),
+    HIGH(R.string.claim_assess_confidence_high),
+}
+
+/**
+ * Body of `POST /api/v1/ai/assess-claim`.
+ *
+ * Exactly one property on purpose: the server owns the rest (it loads the
+ * claim, its device and the warranty terms), and a wider body would let the
+ * client send a different set of facts than the ones it displayed.
+ */
+@Serializable
+data class AssessClaimInput(val claimId: String)
+
+/**
+ * One AI claim assessment (openapi `ClaimAssessment`).
+ *
+ * The endpoint is read-only by construction: this response is a draft of advice,
+ * the questions a counter may ask, and a Vietnamese letter. Nothing is saved.
+ *
+ * `draftLetter` defaults to `""` rather than being nullable: the UI only needs
+ * "is there a letter to show" and the contract says it is always present. An
+ * older/partial payload that lacks it still yields the useful coverage,
+ * confidence, reasoning and questions instead of failing to decode the whole
+ * response.
+ */
+@Serializable
+data class ClaimAssessment(
+    val claimId: String,
+    val coverage: ClaimCoverage,
+    val confidence: ClaimConfidence,
+    /** The user's language. Shown as the "why" behind the estimate. */
+    val reasoning: String,
+    /** The user's language. Empty is valid and still useful. */
+    val questions: List<String> = emptyList(),
+    /** ALWAYS Vietnamese, on purpose. Never translated by the app. */
+    val draftLetter: String = "",
+    val generatedAt: String? = null,
+    val model: String? = null,
+)
+
 // ---- Catalog ----
 
 @Serializable

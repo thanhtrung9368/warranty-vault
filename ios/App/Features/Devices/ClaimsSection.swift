@@ -25,12 +25,20 @@ import WarrlyKit
 //   3. **The form**, as a sheet. A 409 from "create" re-opens the *open* claim
 //      in edit mode after the sheet dismisses, which is the "way to it" the
 //      error copy promises.
+//   4. **The AI assessment**, as a sheet launched from a claim. The action sits
+//      on the claim row because the endpoint needs a `claimId` and the user is
+//      already looking at the repair they are about to discuss. The row keeps
+//      its tap-to-edit behaviour; the assessment is a second, explicitly
+//      labelled button, not a swipe action, so it is discoverable at a counter.
 // ============================================================
 
 struct ClaimsSection: View {
     @ObservedObject var store: WarrantiesStore
     /// The live device (status changes are reflected here immediately).
     let device: Device
+    /// Only the read-only AI assessment needs the client; every claim write
+    /// still goes through `store`.
+    let client: APIClient
 
     @State private var route: ClaimFormRoute?
     /// Set when the form's 409 alert asked to open the claim that is already
@@ -75,16 +83,20 @@ struct ClaimsSection: View {
             WVSectionFooter(L.t("Mỗi thiết bị chỉ có một lần sửa chữa đang mở tại một thời điểm."))
         }
         .sheet(item: $route, onDismiss: reopenConflict) { route in
-            ClaimFormView(
-                store: store,
-                device: device,
-                claim: route.claim,
-                onOpenExisting: { existing in
-                    // The form dismisses itself right after this; `reopenConflict`
-                    // then presents the claim that is actually open.
-                    openAfterDismiss = existing
-                }
-            )
+            if case let .assess(claim) = route {
+                ClaimAssessmentView(client: client, claim: claim)
+            } else {
+                ClaimFormView(
+                    store: store,
+                    device: device,
+                    claim: route.claim,
+                    onOpenExisting: { existing in
+                        // The form dismisses itself right after this; `reopenConflict`
+                        // then presents the claim that is actually open.
+                        openAfterDismiss = existing
+                    }
+                )
+            }
         }
     }
 
@@ -100,12 +112,7 @@ struct ClaimsSection: View {
             WVGroup {
                 ForEach(Array(claims.enumerated()), id: \.element.id) { index, claim in
                     if index > 0 { WVDivider(inset: 16) }
-                    Button {
-                        route = .edit(claim)
-                    } label: {
-                        ClaimRow(claim: claim, warranty: warranty(for: claim))
-                    }
-                    .buttonStyle(WVRowButtonStyle())
+                    claimCell(claim)
                 }
 
                 if !claims.isEmpty { WVDivider(inset: 16) }
@@ -119,6 +126,39 @@ struct ClaimsSection: View {
                 }
             }
             .padding(.top, 2)
+        }
+    }
+
+    /// One claim cell.
+    ///
+    /// The row keeps its old tap-to-edit behaviour; the assessment is a second,
+    /// explicitly labelled action under it. Two sibling buttons rather than a
+    /// nested control: on iOS a whole-row button swallows the inner tap, and a
+    /// swipe action would hide the one thing a user at a counter needs to find.
+    private func claimCell(_ claim: Claim) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                route = .edit(claim)
+            } label: {
+                ClaimRow(claim: claim, warranty: warranty(for: claim))
+            }
+            .buttonStyle(WVRowButtonStyle())
+
+            Button {
+                route = .assess(claim)
+            } label: {
+                HStack(spacing: 6) {
+                    WVIcon("sparkles", size: 13)
+                    Text(L.t("Đánh giá bảo hành"))
+                        .font(.system(size: 13, weight: .semibold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(WVColor.tint)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 9)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVPressableStyle())
         }
     }
 
@@ -176,16 +216,6 @@ private struct ClaimRow: View {
     let claim: Claim
     let warranty: Warranty?
 
-    private var statusTone: WVChipTone {
-        switch claim.status {
-        case .OPEN:      return .orange
-        case .IN_REPAIR: return .blue
-        case .RESOLVED:  return .green
-        case .REJECTED:  return .red
-        case .CANCELLED: return .gray
-        }
-    }
-
     /// Ticket first: the number is the one thing the shop asks for when the
     /// user calls. Open claims show the promised return date; closed ones show
     /// when they were closed.
@@ -229,7 +259,7 @@ private struct ClaimRow: View {
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                WVChip(claim.status.label, tone: statusTone)
+                WVChip(claim.status.label, tone: claim.status.chipTone)
                 WVIcon("arrowRight", size: 13, weight: .semibold)
                     .foregroundStyle(WVColor.label4)
             }
@@ -272,14 +302,22 @@ private struct ClaimRow: View {
 enum ClaimFormRoute: Identifiable {
     case create
     case edit(Claim)
+    /// The read-only AI assessment for one claim. It shares the presentation
+    /// item so only one sheet can ever be up, and dismisses back to the same
+    /// section it came from.
+    case assess(Claim)
 
     var id: String {
         switch self {
-        case .create:          return "new"
-        case .edit(let claim): return claim.id
+        case .create:              return "new"
+        case .edit(let claim):     return claim.id
+        case .assess(let claim):   return "assess-\(claim.id)"
         }
     }
 
+    /// The claim the form edits. `nil` for `create` and for `assess` — the
+    /// assessment sheet receives its claim through the case, not through this
+    /// accessor, so it can never be opened with an editable form by mistake.
     var claim: Claim? {
         if case let .edit(claim) = self { return claim }
         return nil

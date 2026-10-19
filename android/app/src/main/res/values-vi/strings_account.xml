@@ -28,11 +28,11 @@
     <string name="set_manage_the_devices_registered_for_push">Quản lý các thiết bị đăng ký push notification.</string>
     <string name="set_sign_in_sessions">Phiên đăng nhập</string>
     <string name="set_see_which_devices_are_signed_in">Xem các thiết bị đang đăng nhập và thu hồi từng phiên.</string>
-    <string name="set_invoice_scanning_ai">Quét hoá đơn (AI)</string>
-    <string name="set_scan_invoices_with_ai">Quét hoá đơn bằng AI</string>
-    <string name="set_the_invoice_image_is_sent_decrypted">Ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền. Luôn kiểm tra lại trước khi lưu. Mặc định tắt.</string>
-    <string name="set_ai_invoice_scanning_is_on">Đã bật quét hoá đơn AI</string>
-    <string name="set_ai_invoice_scanning_is_off">Đã tắt quét hoá đơn AI</string>
+    <string name="set_invoice_scanning_ai">Tính năng AI</string>
+    <string name="set_scan_invoices_with_ai">Dùng AI cho hoá đơn &amp; tư vấn bảo hành</string>
+    <string name="set_the_invoice_image_is_sent_decrypted">Bật mục này để quét hoá đơn và nhận tư vấn bảo hành bằng AI. App gửi ảnh hoá đơn (đã giải mã), hoặc phiếu sửa chữa, thông tin thiết bị và điều khoản bảo hành, tới dịch vụ AI bên thứ ba. Luôn kiểm tra kết quả. Mặc định tắt.</string>
+    <string name="set_ai_invoice_scanning_is_on">Đã bật tính năng AI</string>
+    <string name="set_ai_invoice_scanning_is_off">Đã tắt tính năng AI</string>
     <string name="set_data">Dữ liệu</string>
     <string name="set_working">Đang xử lý…</string>
     <string name="set_back_up_export_json">Sao lưu (xuất JSON)</string>

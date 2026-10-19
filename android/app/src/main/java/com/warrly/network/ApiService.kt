@@ -340,6 +340,18 @@ interface ApiService {
         @Body body: ExtractReceiptInput,
     ): DraftDeviceResponse
 
+    // ---- AI claim assessment ----
+    // Advice, not a verdict, and it WRITES NOTHING: the server reads the claim
+    // and the device's warranty terms, so the body is only the claim id.
+    // `draftLetter` comes back in Vietnamese by contract even when `reasoning`
+    // and `questions` are in the user's language — the UI must not translate it.
+    // Gates: 403 `ai_optin_required`, 503 `feature_disabled` (no API key). Both
+    // are mapped by `ui/screens/devices/ClaimAssessmentRules.kt`.
+    @POST("api/v1/ai/assess-claim")
+    suspend fun assessClaim(
+        @Body body: AssessClaimInput,
+    ): ClaimAssessment
+
     // ---- Handover certificate / share links (FEATURE_IDEAS #2) ----
     //
     // Owner-side list. Never carries `token` — the server keeps only its sha256,

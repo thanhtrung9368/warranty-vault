@@ -1,4 +1,5 @@
-// Typed wrapper around the Go AI extraction endpoint.
+// Typed wrappers around the Go AI endpoints: receipt extraction and warranty
+// claim assessment.
 //
 // Wire shape matches `DraftDevice` in api/internal/services/ai_extract.go and
 // the `DraftDevice` schema in openapi.yaml. The endpoint returns a DRAFT only —
@@ -15,8 +16,19 @@
 
 import { apiFetch, type ApiResult } from './client';
 import { normalizeDeviceWarnings } from '@/lib/device-warnings';
+import { normalizeClaimAssessment, type ClaimAssessment } from '@/lib/claim-assessment';
 import type { ExtractReceiptBody } from '@/lib/receipt-scan';
 import type { DeviceWarning } from './devices';
+
+// The assessment wire types are owned by `lib/claim-assessment.ts` (the pure
+// half) and re-exported here so callers keep finding AI wire shapes in one
+// module. Keeping the definition in the pure module is what lets its label /
+// gate / letter rules be unit-tested without importing the API client.
+export type {
+  ClaimAssessment,
+  ClaimAssessmentConfidence,
+  ClaimAssessmentCoverage,
+} from '@/lib/claim-assessment';
 
 export type DraftDevice = {
   name: string | null;
@@ -78,4 +90,27 @@ export async function extractReceipt(body: ExtractReceiptBody): Promise<ApiResul
 // provider requires explicit consent (default OFF).
 export async function setOptIn(enabled: boolean): Promise<ApiResult<{ aiOptIn: boolean }>> {
   return apiFetch<{ aiOptIn: boolean }>('PUT', '/v1/ai/opt-in', { enabled });
+}
+
+// Assess ONE claim against the contract terms the account already recorded.
+//
+// Frozen contract: `POST /v1/ai/assess-claim { claimId }` → the assessment
+// object directly (not wrapped in an envelope). It WRITES NOTHING — no status
+// change, no stored result — so callers must not `revalidatePath` after it and
+// the UI must treat it as advice, never as a claim outcome. Gates are 503
+// `feature_disabled` and 403 `ai_optin_required`; `lib/claim-assessment.ts`
+// maps those to normal UI states.
+//
+// The response is normalised rather than trusted for the same reason the
+// receipt draft is: an unknown coverage must degrade to UNCLEAR (not a guess)
+// and an unknown confidence to LOW (not HIGH), so a malformed or newer-server
+// body can never look more certain than it is.
+export async function assessClaim(
+  claimId: string,
+): Promise<ApiResult<ClaimAssessment>> {
+  const res = await apiFetch<unknown>('POST', '/v1/ai/assess-claim', {
+    claimId,
+  });
+  if (!res.ok) return res;
+  return { ok: true, data: normalizeClaimAssessment(res.data, claimId) };
 }

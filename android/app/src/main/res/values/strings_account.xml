@@ -29,11 +29,11 @@
     <string name="set_manage_the_devices_registered_for_push">Manage the devices registered for push notifications.</string>
     <string name="set_sign_in_sessions">Sign-in sessions</string>
     <string name="set_see_which_devices_are_signed_in">See which devices are signed in and revoke sessions one by one.</string>
-    <string name="set_invoice_scanning_ai">Invoice scanning (AI)</string>
-    <string name="set_scan_invoices_with_ai">Scan invoices with AI</string>
-    <string name="set_the_invoice_image_is_sent_decrypted">The invoice image is sent (decrypted) to a third-party AI service so it can fill the form in. Always check it before saving. Off by default.</string>
-    <string name="set_ai_invoice_scanning_is_on">AI invoice scanning is on</string>
-    <string name="set_ai_invoice_scanning_is_off">AI invoice scanning is off</string>
+    <string name="set_invoice_scanning_ai">AI features</string>
+    <string name="set_scan_invoices_with_ai">Use AI for invoices and warranty advice</string>
+    <string name="set_the_invoice_image_is_sent_decrypted">Turn this on to scan invoices and to get AI warranty advice. It sends the invoice image (decrypted), or the claim, device details and warranty terms, to a third-party AI service. Always check the result. Off by default.</string>
+    <string name="set_ai_invoice_scanning_is_on">AI features are on</string>
+    <string name="set_ai_invoice_scanning_is_off">AI features are off</string>
     <string name="set_data">Data</string>
     <string name="set_working">Working…</string>
     <string name="set_back_up_export_json">Back up (export JSON)</string>

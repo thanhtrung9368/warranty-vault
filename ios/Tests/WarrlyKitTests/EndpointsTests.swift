@@ -1241,6 +1241,66 @@ final class EndpointsTests: KitTestCase {
                        "the multipart branch must not pretend to carry an attachment id")
     }
 
+    // MARK: - AI claim assessment
+
+    /// Pins the frozen request: JSON `{claimId}` only, POST to the exact path,
+    /// bearer auth — and the response decoded with the hedged classes.
+    func testAssessClaimPostsOnlyTheClaimIdAndDecodesTheAdvice() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"claimId": "claim_1", "coverage": "LIKELY_COVERED", "confidence": "HIGH",
+         "reasoning": "Gói bảo hành còn hiệu lực.", "questions": ["Bạn còn hoá đơn không?"],
+         "draftLetter": "Kính gửi trung tâm bảo hành,",
+         "generatedAt": "2026-10-19T08:00:00Z", "model": "claude-haiku-4-5-20251001"}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let assessment = try await client.assessClaim(claimId: "  claim_1  ")
+
+        XCTAssertEqual(assessment.claimId, "claim_1")
+        XCTAssertEqual(assessment.coverage, .LIKELY_COVERED)
+        XCTAssertEqual(assessment.confidence, .HIGH)
+        XCTAssertEqual(assessment.visibleQuestions, ["Bạn còn hoá đơn không?"])
+        XCTAssertEqual(assessment.draftLetter, "Kính gửi trung tâm bảo hành,")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/ai/assess-claim")
+        XCTAssertNil(request.url?.query)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+        let body = try request.jsonBody()
+        XCTAssertEqual(body.keys.sorted(), ["claimId"],
+                       "the contract body is exactly {claimId} — nothing else")
+        XCTAssertEqual(body["claimId"] as? String, "claim_1",
+                       "the id is trimmed before it goes on the wire")
+    }
+
+    /// The two documented refusals must reach the caller as `APIError`, so the
+    /// screen can map them with `ClaimAssessmentGate.from(error:)` instead of
+    /// rendering a red generic error.
+    func testAssessClaimSurfacesBothGatesAsServerErrors() async throws {
+        let client = makeStubbedClient(token: "tok_abc")
+
+        StubURLProtocol.install(.json(#"""
+        {"error": "ai_optin_required", "message": "Bật trợ lý AI trước."}
+        """#, statusCode: 403))
+        let optInResult = await captureAPIError {
+            try await client.assessClaim(claimId: "claim_1")
+        }
+        let optInError = try XCTUnwrap(optInResult)
+        XCTAssertEqual(ClaimAssessmentGate.from(error: optInError), .optInOff)
+
+        StubURLProtocol.install(.json(#"""
+        {"error": "feature_disabled", "message": "Tính năng AI chưa được bật."}
+        """#, statusCode: 503))
+        let disabledResult = await captureAPIError {
+            try await client.assessClaim(claimId: "claim_1")
+        }
+        let disabledError = try XCTUnwrap(disabledResult)
+        XCTAssertEqual(ClaimAssessmentGate.from(error: disabledError), .featureDisabled)
+        XCTAssertTrue(disabledError.isServiceUnavailable)
+    }
+
     // MARK: - FX rates
 
     func testFxRatesSendsTheBaseAndDecodesTheTable() async throws {

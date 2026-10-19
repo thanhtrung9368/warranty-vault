@@ -148,21 +148,17 @@ type DraftDevice struct {
 // No Code changes: an extraction that refused with `bad_input` before still
 // refuses with `bad_input`, in either language.
 func ExtractReceipt(ctx context.Context, db *pgxpool.Pool, client ReceiptExtractor, userID string, in ExtractInput) (DraftDevice, error) {
-	if client == nil || !client.Enabled() {
+	// The two AI gates (server key + per-user opt-in) live in ai_gate.go so
+	// claim assessment cannot drift from them. The messages below are this
+	// feature's own; the codes and the order of the checks are unchanged.
+	gate, gerr := checkAIGate(ctx, db, client != nil && client.Enabled(), userID)
+	if gerr != nil {
+		return DraftDevice{}, gerr
+	}
+	switch gate {
+	case aiGateFeatureDisabled:
 		return DraftDevice{}, &AttachmentError{Code: "feature_disabled", Message: i18n.Text(ctx, "Tính năng quét hoá đơn chưa được bật")}
-	}
-
-	// Privacy gate: the user must explicitly opt in, since the (decrypted)
-	// image is sent to a third-party AI provider. Default is OFF.
-	q := store.New(db)
-	user, uerr := q.GetUserByID(ctx, userID)
-	if uerr != nil {
-		if errors.Is(uerr, pgx.ErrNoRows) {
-			return DraftDevice{}, notFound(i18n.Text(ctx, "Người dùng không tồn tại"))
-		}
-		return DraftDevice{}, internalErr(i18n.Text(ctx, "Lỗi tải người dùng"))
-	}
-	if !user.AiOptIn {
+	case aiGateOptInRequired:
 		return DraftDevice{}, &AttachmentError{
 			Code:    "ai_optin_required",
 			Message: i18n.Text(ctx, "Cần bật tính năng quét hoá đơn (AI) trong Cài đặt trước khi dùng"),

@@ -60,14 +60,14 @@ export default async function PrivacyPage() {
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('3. Tính năng AI quét hoá đơn (tự chọn bật)')}</h3>
+          <h3 className="display text-lg">{t('3. Trợ lý AI (tự chọn bật)')}</h3>
           <p className="mt-2">
             {t('Mặc định tính năng này')} <b>{t('TẮT')}</b>
             {'. '}
-            {t('Chỉ khi mày tự bật trong Cài đặt, ảnh hoá đơn mày chọn mới được')}{' '}
+            {t('Chỉ khi mày tự bật trong Cài đặt, trợ lý AI mới làm hai việc: đọc ảnh hoặc PDF hoá đơn mày chọn (được')}{' '}
             <b>{t('giải mã và gửi tới nhà cung cấp AI bên thứ ba (Anthropic)')}</b>{' '}
             {t(
-              'để tự đọc thông tin điền vào form. Kết quả luôn là bản nháp — mày kiểm tra lại rồi mới lưu. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã. Mày có thể tắt lại bất cứ lúc nào.',
+              'để tự điền thông tin thiết bị), và đánh giá một lần sửa chữa có thuộc diện bảo hành hay không (gửi nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành tới cùng nhà cung cấp đó). Kết quả luôn là gợi ý để mày kiểm tra lại — không phải quyết định bảo hành, và không có gì được tự động lưu. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã và không nội dung nào được gửi đi. Mày có thể tắt lại bất cứ lúc nào.',
             )}
           </p>
         </div>
@@ -78,7 +78,7 @@ export default async function PrivacyPage() {
             <li>
               <b>{t('Anthropic')}</b>
               {' — '}
-              {t('chỉ khi mày bật AI quét hoá đơn (xem mục 3).')}
+              {t('chỉ khi mày bật trợ lý AI (xem mục 3).')}
             </li>
             <li>
               <b>{t('Resend')}</b>

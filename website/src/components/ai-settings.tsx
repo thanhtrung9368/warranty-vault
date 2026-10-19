@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { useT } from '@/lib/i18n/client';
 import { setAIOptIn } from '@/app/actions/ai';
 
-// Toggle for the AI receipt-scan opt-in. Off by default: enabling it means a
-// photographed receipt is sent (decrypted) to a third-party AI provider, so we
-// make the trade-off explicit rather than silent.
+// Toggle for the AI opt-in. Off by default: enabling it sends decrypted receipt
+// images to a third-party AI provider, and — since gap #7 — also claim and
+// warranty-contract text for the coverage assessment. The flag is shared, so the
+// copy has to name both uses rather than just the receipt scan it started as.
 export function AISettings({ initialEnabled }: { initialEnabled: boolean }) {
   const t = useT();
   const [enabled, setEnabled] = React.useState(initialEnabled);
@@ -22,7 +23,7 @@ export function AISettings({ initialEnabled }: { initialEnabled: boolean }) {
       const res = await setAIOptIn(next);
       if (res.ok) {
         setEnabled(next);
-        toast.success(next ? t('Đã bật quét hoá đơn AI') : t('Đã tắt quét hoá đơn AI'));
+        toast.success(next ? t('Đã bật trợ lý AI') : t('Đã tắt trợ lý AI'));
       } else {
         toast.error(res.message ?? t('Không cập nhật được cài đặt'));
       }
@@ -36,9 +37,9 @@ export function AISettings({ initialEnabled }: { initialEnabled: boolean }) {
           <ScanLine className="h-4 w-4" />
         </span>
         <div className="space-y-1 text-sm text-muted-foreground">
-          <p className="font-medium text-ink">{t('Quét hoá đơn bằng AI')}</p>
+          <p className="font-medium text-ink">{t('Trợ lý AI')}</p>
           <p>
-            {t('Khi bật, bạn có thể chụp/chọn ảnh (JPEG, PNG, WEBP) hoặc file PDF hoá đơn / phiếu bảo hành để tự điền thông tin thiết bị. File sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để trích xuất — bạn luôn kiểm tra lại bản nháp trước khi lưu. Mặc định tắt.')}
+            {t('Khi bật, trợ lý AI làm được hai việc: (1) đọc ảnh/PDF hoá đơn để tự điền thông tin thiết bị — file được gửi đã giải mã tới dịch vụ AI bên thứ ba; (2) đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm — nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành sẽ được gửi tới dịch vụ đó. Cả hai đều chỉ là gợi ý để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.')}
           </p>
         </div>
       </div>

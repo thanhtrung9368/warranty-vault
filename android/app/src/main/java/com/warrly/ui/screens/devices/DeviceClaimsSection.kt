@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -68,7 +69,9 @@ import com.warrly.ui.theme.WVAccent
  *  * a neutral empty state otherwise, and an inline error for a failed delete.
  *
  * The add/edit form is [ClaimEditSheet]; the 409 rule and the broken-device
- * predicate are pure and tested in `ClaimRulesTest`.
+ * predicate are pure and tested in `ClaimRulesTest`. The "Đánh giá bảo hành"
+ * action on each ticket opens [ClaimAssessmentSheet] — the AI advice exists on
+ * the claim it is about, not in a separate screen.
  */
 @Composable
 fun DeviceClaimsSection(
@@ -77,6 +80,7 @@ fun DeviceClaimsSection(
     error: String?,
     onClearError: () -> Unit,
     onAdd: () -> Unit,
+    onAssess: (Claim) -> Unit,
     onEdit: (Claim) -> Unit,
     onDelete: (Claim) -> Unit,
     modifier: Modifier = Modifier,
@@ -120,6 +124,7 @@ fun DeviceClaimsSection(
             claims.forEach { claim ->
                 ClaimCard(
                     claim = claim,
+                    onAssess = { onAssess(claim) },
                     onEdit = { onEdit(claim) },
                     onDelete = { onDelete(claim) },
                 )
@@ -218,6 +223,7 @@ private fun ClaimEmptyCard(onAdd: () -> Unit) {
 @Composable
 private fun ClaimCard(
     claim: Claim,
+    onAssess: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -292,6 +298,18 @@ private fun ClaimCard(
             }
             claim.outcome?.takeIf { it.isNotBlank() }?.let {
                 ClaimParagraph(stringResource(R.string.claim_outcome), it)
+            }
+            // Advice about THIS ticket, placed on the ticket itself: the request
+            // is only a claim id, so a section-level button would need a "which
+            // claim?" step. The sheet is read-only and says so.
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onAssess) {
+                Icon(
+                    Icons.Filled.AutoAwesome, null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.claim_assess_action))
             }
         }
     }

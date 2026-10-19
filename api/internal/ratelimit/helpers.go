@@ -65,6 +65,13 @@ func CheckAIExtract(ctx context.Context, limiter Limiter, userID string) (Result
 	return limiter.Check(ctx, "ai:extract:user:"+userID, 10, writeWindow)
 }
 
+// CheckAIAssess is the claim-assessment sibling of CheckAIExtract: the same
+// 10 requests / 60s budget, because it makes the same kind of paid model call,
+// but a separate bucket so the two AI features cannot starve each other.
+func CheckAIAssess(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "ai:assess:user:"+userID, 10, writeWindow)
+}
+
 // CheckShareView rate-limits the PUBLIC share endpoint (FEATURE_IDEAS #2) by IP.
 // This is the only unauthenticated read in the service, so its bucket is the
 // first line of defence against someone walking the token space — even though

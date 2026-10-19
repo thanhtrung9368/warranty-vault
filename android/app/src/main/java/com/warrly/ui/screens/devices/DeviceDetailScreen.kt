@@ -174,6 +174,12 @@ fun DeviceDetailScreen(
     api: ApiService,
     deviceId: String,
     onBack: () -> Unit,
+    /**
+     * The way out of the AI opt-in gate: opens the existing Settings toggle (the
+     * same one that gates receipt OCR — this screen must not grow a second one).
+     * Defaulted so previews/tests that only exercise the detail can omit it.
+     */
+    onOpenSettings: () -> Unit = {},
 ) {
     val vm = remember(deviceId) { DeviceDetailViewModel(api, deviceId) }
     val state by vm.state.collectAsState()
@@ -198,6 +204,9 @@ fun DeviceDetailScreen(
     var showAddClaim by rememberSaveable { mutableStateOf(false) }
     var editingClaimId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingClaimId by rememberSaveable { mutableStateOf<String?>(null) }
+    // The claim whose AI assessment sheet is open. Read-only advice: the sheet
+    // writes nothing, so dismissing it needs no reload.
+    var assessingClaimId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingClaim by remember { mutableStateOf<Claim?>(null) }
     var claimsError by remember { mutableStateOf<String?>(null) }
 
@@ -209,6 +218,10 @@ fun DeviceDetailScreen(
             ?: pendingClaim?.takeIf { it.id == id }
     }
     val deletingClaim = deletingClaimId?.let { id ->
+        deviceLoaded?.claims?.firstOrNull { it.id == id }
+            ?: pendingClaim?.takeIf { it.id == id }
+    }
+    val assessingClaim = assessingClaimId?.let { id ->
         deviceLoaded?.claims?.firstOrNull { it.id == id }
             ?: pendingClaim?.takeIf { it.id == id }
     }
@@ -288,6 +301,10 @@ fun DeviceDetailScreen(
                         onAddClaim = {
                             claimsError = null
                             showAddClaim = true
+                        },
+                        onAssessClaim = { claim ->
+                            claimsError = null
+                            assessingClaimId = claim.id
                         },
                         onEditClaim = { claim ->
                             claimsError = null
@@ -450,6 +467,18 @@ fun DeviceDetailScreen(
         }
     }
 
+    // AI claim assessment. Opened from one ticket's "Đánh giá bảo hành" action;
+    // read-only, so a dismiss needs no reload and the claim card underneath is
+    // unchanged.
+    if (assessingClaim != null) {
+        ClaimAssessmentSheet(
+            api = api,
+            claim = assessingClaim,
+            onDismiss = { assessingClaimId = null },
+            onOpenSettings = onOpenSettings,
+        )
+    }
+
     if (deletingClaim != null) {
         AlertDialog(
             onDismissRequest = { deletingClaimId = null },
@@ -530,6 +559,7 @@ private fun DeviceDetailBody(
     claimsError: String?,
     onClearClaimsError: () -> Unit,
     onAddClaim: () -> Unit,
+    onAssessClaim: (Claim) -> Unit,
     onEditClaim: (Claim) -> Unit,
     onDeleteClaim: (Claim) -> Unit,
     onEdit: (Warranty) -> Unit,
@@ -552,6 +582,7 @@ private fun DeviceDetailBody(
                 error = claimsError,
                 onClearError = onClearClaimsError,
                 onAdd = onAddClaim,
+                onAssess = onAssessClaim,
                 onEdit = onEditClaim,
                 onDelete = onDeleteClaim,
             )

@@ -51,3 +51,30 @@ func NewFromEnv() *Client {
 
 // Enabled reports whether an API key is configured.
 func (c *Client) Enabled() bool { return c != nil && c.apiKey != "" }
+
+// Model returns the model id this client was configured with. It is echoed in
+// the /ai/assess-claim response so a client (and a support engineer reading a
+// screenshot) can tell which model produced the advice. Empty on a nil client.
+func (c *Client) Model() string {
+	if c == nil {
+		return ""
+	}
+	return c.model
+}
+
+// NewClientForEndpoint builds a client against an explicit Messages API endpoint.
+// Production always uses NewFromEnv; tests use this to exercise the request and
+// response wire shape against an httptest.Server, with no real model call.
+func NewClientForEndpoint(apiKey, model, endpoint string) *Client {
+	if strings.TrimSpace(model) == "" {
+		model = DefaultModel
+	}
+	return &Client{
+		apiKey:   apiKey,
+		model:    model,
+		endpoint: endpoint,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}

@@ -191,7 +191,7 @@ struct DeviceDetailView: View {
                 // the screen on purpose — when the device is marked BROKEN and
                 // no claim is open, its inline nudge is the way out of the dead
                 // end that used to be the end of the journey.
-                ClaimsSection(store: store, device: currentDevice)
+                ClaimsSection(store: store, device: currentDevice, client: client)
 
                 // Info group — purchase
                 WVSectionHeader(L.t("Mua hàng"))

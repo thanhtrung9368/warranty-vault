@@ -23,7 +23,6 @@ export const settings = defineMessages({
   'Thông báo': 'Notifications',
   'Đổi mật khẩu': 'Change password',
   'Phiên đăng nhập': 'Sign-in sessions',
-  'Quét hoá đơn (AI)': 'Receipt scanning (AI)',
   'Sao lưu & khôi phục': 'Backup & restore',
   'Xuất bảng tính (CSV)': 'Export a spreadsheet (CSV)',
   'Xoá tài khoản': 'Delete account',
@@ -148,13 +147,16 @@ export const settings = defineMessages({
     'That session had already been revoked.',
   'Đã thu hồi phiên đăng nhập.': 'The session has been revoked.',
 
-  // ── AI receipt scanning (`components/ai-settings.tsx`) ──────────────────
-  'Đã bật quét hoá đơn AI': 'AI receipt scanning is on',
-  'Đã tắt quét hoá đơn AI': 'AI receipt scanning is off',
+  // ── AI assistant (`components/ai-settings.tsx`) ─────────────────────────
+  // The opt-in is shared by receipt OCR (#13) and claim assessment (#7), so the
+  // copy must name both uses and both kinds of data, not just the receipt scan.
+  'Đã bật trợ lý AI': 'AI assistant is on',
+  'Đã tắt trợ lý AI': 'AI assistant is off',
   'Không cập nhật được cài đặt': 'Could not update the setting',
-  'Quét hoá đơn bằng AI': 'Scan receipts with AI',
-  'Khi bật, bạn có thể chụp/chọn ảnh (JPEG, PNG, WEBP) hoặc file PDF hoá đơn / phiếu bảo hành để tự điền thông tin thiết bị. File sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để trích xuất — bạn luôn kiểm tra lại bản nháp trước khi lưu. Mặc định tắt.':
-    'When on, you can photograph or pick an image (JPEG, PNG, WEBP) or a PDF of an invoice / warranty card and have the device fields filled in for you. The file is sent (decrypted) to a third-party AI service for extraction — you always review the draft before saving. Off by default.',
+  'Trợ lý AI': 'AI assistant',
+  'Trợ lý AI (tuỳ chọn)': 'AI assistant (optional)',
+  'Khi bật, trợ lý AI làm được hai việc: (1) đọc ảnh/PDF hoá đơn để tự điền thông tin thiết bị — file được gửi đã giải mã tới dịch vụ AI bên thứ ba; (2) đánh giá một lần sửa chữa có thuộc diện bảo hành không và soạn đơn gửi trung tâm — nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành sẽ được gửi tới dịch vụ đó. Cả hai đều chỉ là gợi ý để bạn kiểm tra lại, không phải quyết định. Mặc định tắt.':
+    'When on, the AI assistant does two things: (1) read a receipt image/PDF to fill in the device details — the file is sent decrypted to a third-party AI service; (2) assess whether a repair is likely covered and draft a letter to the service centre — the claim content, the device details and the warranty contract terms are sent to that service. Both are guidance for you to check, not decisions. Off by default.',
   'Đang bật': 'On',
   'Đang tắt': 'Off',
   'Thiếu ảnh hoá đơn': 'Missing the receipt image',

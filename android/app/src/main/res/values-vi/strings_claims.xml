@@ -81,4 +81,49 @@
     <string name="claim_delete_title">Xoá phiếu sửa chữa này?</string>
     <string name="claim_delete_body">Phiếu “%1$s” sẽ bị xoá. Không hoàn tác được.</string>
 
+    <!-- ===== Đánh giá bảo hành bằng AI (`ClaimAssessmentSheet.kt` +
+         `ClaimAssessmentRules.kt`). Lời khuyên, KHÔNG phải phán quyết:
+         "Có khả năng được bảo hành" không bao giờ được đọc thành "đã duyệt".
+         `draftLetter` luôn là tiếng Việt có chủ đích (trung tâm bảo hành đọc
+         tiếng Việt) và app không dịch. ===== -->
+    <string name="claim_assess_action">Đánh giá bảo hành</string>
+    <string name="claim_assess_title">Tư vấn bảo hành</string>
+    <string name="claim_assess_subtitle">Lời khuyên, không phải quyết định. Không có gì được lưu.</string>
+    <string name="claim_assess_loading">Đang đọc phiếu sửa chữa và điều khoản bảo hành…</string>
+    <string name="claim_assess_disclaimer_title">Lời khuyên, không phải quyết định</string>
+    <string name="claim_assess_disclaimer_body">Đây là ước lượng bằng AI từ phiếu sửa chữa và điều khoản bảo hành bạn đã ghi. Trung tâm bảo hành mới là bên quyết định.</string>
+    <string name="claim_assess_coverage_likely_covered">Có khả năng được bảo hành</string>
+    <string name="claim_assess_coverage_unclear">Chưa rõ</string>
+    <string name="claim_assess_coverage_likely_not_covered">Có khả năng không được bảo hành</string>
+    <string name="claim_assess_confidence_low">Độ tin cậy thấp</string>
+    <string name="claim_assess_confidence_medium">Độ tin cậy trung bình</string>
+    <string name="claim_assess_confidence_high">Độ tin cậy cao</string>
+    <string name="claim_assess_advice_likely_covered">Điều khoản bạn đã ghi cho thấy lần sửa này có khả năng được bảo hành. Hãy mang theo các câu hỏi và thư nháp tới quầy.</string>
+    <string name="claim_assess_advice_unclear">Điều khoản bạn đã ghi chưa đủ rõ để kết luận. Đó vẫn là kết quả hữu ích: các câu hỏi dưới đây là những gì cần hỏi tại quầy.</string>
+    <string name="claim_assess_advice_likely_not_covered">Điều khoản bạn đã ghi cho thấy lần sửa này có khả năng không được bảo hành. Hãy hỏi các câu dưới đây trước khi đồng ý trả tiền.</string>
+    <string name="claim_assess_reasoning_title">Vì sao</string>
+    <string name="claim_assess_questions_title">Câu hỏi quầy có thể hỏi</string>
+    <string name="claim_assess_questions_title_unclear">Câu hỏi hữu ích khi kết quả chưa rõ</string>
+    <string name="claim_assess_questions_none">Không có câu hỏi cụ thể nào. Hãy hỏi trung tâm bảo hành xem bảo hành có chi trả cho lỗi này không.</string>
+    <string name="claim_assess_letter_title">Thư nháp gửi trung tâm bảo hành</string>
+    <string name="claim_assess_letter_language_badge">Tiếng Việt</string>
+    <string name="claim_assess_letter_language_note">Giữ nguyên tiếng Việt có chủ đích: trung tâm bảo hành đọc tiếng Việt. App không dịch thư này.</string>
+    <string name="claim_assess_letter_draft_note">Đây là bản nháp. Hãy sửa trước khi gửi.</string>
+    <string name="claim_assess_letter_copy">Sao chép thư</string>
+    <string name="claim_assess_letter_share">Chia sẻ thư</string>
+    <string name="claim_assess_letter_copied">Đã sao chép thư</string>
+    <string name="claim_assess_letter_chooser">Gửi thư tiếng Việt qua</string>
+    <string name="claim_assess_letter_clip_label">Thư bảo hành</string>
+    <string name="claim_assess_letter_no_target">Không có ứng dụng nào nhận chia sẻ văn bản trên máy này. Bạn vẫn có thể sao chép thư.</string>
+    <string name="claim_assess_footer">Trung tâm bảo hành là bên quyết định cuối cùng. Đây là lời khuyên, không phải phê duyệt.</string>
+    <string name="claim_assess_generated_by">Tạo ngày %1$s · %2$s</string>
+    <string name="claim_assess_generated_on">Tạo ngày %1$s</string>
+    <string name="claim_assess_gate_optin_title">Tính năng AI đang tắt</string>
+    <string name="claim_assess_gate_optin_body">Tư vấn bảo hành dùng AI. Hãy bật AI trong Cài đặt (mục Tính năng AI) rồi mở lại phiếu này. Phiếu sửa chữa, thông tin thiết bị và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba; không có gì được lưu lại.</string>
+    <string name="claim_assess_gate_optin_action">Mở Cài đặt</string>
+    <string name="claim_assess_gate_disabled_title">Đánh giá bằng AI hiện chưa khả dụng</string>
+    <string name="claim_assess_gate_disabled_body">Đây không phải lỗi ở phiếu của bạn. Dù sao trung tâm bảo hành vẫn là bên quyết định — hãy mang phiếu và điều khoản bảo hành ra quầy.</string>
+    <string name="claim_assess_error_title">Không lấy được đánh giá</string>
+    <string name="claim_assess_error_body">Phiếu vẫn giữ nguyên. Kiểm tra kết nối rồi thử lại.</string>
+
 </resources>

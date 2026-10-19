@@ -211,6 +211,20 @@ fun MainScreen(auth: AuthStore, appLock: AppLockStore) {
                     openWishlistId = returnTo
                 }
             },
+            // The AI opt-in gate sends the user to the existing Settings switch.
+            // It must clear `openDeviceId` first, or the top-level detail route
+            // keeps rendering and the tab switch is invisible. The device is a
+            // tab-level destination, so the user can reopen it after flipping
+            // the switch.
+            onOpenSettings = {
+                openDeviceId = null
+                // A device opened from a wishlist item carries a return path.
+                // Going to Settings abandons that detail screen, so the path must
+                // not later send Back from some other device to that wishlist
+                // item.
+                wishlistReturnId = null
+                selected = Tab.Settings
+            },
         )
         return
     }

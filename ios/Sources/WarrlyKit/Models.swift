@@ -812,6 +812,148 @@ public struct DraftDevice: Decodable, Sendable {
     }
 }
 
+// MARK: - AI claim assessment
+
+/// What the AI thinks the stored contract says about one claim
+/// (`POST /api/v1/ai/assess-claim`, `ClaimAssessment.coverage`).
+///
+/// The three wire classes are deliberately **hedged**, and so are the labels
+/// below: `LIKELY_COVERED` is not "approved" and `LIKELY_NOT_COVERED` is not
+/// "rejected". The service centre decides. `ClaimAssessmentRules.advice(for:confidence:)`
+/// is the only supported way to turn these into screen copy, because it always
+/// attaches the "advice, not a decision" disclaimer.
+///
+/// An unknown value decodes as `.UNCLEAR`: a server that adds a fourth class
+/// must never make this build claim the fault is covered. `UNCLEAR` is the
+/// honest answer for "this build does not understand the answer".
+public enum ClaimAssessmentCoverage: String, CaseIterable, Sendable, Equatable, Hashable {
+    case LIKELY_COVERED
+    case UNCLEAR
+    case LIKELY_NOT_COVERED
+
+    /// Lenient wire decode (`"LIKELY_COVERED"`, surrounding spaces tolerated).
+    public init(wire: String) {
+        let normalized = wire.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        self = Self(rawValue: normalized) ?? .UNCLEAR
+    }
+
+    /// User-facing label in the selected language.
+    ///
+    /// Every branch is phrased as a probability or as an absence of
+    /// information — never as a decision. Keep it that way: this is the line
+    /// rendered largest on the result screen.
+    public var label: String {
+        switch self {
+        case .LIKELY_COVERED:     return L.t("Có khả năng thuộc diện bảo hành")
+        case .UNCLEAR:            return L.t("Chưa đủ thông tin để kết luận")
+        case .LIKELY_NOT_COVERED: return L.t("Có khả năng không thuộc diện bảo hành")
+        }
+    }
+}
+
+extension ClaimAssessmentCoverage: Decodable {
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self.init(wire: raw)
+    }
+}
+
+/// How sure the model is about its `coverage` class (openapi
+/// `ClaimAssessment.confidence`).
+///
+/// Unknown values decode as `.LOW`, the safe direction: an unrecognised value
+/// must never make the screen look more certain than it is.
+public enum ClaimAssessmentConfidence: String, CaseIterable, Sendable, Equatable, Hashable {
+    case LOW
+    case MEDIUM
+    case HIGH
+
+    /// Lenient wire decode (`"HIGH"`, surrounding spaces tolerated).
+    public init(wire: String) {
+        let normalized = wire.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        self = Self(rawValue: normalized) ?? .LOW
+    }
+
+    /// User-facing label in the selected language.
+    public var label: String {
+        switch self {
+        case .LOW:    return L.t("Thấp")
+        case .MEDIUM: return L.t("Trung bình")
+        case .HIGH:   return L.t("Cao")
+        }
+    }
+}
+
+extension ClaimAssessmentConfidence: Decodable {
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self.init(wire: raw)
+    }
+}
+
+/// Response of `POST /api/v1/ai/assess-claim`.
+///
+/// The endpoint **writes nothing** — it reads the claim, its device and the
+/// warranty terms, and returns advice. `reasoning` and `questions` arrive in
+/// the request's language (`Accept-Language`), while `draftLetter` is **always
+/// Vietnamese**: it is addressed to a Vietnamese service centre and the client
+/// must not translate it. That asymmetry is the one thing the result UI has to
+/// state out loud (see `ClaimAssessmentRules.letterLanguageNote`).
+///
+/// `generatedAt` and `model` are informational; they are optional only so a
+/// proxy that drops them cannot turn a usable answer into a decoding failure.
+public struct ClaimAssessment: Decodable, Sendable, Equatable {
+    public let claimId: String
+    public let coverage: ClaimAssessmentCoverage
+    public let confidence: ClaimAssessmentConfidence
+    /// Free-form explanation in the user's language.
+    public let reasoning: String
+    /// Questions the service centre is likely to ask, in the user's language.
+    /// Optional so a server that omits the array still yields usable advice;
+    /// read it through `visibleQuestions`.
+    public let questions: [String]?
+    /// ALWAYS Vietnamese, on purpose. See the type doc.
+    public let draftLetter: String
+    public let generatedAt: String?
+    public let model: String?
+
+    /// Never-nil view for the result UI.
+    public var questionsOrEmpty: [String] { questions ?? [] }
+
+    /// The questions worth rendering: trimmed, blank entries dropped and
+    /// duplicates removed (first occurrence wins). The server's order is kept.
+    public var visibleQuestions: [String] {
+        ClaimAssessmentRules.normalizedQuestions(questionsOrEmpty)
+    }
+
+    /// Whether there is at least one question to show. For `.UNCLEAR` this is
+    /// the useful output, not an empty result.
+    public var hasQuestions: Bool { !visibleQuestions.isEmpty }
+
+    /// Whether the letter has any content. A whitespace-only letter is not a
+    /// letter and the copy/share actions have nothing to act on.
+    public var hasDraftLetter: Bool {
+        !draftLetter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+/// Body of `POST /api/v1/ai/assess-claim`: exactly `{"claimId": "..."}`.
+///
+/// The id is trimmed in the initializer, the same rule `ReceiptExtractInput`
+/// follows: a stray newline can never become part of the JSON body. A blank id
+/// cannot identify a claim, so `isReadyToSend` lets the caller refuse it before
+/// a wasted round trip.
+public struct ClaimAssessmentInput: Encodable, Sendable, Equatable {
+    public let claimId: String
+
+    public init(claimId raw: String) {
+        self.claimId = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// `false` only for a blank id — every real claim id is sendable.
+    public var isReadyToSend: Bool { !claimId.isEmpty }
+}
+
 // MARK: - Warranty
 
 public struct Warranty: Codable, Sendable, Identifiable, Hashable {

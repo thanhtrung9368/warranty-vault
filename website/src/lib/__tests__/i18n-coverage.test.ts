@@ -16,6 +16,14 @@ import { SEARCH_GROUP_LABELS, ATTACHMENT_SEARCH_STATUS_LABELS } from '@/lib/sear
 import { PASTE_FIELD_LABELS } from '@/lib/device-paste';
 import { SHARE_FAILURE_MESSAGES } from '@/lib/share-target';
 import { CLAIM_COVERAGE_LABELS, CLAIM_STATUS_LABELS } from '@/lib/claims';
+import {
+  CLAIM_ASSESSMENT_ADVICE_BODIES,
+  CLAIM_ASSESSMENT_CONFIDENCE_LABELS,
+  CLAIM_ASSESSMENT_CONFIDENCE_NOTES,
+  CLAIM_ASSESSMENT_COVERAGE_LABELS,
+  CLAIM_ASSESSMENT_GATE_BODIES,
+  CLAIM_ASSESSMENT_GATE_TITLES,
+} from '@/lib/claim-assessment';
 
 // Every string that is WRAPPED must also be REGISTERED.
 //
@@ -172,6 +180,16 @@ describe('every enum/option label is registered', () => {
     // to keep every value registered and translated like the enum labels.
     CLAIM_STATUS_LABELS,
     CLAIM_COVERAGE_LABELS,
+    // AI claim assessment. Every label, advice body, confidence note and gate
+    // sentence is selected dynamically from a code, so the literal-key scan
+    // cannot see them; listing all six maps keeps them under the same
+    // "registered in both languages" guarantee as the enum labels.
+    CLAIM_ASSESSMENT_COVERAGE_LABELS,
+    CLAIM_ASSESSMENT_CONFIDENCE_LABELS,
+    CLAIM_ASSESSMENT_CONFIDENCE_NOTES,
+    CLAIM_ASSESSMENT_ADVICE_BODIES,
+    CLAIM_ASSESSMENT_GATE_TITLES,
+    CLAIM_ASSESSMENT_GATE_BODIES,
   };
 
   it('registers every value of every label map', () => {

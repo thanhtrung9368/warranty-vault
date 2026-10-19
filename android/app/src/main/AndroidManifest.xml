@@ -20,6 +20,18 @@
          the serial field can always be typed into by hand. -->
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
+    <!-- Outgoing text shares (the handover certificate and the AI draft letter)
+         query ACTION_SEND/text/plain so this app's own share target can be
+         excluded from the chooser (see `ShareLinks.kt`). Android 11+ package
+         visibility requires the intent to be declared here; without it the
+         query can return a partial list and lint warns at the call site. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="false"

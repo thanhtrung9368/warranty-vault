@@ -37,6 +37,8 @@ func RegisterAI(mux *http.ServeMux, deps Deps) {
 	requireUser := auth.RequireUser(deps.DB)
 	mux.Handle("POST /api/v1/ai/extract-receipt",
 		requireUser(http.HandlerFunc(extractReceiptHandler(deps))))
+	mux.Handle("POST /api/v1/ai/assess-claim",
+		requireUser(http.HandlerFunc(assessClaimHandler(deps))))
 	mux.Handle("GET /api/v1/ai/opt-in",
 		requireUser(http.HandlerFunc(getAIOptInHandler(deps))))
 	mux.Handle("PUT /api/v1/ai/opt-in",

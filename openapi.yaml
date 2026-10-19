@@ -2756,6 +2756,114 @@ paths:
         '502': { description: 'Lỗi dịch vụ AI (ai_upstream)' }
         '503': { description: 'Tính năng chưa được bật (feature_disabled)' }
 
+  /api/v1/ai/assess-claim:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    post:
+      tags: [ai]
+      summary: Đánh giá khả năng được bảo hành + soạn thư gửi trung tâm (chỉ tư vấn, KHÔNG ghi dữ liệu)
+      description: |
+        Cho một `claimId` của chính người dùng, server đọc yêu cầu bảo hành, thiết
+        bị và **toàn bộ điều khoản thật** của các gói bảo hành trên thiết bị, rồi
+        trả về: khả năng được bảo hành, lý do, những câu quầy dịch vụ sẽ hỏi, và
+        một lá thư gửi trung tâm bảo hành.
+
+        **Đây là TƯ VẤN, KHÔNG phải thay đổi trạng thái.** Endpoint KHÔNG ghi bất
+        kỳ hàng nào: không tạo/sửa `Claim`, không đổi `status`, không đặt
+        `coveredByWarranty`, không lưu kết quả vào cache hay bảng mới. Gọi lại
+        cùng một claim sẽ gọi model lại và có thể trả về câu chữ khác nhau. Ba
+        client hiển thị kết quả như một ý kiến tham khảo; quyết định vẫn là của
+        trung tâm bảo hành.
+
+        **Hai cổng giống hệt OCR hoá đơn** (`POST /api/v1/ai/extract-receipt`,
+        dùng chung `services.checkAIGate`): thiếu `ANTHROPIC_API_KEY` trên server
+        ⇒ **503 `feature_disabled`**; người dùng chưa bật `aiOptIn` ⇒ **403
+        `ai_optin_required`**. Opt-in là cờ RIÊNG TƯ của tài khoản (`User.aiOptIn`)
+        vì dữ liệu hợp đồng rời khỏi hệ thống tới một nhà cung cấp AI bên thứ ba.
+        Rate limit: 10 request / 60 giây / người dùng, cùng mức với OCR nhưng
+        bucket riêng (`ai:assess`), để hai tính năng không ăn hết hạn mức của nhau.
+
+        **Dữ liệu đưa cho model là điều khoản THẬT, không phải bản tóm tắt:**
+        `issue`, `diagnosis`, `cost`, `ticketNumber`, `serviceCenter`, trạng thái
+        và ngày mở yêu cầu; thiết bị (tên, hãng, model, serial, ngày mua); và
+        từng gói bảo hành với `component`, `scope`, `cap`, `deductible`,
+        `exclusions`, `region`, `transferable`, `claimsAllowed`, `claimsUsed`,
+        `type`, `provider`, ngày bắt đầu/kết thúc và số tháng. Trường nào `null`
+        cũng được gửi cho model dưới dạng chữ rõ nghĩa, không bị bỏ khỏi prompt:
+        điều khoản chưa ghi nhận hiện là **"KHÔNG RÕ (null — chưa được ghi
+        nhận)"**, còn hai cột có định nghĩa null riêng hiện đúng nghĩa của chúng
+        (`component` = toàn bộ thiết bị, `claimsAllowed` = chưa ghi nhận giới
+        hạn). Model phải biết điều khoản đó chưa được ghi nhận, chứ không được
+        mặc định là có hoặc không.
+
+        **Không bao giờ overclaim.** Prompt và schema công cụ bắt buộc:
+        `LIKELY_COVERED` KHÔNG được khẳng định khi một điều khoản quyết định
+        (`scope`, `exclusions`) đang là null; câu trả lời trung thực khi đó là
+        `UNCLEAR` kèm ít nhất một câu hỏi về đúng điều khoản còn thiếu.
+
+        Hai trường nullable KHÔNG bị coi là "điều khoản thiếu", vì schema đã định
+        nghĩa null của chúng: `component` null = gói áp dụng cho **toàn bộ thiết
+        bị** (migration 0017), và `claimsAllowed` null = **chưa ghi nhận giới
+        hạn** (không phải "đã hết lượt"). Cả hai vẫn được gửi cho model; chỉ là
+        chúng không kích hoạt hạ cấp. Ngược lại, `claimsAllowed` đã biết mà
+        `claimsUsed >= claimsAllowed` là dữ liệu để model cân nhắc
+        `LIKELY_NOT_COVERED`. Server còn có một lớp chặn tất định:
+        `services.downgradeUnsupportedCoverage` tự hạ `LIKELY_COVERED` xuống
+        `UNCLEAR` và thêm câu hỏi tương ứng nếu model vẫn khẳng định khi thiếu
+        điều khoản quyết định. Thiếu dữ liệu KHÔNG có nghĩa là "không được bảo
+        hành" — `LIKELY_NOT_COVERED` chỉ dùng khi dữ liệu đã biết chứng minh
+        (hết hạn, loại trừ, hết lượt).
+
+        **Ngôn ngữ — hai trường khác nhau có chủ đích:** `reasoning` và
+        `questions` theo ngôn ngữ của request (`?lang=` / `Accept-Language` /
+        `User.locale`, mặc định `en`), vì người dùng đang đọc chúng trên màn hình
+        của mình. `draftLetter` **LUÔN LUÔN bằng tiếng Việt**, kể cả khi request
+        là `en`: lá thư rời khỏi app, được in ra hoặc gửi đi, và do trung tâm
+        bảo hành Việt Nam đọc — đúng quy tắc artifact của repo (email, push,
+        phiếu chia sẻ đều render tiếng Việt). Một lá thư tiếng Anh gửi cho quầy
+        dịch vụ Việt Nam là vô dụng, còn lý do tiếng Anh cạnh một lá thư tiếng
+        Việt thì không có hại.
+
+        **Giới hạn chi phí (đã chọn):** từng trường bị cắt trước (issue 1.000,
+        diagnosis 500, scope/exclusions 500 mỗi trường, các trường tên 200, serial
+        120), rồi toàn bộ dữ liệu gửi model bị chặn cứng ở **20.000 ký tự**
+        (rune). Ngưỡng tổng này đủ chứa trường hợp xấu nhất mà các write path
+        cho phép — 5 hợp đồng điền đầy + issue/diagnosis tối đa — nên không cắt
+        mất hợp đồng có thể là hợp đồng quyết định; nó chỉ chặn dữ liệu vượt
+        giới hạn (legacy/hand-edited). Nhờ vậy một `issue` bệnh lý không thể làm
+        phình token bill. Đầu ra bị chặn hai lần: `max_tokens = 4096` trên wire,
+        và service cắt `reasoning` ≤
+        2.000 ký tự, mỗi câu hỏi ≤ 300 ký tự, tối đa 8 câu, `draftLetter` ≤
+        2.500 ký tự (khoảng một trang A4 — đủ để có người nhận, thiết bị, số
+        phiếu, lỗi, gói bảo hành và đề nghị; dài hơn thì quầy không đọc).
+
+        **404, không phải 403:** claim của người dùng khác (hoặc không tồn tại)
+        trả về cùng một 404 `not_found` — endpoint không được trở thành công cụ
+        dò id của người khác.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [claimId]
+              properties:
+                claimId:
+                  type: string
+                  description: ID yêu cầu bảo hành của chính người dùng (xem `GET /api/v1/claims/{id}`).
+      responses:
+        '200':
+          description: Ý kiến tham khảo + lá thư tiếng Việt. Không ghi dữ liệu.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClaimAssessment' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'Người dùng chưa bật opt-in AI (ai_optin_required) — dùng chung cổng với OCR' }
+        '404': { description: 'Không tìm thấy yêu cầu bảo hành của người dùng này (not_found)' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { description: 'Lỗi dịch vụ AI (ai_upstream)' }
+        '503': { description: 'Tính năng chưa được bật — thiếu ANTHROPIC_API_KEY (feature_disabled)' }
+
   /api/v1/ai/opt-in:
     get:
       tags: [ai]
@@ -2942,6 +3050,77 @@ components:
             `true` **chỉ** khi đang trả một giá trị cache **đã quá TTL** vì lần
             làm mới thất bại. Client nên nói rõ đây là tỷ giá cũ. Cache còn hạn
             và lần lấy mới thành công đều trả `false`.
+
+    # POST /api/v1/ai/assess-claim. ADVICE ONLY — the endpoint writes no row and
+    # changes no status; calling it twice can produce different prose. The
+    # language split (reasoning/questions follow the request, draftLetter is
+    # always Vietnamese) is contract, not a client concern to normalise away.
+    ClaimAssessment:
+      type: object
+      description: >
+        Ý kiến tham khảo về khả năng được bảo hành của một yêu cầu, kèm những câu
+        quầy dịch vụ sẽ hỏi và một lá thư gửi trung tâm bảo hành. KHÔNG phải quyết
+        định của hãng, KHÔNG ghi dữ liệu, và không nên được client trình bày như
+        một kết luận chắc chắn.
+      required: [claimId, coverage, confidence, reasoning, questions, draftLetter, generatedAt, model]
+      properties:
+        claimId:
+          type: string
+          description: Yêu cầu bảo hành đã được đánh giá (đúng id trong request).
+        coverage:
+          type: string
+          enum: [LIKELY_COVERED, UNCLEAR, LIKELY_NOT_COVERED]
+          description: |
+            Khả năng được bảo hành. `LIKELY_COVERED` chỉ xuất hiện khi mọi điều
+            khoản quyết định (`scope`, `exclusions`) đã biết và ủng hộ; nếu một
+            điều khoản quyết định là null, server trả `UNCLEAR` và kèm câu hỏi về
+            điều khoản đó. `component` null nghĩa là toàn bộ thiết bị (migration
+            0017) và `claimsAllowed` null nghĩa là chưa ghi nhận giới hạn — cả
+            hai không phải điều khoản thiếu. `LIKELY_NOT_COVERED` chỉ khi dữ liệu
+            đã biết chứng minh (hết hạn, loại trừ, hết lượt) — thiếu dữ liệu
+            không phải lý do để kết luận không được bảo hành.
+        confidence:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          description: |
+            Độ chắc chắn của kết luận. `HIGH` chỉ nên xuất hiện khi các điều khoản
+            quyết định đều đã biết; thiếu điều khoản quyết định thì tối đa
+            `MEDIUM` (và thường là `LOW` khi coverage là `UNCLEAR`).
+        reasoning:
+          type: string
+          description: |
+            Giải thích dựa đúng trên các điều khoản đã gửi cho model, tối đa 2.000
+            ký tự. **Theo ngôn ngữ của request** (`?lang=` / `Accept-Language` /
+            `User.locale`) — đây là chữ người dùng đọc trên màn hình của mình.
+        questions:
+          type: array
+          maxItems: 8
+          items: { type: string }
+          description: |
+            Những câu quầy dịch vụ sẽ hỏi / người dùng cần chuẩn bị. **Theo ngôn
+            ngữ của request**, cùng lý do với `reasoning`. Mỗi câu tối đa 300 ký
+            tự; tối đa 8 câu. Khi coverage là `UNCLEAR` vì thiếu điều khoản quyết
+            định, danh sách luôn có ít nhất một câu hỏi về đúng điều khoản đó.
+            Luôn là một mảng; `[]` khi không có câu nào, không bao giờ `null`.
+        draftLetter:
+          type: string
+          description: |
+            Lá thư gửi trung tâm bảo hành, tối đa 2.500 ký tự: có người nhận,
+            thiết bị, số phiếu nếu có, lỗi, gói bảo hành đang được yêu cầu và đề
+            nghị cụ thể — không phải bản tóm tắt.
+
+            **LUÔN bằng TIẾNG VIỆT**, kể cả khi request dùng `en`. Lý do khác với
+            `reasoning`/`questions`: lá thư là một artifact rời khỏi app, được in
+            hoặc gửi đi, và do trung tâm bảo hành Việt Nam đọc. Một lá thư tiếng
+            Anh gửi cho quầy dịch vụ Việt Nam là vô dụng, còn phần giải thích
+            tiếng Anh cạnh lá thư tiếng Việt thì không có hại.
+        generatedAt:
+          type: string
+          format: date-time
+          description: Thời điểm server tạo kết quả (UTC). Không được lưu lại; lần gọi sau có thể khác.
+        model:
+          type: string
+          description: Model đã trả lời (từ `ANTHROPIC_MODEL`, hoặc mặc định `claude-haiku-4-5-20251001`).
 
     DraftDevice:
       type: object

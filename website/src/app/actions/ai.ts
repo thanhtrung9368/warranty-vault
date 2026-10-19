@@ -5,8 +5,12 @@ import { requireUser } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { getI18n } from '@/lib/i18n/server';
 import { buildExtractReceiptBody } from '@/lib/receipt-scan';
+import {
+  claimAssessmentGateFromFailure,
+  type ClaimAssessmentGate,
+} from '@/lib/claim-assessment';
 import type { AttachmentMeta } from '@/lib/api/devices';
-import type { DraftDevice } from '@/lib/api/ai';
+import type { ClaimAssessment, DraftDevice } from '@/lib/api/ai';
 
 export type ExtractReceiptResult =
   | {
@@ -109,4 +113,66 @@ export async function setAIOptIn(enabled: boolean): Promise<{ ok: boolean; messa
   revalidatePath('/settings');
   revalidatePath('/devices/new');
   return { ok: true };
+}
+
+/**
+ * Server-action result for one claim assessment.
+ *
+ * `ok: true` is the only success path. The two gates are typed as their own
+ * values (not as a generic failure) so the UI can render them as normal states;
+ * only `failed` carries an error message and an error tone.
+ */
+export type AssessClaimResult =
+  | { ok: true; assessment: ClaimAssessment }
+  | {
+      ok: false;
+      gate: Exclude<ClaimAssessmentGate, 'ready'>;
+      message?: string;
+    };
+
+/**
+ * Ask the AI to assess one repair/warranty claim.
+ *
+ * This action is READ-ONLY. The contract explicitly writes nothing — no claim
+ * status change and no stored result — so there is deliberately no
+ * `revalidatePath` here (unlike every mutating action in this folder).
+ *
+ * The gates are product states, not errors:
+ *   * 403 `ai_optin_required` → the UI offers the opt-in toggle;
+ *   * 503 `feature_disabled`  → the UI explains the service setting calmly.
+ * Only everything else becomes `failed` with the server's own (already
+ * translated) message.
+ */
+export async function assessClaim(claimId: string): Promise<AssessClaimResult> {
+  await requireUser();
+  const { t } = await getI18n();
+
+  const id = typeof claimId === 'string' ? claimId.trim() : '';
+  if (!id) {
+    return {
+      ok: false,
+      gate: 'failed',
+      message: t('Thiếu id phiếu sửa chữa'),
+    };
+  }
+
+  const res = await api.ai.assessClaim(id);
+  if (!res.ok) {
+    const gate = claimAssessmentGateFromFailure({
+      status: res.status,
+      error: res.error,
+    });
+    if (gate === 'failed') {
+      return {
+        ok: false,
+        gate,
+        message: res.message ?? t('Không đánh giá được — thử lại sau.'),
+      };
+    }
+    // Do not forward the server's gate message: these two states have their
+    // own calm, actionable copy in `lib/claim-assessment.ts`.
+    return { ok: false, gate };
+  }
+
+  return { ok: true, assessment: res.data };
 }

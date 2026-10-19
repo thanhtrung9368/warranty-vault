@@ -4321,23 +4321,6 @@
         }
       }
     },
-    "Khi bật, ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền thông tin. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When on, the receipt image is decrypted and sent to a third-party AI service to fill the form in for you. You always review it before saving. Off by default."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Khi bật, ảnh hoá đơn sẽ được gửi (đã giải mã) tới dịch vụ AI bên thứ ba để tự điền thông tin. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."
-          }
-        }
-      }
-    },
     "Khi bật, ứng dụng sẽ yêu cầu Face ID/Touch ID — hoặc mã mở khoá của thiết bị — mỗi lần quay lại ứng dụng. Nếu thiết bị không còn mã mở khoá, khoá sẽ tự tắt để bạn không bị khoá cứng.": {
       "extractionState": "manual",
       "localizations": {
@@ -7622,23 +7605,6 @@
         }
       }
     },
-    "Quét hoá đơn (AI)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Receipt scan (AI)"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quét hoá đơn (AI)"
-          }
-        }
-      }
-    },
     "Quét hoá đơn / phiếu bảo hành": {
       "extractionState": "manual",
       "localizations": {
@@ -7652,23 +7618,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quét hoá đơn / phiếu bảo hành"
-          }
-        }
-      }
-    },
-    "Quét hoá đơn bằng AI": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan receipts with AI"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quét hoá đơn bằng AI"
           }
         }
       }
@@ -17933,6 +17882,703 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thiết bị dùng VND không được có tỷ giá"
+          }
+        }
+      }
+    },
+    "Có khả năng thuộc diện bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Likely within warranty"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có khả năng thuộc diện bảo hành"
+          }
+        }
+      }
+    },
+    "Chưa đủ thông tin để kết luận": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough information yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa đủ thông tin để kết luận"
+          }
+        }
+      }
+    },
+    "Có khả năng không thuộc diện bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Likely outside warranty"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có khả năng không thuộc diện bảo hành"
+          }
+        }
+      }
+    },
+    "Thấp": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thấp"
+          }
+        }
+      }
+    },
+    "Trung bình": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trung bình"
+          }
+        }
+      }
+    },
+    "Cao": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cao"
+          }
+        }
+      }
+    },
+    "Dựa trên điều khoản đang lưu, lỗi này có khả năng nằm trong phạm vi bảo hành. Đây vẫn chỉ là gợi ý — hãy mang giấy tờ và để trung tâm bảo hành xác nhận.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Based on the terms on file, this fault is likely within the warranty. This is still only advice — bring your documents and let the service center confirm."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dựa trên điều khoản đang lưu, lỗi này có khả năng nằm trong phạm vi bảo hành. Đây vẫn chỉ là gợi ý — hãy mang giấy tờ và để trung tâm bảo hành xác nhận."
+          }
+        }
+      }
+    },
+    "Thông tin đang lưu chưa đủ để nói chắc. Những câu hỏi bên dưới là thứ trung tâm thường hỏi — trả lời được càng nhiều càng tốt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is on file is not enough to say for certain. The questions below are what the service center will ask — answer as many as you can."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin đang lưu chưa đủ để nói chắc. Những câu hỏi bên dưới là thứ trung tâm thường hỏi — trả lời được càng nhiều càng tốt."
+          }
+        }
+      }
+    },
+    "Dựa trên điều khoản đang lưu, lỗi này có khả năng nằm ngoài phạm vi bảo hành. Bạn vẫn nên trao đổi với trung tâm, và mang theo hoá đơn hoặc giấy tờ liên quan.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Based on the terms on file, this fault is likely outside the warranty. You can still talk to the service center, and bring your receipt or related documents."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dựa trên điều khoản đang lưu, lỗi này có khả năng nằm ngoài phạm vi bảo hành. Bạn vẫn nên trao đổi với trung tâm, và mang theo hoá đơn hoặc giấy tờ liên quan."
+          }
+        }
+      }
+    },
+    "Thông tin còn thiếu nên độ tin cậy thấp. Đừng dựa vào đây để quyết định.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The information is incomplete, so confidence is low. Do not rely on this to decide."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin còn thiếu nên độ tin cậy thấp. Đừng dựa vào đây để quyết định."
+          }
+        }
+      }
+    },
+    "Độ tin cậy trung bình — nên kiểm tra lại với trung tâm.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium confidence — check with the service center."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Độ tin cậy trung bình — nên kiểm tra lại với trung tâm."
+          }
+        }
+      }
+    },
+    "Độ tin cậy cao, nhưng đây vẫn không phải quyết định bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High confidence, but this is still not a warranty decision."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Độ tin cậy cao, nhưng đây vẫn không phải quyết định bảo hành."
+          }
+        }
+      }
+    },
+    "Đây là ý kiến tham khảo từ AI, không phải quyết định bảo hành. Trung tâm bảo hành là bên quyết định.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is AI advice, not a warranty decision. The service center decides."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đây là ý kiến tham khảo từ AI, không phải quyết định bảo hành. Trung tâm bảo hành là bên quyết định."
+          }
+        }
+      }
+    },
+    "Chưa đủ thông tin để kết luận, nhưng những câu hỏi dưới đây là phần dùng được ngay.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is not enough information for a conclusion, but the questions below are immediately useful."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa đủ thông tin để kết luận, nhưng những câu hỏi dưới đây là phần dùng được ngay."
+          }
+        }
+      }
+    },
+    "Thư này được viết bằng tiếng Việt có chủ đích vì trung tâm bảo hành sẽ đọc nó. App không tự dịch.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This letter is written in Vietnamese on purpose because the service center will read it. The app does not translate it."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thư này được viết bằng tiếng Việt có chủ đích vì trung tâm bảo hành sẽ đọc nó. App không tự dịch."
+          }
+        }
+      }
+    },
+    "Đánh giá bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty assessment"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh giá bảo hành"
+          }
+        }
+      }
+    },
+    "Đang kiểm tra cài đặt AI…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking your AI settings…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang kiểm tra cài đặt AI…"
+          }
+        }
+      }
+    },
+    "Đang đọc điều khoản và lần sửa chữa…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading the terms and the repair…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang đọc điều khoản và lần sửa chữa…"
+          }
+        }
+      }
+    },
+    "Lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repair"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Đánh giá này chỉ đọc dữ liệu và không sửa gì.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This assessment only reads your data and changes nothing."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh giá này chỉ đọc dữ liệu và không sửa gì."
+          }
+        }
+      }
+    },
+    "Gợi ý, không phải kết luận": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Advice, not a decision"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gợi ý, không phải kết luận"
+          }
+        }
+      }
+    },
+    "Độ tin cậy: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confidence: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Độ tin cậy: %@"
+          }
+        }
+      }
+    },
+    "Trung tâm có thể sẽ hỏi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The service center may ask"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trung tâm có thể sẽ hỏi"
+          }
+        }
+      }
+    },
+    "Mang danh sách này tới trung tâm — trả lời được càng nhiều càng tốt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take this list to the service center — answer as many as you can."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mang danh sách này tới trung tâm — trả lời được càng nhiều càng tốt."
+          }
+        }
+      }
+    },
+    "Vì sao": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vì sao"
+          }
+        }
+      }
+    },
+    "AI đọc điều khoản bảo hành và thông tin lần sửa chữa bạn đã lưu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The AI reads the warranty terms and the repair details you saved."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI đọc điều khoản bảo hành và thông tin lần sửa chữa bạn đã lưu."
+          }
+        }
+      }
+    },
+    "Thư nháp gửi trung tâm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draft letter to the service center"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thư nháp gửi trung tâm"
+          }
+        }
+      }
+    },
+    "Luôn bằng tiếng Việt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always in Vietnamese"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luôn bằng tiếng Việt"
+          }
+        }
+      }
+    },
+    "Đọc được ở quầy bảo hành Việt Nam": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Vietnamese service desk can read it"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đọc được ở quầy bảo hành Việt Nam"
+          }
+        }
+      }
+    },
+    "Sao chép thư": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy letter"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép thư"
+          }
+        }
+      }
+    },
+    "Bật trợ lý AI để đánh giá": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on the AI assistant to assess"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bật trợ lý AI để đánh giá"
+          }
+        }
+      }
+    },
+    "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty assessment uses the same AI opt-in as receipt scanning. When it is on, the repair details (problem description, diagnosis, cost) and warranty terms are sent to a third-party AI service for analysis."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích."
+          }
+        }
+      }
+    },
+    "Bạn có thể tắt lại bất cứ lúc nào trong Cài đặt → Trợ lý AI.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can turn it off any time in Settings → AI assistant."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có thể tắt lại bất cứ lúc nào trong Cài đặt → Trợ lý AI."
+          }
+        }
+      }
+    },
+    "Bật và đánh giá": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on and assess"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bật và đánh giá"
+          }
+        }
+      }
+    },
+    "Tính năng đánh giá bằng AI chưa khả dụng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI assessment is not available yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính năng đánh giá bằng AI chưa khả dụng"
+          }
+        }
+      }
+    },
+    "Máy chủ chưa bật tính năng này. Đây không phải lỗi của bạn — bạn vẫn có thể xem điều khoản bảo hành và tiếp tục dùng app bình thường.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server has not enabled this feature. This is not your fault — you can still view the warranty terms and keep using the app as usual."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy chủ chưa bật tính năng này. Đây không phải lỗi của bạn — bạn vẫn có thể xem điều khoản bảo hành và tiếp tục dùng app bình thường."
+          }
+        }
+      }
+    },
+    "Không đánh giá được lúc này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not assess right now."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đánh giá được lúc này."
+          }
+        }
+      }
+    },
+    "Không bật được trợ lý AI.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not turn on the AI assistant."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không bật được trợ lý AI."
+          }
+        }
+      }
+    },
+    "Trợ lý AI": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI assistant"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trợ lý AI"
+          }
+        }
+      }
+    },
+    "Quét hoá đơn & đánh giá bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipt scanning & warranty assessment"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quét hoá đơn & đánh giá bảo hành"
+          }
+        }
+      }
+    },
+    "Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When on, receipt images (decrypted) and repair details are sent to a third-party AI service to fill in fields or assess a warranty. You always review before saving. Off by default."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."
           }
         }
       }

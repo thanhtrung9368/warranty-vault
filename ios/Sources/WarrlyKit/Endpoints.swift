@@ -554,6 +554,36 @@ extension APIClient {
         return w.aiOptIn
     }
 
+    // MARK: - AI claim assessment
+
+    /// `POST /api/v1/ai/assess-claim` — advice about one claim, **read-only**.
+    ///
+    /// The server reads the claim, the device and the warranty terms and
+    /// returns `{coverage, confidence, reasoning, questions, draftLetter,
+    /// generatedAt, model}`. It writes nothing: no claim, device or warranty row
+    /// is touched, so this method does not reload anything.
+    ///
+    /// `reasoning` and `questions` come back in the request language
+    /// (`Accept-Language`, already attached by `APIClient`); `draftLetter` is
+    /// always Vietnamese because the service centre reads it. Do not translate
+    /// it client-side.
+    ///
+    /// Two documented gates are thrown as `APIError.server` and must be mapped
+    /// with `ClaimAssessmentGate.from(error:)`, not rendered as raw errors:
+    ///
+    ///   * 403 `ai_optin_required` → the user has not enabled the AI opt-in
+    ///     (the same switch as receipt scanning). Offer to turn it on.
+    ///   * 503 `feature_disabled` → the server has no model key. Say the feature
+    ///     is not available, without an error tone.
+    public func assessClaim(_ input: ClaimAssessmentInput) async throws -> ClaimAssessment {
+        try await request("POST", "/api/v1/ai/assess-claim", body: input)
+    }
+
+    /// Convenience for the common call: a claim row already holds the id.
+    public func assessClaim(claimId: String) async throws -> ClaimAssessment {
+        try await assessClaim(ClaimAssessmentInput(claimId: claimId))
+    }
+
     /// URL of the byte stream for an attachment. `nonisolated` because it only
     /// reads the immutable `baseURL` — callers (SwiftUI views) build these
     /// synchronously while rendering.

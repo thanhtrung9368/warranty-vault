@@ -4,6 +4,7 @@ import com.warrly.network.AIOptInRequest
 import com.warrly.network.AIOptInResponse
 import com.warrly.network.ActionQueue
 import com.warrly.network.ApiService
+import com.warrly.network.AssessClaimInput
 import com.warrly.network.AttachmentDescriptionInput
 import com.warrly.network.AttachmentListResponse
 import com.warrly.network.AttachmentResponse
@@ -13,6 +14,7 @@ import com.warrly.network.ChangeEmailRequest
 import com.warrly.network.ChangeEmailResult
 import com.warrly.network.ChangePasswordRequest
 import com.warrly.network.ChangePasswordResponse
+import com.warrly.network.ClaimAssessment
 import com.warrly.network.ClaimInput
 import com.warrly.network.ClaimListResponse
 import com.warrly.network.ClaimResponse
@@ -210,6 +212,9 @@ open class FakeApiService : ApiService {
     override suspend fun deleteAttachment(id: String): OkResponse = notStubbed("deleteAttachment")
     override suspend fun extractReceipt(body: ExtractReceiptInput): DraftDeviceResponse =
         notStubbed("extractReceipt")
+
+    override suspend fun assessClaim(body: AssessClaimInput): ClaimAssessment =
+        notStubbed("assessClaim")
 
     override suspend fun getAIOptIn(): AIOptInResponse = notStubbed("getAIOptIn")
     override suspend fun setAIOptIn(body: AIOptInRequest): AIOptInResponse = notStubbed("setAIOptIn")

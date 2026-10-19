@@ -102,4 +102,78 @@ export const claims = defineMessages({
   },
   'và {count} thiết bị khác': 'and {count} more',
   'Xem thiết bị đang hỏng': 'View broken devices',
+
+  // ── AI claim assessment (gap #7) ────────────────────────────────────────
+  //
+  // The result is ADVICE, never a verdict. The coverage labels deliberately say
+  // "likely" and "not enough information" — never "approved"/"rejected" — and
+  // every result also renders the disclaimer below. `draftLetter` is the one
+  // part that is NOT in the reader's language (it is always Vietnamese for the
+  // service centre); its label and notice say so on purpose.
+  'Đánh giá bảo hành': 'Assess warranty cover',
+  'Đang đánh giá…': 'Assessing…',
+  'Đánh giá lại': 'Assess again',
+  'Không đánh giá được — thử lại sau.':
+    'Could not assess the claim — try again later.',
+  'Gợi ý tham khảo': 'Reference guidance',
+  'Dựa trên hồ sơ và điều khoản bảo hành':
+    'Based on the claim and warranty terms',
+  'Gợi ý, không phải quyết định': 'Guidance, not a decision',
+  'Độ tin cậy: {level}': 'Confidence: {level}',
+  'Vì sao': 'Why',
+  'Câu hỏi nên hỏi trung tâm': 'Questions to ask the service centre',
+  'Mang các câu hỏi này tới trung tâm — hỏi trước khi gửi máy.':
+    'Take these questions to the service centre — ask before handing the device over.',
+  'Trung tâm bảo hành là bên kiểm tra máy và quyết định cuối cùng. Màn hình này không phê duyệt hay từ chối bảo hành.':
+    'The service centre inspects the device and makes the final decision. This screen does not approve or reject a warranty claim.',
+
+  // Coverage — hints, not claim outcomes.
+  'Có khả năng được bảo hành': 'Likely covered',
+  'Chưa đủ thông tin': 'Not enough information',
+  'Có khả năng không được bảo hành': 'Likely not covered',
+  'Hồ sơ có dấu hiệu nằm trong phạm vi bảo hành, nhưng đây chỉ là gợi ý. Trung tâm sẽ kiểm tra máy và quyết định.':
+    'The claim looks like it may fall within the warranty, but this is only guidance. The service centre will inspect the device and decide.',
+  'Hồ sơ chưa cho thấy rõ có được bảo hành hay không. Đây không phải ngõ cụt: mang các câu hỏi bên dưới tới trung tâm để hỏi cho rõ.':
+    'The claim does not make it clear whether this is covered. This is not a dead end: take the questions below to the service centre and ask.',
+  'Hồ sơ có vài dấu hiệu nằm ngoài phạm vi bảo hành, nhưng trung tâm vẫn là bên quyết định. Dùng các câu hỏi bên dưới để hỏi cho rõ trước khi đi.':
+    'The claim shows some signs of being outside the warranty, but the service centre still decides. Use the questions below to ask before you go.',
+
+  // Confidence is always shown next to the hint, with what it means.
+  'Thấp': 'Low',
+  'Trung bình': 'Medium',
+  'Cao': 'High',
+  'Mô hình chỉ suy đoán từ hồ sơ hiện có — đừng coi đây là câu trả lời chắc chắn.':
+    'The model is only inferring from the claim on file — do not treat this as a firm answer.',
+  'Dựa trên hồ sơ hiện có; trung tâm có thể hỏi thêm giấy tờ.':
+    'Based on the claim on file; the service centre may ask for more paperwork.',
+  'Hồ sơ khá rõ, nhưng trung tâm vẫn là bên quyết định.':
+    'The claim is fairly clear, but the service centre still decides.',
+
+  // Gate states — normal product states, not failures.
+  'Đánh giá AI đang tắt': 'AI assessment is off',
+  'Bật đánh giá AI để dùng tính năng này. Khi bật, nội dung phiếu và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích. App không thay đổi phiếu của bạn.':
+    'Turn on AI assessment to use this feature. When it is on, the claim and its warranty terms are sent to a third-party AI service for analysis. The app does not change your claim.',
+  'Bật và đánh giá': 'Turn on and assess',
+  'Đang bật…': 'Turning on…',
+  'Đã bật đánh giá AI': 'AI assessment turned on',
+  'Không bật được đánh giá AI': 'Could not turn on AI assessment',
+  'Đánh giá AI chưa khả dụng': 'AI assessment is not available yet',
+  'Dịch vụ chưa bật tính năng đánh giá bằng AI. Đây là cấu hình của hệ thống, không phải lỗi từ phía bạn — phiếu sửa chữa của bạn không bị ảnh hưởng. Bạn vẫn có thể dùng checklist chuẩn bị đi bảo hành.':
+    'AI assessment has not been switched on for this service. This is a system setting, not something you did wrong — your repair case is unchanged. You can still use the pre-service checklist.',
+  'Mở Cài đặt': 'Open Settings',
+
+  // The letter is Vietnamese on purpose; say that instead of translating it.
+  'Thư gửi trung tâm (tiếng Việt)':
+    'Letter to the service centre (Vietnamese)',
+  'Tiếng Việt — để trung tâm đọc':
+    'Vietnamese — for the service centre to read',
+  'Thư luôn viết bằng tiếng Việt, kể cả khi bạn dùng giao diện tiếng Anh. Trung tâm bảo hành đọc tiếng Việt, nên app không tự dịch thư.':
+    'This letter is always written in Vietnamese, even when the app is in English. The service centre reads Vietnamese, so the app does not translate it.',
+  'Sao chép thư': 'Copy letter',
+  'Đã sao chép thư': 'Letter copied',
+  'Không sao chép được — chọn thư và sao chép thủ công.':
+    'Could not copy it — select the letter and copy it manually.',
+  'Chưa soạn được thư cho phiếu này — bạn vẫn có thể dùng các câu hỏi bên trên.':
+    'No letter was generated for this claim — you can still use the questions above.',
+  'Tạo bằng {model} lúc {date}': 'Generated by {model} on {date}',
 });

@@ -174,19 +174,19 @@ export const publicPages = defineMessages({
     'on the server, one key per file (each of those keys is wrapped by the system master key). Your session lives in an encrypted cookie',
   'Toàn bộ dữ liệu nằm trên cơ sở dữ liệu do bọn tao tự vận hành.':
     'All data lives on a database we run ourselves.',
-  '3. Tính năng AI quét hoá đơn (tự chọn bật)': '3. AI receipt scanning (opt-in)',
+  '3. Trợ lý AI (tự chọn bật)': '3. AI assistant (opt-in)',
   'Mặc định tính năng này': 'This feature is',
   'TẮT': 'OFF',
-  'Chỉ khi mày tự bật trong Cài đặt, ảnh hoá đơn mày chọn mới được':
-    'by default. Only after you enable it in Settings is a receipt image you pick',
+  'Chỉ khi mày tự bật trong Cài đặt, trợ lý AI mới làm hai việc: đọc ảnh hoặc PDF hoá đơn mày chọn (được':
+    'by default. Only after you enable it in Settings does the AI assistant do two things: read a receipt image or PDF you pick (',
   'giải mã và gửi tới nhà cung cấp AI bên thứ ba (Anthropic)':
     'decrypted and sent to a third-party AI provider (Anthropic)',
-  'để tự đọc thông tin điền vào form. Kết quả luôn là bản nháp — mày kiểm tra lại rồi mới lưu. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã. Mày có thể tắt lại bất cứ lúc nào.':
-    'to read the details and fill in the form. The result is always a draft — you review it before saving. With the feature off, an image never leaves the server decrypted. You can turn it back off at any time.',
+  'để tự điền thông tin thiết bị), và đánh giá một lần sửa chữa có thuộc diện bảo hành hay không (gửi nội dung phiếu sửa chữa, thông tin thiết bị và các điều khoản hợp đồng bảo hành tới cùng nhà cung cấp đó). Kết quả luôn là gợi ý để mày kiểm tra lại — không phải quyết định bảo hành, và không có gì được tự động lưu. Không bật thì ảnh không bao giờ rời máy chủ ở dạng đã giải mã và không nội dung nào được gửi đi. Mày có thể tắt lại bất cứ lúc nào.':
+    'to fill in the device details), and assess whether a repair is likely covered (sending the claim content, the device details and the warranty contract terms to that same provider). The result is always guidance for you to check — it is not a warranty decision, and nothing is saved automatically. With the feature off, an image never leaves the server decrypted and no content is sent. You can turn it back off at any time.',
   '4. Bên thứ ba bọn tao dùng': '4. Third parties we use',
   'Anthropic': 'Anthropic',
-  'chỉ khi mày bật AI quét hoá đơn (xem mục 3).':
-    'only when you enable AI receipt scanning (see section 3).',
+  'chỉ khi mày bật trợ lý AI (xem mục 3).':
+    'only when you enable the AI assistant (see section 3).',
   'Resend': 'Resend',
   'gửi email đặt lại mật khẩu khi mày yêu cầu.':
     'sends the password-reset email when you ask for one.',

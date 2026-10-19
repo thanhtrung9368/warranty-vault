@@ -973,6 +973,63 @@ var messages = map[string]message{
 		en: "The AI returned no extracted data",
 	},
 
+	// ── AI claim assessment (gap #7, internal/ai/assess.go,
+	// internal/services/ai_assess.go, internal/handlers/ai_assess.go).
+	//
+	// The two gate sentences deliberately differ from receipt scanning's: the
+	// user asked about a claim, and sending them to a "receipt scanning" switch
+	// would be the wrong fix. The CODES and statuses are the receipt endpoint's.
+	//
+	// The five questions at the end are the server's deterministic half of the
+	// honesty rule: when the model says LIKELY_COVERED while a decisive contract
+	// term is null, services.downgradeUnsupportedCoverage turns the answer into
+	// UNCLEAR and appends the matching question in the request's language, so
+	// these must read like something the counter would actually ask.
+	"Tính năng đánh giá yêu cầu bảo hành bằng AI chưa được bật": {
+		vi: "Tính năng đánh giá yêu cầu bảo hành bằng AI chưa được bật",
+		en: "AI claim assessment is not enabled",
+	},
+	"Cần bật tính năng AI trong Cài đặt trước khi dùng": {
+		vi: "Cần bật tính năng AI trong Cài đặt trước khi dùng",
+		en: "Turn on AI features in Settings before using this",
+	},
+	"Thiếu claimId": {
+		vi: "Thiếu claimId",
+		en: "Missing claimId",
+	},
+	"AI không trả về kết quả đánh giá": {
+		vi: "AI không trả về kết quả đánh giá",
+		en: "The AI returned no claim assessment",
+	},
+	"Lỗi đánh giá yêu cầu bảo hành": {
+		vi: "Lỗi đánh giá yêu cầu bảo hành",
+		en: "Could not assess the claim",
+	},
+	"Lỗi tải yêu cầu bảo hành": {
+		vi: "Lỗi tải yêu cầu bảo hành",
+		en: "Could not load the claim",
+	},
+	"Lỗi tải thiết bị": {
+		vi: "Lỗi tải thiết bị",
+		en: "Could not load the device",
+	},
+	"Lỗi tải gói bảo hành": {
+		vi: "Lỗi tải gói bảo hành",
+		en: "Could not load the warranty",
+	},
+	"Phạm vi bảo hành (scope) trong hợp đồng ghi những gì? Hãy mang hợp đồng để đối chiếu.": {
+		vi: "Phạm vi bảo hành (scope) trong hợp đồng ghi những gì? Hãy mang hợp đồng để đối chiếu.",
+		en: "What does the warranty's scope actually say? Bring the contract so it can be checked.",
+	},
+	"Hợp đồng có nêu trường hợp loại trừ nào áp dụng cho lỗi này không?": {
+		vi: "Hợp đồng có nêu trường hợp loại trừ nào áp dụng cho lỗi này không?",
+		en: "Does the contract list any exclusion that applies to this fault?",
+	},
+	"Bạn còn hợp đồng hoặc phiếu bảo hành nào cho thiết bị này chưa nhập vào ứng dụng không? Hãy mang theo.": {
+		vi: "Bạn còn hợp đồng hoặc phiếu bảo hành nào cho thiết bị này chưa nhập vào ứng dụng không? Hãy mang theo.",
+		en: "Do you have a warranty contract or card for this device that is not in the app yet? Bring it with you.",
+	},
+
 	// ── Shares (internal/services/shares.go, handlers/shares.go).
 	//
 	// The owner half first. "Không tìm thấy thiết bị" already exists above (device
