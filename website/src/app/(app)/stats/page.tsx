@@ -263,7 +263,7 @@ export default async function StatsPage({
       </div>
 
       {/* Charts row */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
@@ -300,9 +300,12 @@ export default async function StatsPage({
       </div>
 
       {/* Year breakdown + Top 5 */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          {/* `flex-wrap`: the four year chips (259px) do not fit beside the
+              title on a 390px phone; without wrapping they pushed the whole
+              page 15px sideways. */}
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
             <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
               <span className="icon-badge icon-badge-xs tint-sky">
                 <Calendar className="h-3.5 w-3.5" />
@@ -429,7 +432,7 @@ export default async function StatsPage({
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <CostPerDayList
               title={t('Rẻ nhất mỗi ngày')}
               icon={<TrendingDown className="h-3.5 w-3.5" />}

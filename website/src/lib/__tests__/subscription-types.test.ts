@@ -3,6 +3,7 @@ import {
   monthlyEquivalent,
   monthlySpendTotal,
   nextRenewalDate,
+  renewalDaysLeft,
   SUBSCRIPTION_ACTIVE_STATUSES,
   SUBSCRIPTION_SPEND_STATUSES,
   type BillingCycle,
@@ -182,5 +183,28 @@ describe('nextRenewalDate', () => {
     const original = new Date(2026, 0, 15);
     nextRenewalDate(original, 'YEARLY');
     expect(ymd(original)).toEqual([2026, 0, 15]);
+  });
+});
+
+describe('renewalDaysLeft', () => {
+  // Both subscription pages print this next to the formatted renewal date. The
+  // renewal is stored date-only, so "12 days left" beside "renews 11/01/2026"
+  // on 19 Oct was the page contradicting its own date. `differenceInDays`
+  // counted only completed 24-hour periods; calendar days is what a reader (and
+  // the action queue) means.
+  it('counts calendar days, not completed 24-hour periods', () => {
+    const now = new Date(2026, 9, 19, 18, 0, 0);
+    expect(renewalDaysLeft(new Date(2026, 10, 1), now)).toBe(13);
+  });
+
+  it('parses the wire shape (date-only, no timezone)', () => {
+    const now = new Date(2026, 9, 19, 18, 0, 0);
+    expect(renewalDaysLeft('2026-11-01T00:00:00', now)).toBe(13);
+  });
+
+  it('is 0 on the renewal day and negative once overdue', () => {
+    const now = new Date(2026, 9, 19, 18, 0, 0);
+    expect(renewalDaysLeft(new Date(2026, 9, 19), now)).toBe(0);
+    expect(renewalDaysLeft(new Date(2026, 9, 17), now)).toBe(-2);
   });
 });

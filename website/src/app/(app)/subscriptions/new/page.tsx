@@ -58,7 +58,6 @@ export default async function NewSubscriptionPage({
           brands: catalog.brands,
         }}
         initial={initial}
-        fromWishlistId={fromItem?.id ?? undefined}
       />
     </div>
   );

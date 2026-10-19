@@ -142,7 +142,11 @@ export function InsurancePackDownload() {
         type="button"
         onClick={() => void handleDownload()}
         disabled={busy}
-        className="rounded-pill"
+        // The English label ("Insurance property schedule (Vietnamese)") is
+        // wider than a 390px phone's card content, and the Button base class
+        // is `whitespace-nowrap` — the button used to push the whole settings
+        // page 48px sideways. Let it wrap instead.
+        className="h-auto min-h-12 whitespace-normal rounded-pill py-2 text-left"
         size="lg"
       >
         {busy ? (

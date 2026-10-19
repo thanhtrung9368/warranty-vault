@@ -18,12 +18,12 @@ import {
   SUBSCRIPTION_STATUSES,
   monthlyEquivalent,
   monthlySpendTotal,
+  renewalDaysLeft,
   type BillingCycle,
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
 import { formatDate, formatVND } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { differenceInDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,7 @@ function renewalLabel(
   locale: Locale,
 ): { text: string; tone: RenewalTone } {
   if (cycle === 'LIFETIME') return { text: 'Lifetime', tone: 'neutral' };
-  const days = differenceInDays(date, new Date());
+  const days = renewalDaysLeft(date);
   if (days < 0) {
     const overdue = Math.abs(days);
     return {

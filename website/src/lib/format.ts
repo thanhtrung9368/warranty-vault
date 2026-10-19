@@ -1,4 +1,4 @@
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { enUS, vi } from 'date-fns/locale';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
@@ -134,7 +134,11 @@ export type WarrantyState = {
 
 export function warrantyState(warrantyEnd: Date | string, locale: Locale): WarrantyState {
   const end = typeof warrantyEnd === 'string' ? new Date(warrantyEnd) : warrantyEnd;
-  const days = differenceInDays(end, new Date());
+  // Calendar days, not elapsed 24-hour periods. Warranty ends arrive as
+  // date-only values (`2026-10-28T00:00:00Z`), so at 18:00 on the 19th there
+  // are 9 calendar days left but only 8 full days — the old `differenceInDays`
+  // said "Còn 8 ngày" while the same page printed "Hết 28/10/2026".
+  const days = differenceInCalendarDays(end, new Date());
   if (days < 0) {
     const n = Math.abs(days);
     return {

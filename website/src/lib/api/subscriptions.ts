@@ -83,9 +83,12 @@ export type SubscriptionInput = {
   // that rule by construction, not by a local copy of the server validator.
   trialEndsAt?: string | null;
   convertsToPrice?: number | null;
-  // Web-only convenience: when set, Go will mark the matching wishlist item
-  // as PURCHASED in the same transaction.
-  fromWishlistId?: string | null;
+  // NOTE: there is deliberately no `fromWishlistId` here. The device importer
+  // supports that link (`DeviceCreateInput.fromWishlistId`), subscriptions do
+  // not: `openapi.yaml`'s `SubscriptionInput` has no such field, Go's strict
+  // decoder rejects it with 400, and `services/subscriptions.go` contains no
+  // wishlist code. Sending it from the web used to break every create and edit.
+  // The wishlist page's "convert to subscription" flow is a prefill only.
 };
 
 export type PaymentInput = {

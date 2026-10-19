@@ -346,8 +346,12 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Main grid — section cards */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* Main grid — section cards. `grid-cols-1` is not cosmetic: without an
+          explicit single-column track the implicit `auto` column sizes to the
+          widest card's min-content, which on a 390px phone is the warranty
+          row's truncated text + pill (430px) — the whole page then overflows
+          horizontally and the top bar/section cards are clipped. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Sắp hết bảo hành */}
         <SectionCard
           icon={AlertTriangle}

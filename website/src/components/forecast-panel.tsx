@@ -277,7 +277,7 @@ export async function ForecastPanel({
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">

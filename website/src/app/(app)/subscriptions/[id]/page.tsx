@@ -15,7 +15,6 @@ import {
   Bell,
   Sparkles,
 } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { PriceHistoryChart } from '@/components/charts/lazy';
@@ -30,6 +29,7 @@ import { billingCycleLabel, categoryLabel, subscriptionStatusLabel } from '@/lib
 import { getI18n } from '@/lib/i18n/server';
 import {
   monthlyEquivalent,
+  renewalDaysLeft,
   type BillingCycle,
   type SubscriptionStatus,
 } from '@/lib/subscription-types';
@@ -80,7 +80,8 @@ export default async function SubscriptionDetailPage({
     sub.intervalDays,
   );
   const totalSpent = sub.payments.reduce((s, p) => s + p.amount, 0);
-  const daysToRenewal = differenceInDays(renewalDate, new Date());
+  // Calendar days, same rule as the list page: the renewal date is date-only.
+  const daysToRenewal = renewalDaysLeft(renewalDate);
   const isOverdue = sub.billingCycle !== 'LIFETIME' && daysToRenewal < 0;
   const isLifetime = sub.billingCycle === 'LIFETIME';
   const status = sub.status as SubscriptionStatus;

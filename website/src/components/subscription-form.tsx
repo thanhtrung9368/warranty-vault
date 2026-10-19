@@ -271,11 +271,9 @@ function Stepper({
 export function SubscriptionForm({
   initial,
   catalog,
-  fromWishlistId,
 }: {
   initial?: Initial;
   catalog: Catalog;
-  fromWishlistId?: string;
 }) {
   const isEdit = Boolean(initial?.id);
   const t = useT();
@@ -439,10 +437,6 @@ export function SubscriptionForm({
 
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-6">
-      {fromWishlistId ? (
-        <input type="hidden" name="fromWishlistId" value={fromWishlistId} />
-      ) : null}
-
       {/* Hidden mirrors keep FormData contract intact regardless of which
           step the user is on. We render real inputs visually per step but
           let unmounted ones still submit through these hidden copies. */}

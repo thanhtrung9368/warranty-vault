@@ -13,72 +13,15 @@
 import { redirect } from 'next/navigation';
 import { api, toFormState, type FormState } from '@/lib/api';
 import type { SubscriptionInput, PaymentInput } from '@/lib/api/subscriptions';
-import { leadDaysError, leadDaysFromFormData } from '@/lib/lead-days';
+import { leadDaysError } from '@/lib/lead-days';
+import {
+  buildSubscriptionInput,
+  subscriptionNumber as n,
+  subscriptionString as s,
+} from '@/lib/subscription-input';
 import { getI18n } from '@/lib/i18n/server';
 
 export type SubscriptionFormState = FormState;
-
-// Coerce a FormData entry (always string|File|null) into the JSON body shape
-// the Go API expects. Empty strings become null so the Go-side validator
-// doesn't see an empty `name`/`category`/etc. in optional fields.
-function s(formData: FormData, key: string): string | null {
-  const v = formData.get(key);
-  if (v == null) return null;
-  if (typeof v !== 'string') return null;
-  const trimmed = v.trim();
-  return trimmed === '' ? null : trimmed;
-}
-
-function n(formData: FormData, key: string): number | null {
-  const raw = s(formData, key);
-  if (raw == null) return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function b(formData: FormData, key: string): boolean {
-  const v = formData.get(key);
-  return v === 'true' || v === 'on' || v === '1';
-}
-
-function buildSubscriptionInput(formData: FormData): SubscriptionInput {
-  const billingCycle = (s(formData, 'billingCycle') ??
-    'MONTHLY') as SubscriptionInput['billingCycle'];
-  const status = s(formData, 'status') as SubscriptionInput['status'] | null;
-  const leadDays = leadDaysFromFormData(formData);
-  return {
-    name: s(formData, 'name') ?? '',
-    category: s(formData, 'category'),
-    brand: s(formData, 'brand'),
-    plan: s(formData, 'plan'),
-    billingCycle,
-    intervalDays: n(formData, 'intervalDays'),
-    price: n(formData, 'price') ?? 0,
-    startedAt: s(formData, 'startedAt') ?? '',
-    renewalDate: s(formData, 'renewalDate'),
-    autoRenew: b(formData, 'autoRenew'),
-    status: status ?? undefined,
-    accountEmail: s(formData, 'accountEmail'),
-    paymentMethod: s(formData, 'paymentMethod'),
-    manageUrl: s(formData, 'manageUrl'),
-    cancelUrl: s(formData, 'cancelUrl'),
-    notes: s(formData, 'notes'),
-    // Repeated `leadDays` entries (the chip control) are parsed here, not with
-    // `s()` — FormData has no scalar view of an array. An absent key is left
-    // out so Go applies its create default / keeps the stored list on update;
-    // an explicitly empty selection is rejected below before the request.
-    ...(leadDays === undefined ? {} : { leadDays }),
-    // Free trial (Feature B). Both keys are always sent so a cleared trial is an
-    // explicit `{trialEndsAt: null, convertsToPrice: null}` rather than a key
-    // silently going missing. The invalid half — `convertsToPrice` without
-    // `trialEndsAt` — is prevented in the form (the price is only mounted once a
-    // trial end exists) and still rejected by Go with
-    // `fieldErrors.convertsToPrice` if any other client sends it.
-    trialEndsAt: s(formData, 'trialEndsAt'),
-    convertsToPrice: n(formData, 'convertsToPrice'),
-    fromWishlistId: s(formData, 'fromWishlistId'),
-  };
-}
 
 // Zero selected days is the one invalid payload the client refuses to send
 // (Go's 400 is the authority for everything else). The message is a catalog
