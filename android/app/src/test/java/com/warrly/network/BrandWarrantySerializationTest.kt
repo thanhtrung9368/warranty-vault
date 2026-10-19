@@ -32,8 +32,8 @@ class BrandWarrantySerializationTest {
           "purchaseDate": "2024-03-01",
           "purchasePrice": 30000000,
           "brandWarrantyStatus": "PRE_ACTIVATED",
-          "brandWarrantyStart": "2024-01-14T00:00:00",
-          "brandWarrantyEnd": "2026-01-14T00:00:00",
+          "brandWarrantyStart": "2024-01-14",
+          "brandWarrantyEnd": "2026-01-14",
           "brandCheckedAt": "2026-10-19T02:24:20Z",
           "brandLookupUrl": "https://checkcoverage.apple.com/",
           "warrantyMismatch": {
@@ -50,8 +50,8 @@ class BrandWarrantySerializationTest {
         val device = json.decodeFromString(Device.serializer(), deviceWithBrandWarranty)
 
         assertEquals(BrandWarrantyStatus.PRE_ACTIVATED, device.brandWarrantyStatus)
-        assertEquals("2024-01-14T00:00:00", device.brandWarrantyStart)
-        assertEquals("2026-01-14T00:00:00", device.brandWarrantyEnd)
+        assertEquals("2024-01-14", device.brandWarrantyStart)
+        assertEquals("2026-01-14", device.brandWarrantyEnd)
         assertEquals("2026-10-19T02:24:20Z", device.brandCheckedAt)
         assertEquals("https://checkcoverage.apple.com/", device.brandLookupUrl)
 

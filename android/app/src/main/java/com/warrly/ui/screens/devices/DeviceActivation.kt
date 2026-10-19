@@ -93,17 +93,18 @@ fun showsActivationDate(activationRequired: Boolean, activatedAtRaw: String): Bo
 
 // ---- Wire <-> form for the two dates --------------------------------------
 //
-// Both fields use the exact same naive-UTC wire shape as `purchaseDate` and
-// `receivedAt`: only the first 10 characters are the calendar date, and an
-// instant-parse would move the day in Vietnam.
+// Both fields are **calendar days** (`YYYY-MM-DD`) on the wire, the same shape
+// as `purchaseDate` and `receivedAt`: no time, no zone. `take(10)` is the whole
+// value; parsing either as an instant would invent a timezone and could move
+// the day.
 
-/** `"2026-03-02T00:00:00"` → `"2026-03-02"`; missing/blank → `""`. */
+/** `"2026-03-02"` → `"2026-03-02"`; missing/blank → `""`. */
 internal fun activatedAtInput(wire: String?): String = wire?.trim()?.take(10).orEmpty()
 
 /** Form → request. Blank means "not recorded" and drops the key. */
 internal fun activatedAtRequest(raw: String): String? = raw.trim().ifBlank { null }
 
-/** `"2026-12-31T00:00:00"` → `"2026-12-31"`; missing/blank → `""`. */
+/** `"2026-12-31"` → `"2026-12-31"`; missing/blank → `""`. */
 internal fun extendedCoverBuyByInput(wire: String?): String =
     wire?.trim()?.take(10).orEmpty()
 

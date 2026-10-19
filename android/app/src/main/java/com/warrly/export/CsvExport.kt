@@ -114,10 +114,10 @@ private val ISO_DATE = Regex("""^(\d{4})-(\d{2})-(\d{2})""")
  * parses as a real date.
  *
  * The ISO string is sliced rather than parsed into a `LocalDate` / re-formatted
- * through a time zone: the server serialises `timestamp without time zone`
- * columns as RFC3339, and a round-trip through an instant would shift the
- * calendar day for anyone west of the server. `null` or an unrecognised value
- * becomes an empty cell rather than a guess.
+ * through a time zone: a calendar day is already `YYYY-MM-DD`, and a derived day
+ * from an older payload may be the same day rendered as a midnight-UTC instant.
+ * A round-trip through an instant would shift the calendar day for anyone west of
+ * UTC. `null` or an unrecognised value becomes an empty cell rather than a guess.
  */
 fun csvDate(value: String?): String {
     val iso = value?.trim() ?: return ""

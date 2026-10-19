@@ -128,10 +128,10 @@ internal fun brandWarrantyAgrees(device: Device): Boolean =
 // ---- Wire <-> form ----
 
 /**
- * Wire → form. Both brand dates use the file's `take(10)` convention: a naive
- * UTC timestamp such as `"2026-03-02T00:00:00"` becomes `"2026-03-02"`.
- * Missing/blank → `""`. Never parsed as an instant (that would move the day in
- * Vietnam for a value that never had a timezone).
+ * Wire → form. Both brand dates are **calendar days** (`YYYY-MM-DD`); the
+ * 10-char prefix is the whole value, so `"2026-03-02"` stays `"2026-03-02"`.
+ * Missing/blank → `""`. Never parsed as an instant — a day has no timezone to
+ * apply.
  */
 internal fun brandWarrantyDateInput(wire: String?): String = wire?.trim()?.take(10).orEmpty()
 

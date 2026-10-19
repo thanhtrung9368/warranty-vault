@@ -199,8 +199,8 @@ fun inboxFileFailureMessage(
  * a missing line is honest, and a fabricated date is not.
  *
  * Uses [vietnamDate], the app's one date convention (`dd/MM/yyyy`, date half
- * only). `uploadedAt` is RFC3339/naive-UTC on the wire; both parse the same way
- * because only the calendar date the server wrote is used.
+ * only). `uploadedAt` is an RFC3339 UTC **instant** (with `Z`); only its UTC
+ * calendar date is shown, never converted through a timezone.
  */
 fun inboxUploadedLabel(s: AppStrings, uploadedAt: String?): String? =
     vietnamDate(uploadedAt)?.let { s.get(R.string.inbox_uploaded_at, it) }

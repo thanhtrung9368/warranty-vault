@@ -8,15 +8,15 @@ import com.warrly.i18n.money
  * Device resale helpers — openapi `Device.soldAt` / `Device.soldPrice`
  * (roadmap #12 / migration 0006).
  *
- * `soldAt` is a naive UTC timestamp on the wire, exactly the same shape as
- * `purchaseDate`: `"2026-03-01T00:00:00"` — **no** `Z`, no offset. It therefore
- * must never reach an instant-based parser, which would shift the calendar day
- * by the device's UTC offset. Like `purchaseDate` in [AddDeviceSheet] and
+ * `soldAt` is a **calendar day** on the wire, exactly the same shape as
+ * `purchaseDate`: `"2026-03-01"` — no time and no `Z`/offset. It therefore must
+ * never reach an instant-based parser, which would invent a timezone and could
+ * move the day. Like `purchaseDate` in [AddDeviceSheet] and
  * [WarrantyEditSheet], both the form and the detail screen only ever keep the
- * date half (`take(10)`).
+ * date (`take(10)` is the identity for a day).
  */
 
-/** Wire value → form value (`"2026-03-01T00:00:00"` → `"2026-03-01"`). */
+/** Wire value → form value (`"2026-03-01"` → `"2026-03-01"`). */
 internal fun soldDateInput(wire: String?): String = wire?.trim()?.take(10).orEmpty()
 
 /** Form value → request value. Blank means "chưa bán" and drops the key. */

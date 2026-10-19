@@ -42,11 +42,15 @@ fun forecastMonthLabel(s: AppStrings, month: String): String {
 }
 
 /**
- * `2026-03-01T09:30:00Z` → `01/03/2026`. Date half only, like every other
- * naive-UTC timestamp in this app. Mirrors `sessionDateLabel` in the settings
- * package (the money formatter is duplicated per screen package for the same
- * reason); `ForecastFormatTest` pins the two copies together. A missing or
- * malformed value renders an em dash instead of throwing on a list row.
+ * `2026-03-01` → `01/03/2026`. Date half only.
+ *
+ * Forecast `endDate` / `targetDate` are calendar days. An older payload rendered
+ * the same day as a midnight-UTC instant (`2026-03-01T00:00:00Z`), so the
+ * 10-char slice handles both; converting an instant through a timezone could
+ * move the day. Mirrors `sessionDateLabel` in the settings package (the money
+ * formatter is duplicated per screen package for the same reason);
+ * `ForecastFormatTest` pins the two copies together. A missing or malformed value
+ * renders an em dash instead of throwing on a list row.
  */
 fun forecastDateLabel(iso: String?): String {
     val date = iso?.trim()?.take(10).orEmpty()

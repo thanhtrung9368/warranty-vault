@@ -12,18 +12,21 @@ class VietnamDateTest {
 
     @Test
     fun formatsTheDateHalfOfEveryWireShapeTheApiSends() {
-        // Naive UTC (purchaseDate / soldAt / receivedAt / returnDeadline).
-        assertEquals("02/03/2026", vietnamDate("2026-03-02T00:00:00"))
+        // Calendar days (purchaseDate / soldAt / receivedAt / warranty dates…).
         assertEquals("02/03/2026", vietnamDate("2026-03-02"))
-        // RFC3339 UTC (share expiresAt / createdAt / lastViewedAt).
+        // A derived day may still arrive as a midnight-UTC instant from an older
+        // payload; the current API sends the plain day.
+        assertEquals("02/03/2026", vietnamDate("2026-03-02T00:00:00Z"))
+        // Real instants (share expiresAt / createdAt / lastViewedAt).
         assertEquals("02/03/2026", vietnamDate("2026-03-02T17:04:05Z"))
     }
 
     @Test
-    fun keepsTheServersCalendarDayInsteadOfShiftingItByTheDeviceOffset() {
-        // 23:30Z is already the 3rd in Vietnam, but the server wrote the 2nd and a
-        // date-shifted expiry on the certificate screen is the one error this
-        // helper exists to prevent. The date half is taken as written.
+    fun keepsTheServersUtcDayInsteadOfConvertingTheDeviceOffset() {
+        // 23:30Z is already the 3rd in Vietnam, but the value's UTC day is the
+        // 2nd. This helper never converts; it reads the date the server wrote.
+        // (For a real instant that is a UTC-day display choice, not a local-day
+        // conversion — see WireDateShapeTest.)
         assertEquals("02/03/2026", vietnamDate("2026-03-02T23:30:00Z"))
         assertEquals("02/03/2026", vietnamDate("2026-03-02T00:00:00+07:00"))
     }

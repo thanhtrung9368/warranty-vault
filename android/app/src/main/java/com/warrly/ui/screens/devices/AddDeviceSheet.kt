@@ -153,9 +153,9 @@ fun AddDeviceSheet(
     var serial by remember { mutableStateOf(existing?.serialNumber ?: "") }
     var purchasePlace by remember { mutableStateOf(existing?.purchasePlace ?: "") }
     // Resale (roadmap #12). `soldAt` is read exactly like `purchaseDate` above:
-    // a naive-UTC timestamp whose first 10 chars are the calendar date. A blank
-    // price stays blank rather than becoming 0 so "chưa bán" (null) and a
-    // give-away (0 ₫) are distinguishable.
+    // a calendar day (`YYYY-MM-DD`), of which the first 10 chars are the whole
+    // value. A blank price stays blank rather than becoming 0 so "chưa bán"
+    // (null) and a give-away (0 ₫) are distinguishable.
     var soldDate by remember { mutableStateOf(soldDateInput(existing?.soldAt)) }
     var soldPrice by remember { mutableStateOf(existing?.soldPrice?.toString().orEmpty()) }
     // Exchange/return window (migration 0010) — PRESERVED, never edited here.
@@ -176,9 +176,9 @@ fun AddDeviceSheet(
         mutableStateOf(normalizeLeadDays(existing?.leadDays ?: DEFAULT_LEAD_DAYS))
     }
     // Warranty activation + extended-cover deadline (DeviceActivation.kt).
-    // `activationRequired` is a plain boolean; the two dates use the same
-    // `take(10)` wire shape as `purchaseDate`. Nothing compares the activation
-    // date with the purchase date: a shop may pre-activate before the invoice.
+    // `activationRequired` is a plain boolean; the two dates are calendar days
+    // (`YYYY-MM-DD`) like `purchaseDate`. Nothing compares the activation date
+    // with the purchase date: a shop may pre-activate before the invoice.
     var activationRequired by remember {
         mutableStateOf(existing?.activationRequired ?: false)
     }

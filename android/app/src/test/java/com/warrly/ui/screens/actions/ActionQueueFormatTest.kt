@@ -242,11 +242,13 @@ class ActionQueueFormatTest {
     fun duePill_countsCalendarDaysFromTheDateHalfOnly() {
         val today = LocalDate.of(2026, 3, 4)
 
-        // Naive UTC ("no Z"): the date half is 01/03, so this is overdue — an
-        // instant-based parse in +07:00 would have shifted it to the 2nd.
+        // dueDate is a derived calendar day; this fixture is the older
+        // midnight-UTC rendering of it. The 10-char prefix is 01/03, so this is
+        // overdue. Parsing the instant and converting to local time could move
+        // the day.
         assertEquals(
             ActionDuePill("Quá hạn 3 ngày", PillKind.Danger),
-            actionDuePill(vi, "2026-03-01T00:00:00", today),
+            actionDuePill(vi, "2026-03-01T00:00:00Z", today),
         )
         assertEquals(ActionDuePill("Hôm nay", PillKind.Danger), actionDuePill(vi, "2026-03-04", today))
         assertEquals(ActionDuePill("Còn 1 ngày", PillKind.Warning), actionDuePill(vi, "2026-03-05", today))

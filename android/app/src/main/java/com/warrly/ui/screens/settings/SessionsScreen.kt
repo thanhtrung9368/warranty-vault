@@ -139,9 +139,13 @@ fun sessionPlatformLabel(platform: String?): String? {
 }
 
 /**
- * `2026-03-01T09:30:00Z` → `01/03/2026`. The date half only, exactly like every
- * other naive-UTC timestamp in this app ([com.warrly.network.Device.purchaseDate]).
- * A missing or malformed value renders an em dash instead of throwing.
+ * `2026-03-01T09:30:00Z` → `01/03/2026`. Only the UTC date is shown.
+ *
+ * Session timestamps are RFC3339 UTC **instants** (with `Z`), unlike the calendar
+ * days in [com.warrly.network.Device.purchaseDate]. The date is taken from the
+ * instant's 10-char UTC prefix without a timezone conversion, so the label is
+ * stable across device zones; it is the UTC day, not the device's wall-clock
+ * date. A missing or malformed value renders an em dash instead of throwing.
  */
 fun sessionDateLabel(iso: String?): String {
     val date = iso?.trim()?.take(10).orEmpty()

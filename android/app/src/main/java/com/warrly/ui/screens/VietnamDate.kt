@@ -10,23 +10,32 @@ package com.warrly.ui.screens
  * `export/CsvExport.kt` already formats dates this way for the same reason
  * (vi-VN Excel reads `dd/MM/yyyy`), so this is the convention, not a new one.
  *
- * ## Why `take(10)` and never an instant-parse
+ * ## Why `take(10)` for both wire shapes
  *
- * Two different wire shapes reach this function:
+ * Two different date scalars reach this function (see the wire-date block at the
+ * top of `network/Models.kt`):
  *
- *  * **naive UTC** — `"2026-03-02T00:00:00"`, no `Z`, no offset. This is what
- *    `purchaseDate`, `soldAt`, `receivedAt` and `returnDeadline` look like.
- *  * **RFC3339 UTC** — `"2026-03-02T17:04:05Z"`. This is what `expiresAt` /
- *    `createdAt` / `lastViewedAt` on a share link look like.
+ *  * **calendar day** — `"2026-03-02"`, no time, no zone. This is what
+ *    `purchaseDate`, `soldAt`, `receivedAt`, `activatedAt`, `extendedCoverBuyBy`,
+ *    brand-warranty dates, warranty `startDate`/`endDate`, subscription dates,
+ *    `WishlistItem.targetDate` and `Claim.expectedReturnAt` look like.
+ *  * **RFC3339 UTC instant** — `"2026-03-02T17:04:05Z"`. This is what
+ *    `expiresAt` / `createdAt` / `uploadedAt` / `brandCheckedAt` look like.
+ *
+ * Server-derived day fields (`effectiveWarrantyEnd`, `returnDeadline`,
+ * `ActionItem.dueDate`, forecast dates) may arrive as either a plain day or a
+ * midnight-UTC `Z` instant while the API migrates them; the 10-char prefix is
+ * the same day in both cases.
  *
  * Both are rendered by taking the calendar date **as the server wrote it**.
  * That is deliberate:
  *
- *  * For the naive values, an offset-aware parse is simply wrong — it would move
- *    the day (23:30Z becomes the 3rd in Vietnam) for a value that never had a
- *    timezone to begin with.
- *  * For the RFC3339 values the day is already the server's UTC day, and an
- *    expiry shown a day late would be the one error this screen cannot afford.
+ *  * A calendar day has no instant and no offset. Parsing it with an
+ *    offset-aware parser invents a timezone and can move the day (a UTC-midnight
+ *    value becomes the previous/next day outside UTC); the day is already final.
+ *  * For an instant, the 10-char prefix is its **UTC** day. Converting an expiry
+ *    through the device's zone can show it a day late, which is the one error
+ *    this screen cannot afford; the day is shown without conversion.
  *
  * So: never invent a date, never guess one, and return `null` rather than a
  * half-parsed string when the value is not a well-formed `YYYY-MM-DD...`.
@@ -38,7 +47,7 @@ package com.warrly.ui.screens
  * `YYYY-MM-DD` prefix, so this checks that shape exactly and gives up otherwise.
  */
 
-/** `"2026-03-02T00:00:00"` → `"02/03/2026"`; malformed/blank/absent → `null`. */
+/** `"2026-03-02"` or `"2026-03-02T17:04:05Z"` → `"02/03/2026"`; malformed/blank/absent → `null`. */
 internal fun vietnamDate(wire: String?): String? {
     val date = wire?.trim()?.take(10).orEmpty()
     val parts = date.split("-")

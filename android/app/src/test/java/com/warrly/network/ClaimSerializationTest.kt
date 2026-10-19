@@ -35,7 +35,7 @@ class ClaimSerializationTest {
               "deviceId": "dev-1",
               "warrantyId": "war-1",
               "status": "IN_REPAIR",
-              "openedAt": "2026-03-02T00:00:00",
+              "openedAt": "2026-03-02T00:00:00Z",
               "expectedReturnAt": "2026-03-09",
               "closedAt": null,
               "ticketNumber": "SC-123",
@@ -45,8 +45,8 @@ class ClaimSerializationTest {
               "issue": "Không sạc được",
               "cost": 250000,
               "coveredByWarranty": true,
-              "createdAt": "2026-03-02T01:02:03",
-              "updatedAt": "2026-03-03T04:05:06"
+              "createdAt": "2026-03-02T01:02:03Z",
+              "updatedAt": "2026-03-03T04:05:06Z"
             }
         """.trimIndent()
 
@@ -56,7 +56,7 @@ class ClaimSerializationTest {
         assertEquals("dev-1", claim.deviceId)
         assertEquals("war-1", claim.warrantyId)
         assertEquals(ClaimStatus.IN_REPAIR, claim.status)
-        assertEquals("2026-03-02T00:00:00", claim.openedAt)
+        assertEquals("2026-03-02T00:00:00Z", claim.openedAt)
         assertEquals("2026-03-09", claim.expectedReturnAt)
         assertNull("the server has not closed an in-repair claim", claim.closedAt)
         assertEquals("SC-123", claim.ticketNumber)
@@ -66,8 +66,8 @@ class ClaimSerializationTest {
         assertEquals("Không sạc được", claim.issue)
         assertEquals(250_000, claim.cost)
         assertEquals(true, claim.coveredByWarranty)
-        assertEquals("2026-03-02T01:02:03", claim.createdAt)
-        assertEquals("2026-03-03T04:05:06", claim.updatedAt)
+        assertEquals("2026-03-02T01:02:03Z", claim.createdAt)
+        assertEquals("2026-03-03T04:05:06Z", claim.updatedAt)
     }
 
     /**
@@ -79,25 +79,25 @@ class ClaimSerializationTest {
     fun claimKeepsTheUnknownWarrantyPaymentDistinctFromNo() {
         val unknownAbsent = json.decodeFromString(
             Claim.serializer(),
-            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02","issue":"Hỏng"}""",
+            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02T00:00:00Z","issue":"Hỏng"}""",
         )
         assertNull(unknownAbsent.coveredByWarranty)
 
         val unknownExplicit = json.decodeFromString(
             Claim.serializer(),
-            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02","issue":"Hỏng","coveredByWarranty":null}""",
+            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02T00:00:00Z","issue":"Hỏng","coveredByWarranty":null}""",
         )
         assertNull(unknownExplicit.coveredByWarranty)
 
         val no = json.decodeFromString(
             Claim.serializer(),
-            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02","issue":"Hỏng","coveredByWarranty":false}""",
+            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02T00:00:00Z","issue":"Hỏng","coveredByWarranty":false}""",
         )
         assertEquals(false, no.coveredByWarranty)
 
         val closed = json.decodeFromString(
             Claim.serializer(),
-            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02","issue":"Hỏng","status":"RESOLVED","closedAt":"2026-03-05T04:00:00Z"}""",
+            """{"id":"c1","deviceId":"dev-1","openedAt":"2026-03-02T00:00:00Z","issue":"Hỏng","status":"RESOLVED","closedAt":"2026-03-05T04:00:00Z"}""",
         )
         assertEquals(ClaimStatus.RESOLVED, closed.status)
         assertEquals("2026-03-05T04:00:00Z", closed.closedAt)

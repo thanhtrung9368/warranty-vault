@@ -48,7 +48,7 @@ fun billingPhaseLabel(s: AppStrings, phase: BillingPhase): String = when (phase)
 
 // ---- Wire <-> form --------------------------------------------------------
 
-/** `"2026-03-02T00:00:00"` → `"2026-03-02"`; missing/blank → `""`. */
+/** `"2026-03-02"` → `"2026-03-02"` (a calendar day, no time/zone); missing/blank → `""`. */
 internal fun trialEndsAtInput(wire: String?): String = wire?.trim()?.take(10).orEmpty()
 
 /** Form → request. Blank means "no trial" and drops the key. */

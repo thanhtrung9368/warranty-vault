@@ -173,8 +173,11 @@ internal data class ActionDuePill(val label: String, val kind: PillKind)
  * the calendar — the same reason `daysLeftFromIso` in RemindersScreen is a plain
  * function.
  *
- * Only the date half of the timestamp is read: the server sends naive UTC
- * (`"2026-03-01T00:00:00"`), so an instant-based parse would shift the day.
+ * `dueDate` is a server-derived **calendar day** (`"2026-03-01"`); older
+ * payloads rendered the same day as a midnight-UTC instant
+ * (`"2026-03-01T00:00:00Z"`). Only the 10-char date prefix is read, then parsed
+ * as a `LocalDate`; an instant + local-time conversion would move the day for
+ * anyone west of UTC.
  */
 internal fun actionDuePill(s: AppStrings, dueDate: String?, today: LocalDate): ActionDuePill? {
     val raw = dueDate?.trim()?.take(10) ?: return null
@@ -205,9 +208,10 @@ internal fun actionDuePill(s: AppStrings, dueDate: String?, today: LocalDate): A
 }
 
 /**
- * `dd/mm/yyyy` for a naive-UTC timestamp, or `null` when there is nothing
- * sensible to print. Same tolerance as `sessionDateLabel`: a malformed value
- * renders as "no date", never as a crash.
+ * `dd/mm/yyyy` for a due date, or `null` when there is nothing sensible to
+ * print. The value is a calendar day (or an older midnight-UTC rendering of
+ * one), so its 10-char date prefix is the day itself. Same tolerance as
+ * `sessionDateLabel`: a malformed value renders as "no date", never as a crash.
  */
 internal fun actionDateLabel(iso: String?): String? {
     val date = iso?.trim()?.take(10).orEmpty()

@@ -36,8 +36,9 @@ class DeviceReturnWindowTest {
 
     @Test
     fun receivedAtInput_keepsOnlyTheCalendarDateNeverAnInstant() {
-        // Naive UTC on the wire: "…T00:00:00" with no Z. Parsing it as an instant
-        // in +07:00 would move 23:30Z to the next day.
+        // receivedAt is a calendar day on the wire. A full timestamp is only
+        // tolerated by the 10-char slice; parsing it as an instant would invent
+        // a timezone and could move the day.
         assertEquals("2026-03-02", receivedAtInput("2026-03-02T00:00:00"))
         assertEquals("2026-03-02", receivedAtInput("2026-03-02T23:30:00"))
         assertEquals("2026-03-02", receivedAtInput("2026-03-02"))

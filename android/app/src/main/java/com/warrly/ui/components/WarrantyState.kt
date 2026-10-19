@@ -68,8 +68,11 @@ fun warrantyState(
 }
 
 /**
- * Accepts both a plain `YYYY-MM-DD` and a full RFC3339 timestamp (the server
- * sends the latter for `effectiveWarrantyEnd`, the former for `endDate`).
+ * Accepts both wire shapes: a plain calendar day (`YYYY-MM-DD`, used by
+ * `Warranty.endDate` and by the derived `effectiveWarrantyEnd`) and, from an
+ * older payload, the same day rendered as an RFC3339 UTC instant at midnight
+ * (`…T00:00:00Z`). Only the 10-char date prefix is read, so the day never moves
+ * through a timezone.
  */
 internal fun parseIsoDate(raw: String?): LocalDate? {
     val ten = raw?.trim()?.take(10) ?: return null

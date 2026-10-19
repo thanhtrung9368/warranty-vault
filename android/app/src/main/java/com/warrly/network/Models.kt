@@ -43,6 +43,34 @@ import kotlinx.serialization.json.put
 // cross-repo-pinned — see `api/internal/services/category_seed_test.go`); the
 // Android-side pin is `ModelsSerializationTest`, which reads the catalogs.
 
+// ---- Wire date shapes ----
+//
+// Two — and only two — date scalars cross the wire. They are not interchangeable:
+//
+//  * **Calendar day** — `YYYY-MM-DD`, no time and no zone. Every value the user
+//    picks as a day: `Device.purchaseDate/soldAt/receivedAt/activatedAt/
+//    extendedCoverBuyBy/brandWarrantyStart/brandWarrantyEnd`,
+//    `Warranty.startDate/endDate`, `Subscription.startedAt/renewalDate/
+//    trialEndsAt`, `WishlistItem.targetDate`, `Claim.expectedReturnAt`.
+//    Parse with `LocalDate.parse` (or read the 10-char prefix); never
+//    `Instant.parse`. A day has no instant, and pushing one through a time zone
+//    is exactly how a warranty end moves a day.
+//  * **Instant** — RFC3339 in UTC with a literal `Z` (`2026-03-02T17:04:05Z`,
+//    fractions allowed): `createdAt`, `updatedAt`, `openedAt`, `closedAt`,
+//    `paidAt`, `uploadedAt`, `brandCheckedAt`, session/share timestamps, notify
+//    stamps and the server's `generatedAt`/`checkedAt`. Parse with
+//    `Instant.parse` / `OffsetDateTime.parse`.
+//
+// A few server-derived fields are calendar days too: `effectiveWarrantyEnd`,
+// `returnDeadline`, `ActionItem.dueDate`, forecast `endDate`/`targetDate`, the
+// directory's `endDate`, and an audit's `nextRenewalAt`. The API is migrating
+// these from the old midnight-UTC `Z` encoding to plain `YYYY-MM-DD`; the app
+// reads the 10-char date prefix, so both shapes yield the same day. Treating one
+// as an instant and converting it to local time is what would move it.
+//
+// `ui/screens/VietnamDate.kt` owns the display rule; the Go side classifies the
+// columns in `api/sqlc.yaml` and pins them in `api/internal/wire/wire_test.go`.
+
 // ---- Auth ----
 
 @Serializable
@@ -409,6 +437,7 @@ data class Device(
     val brand: String? = null,
     val model: String? = null,
     val serialNumber: String? = null,
+    /** Calendar day (`YYYY-MM-DD`), never an instant. See the wire-date block at the top. */
     val purchaseDate: String,
     val purchasePrice: Int = 0,
     /**
@@ -453,11 +482,12 @@ data class Device(
      * write path — both fields together, or neither — so a response carries
      * either both or none of them.
      *
-     * Wire format is identical to [purchaseDate]: a naive UTC timestamp rendered
-     * as `YYYY-MM-DDTHH:MM:SS[.fff]` with **no** `Z` and no offset, e.g.
-     * `"2026-03-01T00:00:00"`. Parse the date half only (`take(10)`), never as an
-     * instant — see `ui/screens/devices/DeviceResale.kt`. (The JSON *backup* file
-     * is the exception: there `soldAt` is RFC3339 with a `Z`.)
+     * Wire format is a **calendar day** (`YYYY-MM-DD`), identical to
+     * [purchaseDate] — not a timestamp, and no `Z` or offset. Read the 10-char
+     * prefix (`LocalDate.parse`), never an instant — see
+     * `ui/screens/devices/DeviceResale.kt`. (The JSON *backup* file is the
+     * exception: there `soldAt` is RFC3339 with a `Z`, so a round trip preserves
+     * any time-of-day.)
      */
     val soldAt: String? = null,
     /**
@@ -490,9 +520,9 @@ data class Device(
      */
     val returnWindowDays: Int? = null,
     /**
-     * The day the user **actually received** the device, as a naive-UTC
-     * timestamp (`"2026-03-02T00:00:00"`, no `Z`) — the very same wire shape as
-     * [soldAt] / [purchaseDate], so only the date half is ever used.
+     * The day the user **actually received** the device, as a **calendar day**
+     * (`"2026-03-02"`) — not a timestamp, and no `Z`/offset. Same wire shape as
+     * [soldAt] / [purchaseDate]; the 10-char date half is the whole value.
      *
      * `null` means "not recorded", which is deliberately different from
      * "arrived on the purchase date": the deadline then falls back to
@@ -522,20 +552,20 @@ data class Device(
      */
     val activationRequired: Boolean = false,
     /**
-     * When the warranty was activated, in the same naive-UTC wire shape as
-     * [purchaseDate] / [soldAt] (`"2026-03-02T00:00:00"`, no `Z`) — only the
-     * date half is ever used.
+     * When the warranty was activated, as a **calendar day** (`"2026-03-02"`) in
+     * the same wire shape as [purchaseDate] / [soldAt] — not an instant, no `Z`.
+     * Only the 10-char date is ever used.
      *
      * A date **earlier** than [purchaseDate] is allowed and must never be
      * blocked: a shop can pre-activate a device before the invoice date.
      */
     val activatedAt: String? = null,
     /**
-     * The last day extended cover (AppleCare+, Samsung Care+) can be bought, in
-     * the same naive-UTC wire shape as [purchaseDate]. `null` = the retailer
-     * gave no deadline for this device; it is not a date the client may invent.
-     * The countdown is computed by `extendedCoverState` in
-     * `ui/screens/devices/DeviceActivation.kt`.
+     * The last day extended cover (AppleCare+, Samsung Care+) can be bought, as a
+     * **calendar day** (`"2026-12-31"`) in the same wire shape as [purchaseDate]
+     * — not a timestamp. `null` = the retailer gave no deadline for this device;
+     * it is not a date the client may invent. The countdown is computed by
+     * `extendedCoverState` in `ui/screens/devices/DeviceActivation.kt`.
      */
     val extendedCoverBuyBy: String? = null,
     /**
@@ -598,16 +628,18 @@ data class Device(
      */
     val brandWarrantyStatus: BrandWarrantyStatus? = null,
     /**
-     * The warranty start the **brand** reported. Same naive-UTC-ish wire family
-     * as [purchaseDate]: only the date half is ever read (`take(10)`).
+     * The warranty start the **brand** reported, as a **calendar day**
+     * (`YYYY-MM-DD`) — not an instant. Only the 10-char date is ever read
+     * (`take(10)` / `LocalDate.parse`).
      */
     val brandWarrantyStart: String? = null,
-    /** The warranty end the **brand** reported. Never precedes [brandWarrantyStart]. */
+    /** The warranty end the **brand** reported, as a calendar day (`YYYY-MM-DD`). Never precedes [brandWarrantyStart]. */
     val brandWarrantyEnd: String? = null,
     /**
-     * When the user last looked the device up on the brand's page. The API is
-     * the clock here: the record sheet sends the current instant, and older
-     * rows may be naive-UTC strings. Only the date half is displayed.
+     * When the user last looked the device up on the brand's page. This one IS an
+     * instant: RFC3339 UTC with a `Z` (the record sheet stamps `Instant.now()`).
+     * Only its UTC date half is displayed, without a timezone conversion, so the
+     * day never moves.
      */
     val brandCheckedAt: String? = null,
     /**
@@ -717,7 +749,9 @@ data class Warranty(
     val deviceId: String,
     val type: WarrantyType = WarrantyType.STANDARD,
     val provider: String? = null,
+    /** Calendar day (`YYYY-MM-DD`), never an instant. */
     val startDate: String,
+    /** Calendar day (`YYYY-MM-DD`), never an instant. */
     val endDate: String,
     val months: Int = 0,
     /**
@@ -1071,10 +1105,19 @@ enum class ClaimStatus(@StringRes val labelRes: Int) {
 /**
  * One repair ticket (openapi `Claim`).
  *
- * Dates use the file's existing convention: a naive-UTC timestamp such as
- * `"2026-03-02T00:00:00"` with **no** `Z`; a date-only `"2026-03-02"` is also
- * accepted by the API. Only the date half is ever read (`take(10)` /
- * [com.warrly.ui.screens.vietnamDate]), never parsed as an instant.
+ * The ticket has **both** wire shapes, and they are not interchangeable:
+ *
+ *  * [openedAt], [closedAt], [createdAt] and [updatedAt] are RFC3339 UTC
+ *    **instants** with a `Z` (the server stamps `now()`; `openedAt` is the one
+ *    the form writes, as `YYYY-MM-DD`, which the server stores as UTC
+ *    midnight).
+ *  * [expectedReturnAt] is a **calendar day** (`YYYY-MM-DD`): the shop's promise
+ *    is a day, not a moment, and it must not move with a timezone.
+ *
+ * The display rule slices the 10-char date prefix for both (`take(10)` /
+ * [com.warrly.ui.screens.vietnamDate]); never run `Instant.parse` on a day, and
+ * never `LocalDate.parse` a full instant. Parse a day with `LocalDate.parse` when
+ * arithmetic is needed.
  *
  * `cost` is VND and **`Int`**, like every other per-row money field in this
  * file. `null` means "not recorded" and is not the same as `0` (a real free
@@ -1382,12 +1425,14 @@ data class Subscription(
     val intervalDays: Int? = null,
     val price: Int = 0,
     val currency: String = "VND",
+    /** Calendar day (`YYYY-MM-DD`), never an instant. */
     val startedAt: String,
+    /** Calendar day (`YYYY-MM-DD`), never an instant. */
     val renewalDate: String? = null,
     /**
-     * Free-trial end (openapi `Subscription.trialEndsAt`), in the same naive-UTC
-     * wire shape as [startedAt] / [renewalDate] (`"2026-03-02T00:00:00"`, no
-     * `Z`) — only the date half is ever used.
+     * Free-trial end (openapi `Subscription.trialEndsAt`), a **calendar day**
+     * (`"2026-02-01"`) in the same wire shape as [startedAt] / [renewalDate] —
+     * not a timestamp, no `Z`. Only the 10-char date is ever used.
      *
      * `null` = no free trial, and the plan bills straight away. When it is set,
      * the billing date row on the detail card means "trial ends" instead of
@@ -1520,6 +1565,7 @@ data class WishlistItem(
     val currentPrice: Int? = null,
     val buyUrl: String? = null,
     val imageUrl: String? = null,
+    /** Calendar day (`YYYY-MM-DD`), never an instant. */
     val targetDate: String? = null,
     val priority: WishlistPriority = WishlistPriority.WANT,
     val status: WishlistStatus = WishlistStatus.WATCHING,

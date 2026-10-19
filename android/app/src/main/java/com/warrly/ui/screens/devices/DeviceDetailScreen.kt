@@ -831,9 +831,9 @@ private fun DeviceSummaryCard(device: Device) {
                 DetailRow(stringResource(R.string.devadd_serial_number), device.serialNumber)
             }
             // Resale (roadmap #12) — only when a sale is actually recorded.
-            // `soldAt` is a naive-UTC timestamp like `purchaseDate`, so only the
-            // date half is shown (see DeviceResale.kt). Labels mirror the web
-            // detail page's "Bán lại" card.
+            // `soldAt` is a calendar day (`YYYY-MM-DD`) like `purchaseDate`, so
+            // the value is shown as written (see DeviceResale.kt). Labels mirror
+            // the web detail page's "Bán lại" card.
             if (hasSaleRecord(device.soldAt, device.soldPrice)) {
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.devdetail_resale),

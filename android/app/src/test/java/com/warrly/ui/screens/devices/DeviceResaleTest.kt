@@ -22,14 +22,13 @@ class DeviceResaleTest {
     private val vi = ResCatalog.vietnamese()
     private val en = ResCatalog.english()
 
-    // ---- soldAt: naive-UTC timestamp, exactly like purchaseDate ----
+    // ---- soldAt: a calendar day, exactly like purchaseDate ----
 
     /**
-     * `"2026-03-01T00:00:00"` has no `Z` and no offset: it is a naive UTC wall
-     * clock, not an instant. Parsing it as an instant in a +07:00 zone would
-     * shift the calendar day (23:30Z → 06:30 next day in Vietnam), so the helper
-     * — like `purchaseDate.take(10)` in AddDeviceSheet/WarrantyEditSheet — only
-     * ever keeps the first 10 characters.
+     * `soldAt` is a calendar day (`"2026-03-01"`) — no time and no zone. A full
+     * timestamp is tolerated only because the helper keeps the first 10
+     * characters; parsing it as an instant would invent a timezone and could
+     * move the day. `WireDateShapeTest` pins this at a negative UTC offset too.
      */
     @Test
     fun soldDateInput_keepsTheCalendarDateAndNeverShiftsByAnOffset() {

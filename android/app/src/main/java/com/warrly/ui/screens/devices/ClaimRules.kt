@@ -113,8 +113,8 @@ fun Device.isBrokenWithoutOpenClaim(): Boolean = brokenWithoutOpenClaim(status, 
  * Display order: live claims first, then newest `openedAt` first.
  *
  * The open repair is the row the user came to look at, so it must not fall below
- * a year of closed ones. `openedAt` is ISO-shaped (`YYYY-MM-DD…`), so a plain
- * string comparison is the right order; a blank value sorts last.
+ * a year of closed ones. `openedAt` is an RFC3339 UTC instant (`YYYY-MM-DD…Z`),
+ * so a plain string comparison is the right order; a blank value sorts last.
  */
 fun claimsInDisplayOrder(claims: List<Claim>): List<Claim> =
     claims.sortedWith(

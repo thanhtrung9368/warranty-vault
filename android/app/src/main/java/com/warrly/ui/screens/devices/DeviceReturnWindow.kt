@@ -39,11 +39,16 @@ import com.warrly.ui.screens.vietnamDate
  *
  * ## Wire format
  *
- * `receivedAt` comes back in the exact shape of `purchaseDate`/`soldAt`: a
- * **naive UTC** timestamp (`"2026-03-02T00:00:00"`, no `Z`, no offset). Only the
- * date half is ever used (`take(10)`), and the request sends that date back —
- * `DeviceInput.receivedAt` accepts `YYYY-MM-DD`. Sending the date half is not a
- * lossy edit: the field is a calendar date, and the server stores midnight of it.
+ * `receivedAt` is a **calendar day** — `"2026-03-02"`, no time and no zone, the
+ * same shape as `purchaseDate`/`soldAt`. Only the date is used, and the request
+ * sends it back as `YYYY-MM-DD`; nothing is lost, because the field is a day and
+ * the server stores midnight of it.
+ *
+ * `returnDeadline` is derived server-side and is a **calendar day** too. Newer
+ * payloads send `"2026-04-01"`; older ones sent the same day as an RFC3339 UTC
+ * instant at midnight (`"2026-04-01T00:00:00Z"`). It is displayed by its 10-char
+ * date prefix, never converted through a timezone, so the computed day cannot
+ * move in either shape.
  */
 
 /**
@@ -63,11 +68,11 @@ internal fun returnWindowDaysRequest(raw: String): Int? =
     raw.trim().ifBlank { null }?.toIntOrNull()
 
 /**
- * Wire → form. `"2026-03-02T00:00:00"` → `"2026-03-02"`; missing/blank → `""`.
+ * Wire → form. `"2026-03-02"` → `"2026-03-02"`; missing/blank → `""`.
  *
- * Never parsed as an instant: this is a naive UTC wall clock, so an
- * offset-aware parse would move the calendar day by the device's UTC offset
- * (23:30Z → the 3rd in Vietnam).
+ * A calendar day needs no parsing: slicing the 10-char prefix is the identity
+ * here and also tolerates an older payload that still carried a time. Never
+ * parsed as an instant — a day has no offset to apply.
  */
 internal fun receivedAtInput(wire: String?): String = wire?.trim()?.take(10).orEmpty()
 
