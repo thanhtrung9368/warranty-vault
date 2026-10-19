@@ -86,14 +86,24 @@ WITH
             true, 'ACTIVE', NOW(), NOW())
     RETURNING id
   ),
-  -- 4) Wishlist item with targetDate at noon today UTC
+  -- 4) Wishlist item whose targetDate is "today" in the CRON's own window.
+  --
+  -- The cron buckets on the SERVER PROCESS's calendar day
+  -- (cron.dayWindow: local midnight → next local midnight, then converted to a
+  -- UTC instant), and it compares that against the UTC wall clock stored in the
+  -- `timestamp` column. Seeding `date_trunc('day', NOW()) + 12 hours` used the
+  -- DATABASE session's day instead: on a UTC database at 04:00 ICT the stored
+  -- value was yesterday 12:00 UTC, which is outside the local-today window, so
+  -- this script failed for seven hours out of every day. `NOW() AT TIME ZONE
+  -- 'UTC'` stores the current instant's UTC wall clock — and "now" is inside
+  -- [local midnight, next local midnight) by definition, in every timezone.
   wt AS (
     INSERT INTO "WishlistItem"
       (id, "userId", name, "currentPrice", "targetDate",
        priority, status, "createdAt", "updatedAt")
     VALUES (gen_random_uuid()::text, (SELECT id FROM u),
             'Sony WH-1000XM6', 8500000,
-            date_trunc('day', NOW()) + INTERVAL '12 hours',
+            (NOW() AT TIME ZONE 'UTC'),
             'WANT', 'WATCHING', NOW(), NOW())
     RETURNING id
   ),

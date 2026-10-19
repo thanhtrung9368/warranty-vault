@@ -13,13 +13,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 const (
@@ -63,10 +63,11 @@ type AttachmentSearchHit struct {
 // The field is added here rather than to DeviceVND because DeviceVND is also the
 // create/update response, and those two payloads must keep their existing shape.
 // It is still the SAME value the list row and the device detail carry: all three
-// call wholeUnitWarrantyEnd (max endDate over Component NULL/blank rows).
+// call wholeUnitWarrantyEnd (max endDate over Component NULL/blank rows), and all
+// three serialise it as a wire.Day.
 type DeviceSearchHit struct {
 	DeviceVND
-	EffectiveWarrantyEnd *time.Time `json:"effectiveWarrantyEnd"`
+	EffectiveWarrantyEnd *wire.Day `json:"effectiveWarrantyEnd"`
 }
 
 // SearchResults is the grouped payload of GET /api/v1/search.

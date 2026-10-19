@@ -217,6 +217,63 @@ func TestScalarShapes(t *testing.T) {
 	}
 }
 
+// TestDayRoundTripsThroughItsOwnWireForm pins the DECODER, not just the encoder.
+//
+// MarshalJSON emits `YYYY-MM-DD`, so UnmarshalJSON must read it back. Inheriting
+// pgtype.Timestamp's parser (which accepts only RFC 3339 date-TIMEs) made the
+// value the API writes unreadable by anything that binds to the model — a Go
+// client, or a test decoding the API's own response into the DTO. The old
+// RFC 3339 shape still decodes, so a client that cached a pre-Day payload does
+// not break.
+func TestDayRoundTripsThroughItsOwnWireForm(t *testing.T) {
+	original := wire.Date(sampleTime)
+	blob, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if got, want := string(blob), `"2026-10-19"`; got != want {
+		t.Fatalf("marshal = %s, want %s", got, want)
+	}
+
+	var decoded wire.Day
+	if err := json.Unmarshal(blob, &decoded); err != nil {
+		t.Fatalf("unmarshal the wire form %s: %v", blob, err)
+	}
+	// A round trip preserves the DAY, not the time of day: the wire form has no
+	// clock, so the decoded value is that day's UTC midnight.
+	if !decoded.Valid || decoded.String() != original.String() {
+		t.Errorf("round trip = %q, want %q", decoded.String(), original.String())
+	}
+	if y, m, d := decoded.Time.UTC().Date(); y != 2026 || m != time.October || d != 19 {
+		t.Errorf("decoded day = %v, want 2026-10-19", decoded.Time.UTC())
+	}
+	if h, min, sec := decoded.Time.UTC().Clock(); h != 0 || min != 0 || sec != 0 {
+		t.Errorf("decoded clock = %02d:%02d:%02d, want midnight UTC", h, min, sec)
+	}
+
+	// The pre-Day shape is still accepted (lenient decoding for anything that
+	// stored or cached it), and a trailing offset does not move the UTC day.
+	for _, old := range []string{`"2026-10-19T00:00:00Z"`, `"2026-10-19T00:00:00"`, `"2026-10-19T05:40:25.551Z"`} {
+		var legacy wire.Day
+		if err := json.Unmarshal([]byte(old), &legacy); err != nil {
+			t.Errorf("unmarshal legacy %s: %v", old, err)
+			continue
+		}
+		if got, want := legacy.String(), "2026-10-19"; got != want {
+			t.Errorf("legacy %s decoded to day %q, want %q", old, got, want)
+		}
+	}
+
+	// NULL clears the value rather than panicking or keeping stale data.
+	d := wire.Date(sampleTime)
+	if err := json.Unmarshal([]byte("null"), &d); err != nil {
+		t.Fatalf("unmarshal null: %v", err)
+	}
+	if d.Valid {
+		t.Errorf("null decoded to a valid day: %+v", d)
+	}
+}
+
 // fillTimestamps returns a copy of model with every wire.Instant / wire.Day field
 // set to t, so one marshal exercises every timestamp column of that model.
 func fillTimestamps(model any, t time.Time) any {

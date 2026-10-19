@@ -76,23 +76,26 @@ type ForecastWarranty struct {
 	DeviceName string  `json:"deviceName"`
 	Type       string  `json:"type"`
 	Provider   *string `json:"provider"`
-	EndDate    string  `json:"endDate"` // RFC3339Nano UTC
-	Month      string  `json:"month"`   // bucket it was counted in
-	Months     int32   `json:"months"`
-	CostVnd    *int64  `json:"costVnd"`
+	// EndDate is Warranty.endDate — a calendar day, carried through as wire.Day so
+	// it is the SAME shape the warranty row itself is serialised with elsewhere.
+	EndDate wire.Day `json:"endDate"`
+	Month   string   `json:"month"` // bucket it was counted in
+	Months  int32    `json:"months"`
+	CostVnd *int64   `json:"costVnd"`
 }
 
 // ForecastWishlistItem is one upcoming wishlist target date. `currentPriceVnd` is
 // the last recorded price (nil when none was ever entered) — a possible spend,
 // not a charge.
 type ForecastWishlistItem struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	TargetDate      string `json:"targetDate"` // RFC3339Nano UTC
-	Month           string `json:"month"`
-	Priority        string `json:"priority"`
-	Status          string `json:"status"`
-	CurrentPriceVnd *int64 `json:"currentPriceVnd"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// TargetDate is WishlistItem.targetDate — a calendar day, not an instant.
+	TargetDate      wire.Day `json:"targetDate"`
+	Month           string   `json:"month"`
+	Priority        string   `json:"priority"`
+	Status          string   `json:"status"`
+	CurrentPriceVnd *int64   `json:"currentPriceVnd"`
 }
 
 // Forecast is the whole read model behind GET /api/v1/forecast.
@@ -344,7 +347,7 @@ func BuildForecast(lang i18n.Tag, now time.Time, months int, subs []store.Subscr
 			DeviceName: w.DeviceName,
 			Type:       w.Type,
 			Provider:   w.Provider,
-			EndDate:    w.EndDate.Time.UTC().Format(time.RFC3339Nano),
+			EndDate:    w.EndDate,
 			Month:      f.Buckets[idx].Month,
 			Months:     w.Months,
 			CostVnd:    costPtr(w.Cost),
@@ -368,7 +371,7 @@ func BuildForecast(lang i18n.Tag, now time.Time, months int, subs []store.Subscr
 		f.UpcomingWishlist = append(f.UpcomingWishlist, ForecastWishlistItem{
 			ID:              it.ID,
 			Name:            it.Name,
-			TargetDate:      it.TargetDate.Time.UTC().Format(time.RFC3339Nano),
+			TargetDate:      it.TargetDate,
 			Month:           f.Buckets[idx].Month,
 			Priority:        it.Priority,
 			Status:          it.Status,

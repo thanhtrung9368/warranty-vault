@@ -9,6 +9,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // Warranty directory — "giờ tôi mang máy đi đâu?" (FEATURE_IDEAS #15).
@@ -60,10 +61,14 @@ type DirectoryProvider struct {
 
 // WarrantyCentre is one warranty package's answer to "where do I take this".
 type WarrantyCentre struct {
-	WarrantyID   string  `json:"warrantyId"`
-	WarrantyType string  `json:"warrantyType"`
-	EndDate      *string `json:"endDate"`
-	IsActive     bool    `json:"isActive"`
+	WarrantyID   string `json:"warrantyId"`
+	WarrantyType string `json:"warrantyType"`
+	// EndDate is Warranty.endDate — a calendar day. The `isActive` flag below is
+	// computed from the same Day (inclusive, on the device's local calendar), so
+	// the date a client renders and the active/inactive pill cannot disagree.
+	// An invalid Day marshals as null, which is the old *string nil shape.
+	EndDate  wire.Day `json:"endDate"`
+	IsActive bool     `json:"isActive"`
 	// ProviderInput is the free text the user typed. Always present when the
 	// warranty has a provider, matched or not, so a client can always show
 	// something true instead of an empty box.
@@ -166,8 +171,10 @@ func BuildServiceDirectory(ctx context.Context, db *pgxpool.Pool, userID, device
 			centre.PhoneSource = "user"
 		}
 		if w.EndDate.Valid {
-			end := w.EndDate.Time.UTC().Format(time.RFC3339)
-			centre.EndDate = &end
+			// Carried through unchanged: the column is already a wire.Day, so the
+			// directory emits the same `YYYY-MM-DD` as the warranty row it
+			// describes.
+			centre.EndDate = w.EndDate
 			// EndDate is a calendar date stored at UTC midnight, not an instant.
 			// Comparing it to now made a package that ends TODAY look expired
 			// from 00:00 UTC (07:00 local) onward. The date is inclusive.

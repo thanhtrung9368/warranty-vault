@@ -2,7 +2,17 @@ package services
 
 import (
 	"testing"
+	"time"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
+
+// dayForTest builds a wire.Day for a hand-constructed derived DTO. Action items
+// carry DueDate as a Day, so the fixtures must too — a test that kept using an
+// RFC3339 string would no longer compile, which is the point of the type.
+func dayForTest(year int, month time.Month, day int) wire.Day {
+	return wire.Date(time.Date(year, month, day, 0, 0, 0, 0, time.UTC))
+}
 
 // "Việc cần xử lý" (FEATURE_IDEAS #3) — the pure parts: key parsing and ordering.
 // Deriving items needs a database and is covered in internal/handlers against a
@@ -76,8 +86,8 @@ func TestEveryActionKindIsKnown(t *testing.T) {
 }
 
 func TestSortActionItems(t *testing.T) {
-	d1 := "2026-03-01T00:00:00Z"
-	d2 := "2026-03-05T00:00:00Z"
+	d1 := dayForTest(2026, 3, 1)
+	d2 := dayForTest(2026, 3, 5)
 
 	items := []ActionItem{
 		{ItemKey: "LOW:a", Kind: ActionDeviceMissingSerial, Severity: ActionSeverityLow, DueDate: &d1},
@@ -100,7 +110,7 @@ func TestSortActionItems(t *testing.T) {
 func TestSortActionItemsIsStableForIdenticalInputs(t *testing.T) {
 	// Two different items with the same severity and no date must not swap places
 	// between two responses: a client diffing them must not see phantom changes.
-	d := "2026-03-01T00:00:00Z"
+	d := dayForTest(2026, 3, 1)
 	build := func() []ActionItem {
 		return []ActionItem{
 			{ItemKey: ActionItemKey(ActionDeviceMissingSerial, "zzz"), Kind: ActionDeviceMissingSerial, Severity: ActionSeverityLow, DueDate: &d},

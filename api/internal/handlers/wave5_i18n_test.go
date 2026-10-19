@@ -380,16 +380,23 @@ func TestActionQueueIsLocalisedEndToEnd(t *testing.T) {
 	ctx := context.Background()
 
 	const subID = "zz_wave5_sub"
+	// The renewal date is seeded EXPLICITLY rather than as `NOW() + 5 days`.
+	// `NOW()` is the database clock rendered in the session zone while the
+	// expectation below was built from Go's LOCAL clock, so in UTC+7 after 17:00
+	// local the two calendar days differ and this test failed for seven hours a
+	// day. Passing the value in makes the seed and the assertion the same day by
+	// construction: pgx writes a `timestamp without time zone` from the time's UTC
+	// wall clock, and noon UTC cannot slide either way.
+	renewal := time.Now().UTC().AddDate(0, 0, 5)
+	renewal = time.Date(renewal.Year(), renewal.Month(), renewal.Day(), 12, 0, 0, 0, time.UTC)
 	if _, err := env.pool.Exec(ctx, `
 		INSERT INTO "Subscription" (id, "userId", name, "billingCycle", price, currency,
 		                            "startedAt", "renewalDate", "autoRenew", status, "createdAt", "updatedAt")
 		VALUES ($1, $2, 'Netflix', 'MONTHLY', 1200000, 'VND',
-		        NOW() - INTERVAL '1 year', NOW() + INTERVAL '5 days', true, 'ACTIVE', NOW(), NOW())`,
-		subID, env.userID); err != nil {
+		        NOW() - INTERVAL '1 year', $3, true, 'ACTIVE', NOW(), NOW())`,
+		subID, env.userID, renewal); err != nil {
 		t.Fatalf("insert subscription: %v", err)
 	}
-
-	renewal := time.Now().AddDate(0, 0, 5)
 
 	for _, tc := range []struct {
 		lang      string

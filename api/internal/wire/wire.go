@@ -95,6 +95,20 @@ func (d Day) Instant() Instant {
 	return Instant(d)
 }
 
+// Ptr returns a pointer to d, or nil when d is NULL.
+//
+// Optional day fields on a response DTO use it: with `json:",omitempty"` a nil
+// pointer drops the key ("this item has no date"), while a valid day marshals
+// `YYYY-MM-DD`. A non-nil pointer to an invalid Day would marshal `null`
+// instead, which is a different statement — that is why the NULL case returns
+// nil rather than &d.
+func (d Day) Ptr() *Day {
+	if !d.Valid {
+		return nil
+	}
+	return &d
+}
+
 // Day returns the calendar day an instant falls on, in UTC.
 func (i Instant) Day() Day {
 	return Day(i)
@@ -116,7 +130,21 @@ func (d Day) MarshalJSON() ([]byte, error) {
 	if !d.Valid {
 		return []byte("null"), nil
 	}
-	return json.Marshal(d.Time.UTC().Format(DayLayout))
+	return json.Marshal(d.String())
+}
+
+// String returns the canonical wire form, `YYYY-MM-DD`, or "" when the day is
+// NULL. It is the same bytes MarshalJSON emits, minus the quotes.
+//
+// It exists so a renderer that already takes a wire string (the public
+// certificate's shareDate, which must also accept an RFC 3339 instant) can be
+// fed a Day without a second formatting path — and without ever going through
+// time.Time, which is the shape that used to leak a day as an instant.
+func (d Day) String() string {
+	if !d.Valid {
+		return ""
+	}
+	return d.Time.UTC().Format(DayLayout)
 }
 
 // The four methods below are written out rather than left to embedding: pgx's
@@ -141,6 +169,29 @@ func (d Day) Value() (driver.Value, error) { return d.Timestamp.Value() }
 // surprise a decoder that binds to a model directly.
 func (i *Instant) UnmarshalJSON(b []byte) error { return i.Timestamp.UnmarshalJSON(b) }
 
-// UnmarshalJSON keeps pgtype.Timestamp's lenient parsing for decoders that bind
-// to a model directly.
-func (d *Day) UnmarshalJSON(b []byte) error { return d.Timestamp.UnmarshalJSON(b) }
+// UnmarshalJSON accepts the wire form — `YYYY-MM-DD` — and then falls back to
+// pgtype.Timestamp's lenient parsing (RFC 3339 with or without an offset) so a
+// decoder that binds to a model directly can still read the pre-Day shape.
+//
+// The bare-date branch is not optional: pgtype.Timestamp accepts only
+// RFC 3339 / ISO 8601 date-TIME strings, so inheriting its UnmarshalJSON would
+// make a Day impossible to read back in the very form it writes. That rounds
+// wrong in both directions — a Go client (or a test decoding the API's own
+// response into the DTO) would fail on "2026-10-19" while the server is
+// contract-correct.
+func (d *Day) UnmarshalJSON(b []byte) error {
+	var s *string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	if s == nil {
+		*d = Day{}
+		return nil
+	}
+	if t, err := time.Parse(DayLayout, *s); err == nil {
+		d.Timestamp = pgtype.Timestamp{Time: t.UTC(), Valid: true}
+		return nil
+	}
+	// The old shape (and "infinity"/"-infinity", if they ever occur here).
+	return d.Timestamp.UnmarshalJSON(b)
+}

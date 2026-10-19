@@ -93,11 +93,15 @@ type SharedWarranty struct {
 	Type      string  `json:"type"`
 	Component *string `json:"component"`
 	Provider  *string `json:"provider"`
-	StartDate string  `json:"startDate"`
-	EndDate   string  `json:"endDate"`
-	Months    int32   `json:"months"`
-	Address   *string `json:"address"`
-	Phone     *string `json:"phone"`
+	// StartDate / EndDate are Warranty.startDate / .endDate — calendar days,
+	// serialised `YYYY-MM-DD` like every other day in the API. The certificate's
+	// renderer accepts both this shape and full RFC 3339 (see handlers.shareDate),
+	// so the printed document is unchanged.
+	StartDate wire.Day `json:"startDate"`
+	EndDate   wire.Day `json:"endDate"`
+	Months    int32    `json:"months"`
+	Address   *string  `json:"address"`
+	Phone     *string  `json:"phone"`
 }
 
 // SharedCertificate is the ENTIRE projection a share link exposes.
@@ -108,16 +112,17 @@ type SharedWarranty struct {
 // so it is a security decision (see the openapi description of the endpoint,
 // which pins the same list).
 type SharedCertificate struct {
-	DeviceName    string  `json:"deviceName"`
-	Category      string  `json:"category"`
-	Brand         *string `json:"brand"`
-	Model         *string `json:"model"`
-	PurchaseDate  string  `json:"purchaseDate"`
-	PurchasePlace *string `json:"purchasePlace"`
-	Status        string  `json:"status"`
+	DeviceName string  `json:"deviceName"`
+	Category   string  `json:"category"`
+	Brand      *string `json:"brand"`
+	Model      *string `json:"model"`
+	// PurchaseDate / SoldAt are Device.purchaseDate / .soldAt — calendar days.
+	PurchaseDate  wire.Day `json:"purchaseDate"`
+	PurchasePlace *string  `json:"purchasePlace"`
+	Status        string   `json:"status"`
 	// SoldAt is included when recorded: the buyer's own proof of when the
 	// handover happened.
-	SoldAt *string `json:"soldAt"`
+	SoldAt *wire.Day `json:"soldAt"`
 	// SerialNumber is present ONLY when the owner opted in (includeSerial).
 	SerialNumber *string `json:"serialNumber"`
 	// SerialMasked is always present when the device has a serial, whatever the
@@ -133,10 +138,14 @@ type SharedCertificate struct {
 	// periods to speak for themselves. For a device whose rows all have a NULL
 	// component (every row written before migration 0017), this is byte-for-byte
 	// the same max it has always been.
-	EffectiveWarrantyEnd *string          `json:"effectiveWarrantyEnd"`
+	// It is a wire.Day: it is max() over Warranty.endDate, which is a Day, and
+	// the recipient may compare it with a per-package `endDate` on the same page.
+	EffectiveWarrantyEnd *wire.Day        `json:"effectiveWarrantyEnd"`
 	Warranties           []SharedWarranty `json:"warranties"`
 	// ExpiresAt is when the link stops working, so the recipient knows the
-	// document has a shelf life.
+	// document has a shelf life. This one is a real instant (it is now + TTL, and
+	// it gates an HTTP read), so it stays RFC 3339 — the one deliberate
+	// date-time on the certificate, documented in openapi.yaml.
 	ExpiresAt string `json:"expiresAt"`
 	// IssuedAt is when the link was created, not when the page was opened.
 	IssuedAt   string `json:"issuedAt"`
@@ -342,10 +351,10 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 		Category:      row.DeviceCategory,
 		Brand:         row.DeviceBrand,
 		Model:         row.DeviceModel,
-		PurchaseDate:  tsString(row.DevicePurchaseDate.Instant()),
+		PurchaseDate:  row.DevicePurchaseDate,
 		PurchasePlace: row.DevicePurchasePlace,
 		Status:        row.DeviceStatus,
-		SoldAt:        tsPtrString(row.DeviceSoldAt.Instant()),
+		SoldAt:        row.DeviceSoldAt.Ptr(),
 		ExpiresAt:     tsString(row.ShareExpiresAt),
 		IssuedAt:      tsString(row.ShareCreatedAt),
 		Warranties:    make([]SharedWarranty, 0, len(warranties)),
@@ -367,8 +376,8 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 			Type:      w.Type,
 			Component: w.Component,
 			Provider:  w.Provider,
-			StartDate: tsString(w.StartDate.Instant()),
-			EndDate:   tsString(w.EndDate.Instant()),
+			StartDate: w.StartDate,
+			EndDate:   w.EndDate,
 			Months:    w.Months,
 			Address:   w.Address,
 			Phone:     w.Phone,
@@ -447,7 +456,7 @@ func shareDTO(row store.DeviceShare) DeviceShare {
 }
 
 // maxWholeUnitEndDate returns the latest end date among WHOLE-UNIT rows
-// (Component == nil) as RFC3339, or nil.
+// (Component == nil) as a wire.Day, or nil.
 //
 // The component filter is the certificate's honesty fix (migration 0017). A
 // device can carry several clocks: a 24-month whole-device plan and a 10-year
@@ -460,7 +469,7 @@ func shareDTO(row store.DeviceShare) DeviceShare {
 // did. When every row is component-scoped, the answer is nil; the certificate
 // then shows "no expiry date" for the whole unit and lists each component clock
 // with its own name and period, rather than inventing a whole-unit number.
-func maxWholeUnitEndDate(rows []store.ListWarrantiesForShareRow) *string {
+func maxWholeUnitEndDate(rows []store.ListWarrantiesForShareRow) *wire.Day {
 	var max time.Time
 	found := false
 	for _, w := range rows {
@@ -481,8 +490,8 @@ func maxWholeUnitEndDate(rows []store.ListWarrantiesForShareRow) *string {
 	if !found {
 		return nil
 	}
-	s := max.UTC().Format(time.RFC3339)
-	return &s
+	day := wire.Date(max)
+	return &day
 }
 
 func tsString(ts wire.Instant) string {

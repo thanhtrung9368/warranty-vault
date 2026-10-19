@@ -1837,6 +1837,11 @@ paths:
               schema:
                 type: object
                 properties: { payment: { $ref: '#/components/schemas/Payment' } }
+        # amount < 0, an unparsable paidAt, and a note longer than the documented
+        # 500 characters all answer this. VALIDATION, so 400 — not the 409 a
+        # LIMIT_REACHED uses.
+        '400': { $ref: '#/components/responses/BadInput' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/subscriptions/{id}/renew:
     parameters:
@@ -4724,7 +4729,7 @@ components:
           properties:
             effectiveWarrantyEnd:
               type: string
-              format: date-time
+              format: date
               nullable: true
               description: |
                 `max(endDate)` của các dòng bảo hành **toàn máy** — dòng có
@@ -4733,6 +4738,12 @@ components:
                 loại khỏi phép max: mốc 10 năm của động cơ không được biến thành
                 "cả máy còn bảo hành tới 2035". `null` khi không có dòng toàn máy
                 nào có ngày kết thúc (kể cả khi mọi dòng đều theo bộ phận).
+
+                `YYYY-MM-DD` — một **ngày lịch**, không phải instant. Đây chính là
+                một `Warranty.endDate` (max của chúng), nên nó cố ý cùng kiểu với
+                `warranty.endDate`: client so sánh hai giá trị đó phải dùng đúng
+                một parser. Trước đây trường này trả `…T00:00:00Z` trong khi dòng
+                bảo hành trả `YYYY-MM-DD` — cùng một ngày, hai hình dạng.
 
                 **Cùng một helper** (`wholeUnitWarrantyEnd`) tính trường này cho
                 list, detail và search, nên ba endpoint luôn trả cùng một giá trị
@@ -4753,14 +4764,16 @@ components:
               description: 'Number of encrypted attachments on the device (0 when there are none).'
             returnDeadline:
               type: string
-              format: date-time
+              format: date
               nullable: true
               description: |
                 Hạn đổi/trả **đã tính sẵn**:
-                `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`.
-                `null` khi chưa biết số ngày, khi số ngày là 0, hoặc thiếu
-                `purchaseDate`. Tính ở server để ba client không tự chia ngày
-                theo ba cách khác nhau.
+                `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`,
+                dạng `YYYY-MM-DD` — một **ngày lịch**, không phải instant. Cả hai
+                đầu vào là cột ngày và chỉ cộng thêm số ngày nguyên, nên không có
+                giờ nào để lệch múi giờ. `null` khi chưa biết số ngày, khi số ngày
+                là 0, hoặc thiếu `purchaseDate`. Tính ở server để ba client không
+                tự chia ngày theo ba cách khác nhau.
 
     DeviceDetail:
       allOf:
@@ -4769,9 +4782,9 @@ components:
           properties:
             returnDeadline:
               type: string
-              format: date-time
+              format: date
               nullable: true
-              description: 'Giống `DeviceListItem.returnDeadline`: hạn đổi/trả đã tính sẵn, `null` khi chưa biết/không áp dụng.'
+              description: 'Giống `DeviceListItem.returnDeadline`: hạn đổi/trả đã tính sẵn, dạng `YYYY-MM-DD` (ngày lịch, không phải instant), `null` khi chưa biết/không áp dụng.'
             attachments:
               type: array
               items: { $ref: '#/components/schemas/AttachmentMeta' }
@@ -5740,7 +5753,17 @@ components:
           description: |
             Thời điểm thanh toán. **Vắng mặt hoặc chuỗi rỗng ⇒ server lấy thời
             điểm hiện tại.** Gửi kèm khi ghi lại một khoản đã trả trước đó.
-        note: { type: string, maxLength: 500, nullable: true }
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: |
+            Ghi chú tự do. **Server thực sự áp dụng giới hạn 500 ký tự** (đếm theo
+            ký tự/runes, đúng nghĩa `maxLength` của JSON Schema). Dài hơn 500 bị
+            từ chối `400` với `error: "validation"` và `fieldErrors.note` — cùng
+            hình dạng với các lỗi kiểm tra khác. Đây là `VALIDATION` (400), không
+            phải `LIMIT_REACHED` (409): độ dài của một trường là dữ liệu sai, không
+            phải tài nguyên đã cạn.
 
     WishlistItem:
       type: object
@@ -6019,7 +6042,10 @@ components:
         deviceName: { type: string }
         type: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
         provider: { type: string, nullable: true }
-        endDate: { type: string, format: date-time }
+        endDate:
+          type: string
+          format: date
+          description: '`YYYY-MM-DD` — chính là `Warranty.endDate` (một ngày lịch), không phải instant.'
         month: { type: string, description: 'Bucket mà khoản này được tính vào.' }
         months: { type: integer }
         costVnd: { type: integer, format: int64, nullable: true, description: 'Giá gói bảo hành đang hết hạn, để tham chiếu khi để dành tiền. `null` = chưa ghi giá (khác 0đ). Đây KHÔNG phải một khoản bị trừ.' }
@@ -6030,7 +6056,10 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        targetDate: { type: string, format: date-time }
+        targetDate:
+          type: string
+          format: date
+          description: '`YYYY-MM-DD` — chính là `WishlistItem.targetDate` (một ngày lịch), không phải instant.'
         month: { type: string }
         priority: { type: string, enum: [MUST, WANT, MAYBE] }
         status: { type: string, enum: [WATCHING, DECIDED] }
@@ -6251,13 +6280,24 @@ components:
         model: { type: string, nullable: true }
         serialNumber: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/DeviceStatus' }
-        purchaseDate: { type: string, format: date-time }
-        receivedAt: { type: string, format: date-time, nullable: true, description: 'Ngày thực nhận, `null` nếu chưa ghi (deadline khi đó tính từ `purchaseDate`).' }
+        purchaseDate:
+          type: string
+          format: date
+          description: '`YYYY-MM-DD` — ngày lịch, **không phải** instant. Chính là `Device.purchaseDate`, cùng giá trị và cùng hình dạng.'
+        receivedAt:
+          type: string
+          format: date
+          nullable: true
+          description: '`YYYY-MM-DD` — ngày lịch (`Device.receivedAt`), `null` nếu chưa ghi (deadline khi đó tính từ `purchaseDate`). Không phải instant.'
         returnWindowDays: { type: integer, description: 'Số ngày đổi/trả người dùng đã ghi. Luôn `> 0` ở endpoint này (0 và null bị lọc).' }
         returnDeadline:
           type: string
-          format: date-time
-          description: 'Hạn cuối còn được đổi/trả = `COALESCE(receivedAt, purchaseDate) + returnWindowDays ngày`.'
+          format: date
+          description: |
+            Hạn cuối còn được đổi/trả = `COALESCE(receivedAt, purchaseDate) +
+            returnWindowDays ngày`, dạng `YYYY-MM-DD` — một **ngày lịch**, không
+            phải instant: cả hai đầu vào là cột ngày và chỉ cộng thêm số ngày
+            nguyên, nên không có giờ nào bị thêm vào.
         daysLeft:
           type: integer
           description: |
@@ -6317,9 +6357,16 @@ components:
         wishlistItemId: { type: string, nullable: true }
         dueDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
-          description: 'Ngày mà việc này nói tới (hết hạn BH, hạn đổi trả, ngày gia hạn, ngày dự kiến mua). Vắng mặt khi việc không gắn với một ngày cụ thể.'
+          description: |
+            Ngày mà việc này nói tới (hết hạn BH, hạn đổi trả, ngày gia hạn, ngày
+            dự kiến mua), dạng `YYYY-MM-DD` — một **ngày lịch**, không phải
+            instant. Mọi nguồn của nó đều là ngày: `Warranty.endDate`,
+            `Device.purchaseDate`, `Subscription.renewalDate`,
+            `WishlistItem.targetDate`, `MAX(Warranty.endDate)` và hạn đổi/trả
+            (ngày + số ngày nguyên). Không có phép cộng giờ nào ở giữa. Vắng mặt
+            khi việc không gắn với một ngày cụ thể.
         amountVnd:
           type: integer
           format: int64
@@ -6401,7 +6448,15 @@ components:
         chargedTotalVnd: { type: integer, format: int64, description: 'Tổng tiền **máy đã tự trừ** (`QUIET_AUTO_RENEW`). Không phải tổng mọi thanh toán.' }
         chargeCount: { type: integer, format: int64, description: 'Số khoản máy đã tự trừ.' }
         lastRecordedAt: { type: string, format: date-time, nullable: true, description: 'Ngày thanh toán mới nhất được ghi nhận. ⚠️ Đây **không** phải ngày dùng cuối — app không có dữ liệu đó.' }
-        nextRenewalAt: { type: string, format: date-time, nullable: true }
+        nextRenewalAt:
+          type: string
+          format: date
+          nullable: true
+          description: |
+            `YYYY-MM-DD` — `Subscription.renewalDate`, một **ngày lịch**, không
+            phải instant. Tên trường giữ hậu tố `At` vì lý do tương thích ngược;
+            giá trị thì không có giờ. `null` khi gói không có ngày gia hạn.
+
         daysUntilRenewal: { type: integer, nullable: true }
         previousAmountVnd: { type: integer, format: int64, nullable: true, description: '`PRICE_INCREASED`: giá kỳ trước.' }
         amountVnd: { type: integer, format: int64, nullable: true, description: '`PRICE_INCREASED`: giá kỳ này.' }
@@ -6499,8 +6554,12 @@ components:
       properties:
         warrantyId: { type: string }
         warrantyType: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
-        endDate: { type: string, format: date-time, nullable: true }
-        isActive: { type: boolean, description: '`endDate` còn ở tương lai hay không, tính ở server.' }
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: '`YYYY-MM-DD` — `Warranty.endDate`, một ngày lịch (cùng hình dạng với dòng bảo hành), không phải instant. `null` khi gói không có ngày kết thúc.'
+        isActive: { type: boolean, description: '`endDate` còn ở tương lai hay không, tính ở server trên **ngày lịch** (một gói kết thúc hôm nay vẫn còn hiệu lực hết ngày đó).' }
         providerInput:
           type: string
           nullable: true
@@ -6579,8 +6638,8 @@ components:
         type: { type: string, enum: [STANDARD, EXTENDED, THIRD_PARTY] }
         component: { type: string, nullable: true, description: 'Bộ phận dòng này bảo hành; `null` = cả máy. Hiển thị cạnh loại gói để mốc của một bộ phận không bị đọc thành mốc toàn máy.' }
         provider: { type: string, nullable: true }
-        startDate: { type: string, format: date-time }
-        endDate: { type: string, format: date-time }
+        startDate: { type: string, format: date, description: '`YYYY-MM-DD` — `Warranty.startDate`, một ngày lịch, không phải instant.' }
+        endDate: { type: string, format: date, description: '`YYYY-MM-DD` — `Warranty.endDate`, cùng hình dạng với dòng bảo hành ở `GET /api/v1/devices/{id}`.' }
         months: { type: integer }
         address: { type: string, nullable: true }
         phone: { type: string, nullable: true }
@@ -6603,10 +6662,13 @@ components:
         category: { type: string }
         brand: { type: string, nullable: true }
         model: { type: string, nullable: true }
-        purchaseDate: { type: string, format: date-time }
+        purchaseDate:
+          type: string
+          format: date
+          description: '`YYYY-MM-DD` — `Device.purchaseDate`, một ngày lịch, không phải instant.'
         purchasePlace: { type: string, nullable: true }
         status: { type: string, enum: [ACTIVE, EXPIRED, SOLD, BROKEN, LOST] }
-        soldAt: { type: string, format: date-time, nullable: true, description: 'Ngày bàn giao, nếu chủ máy có ghi.' }
+        soldAt: { type: string, format: date, nullable: true, description: 'Ngày bàn giao (`YYYY-MM-DD`, một ngày lịch), nếu chủ máy có ghi.' }
         serialNumber:
           type: string
           nullable: true
@@ -6617,7 +6679,7 @@ components:
           description: 'Luôn có khi máy có serial: giữ tối đa 4 ký tự đầu và 4 ký tự cuối, che giữa bằng `*` (độ dài giữ nguyên). Luôn che ít nhất 1 ký tự, nên không độ dài nào dựng lại được số đầy đủ.'
         effectiveWarrantyEnd:
           type: string
-          format: date-time
+          format: date
           nullable: true
           description: |
             `max(endDate)` của các gói **toàn máy** — tức các dòng có
@@ -6629,6 +6691,11 @@ components:
             mốc toàn máy), và phiếu liệt kê từng mốc bộ phận kèm tên ở bảng bên
             dưới. Với dữ liệu cũ — mọi dòng đều `component = null` — giá trị
             giống hệt trước đây.
+
+            `YYYY-MM-DD` — một **ngày lịch**, không phải instant. Đây là max của
+            `Warranty.endDate` (một cột ngày), nên cùng hình dạng với `endDate`
+            của từng gói trong `warranties`: người nhận đối chiếu hai con số đó
+            bằng một parser.
         warranties:
           type: array
           items: { $ref: '#/components/schemas/SharedWarranty' }

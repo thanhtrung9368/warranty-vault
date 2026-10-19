@@ -19,6 +19,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ratelimit"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // maxShareCreateBody bounds the POST /shares body. The payload is two small
@@ -616,7 +617,7 @@ func buildSharePageData(c *services.SharedCertificate, now time.Time, tag i18n.T
 		d.SerialFull = *c.SerialNumber
 		d.SerialFullRaw = safeNote(tag, sharePageKeys.SerialFull, *c.SerialNumber)
 	}
-	d.PurchaseDate = shareDate(tag, c.PurchaseDate)
+	d.PurchaseDate = shareDate(tag, c.PurchaseDate.String())
 	if c.PurchasePlace != nil {
 		d.PurchasePlace = *c.PurchasePlace
 	}
@@ -626,12 +627,12 @@ func buildSharePageData(c *services.SharedCertificate, now time.Time, tag i18n.T
 		d.StatusLabel = c.Status
 	}
 	if c.SoldAt != nil {
-		d.SoldAt = shareDate(tag, *c.SoldAt)
+		d.SoldAt = shareDate(tag, c.SoldAt.String())
 	}
 	if c.EffectiveWarrantyEnd != nil {
 		end := *c.EffectiveWarrantyEnd
-		d.WarrantyEnd = shareDate(tag, end)
-		d.WarrantyState = warrantyStateLabel(tag, end, now)
+		d.WarrantyEnd = shareDate(tag, end.String())
+		d.WarrantyState = warrantyStateLabel(tag, end.String(), now)
 	} else {
 		d.WarrantyState = translateKeyData(tag, sharePageKeys.NoEndDate)
 	}
@@ -644,7 +645,7 @@ func buildSharePageData(c *services.SharedCertificate, now time.Time, tag i18n.T
 		}
 		row := sharePageWarranty{
 			TypeLabel: label,
-			Period:    strings.TrimSpace(shareDate(tag, w.StartDate) + " — " + shareDate(tag, w.EndDate)),
+			Period:    strings.TrimSpace(shareDate(tag, w.StartDate.String()) + " — " + shareDate(tag, w.EndDate.String())),
 			Months:    shareMonths(tag, w.Months),
 		}
 		if w.Component != nil && strings.TrimSpace(*w.Component) != "" {
@@ -677,29 +678,64 @@ func buildSharePageData(c *services.SharedCertificate, now time.Time, tag i18n.T
 	return d
 }
 
-// shareDate renders an RFC3339 instant as the language's short date: dd/MM/yyyy in
+// shareDate renders a wire date as the language's short date: dd/MM/yyyy in
 // Vietnamese, MM/DD/yyyy in English (i18n.FormatDate, the same helper the cron
 // push bodies and the subscription audit use). An unparsable value renders as
 // empty rather than raw: the certificate is read by a stranger, and
 // "2027-01-15T00:00:00Z" in the middle of a sentence helps nobody.
+//
+// It accepts BOTH shapes the certificate still carries, because the document has
+// two kinds of date in it:
+//
+//   - `YYYY-MM-DD` — a calendar day (`Device.purchaseDate` / `soldAt`, each
+//     `SharedWarranty.startDate` / `endDate`, and the whole-unit
+//     `effectiveWarrantyEnd`). A day is not an instant, so it is formatted as the
+//     day it is; no zone is applied and none can move it.
+//   - RFC 3339 with an offset — a real instant, which on this document means only
+//     the link's own `expiresAt` / `issuedAt`. Those are rendered on the Vietnam
+//     calendar day (the certificate is a Vietnamese document): a link minted at
+//     17:00 UTC is already the next day in Vietnam.
+//
+// Keeping both here is what let the day fields become `wire.Day` without
+// changing one character of the printed page: the renderer used to accept only
+// RFC 3339, so converting the projection without this change would have blanked
+// every date on the certificate.
 //
 // It replaces the wave-3-era `viDate`, which hardcoded format "02/01/2006". The
 // two formats are genuinely ambiguous against each other, which is exactly why the
 // date has to follow the page's language: "05/07/2026" is 5 July to a Vietnamese
 // reader and 7 May to an English one, and this page is the one a buyer keeps.
 func shareDate(tag i18n.Tag, s string) string {
-	if s == "" {
+	day, ok := shareDay(s)
+	if !ok {
 		return ""
+	}
+	return i18n.FormatDate(tag, day)
+}
+
+// shareDay parses either wire shape into the calendar day the certificate shows,
+// as a UTC-midnight time.Time (only its Y/M/D are read).
+//
+// A bare `YYYY-MM-DD` IS that day. An RFC 3339 instant is projected onto the
+// Vietnam calendar first, the same zone shareDate renders it in, so a date and
+// the validity pill next to it can never describe different days.
+func shareDay(s string) (time.Time, bool) {
+	if s == "" {
+		return time.Time{}, false
+	}
+	if day, err := time.Parse(wire.DayLayout, s); err == nil {
+		return day, true
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return ""
+		return time.Time{}, false
 	}
 	// The certificate is a Vietnamese document (api/README.md, i18n rules): render
 	// its instants on the Vietnam calendar day, not UTC's. Calendar dates are
 	// stored at UTC midnight, which stays the same day at UTC+7; instants created
 	// between 17:00 and 24:00 UTC would otherwise print yesterday's date.
-	return i18n.FormatDate(tag, t.In(vietnamZone))
+	t = t.In(vietnamZone)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), true
 }
 
 // vietnamZone is the calendar the public certificate is rendered on. Vietnam has
@@ -725,15 +761,17 @@ func shareMonths(tag i18n.Tag, n int32) string {
 }
 
 // warrantyStateLabel is computed against the request time, so the page cannot
-// claim "Còn hiệu lực" for a package that already lapsed.
+// claim "Còn hiệu lực" for a package that already lapsed. It parses the same
+// either-shape date as shareDate, so the pill and the printed date agree.
 func warrantyStateLabel(tag i18n.Tag, end string, now time.Time) string {
-	t, err := time.Parse(time.RFC3339, end)
-	if err != nil {
+	day, ok := shareDay(end)
+	if !ok {
 		return ""
 	}
 	// endDate is inclusive: a package ending today is still valid until the end
 	// of the holder's calendar day, not until 00:00 of that day.
-	endOfDay := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, now.Location())
+	y, m, d := day.Date()
+	endOfDay := time.Date(y, m, d, 23, 59, 59, 0, now.Location())
 	if !now.After(endOfDay) {
 		return translateKeyData(tag, sharePageKeys.Valid)
 	}

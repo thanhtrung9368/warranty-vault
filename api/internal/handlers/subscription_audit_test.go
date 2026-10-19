@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -135,6 +136,19 @@ func TestSubscriptionAuditOverHTTP(t *testing.T) {
 	}
 	if quiet[0].LastRecordedAt == nil {
 		t.Error("lastRecordedAt must be present when there are payments")
+	} else if _, err := time.Parse(time.RFC3339Nano, *quiet[0].LastRecordedAt); err != nil {
+		// A payment happened at a moment, so this one stays RFC 3339 with an offset.
+		t.Errorf("lastRecordedAt = %q, want an RFC 3339 instant: %v", *quiet[0].LastRecordedAt, err)
+	}
+	// nextRenewalAt is Subscription.renewalDate, a calendar DAY. The `…At` name is
+	// historical; the value has no clock and must not be emitted as an instant.
+	if quiet[0].NextRenewalAt == nil {
+		t.Error("nextRenewalAt must be present: the fixture has a renewal date")
+	} else {
+		day := quiet[0].NextRenewalAt.String()
+		if _, err := time.Parse("2006-01-02", day); err != nil || len(day) != 10 {
+			t.Errorf("nextRenewalAt = %q, want a bare YYYY-MM-DD day", day)
+		}
 	}
 
 	rises := byKind[services.AuditPriceIncreased]

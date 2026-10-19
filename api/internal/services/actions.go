@@ -133,10 +133,18 @@ type ActionItem struct {
 	SubscriptionID *string `json:"subscriptionId,omitempty"`
 	WishlistItemID *string `json:"wishlistItemId,omitempty"`
 
-	// DueDate is the date the item is about (warranty end, return deadline,
-	// renewal date, wishlist target) — RFC3339Nano UTC, or absent when the item
-	// has no single date.
-	DueDate *string `json:"dueDate,omitempty"`
+	// DueDate is the calendar day the item is about (warranty end, return
+	// deadline, renewal date, wishlist target) — `YYYY-MM-DD`, or absent when the
+	// item has no single date.
+	//
+	// It is a wire.Day, not an instant, because every input is one: Warranty.endDate,
+	// Device.purchaseDate, Subscription.renewalDate and WishlistItem.targetDate are
+	// Day columns, the "last warranty end" is MAX() over a Day column, and the
+	// exchange deadline is a Day plus whole days. Nothing in this derivation adds a
+	// time-of-day, so the value is a day the whole way through and a client can
+	// compare it to `warranty.endDate` or `subscription.renewalDate` without
+	// converting anything.
+	DueDate *wire.Day `json:"dueDate,omitempty"`
 	// AmountVnd is the money the item is about, when there is one (VND, int64).
 	AmountVnd *int64 `json:"amountVnd,omitempty"`
 	// SnoozedUntil is present only on rows returned by `?snoozed=true`, i.e. rows
@@ -429,7 +437,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		}
 		if r.EndDate.Valid {
 			days := -DaysUntil(r.EndDate.Time, now)
-			it.DueDate = tsPtrUTC(r.EndDate.Instant())
+			it.DueDate = r.EndDate.Ptr()
 			it.Title = textIn(lang, "Bảo hành đã hết hạn")
 			// A count-bearing sentence, so it is a singular/plural pair with a
 			// separate argument list per form: `days` is >= 1 by construction
@@ -481,7 +489,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			DeviceID: ptrOf(r.DeviceID),
 		}
 		if r.LastEndDate.Valid {
-			it.DueDate = tsPtrUTC(r.LastEndDate)
+			it.DueDate = wire.FromDay(r.LastEndDate.Timestamp).Ptr()
 			it.Detail = i18n.Translate(lang, "Bảo hành của «%s» đã hết từ %s nhưng trạng thái vẫn là đang dùng. Bộ lọc «Đã hết hạn» vì thế trả về một danh sách khác với «bảo hành đã hết».",
 				r.DeviceName, date(r.LastEndDate.Time))
 		} else {
@@ -543,7 +551,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		}
 		if r.ReturnDeadline.Valid {
 			days := DaysUntil(r.ReturnDeadline.Time, now)
-			it.DueDate = tsPtrUTC(r.ReturnDeadline)
+			it.DueDate = wire.FromDay(r.ReturnDeadline.Timestamp).Ptr()
 			// `days` counts DOWN to the deadline and reaches 1 the day before it,
 			// so the pair is reachable rather than theoretical.
 			it.Detail = pluralText(lang, days,
@@ -575,7 +583,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			DeviceID: ptrOf(r.DeviceID),
 		}
 		if r.PurchaseDate.Valid {
-			it.DueDate = tsPtrUTC(r.PurchaseDate.Instant())
+			it.DueDate = r.PurchaseDate.Ptr()
 			it.Detail = i18n.Translate(lang, "«%s» mua ngày %s nhưng chưa ghi hạn đổi trả, nên app không thể nhắc bạn trước khi hết hạn đổi/trả.",
 				r.DeviceName, date(r.PurchaseDate.Time))
 		} else {
@@ -603,7 +611,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			AmountVnd:      ptrOf(int64(r.Price)),
 		}
 		if r.RenewalDate.Valid {
-			it.DueDate = tsPtrUTC(r.RenewalDate.Instant())
+			it.DueDate = r.RenewalDate.Ptr()
 			it.Detail = i18n.Translate(lang, "«%s» sẽ tự gia hạn ngày %s (%s) và chưa có link huỷ — muốn dừng thì phải vào tận trang của nhà cung cấp.",
 				r.Name, date(r.RenewalDate.Time), money(int64(r.Price)))
 		} else {
@@ -630,7 +638,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			AmountVnd:      ptrOf(int64(r.LastPaidAmount)),
 		}
 		if r.RenewalDate.Valid && r.LastPaidAt.Valid {
-			it.DueDate = tsPtrUTC(r.RenewalDate.Instant())
+			it.DueDate = r.RenewalDate.Ptr()
 			// The renewal date is strictly before today (the query says so), so
 			// the count reaches 1 and the singular form is reachable.
 			elapsed := -DaysUntil(r.RenewalDate.Time, now)
@@ -665,7 +673,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			it.AmountVnd = ptrOf(int64(*r.CurrentPrice))
 		}
 		if r.TargetDate.Valid {
-			it.DueDate = tsPtrUTC(r.TargetDate.Instant())
+			it.DueDate = r.TargetDate.Ptr()
 			// The optional price is its own sentence appended after the base one
 			// rather than a `%s` slot inside it: a slot would force every
 			// translation to keep a trailing fragment's punctuation, and the
@@ -701,8 +709,11 @@ func sortActionItems(items []ActionItem) {
 		if (a.DueDate == nil) != (b.DueDate == nil) {
 			return a.DueDate != nil
 		}
-		if a.DueDate != nil && b.DueDate != nil && *a.DueDate != *b.DueDate {
-			return *a.DueDate < *b.DueDate
+		if a.DueDate != nil && b.DueDate != nil && !a.DueDate.Time.Equal(b.DueDate.Time) {
+			// Every DueDate is a UTC-midnight day, so comparing the underlying
+			// instants orders the days chronologically — the same order the old
+			// string comparison produced for RFC3339 Z stamps.
+			return a.DueDate.Time.Before(b.DueDate.Time)
 		}
 		if a.Kind != b.Kind {
 			return a.Kind < b.Kind

@@ -123,11 +123,15 @@ type AuditFinding struct {
 	ChargedTotalVnd int64 `json:"chargedTotalVnd"`
 	ChargeCount     int64 `json:"chargeCount"`
 	// LastRecordedAt is the newest payment date — NOT a usage date. Absent when
-	// the subscription has no payments at all.
+	// the subscription has no payments at all. A payment is a real moment
+	// (SubscriptionPayment.paidAt is an Instant column), so this stays RFC 3339.
 	LastRecordedAt *string `json:"lastRecordedAt"`
-	// NextRenewalAt / DaysUntilRenewal describe the next automatic charge.
-	NextRenewalAt    *string `json:"nextRenewalAt"`
-	DaysUntilRenewal *int    `json:"daysUntilRenewal"`
+	// NextRenewalAt is Subscription.renewalDate — a calendar day, not an instant,
+	// despite the historical `…At` name (which is kept so clients do not break).
+	// attachRenewal copies the Day column without adding a time-of-day; the
+	// day-count (`daysUntilRenewal`) is arithmetic on that day, not a timestamp.
+	NextRenewalAt    *wire.Day `json:"nextRenewalAt"`
+	DaysUntilRenewal *int      `json:"daysUntilRenewal"`
 	// Price-rise fields (PRICE_INCREASED only). Amounts are VND.
 	PreviousAmountVnd *int64 `json:"previousAmountVnd,omitempty"`
 	AmountVnd         *int64 `json:"amountVnd,omitempty"`
@@ -253,7 +257,7 @@ func BuildSubscriptionAudit(
 		if r.LastPaidAt.Valid {
 			it.LastRecordedAt = tsPtrUTC(r.LastPaidAt)
 		}
-		attachRenewal(&it, r.RenewalDate.Instant(), now)
+		attachRenewal(&it, r.RenewalDate, now)
 		it.Title = textIn(lang, quietAutoRenewTitle)
 		// Singular/plural PAIR with a separate argument list per form: the count
 		// is what makes it singular, so the singular template has no `%d` slot.
@@ -398,11 +402,16 @@ func BuildSubscriptionAudit(
 // attachRenewal fills NextRenewalAt / DaysUntilRenewal when the subscription has
 // a renewal date, so a client can sort "what is about to be charged" without
 // recomputing cycle arithmetic.
-func attachRenewal(it *AuditFinding, renewal wire.Instant, now time.Time) {
+//
+// `renewal` is the Day column itself — the function stores it unchanged and
+// derives the day count from the same value, so the date a client renders and
+// the number of days it renders next to it can never disagree. It deliberately
+// does NOT add a time-of-day: a subscription renews on a calendar day.
+func attachRenewal(it *AuditFinding, renewal wire.Day, now time.Time) {
 	if !renewal.Valid {
 		return
 	}
-	it.NextRenewalAt = tsPtrUTC(renewal)
+	it.NextRenewalAt = renewal.Ptr()
 	days := DaysUntil(renewal.Time, now)
 	it.DaysUntilRenewal = &days
 }

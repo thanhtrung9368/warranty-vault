@@ -236,13 +236,21 @@ type DeviceListItem struct {
 	// It is max(endDate) over rows whose Component is NULL/blank, never over a
 	// component-scoped row: a 10-year motor clock must not claim the whole device
 	// is covered for ten years.
-	EffectiveWarrantyEnd *time.Time `json:"effectiveWarrantyEnd"`
+	//
+	// It is a wire.Day because it IS a Warranty.endDate: a client comparing
+	// `warranty.endDate` with `device.effectiveWarrantyEnd` must get one shape for
+	// "a day". The old *time.Time serialised the same value as
+	// "2026-11-20T00:00:00Z" while the warranty row said "2026-11-20".
+	EffectiveWarrantyEnd *wire.Day `json:"effectiveWarrantyEnd"`
 	// ReturnDeadline is the derived exchange-window deadline
 	// (COALESCE(receivedAt, purchaseDate) + returnWindowDays days), or nil when the
 	// window is unknown/absent. Derived server-side so the three clients cannot
 	// implement the rule three slightly different ways — the same reason
 	// effectiveWarrantyEnd is computed here rather than in each client.
-	ReturnDeadline *time.Time `json:"returnDeadline"`
+	//
+	// A wire.Day for the same reason: both inputs are Day columns and only whole
+	// days are added, so it is a day (see deviceReturnDeadline).
+	ReturnDeadline *wire.Day `json:"returnDeadline"`
 }
 
 // DeviceDetail is the full device read: device + warranties (with reminders) +
@@ -253,8 +261,9 @@ type DeviceDetail struct {
 	// and a search hit carry, computed by the same wholeUnitWarrantyEnd helper.
 	// Detail used to omit the field entirely while the list computed it, so a
 	// client that read one device got a different answer from one that read the
-	// list. It is max(endDate) over WHOLE-UNIT rows only (Component NULL/blank).
-	EffectiveWarrantyEnd *time.Time              `json:"effectiveWarrantyEnd"`
+	// list. It is max(endDate) over WHOLE-UNIT rows only (Component NULL/blank),
+	// and it is a wire.Day for the reason stated on DeviceListItem.
+	EffectiveWarrantyEnd *wire.Day               `json:"effectiveWarrantyEnd"`
 	Warranties           []WarrantyWithReminders `json:"warranties"`
 	Attachments          []AttachmentMeta        `json:"attachments"`
 	// Claims is the device's warranty-claim history (migration 0021), newest
@@ -263,7 +272,7 @@ type DeviceDetail struct {
 	// claims gets the same device payload as before, plus an empty array.
 	Claims []store.Claim `json:"claims"`
 	// ReturnDeadline mirrors DeviceListItem.ReturnDeadline; see the comment there.
-	ReturnDeadline *time.Time `json:"returnDeadline"`
+	ReturnDeadline *wire.Day `json:"returnDeadline"`
 }
 
 // AttachmentMeta is the redacted attachment shape for the device read path.
@@ -747,7 +756,7 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 					av = 1 << 62
 				}
 			} else {
-				av = a.EffectiveWarrantyEnd.UnixNano()
+				av = a.EffectiveWarrantyEnd.Time.UnixNano()
 			}
 			if b.EffectiveWarrantyEnd == nil {
 				if desc {
@@ -756,7 +765,7 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 					bv = 1 << 62
 				}
 			} else {
-				bv = b.EffectiveWarrantyEnd.UnixNano()
+				bv = b.EffectiveWarrantyEnd.Time.UnixNano()
 			}
 			return av < bv
 		}, desc)

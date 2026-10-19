@@ -91,17 +91,22 @@ func DaysUntil(deadline, now time.Time) int {
 // That matters more than it looks: the repo has already been burned by money math
 // implemented independently on three clients, and this is the same class of rule.
 type ReturnWindowRow struct {
-	DeviceID         string  `json:"deviceId"`
-	Name             string  `json:"name"`
-	Category         string  `json:"category"`
-	Brand            *string `json:"brand"`
-	Model            *string `json:"model"`
-	SerialNumber     *string `json:"serialNumber"`
-	Status           string  `json:"status"`
-	PurchaseDate     string  `json:"purchaseDate"`
-	ReceivedAt       *string `json:"receivedAt"`
-	ReturnWindowDays int32   `json:"returnWindowDays"`
-	ReturnDeadline   string  `json:"returnDeadline"`
+	DeviceID         string    `json:"deviceId"`
+	Name             string    `json:"name"`
+	Category         string    `json:"category"`
+	Brand            *string   `json:"brand"`
+	Model            *string   `json:"model"`
+	SerialNumber     *string   `json:"serialNumber"`
+	Status           string    `json:"status"`
+	PurchaseDate     wire.Day  `json:"purchaseDate"`
+	ReceivedAt       *wire.Day `json:"receivedAt"`
+	ReturnWindowDays int32     `json:"returnWindowDays"`
+	// ReturnDeadline is a calendar day, because both inputs are: it is
+	// COALESCE(receivedAt, purchaseDate) — two Day columns — plus a whole number
+	// of days. No time-of-day is ever added, so the UTC day of the computed
+	// timestamp IS the deadline the SQL compares against; see the projection in
+	// ListReturnWindows.
+	ReturnDeadline wire.Day `json:"returnDeadline"`
 	// DaysLeft is 0 on the final day and grows as the window closes in. Never
 	// negative here: the list only contains windows that are still open.
 	DaysLeft int `json:"daysLeft"`
@@ -129,6 +134,12 @@ func ListReturnWindows(ctx context.Context, db *pgxpool.Pool, userID string, now
 			// 01/01/0001 in every client. Skip instead.
 			continue
 		}
+		// The two stored columns are already wire.Day; the deadline is the one
+		// value computed by the database, so it is carried through FromDay —
+		// the same UTC calendar day the SQL expression produced, with no
+		// truncation and no timezone conversion. `returnWindowDays * INTERVAL '1
+		// day'` adds whole days to a UTC-midnight timestamp, so its UTC day is
+		// exactly the day the user was promised.
 		row := ReturnWindowRow{
 			DeviceID:         r.ID,
 			Name:             r.Name,
@@ -137,13 +148,11 @@ func ListReturnWindows(ctx context.Context, db *pgxpool.Pool, userID string, now
 			Model:            r.Model,
 			SerialNumber:     r.SerialNumber,
 			Status:           r.Status,
-			ReceivedAt:       tsPtrUTC(r.ReceivedAt.Instant()),
+			PurchaseDate:     r.PurchaseDate,
+			ReceivedAt:       r.ReceivedAt.Ptr(),
 			ReturnWindowDays: *r.ReturnWindowDays,
-			ReturnDeadline:   r.ReturnDeadline.Time.UTC().Format(time.RFC3339Nano),
+			ReturnDeadline:   wire.FromDay(r.ReturnDeadline.Timestamp),
 			DaysLeft:         DaysUntil(r.ReturnDeadline.Time, now),
-		}
-		if r.PurchaseDate.Valid {
-			row.PurchaseDate = r.PurchaseDate.Time.UTC().Format(time.RFC3339Nano)
 		}
 		out = append(out, row)
 	}
@@ -154,7 +163,14 @@ func ListReturnWindows(ctx context.Context, db *pgxpool.Pool, userID string, now
 // (DeviceListItem / DeviceDetail). Returns nil when the window is unknown, absent
 // or the purchase date is missing — a genuinely nullable projection, matching the
 // existing `effectiveWarrantyEnd` treatment.
-func deviceReturnDeadline(d store.Device) *time.Time {
+//
+// The result is a wire.Day even though the arithmetic runs on time.Time:
+// ReturnDeadline adds whole days to a Day column, so the computed value's UTC
+// calendar day is the deadline day and `wire.Date` renders exactly that. A Day
+// input that happens to carry a time-of-day (a legacy row written from a full
+// RFC3339 string) keeps the same day-of-month through AddDate, so the conversion
+// cannot shift it either.
+func deviceReturnDeadline(d store.Device) *wire.Day {
 	if !d.PurchaseDate.Valid {
 		return nil
 	}
@@ -167,12 +183,12 @@ func deviceReturnDeadline(d store.Device) *time.Time {
 	if !ok {
 		return nil
 	}
-	return &deadline
+	day := wire.Date(deadline)
+	return &day
 }
 
-// tsPtrUTC formats an optional timestamp as RFC3339Nano UTC, or nil when absent.
-// Mirrors the convention used by ForecastWarranty.EndDate and
-// AttachmentMeta.UploadedAt.
+// tsPtrUTC formats an optional instant as RFC3339Nano UTC, or nil when absent.
+// Days do not go through this: they use wire.Day (see Day.Ptr and wire.FromDay).
 func tsPtrUTC(t wire.Instant) *string {
 	if !t.Valid {
 		return nil

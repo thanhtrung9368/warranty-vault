@@ -339,8 +339,9 @@ func TestPublicCertificateEffectiveEndIsTheMaxOverPackages(t *testing.T) {
 	if len(cert.Warranties) != 2 {
 		t.Fatalf("warranties = %d, want 2", len(cert.Warranties))
 	}
-	if cert.EffectiveWarrantyEnd == nil || !strings.HasPrefix(*cert.EffectiveWarrantyEnd, "2028-11-20") {
-		t.Fatalf("effectiveWarrantyEnd = %v, want the later of the two packages", cert.EffectiveWarrantyEnd)
+	// A calendar day now, not an instant: the exact day, no "T00:00:00Z".
+	if cert.EffectiveWarrantyEnd == nil || cert.EffectiveWarrantyEnd.String() != "2028-11-20" {
+		t.Fatalf("effectiveWarrantyEnd = %v, want the later of the two packages as a YYYY-MM-DD day", cert.EffectiveWarrantyEnd)
 	}
 }
 

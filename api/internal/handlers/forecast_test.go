@@ -134,6 +134,15 @@ func TestForecastOverHTTP(t *testing.T) {
 		*f.UpcomingWishlist[0].CurrentPriceVnd != 8_500_000 {
 		t.Fatalf("upcomingWishlist = %+v, want 1 item with its price", f.UpcomingWishlist)
 	}
+	// The two derived dates are CALENDAR DAYS, in the same shape the rows they come
+	// from use: Warranty.endDate and WishlistItem.targetDate are Day columns, so a
+	// client comparing a forecast row with the stored row must not see two shapes.
+	if got, want := f.UpcomingWarranties[0].EndDate.String(), endDate.UTC().Format("2006-01-02"); got != want {
+		t.Errorf("upcomingWarranties[0].endDate = %q, want the calendar day %q", got, want)
+	}
+	if got, want := f.UpcomingWishlist[0].TargetDate.String(), targetDate.UTC().Format("2006-01-02"); got != want {
+		t.Errorf("upcomingWishlist[0].targetDate = %q, want the calendar day %q", got, want)
+	}
 	// Bucket totals and the item lists agree — a client can drill into either.
 	var warrantySum, wishlistSum int64
 	for _, b := range f.Buckets {

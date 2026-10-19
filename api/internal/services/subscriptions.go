@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -100,7 +101,16 @@ const customCycleMessage = "Cần nhập số ngày khi chọn chu kỳ Tuỳ ch
 const (
 	amountNotNegativeMessage   = "Số tiền phải ≥ 0"
 	paymentDateRequiredMessage = "Ngày thanh toán bắt buộc"
+	// paymentNoteTooLongMessage is the documented `PaymentInput.note.maxLength`
+	// (openapi.yaml) as an error. Named because it is BOTH the envelope headline
+	// and the `note` field error, so the two cannot drift into two sentences.
+	paymentNoteTooLongMessage = "Ghi chú tối đa 500 ký tự"
 )
+
+// MaxPaymentNoteRunes is the enforced cap on PaymentInput.note. It is 500 because
+// openapi.yaml says `maxLength: 500`; before this constant existed the spec
+// promised a limit the server did not apply.
+const MaxPaymentNoteRunes = 500
 
 // validateSubscriptionInput mirrors TS Zod + assertCustomCycleHasInterval.
 // Returns a *services.Error for the handler to translate, or nil.
@@ -390,6 +400,20 @@ func LogPayment(ctx context.Context, db *pgxpool.Pool, userID, subID string, amo
 		)
 	}
 
+	// The note cap is validated BEFORE the ownership read, exactly like the two
+	// checks above and like LogWishlistPrice: it needs no row, so a request that
+	// cannot possibly be accepted should not reach the database. The length is
+	// counted in RUNES, matching JSON Schema's `maxLength` (characters), so a
+	// Vietnamese note of 500 characters is accepted rather than rejected at ~200
+	// bytes-heavy characters.
+	noteCleaned := trimToPtr(note)
+	if noteCleaned != nil && utf8.RuneCountInString(*noteCleaned) > MaxPaymentNoteRunes {
+		return store.SubscriptionPayment{}, ErrValidationKeyed(
+			paymentNoteTooLongMessage,
+			FieldErrors{"note": {i18n.Text(ctx, paymentNoteTooLongMessage)}},
+		)
+	}
+
 	q := store.New(db)
 	if _, err := q.GetSubscriptionByID(ctx, store.GetSubscriptionByIDParams{
 		ID: subID, UserId: userID,
@@ -400,7 +424,6 @@ func LogPayment(ctx context.Context, db *pgxpool.Pool, userID, subID string, amo
 		return store.SubscriptionPayment{}, fmt.Errorf("get subscription: %w", err)
 	}
 
-	noteCleaned := trimToPtr(note)
 	created, err := q.CreateSubscriptionPayment(ctx, store.CreateSubscriptionPaymentParams{
 		ID:             auth.NewID(),
 		SubscriptionId: subID,

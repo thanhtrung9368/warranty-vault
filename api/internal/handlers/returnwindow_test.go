@@ -190,6 +190,22 @@ func TestReturnWindowsOverHTTP(t *testing.T) {
 	if row.ReceivedAt == nil {
 		t.Error("receivedAt is nil on an open window that has one")
 	}
+	// All three dates on this row are CALENDAR DAYS: two Day columns and a derived
+	// deadline of "day + whole days". The wire shape is YYYY-MM-DD — the same shape
+	// Device.purchaseDate has — so one parser covers the device and this projection.
+	for name, day := range map[string]string{
+		"purchaseDate":   row.PurchaseDate.String(),
+		"returnDeadline": row.ReturnDeadline.String(),
+	} {
+		if _, err := time.Parse("2006-01-02", day); err != nil || len(day) != 10 {
+			t.Errorf("%s = %q, want a bare YYYY-MM-DD day", name, day)
+		}
+	}
+	if row.ReceivedAt != nil {
+		if day := row.ReceivedAt.String(); len(day) != 10 {
+			t.Errorf("receivedAt = %q, want a bare YYYY-MM-DD day", day)
+		}
+	}
 
 	// ── 7. The device list carries the same derived deadline. ──────────────
 	rr = do(http.MethodGet, "/api/v1/devices", issued.AccessToken, "")

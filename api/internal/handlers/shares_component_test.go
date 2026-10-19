@@ -42,8 +42,8 @@ func TestPublicCertificateComponentRowDoesNotInflateWholeUnitEnd(t *testing.T) {
 	}
 
 	// The headline answer is the whole-unit plan, NOT the motor's 2035 clock.
-	if cert.EffectiveWarrantyEnd == nil || !strings.HasPrefix(*cert.EffectiveWarrantyEnd, "2026-11-20") {
-		t.Fatalf("effectiveWarrantyEnd = %v, want 2026-11-20 — a component row must not inflate the whole-unit end",
+	if cert.EffectiveWarrantyEnd == nil || cert.EffectiveWarrantyEnd.String() != "2026-11-20" {
+		t.Fatalf("effectiveWarrantyEnd = %v, want the calendar day 2026-11-20 — a component row must not inflate the whole-unit end",
 			cert.EffectiveWarrantyEnd)
 	}
 
@@ -61,8 +61,8 @@ func TestPublicCertificateComponentRowDoesNotInflateWholeUnitEnd(t *testing.T) {
 	if *componentRow.Component != "Động cơ" {
 		t.Errorf("component = %q, want Động cơ", *componentRow.Component)
 	}
-	if !strings.HasPrefix(componentRow.EndDate, "2035-01-01") {
-		t.Errorf("component endDate = %q, want the motor clock", componentRow.EndDate)
+	if componentRow.EndDate.String() != "2035-01-01" {
+		t.Errorf("component endDate = %q, want the motor clock as a day", componentRow.EndDate.String())
 	}
 
 	// And it is legible on the printed page, not just in the JSON projection.
@@ -105,7 +105,7 @@ func TestPublicCertificateOnlyComponentRowsHasNoWholeUnitEnd(t *testing.T) {
 	_, cert := getPublicJSON(t, env, token)
 	if cert.EffectiveWarrantyEnd != nil {
 		t.Fatalf("effectiveWarrantyEnd = %v, want null when every row is component-scoped",
-			*cert.EffectiveWarrantyEnd)
+			cert.EffectiveWarrantyEnd)
 	}
 	if len(cert.Warranties) != 1 || cert.Warranties[0].Component == nil || *cert.Warranties[0].Component != "Màn hình" {
 		t.Fatalf("component row missing from certificate: %+v", cert.Warranties)

@@ -271,7 +271,7 @@ func warrantyMismatchFor(d store.Device, warranties []store.Warranty) *BrandWarr
 	if d.BrandWarrantyEnd.Valid {
 		if end := wholeUnitWarrantyEnd(warranties); end != nil {
 			brandEnd := dateOnly(d.BrandWarrantyEnd.Time)
-			appEnd := dateOnly(*end)
+			appEnd := dateOnly(end.Time)
 			switch {
 			case brandEnd.Before(appEnd):
 				candidates[WarrantyMismatchEndedEarlier] = BrandWarrantyMismatch{
@@ -312,7 +312,14 @@ func warrantyMismatchFor(d store.Device, warranties []store.Warranty) *BrandWarr
 // A blank Component is treated as whole-unit: the service normalizes "" to NULL
 // on write, but a hand-edited row must not be silently excluded from the
 // comparison while also rendering without a component label.
-func wholeUnitWarrantyEnd(warranties []store.Warranty) *time.Time {
+//
+// The return type is wire.Day, not *time.Time, because the value IS a
+// Warranty.endDate (a Day column) — max() over days is a day. That is what lets
+// every read serialise it as `YYYY-MM-DD`, the same shape as the warranty row it
+// came from. The max is still computed on time.Time (UTC midnights), and
+// wire.Date only relabels the result with its UTC calendar day: no date is
+// truncated, and no timezone conversion can move it.
+func wholeUnitWarrantyEnd(warranties []store.Warranty) *wire.Day {
 	var max time.Time
 	found := false
 	for _, w := range warranties {
@@ -330,7 +337,8 @@ func wholeUnitWarrantyEnd(warranties []store.Warranty) *time.Time {
 	if !found {
 		return nil
 	}
-	return &max
+	day := wire.Date(max)
+	return &day
 }
 
 // dateOnly truncates to UTC midnight. Stored timestamps are

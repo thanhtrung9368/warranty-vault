@@ -20,6 +20,11 @@ import (
 // only (component NULL/blank). A device with a whole-unit plan ending
 // 2026-11-20 and a 10-year motor row must answer 2026-11-20 everywhere, and a
 // device with only component rows must answer null everywhere.
+//
+// The expected value is a calendar day (`YYYY-MM-DD`), because the field is a
+// max over Warranty.endDate — a Day column. The three reads must agree on the
+// day AND on its shape; the old `…T00:00:00Z` form is what this test caught when
+// the derived projections still emitted an instant.
 
 // effectiveEndDeviceDTO decodes only the fields this test asserts, so an
 // additive device field cannot fail the test for the wrong reason.
@@ -133,7 +138,7 @@ func TestEffectiveWarrantyEndAgreesAcrossListDetailAndSearch(t *testing.T) {
 	mustCreateWarrantyForWarrantyEndTest(t, env, deviceID,
 		`{"type":"THIRD_PARTY","startDate":"2025-01-01","months":120,"component":"Động cơ"}`)
 
-	const want = "2026-11-20T00:00:00Z"
+	const want = "2026-11-20"
 	list := env.effectiveEndFromList(t, deviceID)
 	detail := env.effectiveEndFromDetail(t, deviceID)
 	search := env.effectiveEndFromSearch(t, deviceID, name)
