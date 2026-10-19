@@ -171,6 +171,25 @@ struct DeviceDetailView: View {
         return "≈ " + WVFormat.vnd(vnd)
     }
 
+    /// The brand warranty fields from the list projection, which every save on
+    /// this store refreshes — including a form save made on another screen.
+    ///
+    /// Deliberately **not** `store.device` first: that detail read is loaded once
+    /// and is not refreshed when the user returns from the form, so preferring
+    /// it would let a status tap send stale brand fields and erase a check the
+    /// form had just saved. The list projection is the same `DeviceVND` shape,
+    /// so nothing is lost.
+    private var brandWarrantyFields: BrandWarrantyFields {
+        BrandWarrantyRules.carried(from: currentDevice)
+    }
+
+    /// The server-computed mismatch from the same fresh projection. Never
+    /// re-derived here — see `BrandWarrantyRules.mismatchState` for why `nil`
+    /// alone is not agreement.
+    private var brandWarrantyMismatch: WarrantyMismatch? {
+        currentDevice.warrantyMismatch
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -184,6 +203,21 @@ struct DeviceDetailView: View {
                     warrantyTimelineCard
                         .padding(.top, 12)
                 }
+
+                // Brand warranty lookup ("Đối chiếu với hãng"). It sits high on
+                // the screen on purpose: the mismatch is the one fact that can
+                // change what the user believes about the warranty, so it must
+                // not be buried under the contact directory.
+                BrandWarrantySection(
+                    client: client,
+                    brand: currentDevice.brand,
+                    fields: brandWarrantyFields,
+                    mismatch: brandWarrantyMismatch,
+                    purchaseDate: currentDevice.purchaseDate,
+                    persist: { fields in
+                        try await recordBrandWarranty(fields)
+                    }
+                )
 
                 // Repairs ("Sửa chữa & bảo hành"). A claim belongs to a device,
                 // so the device detail is its anchor: the section lists this
@@ -545,6 +579,12 @@ struct DeviceDetailView: View {
                     if let dl = maxDaysLeft {
                         WarrantyPill(daysLeft: dl)
                     }
+                    // The mismatch flag is deliberately in the hero: the user
+                    // should see that the brand disagrees before they read any
+                    // other number on this screen. Orange, never red.
+                    if brandWarrantyMismatch != nil {
+                        WVChip(BrandWarrantyCopy.mismatchBadge, tone: .orange, icon: "alert")
+                    }
                 }
             }
             .padding(.horizontal, WVSpacing.gutter)
@@ -610,6 +650,26 @@ struct DeviceDetailView: View {
         statusSaving = true
         defer { statusSaving = false }
         let d = currentDevice
+        let input = deviceInput(for: d, status: status)
+        do {
+            let result = try await devicesStore.update(id: d.id, input)
+            // PATCH /devices/{id} carries the same advisory array as create. The
+            // device being edited is excluded from the duplicate probe, so an
+            // unchanged serial does not warn about duplicating itself.
+            statusWarnings = result.warningsOrEmpty
+        } catch {
+            actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            statusWarnings = []
+            // Revert
+            deviceStatus = d.status
+        }
+    }
+
+    /// The full `DeviceInput` for a save that is not the form: a status tap or
+    /// the brand-check sheet. `PATCH /api/v1/devices/{id}` replaces every field,
+    /// so each preserved block below is load-bearing — omitting one erases data
+    /// recorded on the web or on Android.
+    private func deviceInput(for d: Device, status: DeviceStatus) -> DeviceInput {
         // `d.purchaseDate` came from the shared decoder, which reads the Z-less
         // wire value in the device's own zone. Writing it back through a
         // zone-pinned formatter would move the day east of that pin — so a bare
@@ -649,18 +709,22 @@ struct DeviceDetailView: View {
         // Both halves travel together, or — for a device that was never sold —
         // neither does, which the encoder omits.
         DeviceResale.apply(DeviceResale.carried(from: d), to: &input)
-        do {
-            let result = try await devicesStore.update(id: d.id, input)
-            // PATCH /devices/{id} carries the same advisory array as create. The
-            // device being edited is excluded from the duplicate probe, so an
-            // unchanged serial does not warn about duplicating itself.
-            statusWarnings = result.warningsOrEmpty
-        } catch {
-            actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
-            statusWarnings = []
-            // Revert
-            deviceStatus = d.status
-        }
+        // The brand warranty lookup is the newest full-replacement block: a
+        // status tap or an unrelated edit must not erase what the user recorded
+        // from the brand's page. `brandWarrantyFields` is the fresh list
+        // projection; `recordBrandWarranty` overrides it with the fresh answer.
+        BrandWarrantyRules.apply(brandWarrantyFields, to: &input)
+        return input
+    }
+
+    /// Persist the sheet's answer and re-read the detail, so the server-computed
+    /// `warrantyMismatch` (and the brand fields) update in place.
+    private func recordBrandWarranty(_ fields: BrandWarrantyFields) async throws {
+        let d = currentDevice
+        var input = deviceInput(for: d, status: d.status)
+        BrandWarrantyRules.apply(fields, to: &input)
+        _ = try await devicesStore.update(id: d.id, input)
+        await store.load()
     }
 
     private func openURL(_ string: String) {

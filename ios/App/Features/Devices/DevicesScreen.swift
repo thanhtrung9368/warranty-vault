@@ -348,6 +348,18 @@ private struct DeviceListRow: View {
                         }
                         .foregroundStyle(WVColor.label3)
                     }
+                    // The brand disagrees with the date this row's pill was
+                    // computed from. Show it in the list too, so the flag is not
+                    // only discoverable after opening the device.
+                    if device.warrantyMismatch != nil {
+                        HStack(spacing: 2) {
+                            WVIcon("alert", size: 10)
+                            Text(BrandWarrantyCopy.mismatchBadge)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(WVColor.orange)
+                        .lineLimit(1)
+                    }
                 }
             }
             WVIcon("arrowRight", size: 13)

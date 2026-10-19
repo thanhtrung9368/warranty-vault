@@ -304,6 +304,22 @@ type BackupDevice struct {
 	// phone as 999 VND, so it must travel.
 	Currency string `json:"currency,omitempty"`
 	FxRate   *int32 `json:"fxRate,omitempty"`
+	// Brand warranty lookup (migration 0023, gap #11). All five are optional and
+	// `omitempty`, for the same reason currency/fxRate are: a device whose brand
+	// was never checked exports NONE of these keys, so that user's payload stays
+	// byte-identical to the pre-0023 format. An older payload without them
+	// imports as NULL = "never checked", which is exactly what it meant.
+	//
+	// Carrying them is not optional in spirit: these are the user's only record
+	// of what the brand's own lookup page said, and dropping them on restore
+	// would delete the evidence behind every warrantyMismatch the app shows.
+	// warrantyMismatch itself is DERIVED and deliberately absent — storing it in
+	// a backup would let a restored file disagree with the dates beside it.
+	BrandWarrantyStatus *string `json:"brandWarrantyStatus,omitempty"`
+	BrandWarrantyStart  *string `json:"brandWarrantyStart,omitempty"`
+	BrandWarrantyEnd    *string `json:"brandWarrantyEnd,omitempty"`
+	BrandCheckedAt      *string `json:"brandCheckedAt,omitempty"`
+	BrandLookupUrl      *string `json:"brandLookupUrl,omitempty"`
 	// Exchange window (migration 0010, FEATURE_IDEAS #1). Additive and optional:
 	// a payload written before these existed decodes to nil, which reads as
 	// "unknown window" — the correct meaning — so the payload version stays at
@@ -647,6 +663,12 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			Currency: backupCurrencyForExport(d.Currency),
 			FxRate:   d.FxRate,
 
+			BrandWarrantyStatus: d.BrandWarrantyStatus,
+			BrandWarrantyStart:  tsPtr(d.BrandWarrantyStart),
+			BrandWarrantyEnd:    tsPtr(d.BrandWarrantyEnd),
+			BrandCheckedAt:      tsPtr(d.BrandCheckedAt),
+			BrandLookupUrl:      d.BrandLookupUrl,
+
 			ReturnWindowDays:       d.ReturnWindowDays,
 			ReceivedAt:             tsPtr(d.ReceivedAt),
 			ReturnWindowNotifiedAt: tsPtr(d.ReturnWindowNotifiedAt),
@@ -885,6 +907,53 @@ func backupDeviceCurrency(ctx context.Context, d BackupDevice) (string, *int32, 
 	return currency, d.FxRate, nil
 }
 
+// backupBrandWarranty resolves a payload device's optional brand-lookup group
+// into the values to insert.
+//
+// It delegates the RULES to parseBrandWarranty — the same status-required,
+// enum, date-order and absolute-http(s)-URL checks the live API applies — so a
+// hand-edited backup cannot smuggle in a state the write path would reject. The
+// only thing this wrapper adds is sentences that name the device, matching the
+// other backup refusals.
+//
+// An older payload has all five keys absent, which decodes to nil and passes:
+// "the brand was never checked" is a valid state, and import must not require a
+// newer format. warrantyMismatch is not read here because it is not in the
+// payload at all — it is derived on read.
+func backupBrandWarranty(ctx context.Context, d BackupDevice) (brandWarrantyValues, error) {
+	trimPtr(&d.BrandWarrantyStatus)
+	trimPtr(&d.BrandWarrantyStart)
+	trimPtr(&d.BrandWarrantyEnd)
+	trimPtr(&d.BrandCheckedAt)
+	trimPtr(&d.BrandLookupUrl)
+
+	in := DeviceInput{
+		BrandWarrantyStatus: d.BrandWarrantyStatus,
+		BrandWarrantyStart:  d.BrandWarrantyStart,
+		BrandWarrantyEnd:    d.BrandWarrantyEnd,
+		BrandCheckedAt:      d.BrandCheckedAt,
+		BrandLookupUrl:      d.BrandLookupUrl,
+	}
+	values, fieldErrors := parseBrandWarranty(ctx, &in)
+	if len(fieldErrors) == 0 {
+		return values, nil
+	}
+	switch {
+	case fieldErrors["brandWarrantyStatus"] != nil && values.Status == nil:
+		return values, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu thiếu trạng thái bảo hành hãng cho thiết bị \"%s\".", d.Name)}
+	case fieldErrors["brandWarrantyStatus"] != nil:
+		return values, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu có trạng thái bảo hành hãng không hợp lệ cho thiết bị \"%s\".", d.Name)}
+	case fieldErrors["brandLookupUrl"] != nil:
+		return values, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu có link tra cứu bảo hành hãng không hợp lệ cho thiết bị \"%s\".", d.Name)}
+	default:
+		return values, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu có ngày bảo hành hãng không hợp lệ cho thiết bị \"%s\".", d.Name)}
+	}
+}
+
 func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 	if payload == nil {
 		return &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File JSON không hợp lệ")}
@@ -909,6 +978,13 @@ func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 		// refuse the whole file rather than write a row whose VND value is a lie.
 		if _, _, cerr := backupDeviceCurrency(ctx, d); cerr != nil {
 			return cerr
+		}
+		// Brand warranty lookup (migration 0023). The same rules as the live write
+		// path; an older payload with none of the keys is valid and imports as
+		// NULL. Checked before the transaction so a hand-edited file cannot write
+		// half a device and then abort.
+		if _, berr := backupBrandWarranty(ctx, d); berr != nil {
+			return berr
 		}
 		if len(d.Attachments) > MaxAttachmentsPerDevice {
 			// The upload path caps this (services/attachments.go). A backup cannot
@@ -1277,6 +1353,13 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 		if cerr != nil {
 			return nil, cerr
 		}
+		// Re-run at write time for the same reason currency is: validation ran
+		// before the transaction, but the helper is the single definition of the
+		// rule and this loop must not insert an unchecked value.
+		brandWarranty, berr := backupBrandWarranty(ctx, d)
+		if berr != nil {
+			return nil, berr
+		}
 		if err := q.BackupInsertDevice(ctx, store.BackupInsertDeviceParams{
 			ID:            d.ID,
 			UserId:        userID,
@@ -1295,6 +1378,12 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 
 			Currency: currency,
 			FxRate:   fxRate,
+
+			BrandWarrantyStatus: brandWarranty.Status,
+			BrandWarrantyStart:  brandWarranty.Start,
+			BrandWarrantyEnd:    brandWarranty.End,
+			BrandCheckedAt:      brandWarranty.CheckedAt,
+			BrandLookupUrl:      brandWarranty.LookupURL,
 
 			ReturnWindowDays:             d.ReturnWindowDays,
 			ReceivedAt:                   pgtsPtr(d.ReceivedAt),

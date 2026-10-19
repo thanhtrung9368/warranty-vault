@@ -18854,6 +18854,1066 @@
           }
         }
       }
+    },
+    "App chưa khớp được hãng bạn ghi với danh mục hãng nên không có trang tra cứu để mở.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We couldn't match the brand you entered to the brand catalog, so there is no lookup page to open."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App chưa khớp được hãng bạn ghi với danh mục hãng nên không có trang tra cứu để mở."
+          }
+        }
+      }
+    },
+    "App không có link đã kiểm chứng cho hãng này nên sẽ không tự đoán URL. Bạn có thể tự tra trên trang hỗ trợ của hãng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We have no verified link for this brand, so we won't guess a URL. You can look it up yourself on the brand's support page."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App không có link đã kiểm chứng cho hãng này nên sẽ không tự đoán URL. Bạn có thể tự tra trên trang hỗ trợ của hãng."
+          }
+        }
+      }
+    },
+    "App không có trang tra cứu của hãng này": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We don't have this brand's lookup page"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App không có trang tra cứu của hãng này"
+          }
+        }
+      }
+    },
+    "Chưa chọn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not selected"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa chọn"
+          }
+        }
+      }
+    },
+    "Chưa ghi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not recorded"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa ghi"
+          }
+        }
+      }
+    },
+    "Chưa đối chiếu với hãng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not checked with the brand yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa đối chiếu với hãng"
+          }
+        }
+      }
+    },
+    "Ghi kết quả hãng báo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record what the brand says"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi kết quả hãng báo"
+          }
+        }
+      }
+    },
+    "Ghi đúng ngày hãng hiển thị. Đây là kết quả bạn đọc được từ trang của hãng, không phải kết quả app tự đoán.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record exactly the dates the brand shows. This is what you read on the brand's page, not something the app worked out."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi đúng ngày hãng hiển thị. Đây là kết quả bạn đọc được từ trang của hãng, không phải kết quả app tự đoán."
+          }
+        }
+      }
+    },
+    "Hãng báo ngày bảo hành khác với mốc bạn đang tính %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand's warranty dates differ from your estimate by 1 day"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand's warranty dates differ from your estimate by %d days"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hãng báo ngày bảo hành khác với mốc bạn đang tính %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Hãng chưa cho ngày bảo hành cụ thể để so với mốc bạn đang tính.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The brand has no specific warranty date to compare with your estimate."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng chưa cho ngày bảo hành cụ thể để so với mốc bạn đang tính."
+          }
+        }
+      }
+    },
+    "Hãng chưa ghi nhận máy này": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand has no record of this device"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng chưa ghi nhận máy này"
+          }
+        }
+      }
+    },
+    "Hãng chưa rõ tình trạng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand status unknown"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng chưa rõ tình trạng"
+          }
+        }
+      }
+    },
+    "Hãng ghi bảo hành bắt đầu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty start from the brand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi bảo hành bắt đầu"
+          }
+        }
+      }
+    },
+    "Hãng ghi bảo hành bắt đầu sau ngày mua %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty started 1 day after your purchase date"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty started %d days after your purchase date"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hãng ghi bảo hành bắt đầu sau ngày mua %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Hãng ghi bảo hành bắt đầu trước ngày mua %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty started 1 day before your purchase date"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty started %d days before your purchase date"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hãng ghi bảo hành bắt đầu trước ngày mua %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Hãng ghi bảo hành kết thúc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty end from the brand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi bảo hành kết thúc"
+          }
+        }
+      }
+    },
+    "Hãng ghi bảo hành kết thúc muộn hơn mốc bạn đang tính %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty ended 1 day later than your estimate"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty ended %d days later than your estimate"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hãng ghi bảo hành kết thúc muộn hơn mốc bạn đang tính %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Hãng ghi bảo hành kết thúc sớm hơn mốc bạn đang tính %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty ended 1 day earlier than your estimate"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "The brand says the warranty ended %d days earlier than your estimate"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Hãng ghi bảo hành kết thúc sớm hơn mốc bạn đang tính %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Hãng ghi còn bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand says it's still covered"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi còn bảo hành"
+          }
+        }
+      }
+    },
+    "Hãng ghi đã hết hạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand says it's expired"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi đã hết hạn"
+          }
+        }
+      }
+    },
+    "Hãng ghi: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand says: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi: %@"
+          }
+        }
+      }
+    },
+    "Hãng ghi: %@ · Ngày mua: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand says: %@ · Purchase date: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi: %@ · Ngày mua: %@"
+          }
+        }
+      }
+    },
+    "Hãng và bạn đang tính khớp nhau.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The brand's dates and yours agree."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng và bạn đang tính khớp nhau."
+          }
+        }
+      }
+    },
+    "Không lưu được kết quả đối chiếu — thử lại nhé.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save the brand check — try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lưu được kết quả đối chiếu — thử lại nhé."
+          }
+        }
+      }
+    },
+    "Không tải được thông tin tra cứu của hãng — thử lại nhé.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load the brand's lookup information — try again."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được thông tin tra cứu của hãng — thử lại nhé."
+          }
+        }
+      }
+    },
+    "Kết quả sẽ được lưu cùng thiết bị khi bạn bấm Lưu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The result is saved with the device when you tap Save."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết quả sẽ được lưu cùng thiết bị khi bạn bấm Lưu."
+          }
+        }
+      }
+    },
+    "Link đã mở": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link opened"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link đã mở"
+          }
+        }
+      }
+    },
+    "Lần đối chiếu gần nhất không thấy lệch ngày bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The latest check found no difference in the warranty dates."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lần đối chiếu gần nhất không thấy lệch ngày bảo hành."
+          }
+        }
+      }
+    },
+    "Lệch ngày BH": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date mismatch"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lệch ngày BH"
+          }
+        }
+      }
+    },
+    "Máy đã được kích hoạt trước": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device was pre-activated"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máy đã được kích hoạt trước"
+          }
+        }
+      }
+    },
+    "Mốc bảo hành bạn đang thấy là ước lượng từ hoá đơn. Đối chiếu với hãng để biết ngày thật.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The warranty date you are seeing is an estimate from the invoice. Check with the brand to find the real date."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc bảo hành bạn đang thấy là ước lượng từ hoá đơn. Đối chiếu với hãng để biết ngày thật."
+          }
+        }
+      }
+    },
+    "Ngày bảo hành bạn nhập là ước lượng từ hoá đơn. Mở trang tra cứu của hãng để xem ngày thật, rồi ghi lại kết quả.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The warranty date you entered is an estimate from the invoice. Open the brand's lookup page to see the real date, then record the result."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày bảo hành bạn nhập là ước lượng từ hoá đơn. Mở trang tra cứu của hãng để xem ngày thật, rồi ghi lại kết quả."
+          }
+        }
+      }
+    },
+    "Ngày bắt đầu hãng ghi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start date from the brand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày bắt đầu hãng ghi"
+          }
+        }
+      }
+    },
+    "Ngày kết thúc hãng ghi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End date from the brand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày kết thúc hãng ghi"
+          }
+        }
+      }
+    },
+    "Ngày mua: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase date: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày mua: %@"
+          }
+        }
+      }
+    },
+    "Thêm hãng cho thiết bị để app tìm trang tra cứu bảo hành của hãng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the brand to this device so the app can find the brand's warranty lookup page."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm hãng cho thiết bị để app tìm trang tra cứu bảo hành của hãng."
+          }
+        }
+      }
+    },
+    "Thời điểm đối chiếu sẽ được ghi là lúc bạn lưu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The check time is recorded when you save."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thời điểm đối chiếu sẽ được ghi là lúc bạn lưu."
+          }
+        }
+      }
+    },
+    "Toàn bộ tình trạng, ngày hãng báo và link đã lưu sẽ bị xoá.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The status, the brand's dates and the saved link will all be removed."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toàn bộ tình trạng, ngày hãng báo và link đã lưu sẽ bị xoá."
+          }
+        }
+      }
+    },
+    "Tình trạng hãng báo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand status"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tình trạng hãng báo"
+          }
+        }
+      }
+    },
+    "Xoá kết quả đối chiếu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the brand check"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá kết quả đối chiếu"
+          }
+        }
+      }
+    },
+    "Xoá kết quả đối chiếu?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the brand check?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá kết quả đối chiếu?"
+          }
+        }
+      }
+    },
+    "Đang tải trang tra cứu của hãng…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading the brand's lookup page…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải trang tra cứu của hãng…"
+          }
+        }
+      }
+    },
+    "Đã ghi kết quả đối chiếu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand check recorded."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã ghi kết quả đối chiếu."
+          }
+        }
+      }
+    },
+    "Đã đối chiếu với hãng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked with the brand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã đối chiếu với hãng"
+          }
+        }
+      }
+    },
+    "Đối chiếu %d ngày trước": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Checked 1 day ago"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Checked %d days ago"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Đối chiếu %d ngày trước"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Đối chiếu hôm nay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked today"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đối chiếu hôm nay"
+          }
+        }
+      }
+    },
+    "Đối chiếu lúc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checked at"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đối chiếu lúc"
+          }
+        }
+      }
+    },
+    "Đối chiếu với hãng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check with the brand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đối chiếu với hãng"
+          }
+        }
+      }
+    },
+    "Kết quả đã ghi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded result"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kết quả đã ghi"
+          }
+        }
+      }
+    },
+    "Trạng thái bảo hành hãng bắt buộc khi đã ghi ngày hoặc link tra cứu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The brand warranty status is required when you record a date or a lookup link"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trạng thái bảo hành hãng bắt buộc khi đã ghi ngày hoặc link tra cứu"
+          }
+        }
+      }
+    },
+    "Ngày hết hạn bảo hành hãng không được trước ngày bắt đầu": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The brand warranty end date can't be before the start date"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày hết hạn bảo hành hãng không được trước ngày bắt đầu"
+          }
+        }
+      }
+    },
+    "Link tra cứu bảo hành hãng phải là URL http/https tuyệt đối": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The brand lookup link must be an absolute http/https URL"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link tra cứu bảo hành hãng phải là URL http/https tuyệt đối"
+          }
+        }
+      }
+    },
+    "Hãng ghi: %@ · Mốc bạn đang tính: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand says: %@ · Your estimate: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi: %@ · Mốc bạn đang tính: %@"
+          }
+        }
+      }
+    },
+    "Hãng ghi: %@ · Mốc so sánh: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brand says: %@ · Compared date: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãng ghi: %@ · Mốc so sánh: %@"
+          }
+        }
+      }
+    },
+    "Mốc bạn đang tính: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your estimate: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc bạn đang tính: %@"
+          }
+        }
+      }
+    },
+    "Mốc so sánh: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compared date: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mốc so sánh: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

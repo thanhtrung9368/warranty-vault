@@ -363,10 +363,15 @@ var messages = map[string]message{
 	// i18n.Text for it in its own wave.
 	"Thiếu id thiết bị":       {vi: "Thiếu id thiết bị", en: "Missing device id"},
 	"Thiếu id gói bảo hành":   {vi: "Thiếu id gói bảo hành", en: "Missing warranty id"},
+	"Thiếu id hãng":           {vi: "Thiếu id hãng", en: "Missing brand id"},
 	"Không tìm thấy thiết bị": {vi: "Không tìm thấy thiết bị", en: "Device not found"},
 	"Không tìm thấy gói bảo hành": {
 		vi: "Không tìm thấy gói bảo hành",
 		en: "Warranty not found",
+	},
+	"Không tìm thấy hãng": {
+		vi: "Không tìm thấy hãng",
+		en: "Brand not found",
 	},
 	"Loại thiết bị không hợp lệ": {
 		vi: "Loại thiết bị không hợp lệ",
@@ -427,6 +432,38 @@ var messages = map[string]message{
 		en: "Exchange rate must be a positive integer",
 	},
 	"Trạng thái không hợp lệ": {vi: "Trạng thái không hợp lệ", en: "Invalid status"},
+	// Brand warranty lookup (migration 0023, gap #11). These are field-level
+	// refusals: the values are the user's record of what the BRAND's page said,
+	// so the server checks shape and internal consistency and never fetches the
+	// URL or asserts a brand's date.
+	"Trạng thái bảo hành hãng không hợp lệ": {
+		vi: "Trạng thái bảo hành hãng không hợp lệ",
+		en: "Invalid brand warranty status",
+	},
+	"Trạng thái bảo hành hãng bắt buộc khi đã ghi ngày hoặc link tra cứu": {
+		vi: "Trạng thái bảo hành hãng bắt buộc khi đã ghi ngày hoặc link tra cứu",
+		en: "Brand warranty status is required when a date or lookup URL is recorded",
+	},
+	"Ngày bắt đầu bảo hành hãng không hợp lệ": {
+		vi: "Ngày bắt đầu bảo hành hãng không hợp lệ",
+		en: "Invalid brand warranty start date",
+	},
+	"Ngày hết hạn bảo hành hãng không hợp lệ": {
+		vi: "Ngày hết hạn bảo hành hãng không hợp lệ",
+		en: "Invalid brand warranty end date",
+	},
+	"Thời điểm kiểm tra bảo hành hãng không hợp lệ": {
+		vi: "Thời điểm kiểm tra bảo hành hãng không hợp lệ",
+		en: "Invalid brand warranty check time",
+	},
+	"Ngày hết hạn bảo hành hãng không được trước ngày bắt đầu": {
+		vi: "Ngày hết hạn bảo hành hãng không được trước ngày bắt đầu",
+		en: "Brand warranty end date must not be before the start date",
+	},
+	"Link tra cứu bảo hành hãng phải là URL http/https tuyệt đối": {
+		vi: "Link tra cứu bảo hành hãng phải là URL http/https tuyệt đối",
+		en: "Brand warranty lookup URL must be an absolute http/https URL",
+	},
 	"Số ngày đổi trả phải từ %d tới %d": {
 		vi: "Số ngày đổi trả phải từ %d tới %d",
 		en: "The return window must be between %d and %d days",
@@ -1616,5 +1653,24 @@ var messages = map[string]message{
 	"Bản sao lưu có tỷ giá không hợp lệ cho thiết bị \"%s\".": {
 		vi: "Bản sao lưu có tỷ giá không hợp lệ cho thiết bị \"%s\".",
 		en: "The backup has an invalid exchange rate for device \"%s\".",
+	},
+	// Brand warranty lookup (migration 0023). An old payload with none of the
+	// five keys is VALID (it means "never checked"); these refusals cover a
+	// hand-edited file that would write a state the live API rejects.
+	"Bản sao lưu thiếu trạng thái bảo hành hãng cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu thiếu trạng thái bảo hành hãng cho thiết bị \"%s\".",
+		en: "The backup is missing a brand warranty status for device \"%s\".",
+	},
+	"Bản sao lưu có trạng thái bảo hành hãng không hợp lệ cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu có trạng thái bảo hành hãng không hợp lệ cho thiết bị \"%s\".",
+		en: "The backup has an invalid brand warranty status for device \"%s\".",
+	},
+	"Bản sao lưu có ngày bảo hành hãng không hợp lệ cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu có ngày bảo hành hãng không hợp lệ cho thiết bị \"%s\".",
+		en: "The backup has invalid brand warranty dates for device \"%s\".",
+	},
+	"Bản sao lưu có link tra cứu bảo hành hãng không hợp lệ cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu có link tra cứu bảo hành hãng không hợp lệ cho thiết bị \"%s\".",
+		en: "The backup has an invalid brand warranty lookup URL for device \"%s\".",
 	},
 }

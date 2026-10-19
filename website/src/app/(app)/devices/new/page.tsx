@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
+import { resolveBrandWarrantyLookup } from '@/lib/brand-warranty-lookup';
 import { getI18n } from '@/lib/i18n/server';
 
 export default async function NewDevicePage({
@@ -34,6 +35,13 @@ export default async function NewDevicePage({
       }
     : undefined;
 
+  // A wishlist prefill may already carry a brand; resolve its lookup page so the
+  // brand-warranty section shows the link (or the honest no-link sentence) before
+  // the first save. Empty brand → no resolution, no extra call.
+  const brandLookup = initial?.brand
+    ? await resolveBrandWarrantyLookup(initial.brand)
+    : { lookupUrl: null };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -60,6 +68,7 @@ export default async function NewDevicePage({
         initial={initial}
         fromWishlistId={fromItem?.id ?? undefined}
         aiEnabled={user.aiOptIn}
+        brandLookupUrl={brandLookup.lookupUrl}
       />
     </div>
   );

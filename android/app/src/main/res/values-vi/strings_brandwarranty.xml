@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TIẾNG VIỆT — bản dịch của values/strings_brandwarranty.xml.
+
+  Đối chiếu bảo hành với hãng: người dùng mở trang tra cứu của chính hãng rồi ghi
+  lại những gì trang đó báo. Không câu nào được ngụ ý rằng app tự lấy được câu
+  trả lời của hãng — app không làm được điều đó, và không hãng nào mở API cho việc
+  này. Bản tiếng Anh là mặc định; hai bên phải giữ đúng cùng bộ key và cùng verb
+  (`StringResourceParityTest`).
+-->
+<resources>
+    <!-- Thẻ trên màn hình chi tiết thiết bị -->
+    <string name="brand_lookup_title">Đối chiếu bảo hành với hãng</string>
+    <string name="brand_lookup_action">Đối chiếu với hãng</string>
+    <string name="brand_lookup_checking">Đang mở trang của hãng…</string>
+    <string name="brand_lookup_manual">Ghi lại những gì hãng báo</string>
+    <string name="brand_lookup_no_url">App chưa có trang tra cứu bảo hành của %1$s, nên sẽ không tự đoán URL. Bạn vẫn có thể ghi lại những gì hãng báo.</string>
+    <string name="brand_lookup_no_brand">Thiết bị này chưa ghi hãng, nên app không tra được trang của hãng. Thêm hãng cho thiết bị trước.</string>
+    <string name="brand_lookup_failed">Không tải được thông tin trang của hãng: %1$s</string>
+
+    <!-- Câu trả lời đã ghi -->
+    <string name="brand_record_none">Chưa đối chiếu với hãng. Ngày bạn nhập là từ hoá đơn, không phải từ hãng.</string>
+    <string name="brand_record_start">Ngày bắt đầu theo hãng</string>
+    <string name="brand_record_end">Ngày kết thúc theo hãng</string>
+    <string name="brand_record_checked">Đã kiểm tra ngày</string>
+    <string name="brand_record_open_page">Mở lại trang đã ghi</string>
+    <string name="brand_record_agree">Không lệch: ngày hãng ghi bảo hành bắt đầu trùng với ngày mua của bạn.</string>
+
+    <!-- Chỗ lệch, nói thẳng bằng cả hai ngày. Không hù doạ. -->
+    <string name="brand_mismatch_title">Ngày của hãng không khớp</string>
+    <plurals name="brand_mismatch_starts_before">
+        <item quantity="other">Hãng ghi bảo hành bắt đầu trước ngày mua %1$d ngày: %2$s (hãng) so với %3$s (ngày mua của bạn).</item>
+    </plurals>
+    <plurals name="brand_mismatch_starts_after">
+        <item quantity="other">Hãng ghi bảo hành bắt đầu sau ngày mua %1$d ngày: %2$s (hãng) so với %3$s (ngày mua của bạn).</item>
+    </plurals>
+    <plurals name="brand_mismatch_ended_earlier">
+        <item quantity="other">Hãng ghi bảo hành kết thúc sớm hơn ngày hết hạn app đang dùng %1$d ngày: %2$s (hãng) so với %3$s (ngày hết hạn của app).</item>
+    </plurals>
+    <plurals name="brand_mismatch_ended_later">
+        <item quantity="other">Hãng ghi bảo hành kết thúc muộn hơn ngày hết hạn app đang dùng %1$d ngày: %2$s (hãng) so với %3$s (ngày hết hạn của app).</item>
+    </plurals>
+
+    <!-- Sheet ghi lại câu trả lời -->
+    <string name="brand_sheet_title">Trang của hãng ghi gì?</string>
+    <string name="brand_sheet_hint">Chép đúng ngày như hãng hiển thị. Đây là điều hãng nói, không phải app tự đoán.</string>
+    <string name="brand_sheet_status">Trạng thái hãng hiển thị</string>
+    <string name="brand_sheet_choose_status">Chọn trạng thái</string>
+    <string name="brand_sheet_start">Ngày bắt đầu (theo hãng)</string>
+    <string name="brand_sheet_end">Ngày kết thúc (theo hãng)</string>
+    <string name="brand_sheet_url">Trang bạn đã mở</string>
+    <string name="brand_sheet_checked">Đã kiểm tra lúc %1$s</string>
+    <string name="brand_sheet_save">Lưu câu trả lời của hãng</string>
+    <string name="brand_sheet_status_required">Chọn trạng thái mà trang của hãng hiển thị.</string>
+    <string name="brand_sheet_date_invalid">Nhập ngày đúng dạng YYYY-MM-DD.</string>
+    <string name="brand_sheet_end_before_start">Ngày kết thúc không thể trước ngày bắt đầu.</string>
+    <string name="brand_sheet_url_invalid">Link phải là địa chỉ tuyệt đối bắt đầu bằng http:// hoặc https://.</string>
+
+    <!-- Cùng câu trả lời đó, trong form thêm/sửa thiết bị -->
+    <string name="brand_form_hint">Đây là ngày của hãng, tách riêng khỏi gói bảo hành bạn nhập bên dưới. App không bao giờ tự điền.</string>
+    <string name="brand_form_save_note">Câu trả lời của hãng được lưu cùng thiết bị khi bạn bấm Lưu.</string>
+
+    <!-- Nhãn trạng thái -->
+    <string name="enum_brand_warranty_status_active">Còn hiệu lực</string>
+    <string name="enum_brand_warranty_status_expired">Đã hết hạn</string>
+    <string name="enum_brand_warranty_status_not_registered">Chưa đăng ký</string>
+    <string name="enum_brand_warranty_status_pre_activated">Kích hoạt trước</string>
+    <string name="enum_brand_warranty_status_unknown">Không rõ</string>
+</resources>

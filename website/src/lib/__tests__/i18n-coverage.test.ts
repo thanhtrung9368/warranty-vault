@@ -24,6 +24,12 @@ import {
   CLAIM_ASSESSMENT_GATE_BODIES,
   CLAIM_ASSESSMENT_GATE_TITLES,
 } from '@/lib/claim-assessment';
+import {
+  BRAND_WARRANTY_ISSUE_KEYS,
+  BRAND_WARRANTY_STATUS_HINTS,
+  BRAND_WARRANTY_STATUS_LABELS,
+  WARRANTY_MISMATCH_SENTENCES,
+} from '@/lib/brand-warranty';
 
 // Every string that is WRAPPED must also be REGISTERED.
 //
@@ -190,6 +196,15 @@ describe('every enum/option label is registered', () => {
     CLAIM_ASSESSMENT_ADVICE_BODIES,
     CLAIM_ASSESSMENT_GATE_TITLES,
     CLAIM_ASSESSMENT_GATE_BODIES,
+    // Brand warranty lookup (frozen contract). The status labels, their hints,
+    // the four mismatch sentences and the five validator keys are all selected
+    // dynamically from a code, so the literal-key scan cannot see them. Listing
+    // them here is what guarantees an English reader never gets the Vietnamese
+    // sentence on the detail card or in a field error.
+    BRAND_WARRANTY_STATUS_LABELS,
+    BRAND_WARRANTY_STATUS_HINTS,
+    WARRANTY_MISMATCH_SENTENCES,
+    BRAND_WARRANTY_ISSUE_KEYS,
   };
 
   it('registers every value of every label map', () => {

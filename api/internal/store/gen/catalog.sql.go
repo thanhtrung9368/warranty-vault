@@ -86,16 +86,21 @@ func (q *Queries) ListBrandCategoriesByBrand(ctx context.Context, brandid string
 }
 
 const listBrandServiceInfo = `-- name: ListBrandServiceInfo :many
-SELECT "brandId", "serviceLocatorUrl", "supportUrl", notes
-FROM "BrandServiceInfo"
-WHERE "isActive" = true
-ORDER BY "brandId" ASC
+SELECT bsi."brandId", b.name, bsi."serviceLocatorUrl", bsi."supportUrl",
+       bsi."warrantyLookupUrl", bsi.notes
+FROM "BrandServiceInfo" bsi
+JOIN "Brand" b ON b.id = bsi."brandId"
+WHERE bsi."isActive" = true
+  AND b."isActive" = true
+ORDER BY bsi."brandId" ASC
 `
 
 type ListBrandServiceInfoRow struct {
 	BrandId           string  `json:"brandId"`
+	Name              string  `json:"name"`
 	ServiceLocatorUrl *string `json:"serviceLocatorUrl"`
 	SupportUrl        *string `json:"supportUrl"`
+	WarrantyLookupUrl *string `json:"warrantyLookupUrl"`
 	Notes             *string `json:"notes"`
 }
 
@@ -106,6 +111,15 @@ type ListBrandServiceInfoRow struct {
 // No `phone` / `address` column exists to select: migration 0012 deliberately
 // has none, because this repo cannot verify a hotline and a wrong one is worse
 // than an empty one.
+//
+// "warrantyLookupUrl" (migration 0023) is the brand's own warranty-STATUS page,
+// a different question from the service-centre locator above. It is nullable:
+// only brands whose lookup page could be verified carry one, and NULL means the
+// app does not know rather than "there is no page".
+//
+// The Brand join supplies the display name the single-brand endpoint returns on
+// its own (GET /api/v1/brands/{brandId}/service-info has no sibling brands[]
+// array to resolve the id against). The FK guarantees the join cannot drop a row.
 func (q *Queries) ListBrandServiceInfo(ctx context.Context) ([]ListBrandServiceInfoRow, error) {
 	rows, err := q.db.Query(ctx, listBrandServiceInfo)
 	if err != nil {
@@ -117,8 +131,10 @@ func (q *Queries) ListBrandServiceInfo(ctx context.Context) ([]ListBrandServiceI
 		var i ListBrandServiceInfoRow
 		if err := rows.Scan(
 			&i.BrandId,
+			&i.Name,
 			&i.ServiceLocatorUrl,
 			&i.SupportUrl,
+			&i.WarrantyLookupUrl,
 			&i.Notes,
 		); err != nil {
 			return nil, err

@@ -44,9 +44,12 @@ import { DeviceWarningsBanner } from '@/components/device-warnings-banner';
 import { DeviceShares } from '@/components/device-shares';
 import { ServiceDirectoryCard } from '@/components/service-directory-card';
 import { ClaimList } from '@/components/claim-list';
+import { BrandWarrantyCard } from '@/components/brand-warranty-card';
 import { api } from '@/lib/api';
 import { effectiveWarrantyEnd } from '@/lib/warranty';
 import { requireUser } from '@/lib/auth';
+import { brandWarrantyValues } from '@/lib/brand-warranty';
+import { resolveBrandWarrantyLookup } from '@/lib/brand-warranty-lookup';
 import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { type Status } from '@/lib/types';
@@ -133,6 +136,18 @@ export default async function DeviceDetailPage({
   const device = res.data;
   const shares = sharesRes.ok ? sharesRes.data : [];
   const directory = directoryRes.ok ? directoryRes.data : null;
+  // Brand warranty lookup (frozen contract). The service directory is already
+  // fetched above and its `brand` row carries the same `warrantyLookupUrl`
+  // (matched by Go's fuzzy brand rule), so that is the primary source — one fewer
+  // round trip and the same match the "đi bảo hành ở đâu" card shows. The
+  // dedicated `GET /v1/brands/{brandId}/service-info` resolver is the fallback
+  // when the directory read failed. `lookupUrl: null` is a real answer ("we have
+  // no page for this brand"), never a reason to fail the page — the card says so.
+  const brandLookup = directory
+    ? { lookupUrl: directory.brand?.warrantyLookupUrl ?? null }
+    : device.brand
+      ? await resolveBrandWarrantyLookup(device.brand)
+      : { lookupUrl: null };
 
   const category = categoryLabel(device.category, locale);
   const status = device.status as Status;
@@ -461,6 +476,20 @@ export default async function DeviceDetailPage({
               </p>
             </CardContent>
           </Card>
+
+          {/* Brand warranty lookup (frozen contract). Placed directly under the
+              warranty overview, because it is the section that can REINTERPRET
+              "còn hạn": the brand may record a start date months before the
+              invoice. The card owns the mismatch explanation, the brand's own
+              lookup link (or the honest no-link sentence) and the small record
+              form — see `@/components/brand-warranty-card`. */}
+          <BrandWarrantyCard
+            deviceId={device.id}
+            brandName={device.brand}
+            lookupUrl={brandLookup.lookupUrl}
+            values={brandWarrantyValues(device)}
+            mismatch={device.warrantyMismatch}
+          />
 
           {/* Pre-service handover checklist. The card is the entry point; the
               generated list and its tick-boxes live on `/devices/[id]/handover`

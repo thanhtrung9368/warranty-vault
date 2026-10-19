@@ -532,12 +532,19 @@ INSERT INTO "Device" (
     "returnWindowNotifiedAt", "createdAt", "updatedAt",
     "activationRequired", "activatedAt", "extendedCoverBuyBy",
     "activationNotifiedAt", "extendedCoverNotifiedAt",
-    "extendedCoverNotifiedLeadDay", "leadDays", currency, "fxRate"
+    "extendedCoverNotifiedLeadDay", "leadDays", currency, "fxRate",
+    "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd",
+    "brandCheckedAt", "brandLookupUrl"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20, $21, $22, $23, $24, $25,
     COALESCE($28::int[], ARRAY[30, 7]),
-    $26, $27
+    $26, $27,
+    $29::text,
+    $30::timestamp,
+    $31::timestamp,
+    $32::timestamp,
+    $33::text
 )
 `
 
@@ -570,6 +577,11 @@ type BackupInsertDeviceParams struct {
 	Currency                     string           `json:"currency"`
 	FxRate                       *int32           `json:"fxRate"`
 	LeadDays                     []int32          `json:"leadDays"`
+	BrandWarrantyStatus          *string          `json:"brandWarrantyStatus"`
+	BrandWarrantyStart           pgtype.Timestamp `json:"brandWarrantyStart"`
+	BrandWarrantyEnd             pgtype.Timestamp `json:"brandWarrantyEnd"`
+	BrandCheckedAt               pgtype.Timestamp `json:"brandCheckedAt"`
+	BrandLookupUrl               *string          `json:"brandLookupUrl"`
 }
 
 // ─── Import inserts (preserve ids + timestamps) ──────────────────────────
@@ -602,6 +614,15 @@ type BackupInsertDeviceParams struct {
 // The export omits both for a VND device, so a VND-only backup stays
 // byte-identical to the pre-0022 format. The locked rate must travel or a
 // restore would silently turn a USD 999 phone into a VND 999 phone.
+//
+// brandWarrantyStatus / brandWarrantyStart / brandWarrantyEnd / brandCheckedAt /
+// brandLookupUrl (migration 0023, gap #11) are the user's record of the BRAND's
+// warranty answer. They travel so a restore does not delete the only evidence of
+// what the brand said; an older payload has none of the keys, decodes to NULL
+// and imports as "never checked" — the exact pre-0023 state. The export omits
+// them when unset, so a payload written by a user who never recorded a lookup is
+// byte-identical to the pre-0023 format. "warrantyMismatch" is DERIVED and is
+// deliberately absent from both the payload and this INSERT.
 func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDeviceParams) error {
 	_, err := q.db.Exec(ctx, backupInsertDevice,
 		arg.ID,
@@ -632,6 +653,11 @@ func (q *Queries) BackupInsertDevice(ctx context.Context, arg BackupInsertDevice
 		arg.Currency,
 		arg.FxRate,
 		arg.LeadDays,
+		arg.BrandWarrantyStatus,
+		arg.BrandWarrantyStart,
+		arg.BrandWarrantyEnd,
+		arg.BrandCheckedAt,
+		arg.BrandLookupUrl,
 	)
 	return err
 }
@@ -1043,7 +1069,7 @@ func (q *Queries) BackupListClaimsForUser(ctx context.Context, userid string) ([
 const backupListDevices = `-- name: BackupListDevices :many
 
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" ASC
@@ -1099,6 +1125,11 @@ func (q *Queries) BackupListDevices(ctx context.Context, userid string) ([]Devic
 			&i.ExtendedCoverNotifiedLeadDay,
 			&i.Currency,
 			&i.FxRate,
+			&i.BrandWarrantyStatus,
+			&i.BrandWarrantyStart,
+			&i.BrandWarrantyEnd,
+			&i.BrandCheckedAt,
+			&i.BrandLookupUrl,
 		); err != nil {
 			return nil, err
 		}

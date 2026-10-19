@@ -35,6 +35,14 @@ export type BrandServiceInfo = {
   name: string;
   serviceLocatorUrl: string | null;
   supportUrl: string | null;
+  /**
+   * The brand's own warranty-check page (openapi: `warrantyLookupUrl`), where
+   * the owner can read the warranty dates the BRAND recorded. Nullable on
+   * purpose, and null for part of the catalogue: the API only publishes a URL
+   * it can source, so the UI must say "we do not have this brand's lookup page"
+   * rather than guess one. Absent on an older payload, which normalises to null.
+   */
+  warrantyLookupUrl: string | null;
   notes: string | null;
 };
 
@@ -156,9 +164,15 @@ export function normalizePhoneSource(value: unknown, phone: string | null): Phon
 export function safeExternalUrl(value: string | null | undefined): string | null {
   const raw = str(value);
   if (raw === null) return null;
+  // Match the API's own rule (`brand_warranty.go::isAbsoluteHTTPURL`): an
+  // absolute http(s) URL with a host, no whitespace. Checking the literal prefix
+  // matters because WHATWG `new URL('http:foo')` happily invents host "foo",
+  // while Go's `url.Parse` sees an opaque URL with no host and rejects it.
+  if (/\s/.test(raw) || !/^https?:\/\//i.test(raw)) return null;
   try {
     const parsed = new URL(raw);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (parsed.host === '') return null;
     return raw;
   } catch {
     return null;
@@ -176,8 +190,21 @@ function normalizeBrand(value: unknown): BrandServiceInfo | null {
     name,
     serviceLocatorUrl: safeExternalUrl(str(o.serviceLocatorUrl)),
     supportUrl: safeExternalUrl(str(o.supportUrl)),
+    // Same URL gate as the other two links: a catalogue row is DATA, so only
+    // http(s) may reach an href. A null/absent/invalid value stays null —
+    // precisely the "we do not have this brand's lookup page" branch.
+    warrantyLookupUrl: safeExternalUrl(str(o.warrantyLookupUrl)),
     notes: str(o.notes),
   };
+}
+
+/**
+ * Normalise one `BrandServiceInfo` row. Exported because
+ * `GET /v1/brands/{brandId}/service-info` returns the same schema and must
+ * apply the same URL gate as the catalogue list.
+ */
+export function normalizeBrandServiceInfo(value: unknown): BrandServiceInfo | null {
+  return normalizeBrand(value);
 }
 
 function normalizeProvider(value: unknown): DirectoryProviderRef | null {

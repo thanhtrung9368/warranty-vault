@@ -956,6 +956,51 @@ extension APIClient {
         return w.directory
     }
 
+    // MARK: - Brand warranty service info
+
+    /// One brand's service page bundle (openapi
+    /// `GET /api/v1/brands/{brandId}/service-info`).
+    ///
+    /// The only field this feature uses is `warrantyLookupUrl`, and it is
+    /// legitimately `nil`: the API adds only URLs it can source, and the frozen
+    /// contract says outright that it is null for some brands. A caller must
+    /// render that as "we do not have this brand's page" and **never** fall back
+    /// to `supportUrl`, a guessed path, or a search-engine URL.
+    ///
+    /// Returns `nil` for the contract's second documented 200: a **known brand
+    /// with no directory row** (`{"serviceInfo": null}`, only 16 of 49 seeded
+    /// brands have one). That is not the same as the third outcome, a 404 for a
+    /// brand that does not exist; both leave the section saying it has no page,
+    /// but only the 404 is "no such brand". A transport or decoding failure is
+    /// distinct again and the section offers a retry.
+    ///
+    /// `brandId` comes from `BrandWarrantyRules.brandId(for:in:)` — the catalog
+    /// row whose name matches the device's free-text brand exactly (folded). A
+    /// device carries no brand id, so a missing or ambiguous match is a real
+    /// answer: the section says it cannot find the brand's page rather than
+    /// asking the server about a guess.
+    ///
+    /// The envelope is decoded through `BrandServiceInfoResponse`, which accepts
+    /// the row directly or under the wrapper keys the Go handlers use elsewhere;
+    /// the route ships from a parallel change, and guessing the wrong envelope
+    /// would lose the URL for every brand.
+    public func brandServiceInfo(brandId: String) async throws -> BrandServiceInfo? {
+        let payload: BrandServiceInfoResponse = try await request(
+            "GET", Self.brandServiceInfoPath(brandId), percentEncodedPath: true
+        )
+        return payload.info
+    }
+
+    /// Path of the brand service-info route. Same segment-escaping rule as
+    /// `actionSnoozePath`: `/` and `:` are percent-encoded so an id can never
+    /// split the path or be read as structure.
+    nonisolated public static func brandServiceInfoPath(_ brandId: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: ":/")
+        let segment = brandId.addingPercentEncoding(withAllowedCharacters: allowed) ?? brandId
+        return "/api/v1/brands/\(segment)/service-info"
+    }
+
     // MARK: - Push
 
     public func listPushSubscriptions() async throws -> [PushSubscriptionMeta] {

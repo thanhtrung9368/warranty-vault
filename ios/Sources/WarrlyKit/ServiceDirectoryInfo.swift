@@ -82,8 +82,63 @@ public struct BrandServiceInfo: Decodable, Sendable, Hashable {
     /// The brand's general support page. May not list a single centre — which is
     /// why the UI labels it differently from the locator.
     public let supportUrl: String?
+    /// The brand's **warranty-status** lookup page (openapi
+    /// `BrandServiceInfo.warrantyLookupUrl`), or `nil`.
+    ///
+    /// `nil` is a real, common answer: the API only carries URLs it can source,
+    /// and the contract says outright that it is null for some brands. A client
+    /// must render "we do not have this brand's page" — **never** substitute the
+    /// support page, a guessed path, or a search-engine URL. `serviceLocatorUrl`
+    /// and `supportUrl` answer a different question and are labelled as such.
+    public let warrantyLookupUrl: String?
     /// Vietnamese note explaining what the links are for.
     public let notes: String?
+}
+
+/// The `GET /api/v1/brands/{brandId}/service-info` payload, decoded
+/// tolerantly.
+///
+/// The contract says the response "gains `warrantyLookupUrl`" without pinning
+/// the envelope, and the route ships from a parallel change. A client that only
+/// accepted one shape would lose the whole feature on a wrapper name it guessed
+/// wrong, so this accepts the row **directly** or under any of the four wrapper
+/// keys the Go handlers use elsewhere (`serviceInfo`, `brand`,
+/// `brandServiceInfo`, `info`). A row is still required to carry `brandId` and
+/// `name`; anything else is a decoding error, which the section renders as
+/// "could not load" — never as "this brand has no page".
+///
+/// `info` is **optional** because the live handler answers `{"serviceInfo":
+/// null}` for a known brand that has no directory row (only 16 of 49 seeded
+/// brands have one). That is a normal answer, not an error: it means the same
+/// thing as `warrantyLookupUrl: null` — we do not have this brand's page.
+public struct BrandServiceInfoResponse: Decodable, Sendable {
+    public let info: BrandServiceInfo?
+
+    private enum CodingKeys: String, CodingKey {
+        case serviceInfo, brand, brandServiceInfo, info
+    }
+
+    public init(from decoder: Decoder) throws {
+        if let direct = try? BrandServiceInfo(from: decoder) {
+            self.info = direct
+            return
+        }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // `contains` rather than `decodeIfPresent` for the envelope: the key is
+        // REQUIRED by the contract and may legitimately be null. Conflating
+        // "key absent" with "row absent" would turn a malformed payload into
+        // the same "no page" answer as a real null row.
+        for key in [CodingKeys.serviceInfo, .brand, .brandServiceInfo, .info] {
+            if c.contains(key) {
+                self.info = try c.decodeIfPresent(BrandServiceInfo.self, forKey: key)
+                return
+            }
+        }
+        throw DecodingError.dataCorrupted(
+            .init(codingPath: decoder.codingPath,
+                  debugDescription: "brand service-info response carried no BrandServiceInfo")
+        )
+    }
 }
 
 /// The catalog row a free-text provider string matched (openapi

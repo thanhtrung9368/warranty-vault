@@ -49,6 +49,14 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     activationRequired: false,
     activatedAt: null,
     extendedCoverBuyBy: null,
+    // Brand warranty answer (frozen five) — ignored by the money math; present
+    // for the wire shape after the brand-warranty fields landed on `Device`.
+    brandWarrantyStatus: null,
+    brandWarrantyStart: null,
+    brandWarrantyEnd: null,
+    brandCheckedAt: null,
+    brandLookupUrl: null,
+    warrantyMismatch: null,
     createdAt: '2026-03-15T00:00:00Z',
     updatedAt: '2026-03-15T00:00:00Z',
     attachmentCount: 0,

@@ -104,6 +104,29 @@ struct DeviceFormView: View {
     @State private var soldDate: Date
     @State private var soldPrice: Int?
 
+    /// Brand warranty lookup ("Đối chiếu với hãng").
+    ///
+    /// Loaded from the device being edited and sent straight back on every save,
+    /// because `PATCH /api/v1/devices/{id}` replaces the whole row: a save that
+    /// omitted these five fields would erase a check recorded on the detail
+    /// screen, the web, or Android.
+    ///
+    /// The record sheet in the form is **local-only**. It updates this state and
+    /// `brandWarrantyDirty`, and the answer is persisted with the form's own
+    /// Save — a record action must not PATCH a half-edited device behind the
+    /// user's back. `DeviceDetailView` persists immediately because it has no
+    /// other unsaved state.
+    @State private var brandWarranty: BrandWarrantyFields
+    @State private var brandWarrantyDirty = false
+    /// The device the last successful save returned.
+    ///
+    /// The screen normally dismisses on success, but a serial advisory keeps it
+    /// open. `device` is a `let` from the caller and would still hold the state
+    /// from before the save, including an obsolete `warrantyMismatch`; the
+    /// section reads this when it exists so a warning screen does not show a
+    /// mismatch the save has already resolved.
+    @State private var savedDevice: Device?
+
     // UI state
     @State private var showCategoryPicker = false
     @State private var showDiscardAlert = false
@@ -225,6 +248,10 @@ struct DeviceFormView: View {
         // an instant: that is what would move the calendar day.
         _soldDate = State(initialValue: DeviceResale.dayDate(sale.soldAt) ?? Date())
         _soldPrice = State(initialValue: sale.soldPrice)
+        // Brand warranty lookup: reduce both brand dates to their day and keep
+        // the check timestamp / URL as recorded. `submit()` writes this back
+        // unchanged unless the record sheet replaced it.
+        _brandWarranty = State(initialValue: device.map(BrandWarrantyRules.carried(from:)) ?? .empty)
     }
 
     // MARK: - Validation
@@ -786,6 +813,30 @@ struct DeviceFormView: View {
                 // Warranty activation + extended-cover deadline (Feature A).
                 // Three fields inside the warranty area, not a new step.
                 activationSection
+
+                // Brand warranty lookup ("Đối chiếu với hãng"). Available in both
+                // modes: in create mode there is no device id yet, so the sheet
+                // is local-only and the answer rides along with this save — the
+                // same path the edit form uses. The lookup itself only needs the
+                // typed brand and the catalog, so it works before the first save.
+                BrandWarrantySection(
+                    client: client,
+                    // The **typed** brand, not the stored one: if the user
+                    // edits the brand field, the page offered must belong to the
+                    // brand on screen.
+                    brand: brand,
+                    fields: brandWarranty,
+                    mismatch: brandWarrantyDirty
+                        ? nil
+                        : (savedDevice ?? device)?.warrantyMismatch,
+                    purchaseDate: purchaseDate,
+                    persist: nil,
+                    onRecordLocally: { recorded in
+                        brandWarranty = recorded
+                        brandWarrantyDirty = true
+                    },
+                    pendingLocalChanges: brandWarrantyDirty
+                )
 
                 // Default warranty (create mode only)
                 if !isEditing {
@@ -1644,6 +1695,12 @@ struct DeviceFormView: View {
         }
         DeviceResale.apply(sale, to: &input)
 
+        // Brand warranty lookup. A form save is a full replacement too, so the
+        // answer the user recorded on the detail screen (or in this form's own
+        // sheet, which is local-only) has to travel with it. `brandWarranty` is
+        // seeded from the device and updated by the record sheet.
+        BrandWarrantyRules.apply(brandWarranty, to: &input)
+
         if !isEditing {
             input.warrantyMonths = Int(warrantyMonths) ?? 0
             input.warrantyProvider = warrantyProvider.isEmpty ? nil : warrantyProvider
@@ -1660,6 +1717,14 @@ struct DeviceFormView: View {
             } else {
                 result = try await store.create(input)
             }
+
+            // The brand-check answer recorded in this form travelled with the
+            // save; it is no longer "pending" even if the screen stays open for
+            // a serial advisory. The returned device is also the authoritative
+            // source of the recomputed `warrantyMismatch` for that screen.
+            savedDevice = result.device
+            brandWarranty = BrandWarrantyRules.carried(from: result.device)
+            brandWarrantyDirty = false
 
             // Nothing is blocked: if the server flagged the serial, the device
             // was still created/updated. Keep the screen up just long enough to

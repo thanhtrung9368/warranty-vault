@@ -408,6 +408,29 @@ interface ApiService {
     @GET("api/v1/devices/{id}/service-directory")
     suspend fun getServiceDirectory(@Path("id") deviceId: String): ServiceDirectoryResponse
 
+    /**
+     * `GET /api/v1/brands/{brandId}/service-info` — one brand's directory row,
+     * now including `warrantyLookupUrl` (the manufacturer's own "check your
+     * serial" form).
+     *
+     * The URL is **nullable and often null**: the API only publishes links it
+     * can source. The lookup flow must say "app không có trang của hãng này"
+     * rather than build a search URL, and must not call this just to fill a
+     * blank — [com.warrly.ui.screens.devices.brandLookupUrl] is the single
+     * validator every caller uses.
+     *
+     * `brandId` is a `Brand.id` (e.g. `samsung`), not the display name. The
+     * device row stores only free text, so the caller resolves the id through
+     * the catalog first (see `brandIdForName`).
+     *
+     * The response is the `{"serviceInfo": {...}}` envelope and `serviceInfo`
+     * may be **null for a known brand with no directory row** — a 200, not an
+     * error. That null is exactly the "app does not have this brand's page"
+     * state, never a reason to try another URL.
+     */
+    @GET("api/v1/brands/{brandId}/service-info")
+    suspend fun getBrandServiceInfo(@Path("brandId") brandId: String): BrandServiceInfoResponse
+
     @GET("api/v1/ai/opt-in")
     suspend fun getAIOptIn(): AIOptInResponse
 

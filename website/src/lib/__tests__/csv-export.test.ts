@@ -60,6 +60,14 @@ function device(over: Partial<DeviceListItem> = {}): DeviceListItem {
     activationRequired: false,
     activatedAt: null,
     extendedCoverBuyBy: null,
+    // Brand warranty answer (frozen five) — no CSV columns, so this fixture is
+    // "never checked"; `warrantyMismatch` is the computed read-only field.
+    brandWarrantyStatus: null,
+    brandWarrantyStart: null,
+    brandWarrantyEnd: null,
+    brandCheckedAt: null,
+    brandLookupUrl: null,
+    warrantyMismatch: null,
     createdAt: '2024-03-08T10:00:00Z',
     updatedAt: '2024-03-08T10:00:00Z',
     attachmentCount: 0,

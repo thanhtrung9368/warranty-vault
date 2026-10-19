@@ -5,6 +5,7 @@ import { DeviceForm } from '@/components/device-form';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
+import { resolveBrandWarrantyLookup } from '@/lib/brand-warranty-lookup';
 import { getDeviceFormCatalog } from '@/app/actions/catalog';
 import { getI18n } from '@/lib/i18n/server';
 import type { Status } from '@/lib/types';
@@ -17,15 +18,24 @@ export default async function EditDevicePage({
   await requireUser();
   const { t } = await getI18n();
   const { id } = await params;
-  const [res, catalog] = await Promise.all([
+  const [res, catalog, directoryRes] = await Promise.all([
     api.devices.get(id),
     getDeviceFormCatalog(),
+    api.directory.get(id),
   ]);
   if (!res.ok) {
     if (res.status === 404) notFound();
     throw new Error(res.message ?? t('Không tải được thiết bị'));
   }
   const device = res.data;
+  // Brand warranty lookup (frozen contract): resolved once on the server for the
+  // saved brand. The directory already carries Go's fuzzy-matched brand row, so
+  // it is the primary source; the brands endpoint is the fallback when that read
+  // failed. The form's brand combobox can change later; that path asks the
+  // `lookupBrandWarranty` action on demand. A null URL is shown as "no page".
+  const brandLookup = directoryRes.ok
+    ? { lookupUrl: directoryRes.data.brand?.warrantyLookupUrl ?? null }
+    : await resolveBrandWarrantyLookup(device.brand);
 
   // `createdAt` arrives as an ISO string from Go — sort lexicographically,
   // which gives the same order as numeric timestamp comparison for ISO 8601.
@@ -90,7 +100,16 @@ export default async function EditDevicePage({
           activationRequired: device.activationRequired,
           activatedAt: device.activatedAt,
           extendedCoverBuyBy: device.extendedCoverBuyBy,
+          // Brand warranty answer (the frozen five). Passed so the section starts
+          // on the saved values and submits them back: PATCH replaces the whole
+          // device, so omitting these would erase a recorded check.
+          brandWarrantyStatus: device.brandWarrantyStatus,
+          brandWarrantyStart: device.brandWarrantyStart,
+          brandWarrantyEnd: device.brandWarrantyEnd,
+          brandCheckedAt: device.brandCheckedAt,
+          brandLookupUrl: device.brandLookupUrl,
         }}
+        brandLookupUrl={brandLookup.lookupUrl}
       />
     </div>
   );

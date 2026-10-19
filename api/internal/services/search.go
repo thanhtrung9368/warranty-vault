@@ -119,8 +119,29 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 	if err != nil {
 		return nil, fmt.Errorf("search devices: %w", err)
 	}
+	// One batch query for the matched devices' warranties: the computed
+	// warrantyMismatch (gap #11) is part of every device read, and a search hit
+	// must not be the one payload whose mismatch is always null. The set is
+	// bounded by MaxSearchLimit.
+	warByDevice := map[string][]store.Warranty{}
+	if len(deviceRows) > 0 {
+		deviceIDs := make([]string, 0, len(deviceRows))
+		for _, d := range deviceRows {
+			deviceIDs = append(deviceIDs, d.ID)
+		}
+		warrantyRows, werr := q.ListWarrantiesByDeviceIDs(ctx, store.ListWarrantiesByDeviceIDsParams{
+			Column1: deviceIDs,
+			UserId:  userID,
+		})
+		if werr != nil {
+			return nil, fmt.Errorf("search device warranties: %w", werr)
+		}
+		for _, w := range warrantyRows {
+			warByDevice[w.DeviceId] = append(warByDevice[w.DeviceId], w)
+		}
+	}
 	for _, d := range deviceRows {
-		out.Devices = append(out.Devices, withVND(d))
+		out.Devices = append(out.Devices, withVNDAndWarranties(d, warByDevice[d.ID]))
 	}
 	subs, err := q.SearchSubscriptions(ctx, store.SearchSubscriptionsParams{
 		UserId:   userID,

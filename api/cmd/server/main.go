@@ -97,6 +97,7 @@ func main() {
 	handlers.RegisterSubscriptions(mux, deps)
 	handlers.RegisterWishlist(mux, deps)
 	handlers.RegisterCatalog(mux, deps)
+	handlers.RegisterBrands(mux, deps)
 	handlers.RegisterSearch(mux, deps)
 	handlers.RegisterStats(mux, deps)
 	handlers.RegisterForecast(mux, deps)

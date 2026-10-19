@@ -6,6 +6,7 @@ import com.warrly.network.ActionQueue
 import com.warrly.network.Attachment
 import com.warrly.network.BillingCycle
 import com.warrly.network.BrandServiceInfo
+import com.warrly.network.BrandWarrantyStatus
 import com.warrly.network.Claim
 import com.warrly.network.ClaimStatus
 import com.warrly.network.CreatedDeviceShare
@@ -27,6 +28,7 @@ import com.warrly.network.UpcomingReminder
 import com.warrly.network.UserStats
 import com.warrly.network.Warranty
 import com.warrly.network.WarrantyCentre
+import com.warrly.network.WarrantyMismatch
 import com.warrly.network.WarrantyProviderRef
 import com.warrly.network.WarrantyType
 import com.warrly.network.WishlistItem
@@ -58,13 +60,20 @@ object Fixtures {
         returnWindowDays: Int? = null,
         receivedAt: String? = null,
         returnDeadline: String? = null,
+        purchaseDate: String = "2024-03-01",
+        brandWarrantyStatus: BrandWarrantyStatus? = null,
+        brandWarrantyStart: String? = null,
+        brandWarrantyEnd: String? = null,
+        brandCheckedAt: String? = null,
+        brandLookupUrl: String? = null,
+        warrantyMismatch: WarrantyMismatch? = null,
     ) = Device(
         id = id,
         userId = "user-1",
         name = name,
         category = category,
         brand = brand,
-        purchaseDate = "2024-03-01",
+        purchaseDate = purchaseDate,
         purchasePrice = purchasePrice,
         currency = currency,
         fxRate = fxRate,
@@ -82,6 +91,12 @@ object Fixtures {
         claims = claims,
         effectiveWarrantyEnd = effectiveWarrantyEnd,
         attachmentCount = attachmentCount,
+        brandWarrantyStatus = brandWarrantyStatus,
+        brandWarrantyStart = brandWarrantyStart,
+        brandWarrantyEnd = brandWarrantyEnd,
+        brandCheckedAt = brandCheckedAt,
+        brandLookupUrl = brandLookupUrl,
+        warrantyMismatch = warrantyMismatch,
     )
 
     /**
@@ -485,11 +500,13 @@ object Fixtures {
         serviceLocatorUrl: String? = "https://www.samsung.com/vn/support/service-center/",
         supportUrl: String? = "https://www.samsung.com/vn/support/",
         notes: String? = "Trang tra cứu trung tâm uỷ quyền do hãng tự duy trì.",
+        warrantyLookupUrl: String? = null,
     ) = BrandServiceInfo(
         brandId = brandId,
         name = name,
         serviceLocatorUrl = serviceLocatorUrl,
         supportUrl = supportUrl,
+        warrantyLookupUrl = warrantyLookupUrl,
         notes = notes,
     )
 

@@ -142,6 +142,12 @@ class DeviceDetailViewModel(
                 // Derived server-side, so a write response never carries it — but
                 // it is only kept while the inputs it derives from are unchanged.
                 returnDeadline = current?.let { keptReturnDeadline(it, device) },
+                // The brand mismatch is a read-side projection too. It is kept
+                // only while the five brand fields it was computed from did not
+                // move; otherwise it is dropped until the next detail read, so a
+                // changed brand record can never leave a stale sentence on
+                // screen. See `keptWarrantyMismatch`.
+                warrantyMismatch = current?.let { keptWarrantyMismatch(it, device) },
                 attachmentCount = if (device.attachmentCount != 0) {
                     device.attachmentCount
                 } else {
@@ -333,6 +339,11 @@ fun DeviceDetailScreen(
                                 }
                             }
                         },
+                        // Recording the brand's answer is a full `PATCH`, and the
+                        // response is a bare row: reload the detail so the
+                        // server-computed mismatch and every derived row come
+                        // back in one piece.
+                        onBrandWarrantySaved = { vm.load() },
                     )
                 }
             }
@@ -362,6 +373,11 @@ fun DeviceDetailScreen(
                 showEditDevice = false
                 vm.replaceDevice(updated)
                 savedWarnings = warnings
+                // The form can now carry a NEW brand warranty answer, and the
+                // computed mismatch is not part of a write response. Refetch so
+                // the "dates agree / dates differ" line reflects what was just
+                // stored instead of the previous check.
+                vm.load()
             },
         )
     }
@@ -565,6 +581,8 @@ private fun DeviceDetailBody(
     onEdit: (Warranty) -> Unit,
     onDelete: (Warranty) -> Unit,
     onToggleReminder: (Warranty) -> Unit,
+    /** The brand record was saved; the host reloads the detail row. */
+    onBrandWarrantySaved: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -572,6 +590,18 @@ private fun DeviceDetailBody(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { DeviceSummaryCard(device) }
+        // "Đối chiếu với hãng" sits directly under the summary: the warranty
+        // start the user typed is a guess from the invoice, and a brand answer
+        // that disagrees is the one thing on this screen that can change what
+        // the user does next (go to the counter while there is still cover).
+        // Burying it under repair tickets or attachments would defeat it.
+        item {
+            BrandWarrantySection(
+                api = api,
+                device = device,
+                onSaved = onBrandWarrantySaved,
+            )
+        }
         // "Sửa chữa & bảo hành" sits directly under the summary. A claim is the
         // next thing that happens to a device, and the BROKEN nudge inside it is
         // the entry point this feature exists for — it must not be buried under

@@ -104,6 +104,31 @@ type DeviceInput struct {
 	ActivationRequired bool    `json:"activationRequired"`
 	ActivatedAt        *string `json:"activatedAt,omitempty"`        // YYYY-MM-DD or RFC3339
 	ExtendedCoverBuyBy *string `json:"extendedCoverBuyBy,omitempty"` // YYYY-MM-DD or RFC3339
+	// Brand warranty lookup (migration 0023, gap #11).
+	//
+	// These five fields record what the BRAND's own lookup page said; they do not
+	// change the app's warranty arithmetic. All are nullable pointers because
+	// "the brand was never checked" is the state of every pre-0023 row and must
+	// stay representable.
+	//
+	//   * BrandWarrantyStatus is the enum ACTIVE | EXPIRED | NOT_REGISTERED |
+	//     PRE_ACTIVATED | UNKNOWN. It is REQUIRED as soon as any of the other
+	//     four is set; a status alone is valid (NOT_REGISTERED has no dates).
+	//   * BrandWarrantyStart / BrandWarrantyEnd are the dates the brand reports.
+	//     End must not precede start.
+	//   * BrandCheckedAt is when the user last checked.
+	//   * BrandLookupUrl is the exact URL the user opened. It is an audit trail
+	//     and is NEVER fetched by the server; only an absolute http/https URL is
+	//     accepted.
+	//
+	// PATCH has full-replacement semantics for these like every other optional
+	// field except leadDays/currency: an absent key clears the stored value. A
+	// client that has recorded a lookup must send all five back.
+	BrandWarrantyStatus *string `json:"brandWarrantyStatus,omitempty"`
+	BrandWarrantyStart  *string `json:"brandWarrantyStart,omitempty"` // YYYY-MM-DD or RFC3339
+	BrandWarrantyEnd    *string `json:"brandWarrantyEnd,omitempty"`   // YYYY-MM-DD or RFC3339
+	BrandCheckedAt      *string `json:"brandCheckedAt,omitempty"`     // YYYY-MM-DD or RFC3339
+	BrandLookupUrl      *string `json:"brandLookupUrl,omitempty"`     // absolute http/https URL
 	// LeadDays is the per-device reminder schedule (migration 0015): one push per
 	// milestone, fired that many days before a Warranty end date. nil (absent or
 	// JSON null) means "use the create default / keep the stored value on
@@ -147,9 +172,19 @@ type DeviceVND struct {
 	store.Device
 	PurchasePriceVnd *int64 `json:"purchasePriceVnd"`
 	SoldPriceVnd     *int64 `json:"soldPriceVnd,omitempty"`
+	// WarrantyMismatch is COMPUTED on every device read (gap #11) and is never
+	// stored. It compares the brand's dates with the invoice date and the
+	// device's whole-unit effective warranty end; nil means "no mismatch" or
+	// "nothing to compare". The key is always present (null when nil), matching
+	// the contract's "an object or null" shape.
+	WarrantyMismatch *BrandWarrantyMismatch `json:"warrantyMismatch"`
 }
 
-// withVND attaches the computed VND values to a stored device row.
+// withVND attaches the computed VND values to a stored device row. Callers that
+// have the device's warranties should use withVNDAndWarranties instead so the
+// computed mismatch is attached in the same place; withVND alone leaves it nil,
+// which is the correct answer for a caller that genuinely has nothing to compare
+// (and the pre-0023 device read shape).
 func withVND(d store.Device) DeviceVND {
 	out := DeviceVND{
 		Device:           d,
@@ -158,6 +193,16 @@ func withVND(d store.Device) DeviceVND {
 	if d.SoldPrice != nil {
 		out.SoldPriceVnd = vndValue(*d.SoldPrice, d.Currency, d.FxRate)
 	}
+	return out
+}
+
+// withVNDAndWarranties is the device-read constructor: the VND values plus the
+// computed brand-warranty mismatch. Every read that has the warranty rows in
+// hand (list, detail, search, create, update) must use this so no endpoint
+// returns a device without the computed field.
+func withVNDAndWarranties(d store.Device, warranties []store.Warranty) DeviceVND {
+	out := withVND(d)
+	out.WarrantyMismatch = warrantyMismatchFor(d, warranties)
 	return out
 }
 
@@ -404,6 +449,17 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 	} else if !validStatuses[in.Status] {
 		fieldErrors["status"] = []string{i18n.Text(ctx, "Trạng thái không hợp lệ")}
 	}
+	// Brand warranty lookup (migration 0023, gap #11). The rules live in
+	// brand_warranty.go so create, update and any future write path share one
+	// definition: status required when any other field is set, enum membership,
+	// date parsing, end-not-before-start, and an absolute http/https URL. An
+	// absent group is valid — that is the pre-0023 device and the "never checked"
+	// state this feature must leave untouched.
+	if _, brandErrors := parseBrandWarranty(ctx, in); len(brandErrors) > 0 {
+		for field, messages := range brandErrors {
+			fieldErrors[field] = messages
+		}
+	}
 	if len(fieldErrors) > 0 {
 		// ErrValidationHeadline, not ErrValidation: this validator has translated
 		// its fieldErrors, so the envelope headline has to move with them or the
@@ -637,7 +693,7 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 	for _, d := range rows {
 		end := effectiveWarrantyEnd(warByDevice[d.ID])
 		out = append(out, DeviceListItem{
-			DeviceVND:            withVND(d),
+			DeviceVND:            withVNDAndWarranties(d, warByDevice[d.ID]),
 			AttachmentCount:      countByDevice[d.ID],
 			EffectiveWarrantyEnd: end,
 			ReturnDeadline:       deviceReturnDeadline(d),
@@ -757,7 +813,7 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	claimRows := make([]store.Claim, 0, len(claims))
 	claimRows = append(claimRows, claims...)
 	return &DeviceDetail{
-		DeviceVND:      withVND(d),
+		DeviceVND:      withVNDAndWarranties(d, warranties),
 		Warranties:     wr,
 		Attachments:    metas,
 		Claims:         claimRows,
@@ -806,6 +862,10 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	if err != nil {
 		return DeviceVND{}, err
 	}
+	brandWarranty, err := brandWarrantyForWrite(ctx, &in)
+	if err != nil {
+		return DeviceVND{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -842,6 +902,12 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 
 		Currency: currency,
 		FxRate:   fxRate,
+
+		BrandWarrantyStatus: brandWarranty.Status,
+		BrandWarrantyStart:  brandWarranty.Start,
+		BrandWarrantyEnd:    brandWarranty.End,
+		BrandCheckedAt:      brandWarranty.CheckedAt,
+		BrandLookupUrl:      brandWarranty.LookupURL,
 	})
 	if err != nil {
 		return DeviceVND{}, fmt.Errorf("create device: %w", err)
@@ -883,10 +949,24 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		}
 	}
 
+	// Read the just-written warranty rows inside the same transaction: the
+	// computed warrantyMismatch compares the brand's end date with the whole-unit
+	// effective end, and the create response must carry the same value a
+	// subsequent GET returns. One extra query on a create is cheap; returning a
+	// null mismatch here and a non-null one on the detail read would make the
+	// device form's "saved" state disagree with the list.
+	warranties, err := tq.ListWarrantiesByDevice(ctx, store.ListWarrantiesByDeviceParams{
+		DeviceId: created.ID,
+		UserId:   userID,
+	})
+	if err != nil {
+		return DeviceVND{}, fmt.Errorf("list warranties after create: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
-	return withVND(created), nil
+	return withVNDAndWarranties(created, warranties), nil
 }
 
 // UpdateDevice mirrors website/src/lib/services/devices.ts::updateDevice.
@@ -939,6 +1019,10 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 	if err != nil {
 		return DeviceVND{}, err
 	}
+	brandWarranty, err := brandWarrantyForWrite(ctx, &in)
+	if err != nil {
+		return DeviceVND{}, err
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -973,6 +1057,12 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 
 		Currency: currency,
 		FxRate:   fxRate,
+
+		BrandWarrantyStatus: brandWarranty.Status,
+		BrandWarrantyStart:  brandWarranty.Start,
+		BrandWarrantyEnd:    brandWarranty.End,
+		BrandCheckedAt:      brandWarranty.CheckedAt,
+		BrandLookupUrl:      brandWarranty.LookupURL,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1045,10 +1135,21 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		}
 	}
 
+	// Same reason as CreateDevice: the computed mismatch must reflect the
+	// warranties this update just created/edited/deleted, and the response is a
+	// device read in every way that matters to a client.
+	warranties, err := tq.ListWarrantiesByDevice(ctx, store.ListWarrantiesByDeviceParams{
+		DeviceId: id,
+		UserId:   userID,
+	})
+	if err != nil {
+		return DeviceVND{}, fmt.Errorf("list warranties after update: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
-	return withVND(updated), nil
+	return withVNDAndWarranties(updated, warranties), nil
 }
 
 // DeleteDevice removes the device row (cascade handles warranties / attachments

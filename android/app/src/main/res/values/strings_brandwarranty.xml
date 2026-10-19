@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ENGLISH — the default language (docs/I18N_PLAN.md).
+
+  Brand warranty lookup: the user opens the manufacturer's own lookup page and
+  records what it said. Every string here is either a question the app asks, a
+  plain statement about what the app does NOT know, or the mismatch sentence
+  built from the two dates. No string may imply the app fetched the brand's
+  answer itself — it did not, and no manufacturer exposes an API for it.
+
+  The Vietnamese pair lives in values-vi/strings_brandwarranty.xml and must keep
+  the same keys and the same format verbs (`StringResourceParityTest`).
+-->
+<resources>
+    <!-- The card on the device detail -->
+    <string name="brand_lookup_title">Brand warranty check</string>
+    <string name="brand_lookup_action">Check with the brand</string>
+    <string name="brand_lookup_checking">Opening the brand\'s page…</string>
+    <string name="brand_lookup_manual">Record the brand\'s answer</string>
+    <string name="brand_lookup_no_url">The app does not have a warranty lookup page for %1$s, so it will not guess a URL. You can still record what the brand told you.</string>
+    <string name="brand_lookup_no_brand">This device has no brand recorded, so the app cannot look up the brand\'s page. Add the brand to the device first.</string>
+    <string name="brand_lookup_failed">Could not load the brand\'s page information: %1$s</string>
+
+    <!-- The recorded answer -->
+    <string name="brand_record_none">Not checked with the brand yet. The dates you typed come from the invoice, not from the manufacturer.</string>
+    <string name="brand_record_start">Brand start</string>
+    <string name="brand_record_end">Brand end</string>
+    <string name="brand_record_checked">Checked on</string>
+    <string name="brand_record_open_page">Open the page you recorded</string>
+    <string name="brand_record_agree">No mismatch: the brand\'s warranty start date matches your purchase date.</string>
+
+    <!-- The mismatch, in plain language with both dates. Never alarmist. -->
+    <string name="brand_mismatch_title">The brand\'s dates differ</string>
+    <plurals name="brand_mismatch_starts_before">
+        <item quantity="one">The brand says the warranty started %1$d day before your purchase date: %2$s (brand) vs %3$s (your purchase date).</item>
+        <item quantity="other">The brand says the warranty started %1$d days before your purchase date: %2$s (brand) vs %3$s (your purchase date).</item>
+    </plurals>
+    <plurals name="brand_mismatch_starts_after">
+        <item quantity="one">The brand says the warranty started %1$d day after your purchase date: %2$s (brand) vs %3$s (your purchase date).</item>
+        <item quantity="other">The brand says the warranty started %1$d days after your purchase date: %2$s (brand) vs %3$s (your purchase date).</item>
+    </plurals>
+    <plurals name="brand_mismatch_ended_earlier">
+        <item quantity="one">The brand says the warranty ended %1$d day earlier than the end date the app uses: %2$s (brand) vs %3$s (the app\'s end date).</item>
+        <item quantity="other">The brand says the warranty ended %1$d days earlier than the end date the app uses: %2$s (brand) vs %3$s (the app\'s end date).</item>
+    </plurals>
+    <plurals name="brand_mismatch_ended_later">
+        <item quantity="one">The brand says the warranty ends %1$d day later than the end date the app uses: %2$s (brand) vs %3$s (the app\'s end date).</item>
+        <item quantity="other">The brand says the warranty ends %1$d days later than the end date the app uses: %2$s (brand) vs %3$s (the app\'s end date).</item>
+    </plurals>
+
+    <!-- The record sheet -->
+    <string name="brand_sheet_title">What did the brand\'s page say?</string>
+    <string name="brand_sheet_hint">Copy the dates exactly as the brand shows them. This is what the brand says, not a guess by the app.</string>
+    <string name="brand_sheet_status">Status the brand shows</string>
+    <string name="brand_sheet_choose_status">Choose the status</string>
+    <string name="brand_sheet_start">Warranty start (as the brand shows)</string>
+    <string name="brand_sheet_end">Warranty end (as the brand shows)</string>
+    <string name="brand_sheet_url">Page you opened</string>
+    <string name="brand_sheet_checked">Checked on %1$s</string>
+    <string name="brand_sheet_save">Save the brand\'s answer</string>
+    <string name="brand_sheet_status_required">Choose the status the brand\'s page shows.</string>
+    <string name="brand_sheet_date_invalid">Enter a real date as YYYY-MM-DD.</string>
+    <string name="brand_sheet_end_before_start">The warranty end cannot be before its start.</string>
+    <string name="brand_sheet_url_invalid">The link must be an absolute address starting with http:// or https://.</string>
+
+    <!-- The same record inside the add/edit device form -->
+    <string name="brand_form_hint">These are the manufacturer\'s dates, kept separate from the warranty plan you type below. The app never fills them in by itself.</string>
+    <string name="brand_form_save_note">The brand\'s answer is saved together with this device when you tap Save.</string>
+
+    <!-- Status labels -->
+    <string name="enum_brand_warranty_status_active">Active</string>
+    <string name="enum_brand_warranty_status_expired">Expired</string>
+    <string name="enum_brand_warranty_status_not_registered">Not registered</string>
+    <string name="enum_brand_warranty_status_pre_activated">Pre-activated</string>
+    <string name="enum_brand_warranty_status_unknown">Unknown</string>
+</resources>

@@ -41,6 +41,7 @@ type BrandServiceInfo struct {
 	SupportUrl        *string `json:"supportUrl"`
 	Notes             *string `json:"notes"`
 	IsActive          bool    `json:"isActive"`
+	WarrantyLookupUrl *string `json:"warrantyLookupUrl"`
 }
 
 type Category struct {
@@ -106,6 +107,11 @@ type Device struct {
 	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
 	Currency                     string           `json:"currency"`
 	FxRate                       *int32           `json:"fxRate"`
+	BrandWarrantyStatus          *string          `json:"brandWarrantyStatus"`
+	BrandWarrantyStart           pgtype.Timestamp `json:"brandWarrantyStart"`
+	BrandWarrantyEnd             pgtype.Timestamp `json:"brandWarrantyEnd"`
+	BrandCheckedAt               pgtype.Timestamp `json:"brandCheckedAt"`
+	BrandLookupUrl               *string          `json:"brandLookupUrl"`
 }
 
 type DeviceShare struct {

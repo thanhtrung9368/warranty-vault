@@ -3,9 +3,16 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { api, toFormState, type ApiResult, type FormState } from '@/lib/api';
-import type { DeviceInput } from '@/lib/api/devices';
+import type { DeviceDetail, DeviceInput } from '@/lib/api/devices';
 import { returnWindowFieldsFromFormData } from '@/lib/device-return-window';
 import { leadDaysError, leadDaysFromFormData } from '@/lib/lead-days';
+import {
+  brandWarrantyIssueList,
+  brandWarrantyTimestamp,
+  brandWarrantyValues,
+  brandWarrantyWriteFields,
+  normalizeBrandWarrantyStatus,
+} from '@/lib/brand-warranty';
 import {
   fxRateForCurrency,
   fxRateProblem,
@@ -65,6 +72,11 @@ function buildDeviceInput(formData: FormData): DeviceInput {
   // `str()`/`num()` only see one scalar value. Absent stays absent so Go
   // applies its [30, 7] create default or keeps the stored list on update.
   const leadDays = leadDaysFromFormData(formData);
+  // The brand-warranty section's "not checked" option is a UI sentinel, not a
+  // wire value: map it to null here, but leave any OTHER unrecognised code as-is
+  // so the pre-flight below rejects it instead of silently erasing an answer.
+  const brandStatusRaw = str(formData, 'brandWarrantyStatus') ?? null;
+  const brandStatus = brandStatusRaw === 'unset' ? null : brandStatusRaw;
   // Resale pair: both keys are ALWAYS sent, so "no sale" is an explicit
   // `{soldAt: null, soldPrice: null}` (the server's clear signal) rather than
   // one key silently going missing and tripping the pair rule. `num()` keeps a
@@ -107,16 +119,36 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     activationRequired: bool(formData, 'activationRequired'),
     activatedAt: str(formData, 'activatedAt') ?? null,
     extendedCoverBuyBy: str(formData, 'extendedCoverBuyBy') ?? null,
+    // ── Brand warranty answer (frozen five) ────────────────────────────────
+    // ALWAYS sent for the same full-replacement reason as the activation and
+    // return-window fields: the form carries the stored values in hidden inputs,
+    // so editing the device name cannot erase a check recorded on this or another
+    // client. The two dates go through verbatim (`YYYY-MM-DD` from the date
+    // inputs, or a stored Z-less timestamp); `brandCheckedAt` is preserved unless
+    // the form's brand-warranty section stamped a new one. Go remains the
+    // authority for the three rules — the pre-flight below only saves a round-trip.
+    brandWarrantyStatus: brandStatus as DeviceInput['brandWarrantyStatus'],
+    brandWarrantyStart: str(formData, 'brandWarrantyStart') ?? null,
+    brandWarrantyEnd: str(formData, 'brandWarrantyEnd') ?? null,
+    // Normalised to a shape Go's date parser accepts: the value read back from
+    // the API is Z-less and can carry fractional seconds, which its parser
+    // rejects on the way back in. The wall-clock time is preserved (only the
+    // fraction is dropped), so a device save that does not touch the brand answer
+    // keeps its timestamp exactly.
+    brandCheckedAt: brandWarrantyTimestamp(str(formData, 'brandCheckedAt')),
+    brandLookupUrl: str(formData, 'brandLookupUrl') ?? null,
     ...(leadDays === undefined ? {} : { leadDays }),
   };
 }
 
-// Client-side pre-flight for the two rules the form already knows:
+// Client-side pre-flight for the rules the form already knows:
 //
 //   - at least one reminder day (Go's 400 remains the authority for the rest);
 //   - a non-VND device needs a positive integer fxRate, and a VND device must
 //     not carry one (the latter is normalized away in `buildDeviceInput`, so it
-//     can never reach the wire).
+//     can never reach the wire);
+//   - the brand-warranty triple: status required with any other value, end not
+//     before start, absolute http(s) lookup URL.
 //
 // The messages are catalog keys, so a rejection before the round-trip reads in
 // the active language exactly like the server's own `fieldErrors`.
@@ -129,11 +161,23 @@ function fxRateMessage(problem: FxRateProblem, t: Translator): string {
 async function preflightFormState(input: DeviceInput): Promise<DeviceFormState | null> {
   const leadKey = leadDaysError(input.leadDays);
   const fxProblem = fxRateProblem(input.currency, input.fxRate);
-  if (!leadKey && !fxProblem) return null;
+  // `brandWarrantyIssueList` returns Vietnamese catalog keys, not rendered
+  // sentences, so the pre-flight reads like the server's own Vietnamese errors
+  // in both languages.
+  const brandIssues = brandWarrantyIssueList({
+    status: input.brandWarrantyStatus ?? null,
+    start: input.brandWarrantyStart ?? null,
+    end: input.brandWarrantyEnd ?? null,
+    url: input.brandLookupUrl ?? null,
+  });
+  if (!leadKey && !fxProblem && brandIssues.length === 0) return null;
   const { t } = await getI18n();
   const errors: Record<string, string[]> = {};
   if (leadKey) errors.leadDays = [t(leadKey)];
   if (fxProblem) errors.fxRate = [fxRateMessage(fxProblem, t)];
+  for (const issue of brandIssues) {
+    errors[issue.field] = [...(errors[issue.field] ?? []), t(issue.key)];
+  }
   return { ok: false, errors };
 }
 
@@ -180,6 +224,130 @@ export async function updateDevice(
 
   // No revalidatePath — the affected pages are all `force-dynamic` (see createDevice).
   redirect(`/devices/${id}`);
+}
+
+// ── Brand warranty check (the five frozen fields) ────────────────────────────
+//
+// The detail page records what the brand's own system said. There is no
+// dedicated endpoint: the contract puts the five nullable fields on Device and
+// every client writes them through the existing `PATCH /v1/devices/{id}`.
+//
+// `PATCH` replaces the whole device, so this action cannot send "just the five".
+// It reads the device first and rebuilds the complete `DeviceInput` from it,
+// then overlays the answer (and `brandCheckedAt = now`). That is the same
+// full-payload discipline `DeviceForm` uses for resale/activation/return-window;
+// omitting the read would risk clearing unrelated fields on a partial update.
+
+/** Rebuild the complete PATCH payload from the device as the server sent it. */
+function deviceToInput(device: DeviceDetail): DeviceInput {
+  // The edit form uses the OLDEST standard warranty (see the edit page), so
+  // re-saving a device here must resolve to the same row. `warrantyMonths` etc.
+  // are therefore idempotent, not a second copy.
+  const standard = device.warranties
+    .filter((w) => w.type === 'STANDARD')
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))[0];
+
+  return {
+    name: device.name,
+    category: device.category,
+    brand: device.brand,
+    model: device.model,
+    serialNumber: device.serialNumber,
+    purchaseDate: device.purchaseDate,
+    purchasePrice: device.purchasePrice,
+    currency: device.currency,
+    fxRate: device.fxRate,
+    purchasePlace: device.purchasePlace,
+    status: device.status as DeviceInput['status'],
+    notes: device.notes,
+    soldAt: device.soldAt,
+    soldPrice: device.soldPrice,
+    returnWindowDays: device.returnWindowDays,
+    receivedAt: device.receivedAt,
+    warrantyMonths: standard?.months ?? 0,
+    warrantyProvider: standard?.provider ?? null,
+    warrantyAddress: standard?.address ?? null,
+    warrantyPhone: standard?.phone ?? null,
+    warrantyNotes: standard?.notes ?? null,
+    leadDays: device.leadDays,
+    activationRequired: device.activationRequired,
+    activatedAt: device.activatedAt,
+    extendedCoverBuyBy: device.extendedCoverBuyBy,
+    ...brandWarrantyWriteFields(brandWarrantyValues(device), device.brandCheckedAt),
+  };
+}
+
+/**
+ * Record (or erase) the brand's answer.
+ *
+ * Field order and errors follow the other actions: a local check returns
+ * translated `fieldErrors` without a round-trip, and anything Go rejects is
+ * passed through by `toFormState` untouched.
+ *
+ * A completely blank draft is the explicit "erase" signal: all five fields are
+ * sent as null and `brandCheckedAt` is cleared too. A blank status WITH a date or
+ * URL is rejected locally (`brandWarrantyStatus`), because silently discarding
+ * the other values would be worse than asking which status the brand showed.
+ */
+export async function saveBrandWarrantyCheck(
+  deviceId: string,
+  _prev: DeviceFormState,
+  formData: FormData,
+): Promise<DeviceFormState> {
+  // Kept RAW for validation so an unrecognised status is rejected instead of
+  // being normalised to null and silently treated as "erase". Only the UI's
+  // "not checked" sentinel is mapped to null here.
+  const rawStatus = str(formData, 'brandWarrantyStatus') ?? null;
+  const values = {
+    status: rawStatus === 'unset' ? null : rawStatus,
+    start: str(formData, 'brandWarrantyStart') ?? null,
+    end: str(formData, 'brandWarrantyEnd') ?? null,
+    // The URL input is prefilled from the lookup link the owner opened, but it
+    // stays optional: the brand answered in person / by phone often enough.
+    url: str(formData, 'brandLookupUrl') ?? null,
+  };
+
+  const issues = brandWarrantyIssueList(values);
+  if (issues.length > 0) {
+    const { t } = await getI18n();
+    const errors: Record<string, string[]> = {};
+    for (const issue of issues) {
+      errors[issue.field] = [...(errors[issue.field] ?? []), t(issue.key)];
+    }
+    return { ok: false, errors };
+  }
+
+  const current = await api.devices.get(deviceId);
+  if (!current.ok) return toFormState(current);
+
+  const status = normalizeBrandWarrantyStatus(values.status);
+  // `brandCheckedAt` is set to NOW by the server action (item 4 of the brief):
+  // the moment the owner recorded the answer, not a client clock the browser
+  // happened to send. A clear sends null through `brandWarrantyWriteFields`.
+  const checkedAt = status ? new Date().toISOString() : null;
+  const input = {
+    ...deviceToInput(current.data),
+    ...brandWarrantyWriteFields(
+      {
+        status,
+        start: values.start,
+        end: values.end,
+        checkedAt,
+        url: values.url,
+      },
+      checkedAt,
+    ),
+  };
+
+  const res = await api.devices.update(deviceId, input);
+  if (!res.ok) return toFormState(res);
+
+  // The detail page is `force-dynamic`, but a server action needs this to make
+  // the RSC refresh on the SAME navigation; it also keeps the list pages honest
+  // if they ever start showing the recorded status.
+  revalidatePath(`/devices/${deviceId}`);
+  const { t } = await getI18n();
+  return { ok: true, message: t('Đã ghi kết quả đối chiếu với hãng.') };
 }
 
 // Called by `DeviceWarningsBanner` once the flash has been displayed, so a saved

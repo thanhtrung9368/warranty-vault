@@ -75,7 +75,7 @@ func (q *Queries) SearchAttachments(ctx context.Context, arg SearchAttachmentsPa
 
 const searchDevices = `-- name: SearchDevices :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 FROM "Device"
 WHERE "userId" = $1::text
   AND (
@@ -165,6 +165,11 @@ func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([
 			&i.ExtendedCoverNotifiedLeadDay,
 			&i.Currency,
 			&i.FxRate,
+			&i.BrandWarrantyStatus,
+			&i.BrandWarrantyStart,
+			&i.BrandWarrantyEnd,
+			&i.BrandCheckedAt,
+			&i.BrandLookupUrl,
 		); err != nil {
 			return nil, err
 		}

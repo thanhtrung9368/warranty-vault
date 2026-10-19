@@ -36,6 +36,12 @@ type DirectoryBrand struct {
 	Name              string  `json:"name"`
 	ServiceLocatorURL *string `json:"serviceLocatorUrl"`
 	SupportURL        *string `json:"supportUrl"`
+	// WarrantyLookupURL is the brand's own warranty-STATUS page (migration
+	// 0023), or null when no URL could be verified. It answers "what dates does
+	// the brand think I have", which is the input to the device's
+	// warrantyMismatch — not the same question as ServiceLocatorURL ("where do I
+	// take it").
+	WarrantyLookupURL *string `json:"warrantyLookupUrl"`
 	Notes             *string `json:"notes"`
 }
 
@@ -191,6 +197,7 @@ func resolveBrand(input string, catalog *Catalog) *DirectoryBrand {
 			Name:              brand.Name,
 			ServiceLocatorURL: info.ServiceLocatorURL,
 			SupportURL:        info.SupportURL,
+			WarrantyLookupURL: info.WarrantyLookupURL,
 			Notes:             info.Notes,
 		}
 	}

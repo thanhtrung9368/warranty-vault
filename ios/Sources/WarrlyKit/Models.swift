@@ -218,6 +218,165 @@ public enum PushPlatform: String, Codable, CaseIterable, Sendable {
     case web, apns, fcm
 }
 
+// MARK: - Brand warranty lookup
+
+/// What the brand's own system says about this device's warranty (openapi
+/// `Device.brandWarrantyStatus`).
+///
+/// Five values, and the difference matters:
+///
+///   * `ACTIVE` / `EXPIRED` — the brand has a warranty and says whether it is
+///     running;
+///   * `NOT_REGISTERED` — the brand has **no record of this device at all**,
+///     which is not the same answer as "expired";
+///   * `PRE_ACTIVATED` — the device was activated before the user bought it
+///     (the grey-market / shop-pre-activated case this feature exists for);
+///   * `UNKNOWN` — the brand (or this build) cannot say.
+///
+/// ## Lenient wire decode
+///
+/// A sixth value shipped by a future server must not fail the whole device
+/// payload. An unrecognised string decodes as `.UNKNOWN`, which is the honest
+/// rendering: this build does not understand the answer. A missing value stays
+/// `nil`, because "nothing was recorded" and "recorded as unknown" are
+/// different states.
+public enum BrandWarrantyStatus: String, CaseIterable, Sendable, Hashable {
+    case ACTIVE
+    case EXPIRED
+    case NOT_REGISTERED
+    case PRE_ACTIVATED
+    case UNKNOWN
+
+    /// Tolerant read of a wire value: trimmed, then matched against the five
+    /// documented spellings. Anything else — including the lowercase spelling a
+    /// client might infer instead of reading the contract — becomes `.UNKNOWN`
+    /// rather than a decoding failure.
+    public init(wire: String?) {
+        let raw = wire?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+        self = Self(rawValue: raw) ?? .UNKNOWN
+    }
+
+    /// The label the section and the record sheet show, in the current language.
+    /// Computed rather than a stored `let` so switching language re-renders it.
+    public var label: String {
+        switch self {
+        case .ACTIVE:         return L.t("Hãng ghi còn bảo hành")
+        case .EXPIRED:        return L.t("Hãng ghi đã hết hạn")
+        case .NOT_REGISTERED: return L.t("Hãng chưa ghi nhận máy này")
+        case .PRE_ACTIVATED:  return L.t("Máy đã được kích hoạt trước")
+        case .UNKNOWN:        return L.t("Hãng chưa rõ tình trạng")
+        }
+    }
+}
+
+extension BrandWarrantyStatus: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        guard !container.decodeNil() else {
+            self = .UNKNOWN
+            return
+        }
+        // Lenient beyond the enum: a malformed value (a number, say) must not
+        // fail the whole device payload. This build does not understand it, and
+        // `.UNKNOWN` is the honest rendering of that.
+        self.init(wire: (try? container.decode(String.self)))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// Which way the brand's dates disagree with the user's (openapi
+/// `Device.warrantyMismatch.kind`).
+///
+/// Modelled as an optionally-typed enum rather than a raw string so the copy
+/// selector is exhaustive. `nil` only ever comes from a wire value this build
+/// does not recognise — a future kind must still render the two dates and the
+/// day count, in a generic sentence, instead of blanking the flag or failing the
+/// entire device decode.
+public enum WarrantyMismatchKind: String, CaseIterable, Sendable, Hashable {
+    case STARTS_BEFORE
+    case STARTS_AFTER
+    case ENDED_EARLIER
+    case ENDED_LATER
+
+    /// Tolerant read. `nil` for a missing or unrecognised kind.
+    public init?(wire: String?) {
+        let raw = wire?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+        self.init(rawValue: raw)
+    }
+}
+
+/// The server-computed disagreement between the brand's dates and the user's
+/// purchase date (openapi `Device.warrantyMismatch`), or `nil` when there is no
+/// disagreement **or nothing to compare**.
+///
+/// Both dates are kept as the raw wire strings and only their leading
+/// `YYYY-MM-DD` is ever displayed (`BrandWarrantyRules`), for the same reason
+/// `soldAt` / `receivedAt` are: parsing a Z-less server timestamp as an instant
+/// moves the calendar day in a negative-offset zone.
+public struct WarrantyMismatch: Sendable, Hashable {
+    /// `nil` for a kind this build does not know; the generic copy still uses
+    /// `days` and both dates.
+    public let kind: WarrantyMismatchKind?
+    /// The magnitude of the difference, in whole days, exactly as the server
+    /// computed it. The client never re-derives the mismatch.
+    public let days: Int
+    /// The brand's date (start for `STARTS_*`, end for `ENDED_*`), raw wire.
+    public let brandDate: String?
+    /// The app's side of the comparison, raw wire.
+    ///
+    /// Despite the contract's field name, this is **not always the purchase
+    /// date**: `STARTS_*` compare the brand start with `purchaseDate`, while
+    /// `ENDED_*` compare the brand end with the device's whole-unit warranty
+    /// end. `kind` says which date this is; `BrandWarrantyRules.mismatchDatesLine`
+    /// labels it accordingly, so the card never tells the user to compare the
+    /// brand's expiry with the invoice day.
+    public let purchaseDate: String?
+
+    public init(kind: WarrantyMismatchKind?, days: Int,
+                brandDate: String?, purchaseDate: String?) {
+        self.kind = kind
+        self.days = days
+        self.brandDate = brandDate
+        self.purchaseDate = purchaseDate
+    }
+}
+
+extension WarrantyMismatch: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case kind, days, brandDate, purchaseDate
+    }
+
+    public init(from decoder: Decoder) throws {
+        // A malformed computed object must not take down the entire device
+        // payload: degrade to the generic mismatch copy, which still has the
+        // kind-less day count and whatever dates were readable.
+        guard let c = try? decoder.container(keyedBy: CodingKeys.self) else {
+            kind = nil
+            days = 0
+            brandDate = nil
+            purchaseDate = nil
+            return
+        }
+        let rawKind = (try? c.decodeIfPresent(String.self, forKey: .kind)) ?? nil
+        kind = WarrantyMismatchKind(wire: rawKind)
+        days = ((try? c.decodeIfPresent(Int.self, forKey: .days)) ?? nil) ?? 0
+        brandDate = (try? c.decodeIfPresent(String.self, forKey: .brandDate)) ?? nil
+        purchaseDate = (try? c.decodeIfPresent(String.self, forKey: .purchaseDate)) ?? nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(kind?.rawValue, forKey: .kind)
+        try c.encode(days, forKey: .days)
+        try c.encodeIfPresent(brandDate, forKey: .brandDate)
+        try c.encodeIfPresent(purchaseDate, forKey: .purchaseDate)
+    }
+}
+
 // MARK: - Device
 
 public struct Device: Codable, Sendable, Identifiable, Hashable {
@@ -386,6 +545,44 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// native amount only when the device is VND.
     public let purchasePriceVnd: Int?
 
+    // MARK: Brand warranty lookup (openapi `Device.brandWarranty*`)
+
+    /// What the brand's own system says, or `nil` when the user has never
+    /// recorded a check. Never inferred from the local dates.
+    public let brandWarrantyStatus: BrandWarrantyStatus?
+
+    /// The start date **the brand showed**, as the server's raw wire string.
+    ///
+    /// Kept raw for the same reason `soldAt` is: only its calendar day is ever
+    /// displayed (`BrandWarrantyRules.dayLabel`), and parsing a Z-less timestamp
+    /// as an instant would move the day in a negative-offset zone.
+    public let brandWarrantyStart: String?
+
+    /// The end date the brand showed, raw wire. May be earlier than the start
+    /// only in bad data; the write rule (`BrandWarrantyRules`) rejects that
+    /// before it is sent.
+    public let brandWarrantyEnd: String?
+
+    /// When the user last recorded a check with the brand, raw wire timestamp.
+    public let brandCheckedAt: String?
+
+    /// The URL the user opened while checking, recorded verbatim.
+    ///
+    /// This is the **user's record**, not a URL the app invented. A brand whose
+    /// service info carries no `warrantyLookupUrl` must leave this empty; the
+    /// app never guesses a page.
+    public let brandLookupUrl: String?
+
+    /// The server-computed disagreement between the brand's dates and the
+    /// dates the app is using (purchase date for a start, whole-unit warranty
+    /// end for an end), or `nil`.
+    ///
+    /// Read this field; never re-derive it. `nil` is deliberately ambiguous —
+    /// it means "no disagreement **or** nothing to compare", which is why
+    /// `BrandWarrantyRules.mismatchState` looks at the recorded fields too before
+    /// claiming the two sides agree.
+    public let warrantyMismatch: WarrantyMismatch?
+
     // MARK: Multi-currency derived views
 
     /// Never-nil ISO code: a decoded `nil` means the contract default `VND`.
@@ -522,6 +719,17 @@ public struct DeviceDetailBody: Decodable, Sendable {
     // same wire shape and same rules as `Device.soldAt` / `Device.soldPrice`.
     public let soldAt: String?
     public let soldPrice: Int?
+
+    // The brand warranty lookup, on the detail read. Same wire shape and rules
+    // as the five `Device.brandWarranty*` fields; the dates stay raw so their
+    // calendar day cannot shift. `warrantyMismatch` is server-computed and is
+    // what the detail screen renders — never re-derive it here.
+    public let brandWarrantyStatus: BrandWarrantyStatus?
+    public let brandWarrantyStart: String?
+    public let brandWarrantyEnd: String?
+    public let brandCheckedAt: String?
+    public let brandLookupUrl: String?
+    public let warrantyMismatch: WarrantyMismatch?
 }
 
 public struct DeviceInput: Encodable, Sendable {
@@ -651,6 +859,32 @@ public struct DeviceInput: Encodable, Sendable {
     /// pair rule above.
     public var soldPrice: Int?
 
+    // MARK: Brand warranty lookup
+
+    /// The five fields recorded by `BrandWarrantyRecordSheet`, written through
+    /// `BrandWarrantyRules.apply` on **every** save path.
+    ///
+    /// ⚠️ **Full-replacement warning.** `PATCH /api/v1/devices/{id}` replaces the
+    /// whole row, so a save that does not carry them back erases a check
+    /// recorded on the web or on Android — and even a bare status tap in
+    /// `DeviceDetailView` does a full PATCH. `nil` keeps the key out of the JSON,
+    /// which Go reads exactly like an explicit `null`: the field is cleared.
+    ///
+    /// The server's rules (openapi): `brandWarrantyStatus` is required whenever
+    /// any other one of the five is set; `brandWarrantyEnd` must not precede
+    /// `brandWarrantyStart`; `brandLookupUrl` must be an absolute http(s) URL.
+    /// `BrandWarrantyRules.validationErrors` mirrors them for the sheet's local
+    /// check, and the server's own `fieldErrors` still win.
+    public var brandWarrantyStatus: BrandWarrantyStatus?
+    /// `YYYY-MM-DD` (or a wire timestamp), or `nil` to clear.
+    public var brandWarrantyStart: String?
+    /// `YYYY-MM-DD` (or a wire timestamp), or `nil` to clear.
+    public var brandWarrantyEnd: String?
+    /// RFC3339 timestamp of the check, or `nil` to clear.
+    public var brandCheckedAt: String?
+    /// The URL the user opened, absolute http(s), or `nil` to clear.
+    public var brandLookupUrl: String?
+
     public init(name: String, category: String, purchaseDate: String) {
         self.name = name; self.category = category; self.purchaseDate = purchaseDate
     }
@@ -665,6 +899,8 @@ public struct DeviceInput: Encodable, Sendable {
         case fromWishlistId
         case leadDays, activationRequired, activatedAt, extendedCoverBuyBy
         case returnWindowDays, receivedAt, soldAt, soldPrice
+        case brandWarrantyStatus, brandWarrantyStart, brandWarrantyEnd
+        case brandCheckedAt, brandLookupUrl
         case currency, fxRate
     }
 
@@ -697,6 +933,18 @@ public struct DeviceInput: Encodable, Sendable {
         try container.encodeIfPresent(receivedAt, forKey: .receivedAt)
         try container.encodeIfPresent(soldAt, forKey: .soldAt)
         try container.encodeIfPresent(soldPrice, forKey: .soldPrice)
+        // Brand warranty lookup. Omitted, not null, when unset — Go decodes both
+        // the same way, and a PATCH that omits them clears a recorded check,
+        // which is exactly what a form or status tap that loaded a device with
+        // no check should do. Every save path still carries the loaded values
+        // back so a recorded check survives.
+        try container.encodeIfPresent(brandWarrantyStatus, forKey: .brandWarrantyStatus)
+        try container.encodeIfPresent(brandWarrantyStart, forKey: .brandWarrantyStart)
+        try container.encodeIfPresent(brandWarrantyEnd, forKey: .brandWarrantyEnd)
+        try container.encodeIfPresent(brandCheckedAt, forKey: .brandCheckedAt)
+        try container.encodeIfPresent(brandLookupUrl, forKey: .brandLookupUrl)
+        // `warrantyMismatch` is deliberately absent: the contract makes it
+        // read-only and server-computed. A DeviceInput cannot set it.
         // The two full-replacement fields, written unconditionally. `nil` for
         // a VND device is an explicit JSON null ("clear the rate"), which is the
         // only way to say that after the user switches currencies.

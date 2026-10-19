@@ -49,6 +49,10 @@ import * as statsApi from './stats';
 import * as backupApi from './backup';
 import * as aiApi from './ai';
 // AGENT_C_IMPORTS_END
+// AGENT_BRAND_WARRANTY_IMPORTS_BEGIN
+// One brand's service-info row, including the (nullable) warranty lookup URL.
+import * as brandsApi from './brands';
+// AGENT_BRAND_WARRANTY_IMPORTS_END
 
 export const api = {
   auth: authApi,
@@ -76,6 +80,9 @@ export const api = {
   subscriptions: subscriptionsApi,
   wishlist: wishlistApi,
   catalog: catalogApi,
+  // AGENT_BRAND_WARRANTY_NAMESPACES_BEGIN
+  brands: brandsApi,
+  // AGENT_BRAND_WARRANTY_NAMESPACES_END
   // Exchange rates for the device form's non-VND price. A 503 is expected and
   // handled by falling back to manual entry (`lib/fx.ts`).
   fx: fxApi,

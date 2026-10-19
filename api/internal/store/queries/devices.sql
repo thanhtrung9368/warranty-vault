@@ -70,6 +70,12 @@ LIMIT 1;
 -- query directly, so an empty param is mapped to 'VND' here as well — the same
 -- default the column carries. fxRate is NULL for VND and for a row whose rate
 -- was never recorded.
+--
+-- Brand warranty lookup (migration 0023, gap #11): the five columns are a
+-- USER-ENTERED record of what the brand's own lookup page said. They are not a
+-- second warranty calculation and the server never fetches "brandLookupUrl".
+-- Nullable, no default: an unchecked brand is NULL, which is exactly the state
+-- of every row that existed before this migration.
 INSERT INTO "Device" (
     id,
     "userId",
@@ -93,6 +99,11 @@ INSERT INTO "Device" (
     "leadDays",
     currency,
     "fxRate",
+    "brandWarrantyStatus",
+    "brandWarrantyStart",
+    "brandWarrantyEnd",
+    "brandCheckedAt",
+    "brandLookupUrl",
     "createdAt",
     "updatedAt"
 ) VALUES (
@@ -103,12 +114,20 @@ INSERT INTO "Device" (
     COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]::int[]),
     COALESCE(NULLIF(sqlc.arg('currency')::text, ''), 'VND'),
     sqlc.narg('fxRate')::int,
+    sqlc.narg('brandWarrantyStatus')::text,
+    sqlc.narg('brandWarrantyStart')::timestamp,
+    sqlc.narg('brandWarrantyEnd')::timestamp,
+    sqlc.narg('brandCheckedAt')::timestamp,
+    sqlc.narg('brandLookupUrl')::text,
     NOW(),
     NOW()
 )
 RETURNING *;
 
 -- name: UpdateDevice :one
+-- Brand lookup fields are part of the full replacement, like soldAt/returnWindowDays:
+-- an absent key clears them. That is the endpoint's documented PATCH semantics;
+-- a client that has recorded a lookup must send all five back.
 UPDATE "Device" SET
     name = $3,
     category = $4,
@@ -130,6 +149,11 @@ UPDATE "Device" SET
     "extendedCoverBuyBy" = $20,
     currency = $21,
     "fxRate" = $22,
+    "brandWarrantyStatus" = sqlc.narg('brandWarrantyStatus')::text,
+    "brandWarrantyStart" = sqlc.narg('brandWarrantyStart')::timestamp,
+    "brandWarrantyEnd" = sqlc.narg('brandWarrantyEnd')::timestamp,
+    "brandCheckedAt" = sqlc.narg('brandCheckedAt')::timestamp,
+    "brandLookupUrl" = sqlc.narg('brandLookupUrl')::text,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;

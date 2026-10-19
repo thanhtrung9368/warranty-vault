@@ -409,6 +409,59 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Catalog' }
 
+  /api/v1/brands/{brandId}/service-info:
+    parameters:
+      - { $ref: '#/components/parameters/BrandIdPath' }
+      - { $ref: '#/components/parameters/Lang' }
+    get:
+      tags: [catalog]
+      summary: One brand's service directory row, including its warranty lookup URL
+      description: |
+        Một dòng của danh bạ theo hãng (`BrandServiceInfo`, migration 0012), dạng
+        **một hãng** thay vì mảng `brandServiceInfo` của `GET /api/v1/catalog`.
+        Dùng khi form thiết bị đã có `brandId` và chỉ cần đúng dòng đó.
+
+        Migration 0023 thêm `warrantyLookupUrl`: trang **tra cứu tình trạng bảo
+        hành của chính hãng** — câu hỏi "hãng ghi ngày bắt đầu/kết thúc là gì",
+        khác với `serviceLocatorUrl` ("mang máy đi đâu"). Chỉ những URL kiểm
+        chứng được mới được seed; hãng không có trang tra cứu chính thức (hoặc
+        chưa xác minh được) trả `null`. **`null` là câu trả lời hợp lệ**, không
+        phải lỗi: client hiển thị "app không có link tra cứu cho hãng này" và
+        **không** tự ghép URL từ tên hãng.
+
+        Đọc qua cùng cache 60 giây với `GET /api/v1/catalog`, nên hai endpoint
+        không thể lệch nhau về một URL.
+
+        Ba kết quả:
+
+        | Trường hợp | Response |
+        |---|---|
+        | Hãng tồn tại và có dòng danh bạ | **200** + object |
+        | Hãng tồn tại nhưng chưa có dòng danh bạ | **200** + `{"serviceInfo": null}` |
+        | Không có hãng đó (hoặc đã bị tắt) | **404** `not_found` |
+
+        Phân biệt hai trường hợp cuối là có chủ ý: 49 hãng được seed nhưng chỉ 16
+        hãng có dòng danh bạ (migration 0012), nên "hãng này chưa có thông tin"
+        không phải "không có hãng". Client không nên biến `null` thành lỗi.
+      responses:
+        '200':
+          description: The directory row, or null when the brand has none
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serviceInfo]
+                properties:
+                  serviceInfo:
+                    allOf: [{ $ref: '#/components/schemas/BrandServiceInfo' }]
+                    nullable: true
+                    description: |
+                      Dòng danh bạ của hãng, hoặc `null` khi hãng tồn tại nhưng
+                      chưa có dòng `BrandServiceInfo`. Kiểu `null` không phải lỗi.
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/devices:
     # `lang` on this path is part of Phase 1 of docs/I18N_PLAN.md: the devices
     # slice renders `message` / `fieldErrors` in the request's language, so the
@@ -3016,6 +3069,15 @@ components:
       required: true
       schema: { type: string }
 
+    BrandIdPath:
+      name: brandId
+      in: path
+      required: true
+      schema: { type: string }
+      description: |
+        `Brand.id` (vd `apple`, `samsung`) — khoá của bảng catalog `Brand`, không
+        phải tên hiển thị và không phải chuỗi tự do người dùng gõ.
+
     # The language of the `message` / `fieldErrors` COPY in a response. It is not
     # a resource: it changes no status code, no error code and no field name, so a
     # client that ignores it loses nothing but the localisation.
@@ -3740,6 +3802,34 @@ components:
             `currency`; vắng mặt ở thiết bị VND. Import từ chối cả file (400,
             trước transaction) nếu `currency != "VND"` mà thiếu/không dương, hoặc
             `currency = "VND"` mà lại có tỷ giá.
+        # ── Brand warranty lookup (migration 0023, gap #11) ─────────────────
+        # All five are OPTIONAL and omitted when unset. That keeps a payload from
+        # a user who never recorded a lookup byte-identical to the pre-0023
+        # format; an older payload without the keys imports as NULL.
+        brandWarrantyStatus:
+          type: string
+          nullable: true
+          enum: [ACTIVE, EXPIRED, NOT_REGISTERED, PRE_ACTIVATED, UNKNOWN]
+          description: 'Trạng thái bảo hành theo hệ thống hãng (migration 0023). Vắng mặt ở payload cũ ⇒ import là `null` = "chưa từng tra".'
+        brandWarrantyStart:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày hãng báo bắt đầu bảo hành (migration 0023). Vắng mặt ⇒ `null`.'
+        brandWarrantyEnd:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Ngày hãng báo hết hạn (migration 0023). Import từ chối cả file nếu trước `brandWarrantyStart`, hoặc nếu có ngày mà thiếu trạng thái.'
+        brandCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Thời điểm người dùng tra lần cuối (migration 0023). Vắng mặt ⇒ `null`.'
+        brandLookupUrl:
+          type: string
+          nullable: true
+          description: 'URL người dùng đã mở (migration 0023). Import từ chối cả file nếu không phải URL tuyệt đối http/https. Server không fetch URL này.'
         leadDays:
           type: array
           nullable: true
@@ -4133,7 +4223,7 @@ components:
 
     Device:
       type: object
-      required: [id, name, category, purchaseDate, purchasePrice, currency, purchasePriceVnd, status, activationRequired, leadDays]
+      required: [id, name, category, purchaseDate, purchasePrice, currency, purchasePriceVnd, status, activationRequired, leadDays, warrantyMismatch]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -4360,8 +4450,144 @@ components:
             ngày không chặn mốc 7 ngày trong cùng một ngày. `null` = dòng được
             đánh dấu thủ công hoặc bởi đường ghi cũ; được hiểu là "đã xử lý mọi
             mốc trong ngày đó". Là chi tiết vận hành.
+        # ── Brand warranty lookup (migration 0023, gap #11) ─────────────────
+        # These five fields are the user's record of what the BRAND's own lookup
+        # page said. They do not change the app's warranty arithmetic; they sit
+        # next to it so the disagreement is visible. All nullable: NULL = the
+        # brand was never checked, which is the state of every pre-0023 row.
+        brandWarrantyStatus:
+          type: string
+          nullable: true
+          enum: [ACTIVE, EXPIRED, NOT_REGISTERED, PRE_ACTIVATED, UNKNOWN]
+          description: |
+            Trạng thái bảo hành **theo hệ thống của hãng**, do người dùng ghi lại
+            (migration 0023). `null` = chưa từng tra. Năm giá trị:
+
+            * `ACTIVE` — hãng xác nhận đang còn bảo hành.
+            * `EXPIRED` — hãng xác nhận đã hết hạn.
+            * `NOT_REGISTERED` — hãng không có dữ liệu cho máy này. **Không có
+              ngày**, nên trạng thái này một mình là một câu trả lời đầy đủ.
+            * `PRE_ACTIVATED` — máy đã được kích hoạt trước khi bán (cửa hàng kích
+              hoạt sẵn, hàng xách tay, máy đổi trả).
+            * `UNKNOWN` — người dùng đã tra nhưng hãng không trả lời rõ.
+
+            Đây là enum chữ HOA, khớp chính xác; giá trị khác ⇒ 400
+            `fieldErrors.brandWarrantyStatus`. Trường này **bắt buộc** khi bất kỳ
+            trường nào trong bốn trường còn lại được ghi; một mình nó thì hợp lệ.
+        brandWarrantyStart:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Ngày **hãng** báo là bắt đầu bảo hành (migration 0023). Không phải
+            `purchaseDate`: đây chính là chỗ hai ngày có thể lệch nhau. `null` =
+            hãng không cho biết, hoặc người dùng không ghi.
+
+            Định dạng trả về giống `purchaseDate` (timestamp không kèm offset).
+            Khi ghi, nhận `YYYY-MM-DD` hoặc ISO đầy đủ.
+        brandWarrantyEnd:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Ngày **hãng** báo là hết hạn bảo hành (migration 0023). Không được
+            **trước** `brandWarrantyStart` khi cả hai cùng có: vi phạm ⇒ 400
+            `fieldErrors.brandWarrantyEnd`. Bằng nhau thì hợp lệ.
+
+            Đây **không** phải `effectiveWarrantyEnd` của app. Chênh lệch giữa
+            hai giá trị là nội dung của `warrantyMismatch`.
+        brandCheckedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Thời điểm người dùng tra lần cuối (migration 0023). `null` = chưa
+            ghi. Server **không** tự điền: đây là dữ liệu người dùng, không phải
+            dấu thời gian của một lần gọi API.
+        brandLookupUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: |
+            URL **chính xác** người dùng đã mở (migration 0023), giữ lại để hồ sơ
+            có thể kiểm chứng: sáu tháng sau vẫn trả lời được "ngày này lấy từ
+            đâu". Server **không bao giờ fetch** URL này — nó là bản ghi, không
+            phải request.
+
+            Chỉ nhận URL tuyệt đối `http`/`https` có host. Giá trị tương đối,
+            scheme khác, hoặc có khoảng trắng ⇒ 400 `fieldErrors.brandLookupUrl`.
+            Server không kiểm tra URL có sống hay không (và không nên: một link
+            chết vẫn là bằng chứng đúng).
+        warrantyMismatch:
+          allOf: [{ $ref: '#/components/schemas/WarrantyMismatch' }]
+          nullable: true
+          description: |
+            **Trường tính sẵn, chỉ đọc.** Không có cột trong DB và không nằm
+            trong bản backup: nó được dựng lại trên mỗi lần đọc từ
+            `brandWarrantyStart`/`brandWarrantyEnd`, `purchaseDate` và ngày hết
+            hạn bảo hành **toàn máy** (`component = null`).
+
+            `null` khi không có chênh lệch hoặc khi không có gì để so sánh (chưa
+            ghi ngày hãng; hoặc có `brandWarrantyEnd` nhưng thiết bị không có gói
+            bảo hành toàn máy nào). Chỉ **một** chênh lệch được trả về; thứ tự ưu
+            tiên nằm trong mô tả `WarrantyMismatch`.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    # Computed on every device read from the brand's dates + purchaseDate +
+    # the whole-unit effective warranty end. NOT a column (migration 0023).
+    WarrantyMismatch:
+      type: object
+      description: |
+        Một chênh lệch giữa **ngày hãng báo** và **ngày app đang dùng**. Chỉ một
+        đối tượng được trả về, ngay cả khi có hai chênh lệch cùng tồn tại; client
+        không phải chọn.
+
+        So sánh:
+          * `brandWarrantyStart` với `Device.purchaseDate` → `STARTS_BEFORE` /
+            `STARTS_AFTER`;
+          * `brandWarrantyEnd` với **ngày hết hạn bảo hành toàn máy** của app
+            (`max(endDate)` chỉ trên các dòng `component = null`) →
+            `ENDED_EARLIER` / `ENDED_LATER`. Dòng bảo hành theo bộ phận (ví dụ
+            10 năm động cơ) **không** được dùng làm mốc toàn máy.
+
+        **Thứ tự ưu tiên** khi có nhiều chênh lệch (một chênh lệch được chọn):
+
+        1. `ENDED_EARLIER` — hãng nói hết hạn **sớm hơn** app. Đây là trường hợp
+           người dùng bị từ chối sửa tại quầy dù app báo còn bảo hành: hậu quả
+           nặng nhất, nên đứng đầu.
+        2. `ENDED_LATER` — hãng nói hết hạn **muộn hơn** app. Người dùng có thể
+           đã trả tiền sửa hoặc mua bảo hiểm mở rộng không cần thiết; mất tiền
+           nhưng không mất quyền sửa.
+        3. `STARTS_BEFORE` — hãng bắt đầu **trước** ngày hoá đơn (hàng xách tay,
+           máy kích hoạt sẵn). Khi hãng không cho ngày kết thúc, đây là tín hiệu
+           duy nhất cho thấy người dùng có ít thời gian hơn hoá đơn gợi ý.
+        4. `STARTS_AFTER` — hãng bắt đầu **sau** ngày hoá đơn, thường là **nhiều**
+           thời gian hơn; hướng ít đáng lo nhất.
+
+        `days` luôn là **độ lớn dương**; hướng nằm trong `kind`. Ngày là ngày
+        lịch (`YYYY-MM-DD`, UTC), không phải timestamp: so sánh giờ trong ngày
+        của một lời hứa bảo hành cấp ngày sẽ tự tạo ra chênh lệch không có thật.
+      required: [kind, days, brandDate, purchaseDate]
+      properties:
+        kind:
+          type: string
+          enum: [STARTS_BEFORE, STARTS_AFTER, ENDED_EARLIER, ENDED_LATER]
+        days:
+          type: integer
+          minimum: 1
+          description: 'Số ngày lệch, luôn dương. Hướng do `kind` quyết định.'
+        brandDate:
+          type: string
+          format: date
+          description: 'Ngày phía hãng: `brandWarrantyStart` với `STARTS_*`, `brandWarrantyEnd` với `ENDED_*`.'
+        purchaseDate:
+          type: string
+          format: date
+          description: |
+            Ngày phía app: `Device.purchaseDate` với `STARTS_*`, và **ngày hết
+            hạn bảo hành toàn máy** với `ENDED_*`. Tên trường được giữ nguyên
+            theo hợp đồng đã chốt; `kind` cho biết đây là ngày nào.
 
     # `GET /api/v1/devices` row: the stored Device plus two projection fields
     # hydrated per row by services.ListDevices (api/internal/services/devices.go).
@@ -4382,6 +4608,13 @@ components:
                 max(Warranty.endDate) across the device's warranties. Null when the
                 device has no warranty with an end date — this is a genuinely
                 nullable field (`*time.Time` in Go), not a required string.
+
+                **Lưu ý:** đây là mốc cũ, lấy max trên **mọi** dòng bảo hành (kể
+                cả dòng theo bộ phận). `warrantyMismatch` thì so `brandWarrantyEnd`
+                với max chỉ trên các dòng **toàn máy** (`component = null`) —
+                đúng luật phiếu chia sẻ. Hai mốc có thể khác nhau khi thiết bị có
+                bảo hành bộ phận dài hơn; client không nên dùng trường này thay
+                cho phép so sánh của `warrantyMismatch`.
             returnDeadline:
               type: string
               format: date-time
@@ -4443,6 +4676,27 @@ components:
         giá**: tỷ giá cũ **không** được mang sang (nó là tỷ giá của đơn vị
         khác). `currency: "VND"` ⇒ `fxRate` phải vắng mặt/`null` và tỷ giá cũ bị
         **xoá**; `currency` khác VND ⇒ `fxRate` **bắt buộc** trong cùng request.
+
+        ### Tra cứu bảo hành hãng (migration 0023, gap #11)
+
+        Nhóm `brandWarrantyStatus` / `brandWarrantyStart` / `brandWarrantyEnd` /
+        `brandCheckedAt` / `brandLookupUrl` là **bản ghi của người dùng** về câu
+        trả lời của hệ thống hãng; nó không đổi phép tính bảo hành của app. Quy
+        tắc:
+
+          * `brandWarrantyStatus` **bắt buộc** khi bất kỳ trường nào còn lại
+            được gửi; một mình trạng thái thì hợp lệ (`NOT_REGISTERED` không có
+            ngày). Thiếu ⇒ 400 `fieldErrors.brandWarrantyStatus`.
+          * `brandWarrantyEnd` không được trước `brandWarrantyStart`; vi phạm ⇒
+            400 `fieldErrors.brandWarrantyEnd`.
+          * `brandLookupUrl` chỉ nhận URL tuyệt đối `http`/`https`; vi phạm ⇒ 400
+            `fieldErrors.brandLookupUrl`. Server **không** fetch URL.
+          * `warrantyMismatch` **không bao giờ được gửi** — nó là trường tính
+            sẵn trên response; gửi lên sẽ bị bỏ qua.
+          * PATCH **thay thế** cả nhóm: không gửi cả năm trường nghĩa là **xoá**
+            dữ liệu hãng đã lưu. Đây là ngoại lệ thứ ba của PATCH (sau
+            `leadDays` và `currency`), và client nào có hiển thị dữ liệu hãng phải
+            gửi lại đủ.
       required: [name, category, purchaseDate]
       properties:
         name: { type: string, minLength: 1 }
@@ -4602,6 +4856,58 @@ components:
 
             Cron nhắc theo `leadDays` của thiết bị; đây là ngày **bao gồm** (ngày
             cuối vẫn mua được), nên mốc `7` bắn khi hạn còn đúng 7 ngày.
+        # ── Brand warranty lookup (migration 0023, gap #11) ─────────────────
+        # The five fields the user copies from the BRAND's own lookup page.
+        # Optional as a group; a supplied group must be internally consistent.
+        # PATCH has full-replacement semantics: absent = clear.
+        brandWarrantyStatus:
+          type: string
+          nullable: true
+          enum: [ACTIVE, EXPIRED, NOT_REGISTERED, PRE_ACTIVATED, UNKNOWN]
+          description: |
+            Trạng thái bảo hành theo hệ thống của hãng (migration 0023). Chữ HOA,
+            khớp chính xác; giá trị khác ⇒ 400 `fieldErrors.brandWarrantyStatus`.
+
+            **Bắt buộc khi bất kỳ trường nào trong bốn trường `brand*` còn lại
+            được gửi**; thiếu ⇒ 400 `fieldErrors.brandWarrantyStatus`. Một mình
+            nó thì hợp lệ: `NOT_REGISTERED` vốn không có ngày.
+
+            ⚠️ `PATCH` **thay thế**: không gửi cả nhóm nghĩa là **xoá** nhóm đã
+            lưu, giống `soldAt`/`returnWindowDays`. Client có hiển thị dữ liệu
+            hãng phải gửi lại đủ.
+        brandWarrantyStart:
+          type: string
+          nullable: true
+          description: |
+            Ngày hãng báo bắt đầu bảo hành (`YYYY-MM-DD` hoặc ISO đầy đủ).
+            Không parse được ⇒ 400 `fieldErrors.brandWarrantyStart`. Gửi
+            `null`/vắng mặt để xoá.
+        brandWarrantyEnd:
+          type: string
+          nullable: true
+          description: |
+            Ngày hãng báo hết hạn (`YYYY-MM-DD` hoặc ISO đầy đủ). Không parse
+            được ⇒ 400 `fieldErrors.brandWarrantyEnd`.
+
+            **Không được trước `brandWarrantyStart` khi cả hai cùng có**; vi phạm
+            ⇒ 400 `fieldErrors.brandWarrantyEnd`. Bằng nhau hợp lệ.
+        brandCheckedAt:
+          type: string
+          nullable: true
+          description: |
+            Thời điểm người dùng tra lần cuối (`YYYY-MM-DD` hoặc ISO đầy đủ).
+            Không parse được ⇒ 400 `fieldErrors.brandCheckedAt`. Server không tự
+            điền.
+        brandLookupUrl:
+          type: string
+          nullable: true
+          format: uri
+          description: |
+            URL chính xác người dùng đã mở, nullable. **Chỉ** URL tuyệt đối
+            `http`/`https` có host; giá trị tương đối, scheme khác, hoặc có
+            khoảng trắng ⇒ 400 `fieldErrors.brandLookupUrl`. Server **không**
+            fetch URL này và không kiểm tra nó còn sống hay không: đây là bản
+            ghi để kiểm chứng, không phải request.
         warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
@@ -5272,6 +5578,12 @@ components:
             `brands[].id`. Endpoint `GET /api/v1/devices/{id}/service-directory` là chỗ
             luật khớp chuỗi tự do → dòng danh bạ được áp dụng; client đọc thẳng mảng này
             thì phải tự khớp, và luật đó (hoà thì không khớp) nằm trong mô tả endpoint kia.
+
+            Từ migration 0023 mỗi dòng còn có `warrantyLookupUrl` (trang tra cứu
+            tình trạng bảo hành của hãng; `null` khi không kiểm chứng được). Một
+            hãng có thể được tra bằng endpoint riêng
+            `GET /api/v1/brands/{brandId}/service-info`; hai endpoint dùng chung
+            cache 60 giây nên không thể lệch nhau.
           items: { $ref: '#/components/schemas/BrandServiceInfo' }
 
     # ─── Session management (GET/DELETE /api/v1/auth/sessions) ──────────────
@@ -5820,11 +6132,30 @@ components:
         này không kiểm chứng được hotline và một hotline sai còn tệ hơn không có.
         Đây cũng là lý do `GET /api/v1/catalog` trả về mảng `brandServiceInfo` cùng
         hình dạng này.
+
+        Migration 0023 thêm `warrantyLookupUrl` — trang **tra cứu tình trạng bảo
+        hành của chính hãng**, khác với `serviceLocatorUrl` ("mang máy đi đâu").
+        Chỉ URL kiểm chứng được mới được seed; `null` là câu trả lời hợp lệ và
+        client **không** được tự ghép URL từ tên hãng.
       properties:
         brandId: { type: string, description: 'Khoá `Brand.id` (vd `samsung`).' }
         name: { type: string, description: 'Tên hãng hiển thị (từ bảng `Brand`).' }
         serviceLocatorUrl: { type: string, nullable: true, description: 'Trang tra cứu trung tâm bảo hành uỷ quyền **của chính hãng**. `null` khi không có URL nào kiểm chứng được.' }
         supportUrl: { type: string, nullable: true, description: 'Trang hỗ trợ chung của hãng.' }
+        warrantyLookupUrl:
+          type: string
+          nullable: true
+          description: |
+            Trang **tra cứu tình trạng bảo hành** của hãng (migration 0023): nơi
+            hãng cho biết ngày bắt đầu/kết thúc mà hệ thống của họ ghi nhận.
+            Người dùng mở trang này rồi ghi kết quả vào thiết bị
+            (`Device.brandWarranty*`), và app so sánh với ngày trên hoá đơn
+            (`Device.warrantyMismatch`).
+
+            Đây là dữ liệu **đã kiểm chứng**, không phải URL suy ra từ tên hãng.
+            `null` khi hãng chỉ công bố chính sách bảo hành, khi trang không xác
+            minh được, hoặc khi repo chưa có nguồn — client hiển thị "app không
+            có link tra cứu cho hãng này", **không** tự đoán.
         notes: { type: string, nullable: true, description: 'Ghi chú tiếng Việt: link dùng để làm gì.' }
 
     WarrantyCentre:

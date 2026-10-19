@@ -186,6 +186,14 @@ fun AddDeviceSheet(
     var extendedCoverBuyBy by remember {
         mutableStateOf(extendedCoverBuyByInput(existing?.extendedCoverBuyBy))
     }
+    // Brand warranty lookup. The five fields are loaded so an edit can never
+    // erase a record another client captured (PATCH replaces the whole row), and
+    // are updated in place when the user records an answer from the brand's page
+    // before saving. `null` on a brand-new device, which is the contract's
+    // "never checked" state.
+    var brandWarrantyDraft by remember {
+        mutableStateOf(existing?.let { brandWarrantyDraftOf(it) } ?: BrandWarrantyDraft())
+    }
 
     var categoryOptions by remember { mutableStateOf<List<CategoryOption>>(emptyList()) }
     var brandOptions by remember { mutableStateOf<List<BrandOption>>(emptyList()) }
@@ -749,6 +757,20 @@ fun AddDeviceSheet(
                 )
             }
 
+            // Brand warranty lookup. Its own group because it is a different
+            // source of dates from the plan above: the manufacturer's system,
+            // not the invoice. The block only updates form state — the save
+            // button sends the five fields with the rest of the device.
+            SheetGroup {
+                BrandWarrantyFormBlock(
+                    api = api,
+                    brandName = brand,
+                    brands = brandOptions,
+                    draft = brandWarrantyDraft,
+                    onDraftChange = { brandWarrantyDraft = it },
+                )
+            }
+
             // Reminder lead time. Its own group because it applies to every
             // warranty on the device, not to the purchase fields above; the
             // picker matches the sheet's other rows (label + controls + hint).
@@ -874,6 +896,16 @@ fun AddDeviceSheet(
                             // drops the key only if the list is empty (which the
                             // disabled Save button prevents).
                             leadDays = leadDaysForRequest(leadDays),
+                            // The brand's own answer, recorded from its lookup
+                            // page. Loaded from `existing` and sent straight back
+                            // — omitting it would erase a record on every edit.
+                            // The record sheet enforces the API's status/date/URL
+                            // rules before it reaches this field set.
+                            brandWarrantyStatus = brandWarrantyDraft.status,
+                            brandWarrantyStart = brandWarrantyDraft.startDate,
+                            brandWarrantyEnd = brandWarrantyDraft.endDate,
+                            brandCheckedAt = brandWarrantyDraft.checkedAt,
+                            brandLookupUrl = brandWarrantyDraft.lookupUrl,
                             warrantyMonths = if (isEdit) 0 else (months.toIntOrNull() ?: 0),
                         )
                         try {

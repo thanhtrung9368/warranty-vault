@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
 
@@ -61,10 +63,21 @@ type WarrantyProviderOption struct {
 // ServiceDirectory / WarrantyCentre.Phone, which carry `phoneSource: "user"`.
 // Adding a field here would be the first step towards inventing contact data, so
 // it is a schema change and a conversation, not a patch.
+//
+// `name` is the display name from the Brand catalog. It is included because
+// GET /api/v1/brands/{brandId}/service-info returns the row on its own, with no
+// sibling `brands` array to resolve the id against.
+//
+// `warrantyLookupUrl` (migration 0023, gap #11) is the brand's own
+// warranty-STATUS page — a different question from `serviceLocatorUrl` ("where
+// do I take it"). Nullable on purpose: only a URL that could be sourced is
+// seeded, and null means the app does not know, not that no page exists.
 type BrandServiceInfoOption struct {
 	BrandID           string  `json:"brandId"`
+	Name              string  `json:"name"`
 	ServiceLocatorURL *string `json:"serviceLocatorUrl"`
 	SupportURL        *string `json:"supportUrl"`
+	WarrantyLookupURL *string `json:"warrantyLookupUrl"`
 	Notes             *string `json:"notes"`
 }
 
@@ -238,8 +251,10 @@ func loadCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 	for _, b := range brandServiceInfo {
 		bsiOpts = append(bsiOpts, BrandServiceInfoOption{
 			BrandID:           b.BrandId,
+			Name:              b.Name,
 			ServiceLocatorURL: b.ServiceLocatorUrl,
 			SupportURL:        b.SupportUrl,
+			WarrantyLookupURL: b.WarrantyLookupUrl,
 			Notes:             b.Notes,
 		})
 	}
@@ -251,4 +266,49 @@ func loadCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 		WarrantyProviders: wpOpts,
 		BrandServiceInfo:  bsiOpts,
 	}, nil
+}
+
+// GetBrandServiceInfo resolves one brand's directory row for
+// GET /api/v1/brands/{brandId}/service-info.
+//
+// Three outcomes, and the difference between the last two is deliberate:
+//
+//   - unknown / inactive brand id  ⇒ ErrNotFound (404). The id does not identify
+//     a brand the app knows.
+//   - known brand, no directory row ⇒ (nil, nil) and the handler writes
+//     `{"serviceInfo": null}`. Only 16 of the 49 seeded brands have a directory
+//     row (migration 0012), so "this brand has no recorded service info" is a
+//     normal answer, not a missing resource. Turning it into a 404 would make a
+//     client unable to tell "unknown brand" from "we simply have no links".
+//   - known brand with a row ⇒ the row, including warrantyLookupUrl (nullable:
+//     only the URLs that could be sourced were seeded in migration 0023).
+//
+// The lookup goes through ListCatalog's 60s in-process cache rather than a
+// separate query, so this endpoint and GET /api/v1/catalog can never disagree
+// about a URL, and an operator edit lands in both at the same moment.
+func GetBrandServiceInfo(ctx context.Context, db *pgxpool.Pool, brandID string) (*BrandServiceInfoOption, error) {
+	brandID = strings.TrimSpace(brandID)
+	catalog, err := ListCatalog(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("load catalog: %w", err)
+	}
+
+	found := false
+	for _, b := range catalog.Brands {
+		if b.ID == brandID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, ErrNotFound(i18n.Text(ctx, "Không tìm thấy hãng"))
+	}
+
+	for i := range catalog.BrandServiceInfo {
+		if catalog.BrandServiceInfo[i].BrandID == brandID {
+			row := catalog.BrandServiceInfo[i]
+			return &row, nil
+		}
+	}
+	return nil, nil
 }

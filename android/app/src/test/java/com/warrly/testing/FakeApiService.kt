@@ -9,6 +9,7 @@ import com.warrly.network.AttachmentDescriptionInput
 import com.warrly.network.AttachmentListResponse
 import com.warrly.network.AttachmentResponse
 import com.warrly.network.AuthSuccess
+import com.warrly.network.BrandServiceInfoResponse
 import com.warrly.network.Catalog
 import com.warrly.network.ChangeEmailRequest
 import com.warrly.network.ChangeEmailResult
@@ -258,4 +259,7 @@ open class FakeApiService : ApiService {
 
     override suspend fun getServiceDirectory(deviceId: String): ServiceDirectoryResponse =
         notStubbed("getServiceDirectory")
+
+    override suspend fun getBrandServiceInfo(brandId: String): BrandServiceInfoResponse =
+        notStubbed("getBrandServiceInfo")
 }

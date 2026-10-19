@@ -47,6 +47,7 @@
 		9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */; };
 		A31C0E6ED724BE35006B72C9 /* PushRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744CF576C6B50B3F556BFE6 /* PushRegistrar.swift */; };
 		A6F3F0FC77F9880AC8684810 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */; };
+		AB1DDEB77A9253D41DBEF42E /* BrandWarrantySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */; };
 		AD34D9F99E42D9BBD07F91B8 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCDE32D624D890090538C46 /* WarrantyFormView.swift */; };
 		C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60CE06298DACE1DDBD26D736 /* Formatters.swift */; };
@@ -106,6 +107,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandWarrantySection.swift; sourceTree = "<group>"; };
 		02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
 		09877AAA02E03009FC63EF7B /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
 		0DCDE32D624D890090538C46 /* WarrantyFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyFormView.swift; sourceTree = "<group>"; };
@@ -347,6 +349,7 @@
 			children = (
 				BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */,
 				DE2CF6A0173340F46390FE0E /* AttachmentsSection.swift */,
+				00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */,
 				ACBE2AE96CDE899FE4D0695F /* ClaimAssessmentView.swift */,
 				11C9A2418F23E0EA06A4B9B5 /* ClaimFormView.swift */,
 				2B85109B7D2AECA8EAFBD450 /* ClaimsSection.swift */,
@@ -597,6 +600,7 @@
 				DA51F5A007F18FFB37D7C73E /* AttachmentsSection.swift in Sources */,
 				D1C905C7BD2AE84702AD9F4A /* AuthStore.swift in Sources */,
 				ECE57D2FE911D880F2DB872F /* AutocompleteChips.swift in Sources */,
+				AB1DDEB77A9253D41DBEF42E /* BrandWarrantySection.swift in Sources */,
 				6A567C7E8DC0896FA7857042 /* CatalogStore.swift in Sources */,
 				D68F9EB1EBCCFCD3D774DD0D /* ChangePasswordSheet.swift in Sources */,
 				CDBEDBF734B129F8A0BB03CD /* Charts.swift in Sources */,

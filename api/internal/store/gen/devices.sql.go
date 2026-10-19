@@ -118,6 +118,11 @@ INSERT INTO "Device" (
     "leadDays",
     currency,
     "fxRate",
+    "brandWarrantyStatus",
+    "brandWarrantyStart",
+    "brandWarrantyEnd",
+    "brandCheckedAt",
+    "brandLookupUrl",
     "createdAt",
     "updatedAt"
 ) VALUES (
@@ -128,35 +133,45 @@ INSERT INTO "Device" (
     COALESCE($20::int[], ARRAY[30, 7]::int[]),
     COALESCE(NULLIF($21::text, ''), 'VND'),
     $22::int,
+    $23::text,
+    $24::timestamp,
+    $25::timestamp,
+    $26::timestamp,
+    $27::text,
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 `
 
 type CreateDeviceParams struct {
-	ID                 string           `json:"id"`
-	UserId             string           `json:"userId"`
-	Name               string           `json:"name"`
-	Category           string           `json:"category"`
-	Brand              *string          `json:"brand"`
-	Model              *string          `json:"model"`
-	SerialNumber       *string          `json:"serialNumber"`
-	PurchaseDate       pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice      int32            `json:"purchasePrice"`
-	PurchasePlace      *string          `json:"purchasePlace"`
-	Notes              *string          `json:"notes"`
-	SoldAt             pgtype.Timestamp `json:"soldAt"`
-	SoldPrice          *int32           `json:"soldPrice"`
-	ReturnWindowDays   *int32           `json:"returnWindowDays"`
-	ReceivedAt         pgtype.Timestamp `json:"receivedAt"`
-	ActivationRequired bool             `json:"activationRequired"`
-	ActivatedAt        pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	Status             *string          `json:"status"`
-	LeadDays           []int32          `json:"leadDays"`
-	Currency           string           `json:"currency"`
-	FxRate             *int32           `json:"fxRate"`
+	ID                  string           `json:"id"`
+	UserId              string           `json:"userId"`
+	Name                string           `json:"name"`
+	Category            string           `json:"category"`
+	Brand               *string          `json:"brand"`
+	Model               *string          `json:"model"`
+	SerialNumber        *string          `json:"serialNumber"`
+	PurchaseDate        pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice       int32            `json:"purchasePrice"`
+	PurchasePlace       *string          `json:"purchasePlace"`
+	Notes               *string          `json:"notes"`
+	SoldAt              pgtype.Timestamp `json:"soldAt"`
+	SoldPrice           *int32           `json:"soldPrice"`
+	ReturnWindowDays    *int32           `json:"returnWindowDays"`
+	ReceivedAt          pgtype.Timestamp `json:"receivedAt"`
+	ActivationRequired  bool             `json:"activationRequired"`
+	ActivatedAt         pgtype.Timestamp `json:"activatedAt"`
+	ExtendedCoverBuyBy  pgtype.Timestamp `json:"extendedCoverBuyBy"`
+	Status              *string          `json:"status"`
+	LeadDays            []int32          `json:"leadDays"`
+	Currency            string           `json:"currency"`
+	FxRate              *int32           `json:"fxRate"`
+	BrandWarrantyStatus *string          `json:"brandWarrantyStatus"`
+	BrandWarrantyStart  pgtype.Timestamp `json:"brandWarrantyStart"`
+	BrandWarrantyEnd    pgtype.Timestamp `json:"brandWarrantyEnd"`
+	BrandCheckedAt      pgtype.Timestamp `json:"brandCheckedAt"`
+	BrandLookupUrl      *string          `json:"brandLookupUrl"`
 }
 
 // currency/fxRate (migration 0022): fxRate is the VND value of one unit of
@@ -165,6 +180,12 @@ type CreateDeviceParams struct {
 // query directly, so an empty param is mapped to 'VND' here as well — the same
 // default the column carries. fxRate is NULL for VND and for a row whose rate
 // was never recorded.
+//
+// Brand warranty lookup (migration 0023, gap #11): the five columns are a
+// USER-ENTERED record of what the brand's own lookup page said. They are not a
+// second warranty calculation and the server never fetches "brandLookupUrl".
+// Nullable, no default: an unchecked brand is NULL, which is exactly the state
+// of every row that existed before this migration.
 func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Device, error) {
 	row := q.db.QueryRow(ctx, createDevice,
 		arg.ID,
@@ -189,6 +210,11 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.LeadDays,
 		arg.Currency,
 		arg.FxRate,
+		arg.BrandWarrantyStatus,
+		arg.BrandWarrantyStart,
+		arg.BrandWarrantyEnd,
+		arg.BrandCheckedAt,
+		arg.BrandLookupUrl,
 	)
 	var i Device
 	err := row.Scan(
@@ -220,6 +246,11 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.ExtendedCoverNotifiedLeadDay,
 		&i.Currency,
 		&i.FxRate,
+		&i.BrandWarrantyStatus,
+		&i.BrandWarrantyStart,
+		&i.BrandWarrantyEnd,
+		&i.BrandCheckedAt,
+		&i.BrandLookupUrl,
 	)
 	return i, err
 }
@@ -245,7 +276,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -288,12 +319,17 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.ExtendedCoverNotifiedLeadDay,
 		&i.Currency,
 		&i.FxRate,
+		&i.BrandWarrantyStatus,
+		&i.BrandWarrantyStart,
+		&i.BrandWarrantyEnd,
+		&i.BrandCheckedAt,
+		&i.BrandLookupUrl,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -333,6 +369,11 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.ExtendedCoverNotifiedLeadDay,
 		&i.Currency,
 		&i.FxRate,
+		&i.BrandWarrantyStatus,
+		&i.BrandWarrantyStart,
+		&i.BrandWarrantyEnd,
+		&i.BrandCheckedAt,
+		&i.BrandLookupUrl,
 	)
 	return i, err
 }
@@ -427,7 +468,7 @@ func (q *Queries) ListDevicesAwaitingActivation(ctx context.Context) ([]ListDevi
 
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -520,6 +561,11 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.ExtendedCoverNotifiedLeadDay,
 			&i.Currency,
 			&i.FxRate,
+			&i.BrandWarrantyStatus,
+			&i.BrandWarrantyStart,
+			&i.BrandWarrantyEnd,
+			&i.BrandCheckedAt,
+			&i.BrandLookupUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -532,7 +578,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -577,6 +623,11 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.ExtendedCoverNotifiedLeadDay,
 			&i.Currency,
 			&i.FxRate,
+			&i.BrandWarrantyStatus,
+			&i.BrandWarrantyStart,
+			&i.BrandWarrantyEnd,
+			&i.BrandCheckedAt,
+			&i.BrandLookupUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -721,36 +772,49 @@ UPDATE "Device" SET
     "extendedCoverBuyBy" = $20,
     currency = $21,
     "fxRate" = $22,
+    "brandWarrantyStatus" = $23::text,
+    "brandWarrantyStart" = $24::timestamp,
+    "brandWarrantyEnd" = $25::timestamp,
+    "brandCheckedAt" = $26::timestamp,
+    "brandLookupUrl" = $27::text,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate", "brandWarrantyStatus", "brandWarrantyStart", "brandWarrantyEnd", "brandCheckedAt", "brandLookupUrl"
 `
 
 type UpdateDeviceParams struct {
-	ID                 string           `json:"id"`
-	UserId             string           `json:"userId"`
-	Name               string           `json:"name"`
-	Category           string           `json:"category"`
-	Brand              *string          `json:"brand"`
-	Model              *string          `json:"model"`
-	SerialNumber       *string          `json:"serialNumber"`
-	PurchaseDate       pgtype.Timestamp `json:"purchaseDate"`
-	PurchasePrice      int32            `json:"purchasePrice"`
-	PurchasePlace      *string          `json:"purchasePlace"`
-	Status             string           `json:"status"`
-	Notes              *string          `json:"notes"`
-	SoldAt             pgtype.Timestamp `json:"soldAt"`
-	SoldPrice          *int32           `json:"soldPrice"`
-	ReturnWindowDays   *int32           `json:"returnWindowDays"`
-	ReceivedAt         pgtype.Timestamp `json:"receivedAt"`
-	LeadDays           []int32          `json:"leadDays"`
-	ActivationRequired bool             `json:"activationRequired"`
-	ActivatedAt        pgtype.Timestamp `json:"activatedAt"`
-	ExtendedCoverBuyBy pgtype.Timestamp `json:"extendedCoverBuyBy"`
-	Currency           string           `json:"currency"`
-	FxRate             *int32           `json:"fxRate"`
+	ID                  string           `json:"id"`
+	UserId              string           `json:"userId"`
+	Name                string           `json:"name"`
+	Category            string           `json:"category"`
+	Brand               *string          `json:"brand"`
+	Model               *string          `json:"model"`
+	SerialNumber        *string          `json:"serialNumber"`
+	PurchaseDate        pgtype.Timestamp `json:"purchaseDate"`
+	PurchasePrice       int32            `json:"purchasePrice"`
+	PurchasePlace       *string          `json:"purchasePlace"`
+	Status              string           `json:"status"`
+	Notes               *string          `json:"notes"`
+	SoldAt              pgtype.Timestamp `json:"soldAt"`
+	SoldPrice           *int32           `json:"soldPrice"`
+	ReturnWindowDays    *int32           `json:"returnWindowDays"`
+	ReceivedAt          pgtype.Timestamp `json:"receivedAt"`
+	LeadDays            []int32          `json:"leadDays"`
+	ActivationRequired  bool             `json:"activationRequired"`
+	ActivatedAt         pgtype.Timestamp `json:"activatedAt"`
+	ExtendedCoverBuyBy  pgtype.Timestamp `json:"extendedCoverBuyBy"`
+	Currency            string           `json:"currency"`
+	FxRate              *int32           `json:"fxRate"`
+	BrandWarrantyStatus *string          `json:"brandWarrantyStatus"`
+	BrandWarrantyStart  pgtype.Timestamp `json:"brandWarrantyStart"`
+	BrandWarrantyEnd    pgtype.Timestamp `json:"brandWarrantyEnd"`
+	BrandCheckedAt      pgtype.Timestamp `json:"brandCheckedAt"`
+	BrandLookupUrl      *string          `json:"brandLookupUrl"`
 }
 
+// Brand lookup fields are part of the full replacement, like soldAt/returnWindowDays:
+// an absent key clears them. That is the endpoint's documented PATCH semantics;
+// a client that has recorded a lookup must send all five back.
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
 	row := q.db.QueryRow(ctx, updateDevice,
 		arg.ID,
@@ -775,6 +839,11 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.ExtendedCoverBuyBy,
 		arg.Currency,
 		arg.FxRate,
+		arg.BrandWarrantyStatus,
+		arg.BrandWarrantyStart,
+		arg.BrandWarrantyEnd,
+		arg.BrandCheckedAt,
+		arg.BrandLookupUrl,
 	)
 	var i Device
 	err := row.Scan(
@@ -806,6 +875,11 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.ExtendedCoverNotifiedLeadDay,
 		&i.Currency,
 		&i.FxRate,
+		&i.BrandWarrantyStatus,
+		&i.BrandWarrantyStart,
+		&i.BrandWarrantyEnd,
+		&i.BrandCheckedAt,
+		&i.BrandLookupUrl,
 	)
 	return i, err
 }

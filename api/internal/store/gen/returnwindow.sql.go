@@ -14,7 +14,7 @@ import (
 const listOpenReturnWindows = `-- name: ListOpenReturnWindows :many
 
 SELECT
-    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay", d.currency, d."fxRate",
+    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay", d.currency, d."fxRate", d."brandWarrantyStatus", d."brandWarrantyStart", d."brandWarrantyEnd", d."brandCheckedAt", d."brandLookupUrl",
     (COALESCE(d."receivedAt", d."purchaseDate")
         + (d."returnWindowDays" * INTERVAL '1 day'))::timestamp AS "returnDeadline"
 FROM "Device" d
@@ -61,6 +61,11 @@ type ListOpenReturnWindowsRow struct {
 	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
 	Currency                     string           `json:"currency"`
 	FxRate                       *int32           `json:"fxRate"`
+	BrandWarrantyStatus          *string          `json:"brandWarrantyStatus"`
+	BrandWarrantyStart           pgtype.Timestamp `json:"brandWarrantyStart"`
+	BrandWarrantyEnd             pgtype.Timestamp `json:"brandWarrantyEnd"`
+	BrandCheckedAt               pgtype.Timestamp `json:"brandCheckedAt"`
+	BrandLookupUrl               *string          `json:"brandLookupUrl"`
 	ReturnDeadline               pgtype.Timestamp `json:"returnDeadline"`
 }
 
@@ -125,6 +130,11 @@ func (q *Queries) ListOpenReturnWindows(ctx context.Context, arg ListOpenReturnW
 			&i.ExtendedCoverNotifiedLeadDay,
 			&i.Currency,
 			&i.FxRate,
+			&i.BrandWarrantyStatus,
+			&i.BrandWarrantyStart,
+			&i.BrandWarrantyEnd,
+			&i.BrandCheckedAt,
+			&i.BrandLookupUrl,
 			&i.ReturnDeadline,
 		); err != nil {
 			return nil, err

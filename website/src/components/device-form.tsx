@@ -70,6 +70,8 @@ import {
   normalizeLeadDays,
 } from '@/lib/lead-days';
 import { supportsSerialScan } from '@/lib/serial-scan';
+import { brandWarrantyValues, type BrandWarrantyStatus } from '@/lib/brand-warranty';
+import { BrandWarrantyFormSection } from '@/components/brand-warranty-form-section';
 import {
   createDevice,
   updateDevice,
@@ -131,6 +133,16 @@ type Initial = {
   activationRequired?: boolean;
   activatedAt?: string | null;
   extendedCoverBuyBy?: string | null;
+  // ── Brand warranty answer (frozen five) ────────────────────────────────
+  // The edit page passes what the server returned so the section starts on the
+  // saved answer and the five fields can submit it back. PATCH replaces the whole
+  // device, so dropping these would erase a check recorded here or on another
+  // client.
+  brandWarrantyStatus?: BrandWarrantyStatus | null;
+  brandWarrantyStart?: string | null;
+  brandWarrantyEnd?: string | null;
+  brandCheckedAt?: string | null;
+  brandLookupUrl?: string | null;
 };
 
 type Catalog = {
@@ -153,6 +165,25 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   fxRate: { label: 'Tỷ giá', focusId: 'fxRate', step: 1 },
   warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
   leadDays: { label: 'Mốc nhắc trước', focusId: 'leadDays', step: 2 },
+  // Brand warranty answer (frozen contract) — same step, so a server
+  // `fieldErrors.brandWarranty*` jumps back to the warranty step and focuses the
+  // input the section renders.
+  brandWarrantyStatus: {
+    label: 'Trạng thái hãng ghi',
+    focusId: 'brandWarrantyStatus',
+    step: 2,
+  },
+  brandWarrantyStart: {
+    label: 'Ngày bắt đầu hãng ghi',
+    focusId: 'brandWarrantyStart',
+    step: 2,
+  },
+  brandWarrantyEnd: {
+    label: 'Ngày kết thúc hãng ghi',
+    focusId: 'brandWarrantyEnd',
+    step: 2,
+  },
+  brandLookupUrl: { label: 'Link đã mở', focusId: 'brandLookupUrl', step: 2 },
   // Warranty activation + extended cover (Feature A) — same step as the rest of
   // the warranty fields. There is no client-side rule to enforce (a
   // pre-activation date before `purchaseDate` is legal), so these only route a
@@ -339,11 +370,17 @@ export function DeviceForm({
   catalog,
   fromWishlistId,
   aiEnabled = false,
+  brandLookupUrl = null,
 }: {
   initial?: Initial;
   catalog: Catalog;
   fromWishlistId?: string;
   aiEnabled?: boolean;
+  /**
+   * Server-resolved warranty lookup URL for the device's initial brand. `null`
+   * means the API has no page for that brand — a real answer, rendered as such.
+   */
+  brandLookupUrl?: string | null;
 }) {
   const t = useT();
   const locale = useLocale();
@@ -1447,6 +1484,24 @@ export function DeviceForm({
               </div>
             </div>
           </div>
+
+          {/* Brand warranty lookup (frozen contract): the brand's own system may
+              disagree with the invoice about when cover started. The section is
+              mounted inside step 3 (CSS-hidden steps never unmount), so its
+              five fields submit from every step. `initialLookupUrl` comes from
+              the server resolution — null is a real answer, never guessed. */}
+          <BrandWarrantyFormSection
+            brandName={brand}
+            initial={brandWarrantyValues({
+              brandWarrantyStatus: initial?.brandWarrantyStatus ?? null,
+              brandWarrantyStart: initial?.brandWarrantyStart ?? null,
+              brandWarrantyEnd: initial?.brandWarrantyEnd ?? null,
+              brandCheckedAt: initial?.brandCheckedAt ?? null,
+              brandLookupUrl: initial?.brandLookupUrl ?? null,
+            })}
+            initialLookupUrl={brandLookupUrl}
+            errors={errors}
+          />
 
           {/* Reminder lead times — replaces the old fixed 7/30-day schedule.
               A bordered sub-card, matching the resale block on the final step.

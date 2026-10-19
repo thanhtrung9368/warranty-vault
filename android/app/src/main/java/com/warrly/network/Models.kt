@@ -341,6 +341,65 @@ enum class WarrantyType(@StringRes val labelRes: Int) {
     THIRD_PARTY(R.string.enum_warranty_type_third_party),
 }
 
+/**
+ * What the **brand's own** warranty system said about this device when the user
+ * checked it (openapi `Device.brandWarrantyStatus`).
+ *
+ * This is not the warranty the user typed. It is the answer the manufacturer's
+ * lookup page gave, recorded by hand because no manufacturer exposes a public
+ * API. The whole feature exists because those two can disagree: a grey-market
+ * import, a shop that pre-activated the unit, or a repaired device that was
+ * re-registered can start the clock months before the invoice.
+ *
+ * The five states are distinct facts, not severities:
+ *
+ *  * [ACTIVE] — the brand says cover is running.
+ *  * [EXPIRED] — the brand says cover has ended.
+ *  * [NOT_REGISTERED] — the serial is unknown to the brand ("chưa đăng ký").
+ *  * [PRE_ACTIVATED] — the brand activated the unit before it was sold. This is
+ *    the state the mismatch flag was built for; it is not itself an error.
+ *  * [UNKNOWN] — the page loaded but did not answer.
+ *
+ * Required whenever any other `brandWarranty*` field is set (the API answers 400
+ * `fieldErrors.brandWarrantyStatus` otherwise).
+ */
+@Serializable
+enum class BrandWarrantyStatus(@StringRes val labelRes: Int) {
+    ACTIVE(R.string.enum_brand_warranty_status_active),
+    EXPIRED(R.string.enum_brand_warranty_status_expired),
+    NOT_REGISTERED(R.string.enum_brand_warranty_status_not_registered),
+    PRE_ACTIVATED(R.string.enum_brand_warranty_status_pre_activated),
+    UNKNOWN(R.string.enum_brand_warranty_status_unknown),
+}
+
+/**
+ * One server-computed disagreement between the brand's dates and the date the
+ * user recorded (openapi `Device.warrantyMismatch`), or none.
+ *
+ * **Read-only.** The server computes it on every device read; the client must
+ * never derive it locally, or Android could contradict the web and iOS on the
+ * same row. It is deliberately a raw [kind] `String` (not an enum) for the same
+ * reason as [ActionItem.kind]: a future server kind must degrade to "dates
+ * differ, open the record" rather than fail to decode the whole device.
+ *
+ * [days] is the absolute day count. [brandDate] is the brand's date the kind is
+ * about (the start for `STARTS_*`, the end for `ENDED_*`), and [purchaseDate] is
+ * the date on the user's side the server compared it with. Both are formatted
+ * with the app's `dd/MM/yyyy` rule before they reach the copy — never parsed as
+ * instants.
+ */
+@Serializable
+data class WarrantyMismatch(
+    /** `STARTS_BEFORE | STARTS_AFTER | ENDED_EARLIER | ENDED_LATER`. */
+    val kind: String = "",
+    /** Absolute number of days between the two dates. */
+    val days: Int = 0,
+    /** The brand's date (start or end, depending on [kind]). */
+    val brandDate: String = "",
+    /** The user's date the server compared the brand's date against. */
+    val purchaseDate: String = "",
+)
+
 @Serializable
 data class Device(
     val id: String,
@@ -519,6 +578,55 @@ data class Device(
      * loaded list over for the same reason it does warranties.
      */
     val claims: List<Claim> = emptyList(),
+    // ---- Brand warranty lookup (the brand's answer, not the user's guess) ----
+    //
+    // Five nullable columns plus one server-computed projection. Every one of
+    // them defaults so a payload from a server that predates the feature still
+    // decodes, and so a device that was never checked stays exactly as it was.
+    //
+    // These are the MANUFACTURER's dates, recorded by hand from its lookup page.
+    // They are not `Warranty.startDate` / `.endDate` and the client must never
+    // let one stand in for the other. `ui/screens/devices/BrandWarrantyRules.kt`
+    // owns the copy and the comparison presentation.
+    /**
+     * What the brand's system said (`ACTIVE | EXPIRED | NOT_REGISTERED |
+     * PRE_ACTIVATED | UNKNOWN`). `null` = never checked.
+     *
+     * The API requires it whenever any other `brandWarranty*` field is set
+     * (`fieldErrors.brandWarrantyStatus`); the record sheet enforces the same
+     * rule before sending.
+     */
+    val brandWarrantyStatus: BrandWarrantyStatus? = null,
+    /**
+     * The warranty start the **brand** reported. Same naive-UTC-ish wire family
+     * as [purchaseDate]: only the date half is ever read (`take(10)`).
+     */
+    val brandWarrantyStart: String? = null,
+    /** The warranty end the **brand** reported. Never precedes [brandWarrantyStart]. */
+    val brandWarrantyEnd: String? = null,
+    /**
+     * When the user last looked the device up on the brand's page. The API is
+     * the clock here: the record sheet sends the current instant, and older
+     * rows may be naive-UTC strings. Only the date half is displayed.
+     */
+    val brandCheckedAt: String? = null,
+    /**
+     * The brand page that produced the record — the URL the user actually
+     * opened. `null` = no page was recorded; the client must never build or
+     * guess one from the brand name.
+     */
+    val brandLookupUrl: String? = null,
+    /**
+     * Server-computed comparison between the brand's dates and the date the
+     * user typed.
+     *
+     * `null` is ambiguous by contract: it means **either** "no disagreement"
+     * **or** "there was nothing to compare" (never checked, a status-only
+     * answer, or no whole-unit warranty for the end comparison). The UI
+     * therefore additionally requires a recorded brand **start** before it may
+     * say the two agree. Never recomputed on the client.
+     */
+    val warrantyMismatch: WarrantyMismatch? = null,
 )
 
 @Serializable
@@ -813,6 +921,29 @@ data class DeviceInput(
      * them with a default.
      */
     val leadDays: List<Int>? = null,
+    // ---- Brand warranty lookup (write half) ----
+    //
+    // `PATCH /api/v1/devices/{id}` REPLACES the row, so these five must travel
+    // on every edit or a device form would silently erase a record the user
+    // captured from the brand's own page. The plain `null` is dropped from the
+    // JSON (`ApiClient.json` has `explicitNulls = false`), which Go decodes as
+    // nil exactly like an explicit null.
+    /**
+     * The status the brand's page showed. The API requires it whenever any of
+     * the other four is non-null (`fieldErrors.brandWarrantyStatus`).
+     */
+    val brandWarrantyStatus: BrandWarrantyStatus? = null,
+    /** `YYYY-MM-DD` as the brand showed it, or `null` when unrecorded. */
+    val brandWarrantyStart: String? = null,
+    /** `YYYY-MM-DD`; rejected by the API when it precedes [brandWarrantyStart]. */
+    val brandWarrantyEnd: String? = null,
+    /**
+     * When the user checked — an RFC3339 instant, written by the record sheet
+     * (`brandCheckedAtNow`). `null` only when clearing the record.
+     */
+    val brandCheckedAt: String? = null,
+    /** The page that produced the record. Absolute `http(s)` or `null`. */
+    val brandLookupUrl: String? = null,
     val warrantyMonths: Int = 0,
     val warrantyProvider: String? = null,
     val warrantyAddress: String? = null,
@@ -2130,9 +2261,39 @@ data class BrandServiceInfo(
     val serviceLocatorUrl: String? = null,
     /** The brand's general support page. */
     val supportUrl: String? = null,
+    /**
+     * The brand's **warranty lookup page** — the form where the serial is typed
+     * into the manufacturer's own system (openapi `BrandServiceInfo.warrantyLookupUrl`).
+     *
+     * `null` for some brands: the API only adds URLs it can source, and the
+     * client must **never** invent one. `ui/screens/devices/BrandWarrantyRules.kt`
+     * validates it before a button is offered; a blank or non-`http(s)` string is
+     * the same as absent.
+     *
+     * Defaulted because this field arrived after [serviceLocatorUrl] and
+     * [supportUrl], and a payload from an older server must still decode.
+     */
+    val warrantyLookupUrl: String? = null,
     /** Vietnamese note about what the links are for. Rendered verbatim. */
     val notes: String? = null,
 )
+
+/**
+ * `GET /api/v1/brands/{brandId}/service-info` (openapi: a 200 envelope with
+ * `serviceInfo`).
+ *
+ * **`serviceInfo: null` is a successful answer**, not a missing resource: 49
+ * brands are seeded but only 16 have a directory row, so a known brand with no
+ * row answers `{"serviceInfo": null}`. A brand that does not exist is the
+ * documented 404. The lookup flow must map the null to "app không có link tra
+ * cứu cho hãng này" and must not fall back to the support URL or a constructed
+ * one.
+ *
+ * The field is defaulted because an older/partial server must not make the whole
+ * call throw after the user tapped the action.
+ */
+@Serializable
+data class BrandServiceInfoResponse(val serviceInfo: BrandServiceInfo? = null)
 
 /**
  * A `WarrantyProvider` catalog row (openapi `WarrantyProviderRef`).

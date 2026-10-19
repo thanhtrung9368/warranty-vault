@@ -20,6 +20,22 @@
 import { apiFetch, type ApiResult } from './client';
 import { normalizeDeviceWarnings } from '@/lib/device-warnings';
 import type { Claim } from './claims';
+// Brand warranty lookup (frozen contract). The wire types live in
+// `@/lib/brand-warranty` next to the pure copy/date logic; they are re-exported
+// from here because this module is the device contract's home.
+import type {
+  BrandWarrantyStatus,
+  BrandWarrantyValues,
+  WarrantyMismatch,
+  WarrantyMismatchKind,
+} from '@/lib/brand-warranty';
+
+export type {
+  BrandWarrantyStatus,
+  BrandWarrantyValues,
+  WarrantyMismatch,
+  WarrantyMismatchKind,
+};
 
 // ---- Filter / input shapes ---------------------------------------------------
 
@@ -98,6 +114,27 @@ export type DeviceInput = {
   // Last day to BUY extended cover (AppleCare+, Samsung Care+). After this day
   // the option is gone forever, which is why the detail page shows a countdown.
   extendedCoverBuyBy?: string | null;
+  // ── Brand warranty answer (the frozen five) ────────────────────────────
+  //
+  // What the BRAND's own system said, recorded by the owner from the brand's
+  // lookup page. All nullable: null means "not checked / brand had no answer".
+  //
+  // Rules enforced by Go (`fieldErrors.brandWarrantyStatus` etc.):
+  //   * status is required whenever any of the other four is set;
+  //   * `brandWarrantyEnd` may not precede `brandWarrantyStart`;
+  //   * `brandLookupUrl` must be an absolute http/https URL.
+  //
+  // PATCH replaces the whole device, so the device form always ships these five
+  // through hidden/controlled inputs even when the owner never touched them —
+  // otherwise editing the device name would silently erase a recorded check.
+  // `brandCheckedAt` is the moment the check happened; the record action stamps
+  // "now", the device form preserves the stored value unless the owner edits the
+  // answer. Dates accept `YYYY-MM-DD` or full RFC3339, like `purchaseDate`.
+  brandWarrantyStatus?: BrandWarrantyStatus | null;
+  brandWarrantyStart?: string | null;
+  brandWarrantyEnd?: string | null;
+  brandCheckedAt?: string | null;
+  brandLookupUrl?: string | null;
   // Server marks the wishlist item as PURCHASED when set.
   fromWishlistId?: string | null;
 };
@@ -161,6 +198,24 @@ export type Device = {
   activatedAt: string | null;
   // Last day to buy extended cover; null when the retailer never gave one.
   extendedCoverBuyBy: string | null;
+  // ── Brand warranty answer (frozen contract) ────────────────────────────
+  //
+  // All five are nullable and describe what the BRAND's system said, plus when
+  // it was checked and on which page. `null` means "not checked / no answer",
+  // never "no warranty". `brandCheckedAt` is a timestamp; the two dates are
+  // day-resolution strings. See `@/lib/brand-warranty` for the copy and the
+  // validation rules.
+  brandWarrantyStatus: BrandWarrantyStatus | null;
+  brandWarrantyStart: string | null;
+  brandWarrantyEnd: string | null;
+  brandCheckedAt: string | null;
+  brandLookupUrl: string | null;
+  // COMPUTED, read-only, present on every device read. `null` means the two
+  // sides agree (or there is nothing comparable). It is never a write input —
+  // never send it back in a PATCH. Use `normalizeWarrantyMismatch()` before
+  // rendering: the shape is the server's, and a missing field must degrade to
+  // "nothing to show", not crash the page.
+  warrantyMismatch: WarrantyMismatch | null;
   // Cron de-duplication stamp for the "sắp hết hạn đổi trả" push. Operational
   // detail with no web surface, so it is optional here.
   returnWindowNotifiedAt?: string | null;
