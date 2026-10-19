@@ -249,7 +249,7 @@ func TestSearchAttachmentHitJSON(t *testing.T) {
 	text := "Sạc nhanh 65W"
 	res := &SearchResults{
 		Query:         "65w",
-		Devices:       []DeviceVND{},
+		Devices:       []DeviceSearchHit{},
 		Subscriptions: []store.Subscription{},
 		Wishlist:      []store.WishlistItem{},
 		Attachments: []AttachmentSearchHit{{

@@ -57,10 +57,10 @@ class WarrlyDeadlineWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * A resize is not a data change, but the layout is fixed (two rows), so the
-     * only useful response is to repaint with the current snapshot. Kept
-     * explicit rather than left to the default no-op so a launcher that resizes
-     * does not end up with a stretched, stale bitmap.
+     * A resize is not a data change, but the row count is fixed (at most
+     * [WIDGET_MAX_ROWS]), so the only useful response is to repaint with the
+     * current snapshot. Kept explicit rather than left to the default no-op so a
+     * launcher that resizes does not end up with a stretched, stale bitmap.
      */
     override fun onAppWidgetOptionsChanged(
         context: Context,

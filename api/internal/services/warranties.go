@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -61,11 +62,19 @@ type WarrantyInput struct {
 	Type      string  `json:"type"`
 	Provider  *string `json:"provider,omitempty"`
 	StartDate string  `json:"startDate"`
-	Months    int32   `json:"months"`
-	Cost      *int32  `json:"cost,omitempty"`
-	Address   *string `json:"address,omitempty"`
-	Phone     *string `json:"phone,omitempty"`
-	Notes     *string `json:"notes,omitempty"`
+	// EndDate is optional. When sent, the server stores that exact date (after
+	// checking it is not before StartDate); when absent/null it derives
+	// startDate + months, which is what every pre-existing client gets. The field
+	// exists because `Warranty.endDate` is returned on every read, so a client
+	// doing a read-modify-write with a full Warranty object would otherwise be
+	// rejected by the strict JSON decoder even though the field is part of the
+	// documented Warranty shape. See openapi.yaml's WarrantyInput.
+	EndDate *string `json:"endDate,omitempty"`
+	Months  int32   `json:"months"`
+	Cost    *int32  `json:"cost,omitempty"`
+	Address *string `json:"address,omitempty"`
+	Phone   *string `json:"phone,omitempty"`
+	Notes   *string `json:"notes,omitempty"`
 
 	// Contract terms (migration 0017). See the type doc comment and the
 	// openapi.yaml descriptions for the exact rules.
@@ -117,6 +126,7 @@ func ValidateWarrantyInput(ctx context.Context, in *WarrantyInput) error {
 func validateWarrantyInput(ctx context.Context, in *WarrantyInput, storedClaimsUsed int32) error {
 	in.Type = strings.TrimSpace(in.Type)
 	in.StartDate = strings.TrimSpace(in.StartDate)
+	trimPtr(&in.EndDate)
 	trimPtr(&in.Provider)
 	trimPtr(&in.Address)
 	trimPtr(&in.Phone)
@@ -238,6 +248,33 @@ func GetWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID strin
 	return row, nil
 }
 
+// warrantyEndDate resolves the end date a write stores. An explicit in.EndDate
+// wins (the contract lets a policy end on a date that is not exactly
+// startDate + months); when the client omits it, the historical derivation is
+// used unchanged, so every client written before the field existed is
+// byte-identical on the wire.
+//
+// The two failure modes are field errors, not a silent fallback: an unparseable
+// date and an end before the start are both about endDate, and a handler that
+// swallowed either would store a warranty whose dates contradict the request.
+func warrantyEndDate(ctx context.Context, in WarrantyInput, startDate time.Time) (time.Time, error) {
+	if in.EndDate == nil {
+		return addMonths(startDate, int(in.Months)), nil
+	}
+	endDate, err := parseDate(*in.EndDate)
+	if err != nil {
+		return time.Time{}, ErrValidationHeadline(FieldErrors{
+			"endDate": {i18n.Text(ctx, "Ngày kết thúc không hợp lệ")},
+		})
+	}
+	if endDate.Before(startDate) {
+		return time.Time{}, ErrValidationHeadline(FieldErrors{
+			"endDate": {i18n.Text(ctx, "Ngày kết thúc không được trước ngày bắt đầu")},
+		})
+	}
+	return endDate, nil
+}
+
 // CreateWarranty mirrors website/src/lib/services/warranties.ts::createWarranty.
 func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID string, in WarrantyInput) (store.Warranty, error) {
 	if err := ValidateWarrantyInput(ctx, &in); err != nil {
@@ -265,7 +302,10 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 			"startDate": {i18n.Text(ctx, "Ngày bắt đầu không hợp lệ")},
 		})
 	}
-	endDate := addMonths(startDate, int(in.Months))
+	endDate, err := warrantyEndDate(ctx, in, startDate)
+	if err != nil {
+		return store.Warranty{}, err
+	}
 
 	row, err := q.CreateWarranty(ctx, store.CreateWarrantyParams{
 		ID:            auth.NewID(),
@@ -339,7 +379,10 @@ func UpdateWarranty(ctx context.Context, db *pgxpool.Pool, userID, warrantyID st
 			"startDate": {i18n.Text(ctx, "Ngày bắt đầu không hợp lệ")},
 		})
 	}
-	endDate := addMonths(startDate, int(in.Months))
+	endDate, err := warrantyEndDate(ctx, in, startDate)
+	if err != nil {
+		return store.Warranty{}, err
+	}
 
 	row, err := q.UpdateWarranty(ctx, store.UpdateWarrantyParams{
 		ID:            warrantyID,

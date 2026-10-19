@@ -275,7 +275,10 @@ private fun DashboardBody(
     val totalDevices = rollup.total
     val expiringSoon = rollup.soon
     val expired = rollup.expired
-    val safeActive = rollup.safeActive
+    // "Còn bảo hành" is the count of devices still covered, not that count
+    // minus the ones expiring soon: a warranty with 9 days left is still a
+    // warranty. See DeviceRollup.inWarranty.
+    val inWarranty = rollup.inWarranty
 
     val monthlyTotal = stats.subscriptions.totalMonthlyVnd.toLong()
     val activeSubs = remember(data.subscriptions) {
@@ -311,7 +314,7 @@ private fun DashboardBody(
                 )
                 StatTile(
                     icon = Icons.Filled.Shield,
-                    value = "$safeActive",
+                    value = "$inWarranty",
                     label = stringResource(R.string.dash_under_warranty),
                     sub = stringResource(R.string.dash_sub_protected),
                     tone = StatTone.Success,

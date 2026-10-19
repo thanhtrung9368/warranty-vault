@@ -25,6 +25,9 @@
 
     <string name="widget_unnamed_device">Thiết bị chưa đặt tên</string>
 
+    <!-- Lấp chỗ trống khi mọi hạn đều đã hiện trên thẻ. -->
+    <string name="widget_no_other_deadlines">Không còn hạn nào khác</string>
+
     <!-- 0 và 1 có câu riêng; các số còn lại dùng plural (tiếng Việt chỉ có
          `other`, đúng như `StringResourceParityTest` yêu cầu). -->
     <string name="widget_expires_today">Hết hạn hôm nay</string>

@@ -148,11 +148,7 @@ public enum DeadlineWidgetRules {
         now: Date,
         calendar: Calendar = .current
     ) -> Int {
-        calendar.dateComponents(
-            [.day],
-            from: calendar.startOfDay(for: now),
-            to: calendar.startOfDay(for: endDate)
-        ).day ?? 0
+        CalendarDay.days(from: now, to: endDate, calendar: calendar)
     }
 
     /// The full-sentence label. Reuses the app's existing `Còn %d ngày` plural

@@ -226,10 +226,16 @@ func vndValue(amount int32, currency string, rate *int32) *int64 {
 }
 
 // DeviceListItem is a list-row projection: device + counts + the effective
-// warranty end (max over Warranty.endDate). Mirrors website/src/lib/devices.ts.
+// warranty end (max over the WHOLE-UNIT Warranty.endDate values). Mirrors
+// website/src/lib/devices.ts.
 type DeviceListItem struct {
 	DeviceVND
-	AttachmentCount      int64      `json:"attachmentCount"`
+	AttachmentCount int64 `json:"attachmentCount"`
+	// EffectiveWarrantyEnd is computed by wholeUnitWarrantyEnd — the same helper
+	// the detail and search reads use, and the rule the share certificate uses.
+	// It is max(endDate) over rows whose Component is NULL/blank, never over a
+	// component-scoped row: a 10-year motor clock must not claim the whole device
+	// is covered for ten years.
 	EffectiveWarrantyEnd *time.Time `json:"effectiveWarrantyEnd"`
 	// ReturnDeadline is the derived exchange-window deadline
 	// (COALESCE(receivedAt, purchaseDate) + returnWindowDays days), or nil when the
@@ -243,8 +249,14 @@ type DeviceListItem struct {
 // attachments + claims. Mirrors website/src/lib/devices.ts::getDevice.
 type DeviceDetail struct {
 	DeviceVND
-	Warranties  []WarrantyWithReminders `json:"warranties"`
-	Attachments []AttachmentMeta        `json:"attachments"`
+	// EffectiveWarrantyEnd is the same value DeviceListItem.EffectiveWarrantyEnd
+	// and a search hit carry, computed by the same wholeUnitWarrantyEnd helper.
+	// Detail used to omit the field entirely while the list computed it, so a
+	// client that read one device got a different answer from one that read the
+	// list. It is max(endDate) over WHOLE-UNIT rows only (Component NULL/blank).
+	EffectiveWarrantyEnd *time.Time              `json:"effectiveWarrantyEnd"`
+	Warranties           []WarrantyWithReminders `json:"warranties"`
+	Attachments          []AttachmentMeta        `json:"attachments"`
 	// Claims is the device's warranty-claim history (migration 0021), newest
 	// openedAt first. Always an array — [] when the device has no claims, never
 	// null — so a client can render it unconditionally. Additive: a user with no
@@ -691,11 +703,10 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 	}
 
 	for _, d := range rows {
-		end := effectiveWarrantyEnd(warByDevice[d.ID])
 		out = append(out, DeviceListItem{
 			DeviceVND:            withVNDAndWarranties(d, warByDevice[d.ID]),
 			AttachmentCount:      countByDevice[d.ID],
-			EffectiveWarrantyEnd: end,
+			EffectiveWarrantyEnd: wholeUnitWarrantyEnd(warByDevice[d.ID]),
 			ReturnDeadline:       deviceReturnDeadline(d),
 		})
 	}
@@ -813,11 +824,12 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	claimRows := make([]store.Claim, 0, len(claims))
 	claimRows = append(claimRows, claims...)
 	return &DeviceDetail{
-		DeviceVND:      withVNDAndWarranties(d, warranties),
-		Warranties:     wr,
-		Attachments:    metas,
-		Claims:         claimRows,
-		ReturnDeadline: deviceReturnDeadline(d),
+		DeviceVND:            withVNDAndWarranties(d, warranties),
+		EffectiveWarrantyEnd: wholeUnitWarrantyEnd(warranties),
+		Warranties:           wr,
+		Attachments:          metas,
+		Claims:               claimRows,
+		ReturnDeadline:       deviceReturnDeadline(d),
 	}, nil
 }
 
@@ -1549,28 +1561,6 @@ func lastDayOfMonth(year int, month time.Month, loc *time.Location) int {
 	first := time.Date(year, month, 1, 0, 0, 0, 0, loc)
 	next := first.AddDate(0, 1, 0)
 	return next.AddDate(0, 0, -1).Day()
-}
-
-// effectiveWarrantyEnd mirrors website/src/lib/warranty.ts::effectiveWarrantyEnd.
-func effectiveWarrantyEnd(warranties []store.Warranty) *time.Time {
-	if len(warranties) == 0 {
-		return nil
-	}
-	var max time.Time
-	first := true
-	for _, w := range warranties {
-		if !w.EndDate.Valid {
-			continue
-		}
-		if first || w.EndDate.Time.After(max) {
-			max = w.EndDate.Time
-			first = false
-		}
-	}
-	if first {
-		return nil
-	}
-	return &max
 }
 
 func trimPtr(p **string) {

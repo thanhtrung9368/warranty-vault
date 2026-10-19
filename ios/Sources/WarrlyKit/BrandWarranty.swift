@@ -496,7 +496,7 @@ public enum BrandWarrantyRules {
         let utc = utcCalendar()
         guard let start = WireDay.date(from: fromDay, in: utc.timeZone),
               let end = WireDay.date(from: toDay, in: utc.timeZone) else { return nil }
-        return utc.dateComponents([.day], from: start, to: end).day
+        return CalendarDay.days(from: start, to: end, calendar: utc)
     }
 
     /// `true` when both dates are readable and the end is strictly before the
@@ -514,9 +514,7 @@ public enum BrandWarrantyRules {
                                         calendar: Calendar = .current) -> Int? {
         guard let day = DeviceReturnWindow.dayPrefix(wire),
               let checked = WireDay.date(from: day, in: calendar.timeZone) else { return nil }
-        let from = calendar.startOfDay(for: checked)
-        let to = calendar.startOfDay(for: now)
-        return calendar.dateComponents([.day], from: from, to: to).day
+        return CalendarDay.days(from: checked, to: now, calendar: calendar)
     }
 
     /// `"Đối chiếu hôm nay"` / `"Đối chiếu 3 ngày trước"`, or `nil` when there

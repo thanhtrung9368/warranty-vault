@@ -89,9 +89,45 @@ struct WVLeadingIcon: View {
 extension View {
     /// Fills the safe area with the grouped background. Apply on each screen's
     /// root scroll view.
+    ///
+    /// Also reserves the tab shell's bottom clearance (`ScreenMetrics`), so a
+    /// screen cannot end flush against the floating tab bar no matter whether
+    /// it remembered to add a trailing spacer. This is the one place the inset
+    /// is applied: every screen already calls this modifier, and it reaches
+    /// pushed screens, which a `safeAreaInset` on the `NavigationStack` does
+    /// not.
     func wvScreen() -> some View {
-        self.background(WVColor.bg.ignoresSafeArea())
+        self
+            .padding(.bottom, ScreenMetrics.tabBarContentInset)
+            .background(WVColor.bg.ignoresSafeArea())
     }
+}
+
+// MARK: - Screenshot QA
+
+/// Screenshot-QA only: start a scroll view at its **bottom** instead of its top.
+///
+/// The simulator can be driven headlessly (`simctl io … screenshot`) but not
+/// tapped, so a screen whose interesting edge is the bottom — the tab-bar
+/// clearance under a detail screen — cannot be reached by hand. Launching with
+/// `WV_QA_SCROLL_BOTTOM=1` in the environment puts the scroll view at its
+/// bottom for that shot. DEBUG-only, like `WV_QA_TAB` and `WV_QA_TOKEN`.
+struct WVQAScrollBottom: ViewModifier {
+    func body(content: Content) -> some View {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["WV_QA_SCROLL_BOTTOM"] == "1" {
+            content.defaultScrollAnchor(.bottom)
+        } else {
+            content
+        }
+#else
+        content
+#endif
+    }
+}
+
+extension View {
+    func wvQAScrollBottom() -> some View { modifier(WVQAScrollBottom()) }
 }
 
 // MARK: - Section header / footer
@@ -394,33 +430,17 @@ struct WVTag: View {
 // MARK: - Warranty pill
 
 /// Days-left status pill (`WarrantyPill` in ios-ui.jsx).
+///
+/// The rule that decides the label and the tone lives in the Kit
+/// (`WarrantyPillCopy`) so it is unit-tested; this view only draws it. That
+/// split matters because the English copy for the expired case used to read
+/// "%dd left", which rendered a warranty that ended 588 days ago as a positive
+/// "588d left" chip.
 struct WarrantyPill: View {
     let daysLeft: Int?
 
-    private enum Status { case safe, warn, danger, expired }
-    private var status: Status {
-        guard let d = daysLeft else { return .expired }
-        if d < 0 { return .expired }
-        if d <= 30 { return .danger }
-        if d <= 90 { return .warn }
-        return .safe
-    }
-    private var label: String {
-        guard let d = daysLeft else { return "—" }
-        // "Hết 3d" / "Còn 12d" are compact on purpose — this is a chip on a
-        // card, not a sentence. The English side keeps the same abbreviation
-        // ("3d left") so the chip does not grow under one language only.
-        if d < 0 { return L.t("Hết %dd", abs(d)) }
-        if d == 0 { return L.t("Hết hôm nay") }
-        if d <= 90 { return L.t("Còn %dd", d) }
-        if d <= 365 { return L.t("Còn ~%dth", Int((Double(d) / 30).rounded())) }
-        // Whole years, not a decimal. This branch only fires past a year, and
-        // "%.1f" rendered the first two months of it as "Còn 1.0 năm" / "1.0 years
-        // left" — a false-looking number in Vietnamese and a plural violation in
-        // English ("1.0 years"). Rounding is clamped to at least 1 so a chip never
-        // reads "Còn 0 năm". Precision past a year is not worth a decimal on a card.
-        return L.p("%d năm", max(1, Int((Double(d) / 365).rounded())))
-    }
+    private var status: WarrantyPillCopy.Status { WarrantyPillCopy.status(daysLeft: daysLeft) }
+    private var label: String { WarrantyPillCopy.label(daysLeft: daysLeft) }
     private var color: Color {
         switch status {
         case .safe: return WVColor.green

@@ -4691,32 +4691,43 @@ components:
             hạn bảo hành toàn máy** với `ENDED_*`. Tên trường được giữ nguyên
             theo hợp đồng đã chốt; `kind` cho biết đây là ngày nào.
 
+    # A device read plus the computed effective warranty end. Shared by the list
+    # row, the device detail and a search hit, so the three endpoints cannot
+    # document (or return) three different meanings for the same field.
+    DeviceWithEffectiveWarranty:
+      allOf:
+        - $ref: '#/components/schemas/Device'
+        - type: object
+          properties:
+            effectiveWarrantyEnd:
+              type: string
+              format: date-time
+              nullable: true
+              description: |
+                `max(endDate)` của các dòng bảo hành **toàn máy** — dòng có
+                `component = null` hoặc chuỗi rỗng — cùng luật với phiếu chia sẻ
+                (`SharedCertificate.effectiveWarrantyEnd`). Dòng theo bộ phận bị
+                loại khỏi phép max: mốc 10 năm của động cơ không được biến thành
+                "cả máy còn bảo hành tới 2035". `null` khi không có dòng toàn máy
+                nào có ngày kết thúc (kể cả khi mọi dòng đều theo bộ phận).
+
+                **Cùng một helper** (`wholeUnitWarrantyEnd`) tính trường này cho
+                list, detail và search, nên ba endpoint luôn trả cùng một giá trị
+                cho cùng một thiết bị. Trước đây list lấy max trên mọi dòng còn
+                detail bỏ hẳn trường — đó chính là bug đã sửa; giá trị của list
+                thay đổi chỉ khi thiết bị có dòng bộ phận dài hơn dòng toàn máy.
+
     # `GET /api/v1/devices` row: the stored Device plus two projection fields
     # hydrated per row by services.ListDevices (api/internal/services/devices.go).
     DeviceListItem:
       allOf:
-        - $ref: '#/components/schemas/Device'
+        - $ref: '#/components/schemas/DeviceWithEffectiveWarranty'
         - type: object
           required: [attachmentCount]
           properties:
             attachmentCount:
               type: integer
               description: 'Number of encrypted attachments on the device (0 when there are none).'
-            effectiveWarrantyEnd:
-              type: string
-              format: date-time
-              nullable: true
-              description: |
-                max(Warranty.endDate) across the device's warranties. Null when the
-                device has no warranty with an end date — this is a genuinely
-                nullable field (`*time.Time` in Go), not a required string.
-
-                **Lưu ý:** đây là mốc cũ, lấy max trên **mọi** dòng bảo hành (kể
-                cả dòng theo bộ phận). `warrantyMismatch` thì so `brandWarrantyEnd`
-                với max chỉ trên các dòng **toàn máy** (`component = null`) —
-                đúng luật phiếu chia sẻ. Hai mốc có thể khác nhau khi thiết bị có
-                bảo hành bộ phận dài hơn; client không nên dùng trường này thay
-                cho phép so sánh của `warrantyMismatch`.
             returnDeadline:
               type: string
               format: date-time
@@ -4730,7 +4741,7 @@ components:
 
     DeviceDetail:
       allOf:
-        - $ref: '#/components/schemas/Device'
+        - $ref: '#/components/schemas/DeviceWithEffectiveWarranty'
         - type: object
           properties:
             returnDeadline:
@@ -5100,7 +5111,10 @@ components:
         type: { $ref: '#/components/schemas/WarrantyType' }
         provider: { type: string, nullable: true }
         startDate: { type: string, format: date-time }
-        endDate: { type: string, format: date-time }
+        endDate:
+          type: string
+          format: date-time
+          description: 'Ngày kết thúc. Bằng `WarrantyInput.endDate` khi client gửi ngày tường minh, ngược lại `startDate + months`. Trường này có mặt trên **mọi** lần đọc, nên nó cũng được chấp nhận khi ghi (`WarrantyInput.endDate`) để client đọc-rồi-ghi không bị 400.'
         months: { type: integer, minimum: 1 }
         cost:
           type: integer
@@ -5254,10 +5268,30 @@ components:
         Chuỗi bị chặn độ dài (đếm theo rune): `component`/`region` ≤ 200,
         `scope`/`exclusions` ≤ 500. Đây là độ dài của một đoạn điều khoản, không
         phải của một tài liệu.
+
+        `endDate` là trường **tuỳ chọn** nhưng phải được chấp nhận: nó nằm trong
+        hình dạng `Warranty` mà mọi lần đọc trả về, nên một client đọc-rồi-ghi
+        (form sửa gói bảo hành) gửi lại đúng đối tượng `Warranty` không được nhận
+        `bad_input`. Khi vắng mặt/`null`, server vẫn tính `startDate + months`
+        như trước — hành vi của mọi client cũ không đổi.
       properties:
         type: { $ref: '#/components/schemas/WarrantyType' }
         provider: { type: string, nullable: true }
         startDate: { type: string }
+        endDate:
+          type: string
+          nullable: true
+          description: |
+            Ngày kết thúc, **tuỳ chọn**. Cùng định dạng với `startDate`
+            (`YYYY-MM-DD` hoặc ISO đầy đủ). Khi có, server lưu đúng ngày này
+            (sau khi kiểm tra không trước `startDate`); khi vắng mặt/`null`,
+            server tự tính `startDate + months`.
+
+            Vì sao chấp nhận: `endDate` có mặt trên **mọi** response `Warranty`,
+            nên một client đọc-rồi-ghi gửi lại nguyên đối tượng sẽ bị bộ giải mã
+            strict từ chối nếu trường này không có trong input. Đây là trường
+            hợp lệ; ngày không parse được hoặc trước `startDate` ⇒ 400
+            `fieldErrors.endDate`.
         months: { type: integer, minimum: 1 }
         cost: { type: integer, nullable: true }
         address: { type: string, nullable: true }
@@ -6010,8 +6044,12 @@ components:
           description: 'Từ khoá đã trim, đúng như server đã dùng để khớp. Chuỗi rỗng khi client không truyền `q`.'
         devices:
           type: array
-          description: 'Thiết bị khớp, sắp xếp theo `createdAt` giảm dần. Luôn là mảng, không bao giờ null.'
-          items: { $ref: '#/components/schemas/Device' }
+          description: |
+            Thiết bị khớp, sắp xếp theo `createdAt` giảm dần. Luôn là mảng, không
+            bao giờ null. Mỗi phần tử mang `effectiveWarrantyEnd` — cùng giá trị
+            và cùng luật (max `endDate` trên các dòng **toàn máy**) với
+            `GET /api/v1/devices` và `GET /api/v1/devices/{id}`.
+          items: { $ref: '#/components/schemas/DeviceWithEffectiveWarranty' }
         subscriptions:
           type: array
           description: 'Subscription khớp (name/brand/plan/accountEmail), sắp xếp theo `renewalDate` tăng dần. Luôn là mảng.'

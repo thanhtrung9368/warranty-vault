@@ -4,22 +4,46 @@
   only inflate a whitelisted subset (no Compose, no ConstraintLayout, no
   `?attr` theme references resolved in the launcher process).
 
-  Two fixed row slots rather than a collection view: a 4x2 glanceable widget has
-  room for two deadlines, and fixed ids keep the repaint a handful of
-  `setTextViewText` calls with no adapter. A third deadline is represented by
-  the "+N more" footer, and tapping the card opens the full Reminders screen.
+  A 4x2 widget is a tall card: it declares two cells of height, which is enough
+  for four 13sp deadline rows between the title and the capture-time footer.
+  The previous layout had two fixed rows pinned to the top, so a one- or
+  two-row snapshot left most of the card blank. Two things keep that from
+  happening again:
 
-  All five text views are bound programmatically from `DeadlineWidgetRenderer`,
+    * there are four row slots (`WIDGET_MAX_ROWS`); the "+N more" footer covers
+      anything beyond them;
+    * the row slots are `0dp` + `layout_weight="1"` inside the weighted
+      `widget_rows` container. A hidden slot is GONE and takes no space, and
+      the visible ones split the card's leftover height evenly — one row fills
+      the card exactly as four do, instead of hugging the title.
+
+  `tools:ignore="NestedWeights"` is deliberate: the warning exists because a
+  weighted child inside a weighted parent is measured twice, which matters for
+  a deep scrolling form. This is a four-text-row card measured once per widget
+  repaint (at most four a day, no scrolling, no adapter), so the correct
+  behaviour is worth the extra pass and the warning is noise here.
+
+  The same weight rule applies to the empty-state container, so "no snapshot" /
+  "nothing due" copy is centred in the card rather than stranded under the
+  title. And when a snapshot has fewer deadlines than the card has slots, the
+  unused slots are not left blank: `widget_note` ("No other deadlines" / "Không
+  còn hạn nào khác") is a weighted child of the same row container, so it takes
+  exactly the height a row would have and the card still looks finished with a
+  one-row account.
+
+  All text views are bound programmatically from `DeadlineWidgetRenderer`,
   which resolves the in-app language. The `android:text` values here are only
   preview/design-time fallbacks.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="12dp"
+    tools:ignore="NestedWeights">
 
     <TextView
         android:id="@+id/widget_title"
@@ -43,11 +67,10 @@
         <LinearLayout
             android:id="@+id/widget_row_1"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp">
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/widget_name_1"
@@ -73,11 +96,10 @@
         <LinearLayout
             android:id="@+id/widget_row_2"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingTop="3dp"
-            android:paddingBottom="3dp">
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/widget_name_2"
@@ -99,28 +121,113 @@
                 android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_row_3"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_name_3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/widget_on_background"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/widget_days_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:maxLines="1"
+                android:textColor="@color/widget_accent"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_row_4"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_name_4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/widget_on_background"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/widget_days_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:maxLines="1"
+                android:textColor="@color/widget_accent"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!--
+          "No other deadlines" / "Không còn hạn nào khác".
+
+          Weighted like a row on purpose: when the snapshot has fewer rows than
+          the card can hold, this line owns the leftover height instead of
+          leaving a hole. Hidden (GONE) when the four rows already fill the card
+          or when the list has a "+N more" line hiding something.
+        -->
+        <TextView
+            android:id="@+id/widget_note"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:maxLines="2"
+            android:textColor="@color/widget_muted"
+            android:textSize="12sp"
+            android:visibility="gone" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/widget_empty_title"
+    <LinearLayout
+        android:id="@+id/widget_empty"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_marginTop="2dp"
-        android:maxLines="2"
-        android:textColor="@color/widget_on_background"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:visibility="gone">
 
-    <TextView
-        android:id="@+id/widget_empty_body"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:maxLines="2"
-        android:textColor="@color/widget_muted"
-        android:textSize="11sp"
-        android:visibility="gone" />
+        <TextView
+            android:id="@+id/widget_empty_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="2"
+            android:textColor="@color/widget_on_background"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_empty_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="2"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

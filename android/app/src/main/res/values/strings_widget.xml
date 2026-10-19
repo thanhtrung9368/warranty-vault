@@ -37,6 +37,9 @@
 
     <string name="widget_unnamed_device">Unnamed device</string>
 
+    <!-- Fills the unused row slots when every deadline fits on the card. -->
+    <string name="widget_no_other_deadlines">No other deadlines</string>
+
     <!-- Day-count labels. 0 and 1 get named days; the rest are a plural. -->
     <string name="widget_expires_today">Expires today</string>
     <string name="widget_expires_tomorrow">Expires tomorrow</string>
@@ -53,7 +56,7 @@
     <string name="widget_stale_as_of">Stale · as of %1$s</string>
     <string name="widget_old_as_of">Old data from %1$s · open Warrly</string>
 
-    <!-- "+N more" beyond the two rows the 4x2 layout draws. -->
+    <!-- "+N more" beyond the four rows the 4x2 layout draws. -->
     <plurals name="widget_more_deadlines">
         <item quantity="one">+%1$d more</item>
         <item quantity="other">+%1$d more</item>

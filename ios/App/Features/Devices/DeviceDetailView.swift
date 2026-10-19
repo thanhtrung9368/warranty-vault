@@ -496,6 +496,7 @@ struct DeviceDetailView: View {
             }
         }
         .wvScreen()
+        .wvQAScrollBottom()
         .navigationTitle(currentDevice.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

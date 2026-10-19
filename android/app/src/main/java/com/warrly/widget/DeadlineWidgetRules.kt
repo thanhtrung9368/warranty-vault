@@ -28,8 +28,21 @@ import java.util.Locale
  *     renderer never has to guess what a blank list means.
  */
 
-/** How many rows the home-screen layout has room for. */
-const val WIDGET_MAX_ROWS: Int = 2
+/**
+ * How many rows the home-screen layout has room for.
+ *
+ * The widget declares a 4×2 cell footprint, and the launcher gives a 2-cell-tall
+ * card enough height for four 13sp rows between the title and the capture-time
+ * footer. Drawing fewer rows than the layout provides was the visible bug: a
+ * one- or two-row snapshot left a hole in the middle of the card because the
+ * row container owned the leftover height. The row slots now share that height
+ * evenly, so one row fills the card exactly as four do.
+ *
+ * This is a *drawing* bound, not the cache bound — [WIDGET_MAX_STORED_ENTRIES]
+ * keeps ten rows on disk so that a fifth deadline reaches the "+N more" line
+ * without a refetch.
+ */
+const val WIDGET_MAX_ROWS: Int = 4
 
 /**
  * A snapshot younger than this is rendered without a warning.
@@ -67,7 +80,7 @@ enum class WidgetState {
     /** A snapshot exists but has no deadline left inside it. */
     EMPTY,
 
-    /** One or two deadline rows. */
+    /** Up to [WIDGET_MAX_ROWS] deadline rows. */
     ROWS,
 }
 
@@ -83,12 +96,21 @@ data class WidgetRow(
  * [emptyTitle]/[emptyBody] are non-null only for [WidgetState.NO_SNAPSHOT] and
  * [WidgetState.EMPTY]; [footer] is non-null whenever a snapshot exists (even an
  * empty one), because "when was this captured" is always part of the answer.
+ *
+ * [note] is the "no other deadlines" line that takes the place of a blank strip
+ * when the card has more height than rows. It is non-null only in [WidgetState.ROWS]
+ * when every known deadline fits on screen ([WidgetContent.moreCount] is 0) and
+ * there is at least one unused row slot. The layout gives it a weight, so it
+ * fills exactly the height a row would have occupied — the card is never left
+ * with a hole, whether the account has one deadline or four.
  */
 data class WidgetContent(
     val state: WidgetState,
     val rows: List<WidgetRow> = emptyList(),
     /** Upcoming deadlines beyond the rows drawn, for the "+N more" line. */
     val moreCount: Int = 0,
+    /** "No other deadlines" filler for the unused row slots, or null. */
+    val note: String? = null,
     val emptyTitle: String? = null,
     val emptyBody: String? = null,
     val footer: String? = null,
@@ -243,10 +265,20 @@ fun widgetContent(
     val upcomingTotal = (knownTotal - expiredCached).coerceAtLeast(upcoming.size)
     val moreCount = (upcomingTotal - rows.size).coerceAtLeast(0)
 
+    // Every known deadline is on screen and at least one row slot is unused:
+    // fill that height with a fact instead of leaving a hole. The note is only
+    // honest when nothing is hidden behind a "+N more" line, hence moreCount == 0.
+    val note = if (moreCount == 0 && rows.size < WIDGET_MAX_ROWS) {
+        s.get(R.string.widget_no_other_deadlines)
+    } else {
+        null
+    }
+
     return WidgetContent(
         state = WidgetState.ROWS,
         rows = rows,
         moreCount = moreCount,
+        note = note,
         footer = footer,
         freshness = freshness,
     )

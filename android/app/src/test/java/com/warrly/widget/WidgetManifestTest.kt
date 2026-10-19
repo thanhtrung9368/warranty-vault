@@ -3,6 +3,7 @@ package com.warrly.widget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.w3c.dom.Element
@@ -129,6 +130,64 @@ class WidgetManifestTest {
         assertTrue("preview file is empty", preview.length() > 1_000)
     }
 
+    // ---- layout: the content must fill the card ----
+
+    @Test
+    fun theRowSlotsFillTheHeightTheWidgetDeclares() {
+        val layout = parse(resourceFile("layout/warrly_deadline_widget.xml"))
+
+        val rows = requireNotNull(byId(layout, "@+id/widget_rows")) {
+            "widget_rows container is missing"
+        }
+        assertEquals("the row area takes the card's free height", "0dp", rows.attr("layout_height"))
+        assertEquals("the row area takes the card's free height", "1", rows.attr("layout_weight"))
+
+        for (index in 1..WIDGET_MAX_ROWS) {
+            val row = requireNotNull(byId(layout, "@+id/widget_row_$index")) {
+                "widget_row_$index must exist for WIDGET_MAX_ROWS=$WIDGET_MAX_ROWS"
+            }
+            // A missing row slot was the original bug: the container had the
+            // weight, the rows were wrap_content, and the leftover height became
+            // a blank hole under the last row. A weighted 0dp child makes the
+            // visible rows split the card, whether there is one of them or four.
+            assertEquals("row $index must fill, not wrap", "0dp", row.attr("layout_height"))
+            assertEquals("row $index must share the free height", "1", row.attr("layout_weight"))
+            assertEquals(
+                "row $index must centre its text in the height it owns",
+                "center_vertical",
+                row.attr("gravity"),
+            )
+        }
+
+        // A fifth slot would be drawn with weight but never bound by
+        // DeadlineWidgetRenderer.ROW_SLOTS, leaving an empty strip.
+        assertNull(
+            "no row slot beyond WIDGET_MAX_ROWS",
+            byId(layout, "@+id/widget_row_${WIDGET_MAX_ROWS + 1}"),
+        )
+
+        // The "no other deadlines" filler is the fifth weighted child when it
+        // is visible: it owns exactly one row's worth of height, so a one-row
+        // account fills the card instead of leaving a hole.
+        val note = requireNotNull(byId(layout, "@+id/widget_note")) {
+            "widget_note filler is missing"
+        }
+        assertEquals("the note must fill one row slot", "0dp", note.attr("layout_height"))
+        assertEquals("the note must fill one row slot", "1", note.attr("layout_weight"))
+    }
+
+    @Test
+    fun theEmptyStateAlsoGetsTheFreeHeight() {
+        val layout = parse(resourceFile("layout/warrly_deadline_widget.xml"))
+
+        val empty = requireNotNull(byId(layout, "@+id/widget_empty")) {
+            "widget_empty container is missing"
+        }
+        assertEquals("the empty state must not be stranded under the title", "0dp", empty.attr("layout_height"))
+        assertEquals("the empty state must not be stranded under the title", "1", empty.attr("layout_weight"))
+        assertEquals("center_vertical", empty.attr("gravity"))
+    }
+
     // ---- reading resources ----
 
     private fun manifest(): Element = parse(resourceFile("../AndroidManifest.xml"))
@@ -152,6 +211,16 @@ class WidgetManifestTest {
     }
 
     private fun appWidgetInfo(): Element = parse(resourceFile("xml/deadline_widget_info.xml"))
+
+    /** Depth-first lookup of an `android:id="@+id/…"` in a layout. */
+    private fun byId(root: Element, id: String): Element? {
+        if (root.attr("id") == id) return root
+        for (i in 0 until root.childNodes.length) {
+            val child = root.childNodes.item(i) as? Element ?: continue
+            byId(child, id)?.let { return it }
+        }
+        return null
+    }
 
     private fun parse(file: File): Element =
         DocumentBuilderFactory.newInstance()

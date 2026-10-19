@@ -61,9 +61,7 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
 
     /// Whole days until `endDate` (negative once it has passed).
     public func daysRemaining(from now: Date = Date(), calendar: Calendar = .current) -> Int {
-        calendar.dateComponents([.day],
-                                from: calendar.startOfDay(for: now),
-                                to: calendar.startOfDay(for: endDate)).day ?? 0
+        CalendarDay.days(from: now, to: endDate, calendar: calendar)
     }
 }
 

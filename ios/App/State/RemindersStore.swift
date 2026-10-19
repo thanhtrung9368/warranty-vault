@@ -117,9 +117,3 @@ public final class RemindersStore: ObservableObject {
         dismissedUnavailable = false
     }
 }
-
-public extension UpcomingReminder {
-    var daysRemaining: Int {
-        Calendar.current.dateComponents([.day], from: Date(), to: endDate).day ?? 0
-    }
-}

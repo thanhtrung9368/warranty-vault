@@ -46,6 +46,17 @@ final class AppRouter: ObservableObject {
     /// Picks up the id an App Intent queued in the App Group. Called on every
     /// activation: Siri can run while the app is suspended.
     func restorePendingFromSharedDefaults() {
+#if DEBUG
+        // Screenshot-QA hook: `WV_QA_DEVICE_ID` opens a device on launch
+        // without a tap. The App Group route cannot be used for this on an
+        // unsigned simulator build (`CODE_SIGNING_ALLOWED=NO` strips the
+        // entitlement), and `simctl openurl` asks for a confirmation that
+        // cannot be tapped headlessly. Never compiled into Release.
+        if let qa = ProcessInfo.processInfo.environment["WV_QA_DEVICE_ID"], !qa.isEmpty {
+            openDevice(id: qa)
+            return
+        }
+#endif
         if let id = WarrlyIntentBridge.consumePendingDevice() {
             openDevice(id: id)
         }

@@ -397,13 +397,13 @@ var messages = map[string]message{
 		vi: "Mỗi lần chỉ thêm tối đa 50 thiết bị",
 		en: "You can add at most 50 devices per batch",
 	},
-	"Ngày mua bắt buộc":      {vi: "Ngày mua bắt buộc", en: "Purchase date is required"},
-	"Giá mua không hợp lệ":   {vi: "Giá mua không hợp lệ", en: "Invalid purchase price"},
-	"Giá bán không hợp lệ":   {vi: "Giá bán không hợp lệ", en: "Invalid sale price"},
-	"Thiếu ngày bán":         {vi: "Thiếu ngày bán", en: "Missing sale date"},
-	"Thiếu giá bán":          {vi: "Thiếu giá bán", en: "Missing sale price"},
-	"Ngày mua không hợp lệ":  {vi: "Ngày mua không hợp lệ", en: "Invalid purchase date"},
-	"Ngày bán không hợp lệ":  {vi: "Ngày bán không hợp lệ", en: "Invalid sale date"},
+	"Ngày mua bắt buộc":     {vi: "Ngày mua bắt buộc", en: "Purchase date is required"},
+	"Giá mua không hợp lệ":  {vi: "Giá mua không hợp lệ", en: "Invalid purchase price"},
+	"Giá bán không hợp lệ":  {vi: "Giá bán không hợp lệ", en: "Invalid sale price"},
+	"Thiếu ngày bán":        {vi: "Thiếu ngày bán", en: "Missing sale date"},
+	"Thiếu giá bán":         {vi: "Thiếu giá bán", en: "Missing sale price"},
+	"Ngày mua không hợp lệ": {vi: "Ngày mua không hợp lệ", en: "Invalid purchase date"},
+	"Ngày bán không hợp lệ": {vi: "Ngày bán không hợp lệ", en: "Invalid sale date"},
 	"Ngày nhận hàng không hợp lệ": {
 		vi: "Ngày nhận hàng không hợp lệ",
 		en: "Invalid delivery date",
@@ -516,6 +516,17 @@ var messages = map[string]message{
 	"Loại bảo hành không hợp lệ": {vi: "Loại bảo hành không hợp lệ", en: "Invalid warranty type"},
 	"Ngày bắt đầu bắt buộc":      {vi: "Ngày bắt đầu bắt buộc", en: "Start date is required"},
 	"Ngày bắt đầu không hợp lệ":  {vi: "Ngày bắt đầu không hợp lệ", en: "Invalid start date"},
+	// Optional, explicit warranty end date (WarrantyInput.endDate). The second
+	// sentence is an ordering rule, not a format rule: a warranty cannot end
+	// before it starts.
+	"Ngày kết thúc không hợp lệ": {
+		vi: "Ngày kết thúc không hợp lệ",
+		en: "Invalid end date",
+	},
+	"Ngày kết thúc không được trước ngày bắt đầu": {
+		vi: "Ngày kết thúc không được trước ngày bắt đầu",
+		en: "End date cannot be before the start date",
+	},
 	// The Vietnamese states a numeric floor with a `>=` glyph; English says it in
 	// words. Same rule, and it reads like a sentence rather than a formula.
 	"Số tháng bảo hành >= 1": {vi: "Số tháng bảo hành >= 1", en: "Warranty length must be at least 1 month"},

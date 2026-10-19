@@ -93,8 +93,12 @@ export const dynamic = 'force-dynamic';
 
 function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[]) {
   const now = new Date();
-  const in30 = new Date();
-  in30.setDate(now.getDate() + 30);
+  // Day boundaries, not instants: a warranty ending today is still in force, and
+  // one that ended an hour ago is not. Comparing raw timestamps put both cases in
+  // neither bucket.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const in30 = new Date(today);
+  in30.setDate(today.getDate() + 30);
 
   let active = 0;
   let soon = 0;
@@ -114,9 +118,12 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
   for (const d of devices) {
     if (!d.effectiveWarrantyEnd) continue;
     const end = new Date(d.effectiveWarrantyEnd);
-    if (d.status === 'ACTIVE' && end > now) active++;
-    if (end < now) expired++;
-    if (d.status === 'ACTIVE' && end > now && end <= in30) {
+    // `soon` is a SUBSET of `active` — a device that expires in 9 days is still
+    // covered today. Subtracting one from the other (the old "Còn bảo hành" tile)
+    // removed exactly the devices the card below was pointing at.
+    if (d.status === 'ACTIVE' && end >= today) active++;
+    if (end < today) expired++;
+    if (d.status === 'ACTIVE' && end >= today && end <= in30) {
       soon++;
       soonItems.push({
         id: d.id,
@@ -247,7 +254,7 @@ export default async function DashboardPage() {
     },
     {
       label: t('Còn bảo hành'),
-      value: Math.max(0, stats.active - stats.soon),
+      value: stats.active,
       icon: ShieldCheck,
       sub: t('Còn được bảo vệ'),
       tone: 'emerald',

@@ -89,10 +89,12 @@ const val WIDGET_HORIZON_DAYS: Int = 365
 /**
  * How many rows are cached.
  *
- * The widget itself draws [WIDGET_MAX_ROWS] (two); the rest exist so a resize or
- * a small change in the dates does not force a refetch. Ten is a cache bound,
- * not a UI bound — the reminders feed can carry up to 2500 rows for an account
- * at the device ceiling, and none of that belongs in `SharedPreferences`.
+ * The widget itself draws [WIDGET_MAX_ROWS] (four); the rest exist so a resize
+ * or a small change in the dates does not force a refetch, and so the "+N more"
+ * line can count deadlines that were never written to `SharedPreferences`.
+ * Ten is a cache bound, not a UI bound — the reminders feed can carry up to
+ * 2500 rows for an account at the device ceiling, and none of that belongs in
+ * `SharedPreferences`.
  */
 const val WIDGET_MAX_STORED_ENTRIES: Int = 10
 

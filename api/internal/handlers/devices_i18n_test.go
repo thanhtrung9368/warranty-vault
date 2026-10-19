@@ -81,6 +81,9 @@ func setupDevicesI18nEnv(t *testing.T) *devicesI18nEnv {
 	deps := Deps{DB: pool, Limiter: &permissiveLimiter{}}
 	RegisterDevices(mux, deps)
 	RegisterWarranties(mux, deps)
+	// Search is in the same mux so a test can assert that a device's computed
+	// fields agree across list, detail and search on one seeded fixture.
+	RegisterSearch(mux, deps)
 	return &devicesI18nEnv{mux: mux, token: issued.AccessToken}
 }
 

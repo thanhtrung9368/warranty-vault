@@ -108,7 +108,7 @@
         </activity>
 
         <!-- Home-screen widget — the app's first AppWidgetProvider. Draws the
-             next two warranty expiries from a locally cached snapshot; it never
+             next few warranty expiries from a locally cached snapshot; it never
              makes an authenticated call (see `DeadlineSnapshotUpdater`). The
              metadata (sizing, six-hour update period, preview) is
              `res/xml/deadline_widget_info.xml`.
@@ -120,7 +120,8 @@
                * `widgetCategory="home_screen"` (never `keyguard`) in that
                   metadata, so the card is not offered to lock-screen/widget
                   hosts;
-               * at most two rows, ellipsized, plus a capture time;
+               * at most four rows, ellipsized, plus a capture time and a
+                  "no other deadlines" line;
                * the snapshot contains no price, serial, email, attachment or
                   provider data — only device id/name and the warranty end date;
                * `DeadlineSnapshotUpdater.clear()` wipes it on sign-out, so the

@@ -4140,7 +4140,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%dd left"
+            "value": "Expired %dd"
           }
         },
         "vi": {

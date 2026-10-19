@@ -77,10 +77,7 @@ struct DashboardView: View {
     }
     private var upcomingSubs: [(sub: Subscription, days: Int)] {
         activeSubs
-            .map { s -> (Subscription, Int) in
-                let days = Calendar.current.dateComponents([.day], from: Date(), to: s.renewalDate).day ?? 0
-                return (s, days)
-            }
+            .map { s in (s, WVFormat.daysUntil(s.renewalDate)) }
             .sorted { $0.1 < $1.1 }
             .prefix(3)
             .map { ($0.0, $0.1) }

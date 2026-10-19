@@ -2,9 +2,11 @@
 <!--
   AppWidgetProviderInfo for the first widget this app ships.
 
-  Sizing — 4x2 cells (250dp x 110dp minimum), which fits the two-row layout and
-  the header/footer. `targetCell*` is the Android 12+ hint; `min*` is the
-  fallback the older launcher maths uses.
+  Sizing — 4x2 cells (250dp x 110dp minimum), which fits the four-row layout
+  and the header/footer. The rows share the leftover height evenly, so a
+  two-deadline account does not leave a hole in the middle of the card.
+  `targetCell*` is the Android 12+ hint; `min*` is the fallback the older
+  launcher maths uses.
 
   Preview — a generated PNG (`drawable-nodpi/widget_preview.png`). A
   `previewLayout` would render the real layout without the renderer having run,

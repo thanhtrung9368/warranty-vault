@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,6 +56,19 @@ type AttachmentSearchHit struct {
 	DeviceID *string `json:"deviceId"`
 }
 
+// DeviceSearchHit is one device in GET /api/v1/search's `devices` group: the
+// DeviceVND shape every other device read returns plus the computed
+// effectiveWarrantyEnd.
+//
+// The field is added here rather than to DeviceVND because DeviceVND is also the
+// create/update response, and those two payloads must keep their existing shape.
+// It is still the SAME value the list row and the device detail carry: all three
+// call wholeUnitWarrantyEnd (max endDate over Component NULL/blank rows).
+type DeviceSearchHit struct {
+	DeviceVND
+	EffectiveWarrantyEnd *time.Time `json:"effectiveWarrantyEnd"`
+}
+
 // SearchResults is the grouped payload of GET /api/v1/search.
 //
 // Empty groups always serialise as `[]`, never `null`, so a client can iterate
@@ -62,9 +76,9 @@ type AttachmentSearchHit struct {
 type SearchResults struct {
 	Query string `json:"query"`
 	// Devices is the same DeviceVND shape every other device read returns
-	// (migration 0022): a search result can be shown with its VND purchase value
-	// and must not be the one device payload that lacks the computed fields.
-	Devices       []DeviceVND           `json:"devices"`
+	// (migration 0022), plus the computed effectiveWarrantyEnd: a search hit must
+	// answer the same "when does cover end?" question the list and detail do.
+	Devices       []DeviceSearchHit     `json:"devices"`
 	Subscriptions []store.Subscription  `json:"subscriptions"`
 	Wishlist      []store.WishlistItem  `json:"wishlist"`
 	Attachments   []AttachmentSearchHit `json:"attachments"`
@@ -85,7 +99,7 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 	query := strings.TrimSpace(rawQuery)
 	out := &SearchResults{
 		Query:         query,
-		Devices:       []DeviceVND{},
+		Devices:       []DeviceSearchHit{},
 		Subscriptions: []store.Subscription{},
 		Wishlist:      []store.WishlistItem{},
 		Attachments:   []AttachmentSearchHit{},
@@ -141,7 +155,11 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 		}
 	}
 	for _, d := range deviceRows {
-		out.Devices = append(out.Devices, withVNDAndWarranties(d, warByDevice[d.ID]))
+		warranties := warByDevice[d.ID]
+		out.Devices = append(out.Devices, DeviceSearchHit{
+			DeviceVND:            withVNDAndWarranties(d, warranties),
+			EffectiveWarrantyEnd: wholeUnitWarrantyEnd(warranties),
+		})
 	}
 	subs, err := q.SearchSubscriptions(ctx, store.SearchSubscriptionsParams{
 		UserId:   userID,

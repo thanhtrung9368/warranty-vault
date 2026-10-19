@@ -281,12 +281,15 @@ class DeadlineWidgetRulesTest {
     }
 
     @Test
-    fun theNextTwoDeadlinesAreShownWithTheRestCounted() {
+    fun theNextFourDeadlinesAreShownWithTheRestCounted() {
         val snapshot = deadlineSnapshot(
             reminders = listOf(
-                reminder("Laptop", "2026-10-21"),
+                reminder("Laptop", "2026-10-24"),
                 reminder("Phone", "2026-10-19"),
                 reminder("Tablet", "2026-10-20"),
+                reminder("Watch", "2026-10-21"),
+                reminder("Camera", "2026-10-22"),
+                reminder("Console", "2026-10-23"),
             ),
             capturedAtMillis = instant("2026-10-19T02:00:00Z"),
         )
@@ -295,11 +298,68 @@ class DeadlineWidgetRulesTest {
 
         assertEquals(WidgetState.ROWS, content.state)
         assertEquals(
-            listOf("Phone" to "Expires today", "Tablet" to "Expires tomorrow"),
+            listOf(
+                "Phone" to "Expires today",
+                "Tablet" to "Expires tomorrow",
+                "Watch" to "2 days left",
+                "Camera" to "3 days left",
+            ),
             content.rows.map { it.deviceName to it.daysLabel },
         )
-        assertEquals(1, content.moreCount)
+        assertEquals("Console and Laptop are behind the +N line", 2, content.moreCount)
+        assertNull("a full card has no room for the filler note", content.note)
         assertEquals("as of 19/10 09:00", content.footer)
+    }
+
+    @Test
+    fun theSeededAccountsSingleDeadlineFillsTheCardWithANote() {
+        // The seeded account has exactly one upcoming deadline: the iPhone,
+        // 9 days out. A 4-row card would otherwise show one line and ~60% empty
+        // space. The note takes the unused row slots instead.
+        val snapshot = deadlineSnapshot(
+            reminders = listOf(
+                reminder("iPhone 15 Pro", "2026-10-28", deviceId = "iphone"),
+            ),
+            capturedAtMillis = instant("2026-10-19T02:00:00Z"),
+        )
+
+        val content = widgetContent(en, snapshot, now, zone)
+
+        assertEquals(WidgetState.ROWS, content.state)
+        assertEquals(listOf("iPhone 15 Pro" to "9 days left"), content.rows.map { it.deviceName to it.daysLabel })
+        assertEquals(0, content.moreCount)
+        assertEquals("No other deadlines", content.note)
+        assertEquals("the note is localized too", "Không còn hạn nào khác", widgetContent(vi, snapshot, now, zone).note)
+    }
+
+    @Test
+    fun theNoteFillsEveryUnusedRowSlot() {
+        // Three deadlines leave one slot free, so the note is still drawn. Four
+        // fill the card and the note goes away (see the test above). This is the
+        // structural rule that replaced "two rows and a hole".
+        val snapshot = deadlineSnapshot(
+            reminders = listOf(
+                reminder("A", "2026-10-20"),
+                reminder("B", "2026-10-21"),
+                reminder("C", "2026-10-22"),
+            ),
+            capturedAtMillis = instant("2026-10-19T02:00:00Z"),
+        )
+
+        val content = widgetContent(en, snapshot, now, zone)
+
+        assertEquals(3, content.rows.size)
+        assertEquals(0, content.moreCount)
+        assertEquals("a free slot must be filled, not left blank", "No other deadlines", content.note)
+    }
+
+    @Test
+    fun theNoteIsHiddenWhenTheListIsEmpty() {
+        val empty = widgetContent(en, DeadlineSnapshot(capturedAtMillis = now), now, zone)
+
+        assertEquals(WidgetState.EMPTY, empty.state)
+        assertNull("the empty state has its own copy; the note would duplicate it", empty.note)
+        assertNull(widgetContent(en, null, now, zone).note)
     }
 
     @Test
@@ -327,7 +387,7 @@ class DeadlineWidgetRulesTest {
     @Test
     fun moreCountUsesTheUntrimmedServerTotalAfterExpiry() {
         // 12 stored-with-total rows, two of the cached ones now expired: ten
-        // upcoming remain, two are drawn, so "+8 more" — not "+10 more", which
+        // upcoming remain, four are drawn, so "+6 more" — not "+8 more", which
         // would count rows that already expired.
         val snapshot = DeadlineSnapshot(
             capturedAtMillis = instant("2026-10-10T02:00:00Z"),
@@ -343,8 +403,9 @@ class DeadlineWidgetRulesTest {
 
         val content = widgetContent(en, snapshot, now, zone)
 
-        assertEquals(2, content.rows.size)
-        assertEquals(8, content.moreCount)
+        assertEquals(WIDGET_MAX_ROWS, content.rows.size)
+        assertEquals(6, content.moreCount)
+        assertNull("a +N line is already telling the user there is more", content.note)
     }
 
     @Test

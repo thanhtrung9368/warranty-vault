@@ -303,11 +303,16 @@ func warrantyMismatchFor(d store.Device, warranties []store.Warranty) *BrandWarr
 // wholeUnitWarrantyEnd returns the latest end date among WHOLE-UNIT rows
 // (Component == nil or blank), or nil.
 //
-// This is the same rule as shares.go::maxWholeUnitEndDate, applied to the
-// store.Warranty rows the device read already has. A blank Component is treated
-// as whole-unit: the service normalizes "" to NULL on write, but a hand-edited
-// row must not be silently excluded from the comparison while also rendering
-// without a component label.
+// This is the ONE definition of `effectiveWarrantyEnd` for the device reads:
+// services.ListDevices, services.GetDevice and services.Search all call it, so a
+// device cannot report one date in the list and a different one on its detail
+// page. It is also the rule shares.go::maxWholeUnitEndDate applies to the
+// certificate, and the one warrantyMismatchFor uses to compare against the
+// brand's end date.
+//
+// A blank Component is treated as whole-unit: the service normalizes "" to NULL
+// on write, but a hand-edited row must not be silently excluded from the
+// comparison while also rendering without a component label.
 func wholeUnitWarrantyEnd(warranties []store.Warranty) *time.Time {
 	var max time.Time
 	found := false

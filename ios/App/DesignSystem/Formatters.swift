@@ -76,11 +76,14 @@ enum WVFormat {
     // in either direction.
 
     /// Whole days between `now` and `date` (negative → in the past).
+    ///
+    /// Delegates to the Kit's `CalendarDay` so every screen counts calendar
+    /// days exactly like the list, the reminders feed and the widget. That is
+    /// the fix for the dashboard saying "8d left" beside a list saying "9d
+    /// left" for the same warranty: this helper used to anchor both sides to
+    /// midnight, while the dashboard's own copy of the arithmetic did not.
     static func daysUntil(_ date: Date, from now: Date = Date()) -> Int {
-        let cal = Calendar.current
-        let d = cal.dateComponents([.day], from: cal.startOfDay(for: now),
-                                   to: cal.startOfDay(for: date))
-        return d.day ?? 0
+        CalendarDay.days(from: now, to: date, calendar: .current)
     }
 
     private static func decimal(_ value: Double) -> String {

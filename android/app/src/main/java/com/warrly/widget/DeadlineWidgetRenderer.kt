@@ -22,7 +22,7 @@ import com.warrly.navigation.AppDestination
  * Glance is **not** a dependency of this module (checked `gradle/libs.versions.toml`
  * and `app/build.gradle.kts`), and it would be a large one for this surface: it
  * pulls the Compose runtime into every widget repaint and adds a composition
- * lifecycle that exists only to draw two text rows. Plain `RemoteViews` is
+ * lifecycle that exists only to draw a short text list. Plain `RemoteViews` is
  * framework-only, has no new dependency, and is what `AppWidgetProvider` itself
  * is built around — the right size for a 4×2 glanceable list. It also keeps R8's
  * job boring: no Glance composables, no generated lambdas to keep.
@@ -63,18 +63,17 @@ object DeadlineWidgetRenderer {
 
         if (content.state == WidgetState.ROWS) {
             views.setViewVisibility(R.id.widget_rows, View.VISIBLE)
-            views.setViewVisibility(R.id.widget_empty_title, View.GONE)
-            views.setViewVisibility(R.id.widget_empty_body, View.GONE)
+            views.setViewVisibility(R.id.widget_empty, View.GONE)
             bindRows(views, content.rows)
         } else {
             views.setViewVisibility(R.id.widget_rows, View.GONE)
-            views.setViewVisibility(R.id.widget_empty_title, View.VISIBLE)
-            views.setViewVisibility(R.id.widget_empty_body, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_empty, View.VISIBLE)
             views.setTextViewText(R.id.widget_empty_title, content.emptyTitle.orEmpty())
             views.setTextViewText(R.id.widget_empty_body, content.emptyBody.orEmpty())
             // A stale empty state must not look like a live "nothing due".
             hideAllRows(views)
         }
+        bindNote(views, content.note)
 
         bindFooter(views, localized, strings, content)
         return views
@@ -95,6 +94,23 @@ object DeadlineWidgetRenderer {
 
     private fun hideAllRows(views: RemoteViews) {
         ROW_SLOTS.forEach { views.setViewVisibility(it.container, View.GONE) }
+    }
+
+    /**
+     * The "no other deadlines" line.
+     *
+     * It lives inside the weighted row container, so showing it is what turns
+     * the unused height below a one-row list into a deliberate block instead of
+     * the empty hole the widget used to have. `null` (empty states, or a full
+     * four-row list) hides it and gives its weight back to the rows.
+     */
+    private fun bindNote(views: RemoteViews, note: String?) {
+        if (note == null) {
+            views.setViewVisibility(R.id.widget_note, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.widget_note, View.VISIBLE)
+            views.setTextViewText(R.id.widget_note, note)
+        }
     }
 
     private fun bindFooter(
@@ -157,11 +173,13 @@ object DeadlineWidgetRenderer {
 
     private const val REQUEST_CODE = 7_301
 
-    /** The three view slots the layout provides, in drawing order. */
+    /** One view slot per row the layout draws, in drawing order. */
     private data class RowSlot(val container: Int, val name: Int, val days: Int)
 
     private val ROW_SLOTS = listOf(
         RowSlot(R.id.widget_row_1, R.id.widget_name_1, R.id.widget_days_1),
         RowSlot(R.id.widget_row_2, R.id.widget_name_2, R.id.widget_days_2),
+        RowSlot(R.id.widget_row_3, R.id.widget_name_3, R.id.widget_days_3),
+        RowSlot(R.id.widget_row_4, R.id.widget_name_4, R.id.widget_days_4),
     )
 }

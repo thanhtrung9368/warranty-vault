@@ -171,9 +171,9 @@ public enum DeviceReturnWindow {
                                calendar: Calendar = .current) -> Int? {
         guard let day = dayPrefix(wire),
               let deadline = WireDay.date(from: day, in: calendar.timeZone) else { return nil }
-        let from = calendar.startOfDay(for: now)
-        let to = calendar.startOfDay(for: deadline)
-        return calendar.dateComponents([.day], from: from, to: to).day
+        // The day count itself lives in `CalendarDay`, so this, the widget, the
+        // reminder buckets and the list pill cannot drift apart again.
+        return CalendarDay.days(from: now, to: deadline, calendar: calendar)
     }
 
     /// The Vietnamese read-out next to the deadline, or `nil` when the server
