@@ -53,6 +53,21 @@ COPY --from=builder --chown=nonroot:nonroot /src/migrations /app/migrations
 ENV PORT=4000 \
     PRIVATE_UPLOAD_ROOT=/data/private-uploads
 
+# The calendar-day logic (reminder window, return-window countdown, action
+# queue, cron day windows) is written against the PROCESS-LOCAL day, because a
+# date-only column is the day the user picked. An image without TZ runs that
+# logic on UTC, which is a day behind Vietnam for the first seven hours of every
+# day. Pin the business calendar the code already assumes. This does NOT change
+# what is stored: dbconn forces every DB session to UTC and Go writes instants
+# with .UTC(), so only "which calendar day is it for the user" moves. The
+# distroless static base ships tzdata (see the header).
+#
+# This is an ordinary image DEFAULT: `docker run -e TZ=...` (or compose
+# `environment: TZ: ...`) overrides it at runtime. See api/README.md
+# "Calendar days use the process-local day" for what moves together — changing
+# it alone silently shifts the cron buckets and the four local-day comparisons.
+ENV TZ=Asia/Ho_Chi_Minh
+
 EXPOSE 4000
 
 USER nonroot:nonroot

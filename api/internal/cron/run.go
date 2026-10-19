@@ -171,11 +171,27 @@ func pluralKey(n int, plural, singular string) string {
 	return plural
 }
 
-// dayWindow returns the [00:00 today+offset, 00:00 today+offset+1d) UTC
-// window. Mirrors the TS dayWindow() helper which uses local-time setHours;
-// we use UTC so the Postgres comparison is consistent regardless of the
-// container's TZ. (DB TIMESTAMP columns are stored without TZ; we treat all
-// dates as wall-clock UTC.)
+// dayWindow returns the [00:00 of the process-local calendar day `daysFromNow`
+// days from now, +24h) window, in now's location.
+//
+// This is the ONE day basis the cron uses. It is deliberately local rather than
+// UTC: every date-only column (endDate, renewalDate, targetDate, returnDeadline,
+// …) is stored at UTC midnight of the day the user picked, and the reminder
+// means "the user's calendar day", so the boundary has to be the local day the
+// process schedules on — the same convention services.ListUpcomingReminders,
+// services.ListReturnWindows, services.deriveActionItems and
+// services.BuildServiceDirectory use. The shipped image pins TZ to
+// Asia/Ho_Chi_Minh (api/Dockerfile) so "local" really is the user's calendar;
+// on a UTC host the boundaries would be UTC days instead. (The public
+// certificate and the insurance PDF pin the Vietnam calendar in code because
+// they are Vietnamese artifacts, not process-local screens.)
+//
+// The window is also the basis of the same-day idempotency predicates: Run
+// passes dayWindow(now, 0)'s start as `notifiedSince`, and the SQL compares the
+// stamp instant against it. That used to be CURRENT_DATE — the DATABASE session
+// day (UTC after dbconn pinned it) — which is a DIFFERENT day from 00:00 to
+// 07:00 ICT; a manual run at 06:00 and the 09:00 scheduled run would then both
+// fire the same push. One basis, one answer.
 func dayWindow(now time.Time, daysFromNow int) (time.Time, time.Time) {
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
 		AddDate(0, 0, daysFromNow)
@@ -215,13 +231,18 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// Use the process's local time for CALENDAR-DAY windows. dayWindow rolls
 	// back to 00:00 of the current local day, mirroring the TS route's
 	// `new Date(); setHours(0,0,0,0)`. Date-only columns (endDate, renewalDate,
-	// targetDate, ...) are stored as UTC midnight of that calendar date, so the
-	// window values are compared as wall-clock date labels — not as instants.
+	// targetDate, ...) are stored as UTC midnight of that calendar date.
 	//
 	// Instant columns are UTC. Never pass `now` itself to one: bind now.UTC()
 	// (see lastNotifiedRenewalAt below), otherwise pgx writes the local wall
 	// clock into a column the rest of the service reads as UTC.
 	now := time.Now()
+	// The start of TODAY, in the same process-local day as every dayWindow
+	// below. It is the `notifiedSince` bound of the same-day idempotency
+	// predicates — an INSTANT, so a stamp compare never has to interpret the
+	// UTC session day (CURRENT_DATE) against a window built on the local day.
+	todayStart, _ := dayWindow(now, 0)
+	notifiedSince := wire.At(todayStart.UTC())
 	stats := Stats{}
 	// statsMu guards the push counters in `stats`, which are now incremented
 	// from multiple goroutines inside dispatch(). The non-push counters are
@@ -351,9 +372,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		}
 		start, end := dayWindow(now, windowDays)
 		rows, err := q.ListWarrantiesInWindow(ctx, store.ListWarrantiesInWindowParams{
-			WindowStart: wire.At(start),
-			WindowEnd:   wire.At(end),
-			LeadDay:     leadDay,
+			WindowStart:   wire.At(start),
+			WindowEnd:     wire.At(end),
+			LeadDay:       leadDay,
+			NotifiedSince: notifiedSince,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list warranties in window (%dd): %w", days, err)
@@ -458,9 +480,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		rows, err := q.ListExtendedCoverInWindow(ctx, store.ListExtendedCoverInWindowParams{
-			WindowStart: wire.At(start),
-			WindowEnd:   wire.At(end),
-			LeadDay:     leadDay,
+			WindowStart:   wire.At(start),
+			WindowEnd:     wire.At(end),
+			LeadDay:       leadDay,
+			NotifiedSince: notifiedSince,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list extended cover in window (%dd): %w", days, err)
@@ -500,8 +523,9 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	for _, days := range []int{0, 7, 30} {
 		start, end := dayWindow(now, days)
 		rows, err := q.ListWishlistTargetDateDue(ctx, store.ListWishlistTargetDateDueParams{
-			WindowStart: wire.At(start),
-			WindowEnd:   wire.At(end),
+			WindowStart:   wire.At(start),
+			WindowEnd:     wire.At(end),
+			NotifiedSince: notifiedSince,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list wishlist target-date due (%dd): %w", days, err)
@@ -618,9 +642,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		subs, err := q.ListSubscriptionsDueForRenewal(ctx, store.ListSubscriptionsDueForRenewalParams{
-			WindowStart: wire.At(start),
-			WindowEnd:   wire.At(end),
-			LeadDay:     leadDay,
+			WindowStart:   wire.At(start),
+			WindowEnd:     wire.At(end),
+			LeadDay:       leadDay,
+			NotifiedSince: notifiedSince,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list subs due for renewal (%dd): %w", days, err)
@@ -714,9 +739,10 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		days := int(leadDay)
 		start, end := dayWindow(now, days)
 		subs, err := q.ListSubscriptionsTrialEndingInWindow(ctx, store.ListSubscriptionsTrialEndingInWindowParams{
-			WindowStart: wire.At(start),
-			WindowEnd:   wire.At(end),
-			LeadDay:     leadDay,
+			WindowStart:   wire.At(start),
+			WindowEnd:     wire.At(end),
+			LeadDay:       leadDay,
+			NotifiedSince: notifiedSince,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list subscriptions with trial ending (%dd): %w", days, err)
@@ -769,7 +795,8 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	}
 
 	// ─── 8. Subscription auto-bill / expire ────────────────────────────────
-	todayStart, _ := dayWindow(now, 0)
+	// todayStart is computed once at the top of Run: the same local-day start
+	// every window above is built from.
 	overdue, err := q.ListSubscriptionsOverdue(ctx,
 		wire.At(todayStart))
 	if err != nil {
@@ -870,8 +897,9 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	for _, days := range []int{3, 1} {
 		start, end := dayWindow(now, days)
 		rows, err := q.ListReturnWindowsInWindow(ctx, store.ListReturnWindowsInWindowParams{
-			WindowStart: wire.At(start),
-			WindowEnd:   wire.At(end),
+			WindowStart:   wire.At(start),
+			WindowEnd:     wire.At(end),
+			NotifiedSince: notifiedSince,
 		})
 		if err != nil {
 			return stats, fmt.Errorf("list return windows in window (%dd): %w", days, err)

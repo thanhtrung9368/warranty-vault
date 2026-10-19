@@ -15,6 +15,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/services"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // 50 MB cap on a metadata-only JSON import body — matches the legacy TS comment
@@ -62,8 +63,14 @@ func exportBackupHandler(deps Deps) http.HandlerFunc {
 			return
 		}
 
+		// The filename date is a USER-VISIBLE calendar day, so it must be the
+		// user's day. `UTC().Format` made an export at 05:00 ICT (22:00 UTC the
+		// previous day) say yesterday — the same day-vs-instant mistake the rest
+		// of this sweep removed. The insurance pack already names its file on the
+		// Vietnam calendar (handlers/insurance.go); a backup carries the same
+		// user's data and gets the same basis.
 		base := fmt.Sprintf("warranty-vault-%s-%s",
-			safeFilenameSegment(us.UserID), time.Now().UTC().Format("2006-01-02"))
+			safeFilenameSegment(us.UserID), time.Now().In(vietnamZone).Format(wire.DayLayout))
 		w.Header().Set("Cache-Control", "private, no-store")
 
 		if includeBlobs {

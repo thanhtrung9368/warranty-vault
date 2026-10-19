@@ -758,7 +758,7 @@ func (b *builder) drawWarranty(index int, w Warranty, currency string) {
 	title := fmt.Sprintf("%d. %s", index, warrantyTypeLabel(w.Type))
 	status := "Không rõ hạn"
 	if w.EndDate != nil && !w.EndDate.IsZero() {
-		if w.EndDate.After(b.doc.GeneratedAt) {
+		if warrantyStillActive(w.EndDate, b.doc.GeneratedAt) {
 			status = "Còn hiệu lực"
 		} else {
 			status = "Đã hết hạn"
@@ -801,7 +801,11 @@ func (b *builder) drawClaim(index int, c Claim) {
 		{"Mã phiếu", valueOr(c.TicketNumber, notRecorded)},
 		{"Nơi sửa", valueOr(c.ServiceCenter, notRecorded)},
 		{"Chi phí (VND)", formatVNDPtrInt(c.Cost)},
-		{"Bảo hành trả", coveredLabel(c.CoveredByWarranty)},
+		// Label = WHO pays, value = who pays. The label used to be "Bảo hành trả"
+		// — the same string as one of its own values — so a covered claim printed
+		// "Bảo hành trả   Bảo hành trả", which reads as nonsense to the insurer
+		// holding the document. Keep the sibling register: a short noun phrase.
+		{"Bên trả", coveredLabel(c.CoveredByWarranty)},
 	}
 	b.drawFacts(facts)
 	b.drawProse("Lỗi", valueOr(c.Issue, notRecorded))

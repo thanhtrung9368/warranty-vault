@@ -268,6 +268,34 @@ func TestFormatThousands(t *testing.T) {
 	}
 }
 
+// The warranty card's "Còn hiệu lực" / "Đã hết hạn" pill is the one place the
+// document compares a stored calendar day with a real instant. The last day is
+// inclusive, and "today" is the Vietnam date printed on the page — not the UTC
+// date of generatedAt.
+func TestWarrantyPillKeepsTheLastDay(t *testing.T) {
+	// 09:30 UTC on 19 Oct 2026 is 16:30 ICT: the 19th is still happening.
+	afternoon := fixedTime()
+	if !warrantyStillActive(day(2026, time.October, 19), afternoon) {
+		t.Error("a warranty ending today must still read active on its last day")
+	}
+	if warrantyStillActive(day(2026, time.October, 18), afternoon) {
+		t.Error("a warranty that ended yesterday must read expired")
+	}
+
+	// 18:00 UTC is 01:00 ICT on the 20th: the 19th is over even though the UTC
+	// date has not rolled over yet.
+	late := time.Date(2026, time.October, 19, 18, 0, 0, 0, time.UTC)
+	if warrantyStillActive(day(2026, time.October, 19), late) {
+		t.Error("after Vietnam midnight the previous day's warranty must read expired")
+	}
+	if !warrantyStillActive(day(2026, time.October, 20), late) {
+		t.Error("the 20th is today in Vietnam, so it must read active")
+	}
+	if warrantyStillActive(nil, afternoon) {
+		t.Error("an unknown end date must not claim active")
+	}
+}
+
 func boolPtr(v bool) *bool { return &v }
 
 func TestEmbeddedImageIsRendered(t *testing.T) {

@@ -41,6 +41,9 @@ ORDER BY "returnDeadline" ASC;
 --
 -- Only ACTIVE devices: once a device is SOLD / BROKEN / LOST the exchange window
 -- is moot, and the same filter is what ListWarrantiesInWindow does.
+--
+-- `notifiedSince` is the start instant of the same process-local day as the
+-- window, not CURRENT_DATE (the UTC session day). See ListWarrantiesInWindow.
 SELECT
     d.id             AS id,
     d."userId"       AS user_id,
@@ -59,7 +62,7 @@ WHERE d.status = 'ACTIVE'
   AND (COALESCE(d."receivedAt", d."purchaseDate")
         + (d."returnWindowDays" * INTERVAL '1 day')) <  sqlc.arg('windowEnd')::timestamp
   AND (d."returnWindowNotifiedAt" IS NULL
-       OR d."returnWindowNotifiedAt"::date < CURRENT_DATE);
+       OR d."returnWindowNotifiedAt" < sqlc.arg('notifiedSince')::timestamp);
 
 -- name: StampDeviceReturnWindowNotified :exec
 -- Cron stamps this after a successful fan-out so a second run on the same day is

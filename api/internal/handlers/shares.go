@@ -738,8 +738,10 @@ func shareDay(s string) (time.Time, bool) {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), true
 }
 
-// vietnamZone is the calendar the public certificate is rendered on. Vietnam has
-// no DST, so a fixed offset is exact and needs no tz database in the binary.
+// vietnamZone is the calendar user-facing artifacts in this package are
+// rendered on: the public certificate's printed dates / validity pill, and the
+// backup export filename (the file's date is the user's day, not UTC's). Vietnam
+// has no DST, so a fixed offset is exact and needs no tz database in the binary.
 var vietnamZone = time.FixedZone("ICT", 7*60*60)
 
 // shareMonths renders a warranty duration in months. Vietnamese does not inflect
@@ -770,8 +772,14 @@ func warrantyStateLabel(tag i18n.Tag, end string, now time.Time) string {
 	}
 	// endDate is inclusive: a package ending today is still valid until the end
 	// of the holder's calendar day, not until 00:00 of that day.
+	//
+	// The day is the VIETNAM calendar day — the same one shareDay projected the
+	// printed date onto. Using now.Location() here made the pill depend on the
+	// server's TZ: on a UTC host a package whose printed end date was already
+	// yesterday (Vietnam time) still read "Còn hiệu lực" until 07:00 ICT.
+	// Comparing instants is fine; the boundary must be the one the page prints.
 	y, m, d := day.Date()
-	endOfDay := time.Date(y, m, d, 23, 59, 59, 0, now.Location())
+	endOfDay := time.Date(y, m, d, 23, 59, 59, 0, vietnamZone)
 	if !now.After(endOfDay) {
 		return translateKeyData(tag, sharePageKeys.Valid)
 	}

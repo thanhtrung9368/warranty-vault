@@ -27,6 +27,25 @@ func formatDateTime(t time.Time) string {
 	return t.In(vietnam).Format("02/01/2006 15:04")
 }
 
+// warrantyStillActive reports whether a warranty is still in force on the
+// document's generation instant, treating endDate as an INCLUSIVE last day.
+//
+// endDate is a stored calendar day (UTC midnight of the day the user entered);
+// generatedAt is a real instant. Comparing them directly — `endDate.After(now)`
+// — retired a package at 00:00 UTC (07:00 ICT) on its last covered day, and on a
+// UTC host the printed end date and the "Đã hết hạn" pill disagreed for seven
+// hours. The day is read on the Vietnam calendar (the one formatDate prints on
+// this document), and "today" is the generated instant's Vietnamese date.
+func warrantyStillActive(endDate *time.Time, generatedAt time.Time) bool {
+	if endDate == nil || endDate.IsZero() {
+		return false
+	}
+	y, m, d := generatedAt.In(vietnam).Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+	lastDay := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, time.UTC)
+	return !lastDay.Before(today)
+}
+
 // formatMoney renders an amount in its own currency. The ISO code is printed
 // rather than a symbol: "999 USD" cannot be mistaken for 999 đồng, which is the
 // exact confusion the multi-currency field exists to prevent.

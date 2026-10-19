@@ -552,16 +552,17 @@ WHERE status = 'ACTIVE'
   AND "renewalDate" <  $3::timestamp
   AND (
       "lastNotifiedRenewalAt" IS NULL
-      OR "lastNotifiedRenewalAt"::date < CURRENT_DATE
+      OR "lastNotifiedRenewalAt" < $4::timestamp
       OR ("lastNotifiedRenewalLeadDay" IS NOT NULL
           AND "lastNotifiedRenewalLeadDay" <> $1::int)
   )
 `
 
 type ListSubscriptionsDueForRenewalParams struct {
-	LeadDay     int32        `json:"leadDay"`
-	WindowStart wire.Instant `json:"windowStart"`
-	WindowEnd   wire.Instant `json:"windowEnd"`
+	LeadDay       int32        `json:"leadDay"`
+	WindowStart   wire.Instant `json:"windowStart"`
+	WindowEnd     wire.Instant `json:"windowEnd"`
+	NotifiedSince wire.Instant `json:"notifiedSince"`
 }
 
 // ─── Cron / renewal helpers ───────────────────────────────────────────────
@@ -580,8 +581,18 @@ type ListSubscriptionsDueForRenewalParams struct {
 // was stamped by the pre-0015 code (or by AdvanceSubscriptionRenewal, which
 // marks "handled today" for every lead day): treat it as suppressing all lead
 // days for the rest of that day, so a deploy-day re-run cannot duplicate.
+//
+// `notifiedSince` is the instant the process-local day of `windowStart` began,
+// not CURRENT_DATE (the UTC session day): otherwise a same-local-day rerun that
+// crosses 07:00 ICT (00:00 UTC) re-fires the push. See the long note on
+// ListWarrantiesInWindow.
 func (q *Queries) ListSubscriptionsDueForRenewal(ctx context.Context, arg ListSubscriptionsDueForRenewalParams) ([]Subscription, error) {
-	rows, err := q.db.Query(ctx, listSubscriptionsDueForRenewal, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
+	rows, err := q.db.Query(ctx, listSubscriptionsDueForRenewal,
+		arg.LeadDay,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.NotifiedSince,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -698,16 +709,17 @@ WHERE status = 'ACTIVE'
   AND "trialEndsAt" <  $3::timestamp
   AND (
       "trialNotifiedAt" IS NULL
-      OR "trialNotifiedAt"::date < CURRENT_DATE
+      OR "trialNotifiedAt" < $4::timestamp
       OR ("trialNotifiedLeadDay" IS NOT NULL
           AND "trialNotifiedLeadDay" <> $1::int)
   )
 `
 
 type ListSubscriptionsTrialEndingInWindowParams struct {
-	LeadDay     int32        `json:"leadDay"`
-	WindowStart wire.Instant `json:"windowStart"`
-	WindowEnd   wire.Instant `json:"windowEnd"`
+	LeadDay       int32        `json:"leadDay"`
+	WindowStart   wire.Instant `json:"windowStart"`
+	WindowEnd     wire.Instant `json:"windowEnd"`
+	NotifiedSince wire.Instant `json:"notifiedSince"`
 }
 
 // Cron support (migration 0016, Feature B). ACTIVE subscriptions whose
@@ -726,8 +738,16 @@ type ListSubscriptionsTrialEndingInWindowParams struct {
 // from the renewal marker on purpose: the same subscription can be told "your
 // trial ends in 3 days" and "your renewal is in 3 days" on the same run, and
 // those two notices must not suppress each other.
+//
+// `notifiedSince` is the start instant of the same process-local day as the
+// window (not CURRENT_DATE, the UTC session day). See ListWarrantiesInWindow.
 func (q *Queries) ListSubscriptionsTrialEndingInWindow(ctx context.Context, arg ListSubscriptionsTrialEndingInWindowParams) ([]Subscription, error) {
-	rows, err := q.db.Query(ctx, listSubscriptionsTrialEndingInWindow, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
+	rows, err := q.db.Query(ctx, listSubscriptionsTrialEndingInWindow,
+		arg.LeadDay,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.NotifiedSince,
+	)
 	if err != nil {
 		return nil, err
 	}

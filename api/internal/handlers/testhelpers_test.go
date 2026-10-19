@@ -130,17 +130,31 @@ func deleteUsers(t *testing.T, pool *pgxpool.Pool, ids ...string) {
 // newScratchDatabaseDSN creates a brand-new empty database on the server behind
 // base and returns its DSN, dropping it again when the test ends. No migrations
 // are applied — callers run gooseUp on the returned DSN.
+
 // httpTemplateDatabase builds — once per test process — a database with the full
 // migration chain applied, to be used as a CREATE DATABASE template.
 //
-// Returns the database name. The template is left behind on purpose: dropping it
-// from a test cleanup would run at the end of whichever test happened to create
-// it, which is far too early. CI runners are ephemeral; a local `go test` leaves
-// one `wv_http_template_<pid>` database that is cheap to remove by hand.
+// Lifetime: the template must outlive every test and must not outlive the
+// process. TestMain (testmain_test.go) drops it after m.Run returns; a t.Cleanup
+// here would run at the end of whichever test happened to create it, far too
+// early. The name carries the pid so concurrent `go test` binaries never share
+// one.
+//
+// Crash safety: a process that dies cannot run TestMain, so its template would
+// leak. Every creation therefore sweeps `wv_http_template_*` left by earlier
+// runs. A name is only dropped after taking the PostgreSQL advisory lock that a
+// LIVE creator holds for its whole lifetime (httpTemplateLock), so a concurrent
+// test process is never robbed of its template. The sweep uses WITH (FORCE), so
+// a stale backend still connected to an abandoned template cannot block it.
 var (
 	httpTemplateOnce sync.Once
 	httpTemplateName string
 	httpTemplateErr  error
+	// httpTemplateLock is a connection to the ADMIN database holding
+	// pg_advisory_lock(hashtext(name)) for as long as this process's template
+	// exists. It is deliberately not connected to the template itself, so it
+	// never counts as an open connection blocking a clone.
+	httpTemplateLock *pgx.Conn
 )
 
 func httpTemplateDatabase(t *testing.T, base string) (string, error) {
@@ -154,15 +168,35 @@ func httpTemplateDatabase(t *testing.T, base string) (string, error) {
 			httpTemplateErr = err
 			return
 		}
-		_, err = admin.Exec(ctx, `DROP DATABASE IF EXISTS "`+name+`" WITH (FORCE)`)
-		if err == nil {
-			_, err = admin.Exec(ctx, `CREATE DATABASE "`+name+`"`)
-		}
-		_ = admin.Close(ctx)
+		defer func() { _ = admin.Close(ctx) }()
+
+		// Take the liveness lock BEFORE the database exists: a concurrent sweep
+		// can then never observe a template that has no owner.
+		guard, err := pgx.Connect(ctx, base)
 		if err != nil {
 			httpTemplateErr = err
 			return
 		}
+		if _, err = guard.Exec(ctx, `SELECT pg_advisory_lock(hashtext($1))`, name); err != nil {
+			_ = guard.Close(ctx)
+			httpTemplateErr = err
+			return
+		}
+		httpTemplateLock = guard
+
+		dropStaleHTTPTemplates(ctx, admin, name)
+
+		_, err = admin.Exec(ctx, `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
+		if err == nil {
+			_, err = admin.Exec(ctx, `CREATE DATABASE `+quoteIdent(name))
+		}
+		if err != nil {
+			httpTemplateErr = err
+			return
+		}
+		// Record the name as soon as it exists: if the migration below fails (or
+		// t.Fatalf unwinds through gooseUp), TestMain still knows what to drop.
+		httpTemplateName = name
 
 		u, err := url.Parse(base)
 		if err != nil {
@@ -173,15 +207,56 @@ func httpTemplateDatabase(t *testing.T, base string) (string, error) {
 		gooseUp(t, u.String())
 
 		// A template must have no connections open to it, or every clone fails.
-		if admin, err = pgx.Connect(ctx, base); err == nil {
-			_, _ = admin.Exec(ctx,
+		if cleanup, cerr := pgx.Connect(ctx, base); cerr == nil {
+			_, _ = cleanup.Exec(ctx,
 				`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
 				  WHERE datname = $1 AND pid <> pg_backend_pid()`, name)
-			_ = admin.Close(ctx)
+			_ = cleanup.Close(ctx)
 		}
-		httpTemplateName = name
 	})
 	return httpTemplateName, httpTemplateErr
+}
+
+// quoteIdent double-quotes a PostgreSQL identifier. Template names are
+// server-generated, but a hand-created database matching the sweep pattern must
+// not be able to break the DROP statement.
+func quoteIdent(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
+
+// dropStaleHTTPTemplates removes template databases left by a crashed earlier
+// run. The advisory lock is the ownership test: httpTemplateDatabase holds it
+// for the whole lifetime of a live template, and PostgreSQL releases it
+// automatically when that session dies. So `pg_try_advisory_lock` succeeding
+// means the previous owner is gone; failing means another live test process is
+// still using that template and it must be left alone.
+func dropStaleHTTPTemplates(ctx context.Context, admin *pgx.Conn, keep string) {
+	rows, err := admin.Query(ctx,
+		`SELECT datname FROM pg_database
+		  WHERE datname LIKE 'wv_http_template_%' AND datname <> $1`, keep)
+	if err != nil {
+		return
+	}
+	var stale []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			rows.Close()
+			return
+		}
+		stale = append(stale, n)
+	}
+	rows.Close()
+
+	for _, n := range stale {
+		var locked bool
+		if err := admin.QueryRow(ctx,
+			`SELECT pg_try_advisory_lock(hashtext($1))`, n).Scan(&locked); err != nil || !locked {
+			continue // owned by a live test process (or unreadable): never touch it
+		}
+		_, _ = admin.Exec(ctx, `DROP DATABASE IF EXISTS `+quoteIdent(n)+` WITH (FORCE)`)
+		_, _ = admin.Exec(ctx, `SELECT pg_advisory_unlock(hashtext($1))`, n)
+	}
 }
 
 func newScratchDatabaseDSN(t *testing.T, base string) string {

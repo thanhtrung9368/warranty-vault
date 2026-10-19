@@ -283,6 +283,9 @@ WHERE id = $1;
 -- is skipped only when the SAME lead day was stamped today; a different lead day
 -- on the same day still fires. leadDay IS NULL on a hand-edited row means
 -- "handled today for every lead day" — the conservative reading.
+--
+-- `notifiedSince` is the start instant of the same process-local day as the
+-- window, not CURRENT_DATE (the UTC session day). See ListWarrantiesInWindow.
 SELECT
     d.id                 AS id,
     d."userId"           AS user_id,
@@ -296,7 +299,7 @@ WHERE d.status = 'ACTIVE'
   AND d."extendedCoverBuyBy" <  sqlc.arg('windowEnd')::timestamp
   AND (
       d."extendedCoverNotifiedAt" IS NULL
-      OR d."extendedCoverNotifiedAt"::date < CURRENT_DATE
+      OR d."extendedCoverNotifiedAt" < sqlc.arg('notifiedSince')::timestamp
       OR (d."extendedCoverNotifiedLeadDay" IS NOT NULL
           AND d."extendedCoverNotifiedLeadDay" <> sqlc.arg('leadDay')::int)
   );

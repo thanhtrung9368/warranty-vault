@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 )
 
 // ---- DB-free: the payload must describe itself ------------------------------
@@ -65,6 +67,64 @@ func TestBackupEnvelopeDeclaresMissingAttachmentBytes(t *testing.T) {
 		if v, ok := wire[key].([]any); !ok || len(v) != 0 {
 			t.Errorf(`wire[%q] = %v, want []`, key, wire[key])
 		}
+	}
+}
+
+// The instant-basis marker is the ONLY signal that separates a post-fix export
+// from a pre-fix one: both are version 5, and the old bytes are identical in
+// shape. This pins the three load-bearing rules:
+//
+//  1. every export this build writes declares UTC (JSON and ZIP);
+//  2. a payload that does not declare it gets one warning, in the request's
+//     language — the importer cannot know whether it is old, hand-edited or
+//     produced by a newer writer with another basis;
+//  3. nothing about the timestamps themselves changes: import still parses the
+//     exact instant the file states. The warning is the mitigation; guessing an
+//     offset is forbidden (migration 0024 is the reason).
+func TestBackupInstantBasisMarkerAndLegacyWarning(t *testing.T) {
+	for name, env := range map[string]*BackupExport{
+		"metadata-only JSON": newBackupExport(viCtx(), 0, 0, 0),
+		"blob ZIP data.json": newBlobBackupExport(viCtx(), 0, 0, 0),
+	} {
+		if env.InstantTimeZone != BackupInstantBasisUTC {
+			t.Errorf("%s: InstantTimeZone = %q, want %q", name, env.InstantTimeZone, BackupInstantBasisUTC)
+		}
+		raw, err := json.Marshal(env)
+		if err != nil {
+			t.Fatalf("%s: marshal: %v", name, err)
+		}
+		var wire map[string]any
+		if err := json.Unmarshal(raw, &wire); err != nil {
+			t.Fatalf("%s: unmarshal: %v", name, err)
+		}
+		if got := wire[BackupInstantTimeZoneField]; got != BackupInstantBasisUTC {
+			t.Errorf("%s: wire[%q] = %v, want %q", name, BackupInstantTimeZoneField, got, BackupInstantBasisUTC)
+		}
+	}
+
+	// A payload from before the marker existed: warn, and say it in Vietnamese
+	// when the request is Vietnamese.
+	legacy := &BackupExport{Version: MetadataOnlyBackupVersion}
+	warnings := backupImportWarnings(viCtx(), legacy)
+	if len(warnings) != 1 {
+		t.Fatalf("legacy payload warnings = %v, want exactly one", warnings)
+	}
+	if want := i18n.Text(viCtx(), LegacyInstantWarningVN); warnings[0] != want {
+		t.Errorf("legacy warning = %q, want %q", warnings[0], want)
+	}
+	if !strings.Contains(warnings[0], "múi giờ") {
+		t.Errorf("legacy warning = %q, want the Vietnamese catalog sentence (is the catalog entry missing?)", warnings[0])
+	}
+
+	// A self-describing payload must stay quiet, or every new backup would nag.
+	marked := &BackupExport{Version: MetadataOnlyBackupVersion, InstantTimeZone: BackupInstantBasisUTC}
+	if got := backupImportWarnings(viCtx(), marked); len(got) != 0 {
+		t.Errorf("marked payload warnings = %v, want none", got)
+	}
+	// An unknown future basis is not trusted: same warning, never a rewrite.
+	unknown := &BackupExport{Version: MetadataOnlyBackupVersion, InstantTimeZone: "LOCAL"}
+	if got := backupImportWarnings(viCtx(), unknown); len(got) != 1 {
+		t.Errorf("unknown-basis warnings = %v, want exactly one", got)
 	}
 }
 

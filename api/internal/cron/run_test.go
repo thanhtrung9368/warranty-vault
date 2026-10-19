@@ -66,6 +66,96 @@ func TestDayWindow(t *testing.T) {
 	}
 }
 
+// TestSameLocalDayIdempotencyUsesTheWindowDay is the regression pin for the
+// CURRENT_DATE/UTC-day mismatch.
+//
+// Before this fix the SQL predicates compared `lastNotifiedAt::date` with
+// CURRENT_DATE. The database session is pinned to UTC (dbconn), so CURRENT_DATE
+// is the UTC day, while every window in this file is the process-local day. On
+// a +07 host a first run at 06:00 ICT and the scheduled run at 09:00 ICT are
+// the SAME local day but different UTC days → the second run re-fires every
+// push. The predicate now receives `notifiedSince` — the start instant of the
+// very day the window was built from — so the two cannot disagree.
+//
+// The simulated day is 30 days in the past, and the test asks the DATABASE for
+// its CURRENT_DATE. That is what makes it fail if someone reintroduces the old
+// predicate at ANY time of day: the stamp's UTC date is always before the
+// database's today, so CURRENT_DATE would select the row and this test would
+// see it. A fixed near-today date would silently pass around the UTC midnight
+// the bug is about. It uses the real generated query on a migrated scratch DB.
+func TestSameLocalDayIdempotencyUsesTheWindowDay(t *testing.T) {
+	ctx := context.Background()
+	pool := cronScratchDB(t)
+
+	ict := time.FixedZone("ICT", 7*60*60)
+	base := time.Now().UTC().AddDate(0, 0, -30)
+	now := time.Date(base.Year(), base.Month(), base.Day(), 8, 0, 0, 0, ict)
+	windowStart, windowEnd := dayWindow(now, 0)
+	notifiedSince, _ := dayWindow(now, 0)
+	// 06:00 ICT on this local day = 23:00 UTC on the previous UTC date — the
+	// "first run" whose stamp CURRENT_DATE would have forgotten.
+	stamp := notifiedSince.Add(6 * time.Hour)
+	// The day label the window selects, stored at UTC midnight like every Day.
+	targetDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO "User" (id, email, "passwordHash", "updatedAt")
+		VALUES ('idem_user', 'idem-local-day@local.test', 'x', $1)`,
+		targetDay.AddDate(0, 0, -10)); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO "WishlistItem"
+			(id, "userId", name, status, priority, "targetDate", "lastNotifiedAt", "createdAt", "updatedAt")
+		VALUES ('idem_item', 'idem_user', 'Món đang theo dõi', 'WATCHING', 'MEDIUM', $1, $2, $1, $1)`,
+		targetDay, stamp.UTC()); err != nil {
+		t.Fatalf("insert wishlist item: %v", err)
+	}
+
+	params := store.ListWishlistTargetDateDueParams{
+		WindowStart:   wire.At(windowStart),
+		WindowEnd:     wire.At(windowEnd),
+		NotifiedSince: wire.At(notifiedSince),
+	}
+	q := store.New(pool)
+	rows, err := q.ListWishlistTargetDateDue(ctx, params)
+	if err != nil {
+		t.Fatalf("list due (same local day): %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("stamp %s is AFTER the local day start %s; got %d row(s), want 0 — "+
+			"the same local day must suppress a second run",
+			stamp.UTC().Format(time.RFC3339), notifiedSince.UTC().Format(time.RFC3339), len(rows))
+	}
+
+	// Prove the OLD predicate would have fired, using the database's real
+	// CURRENT_DATE rather than a hard-coded one.
+	var oldWouldFire bool
+	if err := pool.QueryRow(ctx,
+		`SELECT $1::timestamp::date < CURRENT_DATE`, stamp.UTC()).Scan(&oldWouldFire); err != nil {
+		t.Fatalf("evaluate old predicate: %v", err)
+	}
+	if !oldWouldFire {
+		t.Fatalf("fixture is wrong: the old CURRENT_DATE predicate did not fire for stamp %s",
+			stamp.UTC().Format(time.RFC3339))
+	}
+
+	// A stamp from BEFORE local midnight must NOT suppress this day's window:
+	// the bound is the day boundary, not "any stamp from yesterday".
+	if _, err := pool.Exec(ctx,
+		`UPDATE "WishlistItem" SET "lastNotifiedAt" = $1 WHERE id = 'idem_item'`,
+		notifiedSince.Add(-time.Minute).UTC()); err != nil {
+		t.Fatalf("backdate stamp: %v", err)
+	}
+	rows, err = q.ListWishlistTargetDateDue(ctx, params)
+	if err != nil {
+		t.Fatalf("list due (previous local day): %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d row(s), want 1 — a stamp from the previous local day must not suppress today", len(rows))
+	}
+}
+
 // ─── Mock dispatcher ─────────────────────────────────────────────────────────
 
 type mockSend struct {
@@ -360,8 +450,11 @@ func TestRun_AgainstDevDB(t *testing.T) {
 // lands in the "today" (0d) warning bucket — autoRenew=true, status=ACTIVE,
 // so the cron should fire a `subscription_renewal` warning push the first
 // time, then skip it on the second same-day run because
-// ListSubscriptionsDueForRenewal filters by lastNotifiedRenewalAt::date <
-// CURRENT_DATE. Guards against the bug fixed in 0002_cron_idempotency.sql.
+// ListSubscriptionsDueForRenewal compares lastNotifiedRenewalAt against the
+// instant the process-local day began (`notifiedSince`). Guards against the bug
+// fixed in 0002_cron_idempotency.sql; the CURRENT_DATE form it used to rely on
+// was itself wrong once the DB session was pinned to UTC — see the dayWindow
+// comment in run.go.
 func TestRun_SubRenewalWarningIdempotent(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {

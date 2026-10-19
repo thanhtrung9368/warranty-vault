@@ -74,9 +74,11 @@ const (
 	// beside it in the archive".
 	BackupVersion = 6
 	// MetadataOnlyBackupVersion is the version written by the plain JSON export.
-	// It is deliberately still 5: that document is byte-for-byte the old format,
-	// so a client or importer that only understands v5 keeps working, and
-	// existing v5 files stay valid.
+	// It is deliberately still 5: a v5-only client or importer keeps working, and
+	// existing v5 files stay valid. The document is no longer byte-for-byte the
+	// old one — it now carries `instantTimeZone` (below), an additive key every
+	// JSON decoder in the tree ignores — because the old bytes are exactly what
+	// makes a pre-fix file indistinguishable from a fixed one.
 	MetadataOnlyBackupVersion = 5
 	// MinBackupVersion is the oldest shape this importer can still read. It stays
 	// at 5 — the legacy TS exporter's numbering — because a v5 payload imports
@@ -84,6 +86,28 @@ const (
 	// changed field meaning), not merely because fields were added.
 	MinBackupVersion = 5
 )
+
+// BackupInstantBasisUTC is the value of BackupExport.InstantTimeZone this build
+// writes. It says: every instant in this payload is UTC, the same instant the
+// database stores (dbconn pinned the session; Go writes .UTC()).
+const BackupInstantBasisUTC = "UTC"
+
+// BackupInstantTimeZoneField is the JSON key. Named here so the importer and the
+// tests cannot drift from the field tag.
+const BackupInstantTimeZoneField = "instantTimeZone"
+
+// LegacyInstantWarningVN is the warning appended to ImportResult.Warnings when a
+// payload does not declare its instant basis — i.e. every export written before
+// `instantTimeZone` existed. Those files were produced while SQL NOW() was the
+// server's local wall clock (Asia/Ho_Chi_Minh, +07) even though the JSON printed
+// a Z suffix, so their instant columns can be 7 hours off. The importer does NOT
+// rewrite them: migration 0024 exists because a blanket offset corrupts rows
+// that were already written correctly, and a backup has no cuid-clock evidence
+// to classify each row. It restores exactly what the file says and tells the
+// caller, which is the honest limit of what a file without provenance supports.
+//
+// Vietnamese source text + i18n catalog key, like the attachment notes.
+const LegacyInstantWarningVN = "Bản sao lưu này không ghi múi giờ cho các mốc thời gian. Nếu file được xuất trước khi Warrly sửa lỗi múi giờ, một số mốc (thời điểm tạo/cập nhật, thời điểm thanh toán, mốc nhắc) có thể lệch 7 giờ so với thực tế. Warrly giữ nguyên các mốc đã nhập vì không thể xác định chắc chắn từng dòng có bị lệch hay không; ngày tháng như ngày mua và ngày hết hạn bảo hành không bị ảnh hưởng."
 
 // AttachmentBytesNoteVN is the warning that ships inside every metadata-only
 // export. It exists so any client can warn accurately from the payload itself
@@ -113,6 +137,19 @@ const BlobAttachmentBytesNoteVN = "Bản sao lưu này CÓ chứa nội dung ả
 type BackupExport struct {
 	Version    int    `json:"version"`
 	ExportedAt string `json:"exportedAt"`
+	// InstantTimeZone names the zone every INSTANT in this payload was written
+	// in: "UTC" for every export this build produces. It is the provenance signal
+	// the payload otherwise lacks. The pre-fix exporter wrote the server's LOCAL
+	// wall clock (Asia/Ho_Chi_Minh, +07) into instant columns while printing a `Z`
+	// suffix, and those files are still version 5/6 — no version bump can tell
+	// them apart. So this is a marker, not a version: an OLD importer ignores the
+	// unknown key and still restores the file; a NEW importer uses its absence to
+	// warn (ImportResult.Warnings) instead of guessing an offset. Never rewrite
+	// timestamps from it — see LegacyInstantWarningVN.
+	//
+	// `omitempty` is deliberate: a hand-built payload without the key decodes to
+	// "" (= provenance unknown, warn), and the zero value never claims UTC.
+	InstantTimeZone string `json:"instantTimeZone,omitempty"`
 	// Self-describing honesty metadata (roadmap #2). Always emitted:
 	//   includesAttachmentBytes — true only for the .zip export
 	//     (?includeBlobs=true), where every attachment's encrypted blob travels in
@@ -137,12 +174,13 @@ type BackupExport struct {
 	// storagePath starts with the reserved `_inbox/` segment.
 	//
 	// Additive and OMITEMPTY on purpose: a user with no inbox items gets the
-	// byte-identical v5 payload they got before this migration, and an older
-	// payload without the key decodes to nil and imports unchanged. The backup
-	// VERSION therefore does not move (still 5 for JSON, 6 for the ZIP) — the
-	// import range already accepts both, and an older server importing a newer
-	// file ignores the unknown key (the same forward-compatibility limit every
-	// additive field in this format has always had).
+	// same v5 payload they got before this migration (plus the top-level
+	// `instantTimeZone` marker), and an older payload without the key decodes to
+	// nil and imports unchanged. The backup VERSION therefore does not move
+	// (still 5 for JSON, 6 for the ZIP) — the import range already accepts both,
+	// and an older server importing a newer file ignores the unknown key (the
+	// same forward-compatibility limit every additive field in this format has
+	// always had).
 	InboxAttachments []BackupAttachment `json:"inboxAttachments,omitempty"`
 	// Claims are the user's warranty claims (migration 0021). Like the inbox,
 	// they live at the TOP LEVEL rather than nested under a device: a claim
@@ -177,6 +215,7 @@ func newBackupEnvelope(ctx context.Context, version int, includesBytes bool, not
 	return &BackupExport{
 		Version:                 version,
 		ExportedAt:              time.Now().UTC().Format(time.RFC3339Nano),
+		InstantTimeZone:         BackupInstantBasisUTC,
 		IncludesAttachmentBytes: includesBytes,
 		AttachmentBytesNote:     i18n.Text(ctx, noteKey),
 		Subscriptions:           make([]BackupSubscription, 0, subCount),
@@ -481,6 +520,16 @@ type ImportResult struct {
 	//                    payload id. Their data is not duplicated or half-linked.
 	ClaimsImported int `json:"claimsImported"`
 	ClaimsSkipped  int `json:"claimsSkipped"`
+	// Warnings are non-fatal caveats about what was restored, already rendered
+	// in the request's language. Omitted when empty, so an import of a
+	// self-describing (new) export keeps the old response shape.
+	//
+	// Today there is exactly one: a payload without `instantTimeZone` may carry
+	// pre-fix local-wall-clock instants. Nothing is rewritten — the rows are
+	// restored exactly as the file states (see LegacyInstantWarningVN) — but the
+	// caller must be able to say so instead of presenting the data as certainly
+	// correct.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // ---- Export ---------------------------------------------------------------
@@ -810,6 +859,18 @@ func backupVersionError(ctx context.Context, version, min, max int) error {
 			version, min, max)}
 	}
 	return nil
+}
+
+// backupImportWarnings returns the non-fatal caveats for this payload, rendered
+// in the request's language. It reads only the provenance marker; it never
+// inspects a timestamp value and never rewrites one. A future basis value is
+// treated like an absent one (warn), because the importer only knows how to
+// trust "UTC".
+func backupImportWarnings(ctx context.Context, payload *BackupExport) []string {
+	if payload == nil || payload.InstantTimeZone == BackupInstantBasisUTC {
+		return nil
+	}
+	return []string{i18n.Text(ctx, LegacyInstantWarningVN)}
 }
 
 // ImportMode controls the wipe-first behavior.
@@ -1290,7 +1351,7 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 		}
 	}
 
-	res := &ImportResult{}
+	res := &ImportResult{Warnings: backupImportWarnings(ctx, payload)}
 
 	// restoreBlob writes one attachment's ciphertext to the segment its row
 	// belongs to and updates the import counters. Shared by device-filed and

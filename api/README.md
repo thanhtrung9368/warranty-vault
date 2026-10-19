@@ -50,6 +50,30 @@ in `internal/wire` (mapped by the overrides in `sqlc.yaml`):
 Do not hand-format timestamps in a response DTO — the model's type is the
 contract.
 
+### Calendar days use the process-local day (and the image pins it)
+
+The instant/day rule above is about the *wire*. The **business calendar** is
+separate: the reminder window (`services.ListUpcomingReminders`), the
+return-window countdown, the action queue and the cron buckets all derive
+"today" from `time.Local`. That is deliberate — a date-only column is the day
+the user picked, so it must be compared against the day the user is living in,
+not UTC.
+
+The shipped image therefore sets `TZ=Asia/Ho_Chi_Minh` (`api/Dockerfile`),
+which encodes the product assumption: **server-computed relative days are
+Vietnamese days**. A user in another timezone gets Vietnamese days from those
+fields until the API grows a per-user timezone; a client's own `YYYY-MM-DD`
+arithmetic is unaffected. `TZ` is an ordinary image default and can be
+overridden at runtime (`docker run -e TZ=…`, or `environment: TZ: …` in
+compose) — but it must stay consistent with the date-only columns' calendar,
+because changing it moves the cron buckets and all four local-day comparisons
+together. A mismatch between the process day and the user's day silently shifts
+notification days, and reopens the duplicate-push window the `notifiedSince`
+bound closed. DB sessions stay UTC regardless (`dbconn` forces
+`timezone=UTC`), so `TZ` changes only which calendar day the service reasons
+about, never what it stores. Running the binary outside Docker needs the same
+`TZ=Asia/Ho_Chi_Minh` in its environment.
+
 Migration `0024_utc_timestamp_baseline.sql` corrects legacy rows. It classifies
 each row from the millisecond clock embedded in its cuid id, shifts only the rows
 that provably used the +07 wall clock, records them in
@@ -255,7 +279,9 @@ managed challenge would block the mail worker's server-to-server POST.
 
 ## Backups: attachments are metadata only
 
-`GET /api/v1/backup/export` is JSON schema version 5 and contains attachment **metadata** (`fileName`, `fileType`, `fileSize`, `iv`, `wrappedKey`, `storagePath`) — never the encrypted blob bytes. Restoring onto a fresh server therefore does not bring invoice images back: the blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need `FILE_MASTER_KEY` to decrypt. The payload states this itself via `includesAttachmentBytes: false` + `attachmentBytesNote` (Vietnamese) so clients warn from the data instead of hardcoding it. A zip-with-blobs format is deliberately deferred. The OCR transcript (`Attachment.extractedText`, migration 0019) is **not** exported either: it is a derived search projection, it would invalidate the metadata-only note above, and the ZIP format can regenerate it by re-running OCR on the restored blob.
+`GET /api/v1/backup/export` is JSON schema version 5 and contains attachment **metadata** (`fileName`, `fileType`, `fileSize`, `iv`, `wrappedKey`, `storagePath`) — never the encrypted blob bytes. Restoring onto a fresh server therefore does not bring invoice images back: the blobs live under `PRIVATE_UPLOAD_ROOT` and additionally need `FILE_MASTER_KEY` to decrypt. The payload states this itself via `includesAttachmentBytes: false` + `attachmentBytesNote` (Vietnamese) so clients warn from the data instead of hardcoding it. The opt-in `.zip` export (`?includeBlobs=true`, `data.json` version 6) carries the encrypted bytes and flips the note accordingly. The OCR transcript (`Attachment.extractedText`, migration 0019) is **not** exported either: it is a derived search projection, it would invalidate the metadata-only note above, and the ZIP format can regenerate it by re-running OCR on the restored blob.
+
+Both exports record `instantTimeZone: "UTC"` (additive; the JSON version stays 5). A payload **without** that marker predates the UTC fix and may contain local-wall-clock instants that the old JSON printed with a `Z` suffix, so its instant columns can be 7 hours off. Import restores such a file **unchanged** and reports the caveat in `ImportResult.warnings`; it never guesses an offset, because migration `0024` exists precisely because a blanket shift corrupts rows that were already correct.
 
 `POST /api/v1/backup/import` accepts any payload whose `version` falls in `[MinBackupVersion, BackupVersion]` (see `internal/services/backup.go`) rather than testing for equality: an equality check means a routine version bump instantly makes every backup a user already holds unimportable. Older versions import by letting added fields decode to their zero values; newer versions are refused with a Vietnamese message naming the received version.
 

@@ -91,11 +91,11 @@ WITH
   -- The cron buckets on the SERVER PROCESS's calendar day
   -- (cron.dayWindow: local midnight → next local midnight, then converted to a
   -- UTC instant), and it compares that against the UTC wall clock stored in the
-  -- `timestamp` column. Seeding `date_trunc('day', NOW()) + 12 hours` used the
+  -- "timestamp" column. Seeding date_trunc('day', NOW()) + 12 hours used the
   -- DATABASE session's day instead: on a UTC database at 04:00 ICT the stored
   -- value was yesterday 12:00 UTC, which is outside the local-today window, so
-  -- this script failed for seven hours out of every day. `NOW() AT TIME ZONE
-  -- 'UTC'` stores the current instant's UTC wall clock — and "now" is inside
+  -- this script failed for seven hours out of every day. NOW() AT TIME ZONE
+  -- 'UTC' stores the current instant's UTC wall clock — and "now" is inside
   -- [local midnight, next local midnight) by definition, in every timezone.
   wt AS (
     INSERT INTO "WishlistItem"
@@ -223,7 +223,9 @@ echo "→ Chạy cron lần 2 — kiểm tra idempotency ở tầng DB"
 #     by migration 0015 to include WHICH lead day fired:
 #       - warranty leadDays (default 30/7) → Reminder.lastNotifiedAt +
 #         Reminder.lastNotifiedLeadDay stamped after fan-out;
-#         ListWarrantiesInWindow filters by ::date >= CURRENT_DATE AND lead day.
+#         ListWarrantiesInWindow filters both, comparing lastNotifiedAt with the
+#         `notifiedSince` instant (the start of the SAME process-local day the
+#         window came from — not CURRENT_DATE, which is the UTC session day).
 #       - wishlist target-date day-of → WishlistItem.lastNotifiedAt is already
 #         stamped (existed pre-fix); ListWishlistTargetDateDue now filters it.
 #       - subscription renewal leadDays (default 30/7; 3/1/0 is now a custom

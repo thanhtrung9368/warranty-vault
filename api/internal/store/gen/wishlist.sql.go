@@ -362,12 +362,14 @@ WHERE status IN ('WATCHING', 'DECIDED')
   AND "targetDate" IS NOT NULL
   AND "targetDate" >= $1::timestamp
   AND "targetDate" <  $2::timestamp
-  AND ("lastNotifiedAt" IS NULL OR "lastNotifiedAt"::date < CURRENT_DATE)
+  AND ("lastNotifiedAt" IS NULL
+       OR "lastNotifiedAt" < $3::timestamp)
 `
 
 type ListWishlistTargetDateDueParams struct {
-	WindowStart wire.Instant `json:"windowStart"`
-	WindowEnd   wire.Instant `json:"windowEnd"`
+	WindowStart   wire.Instant `json:"windowStart"`
+	WindowEnd     wire.Instant `json:"windowEnd"`
+	NotifiedSince wire.Instant `json:"notifiedSince"`
 }
 
 // ─── Cron fan-out queries ─────────────────────────────────────────────────
@@ -375,8 +377,14 @@ type ListWishlistTargetDateDueParams struct {
 // Skips items whose lastNotifiedAt is already today — that's the idempotency
 // guard against re-firing the same target-date push when the cron runs more
 // than once in a day. The cron stamps lastNotifiedAt = NOW() after firing.
+//
+// "today" is `notifiedSince` (an instant: start of the process-local day the
+// window came from), NOT CURRENT_DATE. The DB session runs in UTC, so
+// CURRENT_DATE is the UTC day; a same-local-day rerun that crosses 07:00 ICT
+// would see a different UTC day and fire the push twice. See the long note on
+// ListWarrantiesInWindow.
 func (q *Queries) ListWishlistTargetDateDue(ctx context.Context, arg ListWishlistTargetDateDueParams) ([]WishlistItem, error) {
-	rows, err := q.db.Query(ctx, listWishlistTargetDateDue, arg.WindowStart, arg.WindowEnd)
+	rows, err := q.db.Query(ctx, listWishlistTargetDateDue, arg.WindowStart, arg.WindowEnd, arg.NotifiedSince)
 	if err != nil {
 		return nil, err
 	}

@@ -147,11 +147,21 @@ func SerialWarnings(ctx context.Context, serial string, duplicateCount int64) []
 	}
 
 	if duplicateCount > 0 {
+		// Count-bearing, so English needs a real singular key: the default
+		// language is English, and "1 other devices" was what the plain `%d`
+		// template produced. The singular is a separate catalog entry selected by
+		// the branch — not a hacked format string — the same shape every other
+		// count in the catalog uses.
+		msg := i18n.T(ctx, "Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. "+
+			"Kiểm tra để tránh trùng hồ sơ bảo hành.", duplicateCount)
+		if duplicateCount == 1 {
+			msg = i18n.Text(ctx, "Số serial/IMEI này đã có ở 1 thiết bị khác trong tài khoản của bạn. "+
+				"Kiểm tra để tránh trùng hồ sơ bảo hành.")
+		}
 		warnings = append(warnings, Warning{
-			Code:  WarningSerialDuplicate,
-			Field: SerialField,
-			Message: i18n.T(ctx, "Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. "+
-				"Kiểm tra để tránh trùng hồ sơ bảo hành.", duplicateCount),
+			Code:    WarningSerialDuplicate,
+			Field:   SerialField,
+			Message: msg,
 		})
 	}
 

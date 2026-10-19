@@ -206,7 +206,7 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 			TicketNumber:  claim.TicketNumber,
 			ServiceCenter: claim.ServiceCenter,
 			Status:        claim.Status,
-			OpenedAt:      formatAssessDate(claim.OpenedAt),
+			OpenedAt:      formatAssessInstantDay(claim.OpenedAt),
 			WarrantyID:    claim.WarrantyId,
 		},
 		Device: ai.DeviceFacts{
@@ -215,7 +215,7 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 			Brand:        device.Brand,
 			Model:        device.Model,
 			SerialNumber: device.SerialNumber,
-			PurchaseDate: formatAssessDate(device.PurchaseDate.Instant()),
+			PurchaseDate: formatAssessDay(device.PurchaseDate),
 			Status:       device.Status,
 		},
 		Warranties: make([]ai.WarrantyFacts, 0, len(warranties)),
@@ -225,8 +225,8 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 			ID:            w.ID,
 			Type:          w.Type,
 			Provider:      w.Provider,
-			StartDate:     formatAssessDate(w.StartDate.Instant()),
-			EndDate:       formatAssessDate(w.EndDate.Instant()),
+			StartDate:     formatAssessDay(w.StartDate),
+			EndDate:       formatAssessDay(w.EndDate),
 			Months:        w.Months,
 			Component:     w.Component,
 			Scope:         w.Scope,
@@ -242,11 +242,30 @@ func buildClaimAssessmentInput(ctx context.Context, claim store.Claim, device st
 	return in
 }
 
-func formatAssessDate(ts wire.Instant) string {
+// formatAssessDay renders a calendar-day column for the model. The stored wall
+// clock IS the day the user picked (UTC midnight by contract), so the day is
+// taken in UTC and no zone is applied — a Day must never move by one.
+func formatAssessDay(ts wire.Day) string {
 	if !ts.Valid {
 		return ""
 	}
-	return ts.Time.UTC().Format("2006-01-02")
+	return ts.Time.UTC().Format(wire.DayLayout)
+}
+
+// formatAssessInstantDay renders the calendar day an INSTANT fell on for the
+// user. It is separate from formatAssessDay on purpose: applying the same zone
+// conversion to a Day column would shift the day the column already names.
+//
+// The basis is the process-local day — the one cron, the action queue and the
+// reminder feed use. Formatting OpenedAt in UTC made a claim opened at 00:30 ICT
+// look like yesterday to the model, which matters when it compares the claim
+// date with the warranty period.
+func formatAssessInstantDay(ts wire.Instant) string {
+	if !ts.Valid {
+		return ""
+	}
+	y, m, d := ts.Time.In(time.Local).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Format(wire.DayLayout)
 }
 
 // downgradeUnsupportedCoverage enforces the prompt's honesty rule in Go. It is a

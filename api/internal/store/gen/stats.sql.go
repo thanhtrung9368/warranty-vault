@@ -186,7 +186,7 @@ FROM "Device" d
 JOIN "Warranty" w ON w."deviceId" = d.id
 WHERE d."userId" = $1
   AND d.status = 'ACTIVE'
-  AND w."endDate" > NOW()
+  AND w."endDate" >= CURRENT_DATE
 `
 
 type StatsActiveAssetValueRow struct {
@@ -194,8 +194,19 @@ type StatsActiveAssetValueRow struct {
 	Total int64 `json:"total"`
 }
 
-// "Còn bảo hành" = device.status = ACTIVE AND has at least one warranty
-// with endDate > now (any package).
+// "Còn bảo hành" = device.status = ACTIVE AND has at least one warranty whose
+// endDate is today or later (any package).
+//
+// endDate is a calendar-day column (stored at UTC midnight), not an instant, so
+// it must be compared with a DATE. `> NOW()` retired a package at 00:00 UTC
+// (07:00 ICT) on its last covered day — the exact defect d52e01e fixed in
+// services/directory.go — and this predicate was the sibling nobody had wired
+// up. It is still not wired: Snapshot does not expose an active-asset total and
+// the web computes the value from the device list in local days
+// (website/src/lib/stats-rollup.ts). The comparison is against CURRENT_DATE on
+// the session's (UTC) calendar, the only day SQL itself can name; a future
+// caller that needs the user's local day must pass it in as a parameter, the
+// way ListSubscriptionsOverdue takes `today`.
 func (q *Queries) StatsActiveAssetValue(ctx context.Context, userid string) (StatsActiveAssetValueRow, error) {
 	row := q.db.QueryRow(ctx, statsActiveAssetValue, userid)
 	var i StatsActiveAssetValueRow

@@ -645,8 +645,8 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			it.Detail = pluralText(lang, elapsed,
 				"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
 				"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
-				[]any{r.Name, date(r.LastPaidAt.Time), date(r.RenewalDate.Time), elapsed},
-				[]any{r.Name, date(r.LastPaidAt.Time), date(r.RenewalDate.Time)})
+				[]any{r.Name, formatInstantDate(lang, r.LastPaidAt.Time), date(r.RenewalDate.Time), elapsed},
+				[]any{r.Name, formatInstantDate(lang, r.LastPaidAt.Time), date(r.RenewalDate.Time)})
 		} else {
 			it.Detail = i18n.Translate(lang, "«%s» có thanh toán đã ghi nhận nhưng ngày gia hạn vẫn ở quá khứ.", r.Name)
 		}

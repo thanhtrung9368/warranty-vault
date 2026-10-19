@@ -238,6 +238,15 @@ WHERE d."userId" = $1
 -- per-warranty-per-day key could not express. `lastNotifiedLeadDay IS NULL`
 -- means the row was stamped by the pre-0015 code: treat it as suppressing all
 -- lead days for the rest of that day, so a deploy-day re-run cannot duplicate.
+--
+-- "today" is `notifiedSince`, an INSTANT: the start of the same process-local
+-- calendar day `windowStart`/`windowEnd` are built from (cron.dayWindow(now, 0)).
+-- It used to be CURRENT_DATE, which is the DATABASE session day (UTC after
+-- dbconn pinned the session): a first run at 06:00 ICT and the scheduled run at
+-- 09:00 ICT are the same local day but two different UTC days, so the second run
+-- re-fired every push the first had already sent. Comparing the stamp instant
+-- against the window's own day boundary makes the two agree by construction —
+-- no cast, no timezone argument.
 SELECT
     w.*,
     d."userId"  AS user_id,
@@ -256,7 +265,7 @@ WHERE d.status = 'ACTIVE'
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id
         AND r."lastNotifiedAt" IS NOT NULL
-        AND r."lastNotifiedAt"::date >= CURRENT_DATE
+        AND r."lastNotifiedAt" >= sqlc.arg('notifiedSince')::timestamp
         AND (r."lastNotifiedLeadDay" IS NULL
              OR r."lastNotifiedLeadDay" = sqlc.arg('leadDay')::int)
   );

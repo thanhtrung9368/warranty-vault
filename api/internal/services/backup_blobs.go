@@ -19,9 +19,9 @@
 //
 // Coexistence with the JSON format
 // --------------------------------
-// GET /api/v1/backup/export stays JSON (version 5, byte-identical) unless the
-// caller passes ?includeBlobs=true, which switches the response to
-// application/zip. One endpoint, one auth path, one payload contract — the
+// GET /api/v1/backup/export stays JSON (version 5, same shape as before apart
+// from the additive `instantTimeZone` provenance marker) unless the caller
+// passes ?includeBlobs=true, which switches the response to application/zip. One endpoint, one auth path, one payload contract — the
 // envelope's `includesAttachmentBytes` already says which kind of document the
 // caller received, and clients that never pass the flag are untouched.
 //

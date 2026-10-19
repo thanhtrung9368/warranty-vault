@@ -3,9 +3,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"sort"
 	"time"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -266,8 +266,8 @@ func BuildSubscriptionAudit(
 		it.Detail = pluralText(lang, int(r.AutoRenewCount),
 			"«%s» đã tự động trừ %d lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
 			"«%s» đã tự động trừ 1 lần, tổng %s, lần đầu từ %s — và bạn chưa từng tự ghi khoản nào cho gói này. Nếu đã lâu không dùng, đây là lúc xem lại.",
-			[]any{r.Name, r.AutoRenewCount, formatMoney(lang, r.AutoChargedTotal), formatDate(lang, r.FirstPaidAt.Time)},
-			[]any{r.Name, formatMoney(lang, r.AutoChargedTotal), formatDate(lang, r.FirstPaidAt.Time)})
+			[]any{r.Name, r.AutoRenewCount, formatMoney(lang, r.AutoChargedTotal), formatInstantDate(lang, r.FirstPaidAt.Time)},
+			[]any{r.Name, formatMoney(lang, r.AutoChargedTotal), formatInstantDate(lang, r.FirstPaidAt.Time)})
 		findings = append(findings, it)
 	}
 
@@ -322,12 +322,12 @@ func BuildSubscriptionAudit(
 			it.Detail = i18n.Translate(lang,
 				"«%s» tăng từ %s lên %s (+%s, +%d%%) ở kỳ thanh toán ngày %s.",
 				r.SubscriptionName, formatMoney(lang, int64(r.PrevAmount)), formatMoney(lang, int64(r.Amount)),
-				formatMoney(lang, increase), *percent, formatDate(lang, r.PaidAt.Time))
+				formatMoney(lang, increase), *percent, formatInstantDate(lang, r.PaidAt.Time))
 		} else {
 			it.Detail = i18n.Translate(lang,
 				"«%s» tăng từ %s lên %s (+%s) ở kỳ thanh toán ngày %s.",
 				r.SubscriptionName, formatMoney(lang, int64(r.PrevAmount)), formatMoney(lang, int64(r.Amount)),
-				formatMoney(lang, increase), formatDate(lang, r.PaidAt.Time))
+				formatMoney(lang, increase), formatInstantDate(lang, r.PaidAt.Time))
 		}
 		findings = append(findings, it)
 	}
@@ -496,4 +496,13 @@ func formatMoney(lang i18n.Tag, amount int64) string {
 // exactly one implementation of each language's format in the repo.
 func formatDate(lang i18n.Tag, t time.Time) string {
 	return i18n.FormatDate(lang, t)
+}
+
+// formatInstantDate renders an INSTANT on the user's calendar day. A payment
+// timestamp is a real instant, not a Day column: formatting it in UTC named
+// YESTERDAY for a payment made between 00:00 and 07:00 ICT. Day columns must
+// keep using formatDate — applying a zone to a Day would shift the day it
+// already names.
+func formatInstantDate(lang i18n.Tag, t time.Time) string {
+	return i18n.FormatDate(lang, t.In(time.Local))
 }

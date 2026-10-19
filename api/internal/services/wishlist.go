@@ -449,7 +449,14 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 			category = "OTHER"
 		}
 
-		now := time.Now().UTC()
+		// "Today" is the user's calendar day, not UTC's. wire.Date takes the UTC
+		// calendar day of its argument, so passing time.Now().UTC() stamped
+		// YESTERDAY for a purchase recorded between 00:00 and 07:00 ICT — the
+		// write-side twin of the day-from-instant reads this sweep fixed. Build
+		// the day from the local date components; the column is a Day, not an
+		// instant.
+		y, m, d := time.Now().Date()
+		purchaseDay := wire.Date(time.Date(y, m, d, 0, 0, 0, 0, time.UTC))
 		statusActive := "ACTIVE"
 		device, derr := tq.CreateDevice(ctx, store.CreateDeviceParams{
 			ID:            auth.NewID(),
@@ -459,7 +466,7 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 			Brand:         updated.Brand,
 			Model:         nil,
 			SerialNumber:  nil,
-			PurchaseDate:  wire.Date(now),
+			PurchaseDate:  purchaseDay,
 			PurchasePrice: price,
 			PurchasePlace: nil,
 			Notes:         updated.Notes,

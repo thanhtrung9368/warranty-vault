@@ -583,6 +583,13 @@ var messages = map[string]message{
 		vi: "Số serial/IMEI này đã có ở %d thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.",
 		en: "This serial/IMEI already appears on %d other devices in your account. Check it to avoid duplicate warranty records.",
 	},
+	// Singular pair: English inflects ("1 other device"), Vietnamese does not.
+	// The duplicate warning is the one count-bearing message in this block, so it
+	// needs this entry or the default (English) language renders "1 other devices".
+	"Số serial/IMEI này đã có ở 1 thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.": {
+		vi: "Số serial/IMEI này đã có ở 1 thiết bị khác trong tài khoản của bạn. Kiểm tra để tránh trùng hồ sơ bảo hành.",
+		en: "This serial/IMEI already appears on 1 other device in your account. Check it to avoid duplicate warranty records.",
+	},
 
 	// ── Subscriptions + wishlist (internal/services/subscriptions.go,
 	// wishlist.go, and their handlers).
@@ -747,6 +754,15 @@ var messages = map[string]message{
 	"%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).": {
 		vi: "%s LƯU Ý: 1 file đính kèm không còn trên đĩa nên KHÔNG có trong bản sao lưu này (xem missingAttachmentIds).",
 		en: "%s NOTE: 1 attachment was no longer on disk, so it is NOT in this backup (see missingAttachmentIds).",
+	},
+	// Import-time provenance warning (ImportResult.Warnings). A payload written
+	// before `instantTimeZone` existed may hold the pre-fix local-wall-clock
+	// instants. The sentence must stay explicit that the importer did NOT correct
+	// them — a vague "some dates may be wrong" would hide the fact that the user
+	// is looking at data nobody has fixed.
+	"Bản sao lưu này không ghi múi giờ cho các mốc thời gian. Nếu file được xuất trước khi Warrly sửa lỗi múi giờ, một số mốc (thời điểm tạo/cập nhật, thời điểm thanh toán, mốc nhắc) có thể lệch 7 giờ so với thực tế. Warrly giữ nguyên các mốc đã nhập vì không thể xác định chắc chắn từng dòng có bị lệch hay không; ngày tháng như ngày mua và ngày hết hạn bảo hành không bị ảnh hưởng.": {
+		vi: "Bản sao lưu này không ghi múi giờ cho các mốc thời gian. Nếu file được xuất trước khi Warrly sửa lỗi múi giờ, một số mốc (thời điểm tạo/cập nhật, thời điểm thanh toán, mốc nhắc) có thể lệch 7 giờ so với thực tế. Warrly giữ nguyên các mốc đã nhập vì không thể xác định chắc chắn từng dòng có bị lệch hay không; ngày tháng như ngày mua và ngày hết hạn bảo hành không bị ảnh hưởng.",
+		en: "This backup does not record the time zone of its timestamps. If it was exported before Warrly fixed its time-zone handling, some instants (created/updated times, payment times, reminder markers) may be 7 hours off. Warrly leaves the imported instants exactly as the file states because it cannot prove which rows are affected; calendar dates such as purchase dates and warranty end dates are unaffected.",
 	},
 
 	// Version refusals. Too new and too old are different sentences on purpose:

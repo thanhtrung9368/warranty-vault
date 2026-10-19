@@ -715,16 +715,17 @@ WHERE d.status = 'ACTIVE'
       SELECT 1 FROM "Reminder" r
       WHERE r."warrantyId" = w.id
         AND r."lastNotifiedAt" IS NOT NULL
-        AND r."lastNotifiedAt"::date >= CURRENT_DATE
+        AND r."lastNotifiedAt" >= $4::timestamp
         AND (r."lastNotifiedLeadDay" IS NULL
              OR r."lastNotifiedLeadDay" = $1::int)
   )
 `
 
 type ListWarrantiesInWindowParams struct {
-	LeadDay     int32        `json:"leadDay"`
-	WindowStart wire.Instant `json:"windowStart"`
-	WindowEnd   wire.Instant `json:"windowEnd"`
+	LeadDay       int32        `json:"leadDay"`
+	WindowStart   wire.Instant `json:"windowStart"`
+	WindowEnd     wire.Instant `json:"windowEnd"`
+	NotifiedSince wire.Instant `json:"notifiedSince"`
 }
 
 type ListWarrantiesInWindowRow struct {
@@ -771,8 +772,22 @@ type ListWarrantiesInWindowRow struct {
 // per-warranty-per-day key could not express. `lastNotifiedLeadDay IS NULL`
 // means the row was stamped by the pre-0015 code: treat it as suppressing all
 // lead days for the rest of that day, so a deploy-day re-run cannot duplicate.
+//
+// "today" is `notifiedSince`, an INSTANT: the start of the same process-local
+// calendar day `windowStart`/`windowEnd` are built from (cron.dayWindow(now, 0)).
+// It used to be CURRENT_DATE, which is the DATABASE session day (UTC after
+// dbconn pinned the session): a first run at 06:00 ICT and the scheduled run at
+// 09:00 ICT are the same local day but two different UTC days, so the second run
+// re-fired every push the first had already sent. Comparing the stamp instant
+// against the window's own day boundary makes the two agree by construction —
+// no cast, no timezone argument.
 func (q *Queries) ListWarrantiesInWindow(ctx context.Context, arg ListWarrantiesInWindowParams) ([]ListWarrantiesInWindowRow, error) {
-	rows, err := q.db.Query(ctx, listWarrantiesInWindow, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
+	rows, err := q.db.Query(ctx, listWarrantiesInWindow,
+		arg.LeadDay,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.NotifiedSince,
+	)
 	if err != nil {
 		return nil, err
 	}

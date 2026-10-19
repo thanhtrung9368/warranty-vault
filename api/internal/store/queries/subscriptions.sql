@@ -136,6 +136,11 @@ ORDER BY p."paidAt" DESC;
 -- was stamped by the pre-0015 code (or by AdvanceSubscriptionRenewal, which
 -- marks "handled today" for every lead day): treat it as suppressing all lead
 -- days for the rest of that day, so a deploy-day re-run cannot duplicate.
+--
+-- `notifiedSince` is the instant the process-local day of `windowStart` began,
+-- not CURRENT_DATE (the UTC session day): otherwise a same-local-day rerun that
+-- crosses 07:00 ICT (00:00 UTC) re-fires the push. See the long note on
+-- ListWarrantiesInWindow.
 SELECT *
 FROM "Subscription"
 WHERE status = 'ACTIVE'
@@ -145,7 +150,7 @@ WHERE status = 'ACTIVE'
   AND "renewalDate" <  sqlc.arg('windowEnd')::timestamp
   AND (
       "lastNotifiedRenewalAt" IS NULL
-      OR "lastNotifiedRenewalAt"::date < CURRENT_DATE
+      OR "lastNotifiedRenewalAt" < sqlc.arg('notifiedSince')::timestamp
       OR ("lastNotifiedRenewalLeadDay" IS NOT NULL
           AND "lastNotifiedRenewalLeadDay" <> sqlc.arg('leadDay')::int)
   );
@@ -236,6 +241,9 @@ ORDER BY lead_day DESC;
 -- from the renewal marker on purpose: the same subscription can be told "your
 -- trial ends in 3 days" and "your renewal is in 3 days" on the same run, and
 -- those two notices must not suppress each other.
+--
+-- `notifiedSince` is the start instant of the same process-local day as the
+-- window (not CURRENT_DATE, the UTC session day). See ListWarrantiesInWindow.
 SELECT *
 FROM "Subscription"
 WHERE status = 'ACTIVE'
@@ -245,7 +253,7 @@ WHERE status = 'ACTIVE'
   AND "trialEndsAt" <  sqlc.arg('windowEnd')::timestamp
   AND (
       "trialNotifiedAt" IS NULL
-      OR "trialNotifiedAt"::date < CURRENT_DATE
+      OR "trialNotifiedAt" < sqlc.arg('notifiedSince')::timestamp
       OR ("trialNotifiedLeadDay" IS NOT NULL
           AND "trialNotifiedLeadDay" <> sqlc.arg('leadDay')::int)
   );

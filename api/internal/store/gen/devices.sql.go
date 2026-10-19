@@ -653,16 +653,17 @@ WHERE d.status = 'ACTIVE'
   AND d."extendedCoverBuyBy" <  $3::timestamp
   AND (
       d."extendedCoverNotifiedAt" IS NULL
-      OR d."extendedCoverNotifiedAt"::date < CURRENT_DATE
+      OR d."extendedCoverNotifiedAt" < $4::timestamp
       OR (d."extendedCoverNotifiedLeadDay" IS NOT NULL
           AND d."extendedCoverNotifiedLeadDay" <> $1::int)
   )
 `
 
 type ListExtendedCoverInWindowParams struct {
-	LeadDay     int32        `json:"leadDay"`
-	WindowStart wire.Instant `json:"windowStart"`
-	WindowEnd   wire.Instant `json:"windowEnd"`
+	LeadDay       int32        `json:"leadDay"`
+	WindowStart   wire.Instant `json:"windowStart"`
+	WindowEnd     wire.Instant `json:"windowEnd"`
+	NotifiedSince wire.Instant `json:"notifiedSince"`
 }
 
 type ListExtendedCoverInWindowRow struct {
@@ -691,8 +692,16 @@ type ListExtendedCoverInWindowRow struct {
 // is skipped only when the SAME lead day was stamped today; a different lead day
 // on the same day still fires. leadDay IS NULL on a hand-edited row means
 // "handled today for every lead day" — the conservative reading.
+//
+// `notifiedSince` is the start instant of the same process-local day as the
+// window, not CURRENT_DATE (the UTC session day). See ListWarrantiesInWindow.
 func (q *Queries) ListExtendedCoverInWindow(ctx context.Context, arg ListExtendedCoverInWindowParams) ([]ListExtendedCoverInWindowRow, error) {
-	rows, err := q.db.Query(ctx, listExtendedCoverInWindow, arg.LeadDay, arg.WindowStart, arg.WindowEnd)
+	rows, err := q.db.Query(ctx, listExtendedCoverInWindow,
+		arg.LeadDay,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.NotifiedSince,
+	)
 	if err != nil {
 		return nil, err
 	}

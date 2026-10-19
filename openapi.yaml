@@ -3650,9 +3650,11 @@ components:
         `Attachment.extractedText` là dữ liệu **dẫn xuất** từ blob — một projection
         để tìm kiếm, không phải nguồn sự thật. Quyết định: không export nó, vì
 
-          * bản JSON v5 phải giữ **từng byte** như trước và câu
-            `attachmentBytesNote` của nó nói thật rằng payload chỉ có tên file /
-            loại file / kích thước — thêm văn bản sẽ làm câu đó sai;
+          * bản JSON v5 phải giữ nguyên hình dạng cũ (không thêm khoá cho
+            `extractedText`; `instantTimeZone` là thay đổi additive duy nhất của
+            bản hiện tại) và câu `attachmentBytesNote` của nó nói thật rằng
+            payload chỉ có tên file / loại file / kích thước — thêm văn bản sẽ
+            làm câu đó sai;
           * đây là bản **plaintext** duy nhất của nội dung hoá đơn, và bản sao lưu
             là file người dùng thường lưu ở nơi khác; không tạo thêm bản sao
             plaintext ngoài DB;
@@ -3731,6 +3733,24 @@ components:
         devices:
           type: array
           items: { $ref: '#/components/schemas/BackupDevice' }
+        instantTimeZone:
+          type: string
+          enum: [UTC]
+          description: |
+            Múi giờ mà mọi **mốc thời gian** (instant) trong payload được ghi
+            theo. Bản export hiện tại luôn ghi `UTC`; trường này là dấu
+            **provenance** duy nhất phân biệt bản export sau khi sửa lỗi múi giờ
+            với bản trước đó — hai bên đều là version 5/6 nên số phiên bản không
+            nói được gì.
+
+            Vì sao cần: bản export cũ ghi giờ tường **local** của máy chủ
+            (Asia/Ho_Chi_Minh, +07) vào cột instant trong khi JSON vẫn in hậu tố
+            `Z`. Import **không** sửa các mốc theo trường này và **không** đoán
+            offset (migration 0024 tồn tại chính vì offset áp hàng loạt sẽ phá
+            các dòng vốn đã đúng). Importer mới dùng sự **vắng mặt** của khoá để
+            trả cảnh báo trong `ImportResult.warnings`; importer cũ bỏ qua khoá
+            lạ và vẫn khôi phục file bình thường.
+          example: UTC
         inboxAttachments:
           type: array
           description: |
@@ -3742,10 +3762,11 @@ components:
             `attachments/<storagePath>`.
 
             **Vắng mặt khi người dùng không có mục nào** (`omitempty`), nên file
-            JSON của một tài khoản chưa từng dùng hộp thư giống **từng byte** định
-            dạng v5 cũ. Payload cũ không có key này vẫn import bình thường (decode
-            thành rỗng). Phiên bản backup **không** tăng: importer cũ bỏ qua key
-            lạ, importer mới mặc định danh sách rỗng.
+            JSON của một tài khoản chưa từng dùng hộp thư không thêm khoá nào so
+            với định dạng v5 cũ (khoá cấp cao nhất `instantTimeZone` là thay đổi
+            duy nhất của bản hiện tại). Payload cũ không có key này vẫn import
+            bình thường (decode thành rỗng). Phiên bản backup **không** tăng:
+            importer cũ bỏ qua key lạ, importer mới mặc định danh sách rỗng.
 
             Import khôi phục chúng thành hàng `Attachment` có `deviceId` NULL,
             thuộc tài khoản đang import; ở chế độ `merge`, id đã tồn tại thì bị
@@ -3761,9 +3782,9 @@ components:
             thiết bị có được export hay không.
 
             **Vắng mặt khi người dùng không có yêu cầu nào** (`omitempty`), nên
-            file JSON của tài khoản chưa từng đi sửa giống **từng byte** định dạng
-            v5 cũ; payload cũ không có key này import bình thường (decode thành
-            rỗng) và phiên bản backup **không** tăng.
+            file JSON của tài khoản chưa từng đi sửa không thêm khoá nào so với
+            định dạng v5 cũ; payload cũ không có key này import bình thường
+            (decode thành rỗng) và phiên bản backup **không** tăng.
 
             `closedAt` được export/import nguyên vẹn: trên đường API nó do server
             quản lý, nhưng trong backup nó là **lịch sử** — bỏ đi sẽ đẩy ngày kết
@@ -4157,6 +4178,22 @@ components:
             yêu cầu không có trong payload và không thuộc tài khoản đang import,
             hoặc id không phải id payload hợp lệ. Dữ liệu không bị nhân đôi và
             không tạo liên kết nửa vời.
+        warnings:
+          type: array
+          items: { type: string }
+          description: |
+            Cảnh báo **không nghiêm trọng** về dữ liệu vừa khôi phục, render theo
+            ngôn ngữ của request (`?lang=` / Accept-Language / locale đã lưu).
+            **Vắng mặt khi rỗng**, nên import một file mới tự mô tả provenance giữ
+            nguyên hình dạng response cũ.
+
+            Hiện có đúng một trường hợp: payload **không có** `instantTimeZone` —
+            mọi bản export được tạo trước khi trường đó tồn tại — có thể chứa các
+            mốc thời gian bị lệch 7 giờ do lỗi local-wall-clock cũ. Import **giữ
+            nguyên** các mốc đúng như file ghi (không đoán offset; một phép dịch
+            hàng loạt sẽ phá các dòng vốn đã đúng — xem migration 0024), nhưng
+            trả cảnh báo để client nói thật với người dùng. Ngày tháng như ngày
+            mua và ngày hết hạn bảo hành **không** bị ảnh hưởng.
 
     DeviceStatus:
       type: string

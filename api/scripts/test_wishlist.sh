@@ -107,6 +107,13 @@ assert "$cond" "device sinh ra fetch được (nhận $status)"
 DNAME=$(jq -r '.device.name' "$WV_BODY_FILE")
 [ "$DNAME" = "MacBook Pro 16 M5" ] && cond=true || cond=false
 assert "$cond" "device sinh ra đúng tên (nhận $DNAME)"
+# purchaseDate is a calendar day, not the UTC day of the instant: between 00:00
+# and 07:00 ICT those differ. The script and the server run on the same host/TZ,
+# so "today" is comparable without a conversion here.
+PDAY=$(jq -r '.device.purchaseDate' "$WV_BODY_FILE")
+PDAY_TODAY=$(date +%F)
+[ "$PDAY" = "$PDAY_TODAY" ] && cond=true || cond=false
+assert "$cond" "device sinh ra có purchaseDate = hôm nay theo giờ địa phương (nhận '$PDAY', want '$PDAY_TODAY')"
 
 echo
 echo "→ Xoá wishlist item"

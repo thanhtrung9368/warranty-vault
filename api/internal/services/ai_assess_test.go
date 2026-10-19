@@ -12,6 +12,7 @@ import (
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/wire"
 )
 
 // AI claim assessment (gap #7). Pure prompt/schema/bounds assertions live in
@@ -627,4 +628,24 @@ func containsAssess(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+// The assessment input carries both calendar-day columns and one instant
+// (Claim.openedAt). They must not share a formatter: a zone conversion is right
+// for the instant and wrong for a Day, whose stored wall clock already names the
+// user's day. This is the regression pin for that separation.
+func TestAssessDayColumnsAreNotShiftedByTheProcessZone(t *testing.T) {
+	// 2026-10-20 as a Day: the wire value is UTC midnight and must render
+	// exactly 2026-10-20 in every process zone.
+	d := wire.Date(time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC))
+	if got := formatAssessDay(d); got != "2026-10-20" {
+		t.Errorf("formatAssessDay = %q, want 2026-10-20 (a Day must not move by a zone)", got)
+	}
+	// NULL is empty, not 0001-01-01.
+	if got := formatAssessDay(wire.Day{}); got != "" {
+		t.Errorf("formatAssessDay(invalid) = %q, want empty", got)
+	}
+	if got := formatAssessInstantDay(wire.Instant{}); got != "" {
+		t.Errorf("formatAssessInstantDay(invalid) = %q, want empty", got)
+	}
 }

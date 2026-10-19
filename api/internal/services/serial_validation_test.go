@@ -96,8 +96,7 @@ func TestSerialWarnings(t *testing.T) {
 		serial     string
 		duplicates int64
 		wantCodes  []string
-	}{
-		{name: "IMEI hợp lệ — im lặng", serial: "356938035643809", wantCodes: []string{}},
+	}{{name: "IMEI hợp lệ — im lặng", serial: "356938035643809", wantCodes: []string{}},
 		{name: "IMEI hợp lệ có khoảng trắng — im lặng", serial: "  490154203237518 ", wantCodes: []string{}},
 		{name: "sai check digit → IMEI_CHECKSUM", serial: "356938035643808", wantCodes: []string{WarningIMEIChecksum}},
 		{name: "sai check digit lần 2 → IMEI_CHECKSUM", serial: "490154203237510", wantCodes: []string{WarningIMEIChecksum}},
@@ -136,6 +135,39 @@ func TestSerialWarnings(t *testing.T) {
 				if strings.TrimSpace(w.Message) == "" {
 					t.Errorf("warning %s has an empty Vietnamese message", w.Code)
 				}
+			}
+		})
+	}
+}
+
+// The duplicate warning is count-bearing, and English is the product default,
+// so "1 other devices" is the sentence a user actually reads. The singular must
+// be a real catalog entry selected by the branch (see SerialWarnings), not a
+// hacked format string. Pins both counts in both languages.
+func TestSerialDuplicateWarningSingularInBothLanguages(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		ctx     context.Context
+		n       int64
+		want    string
+		notWant string
+	}{
+		{"en singular", enCtx(), 1, "1 other device in your account", "1 other devices"},
+		{"en plural", enCtx(), 2, "2 other devices in your account", ""},
+		{"vi singular", viCtx(), 1, "1 thiết bị khác", ""},
+		{"vi plural", viCtx(), 2, "2 thiết bị khác", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ws := SerialWarnings(tc.ctx, "C02X1234JGH5", tc.n)
+			if len(ws) != 1 {
+				t.Fatalf("got %d warnings, want exactly the duplicate warning", len(ws))
+			}
+			msg := ws[0].Message
+			if !strings.Contains(msg, tc.want) {
+				t.Errorf("message = %q, want it to contain %q", msg, tc.want)
+			}
+			if tc.notWant != "" && strings.Contains(msg, tc.notWant) {
+				t.Errorf("message = %q, must not contain %q", msg, tc.notWant)
 			}
 		})
 	}

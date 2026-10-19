@@ -3,10 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"time"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
+	"strconv"
+	"time"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
@@ -168,6 +168,25 @@ const forecastNoteKey = "Chỉ tính các gói đang ACTIVE; gói LIFETIME khôn
 //   - The current month is PARTIAL: only the part from `now` onward is counted, so
 //     a charge earlier this month is history, not forecast. The final bucket is
 //     partial in the same way when `end` falls mid-month.
+//
+// # Why UTC months are not a day-from-instant bug for a Vietnamese user
+//
+// Every value put INTO a bucket is a calendar-day column — Warranty.endDate,
+// Subscription.renewalDate, WishlistItem.targetDate — stored at UTC midnight of
+// the day the user picked. Such a value's month label is identical in every
+// zone (UTC midnight of Nov 1 is still November in ICT), so bucketing by its
+// UTC month is exact, not a projection of an instant onto a calendar.
+//
+// The only instant in the computation is `now`, and it delimits the horizon
+// (WindowStart/WindowEnd, emitted with a Z) rather than naming a bucket. The
+// API carries no per-user timezone, so re-deriving buckets from time.Local
+// would make a money total depend on the host's TZ and could disagree with the
+// Z-stamped window printed beside it. Consequence to know: for the seven hours
+// between local midnight on the 1st and 07:00 ICT, the first partial bucket is
+// labelled with the UTC month and is empty (no day-labelled value can be both
+// in that month and at/after `now`). Totals, the horizon, and every later
+// bucket are unaffected; this is cosmetic, and fixing it needs a user timezone
+// the contract does not have.
 func ForecastWindow(now time.Time, months int) (start, end time.Time, keys []string) {
 	now = now.UTC()
 	first := monthStart(now)
