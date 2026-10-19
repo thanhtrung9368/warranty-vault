@@ -407,6 +407,25 @@ var messages = map[string]message{
 		vi: "Số tháng bảo hành không hợp lệ",
 		en: "Invalid warranty length in months",
 	},
+	// Multi-currency devices (migration 0022, gap #16). The rate is LOCKED at
+	// entry, so "missing" and "invalid" are refusals rather than defaults: a
+	// guessed rate would silently corrupt every total.
+	"Loại tiền không hợp lệ": {
+		vi: "Loại tiền không hợp lệ",
+		en: "Invalid currency",
+	},
+	"Thiết bị dùng VND không được có tỷ giá": {
+		vi: "Thiết bị dùng VND không được có tỷ giá",
+		en: "A device in VND must not have an exchange rate",
+	},
+	"Thiếu tỷ giá": {
+		vi: "Thiếu tỷ giá",
+		en: "Missing exchange rate",
+	},
+	"Tỷ giá phải là số nguyên dương": {
+		vi: "Tỷ giá phải là số nguyên dương",
+		en: "Exchange rate must be a positive integer",
+	},
 	"Trạng thái không hợp lệ": {vi: "Trạng thái không hợp lệ", en: "Invalid status"},
 	"Số ngày đổi trả phải từ %d tới %d": {
 		vi: "Số ngày đổi trả phải từ %d tới %d",
@@ -1490,6 +1509,20 @@ var messages = map[string]message{
 		vi: "Gói bảo hành không thuộc thiết bị này",
 		en: "That warranty does not belong to this device",
 	},
+	// ── GET /api/v1/fx/rates (internal/handlers/fx.go).
+	//
+	// The endpoint prefills the rate field from a free upstream. When it cannot,
+	// it says so and the client asks the user to type the rate — it never invents
+	// one. `base` is a currency code, so the refusal names the currency, not the
+	// query parameter.
+	"Loại tiền không hỗ trợ": {
+		vi: "Loại tiền không hỗ trợ",
+		en: "Unsupported currency",
+	},
+	"Không lấy được tỷ giá. Hãy tự nhập tỷ giá.": {
+		vi: "Không lấy được tỷ giá. Hãy tự nhập tỷ giá.",
+		en: "Could not fetch exchange rates. Enter the rate manually.",
+	},
 	// Backup copy (internal/services/backup.go, backup_ids.go).
 	"yêu cầu bảo hành": {
 		vi: "yêu cầu bảo hành",
@@ -1506,5 +1539,24 @@ var messages = map[string]message{
 	"Đã đạt giới hạn %d yêu cầu bảo hành khi khôi phục. Xoá bớt yêu cầu cũ rồi thử lại.": {
 		vi: "Đã đạt giới hạn %d yêu cầu bảo hành khi khôi phục. Xoá bớt yêu cầu cũ rồi thử lại.",
 		en: "Restoring this backup would exceed the limit of %d claims. Delete some old claims and try again.",
+	},
+	// Backup currency pair (migration 0022). A restore must not invent a rate any
+	// more than a create may: the whole file is refused before the transaction,
+	// naming the device so the user can fix the file.
+	"Bản sao lưu có loại tiền không hợp lệ cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu có loại tiền không hợp lệ cho thiết bị \"%s\".",
+		en: "The backup has an invalid currency for device \"%s\".",
+	},
+	"Bản sao lưu ghi tỷ giá cho thiết bị \"%s\" dùng VND.": {
+		vi: "Bản sao lưu ghi tỷ giá cho thiết bị \"%s\" dùng VND.",
+		en: "The backup records an exchange rate for device \"%s\", which is in VND.",
+	},
+	"Bản sao lưu thiếu tỷ giá cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu thiếu tỷ giá cho thiết bị \"%s\".",
+		en: "The backup is missing an exchange rate for device \"%s\".",
+	},
+	"Bản sao lưu có tỷ giá không hợp lệ cho thiết bị \"%s\".": {
+		vi: "Bản sao lưu có tỷ giá không hợp lệ cho thiết bị \"%s\".",
+		en: "The backup has an invalid exchange rate for device \"%s\".",
 	},
 }

@@ -7,6 +7,12 @@ import type { DeviceInput } from '@/lib/api/devices';
 import { returnWindowFieldsFromFormData } from '@/lib/device-return-window';
 import { leadDaysError, leadDaysFromFormData } from '@/lib/lead-days';
 import {
+  fxRateForCurrency,
+  fxRateProblem,
+  normalizeCurrency,
+  type FxRateProblem,
+} from '@/lib/currency';
+import {
   clearDeviceWarningsFlash,
   setDeviceWarningsFlash,
 } from '@/lib/device-warnings-flash';
@@ -49,6 +55,12 @@ function buildDeviceInput(formData: FormData): DeviceInput {
   // Required fields are surfaced as empty strings — server returns 400 with
   // Vietnamese fieldErrors which are passed through as-is.
   const status = str(formData, 'status');
+  // Multi-currency: `currency` defaults to VND (the server default) and a VND
+  // device NEVER carries a rate — a stale hidden field is dropped here, not
+  // forwarded. A non-VND device keeps the parsed integer; the pre-flight check
+  // below rejects a missing/invalid one before any request is made.
+  const currency = normalizeCurrency(str(formData, 'currency'));
+  const fxRate = fxRateForCurrency(currency, num(formData, 'fxRate') ?? null);
   // Repeated `leadDays` entries (the chip control) need their own parser:
   // `str()`/`num()` only see one scalar value. Absent stays absent so Go
   // applies its [30, 7] create default or keeps the stored list on update.
@@ -65,6 +77,10 @@ function buildDeviceInput(formData: FormData): DeviceInput {
     serialNumber: str(formData, 'serialNumber') ?? null,
     purchaseDate: str(formData, 'purchaseDate') ?? '',
     purchasePrice: num(formData, 'purchasePrice') ?? 0,
+    // Both are ALWAYS sent: PATCH replaces the whole device, so omitting them
+    // would let an edit silently reset a foreign-currency device to VND.
+    currency,
+    fxRate,
     purchasePlace: str(formData, 'purchasePlace') ?? null,
     status: status as DeviceInput['status'],
     notes: str(formData, 'notes') ?? null,
@@ -95,15 +111,30 @@ function buildDeviceInput(formData: FormData): DeviceInput {
   };
 }
 
-// Zero selected days is the one invalid payload the client refuses to send
-// (Go's 400 remains the authority for everything else). The message is a
-// catalog key, so it renders in the active language exactly like the server's
-// own `fieldErrors.leadDays`.
-async function leadDaysFormState(input: DeviceInput): Promise<DeviceFormState | null> {
-  const key = leadDaysError(input.leadDays);
-  if (!key) return null;
+// Client-side pre-flight for the two rules the form already knows:
+//
+//   - at least one reminder day (Go's 400 remains the authority for the rest);
+//   - a non-VND device needs a positive integer fxRate, and a VND device must
+//     not carry one (the latter is normalized away in `buildDeviceInput`, so it
+//     can never reach the wire).
+//
+// The messages are catalog keys, so a rejection before the round-trip reads in
+// the active language exactly like the server's own `fieldErrors`.
+function fxRateMessage(problem: FxRateProblem, t: Translator): string {
+  return problem === 'required'
+    ? t('Vui lòng nhập tỷ giá.')
+    : t('Tỷ giá phải là số nguyên lớn hơn 0.');
+}
+
+async function preflightFormState(input: DeviceInput): Promise<DeviceFormState | null> {
+  const leadKey = leadDaysError(input.leadDays);
+  const fxProblem = fxRateProblem(input.currency, input.fxRate);
+  if (!leadKey && !fxProblem) return null;
   const { t } = await getI18n();
-  return { ok: false, errors: { leadDays: [t(key)] } };
+  const errors: Record<string, string[]> = {};
+  if (leadKey) errors.leadDays = [t(leadKey)];
+  if (fxProblem) errors.fxRate = [fxRateMessage(fxProblem, t)];
+  return { ok: false, errors };
 }
 
 export async function createDevice(
@@ -111,7 +142,7 @@ export async function createDevice(
   formData: FormData,
 ): Promise<DeviceFormState> {
   const input = buildDeviceInput(formData);
-  const invalid = await leadDaysFormState(input);
+  const invalid = await preflightFormState(input);
   if (invalid) return invalid;
   const fromWishlistId = str(formData, 'fromWishlistId') ?? null;
 
@@ -136,7 +167,7 @@ export async function updateDevice(
   formData: FormData,
 ): Promise<DeviceFormState> {
   const input = buildDeviceInput(formData);
-  const invalid = await leadDaysFormState(input);
+  const invalid = await preflightFormState(input);
   if (invalid) return invalid;
   const res = await api.devices.update(id, input);
   if (!res.ok) return toFormState(res);

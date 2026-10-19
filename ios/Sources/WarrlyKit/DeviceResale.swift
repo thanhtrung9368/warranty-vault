@@ -81,11 +81,13 @@ public enum SaleTone: Equatable, Sendable {
 
 /// `soldPrice − purchasePrice`, with the Vietnamese read-out the UI shows.
 public struct SaleProfitLoss: Equatable, Sendable {
-    /// Signed VND difference. Negative = loss.
+    /// Signed difference, **in the device's currency** (VND unless the device
+    /// was bought abroad). Negative = loss.
     public let amount: Int
     public let tone: SaleTone
-    /// Already money-formatted Vietnamese: `"Lãi 2.000.000 ₫"`, `"Lỗ 500.000 ₫"`,
-    /// `"Hoà vốn"` — the same wording the web and Android clients render.
+    /// Already money-formatted: `"Lãi 2.000.000 ₫"` for a VND device,
+    /// `"Lãi 120 USD"` for a USD one — `"Hoà vốn"` when the difference is zero.
+    /// Never formats a foreign difference with the `₫` sign.
     public let label: String
 }
 
@@ -250,16 +252,24 @@ public enum DeviceResale {
     /// Both operands are non-negative int32 by contract (Go rejects a negative
     /// `purchasePrice` with "Giá mua không hợp lệ" and a negative `soldPrice` with
     /// "Giá bán không hợp lệ"), so the difference cannot overflow `Int`.
-    public static func profitLoss(purchasePrice: Int, soldPrice: Int?) -> SaleProfitLoss? {
+    ///
+    /// `currency` is the device's own ISO code. Both prices are in that
+    /// currency, so the subtraction is right as it stands — but the *label*
+    /// must say so: a USD device shows `"Lỗ 199 USD"`, never `"199 ₫"`. The
+    /// default keeps every VND call site (and its output) unchanged.
+    public static func profitLoss(purchasePrice: Int, soldPrice: Int?,
+                                  currency: String? = CurrencyRules.vnd) -> SaleProfitLoss? {
         guard let soldPrice else { return nil }
         let amount = soldPrice - purchasePrice
         if amount > 0 {
             return SaleProfitLoss(amount: amount, tone: .profit,
-                                  label: L.t("Lãi %@", VndFormat.string(Int64(amount))))
+                                  label: L.t("Lãi %@",
+                                             VndFormat.string(Int64(amount), currency: currency)))
         }
         if amount < 0 {
             return SaleProfitLoss(amount: amount, tone: .loss,
-                                  label: L.t("Lỗ %@", VndFormat.string(Int64(-amount))))
+                                  label: L.t("Lỗ %@",
+                                             VndFormat.string(Int64(-amount), currency: currency)))
         }
         return SaleProfitLoss(amount: 0, tone: .even, label: L.t("Hoà vốn"))
     }

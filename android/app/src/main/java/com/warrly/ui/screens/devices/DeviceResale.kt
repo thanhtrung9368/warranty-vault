@@ -38,8 +38,10 @@ internal fun hasSaleRecord(soldAt: String?, soldPrice: Int?): Boolean =
     soldPrice != null || !soldAt.isNullOrBlank()
 
 /**
- * Lãi/lỗ in VND: `soldPrice − purchasePrice`, or `null` when the device was not
- * sold (no price recorded).
+ * Lãi/lỗ in the two prices' **native** currency: `soldPrice − purchasePrice`.
+ * Kept for the VND case and for the pure rule's own test; the detail card uses
+ * [deviceSaleProfitVnd] instead, because a multi-currency device's profit has to
+ * be expressed in dong using the server's locked conversions.
  *
  * Both operands are non-negative int32 by contract — Go's `ValidateDeviceInput`
  * rejects a negative `purchasePrice` ("Giá mua không hợp lệ") and a negative
@@ -53,12 +55,16 @@ internal fun saleProfit(soldPrice: Int?, purchasePrice: Int): Int? =
  * formatter: `"Lãi 5.000.000 ₫"`, `"Lỗ 2.000.000 ₫"`, or `"Hoà vốn"` when the sale
  * broke even — and the English equivalents when the app is in English.
  *
+ * Takes a `Long` because the value now comes from the server-converted
+ * `soldPriceVnd − purchasePriceVnd` (see [deviceSaleProfitVnd]); dong is still
+ * what [AppStrings.money] prints.
+ *
  * The three sentences live in `strings_devices.xml` rather than here, so the
  * card is no longer the one thing on the screen that ignores the language
  * setting.
  */
-internal fun saleProfitLabel(s: AppStrings, profit: Int): String = when {
-    profit > 0 -> s.get(R.string.dev_sale_profit, s.money(profit.toLong()))
-    profit < 0 -> s.get(R.string.dev_sale_loss, s.money(-profit.toLong()))
+internal fun saleProfitLabel(s: AppStrings, profit: Long): String = when {
+    profit > 0 -> s.get(R.string.dev_sale_profit, s.money(profit))
+    profit < 0 -> s.get(R.string.dev_sale_loss, s.money(-profit))
     else -> s.get(R.string.dev_sale_breakeven)
 }

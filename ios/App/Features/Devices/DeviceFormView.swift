@@ -33,6 +33,23 @@ struct DeviceFormView: View {
     @State private var purchaseDate: Date
     @State private var price: Int?
     @State private var purchasePlace: String
+
+    /// The device's currency and the rate **locked at entry**.
+    ///
+    /// `price`, `soldPrice` and each warranty `cost` are amounts in `currency`,
+    /// so `currency` is not a display preference — it changes what the saved
+    /// number means. The rate is `nil` for VND and required for every other
+    /// code; `CurrencyRules.rateError` blocks the save before the server's own
+    /// 400 `fieldErrors.fxRate`.
+    @State private var currency: String
+    @State private var fxRate: Int?
+    /// The "Lấy tỷ giá" outcome: info (a fetched rate, or a stale warning) or a
+    /// failure that says "type it yourself". The field stays editable either
+    /// way — a 503 from the FX endpoint never blocks the save.
+    @State private var fxNotice: String?
+    @State private var fxNoticeIsError = false
+    @State private var fxLoading = false
+
     @State private var warrantyMonths: String
     @State private var warrantyProvider: String
     @State private var warrantyPhone: String
@@ -170,6 +187,10 @@ struct DeviceFormView: View {
         _purchaseDate = State(initialValue: device?.purchaseDate ?? Date())
         _price = State(initialValue: device?.purchasePrice)
         _purchasePlace = State(initialValue: device?.purchasePlace ?? "")
+        // A payload without `currency` means the contract default VND; the
+        // normalized value is what the picker and the payload use from here on.
+        _currency = State(initialValue: CurrencyRules.normalized(device?.currency))
+        _fxRate = State(initialValue: device?.fxRate)
         _warrantyMonths = State(initialValue: "12")
         _warrantyProvider = State(initialValue: "")
         _warrantyPhone = State(initialValue: "")
@@ -211,6 +232,32 @@ struct DeviceFormView: View {
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
             && LeadDaysRules.isValid(LeadDaysRules.normalize(leadDays))
+            // The contract refuses to save a non-VND device without a rate
+            // (400 `fieldErrors.fxRate`) and a VND device WITH one, so the rate
+            // is validated exactly as it will be sent (`nil` for VND).
+            && CurrencyRules.isValidRate(submittedRate, currency: currency)
+    }
+
+    /// The rate that will travel with the save. A VND device always sends
+    /// `nil` — the encoder writes it as an explicit JSON null, which is how a
+    /// device switched back to dong clears a stored rate.
+    private var submittedRate: Int? {
+        CurrencyRules.requiresRate(currency) ? fxRate : nil
+    }
+
+    /// Whether a rate belongs on screen at all. VND has no rate — the field and
+    /// the "Lấy tỷ giá" action disappear with it.
+    private var usesForeignCurrency: Bool { CurrencyRules.requiresRate(currency) }
+
+    /// The VND the server will store for the current price, at the locked rate.
+    /// Shown live so the user can see that 999 USD is 25.4 million ₫ before the
+    /// price is saved, not after.
+    private var priceVndPreview: Int? {
+        CurrencyRules.previewVnd(price, currency: currency, fxRate: fxRate)
+    }
+
+    private var priceFieldGrouping: String {
+        CurrencyRules.groupingSeparator(for: currency)
     }
 
     // MARK: - Resale (derived)
@@ -351,8 +398,13 @@ struct DeviceFormView: View {
 
     /// Lãi/lỗ so với giá mua, live as the user types. `nil` until a sale price
     /// exists — the API never returns this (the client computes it on purpose).
+    ///
+    /// Passes the device currency through so a $999 → $800 sale reads
+    /// `"Lỗ 199 USD"`, not `"199 ₫"`.
     private var liveProfitLoss: SaleProfitLoss? {
-        DeviceResale.profitLoss(purchasePrice: price ?? 0, soldPrice: saleFields.soldPrice)
+        DeviceResale.profitLoss(purchasePrice: price ?? 0,
+                                soldPrice: saleFields.soldPrice,
+                                currency: currency)
     }
 
     /// Colour for a profit/loss line: green gains, red losses, neutral break-even.
@@ -569,17 +621,144 @@ struct DeviceFormView: View {
 
                     WVDivider()
 
-                    // Price field
-                    HStack(spacing: 12) {
+                    // Price and currency in one row: the number and its unit are
+                    // one value. Changing the currency re-denominates what the
+                    // typed number means, so the footer below says so and the
+                    // live VND preview makes the effect visible.
+                    HStack(spacing: 10) {
                         Text(L.t("Giá mua"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
-                        WVMoneyField(value: $price, placeholder: "0 ₫")
+                        WVMoneyField(value: $price,
+                                     placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
+                                     groupingSeparator: priceFieldGrouping)
+                        Menu {
+                            ForEach(CurrencyRules.pickerCodes(current: currency), id: \.self) { code in
+                                Button {
+                                    selectCurrency(code)
+                                } label: {
+                                    if code == CurrencyRules.normalized(currency) {
+                                        Label(CurrencyRules.label(for: code),
+                                              systemImage: "checkmark")
+                                    } else {
+                                        Text(CurrencyRules.label(for: code))
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(currency)
+                                    .font(.system(size: 15, weight: .semibold))
+                                WVIcon("arrowDown", size: 10)
+                            }
+                            .foregroundStyle(WVColor.tint)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(WVColor.tint.opacity(0.10))
+                            .clipShape(Capsule())
+                        }
                     }
                     .padding(.horizontal, 16)
                     .frame(minHeight: 44)
                     .padding(.vertical, 7)
+
+                    fieldErrorRow("currency")
+
+                    // Rate + "Lấy tỷ giá". Only for a foreign currency: VND
+                    // must store a null rate, and showing an input for it would
+                    // invite a value the server rejects.
+                    if usesForeignCurrency {
+                        WVDivider()
+
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(L.t("Tỷ giá"))
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(WVColor.label)
+                                Text(L.t("VND cho 1 %@", currency))
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(WVColor.label3)
+                            }
+                            Spacer(minLength: 8)
+                            // Editable always: the FX endpoint is a convenience,
+                            // not the only way in. A 503 leaves this field to
+                            // the user instead of blocking the save.
+                            WVMoneyField(value: $fxRate, placeholder: "25.400")
+                                // Only the stale server error is cleared here.
+                                // The notice is deliberately not touched: the
+                                // fetch itself sets `fxRate`, and an onChange
+                                // that cleared it would erase the "rate fetched"
+                                // line in the same update.
+                                .onChange(of: fxRate) { _, _ in
+                                    fieldErrors["fxRate"] = nil
+                                }
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, 7)
+
+                        fieldErrorRow("fxRate")
+
+                        WVDivider()
+
+                        Button {
+                            Task { await fetchRate() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if fxLoading {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    WVIcon("refresh", size: 14)
+                                }
+                                Text(fxLoading ? L.t("Đang lấy tỷ giá…") : L.t("Lấy tỷ giá"))
+                                    .font(.system(size: 15, weight: .semibold))
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(WVColor.tint)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 7)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(WVRowButtonStyle())
+                        .disabled(fxLoading)
+
+                        if let fxNotice {
+                            HStack(alignment: .top, spacing: 6) {
+                                WVIcon(fxNoticeIsError ? "alert" : "info", size: 12)
+                                    .foregroundStyle(fxNoticeIsError ? WVColor.orange : WVColor.label3)
+                                Text(fxNotice)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(fxNoticeIsError ? WVColor.orange : WVColor.label3)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 10)
+                        }
+
+                        WVDivider()
+
+                        // What the server will store. This is the *only* place
+                        // the converted number is shown, and it is derived from
+                        // the same locked rate that goes on the wire.
+                        HStack(spacing: 10) {
+                            Text(L.t("Quy đổi sang VND"))
+                                .font(.system(size: 15))
+                                .foregroundStyle(WVColor.label2)
+                            Spacer(minLength: 8)
+                            Text(priceVndPreview.map(WVFormat.vnd) ?? "—")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(priceVndPreview == nil ? WVColor.label3 : WVColor.label)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, 7)
+                    }
 
                     WVDivider()
                     inputRow(label: L.t("Nơi mua"), placeholder: "CellphoneS, TopZone...", text: $purchasePlace)
@@ -587,6 +766,13 @@ struct DeviceFormView: View {
                         WVDivider()
                         AutocompleteRow(suggestions: storeSuggestions, text: $purchasePlace)
                     }
+                }
+
+                // The unit applies to every money field on this screen — the
+                // purchase, the resale and each warranty package — so it is
+                // stated once, outside the group.
+                if usesForeignCurrency {
+                    WVSectionFooter(L.t("Giá mua và giá bán tính bằng %@.", currency))
                 }
 
                 // Reminder lead times ("Nhắc trước"). The cron used to fire at a
@@ -736,8 +922,17 @@ struct DeviceFormView: View {
                             // Blank ⇒ nil ("chưa bán"), `0` ⇒ a real price
                             // ("cho tặng"). The field is digit-only, so the
                             // server's negative-price rule cannot be typed here.
-                            WVMoneyField(value: $soldPrice, placeholder: "0 ₫")
+                            // The sale is in the device's currency — the code
+                            // next to it says so.
+                            WVMoneyField(value: $soldPrice,
+                                         placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
+                                         groupingSeparator: priceFieldGrouping)
                                 .onChange(of: soldPrice) { _, _ in fieldErrors["soldPrice"] = nil }
+                            if usesForeignCurrency {
+                                Text(currency)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(WVColor.label3)
+                            }
                         }
                         .padding(.horizontal, 16)
                         .frame(minHeight: 44)
@@ -767,7 +962,8 @@ struct DeviceFormView: View {
                                     Text(profit.label)
                                         .font(.system(size: 15, weight: .semibold))
                                         .foregroundStyle(Self.saleToneColor(profit.tone))
-                                    Text(L.t("so với giá mua %@", WVFormat.vnd(price ?? 0)))
+                                    Text(L.t("so với giá mua %@",
+                                             WVFormat.currency(price ?? 0, currency)))
                                         .font(.system(size: 12))
                                         .foregroundStyle(WVColor.label3)
                                 }
@@ -1307,6 +1503,73 @@ struct DeviceFormView: View {
         }
     }
 
+    // MARK: - Currency ("Lấy tỷ giá")
+
+    /// Switches the device's currency.
+    ///
+    /// The old rate belonged to the old currency and cannot be reused, so it is
+    /// cleared — the save button stays disabled until a new one is fetched or
+    /// typed. The price itself is deliberately not converted: it is the number
+    /// the user entered, and the currency picker is what they change when they
+    /// realise they entered it in dollars.
+    private func selectCurrency(_ code: String) {
+        let normalized = CurrencyRules.normalized(code)
+        guard normalized != CurrencyRules.normalized(currency) else { return }
+        currency = normalized
+        fxRate = nil
+        fxNotice = nil
+        fxNoticeIsError = false
+        fieldErrors["currency"] = nil
+        fieldErrors["fxRate"] = nil
+    }
+
+    /// Fetches the current VND quote for the selected currency.
+    ///
+    /// Purely a convenience: the result fills the same editable `fxRate` field
+    /// the user can type into. A 503 — which the contract explicitly allows —
+    /// says so and leaves the field to them; it never blocks saving the device.
+    ///
+    /// On an **edit** the field starts with the device's stored, locked rate.
+    /// Tapping this button replaces it, and therefore the VND values a save will
+    /// store; an ordinary save sends the loaded rate back untouched, which is
+    /// what keeps a historical total from drifting with the market.
+    private func fetchRate() async {
+        guard usesForeignCurrency else { return }
+        let requested = CurrencyRules.normalized(currency)
+        fxLoading = true
+        fxNotice = nil
+        fxNoticeIsError = false
+        defer { fxLoading = false }
+
+        do {
+            let table = try await client.fxRates(base: requested)
+            // A stale-tab refresh or an answer for a currency the user switched
+            // away from mid-request must not overwrite the field.
+            guard requested == CurrencyRules.normalized(currency) else { return }
+            guard let rate = table.vndRate else {
+                fxNotice = L.t("Không lấy được tỷ giá. Hãy tự nhập tỷ giá.")
+                fxNoticeIsError = true
+                return
+            }
+            fxRate = rate
+            fieldErrors["fxRate"] = nil
+            if table.isStale {
+                fxNotice = L.t("Tỷ giá có thể đã cũ. Kiểm tra lại trước khi lưu.")
+                fxNoticeIsError = false
+            } else {
+                fxNotice = L.t("Đã lấy tỷ giá: 1 %@ = %@", requested, WVFormat.rate(rate))
+                fxNoticeIsError = false
+            }
+        } catch let error as APIError where error.isServiceUnavailable {
+            // The documented 503: not an error screen, just "type it".
+            fxNotice = L.t("Không lấy được tỷ giá — máy chủ đang bận. Hãy tự nhập tỷ giá.")
+            fxNoticeIsError = true
+        } catch {
+            fxNotice = L.t("Không lấy được tỷ giá. Hãy tự nhập tỷ giá.")
+            fxNoticeIsError = true
+        }
+    }
+
     // MARK: - Submit
 
     private func submit() async {
@@ -1322,6 +1585,16 @@ struct DeviceFormView: View {
             return
         }
 
+        // The contract refuses a non-VND device without a rate with 400
+        // `fieldErrors.fxRate`. The save button is already disabled for it, but
+        // the toolbar can still fire — and this keeps the copy in the same place
+        // as every other field error.
+        if let rateError = CurrencyRules.rateError(currency: currency, rate: submittedRate) {
+            fieldErrors = CurrencyRules.fieldErrors(currency: currency, rate: submittedRate)
+            topError = rateError
+            return
+        }
+
         // The picker's `Date` is zoned; the wire value is a bare calendar day. It
         // has to be written in the zone the picker drew it in, or a device east of
         // the formatter's pin stores the day *before* the one on screen.
@@ -1333,6 +1606,11 @@ struct DeviceFormView: View {
         input.serialNumber = serial.isEmpty ? nil : serial
         input.purchasePlace = purchasePlace.isEmpty ? nil : purchasePlace
         input.purchasePrice = price ?? 0
+        // What the typed price means. `fxRate` is sent as nil for VND — the
+        // encoder writes it as an explicit null so switching a device back to
+        // dong clears the stored rate instead of leaving a stale one behind.
+        input.currency = CurrencyRules.normalized(currency)
+        input.fxRate = submittedRate
         input.status = status
         input.notes = notes.isEmpty ? nil : notes
         // Normalised descending, 1...5 entries, each 0...365. Sent even on an

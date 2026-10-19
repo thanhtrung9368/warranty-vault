@@ -116,6 +116,8 @@ INSERT INTO "Device" (
     "activatedAt",
     "extendedCoverBuyBy",
     "leadDays",
+    currency,
+    "fxRate",
     "createdAt",
     "updatedAt"
 ) VALUES (
@@ -124,10 +126,12 @@ INSERT INTO "Device" (
     $11, $12, $13, $14, $15,
     $16, $17, $18,
     COALESCE($20::int[], ARRAY[30, 7]::int[]),
+    COALESCE(NULLIF($21::text, ''), 'VND'),
+    $22::int,
     NOW(),
     NOW()
 )
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
 `
 
 type CreateDeviceParams struct {
@@ -151,8 +155,16 @@ type CreateDeviceParams struct {
 	ExtendedCoverBuyBy pgtype.Timestamp `json:"extendedCoverBuyBy"`
 	Status             *string          `json:"status"`
 	LeadDays           []int32          `json:"leadDays"`
+	Currency           string           `json:"currency"`
+	FxRate             *int32           `json:"fxRate"`
 }
 
+// currency/fxRate (migration 0022): fxRate is the VND value of one unit of
+// currency, LOCKED at entry. services.ValidateDeviceInput + resolveCreateCurrency
+// normalise and default currency, but the wishlist -> PURCHASED path calls this
+// query directly, so an empty param is mapped to 'VND' here as well — the same
+// default the column carries. fxRate is NULL for VND and for a row whose rate
+// was never recorded.
 func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Device, error) {
 	row := q.db.QueryRow(ctx, createDevice,
 		arg.ID,
@@ -175,6 +187,8 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		arg.ExtendedCoverBuyBy,
 		arg.Status,
 		arg.LeadDays,
+		arg.Currency,
+		arg.FxRate,
 	)
 	var i Device
 	err := row.Scan(
@@ -204,6 +218,8 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Dev
 		&i.ActivationNotifiedAt,
 		&i.ExtendedCoverNotifiedAt,
 		&i.ExtendedCoverNotifiedLeadDay,
+		&i.Currency,
+		&i.FxRate,
 	)
 	return i, err
 }
@@ -229,7 +245,7 @@ func (q *Queries) DeleteDevice(ctx context.Context, arg DeleteDeviceParams) (int
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
 FROM "Device"
 WHERE id = $1 AND "userId" = $2
 LIMIT 1
@@ -270,12 +286,14 @@ func (q *Queries) GetDeviceByID(ctx context.Context, arg GetDeviceByIDParams) (D
 		&i.ActivationNotifiedAt,
 		&i.ExtendedCoverNotifiedAt,
 		&i.ExtendedCoverNotifiedLeadDay,
+		&i.Currency,
+		&i.FxRate,
 	)
 	return i, err
 }
 
 const getDeviceByIDAnyUser = `-- name: GetDeviceByIDAnyUser :one
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
 FROM "Device"
 WHERE id = $1
 LIMIT 1
@@ -313,6 +331,8 @@ func (q *Queries) GetDeviceByIDAnyUser(ctx context.Context, id string) (Device, 
 		&i.ActivationNotifiedAt,
 		&i.ExtendedCoverNotifiedAt,
 		&i.ExtendedCoverNotifiedLeadDay,
+		&i.Currency,
+		&i.FxRate,
 	)
 	return i, err
 }
@@ -407,7 +427,7 @@ func (q *Queries) ListDevicesAwaitingActivation(ctx context.Context) ([]ListDevi
 
 const listDevicesByUser = `-- name: ListDevicesByUser :many
 
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
 FROM "Device"
 WHERE "userId" = $1
   AND (NULLIF($2::text, '') IS NULL OR category = $2)
@@ -498,6 +518,8 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 			&i.ActivationNotifiedAt,
 			&i.ExtendedCoverNotifiedAt,
 			&i.ExtendedCoverNotifiedLeadDay,
+			&i.Currency,
+			&i.FxRate,
 		); err != nil {
 			return nil, err
 		}
@@ -510,7 +532,7 @@ func (q *Queries) ListDevicesByUser(ctx context.Context, arg ListDevicesByUserPa
 }
 
 const listDevicesByUserSimple = `-- name: ListDevicesByUserSimple :many
-SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
+SELECT id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
 FROM "Device"
 WHERE "userId" = $1
 ORDER BY "createdAt" DESC
@@ -553,6 +575,8 @@ func (q *Queries) ListDevicesByUserSimple(ctx context.Context, userid string) ([
 			&i.ActivationNotifiedAt,
 			&i.ExtendedCoverNotifiedAt,
 			&i.ExtendedCoverNotifiedLeadDay,
+			&i.Currency,
+			&i.FxRate,
 		); err != nil {
 			return nil, err
 		}
@@ -695,9 +719,11 @@ UPDATE "Device" SET
     "activationRequired" = $18,
     "activatedAt" = $19,
     "extendedCoverBuyBy" = $20,
+    currency = $21,
+    "fxRate" = $22,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
-RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay"
+RETURNING id, "userId", name, category, brand, model, "serialNumber", "purchaseDate", "purchasePrice", "purchasePlace", status, notes, "createdAt", "updatedAt", "soldAt", "soldPrice", "returnWindowDays", "receivedAt", "returnWindowNotifiedAt", "leadDays", "activationRequired", "activatedAt", "extendedCoverBuyBy", "activationNotifiedAt", "extendedCoverNotifiedAt", "extendedCoverNotifiedLeadDay", currency, "fxRate"
 `
 
 type UpdateDeviceParams struct {
@@ -721,6 +747,8 @@ type UpdateDeviceParams struct {
 	ActivationRequired bool             `json:"activationRequired"`
 	ActivatedAt        pgtype.Timestamp `json:"activatedAt"`
 	ExtendedCoverBuyBy pgtype.Timestamp `json:"extendedCoverBuyBy"`
+	Currency           string           `json:"currency"`
+	FxRate             *int32           `json:"fxRate"`
 }
 
 func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Device, error) {
@@ -745,6 +773,8 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		arg.ActivationRequired,
 		arg.ActivatedAt,
 		arg.ExtendedCoverBuyBy,
+		arg.Currency,
+		arg.FxRate,
 	)
 	var i Device
 	err := row.Scan(
@@ -774,6 +804,8 @@ func (q *Queries) UpdateDevice(ctx context.Context, arg UpdateDeviceParams) (Dev
 		&i.ActivationNotifiedAt,
 		&i.ExtendedCoverNotifiedAt,
 		&i.ExtendedCoverNotifiedLeadDay,
+		&i.Currency,
+		&i.FxRate,
 	)
 	return i, err
 }

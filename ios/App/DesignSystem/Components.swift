@@ -705,16 +705,21 @@ struct WVProgressBar: View {
 
 // MARK: - Money field
 
-/// Numeric VND input that renders grouped digits while editing.
+/// Numeric money input that renders grouped digits while editing.
+///
+/// `groupingSeparator` follows the currency: `.` for VND (`25.000.000`) and `,`
+/// for a foreign amount (`1,299`). Both are display-only — the binding remains
+/// a plain `Int`.
 struct WVMoneyField: View {
     @Binding var value: Int?
     var placeholder: String = "0 ₫"
+    var groupingSeparator: String = "."
 
     private var text: Binding<String> {
         Binding(
             get: {
                 guard let v = value else { return "" }
-                return Self.formatter.string(from: NSNumber(value: v)) ?? "\(v)"
+                return Self.formatted(v, separator: groupingSeparator)
             },
             set: { raw in
                 let digits = raw.filter(\.isNumber)
@@ -722,12 +727,15 @@ struct WVMoneyField: View {
             }
         )
     }
-    private static let formatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.groupingSeparator = "."
-        return f
-    }()
+
+    private static func formatted(_ value: Int, separator: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = separator
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
 
     var body: some View {
         TextField(placeholder, text: text)

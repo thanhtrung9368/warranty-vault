@@ -660,4 +660,25 @@ class ApiClientNetworkTest {
         // No thresholds in the payload must not throw — the rule line is omitted.
         assertEquals(null, finding.material)
     }
+
+    /**
+     * `GET /api/v1/fx/rates?base=USD` — the optional helper behind "Lấy tỷ giá".
+     * The base goes in the query; the quote map is decoded as numbers (a whole
+     * number must decode into `Double`, because a server may serialise 25470
+     * rather than 25470.0).
+     */
+    @Test
+    fun getFxRates_queriesTheBaseAndDecodesTheQuoteMap() = runBlocking {
+        enqueueJson(
+            """{"base":"USD","rates":{"VND":25470},"fetchedAt":"2026-10-19T00:00:00Z","stale":false}""",
+        )
+
+        val rates = api().getFxRates("USD")
+
+        assertEquals("USD", rates.base)
+        assertEquals(25_470.0, rates.rates.getValue("VND"), 0.0)
+        assertEquals("2026-10-19T00:00:00Z", rates.fetchedAt)
+        assertEquals(false, rates.stale)
+        assertEquals("/api/v1/fx/rates?base=USD", server.takeRequest().path)
+    }
 }

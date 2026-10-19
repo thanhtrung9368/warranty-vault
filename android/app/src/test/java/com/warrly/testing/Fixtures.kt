@@ -9,6 +9,7 @@ import com.warrly.network.BrandServiceInfo
 import com.warrly.network.Claim
 import com.warrly.network.ClaimStatus
 import com.warrly.network.CreatedDeviceShare
+import com.warrly.network.DEFAULT_CURRENCY
 import com.warrly.network.Device
 import com.warrly.network.DeviceShare
 import com.warrly.network.DeviceStats
@@ -48,8 +49,12 @@ object Fixtures {
         brand: String? = "Apple",
         serialNumber: String? = null,
         purchasePrice: Int = 30_000_000,
+        currency: String = DEFAULT_CURRENCY,
+        fxRate: Int? = null,
+        purchasePriceVnd: Long? = null,
         soldAt: String? = null,
         soldPrice: Int? = null,
+        soldPriceVnd: Long? = null,
         returnWindowDays: Int? = null,
         receivedAt: String? = null,
         returnDeadline: String? = null,
@@ -61,11 +66,15 @@ object Fixtures {
         brand = brand,
         purchaseDate = "2024-03-01",
         purchasePrice = purchasePrice,
+        currency = currency,
+        fxRate = fxRate,
+        purchasePriceVnd = purchasePriceVnd,
         serialNumber = serialNumber,
         status = status,
         notes = null,
         soldAt = soldAt,
         soldPrice = soldPrice,
+        soldPriceVnd = soldPriceVnd,
         returnWindowDays = returnWindowDays,
         receivedAt = receivedAt,
         returnDeadline = returnDeadline,

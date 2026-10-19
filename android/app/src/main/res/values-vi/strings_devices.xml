@@ -70,7 +70,22 @@
     <string name="devadd_scan_upload_missing_id">Máy chủ không trả về tệp vừa tải lên nên không quét tiếp được.</string>
     <string name="devadd_device_name">Tên thiết bị *</string>
     <string name="devadd_serial_number">Số serial</string>
+    <string name="devadd_price">Giá</string>
     <string name="devadd_price_vnd">Giá (VND)</string>
+    <!-- ===== Thiết bị đa tiền tệ (DeviceCurrency.kt, AddDeviceSheet.kt,
+         DevicesScreen.kt, DeviceDetailScreen.kt). Giá mua, giá bán và chi phí
+         bảo hành tính theo tiền tệ của thiết bị; tỷ giá chốt tại lúc nhập. ===== -->
+    <string name="devadd_currency">Tiền tệ</string>
+    <string name="devadd_fx_rate">Tỷ giá (VND cho 1 %1$s)</string>
+    <string name="devadd_fetch_rate">Lấy tỷ giá</string>
+    <string name="devadd_fx_fetching">Đang lấy tỷ giá…</string>
+    <string name="devadd_fx_required_hint">Bắt buộc khi tiền tệ không phải VND.</string>
+    <string name="devadd_fx_equivalent">Giá trị VND: %1$s</string>
+    <string name="devadd_fx_unavailable">Dịch vụ tỷ giá đang tạm không khả dụng. Bạn hãy tự nhập tỷ giá.</string>
+    <string name="devadd_fx_no_vnd_quote">Không nhận được tỷ giá VND cho %1$s. Bạn hãy tự nhập tỷ giá.</string>
+    <string name="devadd_fx_stale">Tỷ giá này có thể đã cũ — hãy kiểm tra lại trước khi lưu.</string>
+    <string name="devadd_fx_failed">Không lấy được tỷ giá: %1$s</string>
+    <string name="devadd_sale_price_currency">Giá bán (%1$s)</string>
     <string name="devadd_purchase_date_yyyy_mm_dd">Ngày mua (YYYY-MM-DD) *</string>
     <string name="devadd_warranty_length_months">Số tháng bảo hành</string>
     <!-- ===== Bảo hành &amp; kích hoạt / hạn mua gói mở rộng
@@ -81,7 +96,6 @@
     <string name="devadd_extended_cover_buy_by_yyyy_mm_dd">Hạn mua gói mở rộng (YYYY-MM-DD)</string>
     <string name="devadd_warranty_activation_hint">Máy chưa kích hoạt có thể bị từ chối ở quầy. Gói mở rộng (AppleCare+, Samsung Care+) chỉ mua được trước hạn này.</string>
     <string name="devadd_resale_details_optional">Thông tin bán lại (tuỳ chọn)</string>
-    <string name="devadd_sale_price_vnd">Giá bán (VND)</string>
     <string name="devadd_sale_date_yyyy_mm_dd">Ngày bán (YYYY-MM-DD)</string>
     <string name="devadd_fill_in_both_to_record_a">Nhập cả hai để ghi nhận đã bán (0 ₫ = cho tặng). Để trống cả hai nếu chưa bán.</string>
     <string name="devadd_note">Ghi chú</string>
@@ -101,6 +115,10 @@
     <string name="devdetail_tap_to_add_the_first_plan">Bấm nút + để thêm gói đầu tiên.</string>
     <string name="devdetail_bought_on">Mua ngày</string>
     <string name="devdetail_price">Giá</string>
+    <string name="devdetail_price_vnd">Giá quy đổi VND</string>
+    <string name="devdetail_currency">Tiền tệ</string>
+    <string name="devdetail_locked_rate">Tỷ giá đã chốt</string>
+    <string name="devdetail_rate_value">1 %1$s = %2$s</string>
     <string name="devdetail_return_window">Hạn đổi trả</string>
     <string name="devdetail_activation">Kích hoạt</string>
     <string name="devdetail_activation_required">Chưa kích hoạt</string>
@@ -144,7 +162,7 @@
     <string name="warr_edit_warranty_plan">Sửa gói bảo hành</string>
     <string name="warr_start_date_yyyy_mm_dd">Ngày bắt đầu (YYYY-MM-DD) *</string>
     <string name="warr_months">Số tháng *</string>
-    <string name="warr_cost_vnd">Chi phí (VND)</string>
+    <string name="warr_cost_currency">Chi phí (%1$s)</string>
     <string name="warr_address">Địa chỉ</string>
     <string name="warr_note">Ghi chú</string>
     <string name="warr_warranty_type">Loại bảo hành</string>

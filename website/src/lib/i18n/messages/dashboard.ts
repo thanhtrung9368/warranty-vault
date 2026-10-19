@@ -117,6 +117,11 @@ export const dashboard = defineMessages({
     { en: '{count} devices with no purchase date', enOne: '{count} device with no purchase date' },
   '{count} thiết bị chưa ghi giá':
     { en: '{count} devices with no recorded price', enOne: '{count} device with no recorded price' },
+  '{count} thiết bị thiếu tỷ giá':
+    {
+      en: '{count} foreign-currency devices with no exchange rate',
+      enOne: '{count} foreign-currency device with no exchange rate',
+    },
   'Không tải được dự báo chi tiêu — phần dự báo tạm ẩn, thử tải lại trang nhé.':
     'Could not load the spending forecast — that section is hidden for now, try reloading the page.',
 

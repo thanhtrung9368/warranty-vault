@@ -31,10 +31,16 @@ final class StatsRollupTests: KitTestCase {
                         price: Int,
                         status: String = "ACTIVE",
                         warrantyEnd: String? = nil,
-                        attachmentCount: Int? = nil) throws -> Device {
+                        attachmentCount: Int? = nil,
+                        currency: String? = nil,
+                        fxRate: Int? = nil,
+                        purchasePriceVnd: Int? = nil) throws -> Device {
         var extra = ""
         if let warrantyEnd { extra += #","effectiveWarrantyEnd":"\#(warrantyEnd)""# }
         if let attachmentCount { extra += #","attachmentCount":\#(attachmentCount)"# }
+        if let currency { extra += #","currency":"\#(currency)""# }
+        if let fxRate { extra += #","fxRate":\#(fxRate)"# }
+        if let purchasePriceVnd { extra += #","purchasePriceVnd":\#(purchasePriceVnd)"# }
         let json = """
         {"id":"\(id)","name":"\(id)","category":"\(category)",
          "purchaseDate":"\(purchased)","purchasePrice":\(price),
@@ -303,6 +309,102 @@ final class StatsRollupTests: KitTestCase {
         XCTAssertEqual(StatsRollup.topDevices(devices, limit: 2).map(\.id), ["pricey", "mid"])
         XCTAssertEqual(StatsRollup.topDevices(devices).map(\.id), ["pricey", "mid", "cheap"])
         XCTAssertTrue(StatsRollup.topDevices(devices, limit: 0).isEmpty)
+    }
+
+    // MARK: - Multi-currency ledger
+
+    func testBuildEntriesUsesTheServerVndValueForAForeignDevice() throws {
+        // $999 at 25,400 is 25,374,600 ₫. The ledger must contain that, never
+        // the native 999 (which would add the price of a coffee to the total).
+        let phone = try device("phone", category: "PHONE",
+                               purchased: "2026-03-01T00:00:00Z", price: 999,
+                               currency: "USD", fxRate: 25_400,
+                               purchasePriceVnd: 25_374_600)
+
+        let entries = StatsRollup.buildEntries(devices: [phone], warrantiesByDevice: [:])
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries.first?.amount, 25_374_600)
+        XCTAssertEqual(entries.first?.kind, .device)
+    }
+
+    func testBuildEntriesConvertsWarrantyCostAtTheLockedRate() throws {
+        let phone = try device("phone", category: "PHONE",
+                               purchased: "2026-03-01T00:00:00Z", price: 999,
+                               currency: "USD", fxRate: 25_400,
+                               purchasePriceVnd: 25_374_600)
+        let warranties: [String: [Warranty]] = [
+            "phone": [try warranty("w1", cost: 99,
+                                   start: "2026-03-01T00:00:00Z",
+                                   end: "2028-03-01T00:00:00Z")],
+        ]
+
+        let entries = StatsRollup.buildEntries(devices: [phone], warrantiesByDevice: warranties)
+        let warrantyEntry = try XCTUnwrap(entries.first { $0.kind == .warranty })
+
+        XCTAssertEqual(warrantyEntry.amount, 2_514_600, "99 USD × the locked 25,400")
+        XCTAssertEqual(StatsRollup.totals(entries).total, 27_889_200)
+    }
+
+    func testAForeignPriceWithoutServerVndContributesZeroNotItsNativeNumber() throws {
+        let phone = try device("phone", category: "PHONE",
+                               purchased: "2026-03-01T00:00:00Z", price: 999,
+                               currency: "USD", fxRate: 25_400)
+        let mac = try device("mac", category: "LAPTOP",
+                             purchased: "2026-03-01T00:00:00Z", price: 30_000_000)
+
+        let entries = StatsRollup.buildEntries(devices: [phone, mac], warrantiesByDevice: [:])
+
+        XCTAssertEqual(entries.count, 2, "the row still exists, so the device count is right")
+        XCTAssertEqual(entries.first?.amount, 0)
+        XCTAssertEqual(entries.last?.amount, 30_000_000)
+        XCTAssertEqual(StatsRollup.totals(entries).total, 30_000_000)
+    }
+
+    func testTopDevicesRankByVndNotByTheNativeNumber() throws {
+        let cable = try device("cable", purchased: "2026-01-01T00:00:00Z", price: 100_000)
+        let phone = try device("phone", purchased: "2026-01-01T00:00:00Z", price: 999,
+                               currency: "USD", fxRate: 25_400,
+                               purchasePriceVnd: 25_374_600)
+        let laptop = try device("laptop", purchased: "2026-01-01T00:00:00Z", price: 30_000_000)
+
+        // Native-price sorting would put the 999 USD phone below the 100,000 ₫
+        // cable. VND sorting puts it where it belongs.
+        XCTAssertEqual(StatsRollup.topDevices([cable, phone, laptop]).map(\.id),
+                       ["laptop", "phone", "cable"])
+    }
+
+    func testTheListPriceSortIsAlsoInVndInBothDirections() throws {
+        let cable = try device("cable", purchased: "2026-01-01T00:00:00Z", price: 100_000)
+        let phone = try device("phone", purchased: "2026-01-01T00:00:00Z", price: 999,
+                               currency: "USD", fxRate: 25_400,
+                               purchasePriceVnd: 25_374_600)
+        let laptop = try device("laptop", purchased: "2026-01-01T00:00:00Z", price: 30_000_000)
+        // A foreign row with no server VND value is not comparable: last.
+        let unknown = try device("unknown", purchased: "2026-01-01T00:00:00Z", price: 2,
+                                 currency: "EUR", fxRate: 27_000)
+
+        let devices = [cable, phone, laptop, unknown]
+        XCTAssertEqual(StatsRollup.sortedByPurchaseValue(devices, descending: true).map(\.id),
+                       ["laptop", "phone", "cable", "unknown"])
+        XCTAssertEqual(StatsRollup.sortedByPurchaseValue(devices, descending: false).map(\.id),
+                       ["cable", "phone", "laptop", "unknown"])
+    }
+
+    func testAssetValueAndTotalPurchaseValueAreSummedInVnd() throws {
+        let end = "2027-01-01T00:00:00Z"
+        let phone = try device("phone", purchased: "2026-01-01T00:00:00Z", price: 999,
+                               warrantyEnd: end, currency: "USD", fxRate: 25_400,
+                               purchasePriceVnd: 25_374_600)
+        let laptop = try device("laptop", purchased: "2026-01-01T00:00:00Z", price: 30_000_000,
+                                warrantyEnd: end)
+
+        let asset = StatsRollup.activeAssetValue([phone, laptop],
+                                                 now: instant("2026-06-01T00:00:00Z"))
+        XCTAssertEqual(asset.total, 55_374_600)
+        XCTAssertEqual(asset.count, 2)
+        XCTAssertEqual(StatsRollup.totalPurchaseValue([phone, laptop]), 55_374_600)
+        XCTAssertEqual(StatsRollup.totalPurchaseValue([]), 0)
     }
 
     // MARK: - effectiveWarrantyEnd

@@ -18,7 +18,8 @@ import { WarrantyPill } from '@/components/warranty-pill';
 import { WarrantyForm } from '@/components/warranty-form';
 import { deleteWarranty } from '@/app/actions/warranties';
 import { type WarrantyType } from '@/lib/types';
-import { formatDate, formatVND } from '@/lib/format';
+import { formatDate } from '@/lib/format';
+import { formatMoney } from '@/lib/currency';
 import { warrantyTypeLabel } from '@/lib/i18n/labels';
 import { useLocale, useT } from '@/lib/i18n/client';
 import {
@@ -109,9 +110,11 @@ function TermLine({
 
 function WarrantyCard({
   w,
+  currency,
   onEdit,
 }: {
   w: WarrantyItem;
+  currency: string;
   onEdit: () => void;
 }) {
   const [pending, startTransition] = React.useTransition();
@@ -198,7 +201,11 @@ function WarrantyCard({
 
       <div className="mt-3 grid gap-x-6 sm:grid-cols-2">
         {w.cost != null && (
-          <InfoLine icon={Wallet} label={t('Giá gói')} value={formatVND(w.cost, locale)} />
+          <InfoLine
+            icon={Wallet}
+            label={t('Giá gói')}
+            value={formatMoney(w.cost, currency, locale)}
+          />
         )}
         <InfoLine
           icon={PhoneIcon}
@@ -249,10 +256,13 @@ function WarrantyCard({
 export function WarrantyList({
   deviceId,
   warranties,
+  currency = 'VND',
   maxPerDevice = 5,
 }: {
   deviceId: string;
   warranties: WarrantyItem[];
+  /** ISO-4217 code of the device: every `Warranty.cost` is in this currency. */
+  currency?: string;
   maxPerDevice?: number;
 }) {
   const [adding, setAdding] = React.useState(false);
@@ -279,6 +289,7 @@ export function WarrantyList({
             </h4>
             <WarrantyForm
               deviceId={deviceId}
+              currency={currency}
               initial={{
                 id: w.id,
                 type: w.type as WarrantyType,
@@ -306,6 +317,7 @@ export function WarrantyList({
           <WarrantyCard
             key={w.id}
             w={w}
+            currency={currency}
             onEdit={() => setEditingId(w.id)}
           />
         ),
@@ -316,7 +328,7 @@ export function WarrantyList({
           <h4 className="mb-3 text-sm font-bold text-primary-ink">
             {t('Thêm gói bảo hành')}
           </h4>
-          <WarrantyForm deviceId={deviceId} onCancel={() => setAdding(false)} />
+          <WarrantyForm deviceId={deviceId} currency={currency} onCancel={() => setAdding(false)} />
         </div>
       )}
 

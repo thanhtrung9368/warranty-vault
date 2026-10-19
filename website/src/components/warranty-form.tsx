@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { WARRANTY_TYPES, type WarrantyType } from '@/lib/types';
 import { formatNumber, parseVNDInput } from '@/lib/format';
+import { currencySuffix } from '@/lib/currency';
 import { warrantyTypeLabel } from '@/lib/i18n/labels';
 import { useLocale, useT } from '@/lib/i18n/client';
 import {
@@ -73,10 +74,12 @@ function MoneyInput({
   defaultValue,
   name,
   id,
+  currency = 'VND',
 }: {
   defaultValue?: number | null;
   name: string;
   id?: string;
+  currency?: string;
 }) {
   // `formatNumber` needs the locale (1.200.000 / 1,200,000), so the input reads
   // it from the provider rather than taking a prop.
@@ -109,7 +112,7 @@ function MoneyInput({
         className="pr-10"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-        ₫
+        {currencySuffix(currency)}
       </span>
       {/* Blank (not 0) when nothing was entered, so the action's `num()`
           returns undefined and the wire value is null. */}
@@ -124,10 +127,13 @@ function MoneyInput({
 
 export function WarrantyForm({
   deviceId,
+  currency = 'VND',
   initial,
   onCancel,
 }: {
   deviceId: string;
+  /** Device currency: `Warranty.cost` is denominated in it, not đồng. */
+  currency?: string;
   initial?: Initial;
   onCancel?: () => void;
 }) {
@@ -227,8 +233,15 @@ export function WarrantyForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cost">{t('Giá gói (VND)')}</Label>
-          <MoneyInput id="cost" defaultValue={initial?.cost} name="cost" />
+          <Label htmlFor="cost">
+            {t('Giá gói ({currency})', { currency })}
+          </Label>
+          <MoneyInput
+            id="cost"
+            defaultValue={initial?.cost}
+            name="cost"
+            currency={currency}
+          />
         </div>
 
         <div className="space-y-2">

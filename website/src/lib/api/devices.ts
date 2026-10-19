@@ -43,7 +43,16 @@ export type DeviceInput = {
   serialNumber?: string | null;
   // YYYY-MM-DD or full RFC3339 — the Go server accepts both.
   purchaseDate: string;
+  /** In `currency`, not necessarily đồng. */
   purchasePrice?: number;
+  // Currency of `purchasePrice`, `soldPrice` and every `Warranty.cost` on this
+  // device. ISO-4217, defaults to VND on the server. The form always sends it,
+  // including on PATCH (which replaces the whole device).
+  currency?: string;
+  // VND per ONE unit of `currency`, locked when the device is entered. Must be
+  // null for VND and is required for every other currency; the action rejects a
+  // missing rate before the request. Also always sent on PATCH.
+  fxRate?: number | null;
   purchasePlace?: string | null;
   status?: 'ACTIVE' | 'EXPIRED' | 'SOLD' | 'BROKEN' | 'LOST';
   notes?: string | null;
@@ -108,6 +117,21 @@ export type Device = {
   serialNumber: string | null;
   purchaseDate: string;
   purchasePrice: number;
+  // Money on the device is denominated in `currency`, not đồng. `fxRate` is the
+  // locked VND-per-unit rate (null exactly when the currency is VND).
+  currency: string;
+  fxRate: number | null;
+  // Computed by the server. These are the ONLY device-money values a total may
+  // sum: do not multiply `purchasePrice` by `fxRate` in the web client (the
+  // server owns the rounding and the historical lock).
+  //
+  // `purchasePriceVnd` is ALWAYS present but nullable: `null` means "cannot be
+  // known" (a non-VND row with no stored rate, only reachable via hand-edited
+  // data). Such a row must not be added to a VND total at par.
+  purchasePriceVnd: number | null;
+  // Absent (not `null`) on the wire when the device is not sold, because Go
+  // tags it `omitempty`; optional handles both.
+  soldPriceVnd?: number | null;
   purchasePlace: string | null;
   status: string;
   notes: string | null;
@@ -173,6 +197,12 @@ export type Warranty = {
   startDate: string;
   endDate: string;
   months: number;
+  /**
+   * Price paid for this package, in the DEVICE's currency (not necessarily
+   * VND). The frozen contract exposes no `costVnd`, so a foreign-currency
+   * package cannot be added to a VND total in the web client — see
+   * `lib/stats-rollup.ts`, which excludes it and says so in the UI.
+   */
   cost: number | null;
   address: string | null;
   phone: string | null;

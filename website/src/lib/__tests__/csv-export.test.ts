@@ -36,6 +36,12 @@ function device(over: Partial<DeviceListItem> = {}): DeviceListItem {
     serialNumber: 'SN-0001',
     purchaseDate: '2024-03-08T00:00:00Z',
     purchasePrice: 15000000,
+    // Multi-currency wire shape. This fixture is a VND device, so the server's
+    // VND value equals the raw price.
+    currency: 'VND',
+    fxRate: null,
+    purchasePriceVnd: 15000000,
+    soldPriceVnd: null,
     purchasePlace: 'Điện Máy Xanh',
     status: 'ACTIVE',
     notes: null,

@@ -64,6 +64,12 @@ WHERE id = $1
 LIMIT 1;
 
 -- name: CreateDevice :one
+-- currency/fxRate (migration 0022): fxRate is the VND value of one unit of
+-- currency, LOCKED at entry. services.ValidateDeviceInput + resolveCreateCurrency
+-- normalise and default currency, but the wishlist -> PURCHASED path calls this
+-- query directly, so an empty param is mapped to 'VND' here as well — the same
+-- default the column carries. fxRate is NULL for VND and for a row whose rate
+-- was never recorded.
 INSERT INTO "Device" (
     id,
     "userId",
@@ -85,6 +91,8 @@ INSERT INTO "Device" (
     "activatedAt",
     "extendedCoverBuyBy",
     "leadDays",
+    currency,
+    "fxRate",
     "createdAt",
     "updatedAt"
 ) VALUES (
@@ -93,6 +101,8 @@ INSERT INTO "Device" (
     $11, $12, $13, $14, $15,
     $16, $17, $18,
     COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]::int[]),
+    COALESCE(NULLIF(sqlc.arg('currency')::text, ''), 'VND'),
+    sqlc.narg('fxRate')::int,
     NOW(),
     NOW()
 )
@@ -118,6 +128,8 @@ UPDATE "Device" SET
     "activationRequired" = $18,
     "activatedAt" = $19,
     "extendedCoverBuyBy" = $20,
+    currency = $21,
+    "fxRate" = $22,
     "updatedAt" = NOW()
 WHERE id = $1 AND "userId" = $2
 RETURNING *;

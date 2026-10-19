@@ -146,7 +146,29 @@ struct DeviceDetailView: View {
         return (day,
                 price,
                 DeviceResale.profitLoss(purchasePrice: currentDevice.purchasePrice,
-                                        soldPrice: price))
+                                        soldPrice: price,
+                                        currency: currentDevice.currency))
+    }
+
+    /// The purchase price as the row shows it: the amount **in its own
+    /// currency**, plus the server's VND equivalent when the device was priced
+    /// abroad. The VND line is not a client conversion — it is
+    /// `purchasePriceVnd` from the read, computed at the rate locked at entry.
+    private var purchasePriceDisplay: (detail: String, subtitle: String?) {
+        let detail = WVFormat.currency(currentDevice.purchasePrice, currentDevice.currency)
+        guard currentDevice.usesForeignCurrency,
+              let vnd = currentDevice.purchasePriceInVnd else {
+            return (detail, nil)
+        }
+        return (detail, "≈ " + WVFormat.vnd(vnd))
+    }
+
+    /// The VND equivalent of a recorded sale, or nil when there is nothing to
+    /// show (no sale, or a VND device whose row already is VND).
+    private var soldPriceVndDisplay: String? {
+        guard currentDevice.usesForeignCurrency,
+              let vnd = currentDevice.soldPriceInVnd else { return nil }
+        return "≈ " + WVFormat.vnd(vnd)
     }
 
     // MARK: - Body
@@ -191,7 +213,19 @@ struct DeviceDetailView: View {
                     WVDivider(inset: 60)
                     WVRow(icon: "wallet", iconColor: WVColor.green,
                           title: L.t("Giá mua"),
-                          detail: WVFormat.vnd(currentDevice.purchasePrice))
+                          subtitle: purchasePriceDisplay.subtitle,
+                          detail: purchasePriceDisplay.detail)
+                    if currentDevice.usesForeignCurrency {
+                        WVDivider(inset: 60)
+                        // The locked rate, stated so the two prices above make
+                        // sense together. It is history, not a live quote.
+                        WVRow(icon: "globe", iconColor: WVColor.blue,
+                              title: L.t("Tiền tệ"),
+                              subtitle: currentDevice.fxRate.map {
+                                  L.t("1 %@ = %@", currentDevice.currencyCode, WVFormat.rate($0))
+                              },
+                              detail: currentDevice.currencyCode)
+                    }
                     WVDivider(inset: 60)
                     WVRow(icon: "store", iconColor: WVColor.orange,
                           title: L.t("Nơi mua"),
@@ -256,7 +290,8 @@ struct DeviceDetailView: View {
                             if sale.day != nil { WVDivider(inset: 60) }
                             WVRow(icon: "wallet", iconColor: WVColor.green,
                                   title: L.t("Giá bán"),
-                                  detail: WVFormat.vnd(price))
+                                  subtitle: soldPriceVndDisplay,
+                                  detail: WVFormat.currency(price, currentDevice.currency))
                         }
                         if let profit = sale.profit {
                             WVDivider(inset: 60)
@@ -463,7 +498,9 @@ struct DeviceDetailView: View {
             }
         }
         .navigationDestination(for: WarrantyFormNav.self) { nav in
-            WarrantyFormView(store: store, warranty: nav.warranty)
+            // The fee is in the device's currency, so the form labels the unit.
+            WarrantyFormView(store: store, warranty: nav.warranty,
+                             currency: currentDevice.currencyCode)
         }
         .alert(L.t("Xoá thiết bị?"), isPresented: $showDeleteAlert) {
             Button(L.t("Huỷ"), role: .cancel) {}
@@ -584,6 +621,13 @@ struct DeviceDetailView: View {
         input.serialNumber = d.serialNumber
         input.purchasePlace = d.purchasePlace
         input.purchasePrice = d.purchasePrice
+        // The currency trio is full-replacement too. A status tap must never
+        // re-denominate the stored price: without these two the server would
+        // read the row back as VND and a $999 device would become 999 ₫.
+        input.currency = d.currencyCode
+        // A VND row must send a null rate (the server rejects VND + rate); a
+        // foreign row sends the rate it was stored with, untouched.
+        input.fxRate = CurrencyRules.requiresRate(d.currency) ? d.fxRate : nil
         input.status = status
         input.notes = d.notes
         // A status tap is not an edit to the reminder schedule. The contract

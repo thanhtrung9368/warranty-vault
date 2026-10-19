@@ -51,6 +51,7 @@ import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
+import { formatMoney, needsFxRate } from '@/lib/currency';
 import { hasSaleRecorded, saleProfitLoss } from '@/lib/device-resale';
 import { returnDeadlineNote } from '@/lib/device-return-window';
 import {
@@ -151,11 +152,30 @@ export default async function DeviceDetailPage({
   );
   // Resale (roadmap #12). The API returns both halves or neither; the
   // profit/loss versus `purchasePrice` is computed client-side on purpose
-  // (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)").
+  // (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)") and is in
+  // the DEVICE's currency, not đồng.
   const saleRecorded = hasSaleRecorded(device);
   const profitLoss =
     device.soldPrice != null
-      ? saleProfitLoss(device.purchasePrice, device.soldPrice, locale)
+      ? saleProfitLoss(
+          device.purchasePrice,
+          device.soldPrice,
+          locale,
+          device.currency,
+        )
+      : null;
+  // A foreign-currency device is the case where raw amounts and VND totals
+  // differ. Every `…Vnd` figure below comes from the server; the raw amount is
+  // only ever formatted with its own currency.
+  const isForeignCurrency = needsFxRate(device.currency);
+  const purchasePriceLabel = formatMoney(
+    device.purchasePrice,
+    device.currency,
+    locale,
+  );
+  const soldPriceLabel =
+    device.soldPrice != null
+      ? formatMoney(device.soldPrice, device.currency, locale)
       : null;
   // Chi phí sở hữu mỗi ngày (FEATURE_IDEAS #7). Pure helper in
   // `@/lib/stats-rollup` — the same function the /stats ranking uses, so the
@@ -239,8 +259,38 @@ export default async function DeviceDetailPage({
               <InfoRow
                 icon={Wallet}
                 label={t('Giá mua')}
-                value={formatVND(device.purchasePrice, locale)}
+                value={
+                  <>
+                    <span>{purchasePriceLabel}</span>
+                    {isForeignCurrency && device.purchasePriceVnd != null && (
+                      <span className="block text-xs tabular-nums text-muted-foreground">
+                        {t('≈ {amount}', {
+                          amount: formatVND(device.purchasePriceVnd, locale),
+                        })}
+                      </span>
+                    )}
+                  </>
+                }
               />
+              {isForeignCurrency && device.fxRate != null && (
+                <InfoRow
+                  icon={Coins}
+                  label={t('Tỷ giá đã khoá')}
+                  value={
+                    <span className="block">
+                      {t('1 {currency} = {rate}', {
+                        currency: device.currency,
+                        rate: formatVND(device.fxRate, locale),
+                      })}
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {t(
+                          'Tỷ giá được khoá tại thời điểm nhập, không đổi theo thị trường.',
+                        )}
+                      </span>
+                    </span>
+                  }
+                />
+              )}
               <InfoRow icon={Store} label={t('Nơi mua')} value={device.purchasePlace} />
               <InfoRow
                 icon={Hash}
@@ -271,7 +321,18 @@ export default async function DeviceDetailPage({
                   icon={Wallet}
                   label={t('Giá bán')}
                   value={
-                    device.soldPrice != null ? formatVND(device.soldPrice, locale) : null
+                    soldPriceLabel != null ? (
+                      <>
+                        <span>{soldPriceLabel}</span>
+                        {isForeignCurrency && device.soldPriceVnd != null && (
+                          <span className="block text-xs tabular-nums text-muted-foreground">
+                            {t('≈ {amount}', {
+                              amount: formatVND(device.soldPriceVnd, locale),
+                            })}
+                          </span>
+                        )}
+                      </>
+                    ) : null
                   }
                 />
                 {profitLoss && (
@@ -291,7 +352,7 @@ export default async function DeviceDetailPage({
                         {profitLoss.label}
                         <span className="ml-1 font-normal text-muted-foreground">
                           {t('(giá mua {amount})', {
-                            amount: formatVND(device.purchasePrice, locale),
+                            amount: purchasePriceLabel,
                           })}
                         </span>
                       </span>
@@ -450,6 +511,8 @@ export default async function DeviceDetailPage({
             <CardContent>
               <WarrantyList
                 deviceId={device.id}
+                // `Warranty.cost` is in the device's currency, not đồng.
+                currency={device.currency}
                 warranties={device.warranties.map((w) => ({
                   id: w.id,
                   type: w.type,
@@ -624,6 +687,8 @@ export default async function DeviceDetailPage({
                   </div>
 
                   {(perDay.hasUnrecordedWarrantyCost ||
+                    perDay.hasUnconvertedWarrantyCost ||
+                    perDay.hasUnknownPurchaseValue ||
                     perDay.soldBeforePurchase ||
                     perDay.hasUndatedSale ||
                     perDay.fullyRecovered ||
@@ -634,6 +699,20 @@ export default async function DeviceDetailPage({
                       )}
                       {perDay.hasUnrecordedWarrantyCost && (
                         <li>{t('Có gói bảo hành chưa ghi giá — con số này chỉ là mức tối thiểu.')}</li>
+                      )}
+                      {perDay.hasUnconvertedWarrantyCost && (
+                        <li>
+                          {t(
+                            'Có gói bảo hành bằng ngoại tệ chưa được quy đổi — con số này chưa gồm gói đó.',
+                          )}
+                        </li>
+                      )}
+                      {perDay.hasUnknownPurchaseValue && (
+                        <li>
+                          {t(
+                            'Thiết bị ngoại tệ này thiếu tỷ giá nên chưa quy được giá mua — con số này chỉ gồm phần đã biết.',
+                          )}
+                        </li>
                       )}
                       {perDay.soldBeforePurchase && (
                         <li>{t('Ngày bán trước ngày mua — dữ liệu có vẻ sai, tạm tính 1 ngày.')}</li>

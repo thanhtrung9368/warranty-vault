@@ -19,6 +19,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/config"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/handlers"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
@@ -66,6 +67,7 @@ func main() {
 		Email:      email.NewFromEnv(),
 		Dispatcher: push.NewFromEnv(),
 		AI:         ai.NewFromEnv(),
+		FX:         fx.NewFromEnv(),
 	}
 
 	mux := http.NewServeMux()
@@ -104,6 +106,7 @@ func main() {
 	handlers.RegisterBackup(mux, deps)
 	handlers.RegisterAI(mux, deps)
 	handlers.RegisterInboxEmail(mux, deps)
+	handlers.RegisterFX(mux, deps)
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})

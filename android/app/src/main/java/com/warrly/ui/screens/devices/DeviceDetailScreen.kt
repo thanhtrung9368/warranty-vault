@@ -69,6 +69,7 @@ import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
 import com.warrly.network.Claim
+import com.warrly.network.DEFAULT_CURRENCY
 import com.warrly.network.Device
 import com.warrly.network.DeviceWarning
 import com.warrly.network.Warranty
@@ -325,6 +326,7 @@ fun DeviceDetailScreen(
         WarrantyEditSheet(
             api = api,
             deviceId = deviceLoaded.id,
+            currency = deviceLoaded.currency,
             existing = null,
             onDismiss = { showAddSheet = false },
             onSaved = {
@@ -354,6 +356,7 @@ fun DeviceDetailScreen(
         WarrantyEditSheet(
             api = api,
             deviceId = deviceLoaded.id,
+            currency = deviceLoaded.currency,
             existing = editing,
             onDismiss = { editingWarrantyId = null },
             onSaved = {
@@ -640,6 +643,7 @@ private fun DeviceDetailBody(
             items(device.warranties, key = { it.id }) { warranty ->
                 WarrantyCard(
                     warranty = warranty,
+                    currency = device.currency,
                     onEdit = { onEdit(warranty) },
                     onDelete = { onDelete(warranty) },
                     onToggleReminder = { onToggleReminder(warranty) },
@@ -674,7 +678,39 @@ private fun DeviceSummaryCard(device: Device) {
             DetailRow(stringResource(R.string.devadd_status), stringResource(device.status.labelRes))
             DetailRow(stringResource(R.string.devdetail_bought_on), device.purchaseDate.take(10))
             if (device.purchasePrice > 0) {
-                DetailRow(stringResource(R.string.devdetail_price), formatVnd(device.purchasePrice))
+                // Native currency first — "$999" must never read as dong.
+                DetailRow(
+                    stringResource(R.string.devdetail_price),
+                    formatDeviceMoney(device.purchasePrice.toLong(), device.currency),
+                )
+                // The server-converted value that feeds the stats totals, shown
+                // only for a foreign device (for VND it would just repeat the
+                // row above). Never computed here: `purchasePriceVnd` is what
+                // the API stored at the locked rate.
+                if (normalizeCurrency(device.currency) != DEFAULT_CURRENCY) {
+                    devicePurchasePriceVnd(device)?.let { vnd ->
+                        DetailRow(stringResource(R.string.devdetail_price_vnd), formatVnd(vnd))
+                    }
+                }
+            }
+            // The currency and the rate LOCKED at entry, stated so the native
+            // price and its VND value above make sense together. It is history,
+            // not a live quote, and the row disappears for a VND device.
+            if (normalizeCurrency(device.currency) != DEFAULT_CURRENCY) {
+                DetailRow(
+                    stringResource(R.string.devdetail_currency),
+                    normalizeCurrency(device.currency),
+                )
+                device.fxRate?.let { rate ->
+                    DetailRow(
+                        stringResource(R.string.devdetail_locked_rate),
+                        stringResource(
+                            R.string.devdetail_rate_value,
+                            normalizeCurrency(device.currency),
+                            formatVnd(rate),
+                        ),
+                    )
+                }
             }
             // Exchange/return window — READ-ONLY display of the server's derived
             // `returnDeadline` (migration 0010). Shown only when the server says
@@ -749,8 +785,15 @@ private fun DeviceSummaryCard(device: Device) {
                 }
                 val soldPrice = device.soldPrice
                 if (soldPrice != null) {
-                    DetailRow(stringResource(R.string.devdetail_sale_price), formatVnd(soldPrice))
-                    saleProfit(soldPrice, device.purchasePrice)?.let { profit ->
+                    DetailRow(
+                        stringResource(R.string.devdetail_sale_price),
+                        formatDeviceMoney(soldPrice.toLong(), device.currency),
+                    )
+                    // Profit/loss is dong and uses the server's locked VND values
+                    // on both sides. For a foreign device whose payload lacks
+                    // either conversion the row is omitted rather than mixing
+                    // dollars into dong.
+                    deviceSaleProfitVnd(device)?.let { profit ->
                         DetailRow(
                             stringResource(R.string.devdetail_profit_loss),
                             saleProfitLabel(s, profit),
@@ -787,6 +830,8 @@ private fun DetailRow(label: String, value: String, valueColor: Color? = null) {
 @Composable
 private fun WarrantyCard(
     warranty: Warranty,
+    /** The owning device's ISO currency; [Warranty.cost] is denominated in it. */
+    currency: String,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleReminder: () -> Unit,
@@ -833,7 +878,17 @@ private fun WarrantyCard(
             DetailRow(stringResource(R.string.devdetail_starts), warranty.startDate.take(10))
             DetailRow(stringResource(R.string.devdetail_ends), warranty.endDate.take(10))
             DetailRow(stringResource(R.string.devdetail_months), pluralStringResource(R.plurals.devdetail_months_2, warranty.months, warranty.months))
-            warranty.cost?.let { if (it > 0) DetailRow(stringResource(R.string.devdetail_cost), formatVnd(it)) }
+            // `Warranty.cost` is in the device's currency; the contract's other
+            // warranty money fields (cap/deductible) are not part of this change
+            // and stay VND.
+            warranty.cost?.let {
+                if (it > 0) {
+                    DetailRow(
+                        stringResource(R.string.devdetail_cost),
+                        formatDeviceMoney(it.toLong(), currency),
+                    )
+                }
+            }
             if (!warranty.address.isNullOrBlank()) {
                 DetailRow(stringResource(R.string.devdetail_address), warranty.address)
             }

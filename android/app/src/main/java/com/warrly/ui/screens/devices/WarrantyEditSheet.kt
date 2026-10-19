@@ -52,6 +52,7 @@ import com.warrly.R
 import com.warrly.i18n.appStrings
 import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
+import com.warrly.network.DEFAULT_CURRENCY
 import com.warrly.network.Warranty
 import com.warrly.network.WarrantyInput
 import com.warrly.network.WarrantyProviderOption
@@ -71,6 +72,13 @@ fun WarrantyEditSheet(
     existing: Warranty?,
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
+    /**
+     * The owning device's ISO 4217 currency. `Warranty.cost` is denominated in
+     * it, so the label must say USD for a USD device instead of the old
+     * unconditional "Cost (VND)". Defaults to VND for a caller that has no
+     * device row at hand.
+     */
+    currency: String = DEFAULT_CURRENCY,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -159,7 +167,11 @@ fun WarrantyEditSheet(
                 OutlinedTextField(
                     value = cost,
                     onValueChange = { cost = it.filter { c -> c.isDigit() } },
-                    label = { Text(stringResource(R.string.warr_cost_vnd)) },
+                    label = {
+                        // Cost follows the device's currency, not a fixed "VND":
+                        // a USD device's plan cost is entered in dollars.
+                        Text(stringResource(R.string.warr_cost_currency, normalizeCurrency(currency)))
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )

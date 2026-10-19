@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
@@ -57,7 +58,22 @@ type DeviceInput struct {
 	Status        string  `json:"status,omitempty"` // default ACTIVE
 	Notes         *string `json:"notes,omitempty"`
 	SoldAt        *string `json:"soldAt,omitempty"`    // YYYY-MM-DD or RFC3339; nil = not sold
-	SoldPrice     *int32  `json:"soldPrice,omitempty"` // VND; nil = not sold
+	SoldPrice     *int32  `json:"soldPrice,omitempty"` // in the device's currency; nil = not sold
+	// Currency / FxRate are the multi-currency pair (migration 0022, gap #16).
+	//
+	//   * Currency is ISO 4217, uppercase. Empty means "not supplied": a CREATE
+	//     defaults it to VND (exactly the pre-0022 behaviour); an UPDATE keeps
+	//     the stored currency, because the stored value is the locked truth and
+	//     resetting it to VND would silently reinterpret every price on the row.
+	//     A client that wants to move a device to VND sends "VND" explicitly.
+	//   * FxRate is VND per ONE unit of Currency, locked when the purchase is
+	//     recorded. It is NULL for VND and required (> 0) for every other
+	//     currency — a missing rate is rejected, never defaulted, because a
+	//     guessed rate silently corrupts every total (see ValidateDeviceInput).
+	//
+	// purchasePrice, soldPrice and Warranty.cost are in the DEVICE's currency.
+	Currency string `json:"currency,omitempty"`
+	FxRate   *int32 `json:"fxRate,omitempty"`
 	// ReturnWindowDays / ReceivedAt are the retailer exchange-window pair added
 	// for FEATURE_IDEAS #1 (migration 0010). Both are optional and NULL-able:
 	//   * ReturnWindowDays nil = "chưa biết" (unknown), 0 = "cửa hàng không cho
@@ -109,10 +125,65 @@ type DeviceFilter struct {
 	Dir      string // asc | desc
 }
 
+// DeviceVND is a stored Device plus the VND values derived from its LOCKED
+// fxRate (migration 0022). Every device read serialises this shape — list,
+// detail, search, create and update — so a client never has to do FX maths and
+// two clients can never round differently.
+//
+// purchasePriceVnd is ALWAYS present and is null only when it cannot be known:
+// a non-VND row with no usable rate (which only hand-edited or legacy data can
+// hold). It is never faked at par for such a row — that is exactly the "999 USD
+// summed as 999 dong" bug the feature exists to fix.
+//
+// soldPriceVnd is present only when the device is sold (SoldPrice != nil) AND
+// the rate is usable; otherwise the key is omitted, matching "and soldPriceVnd
+// when sold".
+//
+// The values are *int64, not *int32: purchasePrice and fxRate are each int32, so
+// their product can exceed int32 for a perfectly valid input (a 2,000,000,000
+// unit price with a 26,100 VND/unit rate is nonsense as data but must not wrap
+// to a negative total). int64 holds every product of two int32s.
+type DeviceVND struct {
+	store.Device
+	PurchasePriceVnd *int64 `json:"purchasePriceVnd"`
+	SoldPriceVnd     *int64 `json:"soldPriceVnd,omitempty"`
+}
+
+// withVND attaches the computed VND values to a stored device row.
+func withVND(d store.Device) DeviceVND {
+	out := DeviceVND{
+		Device:           d,
+		PurchasePriceVnd: vndValue(d.PurchasePrice, d.Currency, d.FxRate),
+	}
+	if d.SoldPrice != nil {
+		out.SoldPriceVnd = vndValue(*d.SoldPrice, d.Currency, d.FxRate)
+	}
+	return out
+}
+
+// vndValue converts one money amount stored in `currency` to VND using the rate
+// LOCKED on the row. It is the single arithmetic definition used by every device
+// read; stats pushes the same rule into SQL (store/queries/stats.sql) so the
+// rollup and the per-row values cannot disagree.
+//
+// A missing/zero rate on a non-VND row returns nil: the VND value is unknown,
+// and reporting the face value (999 USD → 999 VND) would be the original bug.
+func vndValue(amount int32, currency string, rate *int32) *int64 {
+	if currency == "" || currency == "VND" {
+		v := int64(amount)
+		return &v
+	}
+	if rate == nil || *rate <= 0 {
+		return nil
+	}
+	v := int64(amount) * int64(*rate)
+	return &v
+}
+
 // DeviceListItem is a list-row projection: device + counts + the effective
 // warranty end (max over Warranty.endDate). Mirrors website/src/lib/devices.ts.
 type DeviceListItem struct {
-	store.Device
+	DeviceVND
 	AttachmentCount      int64      `json:"attachmentCount"`
 	EffectiveWarrantyEnd *time.Time `json:"effectiveWarrantyEnd"`
 	// ReturnDeadline is the derived exchange-window deadline
@@ -126,7 +197,7 @@ type DeviceListItem struct {
 // DeviceDetail is the full device read: device + warranties (with reminders) +
 // attachments + claims. Mirrors website/src/lib/devices.ts::getDevice.
 type DeviceDetail struct {
-	store.Device
+	DeviceVND
 	Warranties  []WarrantyWithReminders `json:"warranties"`
 	Attachments []AttachmentMeta        `json:"attachments"`
 	// Claims is the device's warranty-claim history (migration 0021), newest
@@ -224,6 +295,10 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 	trimPtr(&in.WarrantyPhone)
 	trimPtr(&in.WarrantyNotes)
 	in.Status = strings.TrimSpace(in.Status)
+	// Empty stays empty: it means "not supplied" (create → VND, update → keep the
+	// stored currency). Only a supplied code is validated; the create/update
+	// resolution below is what turns absence into a stored value.
+	in.Currency = fx.NormalizeCurrency(in.Currency)
 
 	fieldErrors := FieldErrors{}
 	if in.Name == "" {
@@ -279,6 +354,32 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 	if in.WarrantyMonths < 0 {
 		fieldErrors["warrantyMonths"] = []string{i18n.Text(ctx, "Số tháng bảo hành không hợp lệ")}
 	}
+	// Multi-currency rules (migration 0022). Deliberately strict, in the same
+	// direction as the "reject rather than default" rule in the migration: a
+	// guessed rate would silently corrupt every total, so the API never supplies
+	// one. Only what is independent of the stored row is checked here; the
+	// create/update resolvers below handle "absent" (which means default VND on
+	// create, keep the stored pair on update).
+	switch {
+	case in.Currency != "" && !fx.IsSupportedCurrency(in.Currency):
+		fieldErrors["currency"] = []string{i18n.Text(ctx, "Loại tiền không hợp lệ")}
+	case in.Currency == "VND":
+		// 1 VND is 1 VND: a rate on a VND device is meaningless, and accepting it
+		// would make the row's meaning depend on which field a reader trusts.
+		if in.FxRate != nil {
+			fieldErrors["fxRate"] = []string{i18n.Text(ctx, "Thiết bị dùng VND không được có tỷ giá")}
+		}
+	case in.Currency != "":
+		if in.FxRate == nil {
+			fieldErrors["fxRate"] = []string{i18n.Text(ctx, "Thiếu tỷ giá")}
+		} else if *in.FxRate <= 0 {
+			fieldErrors["fxRate"] = []string{i18n.Text(ctx, "Tỷ giá phải là số nguyên dương")}
+		}
+	case in.FxRate != nil && *in.FxRate <= 0:
+		// Currency absent (so the row's currency is not being set by this
+		// request): a non-positive rate is invalid in every context.
+		fieldErrors["fxRate"] = []string{i18n.Text(ctx, "Tỷ giá phải là số nguyên dương")}
+	}
 	// 0 is valid and meaningful ("cửa hàng không cho đổi trả"); NULL (absent) means
 	// unknown and is also valid. Only out-of-range values are rejected, so a typo
 	// cannot store a deadline in the year 9999.
@@ -311,6 +412,160 @@ func ValidateDeviceInput(ctx context.Context, in *DeviceInput) error {
 		return ErrValidationHeadline(fieldErrors)
 	}
 	return nil
+}
+
+// resolveCreateCurrency turns DeviceInput's optional currency pair into the
+// values persisted on a NEW row.
+//
+// Absence defaults to VND — exactly the behaviour before migration 0022 — which
+// also means a request that sends fxRate without a currency is a 400: fxRate
+// belongs to a non-VND currency, and the request named none.
+//
+// The function repeats checks ValidateDeviceInput already made. That is on
+// purpose: it is the only place that knows the CREATE semantics, it is
+// unit-testable in isolation, and a future write path that forgets the validator
+// must still not store a non-VND device without a locked rate.
+func resolveCreateCurrency(ctx context.Context, in DeviceInput) (string, *int32, error) {
+	currency := in.Currency
+	if currency == "" {
+		currency = "VND"
+	}
+	if !fx.IsSupportedCurrency(currency) {
+		return "", nil, ErrValidationHeadline(FieldErrors{
+			"currency": {i18n.Text(ctx, "Loại tiền không hợp lệ")},
+		})
+	}
+	if currency == "VND" {
+		if in.FxRate != nil {
+			return "", nil, ErrValidationHeadline(FieldErrors{
+				"fxRate": {i18n.Text(ctx, "Thiết bị dùng VND không được có tỷ giá")},
+			})
+		}
+		return "VND", nil, nil
+	}
+	if in.FxRate == nil {
+		return "", nil, ErrValidationHeadline(FieldErrors{
+			"fxRate": {i18n.Text(ctx, "Thiếu tỷ giá")},
+		})
+	}
+	if *in.FxRate <= 0 {
+		return "", nil, ErrValidationHeadline(FieldErrors{
+			"fxRate": {i18n.Text(ctx, "Tỷ giá phải là số nguyên dương")},
+		})
+	}
+	return currency, in.FxRate, nil
+}
+
+// resolveUpdateCurrency turns DeviceInput's optional currency pair into the
+// values persisted on an EXISTING row, given what is already stored.
+//
+// # Why an absent currency does NOT default to VND on update
+//
+// PATCH replaces every field of a device (returnWindowDays, activationRequired,
+// …), and `currency` would normally join that list. It deliberately does not,
+// for one reason: the stored currency is not a preference, it is the unit the
+// row's money is denominated in. Defaulting an absent `currency` to VND would
+// mean that any client built before this field existed — or any hand-written
+// PATCH that changes only the name — silently reinterprets "USD 999" as
+// "999 VND" and corrupts every total that includes the device. That is the exact
+// failure mode this feature exists to remove, so absence means KEEP.
+//
+// Sending `currency: "VND"` explicitly still moves the device to VND, and that
+// is the only way to do it.
+//
+// # Changing the currency (the chosen rule: RE-REQUIRE)
+//
+// When a request supplies a currency different from the stored one, the old
+// rate is never carried over (it is a rate for a different unit). The target
+// must supply its own rate:
+//   - target VND  ⇒ fxRate omitted, and the stored rate is CLEARED;
+//   - target != VND ⇒ fxRate is REQUIRED (a missing one is a 400), and the
+//     supplied rate becomes the new lock.
+//
+// "Clear" would also have been defensible, but clearing alone cannot express
+// "change the currency AND lock its rate in the same request", which is exactly
+// what the device form does when the user picks a currency and confirms the
+// prefilled rate. Re-requiring is also the safer direction: the server never
+// guesses which number belongs to which unit.
+//
+// An explicit currency equal to the stored one re-locks the rate with the
+// supplied value (or rejects a missing one), so a client that sends the pair
+// always gets a full replacement. Only the absent-currency case above is
+// lenient, and only because absence cannot be told apart from an old client.
+func resolveUpdateCurrency(ctx context.Context, in DeviceInput, current store.Device) (string, *int32, error) {
+	stored := current.Currency
+	if stored == "" {
+		// Every row gets 'VND' from the 0022 column default, but a hand-edited
+		// row could be NULL-free empty; treat it as the default it should have.
+		stored = "VND"
+	}
+
+	if in.Currency == "" {
+		if stored == "VND" {
+			if in.FxRate != nil {
+				return "", nil, ErrValidationHeadline(FieldErrors{
+					"fxRate": {i18n.Text(ctx, "Thiết bị dùng VND không được có tỷ giá")},
+				})
+			}
+			return "VND", nil, nil
+		}
+		// Non-VND device: an fxRate without a currency re-locks the rate; without
+		// one, the existing lock is kept.
+		if in.FxRate != nil {
+			if *in.FxRate <= 0 {
+				return "", nil, ErrValidationHeadline(FieldErrors{
+					"fxRate": {i18n.Text(ctx, "Tỷ giá phải là số nguyên dương")},
+				})
+			}
+			return stored, in.FxRate, nil
+		}
+		if current.FxRate == nil || *current.FxRate <= 0 {
+			// Inconsistent stored row (only a hand edit can produce it). It must
+			// not stay non-VND without a rate, and the server must not invent one.
+			return "", nil, ErrValidationHeadline(FieldErrors{
+				"fxRate": {i18n.Text(ctx, "Thiếu tỷ giá")},
+			})
+		}
+		return stored, current.FxRate, nil
+	}
+
+	if !fx.IsSupportedCurrency(in.Currency) {
+		return "", nil, ErrValidationHeadline(FieldErrors{
+			"currency": {i18n.Text(ctx, "Loại tiền không hợp lệ")},
+		})
+	}
+	if in.Currency == "VND" {
+		if in.FxRate != nil {
+			return "", nil, ErrValidationHeadline(FieldErrors{
+				"fxRate": {i18n.Text(ctx, "Thiết bị dùng VND không được có tỷ giá")},
+			})
+		}
+		return "VND", nil, nil
+	}
+	if in.FxRate == nil {
+		// Includes the currency-change case: the old rate is for a different unit,
+		// so it is never carried over.
+		return "", nil, ErrValidationHeadline(FieldErrors{
+			"fxRate": {i18n.Text(ctx, "Thiếu tỷ giá")},
+		})
+	}
+	if *in.FxRate <= 0 {
+		return "", nil, ErrValidationHeadline(FieldErrors{
+			"fxRate": {i18n.Text(ctx, "Tỷ giá phải là số nguyên dương")},
+		})
+	}
+	return in.Currency, in.FxRate, nil
+}
+
+// sortableVND is the ordering key for sort=price: the VND value when it is
+// known, otherwise the stored face amount. The fallback only applies to a
+// non-VND row whose rate is missing (hand-edited data); it keeps the sort total
+// and deterministic instead of dropping the row.
+func sortableVND(d DeviceVND) int64 {
+	if d.PurchasePriceVnd != nil {
+		return *d.PurchasePriceVnd
+	}
+	return int64(d.PurchasePrice)
 }
 
 // ListDevices mirrors website/src/lib/devices.ts::listDevices. Filter values
@@ -382,7 +637,7 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 	for _, d := range rows {
 		end := effectiveWarrantyEnd(warByDevice[d.ID])
 		out = append(out, DeviceListItem{
-			Device:               d,
+			DeviceVND:            withVND(d),
 			AttachmentCount:      countByDevice[d.ID],
 			EffectiveWarrantyEnd: end,
 			ReturnDeadline:       deviceReturnDeadline(d),
@@ -405,8 +660,13 @@ func ListDevices(ctx context.Context, db *pgxpool.Pool, userID string, f DeviceF
 			return a.Name < b.Name
 		}, desc)
 	case "price":
+		// Sort by the VND value, not the face amount: mixing USD 999 and
+		// 25,000,000 VND by face value would order them as 999 < 25,000,000,
+		// which is the exact comparison bug this feature removes. A row whose
+		// VND value is unknown (non-VND, no usable rate) sorts by its face
+		// amount, deterministically, and never crashes the sort.
 		sortInPlace(out, func(a, b DeviceListItem) bool {
-			return a.PurchasePrice < b.PurchasePrice
+			return sortableVND(a.DeviceVND) < sortableVND(b.DeviceVND)
 		}, desc)
 	case "warrantyEndDate":
 		sortInPlace(out, func(a, b DeviceListItem) bool {
@@ -497,7 +757,7 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 	claimRows := make([]store.Claim, 0, len(claims))
 	claimRows = append(claimRows, claims...)
 	return &DeviceDetail{
-		Device:         d,
+		DeviceVND:      withVND(d),
 		Warranties:     wr,
 		Attachments:    metas,
 		Claims:         claimRows,
@@ -507,45 +767,49 @@ func GetDevice(ctx context.Context, db *pgxpool.Pool, userID, id string) (*Devic
 
 // CreateDevice mirrors website/src/lib/services/devices.ts::createDevice
 // including the optional inline-warranty side effect when warrantyMonths > 0.
-func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in DeviceInput, fromWishlistID string) (store.Device, error) {
+func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in DeviceInput, fromWishlistID string) (DeviceVND, error) {
 	if err := ValidateDeviceInput(ctx, &in); err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 
 	q := store.New(db)
 	if err := assertDeviceQuota(ctx, q, userID, deviceActiveIncoming(in.Status), 1); err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 
 	purchaseDate, err := parseDate(in.PurchaseDate)
 	if err != nil {
-		return store.Device{}, ErrValidationHeadline(FieldErrors{
+		return DeviceVND{}, ErrValidationHeadline(FieldErrors{
 			"purchaseDate": {i18n.Text(ctx, "Ngày mua không hợp lệ")},
 		})
 	}
 	soldAt, err := parseSoldAt(ctx, in.SoldAt)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	receivedAt, err := parseReceivedAt(ctx, in.ReceivedAt)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	activatedAt, err := parseActivatedAt(ctx, in.ActivatedAt)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	extendedCoverBuyBy, err := parseExtendedCoverBuyBy(ctx, in.ExtendedCoverBuyBy)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
+	}
+	currency, fxRate, err := resolveCreateCurrency(ctx, in)
+	if err != nil {
+		return DeviceVND{}, err
 	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return store.Device{}, fmt.Errorf("begin tx: %w", err)
+		return DeviceVND{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
@@ -575,9 +839,12 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		ActivationRequired: in.ActivationRequired,
 		ActivatedAt:        activatedAt,
 		ExtendedCoverBuyBy: extendedCoverBuyBy,
+
+		Currency: currency,
+		FxRate:   fxRate,
 	})
 	if err != nil {
-		return store.Device{}, fmt.Errorf("create device: %w", err)
+		return DeviceVND{}, fmt.Errorf("create device: %w", err)
 	}
 
 	if in.WarrantyMonths > 0 {
@@ -596,7 +863,7 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 			Notes:     in.WarrantyNotes,
 		})
 		if err != nil {
-			return store.Device{}, fmt.Errorf("create warranty: %w", err)
+			return DeviceVND{}, fmt.Errorf("create warranty: %w", err)
 		}
 	}
 
@@ -617,59 +884,65 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return store.Device{}, fmt.Errorf("commit: %w", err)
+		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
-	return created, nil
+	return withVND(created), nil
 }
 
 // UpdateDevice mirrors website/src/lib/services/devices.ts::updateDevice.
 // Manages the single STANDARD warranty inline: creates / updates / deletes
 // based on warrantyMonths.
-func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in DeviceInput) (store.Device, error) {
+func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in DeviceInput) (DeviceVND, error) {
 	if err := ValidateDeviceInput(ctx, &in); err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	if err := assertCategoryExists(ctx, store.New(db), in.Category); err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 
 	q := store.New(db)
 	// The stored row is needed for update semantics that are "leave it alone when
-	// the request omits the field" — leadDays is the first of them.
+	// the request omits the field": leadDays, and — migration 0022 — the locked
+	// currency/fxRate pair (see resolveUpdateCurrency for why an absent currency
+	// must not default to VND here).
 	current, err := q.GetDeviceByID(ctx, store.GetDeviceByIDParams{ID: id, UserId: userID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Device{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
+			return DeviceVND{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
-		return store.Device{}, fmt.Errorf("get device: %w", err)
+		return DeviceVND{}, fmt.Errorf("get device: %w", err)
 	}
 
 	purchaseDate, err := parseDate(in.PurchaseDate)
 	if err != nil {
-		return store.Device{}, ErrValidationHeadline(FieldErrors{
+		return DeviceVND{}, ErrValidationHeadline(FieldErrors{
 			"purchaseDate": {i18n.Text(ctx, "Ngày mua không hợp lệ")},
 		})
 	}
 	soldAt, err := parseSoldAt(ctx, in.SoldAt)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	receivedAt, err := parseReceivedAt(ctx, in.ReceivedAt)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	activatedAt, err := parseActivatedAt(ctx, in.ActivatedAt)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
 	}
 	extendedCoverBuyBy, err := parseExtendedCoverBuyBy(ctx, in.ExtendedCoverBuyBy)
 	if err != nil {
-		return store.Device{}, err
+		return DeviceVND{}, err
+	}
+	currency, fxRate, err := resolveUpdateCurrency(ctx, in, current)
+	if err != nil {
+		return DeviceVND{}, err
 	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return store.Device{}, fmt.Errorf("begin tx: %w", err)
+		return DeviceVND{}, fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	tq := q.WithTx(tx)
@@ -697,18 +970,21 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 		ActivationRequired: in.ActivationRequired,
 		ActivatedAt:        activatedAt,
 		ExtendedCoverBuyBy: extendedCoverBuyBy,
+
+		Currency: currency,
+		FxRate:   fxRate,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.Device{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
+			return DeviceVND{}, ErrNotFound(i18n.Text(ctx, "Không tìm thấy thiết bị"))
 		}
-		return store.Device{}, fmt.Errorf("update device: %w", err)
+		return DeviceVND{}, fmt.Errorf("update device: %w", err)
 	}
 
 	existing, err := tq.GetStandardWarrantyForDevice(ctx, id)
 	hasExisting := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return store.Device{}, fmt.Errorf("get standard warranty: %w", err)
+		return DeviceVND{}, fmt.Errorf("get standard warranty: %w", err)
 	}
 
 	if in.WarrantyMonths > 0 {
@@ -741,7 +1017,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 				ClaimsAllowed: existing.ClaimsAllowed,
 				ClaimsUsed:    existing.ClaimsUsed,
 			}); uerr != nil {
-				return store.Device{}, fmt.Errorf("update warranty: %w", uerr)
+				return DeviceVND{}, fmt.Errorf("update warranty: %w", uerr)
 			}
 		} else {
 			if _, cerr := tq.CreateWarranty(ctx, store.CreateWarrantyParams{
@@ -757,7 +1033,7 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 				Phone:     in.WarrantyPhone,
 				Notes:     in.WarrantyNotes,
 			}); cerr != nil {
-				return store.Device{}, fmt.Errorf("create warranty: %w", cerr)
+				return DeviceVND{}, fmt.Errorf("create warranty: %w", cerr)
 			}
 		}
 	} else if hasExisting {
@@ -765,14 +1041,14 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 			ID:     existing.ID,
 			UserId: userID,
 		}); derr != nil {
-			return store.Device{}, fmt.Errorf("delete warranty: %w", derr)
+			return DeviceVND{}, fmt.Errorf("delete warranty: %w", derr)
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return store.Device{}, fmt.Errorf("commit: %w", err)
+		return DeviceVND{}, fmt.Errorf("commit: %w", err)
 	}
-	return updated, nil
+	return withVND(updated), nil
 }
 
 // DeleteDevice removes the device row (cascade handles warranties / attachments

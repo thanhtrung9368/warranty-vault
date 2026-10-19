@@ -30,6 +30,7 @@ import { brokenDevicesWithoutOpenClaim } from '@/lib/claims';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
+import { formatMoney } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 // Local helpers — replaced the DB-side `wishlistTotals()` /
@@ -105,6 +106,8 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
     brand: string | null;
     purchaseDate: string;
     purchasePrice: number;
+    currency: string;
+    purchasePriceVnd: number | null;
     effectiveWarrantyEnd: string;
   }> = [];
 
@@ -122,6 +125,8 @@ function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[
         brand: d.brand,
         purchaseDate: d.purchaseDate,
         purchasePrice: d.purchasePrice,
+        currency: d.currency,
+        purchasePriceVnd: d.purchasePriceVnd,
         effectiveWarrantyEnd: d.effectiveWarrantyEnd,
       });
     }
@@ -366,7 +371,13 @@ export default async function DashboardPage() {
                         {d.brand ? ` • ${d.brand}` : ''} •{' '}
                         {formatDate(d.purchaseDate, locale)}
                         {' • '}
-                        {formatVND(d.purchasePrice, locale)}
+                        {formatMoney(d.purchasePrice, d.currency, locale)}
+                        {d.currency !== 'VND' && d.purchasePriceVnd != null && (
+                          <span className="text-muted-foreground">
+                            {' · ≈ '}
+                            {formatVND(d.purchasePriceVnd, locale)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <WarrantyPill warrantyEnd={d.effectiveWarrantyEnd} variant="badge" />

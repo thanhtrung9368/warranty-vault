@@ -12,6 +12,12 @@ struct WarrantyFormView: View {
     @ObservedObject var store: WarrantiesStore
     let warranty: Warranty?
 
+    /// The owning device's ISO currency, so the fee field says what unit the
+    /// typed number is in. `Warranty.cost` follows the device's currency, not
+    /// VND; passing it here is purely informational (`nil` renders VND, the
+    /// contract default).
+    let currency: String?
+
     @EnvironmentObject private var catalog: CatalogStore
     @Environment(\.dismiss) private var dismiss
 
@@ -54,9 +60,10 @@ struct WarrantyFormView: View {
 
     private var isEditing: Bool { warranty != nil }
 
-    init(store: WarrantiesStore, warranty: Warranty?) {
+    init(store: WarrantiesStore, warranty: Warranty?, currency: String? = nil) {
         self.store = store
         self.warranty = warranty
+        self.currency = currency
         _type = State(initialValue: warranty?.type ?? .STANDARD)
         _provider = State(initialValue: warranty?.provider ?? "")
         _startDate = State(initialValue: warranty?.startDate ?? Date())
@@ -263,13 +270,21 @@ struct WarrantyFormView: View {
 
                     WVDivider()
 
-                    // Cost
+                    // Cost. `Warranty.cost` is in the device's currency, so the
+                    // field groups digits the same way and names the unit next
+                    // to the number — a $99 plan must not read like 99 ₫.
                     HStack(spacing: 12) {
                         Text(L.t("Phí gói"))
                             .font(.system(size: 17))
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
-                        WVMoneyField(value: $cost, placeholder: L.t("Tuỳ chọn"))
+                        WVMoneyField(value: $cost, placeholder: L.t("Tuỳ chọn"),
+                                     groupingSeparator: CurrencyRules.groupingSeparator(for: currency))
+                        if CurrencyRules.requiresRate(currency) {
+                            Text(CurrencyRules.normalized(currency))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(WVColor.label3)
+                        }
                     }
                     .padding(.horizontal, 16)
                     .frame(minHeight: 44)

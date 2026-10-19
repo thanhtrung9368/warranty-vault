@@ -248,10 +248,15 @@ func (q *Queries) StatsDevicesByStatus(ctx context.Context, userid string) ([]St
 
 const statsDevicesTotal = `-- name: StatsDevicesTotal :one
 SELECT
-    COUNT(*)::bigint                  AS total,
-    COALESCE(SUM("purchasePrice"), 0)::bigint AS total_purchase_price
-FROM "Device"
-WHERE "userId" = $1
+    COUNT(*)::bigint AS total,
+    COALESCE(SUM(
+        CASE
+            WHEN d.currency = 'VND' THEN d."purchasePrice"::numeric
+            WHEN d."fxRate" IS NOT NULL THEN ROUND(d."purchasePrice"::numeric * d."fxRate")
+        END
+    ), 0)::bigint AS total_purchase_price
+FROM "Device" d
+WHERE d."userId" = $1
 `
 
 type StatsDevicesTotalRow struct {
@@ -259,7 +264,25 @@ type StatsDevicesTotalRow struct {
 	TotalPurchasePrice int64 `json:"total_purchase_price"`
 }
 
-// Total count + sum of purchasePrice for the user's devices.
+// Total count + sum of purchasePrice converted to VND at each device's LOCKED
+// rate (migration 0022).
+//
+// `purchasePrice` is in the device's own `currency`; before 0022 this SUM added
+// USD 999 and 25,000,000 VND as if both were dong. The conversion uses the
+// `fxRate` stored on the row — the rate the user locked when recording the
+// purchase, NOT a live rate — so a historical total never drifts with the
+// market.
+//
+// A VND device has `fxRate IS NULL` and converts 1:1 (the `currency = 'VND'`
+// branch is what keeps every pre-0022 total byte-identical: SUM(purchasePrice)).
+// A non-VND row with no rate can only be hand-edited data, and its VND value is
+// genuinely unknown, so it contributes nothing (NULL) rather than being counted
+// at par — the same honesty rule the per-device `purchasePriceVnd` follows.
+//
+// ROUND (half away from zero) rather than truncation: 25,860.555369 VND/USD
+// times 999 USD is 25,834,694.81 VND, and the rollup should not lose a dong to
+// integer division. numeric in the middle, bigint at the end: the product of two
+// int32 columns cannot overflow int64.
 func (q *Queries) StatsDevicesTotal(ctx context.Context, userid string) (StatsDevicesTotalRow, error) {
 	row := q.db.QueryRow(ctx, statsDevicesTotal, userid)
 	var i StatsDevicesTotalRow
@@ -473,21 +496,33 @@ func (q *Queries) StatsTopExpensiveDevices(ctx context.Context, arg StatsTopExpe
 
 const statsTotalWarrantyCost = `-- name: StatsTotalWarrantyCost :one
 SELECT
-    COALESCE(SUM(w."cost"), 0)::bigint AS total_warranty_cost
+    COALESCE(SUM(
+        CASE
+            WHEN d.currency = 'VND' THEN w."cost"::numeric
+            WHEN d."fxRate" IS NOT NULL THEN ROUND(w."cost"::numeric * d."fxRate")
+        END
+    ), 0)::bigint AS total_warranty_cost
 FROM "Warranty" w
 JOIN "Device" d ON d.id = w."deviceId"
 WHERE d."userId" = $1
 `
 
-// Sum of Warranty.cost across every package on the user's devices. Feeds
+// Sum of Warranty.cost across every package on the user's devices, converted to
+// VND at the device's locked rate (migration 0022). Feeds
 // `devices.totalWarrantyCost` on GET /api/v1/stats.
+//
+// `Warranty.cost` is in the DEVICE's currency: a USD 99 AppleCare+ package on a
+// USD device must not be added to the VND total as 99 dong. The rate is the one
+// stored on the device row (locked when the purchase was recorded), never a
+// live rate.
 //
 // cost is nullable: SUM() ignores NULL rows (a package stored without a price
 // adds nothing to the total), and COALESCE turns the all-NULL / no-warranty
 // case into 0 — the same treatment every other money rollup in this file
-// gives a nullable sum. The result is widened to bigint (money is stored as
-// int32 per row but totalled as int64) so a user with many costly packages
-// cannot overflow the total.
+// gives a nullable sum. A non-VND device with no rate contributes nothing
+// (unknown), not its face value. The result is widened to bigint (money is
+// stored as int32 per row but totalled as int64) so a user with many costly
+// packages cannot overflow the total.
 func (q *Queries) StatsTotalWarrantyCost(ctx context.Context, userid string) (int64, error) {
 	row := q.db.QueryRow(ctx, statsTotalWarrantyCost, userid)
 	var total_warranty_cost int64

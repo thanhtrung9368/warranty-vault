@@ -245,6 +245,17 @@ private fun StatsBody(stats: UserStats, forecast: Forecast?) {
         item {
             Spacer(Modifier.height(4.dp))
             SectionHeader(stringResource(R.string.nav_devices))
+            // Mixed currencies are already converted by the server: every money
+            // number below (totalPurchasePrice, totalWarrantyCost, totalSpend)
+            // is VND at each device's locked rate. Say so, because a user with
+            // one $999 phone and one 25.000.000 ₫ phone must not read the dong
+            // total as a sum of raw native prices.
+            Text(
+                stringResource(R.string.stats_device_totals_vnd_note),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            )
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -214,3 +214,16 @@ describe('saleProfitLoss', () => {
     expect(pl!.tone).toBe('profit');
   });
 });
+
+describe('saleProfitLoss in the device currency', () => {
+  it('formats a USD profit with US$, not ₫', () => {
+    const pl = saleProfitLoss(999, 1_099, 'en', 'USD');
+    expect(pl!.amount).toBe(100);
+    expect(pl!.label).toContain('$100.00');
+    expect(pl!.label).not.toContain('₫');
+  });
+
+  it('defaults to VND so existing call sites keep their output', () => {
+    expect(saleProfitLoss(1_000, 2_000, 'en')!.label).toContain('₫');
+  });
+});

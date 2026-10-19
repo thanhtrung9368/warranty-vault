@@ -132,6 +132,25 @@ final class CSVExportTests: KitTestCase {
             + DeviceCSVExport.recordSeparator)
     }
 
+    func testForeignDeviceExportsNativeCurrencyAndVndInSeparateColumns() throws {
+        let foreign = try device(#"""
+        {"id":"dev_usd","name":"iPhone 16 Pro","category":"PHONE",
+         "purchaseDate":"2026-03-01T00:00:00","purchasePrice":999,
+         "currency":"USD","fxRate":25400,"purchasePriceVnd":25374600,
+         "status":"ACTIVE"}
+        """#)
+
+        let rows = parseCSV(DeviceCSVExport.csv(for: [foreign]))
+
+        XCTAssertEqual(rows[0][6], L.t("Giá mua"))
+        XCTAssertEqual(rows[0][7], L.t("Tiền tệ"))
+        XCTAssertEqual(rows[0][8], L.t("Giá mua (VND)"))
+        XCTAssertEqual(rows[1][6], "999", "the native amount, unlabelled as dong")
+        XCTAssertEqual(rows[1][7], "USD")
+        XCTAssertEqual(rows[1][8], "25374600", "the server-computed VND total")
+        XCTAssertEqual(rows[1].count, DeviceCSVExport.header.count)
+    }
+
     func testVietnameseDiacriticsRoundTripThroughUTF8() throws {
         let data = DeviceCSVExport.data(for: [try device(name: "Tai nghe chống ồn Đà Nẵng")])
         let text = String(decoding: data.dropFirst(3), as: UTF8.self)
@@ -187,9 +206,11 @@ final class CSVExportTests: KitTestCase {
                                                 categoryLabel: { _ in "Laptop" }))
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(rows[0], ["Tên", "Danh mục", "Hãng", "Model", "Số seri",
-                                 "Ngày mua", "Giá mua (VND)", "Hết bảo hành", "Trạng thái"])
+                                 "Ngày mua", "Giá mua", "Tiền tệ", "Giá mua (VND)",
+                                 "Hết bảo hành", "Trạng thái"])
         XCTAssertEqual(rows[1], ["MacBook Pro 14", "Laptop", "Apple", "M3 Pro", "SN-1",
-                                 "2025-03-12", "49990000", "2027-03-12", "Đang dùng"])
+                                 "2025-03-12", "49990000", "VND", "49990000",
+                                 "2027-03-12", "Đang dùng"])
     }
 
     func testMoneyIsAPlainNumberWithoutCurrencySuffixOrGrouping() throws {
@@ -212,7 +233,7 @@ final class CSVExportTests: KitTestCase {
         XCTAssertEqual(rows[1][2], "")   // Hãng
         XCTAssertEqual(rows[1][3], "")   // Model
         XCTAssertEqual(rows[1][4], "")   // Số seri
-        XCTAssertEqual(rows[1][7], "")   // Hết bảo hành
+        XCTAssertEqual(rows[1][9], "")   // Hết bảo hành
         XCTAssertEqual(rows.count, 2)
     }
 
@@ -222,10 +243,10 @@ final class CSVExportTests: KitTestCase {
             try device(status: "SOLD"),
             try device(status: "EXPIRED"),
         ]))
-        XCTAssertEqual(rows[1][8], DeviceStatus.ACTIVE.label)
-        XCTAssertEqual(rows[1][8], "Đang dùng")
-        XCTAssertEqual(rows[2][8], "Đã bán")
-        XCTAssertEqual(rows[3][8], "Hết bảo hành")
+        XCTAssertEqual(rows[1][10], DeviceStatus.ACTIVE.label)
+        XCTAssertEqual(rows[1][10], "Đang dùng")
+        XCTAssertEqual(rows[2][10], "Đã bán")
+        XCTAssertEqual(rows[3][10], "Hết bảo hành")
     }
 
     func testCategoryFallsBackToTheSharedTableAndHonoursInjection() throws {
@@ -271,7 +292,7 @@ final class CSVExportTests: KitTestCase {
                              warrantyEnd: "2027-03-12T00:00:00")
         let rows = parseCSV(DeviceCSVExport.csv(for: [dev]))
         XCTAssertEqual(rows[1][5], "2026-03-02")
-        XCTAssertEqual(rows[1][7], "2027-03-12")
+        XCTAssertEqual(rows[1][9], "2027-03-12")
     }
 
     /// …and that is a property of the zone, not a coincidence of where the suite

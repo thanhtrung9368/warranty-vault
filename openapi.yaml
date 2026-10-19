@@ -36,6 +36,7 @@ tags:
   - { name: push }
   - { name: catalog }
   - { name: stats }
+  - { name: fx, description: 'Tỷ giá tham khảo để ĐIỀN SẴN ô tỷ giá khi ghi một thiết bị ngoại tệ. Không phải nguồn dữ liệu của bất kỳ tổng tiền nào: tỷ giá của thiết bị được KHOÁ lúc nhập (migration 0022).' }
   - { name: ai }
   - { name: actions }
 
@@ -1997,6 +1998,84 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/fx/rates:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    get:
+      tags: [fx]
+      summary: Tỷ giá tham khảo (VND per 1 đơn vị `base`) để điền sẵn ô tỷ giá
+      description: |
+        Trả về bảng tỷ giá của một nguồn **miễn phí, không cần API key**
+        (`open.er-api.com`) để client **điền sẵn** ô `fxRate` khi người dùng ghi
+        một thiết bị mua bằng ngoại tệ.
+
+        ### Đây KHÔNG phải tỷ giá của thiết bị
+
+        `Device.fxRate` được **khoá tại lúc người dùng ghi nhận giá mua** và
+        không bao giờ cập nhật lại. Endpoint này chỉ cho người dùng thấy con số
+        hôm nay để họ xác nhận trước khi lưu; sau khi lưu, con số đó là lịch sử.
+        Một tỷ giá đọc tại thời điểm đọc sẽ làm mọi tổng tiền cũ trôi theo thị
+        trường — đúng thứ tính năng này sinh ra để chặn.
+
+        ### Cache và tuổi dữ liệu
+
+        * Server cache **trong tiến trình**, theo từng `base`, TTL **12 giờ**.
+          Lý do: chính nguồn chỉ cập nhật tối đa một lần mỗi ngày (trường
+          `time_next_update_utc` của nó là ~24 giờ), nên TTL ngắn hơn sẽ chỉ gọi
+          lại đúng những con số đó; 12 giờ giới hạn độ cũ ở tối đa một lần cập
+          nhật của nguồn mà vẫn chỉ tốn hai request nhỏ/ngày/tiền tệ/instance.
+        * Request **không bao giờ chờ** nguồn quá lâu: timeout 5 giây, dưới
+          `WriteTimeout` 30 giây của server.
+        * `stale: true` **chỉ** khi đang trả một giá trị cache **đã quá TTL** vì
+          lần làm mới thất bại. Khi đó `fetchedAt` là thời điểm của lần lấy
+          THÀNH CÔNG gần nhất, không phải "bây giờ". Client nên hiển thị rằng
+          đây là tỷ giá cũ.
+        * Nguồn không lấy được và **không có cache** ⇒ **503** `fx_unavailable`.
+          Server **không bịa** một tỷ giá và **không cache lỗi** như thể đó là
+          tỷ giá: request sau vẫn thử lại. Client phải mời người dùng **tự nhập**
+          tỷ giá.
+
+        ### Hình dạng
+
+        `rates` là bảng của nguồn cho `base`; `rates.VND` là số VND của **một**
+        đơn vị `base` và **có thể lẻ** (ví dụ `25860.555369`). `Device.fxRate` là
+        số nguyên, nên client điền `round(rates.VND)` và để người dùng sửa nếu
+        muốn. Endpoint cố ý **không** làm tròn giúp, để không giấu con số nguồn
+        đã nói.
+
+        Xác thực bắt buộc (đây là tiện ích cho người dùng đã đăng nhập, không
+        phải API công khai) và rate-limit **60 request/phút/người dùng** — đủ cho
+        một lần mở form, đủ chặt để một client kẹt vòng lặp không biến service
+        thành proxy của nguồn.
+      parameters:
+        - name: base
+          in: query
+          required: false
+          description: |
+            Mã tiền tệ gốc (ISO 4217, không phân biệt hoa/thường — server
+            chuẩn hoá). Mặc định `USD`. Mã không nằm trong danh sách hỗ trợ ⇒
+            **400** `bad_input` với `fieldErrors.base`, không gọi nguồn.
+          schema:
+            type: string
+            default: USD
+            enum: [VND, USD, EUR, GBP, CHF, JPY, KRW, CNY, TWD, HKD, SGD, THB, MYR, IDR, PHP, INR, AUD, NZD, CAD, SEK, NOK, DKK, PLN, CZK, RUB, TRY, AED, BRL, MXN, ZAR]
+      responses:
+        '200':
+          description: Bảng tỷ giá (có thể là bản cache; xem `stale`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FXRateResponse' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503':
+          description: |
+            `fx_unavailable`: không lấy được tỷ giá từ nguồn và **không có cache**
+            để trả. Server **không bịa** tỷ giá. Client phải mời người dùng tự
+            nhập `fxRate`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
   /api/v1/stats:
     get:
       tags: [stats]
@@ -2831,6 +2910,39 @@ components:
             type: array
             items: { type: string }
 
+    # GET /api/v1/fx/rates (migration 0022). A PREFILL helper, never the source
+    # of a stored rate: Device.fxRate is locked at entry.
+    FXRateResponse:
+      type: object
+      required: [base, rates, fetchedAt, stale]
+      properties:
+        base:
+          type: string
+          description: 'Mã tiền tệ gốc đã chuẩn hoá (upper-case), đúng như server đã dùng.'
+        rates:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+          description: |
+            Bảng tỷ giá của nguồn cho `base`, tính bằng **một đơn vị `base`**.
+            `rates.VND` là số VND của 1 đơn vị `base` và **có thể lẻ** (ví dụ
+            `25860.555369`) — client điền `round(rates.VND)` vào ô `fxRate`.
+            Endpoint cố ý không làm tròn giúp để không giấu con số nguồn đã nói.
+        fetchedAt:
+          type: string
+          format: date-time
+          description: |
+            Thời điểm server lấy **thành công** bảng này (RFC3339, UTC). Khi
+            `stale: true`, đây là thời điểm của lần lấy thành công gần nhất, không
+            phải "bây giờ".
+        stale:
+          type: boolean
+          description: |
+            `true` **chỉ** khi đang trả một giá trị cache **đã quá TTL** vì lần
+            làm mới thất bại. Client nên nói rõ đây là tỷ giá cũ. Cache còn hạn
+            và lần lấy mới thành công đều trả `false`.
+
     DraftDevice:
       type: object
       description: >
@@ -3346,7 +3458,22 @@ components:
           format: date-time
           nullable: true
           description: 'Thời điểm bán (migration 0006). Vắng mặt/null trong file backup cũ = chưa bán, vẫn import được.'
-        soldPrice: { type: integer, nullable: true, description: 'Giá bán, VND. Null = chưa bán.' }
+        soldPrice: { type: integer, nullable: true, description: 'Giá bán, đơn vị là `currency` của thiết bị. Null = chưa bán.' }
+        currency:
+          type: string
+          description: |
+            Đơn vị tiền tệ của thiết bị (migration 0022). **Vắng mặt ở thiết bị
+            VND** — đó là lý do payload của người dùng chỉ dùng VND vẫn
+            **byte-for-byte** giống hệt bản trước 0022. Payload cũ không có khoá
+            này vẫn import được và được hiểu là `VND`.
+          enum: [VND, USD, EUR, GBP, CHF, JPY, KRW, CNY, TWD, HKD, SGD, THB, MYR, IDR, PHP, INR, AUD, NZD, CAD, SEK, NOK, DKK, PLN, CZK, RUB, TRY, AED, BRL, MXN, ZAR]
+        fxRate:
+          type: integer
+          description: |
+            VND cho một đơn vị `currency`, tỷ giá **đã khoá** lúc ghi. Đi kèm
+            `currency`; vắng mặt ở thiết bị VND. Import từ chối cả file (400,
+            trước transaction) nếu `currency != "VND"` mà thiếu/không dương, hoặc
+            `currency = "VND"` mà lại có tỷ giá.
         leadDays:
           type: array
           nullable: true
@@ -3396,7 +3523,14 @@ components:
               startDate: { type: string, format: date-time }
               endDate: { type: string, format: date-time }
               months: { type: integer }
-              cost: { type: integer, nullable: true }
+              cost:
+                type: integer
+                nullable: true
+                description: |
+                  Giá gói bảo hành (migration 0022), **đơn vị là `currency` của
+                  thiết bị chứa gói này**, không phải lúc nào cũng là VND. File
+                  backup mang theo `currency`/`fxRate` của thiết bị, nên khôi phục
+                  vẫn giữ đúng nghĩa.
               address: { type: string, nullable: true }
               phone: { type: string, nullable: true }
               notes: { type: string, nullable: true }
@@ -3733,7 +3867,7 @@ components:
 
     Device:
       type: object
-      required: [id, name, category, purchaseDate, purchasePrice, status, activationRequired, leadDays]
+      required: [id, name, category, purchaseDate, purchasePrice, currency, purchasePriceVnd, status, activationRequired, leadDays]
       properties:
         id: { type: string }
         userId: { type: string }
@@ -3743,7 +3877,67 @@ components:
         model: { type: string, nullable: true }
         serialNumber: { type: string, nullable: true }
         purchaseDate: { type: string, format: date-time }
-        purchasePrice: { type: integer, description: 'VND, integer' }
+        purchasePrice:
+          type: integer
+          description: |
+            Giá mua, **đơn vị là `currency` của chính thiết bị này** (migration
+            0022). Không phải lúc nào cũng là VND: một chiếc điện thoại mua ở Mỹ
+            có thể là `999` với `currency: "USD"`. Giá trị **không** được quy đổi
+            khi ghi; dùng `purchasePriceVnd` cho mọi phép cộng.
+        currency:
+          type: string
+          enum: [VND, USD, EUR, GBP, CHF, JPY, KRW, CNY, TWD, HKD, SGD, THB, MYR, IDR, PHP, INR, AUD, NZD, CAD, SEK, NOK, DKK, PLN, CZK, RUB, TRY, AED, BRL, MXN, ZAR]
+          description: |
+            Đơn vị tiền tệ của thiết bị (ISO 4217, chữ hoa, 3 ký tự; migration
+            0022). **Luôn có mặt**; mặc định `VND`, và mọi thiết bị được tạo
+            trước migration 0022 đều là `VND` (giá trị mặc định của cột).
+
+            Đây là đơn vị của `purchasePrice`, `soldPrice` và **`Warranty.cost`
+            của các gói bảo hành trên thiết bị này**. Danh sách hỗ trợ là enum ở
+            trên; mã ngoài danh sách bị từ chối với 400 `fieldErrors.currency`
+            khi ghi.
+        fxRate:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: |
+            **VND cho MỘT đơn vị `currency`, đã KHOÁ tại lúc ghi nhận giá mua**
+            (migration 0022). `null` khi `currency = "VND"` (1 VND = 1 VND) và
+            với dòng cũ chưa từng có tỷ giá.
+
+            Con số này **không bao giờ được làm mới**. Một máy mua năm 2024 đọc
+            trong năm 2026 vẫn hiện đúng số tiền đã trả — đó là toàn bộ lý do
+            trường này tồn tại. `GET /api/v1/fx/rates` chỉ để **điền sẵn** khi
+            người dùng đang nhập, không phải nguồn của trường này.
+
+            Quy tắc ghi: `VND` ⇒ trường này phải là `null`/vắng mặt; khác `VND`
+            ⇒ **bắt buộc** và phải là số nguyên dương. Thiếu tỷ giá là 400, không
+            bao giờ được mặc định — một tỷ giá đoán sẽ làm sai mọi tổng tiền.
+        purchasePriceVnd:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `purchasePrice` quy ra VND bằng tỷ giá đã khoá: `purchasePrice *
+            fxRate` khi `currency` khác VND, và chính `purchasePrice` khi
+            `currency = "VND"`. **Trường tính sẵn** — client không phải tự nhân.
+
+            `null` chỉ khi không thể biết: một dòng `currency != "VND"` mà
+            `fxRate` lại `null` (chỉ dữ liệu sửa tay mới tạo được). Khi đó API
+            **không** coi giá là VND — đúng lỗi mà tính năng này sửa.
+
+            Kiểu `int64` (không phải `int32`) vì tích của hai cột `int32` có thể
+            vượt `int32`; tổng tiền không bao giờ bị tràn.
+
+            Đây là **giá trị đã khoá**, không phải giá thị trường hôm nay.
+        soldPriceVnd:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `soldPrice` quy ra VND bằng cùng tỷ giá đã khoá. **Có mặt khi thiết
+            bị đã bán** (`soldPrice != null`) và tỷ giá dùng được; **vắng mặt**
+            khi chưa bán. Cùng quy tắc `int64`/`null` với `purchasePriceVnd`.
         purchasePlace: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/DeviceStatus' }
         notes: { type: string, nullable: true }
@@ -3766,8 +3960,10 @@ components:
           minimum: 0
           nullable: true
           description: |
-            Giá bán, VND (số nguyên). `null` = chưa bán. Lãi/lỗ = soldPrice −
-            purchasePrice (client tự tính; API không trả sẵn).
+            Giá bán, **đơn vị là `currency` của thiết bị** (migration 0022), không
+            phải lúc nào cũng là VND. `null` = chưa bán. Lãi/lỗ nên tính trên
+            `soldPriceVnd − purchasePriceVnd`, không phải trên hai số mặt: một
+            máy mua bằng USD bán lại bằng VND mà trừ thẳng hai số là sai.
         returnWindowDays:
           type: integer
           nullable: true
@@ -3959,6 +4155,28 @@ components:
 
     DeviceInput:
       type: object
+      description: |
+        Body của `POST /api/v1/devices` và `PATCH /api/v1/devices/{id}`.
+
+        ### Tiền tệ (migration 0022)
+
+        `purchasePrice`, `soldPrice` và `Warranty.cost` **không** bị quy đổi khi
+        ghi: chúng được lưu đúng như người dùng nhập, theo đơn vị `currency` của
+        thiết bị. Việc quy đổi chỉ diễn ra ở đầu đọc (`purchasePriceVnd`,
+        `soldPriceVnd`) và trong `GET /api/v1/stats`, dùng tỷ giá đã khoá.
+
+        `currency` vắng mặt:
+          * **POST** ⇒ `VND` (đúng hành vi trước 0022).
+          * **PATCH** ⇒ **giữ nguyên** loại tiền đã lưu. Đây là ngoại lệ có chủ
+            ý so với các trường thay thế khác của PATCH: loại tiền là **đơn vị**
+            của số tiền trên dòng, không phải một sở thích. Mặc định về VND khi
+            vắng mặt sẽ âm thầm đọc "USD 999" thành "999 VND" — đúng lỗi mà
+            tính năng này sửa. Muốn chuyển về VND, gửi `"currency": "VND"`.
+
+        Đổi loại tiền (gửi `currency` khác giá trị đang lưu) là **khoá lại tỷ
+        giá**: tỷ giá cũ **không** được mang sang (nó là tỷ giá của đơn vị
+        khác). `currency: "VND"` ⇒ `fxRate` phải vắng mặt/`null` và tỷ giá cũ bị
+        **xoá**; `currency` khác VND ⇒ `fxRate` **bắt buộc** trong cùng request.
       required: [name, category, purchaseDate]
       properties:
         name: { type: string, minLength: 1 }
@@ -3967,7 +4185,43 @@ components:
         model: { type: string, nullable: true }
         serialNumber: { type: string, nullable: true }
         purchaseDate: { type: string, description: 'YYYY-MM-DD or full ISO' }
-        purchasePrice: { type: integer, default: 0 }
+        purchasePrice:
+          type: integer
+          default: 0
+          description: 'Giá mua, ĐƠN VỊ là `currency` của request (mặc định VND). Không được quy đổi sẵn: API lưu đúng số này và tự tính `purchasePriceVnd`.'
+        currency:
+          type: string
+          enum: [VND, USD, EUR, GBP, CHF, JPY, KRW, CNY, TWD, HKD, SGD, THB, MYR, IDR, PHP, INR, AUD, NZD, CAD, SEK, NOK, DKK, PLN, CZK, RUB, TRY, AED, BRL, MXN, ZAR]
+          description: |
+            ISO 4217, 3 ký tự. Server trim + upper-case (`"usd"` ⇒ `"USD"`) rồi
+            kiểm tra với danh sách hỗ trợ ở enum; mã khác ⇒ 400
+            `fieldErrors.currency`.
+
+            Vắng mặt: POST ⇒ `VND`; PATCH ⇒ giữ nguyên (xem mô tả schema).
+            Tạo thiết bị ngoại tệ mà không gửi `currency` nhưng lại gửi `fxRate`
+            ⇒ 400 `fieldErrors.fxRate` (tỷ giá thuộc về một loại tiền khác VND,
+            và request không nêu loại nào).
+        fxRate:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: |
+            VND cho MỘT đơn vị `currency`, **khoá tại lúc ghi**. Số nguyên
+            dương.
+
+            * `currency = "VND"` (hoặc vắng mặt ở POST): gửi `fxRate` khác
+              `null` ⇒ **400** `fieldErrors.fxRate`.
+            * `currency != "VND"`: **bắt buộc**; thiếu ⇒ **400**
+              `fieldErrors.fxRate`; `<= 0` ⇒ **400** cùng khoá. Server **không**
+              đoán và **không** mặc định — một tỷ giá đoán sẽ âm thầm làm sai mọi
+              tổng tiền.
+            * PATCH không gửi `currency` (giữ nguyên loại tiền đã lưu) và không
+              gửi `fxRate` ⇒ **giữ nguyên tỷ giá đã khoá**. Gửi `fxRate` mà
+              không gửi `currency` ⇒ khoá lại tỷ giá (chỉ hợp lệ khi thiết bị
+              đang dùng ngoại tệ).
+
+            Dùng `GET /api/v1/fx/rates?base=USD` để **gợi ý** con số này; người
+            dùng xác nhận trước khi lưu.
         purchasePlace: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/DeviceStatus' }
         notes: { type: string, nullable: true }
@@ -3990,9 +4244,10 @@ components:
           minimum: 0
           nullable: true
           description: |
-            Giá bán, VND, nullable. Số âm ⇒ 400 `fieldErrors.soldPrice`. Ràng buộc
-            cặp đôi với `soldAt` như trên. Độc lập với `status` — client có thể đặt
-            `status: SOLD` mà không cần số liệu bán.
+            Giá bán, **đơn vị là `currency` của request** (migration 0022),
+            nullable. Số âm ⇒ 400 `fieldErrors.soldPrice`. Ràng buộc cặp đôi với
+            `soldAt` như trên. Độc lập với `status` — client có thể đặt `status:
+            SOLD` mà không cần số liệu bán.
         returnWindowDays:
           type: integer
           nullable: true
@@ -4099,7 +4354,17 @@ components:
         startDate: { type: string, format: date-time }
         endDate: { type: string, format: date-time }
         months: { type: integer, minimum: 1 }
-        cost: { type: integer, nullable: true }
+        cost:
+          type: integer
+          nullable: true
+          description: |
+            Giá gói bảo hành (migration 0022), **đơn vị là `currency` của thiết bị
+            chứa gói này** — không phải lúc nào cũng là VND. Một gói AppleCare+
+            mua cùng chiếc máy USD 999 có thể là `99` với `currency: "USD"`.
+
+            API **không** quy đổi khi ghi. `GET /api/v1/stats` cộng trường này vào
+            `devices.totalWarrantyCost` bằng tỷ giá **đã khoá** của thiết bị;
+            client hiển thị riêng lẻ thì dùng `Device.fxRate` của thiết bị đó.
         address: { type: string, nullable: true }
         phone: { type: string, nullable: true }
         notes: { type: string, nullable: true }
@@ -4920,10 +5185,31 @@ components:
                 SOLD: { type: integer }
                 BROKEN: { type: integer }
                 LOST: { type: integer }
-            totalPurchasePrice: { type: integer, description: 'VND, integer' }
+            totalPurchasePrice:
+              type: integer
+              format: int64
+              description: |
+                Tổng giá mua của **mọi** thiết bị, quy ra VND bằng tỷ giá đã khoá
+                trên từng dòng (migration 0022) — chính là tổng của
+                `Device.purchasePriceVnd`. Với tài khoản chỉ dùng VND, con số này
+                **bằng đúng** `SUM(purchasePrice)` như trước 0022.
+
+                Thiết bị ngoại tệ mà thiếu tỷ giá (chỉ dữ liệu sửa tay) đóng góp
+                **0** — giá trị VND của nó là không biết, và cộng nó theo giá mặt
+                là đúng lỗi mà trường này sửa.
             totalWarrantyCost:
               type: integer
-              description: 'Sum of Warranty.cost across every warranty on the user''s devices (VND). Always present: 0 when the user has no device or no warranty carries a cost — a warranty row with a null cost contributes 0. int64 on the server; never narrowed to int32.'
+              format: int64
+              description: |
+                Tổng `Warranty.cost` trên mọi gói bảo hành của người dùng, quy ra
+                VND bằng tỷ giá **đã khoá** của thiết bị chứa gói
+                (migration 0022). `Warranty.cost` nằm trong đơn vị tiền của thiết
+                bị, nên một gói USD 99 không thể được cộng như 99 đồng.
+
+                Luôn có mặt: 0 khi người dùng không có thiết bị/gói nào mang giá —
+                một dòng `cost` null đóng góp 0, và một thiết bị ngoại tệ thiếu tỷ
+                giá cũng vậy (không biết, không đoán). int64 trên server; không
+                bao giờ bị thu hẹp về int32.
         subscriptions:
           type: object
           required: [total, byStatus, totalMonthlyVnd]

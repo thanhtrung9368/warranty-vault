@@ -45,6 +45,20 @@ func CheckUserWrite(ctx context.Context, limiter Limiter, userID string) (Result
 	return limiter.Check(ctx, "write:user:"+userID, writeLimit, writeWindow)
 }
 
+// CheckFXRate rate-limits GET /api/v1/fx/rates per authenticated user: 60
+// requests / 60s, the same budget as a write.
+//
+// The endpoint is normally nearly free (a 12-hour in-process cache), but a cache
+// MISS reaches a free third-party upstream — and a cache that is stale because
+// the upstream is down retries on every call. The bucket exists so one client
+// stuck in a retry loop cannot turn this service into a proxy for that upstream.
+//
+// It is a separate bucket from CheckUserWrite so prefilling the device form does
+// not eat into the 60 writes/minute a user actually has.
+func CheckFXRate(ctx context.Context, limiter Limiter, userID string) (Result, error) {
+	return limiter.Check(ctx, "fx:rates:user:"+userID, 60, writeWindow)
+}
+
 // CheckAIExtract enforces a tighter per-user limit on the OCR endpoint (each
 // call hits a paid third-party API): 10 requests / 60s.
 func CheckAIExtract(ctx context.Context, limiter Limiter, userID string) (Result, error) {

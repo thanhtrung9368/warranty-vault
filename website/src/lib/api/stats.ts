@@ -16,7 +16,16 @@ export type UserStats = {
   devices: {
     total: number;
     byStatus: Record<DeviceStatusKey, number>;
+    /** Sum of every device's server-computed `purchasePriceVnd`. */
     totalPurchasePrice: number;
+    /**
+     * Sum of `Warranty.cost` across the account, converted to VND at each
+     * device's LOCKED rate (migration 0022). The stats page still builds its
+     * per-period/per-category breakdown from `purchasePriceVnd` + VND-device
+     * warranty costs, because no per-warranty VND value is exposed; this
+     * aggregate exists for callers that only need the account-wide figure.
+     */
+    totalWarrantyCost: number;
   };
   subscriptions: {
     total: number;

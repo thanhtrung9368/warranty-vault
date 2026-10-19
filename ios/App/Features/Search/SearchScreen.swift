@@ -308,7 +308,7 @@ private struct SearchDeviceRow: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
-                Text("\(device.brand ?? "—") · \(WVFormat.vnd(device.purchasePrice))")
+                Text("\(device.brand ?? "—") · \(WVFormat.currency(device.purchasePrice, device.currency))")
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)

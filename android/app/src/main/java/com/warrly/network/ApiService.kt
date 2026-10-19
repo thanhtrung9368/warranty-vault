@@ -387,6 +387,14 @@ interface ApiService {
         @Query("limit") limit: Int? = null,
     ): SearchResults
 
+    // ---- FX rates ----
+    // `GET /api/v1/fx/rates?base=USD` (openapi `FxRates`): the `rates` map is
+    // quoted per one unit of `base`, so the form reads `rates["VND"]` to get the
+    // VND-per-unit rate it must store in `Device.fxRate`. It may answer 503; the
+    // form says so and leaves the rate field editable (see AddDeviceSheet).
+    @GET("api/v1/fx/rates")
+    suspend fun getFxRates(@Query("base") base: String): FxRates
+
     // ---- Stats ----
     @GET("api/v1/stats")
     suspend fun getStats(): UserStats

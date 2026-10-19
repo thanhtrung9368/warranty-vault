@@ -57,6 +57,11 @@ export default async function EditDevicePage({
           serialNumber: device.serialNumber,
           purchaseDate: device.purchaseDate,
           purchasePrice: device.purchasePrice,
+          // Multi-currency (frozen contract) — both must round-trip through the
+          // edit form: PATCH replaces the whole device, so omitting them would
+          // reset a foreign-currency device to VND/null.
+          currency: device.currency,
+          fxRate: device.fxRate,
           purchasePlace: device.purchasePlace,
           warrantyMonths: standard?.months ?? 0,
           warrantyProvider: standard?.provider ?? null,

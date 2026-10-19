@@ -21,6 +21,7 @@ import { getI18n } from '@/lib/i18n/server';
 import { getCategories } from '@/app/actions/catalog';
 import { type Status } from '@/lib/types';
 import { formatDate, formatVND } from '@/lib/format';
+import { formatMoney } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
 
@@ -191,7 +192,16 @@ export default async function DevicesPage({
                       </span>
                     </TableCell>
                     <TableCell className="hidden font-semibold tabular-nums lg:table-cell">
-                      {formatVND(d.purchasePrice, locale)}
+                      <span className="block">
+                        {formatMoney(d.purchasePrice, d.currency, locale)}
+                      </span>
+                      {/* The raw price is meaningful only next to its currency;
+                          show the server's VND value as the comparison line. */}
+                      {d.currency !== 'VND' && d.purchasePriceVnd != null && (
+                        <span className="block text-[11px] font-normal text-muted-foreground">
+                          ≈ {formatVND(d.purchasePriceVnd, locale)}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="hidden text-ink-2 md:table-cell">
                       {formatDate(d.purchaseDate, locale)}

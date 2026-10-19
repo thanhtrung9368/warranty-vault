@@ -43,6 +43,7 @@ import * as claimsApi from './claims';
 import * as subscriptionsApi from './subscriptions';
 import * as wishlistApi from './wishlist';
 import * as catalogApi from './catalog';
+import * as fxApi from './fx';
 import * as pushApi from './push';
 import * as statsApi from './stats';
 import * as backupApi from './backup';
@@ -75,6 +76,9 @@ export const api = {
   subscriptions: subscriptionsApi,
   wishlist: wishlistApi,
   catalog: catalogApi,
+  // Exchange rates for the device form's non-VND price. A 503 is expected and
+  // handled by falling back to manual entry (`lib/fx.ts`).
+  fx: fxApi,
   push: pushApi,
   stats: statsApi,
   backup: backupApi,

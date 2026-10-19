@@ -32,8 +32,14 @@ public enum DeviceCSVExport {
     public static let delimiter = ","
 
     /// Column headers, in export order. Vietnamese, like every user-facing
-    /// string in the app. `Giá mua (VND)` names the unit so the value itself
-    /// can stay a bare number.
+    /// string in the app.
+    ///
+    /// **`Giá mua` and `Giá mua (VND)` are two different columns.** The first is
+    /// the amount in `Tiền tệ` (the device's own currency); the second is the
+    /// server's `purchasePriceVnd`, so a spreadsheet can sum a mixed-currency
+    /// account without ever adding 999 to 25,000,000. Both stay bare numbers so
+    /// Excel parses them as numbers; the currency column names the unit of the
+    /// first.
     public static let header: [String] = [
         L.t("Tên"),
         L.t("Danh mục"),
@@ -41,6 +47,8 @@ public enum DeviceCSVExport {
         "Model",
         L.t("Số seri"),
         L.t("Ngày mua"),
+        L.t("Giá mua"),
+        L.t("Tiền tệ"),
         L.t("Giá mua (VND)"),
         L.t("Hết bảo hành"),
         L.t("Trạng thái"),
@@ -92,6 +100,11 @@ public enum DeviceCSVExport {
                 device.serialNumber,
                 day(device.purchaseDate),
                 String(device.purchasePrice),
+                device.currencyCode,
+                // Empty when the server's VND value is absent and the device is
+                // foreign — the spreadsheet must not silently add the native
+                // number as dong.
+                device.purchasePriceInVnd.map(String.init),
                 device.effectiveWarrantyEnd.map { day($0) },
                 device.status.label,
             ]))

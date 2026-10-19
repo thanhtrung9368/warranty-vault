@@ -60,8 +60,11 @@ type AttachmentSearchHit struct {
 // Empty groups always serialise as `[]`, never `null`, so a client can iterate
 // unconditionally.
 type SearchResults struct {
-	Query         string                `json:"query"`
-	Devices       []store.Device        `json:"devices"`
+	Query string `json:"query"`
+	// Devices is the same DeviceVND shape every other device read returns
+	// (migration 0022): a search result can be shown with its VND purchase value
+	// and must not be the one device payload that lacks the computed fields.
+	Devices       []DeviceVND           `json:"devices"`
 	Subscriptions []store.Subscription  `json:"subscriptions"`
 	Wishlist      []store.WishlistItem  `json:"wishlist"`
 	Attachments   []AttachmentSearchHit `json:"attachments"`
@@ -82,7 +85,7 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 	query := strings.TrimSpace(rawQuery)
 	out := &SearchResults{
 		Query:         query,
-		Devices:       []store.Device{},
+		Devices:       []DeviceVND{},
 		Subscriptions: []store.Subscription{},
 		Wishlist:      []store.WishlistItem{},
 		Attachments:   []AttachmentSearchHit{},
@@ -108,13 +111,16 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 
 	q := store.New(db)
 
-	devices, err := q.SearchDevices(ctx, store.SearchDevicesParams{
+	deviceRows, err := q.SearchDevices(ctx, store.SearchDevicesParams{
 		UserId:   userID,
 		Q:        query,
 		RowLimit: rowLimit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("search devices: %w", err)
+	}
+	for _, d := range deviceRows {
+		out.Devices = append(out.Devices, withVND(d))
 	}
 	subs, err := q.SearchSubscriptions(ctx, store.SearchSubscriptionsParams{
 		UserId:   userID,
@@ -145,9 +151,6 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 		return nil, fmt.Errorf("search attachments: %w", err)
 	}
 
-	if len(devices) > 0 {
-		out.Devices = devices
-	}
 	if len(subs) > 0 {
 		out.Subscriptions = subs
 	}

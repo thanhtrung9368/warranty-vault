@@ -14,6 +14,14 @@ import Foundation
 ///   - "tài sản còn bảo hành" counts ACTIVE devices whose effective warranty
 ///     end (max `endDate` over the device's warranties) is still in the future.
 ///
+/// ## Every amount here is VND
+///
+/// Device prices may be in a foreign currency, so the ledger resolves each one
+/// to dong before it is summed — see `buildEntries`. The source of truth is the
+/// server's `purchasePriceVnd`; the client never re-rates a purchase from the
+/// market. This is the one place iOS adds **device** money, which is why the
+/// conversion decision lives here rather than in a view.
+///
 /// Everything here is synchronous and side-effect free so it can be unit
 /// tested without a backend.
 public enum StatsRollup {
@@ -23,7 +31,7 @@ public enum StatsRollup {
         case warranty
     }
 
-    /// One money movement: a device purchase or a warranty package.
+    /// One money movement, already in **VND**.
     public struct SpendEntry: Sendable, Equatable {
         public let amount: Int
         public let date: Date
@@ -103,23 +111,49 @@ public enum StatsRollup {
 
     // MARK: - Entries
 
-    /// Flattens devices + their warranty packages into a single spend ledger.
+    /// Flattens devices + their warranty packages into a single **VND** spend
+    /// ledger.
     ///
     /// Warranty rows with a nil or non-positive `cost` are skipped, matching
     /// `buildSpendEntries()` on the web.
+    ///
+    /// ## Multi-currency
+    ///
+    /// A device's `purchasePrice` is in its own currency, so it must never be
+    /// added raw: a $999 phone and a 25,000,000 ₫ phone would sum as 999 +
+    /// 25,000,000. Each amount is resolved through the totals rule instead:
+    ///
+    ///   - the device uses the server's `purchasePriceVnd` (the contract's
+    ///     computed value) and falls back to the native amount only when the
+    ///     device is VND (already dong);
+    ///   - each `Warranty.cost` is in the device's currency and the contract
+    ///     does not pre-compute it, so it is multiplied by the device's
+    ///     **locked** `fxRate` — the same rate the purchase was entered at, not
+    ///     a market lookup, so a historical total cannot drift.
+    ///
+    /// An amount that cannot be resolved contributes `0` rather than its
+    /// native number — the row and the device/package count stay in the
+    /// ledger, but "$999" is never counted as 999 ₫. The current contract
+    /// always sends `purchasePriceVnd` and requires a rate for non-VND, so this
+    /// branch only matters for a stale cached payload.
     public static func buildEntries(
         devices: [Device],
         warrantiesByDevice: [String: [Warranty]]
     ) -> [SpendEntry] {
         var entries: [SpendEntry] = []
         for device in devices {
-            entries.append(SpendEntry(amount: device.purchasePrice,
-                                      date: device.purchaseDate,
-                                      category: device.category,
-                                      kind: .device))
+            entries.append(SpendEntry(
+                amount: device.purchasePriceInVnd ?? 0,
+                date: device.purchaseDate,
+                category: device.category,
+                kind: .device
+            ))
             for warranty in warrantiesByDevice[device.id] ?? [] {
                 guard let cost = warranty.cost, cost > 0 else { continue }
-                entries.append(SpendEntry(amount: cost,
+                let vnd = CurrencyRules.lockedVnd(cost,
+                                                  currency: device.currency,
+                                                  fxRate: device.fxRate)
+                entries.append(SpendEntry(amount: vnd ?? 0,
                                           date: warranty.startDate,
                                           category: device.category,
                                           kind: .warranty))
@@ -258,18 +292,45 @@ public enum StatsRollup {
 
     // MARK: - Leaderboards / asset value
 
-    /// The `limit` most expensive devices by purchase price (warranties
+    /// Devices ordered by their **VND** purchase value.
+    ///
+    /// The list screen's "Giá cao nhất / thấp nhất" sorts go through this, as
+    /// does the Top 5. Sorting the raw `purchasePrice` is the same bug as
+    /// summing it: a $999 phone would rank below a 1,000,000 ₫ laptop. A foreign
+    /// device with no server VND value cannot be compared and sorts last in
+    /// either direction; ties fall back to the name so the order is stable.
+    public static func sortedByPurchaseValue(_ devices: [Device],
+                                             descending: Bool = true) -> [Device] {
+        devices.sorted { lhs, rhs in
+            switch (lhs.purchasePriceInVnd, rhs.purchasePriceInVnd) {
+            case let (left?, right?):
+                if left != right { return descending ? left > right : left < right }
+                return lhs.name.localizedCompare(rhs.name) == .orderedAscending
+            case (_?, nil):  return true
+            case (nil, _?):  return false
+            case (nil, nil): return lhs.name.localizedCompare(rhs.name) == .orderedAscending
+            }
+        }
+    }
+
+    /// The `limit` most expensive devices by **VND** purchase value (warranties
     /// excluded), matching the web's "Top 5 thiết bị đắt nhất".
+    ///
+    /// Ranked on the server's `purchasePriceVnd`, not the raw `purchasePrice`:
+    /// a $999 phone is more expensive than a 25,000,000 ₫ one, and sorting the
+    /// native numbers would put it below a 1,000 ₫ cable. A foreign device with
+    /// no server value sorts after every priced device (it cannot be compared),
+    /// with the name as a deterministic tiebreaker.
     public static func topDevices(_ devices: [Device], limit: Int = 5) -> [Device] {
         guard limit > 0 else { return [] }
-        return devices
-            .sorted { $0.purchasePrice > $1.purchasePrice }
+        return sortedByPurchaseValue(devices, descending: true)
             .prefix(limit)
             .map { $0 }
     }
 
     /// Devices still under warranty: status ACTIVE **and** an effective
-    /// warranty end in the future.
+    /// warranty end in the future. The total is in VND, resolved per device
+    /// through the same totals rule as the ledger.
     public static func activeAssetValue(_ devices: [Device], now: Date = Date()) -> AssetValue {
         var total = 0
         var count = 0
@@ -277,10 +338,21 @@ public enum StatsRollup {
             guard device.status == .ACTIVE,
                   let end = device.effectiveWarrantyEnd,
                   end > now else { continue }
-            total += device.purchasePrice
+            total += device.purchasePriceInVnd ?? 0
             count += 1
         }
         return AssetValue(total: total, count: count)
+    }
+
+    /// The sum of every device's purchase value in VND — the stats hero's
+    /// "Tổng giá trị thiết bị".
+    ///
+    /// The app used to read `GET /api/v1/stats → devices.totalPurchasePrice`,
+    /// which the frozen multi-currency contract does not redefine; summing the
+    /// per-device `purchasePriceVnd` the reads already carry is both
+    /// currency-correct and independent of that endpoint's arithmetic.
+    public static func totalPurchaseValue(_ devices: [Device]) -> Int {
+        devices.reduce(0) { $0 + ($1.purchasePriceInVnd ?? 0) }
     }
 
     /// Effective warranty end for a device from its full warranty list — the

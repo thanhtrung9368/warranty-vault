@@ -104,6 +104,8 @@ type Device struct {
 	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
 	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
 	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
+	Currency                     string           `json:"currency"`
+	FxRate                       *int32           `json:"fxRate"`
 }
 
 type DeviceShare struct {

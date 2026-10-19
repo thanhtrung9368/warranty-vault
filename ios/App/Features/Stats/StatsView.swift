@@ -920,10 +920,21 @@ private struct TopDeviceRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
-            Text(WVFormat.vnd(device.purchasePrice))
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(WVColor.label)
-                .lineLimit(1)
+            // The ranking is by VND value, so a foreign device shows both: its
+            // own price (`999 USD`) and the VND it contributed (`25,4 tr ₫`).
+            // The native 999 is never rendered as dong.
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(WVFormat.currency(device.purchasePrice, device.currency))
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                if device.usesForeignCurrency, let vnd = device.purchasePriceInVnd {
+                    Text(WVFormat.compactVnd(vnd))
+                        .font(.system(size: 11))
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                }
+            }
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 44)

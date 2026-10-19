@@ -18,6 +18,9 @@
     <string name="stats_total_value">Tổng giá trị</string>
     <string name="stats_warranty_costs">Phí bảo hành</string>
     <string name="stats_total_spent">Tổng chi mua sắm</string>
+    <!-- Thiết bị đa tiền tệ: hai số tổng ở trên do máy chủ quy đổi sang VND
+         theo tỷ giá đã chốt của từng thiết bị. -->
+    <string name="stats_device_totals_vnd_note">Tổng của thiết bị được quy đổi sang VND theo tỷ giá đã chốt của từng máy.</string>
     <string name="stats_active">Đang chạy / %1$s</string>
     <string name="stats_per_month">Mỗi tháng</string>
     <string name="stats_wishlist">Đang thèm / %1$s</string>

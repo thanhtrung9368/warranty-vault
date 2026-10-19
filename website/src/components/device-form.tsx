@@ -21,6 +21,7 @@ import {
   CalendarClock,
   TrendingDown,
   TrendingUp,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,16 @@ import {
 } from '@/components/ui/select';
 import { CATEGORY_LABELS, STATUSES, type Status } from '@/lib/types';
 import { formatNumber, parseVNDInput, formatVND, formatDate } from '@/lib/format';
+import {
+  DEVICE_CURRENCIES,
+  currencySuffix,
+  formatMoney,
+  fxRateProblem,
+  needsFxRate,
+  normalizeCurrency,
+  parseFxRateInput,
+  vndEquivalent,
+} from '@/lib/currency';
 import type { Locale } from '@/lib/i18n/locale';
 import { categoryLabel, statusLabel } from '@/lib/i18n/labels';
 import { useLocale, useT } from '@/lib/i18n/client';
@@ -64,6 +75,7 @@ import {
   updateDevice,
   type DeviceFormState,
 } from '@/app/actions/devices';
+import { getFxRate } from '@/app/actions/fx';
 import { extractReceipt } from '@/app/actions/ai';
 import type { DeviceWarning } from '@/lib/api/devices';
 import { deviceWarningTitle } from '@/lib/device-warnings';
@@ -90,6 +102,11 @@ type Initial = {
   serialNumber?: string | null;
   purchaseDate?: Date | string;
   purchasePrice?: number;
+  // Multi-currency (frozen contract): the device's ISO-4217 code and the VND
+  // rate locked when it was entered. `fxRate` is null exactly when currency is
+  // VND. The edit page passes both through so a PATCH cannot reset them.
+  currency?: string;
+  fxRate?: number | null;
   purchasePlace?: string | null;
   warrantyMonths?: number;
   warrantyProvider?: string | null;
@@ -131,6 +148,9 @@ const FIELD_META: Record<string, { label: string; focusId: string; step: number 
   name: { label: 'Tên thiết bị', focusId: 'name', step: 0 },
   category: { label: 'Loại thiết bị', focusId: 'category', step: 0 },
   purchaseDate: { label: 'Ngày mua', focusId: 'purchaseDate', step: 1 },
+  purchasePrice: { label: 'Giá mua', focusId: 'purchasePrice', step: 1 },
+  currency: { label: 'Tiền tệ', focusId: 'currency', step: 1 },
+  fxRate: { label: 'Tỷ giá', focusId: 'fxRate', step: 1 },
   warrantyMonths: { label: 'Số tháng bảo hành', focusId: 'warrantyMonths', step: 2 },
   leadDays: { label: 'Mốc nhắc trước', focusId: 'leadDays', step: 2 },
   // Warranty activation + extended cover (Feature A) — same step as the rest of
@@ -216,15 +236,20 @@ function MoneyInput({
   onChange,
   locale,
   name = 'purchasePrice',
+  currency = 'VND',
+  id,
 }: {
   value: string;
   onChange: (v: string) => void;
   locale: Locale;
   name?: string;
+  currency?: string;
+  id?: string;
 }) {
   return (
     <div className="relative">
       <Input
+        id={id}
         inputMode="numeric"
         value={value}
         onChange={(e) => {
@@ -232,10 +257,10 @@ function MoneyInput({
           onChange(n ? formatNumber(n, locale) : '');
         }}
         placeholder="0"
-        className="pr-10"
+        className="pr-12"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-        ₫
+        {currencySuffix(currency)}
       </span>
       <input type="hidden" name={name} value={parseVNDInput(value)} />
     </div>
@@ -251,10 +276,12 @@ function SalePriceInput({
   value,
   onChange,
   locale,
+  currency = 'VND',
 }: {
   value: string;
   onChange: (v: string) => void;
   locale: Locale;
+  currency?: string;
 }) {
   return (
     <div className="relative">
@@ -268,10 +295,10 @@ function SalePriceInput({
           onChange(digits === '' ? '' : formatNumber(parseVNDInput(raw), locale));
         }}
         placeholder="0"
-        className="pr-10"
+        className="pr-12"
       />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-        ₫
+        {currencySuffix(currency)}
       </span>
       <input
         type="hidden"
@@ -359,9 +386,31 @@ export function DeviceForm({
   const [purchasePriceDisplay, setPurchasePriceDisplay] = React.useState<string>(
     initial?.purchasePrice ? formatNumber(initial.purchasePrice, locale) : '',
   );
+  // Multi-currency. The default is the API default (VND); `fxRate` is blank for
+  // VND and only shown for a foreign currency. The value is the locked rate,
+  // displayed with the language's thousands separator but submitted as digits.
+  const [currency, setCurrency] = React.useState<string>(
+    normalizeCurrency(initial?.currency),
+  );
+  const [fxRateDisplay, setFxRateDisplay] = React.useState<string>(
+    initial?.fxRate != null ? formatNumber(initial.fxRate, locale) : '',
+  );
+  const [fxLoading, setFxLoading] = React.useState(false);
+  // Only the two states that need a visible explanation. A successful non-stale
+  // fetch is a toast; the field itself already shows the number.
+  const [fxNotice, setFxNotice] = React.useState<
+    | { kind: 'error'; message: string }
+    | { kind: 'stale'; fetchedAt: string }
+    | null
+  >(null);
   const [purchasePlace, setPurchasePlace] = React.useState<string>(
     initial?.purchasePlace ?? '',
   );
+  const purchasePriceValue = parseVNDInput(purchasePriceDisplay);
+  const fxRateValue = parseFxRateInput(fxRateDisplay);
+  // Display-only preview of what the server will store. Totals never use this:
+  // every read carries the authoritative `purchasePriceVnd`.
+  const purchaseVndPreview = vndEquivalent(purchasePriceValue, currency, fxRateValue);
 
   const [warrantyMonths, setWarrantyMonths] = React.useState<number>(
     initial?.warrantyMonths ?? 12,
@@ -425,9 +474,10 @@ export function DeviceForm({
 
   const saleSoldPrice = sold ? soldPriceFromInput(soldPriceDisplay) : null;
   const profitLoss = saleProfitLoss(
-    parseVNDInput(purchasePriceDisplay),
+    purchasePriceValue,
     saleSoldPrice,
     locale,
+    currency,
   );
 
   // ─── OCR receipt scan (create flow only) ────────────────────────────────
@@ -485,6 +535,43 @@ export function DeviceForm({
     },
     [catalog.categories, locale],
   );
+
+  // Changing the currency invalidates any rate typed/fetched for the previous
+  // one: 25,400 is VND per USD, not per EUR. Blanking it forces a deliberate
+  // refetch/entry rather than silently locking the wrong number.
+  const handleCurrencyChange = (next: string) => {
+    setCurrency(normalizeCurrency(next));
+    setFxRateDisplay('');
+    setFxNotice(null);
+  };
+
+  const handleFetchFx = async () => {
+    if (!needsFxRate(currency) || fxLoading) return;
+    setFxLoading(true);
+    setFxNotice(null);
+    try {
+      const res = await getFxRate(currency);
+      if (!res.ok) {
+        // 503 is the documented "type it by hand" branch; the action's message
+        // already says so in the active language. The field stays editable.
+        setFxNotice({ kind: 'error', message: res.message });
+        return;
+      }
+      setFxRateDisplay(formatNumber(res.rate, locale));
+      if (res.stale) {
+        setFxNotice({ kind: 'stale', fetchedAt: res.fetchedAt });
+      } else {
+        toast.success(t('Đã lấy tỷ giá'));
+      }
+    } catch {
+      setFxNotice({
+        kind: 'error',
+        message: t('Không lấy được tỷ giá — bạn nhập tay bên dưới nhé.'),
+      });
+    } finally {
+      setFxLoading(false);
+    }
+  };
 
   const handleScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -632,6 +719,9 @@ export function DeviceForm({
     }
     if (s === 1) {
       if (!purchaseDate) return 'purchaseDate';
+      // Frozen contract: a non-VND device without a positive integer rate must
+      // not be submitted. VND never has a problem here (its rate is dropped).
+      if (fxRateProblem(currency, fxRateValue)) return 'fxRate';
     }
     if (s === 2) {
       if (warrantyMonths < 0) return 'warrantyMonths';
@@ -656,10 +746,22 @@ export function DeviceForm({
     return null;
   };
 
+  // Validation copy for the fields whose rule lives in a helper. Everything
+  // else falls back to the generic "Vui lòng nhập: …" sentence (or the server's
+  // own wording for the resale pair).
+  const invalidMessage = (key: string): string => {
+    if (key === 'fxRate') {
+      const problem = fxRateProblem(currency, fxRateValue);
+      if (problem === 'required') return t('Vui lòng nhập tỷ giá.');
+      if (problem === 'invalid') return t('Tỷ giá phải là số nguyên lớn hơn 0.');
+    }
+    return fieldMessage(key, t);
+  };
+
   const goNext = () => {
     const bad = validateStep(step);
     if (bad) {
-      toast.error(fieldMessage(bad, t));
+      toast.error(invalidMessage(bad));
       focusField(bad);
       return;
     }
@@ -680,6 +782,9 @@ export function DeviceForm({
     setStatus('ACTIVE');
     setPurchaseDate(format(new Date(), 'yyyy-MM-dd'));
     setPurchasePriceDisplay('');
+    setCurrency('VND');
+    setFxRateDisplay('');
+    setFxNotice(null);
     setPurchasePlace('');
     setWarrantyMonths(12);
     setWarrantyProvider('');
@@ -704,7 +809,7 @@ export function DeviceForm({
       if (bad) {
         e.preventDefault();
         setStep(i);
-        toast.error(fieldMessage(bad, t));
+        toast.error(invalidMessage(bad));
         setTimeout(() => focusField(bad), 0);
         return;
       }
@@ -1003,13 +1108,133 @@ export function DeviceForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="purchasePrice">{t('Giá mua (VND)')}</Label>
-            <MoneyInput
-              value={purchasePriceDisplay}
-              onChange={setPurchasePriceDisplay}
-              locale={locale}
-            />
+            <Label htmlFor="purchasePrice">
+              {t('Giá mua ({currency})', { currency })}
+            </Label>
+            <div className="flex gap-2">
+              {/* The currency select sits next to the price it denominates, so
+                  the label above always agrees with the picker. */}
+              <Select
+                value={currency}
+                onValueChange={handleCurrencyChange}
+                // Freeze the unit while a rate is in flight: otherwise a
+                // response for USD could land after the user picked EUR.
+                disabled={fxLoading}
+              >
+                <SelectTrigger
+                  id="currency"
+                  className="w-[7.25rem] shrink-0"
+                  aria-label={t('Tiền tệ')}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEVICE_CURRENCIES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="min-w-0 flex-1">
+                <MoneyInput
+                  id="purchasePrice"
+                  value={purchasePriceDisplay}
+                  onChange={setPurchasePriceDisplay}
+                  locale={locale}
+                  currency={currency}
+                />
+              </div>
+            </div>
+            <input type="hidden" name="currency" value={currency} />
+            <FieldError errors={errors.currency} />
+            {needsFxRate(currency) && (
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  'Giá, giá bán và chi phí bảo hành của thiết bị này tính bằng {currency}.',
+                  { currency },
+                )}
+              </p>
+            )}
           </div>
+
+          {/* Rate input only exists for a foreign currency: VND is the base and
+              must submit `fxRate: null` (the action drops any stale value). */}
+          {needsFxRate(currency) && (
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="fxRate">
+                  {t('Tỷ giá (VND cho 1 {currency})', { currency })}
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-pill"
+                  onClick={handleFetchFx}
+                  disabled={fxLoading}
+                >
+                  {fxLoading ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {fxLoading ? t('Đang lấy tỷ giá…') : t('Lấy tỷ giá')}
+                </Button>
+              </div>
+              <div className="relative md:max-w-xs">
+                <Input
+                  id="fxRate"
+                  inputMode="numeric"
+                  value={fxRateDisplay}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/[^\d]/g, '');
+                    setFxRateDisplay(
+                      digits === '' ? '' : formatNumber(parseInt(digits, 10), locale),
+                    );
+                    setFxNotice(null);
+                  }}
+                  placeholder="vd: 25.400"
+                  className="pr-14"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  VND
+                </span>
+              </div>
+              <input
+                type="hidden"
+                name="fxRate"
+                value={fxRateValue == null ? '' : String(fxRateValue)}
+              />
+              <FieldError errors={errors.fxRate} />
+              {/* What the server will store, shown before the save. Display
+                  only — totals always read the server's `purchasePriceVnd`. */}
+              {purchasePriceDisplay !== '' && purchaseVndPreview != null && (
+                <p className="text-xs font-medium text-ink-2">
+                  {t('≈ {amount} khi lưu', {
+                    amount: formatVND(purchaseVndPreview, locale),
+                  })}
+                </p>
+              )}
+              {fxNotice?.kind === 'error' && (
+                <p role="alert" className="text-xs font-medium text-destructive">
+                  {fxNotice.message}
+                </p>
+              )}
+              {fxNotice?.kind === 'stale' && (
+                <p className="text-xs font-medium text-amber-ink">
+                  {t('Tỷ giá có thể đã cũ (lấy lúc {time}) — kiểm tra lại trước khi lưu.', {
+                    time: fxNotice.fetchedAt
+                      ? formatDate(fxNotice.fetchedAt, locale)
+                      : '—',
+                  })}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t('Tỷ giá được khoá tại thời điểm nhập, không đổi theo thị trường.')}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="purchasePlace">{t('Nơi mua')}</Label>
@@ -1321,12 +1546,14 @@ export function DeviceForm({
 
                   <div className="space-y-2">
                     <Label htmlFor="soldPrice">
-                      {t('Giá bán (VND)')} <span className="text-destructive">*</span>
+                      {t('Giá bán ({currency})', { currency })}{' '}
+                      <span className="text-destructive">*</span>
                     </Label>
                     <SalePriceInput
                       value={soldPriceDisplay}
                       onChange={setSoldPriceDisplay}
                       locale={locale}
+                      currency={currency}
                     />
                     <FieldError errors={errors.soldPrice} />
                     <p className="text-xs text-muted-foreground">
@@ -1352,7 +1579,7 @@ export function DeviceForm({
                     {profitLoss.label}
                     <span className="font-normal opacity-80">
                       {t('so với giá mua {amount}', {
-                        amount: formatVND(parseVNDInput(purchasePriceDisplay), locale),
+                        amount: formatMoney(purchasePriceValue, currency, locale),
                       })}
                     </span>
                   </p>
@@ -1398,9 +1625,18 @@ export function DeviceForm({
                   <p className="info-row-label">{t('Giá')}</p>
                   <p className="info-row-value text-sm tabular-nums">
                     {purchasePriceDisplay
-                      ? formatVND(parseVNDInput(purchasePriceDisplay) || 0, locale)
+                      ? formatMoney(purchasePriceValue || 0, currency, locale)
                       : '—'}
                   </p>
+                  {needsFxRate(currency) &&
+                    purchasePriceDisplay !== '' &&
+                    purchaseVndPreview != null && (
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {t('≈ {amount}', {
+                          amount: formatVND(purchaseVndPreview, locale),
+                        })}
+                      </p>
+                    )}
                 </div>
               </div>
               <div className="info-row">
@@ -1425,7 +1661,9 @@ export function DeviceForm({
                     {sold
                       ? [
                           soldAt ? saleDayLabel(soldAt, locale) : '—',
-                          saleSoldPrice != null ? formatVND(saleSoldPrice, locale) : '—',
+                          saleSoldPrice != null
+                            ? formatMoney(saleSoldPrice, currency, locale)
+                            : '—',
                           profitLoss?.label,
                         ]
                           .filter(Boolean)

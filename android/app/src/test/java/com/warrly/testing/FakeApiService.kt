@@ -30,6 +30,7 @@ import com.warrly.network.ExtractReceiptInput
 import com.warrly.network.FileAttachmentInput
 import com.warrly.network.Forecast
 import com.warrly.network.ForgotRequest
+import com.warrly.network.FxRates
 import com.warrly.network.ImportResultResponse
 import com.warrly.network.LoginInput
 import com.warrly.network.MeResponse
@@ -212,6 +213,8 @@ open class FakeApiService : ApiService {
 
     override suspend fun getAIOptIn(): AIOptInResponse = notStubbed("getAIOptIn")
     override suspend fun setAIOptIn(body: AIOptInRequest): AIOptInResponse = notStubbed("setAIOptIn")
+
+    override suspend fun getFxRates(base: String): FxRates = notStubbed("getFxRates")
 
     override suspend fun getStats(): UserStats = notStubbed("getStats")
     override suspend fun getForecast(months: Int?): Forecast = notStubbed("getForecast")

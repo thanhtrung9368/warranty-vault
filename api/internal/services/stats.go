@@ -17,13 +17,24 @@ var statsWishlistStatuses = []string{"WATCHING", "DECIDED", "SKIPPED", "PURCHASE
 
 // DeviceStats mirrors the `devices` slot in the TS UserStats shape.
 type DeviceStats struct {
-	Total              int64            `json:"total"`
-	ByStatus           map[string]int64 `json:"byStatus"`
-	TotalPurchasePrice int64            `json:"totalPurchasePrice"`
+	Total    int64            `json:"total"`
+	ByStatus map[string]int64 `json:"byStatus"`
+	// TotalPurchasePrice is the sum of every device's purchase price converted
+	// to VND at the rate LOCKED on that device (migration 0022). For a VND-only
+	// account it is exactly SUM(purchasePrice) — the pre-0022 value, unchanged —
+	// because a VND device has no rate and converts 1:1. A non-VND device with no
+	// usable rate contributes nothing (its VND value is unknown); it is never
+	// added at par, which is the bug this field used to have.
+	TotalPurchasePrice int64 `json:"totalPurchasePrice"`
 	// TotalWarrantyCost is the sum of Warranty.cost across every package on the
 	// user's devices. The Android stats screen already reads exactly
 	// `devices.totalWarrantyCost`; web/iOS used to recompute it with one
 	// warranties call per device (the N+1 this field exists to kill).
+	//
+	// Converted to VND at each device's LOCKED rate exactly like
+	// TotalPurchasePrice: Warranty.cost is in the DEVICE's currency, so a USD 99
+	// AppleCare+ package must not be counted as 99 dong. A VND device converts
+	// 1:1, keeping every pre-0022 total identical.
 	//
 	// int64 on purpose: money is stored as int32 per row, so the sum must not be
 	// narrowed back to int32.

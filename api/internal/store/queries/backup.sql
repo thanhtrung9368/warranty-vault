@@ -167,6 +167,13 @@ WHERE "userId" = $1;
 -- and dropping the notified markers would make the next cron re-push a reminder
 -- the user already saw. An older payload decodes to false/NULL, which is exactly
 -- the old meaning ("not required", "no deadline", "never notified").
+--
+-- currency/fxRate (migration 0022) are optional in exactly the same way: an
+-- older payload has neither key, decodes to ""/NULL and imports as VND — which
+-- is what that payload meant, since every device was VND when it was written.
+-- The export omits both for a VND device, so a VND-only backup stays
+-- byte-identical to the pre-0022 format. The locked rate must travel or a
+-- restore would silently turn a USD 999 phone into a VND 999 phone.
 INSERT INTO "Device" (
     id, "userId", name, category, brand, model, "serialNumber",
     "purchaseDate", "purchasePrice", "purchasePlace", status, notes,
@@ -174,11 +181,12 @@ INSERT INTO "Device" (
     "returnWindowNotifiedAt", "createdAt", "updatedAt",
     "activationRequired", "activatedAt", "extendedCoverBuyBy",
     "activationNotifiedAt", "extendedCoverNotifiedAt",
-    "extendedCoverNotifiedLeadDay", "leadDays"
+    "extendedCoverNotifiedLeadDay", "leadDays", currency, "fxRate"
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
     $17, $18, $19, $20, $21, $22, $23, $24, $25,
-    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7])
+    COALESCE(sqlc.narg('leadDays')::int[], ARRAY[30, 7]),
+    $26, $27
 );
 
 -- name: BackupInsertWarranty :exec

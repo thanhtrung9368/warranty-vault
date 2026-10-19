@@ -1240,4 +1240,51 @@ final class EndpointsTests: KitTestCase {
         XCTAssertFalse(body.contains("attachmentId"),
                        "the multipart branch must not pretend to carry an attachment id")
     }
+
+    // MARK: - FX rates
+
+    func testFxRatesSendsTheBaseAndDecodesTheTable() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"base": "USD",
+         "rates": {"VND": 25437.6, "EUR": 0.92},
+         "fetchedAt": "2026-10-19T00:00:00Z",
+         "stale": false}
+        """#))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let rates = try await client.fxRates(base: " usd ")
+
+        XCTAssertEqual(rates.base, "USD")
+        XCTAssertEqual(rates.vndRate, 25_438)
+        XCTAssertFalse(rates.isStale)
+        XCTAssertEqual(rates.fetchedAt, "2026-10-19T00:00:00Z")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/api/v1/fx/rates")
+        XCTAssertEqual(queryItems(of: request), ["base": "USD"],
+                       "the base is normalised to the ISO code the contract wants")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok_abc")
+    }
+
+    /// 503 is the contract's documented "provider unavailable" answer. The form
+    /// has to tell that apart from a generic failure so it can say "type the
+    /// rate" instead of showing a red error for a save that is still possible.
+    func testFxRates503IsServiceUnavailableAndLeavesTheFieldToTheUser() async throws {
+        StubURLProtocol.install(.json(#"""
+        {"error": "fx_unavailable", "message": "Tỷ giá tạm thời không khả dụng"}
+        """#, statusCode: 503))
+        let client = makeStubbedClient(token: "tok_abc")
+
+        let error = await captureAPIError { try await client.fxRates(base: "USD") }
+
+        guard case let .server(status, envelope)? = error else {
+            return XCTFail("expected a server APIError, got \(String(describing: error))")
+        }
+        XCTAssertEqual(status, 503)
+        XCTAssertEqual(envelope.error, "fx_unavailable")
+        XCTAssertTrue(try XCTUnwrap(error).isServiceUnavailable)
+        XCTAssertEqual(error?.statusCode, 503)
+        XCTAssertFalse(try XCTUnwrap(error).isUnauthorized)
+    }
 }

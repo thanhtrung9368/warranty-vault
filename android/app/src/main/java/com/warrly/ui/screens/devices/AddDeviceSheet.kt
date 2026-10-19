@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -70,6 +71,7 @@ import com.warrly.network.ApiClient
 import com.warrly.network.ApiService
 import com.warrly.network.BrandOption
 import com.warrly.network.CategoryOption
+import com.warrly.network.DEFAULT_CURRENCY
 import com.warrly.network.DEFAULT_LEAD_DAYS
 import com.warrly.network.Device
 import com.warrly.network.DeviceInput
@@ -131,6 +133,14 @@ fun AddDeviceSheet(
     var price by remember {
         mutableStateOf((existing?.purchasePrice ?: 0).takeIf { it > 0 }?.toString() ?: "")
     }
+    // Multi-currency device. `currency` is the ISO code sent back on every save;
+    // `fxRateText` is the locked VND-per-unit rate the user typed or fetched.
+    // Both are loaded from `existing` so an edit can never relabel a foreign
+    // device as dong or drop the rate a previous client stored.
+    var currency by remember { mutableStateOf(normalizeCurrency(existing?.currency)) }
+    var fxRateText by remember { mutableStateOf(existing?.fxRate?.toString().orEmpty()) }
+    var fxLoading by remember { mutableStateOf(false) }
+    var fxNotice by remember { mutableStateOf<FxNotice?>(null) }
     var months by remember {
         mutableStateOf(if (isEdit) "" else "12")
     }
@@ -201,6 +211,57 @@ fun AddDeviceSheet(
     // draft; only the second one means "you must type this yourself".
     var scanWarnings by remember { mutableStateOf<List<DeviceWarning>>(emptyList()) }
     var aiOptIn by remember { mutableStateOf(false) }
+
+    /**
+     * `GET /api/v1/fx/rates?base=<currency>` — the "Lấy tỷ giá" action.
+     *
+     * Success fills the rate field; `stale = true` keeps the filled value and
+     * says it may be old. **503 is the documented failure**: the sheet says the
+     * rate service is unavailable and leaves the field exactly as editable as it
+     * was, because a rate the user types is still perfectly valid. Any other
+     * failure shows the server's message.
+     */
+    fun fetchFxRate() {
+        val code = normalizeCurrency(currency)
+        if (code == DEFAULT_CURRENCY) return
+        scope.launch {
+            fxLoading = true
+            fxNotice = null
+            try {
+                val rates = api.getFxRates(code)
+                val rate = rateToVnd(code, rates.rates)
+                if (rate == null) {
+                    fxNotice = FxNotice(s.get(R.string.devadd_fx_no_vnd_quote, code), isError = true)
+                } else {
+                    fxRateText = rate.toString()
+                    fieldErrors = fieldErrors - "fxRate"
+                    fxNotice = if (rates.stale) {
+                        FxNotice(s.get(R.string.devadd_fx_stale), isError = false)
+                    } else {
+                        null
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: retrofit2.HttpException) {
+                fxNotice = if (e.code() == 503) {
+                    FxNotice(s.get(R.string.devadd_fx_unavailable), isError = true)
+                } else {
+                    FxNotice(
+                        s.get(R.string.devadd_fx_failed, e.toUserMessage(ApiClient.json, context)),
+                        isError = true,
+                    )
+                }
+            } catch (e: Exception) {
+                fxNotice = FxNotice(
+                    s.get(R.string.devadd_fx_failed, e.toUserMessage(ApiClient.json, context)),
+                    isError = true,
+                )
+            } finally {
+                fxLoading = false
+            }
+        }
+    }
 
     // ---- Serial / IMEI scan -------------------------------------------------
     // The camera is the highest-value way into this form: the serial is the
@@ -487,12 +548,119 @@ fun AddDeviceSheet(
             }
 
             SheetGroup {
-                OutlinedTextField(
-                    value = price, onValueChange = { price = it.filter { c -> c.isDigit() } },
-                    label = { Text(stringResource(R.string.devadd_price_vnd)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // Price and currency side by side: the amount is meaningless
+                // without the unit, and a non-VND device always needs a locked
+                // rate. The price field holds the amount in the device's own
+                // currency; the rate field's supporting text shows the VND value
+                // that will be stored, so the two can never be confused.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { price = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.devadd_price)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    CurrencyDropdown(
+                        selected = currency,
+                        options = currencyOptions(currency),
+                        onSelected = { picked ->
+                            val next = normalizeCurrency(picked)
+                            if (next != normalizeCurrency(currency)) {
+                                // A rate for the old currency is not a rate for
+                                // the new one; clear it rather than silently
+                                // storing the wrong conversion.
+                                currency = next
+                                fxRateText = ""
+                                fxNotice = null
+                            }
+                            fieldErrors = fieldErrors - "currency" - "fxRate"
+                        },
+                    )
+                }
+                if (normalizeCurrency(currency) != DEFAULT_CURRENCY) {
+                    val parsedRate = parseFxRate(fxRateText)
+                    // No price typed yet ⇒ no preview (a "₫0" line would look
+                    // like the app had stored something).
+                    val equivalent = price
+                        .takeIf { it.isNotBlank() }
+                        ?.toIntOrNull()
+                        ?.let { priceVnd(it, parsedRate) }
+                    val rateError = firstFieldError("fxRate")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        OutlinedTextField(
+                            value = fxRateText,
+                            onValueChange = {
+                                fxRateText = it.filter { c -> c.isDigit() }
+                                fxNotice = null
+                                fieldErrors = fieldErrors - "fxRate"
+                            },
+                            label = { Text(stringResource(R.string.devadd_fx_rate, currency)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = rateError != null,
+                            supportingText = {
+                                Column {
+                                    rateError?.let {
+                                        Text(it, color = MaterialTheme.colorScheme.error)
+                                    }
+                                    if (fxRateText.isBlank()) {
+                                        Text(stringResource(R.string.devadd_fx_required_hint))
+                                    }
+                                    // What the server will actually store. Shown
+                                    // only once a rate parses; never added to a
+                                    // total — it is a pre-save preview.
+                                    equivalent?.let {
+                                        Text(
+                                            stringResource(
+                                                R.string.devadd_fx_equivalent,
+                                                formatVnd(it),
+                                            ),
+                                        )
+                                    }
+                                    fxNotice?.let { notice ->
+                                        Text(
+                                            notice.text,
+                                            color = if (notice.isError) {
+                                                MaterialTheme.colorScheme.error
+                                            } else {
+                                                WVAccent.current.warning
+                                            },
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedButton(
+                            onClick = { fetchFxRate() },
+                            enabled = !fxLoading,
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) {
+                            if (fxLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.width(18.dp).height(18.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(Icons.Outlined.CurrencyExchange, contentDescription = null)
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (fxLoading) {
+                                    stringResource(R.string.devadd_fx_fetching)
+                                } else {
+                                    stringResource(R.string.devadd_fetch_rate)
+                                },
+                            )
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = purchaseDate, onValueChange = { purchaseDate = it },
                     label = { Text(stringResource(R.string.devadd_purchase_date_yyyy_mm_dd)) },
@@ -611,7 +779,11 @@ fun AddDeviceSheet(
                         soldPrice = it.filter { c -> c.isDigit() }
                         fieldErrors = fieldErrors - "soldPrice"
                     },
-                    label = { Text(stringResource(R.string.devadd_sale_price_vnd)) },
+                    label = {
+                        // Sale price is in the same native currency as the
+                        // purchase price, not always dong.
+                        Text(stringResource(R.string.devadd_sale_price_currency, currency))
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError = firstFieldError("soldPrice") != null,
                     supportingText = firstFieldError("soldPrice")?.let {
@@ -671,6 +843,12 @@ fun AddDeviceSheet(
                             serialNumber = serial.ifBlank { null },
                             purchaseDate = purchaseDate,
                             purchasePrice = price.toIntOrNull() ?: 0,
+                            // Currency + the rate locked now. For VND the rate
+                            // is null (and `explicitNulls = false` drops the key);
+                            // the Save button refuses a foreign currency without
+                            // one, so the server's 400 is unreachable from here.
+                            currency = normalizeCurrency(currency),
+                            fxRate = fxRateForRequest(currency, fxRateText),
                             purchasePlace = purchasePlace.ifBlank { null },
                             status = status,
                             notes = notes.ifBlank { null },
@@ -712,14 +890,21 @@ fun AddDeviceSheet(
                             fieldErrors = fe
                             // soldAt/soldPrice/leadDays are rendered under their own
                             // fields; every other server error still needs a visible place.
-                            val inline = setOf(
-                                "soldAt",
-                                "soldPrice",
-                                "leadDays",
-                                "activationRequired",
-                                "activatedAt",
-                                "extendedCoverBuyBy",
-                            )
+                            // `fxRate` only has a field while the SUBMITTED currency is
+                            // non-VND — if the user flipped the picker while the request
+                            // was in flight, fall back to the top-level error instead of
+                            // hiding it under a field that is no longer on screen.
+                            val inline = buildSet {
+                                add("soldAt")
+                                add("soldPrice")
+                                add("leadDays")
+                                add("activationRequired")
+                                add("activatedAt")
+                                add("extendedCoverBuyBy")
+                                if (normalizeCurrency(input.currency) != DEFAULT_CURRENCY) {
+                                    add("fxRate")
+                                }
+                            }
                             error = if (fe.isEmpty() || fe.keys.any { it !in inline }) {
                                 e.toUserMessage(ApiClient.json)
                             } else {
@@ -732,8 +917,12 @@ fun AddDeviceSheet(
                 },
                 // At least one lead day is required by the API (an empty array is a
                 // 400), so an emptied schedule blocks Save instead of producing it.
+                // A non-VND currency without a positive locked rate is the other
+                // contract-required pair: block it here rather than learn it from
+                // a 400 `fieldErrors.fxRate`.
                 enabled = name.isNotBlank() && purchaseDate.isNotBlank() &&
-                    leadDays.isNotEmpty() && !submitting,
+                    leadDays.isNotEmpty() && !fxRateRequired(currency, fxRateText) &&
+                    !submitting,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -904,6 +1093,49 @@ private fun StatusDropdown(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CurrencyDropdown(
+    selected: String,
+    options: List<String>,
+    onSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.width(116.dp),
+    ) {
+        OutlinedTextField(
+            value = selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.devadd_currency)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { code ->
+                DropdownMenuItem(
+                    text = { Text(code) },
+                    onClick = {
+                        onSelected(code)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** A line under the rate field: an error (503, bad response) or a warning (stale). */
+private data class FxNotice(val text: String, val isError: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

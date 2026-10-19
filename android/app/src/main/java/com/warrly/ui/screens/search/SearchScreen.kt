@@ -81,6 +81,7 @@ import com.warrly.ui.components.SkeletonList
 import com.warrly.ui.components.StatusPill
 import com.warrly.ui.components.pressScale
 import com.warrly.ui.screens.attachments.openAttachment
+import com.warrly.ui.screens.devices.formatDeviceMoney
 import com.warrly.ui.screens.devices.formatVnd
 import com.warrly.ui.screens.subscriptions.formatPriceCycle
 import com.warrly.ui.viewModelFactory
@@ -328,7 +329,8 @@ private fun SearchResultsList(
                     icon = Icons.Filled.Devices,
                     title = device.name,
                     subtitle = deviceSubtitle(device),
-                    meta = formatVnd(device.purchasePrice),
+                    // Own currency: a USD device's "$999" is not 999 ₫.
+                    meta = formatDeviceMoney(device.purchasePrice, device.currency),
                     trailing = { DeviceStatusPill(device.status) },
                     onClick = { onOpenDevice(device.id) },
                 )

@@ -18,6 +18,9 @@
     <string name="stats_total_value">Total value</string>
     <string name="stats_warranty_costs">Warranty costs</string>
     <string name="stats_total_spent">Total spent</string>
+    <!-- Multi-currency devices: both stats fields above are server-side VND
+         sums with each device's locked rate applied. -->
+    <string name="stats_device_totals_vnd_note">Device totals are converted to VND at the locked rate of each device.</string>
     <string name="stats_active">Active / %1$s</string>
     <string name="stats_per_month">Per month</string>
     <string name="stats_wishlist">Wishlist / %1$s</string>

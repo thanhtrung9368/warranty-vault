@@ -90,9 +90,9 @@ struct DevicesScreen: View {
         case .warrantyAsc:
             arr = Self.sortedByWarrantyEndAscending(arr)
         case .priceDesc:
-            arr.sort { $0.purchasePrice > $1.purchasePrice }
+            arr = StatsRollup.sortedByPurchaseValue(arr, descending: true)
         case .priceAsc:
-            arr.sort { $0.purchasePrice < $1.purchasePrice }
+            arr = StatsRollup.sortedByPurchaseValue(arr, descending: false)
         case .name:
             arr.sort { $0.name.localizedCompare($1.name) == .orderedAscending }
         }
@@ -336,7 +336,7 @@ private struct DeviceListRow: View {
                     }
                 }
                 HStack(spacing: 6) {
-                    Text("\(device.brand ?? "—") · \(WVFormat.vnd(device.purchasePrice))")
+                    Text("\(device.brand ?? "—") · \(WVFormat.currency(device.purchasePrice, device.currency))")
                         .font(.system(size: 13))
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)

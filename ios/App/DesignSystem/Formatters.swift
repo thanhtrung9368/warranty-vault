@@ -1,4 +1,5 @@
 import SwiftUI
+import WarrlyKit
 
 // ============================================================
 // Warrly iOS — shared formatting + category helpers
@@ -13,6 +14,22 @@ enum WVFormat {
     /// prototype's `toLocaleString('vi-VN')` output.
     static func vnd(_ amount: Int) -> String {
         (groupingFormatter.string(from: NSNumber(value: amount)) ?? "\(amount)") + " ₫"
+    }
+
+    /// A device's amount in **its own** currency: `25.000.000 ₫` for VND,
+    /// `999 USD` / `1,299 USD` for a foreign one.
+    ///
+    /// Delegates to the Kit's `VndFormat` so the rules (and their tests) live in
+    /// one place. The important property is negative: a foreign amount never
+    /// renders with the `₫` sign, because that is exactly how a $999 phone
+    /// starts being counted as 999 dong.
+    static func currency(_ amount: Int, _ currency: String?) -> String {
+        VndFormat.string(Int64(amount), currency: currency)
+    }
+
+    /// A locked exchange rate as `25.400 ₫` (VND per one unit).
+    static func rate(_ fxRate: Int) -> String {
+        VndFormat.string(Int64(fxRate))
     }
 
     /// Abbreviated money for tight widgets: `1,2 tr` / `980 ng`.

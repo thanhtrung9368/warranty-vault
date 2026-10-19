@@ -21,6 +21,7 @@ import (
 	"github.com/thanhtrung9368/warranty-vault/api/internal/auth"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/httpx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/push"
@@ -36,6 +37,10 @@ type Deps struct {
 	Email      *email.Client
 	Dispatcher *push.Dispatcher
 	AI         *ai.Client
+	// FX is the in-process-cached exchange-rate client behind
+	// GET /api/v1/fx/rates (migration 0022). Nil means "not configured"; the
+	// handler answers 503 and the client asks the user for the rate by hand.
+	FX *fx.Service
 }
 
 // ---- response shapes -------------------------------------------------------

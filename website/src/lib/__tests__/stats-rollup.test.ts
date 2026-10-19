@@ -4,6 +4,8 @@ import {
   activeAssetValue,
   allTimeSpend,
   buildSpendEntries,
+  countUnconvertedWarrantyCosts,
+  countUnknownPurchaseVnd,
   costPerDay,
   costPerDayRollup,
   monthlySpendBuckets,
@@ -14,7 +16,8 @@ import {
 } from '@/lib/stats-rollup';
 
 function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem {
-  return {
+  const base: DeviceListItem = {
+    id: 'device',
     userId: 'u1',
     name: 'Thiết bị',
     category: 'PHONE',
@@ -23,6 +26,12 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     serialNumber: null,
     purchaseDate: '2026-03-15T00:00:00Z',
     purchasePrice: 0,
+    // Multi-currency defaults: a VND device, whose server-computed VND value
+    // equals the raw price.
+    currency: 'VND',
+    fxRate: null,
+    purchasePriceVnd: 0,
+    soldPriceVnd: null,
     purchasePlace: null,
     status: 'ACTIVE',
     notes: null,
@@ -45,7 +54,20 @@ function device(over: Partial<DeviceListItem> & { id: string }): DeviceListItem 
     attachmentCount: 0,
     effectiveWarrantyEnd: null,
     returnDeadline: null,
-    ...over,
+  };
+  const merged: DeviceListItem = { ...base, ...over };
+  return {
+    ...merged,
+    currency: over.currency ?? base.currency,
+    fxRate: over.fxRate ?? base.fxRate,
+    // For a VND device the two are the same; foreign-currency tests set the
+    // server value explicitly.
+    purchasePriceVnd:
+      over.purchasePriceVnd !== undefined
+        ? over.purchasePriceVnd
+        : merged.purchasePrice,
+    soldPriceVnd:
+      over.soldPriceVnd !== undefined ? over.soldPriceVnd : merged.soldPrice,
   };
 }
 
@@ -486,7 +508,11 @@ describe('costPerDayRollup', () => {
   it('reports why rows were left out instead of ranking them', () => {
     const { priciest, skipped } = costPerDayRollup(priced, warranties, { now, locale: 'vi' });
     expect(priciest).toHaveLength(2);
-    expect(skipped).toEqual({ noPurchaseDate: 1, noRecordedCost: 1 });
+    expect(skipped).toEqual({
+      noPurchaseDate: 1,
+      noRecordedCost: 1,
+      unknownPurchaseValue: 0,
+    });
   });
 
   it('breaks ties deterministically and honours the limit', () => {
@@ -502,5 +528,149 @@ describe('costPerDayRollup', () => {
     const input = [...priced];
     costPerDayRollup(input, warranties, { now, locale: 'vi' });
     expect(input.map((d) => d.id)).toEqual(priced.map((d) => d.id));
+  });
+});
+
+// ── Totals use the server's VND fields ─────────────────────────────────────
+//
+// A $999 phone is 999 in its own currency and 25,374,600 ₫ at the locked
+// 25,400 rate. Every rollup below must take the server's `…Vnd` value; summing
+// the raw 999 would repeat the exact bug this feature exists to fix.
+describe('multi-currency totals', () => {
+  const usdPhone: DeviceListItem = device({
+    id: 'usd-phone',
+    category: 'PHONE',
+    purchaseDate: '2026-05-01T00:00:00Z',
+    purchasePrice: 999,
+    currency: 'USD',
+    fxRate: 25_400,
+    purchasePriceVnd: 25_374_600,
+    effectiveWarrantyEnd: '2030-01-01T00:00:00Z',
+  });
+  const vndLaptop: DeviceListItem = device({
+    id: 'vnd-laptop',
+    category: 'LAPTOP',
+    purchaseDate: '2026-06-01T00:00:00Z',
+    purchasePrice: 20_000_000,
+    purchasePriceVnd: 20_000_000,
+    effectiveWarrantyEnd: '2030-01-01T00:00:00Z',
+  });
+
+  it('buildSpendEntries sums the server VND value, not the raw foreign price', () => {
+    const entries = buildSpendEntries([usdPhone], new Map());
+    expect(entries).toHaveLength(1);
+    expect(entries[0].amount).toBe(25_374_600);
+    expect(entries[0].amount).not.toBe(999);
+  });
+
+  it('excludes a foreign-currency warranty cost and reports the gap', () => {
+    const warranties = new Map<string, Warranty[]>([
+      ['usd-phone', [warranty({ id: 'w-usd', deviceId: 'usd-phone', cost: 50 })]],
+    ]);
+    const entries = buildSpendEntries([usdPhone], warranties);
+    expect(entries.filter((e) => e.kind === 'warranty')).toEqual([]);
+    expect(countUnconvertedWarrantyCosts([usdPhone], warranties)).toBe(1);
+
+    // A VND package is already đồng and still counts.
+    const vnd = new Map<string, Warranty[]>([
+      ['vnd-laptop', [warranty({ id: 'w-vnd', deviceId: 'vnd-laptop', cost: 2_000_000 })]],
+    ]);
+    expect(buildSpendEntries([vndLaptop], vnd).filter((e) => e.kind === 'warranty')).toHaveLength(1);
+    expect(countUnconvertedWarrantyCosts([vndLaptop], vnd)).toBe(0);
+  });
+
+  it('ranks the most expensive device by the server VND value', () => {
+    // 999 < 20,000,000 numerically, but the $999 phone is worth more in đồng.
+    expect(topExpensiveRollup([vndLaptop, usdPhone], 5).map((d) => d.id)).toEqual([
+      'usd-phone',
+      'vnd-laptop',
+    ]);
+  });
+
+  it('sums the active asset value from purchasePriceVnd', () => {
+    expect(activeAssetValue([usdPhone, vndLaptop])).toEqual({
+      total: 45_374_600,
+      count: 2,
+    });
+  });
+
+  it('costPerDay uses purchasePriceVnd/soldPriceVnd and says a warranty was left out', () => {
+    const now = new Date(2026, 5, 15, 12, 0);
+    const cost = costPerDay(
+      device({
+        id: 'usd-sold',
+        purchaseDate: '2026-01-15T00:00:00',
+        purchasePrice: 999,
+        currency: 'USD',
+        fxRate: 25_400,
+        purchasePriceVnd: 25_374_600,
+        soldAt: '2026-06-15T00:00:00',
+        soldPrice: 500,
+        soldPriceVnd: 12_700_000,
+      }),
+      [warranty({ id: 'w1', deviceId: 'usd-sold', cost: 50 })],
+      'vi',
+      now,
+    );
+    expect(cost).toMatchObject({
+      days: 151,
+      purchasePart: 25_374_600,
+      warrantyPart: 0,
+      soldPart: 12_700_000,
+      net: 12_674_600,
+      hasUnconvertedWarrantyCost: true,
+      unconvertedWarrantyCount: 1,
+      hasUnrecordedWarrantyCost: false,
+    });
+    // Never the raw 999.
+    expect(cost?.purchasePart).not.toBe(999);
+    expect(cost?.perDay).toBe(Math.round(12_674_600 / 151));
+  });
+});
+
+
+describe('unknown server VND values', () => {
+  const unknown = device({
+    id: 'hand-edited',
+    currency: 'USD',
+    fxRate: null,
+    purchasePrice: 999,
+    purchasePriceVnd: null,
+    purchaseDate: '2026-06-01T00:00:00Z',
+  });
+
+  it('counts the row instead of treating the raw price as đồng', () => {
+    expect(countUnknownPurchaseVnd([unknown])).toBe(1);
+    expect(buildSpendEntries([unknown], new Map())[0].amount).toBe(0);
+    expect(buildSpendEntries([unknown], new Map())[0].amount).not.toBe(999);
+  });
+
+  it('flags the cost-per-day figure as incomplete rather than free', () => {
+    const cost = costPerDay(unknown, [], 'en', new Date(2026, 5, 15, 12, 0));
+    expect(cost).toMatchObject({
+      purchasePart: 0,
+      hasUnknownPurchaseValue: true,
+      hasNoRecordedCost: false,
+    });
+  });
+});
+
+describe('costPerDayRollup with an unknown purchase value', () => {
+  it('does not rank a hand-edited foreign row as 0 ₫/day', () => {
+    const unknown = device({
+      id: 'unknown',
+      name: 'Không rõ giá',
+      currency: 'USD',
+      fxRate: null,
+      purchasePrice: 999,
+      purchasePriceVnd: null,
+      purchaseDate: '2026-06-01T00:00:00',
+    });
+    const { priciest, skipped } = costPerDayRollup([unknown], new Map(), {
+      now: new Date(2026, 5, 15, 12, 0),
+      locale: 'en',
+    });
+    expect(priciest).toEqual([]);
+    expect(skipped).toMatchObject({ unknownPurchaseValue: 1 });
   });
 });

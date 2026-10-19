@@ -14,7 +14,7 @@ import (
 const listOpenReturnWindows = `-- name: ListOpenReturnWindows :many
 
 SELECT
-    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay",
+    d.id, d."userId", d.name, d.category, d.brand, d.model, d."serialNumber", d."purchaseDate", d."purchasePrice", d."purchasePlace", d.status, d.notes, d."createdAt", d."updatedAt", d."soldAt", d."soldPrice", d."returnWindowDays", d."receivedAt", d."returnWindowNotifiedAt", d."leadDays", d."activationRequired", d."activatedAt", d."extendedCoverBuyBy", d."activationNotifiedAt", d."extendedCoverNotifiedAt", d."extendedCoverNotifiedLeadDay", d.currency, d."fxRate",
     (COALESCE(d."receivedAt", d."purchaseDate")
         + (d."returnWindowDays" * INTERVAL '1 day'))::timestamp AS "returnDeadline"
 FROM "Device" d
@@ -59,6 +59,8 @@ type ListOpenReturnWindowsRow struct {
 	ActivationNotifiedAt         pgtype.Timestamp `json:"activationNotifiedAt"`
 	ExtendedCoverNotifiedAt      pgtype.Timestamp `json:"extendedCoverNotifiedAt"`
 	ExtendedCoverNotifiedLeadDay *int32           `json:"extendedCoverNotifiedLeadDay"`
+	Currency                     string           `json:"currency"`
+	FxRate                       *int32           `json:"fxRate"`
 	ReturnDeadline               pgtype.Timestamp `json:"returnDeadline"`
 }
 
@@ -121,6 +123,8 @@ func (q *Queries) ListOpenReturnWindows(ctx context.Context, arg ListOpenReturnW
 			&i.ActivationNotifiedAt,
 			&i.ExtendedCoverNotifiedAt,
 			&i.ExtendedCoverNotifiedLeadDay,
+			&i.Currency,
+			&i.FxRate,
 			&i.ReturnDeadline,
 		); err != nil {
 			return nil, err

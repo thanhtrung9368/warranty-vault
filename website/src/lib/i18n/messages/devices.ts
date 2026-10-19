@@ -136,6 +136,56 @@ export const devices = defineMessages({
   '{months} tháng': { en: '{months} months', enOne: '{months} month' },
   'Không': 'No',
 
+  // ── Multi-currency devices ──────────────────────────────────────────────
+  // `currency` is an ISO-4217 code; `fxRate` is the locked VND-per-unit rate.
+  // Money fields carry the device currency in their label so the same form can
+  // never present a USD price as đồng.
+  'Giá mua ({currency})': 'Purchase price ({currency})',
+  'Giá bán ({currency})': 'Sale price ({currency})',
+  'Giá gói ({currency})': 'Plan price ({currency})',
+  'Tỷ giá (VND cho 1 {currency})': 'Exchange rate (VND per 1 {currency})',
+  'Lấy tỷ giá': 'Get rate',
+  'Đang lấy tỷ giá…': 'Getting the rate…',
+  'Đã lấy tỷ giá': 'Rate fetched',
+  'Không lấy được tỷ giá': 'Could not fetch the rate',
+  '≈ {amount} khi lưu': '≈ {amount} when saved',
+  'Giá, giá bán và chi phí bảo hành của thiết bị này tính bằng {currency}.':
+    'The price, sale price and warranty costs of this device are in {currency}.',
+  'Tỷ giá có thể đã cũ (lấy lúc {time}) — kiểm tra lại trước khi lưu.':
+    'This rate may be out of date (fetched {time}) — check it before saving.',
+  'Tỷ giá được khoá tại thời điểm nhập, không đổi theo thị trường.':
+    'The rate is locked when you enter it and does not follow the market.',
+  'Tỷ giá đã khoá': 'Locked exchange rate',
+  '1 {currency} = {rate}': '1 {currency} = {rate}',
+  '≈ {amount}': '≈ {amount}',
+  'Vui lòng nhập tỷ giá.': 'Please enter an exchange rate.',
+  'Tỷ giá phải là số nguyên lớn hơn 0.':
+    'The exchange rate must be a whole number greater than 0.',
+  'Dịch vụ tỷ giá đang tạm thời không khả dụng — bạn nhập tỷ giá bằng tay nhé.':
+    'The exchange-rate service is temporarily unavailable — enter the rate by hand.',
+  'Không lấy được tỷ giá — bạn nhập tay bên dưới nhé.':
+    'Could not fetch the rate — type it in below.',
+  'Không đọc được tỷ giá từ máy chủ — bạn nhập tay bên dưới nhé.':
+    'Could not read a rate from the server — type it in below.',
+  'Chọn một loại tiền khác VND để lấy tỷ giá.':
+    'Choose a currency other than VND to fetch a rate.',
+  'Có gói bảo hành bằng ngoại tệ chưa được quy đổi — con số này chưa gồm gói đó.':
+    'A warranty plan is priced in a foreign currency and has not been converted — this figure does not include it.',
+  'Có {count} gói bảo hành tính bằng ngoại tệ nhưng API chưa trả giá trị VND — các tổng bên dưới chưa gồm những gói đó.':
+    {
+      en: '{count} warranty plans are priced in a foreign currency but the API does not return a VND value yet — the totals below do not include them.',
+      enOne:
+        '{count} warranty plan is priced in a foreign currency but the API does not return a VND value yet — the totals below do not include it.',
+    },
+  'Có {count} thiết bị ngoại tệ thiếu tỷ giá nên chưa quy được giá mua sang VND — các tổng bên dưới chưa gồm giá mua của chúng.':
+    {
+      en: '{count} foreign-currency devices have no exchange rate, so their purchase price cannot be converted to VND — the totals below do not include them.',
+      enOne:
+        '{count} foreign-currency device has no exchange rate, so its purchase price cannot be converted to VND — the totals below do not include it.',
+    },
+  'Thiết bị ngoại tệ này thiếu tỷ giá nên chưa quy được giá mua — con số này chỉ gồm phần đã biết.':
+    'This foreign-currency device has no exchange rate, so its purchase price cannot be converted — this figure includes only the known part.',
+
   // ── Device form — warranty activation & extended cover (Feature A) ─────
   // Three fields inside the existing warranty step, not a step of their own.
   // The activation date may legitimately predate the purchase date, and the

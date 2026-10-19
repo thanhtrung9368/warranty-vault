@@ -780,6 +780,24 @@ extension APIClient {
         return stats
     }
 
+    // MARK: - FX rates ("Lấy tỷ giá")
+
+    /// `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale}`.
+    ///
+    /// Used only by the device form, and only as a convenience: `fxRate` is
+    /// **locked at entry**, so this is a suggestion the user can overwrite, not
+    /// a value that keeps tracking the market. `base` is the device's ISO
+    /// currency code; the caller reads `FxRates.vndRate` for the quote it needs.
+    ///
+    /// The endpoint is allowed to answer **503**. That is not a failure of the
+    /// save — the form keeps the rate field editable and tells the user to type
+    /// it. `APIError.isServiceUnavailable` is the distinction the caller needs.
+    public func fxRates(base: String) async throws -> FxRates {
+        try await request("GET", "/api/v1/fx/rates", query: [
+            .init(name: "base", value: CurrencyRules.normalized(base)),
+        ])
+    }
+
     /// The forward-looking counterpart of `getStats()`: subscription renewals,
     /// warranty expiries and wishlist target dates over the next `months`
     /// months (1–24), split per calendar month.

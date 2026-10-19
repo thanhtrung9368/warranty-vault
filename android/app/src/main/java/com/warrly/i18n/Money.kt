@@ -2,7 +2,9 @@ package com.warrly.i18n
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
+import com.warrly.network.DEFAULT_CURRENCY
 import java.text.NumberFormat
+import java.util.Currency
 import java.util.Locale
 
 /**
@@ -70,6 +72,46 @@ object Money {
     /** [vietnamese] for a `vi` locale, [english] for everything else. */
     fun of(amount: Long, locale: Locale): String =
         if (locale.language.equals("vi", ignoreCase = true)) vietnamese(amount) else english(amount)
+
+    /**
+     * Money in **its own currency**, not necessarily dong.
+     *
+     * The multi-currency device feature made `purchasePrice`, `soldPrice` and
+     * `Warranty.cost` native-currency numbers. Printing a `$999` phone with the
+     * existing dong formatter was the bug this avoids. The VND branch delegates
+     * to [of], so there is still exactly **one** implementation of the dong shape
+     * — `formatVnd` was extended, not forked.
+     *
+     * Shape follows the same convention as dong: Vietnamese puts the symbol
+     * after the grouped digits (`999 US$`), English puts it in front (`$999`),
+     * and the minus sign goes outside the symbol in both. Decimals are never
+     * printed: every price in the contract is an integer. The symbol comes from
+     * `java.util.Currency`, so an ISO code the picker does not list still
+     * formats; if the platform has no symbol it falls back to the code itself
+     * (`CHF 1,234` in English, `1.234 CHF` in Vietnamese).
+     *
+     * This is display only. Totals must use the server-computed `*Vnd` fields;
+     * never multiply by `Device.fxRate` to build one.
+     */
+    fun format(amount: Long, currency: String, locale: Locale): String {
+        val code = currency.trim().uppercase(Locale.ROOT)
+        // Empty and VND both mean the pre-multi-currency default. Delegating
+        // keeps the pinned `1.000.000 ₫` / `₫1,000,000` bytes in one place.
+        if (code.isEmpty() || code == DEFAULT_CURRENCY) return of(amount, locale)
+
+        val symbol = runCatching { Currency.getInstance(code).getSymbol(locale) }
+            .getOrDefault(code)
+        val digits = NumberFormat.getNumberInstance(locale).format(if (amount < 0) -amount else amount)
+        val sign = if (amount < 0) "-" else ""
+        return if (locale.language.equals("vi", ignoreCase = true)) {
+            "$sign$digits $symbol"
+        } else if (symbol.lastOrNull()?.isLetter() == true) {
+            // A textual symbol ("CHF") needs a space; "$"/"€" do not.
+            "$sign$symbol $digits"
+        } else {
+            "$sign$symbol$digits"
+        }
+    }
 }
 
 /**

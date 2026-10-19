@@ -1,0 +1,81 @@
+-- Warrly — multi-currency devices, with the FX rate LOCKED at entry (gap #16).
+--
+-- ── The problem ────────────────────────────────────────────────────────────
+--
+-- "Device"."purchasePrice" was documented as VND, and "Warranty"."cost",
+-- "Device"."soldPrice" along with it. A phone bought for USD 999 in the US and a
+-- 25,000,000 VND phone at TGDD were therefore summed as if 999 were dong: every
+-- total in the app (GET /api/v1/stats, the device list, the sold/profit figure,
+-- the warranty spend) was wrong for anyone who bought abroad, from Amazon, or
+-- second-hand in a foreign currency.
+--
+-- ── The rate is locked at ENTRY, never fetched at read time ────────────────
+--
+-- "fxRate" is the VND value of ONE unit of "currency" at the moment the user
+-- recorded the purchase. It is stored on the row and never refreshed. That is
+-- the whole point of the feature: a 2024 purchase counted in 2026 must still
+-- show what was actually paid, not what that amount would be worth today. A
+-- read-time rate would make every historical total drift with the market and
+-- would silently rewrite the past on every deployment.
+--
+-- ── Columns ────────────────────────────────────────────────────────────────
+--
+--   * "currency" text NOT NULL DEFAULT 'VND'
+--       ISO 4217, uppercase, exactly three letters. The supported list lives in
+--       api/internal/fx (fx.SupportedCurrencies) and is validated in
+--       services.ValidateDeviceInput; it is NOT a CHECK constraint, following
+--       this schema's rule that a bad request must be a 400 with
+--       fieldErrors.<field>, never a 500 from the driver (see 0021). The
+--       DEFAULT is what makes this migration a no-op for existing rows: every
+--       device that exists today is denominated in VND, so no backfill is
+--       needed beyond the column default, and every read keeps the exact same
+--       meaning it had before.
+--
+--   * "fxRate" integer NULL
+--       VND per one unit of "currency". NULL when "currency" = 'VND' (a VND
+--       device needs no rate — 1 VND is 1 VND) and NULL for a legacy row whose
+--       rate was never recorded. Validated in the service:
+--         currency == 'VND'  ⇒ "fxRate" MUST be NULL (omitted in a request)
+--         currency != 'VND'  ⇒ "fxRate" MUST be a positive integer
+--       The second rule REJECTS a missing rate rather than defaulting to
+--       anything: a guessed rate would silently corrupt every total the column
+--       exists to fix.
+--
+--       There is deliberately no CHECK constraint. A row written by hand in
+--       psql can therefore hold ('USD', NULL); the read path treats that as
+--       "VND value unknown" and returns NULL for the computed values instead of
+--       pretending the price is dong (see services.deviceVND).
+--
+--   * No backfill and no index. Every existing row gets 'VND'/NULL from the
+--     column default; nothing filters or sorts on either column (the VND
+--     conversion is computed per row in Go / SQL over a set already bounded by
+--     MAX_DEVICES_TOTAL_PER_USER = 500).
+--
+-- ── Money that travels with the device ────────────────────────────────────
+--
+-- "purchasePrice", "soldPrice" and "Warranty"."cost" on that device are in the
+-- DEVICE's currency. They are stored as entered and are NOT converted on write;
+-- the computed values (purchasePriceVnd / soldPriceVnd, and the stats rollups)
+-- are derived from the locked rate. The backup payload carries both columns
+-- (omitted for VND devices, so a VND-only backup stays byte-identical to the
+-- pre-0022 format).
+--
+-- ── Rollback ───────────────────────────────────────────────────────────────
+--
+-- Down drops both columns. The foreign prices they carry cannot be represented
+-- by the older schema; the rollback is destructive, as every goose down in this
+-- directory is, and goose refuses it without WV_ALLOW_DESTRUCTIVE=1.
+
+-- +goose Up
+-- +goose StatementBegin
+ALTER TABLE public."Device"
+    ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'VND',
+    ADD COLUMN IF NOT EXISTS "fxRate" integer;
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+ALTER TABLE public."Device"
+    DROP COLUMN IF EXISTS "fxRate",
+    DROP COLUMN IF EXISTS currency;
+-- +goose StatementEnd

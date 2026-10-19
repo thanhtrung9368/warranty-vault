@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/files"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/i18n"
 	store "github.com/thanhtrung9368/warranty-vault/api/internal/store/gen"
 )
@@ -292,6 +293,17 @@ type BackupDevice struct {
 	// importer treats that as "not sold", so old exports stay restorable.
 	SoldAt    *string `json:"soldAt"`
 	SoldPrice *int32  `json:"soldPrice"`
+	// Currency / FxRate (migration 0022, gap #16). Both are OPTIONAL and
+	// `omitempty`, and that is load-bearing: a VND device exports neither key, so
+	// the payload of a user who never left VND is byte-identical to the pre-0022
+	// format. An older payload has neither key either, decodes to ""/nil and
+	// imports as VND — which is exactly what it meant when it was written.
+	//
+	// FxRate is the VND value of one unit of Currency, LOCKED when the purchase
+	// was recorded. Dropping it on restore would silently reinterpret a USD 999
+	// phone as 999 VND, so it must travel.
+	Currency string `json:"currency,omitempty"`
+	FxRate   *int32 `json:"fxRate,omitempty"`
 	// Exchange window (migration 0010, FEATURE_IDEAS #1). Additive and optional:
 	// a payload written before these existed decodes to nil, which reads as
 	// "unknown window" — the correct meaning — so the payload version stays at
@@ -632,6 +644,9 @@ func exportBackup(ctx context.Context, db *pgxpool.Pool, userID string, withBlob
 			SoldAt:        tsPtr(d.SoldAt),
 			SoldPrice:     d.SoldPrice,
 
+			Currency: backupCurrencyForExport(d.Currency),
+			FxRate:   d.FxRate,
+
 			ReturnWindowDays:       d.ReturnWindowDays,
 			ReceivedAt:             tsPtr(d.ReceivedAt),
 			ReturnWindowNotifiedAt: tsPtr(d.ReturnWindowNotifiedAt),
@@ -824,6 +839,52 @@ type blobGetter func(att BackupAttachment) ([]byte, error)
 // i18n: every refusal below is a whole-document failure (no fieldErrors), so it
 // is the file's own description of what is wrong and follows the request's
 // language. Only the words move: the VALIDATION code does not.
+// backupCurrencyForExport returns the currency to write into the payload: empty
+// for VND (the `omitempty` key then disappears, keeping a VND-only backup
+// byte-identical to the pre-0022 format), the ISO code otherwise.
+func backupCurrencyForExport(currency string) string {
+	if currency == "" || currency == "VND" {
+		return ""
+	}
+	return currency
+}
+
+// backupDeviceCurrency resolves a payload device's optional currency pair into
+// the values to insert, applying the same rules as the live write path:
+//
+//   - absent / "" ⇒ VND, no rate (the pre-0022 payload meaning);
+//   - VND         ⇒ no rate (a rate on a VND row is refused);
+//   - non-VND     ⇒ a positive rate is REQUIRED. A payload that lost its rate
+//     cannot be restored honestly — inserting it would treat a USD 999 phone as
+//     999 VND — so the whole import is refused with a sentence naming the device,
+//     before anything is written.
+func backupDeviceCurrency(ctx context.Context, d BackupDevice) (string, *int32, error) {
+	currency := fx.NormalizeCurrency(d.Currency)
+	if currency == "" {
+		currency = "VND"
+	}
+	if !fx.IsSupportedCurrency(currency) {
+		return "", nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu có loại tiền không hợp lệ cho thiết bị \"%s\".", d.Name)}
+	}
+	if currency == "VND" {
+		if d.FxRate != nil {
+			return "", nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+				"Bản sao lưu ghi tỷ giá cho thiết bị \"%s\" dùng VND.", d.Name)}
+		}
+		return "VND", nil, nil
+	}
+	if d.FxRate == nil {
+		return "", nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu thiếu tỷ giá cho thiết bị \"%s\".", d.Name)}
+	}
+	if *d.FxRate <= 0 {
+		return "", nil, &Error{Code: "VALIDATION", Message: i18n.T(ctx,
+			"Bản sao lưu có tỷ giá không hợp lệ cho thiết bị \"%s\".", d.Name)}
+	}
+	return currency, d.FxRate, nil
+}
+
 func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 	if payload == nil {
 		return &Error{Code: "VALIDATION", Message: i18n.Text(ctx, "File JSON không hợp lệ")}
@@ -842,6 +903,12 @@ func validateBackupPayload(ctx context.Context, payload *BackupExport) error {
 		// only a hand-edited backup can even attempt this.)
 		if d.ID == InboxStorageSegment {
 			return &Error{Code: "VALIDATION", Message: i18n.T(ctx, "ID thiết bị không hợp lệ: %s", d.ID)}
+		}
+		// Currency pair (migration 0022). Checked here, before the transaction,
+		// because a restore cannot invent a missing rate: an invalid pair must
+		// refuse the whole file rather than write a row whose VND value is a lie.
+		if _, _, cerr := backupDeviceCurrency(ctx, d); cerr != nil {
+			return cerr
 		}
 		if len(d.Attachments) > MaxAttachmentsPerDevice {
 			// The upload path caps this (services/attachments.go). A backup cannot
@@ -1202,6 +1269,14 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 				continue
 			}
 		}
+		// Normalised/validated before the insert. validateBackupPayload has already
+		// rejected a malformed pair, so this cannot fail here except on a payload
+		// mutated between validation and this loop (it cannot be); the error path is
+		// kept because the helper is the single definition of the rule.
+		currency, fxRate, cerr := backupDeviceCurrency(ctx, d)
+		if cerr != nil {
+			return nil, cerr
+		}
 		if err := q.BackupInsertDevice(ctx, store.BackupInsertDeviceParams{
 			ID:            d.ID,
 			UserId:        userID,
@@ -1217,6 +1292,9 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			Notes:         d.Notes,
 			SoldAt:        pgtsPtr(d.SoldAt),
 			SoldPrice:     d.SoldPrice,
+
+			Currency: currency,
+			FxRate:   fxRate,
 
 			ReturnWindowDays:             d.ReturnWindowDays,
 			ReceivedAt:                   pgtsPtr(d.ReceivedAt),

@@ -464,6 +464,12 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 			PurchasePlace: nil,
 			Notes:         updated.Notes,
 			Status:        &statusActive,
+			// Multi-currency (migration 0022): a wishlist item has no currency
+			// of its own, and its price is VND everywhere in the UI, so the
+			// device it becomes is VND. Explicit rather than left to the column
+			// default: this is a second write path into "Device" and it must not
+			// depend on the SQL backstop alone.
+			Currency: "VND",
 		})
 		if derr != nil {
 			return store.WishlistItem{}, fmt.Errorf("create device from wishlist: %w", derr)

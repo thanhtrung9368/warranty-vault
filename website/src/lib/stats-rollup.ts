@@ -6,10 +6,23 @@
 // `warranty.ts` / `subscription-types.ts`.
 //
 // Attribution rules:
-//   - a device's `purchasePrice` counts in the month/year of `purchaseDate`;
+//   - a device's `purchasePriceVnd` counts in the month/year of `purchaseDate`;
 //   - a warranty package's `cost` counts in the month/year of its `startDate`
 //     (that's when the money was spent) and rolls up into the category of the
 //     device it protects.
+//
+// ── Currency ──────────────────────────────────────────────────────────────
+//
+// Device money is stored in the device's own currency. The server computes
+// `purchasePriceVnd` / `soldPriceVnd` on every read and those are the ONLY
+// values summed here — the web must never multiply by `fxRate` itself (the
+// server owns the historical lock and the rounding).
+//
+// `Warranty.cost` is also in the device currency, but the frozen contract has
+// no `costVnd`. For a VND device the raw cost is already đồng and is included;
+// for a foreign-currency device it is EXCLUDED from the VND totals and
+// `countUnconvertedWarrantyCosts` reports it, so the page can say the number is
+// incomplete instead of quietly converting it client-side.
 //
 // ── Language ──────────────────────────────────────────────────────────────
 //
@@ -26,6 +39,7 @@ import { translate } from '@/lib/i18n/catalog';
 import { categoryLabel } from '@/lib/i18n/labels';
 import type { Locale } from '@/lib/i18n/locale';
 import { formatVND } from '@/lib/format';
+import { needsFxRate } from '@/lib/currency';
 
 export type SpendEntry = {
   amount: number;
@@ -58,13 +72,21 @@ export function buildSpendEntries(
   const entries: SpendEntry[] = [];
   for (const d of devices) {
     entries.push({
-      amount: d.purchasePrice,
+      // Server-computed VND, never the raw device-currency figure. A `null`
+      // value means the server could not know it (a foreign row with no stored
+      // rate): it contributes 0 and `countUnknownPurchaseVnd` reports it, so the
+      // page never quietly treats the raw number as đồng.
+      amount: d.purchasePriceVnd ?? 0,
       date: new Date(d.purchaseDate),
       category: d.category,
       kind: 'device',
     });
     for (const w of warrantiesByDevice.get(d.id) ?? []) {
       if (w.cost == null || w.cost <= 0) continue;
+      // No `costVnd` in the frozen contract: a foreign-currency package cannot
+      // be added to a VND total without a conversion the client is forbidden to
+      // perform. `countUnconvertedWarrantyCosts` surfaces the gap instead.
+      if (needsFxRate(d.currency)) continue;
       entries.push({
         amount: w.cost,
         date: new Date(w.startDate),
@@ -74,6 +96,35 @@ export function buildSpendEntries(
     }
   }
   return entries;
+}
+
+/**
+ * Number of paid warranty packages that are denominated in a foreign currency
+ * and therefore cannot be included in the VND totals yet (the API returns no
+ * `Warranty.costVnd`). The stats page renders a warning when this is > 0.
+ */
+export function countUnconvertedWarrantyCosts(
+  devices: readonly DeviceListItem[],
+  warrantiesByDevice: Map<string, Warranty[]>,
+): number {
+  let count = 0;
+  for (const d of devices) {
+    if (!needsFxRate(d.currency)) continue;
+    for (const w of warrantiesByDevice.get(d.id) ?? []) {
+      if (w.cost != null && w.cost > 0) count += 1;
+    }
+  }
+  return count;
+}
+
+/**
+ * Devices whose server-computed `purchasePriceVnd` is `null` — a foreign row
+ * with no stored rate, reachable only through hand-edited data. Their purchase
+ * price is unknown, not zero; the stats page says the total is incomplete
+ * instead of adding the raw figure at par.
+ */
+export function countUnknownPurchaseVnd(devices: readonly DeviceListItem[]): number {
+  return devices.filter((d) => d.purchasePriceVnd == null).length;
 }
 
 export function monthlySpendBuckets(entries: SpendEntry[], months = 12, locale: Locale) {
@@ -157,7 +208,8 @@ export function allTimeSpend(entries: SpendEntry[]): SpendTotals {
 }
 
 // Devices still covered by *some* warranty that hasn't ended yet. Value is the
-// device purchase price — the warranties are a service, not an asset.
+// device's server-computed VND purchase price — warranties are a service, not
+// an asset.
 export function activeAssetValue(devices: DeviceListItem[]) {
   const now = new Date();
   const active = devices.filter(
@@ -167,14 +219,18 @@ export function activeAssetValue(devices: DeviceListItem[]) {
       new Date(d.effectiveWarrantyEnd) > now,
   );
   return {
-    total: active.reduce((sum, d) => sum + d.purchasePrice, 0),
+    total: active.reduce((sum, d) => sum + (d.purchasePriceVnd ?? 0), 0),
     count: active.length,
   };
 }
 
+// Ranked by the server's VND value, not the raw numeric price: a $999 phone
+// (25,000,000 ₫) is more expensive than a 20,000,000 ₫ one even though 999 <
+// 20,000,000. A null (unknown) VND value sorts as 0 rather than being compared
+// as if it were a price.
 export function topExpensiveRollup(devices: DeviceListItem[], limit = 5): DeviceListItem[] {
   return [...devices]
-    .sort((a, b) => b.purchasePrice - a.purchasePrice)
+    .sort((a, b) => (b.purchasePriceVnd ?? 0) - (a.purchasePriceVnd ?? 0))
     .slice(0, limit);
 }
 
@@ -188,7 +244,13 @@ export function yearsWithData(devices: DeviceListItem[]): number[] {
 // ---- Cost of ownership per day (đ/ngày, FEATURE_IDEAS #7) --------------------
 //
 // The one number every cumulative rollup above cannot answer: "món này có đáng
-// tiền không". `(purchasePrice + Σ warranty cost − sale proceeds) ÷ days owned`.
+// tiền không". `(purchasePriceVnd + Σ converted warranty cost − soldPriceVnd) ÷
+// days owned`.
+//
+// Currency rule: only the server's `…Vnd` device values are used. A foreign
+// warranty package has no `costVnd` in the frozen contract, so it is left out
+// and `hasUnconvertedWarrantyCost` tells the card to present the figure as
+// incomplete — it is never multiplied by `fxRate` in this file.
 //
 // Decisions this file owns (all of them unit-tested, none of them invented at
 // the render site):
@@ -234,7 +296,7 @@ export function yearsWithData(devices: DeviceListItem[]): number[] {
 /** Minimal structural input — the detail page's `DeviceDetail` also fits. */
 export type CostPerDayDevice = Pick<
   DeviceListItem,
-  'purchaseDate' | 'purchasePrice' | 'soldAt' | 'soldPrice'
+  'purchaseDate' | 'currency' | 'purchasePriceVnd' | 'soldAt' | 'soldPriceVnd'
 >;
 
 export type DeviceCostPerDay = {
@@ -264,6 +326,12 @@ export type DeviceCostPerDay = {
   fullyRecovered: boolean;
   /** ≥1 package has no recorded cost ⇒ `spent` is a lower bound. */
   hasUnrecordedWarrantyCost: boolean;
+  /** ≥1 package is in a foreign currency and has no server `costVnd` yet. */
+  hasUnconvertedWarrantyCost: boolean;
+  /** How many packages were left out for that reason. */
+  unconvertedWarrantyCount: number;
+  /** The server could not compute `purchasePriceVnd` (hand-edited row). */
+  hasUnknownPurchaseValue: boolean;
   /** `soldAt` < `purchaseDate`: days clamped to 1, data is suspect. */
   soldBeforePurchase: boolean;
   /** A sale price is recorded but `soldAt` is missing/unusable. */
@@ -349,26 +417,36 @@ export function costPerDay(
   const fromDay = dayKey(device.purchaseDate);
   if (fromDay == null) return null;
 
-  const purchasePart = nonNegative(device.purchasePrice);
+  const purchasePart = nonNegative(device.purchasePriceVnd);
+  const hasUnknownPurchaseValue = device.purchasePriceVnd == null;
+  const foreignCurrency = needsFxRate(device.currency);
 
   let warrantyPart = 0;
   let pricedWarrantyCount = 0;
   let hasUnrecordedWarrantyCost = false;
+  let unconvertedWarrantyCount = 0;
   for (const w of warranties) {
     if (w.cost == null || !Number.isFinite(w.cost) || w.cost < 0) {
       // "chưa ghi giá" (null) and bad data (negative / NaN) are both unknown.
       hasUnrecordedWarrantyCost = true;
       continue;
     }
-    warrantyPart += w.cost;
     if (w.cost > 0) pricedWarrantyCount += 1;
+    if (foreignCurrency) {
+      // No server-side `costVnd` in the frozen contract. Excluding the package
+      // is honest; multiplying by fxRate here would be a client-side conversion
+      // and could disagree with the API's rounding.
+      if (w.cost > 0) unconvertedWarrantyCount += 1;
+      continue;
+    }
+    warrantyPart += w.cost;
   }
 
   const soldDay = dayKey(device.soldAt);
-  const soldPrice = device.soldPrice;
+  const soldPriceVnd = device.soldPriceVnd;
   const hasSalePrice =
-    soldPrice != null && Number.isFinite(soldPrice) && soldPrice > 0;
-  const soldPart = hasSalePrice ? (soldPrice as number) : 0;
+    soldPriceVnd != null && Number.isFinite(soldPriceVnd) && soldPriceVnd > 0;
+  const soldPart = hasSalePrice ? (soldPriceVnd as number) : 0;
   // Money came back but we cannot tell when ownership ended.
   const hasUndatedSale = hasSalePrice && soldDay == null;
 
@@ -403,9 +481,16 @@ export function costPerDay(
     endedBySale: soldDay != null,
     fullyRecovered: net <= 0,
     hasUnrecordedWarrantyCost,
+    hasUnconvertedWarrantyCost: unconvertedWarrantyCount > 0,
+    unconvertedWarrantyCount,
+    hasUnknownPurchaseValue,
     soldBeforePurchase,
     hasUndatedSale,
-    hasNoRecordedCost: spent <= 0,
+    // A foreign package with a recorded cost is NOT "nothing recorded" just
+    // because its VND value could not be included. Neither is an unknown
+    // purchase value.
+    hasNoRecordedCost:
+      spent <= 0 && unconvertedWarrantyCount === 0 && !hasUnknownPurchaseValue,
     warrantyCount: warranties.length,
     pricedWarrantyCount,
   };
@@ -427,6 +512,8 @@ export type CostPerDayRanking = {
     noPurchaseDate: number;
     /** `0 ₫` recorded — "chưa ghi giá", not a free device (decision 7). */
     noRecordedCost: number;
+    /** The server could not compute `purchasePriceVnd` (no stored rate). */
+    unknownPurchaseValue: number;
   };
 };
 
@@ -444,11 +531,18 @@ export function costPerDayRollup(
   const rows: CostPerDayRankRow[] = [];
   let noPurchaseDate = 0;
   let noRecordedCost = 0;
+  let unknownPurchaseValue = 0;
 
   for (const d of devices) {
     const cost = costPerDay(d, warrantiesByDevice.get(d.id) ?? [], opts.locale, opts.now);
     if (cost == null) {
       noPurchaseDate += 1;
+      continue;
+    }
+    // An unknown VND purchase price would otherwise rank as a 0 ₫/ngày
+    // "winner" — the opposite of the truth. Leave it out and say why.
+    if (cost.hasUnknownPurchaseValue) {
+      unknownPurchaseValue += 1;
       continue;
     }
     if (cost.hasNoRecordedCost) {
@@ -469,6 +563,6 @@ export function costPerDayRollup(
     cheapest: [...rows]
       .sort((a, b) => a.cost.perDay - b.cost.perDay || tieBreak(a, b))
       .slice(0, limit),
-    skipped: { noPurchaseDate, noRecordedCost },
+    skipped: { noPurchaseDate, noRecordedCost, unknownPurchaseValue },
   };
 }

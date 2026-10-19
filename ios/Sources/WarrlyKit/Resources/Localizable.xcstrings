@@ -17681,6 +17681,261 @@
           }
         }
       }
+    },
+    "Tiền tệ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Currency"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiền tệ"
+          }
+        }
+      }
+    },
+    "Tỷ giá": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exchange rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá"
+          }
+        }
+      }
+    },
+    "VND cho 1 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VND per 1 %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VND cho 1 %@"
+          }
+        }
+      }
+    },
+    "Lấy tỷ giá": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lấy tỷ giá"
+          }
+        }
+      }
+    },
+    "Đang lấy tỷ giá…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting rate…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang lấy tỷ giá…"
+          }
+        }
+      }
+    },
+    "Không lấy được tỷ giá — máy chủ đang bận. Hãy tự nhập tỷ giá.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't fetch a rate — the server is busy. Enter the rate yourself."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lấy được tỷ giá — máy chủ đang bận. Hãy tự nhập tỷ giá."
+          }
+        }
+      }
+    },
+    "Không lấy được tỷ giá. Hãy tự nhập tỷ giá.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't fetch a rate. Enter the rate yourself."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không lấy được tỷ giá. Hãy tự nhập tỷ giá."
+          }
+        }
+      }
+    },
+    "Tỷ giá có thể đã cũ. Kiểm tra lại trước khi lưu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This rate may be out of date. Check it before saving."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá có thể đã cũ. Kiểm tra lại trước khi lưu."
+          }
+        }
+      }
+    },
+    "Đã lấy tỷ giá: 1 %@ = %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate fetched: 1 %@ = %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã lấy tỷ giá: 1 %@ = %@"
+          }
+        }
+      }
+    },
+    "Cần nhập tỷ giá cho %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an exchange rate for %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần nhập tỷ giá cho %@"
+          }
+        }
+      }
+    },
+    "Tỷ giá không hợp lệ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid exchange rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tỷ giá không hợp lệ"
+          }
+        }
+      }
+    },
+    "Quy đổi sang VND": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converted to VND"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quy đổi sang VND"
+          }
+        }
+      }
+    },
+    "Giá mua và giá bán tính bằng %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase and sale prices are in %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giá mua và giá bán tính bằng %@."
+          }
+        }
+      }
+    },
+    "1 %@ = %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 %@ = %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 %@ = %@"
+          }
+        }
+      }
+    },
+    "Thiết bị dùng VND không được có tỷ giá": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A VND device cannot have an exchange rate"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị dùng VND không được có tỷ giá"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

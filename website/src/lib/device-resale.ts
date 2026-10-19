@@ -15,7 +15,8 @@
 // through UTC.
 
 import { format } from 'date-fns';
-import { formatVND, parseVNDInput } from './format';
+import { parseVNDInput } from './format';
+import { formatMoney } from './currency';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -38,7 +39,7 @@ export const SALE_FIELD_MESSAGES: Record<'soldAt' | 'soldPrice', string> = {
 export type SaleFields = {
   /** `YYYY-MM-DD` from an `<input type="date">`, or blank/null when unset. */
   soldAt: string | null | undefined;
-  /** VND. `0` is a legitimate price (cho tặng) — only null/undefined means unset. */
+  /** Device currency. `0` is a legitimate price (cho tặng) — only null/undefined means unset. */
   soldPrice: number | null | undefined;
 };
 
@@ -168,10 +169,10 @@ export function hasSaleRecorded(device: {
 }
 
 export type SaleProfitLoss = {
-  /** soldPrice − purchasePrice. Negative = loss. */
+  /** soldPrice − purchasePrice, in the device's currency. Negative = loss. */
   amount: number;
   tone: 'profit' | 'loss' | 'even';
-  /** Already money-formatted in the request's locale: "Lãi 2.000.000 ₫" / "Profit ₫2,000,000". */
+  /** Already money-formatted in the request's locale and device currency. */
   label: string;
 };
 
@@ -179,20 +180,38 @@ export type SaleProfitLoss = {
  * Profit/loss of a resale versus the purchase price. The API never returns
  * this (openapi: "Lãi/lỗ = soldPrice − purchasePrice (client tự tính)"), so it
  * is computed here and unit-tested. `null` when there is no sale price.
+ *
+ * `currency` defaults to VND so existing callers stay correct, but a device
+ * bought in USD must render `Lãi $100.00` — not `Lãi 100 ₫`. The subtraction is
+ * same-currency arithmetic, not a VND conversion: both figures come from the
+ * device and the server's locked rate is deliberately not applied here.
  */
 export function saleProfitLoss(
   purchasePrice: number | null | undefined,
   soldPrice: number | null | undefined,
   locale: Locale,
+  currency: string = 'VND',
 ): SaleProfitLoss | null {
   if (soldPrice == null) return null;
   const cost = purchasePrice ?? 0;
   const amount = soldPrice - cost;
   if (amount > 0) {
-    return { amount, tone: 'profit', label: translate(locale, 'Lãi {amount}', { amount: formatVND(amount, locale) }) };
+    return {
+      amount,
+      tone: 'profit',
+      label: translate(locale, 'Lãi {amount}', {
+        amount: formatMoney(amount, currency, locale),
+      }),
+    };
   }
   if (amount < 0) {
-    return { amount, tone: 'loss', label: translate(locale, 'Lỗ {amount}', { amount: formatVND(-amount, locale) }) };
+    return {
+      amount,
+      tone: 'loss',
+      label: translate(locale, 'Lỗ {amount}', {
+        amount: formatMoney(-amount, currency, locale),
+      }),
+    };
   }
   return { amount: 0, tone: 'even', label: translate(locale, 'Hoà vốn') };
 }

@@ -25,6 +25,8 @@ import {
   activeAssetValue,
   allTimeSpend,
   buildSpendEntries,
+  countUnconvertedWarrantyCosts,
+  countUnknownPurchaseVnd,
   costPerDayRollup,
   entriesForYear,
   monthlySpendBuckets,
@@ -38,6 +40,7 @@ import { isForecastEmpty, normalizeForecastMonths } from '@/lib/forecast-rollup'
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
+import { formatMoney } from '@/lib/currency';
 import { requireUser } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -88,6 +91,17 @@ export default async function StatsPage({
   const warrantiesComplete = warrantyResults.every((r) => r.res.ok);
 
   const entries = buildSpendEntries(devices, warrantiesByDevice);
+  // The frozen contract has no per-warranty `costVnd`, so a foreign-currency
+  // package cannot join the per-month/per-category VND rollups without a
+  // client-side conversion. (`GET /v1/stats` does expose an account-wide
+  // `devices.totalWarrantyCost` converted server-side, but it cannot be
+  // attributed to a month or category.) Count the gap and say so below rather
+  // than quietly under-reporting.
+  const unconvertedWarrantyCosts = countUnconvertedWarrantyCosts(
+    devices,
+    warrantiesByDevice,
+  );
+  const unknownPurchaseValues = countUnknownPurchaseVnd(devices);
   const total = devices.length;
   const subscriptionTotal = subscriptionStats?.total ?? 0;
 
@@ -147,6 +161,11 @@ export default async function StatsPage({
     perDayRanking.skipped.noRecordedCost > 0
       ? t('{count} thiết bị chưa ghi giá', { count: perDayRanking.skipped.noRecordedCost })
       : null,
+    perDayRanking.skipped.unknownPurchaseValue > 0
+      ? t('{count} thiết bị thiếu tỷ giá', {
+          count: perDayRanking.skipped.unknownPurchaseValue,
+        })
+      : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -169,6 +188,30 @@ export default async function StatsPage({
           <p>
             {t(
               'Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu.',
+            )}
+          </p>
+        </div>
+      )}
+
+      {unknownPurchaseValues > 0 && (
+        <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <p>
+            {t(
+              'Có {count} thiết bị ngoại tệ thiếu tỷ giá nên chưa quy được giá mua sang VND — các tổng bên dưới chưa gồm giá mua của chúng.',
+              { count: unknownPurchaseValues },
+            )}
+          </p>
+        </div>
+      )}
+
+      {unconvertedWarrantyCosts > 0 && (
+        <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <p>
+            {t(
+              'Có {count} gói bảo hành tính bằng ngoại tệ nhưng API chưa trả giá trị VND — các tổng bên dưới chưa gồm những gói đó.',
+              { count: unconvertedWarrantyCosts },
             )}
           </p>
         </div>
@@ -344,8 +387,15 @@ export default async function StatsPage({
                           {formatDate(d.purchaseDate, locale)}
                         </p>
                       </div>
-                      <span className="font-display font-bold tabular-nums text-ink">
-                        {formatVND(d.purchasePrice, locale)}
+                      <span className="text-right font-display font-bold tabular-nums text-ink">
+                        <span className="block">
+                          {formatMoney(d.purchasePrice, d.currency, locale)}
+                        </span>
+                        {d.currency !== 'VND' && d.purchasePriceVnd != null && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            ≈ {formatVND(d.purchasePriceVnd, locale)}
+                          </span>
+                        )}
                       </span>
                     </Link>
                   </li>
@@ -475,6 +525,7 @@ async function CostPerDayList({
 }) {
   const { locale, t } = await getI18n();
   const anyLowerBound = rows.some((r) => r.cost.hasUnrecordedWarrantyCost);
+  const anyUnconverted = rows.some((r) => r.cost.hasUnconvertedWarrantyCost);
 
   return (
     <div>
@@ -516,7 +567,10 @@ async function CostPerDayList({
                 </div>
                 <span className="text-right">
                   <span className="block font-display font-bold tabular-nums text-ink">
-                    {r.cost.hasUnrecordedWarrantyCost ? '≥ ' : ''}
+                    {r.cost.hasUnrecordedWarrantyCost ||
+                    r.cost.hasUnconvertedWarrantyCost
+                      ? '≥ '
+                      : ''}
                     {r.cost.perDayLabel}
                   </span>
                   <span className="block text-xs tabular-nums text-muted-foreground">
@@ -531,6 +585,11 @@ async function CostPerDayList({
       {anyLowerBound && (
         <p className="mt-1 text-xs text-muted-foreground">
           {t('“≥” = còn gói bảo hành chưa ghi giá, con số thực có thể cao hơn.')}
+        </p>
+      )}
+      {anyUnconverted && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t('Có gói bảo hành bằng ngoại tệ chưa được quy đổi — con số này chưa gồm gói đó.')}
         </p>
       )}
     </div>

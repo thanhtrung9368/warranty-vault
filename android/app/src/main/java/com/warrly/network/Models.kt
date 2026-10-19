@@ -318,6 +318,13 @@ data class SessionRevokeResult(
 
 // ---- Devices ----
 
+/**
+ * The currency every price field meant before multi-currency devices existed.
+ * Kept as a named constant because the wire default, the form's initial pick and
+ * the "no rate required" branch all have to agree on the exact string.
+ */
+const val DEFAULT_CURRENCY: String = "VND"
+
 @Serializable
 enum class DeviceStatus(@StringRes val labelRes: Int) {
     ACTIVE(R.string.enum_device_status_active),
@@ -345,6 +352,39 @@ data class Device(
     val serialNumber: String? = null,
     val purchaseDate: String,
     val purchasePrice: Int = 0,
+    /**
+     * ISO 4217 code of the currency [purchasePrice], [soldPrice] and every
+     * [Warranty.cost] on this device are denominated in. **Default `VND`**, so a
+     * payload from a server that predates multi-currency still decodes as the
+     * dong-only world it came from.
+     *
+     * The price fields are NOT VND when this is anything else. Never feed
+     * [purchasePrice] / [soldPrice] into a dong formatter or a dong sum — use
+     * [purchasePriceVnd] / [soldPriceVnd] for money that has to add up across
+     * devices. See `ui/screens/devices/DeviceCurrency.kt` for the one rule.
+     */
+    val currency: String = DEFAULT_CURRENCY,
+    /**
+     * The exchange rate **locked at entry**: VND per one unit of [currency]
+     * (e.g. `25470` for a USD device). `null` for a VND device, and for a legacy
+     * row that never recorded one — the contract requires a positive integer
+     * whenever the currency is not VND, enforced server-side on write.
+     *
+     * It is deliberately not refreshed from the FX endpoint on read: a stored
+     * price must not drift with the market. The FX call only helps fill the form.
+     */
+    val fxRate: Int? = null,
+    /**
+     * Server-computed VND value of [purchasePrice] at the locked [fxRate] —
+     * **use this for totals**, never a client-side multiplication.
+     *
+     * `null` when the VND value genuinely cannot be known: a non-VND row with no
+     * usable rate (only hand-edited / legacy data), or an older server that
+     * predates the field. For a VND device the value is the price itself
+     * ([com.warrly.ui.screens.devices.devicePurchasePriceVnd] falls back to
+     * [purchasePrice], which is not a conversion).
+     */
+    val purchasePriceVnd: Long? = null,
     val purchasePlace: String? = null,
     val status: DeviceStatus = DeviceStatus.ACTIVE,
     val notes: String? = null,
@@ -361,8 +401,18 @@ data class Device(
      * is the exception: there `soldAt` is RFC3339 with a `Z`.)
      */
     val soldAt: String? = null,
-    /** Sale price in VND. `null` = not sold; `0` is a real price (give-away). */
+    /**
+     * Sale price **in [currency]** (not VND unless [currency] is VND). `null` =
+     * not sold; `0` is a real price (give-away).
+     */
     val soldPrice: Int? = null,
+    /**
+     * Server-computed VND value of [soldPrice] at the locked [fxRate]. `null`
+     * when there is no sale or no usable rate (or on a server that predates the
+     * field). Use this — never a client-side conversion — for profit/loss
+     * expressed in dong.
+     */
+    val soldPriceVnd: Long? = null,
     /**
      * Exchange / return window ("1 đổi 1") length in days, recorded by the user
      * for **this** device (migration 0010). Three states, and they are all
@@ -515,6 +565,34 @@ data class DeviceResponse(
     val warnings: List<DeviceWarning> = emptyList(),
 )
 
+// ---- FX rates (`GET /api/v1/fx/rates?base=…`) ----
+
+/**
+ * The FX endpoint's answer (openapi `FXRateResponse`):
+ *
+ * ```json
+ * {"base":"USD","rates":{"VND":25470.5},"fetchedAt":"2026-10-19T00:00:00Z","stale":false}
+ * ```
+ *
+ * `base` is the currency the user picked; `rates` is quoted **per one unit of
+ * `base`**, which is why the rate the form needs is `rates["VND"]` (VND per one
+ * USD). [com.warrly.ui.screens.devices.rateToVnd] owns that lookup and returns
+ * `null` instead of guessing when the map does not carry `VND`.
+ *
+ * Every field is defaulted: this is an optional helper for filling one form
+ * field, and a 503 (the documented failure) is handled separately by the sheet.
+ * `stale = true` means "here is the last known rate, it may be old" — the sheet
+ * still lets the user see and edit it, and says so.
+ */
+@Serializable
+data class FxRates(
+    val base: String = DEFAULT_CURRENCY,
+    /** Quote currency → units per one unit of [base]. */
+    val rates: Map<String, Double> = emptyMap(),
+    val fetchedAt: String? = null,
+    val stale: Boolean = false,
+)
+
 // ---- Warranties ----
 
 @Serializable
@@ -534,6 +612,12 @@ data class Warranty(
     val startDate: String,
     val endDate: String,
     val months: Int = 0,
+    /**
+     * What the plan cost, **in the owning device's currency** (openapi
+     * `Device.currency`). For a VND device that is dong, exactly as before; for a
+     * `USD` device it is dollars. It is not converted client-side — the total
+     * across devices is `devices.totalWarrantyCost`, computed server-side in VND.
+     */
     val cost: Int? = null,
     val address: String? = null,
     val phone: String? = null,
@@ -644,6 +728,25 @@ data class DeviceInput(
     val serialNumber: String? = null,
     val purchaseDate: String, // YYYY-MM-DD
     val purchasePrice: Int = 0,
+    /**
+     * ISO 4217 code (openapi `DeviceInput.currency`). Always encoded
+     * (`encodeDefaults = true`), defaulting to [DEFAULT_CURRENCY].
+     *
+     * `PATCH /api/v1/devices/{id}` replaces the whole row, so an edit MUST send
+     * the loaded currency back or it silently re-labels a foreign-currency
+     * device's prices as dong.
+     */
+    val currency: String = DEFAULT_CURRENCY,
+    /**
+     * VND per one unit of [currency], locked at entry. `null` for VND, where
+     * `ApiClient.json`'s `explicitNulls = false` drops the key.
+     *
+     * The contract requires a **positive integer** whenever [currency] is not
+     * `VND` (400 `fieldErrors.fxRate` if absent); the form blocks Save instead
+     * of sending the null (`fxRateRequired` in `DeviceCurrency.kt`). The pair is
+     * not validated in the model because the server owns that rule.
+     */
+    val fxRate: Int? = null,
     val purchasePlace: String? = null,
     val status: DeviceStatus = DeviceStatus.ACTIVE,
     val notes: String? = null,
@@ -656,7 +759,7 @@ data class DeviceInput(
      * is exactly what the server does with explicit nulls.
      */
     val soldAt: String? = null,
-    /** Sale price in VND. Negative is a 400; `0` is a valid give-away price. */
+    /** Sale price in [currency]. Negative is a 400; `0` is a valid give-away price. */
     val soldPrice: Int? = null,
     /**
      * Exchange-window length in days (openapi `DeviceInput.returnWindowDays`).
@@ -1443,9 +1546,17 @@ data class UserStats(
 data class DeviceStats(
     val total: Int,
     val byStatus: Map<String, Int> = emptyMap(),
+    /**
+     * `SUM(Device.purchasePrice)` converted to VND by the server — one device's
+     * locked `fxRate` per row, not a raw sum of mixed currencies. Android shows
+     * this number as-is with a dong formatter; it must never add
+     * [Device.purchasePrice] values itself (see `DeviceCurrency.kt`).
+     */
     val totalPurchasePrice: Long = 0,
     /**
-     * Warranty-package spend: `SUM(Warranty.cost)` across the user's devices.
+     * Warranty-package spend: `SUM(Warranty.cost)` across the user's devices,
+     * converted to VND **per device** at that device's locked rate. Mixed
+     * currencies therefore still add up, and the client does not convert.
      *
      * Added to `GET /api/v1/stats` as a *new* field (`devices.totalWarrantyCost`,
      * see docs/FEATURE_ROADMAP.md item #3). Nullable + defaulted so a server
@@ -1454,7 +1565,14 @@ data class DeviceStats(
      */
     val totalWarrantyCost: Long? = null,
 ) {
-    /** Devices + warranty packages — mirrors the web `/stats` "Tổng chi mua sắm" KPI. */
+    /**
+     * Devices + warranty packages — mirrors the web `/stats` "Tổng chi mua sắm" KPI.
+     *
+     * Both operands are already VND on the wire (the server converts each row at
+     * its locked rate), so this local addition is a sum of like units, not a
+     * conversion. Summing `Device.purchasePrice` here instead would add 999 USD
+     * to 25,000,000 ₫.
+     */
     val totalSpend: Long
         get() = totalPurchasePrice + (totalWarrantyCost ?: 0)
 }

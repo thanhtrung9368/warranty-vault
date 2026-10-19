@@ -229,12 +229,38 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     public let model: String?
     public let serialNumber: String?
     public let purchaseDate: Date
+
+    /// What the device cost, **in `currency`** — not necessarily dong. `0` is
+    /// a real price (a gift) and is different from "not recorded" on the write
+    /// side (`DeviceInput.purchasePrice` is non-optional).
     public let purchasePrice: Int
     public let purchasePlace: String?
     public let status: DeviceStatus
     public let notes: String?
     public let createdAt: Date?
     public let updatedAt: Date?
+
+    /// ISO 4217 code the purchase and sale prices are recorded in
+    /// (openapi `Device.currency`, default `VND`).
+    ///
+    /// Optional on the **read** side only, like `leadDays`: an older cached
+    /// payload (or a server that has not shipped the field yet) must still
+    /// decode, and `nil` means the contract default `VND` — read it through
+    /// `currencyCode`, never by treating `nil` as an unknown currency.
+    ///
+    /// `Device` has a synthesized `Codable`, so a `nil` here is dropped on
+    /// encode. That is fine: this type is a read projection, and the write side
+    /// is `DeviceInput` (whose encoder always writes both currency keys).
+    public let currency: String?
+
+    /// The exchange rate **locked when the amount was entered**: VND per one
+    /// unit of `currency` (`25_400` for a $1 device bought at 25,400 ₫).
+    ///
+    /// `nil` for VND; the contract requires a positive value for every other
+    /// currency (400 `fieldErrors.fxRate` otherwise). It is deliberately never
+    /// refreshed from the market: re-rating a historical purchase would make
+    /// every total move with today's rate.
+    public let fxRate: Int?
 
     /// Reminder lead times for this device's warranties, in **days before
     /// expiry**, e.g. `[30, 7]`.
@@ -333,10 +359,57 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// `DeviceInput` carries it too for exactly that reason — see `DeviceResale`.
     public let soldAt: String?
 
-    /// What the device was sold for, in VND. `0` is a real answer — a give-away —
-    /// and is deliberately different from `nil` ("chưa bán"). The server enforces
-    /// the pair rule: `soldAt` and `soldPrice` travel together or not at all.
+    /// What the device was sold for, in `currency` (not necessarily VND). `0` is
+    /// a real answer — a give-away — and is deliberately different from `nil`
+    /// ("chưa bán"). The server enforces the pair rule: `soldAt` and
+    /// `soldPrice` travel together or not at all.
     public let soldPrice: Int?
+
+    /// `soldPrice` converted to VND **by the server** at the locked rate.
+    ///
+    /// Present only when the device was sold **and** its rate is usable; the
+    /// key is omitted otherwise (openapi `soldPriceVnd`, "and soldPriceVnd when
+    /// sold"). Use this — never `soldPrice` — in any total.
+    public let soldPriceVnd: Int?
+
+    /// `purchasePrice` converted to VND **by the server** at the locked rate.
+    ///
+    /// Present on **every** device read — list, detail, search, create and
+    /// update (the Go `DeviceVND` shape embeds it in all of them). It is `null`
+    /// only when a non-VND row has no usable rate, which only legacy or
+    /// hand-edited data can hold; it is never faked at par. This is the only
+    /// number that may enter a VND total — a foreign `purchasePrice` summed raw
+    /// would treat $999 as 999 ₫.
+    ///
+    /// Optional only so a payload from before the field existed still decodes.
+    /// `purchasePriceInVnd` applies the totals rule: server value first, the
+    /// native amount only when the device is VND.
+    public let purchasePriceVnd: Int?
+
+    // MARK: Multi-currency derived views
+
+    /// Never-nil ISO code: a decoded `nil` means the contract default `VND`.
+    public var currencyCode: String { CurrencyRules.normalized(currency) }
+
+    /// Whether the prices are in something other than dong.
+    public var usesForeignCurrency: Bool { CurrencyRules.requiresRate(currency) }
+
+    /// What this purchase contributes to a VND total, or `nil` when it cannot
+    /// be known (a foreign amount with no server-computed VND value). See
+    /// `CurrencyRules.totalVnd`.
+    public var purchasePriceInVnd: Int? {
+        CurrencyRules.totalVnd(native: purchasePrice,
+                               serverVnd: purchasePriceVnd,
+                               currency: currency)
+    }
+
+    /// What the sale contributes to a VND total, or `nil` when there is no sale
+    /// or the foreign amount has no server-computed VND value.
+    public var soldPriceInVnd: Int? {
+        CurrencyRules.totalVnd(native: soldPrice,
+                               serverVnd: soldPriceVnd,
+                               currency: currency)
+    }
 
     // List-row projection only (`GET /api/v1/devices`). The Go service returns
     // `DeviceListItem` = `store.Device` + these two counts — see
@@ -362,11 +435,45 @@ public struct DeviceDetailBody: Decodable, Sendable {
     public let model: String?
     public let serialNumber: String?
     public let purchaseDate: Date
+
+    /// In `currency`, not necessarily dong — same rule as `Device.purchasePrice`.
     public let purchasePrice: Int
     public let status: DeviceStatus
     public let notes: String?
     public let attachments: [AttachmentMeta]?
     public let warranties: [Warranty]?
+
+    // The multi-currency trio on the detail read. The detail endpoint embeds the
+    // whole `store.Device`, so these have the same wire shape and rules as
+    // their `Device` counterparts: `currency`/`fxRate` describe what the money
+    // fields on this device mean, and the two `…Vnd` values are computed by the
+    // server at the locked rate. Optional only for an older server; read them
+    // through the computed views below.
+    public let currency: String?
+    public let fxRate: Int?
+    public let purchasePriceVnd: Int?
+    public let soldPriceVnd: Int?
+
+    /// Never-nil ISO code (`nil` = the contract default `VND`).
+    public var currencyCode: String { CurrencyRules.normalized(currency) }
+
+    /// Whether this device's prices are in something other than dong.
+    public var usesForeignCurrency: Bool { CurrencyRules.requiresRate(currency) }
+
+    /// The purchase's contribution to a VND total, or `nil` when unknown.
+    public var purchasePriceInVnd: Int? {
+        CurrencyRules.totalVnd(native: purchasePrice,
+                               serverVnd: purchasePriceVnd,
+                               currency: currency)
+    }
+
+    /// The sale's contribution to a VND total, or `nil` when there is no sale
+    /// or its foreign amount has no server value.
+    public var soldPriceInVnd: Int? {
+        CurrencyRules.totalVnd(native: soldPrice,
+                               serverVnd: soldPriceVnd,
+                               currency: currency)
+    }
 
     /// Reminder lead times, on the detail read. Same field and same rules as
     /// `Device.leadDays`; optional because this screen may be talking to a
@@ -434,6 +541,33 @@ public struct DeviceInput: Encodable, Sendable {
     public var warrantyPhone: String?
     public var warrantyNotes: String?
     public var fromWishlistId: String?
+
+    // MARK: Multi-currency
+
+    /// ISO 4217 code every money field in this payload is in (openapi
+    /// `DeviceInput.currency`, default `VND`).
+    ///
+    /// Non-optional on the write side, like `activationRequired`: every save
+    /// states it, so a PATCH can never fall back to the server default and
+    /// silently re-denominate a $999 device as 999 ₫. The form normalises it
+    /// through `CurrencyRules.normalized`, and `submit()` enforces the rate rule
+    /// before building the payload.
+    public var currency: String = CurrencyRules.vnd
+
+    /// VND per one unit of `currency`, locked at entry (openapi
+    /// `DeviceInput.fxRate`). `nil` for VND; required for anything else.
+    ///
+    /// ## Why the encoder is hand-written
+    ///
+    /// `currency`/`fxRate` are full-replacement fields: switching a device back
+    /// to VND must send `"fxRate": null` to clear the stored rate. The
+    /// synthesized conformance calls `encodeIfPresent` and would simply drop a
+    /// `nil`, so the server could not tell "clear it" from "this client does not
+    /// know the field" — the same failure `ClaimInput` documents. The encoder at
+    /// the bottom of this type therefore always writes both keys, and keeps
+    /// every other optional on the synthesized `encodeIfPresent` behaviour so
+    /// existing payloads are byte-for-byte unchanged.
+    public var fxRate: Int?
 
     /// Reminder lead times, in days before warranty expiry (openapi
     /// `DeviceInput.leadDays`). The device form always sends a value built by
@@ -511,13 +645,112 @@ public struct DeviceInput: Encodable, Sendable {
     /// see `DeviceResale`.
     public var soldAt: String?
 
-    /// What the device was sold for, in VND. `nil` is "chưa bán", while `0` is a
-    /// real price (a give-away) that must be sent as `0`, never collapsed into
-    /// "absent". Travels with `soldAt` or not at all — see the pair rule above.
+    /// What the device was sold for, in `currency`. `nil` is "chưa bán", while
+    /// `0` is a real price (a give-away) that must be sent as `0`, never
+    /// collapsed into "absent". Travels with `soldAt` or not at all — see the
+    /// pair rule above.
     public var soldPrice: Int?
 
     public init(name: String, category: String, purchaseDate: String) {
         self.name = name; self.category = category; self.purchaseDate = purchaseDate
+    }
+
+    // Every key of `DeviceInput`, including the two currency fields. The only
+    // difference from a synthesized conformance is that `currency` and `fxRate`
+    // are written unconditionally — see `fxRate`'s documentation.
+    enum CodingKeys: String, CodingKey {
+        case name, category, brand, model, serialNumber, purchaseDate
+        case purchasePrice, purchasePlace, status, notes
+        case warrantyMonths, warrantyProvider, warrantyAddress, warrantyPhone, warrantyNotes
+        case fromWishlistId
+        case leadDays, activationRequired, activatedAt, extendedCoverBuyBy
+        case returnWindowDays, receivedAt, soldAt, soldPrice
+        case currency, fxRate
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Non-optional fields are always present.
+        try container.encode(name, forKey: .name)
+        try container.encode(category, forKey: .category)
+        try container.encode(purchaseDate, forKey: .purchaseDate)
+        try container.encode(purchasePrice, forKey: .purchasePrice)
+        try container.encode(status, forKey: .status)
+        try container.encode(warrantyMonths, forKey: .warrantyMonths)
+        try container.encode(activationRequired, forKey: .activationRequired)
+        // Optionals keep the synthesized `encodeIfPresent` behaviour: omitted,
+        // not null. Go decodes both the same way for all of these.
+        try container.encodeIfPresent(brand, forKey: .brand)
+        try container.encodeIfPresent(model, forKey: .model)
+        try container.encodeIfPresent(serialNumber, forKey: .serialNumber)
+        try container.encodeIfPresent(purchasePlace, forKey: .purchasePlace)
+        try container.encodeIfPresent(notes, forKey: .notes)
+        try container.encodeIfPresent(warrantyProvider, forKey: .warrantyProvider)
+        try container.encodeIfPresent(warrantyAddress, forKey: .warrantyAddress)
+        try container.encodeIfPresent(warrantyPhone, forKey: .warrantyPhone)
+        try container.encodeIfPresent(warrantyNotes, forKey: .warrantyNotes)
+        try container.encodeIfPresent(fromWishlistId, forKey: .fromWishlistId)
+        try container.encodeIfPresent(leadDays, forKey: .leadDays)
+        try container.encodeIfPresent(activatedAt, forKey: .activatedAt)
+        try container.encodeIfPresent(extendedCoverBuyBy, forKey: .extendedCoverBuyBy)
+        try container.encodeIfPresent(returnWindowDays, forKey: .returnWindowDays)
+        try container.encodeIfPresent(receivedAt, forKey: .receivedAt)
+        try container.encodeIfPresent(soldAt, forKey: .soldAt)
+        try container.encodeIfPresent(soldPrice, forKey: .soldPrice)
+        // The two full-replacement fields, written unconditionally. `nil` for
+        // a VND device is an explicit JSON null ("clear the rate"), which is the
+        // only way to say that after the user switches currencies.
+        try container.encode(currency, forKey: .currency)
+        try container.encode(fxRate, forKey: .fxRate)
+    }
+}
+
+// MARK: - FX rates
+//
+// `GET /api/v1/fx/rates?base=USD` → `{base, rates, fetchedAt, stale}`. The app
+// asks for the device's currency as `base` and reads the VND quote out of
+// `rates`; the user can always type the rate instead, because the endpoint is
+// allowed to answer 503.
+
+public struct FxRates: Decodable, Sendable, Equatable {
+    /// The currency the rates are quoted from — the `?base=` that was asked for.
+    public let base: String
+
+    /// Quote currency → how many units of it one `base` unit buys. The app
+    /// needs the `VND` entry; read it through `vndRate`.
+    public let rates: [String: Double]
+
+    /// When the provider fetched the table, as the server's date-time string.
+    /// Kept raw (not a `Date`): it is only ever shown next to a "may be stale"
+    /// note, never compared or bucketed by calendar day.
+    public let fetchedAt: String?
+
+    /// Whether the server's provider cache had expired and it served the last
+    /// known table. Optional only so a payload that predates the field still
+    /// decodes; `nil` is treated as fresh.
+    public let stale: Bool?
+
+    public init(base: String, rates: [String: Double],
+                fetchedAt: String? = nil, stale: Bool? = nil) {
+        self.base = base
+        self.rates = rates
+        self.fetchedAt = fetchedAt
+        self.stale = stale
+    }
+
+    /// Whether the table is a cached fallback.
+    public var isStale: Bool { stale ?? false }
+
+    /// VND per one unit of `base`, rounded to the whole đồng the wire field
+    /// (`Device.fxRate`) stores. `nil` when the payload has no positive VND
+    /// quote, which the form reads as "type it yourself" rather than as 1:1.
+    public var vndRate: Int? {
+        let quoted = rates[CurrencyRules.vnd]
+            ?? rates.first(where: { $0.key.uppercased() == CurrencyRules.vnd })?.value
+        guard let quoted, quoted.isFinite, quoted > 0 else { return nil }
+        let rounded = quoted.rounded()
+        guard rounded >= 1, rounded <= Double(Int.max) else { return nil }
+        return Int(rounded)
     }
 }
 
@@ -589,6 +822,16 @@ public struct Warranty: Codable, Sendable, Identifiable, Hashable {
     public let startDate: Date
     public let endDate: Date
     public let months: Int
+
+    /// The package price, **in the device's currency** (openapi
+    /// `Warranty.cost`). It is not necessarily dong: a $99 AppleCare+ bought on
+    /// a USD device is `99`, not `99 ₫`. Convert it through
+    /// `CurrencyRules.lockedVnd(_:currency:fxRate:)` with the owning device's
+    /// locked rate when a VND total needs it — the frozen contract does not
+    /// pre-compute a `costVnd`, and multiplying by the locked rate (rather than
+    /// a market lookup) is what keeps history stable.
+    ///
+    /// `nil` = not recorded; `0` is a real number (a free package).
     public let cost: Int?
     public let address: String?
     public let phone: String?
@@ -599,7 +842,9 @@ public struct Warranty: Codable, Sendable, Identifiable, Hashable {
     // Nine optional fields that turn a row from "cover ends on X" into the
     // contract it actually is. Every one is nullable on the wire because the
     // common plan is still just a date range; `nil` means "not recorded", never
-    // "zero". Money is VND in `Int`, like every other amount in this file.
+    // "zero". Unlike `cost`, the two money terms below (`cap`, `deductible`)
+    // are documented as VND on the wire; only `cost` follows the device's
+    // currency.
     //
     // Read them through `WarrantyTerms` (WarrantyTerms.swift) rather than one
     // by one: it owns the nil-vs-zero rules, the claims label and the

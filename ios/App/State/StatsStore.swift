@@ -116,7 +116,14 @@ public final class StatsStore: ObservableObject {
             }
             // Devices
             snap.totalDevices = stats.devices.total
-            snap.totalDevicesValue = stats.devices.totalPurchasePrice
+            // The hero total is summed here, in VND, from each device's
+            // server-computed `purchasePriceVnd` — `/stats.totalPurchasePrice`
+            // predates multi-currency and cannot know what a foreign price
+            // means. If the device list failed to load but the server counts
+            // rows, fall back to that number rather than claiming 0 ₫.
+            snap.totalDevicesValue = devices.isEmpty && stats.devices.total > 0
+                ? stats.devices.totalPurchasePrice
+                : StatsRollup.totalPurchaseValue(devices)
             for status in DeviceStatus.allCases {
                 snap.devicesByStatus[status] = stats.devices.byStatus[status.rawValue] ?? 0
             }

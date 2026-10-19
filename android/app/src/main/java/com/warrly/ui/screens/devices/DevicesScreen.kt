@@ -501,8 +501,11 @@ private fun DeviceCard(device: Device, onClick: () -> Unit) {
                 WarrantyPill(warrantyState(s, device.effectiveWarrantyEnd))
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // The price in the device's OWN currency. A $999 phone must
+                    // never read as 999 ₫; the VND equivalent lives on the
+                    // detail card, where it is explicitly labelled.
                     Text(
-                        formatVnd(device.purchasePrice),
+                        formatDeviceMoney(device.purchasePrice, device.currency),
                         style = MaterialTheme.typography.labelMedium,
                         color = cs.onSurfaceVariant,
                     )
@@ -538,3 +541,11 @@ private fun DeviceStatusPill(status: DeviceStatus) {
  */
 @Composable
 internal fun formatVnd(amount: Int): String = Money.of(amount.toLong(), appLocale())
+
+/**
+ * VND in the UI language for a value that is already server-converted. The
+ * `Long` overload exists because `purchasePriceVnd` is a `Long` (a converted sum
+ * can exceed `Int`); it is the same [Money] call, not a second formatter.
+ */
+@Composable
+internal fun formatVnd(amount: Long): String = Money.of(amount, appLocale())
