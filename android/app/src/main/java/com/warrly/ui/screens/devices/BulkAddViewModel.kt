@@ -1,5 +1,6 @@
 package com.warrly.ui.screens.devices
 
+import com.warrly.ui.screens.todayDayIso
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.warrly.network.ApiClient
@@ -251,7 +252,4 @@ class BulkAddViewModel(
  * date-only contract. Kept here (rather than in the pure rules file) so the
  * clock is an explicit dependency of the ViewModel.
  */
-private fun utcTodayIso(): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        .apply { timeZone = TimeZone.getTimeZone("UTC") }
-        .format(Date())
+private fun utcTodayIso(): String = todayDayIso()

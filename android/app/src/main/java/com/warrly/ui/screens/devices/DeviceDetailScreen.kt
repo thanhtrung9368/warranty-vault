@@ -1,5 +1,6 @@
 package com.warrly.ui.screens.devices
 
+import com.warrly.ui.screens.todayDayIso
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -1079,8 +1080,5 @@ private fun CenterBox(content: @Composable androidx.compose.foundation.layout.Co
     }
 }
 
-internal fun todayUtcIso(): String {
-    val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
-    return fmt.format(Date())
-}
+/** Today in the user's zone — see [todayDayIso]; kept as a name for call sites. */
+internal fun todayUtcIso(): String = todayDayIso()

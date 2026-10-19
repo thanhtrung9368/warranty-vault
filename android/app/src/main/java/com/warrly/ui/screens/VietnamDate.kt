@@ -1,5 +1,8 @@
 package com.warrly.ui.screens
 
+import java.time.Clock
+import java.time.LocalDate
+
 /**
  * The app's one date-display convention: `dd/MM/yyyy`.
  *
@@ -57,3 +60,20 @@ internal fun vietnamDate(wire: String?): String? {
     if (parts.any { part -> part.any { !it.isDigit() } }) return null
     return "$day/$month/$year"
 }
+
+/**
+ * Today, as a calendar day (`yyyy-MM-dd`) in the **user's** zone.
+ *
+ * Used for the default value a form offers for a date the user is entering —
+ * purchase date, warranty start, claim date. It must be the device's local day:
+ * the previous helper pinned `TimeZone.getTimeZone("UTC")`, so at 05:00 in
+ * Vietnam (22:00 UTC the previous day) the form offered **yesterday**, and in
+ * New York after 19:00 it offered tomorrow. A calendar day read off an instant in
+ * the wrong zone is the same class of defect as the wire-format changes this
+ * review has been about.
+ *
+ * A `Clock` is injectable so the rule can be pinned instead of depending on when
+ * the suite runs.
+ */
+internal fun todayDayIso(clock: Clock = Clock.systemDefaultZone()): String =
+    LocalDate.now(clock).toString()

@@ -1,5 +1,6 @@
 package com.warrly.ui.screens.devices
 
+import com.warrly.ui.screens.todayDayIso
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -1221,10 +1222,7 @@ private fun BrandAutocomplete(
     }
 }
 
-private fun today(): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-        .format(Date())
+private fun today(): String = todayDayIso()
 
 // Reads the picked receipt (an image from the photo picker, or a PDF from the
 // document picker) and runs the two-call scan:

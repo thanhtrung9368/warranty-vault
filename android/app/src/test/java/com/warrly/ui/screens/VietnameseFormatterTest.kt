@@ -1,5 +1,8 @@
 package com.warrly.ui.screens
 
+import java.time.Clock
+import java.time.ZoneId
+
 import com.warrly.i18n.Money
 import com.warrly.i18n.money
 import com.warrly.i18n.ResCatalog
@@ -123,10 +126,36 @@ class VietnameseFormatterTest {
     }
 
     @Test
-    fun todayUtcIso_isATenCharacterUtcDate() {
-        val today = todayUtcIso()
+    fun todayDayIso_isATenCharacterDate() {
+        val today = todayDayIso()
 
         assertTrue("unexpected shape: $today", today.matches(Regex("""\d{4}-\d{2}-\d{2}""")))
-        assertEquals(LocalDate.now(ZoneOffset.UTC).toString(), today)
+        assertEquals(LocalDate.now(ZoneId.systemDefault()).toString(), today)
+    }
+
+    /**
+     * The bug this replaces: the default was pinned to UTC, so at 05:00 in Vietnam
+     * (22:00 UTC the previous day) a new device's purchase date defaulted to
+     * yesterday, and in New York after 19:00 it defaulted to tomorrow. A form
+     * offering "today" must mean the day the person is standing in.
+     */
+    fun todayDayIso_usesTheUsersZoneNotUtc() {
+        // 22:00 UTC on the 19th is already the 20th in Vietnam.
+        val instant = java.time.Instant.parse("2026-10-19T22:00:00Z")
+
+        assertEquals(
+            "2026-10-20",
+            todayDayIso(Clock.fixed(instant, ZoneId.of("Asia/Ho_Chi_Minh")))
+        )
+        assertEquals(
+            "2026-10-19",
+            todayDayIso(Clock.fixed(instant, ZoneId.of("America/New_York"))),
+            "still the 19th in New York at 18:00 local"
+        )
+        assertEquals(
+            "2026-10-19",
+            todayDayIso(Clock.fixed(instant, ZoneOffset.UTC)),
+            "and the old behaviour is what we moved away from"
+        )
     }
 }
