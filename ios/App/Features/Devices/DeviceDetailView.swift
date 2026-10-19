@@ -134,9 +134,9 @@ struct DeviceDetailView: View {
     ///
     /// Each half is rendered if it is there: the server enforces the pair, so both
     /// normally arrive together, but a legacy half-record must not be hidden.
-    /// `soldAt` is the server's Z-less naive-UTC timestamp (`"2026-03-02T00:00:00"`),
-    /// so only its calendar day is read. Lãi/lỗ is derived here because the API
-    /// deliberately returns `soldPrice − purchasePrice` to nobody.
+    /// `soldAt` is a calendar day (`"2026-03-02"`), so only its day is read.
+    /// Lãi/lỗ is derived here because the API deliberately returns
+    /// `soldPrice − purchasePrice` to nobody.
     private var saleDisplay: (day: String?, price: Int?, profit: SaleProfitLoss?)? {
         let day = DeviceResale.dayLabel(currentDevice.soldAt)
         let price = currentDevice.soldPrice

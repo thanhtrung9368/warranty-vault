@@ -237,9 +237,9 @@ struct DeviceFormView: View {
         _activationRequired = State(initialValue: activation.activationRequired)
         _activatedAt = State(initialValue: WireDay.date(from: activation.activatedAt))
         _extendedCoverBuyBy = State(initialValue: WireDay.date(from: activation.extendedCoverBuyBy))
-        // Same for the sale. `carried` reduces `soldAt` (a Z-less naive-UTC
-        // timestamp) to its `YYYY-MM-DD` day without parsing an instant, and keeps
-        // a `0₫` give-away as `0` rather than as "not recorded".
+        // Same for the sale. `carried` reduces `soldAt` (a calendar day) to its
+        // `YYYY-MM-DD` form without parsing an instant, and keeps a `0₫`
+        // give-away as `0` rather than as "not recorded".
         let sale = device.map(DeviceResale.carried(from:)) ?? .none
         _saleRecorded = State(initialValue: DeviceResale.hasSaleRecorded(sale))
         // The picker holds a `Date`, so the stored day is turned into one in the

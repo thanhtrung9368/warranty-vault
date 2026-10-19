@@ -47,10 +47,10 @@ import Foundation
 //
 // ## Wire format
 //
-// `soldAt` arrives **Z-less**: marshalling the real `store.Device` shows
-// `pgtype.Timestamp` emitting `"2026-03-02T00:00:00"` — no `Z`, no offset
-// (`openapi.yaml` documents the same shape; a trailing `Z` is *not* what the
-// server sends). Only the date half is ever used, and the request sends that
+// `soldAt` is a calendar day and the server sends it as one: `"2026-03-02"`
+// with `format: date`. It used to arrive as a naive `"2026-03-02T00:00:00"`
+// timestamp, which is why everything here still reads only the leading
+// `YYYY-MM-DD` — that keeps working for both shapes. The request sends the same
 // calendar day back (`DeviceInput.soldAt` accepts `YYYY-MM-DD`, which Go parses
 // as midnight UTC).
 //

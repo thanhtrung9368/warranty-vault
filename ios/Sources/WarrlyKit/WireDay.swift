@@ -4,12 +4,12 @@ import Foundation
 //
 // ## The problem this names
 //
-// Every date the API stores is a `timestamp without time zone` column with UTC
-// semantics, and `pgtype.Timestamp` marshals it **Z-less**
-// (`"2026-03-02T00:00:00"` — no `Z`, no offset; `openapi.yaml` documents the
-// same shape for `soldAt` and `receivedAt`). The app's decoder
-// (`APIClient.DateFormatters`) reads those Z-less strings in the **device's**
-// zone, and that is what makes a date picker show the day the server holds.
+// A calendar day is a day, not an instant. The API used to send these as
+// `pgtype.Timestamp` naive-UTC strings (`"2026-03-02T00:00:00"`, no `Z`); it now
+// sends `YYYY-MM-DD` (`"2026-03-02"`, `format: date` in `openapi.yaml`), which is
+// the whole point of this type: there is no offset for a client to apply, so the
+// day cannot move. Older builds of the app are still tolerant of the long form
+// because everything here reads the leading ten characters.
 //
 // That stays true only if the value is written back in the *same* zone. A pinned
 // formatter breaks the round trip in every direction:
@@ -22,10 +22,17 @@ import Foundation
 //     every device west of the pin — a Los Angeles user scanning a receipt
 //     dated the 2nd saw the 1st.
 //
+// ## This header is the authority on the day format
+//
+// The day fields arrive as `YYYY-MM-DD` (`format: date` in `openapi.yaml`). They
+// used to arrive as naive `"2026-03-02T00:00:00"` strings, and several comments
+// in this package still describe that, because the code they sit next to has to
+// accept both shapes. When they disagree with this header, this header is right.
+//
 // ## The rule
 //
-// A Z-less wire value is a **calendar day**, not an instant. Read it, and write
-// it, in the zone the user is looking at — the device's own. Then
+// A wire value without an offset is a **calendar day**, not an instant. Read it,
+// and write it, in the zone the user is looking at — the device's own. Then
 //
 //     string(from: date(from: wire, in: z), in: z) == day-prefix(wire)
 //

@@ -56,7 +56,8 @@ public struct ActionItem: Decodable, Sendable, Hashable, Identifiable {
     public let subscriptionId: String?
     public let wishlistItemId: String?
 
-    /// The date the item is about, as the naive-UTC timestamp the server sends.
+    /// The date the item is about. Read as a calendar day: only the leading
+    /// `YYYY-MM-DD` is used, never an instant.
     /// Absent when the item has no single date.
     public let dueDate: String?
     /// Money involved (VND). **`Int64`**: the server sends int64, and an `Int32`
@@ -293,8 +294,10 @@ public enum ActionQueueRules {
     /// `nil` when the item has no single date. `now` is a parameter so the rules
     /// can be tested without depending on the calendar.
     ///
-    /// Only the date half of the timestamp is read: the server sends naive UTC,
-    /// so an instant-based parse would shift the day.
+    /// Only the date half is read. A day arrives as `YYYY-MM-DD`; an older build
+    /// of the server sent `YYYY-MM-DDT00:00:00` instead, and reading the prefix is
+    /// correct for both. Parsing the whole string as an instant would shift the
+    /// day in a negative-offset zone, which is the bug this guards against.
     public static func dueNote(_ dueDate: String?,
                               now: Date = Date(),
                               calendar: Calendar = .current) -> ActionDueNote? {
@@ -307,7 +310,7 @@ public enum ActionQueueRules {
         return ActionDueNote(label: L.p("Còn %d ngày", days), urgency: .later)
     }
 
-    /// `dd/MM/yyyy` for a naive-UTC timestamp, or `nil` when there is nothing
+    /// `dd/MM/yyyy` for a calendar day, or `nil` when there is nothing
     /// sensible to print. A malformed value renders as "no date", never a crash.
     public static func dateLabel(_ iso: String?) -> String? {
         DeviceReturnWindow.deadlineLabel(iso)

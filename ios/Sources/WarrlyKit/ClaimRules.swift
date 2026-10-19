@@ -140,7 +140,7 @@ public enum ClaimRules {
     /// `dd/MM/yyyy` for a wire date, or `nil` when there is not one there.
     ///
     /// Delegates to the same day reduction `DeviceResale` and
-    /// `DeviceReturnWindow` use: the value is a UTC wall clock, so parsing it as
+    /// `DeviceReturnWindow` use: the value is a calendar day, so parsing it as
     /// an instant could move the calendar day by the device's offset.
     public static func dayLabel(_ wire: String?) -> String? {
         DeviceReturnWindow.deadlineLabel(wire)

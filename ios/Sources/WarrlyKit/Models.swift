@@ -504,10 +504,10 @@ public struct Device: Codable, Sendable, Identifiable, Hashable {
     /// exactly what this field exists to prevent.
     public let returnDeadline: String?
 
-    /// The day the user sold the device (resale pair, migration `0006`), as the
-    /// server's **Z-less** naive-UTC timestamp — verified by marshalling the real
-    /// `store.Device`: `pgtype.Timestamp` emits `"2026-03-02T00:00:00"`, with no
-    /// `Z` and no offset (`openapi.yaml` documents the same shape).
+    /// The day the user sold the device (resale pair, migration `0006`). The
+    /// server sends a calendar day as `YYYY-MM-DD` (`"2026-03-02"`, `format:
+    /// date`); it used to send a naive `"2026-03-02T00:00:00"`, which is why only
+    /// the leading ten characters are ever read.
     ///
     /// Kept as the raw `String` so only the leading `YYYY-MM-DD` is ever read —
     /// parsing it as an instant would move the calendar day in a negative-offset
@@ -835,9 +835,9 @@ public struct DeviceInput: Encodable, Sendable {
     /// `fieldErrors.receivedAt = ["Ngày nhận hàng không hợp lệ"]`.
     public var receivedAt: String?
 
-    /// The day the device was sold (`YYYY-MM-DD`; the wire read is a Z-less
-    /// naive-UTC timestamp, see `Device.soldAt`), or `nil` when no sale is
-    /// recorded.
+    /// The day the device was sold, as `YYYY-MM-DD` (the contract says `format:
+    /// date`; see `Device.soldAt` for why only the leading day is read), or `nil`
+    /// when no sale is recorded.
     ///
     /// The server enforces a **pair rule** (`services.ValidateDeviceInput`):
     /// supplying exactly one of `soldAt`/`soldPrice` is a 400 with

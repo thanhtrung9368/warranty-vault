@@ -34,10 +34,10 @@ import Foundation
 //
 // ## Wire format
 //
-// `receivedAt` comes back as the server's RFC3339 UTC timestamp
-// (`"2026-03-02T00:00:00Z"`; openapi documents the Z-less form and both appear —
-// the app's own decoder ladder already accepts each shape elsewhere). Only the
-// date half is ever used, and the request sends that calendar day back
+// `receivedAt` is a calendar day and the server sends it as one: `"2026-03-02"`,
+// `format: date`. It used to arrive as a naive `"2026-03-02T00:00:00"` timestamp,
+// which is why only the day half is ever read — that works for every shape. The
+// request sends that calendar day back
 // (`DeviceInput.receivedAt` accepts `YYYY-MM-DD`, which Go parses as midnight
 // UTC). Sending the date half is not a lossy edit: the field is a calendar date
 // and the stored value is day-anchored.
@@ -116,7 +116,7 @@ public enum DeviceReturnWindow {
 
     /// `YYYY-MM-DD` of a wire timestamp, or `nil` when there is not one there.
     ///
-    /// Never parses an instant: the value is a UTC wall clock, so an
+    /// Never parses an instant: the value is a calendar day, so an
     /// offset-aware parse could move the calendar day by the device's offset.
     public static func dayPrefix(_ wire: String?) -> String? {
         guard let raw = wire?.trimmingCharacters(in: .whitespaces), raw.count >= 10 else { return nil }
