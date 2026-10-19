@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	"github.com/thanhtrung9368/warranty-vault/api/internal/config"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/dbconn"
 )
 
 const migrationsDir = "migrations"
@@ -71,7 +70,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := sql.Open("pgx", cfg.DatabaseURL)
+	db, err := dbconn.OpenSQL(cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("db open failed", "err", err)
 		os.Exit(1)
@@ -82,6 +81,10 @@ func main() {
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		slog.Error("db ping failed", "err", err)
+		os.Exit(1) //nolint:gocritic // process is exiting; deferred cancel is moot
+	}
+	if err := dbconn.AssertUTCSQL(ctx, db); err != nil {
+		slog.Error("database session timezone check failed", "err", err)
 		os.Exit(1) //nolint:gocritic // process is exiting; deferred cancel is moot
 	}
 

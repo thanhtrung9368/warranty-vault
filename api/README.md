@@ -21,6 +21,24 @@ curl localhost:4000/readyz    # {"ok":true} when DB is reachable, 503 otherwise
 
 The server reads `.env` automatically when present; required env is `DATABASE_URL`. Optional: `PORT` (default `4000`), `WEB_URL` (CORS allowlist), `SESSION_SECRET` (only length-validated — the server never reads the web's `wv_session` cookie; min 32 chars when set). Everything else (push, email, rate limit, encrypted uploads, cron) is documented with comments in `.env.example`.
 
+### Timestamps are UTC
+
+Every `timestamp without time zone` column stores a UTC value. `internal/dbconn`
+pins `timezone=UTC` in the connection startup parameters for `cmd/server`,
+`cmd/cron` and `cmd/migrate` (`scripts/dbtool` pins the same parameter itself),
+and each service entrypoint calls `AssertUTC` before writing anything. **Do not add another entrypoint that calls
+`pgxpool.New`/`sql.Open` directly** — use `dbconn.NewPool` / `dbconn.OpenSQL`, and
+remember that pgx encodes a local `time.Time` as its local wall clock even when
+the session is UTC (normalise with `.UTC()` for instant columns; calendar dates
+from `parseDate` are already UTC midnight).
+
+Migration `0024_utc_timestamp_baseline.sql` corrects legacy rows. It classifies
+each row from the millisecond clock embedded in its cuid id, shifts only the rows
+that provably used the +07 wall clock, records them in
+`WVUTCTimezoneCorrected`, and lists unverifiable (non-cuid) rows in
+`WVUTCTimezoneSkipped` instead of guessing. It refuses to run twice and aborts on
+an offset that is neither UTC nor +07.
+
 ## Kiểm thử e2e (`api/scripts/`)
 
 Bộ `scripts/test_*.sh` là chỗ **duy nhất** exercise HTTP surface thật (Go unit test gọi thẳng services, không đi qua route). Một lệnh chạy hết:

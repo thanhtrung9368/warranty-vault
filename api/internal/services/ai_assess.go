@@ -246,7 +246,7 @@ func formatAssessDate(ts pgtype.Timestamp) string {
 	if !ts.Valid {
 		return ""
 	}
-	return ts.Time.Format("2006-01-02")
+	return ts.Time.UTC().Format("2006-01-02")
 }
 
 // downgradeUnsupportedCoverage enforces the prompt's honesty rule in Go. It is a

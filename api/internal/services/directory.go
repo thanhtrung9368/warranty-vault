@@ -152,6 +152,7 @@ func BuildServiceDirectory(ctx context.Context, db *pgxpool.Pool, userID, device
 	}
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for _, w := range detail.Warranties {
 		centre := WarrantyCentre{
 			WarrantyID:    w.ID,
@@ -167,7 +168,12 @@ func BuildServiceDirectory(ctx context.Context, db *pgxpool.Pool, userID, device
 		if w.EndDate.Valid {
 			end := w.EndDate.Time.UTC().Format(time.RFC3339)
 			centre.EndDate = &end
-			centre.IsActive = w.EndDate.Time.After(now)
+			// EndDate is a calendar date stored at UTC midnight, not an instant.
+			// Comparing it to now made a package that ends TODAY look expired
+			// from 00:00 UTC (07:00 local) onward. The date is inclusive.
+			endDate := time.Date(w.EndDate.Time.Year(), w.EndDate.Time.Month(),
+				w.EndDate.Time.Day(), 0, 0, 0, 0, now.Location())
+			centre.IsActive = !endDate.Before(today)
 		}
 		if w.Provider != nil {
 			centre.Provider = resolveProvider(*w.Provider, catalog)

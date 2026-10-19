@@ -98,7 +98,18 @@ func run(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, dsn)
+	cfg, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return fmt.Errorf("DATABASE_URL không hợp lệ: %w", err)
+	}
+	// Pin the same UTC session timezone as cmd/server/cmd/migrate. The e2e suite
+	// seeds `NOW()` and then asserts against timestamps the server wrote; leaving
+	// this connection on the host's +07 wall clock would compare the two zones.
+	if cfg.RuntimeParams == nil {
+		cfg.RuntimeParams = make(map[string]string)
+	}
+	cfg.RuntimeParams["timezone"] = "UTC"
+	conn, err := pgx.ConnectConfig(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("kết nối Postgres thất bại: %w", err)
 	}

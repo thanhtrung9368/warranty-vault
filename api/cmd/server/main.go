@@ -14,10 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/thanhtrung9368/warranty-vault/api/internal/ai"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/config"
+	"github.com/thanhtrung9368/warranty-vault/api/internal/dbconn"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/email"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/fx"
 	"github.com/thanhtrung9368/warranty-vault/api/internal/handlers"
@@ -54,12 +53,20 @@ func main() {
 	poolCtx, cancel := context.WithTimeout(rootCtx, 10*time.Second)
 	defer cancel()
 
-	pool, err := pgxpool.New(poolCtx, cfg.DatabaseURL)
+	pool, err := dbconn.NewPool(poolCtx, cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("db pool init failed", "err", err)
 		os.Exit(1) //nolint:gocritic // process is exiting; deferred cancel is moot
 	}
 	defer pool.Close()
+
+	// Fail closed: a pool that slipped back to the server's local zone would
+	// write more timestamps into the wrong wall clock, which is the bug this
+	// guard exists to prevent.
+	if err := dbconn.AssertUTC(poolCtx, pool); err != nil {
+		slog.Error("database session timezone check failed", "err", err)
+		os.Exit(1) //nolint:gocritic // process is exiting; deferred close is moot
+	}
 
 	deps := handlers.Deps{
 		DB:         pool,

@@ -44,7 +44,7 @@ type SessionSummary struct {
 func ListSessions(ctx context.Context, db *pgxpool.Pool, userID, currentSessionID string, now time.Time) ([]SessionSummary, error) {
 	rows, err := store.New(db).ListActiveSessionsForUser(ctx, store.ListActiveSessionsForUserParams{
 		UserId:    userID,
-		ExpiresAt: pgtype.Timestamp{Time: now, Valid: true},
+		ExpiresAt: pgtype.Timestamp{Time: now.UTC(), Valid: true},
 	})
 	if err != nil {
 		return nil, err

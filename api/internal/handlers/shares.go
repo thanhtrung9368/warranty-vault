@@ -695,8 +695,16 @@ func shareDate(tag i18n.Tag, s string) string {
 	if err != nil {
 		return ""
 	}
-	return i18n.FormatDate(tag, t)
+	// The certificate is a Vietnamese document (api/README.md, i18n rules): render
+	// its instants on the Vietnam calendar day, not UTC's. Calendar dates are
+	// stored at UTC midnight, which stays the same day at UTC+7; instants created
+	// between 17:00 and 24:00 UTC would otherwise print yesterday's date.
+	return i18n.FormatDate(tag, t.In(vietnamZone))
 }
+
+// vietnamZone is the calendar the public certificate is rendered on. Vietnam has
+// no DST, so a fixed offset is exact and needs no tz database in the binary.
+var vietnamZone = time.FixedZone("ICT", 7*60*60)
 
 // shareMonths renders a warranty duration in months. Vietnamese does not inflect
 // ("24 tháng", and "1 tháng" is the same word); English does ("24 months" vs
@@ -723,7 +731,10 @@ func warrantyStateLabel(tag i18n.Tag, end string, now time.Time) string {
 	if err != nil {
 		return ""
 	}
-	if t.After(now) {
+	// endDate is inclusive: a package ending today is still valid until the end
+	// of the holder's calendar day, not until 00:00 of that day.
+	endOfDay := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, now.Location())
+	if !now.After(endOfDay) {
 		return translateKeyData(tag, sharePageKeys.Valid)
 	}
 	return translateKeyData(tag, sharePageKeys.Expired)

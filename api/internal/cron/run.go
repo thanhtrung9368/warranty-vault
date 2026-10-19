@@ -212,10 +212,15 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 		return Stats{}, errors.New("cron: nil dispatcher")
 	}
 
-	// Use the process's local time. dayWindow rolls back to 00:00 of the
-	// current local day, mirroring the TS route's `new Date(); setHours(0,0,0,0)`.
-	// All "TIMESTAMP without time zone" columns are wall-clock in the same
-	// zone, so comparisons line up. Set TZ=Asia/Ho_Chi_Minh in deployment.
+	// Use the process's local time for CALENDAR-DAY windows. dayWindow rolls
+	// back to 00:00 of the current local day, mirroring the TS route's
+	// `new Date(); setHours(0,0,0,0)`. Date-only columns (endDate, renewalDate,
+	// targetDate, ...) are stored as UTC midnight of that calendar date, so the
+	// window values are compared as wall-clock date labels — not as instants.
+	//
+	// Instant columns are UTC. Never pass `now` itself to one: bind now.UTC()
+	// (see lastNotifiedRenewalAt below), otherwise pgx writes the local wall
+	// clock into a column the rest of the service reads as UTC.
 	now := time.Now()
 	stats := Stats{}
 	// statsMu guards the push counters in `stats`, which are now incremented
@@ -800,7 +805,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 			if _, err := qtx.AdvanceSubscriptionRenewal(ctx, store.AdvanceSubscriptionRenewalParams{
 				ID:                    s.ID,
 				RenewalDate:           pgtype.Timestamp{Time: next, Valid: true},
-				LastNotifiedRenewalAt: pgtype.Timestamp{Time: now, Valid: true},
+				LastNotifiedRenewalAt: pgtype.Timestamp{Time: now.UTC(), Valid: true},
 			}); err != nil {
 				_ = tx.Rollback(ctx)
 				slog.Error("cron: advance renewal", "sub", s.ID, "err", err)
@@ -920,7 +925,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dispatcher Dispatcher) (Stats, e
 	// Share links (FEATURE_IDEAS #2) die 30 days after they expire, so the table
 	// does not grow forever. Same housekeeping step, same "log and carry on"
 	// contract as the session prune: a failure here must not fail the cron run.
-	if _, err := q.PruneExpiredShares(ctx, pgtype.Timestamp{Time: time.Now(), Valid: true}); err != nil {
+	if _, err := q.PruneExpiredShares(ctx, pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}); err != nil {
 		slog.Error("cron: prune expired shares", "err", err)
 	}
 

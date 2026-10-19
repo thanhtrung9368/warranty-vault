@@ -47,7 +47,10 @@ func IssueToken(ctx context.Context, db *pgxpool.Pool, userID string, deviceLabe
 	if err != nil {
 		return nil, err
 	}
-	expiresAt := time.Now().Add(SessionTTL)
+	// UTC because the column is `timestamp without time zone` and the whole
+	// schema stores UTC. pgx encodes a local time.Time as its local wall clock,
+	// which would be 7h ahead here even with the session timezone pinned to UTC.
+	expiresAt := time.Now().Add(SessionTTL).UTC()
 	q := store.New(db)
 	row, err := q.CreateSession(ctx, store.CreateSessionParams{
 		ID:          NewID(),
@@ -99,7 +102,7 @@ func VerifyBearer(ctx context.Context, db *pgxpool.Pool, authHeader string) (*Us
 
 	remaining := row.ExpiresAt.Time.Sub(now)
 	if remaining < SessionTTLSliding {
-		newExpiry := now.Add(SessionTTL)
+		newExpiry := now.Add(SessionTTL).UTC()
 		_ = q.ExtendSession(ctx, store.ExtendSessionParams{
 			ID:        row.SessionID,
 			ExpiresAt: pgtype.Timestamp{Time: newExpiry, Valid: true},

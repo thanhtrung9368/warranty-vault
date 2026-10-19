@@ -198,10 +198,10 @@ type ListActiveSessionsForUserRow struct {
 // ─── Per-session management (GET/DELETE /api/v1/auth/sessions) ────────────
 // "Active" = not revoked and not expired at $2.
 //
-// The expiry boundary is a parameter, not NOW(), on purpose: every timestamp
-// column here is `timestamp without time zone` and the app writes it from Go's
-// wall clock, so comparing against the database clock can be off by the server's
-// UTC offset. The caller passes its own now — the same clock VerifyBearer uses.
+// The expiry boundary is a parameter, not NOW(), so the caller controls the
+// clock and tests can pin it. Every instant column stores UTC (dbconn pins the
+// session timezone), so the caller binds now.UTC(); mixing a local wall clock
+// with the stored UTC value would move the boundary by the server's offset.
 //
 // "tokenHash" is deliberately NOT selected: it is credential material and must
 // never leave the server. The exposed id is the row's surrogate key (cuid), which

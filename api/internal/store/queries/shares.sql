@@ -34,10 +34,10 @@ RETURNING *;
 
 -- name: CountActiveSharesForDevice :one
 -- Live shares = not revoked and not yet expired at $2. The caller passes its own
--- `now` (Go wall clock) for the same reason ListActiveSessionsForUser does: every
--- timestamp column here is `timestamp without time zone` written from Go, so
--- comparing against the database clock can be off by the server's UTC offset.
--- A miss costs a token; a stale hit costs nothing (the public read re-checks).
+-- `now` (UTC) for the same reason ListActiveSessionsForUser does: instants are
+-- stored UTC, so a local wall clock would move the boundary by the server's
+-- offset. A miss costs a token; a stale hit costs nothing (the public read
+-- re-checks).
 SELECT COUNT(*)::bigint AS count
 FROM "DeviceShare"
 WHERE "deviceId" = $1

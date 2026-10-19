@@ -653,7 +653,7 @@ func Forgot(d Deps) http.HandlerFunc {
 		if err == nil {
 			rawToken, hash, terr := auth.NewTokenAndHash()
 			if terr == nil {
-				expires := time.Now().Add(passwordResetTTLMin * time.Minute)
+				expires := time.Now().Add(passwordResetTTLMin * time.Minute).UTC()
 				_, perr := q.CreatePasswordReset(r.Context(), store.CreatePasswordResetParams{
 					ID:        auth.NewID(),
 					UserId:    user.ID,
@@ -1016,7 +1016,7 @@ func RequestEmailChange(d Deps) http.HandlerFunc {
 			httpx.WriteErrorC(w, ctx, http.StatusInternalServerError, "internal_error", i18n.Text(ctx, "Lỗi hệ thống"), nil)
 			return
 		}
-		expires := time.Now().Add(passwordResetTTLMin * time.Minute)
+		expires := time.Now().Add(passwordResetTTLMin * time.Minute).UTC()
 		if _, perr := q.CreateEmailChange(r.Context(), store.CreateEmailChangeParams{
 			ID:           auth.NewID(),
 			UserId:       user.ID,

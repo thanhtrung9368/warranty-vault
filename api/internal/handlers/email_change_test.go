@@ -61,7 +61,7 @@ func seedEmailChangeToken(t *testing.T, pool *pgxpool.Pool, rawToken, userID, pe
 	if _, err := pool.Exec(context.Background(),
 		`INSERT INTO "PasswordReset" (id, "userId", "tokenHash", "pendingEmail", "expiresAt", "createdAt")
 		 VALUES ($1, $2, $3, $4, $5, NOW())`,
-		auth.NewID(), userID, sum, pendingEmail, expires); err != nil {
+		auth.NewID(), userID, sum, pendingEmail, expires.UTC()); err != nil {
 		t.Fatalf("insert email-change token: %v", err)
 	}
 }
@@ -405,7 +405,7 @@ func TestPasswordResetTokenKindSplitAtStoreLevel(t *testing.T) {
 		UserId:       userID,
 		TokenHash:    changeHash,
 		PendingEmail: &pending,
-		ExpiresAt:    pgtype.Timestamp{Time: time.Now().Add(10 * time.Minute), Valid: true},
+		ExpiresAt:    pgtype.Timestamp{Time: time.Now().Add(10 * time.Minute).UTC(), Valid: true},
 	}); err != nil {
 		t.Fatalf("CreateEmailChange: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestPasswordResetTokenKindSplitAtStoreLevel(t *testing.T) {
 		ID:        auth.NewID(),
 		UserId:    userID,
 		TokenHash: resetHash,
-		ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(10 * time.Minute), Valid: true},
+		ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(10 * time.Minute).UTC(), Valid: true},
 	}); err != nil {
 		t.Fatalf("CreatePasswordReset: %v", err)
 	}

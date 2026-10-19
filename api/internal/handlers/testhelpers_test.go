@@ -62,6 +62,18 @@ func gooseUp(t *testing.T, dsn string) {
 	if err := goose.Up(db, migrationsDir(t)); err != nil {
 		t.Fatalf("goose up: %v", err)
 	}
+	// Every handler test gets a fresh database. Pin its default session zone to
+	// UTC so the pools those tests open afterwards match production: the
+	// handlers write Go instants as UTC and the SQL NOW() defaults must agree.
+	// (Each test's pool is its own; a startup guard in cmd/server does not run
+	// here.)
+	var name string
+	if err := db.QueryRow(`SELECT current_database()`).Scan(&name); err != nil {
+		t.Fatalf("read scratch database name: %v", err)
+	}
+	if _, err := db.Exec(`ALTER DATABASE "` + strings.ReplaceAll(name, `"`, `""`) + `" SET timezone TO 'UTC'`); err != nil {
+		t.Fatalf("pin scratch database timezone: %v", err)
+	}
 }
 
 // permissiveLimiter always allows a request. Rate limiting has its own tests; a
@@ -79,9 +91,9 @@ func (p *permissiveLimiter) Check(context.Context, string, int, int) (ratelimit.
 // promised without having to intercept the email.
 //
 // The TTL is computed in SQL as `"expiresAt" - "createdAt"`: both columns are
-// `timestamp without time zone` and the app writes them in the server's wall
-// clock, so comparing either against Go's time.Now() would mix zones (the classic
-// +7h offset on this machine). The interval is zone-free.
+// `timestamp without time zone`, and subtracting them is zone-free, so the
+// assertion does not depend on Go's clock or on the test connection's session
+// timezone. (Both columns are UTC in the application.)
 func latestPendingEmail(t *testing.T, pool *pgxpool.Pool, userID string) (string, time.Duration) {
 	t.Helper()
 	var pending string

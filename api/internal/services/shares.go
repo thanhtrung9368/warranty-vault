@@ -188,7 +188,7 @@ func CreateDeviceShare(ctx context.Context, db *pgxpool.Pool, userID, deviceID s
 		return nil, err
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	active, err := q.CountActiveSharesForDevice(ctx, store.CountActiveSharesForDeviceParams{
 		DeviceId:  deviceID,
 		ExpiresAt: pgtype.Timestamp{Time: now, Valid: true},
@@ -317,7 +317,7 @@ func ViewSharedCertificate(ctx context.Context, db *pgxpool.Pool, token string) 
 		return nil, ErrShareNotFound()
 	}
 	q := store.New(db)
-	now := time.Now()
+	now := time.Now().UTC()
 
 	row, err := q.GetShareByTokenHash(ctx, store.GetShareByTokenHashParams{
 		TokenHash: auth.HashToken(token),
