@@ -129,6 +129,10 @@ export type BackupExport = {
 // `attachmentsUnreadable` counts blobs that were restored but cannot be
 // decrypted with this server's FILE_MASTER_KEY (or were already missing when
 // the archive was written). The last one must be shown to the user.
+//
+// `warnings` is omitted by the server when empty. Its sentences are already
+// rendered in the request's language (Go receives `?lang=` from the proxy) and
+// are shown verbatim — see `describeImportResult`.
 export type ImportResult = {
   imported: number;
   skipped: number;
@@ -139,6 +143,7 @@ export type ImportResult = {
   attachmentsImported: number;
   attachmentsSkipped: number;
   attachmentsUnreadable: number;
+  warnings?: string[];
 };
 
 // Streams the raw JSON file (preserves Content-Disposition / filename). The

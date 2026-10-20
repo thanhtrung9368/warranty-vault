@@ -4,7 +4,6 @@ import * as React from 'react';
 import { format } from 'date-fns';
 import {
   AlertTriangle,
-  CheckCircle2,
   Download,
   FileArchive,
   FileJson,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ImportResultPanel } from '@/components/import-result-panel';
 import { exportAllJson } from '@/app/actions/backup';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
@@ -114,8 +114,10 @@ export function BackupTools() {
       }
       const summary = describeImportResult(body.result, locale);
       setImportSummary(summary);
-      // Unreadable attachments are a WARNING, not a success: the rows and bytes
-      // were restored but this server's FILE_MASTER_KEY cannot decrypt them.
+      // Anything the result warns about — undecryptable blobs or a payload that
+      // cannot prove its timestamp basis — is a warning, not a plain success.
+      // The persistent panel above carries the detail; the toast is only a
+      // nudge and must not be the only place the caveat appears.
       if (summary.tone === 'warning') toast.warning(summary.message);
       else toast.success(summary.message);
     } catch {
@@ -278,35 +280,12 @@ export function BackupTools() {
           {t('Nhập từ file')}
         </Button>
 
-        {/* Import result. Stays on screen (a toast can be missed) because
-            `attachmentsUnreadable` means restored-but-undecryptable files. */}
-        {importSummary && (
-          <div
-            className={cn(
-              'flex items-start gap-3 rounded-md p-3.5 text-sm',
-              importSummary.tone === 'warning'
-                ? 'bg-amber-soft text-amber-ink'
-                : 'border-[1.5px] border-emerald-soft bg-emerald-soft/60 text-emerald-ink',
-            )}
-          >
-            {importSummary.tone === 'warning' ? (
-              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            ) : (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            )}
-            <div className="space-y-1.5">
-              <p className="font-semibold">{importSummary.message}</p>
-              {importSummary.unreadableWarning && <p>{importSummary.unreadableWarning}</p>}
-              {importSummary.details.length > 0 && (
-                <ul className="list-disc space-y-0.5 pl-4">
-                  {importSummary.details.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Import result. Stays on screen (a toast can be missed) because the
+            warnings describe the data now in the account: `warnings` are a
+            provenance caveat and `attachmentsUnreadable` means
+            restored-but-undecryptable files. `ImportResultPanel` renders both
+            in the warning palette and has no dismiss control on purpose. */}
+        <ImportResultPanel summary={importSummary} />
       </div>
     </div>
   );

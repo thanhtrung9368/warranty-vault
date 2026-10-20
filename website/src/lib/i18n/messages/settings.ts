@@ -198,6 +198,15 @@ export const settings = defineMessages({
   'hoặc bấm để chọn': 'or click to choose a file',
   'Nhập từ file': 'Import from a file',
 
+  // The warning panel around the API's own `ImportResult.warnings`. The panel
+  // frame is ours; the caveat sentences inside it are the API's and are shown
+  // verbatim (already in this request's language), so they are NOT catalogued
+  // here — a second copy would be a second thing to drift.
+  'Đã nhập xong — nhưng dữ liệu có cảnh báo':
+    'Import finished — but there is a warning about your data',
+  'Dữ liệu đã được nhập đầy đủ. Cảnh báo này không chặn gì cả, nhưng hãy đọc kỹ bên dưới.':
+    'Your data was imported in full. This warning does not block anything, but please read it carefully below.',
+
   // Import counters (`lib/backup-media.ts`). Each is assembled into one line,
   // so the fragments are translated as fragments and the counts carry `count`.
   'Đã import {count} thiết bị': {

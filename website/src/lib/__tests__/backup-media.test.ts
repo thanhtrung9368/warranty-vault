@@ -190,4 +190,70 @@ describe('describeImportResult', () => {
     expect(summary.message).toBe('Đã import 0 thiết bị.');
     expect(summary.tone).toBe('success');
   });
+
+  // An old export carries no `instantTimeZone` marker; Go answers with a
+  // warning already rendered in the request's language. The web must neither
+  // drop it nor re-word it — the helper passes it through untouched and flips
+  // the result from "plain success" to "warning".
+  const LEGACY_WARNING =
+    'Bản sao lưu này không ghi múi giờ cho các mốc thời gian. Nếu file được xuất trước khi Warrly sửa lỗi múi giờ, một số mốc có thể lệch 7 giờ so với thực tế.';
+
+  it('keeps the API warnings verbatim and marks the result a warning', () => {
+    const summary = describeImportResult(
+      {
+        imported: 3,
+        skipped: 0,
+        wishlistImported: 0,
+        wishlistSkipped: 0,
+        subImported: 0,
+        subSkipped: 0,
+        attachmentsImported: 0,
+        attachmentsSkipped: 0,
+        attachmentsUnreadable: 0,
+        warnings: [LEGACY_WARNING],
+      },
+      'vi',
+    );
+    expect(summary.warnings).toEqual([LEGACY_WARNING]);
+    // The counters are still reported: the import succeeded.
+    expect(summary.message).toBe('Đã import 3 thiết bị.');
+    expect(summary.tone).toBe('warning');
+  });
+
+  it('has no warnings to show for a marked export', () => {
+    const summary = describeImportResult(
+      {
+        imported: 3,
+        skipped: 0,
+        wishlistImported: 0,
+        wishlistSkipped: 0,
+        subImported: 0,
+        subSkipped: 0,
+        attachmentsImported: 0,
+        attachmentsSkipped: 0,
+        attachmentsUnreadable: 0,
+      },
+      'vi',
+    );
+    expect(summary.warnings).toEqual([]);
+    expect(summary.tone).toBe('success');
+  });
+
+  it('treats an empty warnings array as "nothing to show"', () => {
+    const summary = describeImportResult({ imported: 1, warnings: [] }, 'vi');
+    expect(summary.warnings).toEqual([]);
+    expect(summary.tone).toBe('success');
+  });
+
+  it('drops malformed warning entries instead of rendering them', () => {
+    const summary = describeImportResult(
+      {
+        imported: 1,
+        warnings: ['', '   ', 42, null, LEGACY_WARNING] as unknown as string[],
+      },
+      'vi',
+    );
+    expect(summary.warnings).toEqual([LEGACY_WARNING]);
+    expect(summary.tone).toBe('warning');
+  });
 });

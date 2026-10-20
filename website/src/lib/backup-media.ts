@@ -62,9 +62,11 @@ export function filenameFromDisposition(disposition: string | null | undefined):
 // ---- import result -----------------------------------------------------------
 
 /**
- * Counters of `POST /api/v1/backup/import` (openapi `ImportResult`). All nine
- * fields are always present on the wire; the optional typing here is defensive
- * so a partially-shaped response cannot produce `NaN` in the UI.
+ * Counters of `POST /api/v1/backup/import` (openapi `ImportResult`), plus the
+ * non-fatal caveats. The counters are always present on the wire; the optional
+ * typing here is defensive so a partially-shaped response cannot produce `NaN`
+ * in the UI. `warnings` is genuinely optional: Go omits it when empty, so a
+ * self-describing (new) export keeps the old response shape.
  */
 export type ImportCounters = {
   imported?: number;
@@ -76,10 +78,16 @@ export type ImportCounters = {
   attachmentsImported?: number;
   attachmentsSkipped?: number;
   attachmentsUnreadable?: number;
+  warnings?: string[];
 };
 
 export type ImportSummary = {
-  /** `warning` when files were restored but cannot be decrypted. */
+  /**
+   * `warning` when anything about the restored data deserves attention: files
+   * were restored but cannot be decrypted, or the API returned non-fatal
+   * caveats. It never means the import failed — that path returns an error
+   * envelope instead and never reaches this helper.
+   */
   tone: 'success' | 'warning';
   /** One-line summary in the caller's language (toast). */
   message: string;
@@ -87,6 +95,15 @@ export type ImportSummary = {
   details: string[];
   /** Counter line for the unreadable blobs (repeated in `details`). */
   unreadableWarning?: string;
+  /**
+   * The API's `warnings` array, passed through VERBATIM. These sentences are
+   * already rendered in the request's language by Go and carry the domain
+   * detail (what may be 7 hours off, why nothing was rewritten, what is
+   * unaffected) — the web only frames them. Never replaced by a locally worded
+   * sentence: a second copy is a second thing that can drift from what the
+   * importer actually did.
+   */
+  warnings: string[];
 };
 
 function count(value: number | undefined): number {
@@ -120,6 +137,14 @@ export function describeImportResult(
   const attachmentsImported = count(result?.attachmentsImported);
   const attachmentsSkipped = count(result?.attachmentsSkipped);
   const attachmentsUnreadable = count(result?.attachmentsUnreadable);
+  // The API's caveats are shown as it wrote them. Only malformed entries are
+  // dropped: an empty or non-string item is not a sentence anyone can act on.
+  const warnings = Array.isArray(result?.warnings)
+    ? result.warnings.filter(
+        (warning): warning is string =>
+          typeof warning === 'string' && warning.trim().length > 0,
+      )
+    : [];
 
   const parts: string[] = [
     translate(locale, 'Đã import {count} thiết bị', { count: imported }),
@@ -186,9 +211,12 @@ export function describeImportResult(
   }
 
   return {
-    tone: attachmentsUnreadable > 0 ? 'warning' : 'success',
+    // A provenance caveat is not a success message: the rows were restored, but
+    // the caller must not present the imported instants as certainly correct.
+    tone: attachmentsUnreadable > 0 || warnings.length > 0 ? 'warning' : 'success',
     message: `${parts.join(', ')}.`,
     details,
     unreadableWarning,
+    warnings,
   };
 }

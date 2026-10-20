@@ -24,7 +24,7 @@ function jsonError(status: number, error: string, message: string) {
 }
 
 export async function POST(req: Request) {
-  const { t } = await getI18n();
+  const { locale, t } = await getI18n();
   const cookie = await getAuthCookie();
   if (!cookie.accessToken) {
     return jsonError(401, 'unauthorized', t('Bạn chưa đăng nhập'));
@@ -59,7 +59,13 @@ export async function POST(req: Request) {
       cache: 'no-store',
       signal: req.signal,
     };
-    upstream = await fetch(`${GO_API_URL}/v1/backup/import?mode=${mode}`, init);
+    // `?lang=` is level 1 of Go's precedence chain. Without it the importer's
+    // `warnings` would be rendered from the account's stored `User.locale` (or
+    // the default) — which can disagree with the language this page is showing
+    // when the choice lives only in the `wv_locale` cookie. The rest of the web
+    // already sends it on every API call (`lib/api/client.ts`); this raw-body
+    // proxy bypasses that client, so it has to do the same explicitly.
+    upstream = await fetch(`${GO_API_URL}/v1/backup/import?mode=${mode}&lang=${locale}`, init);
   } catch {
     return jsonError(502, 'network_error', t('Mất kết nối tới máy chủ, thử lại sau nhé.'));
   }
