@@ -1231,11 +1231,14 @@ final class EndpointsTests: KitTestCase {
 
         StubURLProtocol.install(.json(#"""
         {"result": {"imported": 1, "skipped": 0, "wishlistImported": 0,
-                    "wishlistSkipped": 0, "subImported": 0, "subSkipped": 0}}
+                    "wishlistSkipped": 0, "subImported": 0, "subSkipped": 0,
+                    "warnings": ["legacy timestamps"]}}
         """#))
         let result = try await client.importBackup(payload, mode: "merge")
 
         XCTAssertEqual(result.imported, 1)
+        XCTAssertEqual(result.warningsOrEmpty, ["legacy timestamps"],
+                       "the client method must hand the advisory through, not drop it")
         request = try XCTUnwrap(StubURLProtocol.lastRequest)
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.url?.path, "/api/v1/backup/import")

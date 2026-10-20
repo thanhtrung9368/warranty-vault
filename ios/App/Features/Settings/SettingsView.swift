@@ -42,8 +42,32 @@ struct BackupImportFlow: ViewModifier {
     @State private var showImporter = false
     @State private var mode = "merge"
 
+    /// Non-fatal caveats returned by the import, in the language the API
+    /// rendered them in. Kept OUT of `message`: the counts are a success alert,
+    /// while a provenance warning is neither a success nor a failure and must
+    /// stay readable after the alert is dismissed. Empty on an ordinary import,
+    /// in which case the inset below adds no height at all.
+    @State private var warnings: [String] = []
+
     func body(content: Content) -> some View {
         content
+            // A persistent inset (not a toast) because the caveat is about the
+            // data now in the account, not about the tap that imported it. Uses
+            // the same inline-notice card as the "partial stats" and "open
+            // claim" warnings, with "restored" in the title so the orange card
+            // cannot be mistaken for a failed import.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if !warnings.isEmpty {
+                    WVNotice(
+                        title: L.t("Đã khôi phục dữ liệu — có lưu ý"),
+                        messages: warnings
+                    )
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(WVColor.bg)
+                }
+            }
             .confirmationDialog(
                 L.t("Khôi phục từ sao lưu"),
                 isPresented: $isPresented,
@@ -67,6 +91,10 @@ struct BackupImportFlow: ViewModifier {
     }
 
     private func handleSelection(_ result: Result<[URL], Error>) {
+        // A warning describes THIS import. Never let the previous one survive a
+        // new attempt — including one whose file picker is cancelled or whose
+        // response has none.
+        warnings = []
         guard case let .success(urls) = result, let url = urls.first else {
             if case .failure = result { message = L.t("Không mở được file.") }
             return
@@ -95,6 +123,12 @@ struct BackupImportFlow: ViewModifier {
                 let skipped = res.skipped + res.subSkipped + res.wishlistSkipped
                 message = L.t("Đã nhập %@.", parts.joined(separator: ", "))
                     + (skipped > 0 ? " " + L.p("Bỏ qua %d bản ghi trùng.", skipped) : "")
+                // The API already rendered these in the request's language
+                // (`Accept-Language` is attached by `APIClient`). The app shows
+                // that sentence verbatim: warnings have no machine-readable
+                // code, only prose, so a local copy could neither identify the
+                // right sentence nor stay in sync with the server's meaning.
+                warnings = res.warningsOrEmpty
             } catch let APIError.server(_, envelope) {
                 message = envelope.message ?? L.t("File backup không hợp lệ.")
             } catch {

@@ -1968,6 +1968,24 @@ public struct WishlistStats: Decodable, Sendable {
 // MARK: - Backup import result
 
 /// Counts returned by `POST /api/v1/backup/import` (mirrors services.ImportResult).
+///
+/// ## `warnings`
+///
+/// Non-fatal caveats about data that **was** restored. The API sends an array of
+/// complete sentences already rendered in the request's language, and omits the
+/// key entirely when there is nothing to say. It has no warning *code*: the
+/// sentence is the whole payload. That is why the app displays the server's
+/// string verbatim instead of mapping it to a local catalog key — a client-side
+/// copy would have to match prose to identify the warning and would drift the
+/// moment the server changed a word.
+///
+/// Decoding is tolerant in both directions:
+/// - a response with no `warnings` key (same server, ordinary import) decodes to
+///   `nil` — not a decoding failure;
+/// - an empty array decodes to `[]`;
+/// - unknown keys are ignored by `JSONDecoder` (this type has no custom
+///   `init(from:)` and no `CodingKeys` whitelist), so a newer server can add a
+///   field without breaking this build. See `ImportWarningsTests`.
 public struct ImportResult: Decodable, Sendable {
     public let imported: Int
     public let skipped: Int
@@ -1975,6 +1993,27 @@ public struct ImportResult: Decodable, Sendable {
     public let wishlistSkipped: Int
     public let subImported: Int
     public let subSkipped: Int
+
+    /// Caveats about the restored data, already in the request's language.
+    ///
+    /// `nil` means the server sent no `warnings` key (the API's contract for
+    /// "nothing to report", `omitempty` on the Go side). Read it through
+    /// `warningsOrEmpty`; the UI must show **nothing** for an ordinary import.
+    public let warnings: [String]?
+
+    /// The warnings that should actually be shown: blank strings are dropped so
+    /// a malformed entry cannot produce an empty banner. An ordinary import and
+    /// an explicitly empty array both yield `[]`.
+    public var warningsOrEmpty: [String] {
+        (warnings ?? []).filter {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    /// The presence/absence rule the restore UI branches on. False for both an
+    /// absent key and `[]`; true only when there is at least one non-blank
+    /// warning.
+    public var hasWarnings: Bool { !warningsOrEmpty.isEmpty }
 }
 
 // MARK: - Upcoming reminders

@@ -11945,6 +11945,23 @@
         }
       }
     },
+    "Đã khôi phục dữ liệu — có lưu ý": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data restored — with a caveat"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã khôi phục dữ liệu — có lưu ý"
+          }
+        }
+      }
+    },
     "Đã sao chép": {
       "extractionState": "manual",
       "localizations": {

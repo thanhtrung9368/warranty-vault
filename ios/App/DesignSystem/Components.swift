@@ -575,6 +575,83 @@ struct WVSectionCard<Content: View>: View {
     }
 }
 
+// MARK: - Inline notices
+
+/// Semantics of an inline notice. `warning` is the "this is not a failure, but
+/// you need to know" tone the app already used ad hoc for incomplete stats and
+/// for an open warranty claim — it is deliberately orange, not red.
+enum WVNoticeTone {
+    case warning
+    case info
+    case error
+
+    var color: Color {
+        switch self {
+        case .warning: return WVColor.orange
+        case .info:    return WVColor.blue
+        case .error:   return WVColor.red
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .warning: return "alert"
+        case .info:    return "info"
+        case .error:   return "alert"
+        }
+    }
+}
+
+/// Inline notice card. This is the shared form of the pattern already used by
+/// `StatsView` (partial stats) and `ClaimFormView` (an open claim): a tinted
+/// rounded card with one semantic icon, an optional bold title and one or more
+/// body sentences. Everything stays in the normal foreground so the row reads as
+/// information, not as an error dialog.
+struct WVNotice: View {
+    var tone: WVNoticeTone = .warning
+    var title: String?
+    var messages: [String]
+
+    init(tone: WVNoticeTone = .warning, title: String? = nil, message: String) {
+        self.tone = tone
+        self.title = title
+        self.messages = [message]
+    }
+
+    init(tone: WVNoticeTone = .warning, title: String? = nil, messages: [String]) {
+        self.tone = tone
+        self.title = title
+        self.messages = messages
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            WVIcon(tone.icon, size: 14)
+                .foregroundStyle(tone.color)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                if let title, !title.isEmpty {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(WVColor.label)
+                }
+                ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WVColor.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(tone.color.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Dashboard widgets
 
 /// Tappable stat widget for the dashboard grid (`.widget`).

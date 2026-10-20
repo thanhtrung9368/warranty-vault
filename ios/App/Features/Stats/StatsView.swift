@@ -492,19 +492,9 @@ struct StatsView: View {
     }
 
     private var incompleteWarrantiesBanner: some View {
-        HStack(alignment: .top, spacing: 8) {
-            WVIcon("alert", size: 14)
-            Text(L.t("Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu."))
-                .font(.system(size: 13))
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(WVColor.orange)
-        .padding(12)
-        .background(WVColor.orange.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
-        .padding(.horizontal, WVSpacing.gutter)
-        .padding(.top, 12)
+        WVNotice(message: L.t("Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu."))
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, 12)
     }
 
     // MARK: - Widget row
