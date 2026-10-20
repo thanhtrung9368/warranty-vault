@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -12,6 +13,32 @@ import (
 // RFC3339 string would no longer compile, which is the point of the type.
 func dayForTest(year int, month time.Month, day int) wire.Day {
 	return wire.Date(time.Date(year, month, day, 0, 0, 0, 0, time.UTC))
+}
+
+// actionDay must report the PROCESS-LOCAL calendar day, because that is the day
+// DaysUntil subtracts and the day the queue's SQL windows use. The trap is
+// wire.Date(now), which takes now.UTC()'s day: for the first seven hours of
+// every Vietnamese day that is yesterday, so `asOf` would disagree with the
+// count baked into `detail` — the exact class of bug detailParams exists to
+// make fixable.
+func TestActionDayUsesTheProcessLocalCalendarDay(t *testing.T) {
+	// 2026-10-20 01:00 ICT is 2026-10-19 18:00 UTC.
+	ict := time.FixedZone("ICT", 7*60*60)
+	got := actionDay(time.Date(2026, 10, 20, 1, 0, 0, 0, ict))
+	if got.String() != "2026-10-20" {
+		t.Fatalf("actionDay = %q, want 2026-10-20 (the process-local day, not the UTC day)", got.String())
+	}
+
+	// It has to be a Day on the wire, not an instant: the count is measured
+	// against a calendar date, and a client must be able to compare it to
+	// `dueDate` without applying a timezone.
+	blob, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal actionDay: %v", err)
+	}
+	if string(blob) != `"2026-10-20"` {
+		t.Fatalf("actionDay marshalled as %s, want the bare date \"2026-10-20\"", blob)
+	}
 }
 
 // "Việc cần xử lý" (FEATURE_IDEAS #3) — the pure parts: key parsing and ordering.

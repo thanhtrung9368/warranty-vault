@@ -58,6 +58,7 @@ var derivedResponses = []struct {
 	{"ForecastWarranty", services.ForecastWarranty{}},
 	{"ForecastWishlistItem", services.ForecastWishlistItem{}},
 	{"ActionItem", services.ActionItem{}},
+	{"ActionDetailParams", services.ActionDetailParams{}},
 	{"SubscriptionAuditFinding", services.AuditFinding{}},
 	{"WarrantyCentre", services.WarrantyCentre{}},
 	{"SharedWarranty", services.SharedWarranty{}},

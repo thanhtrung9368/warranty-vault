@@ -145,11 +145,64 @@ type ActionItem struct {
 	// compare it to `warranty.endDate` or `subscription.renewalDate` without
 	// converting anything.
 	DueDate *wire.Day `json:"dueDate,omitempty"`
+	// DetailParams is the STRUCTURED form of the one time-dependent number in
+	// Detail: the day count. Detail stays a finished sentence (web, iOS and
+	// Android all render it verbatim), so this field is purely ADDITIVE: it
+	// exists so a client can re-render that count on the READER's calendar day
+	// instead of the server's, without parsing the sentence or re-deriving
+	// which number is the count. Absent when the detail carries no day count.
+	//
+	// The direction is carried by Kind, not by a sign: for WARRANTY_EXPIRED,
+	// SUBSCRIPTION_PAID_NOT_ADVANCED and WISHLIST_TARGET_PASSED the count is
+	// whole days SINCE DueDate; for RETURN_WINDOW_CLOSING it is whole days
+	// UNTIL DueDate (0 on the last covered day). Days is always the exact
+	// number interpolated into Detail, never a recomputation that could drift
+	// from it.
+	DetailParams *ActionDetailParams `json:"detailParams,omitempty"`
 	// AmountVnd is the money the item is about, when there is one (VND, int64).
 	AmountVnd *int64 `json:"amountVnd,omitempty"`
 	// SnoozedUntil is present only on rows returned by `?snoozed=true`, i.e. rows
 	// the default queue hides. Absent means "actionable now".
 	SnoozedUntil *string `json:"snoozedUntil,omitempty"`
+}
+
+// ActionDetailParams is the structured half of ActionItem.Detail: the day count
+// the sentence embeds, and the calendar day it was measured against.
+//
+// Why it exists: Detail used to be the ONLY place the count lived, baked into a
+// finished sentence. The server renders it against the process day, which the
+// shipped image pins to Asia/Ho_Chi_Minh (api/README.md), so a reader outside
+// Vietnam saw "3 days ago" as of the Vietnam day. A client now has the count
+// and its basis, so it can compute the reader's count from DueDate and the
+// reader's own clock (Days == |DueDate - AsOf| in whole days) and render it in
+// its own copy. The sentence itself stays server-owned: clients that render
+// Detail verbatim — all three shipped clients do — keep working unchanged.
+//
+// Deliberately NOT a template: the rest of a Detail sentence is device names,
+// plan labels, money and dates already rendered in the request's language.
+// Shipping the count as data lets a client re-render the ONE time-dependent
+// value without moving four sentences per language into three clients, where
+// they would drift the first time a copy edit landed in only one of them.
+type ActionDetailParams struct {
+	// Kind mirrors ActionItem.Kind, so this object is self-describing: a client
+	// that switches on the params alone still knows which sentence the count
+	// belongs to and which direction it counts.
+	Kind string `json:"kind"`
+	// Days is the whole-day count interpolated into Detail.
+	Days int `json:"days"`
+	// AsOf is the calendar day Days was counted against. It is the
+	// PROCESS-LOCAL day (the day DaysUntil subtracts and the day the SQL
+	// windows use), not the UTC day: the image pins TZ=Asia/Ho_Chi_Minh, and
+	// taking UTC here would make AsOf disagree with Days for the first seven
+	// hours of every Vietnamese day.
+	AsOf wire.Day `json:"asOf"`
+}
+
+// actionDetailParams builds the params for a count measured against `asOf`.
+// `kind` is passed explicitly (rather than derived later) so the object can
+// only be attached to the item whose sentence actually used that count.
+func actionDetailParams(kind string, days int, asOf wire.Day) *ActionDetailParams {
+	return &ActionDetailParams{Kind: kind, Days: days, AsOf: asOf}
 }
 
 // ActionCounts counts the ACTIONABLE items — never the snoozed ones — so a
@@ -406,6 +459,10 @@ func UnSnoozeActionItem(ctx context.Context, db *pgxpool.Pool, userID, itemKey s
 // wishlist items, and the first error tells the caller which rule failed.
 func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now time.Time) ([]ActionItem, error) {
 	startOfToday := startOfDay(now)
+	// The calendar day every day count in the copy is measured against. Read
+	// once so the four count-bearing sentences and their DetailParams cannot
+	// disagree about which "today" they used.
+	asOf := actionDay(now)
 	ts := func(t time.Time) wire.Instant { return wire.At(t.UTC()) }
 
 	// One language for the whole queue, read once. It drives the words AND the
@@ -438,6 +495,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		if r.EndDate.Valid {
 			days := -DaysUntil(r.EndDate.Time, now)
 			it.DueDate = r.EndDate.Ptr()
+			it.DetailParams = actionDetailParams(it.Kind, days, asOf)
 			it.Title = textIn(lang, "Bảo hành đã hết hạn")
 			// A count-bearing sentence, so it is a singular/plural pair with a
 			// separate argument list per form: `days` is >= 1 by construction
@@ -552,6 +610,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 		if r.ReturnDeadline.Valid {
 			days := DaysUntil(r.ReturnDeadline.Time, now)
 			it.DueDate = wire.FromDay(r.ReturnDeadline.Timestamp).Ptr()
+			it.DetailParams = actionDetailParams(it.Kind, days, asOf)
 			// `days` counts DOWN to the deadline and reaches 1 the day before it,
 			// so the pair is reachable rather than theoretical.
 			it.Detail = pluralText(lang, days,
@@ -642,6 +701,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 			// The renewal date is strictly before today (the query says so), so
 			// the count reaches 1 and the singular form is reachable.
 			elapsed := -DaysUntil(r.RenewalDate.Time, now)
+			it.DetailParams = actionDetailParams(it.Kind, elapsed, asOf)
 			it.Detail = pluralText(lang, elapsed,
 				"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua %d ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
 				"«%s» đã ghi nhận thanh toán ngày %s nhưng ngày gia hạn vẫn là %s (đã qua 1 ngày). Gia hạn hoặc sửa lại ngày cho khớp.",
@@ -683,6 +743,7 @@ func deriveActionItems(ctx context.Context, q *store.Queries, userID string, now
 				price = " " + i18n.Translate(lang, "Giá ghi nhận gần nhất: %s.", money(int64(*r.CurrentPrice)))
 			}
 			elapsed := -DaysUntil(r.TargetDate.Time, now)
+			it.DetailParams = actionDetailParams(it.Kind, elapsed, asOf)
 			it.Detail = pluralText(lang, elapsed,
 				"«%s» có ngày dự kiến mua %s, đã qua %d ngày.",
 				"«%s» có ngày dự kiến mua %s, đã qua 1 ngày.",
@@ -735,6 +796,21 @@ func containsItemKey(items []ActionItem, key string) bool {
 // cron's dayWindow() uses so SQL comparisons and Go comparisons agree.
 func startOfDay(now time.Time) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+}
+
+// actionDay is the calendar day the queue's day counts are measured against:
+// `now`'s PROCESS-LOCAL day, which is the day DaysUntil subtracts and the day
+// the SQL windows use (see startOfDay). The image pins TZ=Asia/Ho_Chi_Minh, so
+// this is the Vietnam day; api/README.md records that moving to a per-user
+// timezone has to move all of these together.
+//
+// Building the timestamp in UTC from the LOCAL year/month/day is deliberate.
+// wire.Date(now) would take now.UTC()'s calendar day, which is yesterday
+// between 00:00 and 07:00 ICT — so `asOf` would disagree with the count the
+// sentence was rendered with for the first seven hours of every Vietnamese day,
+// which is the very class of bug DetailParams exists to make fixable.
+func actionDay(now time.Time) wire.Day {
+	return wire.Date(time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
 }
 
 // The two Vietnamese-only formatters that used to live here — a dd/mm/yyyy date

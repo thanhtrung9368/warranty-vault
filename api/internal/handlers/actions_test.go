@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -336,6 +338,175 @@ func TestActionQueueOverHTTP(t *testing.T) {
 	}
 	if remaining != 0 {
 		t.Errorf("snooze rows survived the user deletion: %d", remaining)
+	}
+}
+
+// TestActionQueueDetailParamsCarryTheDayCount covers the ADDITIVE half of the
+// /actions payload. `detail` is a finished sentence with the day count baked in
+// (the clients render it verbatim), so a reader outside Vietnam reads the count
+// as of the server's day. The fix is `detailParams` — the count, the kind and
+// the calendar day it was measured against — NOT a change to `detail`.
+//
+// All four count-bearing kinds are seeded at exactly ONE day so the singular
+// form is the one the server must pick, in BOTH languages. That is the boundary
+// a client re-rendering the count is most likely to get wrong ("1 days"), and
+// it is also where `days` and the sentence must agree. The `asOf` assertions
+// prove the number is not just "some count": it is the day distance between
+// DueDate and the day the server measured against, in the direction Kind means.
+//
+// This reuses setupWave5Env (same package) for a scratch database + an
+// authenticated mux with RegisterActions; it needs nothing wave-5-specific.
+func TestActionQueueDetailParamsCarryTheDayCount(t *testing.T) {
+	env := setupWave5Env(t, nil)
+	ctx := context.Background()
+
+	// Every fixture is pinned to a calendar day computed here, not to NOW().
+	// The session is UTC while the process day is local (Asia/Ho_Chi_Minh in
+	// production, UTC on CI), so a NOW()-relative fixture slides across midnight
+	// in one of the two and would make the expected count flaky. Stored at
+	// 00:00 UTC, these are the Day semantics the API documents.
+	now := time.Now()
+	day := func(offset int) time.Time {
+		return time.Date(now.Year(), now.Month(), now.Day()+offset, 0, 0, 0, 0, time.UTC)
+	}
+
+	// WARRANTY_EXPIRED: a covered device whose warranty ended yesterday.
+	// RETURN_WINDOW_CLOSING: the exchange window closes tomorrow
+	// (purchaseDate day(-6) + 7 days).
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO "Device" (id, "userId", name, category, "purchaseDate", "purchasePrice",
+		                      "serialNumber", "returnWindowDays", status, "createdAt", "updatedAt")
+		VALUES ('dp_dev_expired', $1, 'Máy hết bảo hành', 'LAPTOP', $2, 30000000,
+		        'SN-DP-1', NULL, 'ACTIVE', NOW(), NOW()),
+		       ('dp_dev_return', $1, 'Máy sắp hết đổi trả', 'PHONE', $3, 5000000,
+		        'SN-DP-2', 7, 'ACTIVE', NOW(), NOW())`,
+		env.userID, day(-400), day(-6)); err != nil {
+		t.Fatalf("insert devices: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO "Warranty" (id, "deviceId", type, "startDate", "endDate", months, "createdAt", "updatedAt")
+		VALUES ('dp_war_expired', 'dp_dev_expired', 'STANDARD', $1, $2, 12, NOW(), NOW())`,
+		day(-400), day(-1)); err != nil {
+		t.Fatalf("insert warranty: %v", err)
+	}
+
+	// SUBSCRIPTION_PAID_NOT_ADVANCED: renewal date yesterday, a payment recorded
+	// today. autoRenew is OFF so the item cannot also match the cancel-link rule.
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO "Subscription" (id, "userId", name, "billingCycle", price, currency,
+		                            "startedAt", "renewalDate", "autoRenew", status, "createdAt", "updatedAt")
+		VALUES ('dp_sub_paid', $1, 'Gói đã trả', 'MONTHLY', 120000, 'VND', $2, $3, false, 'ACTIVE', NOW(), NOW())`,
+		env.userID, day(-365), day(-1)); err != nil {
+		t.Fatalf("insert subscription: %v", err)
+	}
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO "SubscriptionPayment" (id, "subscriptionId", amount, "paidAt")
+		VALUES ('dp_pay_paid', 'dp_sub_paid', 120000, $1)`, day(0)); err != nil {
+		t.Fatalf("insert payment: %v", err)
+	}
+
+	// WISHLIST_TARGET_PASSED: the user's own target date was yesterday.
+	if _, err := env.pool.Exec(ctx, `
+		INSERT INTO "WishlistItem" (id, "userId", name, "targetDate", status, "createdAt", "updatedAt")
+		VALUES ('dp_wish', $1, 'Món đã qua ngày', $2, 'WATCHING', NOW(), NOW())`,
+		env.userID, day(-1)); err != nil {
+		t.Fatalf("insert wishlist: %v", err)
+	}
+
+	// kind → direction + the singular sentence fragment in each language.
+	// `past` means `days` counts BACK from the measurement day (asOf - dueDate);
+	// otherwise it counts FORWARD to the deadline (dueDate - asOf).
+	cases := []struct {
+		kind       string
+		past       bool
+		enSingular string
+		viSingular string
+	}{
+		{services.ActionWarrantyExpired, true, "(1 day ago)", "(1 ngày trước)"},
+		{services.ActionReturnWindowClosing, false, "has 1 day left", "còn 1 ngày đổi/trả"},
+		{services.ActionSubPaidNotAdvanced, true, "(1 day in the past)", "(đã qua 1 ngày)"},
+		{services.ActionWishlistTargetPassed, true, "passed 1 day ago", "đã qua 1 ngày"},
+	}
+
+	for _, lang := range []string{"en", "vi"} {
+		t.Run(lang, func(t *testing.T) {
+			rr := env.do(t, http.MethodGet, "/api/v1/actions?lang="+lang, env.token, nil)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("status = %d (%s)", rr.Code, rr.Body.String())
+			}
+			var queue services.ActionQueue
+			if err := json.Unmarshal(rr.Body.Bytes(), &queue); err != nil {
+				t.Fatalf("decode queue: %v", err)
+			}
+			byKind := make(map[string]services.ActionItem, len(queue.Items))
+			for _, it := range queue.Items {
+				byKind[it.Kind] = it
+			}
+
+			for _, tc := range cases {
+				it, ok := byKind[tc.kind]
+				if !ok {
+					t.Fatalf("%s missing from the queue: %s", tc.kind, mustJSON(queue))
+				}
+				if it.DueDate == nil {
+					t.Fatalf("%s has no dueDate, so detailParams cannot be checked against it", tc.kind)
+				}
+				p := it.DetailParams
+				if p == nil {
+					t.Fatalf("%s: detailParams is absent; detail = %q", tc.kind, it.Detail)
+				}
+				if p.Kind != tc.kind {
+					t.Errorf("%s: detailParams.kind = %q, want the item's kind", tc.kind, p.Kind)
+				}
+				if p.Days != 1 {
+					t.Errorf("%s: detailParams.days = %d, want 1 (the fixture is exactly one day away)", tc.kind, p.Days)
+				}
+				if !p.AsOf.Valid {
+					t.Errorf("%s: detailParams.asOf is not a valid day: %+v", tc.kind, p.AsOf)
+				}
+				// The invariant that makes the field usable: days is the absolute
+				// day distance between dueDate and asOf, in the direction Kind means.
+				delta := int(p.AsOf.Time.Sub(it.DueDate.Time).Hours() / 24)
+				if tc.past && delta != 1 {
+					t.Errorf("%s: asOf - dueDate = %d day(s), want +1 (days ago)", tc.kind, delta)
+				}
+				if !tc.past && delta != -1 {
+					t.Errorf("%s: asOf - dueDate = %d day(s), want -1 (days left)", tc.kind, delta)
+				}
+				fragment := tc.enSingular
+				if lang == "vi" {
+					fragment = tc.viSingular
+				}
+				if !strings.Contains(it.Detail, fragment) {
+					t.Errorf("%s/%s: detail = %q, want it to contain the count-bearing fragment %q",
+						tc.kind, lang, it.Detail, fragment)
+				}
+			}
+
+			// Absence is part of the contract too: a kind whose sentence has no
+			// day count must not carry a made-up one. Every device without an
+			// attachment produces DEVICE_MISSING_RECEIPT.
+			noCount, ok := byKind[services.ActionDeviceMissingReceipt]
+			if !ok {
+				t.Fatalf("DEVICE_MISSING_RECEIPT missing from the queue: %s", mustJSON(queue))
+			}
+			if noCount.DetailParams != nil {
+				t.Errorf("DEVICE_MISSING_RECEIPT carries detailParams %+v; only count-bearing kinds may",
+					noCount.DetailParams)
+			}
+
+			// English must use the singular TEMPLATE, not the plural one with the
+			// count substituted: "1 days" is exactly the rendered text a client
+			// re-rendering this count has to avoid, so the server must not emit it
+			// either. (Vietnamese does not inflect, so there is nothing to check.)
+			if lang == "en" {
+				for _, it := range queue.Items {
+					if strings.Contains(it.Detail, "1 days") {
+						t.Errorf("%s: detail = %q renders the English plural for a count of 1", it.Kind, it.Detail)
+					}
+				}
+			}
+		})
 	}
 }
 

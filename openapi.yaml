@@ -2768,6 +2768,20 @@ paths:
           `includeDismissed` của `/api/v1/reminders`.
         * `counts` **luôn** đếm tập đang cần xử lý, kể cả khi `snoozed=true`, để
           badge trên dashboard không đổi nghĩa theo cờ.
+
+        ### Số ngày trong `detail`, và `detailParams`
+
+        Bốn loại việc có kèm số ngày trong câu (`WARRANTY_EXPIRED`,
+        `RETURN_WINDOW_CLOSING`, `SUBSCRIPTION_PAID_NOT_ADVANCED`,
+        `WISHLIST_TARGET_PASSED`). Con số được server tính theo **ngày lịch của
+        tiến trình** (image pin `TZ=Asia/Ho_Chi_Minh`), nên người đọc ở múi giờ
+        khác có thể thấy lệch một ngày.
+
+        `detail` **giữ nguyên** — ba client đang render nguyên văn, và hợp đồng
+        đó không đổi. `detailParams` là trường **bổ sung** mang chính con số đó
+        cùng ngày mốc `asOf`, để client muốn thì tự render lại theo ngày của
+        người đọc (`dueDate` + đồng hồ máy, hướng đếm suy ra từ `kind`). Client
+        cũ không đọc `detailParams` vẫn chạy đúng như trước.
       parameters:
         - name: snoozed
           in: query
@@ -6387,7 +6401,30 @@ components:
             * `WISHLIST_TARGET_PASSED` — `targetDate` đã qua mà món vẫn đang theo dõi.
         severity: { type: string, enum: [HIGH, MEDIUM, LOW], description: 'Thứ tự hiển thị gợi ý: `HIGH` trước. `HIGH` = mốc thời gian hoặc tiền sắp mất.' }
         title: { type: string, description: 'Tiêu đề tiếng Việt, hiển thị thẳng.' }
-        detail: { type: string, description: 'Một câu tiếng Việt giải thích vì sao việc này xuất hiện, kèm ngày/số tiền liên quan.' }
+        detail:
+          type: string
+          description: |
+            Một câu tiếng Việt giải thích vì sao việc này xuất hiện, kèm
+            ngày/số tiền liên quan. Server dựng sẵn và client render nguyên văn
+            (cả ba client đang làm vậy).
+
+            **Hợp đồng này không đổi.** Với bốn loại `WARRANTY_EXPIRED`,
+            `RETURN_WINDOW_CLOSING`, `SUBSCRIPTION_PAID_NOT_ADVANCED` và
+            `WISHLIST_TARGET_PASSED`, câu có kèm **số ngày**; con số đó tính
+            theo ngày lịch của server (image pin `TZ=Asia/Ho_Chi_Minh`), nên
+            người đọc ở múi giờ khác có thể thấy lệch một ngày. `detail` vẫn
+            giữ nguyên con số đã render — `detailParams` là phần bổ sung cho
+            client muốn tự render lại theo ngày của người đọc.
+        detailParams:
+          allOf: [{ $ref: '#/components/schemas/ActionDetailParams' }]
+          nullable: true
+          description: |
+            **Trường BỔ SUNG, chỉ đọc.** Chỉ có mặt khi `detail` chứa một phép
+            đếm ngày (bốn loại kể trên); vắng mặt = câu không có số ngày nào.
+            Client cũ bỏ qua trường này vẫn chạy nguyên vì `detail` không đổi.
+            Client muốn hiển thị theo ngày của người đọc dùng `dueDate` + ngày
+            hôm nay của máy; `days` trong đây là đúng con số đang nằm trong
+            `detail`, và `asOf` là ngày server đã dùng để đếm.
         deviceId: { type: string, nullable: true }
         warrantyId: { type: string, nullable: true }
         subscriptionId: { type: string, nullable: true }
@@ -6415,6 +6452,49 @@ components:
           nullable: true
           description: 'Chỉ xuất hiện khi gọi `?snoozed=true` và việc này đang bị hoãn. Vắng mặt = việc đang cần xử lý.'
 
+    # Nửa có cấu trúc của ActionItem.detail: con số ngày câu đang chứa, và ngày
+    # lịch mà con số đó được đo tới. Bổ sung (không thay thế `detail`) để client
+    # render lại con số theo ngày của người đọc mà không phải bỏ câu đã dựng.
+    ActionDetailParams:
+      type: object
+      required: [kind, days, asOf]
+      properties:
+        kind:
+          type: string
+          description: |
+            Cùng giá trị với `ActionItem.kind`. Có mặt để `detailParams` tự mô
+            tả được: client biết con số thuộc câu nào và đếm theo hướng nào mà
+            không phải tra ngược lên item.
+        days:
+          type: integer
+          minimum: 0
+          description: |
+            **Đúng con số đang nằm trong `detail`** — không phải con số client
+            tự tính lại. Luôn là số nguyên không âm. Với TZ của image
+            (`Asia/Ho_Chi_Minh`), `0` chỉ xảy ra với `RETURN_WINDOW_CLOSING` vào
+            đúng ngày cuối ("còn 0 ngày…" / "0 days left"); ba loại kia luôn
+            `>= 1`.
+
+            Hướng đếm suy ra từ `kind`, không phải từ dấu:
+
+            * `WARRANTY_EXPIRED`, `SUBSCRIPTION_PAID_NOT_ADVANCED`,
+              `WISHLIST_TARGET_PASSED` — số ngày **đã qua** kể từ `dueDate`.
+            * `RETURN_WINDOW_CLOSING` — số ngày **còn lại** tới `dueDate`
+              (`0` = hôm nay là ngày cuối).
+        asOf:
+          type: string
+          format: date
+          description: |
+            Ngày lịch mà `days` được đo tới: ngày của **tiến trình server**
+            (image pin `TZ=Asia/Ho_Chi_Minh`), cùng ngày với các cửa sổ SQL của
+            hàng đợi — **không** phải ngày UTC. Vì vậy `days` luôn bằng
+            `|dueDate - asOf|` theo ngày nguyên.
+
+            Client ở múi giờ khác tự tính `|dueDate - hôm nay của máy|` và dùng
+            `kind` để biết hướng; `asOf` cho nó biết câu trong `detail` đang
+            tính tới ngày nào, nên `asOf` khác ngày của người đọc nghĩa là con
+            số trong câu đã cũ.
+
     # Số lượng theo mức độ. Dùng chung cho hàng đợi việc cần xử lý và cho báo cáo
     # tự soát subscription — hai tập hợp khác nhau, cùng một cách đếm.
     ActionCounts:
@@ -6430,7 +6510,7 @@ components:
       type: object
       required: [generatedAt, items, counts, snoozedCount, note]
       properties:
-        generatedAt: { type: string, format: date-time, description: 'Thời điểm server dựng hàng đợi. Mọi phép đếm ngày trong `items` đều tương đối với nó.' }
+        generatedAt: { type: string, format: date-time, description: 'Thời điểm server dựng hàng đợi. Mọi phép đếm ngày trong `items` đều tương đối với nó — ngày lịch cụ thể dùng để đếm được ghi ở `items[].detailParams.asOf` (khi item có phép đếm; đó là ngày của tiến trình, không phải ngày UTC suy ra từ instant này).' }
         items:
           type: array
           description: 'Luôn là mảng, không bao giờ null. Đã sắp xếp: `severity` giảm dần, rồi tới `dueDate` tăng dần (không có ngày thì xuống cuối), rồi `kind`/`itemKey` để thứ tự ổn định giữa hai lần gọi.'

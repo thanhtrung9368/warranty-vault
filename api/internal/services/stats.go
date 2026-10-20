@@ -94,10 +94,22 @@ type statsQuerier interface {
 // TS value for the test fixture (480_000 + floor(1_200_000/12) = 580_000)
 // equals the SQL value.
 //
-// Active asset value is NOT used by the TS stats endpoint — it lives in
-// website/src/lib/stats.ts (`activeAssetValue`) and is only surfaced on the
-// /stats page via separate calls. We expose `Snapshot` to mirror exactly what
+// Active asset value ("giá trị tài sản còn bảo hành") is deliberately NOT part
+// of Snapshot: the clients own that rollup, because it is a day count in the
+// READER's calendar, not the server's. The web computes it in
+// website/src/lib/stats-rollup.ts::activeAssetValue and iOS in
+// Sources/WarrlyKit/StatsRollup.swift::activeAssetValue; Android's stats screen
+// reports warranty cost only. We expose `Snapshot` to mirror exactly what
 // `GET /api/v1/stats` returns, keeping `test_stats.sh` parity tight.
+//
+// The unused SQL query that used to carry this name (queries/stats.sql
+// StatsActiveAssetValue) was DELETED rather than repaired. SUM(DISTINCT
+// purchasePrice) counted two same-priced devices once, but the obvious
+// SUM(purchasePrice) would have been wrong twice over: the JOIN to Warranty
+// multiplies a device with several covered packages, and purchasePrice is in
+// each device's own currency since migration 0022. It also measured "today" on
+// the UTC calendar, so even a corrected version would have disagreed with the
+// two client rollups above for the first seven hours of every Vietnamese day.
 func Snapshot(ctx context.Context, db *pgxpool.Pool, userID string) (*Stats, error) {
 	return snapshot(ctx, store.New(db), userID)
 }
