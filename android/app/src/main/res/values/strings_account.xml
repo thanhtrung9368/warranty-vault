@@ -142,6 +142,13 @@
     </plurals>
     <string name="set_import_summary">Imported %1$d devices, %2$d plans and %3$d wishlist items</string>
     <string name="set_import_summary_skipped">Imported %1$d devices, %2$d plans and %3$d wishlist items · skipped %4$d duplicates</string>
+    <!-- Backup-restore provenance warning (SettingsScreen.kt). Only the FRAME
+         lives here: the caveat itself is the API's already-localized
+         `ImportResult.warnings[]` sentence, rendered verbatim — see
+         ImportWarnings.kt. Do not restate the time-zone meaning in these keys,
+         or the app gains a second copy that can drift from the API. -->
+    <string name="set_import_warning_title">Restored, but worth a look</string>
+    <string name="set_import_warning_body">Your data is restored — this is a warning, not an error.</string>
     <string name="set_could_not_update_the_setting">Could not update the setting: %1$s</string>
     <string name="set_import_mode_body">“Merge” adds the file\'s data to what you already have. “Replace” DELETES ALL current data before loading — this cannot be undone.</string>
     <string name="set_delete_account_body">Every device, invoice, warranty photo and setting is deleted permanently — this cannot be undone. Enter your password to confirm.</string>

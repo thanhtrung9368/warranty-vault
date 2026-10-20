@@ -1828,7 +1828,23 @@ object FileAttachmentInputSerializer : KSerializer<FileAttachmentInput> {
 @Serializable
 data class DeleteAccountRequest(val password: String)
 
-/** Counts returned by POST /api/v1/backup/import (mirrors services.ImportResult). */
+/**
+ * Counts returned by POST /api/v1/backup/import (mirrors services.ImportResult).
+ *
+ * [warnings] is the API's non-fatal caveat channel for what was restored: the
+ * import succeeded, but the file lacked provenance. Today there is exactly one
+ * case — a payload without the `instantTimeZone: "UTC"` marker may hold the
+ * pre-fix local-wall-clock instants, seven hours off for a Vietnamese writer —
+ * and the server deliberately restores those values unrewritten and says so.
+ * The sentences arrive already rendered in the request's language (the client
+ * sends `Accept-Language` from the UI language; see [AuthInterceptor]).
+ *
+ * The key is omitted by the server when empty, hence the default. It used to be
+ * dropped silently because `ApiClient.json` sets `ignoreUnknownKeys = true`:
+ * the field was not declared here, so no warning could ever reach the UI. Do not
+ * remove the default — importing a clean, self-describing export answers exactly
+ * the old shape, and a normal import must show nothing extra.
+ */
 @Serializable
 data class ImportResult(
     val imported: Int = 0,
@@ -1837,6 +1853,7 @@ data class ImportResult(
     val wishlistSkipped: Int = 0,
     val subImported: Int = 0,
     val subSkipped: Int = 0,
+    val warnings: List<String> = emptyList(),
 )
 
 @Serializable

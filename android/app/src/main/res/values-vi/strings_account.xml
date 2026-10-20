@@ -134,6 +134,11 @@
     </plurals>
     <string name="set_import_summary">Đã nhập %1$d thiết bị, %2$d gói, %3$d mục</string>
     <string name="set_import_summary_skipped">Đã nhập %1$d thiết bị, %2$d gói, %3$d mục · bỏ qua %4$d bản trùng</string>
+    <!-- Cảnh báo nguồn gốc sau khi khôi phục (SettingsScreen.kt). Chỉ phần
+         KHUNG nằm ở đây; nội dung cảnh báo là câu đã được API dịch theo
+         Accept-Language trong `ImportResult.warnings[]` — xem ImportWarnings.kt. -->
+    <string name="set_import_warning_title">Đã khôi phục, nhưng nên xem lại</string>
+    <string name="set_import_warning_body">Dữ liệu đã được khôi phục — đây là cảnh báo, không phải lỗi.</string>
     <string name="set_could_not_update_the_setting">Không cập nhật được cài đặt: %1$s</string>
     <string name="set_import_mode_body">“Gộp” thêm dữ liệu từ file vào dữ liệu hiện có. “Thay thế” XOÁ TOÀN BỘ dữ liệu hiện tại trước khi nạp — không thể hoàn tác.</string>
     <string name="set_delete_account_body">Toàn bộ thiết bị, hoá đơn, ảnh BH và cài đặt sẽ bị xoá vĩnh viễn — không thể hoàn tác. Nhập mật khẩu để xác nhận.</string>

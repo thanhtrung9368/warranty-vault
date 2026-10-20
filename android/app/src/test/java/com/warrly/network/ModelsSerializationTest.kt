@@ -700,6 +700,64 @@ class ModelsSerializationTest {
         assertEquals(DeviceStatus.SOLD, hidden.device.status)
     }
 
+    // ---- Backup import (`POST /api/v1/backup/import`) ----
+
+    /**
+     * `warnings[]` is the only signal that a restored file lacked the
+     * `instantTimeZone` provenance marker. It is absent on a clean import (the
+     * API omits an empty array) and its entries are display-ready sentences in
+     * the request's language — not codes the client translates itself.
+     *
+     * This is also the regression guard for the original bug: the field was not
+     * declared on [ImportResult], and `ignoreUnknownKeys = true` made the
+     * decoder drop the array without an error, so no Android screen could ever
+     * have shown it. The `futureKey` in the payload pins that tolerant decoding
+     * still works after the field was added.
+     */
+    @Test
+    fun importResult_decodesProvenanceWarningsAndDefaultsToNone() {
+        // One real sentence, kept Vietnamese to make the "verbatim, not a code"
+        // property visible. The API sentence is only ever rendered, never parsed.
+        val warning = "Bản sao lưu này không ghi múi giờ cho các mốc thời gian. " +
+            "Một số mốc có thể lệch 7 giờ so với thực tế. Warrly giữ nguyên các mốc đã nhập."
+
+        val withWarnings = json.decodeFromString(
+            ImportResultResponse.serializer(),
+            """
+                {
+                  "ok": true,
+                  "result": {
+                    "imported": 4,
+                    "skipped": 1,
+                    "wishlistImported": 2,
+                    "wishlistSkipped": 0,
+                    "subImported": 3,
+                    "subSkipped": 0,
+                    "warnings": ["$warning"],
+                    "futureKey": {"ignored": true}
+                  }
+                }
+            """.trimIndent(),
+        )
+
+        assertEquals(4, withWarnings.result.imported)
+        assertEquals(listOf(warning), withWarnings.result.warnings)
+
+        // Explicit still: the reason a missing field was invisible for a release.
+        assertTrue(
+            "ApiClient.json must keep ignoring unknown keys — the API is additive",
+            json.configuration.ignoreUnknownKeys,
+        )
+
+        // A clean, self-describing backup keeps the OLD response shape: no key.
+        val clean = json.decodeFromString(
+            ImportResultResponse.serializer(),
+            """{"ok":true,"result":{"imported":1}}""",
+        )
+        assertEquals(1, clean.result.imported)
+        assertTrue("a clean import must decode to no warnings", clean.result.warnings.isEmpty())
+    }
+
     // ---- Attachments (PATCH /api/v1/attachments/{id}) ----
 
     /**

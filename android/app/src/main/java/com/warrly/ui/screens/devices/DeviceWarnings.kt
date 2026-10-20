@@ -1,36 +1,13 @@
 package com.warrly.ui.screens.devices
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.warrly.R
 import com.warrly.i18n.AppStrings
 import com.warrly.i18n.appStrings
 import com.warrly.network.DeviceWarning
 import com.warrly.network.DraftDevice
-import com.warrly.ui.theme.WVAccent
+import com.warrly.ui.components.WarningCard
 
 /**
  * Serial/IMEI advisories (openapi `DeviceWarning`, FEATURE_IDEAS #6) and the AI
@@ -130,54 +107,14 @@ fun DeviceWarningsCard(
 ) {
     if (warnings.isEmpty()) return
     val s = appStrings()
-    val accent = WVAccent.current
-    Card(
-        colors = CardDefaults.cardColors(containerColor = accent.warningContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.WarningAmber, null,
-                    tint = accent.warning,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    deviceWarningsTitle(s, isEdit),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = accent.onWarningContainer,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
-            }
-            Text(
-                stringResource(R.string.warn_still_saved),
-                style = MaterialTheme.typography.bodySmall,
-                color = accent.onWarningContainer,
-            )
-            Spacer(Modifier.height(6.dp))
-            warnings.forEach { warning ->
-                Row(
-                    Modifier.padding(end = 8.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Text(
-                        "•",
-                        color = accent.warning,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(end = 6.dp),
-                    )
-                    Text(
-                        deviceWarningMessage(s, warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = accent.onWarningContainer,
-                    )
-                }
-            }
-        }
-    }
+    // Same shared advisory card as the backup-restore provenance warning
+    // (`ui/components/WarningCard.kt`). "Saved, but…" here, "Restored, but…"
+    // there — one visual language for "the write succeeded, read this".
+    WarningCard(
+        title = deviceWarningsTitle(s, isEdit),
+        body = s.get(R.string.warn_still_saved),
+        messages = warnings.map { deviceWarningMessage(s, it) },
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
 }

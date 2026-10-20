@@ -96,6 +96,7 @@ import com.warrly.network.ApiService
 import com.warrly.network.toUserMessage
 import com.warrly.ui.components.PageHeader
 import com.warrly.ui.components.SectionHeader
+import com.warrly.ui.components.WarningCard
 import com.warrly.ui.screens.lock.messageRes
 import com.warrly.ui.theme.ThemePreference
 import com.warrly.ui.theme.ThemeStore
@@ -129,6 +130,9 @@ fun SettingsScreen(
     var showEmailChange by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // Hoisted so showing/dismissing the sticky provenance warning (which sits
+    // above the scroll container) cannot reset the reader's scroll position.
+    val scrollState = rememberScrollState()
 
     // The store is the single source of truth for the signed-in user: the
     // profile card below recomposes from it after a successful PATCH.
@@ -147,6 +151,12 @@ fun SettingsScreen(
     var backupBusy by remember { mutableStateOf(false) }
     var showImportModeDialog by remember { mutableStateOf(false) }
     var pendingImportMode by remember { mutableStateOf("merge") }
+    // Non-fatal caveats on the LAST successful restore (`ImportResult.warnings`),
+    // verbatim from the API. Empty for a clean, self-describing backup, which is
+    // why the top-bar card renders nothing at all in that case. Deliberately not
+    // a snackbar: the sentence explains a lasting property of the restored rows,
+    // so it must stay readable until dismissed.
+    var importWarnings by remember { mutableStateOf<List<String>>(emptyList()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deletePassword by rememberSaveable { mutableStateOf("") }
     var deleteBusy by remember { mutableStateOf(false) }
@@ -279,6 +289,11 @@ fun SettingsScreen(
                     ?: throw IllegalStateException("no stream")
                 val reqBody = bytes.toRequestBody("application/json".toMediaType())
                 val res = api.importBackup(mode, reqBody).result
+                // The import SUCCEEDED. `warnings` is the API's provenance
+                // caveat (a pre-fix backup may hold local-wall-clock instants);
+                // it is not an error and must not be presented as one. A clean
+                // import returns none and therefore clears any old card.
+                importWarnings = res.warnings
                 val skipped = res.skipped + res.subSkipped + res.wishlistSkipped
                 snack(
                     if (skipped > 0) {
@@ -309,12 +324,34 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = cs.background,
-                ),
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = cs.background,
+                    ),
+                )
+                // The provenance warning for what was just restored, pinned in
+                // the top bar rather than appended after the Data card. A backup
+                // restored from a pre-fix file can be seven hours off; a notice
+                // below the fold is a notice nobody reads, and iOS reaches the
+                // same guarantee with a top safe-area inset. It is a state, not
+                // a success: orange warning card, and it renders NOTHING when
+                // the file declared its instant basis (a normal import), so the
+                // clean path gains no pixels. The body is the API's own
+                // sentence, already localized through `Accept-Language`; the
+                // title/reassurance line only frame it.
+                val shownImportWarnings = importWarningsForDisplay(importWarnings)
+                if (shownImportWarnings.isNotEmpty()) {
+                    WarningCard(
+                        title = stringResource(R.string.set_import_warning_title),
+                        body = stringResource(R.string.set_import_warning_body),
+                        messages = shownImportWarnings,
+                        onDismiss = { importWarnings = emptyList() },
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                    )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = cs.background,
@@ -323,7 +360,7 @@ fun SettingsScreen(
             Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(bottom = 24.dp),
         ) {
             PageHeader(stringResource(R.string.nav_settings), stringResource(R.string.set_personalise_your_account_and_appearance))
