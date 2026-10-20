@@ -1,3 +1,4 @@
+import { getI18n } from '@/lib/i18n/server';
 import { NextResponse } from 'next/server';
 import { getAuthCookie } from '@/lib/auth-cookie';
 
@@ -58,7 +59,11 @@ export async function GET(
   // already ends in `/api`, so this resolves to `/api/files/{id}`. Adding
   // `/v1` here 404s on every request.
   const incoming = new URL(req.url);
-  const upstreamUrl = `${GO_API_URL}/files/${encodeURIComponent(id)}${incoming.search}`;
+  // Go's 404/403 bodies for this route are localized, so the streamed response is
+  // only in the right language if we say which one.
+  const { locale } = await getI18n();
+  const sep = incoming.search ? '&' : '?';
+  const upstreamUrl = `${GO_API_URL}/files/${encodeURIComponent(id)}${incoming.search}${sep}lang=${locale}`;
 
   let upstream: Response;
   try {

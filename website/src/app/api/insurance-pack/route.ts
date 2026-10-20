@@ -49,7 +49,7 @@ function errorResponse(status: number, message: string, error: string) {
 }
 
 export async function GET(req: Request) {
-  const { t } = await getI18n();
+  const { t, locale } = await getI18n();
 
   const cookie = await getAuthCookie();
   if (!cookie.accessToken) {
@@ -63,7 +63,11 @@ export async function GET(req: Request) {
   // whole incoming search string. Unknown parameters never reach Go.
   const incoming = new URL(req.url);
   const scope = parseInsurancePackScope(incoming.searchParams);
-  const upstreamUrl = `${GO_API_URL}/v1/insurance-pack${buildInsurancePackQuery(scope)}`;
+  // `?lang=` so Go renders any error in the page's language rather than the
+  // account's stored `User.locale` — the two can disagree when the choice lives
+  // only in the `wv_locale` cookie. Every `lib/api/*` call already does this; the
+  // raw proxies in this directory bypass that client and have to do it themselves.
+  const upstreamUrl = `${GO_API_URL}/v1/insurance-pack${buildInsurancePackQuery(scope)}&lang=${locale}`;
 
   let upstream: Response;
   try {
