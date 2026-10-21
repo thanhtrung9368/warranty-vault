@@ -26,6 +26,16 @@ export const dashboard = defineMessages({
   'Sắp hết (≤30 ngày)': 'Expiring soon (≤30 days)',
   'Cần để ý nha': 'Worth a look',
   'Đã hết bảo hành': 'Out of warranty',
+  // The fifth dashboard bucket: an active device with no Warranty row at all
+  // (`effectiveWarrantyEnd === null`). It used to be invisible — counted in the
+  // total and in none of the other tiles — which is the most urgent state right
+  // after a first save. `DEVICE_NO_WARRANTY` already names this action kind.
+  // English shortened from "No warranty recorded": the stat-card's absolutely
+  // positioned icon sits over the end of a 19-character label at 1440px (the
+  // 5-card row is 214px wide), clipping "…recorded". "No warranty data" fits
+  // under the icon and still names the bucket; the sub-line says what is missing.
+  'Chưa ghi bảo hành': 'No warranty data',
+  'Thiếu ngày hết hạn': 'Missing an end date',
   // The device-status label of the same Vietnamese sentence ("Đã bán" /
   // "Đang dùng" style); here it is the dashboard card's sub-line.
   'Hết kèo rồi': 'Cover has ended',

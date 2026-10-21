@@ -222,7 +222,7 @@ function WarrantyCard({
       </div>
 
       {hasWarrantyTerms(w) && (
-        <div className="mt-4 rounded-xl border border-border bg-surface px-4 py-3">
+        <div className="mt-4 rounded-xl border border-border bg-surface-2 px-4 py-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
             {t('Điều khoản hợp đồng')}
           </p>

@@ -532,7 +532,7 @@ export function SubscriptionForm({
 
           <div className="space-y-2">
             <Label htmlFor="autoRenew">{t('Tự động gia hạn')}</Label>
-            <div className="flex h-10 items-center gap-2 rounded-md border-[1.5px] border-border bg-surface px-3">
+            <div className="flex h-10 items-center gap-2 rounded-md border-[1.5px] border-border bg-surface-2 px-3">
               <input
                 id="autoRenew"
                 name="autoRenew"

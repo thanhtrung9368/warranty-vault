@@ -106,6 +106,11 @@ const config: Config = {
         lift: 'var(--shadow-2)',
         chunky: 'var(--shadow-chunky)',
         pop: 'var(--shadow-3)',
+        // The primary button's bottom "chunky" edge. The colour is a token
+        // (`--primary-shadow`) set per accent in globals.css, not the fixed
+        // warm brown this used to be — that only looked right on coral.
+        button:
+          '0 2px 0 hsl(var(--primary-shadow) / 0.3), 0 6px 18px -6px hsl(var(--primary))',
       },
       keyframes: {
         'accordion-down': {

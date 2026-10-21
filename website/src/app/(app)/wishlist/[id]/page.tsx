@@ -177,7 +177,7 @@ export default async function WishlistDetailPage({
         )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
             <p className="eyebrow">{t('Giá ban đầu')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
               {item.initialPrice ? formatVND(item.initialPrice, locale) : '—'}
@@ -188,7 +188,7 @@ export default async function WishlistDetailPage({
               'rounded-xl border p-4',
               delta != null && delta.down
                 ? 'border-emerald-soft bg-emerald-soft text-emerald-ink'
-                : 'border-border bg-surface',
+                : 'border-border bg-surface-2',
             )}
           >
             <p className="eyebrow">{t('Giá hiện tại')}</p>
@@ -219,7 +219,7 @@ export default async function WishlistDetailPage({
               </p>
             )}
           </div>
-          <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
             <p className="eyebrow">Min / Max</p>
             <p className="mt-1 text-base font-bold tabular-nums">
               <span className="text-emerald-ink">{min ? formatVND(min, locale) : '—'}</span>
@@ -227,7 +227,7 @@ export default async function WishlistDetailPage({
               <span className="text-rose-ink">{max ? formatVND(max, locale) : '—'}</span>
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
             <p className="eyebrow flex items-center gap-1">
               <Calendar className="h-3 w-3" /> {t('Ngày dự kiến')}
             </p>

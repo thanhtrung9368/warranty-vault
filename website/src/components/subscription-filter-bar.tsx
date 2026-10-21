@@ -65,7 +65,7 @@ export function SubscriptionFilterBar({ categories }: { categories: CategoryOpti
             placeholder={t('Tìm tên, hãng, plan...')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="rounded-pill border-border-strong bg-surface pl-9"
+            className="rounded-pill border-border-strong bg-surface-2 pl-9"
           />
         </div>
         <div className="pill-group" role="tablist" aria-label={t('Trạng thái')}>

@@ -177,7 +177,7 @@ export default async function SubscriptionDetailPage({
         )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
             <p className="eyebrow">{t('Giá / chu kỳ')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
               {formatVND(sub.price, locale)}
@@ -193,7 +193,7 @@ export default async function SubscriptionDetailPage({
                 : ''}
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
             <p className="eyebrow">{t('Quy đổi / tháng')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
               {formatVND(monthly, locale)}
@@ -204,7 +204,7 @@ export default async function SubscriptionDetailPage({
               'rounded-xl border p-4',
               isOverdue
                 ? 'border-amber-soft bg-amber-soft text-amber-ink'
-                : 'border-border bg-surface',
+                : 'border-border bg-surface-2',
             )}
           >
             <p className="eyebrow flex items-center gap-1">
@@ -224,7 +224,7 @@ export default async function SubscriptionDetailPage({
               </p>
             )}
           </div>
-          <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
             <p className="eyebrow">{t('Đã chi tổng')}</p>
             <p className="display mt-1 text-2xl tabular-nums text-ink">
               {formatVND(totalSpent, locale)}

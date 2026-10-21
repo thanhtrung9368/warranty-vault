@@ -13,6 +13,7 @@ import {
   registerUser,
   type AuthFormState,
 } from '@/app/actions/auth';
+import { safeNextPath, withNext } from '@/lib/next-path';
 import { useT } from '@/lib/i18n/client';
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -41,8 +42,24 @@ function SubmitButton({
   );
 }
 
-export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
+export function AuthForm({
+  mode,
+  next,
+}: {
+  mode: 'login' | 'register';
+  /**
+   * Already validated by the page (`safeNextPath`). Re-validated before it is
+   * rendered, because this is a client component and the prop crosses the RSC
+   * boundary. The action validates it a third time — the hidden field is
+   * browser-controlled.
+   */
+  next?: string | null;
+}) {
   const t = useT();
+  const safeNext = safeNextPath(next);
+  // Carry the intent into the other auth form: a visitor who clicked a feature
+  // card, hit "Sign up" and then changed their mind to sign in must not lose it.
+  const switchHref = withNext(mode === 'login' ? '/register' : '/login', safeNext);
   const action = mode === 'login' ? loginUser : registerUser;
   const [state, formAction] = useActionState<AuthFormState, FormData>(action, {});
   const errors = state?.errors ?? {};
@@ -68,6 +85,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       </div>
 
       <form action={formAction} className="space-y-4">
+        {safeNext ? <input type="hidden" name="next" value={safeNext} /> : null}
         {mode === 'register' && (
           <div className="space-y-1.5">
             <Label htmlFor="name" className="text-sm font-semibold text-ink-2">
@@ -151,14 +169,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           {mode === 'login' ? (
             <>
               {t('Chưa có tài khoản?')}{' '}
-              <Link href="/register" className="font-semibold text-primary hover:underline">
+              <Link href={switchHref} className="font-semibold text-primary hover:underline">
                 {t('Đăng ký')}
               </Link>
             </>
           ) : (
             <>
               {t('Đã có tài khoản?')}{' '}
-              <Link href="/login" className="font-semibold text-primary hover:underline">
+              <Link href={switchHref} className="font-semibold text-primary hover:underline">
                 {t('Đăng nhập')}
               </Link>
             </>

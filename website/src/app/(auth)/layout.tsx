@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Vault } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -5,6 +6,13 @@ import { LocaleSwitcher } from '@/components/locale-switcher';
 import { OfflineCacheCleaner } from '@/components/offline-cache-cleaner';
 import { AppBadge } from '@/components/app-badge';
 import { getI18n } from '@/lib/i18n/server';
+
+// Same reasoning as `(app)/layout.tsx`: a sign-in form is not a duplicate of
+// `/`, so it must neither inherit the homepage canonical URL nor be indexed.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  alternates: { canonical: null },
+};
 
 // Chrome for the public auth flows. The "already signed in → /dashboard" guard
 // deliberately does NOT live here: `/confirm-email/<token>` belongs to this

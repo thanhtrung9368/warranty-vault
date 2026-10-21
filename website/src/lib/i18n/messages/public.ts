@@ -7,10 +7,11 @@
 // `common.ts` and is NOT redefined here.
 //
 // One deliberate exception to "the Vietnamese is untouched", flagged where it
-// happens: the landing hero badge said the app is Vietnamese-only. That claim is
-// now false (English is the default, the whole point of this change), so its
-// English column states what the badge means today — see the comment on that
-// entry. Everything else is the byte-for-byte original.
+// happens: the landing hero badge used to claim "Local-first". That claim was
+// false — the device copy lives in Postgres behind the Go API, the service
+// worker explicitly skips `/api/`, and there is no IndexedDB/device store — so
+// the sentence itself was rewritten (key, call site and translation together).
+// Every other Vietnamese key in this file is the byte-for-byte original.
 
 import { defineMessages } from '../types';
 
@@ -32,14 +33,17 @@ export const publicPages = defineMessages({
   // substring of the English sentence above ("warranty", never "warranties");
   // `page.tsx` degrades to an unhighlighted headline if it stops matching.
   'bảo hành': 'warranty',
-  // Was "Miễn phí · Local-first · Tiếng Việt". The third claim is no longer true
-  // of this app — English is the default language now, which is exactly what
-  // this change delivers — and an English reader is the one person it would
-  // mislead. The Vietnamese column is the untouched original (rule 1); the
-  // English column states the same three facts as they stand today. The app is
-  // still built for Vietnamese users, now bilingually (see the root layout's
-  // description, which was corrected the same way).
-  'Miễn phí · Local-first · Tiếng Việt': 'Free · Local-first · Bilingual VI/EN',
+  // Rewritten from "Miễn phí · Local-first · Tiếng Việt". All three old claims
+  // were audited, not just the language one:
+  //   * "Local-first" was FALSE. Warrly is a Next.js UI over the Go API and
+  //     Postgres; `public/sw.js` skips `/api/`, and there is no IndexedDB or
+  //     device store. The device does not hold the primary copy.
+  //   * "Tiếng Việt" (Vietnamese-only) was also false: English is the default.
+  // The replacement is true and specific — no ads/tracking matches the privacy
+  // policy, free matches the product, and "built for Vietnam" describes the
+  // VND / 1-đổi-1 / Vietnamese-warranty model rather than the UI language.
+  'Miễn phí · Không quảng cáo, không theo dõi · Xây cho Việt Nam':
+    'Free · No ads, no tracking · Built for Vietnam',
   'Theo dõi thiết bị, gói đăng ký và những món đang thèm — tất cả ở một chỗ. Nhắc bảo hành sắp hết, lưu hoá đơn, biết tiền chảy đi đâu.':
     'Track your devices, subscriptions and wishlist in one place. Get warned before a warranty ends, keep the receipts, and see where the money goes.',
   'Không cần thẻ tín dụng': 'No credit card needed',

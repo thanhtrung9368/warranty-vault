@@ -4,6 +4,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   ShieldX,
+  ShieldQuestion,
   ArrowRight,
   Heart,
   Calendar,
@@ -27,10 +28,11 @@ import {
 import { WISHLIST_ACTIVE_STATUSES } from '@/lib/wishlist-types';
 import { requireUser } from '@/lib/auth';
 import { brokenDevicesWithoutOpenClaim } from '@/lib/claims';
+import { computeDeviceStats } from '@/lib/device-stats';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
-import { daysUntil, parseDay, parseDayValue, todayDay } from '@/lib/api-day';
+import { parseDay, todayDay } from '@/lib/api-day';
 import { formatMoney } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
@@ -92,69 +94,6 @@ function computeSubscriptionTotals(subs: Subscription[]): SubscriptionTotals {
 }
 
 export const dynamic = 'force-dynamic';
-
-function computeDeviceStats(devices: import('@/lib/api/devices').DeviceListItem[]) {
-  const now = new Date();
-
-  let active = 0;
-  let soon = 0;
-  let expired = 0;
-  const soonItems: Array<{
-    id: string;
-    name: string;
-    category: string;
-    brand: string | null;
-    purchaseDate: string;
-    purchasePrice: number;
-    currency: string;
-    purchasePriceVnd: number | null;
-    effectiveWarrantyEnd: string;
-  }> = [];
-
-  for (const d of devices) {
-    if (!d.effectiveWarrantyEnd) continue;
-    // Day boundaries, not instants: a warranty ending today is still in force,
-    // and one that ended a day ago is not. `effectiveWarrantyEnd` is a calendar
-    // day on the wire (the server also sent it as a UTC-midnight instant before
-    // the wire change), so it is read as a day — comparing `new Date(...)` to a
-    // local midnight retired the device a day early west of UTC.
-    const daysLeft = daysUntil(d.effectiveWarrantyEnd, now);
-    // `soon` is a SUBSET of `active` — a device that expires in 9 days is still
-    // covered today. Subtracting one from the other (the old "Còn bảo hành" tile)
-    // removed exactly the devices the card below was pointing at.
-    const stillCovered = daysLeft >= 0;
-    if (d.status === 'ACTIVE' && stillCovered) active++;
-    if (!stillCovered) expired++;
-    if (d.status === 'ACTIVE' && stillCovered && daysLeft <= 30) {
-      soon++;
-      soonItems.push({
-        id: d.id,
-        name: d.name,
-        category: d.category,
-        brand: d.brand,
-        purchaseDate: d.purchaseDate,
-        purchasePrice: d.purchasePrice,
-        currency: d.currency,
-        purchasePriceVnd: d.purchasePriceVnd,
-        effectiveWarrantyEnd: d.effectiveWarrantyEnd,
-      });
-    }
-  }
-
-  soonItems.sort(
-    (a, b) =>
-      (parseDayValue(a.effectiveWarrantyEnd)?.getTime() ?? 0) -
-      (parseDayValue(b.effectiveWarrantyEnd)?.getTime() ?? 0),
-  );
-
-  return {
-    total: devices.length,
-    active,
-    soon,
-    expired,
-    soonList: soonItems.slice(0, 8),
-  };
-}
 
 type Tint = 'primary' | 'emerald' | 'amber' | 'zinc' | 'sky' | 'rose';
 type StatCardProps = {
@@ -246,6 +185,9 @@ export default async function DashboardPage() {
     claimsRes.ok ? claimsRes.data : [],
   );
 
+  // Five mutually exclusive buckets over active (non-SOLD) devices. The sum is
+  // `stats.total` by construction — see `lib/device-stats.ts`; a sold device is
+  // history, not part of the warranty picture.
   const cards: StatCardProps[] = [
     {
       label: t('Tổng thiết bị'),
@@ -256,14 +198,14 @@ export default async function DashboardPage() {
     },
     {
       label: t('Còn bảo hành'),
-      value: stats.active,
+      value: stats.covered,
       icon: ShieldCheck,
       sub: t('Còn được bảo vệ'),
       tone: 'emerald',
     },
     {
       label: t('Sắp hết (≤30 ngày)'),
-      value: stats.soon,
+      value: stats.expiring,
       icon: AlertTriangle,
       sub: t('Cần để ý nha'),
       tone: 'amber',
@@ -274,6 +216,13 @@ export default async function DashboardPage() {
       icon: ShieldX,
       sub: t('Hết kèo rồi'),
       tone: 'zinc',
+    },
+    {
+      label: t('Chưa ghi bảo hành'),
+      value: stats.noWarranty,
+      icon: ShieldQuestion,
+      sub: t('Thiếu ngày hết hạn'),
+      tone: 'sky',
     },
   ];
 
@@ -292,7 +241,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}

@@ -1,12 +1,15 @@
 import type { Metadata } from 'next';
 import { getI18n } from '@/lib/i18n/server';
+import { pageMetadata } from '@/lib/metadata';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getI18n();
-  return {
+  const { locale, t } = await getI18n();
+  return pageMetadata({
     title: t('Điều khoản sử dụng — Warrly'),
     description: t('Điều khoản sử dụng dịch vụ Warrly'),
-  };
+    path: '/terms',
+    locale,
+  });
 }
 
 const UPDATED = '05/06/2026';

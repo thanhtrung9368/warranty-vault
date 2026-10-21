@@ -16,6 +16,7 @@ import { normalizeLocale } from '@/lib/i18n/locale';
 import { clearLocaleCookie, setLocaleCookie } from '@/lib/i18n/request';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
+import { safeNextPath } from '@/lib/next-path';
 
 export type AuthFormState = {
   ok?: boolean;
@@ -107,7 +108,10 @@ export async function registerUser(
   await adoptStoredLocale(res.data.payload.user.locale);
 
   revalidatePath('/', 'layout');
-  redirect('/dashboard');
+  // The card/link the visitor actually clicked. Validated here, not trusted
+  // from the hidden form field (`safeNextPath` rejects schemes, `//host`,
+  // backslash and control-character bypasses; see lib/next-path.ts).
+  redirect(safeNextPath(formData.get('next')) ?? '/dashboard');
 }
 
 // ---- login -----------------------------------------------------------------
@@ -151,7 +155,7 @@ export async function loginUser(
   await adoptStoredLocale(res.data.user.locale);
 
   revalidatePath('/', 'layout');
-  redirect('/dashboard');
+  redirect(safeNextPath(formData.get('next')) ?? '/dashboard');
 }
 
 // ---- logout ----------------------------------------------------------------

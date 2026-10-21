@@ -212,7 +212,7 @@ export function ClaimForm({
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm">
+      <div className="rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm">
         <span className="text-muted-foreground">{t('Thiết bị của phiếu')}: </span>
         <span className="font-semibold text-ink">{deviceName}</span>
       </div>

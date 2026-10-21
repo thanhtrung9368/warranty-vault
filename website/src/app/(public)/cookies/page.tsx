@@ -1,12 +1,15 @@
 import type { Metadata } from 'next';
 import { getI18n } from '@/lib/i18n/server';
+import { pageMetadata } from '@/lib/metadata';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getI18n();
-  return {
+  const { locale, t } = await getI18n();
+  return pageMetadata({
     title: t('Chính sách Cookie — Warrly'),
     description: t('Chính sách sử dụng cookie của Warrly'),
-  };
+    path: '/cookies',
+    locale,
+  });
 }
 
 const UPDATED = '05/06/2026';

@@ -1,4 +1,4 @@
-// Repair / warranty cases — the device card, the standalone /claims list and
+// Warranty claims / repair cases — the device card, the standalone /claims list and
 // the tri-state coverage / status vocabulary.
 //
 // The keys are the Vietnamese originals (see `../types.ts`). Every sentence the
@@ -15,36 +15,42 @@ import { defineMessages } from '../types';
 
 export const claims = defineMessages({
   // ── Navigation + page (`app/(app)/claims/page.tsx`, `components/sidebar`) ─
-  'Sửa chữa': 'Repairs',
-  'Phiếu sửa chữa': 'Repair cases',
+  // The nav says "Claims", not "Repairs": the stored object is a warranty
+  // claim (`coveredByWarranty`, `claimsUsed`/`claimsAllowed`), and someone whose
+  // fridge died inside warranty looks for "claim"/"warranty", not a repair log.
+  'Sửa chữa': 'Claims',
+  'Phiếu sửa chữa': 'Claims & repairs',
   'Theo dõi máy đang ở tiệm, đã xong hay bị từ chối — trên mọi thiết bị.':
-    'Track what is at the shop, what is done and what was rejected — across every device.',
+    'Track every claim — what is at the shop, what is done and what was rejected.',
   'Không tải được danh sách phiếu sửa chữa — thử tải lại trang nhé.':
-    'Could not load repair cases — try reloading the page.',
+    'Could not load claims — try reloading the page.',
   'Đang xử lý ({count})': 'In progress ({count})',
   'Đã kết thúc ({count})': 'Finished ({count})',
-  'Chưa có phiếu sửa chữa nào': 'No repair cases yet',
-  'Không có phiếu nào ở trạng thái này.': 'No repair cases with this status.',
+  'Chưa có phiếu sửa chữa nào': 'No claims yet',
+  'Không có phiếu nào ở trạng thái này.': 'No claims with this status.',
   'Khi một thiết bị hỏng, tạo phiếu từ trang thiết bị để ghi lại nơi sửa, số phiếu và chi phí.':
-    'When a device breaks, create a repair case from its page to record the shop, the ticket number and the cost.',
+    'When a device breaks, create a claim from its page to record the shop, the ticket number and the cost.',
   'Mở danh sách thiết bị': 'Open the device list',
+  // The /claims empty state branches on whether the account has any devices:
+  // with none, the only useful action is creating one (a claim needs a device).
+  'Thêm thiết bị đầu tiên': 'Add your first device',
 
   // ── Device detail card (`components/claim-list.tsx`) ────────────────────
-  'Sửa chữa & bảo hành': 'Repairs & warranty',
-  'Chưa có phiếu sửa chữa nào.': 'No repair cases yet.',
+  'Sửa chữa & bảo hành': 'Claims & warranty',
+  'Chưa có phiếu sửa chữa nào.': 'No claims yet.',
   'Thêm một phiếu khi bạn mang máy đi sửa hoặc đi bảo hành.':
-    'Add one when you take the device in for repair or warranty.',
-  'Thêm phiếu sửa chữa': 'Add a repair case',
-  'Sửa phiếu sửa chữa': 'Edit repair case',
-  'Xoá phiếu sửa chữa': 'Delete repair case',
-  'Xoá phiếu "{issue}"?': 'Delete the repair case "{issue}"?',
-  'Đã xoá phiếu sửa chữa': 'Repair case deleted',
-  'Không xoá được phiếu sửa chữa': 'Could not delete the repair case',
+    'Add a claim when you take the device in for repair or warranty.',
+  'Thêm phiếu sửa chữa': 'Add a claim',
+  'Sửa phiếu sửa chữa': 'Edit claim',
+  'Xoá phiếu sửa chữa': 'Delete claim',
+  'Xoá phiếu "{issue}"?': 'Delete the claim "{issue}"?',
+  'Đã xoá phiếu sửa chữa': 'Claim deleted',
+  'Không xoá được phiếu sửa chữa': 'Could not delete the claim',
   'Thiết bị này đang Hỏng nhưng chưa có phiếu sửa chữa.':
-    'This device is marked broken but has no repair case.',
+    'This device is marked broken but has no claim.',
   'Tạo phiếu để ghi lại nơi sửa, số phiếu và chi phí.':
     'Create one to record the shop, the ticket number and the cost.',
-  'Tạo phiếu sửa chữa': 'Create a repair case',
+  'Tạo phiếu sửa chữa': 'Create a claim',
 
   // ── Claim form (`components/claim-form.tsx`) ────────────────────────────
   'Thiết bị của phiếu': 'Device',
@@ -87,18 +93,18 @@ export const claims = defineMessages({
 
   // ── 409 / server-action copy (`app/actions/claims.ts`) ──────────────────
   'Thiết bị này đang có một phiếu sửa chữa chưa đóng.':
-    'This device already has an open repair case.',
+    'This device already has an open claim.',
   'Thiết bị này đang có một phiếu sửa chữa chưa đóng. Cập nhật phiếu đó thay vì tạo thêm.':
-    'This device already has an open repair case. Update that case instead of adding another.',
-  'Mở phiếu đang mở': 'Open the active case',
-  'Thiếu id phiếu sửa chữa': 'Missing repair case id',
+    'This device already has an open claim. Update that claim instead of adding another.',
+  'Mở phiếu đang mở': 'Open the active claim',
+  'Thiếu id phiếu sửa chữa': 'Missing claim id',
   'Chi phí phải là số nguyên không âm.':
     'Cost must be a non-negative whole number.',
 
   // ── Dashboard nudge (`app/(app)/dashboard/page.tsx`) ────────────────────
   '{count} thiết bị đang hỏng mà chưa có phiếu sửa chữa.': {
-    en: '{count} devices are marked broken with no repair case.',
-    enOne: '{count} device is marked broken with no repair case.',
+    en: '{count} devices are marked broken with no claim.',
+    enOne: '{count} device is marked broken with no claim.',
   },
   'và {count} thiết bị khác': 'and {count} more',
   'Xem thiết bị đang hỏng': 'View broken devices',
@@ -159,7 +165,7 @@ export const claims = defineMessages({
   'Không bật được đánh giá AI': 'Could not turn on AI assessment',
   'Đánh giá AI chưa khả dụng': 'AI assessment is not available yet',
   'Dịch vụ chưa bật tính năng đánh giá bằng AI. Đây là cấu hình của hệ thống, không phải lỗi từ phía bạn — phiếu sửa chữa của bạn không bị ảnh hưởng. Bạn vẫn có thể dùng checklist chuẩn bị đi bảo hành.':
-    'AI assessment has not been switched on for this service. This is a system setting, not something you did wrong — your repair case is unchanged. You can still use the pre-service checklist.',
+    'AI assessment has not been switched on for this service. This is a system setting, not something you did wrong — your claim is unchanged. You can still use the pre-service checklist.',
   'Mở Cài đặt': 'Open Settings',
 
   // The letter is Vietnamese on purpose; say that instead of translating it.

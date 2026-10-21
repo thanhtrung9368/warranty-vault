@@ -174,9 +174,11 @@ export default async function ClaimsPage({
   ]);
 
   const claims = claimsRes.ok ? sortClaimsForDisplay(claimsRes.data) : [];
-  const devicesById = new Map(
-    (devicesRes.ok ? devicesRes.data : []).map((device) => [device.id, device]),
-  );
+  const devices = devicesRes.ok ? devicesRes.data : [];
+  const devicesById = new Map(devices.map((device) => [device.id, device]));
+  // Used only by the empty state: a claim needs a device, so with zero devices
+  // the CTA must create one instead of looping back to this same empty list.
+  const hasDevices = devices.length > 0;
   const active = claims.filter(claimIsOpen);
   const finished = claims.filter((claim) => !claimIsOpen(claim));
 
@@ -248,8 +250,12 @@ export default async function ClaimsPage({
           description={t(
             'Khi một thiết bị hỏng, tạo phiếu từ trang thiết bị để ghi lại nơi sửa, số phiếu và chi phí.',
           )}
-          ctaHref="/devices"
-          ctaLabel={t('Mở danh sách thiết bị')}
+          ctaHref={hasDevices ? '/devices?status=BROKEN' : '/devices/new'}
+          ctaLabel={
+            hasDevices
+              ? t('Thêm phiếu sửa chữa')
+              : t('Thêm thiết bị đầu tiên')
+          }
         />
       )}
 

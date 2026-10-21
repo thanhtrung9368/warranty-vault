@@ -49,10 +49,10 @@ export function BrandWarrantyNote({
           <span>{copy.sentence}</span>
         </p>
         <div className="mt-2.5 flex flex-wrap gap-2 pl-6 text-xs">
-          <span className="rounded-pill bg-surface px-2.5 py-1 font-medium text-ink">
+          <span className="rounded-pill bg-surface-2 px-2.5 py-1 font-medium text-ink">
             {copy.brandDateLabel}
           </span>
-          <span className="rounded-pill bg-surface px-2.5 py-1 font-medium text-ink">
+          <span className="rounded-pill bg-surface-2 px-2.5 py-1 font-medium text-ink">
             {copy.purchaseDateLabel}
           </span>
         </div>

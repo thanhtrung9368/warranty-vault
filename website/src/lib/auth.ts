@@ -18,6 +18,7 @@ import { GO_API_URL } from '@/lib/api/base-url';
 import { getAuthCookie, bearerHeader } from '@/lib/auth-cookie';
 import { DEFAULT_LOCALE, type Locale } from '@/lib/i18n/locale';
 import { getAcceptLanguageLocale, getCookieLocale } from '@/lib/i18n/request';
+import { safeNextPath } from '@/lib/next-path';
 
 export type CurrentUser = {
   id: string;
@@ -96,7 +97,8 @@ export async function requireUser(): Promise<CurrentUser> {
 }
 
 // Guest-only pages (login / register / forgot / reset): a signed-in visitor is
-// sent to the dashboard instead of being shown the form again.
+// sent to the dashboard instead of being shown the form again — or to the
+// validated `?next=` destination when one was carried through the auth links.
 //
 // This used to live in the `(auth)` layout, which made every route under it
 // guest-only — including `/confirm-email/<token>`, the link the email-change
@@ -105,7 +107,7 @@ export async function requireUser(): Promise<CurrentUser> {
 // and the layout would bounce them to /dashboard with the token never consumed.
 // Keeping the check on the guest-only pages instead lets the confirm page be
 // public for both audiences while preserving the old behaviour everywhere else.
-export async function requireGuest(): Promise<void> {
+export async function requireGuest(next?: unknown): Promise<void> {
   const user = await getCurrentUser();
-  if (user) redirect('/dashboard');
+  if (user) redirect(safeNextPath(next) ?? '/dashboard');
 }

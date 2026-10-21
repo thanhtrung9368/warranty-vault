@@ -204,7 +204,7 @@ export function BrandWarrantyFormSection({
       </div>
 
       {/* Brand lookup link — or the honest "no page for this brand" answer. */}
-      <div className="rounded-xl border-[1.5px] border-dashed border-border bg-surface p-3.5">
+      <div className="rounded-xl border-[1.5px] border-dashed border-border bg-surface-2 p-3.5">
         {!name ? (
           <>
             <p className="text-sm font-semibold text-ink">{lookupView.title}</p>

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Sidebar, MobileBottomNav } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
 import { OfflineBridge } from '@/components/offline-bridge';
@@ -7,6 +8,14 @@ import { APP_BADGE_WITHIN_DAYS, dueBadgeCount } from '@/lib/app-badge';
 import { badgeCount } from '@/lib/action-queue';
 import { inboxCount } from '@/lib/inbox';
 import { requireUser } from '@/lib/auth';
+
+// Signed-in pages inherit the root layout's metadata, including its canonical
+// URL and homepage Open Graph card. Neither is true of `/dashboard`: these pages
+// are not public and must not tell a crawler that they duplicate `/`.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  alternates: { canonical: null },
+};
 
 export default async function AppLayout({
   children,

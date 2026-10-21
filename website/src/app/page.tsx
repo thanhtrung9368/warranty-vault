@@ -22,6 +22,7 @@ import { RevealObserver } from '@/components/reveal-observer';
 import { getCurrentUser } from '@/lib/auth';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
+import { loginHref } from '@/lib/next-path';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +75,10 @@ function buildFeatures(t: Translator) {
         'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.',
       ),
       tint: 'tint-emerald',
-      href: '/devices',
+      // The capture-first inbox is where an invoice/PDF is uploaded before it
+      // is attached to a device; the warranty card above already points at
+      // /devices, so each card keeps its own destination.
+      href: '/inbox',
     },
     {
       icon: BarChart3,
@@ -361,7 +365,7 @@ export default async function LandingPage() {
             <div>
               <span className="mb-5 inline-flex items-center gap-1.5 rounded-pill border-[1.5px] border-primary-soft-2 bg-primary-soft/70 px-3 py-1 text-xs font-bold text-primary-ink">
                 <Sparkles className="h-3 w-3" />
-                {t('Miễn phí · Local-first · Tiếng Việt')}
+                {t('Miễn phí · Không quảng cáo, không theo dõi · Xây cho Việt Nam')}
               </span>
               {/* One sentence, one key. Both languages happen to put the
                   warranty words in the same slot, so the gradient highlight is
@@ -510,6 +514,12 @@ export default async function LandingPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((f, index) => {
                 const Icon = f.icon;
+                // Signed-out visitors cannot render an `(app)` route: its
+                // layout calls `requireUser()`, and a bare redirect to /login
+                // would throw this card's destination away. Send them through
+                // `/login?next=<this card's own href>` instead, so the auth
+                // action can return them here after signing in.
+                const href = user ? f.href : loginHref(f.href);
                 return (
                   <Reveal
                     key={f.title}
@@ -533,7 +543,7 @@ export default async function LandingPage() {
                             `:has(:focus-visible)` below lifts the card and
                             draws the ring when that link has keyboard focus. */}
                         <Link
-                          href={f.href}
+                          href={href}
                           className="feature-card-link after:absolute after:inset-0 after:content-['']"
                         >
                           {f.title}

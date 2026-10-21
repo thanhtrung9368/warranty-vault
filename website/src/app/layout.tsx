@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { PwaRegister } from '@/components/pwa-register';
 import { I18nProvider } from '@/lib/i18n/client';
 import { getI18n } from '@/lib/i18n/server';
+import { pageMetadata, siteBaseUrl } from '@/lib/metadata';
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'vietnamese'],
@@ -34,11 +35,23 @@ const fraunces = Fraunces({
 // `/` is indexable, and a link preview is copy a user reads. It is
 // `generateMetadata` rather than a constant because a Vietnamese visitor
 // sharing the page should not hand an English headline to the chat app.
+//
+// This used to return only title/description/icons, so every shared link was a
+// bare URL: no `metadataBase`, no canonical, no `openGraph`, no `twitter` card.
+// For a Vietnam-first product that spreads through Zalo groups, the preview is
+// the first landing page. `pageMetadata()` builds all four (including the real
+// 1200×630 `/og` ImageResponse) from this same translated title/description;
+// `metadataBase` makes the relative card URL absolute in the emitted HTML.
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getI18n();
+  const { locale, t } = await getI18n();
+  const title = t('Warrly — Quản lý bảo hành & gói đăng ký');
+  const description = t(
+    'Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn gàng, song ngữ Việt–Anh.',
+  );
+
   return {
-    title: t('Warrly — Quản lý bảo hành & gói đăng ký'),
-    description: t('Theo dõi thiết bị, bảo hành, gói đăng ký và wishlist — đơn giản, gọn gàng, song ngữ Việt–Anh.'),
+    metadataBase: siteBaseUrl(),
+    ...pageMetadata({ title, description, path: '/', locale }),
     manifest: '/manifest.webmanifest',
     appleWebApp: {
       capable: true,

@@ -62,7 +62,7 @@ export function CategoryPie({
               innerRadius={50}
               outerRadius={90}
               paddingAngle={2}
-              stroke="hsl(var(--surface))"
+              stroke="hsl(var(--surface-2))"
               strokeWidth={3}
             >
               {filtered.map((_, i) => (
