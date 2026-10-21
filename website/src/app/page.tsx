@@ -17,6 +17,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { Reveal } from '@/components/reveal';
+import { RevealObserver } from '@/components/reveal-observer';
 import { getCurrentUser } from '@/lib/auth';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
@@ -36,6 +38,7 @@ function buildFeatures(t: Translator) {
         'Mỗi thiết bị có thể có nhiều gói bảo hành — gốc, mở rộng, bên thứ 3. Đếm ngược tự động.',
       ),
       tint: 'tint-primary',
+      href: '/devices',
     },
     {
       icon: Repeat,
@@ -44,6 +47,7 @@ function buildFeatures(t: Translator) {
         'Netflix, iCloud, ChatGPT... theo dõi chu kỳ và ngày gia hạn. Quy ra chi phí mỗi tháng.',
       ),
       tint: 'tint-sky',
+      href: '/subscriptions',
     },
     {
       icon: Heart,
@@ -52,6 +56,7 @@ function buildFeatures(t: Translator) {
         'Món đang ngắm — đặt ngày mục tiêu, theo dõi giá. Mua xong là thành thiết bị luôn.',
       ),
       tint: 'tint-rose',
+      href: '/wishlist',
     },
     {
       icon: Bell,
@@ -60,6 +65,7 @@ function buildFeatures(t: Translator) {
         'Bọn tao nhắc trước qua push notification — cả trên web lẫn app iOS/Android. Khỏi lo bỏ lỡ.',
       ),
       tint: 'tint-amber',
+      href: '/reminders',
     },
     {
       icon: Receipt,
@@ -68,12 +74,14 @@ function buildFeatures(t: Translator) {
         'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.',
       ),
       tint: 'tint-emerald',
+      href: '/devices',
     },
     {
       icon: BarChart3,
       title: t('Thống kê chi tiêu'),
       desc: t('Biểu đồ theo tháng, theo loại, top thiết bị đắt nhất. Biết tiền đi đâu.'),
       tint: 'tint-violet',
+      href: '/stats',
     },
   ];
 }
@@ -111,8 +119,7 @@ function HeroIllustration() {
     <svg
       viewBox="0 0 320 280"
       width="100%"
-      className="max-w-[360px]"
-      style={{ filter: 'drop-shadow(0 30px 40px rgba(80, 40, 10, 0.18))' }}
+      className="hero-illustration max-w-[360px]"
       aria-hidden
     >
       <defs>
@@ -293,6 +300,10 @@ export default async function LandingPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* One observer for every <Reveal> on the page. It renders nothing; the
+          wrapper markup and the animation are server/CSS-owned. Mounted here
+          rather than in the root layout so no other route pays for the JS. */}
+      <RevealObserver />
       {/* Header */}
       <header
         className="sticky top-0 z-30 border-b-[1.5px] border-border backdrop-blur-md"
@@ -443,9 +454,21 @@ export default async function LandingPage() {
             style={{ transform: 'rotate(-0.4deg)' }}
           >
             <div className="mb-4 flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-[#FF6B5C]" />
-              <span className="h-3 w-3 rounded-full bg-[#FBBF24]" />
-              <span className="h-3 w-3 rounded-full bg-[#10B981]" />
+              {/* Traffic-light dots re-derived from the semantic palette, so
+                  they follow the active accent theme and dark mode instead of
+                  staying three hardcoded light-mode hexes. */}
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ background: 'hsl(var(--rose))' }}
+              />
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ background: 'hsl(var(--amber))' }}
+              />
+              <span
+                className="h-3 w-3 rounded-full"
+                style={{ background: 'hsl(var(--emerald))' }}
+              />
               <span className="ml-2 text-xs text-muted">warrly.com/dashboard</span>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -485,23 +508,40 @@ export default async function LandingPage() {
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((f) => {
+              {FEATURES.map((f, index) => {
                 const Icon = f.icon;
                 return (
-                  <div
+                  <Reveal
                     key={f.title}
-                    className="rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft transition-transform hover:-translate-y-0.5 hover:shadow-lift"
+                    index={index}
+                    className="flex"
+                    // Three of the six get the CSS scroll-timeline path in
+                    // Chrome 115+/Safari 26+; the rest are JS-revealed. The
+                    // observer skips these only when that path is really live.
+                    scrollDriven={index < 3}
                   >
-                    <span
-                      className={`icon-badge-sm inline-flex h-11 w-11 items-center justify-center rounded-xl ${f.tint}`}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <h3 className="mt-4 font-display text-[17px] font-bold tracking-tight">
-                      {f.title}
-                    </h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted">{f.desc}</p>
-                  </div>
+                    <div className="feature-card relative flex h-full w-full flex-col rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+                      <span
+                        className={`icon-badge-sm inline-flex h-11 w-11 items-center justify-center rounded-xl ${f.tint}`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <h3 className="mt-4 font-display text-[17px] font-bold tracking-tight">
+                        {/* The title is the card's link. Its ::after stretches
+                            over the whole card, so the entire card is a target
+                            while the keyboard still gets one real, named link.
+                            `:has(:focus-visible)` below lifts the card and
+                            draws the ring when that link has keyboard focus. */}
+                        <Link
+                          href={f.href}
+                          className="feature-card-link after:absolute after:inset-0 after:content-['']"
+                        >
+                          {f.title}
+                        </Link>
+                      </h3>
+                      <p className="mt-1.5 text-sm leading-relaxed text-muted">{f.desc}</p>
+                    </div>
+                  </Reveal>
                 );
               })}
             </div>
@@ -516,17 +556,16 @@ export default async function LandingPage() {
               <h2 className="display mt-2 text-3xl">{t('3 bước để bắt đầu')}</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {STEPS.map((s) => (
-                <div
-                  key={s.n}
-                  className="rounded-xl border-[1.5px] border-border bg-card p-7 text-center shadow-soft"
-                >
-                  <div className="mx-auto mb-3.5 inline-flex h-[52px] w-[52px] items-center justify-center rounded-[16px] bg-primary font-display text-2xl font-extrabold text-primary-foreground">
-                    {s.n}
+              {STEPS.map((s, index) => (
+                <Reveal key={s.n} index={index} className="flex">
+                  <div className="h-full w-full rounded-xl border-[1.5px] border-border bg-card p-7 text-center shadow-soft">
+                    <div className="mx-auto mb-3.5 inline-flex h-[52px] w-[52px] items-center justify-center rounded-[16px] bg-primary font-display text-2xl font-extrabold text-primary-foreground">
+                      {s.n}
+                    </div>
+                    <h4 className="font-display text-[18px] font-bold">{s.title}</h4>
+                    <p className="mt-1.5 text-sm text-muted">{s.desc}</p>
                   </div>
-                  <h4 className="font-display text-[18px] font-bold">{s.title}</h4>
-                  <p className="mt-1.5 text-sm text-muted">{s.desc}</p>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>

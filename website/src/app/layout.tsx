@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { Fraunces, Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -64,7 +63,12 @@ export const viewport = {
   ],
 };
 
-const PREFS_BOOTSTRAP = `try { var p = JSON.parse(localStorage.getItem('wv:prefs') || '{}'); ['radius','density','font','accent','sidebar'].forEach(function(k){ if(p[k]) document.documentElement.setAttribute('data-' + k, p[k]); }); } catch(e) {}`;
+// Runs before the first paint (Next's `beforeInteractive` strategy), so the
+// document carries its motion preference from the very first frame. The CSS
+// media query below already handles `prefers-reduced-motion` with no JS; the
+// attribute is what lets the reveal engine agree with that first paint instead
+// of arming a hidden state and discovering the preference a moment later.
+const PREFS_BOOTSTRAP = `try { var p = JSON.parse(localStorage.getItem('wv:prefs') || '{}'); ['radius','density','font','accent','sidebar'].forEach(function(k){ if(p[k]) document.documentElement.setAttribute('data-' + k, p[k]); }); } catch(e) {} try { document.documentElement.setAttribute('data-motion', window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduce' : 'full'); } catch(e) {}`;
 
 export default async function RootLayout({
   children,
@@ -88,6 +92,19 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={`${jakarta.variable} ${inter.variable} ${fraunces.variable}`}
     >
+      <head>
+        {/* Plain inline script, not `next/script`'s beforeInteractive queue:
+            Next 16 defers that queue through a chunk, which can land after the
+            browser's first paint (observed on this machine), and the whole
+            point here is that the document is in its reduced-motion state on
+            the very first frame. Executed while the head is parsed, it is
+            synchronously ahead of any body content. Same code as before, so
+            the stored appearance prefs behave exactly as they did. */}
+        <script
+          id="wv-prefs"
+          dangerouslySetInnerHTML={{ __html: PREFS_BOOTSTRAP }}
+        />
+      </head>
       <body className={jakarta.className}>
         {/* Answered by the service worker: empty for a fresh page, a generated
             stale-data bar when it just served this document from cache. It is
@@ -95,9 +112,6 @@ export default async function RootLayout({
             mismatch. See `public/sw.js` → offlineIndicatorResponse. */}
         {/* eslint-disable-next-line @next/next/no-css-tags -- a standalone URL is the point: the service worker answers it */}
         <link rel="stylesheet" href="/offline-indicator.css" />
-        <Script id="wv-prefs" strategy="beforeInteractive">
-          {PREFS_BOOTSTRAP}
-        </Script>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <I18nProvider locale={locale}>
             <div className="app-bg" aria-hidden />
