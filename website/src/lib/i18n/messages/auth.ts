@@ -22,6 +22,11 @@ export const auth = defineMessages({
   'Quên mật khẩu?': 'Forgot your password?',
   'Tối thiểu 8 ký tự': 'At least 8 characters',
   'Tạo tài khoản': 'Create an account',
+  // The registration consent line. It is split at the two links, so the
+  // English owns its article ("our") while the Vietnamese needs none; both read
+  // natively and the document names are the same keys the legal pages use.
+  'Tạo tài khoản là bạn đồng ý với': 'Creating an account means you agree to our',
+  'và': 'and',
   'Chưa có tài khoản?': 'No account yet?',
   'Đã có tài khoản?': 'Already have an account?',
 

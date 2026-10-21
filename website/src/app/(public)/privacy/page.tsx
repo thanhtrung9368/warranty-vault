@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const UPDATED = '05/06/2026';
+const UPDATED = '21/10/2026';
 
 // Long-form legal copy. A paragraph is one key, except where the ORIGINAL puts a
 // `<b>` or a `<code>` inside it: there the sentence is split at that markup and
@@ -47,7 +47,9 @@ export default async function PrivacyPage() {
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('2. Mã hoá & lưu trữ')}</h3>
+          <h3 id="encryption" className="display scroll-mt-24 text-lg">
+            {t('2. Mã hoá & lưu trữ')}
+          </h3>
           <p className="mt-2">
             {t('File đính kèm được mã hoá')} <b>{t('AES-256-GCM')}</b>{' '}
             {t(
@@ -98,17 +100,21 @@ export default async function PrivacyPage() {
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('5. Không quảng cáo, không tracking')}</h3>
+          <h3 id="no-ads" className="display scroll-mt-24 text-lg">
+            {t('5. Không quảng cáo, không tracking')}
+          </h3>
           <p className="mt-2">
             {t('Không gắn pixel, không Google Analytics, không Facebook SDK, không cookie quảng cáo.')}
           </p>
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('6. Quyền của mày')}</h3>
+          <h3 id="rights" className="display scroll-mt-24 text-lg">
+            {t('6. Quyền của mày')}
+          </h3>
           <p className="mt-2">
             {t('Mày có thể')} <b>{t('xuất toàn bộ dữ liệu')}</b>{' '}
-            {t('ra file JSON (Cài đặt → Dữ liệu) bất cứ lúc nào, và')}{' '}
+            {t('ra file JSON hoặc .zip kèm ảnh đã mã hoá (Cài đặt → Sao lưu & khôi phục) bất cứ lúc nào, và')}{' '}
             <b>{t('xoá tài khoản')}</b>{' '}
             {t(
               'để xoá vĩnh viễn mọi thiết bị, hoá đơn, ảnh và cài đặt. Thao tác xoá không thể hoàn tác.',
@@ -117,7 +123,9 @@ export default async function PrivacyPage() {
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('7. Liên hệ')}</h3>
+          <h3 id="contact" className="display scroll-mt-24 text-lg">
+            {t('7. Liên hệ')}
+          </h3>
           <p className="mt-2">
             {t('Có thắc mắc về dữ liệu:')}{' '}
             <a href="mailto:hi@warrly.com" className="font-semibold text-primary hover:underline">

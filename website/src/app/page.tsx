@@ -10,6 +10,10 @@ import {
   ArrowRight,
   CheckCircle2,
   Sparkles,
+  Tag,
+  LockKeyhole,
+  DoorOpen,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -127,6 +131,61 @@ function buildStage(t: Translator) {
   };
 }
 
+type FaqEntry = {
+  q: string;
+  a: string;
+  /** The public page that substantiates the answer, when one exists. */
+  href?: string;
+  link?: string;
+};
+
+// The FAQ is built inside the page for the same reason as the arrays above: its
+// keys are copy, so it must be assembled with the request's `t`, not at module
+// scope. The same array feeds both the visible accordion and the FAQPage
+// JSON-LD, so a search engine and a reader can never be told different things.
+function buildFaq(t: Translator): FaqEntry[] {
+  return [
+    {
+      q: t('Có thật là miễn phí không?'),
+      a: t(
+        'Có. Không có bậc trả phí, không cần thẻ, không quảng cáo. Giới hạn là các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Không có gì để nâng cấp.',
+      ),
+      href: '/terms#usage-limits',
+      link: t('Điều khoản, mục 4'),
+    },
+    {
+      q: t('Nếu tôi ngừng dùng thì hoá đơn của tôi ra sao?'),
+      a: t(
+        'Không có gì tự xoá chỉ vì bạn không đăng nhập. Dữ liệu nằm đó cho đến khi bạn tự xoá tài khoản. Trước khi đi, vào Cài đặt → Sao lưu & khôi phục để tải JSON (thông tin) hoặc .zip (kèm nội dung ảnh đã mã hoá). Bản JSON không chứa ảnh; ảnh trong .zip chỉ mở lại được khi khôi phục vào một máy chủ còn giữ đúng khoá đó.',
+      ),
+      href: '/privacy#rights',
+      link: t('Chính sách bảo mật, mục 6'),
+    },
+    {
+      q: t('Có dùng trên iPhone được không?'),
+      a: t(
+        'Được, qua Safari — không cần tải app. Trên iOS 16.4 trở lên, bạn có thể thêm Warrly vào màn hình chính rồi bật thông báo đẩy. Bản iOS native hiện là beta qua TestFlight, chưa có trên App Store.',
+      ),
+    },
+    {
+      q: t('Dữ liệu của tôi có an toàn không?'),
+      a: t(
+        'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có pixel theo dõi, không Google Analytics, không bán dữ liệu. Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.',
+      ),
+      href: '/privacy#encryption',
+      link: t('Chính sách bảo mật, mục 2'),
+    },
+    {
+      q: t('Các bạn có phải đơn vị bảo hành không?'),
+      a: t(
+        'Không. Warrly chỉ ghi lại ngày, hoá đơn và gửi lời nhắc. Bảo hành là hợp đồng giữa bạn với hãng hoặc cửa hàng; việc sửa chữa, đổi trả hay từ chối bảo hành do họ quyết định. Phần đánh giá bằng AI, nếu bạn bật, chỉ là gợi ý để bạn kiểm tra — không phải cam kết bảo hành.',
+      ),
+      href: '/terms#purpose',
+      link: t('Điều khoản, mục 1'),
+    },
+  ];
+}
+
 export default async function LandingPage() {
   // `locale` is needed for the compact language switch, not just for `t`: the
   // switcher marks the active language and posts the chosen one to the same
@@ -137,6 +196,19 @@ export default async function LandingPage() {
   const FEATURES = buildFeatures(t);
   const STEPS = buildSteps(t);
   const STAGE = buildStage(t);
+  const FAQ = buildFaq(t);
+
+  // The machine-readable copy of the same five answers. `<` is escaped so a
+  // future answer containing markup cannot close the script element early.
+  const faqJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  }).replace(/</g, '\\u003c');
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -420,6 +492,160 @@ export default async function LandingPage() {
           </div>
         </section>
 
+        {/* Price & limits.
+            This is the answer to the three "free forever" lines that used to
+            appear with no explanation anywhere. The limits are the Go service's
+            constants, and the exact same numbers are written into Terms §4 so
+            the link at the bottom of the first column really does substantiate
+            the list rather than pointing at a vague promise. */}
+        <section className="px-4 py-20 md:px-8" aria-labelledby="wv-price-title">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-10 text-center">
+              <span className="eyebrow">{t('Giá')}</span>
+              <h2 id="wv-price-title" className="display mt-2 text-3xl text-ink">
+                {t('Miễn phí. Đây là toàn bộ giới hạn.')}
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-muted">
+                {t('Không có bậc trả phí, không có bản "Pro" đang chờ. Đây là các con số máy chủ thật sự giữ.')}
+              </p>
+            </div>
+
+            <Reveal>
+              <div className="grid overflow-hidden rounded-xl border-[1.5px] border-border bg-card shadow-soft lg:grid-cols-3">
+                <div className="flex flex-col border-b-[1.5px] border-border p-7 lg:border-b-0 lg:border-r-[1.5px]">
+                  <Tag className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
+                  <p className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    {t('Gói duy nhất')}
+                  </p>
+                  <h3 className="mt-1 font-display text-[18px] font-bold tracking-tight text-ink">
+                    {t('Miễn phí, và đây là toàn bộ gói')}
+                  </h3>
+                  <ul className="mt-5 space-y-2.5 text-[13px] leading-relaxed text-ink-2">
+                    {[
+                      '50 thiết bị đang dùng — 500 dòng nếu tính cả máy đã bán',
+                      '5 gói bảo hành mỗi thiết bị',
+                      '5 tệp mỗi thiết bị, tối đa 5 MB mỗi tệp',
+                      '100 MB tổng dung lượng tệp của cả tài khoản',
+                      '100 gói đăng ký',
+                      '200 món wishlist',
+                    ].map((limit) => (
+                      <li key={limit} className="flex gap-2.5">
+                        <CheckCircle2
+                          className="mt-[3px] h-3.5 w-3.5 shrink-0"
+                          style={{ color: 'hsl(var(--emerald))' }}
+                          aria-hidden
+                        />
+                        {t(limit)}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href="/terms#usage-limits"
+                    className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
+                  >
+                    {t('Điều khoản, mục 4')} →
+                  </Link>
+                </div>
+
+                <div className="flex flex-col border-b-[1.5px] border-border p-7 lg:border-b-0 lg:border-r-[1.5px]">
+                  <LockKeyhole className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
+                  <p className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    {t('Dữ liệu của bạn')}
+                  </p>
+                  <h3 className="mt-1 font-display text-[18px] font-bold tracking-tight text-ink">
+                    {t('Hoá đơn là của bạn')}
+                  </h3>
+                  <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
+                    {t('Ảnh và PDF được mã hoá AES-256-GCM trên máy chủ. Mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống.')}
+                  </p>
+                  <p className="mt-3 text-[13px] leading-relaxed text-muted">
+                    {t('Không quảng cáo, không pixel theo dõi, không bán dữ liệu.')}
+                  </p>
+                  <Link
+                    href="/privacy"
+                    className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
+                  >
+                    {t('Chính sách bảo mật, mục 2 và 5')} →
+                  </Link>
+                </div>
+
+                <div className="flex flex-col p-7">
+                  <DoorOpen className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
+                  <p className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    {t('Ra đi')}
+                  </p>
+                  <h3 className="mt-1 font-display text-[18px] font-bold tracking-tight text-ink">
+                    {t('Đi bất cứ lúc nào')}
+                  </h3>
+                  <p className="mt-4 text-[13px] leading-relaxed text-ink-2">
+                    {t('Xuất mọi thứ ra JSON, hoặc .zip kèm nội dung ảnh đã mã hoá. Xoá tài khoản trong Cài đặt — không phải gửi yêu cầu qua email.')}
+                  </p>
+                  <Link
+                    href="/privacy#rights"
+                    className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
+                  >
+                    {t('Chính sách bảo mật, mục 6')} →
+                  </Link>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* FAQ.
+            Native <details>/<summary>: the accordion opens and closes with the
+            keyboard and with JavaScript disabled, and there is no client bundle
+            to pay for. The FAQPage JSON-LD is built from the same array above. */}
+        <section className="px-4 pb-20 md:px-8" aria-labelledby="wv-faq-title">
+          <div className="mx-auto max-w-3xl">
+            <div className="text-center">
+              <span className="eyebrow">{t('Hỏi thẳng')}</span>
+              <h2 id="wv-faq-title" className="display mt-2 text-3xl text-ink">
+                {t('Năm câu thường gặp.')}
+              </h2>
+              <p className="mx-auto mt-3 max-w-lg text-muted">
+                {t('Nếu câu bạn cần không có ở đây, email hỗ trợ ở cuối trang.')}
+              </p>
+            </div>
+
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: faqJsonLd }}
+            />
+
+            <Reveal>
+              <div className="mt-8 overflow-hidden rounded-xl border-[1.5px] border-border bg-card shadow-soft">
+                {FAQ.map((item, index) => (
+                  <details
+                    key={item.q}
+                    className={`group${index > 0 ? ' border-t-[1.5px] border-border' : ''}`}
+                  >
+                    <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-6 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+                      <h3 className="font-display text-[17px] font-bold tracking-tight text-ink">
+                        {item.q}
+                      </h3>
+                      <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] border-border text-muted transition-transform duration-200 group-open:rotate-45">
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                    </summary>
+                    <div className="px-6 pb-5 text-sm leading-relaxed text-muted">
+                      <p>{item.a}</p>
+                      {item.href && item.link ? (
+                        <Link
+                          href={item.href}
+                          className="mt-2 inline-block text-[13px] font-semibold text-primary hover:underline"
+                        >
+                          {item.link} →
+                        </Link>
+                      ) : null}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
         {/* Final CTA */}
         <section className="px-4 py-20 md:px-8">
           <div className="mx-auto max-w-2xl">
@@ -448,6 +674,28 @@ export default async function LandingPage() {
                 </Button>
               </div>
             </div>
+
+            {/* The proof next to the CTA is deliberately not a testimonial, a
+                rating or a user count: there are no users to count yet, and
+                inventing one would be the one thing this page cannot do. It is
+                a first-person note whose facts are in this repo (the 30-day
+                1-đổi-1 window, the warranty clock's varying start, the receipt
+                requirement, and the default 30/7-day lead-day schedule in
+                `services/leaddays.go`). No name is invented; the signature
+                says what the repo can prove. */}
+            <Reveal>
+              <div className="mt-6 rounded-xl border-[1.5px] border-border bg-card p-7 shadow-soft">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
+                  {t('Ghi chú từ người làm Warrly')}
+                </p>
+                <p className="mt-3 text-[17px] leading-relaxed text-ink-2">
+                  {t('Warrly bắt đầu từ một cái hạn 30 ngày. Ở Việt Nam, 30 ngày đầu có thể là hạn đổi 1 đổi 1; khi hạn đó qua, chiếc máy vẫn có thể còn bảo hành nhưng chỉ còn đường gửi sửa. Ngày bảo hành có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.')}
+                </p>
+                <p className="mt-4 text-[13px] font-semibold text-muted">
+                  {t('— Người làm Warrly')}
+                </p>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -469,7 +717,7 @@ export default async function LandingPage() {
                 year: new Date().getFullYear(),
               })}
             </div>
-            <div className="flex items-center gap-4 text-[13px]">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
               <Link href="/privacy" className="text-muted hover:text-ink">
                 Privacy
               </Link>
@@ -479,6 +727,11 @@ export default async function LandingPage() {
               <Link href="/cookies" className="text-muted hover:text-ink">
                 Cookies
               </Link>
+              {/* The support address is data, not copy: it is the same mailbox
+                  the privacy and terms pages already print. */}
+              <a href="mailto:hi@warrly.com" className="text-muted hover:text-ink">
+                {t('Hỗ trợ')}: hi@warrly.com
+              </a>
               <Link href="/login" className="font-semibold text-primary hover:underline">
                 {t('Đăng nhập')}
               </Link>

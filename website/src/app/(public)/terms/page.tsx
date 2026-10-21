@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const UPDATED = '05/06/2026';
+const UPDATED = '21/10/2026';
 
 // Long-form legal copy; see the note in `privacy/page.tsx` about splitting a
 // paragraph at inline markup. Email addresses are data, not copy.
@@ -31,7 +31,9 @@ export default async function TermsPage() {
         </p>
 
         <div>
-          <h3 className="display text-lg">{t('1. Dịch vụ & mục đích cá nhân')}</h3>
+          <h3 id="purpose" className="display scroll-mt-24 text-lg">
+            {t('1. Dịch vụ & mục đích cá nhân')}
+          </h3>
           <p className="mt-2">
             {t(
               'Warrly là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.',
@@ -58,25 +60,31 @@ export default async function TermsPage() {
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('4. Giới hạn sử dụng')}</h3>
+          <h3 id="usage-limits" className="display scroll-mt-24 text-lg">
+            {t('4. Giới hạn sử dụng')}
+          </h3>
           <p className="mt-2">
             {t(
-              'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có một số giới hạn (số thiết bị, số gói bảo hành/đính kèm mỗi thiết bị, dung lượng tải lên, số subscription/wishlist). Khi chạm giới hạn, ứng dụng sẽ báo bằng tiếng Việt.',
+              'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.',
             )}
           </p>
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('5. Không bảo đảm')}</h3>
+          <h3 id="no-warranty" className="display scroll-mt-24 text-lg">
+            {t('5. Không bảo đảm')}
+          </h3>
           <p className="mt-2">
             {t(
-              'Dịch vụ được cung cấp “nguyên trạng” (as-is). Bọn tao cố gắng giữ dữ liệu an toàn và nhắc nhở đúng hạn, nhưng không bảo đảm dịch vụ không gián đoạn hay không có lỗi. Hãy tự sao lưu dữ liệu quan trọng (Cài đặt → Dữ liệu → Sao lưu).',
+              'Dịch vụ được cung cấp “nguyên trạng” (as-is). Bọn tao cố gắng giữ dữ liệu an toàn và nhắc nhở đúng hạn, nhưng không bảo đảm dịch vụ không gián đoạn hay không có lỗi. Hãy tự sao lưu dữ liệu quan trọng (Cài đặt → Sao lưu & khôi phục).',
             )}
           </p>
         </div>
 
         <div>
-          <h3 className="display text-lg">{t('6. Chấm dứt')}</h3>
+          <h3 id="termination" className="display scroll-mt-24 text-lg">
+            {t('6. Chấm dứt')}
+          </h3>
           <p className="mt-2">
             {t(
               'Mày có thể xoá tài khoản bất cứ lúc nào trong phần Cài đặt — toàn bộ dữ liệu sẽ bị xoá vĩnh viễn. Bọn tao có thể tạm ngưng tài khoản nếu phát hiện hành vi lạm dụng hệ thống.',

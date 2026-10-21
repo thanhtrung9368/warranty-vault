@@ -165,6 +165,26 @@ export function AuthForm({
 
         <SubmitButton mode={mode} />
 
+        {/* Consent is asked for exactly where the account is created, and it is
+            a link to the real pages rather than a checkbox nobody can act on.
+            The sentence is split at the two links, the same pattern the legal
+            pages use for inline markup: each fragment is a whole translatable
+            unit and the English can use its own article ("the", "our") without
+            forcing the Vietnamese to grow one. */}
+        {mode === 'register' && (
+          <p className="text-center text-xs leading-relaxed text-muted">
+            {t('Tạo tài khoản là bạn đồng ý với')}{' '}
+            <Link href="/terms" className="font-semibold text-primary hover:underline">
+              {t('Điều khoản sử dụng')}
+            </Link>{' '}
+            {t('và')}{' '}
+            <Link href="/privacy" className="font-semibold text-primary hover:underline">
+              {t('Chính sách bảo mật')}
+            </Link>
+            .
+          </p>
+        )}
+
         <p className="text-center text-sm text-muted">
           {mode === 'login' ? (
             <>
