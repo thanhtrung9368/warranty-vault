@@ -132,7 +132,7 @@ export function BackupTools() {
     <div className="space-y-6">
       {/* Export */}
       <div className="space-y-3">
-        <h3 className="font-display text-[15px] font-bold text-ink">{t('Xuất dữ liệu')}</h3>
+        <h3 className="font-display text-lg font-bold text-ink">{t('Xuất dữ liệu')}</h3>
         <p className="text-sm text-muted-foreground">
           {t('Tải toàn bộ thiết bị, gói bảo hành, nhắc nhở, gói đăng ký và wishlist ra 1 file JSON. File đính kèm chỉ đi kèm phần mô tả (tên file, kích thước, đường dẫn) — ảnh gốc không nằm trong file backup. Ảnh được mã hoá AES-256-GCM và lưu trong kho riêng của máy chủ (không nằm trong thư mục public của web), nên file JSON không mang ảnh theo được.')}
         </p>
@@ -159,7 +159,7 @@ export function BackupTools() {
 
       {/* Export with attachment blobs */}
       <div className="space-y-3 rounded-lg border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
-        <h3 className="font-display text-[15px] font-bold text-ink">{t('Xuất kèm nội dung ảnh (.zip)')}</h3>
+        <h3 className="font-display text-lg font-bold text-ink">{t('Xuất kèm nội dung ảnh (.zip)')}</h3>
         <p className="text-sm text-muted-foreground">
           {t('Bản .zip chứa file data.json và toàn bộ nội dung đã mã hoá của từng file đính kèm (mỗi ảnh một entry attachments/…), nên khôi phục sang máy chủ mới mang theo được ảnh hoá đơn — thứ bản JSON chỉ có metadata không làm được.')}
         </p>
@@ -191,7 +191,7 @@ export function BackupTools() {
 
       {/* Import */}
       <div className="space-y-3">
-        <h3 className="font-display text-[15px] font-bold text-ink">{t('Nhập dữ liệu')}</h3>
+        <h3 className="font-display text-lg font-bold text-ink">{t('Nhập dữ liệu')}</h3>
         <p className="text-sm text-muted-foreground">
           {t('Chọn file .json (chỉ bản ghi) hoặc .zip (kèm nội dung ảnh đã mã hoá) đã xuất trước đó. Máy chủ tự nhận dạng file bằng nội dung, không cần đổi tên. Nhập lại chỉ khôi phục bản ghi (thiết bị, bảo hành, đăng ký, wishlist): với file JSON, ảnh cũ chỉ hiện lại nếu kho file trên máy chủ vẫn còn — muốn chắc thì dùng bản .zip.')}
         </p>

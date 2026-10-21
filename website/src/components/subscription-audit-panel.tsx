@@ -90,7 +90,7 @@ function FindingRow({
         {tag && (
           <span
             className={cn(
-              'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+              'inline-flex items-center rounded-pill px-2 py-0.5 text-xs font-bold uppercase tracking-wide',
               TONE_TAG[tone],
             )}
           >
@@ -102,7 +102,7 @@ function FindingRow({
 
       <p className="mt-1.5 text-xs text-muted-foreground">{finding.detail}</p>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         {/* QUIET_AUTO_RENEW — money already taken automatically. */}
         {finding.kind === 'QUIET_AUTO_RENEW' && (
           <>
@@ -194,7 +194,7 @@ function FindingRow({
             <Link
               key={s.id}
               href={s.href}
-              className="inline-flex items-center gap-1 rounded-pill border-[1.5px] border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-ink-2 transition-colors hover:border-border-strong hover:text-ink"
+              className="inline-flex items-center gap-1 rounded-pill border-[1.5px] border-border bg-card px-2.5 py-1 text-xs font-semibold text-ink-2 transition-colors hover:border-border-strong hover:text-ink"
             >
               {s.name}
               <ArrowRight className="h-3 w-3" />
@@ -215,9 +215,9 @@ export async function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAud
 
   if (!audit) {
     return (
-      <Card className="rounded-2xl border-[1.5px]">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2">
             <SearchCheck className="h-5 w-5 text-primary" />
             {t('Soát gói đăng ký')}
           </CardTitle>
@@ -235,9 +235,9 @@ export async function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAud
   const findings = audit.findings ?? [];
 
   return (
-    <Card className="rounded-2xl border-[1.5px]">
+    <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle className="flex items-center gap-2">
           <SearchCheck className="h-5 w-5 text-primary" />
           {t('Soát gói đăng ký')}
         </CardTitle>
@@ -245,13 +245,13 @@ export async function SubscriptionAuditPanel({ audit }: { audit: SubscriptionAud
           {/* `advisory` is a payload field, not an assumption: the panel only
               promises "no automatic changes" when the server says so. */}
           {audit.advisory && (
-            <span className="inline-flex items-center rounded-pill px-2.5 py-1 text-[11px] font-semibold tint-emerald">
+            <span className="inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-semibold tint-emerald">
               {t('Chỉ tư vấn — không tự sửa hay huỷ gì')}
             </span>
           )}
           <span
             className={cn(
-              'inline-flex items-center rounded-pill px-2.5 py-1 text-[11px] font-semibold',
+              'inline-flex items-center rounded-pill px-2.5 py-1 text-xs font-semibold',
               total > 0 ? 'tint-amber' : 'tint-zinc',
             )}
           >

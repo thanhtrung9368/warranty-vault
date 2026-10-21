@@ -1,4 +1,7 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import { Bell, Database, FileSpreadsheet, FileText, Info, Languages, Lock, MonitorSmartphone, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
 import { CsvExport } from '@/components/csv-export';
@@ -29,14 +32,16 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <p className="eyebrow">{t('Tài khoản')}</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Cài đặt')}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          {user.email} · {t('Quản lý tài khoản và dữ liệu cá nhân.')}
-        </p>
-      </div>
+    <PageShell className="mx-auto max-w-3xl">
+      <PageHeader
+        eyebrow={t('Tài khoản')}
+        title={t('Cài đặt')}
+        description={
+          <>
+            {user.email} · {t('Quản lý tài khoản và dữ liệu cá nhân.')}
+          </>
+        }
+      />
 
       <Section icon={<UserRound className="h-4 w-4" />} tint="tint-violet" title={t('Hồ sơ')}>
         <div className="space-y-4">
@@ -111,18 +116,18 @@ export default async function SettingsPage() {
         <CsvExport />
       </Section>
 
-      <section className="rounded-lg border-2 border-destructive/30 bg-destructive-soft/40 p-6">
-        <h2 className="mb-4 flex items-center gap-2 font-display text-[15px] font-bold text-destructive">
+      <Card padding="md" tone="danger">
+        <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-destructive">
           <span className="icon-badge icon-badge-sm tint-rose">
             <Trash2 className="h-4 w-4" />
           </span>
           {t('Xoá tài khoản')}
         </h2>
         <DeleteAccountForm />
-      </section>
+      </Card>
 
-      <section className="rounded-lg border-[1.5px] border-border bg-surface-2 p-6">
-        <h2 className="mb-3 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+      <Card padding="md" tone="muted">
+        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-ink">
           <span className="icon-badge icon-badge-sm tint-zinc">
             <Info className="h-4 w-4" />
           </span>
@@ -135,8 +140,8 @@ export default async function SettingsPage() {
           {/* No Vietnamese here: the stack list is already English. */}
           <p>Tech stack: Next.js 16, React 19, Go backend, Tailwind, shadcn/ui, recharts.</p>
         </div>
-      </section>
-    </div>
+      </Card>
+    </PageShell>
   );
 }
 
@@ -152,12 +157,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border-[1.5px] border-border bg-card p-6 shadow-soft">
-      <h2 className="mb-4 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+    <Card padding="md">
+      <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
         <span className={`icon-badge icon-badge-sm ${tint}`}>{icon}</span>
         {title}
       </h2>
       {children}
-    </section>
+    </Card>
   );
 }

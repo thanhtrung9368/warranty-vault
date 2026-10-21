@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import {
   Plus,
@@ -8,6 +10,7 @@ import {
   ClipboardPaste,
   ListPlus,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -57,22 +60,19 @@ export default async function DevicesPage({
   const isFiltered = Boolean(filter.q || filter.category || filter.status);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">{t('Kho thiết bị')}</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Thiết bị')}</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            {isFiltered
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Kho thiết bị')}
+        title={t('Thiết bị')}
+        description={isFiltered
               ? t('Tổng {count} thiết bị (đã lọc). Bấm vào từng cái để xem chi tiết.', {
                   count: devices.length,
                 })
               : t('Tổng {count} thiết bị. Bấm vào từng cái để xem chi tiết.', {
                   count: devices.length,
                 })}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        actions={
+          <>
           {/* đ/ngày (FEATURE_IDEAS #7) lives on /stats with the other money
               rollups; this is the link that makes it discoverable from the list.
               A sort option here would need every device's warranty costs (an
@@ -102,8 +102,9 @@ export default async function DevicesPage({
               {t('Thêm thiết bị')}
             </Link>
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <DevicesFilterBar categories={categories} />
 
@@ -138,26 +139,26 @@ export default async function DevicesPage({
           )}
         </>
       ) : (
-        <div className="overflow-hidden rounded-lg border-[1.5px] border-border bg-card">
+        <Card padding="none" className="overflow-hidden">
           <Table>
             <TableHeader className="bg-surface-2">
               <TableRow>
-                <TableHead className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <TableHead className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   {t('Tên')}
                 </TableHead>
-                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground sm:table-cell">
+                <TableHead className="hidden text-xs font-bold uppercase tracking-wide text-muted-foreground sm:table-cell">
                   {t('Loại')}
                 </TableHead>
-                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground lg:table-cell">
+                <TableHead className="hidden text-xs font-bold uppercase tracking-wide text-muted-foreground lg:table-cell">
                   {t('Giá')}
                 </TableHead>
-                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
+                <TableHead className="hidden text-xs font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
                   {t('Ngày mua')}
                 </TableHead>
-                <TableHead className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <TableHead className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   {t('Bảo hành')}
                 </TableHead>
-                <TableHead className="hidden text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
+                <TableHead className="hidden text-xs font-bold uppercase tracking-wide text-muted-foreground md:table-cell">
                   {t('Trạng thái')}
                 </TableHead>
               </TableRow>
@@ -214,7 +215,7 @@ export default async function DevicesPage({
                       {/* The raw price is meaningful only next to its currency;
                           show the server's VND value as the comparison line. */}
                       {d.currency !== 'VND' && d.purchasePriceVnd != null && (
-                        <span className="block text-[11px] font-normal text-muted-foreground">
+                        <span className="block text-xs font-normal text-muted-foreground">
                           ≈ {formatVND(d.purchasePriceVnd, locale)}
                         </span>
                       )}
@@ -240,8 +241,8 @@ export default async function DevicesPage({
               })}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       )}
-    </div>
+    </PageShell>
   );
 }

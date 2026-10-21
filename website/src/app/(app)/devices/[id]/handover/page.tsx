@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ClipboardCheck } from 'lucide-react';
@@ -42,31 +44,37 @@ export default async function DeviceHandoverPage({
       .at(-1) ?? null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
-          <Link href={`/devices/${device.id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('Quay lại chi tiết')}
-          </Link>
-        </Button>
-        <p className="eyebrow flex items-center gap-1.5">
-          <ClipboardCheck className="h-3.5 w-3.5" />
-          {t('Checklist bàn giao')}
-        </p>
-        <h1 className="display mt-1 text-3xl text-ink">
-          {t('Chuẩn bị đi bảo hành')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {device.name} • {categoryLabel(device.category, locale)}
-          {device.serialNumber ? ` • ${device.serialNumber}` : ''}
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t('Danh sách sinh riêng cho {name} — tick từng mục khi làm xong.', {
-            name: device.name,
-          })}
-        </p>
-      </div>
+    <PageShell className="mx-auto max-w-3xl">
+      <PageHeader
+        back={
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+            <Link href={`/devices/${device.id}`}>
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {t('Quay lại chi tiết')}
+            </Link>
+          </Button>
+        }
+        eyebrow={
+          <span className="flex items-center gap-1.5">
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            {t('Checklist bàn giao')}
+          </span>
+        }
+        title={t('Chuẩn bị đi bảo hành')}
+        description={
+          <>
+            <span className="block">
+              {device.name} • {categoryLabel(device.category, locale)}
+              {device.serialNumber ? ` • ${device.serialNumber}` : ''}
+            </span>
+            <span className="mt-1 block">
+              {t('Danh sách sinh riêng cho {name} — tick từng mục khi làm xong.', {
+                name: device.name,
+              })}
+            </span>
+          </>
+        }
+      />
 
       {/* `key` resets the tick state if Next reuses this component for another
           device. The list has no persistence by design; carrying ticks across
@@ -81,6 +89,6 @@ export default async function DeviceHandoverPage({
           warrantyEnd,
         }}
       />
-    </div>
+    </PageShell>
   );
 }

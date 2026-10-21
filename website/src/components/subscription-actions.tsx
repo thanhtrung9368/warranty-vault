@@ -75,8 +75,8 @@ export function LogPaymentDialog({
           Log payment
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md rounded-2xl border-[1.5px]">
-        <DialogTitle className="font-display text-xl text-ink">
+      <DialogContent className="max-w-md rounded-lg border-[1.5px]">
+        <DialogTitle className="font-display text-ink">
           {t('Log một lần thanh toán')}
         </DialogTitle>
         <div className="space-y-3 pt-2">

@@ -22,6 +22,7 @@
 
 import * as React from 'react';
 import { ExternalLink, Loader2, Search, ShieldCheck } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -167,7 +168,7 @@ export function BrandWarrantyFormSection({
     : null;
 
   return (
-    <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+    <Card padding="md" tone="muted" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className="icon-badge icon-badge-sm tint-sky mt-0.5">
@@ -311,7 +312,7 @@ export function BrandWarrantyFormSection({
                 stampCheckedAt();
               }}
             />
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t('Dán link bạn đã mở (không bắt buộc)')}
             </p>
             <FieldError errors={errors?.brandLookupUrl} />
@@ -359,6 +360,6 @@ export function BrandWarrantyFormSection({
 
       {/* Always submitted, even while the fields are collapsed or cleared. */}
       <input type="hidden" name="brandCheckedAt" value={checkedAt} />
-    </div>
+    </Card>
   );
 }

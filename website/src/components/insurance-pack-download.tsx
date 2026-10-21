@@ -18,6 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/i18n/client';
 import {
@@ -114,7 +115,8 @@ export function InsurancePackDownload() {
         <p>{copy.vietnameseNote}</p>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border-[1.5px] border-border bg-surface-2 p-4">
+      <Card asChild padding="sm" tone="muted" className="flex cursor-pointer items-start gap-3">
+        <label>
         <input
           type="checkbox"
           checked={includeSold}
@@ -135,6 +137,7 @@ export function InsurancePackDownload() {
           </span>
         </span>
       </label>
+      </Card>
 
       <p className="text-xs font-medium text-muted-foreground">{copy.scope}</p>
 

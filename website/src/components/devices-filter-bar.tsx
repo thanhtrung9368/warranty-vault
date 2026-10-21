@@ -154,7 +154,7 @@ export function DevicesFilterBar({ categories }: { categories: CategoryOption[] 
               onValueChange={(v) => update('category', v || undefined)}
             >
               <SelectTrigger
-                className="!h-8 !w-auto !rounded-pill !border-0 !bg-transparent !px-3.5 !py-0 !text-[13px] !font-semibold !text-muted !shadow-none !ring-0 hover:!text-ink focus-visible:!ring-0 data-[state=open]:!bg-card data-[state=open]:!text-ink data-[state=open]:!shadow-soft [&>svg]:!h-3.5 [&>svg]:!w-3.5"
+                className="!h-8 !w-auto !rounded-pill !border-0 !bg-transparent !px-3.5 !py-0 !text-sm !font-semibold !text-muted !shadow-none !ring-0 hover:!text-ink focus-visible:!ring-0 data-[state=open]:!bg-card data-[state=open]:!text-ink data-[state=open]:!shadow-soft [&>svg]:!h-3.5 [&>svg]:!w-3.5"
                 aria-label={t('Loại khác')}
               >
                 <SelectValue placeholder={t('Loại khác…')} />

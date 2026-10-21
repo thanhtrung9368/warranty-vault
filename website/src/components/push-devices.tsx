@@ -59,10 +59,10 @@ export function PushDevices({
 
   return (
     <div className="mt-5 border-t border-border pt-5">
-      <h3 className="font-display text-[15px] font-bold text-ink">
+      <h3 className="font-display text-lg font-bold text-ink">
         {t('Thiết bị nhận thông báo')}
         {!unavailable && subscriptions.length > 0 && (
-          <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+          <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">
             {subscriptions.length}
           </span>
         )}

@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -44,18 +46,20 @@ export default async function EditDevicePage({
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))[0];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
-          <Link href={`/devices/${device.id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('Quay lại chi tiết')}
-          </Link>
-        </Button>
-        <p className="eyebrow">{t('Cập nhật')}</p>
-        <h1 className="display mt-1 text-3xl text-ink">{t('Sửa thiết bị')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{device.name}</p>
-      </div>
+    <PageShell className="mx-auto max-w-3xl">
+      <PageHeader
+        back={
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+            <Link href={`/devices/${device.id}`}>
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {t('Quay lại chi tiết')}
+            </Link>
+          </Button>
+        }
+        eyebrow={t('Cập nhật')}
+        title={t('Sửa thiết bị')}
+        description={device.name}
+      />
       <DeviceForm
         catalog={catalog}
         initial={{
@@ -111,6 +115,6 @@ export default async function EditDevicePage({
         }}
         brandLookupUrl={brandLookup.lookupUrl}
       />
-    </div>
+    </PageShell>
   );
 }

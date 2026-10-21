@@ -28,6 +28,7 @@ import {
   Wallet,
   Wrench,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   ClaimForm,
@@ -80,9 +81,11 @@ function ClaimCard({
   };
 
   return (
-    <div
+    <Card
       id={claimAnchorId(claim.id)}
-      className="scroll-mt-24 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5"
+      padding="md"
+      tone="muted"
+      className="scroll-mt-24"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -186,7 +189,7 @@ function ClaimCard({
         <div className="mt-3 grid gap-2 border-t border-dashed border-border pt-3 text-sm sm:grid-cols-2">
           {claim.diagnosis && (
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {t('Chẩn đoán')}
               </p>
               <p className="mt-0.5 whitespace-pre-wrap text-ink-2">{claim.diagnosis}</p>
@@ -194,7 +197,7 @@ function ClaimCard({
           )}
           {claim.outcome && (
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 {t('Kết quả')}
               </p>
               <p className="mt-0.5 whitespace-pre-wrap text-ink-2">{claim.outcome}</p>
@@ -213,7 +216,7 @@ function ClaimCard({
           deviceId={claim.deviceId}
         />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -285,9 +288,10 @@ export function ClaimList({
 
       {ordered.map((claim) =>
         claim.id === editingId ? (
-          <div
+          <Card
             key={claim.id}
-            className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5"
+            padding="md"
+            className="border-primary bg-primary-soft"
           >
             <h4 className="mb-3 text-sm font-bold text-primary-ink">
               {t('Sửa phiếu sửa chữa')}
@@ -299,7 +303,7 @@ export function ClaimList({
               initial={claim as ClaimInitial}
               onCancel={() => setEditingId(null)}
             />
-          </div>
+          </Card>
         ) : (
           <ClaimCard
             key={claim.id}
@@ -318,7 +322,7 @@ export function ClaimList({
       )}
 
       {adding && (
-        <div className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5">
+        <Card padding="md" className="border-primary bg-primary-soft">
           <h4 className="mb-3 text-sm font-bold text-primary-ink">
             {t('Thêm phiếu sửa chữa')}
           </h4>
@@ -328,7 +332,7 @@ export function ClaimList({
             warranties={warranties}
             onCancel={() => setAdding(false)}
           />
-        </div>
+        </Card>
       )}
 
       {!adding && editing === null && (

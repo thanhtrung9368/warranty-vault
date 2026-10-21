@@ -90,7 +90,7 @@ export function AttachmentUploader({
           accept(e.dataTransfer.files);
         }}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
           dragOver
             ? 'border-primary bg-primary-soft'
             : 'border-border-strong bg-surface-2 hover:bg-primary-soft/60'
@@ -115,7 +115,7 @@ export function AttachmentUploader({
       </div>
 
       {files.length > 0 && (
-        <div className="space-y-2 rounded-2xl border-[1.5px] border-border p-4">
+        <div className="space-y-2 rounded-lg border-[1.5px] border-border p-4">
           <ul className="space-y-1.5 text-sm">
             {files.map((f, i) => (
               <li

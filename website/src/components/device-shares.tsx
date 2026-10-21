@@ -244,7 +244,7 @@ export function DeviceShares({
               {t('Tạo link chia sẻ')}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl border-[1.5px]">
+          <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-lg border-[1.5px]">
             {created ? (
               <CreatedSharePanel
                 url={created.url}
@@ -322,7 +322,7 @@ export function DeviceShares({
                         onChange={(e) => setIncludeSerial(e.target.checked)}
                         className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                       />
-                      <span className="text-[13px] font-semibold text-ink-2">
+                      <span className="text-sm font-semibold text-ink-2">
                         {t(SHARE_SERIAL_LABEL)}
                       </span>
                     </label>

@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import {
   Plus,
@@ -8,6 +10,7 @@ import {
   Heart,
   ImageIcon,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { EmptyState } from '@/components/empty-state';
@@ -154,14 +157,14 @@ export default async function WishlistPage({
   ]);
   if (!listRes.ok) {
     return (
-      <div className="space-y-4">
-        <h1 className="display text-3xl text-ink">{t('Đang thèm')}</h1>
-        <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+      <PageShell>
+        <PageHeader eyebrow={t('Đang thèm')} title="Wishlist" />
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải wishlist: {message}', {
             message: listRes.message ?? listRes.error,
           })}
         </div>
-      </div>
+      </PageShell>
     );
   }
   const all = listRes.data.items;
@@ -172,29 +175,30 @@ export default async function WishlistPage({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">{t('Đang thèm')}</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">Wishlist</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            {t('Hiển thị {count} món{filtered}. Note lại đồ mày đang để mắt — đợi sale là nhào vô.', {
-              count: items.length,
-              filtered: isFiltered ? t(' (đã lọc)') : '',
-            })}
-          </p>
-        </div>
-        <Button asChild size="lg" className="rounded-pill">
-          <Link href="/wishlist/new">
-            <Plus className="mr-1 h-4 w-4" />
-            {t('Thêm món')}
-          </Link>
-        </Button>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Đang thèm')}
+        title="Wishlist"
+        description={t(
+          'Hiển thị {count} món{filtered}. Note lại đồ mày đang để mắt — đợi sale là nhào vô.',
+          {
+            count: items.length,
+            filtered: isFiltered ? t(' (đã lọc)') : '',
+          },
+        )}
+        actions={
+          <Button asChild size="lg" className="rounded-pill">
+            <Link href="/wishlist/new">
+              <Plus className="mr-1 h-4 w-4" />
+              {t('Thêm món')}
+            </Link>
+          </Button>
+        }
+      />
 
       {totals.count > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="stat-card tint-rose">
+          <Card padding="md" className="stat-card tint-rose">
             <p className="stat-eyebrow">{t('Đang theo dõi')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-rose-ink">
               {totals.count}
@@ -202,15 +206,15 @@ export default async function WishlistPage({
             <p className="mt-1 text-xs opacity-80">
               {t('món trong list', { count: totals.count })}
             </p>
-          </div>
-          <div className="stat-card tint-violet">
+          </Card>
+          <Card padding="md" className="stat-card tint-violet">
             <p className="stat-eyebrow">{t('Tổng tiền')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-violet-ink">
               {formatVND(totals.totalPrice, locale)}
             </p>
             <p className="mt-1 text-xs opacity-80">{t('theo giá hiện tại')}</p>
-          </div>
-          <div className="stat-card tint-amber">
+          </Card>
+          <Card padding="md" className="stat-card tint-amber">
             <p className="stat-eyebrow">{t('Sắp tới')}</p>
             {totals.upcoming.length === 0 ? (
               <p className="mt-2 text-sm opacity-80">{t('Chưa đặt ngày dự kiến')}</p>
@@ -232,7 +236,7 @@ export default async function WishlistPage({
                 ))}
               </ul>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
@@ -261,11 +265,12 @@ export default async function WishlistPage({
             const priority = it.priority as WishlistPriority;
             const status = it.status as WishlistStatus;
             return (
-              <Link
+              <Card
+                asChild
                 key={it.id}
-                href={`/wishlist/${it.id}`}
-                className="group flex h-full flex-col gap-4 rounded-2xl border-[1.5px] border-border bg-card p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-lift"
+                className="group flex h-full flex-col gap-4 p-card transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-lift"
               >
+                <Link href={`/wishlist/${it.id}`}>
                 {/* Thumb / dashed placeholder */}
                 <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-dashed border-border-strong bg-surface-2">
                   {it.imageUrl ? (
@@ -289,7 +294,7 @@ export default async function WishlistPage({
                   <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-semibold shadow-soft',
+                        'inline-flex items-center rounded-pill px-2 py-0.5 text-xs font-semibold shadow-soft',
                         PRIORITY_PILL[priority] ?? 'bg-zinc-soft text-ink-2',
                       )}
                     >
@@ -297,7 +302,7 @@ export default async function WishlistPage({
                     </span>
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-semibold shadow-soft',
+                        'inline-flex items-center rounded-pill px-2 py-0.5 text-xs font-semibold shadow-soft',
                         STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
                       )}
                     >
@@ -328,13 +333,13 @@ export default async function WishlistPage({
                 <div className="mt-auto grid grid-cols-2 gap-3 border-t border-dashed border-border pt-4">
                   <div>
                     <p className="eyebrow">{t('Hiện tại')}</p>
-                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink">
+                    <p className="mt-1 font-display text-2xl font-bold tabular-nums text-ink">
                       {it.currentPrice ? formatVND(it.currentPrice, locale) : '—'}
                     </p>
                     {delta && (
                       <span
                         className={cn(
-                          'mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-semibold',
+                          'mt-0.5 inline-flex items-center gap-0.5 text-xs font-semibold',
                           delta.down ? 'text-emerald-ink' : 'text-rose-ink',
                         )}
                       >
@@ -353,18 +358,19 @@ export default async function WishlistPage({
                       {it.initialPrice ? formatVND(it.initialPrice, locale) : '—'}
                     </p>
                     {it.targetDate && (
-                      <span className="mt-0.5 inline-flex items-center gap-1 rounded-pill bg-amber-soft px-2 py-0.5 text-[10px] font-semibold text-amber-ink">
+                      <span className="mt-0.5 inline-flex items-center gap-1 rounded-pill bg-amber-soft px-2 py-0.5 text-xs font-semibold text-amber-ink">
                         <Calendar className="h-3 w-3" />
                         {formatDate(it.targetDate, locale)}
                       </span>
                     )}
                   </div>
                 </div>
-              </Link>
+                </Link>
+              </Card>
             );
           })}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

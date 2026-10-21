@@ -23,7 +23,7 @@ export default async function TermsPage() {
       <h1 className="display text-3xl">{t('Điều khoản sử dụng')}</h1>
       <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
 
-      <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
+      <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
         <p>
           {t(
             'Dùng Warrly tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn và dễ hiểu.',

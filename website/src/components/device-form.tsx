@@ -23,6 +23,7 @@ import {
   TrendingUp,
   RefreshCw,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -913,7 +914,7 @@ export function DeviceForm({
   const showPriceDefault = !isEdit && !touched.price && purchasePriceDisplay === '';
   const showWarrantyDefault = !isEdit && !touched.warranty && warrantyMonths === 12;
   const defaultTag = (
-    <span className="ml-1.5 inline-flex items-center rounded-pill bg-surface-2 px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+    <span className="ml-1.5 inline-flex items-center rounded-pill bg-surface-2 px-2 py-0.5 align-middle text-xs font-bold uppercase tracking-wide text-muted-foreground">
       {t('mặc định')}
     </span>
   );
@@ -933,7 +934,7 @@ export function DeviceForm({
         <input type="hidden" name="fromWishlistId" value={fromWishlistId} />
       ) : null}
 
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 md:p-8">
+      <Card padding="md">
         <Stepper current={step} />
         <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {t('Bước {step}/{total}', { step: step + 1, total: STEPS.length })} ·{' '}
@@ -962,7 +963,7 @@ export function DeviceForm({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={scanning}
-                className="flex w-full items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-left transition hover:bg-primary/10 disabled:opacity-60"
+                className="flex w-full items-center gap-3 rounded-lg border-[1.5px] border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-left transition hover:bg-primary/10 disabled:opacity-60"
               >
                 {scanning ? (
                   <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
@@ -1472,7 +1473,7 @@ export function DeviceForm({
               omitted key would erase an activation recorded on another client.
               `activatedAt` is never compared with `purchaseDate` — a shop can
               pre-activate, and the server accepts that. */}
-          <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+          <Card padding="md" tone="muted" className="space-y-4">
             <div className="flex items-start gap-3">
               <span className="icon-badge icon-badge-sm tint-emerald mt-0.5">
                 <ShieldCheck className="h-4 w-4" />
@@ -1553,7 +1554,7 @@ export function DeviceForm({
                 </p>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Brand warranty lookup (frozen contract): the brand's own system may
               disagree with the invoice about when cover started. The section is
@@ -1578,13 +1579,13 @@ export function DeviceForm({
               The control is inside this always-mounted step div (steps are
               hidden with CSS, never unmounted), so its hidden inputs submit
               from every step. */}
-          <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+          <Card padding="md" tone="muted">
             <LeadDaysField
               value={leadDays}
               onChange={setLeadDays}
               errors={errors.leadDays}
             />
-          </div>
+          </Card>
         </div>
 
         {/* ───── Step 4 — Xác nhận ───── */}
@@ -1627,7 +1628,7 @@ export function DeviceForm({
               Independent of `status`: the server accepts status SOLD with no
               figures, and figures without SOLD. Both, or neither, is enforced
               for the money pair itself (mirrored client-side by validateSale). */}
-          <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+          <Card padding="md" tone="muted" className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-start gap-3">
                 <span className="icon-badge icon-badge-sm tint-sky mt-0.5">
@@ -1711,10 +1712,10 @@ export function DeviceForm({
                 )}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Summary card — quick review before saving */}
-          <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+          <Card padding="md" tone="muted">
             <p className="eyebrow mb-3">{t('Kiểm tra lại')}</p>
             <div className="grid gap-x-6 sm:grid-cols-2">
               <div className="info-row">
@@ -1827,7 +1828,7 @@ export function DeviceForm({
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         <hr className="mt-7 border-border" />
@@ -1881,7 +1882,7 @@ export function DeviceForm({
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Always-mounted fields that don't belong to a visible step on the create flow.
           When editing, status lives on step 4; otherwise it gets a default. */}

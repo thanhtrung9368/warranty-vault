@@ -1,21 +1,23 @@
+import { PageShell } from '@/components/page-shell';
 import {
   PageHeaderSkeleton,
   Skeleton,
+  SkeletonCard,
   SkeletonRows,
 } from '@/components/ui/skeleton';
 
 export default function Loading() {
   return (
-    <div className="space-y-6">
+    <PageShell>
       <PageHeaderSkeleton />
-      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
+      <SkeletonCard className="space-y-3">
         <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-28 w-full rounded-2xl" />
-      </div>
-      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
+        <Skeleton className="h-28 w-full rounded-lg" />
+      </SkeletonCard>
+      <SkeletonCard className="space-y-3">
         <Skeleton className="h-5 w-56" />
         <SkeletonRows count={3} />
-      </div>
-    </div>
+      </SkeletonCard>
+    </PageShell>
   );
 }

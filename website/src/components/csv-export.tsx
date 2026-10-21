@@ -14,6 +14,7 @@
 import * as React from 'react';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { exportCsv } from '@/app/actions/csv';
 import { CSV_DATASET_META, CSV_DATASETS, type CsvDataset } from '@/lib/csv-export';
@@ -74,7 +75,7 @@ export function CsvExport() {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         {t('Tải danh sách ra file')}{' '}
-        <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs">.csv</code>{' '}
+        <code className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-xs">.csv</code>{' '}
         {t(
           'để mở bằng Excel hoặc Google Sheets — tiện khi cần gửi cho người khác, dán vào báo giá, hoặc tự tính toán lại. File có kèm',
         )}{' '}
@@ -109,10 +110,8 @@ export function CsvExport() {
           const meta = CSV_DATASET_META[dataset];
           const isBusy = busy === dataset;
           return (
-            <li
-              key={dataset}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-lg border-[1.5px] border-border bg-surface-2 p-4"
-            >
+            <Card asChild padding="sm" tone="muted" key={dataset} className="flex flex-wrap items-start justify-between gap-3">
+              <li>
               <div className="min-w-[220px] flex-1">
                 <div className="flex items-center gap-2">
                   <span className="icon-badge icon-badge-sm tint-emerald">
@@ -137,7 +136,8 @@ export function CsvExport() {
                 )}
                 {t('Tải CSV')}
               </Button>
-            </li>
+              </li>
+            </Card>
           );
         })}
       </ul>

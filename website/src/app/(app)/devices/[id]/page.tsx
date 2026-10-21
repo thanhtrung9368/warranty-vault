@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -206,7 +208,7 @@ export default async function DeviceDetailPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <PageShell className="mx-auto max-w-5xl">
       <div>
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/devices">
@@ -216,39 +218,40 @@ export default async function DeviceDetailPage({
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <CategoryIconBadge category={device.category} size="lg" />
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="display text-2xl text-ink md:text-3xl">{device.name}</h1>
-              <DeviceStatusPill status={status} />
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {category}
-              {device.brand ? ` • ${device.brand}` : ''}
-              {device.model ? ` • ${device.model}` : ''}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm" className="rounded-pill">
-            <Link href={`/devices/${device.id}/edit`}>
-              <Pencil className="mr-1 h-4 w-4" />
-              {t('Sửa')}
-            </Link>
-          </Button>
-          <DeleteDeviceButton id={device.id} name={device.name} />
-        </div>
-      </div>
+      <PageHeader
+        leading={<CategoryIconBadge category={device.category} size="lg" />}
+        eyebrow={category}
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {device.name}
+            <DeviceStatusPill status={status} />
+          </span>
+        }
+        description={
+          device.brand || device.model
+            ? [device.brand, device.model].filter(Boolean).join(' • ')
+            : undefined
+        }
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm" className="rounded-pill">
+              <Link href={`/devices/${device.id}/edit`}>
+                <Pencil className="mr-1 h-4 w-4" />
+                {t('Sửa')}
+              </Link>
+            </Button>
+            <DeleteDeviceButton id={device.id} name={device.name} />
+          </>
+        }
+      />
 
       {deviceWarnings.length > 0 && <DeviceWarningsBanner warnings={deviceWarnings} />}
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-6">
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-primary" />
                 {t('Mua hàng')}
               </CardTitle>
@@ -307,9 +310,9 @@ export default async function DeviceDetailPage({
           {/* Sale information is rendered only when a sale was actually
               recorded — an unsold device shows no empty money rows. */}
           {saleRecorded && (
-            <Card className="rounded-2xl border-[1.5px]">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
+                <CardTitle className="flex items-center gap-2">
                   <HandCoins className="h-5 w-5 text-sky-ink" />
                   {t('Bán lại')}
                 </CardTitle>
@@ -366,9 +369,9 @@ export default async function DeviceDetailPage({
             </Card>
           )}
 
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-emerald-ink" />
                 {t('Tổng quan bảo hành')}
               </CardTitle>
@@ -472,9 +475,9 @@ export default async function DeviceDetailPage({
               left exactly where it was (it is the manage/delete surface, not
               the first-upload nudge). */}
           {device.attachments.length === 0 && (
-            <Card className="rounded-2xl border-[1.5px] border-primary/30 bg-primary-soft/50">
+            <Card tone="primary">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
+                <CardTitle className="flex items-center gap-2">
                   <Paperclip className="h-5 w-5 text-primary" />
                   {t('Giữ lại hoá đơn')}
                 </CardTitle>
@@ -507,9 +510,9 @@ export default async function DeviceDetailPage({
           {/* Pre-service handover checklist. The card is the entry point; the
               generated list and its tick-boxes live on `/devices/[id]/handover`
               because the full list would bury the rest of this page. */}
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <ClipboardCheck className="h-5 w-5 text-primary" />
                 {t('Chuẩn bị đi bảo hành')}
               </CardTitle>
@@ -540,9 +543,9 @@ export default async function DeviceDetailPage({
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary" />
                 {t('Gói bảo hành')}{' '}
                 <span className="font-medium text-muted-foreground">
@@ -591,9 +594,9 @@ export default async function DeviceDetailPage({
               `id="claims"` is the fallback target of the 409 link when the
               follow-up read could not name the open case; each row carries its
               own `claim-<id>` anchor. */}
-          <Card id="claims" className="scroll-mt-24 rounded-2xl border-[1.5px]">
+          <Card id="claims" className="scroll-mt-24">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <Wrench className="h-5 w-5 text-amber-ink" />
                 {t('Sửa chữa & bảo hành')}
               </CardTitle>
@@ -618,9 +621,9 @@ export default async function DeviceDetailPage({
               at the counter — "giờ tôi mang máy đi đâu". Sits directly under the
               warranty packages because it answers per package, and it is honest
               about what the app does not know (see @/lib/service-directory). */}
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-sky-ink" />
                 {t('Đi bảo hành ở đâu')}
               </CardTitle>
@@ -636,9 +639,9 @@ export default async function DeviceDetailPage({
           {/* Phiếu bàn giao + link chia sẻ (FEATURE_IDEAS #2). The certificate
               itself is an HTML page served by the API on its own origin; this
               section only manages links to it. */}
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <Share2 className="h-5 w-5 text-primary" />
                 {t('Phiếu bàn giao & link chia sẻ')}
               </CardTitle>
@@ -654,9 +657,9 @@ export default async function DeviceDetailPage({
           </Card>
 
           {device.notes && (
-            <Card className="rounded-2xl border-[1.5px]">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
+                <CardTitle className="flex items-center gap-2">
                   <StickyNote className="h-5 w-5 text-muted-foreground" />
                   {t('Ghi chú')}
                 </CardTitle>
@@ -675,9 +678,9 @@ export default async function DeviceDetailPage({
               the money cards and above the attachment list: it is the one money
               figure on this page that is divided by time, i.e. the only one that
               can answer "món này có đáng tiền không". */}
-          <Card className="rounded-2xl border-[1.5px]">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <Coins className="h-5 w-5 text-amber-ink" />
                 {t('Chi phí sử dụng')}
               </CardTitle>
@@ -782,9 +785,9 @@ export default async function DeviceDetailPage({
           {/* `id="attachments"` is the target of a search hit for a filed
               receipt (`attachmentSearchHref`); scroll-mt keeps it clear of the
               sticky topbar. */}
-          <Card id="attachments" className="scroll-mt-24 rounded-2xl border-[1.5px]">
+          <Card id="attachments" className="scroll-mt-24">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <Paperclip className="h-5 w-5 text-primary" />
                 {t('File đính kèm ({count})', { count: device.attachments.length })}{' '}
                 <span className="font-medium text-muted-foreground">
@@ -802,9 +805,9 @@ export default async function DeviceDetailPage({
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-[1.5px] bg-surface-2">
+          <Card tone="muted">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <Info className="h-5 w-5 text-muted-foreground" />
                 {t('Thông tin nhanh')}
               </CardTitle>
@@ -830,6 +833,6 @@ export default async function DeviceDetailPage({
           </Card>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

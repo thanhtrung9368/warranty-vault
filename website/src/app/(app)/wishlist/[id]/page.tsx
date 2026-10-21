@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -16,6 +18,7 @@ import {
   LineChart as LineChartIcon,
   Zap,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { PriceHistoryChart } from '@/components/charts/price-history';
@@ -62,17 +65,23 @@ export default async function WishlistDetailPage({
   if (!res.ok) {
     if (res.status === 404) notFound();
     return (
-      <div className="space-y-4">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
-          <Link href="/wishlist">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Wishlist
-          </Link>
-        </Button>
-        <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+      <PageShell className="mx-auto max-w-5xl">
+        <PageHeader
+          back={
+            <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+              <Link href="/wishlist">
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Wishlist
+              </Link>
+            </Button>
+          }
+          eyebrow={t('Đang thèm')}
+          title="Wishlist"
+        />
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải món: {message}', { message: res.message ?? res.error })}
         </div>
-      </div>
+      </PageShell>
     );
   }
   const item = res.data.item;
@@ -99,7 +108,7 @@ export default async function WishlistDetailPage({
   const status = item.status as WishlistStatus;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <PageShell className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/wishlist">
@@ -130,41 +139,41 @@ export default async function WishlistDetailPage({
         </div>
       </div>
 
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft md:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <CategoryIconBadge category={item.category ?? 'OTHER'} size="lg" />
-            <div className="min-w-0">
-              <h1 className="display text-3xl text-ink">{item.name}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {item.brand}
-                {item.brand && item.category ? ' • ' : ''}
-                {item.category ? categoryLabel(item.category, locale) : ''}
-              </p>
+      <Card padding="md">
+        <PageHeader
+          leading={<CategoryIconBadge category={item.category ?? 'OTHER'} size="lg" />}
+          title={item.name}
+          description={
+            <>
+              {item.brand}
+              {item.brand && item.category ? ' • ' : ''}
+              {item.category ? categoryLabel(item.category, locale) : ''}
+            </>
+          }
+          actions={
+            <div className="flex flex-col items-end gap-1.5">
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-pill px-3 py-1 text-xs font-semibold',
+                  STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
+                )}
+              >
+                {wishlistStatusLabel(status, locale)}
+              </span>
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-pill px-3 py-1 text-xs font-semibold',
+                  PRIORITY_PILL[priority] ?? 'bg-zinc-soft text-ink-2',
+                )}
+              >
+                {wishlistPriorityLabel(priority, locale)}
+              </span>
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span
-              className={cn(
-                'inline-flex items-center rounded-pill px-3 py-1 text-xs font-semibold',
-                STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
-              )}
-            >
-              {wishlistStatusLabel(status, locale)}
-            </span>
-            <span
-              className={cn(
-                'inline-flex items-center rounded-pill px-3 py-1 text-xs font-semibold',
-                PRIORITY_PILL[priority] ?? 'bg-zinc-soft text-ink-2',
-              )}
-            >
-              {wishlistPriorityLabel(priority, locale)}
-            </span>
-          </div>
-        </div>
+          }
+        />
 
         {item.purchasedDeviceId && (
-          <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-soft px-4 py-3 text-sm text-emerald-ink">
+          <div className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-soft px-4 py-3 text-sm text-emerald-ink">
             <ShoppingBag className="h-4 w-4" />
             {t('Đã mua')} →{' '}
             <Link
@@ -231,7 +240,7 @@ export default async function WishlistDetailPage({
             <p className="eyebrow flex items-center gap-1">
               <Calendar className="h-3 w-3" /> {t('Ngày dự kiến')}
             </p>
-            <p className="display mt-1 text-xl">
+            <p className="display mt-1 text-2xl">
               {item.targetDate ? formatDate(item.targetDate, locale) : t('Chưa đặt')}
             </p>
             {item.targetDate && (
@@ -241,11 +250,11 @@ export default async function WishlistDetailPage({
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-4">
-          <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+          <Card padding="md">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <LineChartIcon className="h-4 w-4" />
               {t('Lịch sử giá')}
@@ -279,30 +288,30 @@ export default async function WishlistDetailPage({
                 ))}
               </ul>
             )}
-          </div>
+          </Card>
 
           {item.notes && (
-            <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+            <Card padding="md">
               <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-ink">
                 <StickyNote className="h-4 w-4" />
                 {t('Ghi chú')}
               </h3>
               <p className="whitespace-pre-wrap text-sm text-ink-2">{item.notes}</p>
-            </div>
+            </Card>
           )}
 
-          <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+          <Card padding="md">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <Zap className="h-4 w-4" />
               {t('Đổi trạng thái nhanh')}
             </h3>
             <WishlistStatusButtons itemId={item.id} status={item.status} />
-          </div>
+          </Card>
         </div>
 
         <div className="space-y-4">
           {item.buyUrl && (
-            <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+            <Card padding="md">
               <h3 className="mb-4 flex items-center gap-2 font-display text-base font-bold text-ink">
                 <ExternalLink className="h-4 w-4" />
                 {t('Mua ở đâu')}
@@ -313,10 +322,10 @@ export default async function WishlistDetailPage({
                   {t('Mở link mua')}
                 </a>
               </Button>
-            </div>
+            </Card>
           )}
 
-          <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+          <Card padding="md">
             <h3 className="mb-2 flex items-center gap-2 font-display text-base font-bold text-ink">
               <Info className="h-4 w-4" />
               {t('Thông tin')}
@@ -353,10 +362,10 @@ export default async function WishlistDetailPage({
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {item.imageUrl && (
-            <div className="overflow-hidden rounded-2xl border-[1.5px] border-border bg-surface-2">
+            <Card padding="none" tone="muted" className="overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.imageUrl}
@@ -364,10 +373,10 @@ export default async function WishlistDetailPage({
                 referrerPolicy="no-referrer"
                 className="mx-auto max-h-[420px] w-auto object-contain"
               />
-            </div>
+            </Card>
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

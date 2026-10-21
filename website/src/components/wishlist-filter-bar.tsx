@@ -1,5 +1,7 @@
 'use client';
 
+import { Card } from '@/components/ui/card';
+
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
@@ -58,7 +60,7 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
   const status = (params.get('status') ?? 'ACTIVE') as StatusPill;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border-[1.5px] border-border bg-card p-3 shadow-soft">
+    <Card padding="sm" className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -69,7 +71,7 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
             className="rounded-pill border-border-strong bg-surface-2 pl-9"
           />
         </div>
-        <div className="pill-group" role="tablist" aria-label={t('Trạng thái')}>
+        <div className="pill-group flex-wrap" role="tablist" aria-label={t('Trạng thái')}>
           {QUICK_STATUSES.map((s) => (
             <button
               key={s.value}
@@ -158,6 +160,6 @@ export function WishlistFilterBar({ categories }: { categories: CategoryOption[]
           </SelectContent>
         </Select>
       </div>
-    </div>
+    </Card>
   );
 }

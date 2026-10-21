@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -121,14 +123,12 @@ export default async function StatsPage({
   // get the "chưa có gì để thống kê" empty state.
   if (total === 0 && subscriptionTotal === 0 && isForecastEmpty(forecast, locale)) {
     return (
-      <div className="space-y-6">
-        <div>
-          <p className="eyebrow">{t('Tổng quan')}</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Thống kê')}</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            {t('Chưa có gì để thống kê đâu — thêm thiết bị xong quay lại nhé.')}
-          </p>
-        </div>
+      <PageShell>
+        <PageHeader
+          eyebrow={t('Tổng quan')}
+          title={t('Thống kê')}
+          description={t('Chưa có gì để thống kê đâu — thêm thiết bị xong quay lại nhé.')}
+        />
         <EmptyState
           icon={BarChart3}
           tone="violet"
@@ -136,7 +136,7 @@ export default async function StatsPage({
           title={t('Chưa có dữ liệu để thống kê')}
           description={t('Thêm thiết bị xong tao sẽ vẽ chart cho mày xem chi tiêu mỗi tháng.')}
         />
-      </div>
+      </PageShell>
     );
   }
 
@@ -183,16 +183,14 @@ export default async function StatsPage({
     .join(' · ');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow">{t('Tổng quan')}</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Thống kê')}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          {t(
-            'Tổng quan chi phí mua sắm (thiết bị + gói bảo hành) và giá trị tài sản còn bảo hành.',
-          )}
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Tổng quan')}
+        title={t('Thống kê')}
+        description={t(
+          'Tổng quan chi phí mua sắm (thiết bị + gói bảo hành) và giá trị tài sản còn bảo hành.',
+        )}
+      />
 
       {!warrantiesComplete && (
         <div className="flex items-start gap-3 rounded-md bg-amber-soft p-3.5 text-sm text-amber-ink">
@@ -270,9 +268,9 @@ export default async function StatsPage({
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-primary">
                 <BarChart3 className="h-3.5 w-3.5" />
               </span>
@@ -287,9 +285,9 @@ export default async function StatsPage({
           </CardContent>
         </Card>
 
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-violet">
                 <PieChart className="h-3.5 w-3.5" />
               </span>
@@ -307,12 +305,12 @@ export default async function StatsPage({
 
       {/* Year breakdown + Top 5 */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+        <Card>
           {/* `flex-wrap`: the four year chips (259px) do not fit beside the
               title on a 390px phone; without wrapping they pushed the whole
               page 15px sideways. */}
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-sky">
                 <Calendar className="h-3.5 w-3.5" />
               </span>
@@ -356,9 +354,9 @@ export default async function StatsPage({
           </CardContent>
         </Card>
 
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-amber">
                 <Trophy className="h-3.5 w-3.5" />
               </span>
@@ -422,10 +420,10 @@ export default async function StatsPage({
           machine that is cheapest per day is often the most expensive one. */}
       <Card
         id="chi-phi-moi-ngay"
-        className="scroll-mt-24 rounded-lg border-[1.5px] border-border bg-card shadow-soft"
+        className="scroll-mt-24"
       >
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+          <CardTitle className="flex items-center gap-2 text-ink">
             <span className="icon-badge icon-badge-xs tint-amber">
               <Coins className="h-3.5 w-3.5" />
             </span>
@@ -487,7 +485,7 @@ export default async function StatsPage({
           )}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -505,12 +503,12 @@ function KpiCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="stat-card">
+    <Card padding="md" className="stat-card">
       <span className={cn('icon-badge icon-badge-sm stat-icon', tint)}>{icon}</span>
       <p className="stat-eyebrow">{eyebrow}</p>
       <p className="stat-value text-ink">{value}</p>
       <p className="stat-sub">{sub}</p>
-    </div>
+    </Card>
   );
 }
 

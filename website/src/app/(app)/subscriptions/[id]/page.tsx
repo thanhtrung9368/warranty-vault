@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -15,6 +17,7 @@ import {
   Bell,
   Sparkles,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { PriceHistoryChart } from '@/components/charts/lazy';
@@ -59,17 +62,23 @@ export default async function SubscriptionDetailPage({
   if (!res.ok) {
     if (res.status === 404) notFound();
     return (
-      <div className="space-y-4">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
-          <Link href="/subscriptions">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('Gói đăng ký')}
-          </Link>
-        </Button>
-        <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+      <PageShell className="mx-auto max-w-5xl">
+        <PageHeader
+          back={
+            <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+              <Link href="/subscriptions">
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                {t('Gói đăng ký')}
+              </Link>
+            </Button>
+          }
+          eyebrow={t('Gói định kỳ')}
+          title={t('Gói đăng ký')}
+        />
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải gói: {message}', { message: res.message ?? res.error })}
         </div>
-      </div>
+      </PageShell>
     );
   }
   const sub = res.data.subscription;
@@ -100,7 +109,7 @@ export default async function SubscriptionDetailPage({
   const trialRunning = trialPhase(sub) === 'trial';
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <PageShell className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2 rounded-pill">
           <Link href="/subscriptions">
@@ -126,33 +135,33 @@ export default async function SubscriptionDetailPage({
         </div>
       </div>
 
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft md:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <CategoryIconBadge category={sub.category ?? 'OTHER'} size="lg" />
-            <div className="min-w-0">
-              <h1 className="display text-3xl text-ink">{sub.name}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {sub.brand}
-                {sub.brand && sub.plan ? ' • ' : ''}
-                {sub.plan}
-                {(sub.brand || sub.plan) && sub.category ? ' • ' : ''}
-                {sub.category ? categoryLabel(sub.category, locale) : ''}
-              </p>
-            </div>
-          </div>
-          <span
-            className={cn(
-              'inline-flex items-center rounded-pill px-3 py-1.5 text-sm font-semibold',
-              STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
-            )}
-          >
-            {subscriptionStatusLabel(status, locale)}
-          </span>
-        </div>
+      <Card padding="md">
+        <PageHeader
+          leading={<CategoryIconBadge category={sub.category ?? 'OTHER'} size="lg" />}
+          title={sub.name}
+          description={
+            <>
+              {sub.brand}
+              {sub.brand && sub.plan ? ' • ' : ''}
+              {sub.plan}
+              {(sub.brand || sub.plan) && sub.category ? ' • ' : ''}
+              {sub.category ? categoryLabel(sub.category, locale) : ''}
+            </>
+          }
+          actions={
+            <span
+              className={cn(
+                'inline-flex items-center rounded-pill px-3 py-1.5 text-sm font-semibold',
+                STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
+              )}
+            >
+              {subscriptionStatusLabel(status, locale)}
+            </span>
+          }
+        />
 
         {isOverdue && sub.autoRenew && (
-          <div className="mt-4 flex items-start gap-2 rounded-2xl bg-amber-soft px-4 py-3 text-sm text-amber-ink">
+          <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-soft px-4 py-3 text-sm text-amber-ink">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               {t('Đã quá hạn')} <b>{Math.abs(daysToRenewal)}</b>{' '}
@@ -164,7 +173,7 @@ export default async function SubscriptionDetailPage({
         )}
 
         {trial && (
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-violet-soft px-4 py-3 text-sm text-violet-ink">
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-violet-soft px-4 py-3 text-sm text-violet-ink">
             <Sparkles className="h-4 w-4 shrink-0" />
             <span className="font-semibold">{trial}</span>
             {trialPrice && <span className="font-medium">{trialPrice}</span>}
@@ -210,7 +219,7 @@ export default async function SubscriptionDetailPage({
             <p className="eyebrow flex items-center gap-1">
               <Calendar className="h-3 w-3" /> {t('Gia hạn tới')}
             </p>
-            <p className="display mt-1 text-xl">
+            <p className="display mt-1 text-2xl">
               {isLifetime ? 'Lifetime' : formatDate(renewalDate, locale)}
             </p>
             {!isLifetime && (
@@ -234,11 +243,11 @@ export default async function SubscriptionDetailPage({
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-4">
-          <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+          <Card padding="md">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <Wallet className="h-4 w-4" />
               {t('Lịch sử thanh toán')}
@@ -277,30 +286,30 @@ export default async function SubscriptionDetailPage({
                 })}
               </ul>
             )}
-          </div>
+          </Card>
 
           {sub.notes && (
-            <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+            <Card padding="md">
               <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-ink">
                 <StickyNote className="h-4 w-4" />
                 {t('Ghi chú')}
               </h3>
               <p className="whitespace-pre-wrap text-sm text-ink-2">{sub.notes}</p>
-            </div>
+            </Card>
           )}
 
-          <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+          <Card padding="md">
             <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-bold text-ink">
               <Zap className="h-4 w-4" />
               {t('Đổi trạng thái nhanh')}
             </h3>
             <SubscriptionStatusButtons subId={sub.id} status={sub.status} />
-          </div>
+          </Card>
         </div>
 
         <div className="space-y-4">
           {(sub.manageUrl || sub.cancelUrl) && (
-            <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+            <Card padding="md">
               <h3 className="mb-4 flex items-center gap-2 font-display text-base font-bold text-ink">
                 <ExternalLink className="h-4 w-4" />
                 {t('Liên kết')}
@@ -333,10 +342,10 @@ export default async function SubscriptionDetailPage({
                   </Button>
                 )}
               </div>
-            </div>
+            </Card>
           )}
 
-          <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+          <Card padding="md">
             <h3 className="mb-2 flex items-center gap-2 font-display text-base font-bold text-ink">
               <CreditCard className="h-4 w-4" />
               {t('Tài khoản')}
@@ -390,9 +399,9 @@ export default async function SubscriptionDetailPage({
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

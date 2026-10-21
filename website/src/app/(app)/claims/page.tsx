@@ -1,3 +1,6 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
+import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -66,10 +69,10 @@ function ClaimRow({
   const costLabel = formatClaimCost(claim.cost, locale);
   return (
     <li>
-      <div className="rounded-2xl border-[1.5px] border-border bg-card">
+      <Card padding="none">
         <Link
           href={`/devices/${claim.deviceId}#claim-${claim.id}`}
-          className="block rounded-t-2xl p-4 transition-colors hover:bg-surface-2"
+          className="block rounded-t-lg p-4 transition-colors hover:bg-surface-2"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -146,7 +149,7 @@ function ClaimRow({
             deviceId={claim.deviceId}
           />
         </div>
-      </div>
+      </Card>
     </li>
   );
 }
@@ -184,18 +187,14 @@ export default async function ClaimsPage({
   const finished = claims.filter((claim) => !claimIsOpen(claim));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow">{t('Sửa chữa')}</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">
-          {t('Phiếu sửa chữa')}
-        </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground md:text-base">
-          {t(
-            'Theo dõi máy đang ở tiệm, đã xong hay bị từ chối — trên mọi thiết bị.',
-          )}
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Sửa chữa')}
+        title={t('Phiếu sửa chữa')}
+        description={t(
+          'Theo dõi máy đang ở tiệm, đã xong hay bị từ chối — trên mọi thiết bị.',
+        )}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {FILTERS.map((value) => {
@@ -230,7 +229,7 @@ export default async function ClaimsPage({
       )}
 
       {claimsRes.ok && claims.length === 0 && selected !== 'ALL' && (
-        <div className="rounded-2xl border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-12 text-center">
+        <div className="rounded-lg border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-12 text-center">
           <p className="text-sm font-semibold text-ink">
             {t('Không có phiếu nào ở trạng thái này.')}
           </p>
@@ -300,6 +299,6 @@ export default async function ClaimsPage({
           </ul>
         </section>
       )}
-    </div>
+    </PageShell>
   );
 }

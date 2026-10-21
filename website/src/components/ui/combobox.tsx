@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { OVERLAY_SURFACE } from '@/components/ui/overlay';
 import { useT } from '@/lib/i18n/client';
 
 export type ComboboxOption = {
@@ -192,7 +193,7 @@ export function Combobox({
                   e.stopPropagation();
                   onValueChange('');
                 }}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted"
+                className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted"
               >
                 <X className="h-3.5 w-3.5" />
               </span>
@@ -206,7 +207,8 @@ export function Combobox({
           align="start"
           sideOffset={4}
           className={cn(
-            'z-50 w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-lg border-[1.5px] bg-card text-popover-foreground shadow-lift',
+            OVERLAY_SURFACE,
+            'w-[var(--radix-popover-trigger-width)]',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           )}
         >
@@ -234,7 +236,7 @@ export function Combobox({
             ref={listRef}
             id="combobox-listbox"
             role="listbox"
-            className="max-h-[260px] overflow-y-auto p-1"
+            className="max-h-[260px] overflow-y-auto p-1.5"
           >
             {rowKeys.length === 0 ? (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">

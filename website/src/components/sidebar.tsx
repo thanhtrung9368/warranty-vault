@@ -209,7 +209,7 @@ export function Sidebar({
         {active && (
           <span
             aria-hidden
-            className="absolute -left-3.5 top-2.5 bottom-2.5 w-1 rounded-r bg-primary"
+            className="absolute -left-3.5 top-2.5 bottom-2.5 w-1 rounded-r-sm bg-primary"
           />
         )}
         <span className="flex w-[22px] items-center justify-center">
@@ -219,7 +219,7 @@ export function Sidebar({
         {badge > 0 && (
           <span
             className={cn(
-              'wv-sidebar-badge ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
+              'wv-sidebar-badge ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold',
               BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
             )}
           >
@@ -240,7 +240,7 @@ export function Sidebar({
         <span className="brand-mark brand-mark-sm">
           <Vault className="h-4 w-4" />
         </span>
-        <span className="wv-sidebar-brand-text font-display text-[17px] font-extrabold tracking-tight text-ink">
+        <span className="wv-sidebar-brand-text font-display text-lg font-extrabold tracking-tight text-ink">
           Warrly
         </span>
       </Link>
@@ -251,7 +251,7 @@ export function Sidebar({
       <nav className="flex flex-1 flex-col gap-2 overflow-y-auto">
         {NAV_GROUPS.map((group) => (
           <div key={group.id} className="flex flex-col gap-0.5">
-            <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+            <p className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-[0.09em] text-muted-foreground">
               {t(group.label)}
             </p>
             {group.hrefs.map((href) => renderItem(itemFor(href)))}
@@ -310,7 +310,7 @@ export function MobileBottomNav({
 
   const itemClass = (active: boolean) =>
     cn(
-      'relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-pill px-0.5 text-[10px] font-semibold transition-colors',
+      'relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-pill px-0.5 text-xs font-semibold transition-colors',
       active ? 'bg-primary-soft text-primary-ink' : 'text-ink-2 hover:text-ink',
     );
 
@@ -336,7 +336,7 @@ export function MobileBottomNav({
             {badge > 0 && (
               <span
                 className={cn(
-                  'absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold',
+                  'absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-bold',
                   BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
                 )}
               >
@@ -358,7 +358,7 @@ export function MobileBottomNav({
             <Menu className="h-5 w-5" />
             <span className="block min-h-[23px] w-full text-center leading-[1.15]">{t('Mục khác')}</span>
             {moreBadge > 0 && (
-              <span className="absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+              <span className="absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
                 {moreBadge}
               </span>
             )}
@@ -399,7 +399,7 @@ export function MobileBottomNav({
                   {badge > 0 && (
                     <span
                       className={cn(
-                        'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
+                        'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold',
                         BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
                       )}
                     >

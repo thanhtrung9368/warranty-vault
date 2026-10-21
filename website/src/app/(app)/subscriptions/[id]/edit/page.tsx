@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -26,26 +28,34 @@ export default async function EditSubscriptionPage({
   if (!res.ok) {
     if (res.status === 404) notFound();
     return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
-        {t('Lỗi tải gói: {message}', { message: res.message ?? res.error })}
-      </div>
+      <PageShell className="mx-auto max-w-3xl">
+        <PageHeader
+          eyebrow={t('Chỉnh sửa')}
+          title={t('Sửa gói')}
+        />
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+          {t('Lỗi tải gói: {message}', { message: res.message ?? res.error })}
+        </div>
+      </PageShell>
     );
   }
   const sub = res.data.subscription;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
-          <Link href={`/subscriptions/${sub.id}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('Quay lại chi tiết')}
-          </Link>
-        </Button>
-        <p className="eyebrow">{t('Chỉnh sửa')}</p>
-        <h1 className="display mt-1 text-3xl text-ink">{t('Sửa gói')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{sub.name}</p>
-      </div>
+    <PageShell className="mx-auto max-w-3xl">
+      <PageHeader
+        back={
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+            <Link href={`/subscriptions/${sub.id}`}>
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {t('Quay lại chi tiết')}
+            </Link>
+          </Button>
+        }
+        eyebrow={t('Chỉnh sửa')}
+        title={t('Sửa gói')}
+        description={sub.name}
+      />
       <SubscriptionForm
         catalog={{
           categories: catalog.categories,
@@ -82,6 +92,6 @@ export default async function EditSubscriptionPage({
           convertsToPrice: sub.convertsToPrice,
         }}
       />
-    </div>
+    </PageShell>
   );
 }

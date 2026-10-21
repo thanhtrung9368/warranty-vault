@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import {
   Package,
@@ -15,6 +17,7 @@ import {
   Receipt,
   type LucideIcon,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrantyPill } from '@/components/warranty-pill';
@@ -109,7 +112,7 @@ type StatCardProps = {
 
 function StatCard({ label, value, icon: Icon, sub, tone }: StatCardProps) {
   return (
-    <div className="stat-card">
+    <Card padding="md" className="stat-card">
       <div className="stat-icon">
         <span className={cn('icon-badge', `tint-${tone}`)}>
           <Icon className="h-5 w-5" />
@@ -118,7 +121,7 @@ function StatCard({ label, value, icon: Icon, sub, tone }: StatCardProps) {
       <div className="stat-eyebrow">{label}</div>
       <div className="stat-value">{value}</div>
       <div className="stat-sub">{sub}</div>
-    </div>
+    </Card>
   );
 }
 
@@ -141,7 +144,7 @@ async function SectionCard({
 }) {
   const { t } = await getI18n();
   return (
-    <div className="rounded-[var(--radius)] border border-border bg-card p-5 shadow-soft">
+    <Card padding="md">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className={cn('icon-badge icon-badge-sm', `tint-${tint}`)}>
@@ -159,7 +162,7 @@ async function SectionCard({
         </Button>
       </div>
       {children}
-    </div>
+    </Card>
   );
 }
 
@@ -251,25 +254,27 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-7">
-      {/* Hero greeting */}
-      <div>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-[34px]">
-          {t('Chào')}
-          {user.name ? `, ${user.name}` : ''}{' '}
-          <span style={{ fontFamily: 'system-ui' }}>👋</span>
-        </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          {t('Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.')}
-        </p>
-      </div>
+    <PageShell>
+      {/* Hero greeting. It now shares the PageHeader shape (and eyebrow) with
+          every other top-level page; it used to be its own smaller, 34px stack. */}
+      <PageHeader
+        eyebrow={t('Tổng quan')}
+        title={
+          <>
+            {t('Chào')}
+            {user.name ? `, ${user.name}` : ''}{' '}
+            <span style={{ fontFamily: 'system-ui' }}>👋</span>
+          </>
+        }
+        description={t('Đây là tổng quan tình trạng bảo hành & chi phí của bạn hôm nay.')}
+      />
 
       {/* First run: one panel that explains the loop, instead of a wall of
           zeroes and a green tick congratulating an account we know nothing
           about. Three ways in, in the order a new user actually has them:
           buying now, already holding the receipt, already holding a list. */}
       {coldStart ? (
-        <section className="rounded-[var(--radius)] border-[1.5px] border-border bg-gradient-to-br from-primary-soft to-primary-soft-2 p-6 shadow-soft md:p-8">
+        <Card padding="md" tone="gradient">
           <div className="flex items-start gap-4">
             <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-card text-primary sm:flex">
               <ShieldCheck className="h-6 w-6" />
@@ -305,7 +310,7 @@ export default async function DashboardPage() {
               {t('Có sẵn bảng tính?')}
             </Link>
           </div>
-        </section>
+        </Card>
       ) : (
         <>
       {/* Stat cards */}
@@ -320,7 +325,7 @@ export default async function DashboardPage() {
           plus a link to the broken-device filter; it never becomes a list of
           every alert in the account. */}
       {brokenWithoutClaim.length > 0 && (
-        <div className="rounded-[var(--radius)] border-[1.5px] border-amber-ink/25 bg-amber-soft p-5">
+        <Card padding="md" tone="warning">
           <div className="flex flex-wrap items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-amber-ink">
               <Wrench className="h-5 w-5" />
@@ -362,7 +367,7 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Main grid — section cards. `grid-cols-1` is not cosmetic: without an
@@ -407,7 +412,7 @@ export default async function DashboardPage() {
                       <div className="truncate text-sm font-semibold text-ink">
                         {d.name}
                       </div>
-                      <div className="truncate text-[11px] text-muted-foreground">
+                      <div className="truncate text-xs text-muted-foreground">
                         {categoryLabel(d.category, locale)}
                         {d.brand ? ` • ${d.brand}` : ''} •{' '}
                         {formatDate(d.purchaseDate, locale)}
@@ -440,7 +445,7 @@ export default async function DashboardPage() {
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <div className="stat-eyebrow">{t('Mỗi tháng')}</div>
-                <div className="font-display text-[28px] font-extrabold leading-tight tracking-tight">
+                <div className="font-display text-2xl font-extrabold leading-tight tracking-tight">
                   {formatVND(subs.monthly, locale)}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -462,7 +467,7 @@ export default async function DashboardPage() {
                       <li key={u.id}>
                         <Link
                           href={`/subscriptions/${u.id}`}
-                          className="flex items-center gap-2 text-[13px]"
+                          className="flex items-center gap-2 text-sm"
                         >
                           <RefreshCw className="h-3 w-3 shrink-0 text-muted-foreground" />
                           <span className="font-semibold text-ink-2">
@@ -490,7 +495,7 @@ export default async function DashboardPage() {
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <div className="stat-eyebrow">{t('Tổng tiền (giá hiện tại)')}</div>
-                <div className="font-display text-[28px] font-extrabold leading-tight tracking-tight">
+                <div className="font-display text-2xl font-extrabold leading-tight tracking-tight">
                   {formatVND(wishlist.totalPrice, locale)}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -509,7 +514,7 @@ export default async function DashboardPage() {
                       <li key={u.id}>
                         <Link
                           href={`/wishlist/${u.id}`}
-                          className="flex items-center gap-2 text-[13px]"
+                          className="flex items-center gap-2 text-sm"
                         >
                           <Calendar className="h-3 w-3 shrink-0 text-muted-foreground" />
                           <span className="font-semibold text-ink-2">
@@ -529,16 +534,14 @@ export default async function DashboardPage() {
         )}
 
         {/* Quick add — chunky playful card */}
-        <div
-          className="rounded-[var(--radius)] border-2 border-ink bg-gradient-to-br from-primary-soft to-primary-soft-2 p-5 shadow-chunky"
-        >
+        <Card padding="md" tone="accent">
           <div className="mb-3 flex items-center gap-2.5">
             <Zap className="h-5 w-5 text-primary-ink" />
             <h3 className="font-display text-lg font-extrabold tracking-tight text-primary-ink">
               {t('Thêm nhanh')}
             </h3>
           </div>
-          <p className="mb-4 text-[13px] text-primary-ink/85">
+          <p className="mb-4 text-sm text-primary-ink/85">
             {t('Mới mua đồ? Note ngay vào kẻo lại quên.')}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -561,7 +564,7 @@ export default async function DashboardPage() {
               </Link>
             </Button>
           </div>
-        </div>
+        </Card>
       </div>
         </>
       )}
@@ -580,6 +583,6 @@ export default async function DashboardPage() {
           )}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

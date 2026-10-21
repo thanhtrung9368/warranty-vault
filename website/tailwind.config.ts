@@ -14,6 +14,31 @@ const config: Config = {
         sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
       },
+      // The app's type scale. Seven rendered sizes: 12 / 14 / 16 / 18 / 24 /
+      // 30 / 36 (text-xl exists for completeness but is not used by the app
+      // shell). Every size carries an explicit line-height because Vietnamese
+      // stacked diacritics need a real line box — `leading-none` on a title is
+      // how glyphs got clipped. Arbitrary `text-[Npx]` is rejected by the
+      // `no-restricted-syntax` guard in eslint.config.mjs; add a size here
+      // instead. The landing page keeps its own hand-tuned sizes by exception.
+      fontSize: {
+        xs: ['12px', { lineHeight: '1.4' }],
+        sm: ['14px', { lineHeight: '1.45' }],
+        base: ['16px', { lineHeight: '1.5' }],
+        lg: ['18px', { lineHeight: '1.3' }],
+        xl: ['20px', { lineHeight: '1.4' }],
+        '2xl': ['24px', { lineHeight: '1.25' }],
+        '3xl': ['30px', { lineHeight: '1.2' }],
+        '4xl': ['36px', { lineHeight: '1.1' }],
+      },
+      // Density-aware spacing. `--pad` / `--pad-sm` / `--gap` are rescaled by
+      // [data-density] in globals.css, so `p-card`, `p-card-sm` and
+      // `space-y-page` are the only places the setting becomes visible pixels.
+      spacing: {
+        card: 'var(--pad)',
+        'card-sm': 'var(--pad-sm)',
+        page: 'var(--gap)',
+      },
       colors: {
         // shadcn / tailwind defaults wired to CSS vars
         border: 'hsl(var(--border))',
@@ -96,10 +121,17 @@ const config: Config = {
       },
       borderRadius: {
         pill: '9999px',
+        // The radius ladder is monotonic and every step follows the user's
+        // preset: sm < md < lg < xl = 2xl = 3xl. Before this, `rounded-2xl`
+        // resolved to Tailwind's fixed 16px while `rounded-lg` was 22px, so the
+        // ladder went downhill. `2xl`/`3xl` are pinned to the large token
+        // instead of removed so a stray use stays on-token.
         lg: 'var(--radius)',
         md: 'var(--radius-sm)',
         sm: 'calc(var(--radius-sm) - 4px)',
         xl: 'var(--radius-lg)',
+        '2xl': 'var(--radius-lg)',
+        '3xl': 'var(--radius-lg)',
       },
       boxShadow: {
         soft: 'var(--shadow-1)',

@@ -136,7 +136,7 @@ export function InboxUploader() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-7 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-7 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           dragOver
             ? 'border-primary bg-primary-soft'
             : 'border-border-strong bg-surface-2 hover:bg-primary-soft/60',

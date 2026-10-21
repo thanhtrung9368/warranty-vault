@@ -53,7 +53,7 @@ const DialogContent = React.forwardRef<
         className={cn(
           'fixed z-50 grid gap-4 border-[1.5px] bg-card p-6 shadow-pop duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           placement === 'bottom'
-            ? 'inset-x-0 bottom-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom'
+            ? 'inset-x-0 bottom-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-t-lg rounded-b-none border-b-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom'
             : 'left-[50%] top-[50%] w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-xl data-[state=open]:slide-in-from-bottom-2',
           className,
         )}
@@ -93,7 +93,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      'font-display text-lg font-bold leading-none tracking-tight',
+      'font-display text-lg font-bold leading-tight tracking-tight',
       className,
     )}
     {...props}

@@ -13,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   deleteAttachment,
@@ -47,7 +48,7 @@ export function InboxList({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-12 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-12 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-soft text-sky-ink">
           <Inbox className="h-7 w-7" />
         </span>
@@ -144,7 +145,8 @@ function InboxRow({ item, devices }: { item: InboxItem; devices: InboxDevice[] }
   if (gone) return null;
 
   return (
-    <li className="rounded-2xl border-[1.5px] border-border bg-card p-3 shadow-soft sm:p-4">
+    <Card asChild padding="none" className="p-card-sm sm:p-card">
+      <li>
       <div className="flex gap-3">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2">
           {isImage ? (
@@ -173,7 +175,7 @@ function InboxRow({ item, devices }: { item: InboxItem; devices: InboxDevice[] }
               className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center"
             >
               <FileText className="h-7 w-7 text-primary" />
-              <span className="text-[10px] font-bold text-ink">PDF</span>
+              <span className="text-xs font-bold text-ink">PDF</span>
             </a>
           )}
         </div>
@@ -189,7 +191,7 @@ function InboxRow({ item, devices }: { item: InboxItem; devices: InboxDevice[] }
                   {item.description}
                 </p>
               )}
-              <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {t('Tải lên {date}', { date: uploadedDate })}
               </p>
@@ -307,5 +309,6 @@ function InboxRow({ item, devices }: { item: InboxItem; devices: InboxDevice[] }
         </div>
       </div>
     </li>
+    </Card>
   );
 }

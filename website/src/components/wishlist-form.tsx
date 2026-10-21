@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Check, Loader2, Save } from 'lucide-react';
 import { dayToInputValue } from '@/lib/api-day';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -294,7 +295,7 @@ export function WishlistForm({
       <input type="hidden" name="priority" value={priority} />
       <input type="hidden" name="status" value={status} />
 
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft md:p-8">
+      <Card padding="md">
         <Stepper current={step} onStepClick={(i) => i < step && setStep(i)} />
         <div className="my-6 h-px bg-border" />
 
@@ -482,7 +483,7 @@ export function WishlistForm({
             />
           </div>
 
-          <div className="rounded-2xl border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
+          <div className="rounded-lg border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
             <p className="eyebrow">{t('Xác nhận món thèm')}</p>
             <p className="mt-1 text-sm text-ink-2">
               <span className="font-semibold text-ink">{name || '—'}</span>
@@ -533,7 +534,7 @@ export function WishlistForm({
             )}
           </div>
         </div>
-      </div>
+      </Card>
     </form>
   );
 }

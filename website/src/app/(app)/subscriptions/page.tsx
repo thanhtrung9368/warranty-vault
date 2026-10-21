@@ -1,5 +1,8 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { Plus, RefreshCw, ExternalLink, AlertTriangle, Calendar } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { EmptyState } from '@/components/empty-state';
@@ -188,14 +191,14 @@ export default async function SubscriptionsPage({
   ]);
   if (!listRes.ok) {
     return (
-      <div className="space-y-4">
-        <h1 className="display text-3xl text-ink">{t('Gói đăng ký')}</h1>
-        <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+      <PageShell>
+        <PageHeader eyebrow={t('Gói định kỳ')} title={t('Gói đăng ký')} />
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải danh sách: {message}', {
             message: listRes.message ?? listRes.error,
           })}
         </div>
-      </div>
+      </PageShell>
     );
   }
   const all = listRes.data.subscriptions;
@@ -206,32 +209,30 @@ export default async function SubscriptionsPage({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">{t('Gói định kỳ')}</p>
-          <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Gói đăng ký')}</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-            {t(
-              'Hiển thị {count} gói{filtered}. Theo dõi chi phí định kỳ — biết tiền chảy đi đâu mỗi tháng.',
-              {
-                count: subs.length,
-                filtered: isFiltered ? t(' (đã lọc)') : '',
-              },
-            )}
-          </p>
-        </div>
-        <Button asChild size="lg" className="rounded-pill">
-          <Link href="/subscriptions/new">
-            <Plus className="mr-1 h-4 w-4" />
-            {t('Thêm gói')}
-          </Link>
-        </Button>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Gói định kỳ')}
+        title={t('Gói đăng ký')}
+        description={t(
+          'Hiển thị {count} gói{filtered}. Theo dõi chi phí định kỳ — biết tiền chảy đi đâu mỗi tháng.',
+          {
+            count: subs.length,
+            filtered: isFiltered ? t(' (đã lọc)') : '',
+          },
+        )}
+        actions={
+          <Button asChild size="lg" className="rounded-pill">
+            <Link href="/subscriptions/new">
+              <Plus className="mr-1 h-4 w-4" />
+              {t('Thêm gói')}
+            </Link>
+          </Button>
+        }
+      />
 
       {totals.count > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="stat-card tint-sky">
+          <Card padding="md" className="stat-card tint-sky">
             <p className="stat-eyebrow">{t('Mỗi tháng')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-sky-ink">
               {formatVND(totals.monthly, locale)}
@@ -239,8 +240,8 @@ export default async function SubscriptionsPage({
             <p className="mt-1 text-xs opacity-80">
               {t('~ {amount} / năm', { amount: formatVND(totals.yearly, locale) })}
             </p>
-          </div>
-          <div className="stat-card tint-primary">
+          </Card>
+          <Card padding="md" className="stat-card tint-primary">
             <p className="stat-eyebrow">{t('Đang hoạt động')}</p>
             <p className="display mt-1.5 text-3xl tabular-nums text-primary-ink">
               {totals.count}
@@ -248,8 +249,8 @@ export default async function SubscriptionsPage({
             <p className="mt-1 text-xs opacity-80">
               {t('gói đang chạy', { count: totals.count })}
             </p>
-          </div>
-          <div className="stat-card tint-amber">
+          </Card>
+          <Card padding="md" className="stat-card tint-amber">
             <p className="stat-eyebrow">{t('Sắp gia hạn')}</p>
             {totals.upcoming.length === 0 ? (
               <p className="mt-2 text-sm opacity-80">{t('Chưa có gói nào sắp charge')}</p>
@@ -276,7 +277,7 @@ export default async function SubscriptionsPage({
                 })}
               </ul>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
@@ -317,11 +318,12 @@ export default async function SubscriptionsPage({
             );
             const status = s.status as SubscriptionStatus;
             return (
-              <Link
+              <Card
+                asChild
                 key={s.id}
-                href={`/subscriptions/${s.id}`}
-                className="group flex h-full flex-col gap-4 rounded-2xl border-[1.5px] border-border bg-card p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-lift"
+                className="group flex h-full flex-col gap-4 p-card transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-lift"
               >
+                <Link href={`/subscriptions/${s.id}`}>
                 <div className="flex items-start gap-3">
                   <CategoryIconBadge
                     category={s.category ?? 'OTHER'}
@@ -344,7 +346,7 @@ export default async function SubscriptionsPage({
                   </div>
                   <span
                     className={cn(
-                      'inline-flex shrink-0 items-center rounded-pill px-2.5 py-1 text-[11px] font-semibold',
+                      'inline-flex shrink-0 items-center rounded-pill px-2.5 py-1 text-xs font-semibold',
                       STATUS_PILL[status] ?? 'bg-zinc-soft text-ink-2',
                     )}
                   >
@@ -362,16 +364,16 @@ export default async function SubscriptionsPage({
                 <div className="mt-auto grid grid-cols-2 gap-3 border-t border-dashed border-border pt-4">
                   <div>
                     <p className="eyebrow">{t('Giá / chu kỳ')}</p>
-                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink">
+                    <p className="mt-1 font-display text-2xl font-bold tabular-nums text-ink">
                       {formatVND(s.price, locale)}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {billingCycleLabel(s.billingCycle as BillingCycle, locale)}
                     </p>
                   </div>
                   <div>
                     <p className="eyebrow">{t('~ / tháng')}</p>
-                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-ink-2">
+                    <p className="mt-1 font-display text-2xl font-bold tabular-nums text-ink-2">
                       {formatVND(monthly, locale)}
                     </p>
                   </div>
@@ -381,7 +383,7 @@ export default async function SubscriptionsPage({
                   <span className="eyebrow">{t('Gia hạn')}</span>
                   <span
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[11px] font-semibold',
+                      'inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-semibold',
                       RENEWAL_PILL[rTone],
                     )}
                   >
@@ -393,11 +395,12 @@ export default async function SubscriptionsPage({
                     {rText}
                   </span>
                 </div>
-              </Link>
+                </Link>
+              </Card>
             );
           })}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

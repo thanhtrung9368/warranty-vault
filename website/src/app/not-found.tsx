@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Vault } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { getI18n } from '@/lib/i18n/server';
 
 // A 404 is served in the visitor's own language like every other page, and the
@@ -29,7 +30,7 @@ export default async function NotFound() {
       </header>
 
       <main className="flex flex-1 items-center justify-center px-4 pb-12">
-        <div className="w-full max-w-lg rounded-[var(--radius)] border border-border bg-card/80 px-6 py-10 text-center shadow-[0_30px_80px_-40px_rgba(60,20,5,0.25)] backdrop-blur md:px-10">
+        <Card padding="none" className="w-full max-w-lg bg-card/80 px-6 py-10 text-center shadow-pop backdrop-blur md:px-10">
           <div className="mb-2 flex justify-center">
             <span className="eyebrow">{t('Mã 404')}</span>
           </div>
@@ -38,10 +39,10 @@ export default async function NotFound() {
             <Vault404Illustration label={t('Két sắt trống rỗng')} />
           </div>
 
-          <h1 className="display text-[34px] text-ink md:text-[40px]">
+          <h1 className="display text-3xl text-ink md:text-4xl">
             {t('Két sắt trống rỗng!')}
           </h1>
-          <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-[15px]">
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-base">
             {t('Trang mày tìm chưa từng tồn tại — hoặc đã bị di chuyển đi nơi khác.')}
           </p>
 
@@ -54,10 +55,10 @@ export default async function NotFound() {
             </Button>
           </div>
 
-          <p className="mt-8 text-[11px] font-medium uppercase tracking-[0.12em] text-muted/80">
+          <p className="mt-8 text-xs font-medium uppercase tracking-[0.12em] text-muted/80">
             {t('Mã lỗi 404 · Warrly')}
           </p>
-        </div>
+        </Card>
       </main>
     </div>
   );

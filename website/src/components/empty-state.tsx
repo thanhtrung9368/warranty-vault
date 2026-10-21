@@ -73,7 +73,7 @@ export async function EmptyState({
   const CtaIcon = emptyReason === 'no-data' ? Plus : ArrowRight;
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-16 text-center">
       <div
         className={cn(
           'mb-5 flex h-24 w-24 items-center justify-center rounded-full',
@@ -82,7 +82,7 @@ export async function EmptyState({
       >
         <Icon className="h-10 w-10" strokeWidth={1.75} />
       </div>
-      <h3 className="display mb-2 text-2xl text-ink">{resolvedTitle}</h3>
+      <h3 className="display mb-2 text-2xl !leading-tight text-ink">{resolvedTitle}</h3>
       <p className="mb-6 max-w-sm text-sm text-muted-foreground">{resolvedDescription}</p>
       {cta && (
         <Button

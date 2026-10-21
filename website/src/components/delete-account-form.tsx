@@ -97,7 +97,7 @@ export function DeleteAccountForm() {
       <div className="space-y-2">
         <Label htmlFor="delete-confirm" className="font-semibold">
           {t('Gõ')}{' '}
-          <code className="rounded bg-destructive-soft px-1.5 py-0.5 font-mono text-destructive">
+          <code className="rounded-sm bg-destructive-soft px-1.5 py-0.5 font-mono text-destructive">
             {CONFIRM_PHRASE}
           </code>{' '}
           {t('để xác nhận')}

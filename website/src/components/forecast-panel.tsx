@@ -65,10 +65,10 @@ export async function ForecastPanel({
 
   return (
     <div className="space-y-4">
-      <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+      <Card>
         <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-primary">
                 <CalendarClock className="h-3.5 w-3.5" />
               </span>
@@ -202,9 +202,9 @@ export async function ForecastPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+          <CardTitle className="flex items-center gap-2 text-ink">
             <span className="icon-badge icon-badge-xs tint-sky">
               <CalendarClock className="h-3.5 w-3.5" />
             </span>
@@ -292,9 +292,9 @@ export async function ForecastPanel({
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-amber">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </span>
@@ -345,9 +345,9 @@ export async function ForecastPanel({
           </CardContent>
         </Card>
 
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <CardTitle className="flex items-center gap-2 text-ink">
               <span className="icon-badge icon-badge-xs tint-rose">
                 <Heart className="h-3.5 w-3.5" />
               </span>

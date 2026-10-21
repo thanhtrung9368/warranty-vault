@@ -23,7 +23,7 @@ export default async function CookiesPage() {
       <h1 className="display text-3xl">{t('Chính sách Cookie')}</h1>
       <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
 
-      <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
+      <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
         <p>
           {t(
             'Warrly dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.',
@@ -34,7 +34,7 @@ export default async function CookiesPage() {
           <h3 className="display text-lg">{t('1. Cookie thiết yếu')}</h3>
           <p className="mt-2">
             {t('Bọn tao dùng đúng một cookie cho phiên đăng nhập:')}{' '}
-            <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[13px]">
+            <code className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-sm">
               wv_session
             </code>
             .{' '}

@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -121,7 +123,7 @@ function ActionRow({
 
         <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {item.dueDate && (
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="h-3 w-3" />
@@ -179,12 +181,12 @@ export default async function ActionsPage() {
 
   if (!res.ok) {
     return (
-      <div className="space-y-4">
-        <h1 className="display text-3xl text-ink">{t('Việc cần xử lý')}</h1>
-        <div className="rounded-2xl border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
+      <PageShell>
+        <PageHeader eyebrow={t('Hàng đợi')} title={t('Việc cần xử lý')} />
+        <div className="rounded-lg border border-destructive/30 bg-destructive-soft p-4 text-sm text-destructive">
           {t('Lỗi tải hàng đợi: {message}', { message: res.message ?? res.error })}
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -200,47 +202,45 @@ export default async function ActionsPage() {
   const emptyReason = emptyReasonFor(hasDevices);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow">{t('Hàng đợi')}</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Việc cần xử lý')}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          {t(
-            'Những việc app tự suy ra từ dữ liệu bạn đã nhập và không tự quyết được. Hoãn một việc sẽ ẩn nó khỏi hàng đợi tới hạn bạn chọn — việc đang hoãn luôn xem lại và bỏ hoãn được ở mục “Đang hoãn” bên dưới.',
-          )}
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Hàng đợi')}
+        title={t('Việc cần xử lý')}
+        description={t(
+          'Những việc app tự suy ra từ dữ liệu bạn đã nhập và không tự quyết được. Hoãn một việc sẽ ẩn nó khỏi hàng đợi tới hạn bạn chọn — việc đang hoãn luôn xem lại và bỏ hoãn được ở mục “Đang hoãn” bên dưới.',
+        )}
+      />
 
       <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="stat-card tint-primary">
+        <Card padding="md" className="stat-card tint-primary">
           <p className="stat-eyebrow">{t('Đang cần xử lý')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-primary-ink">{total}</p>
           <p className="mt-1 text-xs opacity-80">{t('Không tính việc đang hoãn')}</p>
-        </div>
-        <div className="stat-card tint-rose">
+        </Card>
+        <Card padding="md" className="stat-card tint-rose">
           <p className="stat-eyebrow">{t('Ưu tiên cao')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-rose-ink">
             {queue.counts.high}
           </p>
           <p className="mt-1 text-xs opacity-80">{t('Mốc thời gian hoặc tiền sắp mất')}</p>
-        </div>
-        <div className="stat-card tint-amber">
+        </Card>
+        <Card padding="md" className="stat-card tint-amber">
           <p className="stat-eyebrow">{t('Ưu tiên vừa')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-amber-ink">
             {queue.counts.medium}
           </p>
           <p className="mt-1 text-xs opacity-80">{t('Nên xem lại')}</p>
-        </div>
-        <div className="stat-card tint-zinc">
+        </Card>
+        <Card padding="md" className="stat-card tint-zinc">
           <p className="stat-eyebrow">{t('Ưu tiên thấp')}</p>
           <p className="display mt-1.5 text-3xl tabular-nums text-ink-2">{queue.counts.low}</p>
           <p className="mt-1 text-xs opacity-80">{t('Chưa gấp')}</p>
-        </div>
+        </Card>
       </div>
 
       {/* The server's own explanation of what this queue is — and is not. It is
           rendered verbatim; the client adds no claim of its own. */}
-      <div className="flex items-start gap-3 rounded-2xl border-[1.5px] border-border bg-surface-2 p-4">
+      <Card padding="sm" tone="muted" className="flex items-start gap-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="space-y-1">
           <p className="text-sm text-ink-2">{queue.note}</p>
@@ -250,7 +250,7 @@ export default async function ActionsPage() {
             })}
           </p>
         </div>
-      </div>
+      </Card>
 
       {active.length === 0 ? (
         <EmptyState
@@ -283,7 +283,7 @@ export default async function ActionsPage() {
                 </span>
                 <span
                   className={cn(
-                    'font-display text-[15px] font-bold tracking-tight',
+                    'font-display text-sm font-bold tracking-tight',
                     TONE_TITLE[section.tone],
                   )}
                 >
@@ -293,8 +293,8 @@ export default async function ActionsPage() {
                 </span>
                 <span className="text-xs text-muted-foreground">{t(section.hint)}</span>
               </div>
-              <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
-                <CardContent className="p-4 sm:p-5">
+              <Card>
+                <CardContent className="p-card-sm sm:p-card">
                   <ul>
                     {rows.map((item, i) => (
                       <ActionRow
@@ -322,12 +322,12 @@ export default async function ActionsPage() {
             <Clock className="h-3.5 w-3.5" />
             {queue.snoozedCount}
           </span>
-          <span className="font-display text-[15px] font-bold tracking-tight text-ink-2">
+          <span className="font-display text-sm font-bold tracking-tight text-ink-2">
             {t('Đang hoãn')}
           </span>
         </div>
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
-          <CardContent className="p-4 sm:p-5">
+        <Card>
+          <CardContent className="p-card-sm sm:p-card">
             {snoozed.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">
                 {queue.snoozedCount > 0
@@ -352,6 +352,6 @@ export default async function ActionsPage() {
           </CardContent>
         </Card>
       </section>
-    </div>
+    </PageShell>
   );
 }

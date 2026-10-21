@@ -12,6 +12,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -108,7 +109,7 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
   return (
     <div className="space-y-6">
       {/* ── What the parser expects ─────────────────────────────────────── */}
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-5">
+      <Card padding="md">
         <p className="flex items-center gap-2 text-sm font-semibold text-ink">
           <Info className="h-4 w-4 text-primary" />
           {t('Cách dán')}
@@ -140,7 +141,7 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
             )}
           </li>
         </ul>
-      </div>
+      </Card>
 
       <form action={formAction} className="space-y-4">
         <div className="space-y-2">
@@ -203,7 +204,7 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
 
       {/* ── Preview: what would be created, row by row ──────────────────── */}
       {!preview.empty && (
-        <div className="space-y-3 rounded-2xl border-[1.5px] border-border bg-card p-5">
+        <Card padding="md" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-ink">{t('Xem trước')}</p>
             <p className="text-xs text-muted-foreground">
@@ -360,12 +361,12 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
               </ul>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ── What actually happened ──────────────────────────────────────── */}
       {results.length > 0 && (
-        <div className="space-y-3 rounded-2xl border-[1.5px] border-border bg-card p-5">
+        <Card padding="md" className="space-y-3">
           <p className="text-sm font-semibold text-ink">{t('Kết quả')}</p>
           <p
             className={cn(
@@ -433,7 +434,7 @@ export function DevicePasteImport({ categories }: { categories: CategoryOption[]
               <Link href="/devices">{t('Xem danh sách thiết bị')}</Link>
             </Button>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );

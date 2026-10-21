@@ -234,7 +234,7 @@ function AssessmentResult({
   const letter = assessment.draftLetter.trim();
 
   return (
-    <div className="mt-3 rounded-2xl border-[1.5px] border-primary/25 bg-primary-soft/30 p-4">
+    <div className="mt-3 rounded-lg border-[1.5px] border-primary/25 bg-primary-soft/30 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-start gap-2">
           <span className="icon-badge icon-badge-sm tint-primary mt-0.5">
@@ -273,7 +273,7 @@ function AssessmentResult({
 
       {assessment.reasoning.trim() && (
         <div className="mt-3">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             {t('Vì sao')}
           </p>
           <p className="mt-1 whitespace-pre-wrap text-sm text-ink-2">
@@ -342,7 +342,7 @@ function AssessmentResult({
           </p>
         )}
         {generatedAt && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             {t('Tạo bằng {model} lúc {date}', {
               model: assessment.model || 'AI',
               date: generatedAt,
@@ -371,7 +371,7 @@ function GateNotice({
   if (!copy) return null;
 
   return (
-    <div className="mt-3 rounded-2xl border-[1.5px] border-primary/25 bg-primary-soft/30 p-4">
+    <div className="mt-3 rounded-lg border-[1.5px] border-primary/25 bg-primary-soft/30 p-4">
       <div className="flex items-start gap-2">
         <span className="icon-badge icon-badge-sm tint-primary mt-0.5">
           {gate === 'ai_optin_required' ? (

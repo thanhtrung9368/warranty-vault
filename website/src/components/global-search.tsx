@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { searchAll } from '@/app/actions/search';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
+import { OVERLAY_SURFACE } from '@/components/ui/overlay';
 import {
   ATTACHMENT_SEARCH_STATUS_LABELS,
   SEARCH_DEBOUNCE_MS,
@@ -52,10 +53,10 @@ function GroupSection({
   const Icon = GROUP_ICONS[groupKey];
   return (
     <div className="border-b border-border last:border-b-0">
-      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {t(SEARCH_GROUP_LABELS[groupKey])}
-        <span className="ml-auto font-mono text-[11px] font-normal">{rows.length}</span>
+        <span className="ml-auto font-mono text-xs font-normal">{rows.length}</span>
       </div>
       <ul>
         {rows.map((row) => {
@@ -97,10 +98,10 @@ function AttachmentGroupSection({
   if (rows.length === 0) return null;
   return (
     <div className="border-b border-border last:border-b-0">
-      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <Paperclip className="h-3.5 w-3.5" />
         {t(SEARCH_GROUP_LABELS.attachments)}
-        <span className="ml-auto font-mono text-[11px] font-normal">{rows.length}</span>
+        <span className="ml-auto font-mono text-xs font-normal">{rows.length}</span>
       </div>
       <ul>
         {rows.map((hit) => {
@@ -120,7 +121,7 @@ function AttachmentGroupSection({
                   </span>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
                       status === 'filed'
                         ? 'bg-emerald-soft text-emerald-ink'
                         : 'bg-sky-soft text-sky-ink',
@@ -165,10 +166,7 @@ function SearchResults({
 }) {
   const t = useT();
   const locale = useLocale();
-  const shell = cn(
-    'overflow-hidden rounded-lg border-[1.5px] border-border bg-card shadow-lift',
-    className,
-  );
+  const shell = cn(OVERLAY_SURFACE, className);
 
   if (state.kind === 'idle') {
     return (

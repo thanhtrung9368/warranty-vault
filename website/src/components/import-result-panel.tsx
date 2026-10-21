@@ -57,7 +57,7 @@ export function ImportResultPanel({ summary }: { summary: ImportSummary | null }
       <div className="min-w-0 space-y-1.5">
         {hasWarnings && (
           <div className="space-y-1.5">
-            <p className="font-display text-[15px] font-bold">
+            <p className="font-display text-lg font-bold">
               {t('Đã nhập xong — nhưng dữ liệu có cảnh báo')}
             </p>
             <p className="text-xs font-medium opacity-90">

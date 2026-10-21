@@ -14,6 +14,7 @@ import {
   Paperclip,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -103,7 +104,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border-strong bg-surface-2/60 px-6 py-8 text-center">
+      <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2/60 px-6 py-8 text-center">
         <Paperclip className="h-6 w-6 text-muted-foreground" />
         <p className="text-sm font-bold text-ink">{t('Chưa có file đính kèm nào')}</p>
         <p className="max-w-xs text-xs text-muted-foreground">
@@ -124,9 +125,11 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
           const isSaving = savingId === a.id;
           const caption = descriptionOf(a);
           return (
-            <div
+            <Card
               key={a.id}
-              className="group relative overflow-hidden rounded-2xl border-[1.5px] border-border bg-surface-2"
+              padding="none"
+              tone="muted"
+              className="group relative overflow-hidden"
             >
               {isImage ? (
                 <button
@@ -152,7 +155,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                 >
                   <FileText className="h-10 w-10 text-primary" />
                   <span className="text-xs font-bold text-ink">PDF</span>
-                  <span className="line-clamp-2 text-[10px] text-muted-foreground">
+                  <span className="line-clamp-2 text-xs text-muted-foreground">
                     {a.fileName}
                   </span>
                 </a>
@@ -176,7 +179,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                       placeholder={t('Mô tả cho file này')}
                       aria-label={t('Mô tả cho {name}', { name: a.fileName })}
                       disabled={isSaving}
-                      className="h-7 min-w-0 px-2 py-0 text-[11px]"
+                      className="h-7 min-w-0 px-2 py-0 text-xs"
                     />
                     <button
                       type="button"
@@ -205,7 +208,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-1">
-                    <span className="truncate text-[11px] font-medium text-ink-2">
+                    <span className="truncate text-xs font-medium text-ink-2">
                       {caption ?? a.fileName}
                     </span>
                     <div className="flex shrink-0 items-center gap-1">
@@ -246,7 +249,7 @@ export function AttachmentGallery({ items }: { items: Attachment[] }) {
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

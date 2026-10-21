@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { SubscriptionForm } from '@/components/subscription-form';
@@ -31,27 +33,31 @@ export default async function NewSubscriptionPage({
     : undefined;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
-          <Link href={fromItem ? `/wishlist/${fromItem.id}` : '/subscriptions'}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {fromItem ? t('Quay lại wishlist') : t('Gói đăng ký')}
-          </Link>
-        </Button>
-        <p className="eyebrow">{t('Thêm mới')}</p>
-        <h1 className="display mt-1 text-3xl text-ink">{t('Thêm gói đăng ký')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Apple One, ChatGPT Plus, hosting, domain, streaming...
-        </p>
-        {fromItem && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-pill bg-rose-soft px-3 py-1.5 text-sm font-semibold text-rose-ink">
-            <Heart className="h-4 w-4" />
-            {t('Tạo từ wishlist:')}{' '}
-            <span className="font-bold">{fromItem.name}</span>
-          </div>
-        )}
-      </div>
+    <PageShell className="mx-auto max-w-3xl">
+      <PageHeader
+        back={
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+            <Link href={fromItem ? `/wishlist/${fromItem.id}` : '/subscriptions'}>
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {fromItem ? t('Quay lại wishlist') : t('Gói đăng ký')}
+            </Link>
+          </Button>
+        }
+        eyebrow={t('Thêm mới')}
+        title={t('Thêm gói đăng ký')}
+        description={
+          <>
+            Apple One, ChatGPT Plus, hosting, domain, streaming...
+            {fromItem && (
+              <span className="mt-3 flex w-fit items-center gap-2 rounded-pill bg-rose-soft px-3 py-1.5 text-sm font-semibold text-rose-ink">
+                <Heart className="h-4 w-4" />
+                {t('Tạo từ wishlist:')}{' '}
+                <span className="font-bold">{fromItem.name}</span>
+              </span>
+            )}
+          </>
+        }
+      />
       <SubscriptionForm
         catalog={{
           categories: catalog.categories,
@@ -59,6 +65,6 @@ export default async function NewSubscriptionPage({
         }}
         initial={initial}
       />
-    </div>
+    </PageShell>
   );
 }

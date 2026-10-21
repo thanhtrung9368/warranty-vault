@@ -31,6 +31,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -159,7 +160,7 @@ function RowStatusBadge({ row }: { row: RowState }) {
   const t = useT();
   if (row.status === 'created') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-pill bg-emerald-soft px-2 py-0.5 text-[11px] font-bold text-emerald-ink">
+      <span className="inline-flex items-center gap-1 rounded-pill bg-emerald-soft px-2 py-0.5 text-xs font-bold text-emerald-ink">
         <CheckCircle2 className="h-3 w-3" />
         {t('Đã tạo')}
       </span>
@@ -167,7 +168,7 @@ function RowStatusBadge({ row }: { row: RowState }) {
   }
   if (row.status === 'failed') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-pill bg-rose-soft px-2 py-0.5 text-[11px] font-bold text-rose-ink">
+      <span className="inline-flex items-center gap-1 rounded-pill bg-rose-soft px-2 py-0.5 text-xs font-bold text-rose-ink">
         <XCircle className="h-3 w-3" />
         {t('Cần sửa')}
       </span>
@@ -175,7 +176,7 @@ function RowStatusBadge({ row }: { row: RowState }) {
   }
   if (row.status === 'unresolved') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-pill bg-amber-soft px-2 py-0.5 text-[11px] font-bold text-amber-ink">
+      <span className="inline-flex items-center gap-1 rounded-pill bg-amber-soft px-2 py-0.5 text-xs font-bold text-amber-ink">
         <HelpCircle className="h-3 w-3" />
         {t('Chưa rõ kết quả')}
       </span>
@@ -227,7 +228,7 @@ function BulkRowCard({
   return (
     <div
       className={cn(
-        'rounded-2xl border-[1.5px] bg-card p-4 transition-colors',
+        'rounded-lg border-[1.5px] bg-card p-4 transition-colors',
         row.status === 'created' && 'border-emerald-ink/30 bg-emerald-soft/30',
         row.status === 'failed' && 'border-rose-ink/30 bg-rose-soft/30',
         row.status === 'unresolved' && 'border-amber-ink/30 bg-amber-soft/30',
@@ -406,7 +407,7 @@ function ResultBanner({ state }: { state: BulkDeviceFormState }) {
     <div
       role="status"
       aria-live="polite"
-      className={cn('space-y-2 rounded-2xl border-[1.5px] px-4 py-3', tone)}
+      className={cn('space-y-2 rounded-lg border-[1.5px] px-4 py-3', tone)}
     >
       <p className="text-sm font-semibold">{t('Kết quả')}</p>
       <p className="text-sm font-medium">{state.message}</p>
@@ -463,7 +464,7 @@ function LimitBanner({
   return (
     <div
       role="alert"
-      className="space-y-2 rounded-2xl border-[1.5px] border-rose-ink/30 bg-rose-soft px-4 py-3 text-rose-ink"
+      className="space-y-2 rounded-lg border-[1.5px] border-rose-ink/30 bg-rose-soft px-4 py-3 text-rose-ink"
     >
       <p className="flex items-start gap-2 text-sm font-semibold">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -625,7 +626,7 @@ export function DeviceBulkAdd({ categories }: { categories: CategoryOption[] }) 
   return (
     <div className="space-y-6">
       {/* ── What a row is (and is not) ───────────────────────────────────── */}
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-5">
+      <Card padding="md">
         <p className="flex items-center gap-2 text-sm font-semibold text-ink">
           <Info className="h-4 w-4 text-primary" />
           {t('Mỗi dòng chỉ cần bốn thông tin: tên, loại, ngày mua và giá.')}
@@ -653,7 +654,7 @@ export function DeviceBulkAdd({ categories }: { categories: CategoryOption[] }) 
             </Link>
           </li>
         </ul>
-      </div>
+      </Card>
 
       {categories.length === 0 && (
         <p
@@ -697,7 +698,7 @@ export function DeviceBulkAdd({ categories }: { categories: CategoryOption[] }) 
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-[1.5px] border-border bg-surface-2 px-4 py-3">
+        <Card padding="sm" tone="muted" className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
@@ -724,7 +725,7 @@ export function DeviceBulkAdd({ categories }: { categories: CategoryOption[] }) 
           <div className="flex flex-wrap items-center gap-3">
             <SubmitButton count={submittableRows.length} disabled={!canSubmit} />
           </div>
-        </div>
+        </Card>
       </form>
     </div>
   );

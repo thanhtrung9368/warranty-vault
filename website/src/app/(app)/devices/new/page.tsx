@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { DeviceForm } from '@/components/device-form';
@@ -43,26 +45,31 @@ export default async function NewDevicePage({
     : { lookupUrl: null };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
-          <Link href={fromItem ? `/wishlist/${fromItem.id}` : '/devices'}>
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {fromItem ? t('Quay lại wishlist') : t('Danh sách thiết bị')}
-          </Link>
-        </Button>
-        <p className="eyebrow">{t('Thêm vào kho')}</p>
-        <h1 className="display mt-1 text-3xl text-ink">{t('Thêm thiết bị')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('Nhập thông tin thiết bị, bảo hành và mua hàng.')}
-        </p>
-        {fromItem && (
-          <div className="mt-3 inline-flex items-center gap-2 rounded-pill border-[1.5px] border-rose-soft bg-rose-soft px-3 py-1.5 text-sm font-semibold text-rose-ink">
-            <Heart className="h-4 w-4" />
-            {t('Tạo từ wishlist:')}&nbsp;<span className="font-bold">{fromItem.name}</span>
-          </div>
-        )}
-      </div>
+    <PageShell className="mx-auto max-w-3xl">
+      <PageHeader
+        back={
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+            <Link href={fromItem ? `/wishlist/${fromItem.id}` : '/devices'}>
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {fromItem ? t('Quay lại wishlist') : t('Danh sách thiết bị')}
+            </Link>
+          </Button>
+        }
+        eyebrow={t('Thêm vào kho')}
+        title={t('Thêm thiết bị')}
+        description={
+          <>
+            {t('Nhập thông tin thiết bị, bảo hành và mua hàng.')}
+            {fromItem && (
+              <span className="mt-3 flex w-fit items-center gap-2 rounded-pill border-[1.5px] border-rose-soft bg-rose-soft px-3 py-1.5 text-sm font-semibold text-rose-ink">
+                <Heart className="h-4 w-4" />
+                {t('Tạo từ wishlist:')}&nbsp;
+                <span className="font-bold">{fromItem.name}</span>
+              </span>
+            )}
+          </>
+        }
+      />
       <DeviceForm
         catalog={catalog}
         initial={initial}
@@ -70,6 +77,6 @@ export default async function NewDevicePage({
         aiEnabled={user.aiOptIn}
         brandLookupUrl={brandLookup.lookupUrl}
       />
-    </div>
+    </PageShell>
   );
 }

@@ -78,7 +78,7 @@ export function HandoverChecklist({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border-[1.5px] border-amber-200 bg-amber-soft px-4 py-3 text-sm text-amber-ink">
+      <div className="rounded-lg border-[1.5px] border-amber-200 bg-amber-soft px-4 py-3 text-sm text-amber-ink">
         <p className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
@@ -97,8 +97,8 @@ export function HandoverChecklist({
         </p>
       </div>
 
-      <Card className="rounded-2xl border-[1.5px] bg-surface-2">
-        <CardContent className="space-y-3 p-5">
+      <Card tone="muted">
+        <CardContent className="space-y-3 p-card">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-ink" aria-live="polite">
               {t('Đã xong {done}/{total} mục', {
@@ -137,9 +137,9 @@ export function HandoverChecklist({
         const Icon = GROUP_ICONS[group.id];
         const groupDone = group.items.filter((item) => checked.has(item.id)).length;
         return (
-          <Card key={group.id} className="rounded-2xl border-[1.5px]">
+          <Card key={group.id}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2">
                 <Icon className="h-5 w-5 text-primary" />
                 {group.title}
                 <span className="ml-auto text-xs font-medium text-muted-foreground">

@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { Bell, BellOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -135,16 +137,14 @@ export default async function RemindersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow">{t('Bảo hành sắp hết')}</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('Nhắc nhở')}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground md:text-base">
-          {t(
-            'Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói — gói đã ẩn luôn xem lại và khôi phục được ở mục “Đã ẩn” bên dưới.',
-          )}
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Bảo hành sắp hết')}
+        title={t('Nhắc nhở')}
+        description={t(
+          'Gói bảo hành sắp hết hoặc vừa hết. Bấm “Đã xem, ẩn đi” để bỏ qua từng gói — gói đã ẩn luôn xem lại và khôi phục được ở mục “Đã ẩn” bên dưới.',
+        )}
+      />
 
       {active.length === 0 ? (
         <EmptyState
@@ -177,15 +177,15 @@ export default async function RemindersPage() {
                   </span>
                   <span
                     className={cn(
-                      'font-display text-[15px] font-bold tracking-tight',
+                      'font-display text-sm font-bold tracking-tight',
                       TONE_TITLE[section.tone],
                     )}
                   >
                     {t(section.title)}
                   </span>
                 </div>
-                <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
-                  <CardContent className="p-4 sm:p-5">
+                <Card>
+                  <CardContent className="p-card-sm sm:p-card">
                     <ul>
                       {items.map((r, i) => (
                         <li
@@ -207,7 +207,7 @@ export default async function RemindersPage() {
                                 </p>
                                 <span
                                   className={cn(
-                                    'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                                    'inline-flex items-center rounded-pill px-2 py-0.5 text-xs font-bold uppercase tracking-wide',
                                     WARRANTY_TYPE_TINT[r.warrantyType] ?? 'tint-primary',
                                   )}
                                 >
@@ -243,12 +243,12 @@ export default async function RemindersPage() {
             <BellOff className="h-3.5 w-3.5" />
             {dismissedUnavailable ? '?' : dismissed.length}
           </span>
-          <span className="font-display text-[15px] font-bold tracking-tight text-ink-2">
+          <span className="font-display text-sm font-bold tracking-tight text-ink-2">
             {t('Đã ẩn')}
           </span>
         </div>
-        <Card className="rounded-lg border-[1.5px] border-border bg-card shadow-soft">
-          <CardContent className="p-4 sm:p-5">
+        <Card>
+          <CardContent className="p-card-sm sm:p-card">
             {dismissedUnavailable ? (
               <p className="py-3 text-sm text-muted-foreground">
                 {t('Không tải được danh sách nhắc nhở đã ẩn — thử tải lại trang nhé.')}
@@ -281,14 +281,14 @@ export default async function RemindersPage() {
                           </p>
                           <span
                             className={cn(
-                              'inline-flex items-center rounded-pill px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                              'inline-flex items-center rounded-pill px-2 py-0.5 text-xs font-bold uppercase tracking-wide',
                               WARRANTY_TYPE_TINT[r.warrantyType as WarrantyType] ?? 'tint-primary',
                             )}
                           >
                             {warrantyTypeLabel(r.warrantyType as WarrantyType, locale)}
                           </span>
                           {r.deviceStatus !== 'ACTIVE' && (
-                            <span className="inline-flex items-center rounded-pill bg-zinc-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-2">
+                            <span className="inline-flex items-center rounded-pill bg-zinc-soft px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-ink-2">
                               {statusLabel(r.deviceStatus as Status, locale)}
                             </span>
                           )}
@@ -311,6 +311,6 @@ export default async function RemindersPage() {
           </CardContent>
         </Card>
       </section>
-    </div>
+    </PageShell>
   );
 }

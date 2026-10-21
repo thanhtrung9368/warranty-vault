@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,26 +21,24 @@ export default async function ImportDevicesPage() {
   const catalog = await getDeviceFormCatalog();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
-          <Link href="/devices">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('Danh sách thiết bị')}
-          </Link>
-        </Button>
-        <p className="eyebrow">{t('Nhập nhanh')}</p>
-        <h1 className="display mt-1 text-3xl text-ink">
-          {t('Dán bảng để thêm nhiều thiết bị')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t(
-            'Copy một vùng ô từ Excel / Google Sheets (hoặc gõ tay, ngăn cách bằng tab, dấu phẩy hay dấu chấm phẩy) rồi dán vào đây. Xem trước từng dòng trước khi tạo.',
-          )}
-        </p>
-      </div>
+    <PageShell className="mx-auto max-w-4xl">
+      <PageHeader
+        back={
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2 rounded-pill">
+            <Link href="/devices">
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {t('Danh sách thiết bị')}
+            </Link>
+          </Button>
+        }
+        eyebrow={t('Nhập nhanh')}
+        title={t('Dán bảng để thêm nhiều thiết bị')}
+        description={t(
+          'Copy một vùng ô từ Excel / Google Sheets (hoặc gõ tay, ngăn cách bằng tab, dấu phẩy hay dấu chấm phẩy) rồi dán vào đây. Xem trước từng dòng trước khi tạo.',
+        )}
+      />
 
       <DevicePasteImport categories={catalog.categories} />
-    </div>
+    </PageShell>
   );
 }

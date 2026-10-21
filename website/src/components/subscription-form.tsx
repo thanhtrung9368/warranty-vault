@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { format, addDays, addMonths, addYears } from 'date-fns';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Check, Loader2, Save, Sparkles } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -450,7 +451,7 @@ export function SubscriptionForm({
       <input type="hidden" name="status" value={status} />
       <input type="hidden" name="billingCycle" value={billingCycle} />
 
-      <div className="rounded-2xl border-[1.5px] border-border bg-card p-6 shadow-soft md:p-8">
+      <Card padding="md">
         <Stepper current={step} onStepClick={(i) => i < step && setStep(i)} />
         <div className="my-6 h-px bg-border" />
 
@@ -633,7 +634,7 @@ export function SubscriptionForm({
               and clearing the date clears the price in the change handler.
               The hidden input keeps the key in the payload so clearing a trial
               on an edit sends an explicit `null` instead of omitting it. */}
-          <div className="space-y-4 rounded-2xl border-[1.5px] border-border bg-surface-2 p-5 md:col-span-2">
+          <Card padding="md" tone="muted" className="space-y-4 md:col-span-2">
             <div className="flex items-start gap-3">
               <span className="icon-badge icon-badge-sm tint-violet mt-0.5">
                 <Sparkles className="h-4 w-4" />
@@ -683,19 +684,19 @@ export function SubscriptionForm({
                 <input type="hidden" name="convertsToPrice" value="" />
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Reminder lead times — the user's own schedule instead of the old
               fixed 7/30-day one. Mounted inside the step div (steps are hidden
               with CSS, never unmounted), so its hidden inputs submit even when
               the user is on another step. */}
-          <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5 md:col-span-2">
+          <Card padding="md" tone="muted" className="md:col-span-2">
             <LeadDaysField
               value={leadDays}
               onChange={setLeadDays}
               errors={errors.leadDays}
             />
-          </div>
+          </Card>
         </div>
 
         {/* === STEP 2 — Account, link, ghi chú, xác nhận === */}
@@ -764,7 +765,7 @@ export function SubscriptionForm({
           </div>
 
           {/* Mini recap card to make the confirm step feel intentional. */}
-          <div className="rounded-2xl border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
+          <div className="rounded-lg border-[1.5px] border-dashed border-border-strong bg-surface-2 p-4">
             <p className="eyebrow">{t('Xác nhận')}</p>
             <p className="mt-1 text-sm text-ink-2">
               <span className="font-semibold text-ink">{name || '—'}</span>
@@ -841,7 +842,7 @@ export function SubscriptionForm({
             )}
           </div>
         </div>
-      </div>
+      </Card>
     </form>
   );
 }

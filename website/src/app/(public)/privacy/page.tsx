@@ -27,7 +27,7 @@ export default async function PrivacyPage() {
       <h1 className="display text-3xl">{t('Chính sách bảo mật')}</h1>
       <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
 
-      <div className="mt-6 space-y-5 text-[15px] leading-relaxed text-ink-2">
+      <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
         <p>
           {t(
             'Warrly là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:',
@@ -54,7 +54,7 @@ export default async function PrivacyPage() {
               'khi lưu trên máy chủ, mỗi file một khoá riêng (khoá này lại được bọc bởi khoá chủ của hệ thống). Phiên đăng nhập nằm trong một cookie đã mã hoá',
             )}{' '}
             (
-            <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[13px]">
+            <code className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-sm">
               wv_session
             </code>
             ).{' '}

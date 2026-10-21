@@ -135,10 +135,10 @@ export function BrandWarrantyCard({
   const clearing = status === STATUS_NONE;
 
   return (
-    <Card id="brand-warranty" className="scroll-mt-24 rounded-2xl border-[1.5px]">
+    <Card id="brand-warranty" className="scroll-mt-24">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 gap-3">
         <div>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-sky-ink" />
             {t('Đối chiếu với hãng')}
           </CardTitle>
@@ -266,7 +266,7 @@ export function BrandWarrantyCard({
                   disabled={clearing}
                   onChange={(e) => setUrl(e.target.value)}
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {t('Dán link bạn đã mở (không bắt buộc)')}
                 </p>
                 <FieldError errors={errors.brandLookupUrl} />

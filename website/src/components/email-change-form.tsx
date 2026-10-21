@@ -74,7 +74,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
         {t('Bước 1/2: nhập địa chỉ mới và mật khẩu hiện tại. Hệ thống gửi một link xác nhận tới')}{' '}
         <b>{t('địa chỉ mới')}</b>
         {t('; email hiện tại')}{' '}
-        <code className="rounded bg-card px-1 py-0.5 font-mono text-[11px]">{currentEmail}</code>{' '}
+        <code className="rounded-sm bg-card px-1 py-0.5 font-mono text-xs">{currentEmail}</code>{' '}
         {t('vẫn dùng được cho tới khi bạn bấm link đó.')}
       </p>
 

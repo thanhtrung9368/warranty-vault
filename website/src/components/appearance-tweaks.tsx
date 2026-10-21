@@ -82,13 +82,23 @@ function writePrefs(p: Prefs) {
   }
 }
 
+/**
+ * Write the appearance attributes.
+ *
+ * A value equal to the default REMOVES the attribute rather than stamping it:
+ * the base tokens in globals.css are exactly the default preset (`soft` radius,
+ * `cozy` density, Plus Jakarta, coral, full sidebar). Stamping `data-radius="soft"`
+ * used to be harmless only because it matched; before the tokens were aligned
+ * it was the line that produced the 22px → 18px pop. Removing the attribute
+ * also means a fresh visitor and a default-pref visitor have identical DOM,
+ * which is what makes the "default is a no-op" claim testable.
+ */
 function applyPrefs(p: Prefs) {
   const html = document.documentElement;
-  html.setAttribute('data-radius', p.radius);
-  html.setAttribute('data-density', p.density);
-  html.setAttribute('data-font', p.font);
-  html.setAttribute('data-accent', p.accent);
-  html.setAttribute('data-sidebar', p.sidebar);
+  (Object.keys(DEFAULTS) as Array<keyof Prefs>).forEach((key) => {
+    if (p[key] === DEFAULTS[key]) html.removeAttribute(`data-${key}`);
+    else html.setAttribute(`data-${key}`, p[key]);
+  });
 }
 
 /** Mirrors the handoff's `__twkIsLight()` so the tick stays legible on any swatch. */
@@ -328,7 +338,7 @@ function Row({
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
       <div className="md:max-w-[18rem]">
-        <p className="font-display text-[14px] font-bold text-ink">{label}</p>
+        <p className="font-display text-sm font-bold text-ink">{label}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
       <div className="md:flex md:justify-end">{children}</div>

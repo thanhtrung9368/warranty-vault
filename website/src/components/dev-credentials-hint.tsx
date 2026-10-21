@@ -11,7 +11,7 @@ const TEST_PASSWORD = 'test1234';
 function chunk(value: string) {
   if (value !== TEST_EMAIL && value !== TEST_PASSWORD) return value;
   return (
-    <code className="rounded bg-card px-1.5 py-0.5 font-mono text-[12px]">{value}</code>
+    <code className="rounded-sm bg-card px-1.5 py-0.5 font-mono text-xs">{value}</code>
   );
 }
 

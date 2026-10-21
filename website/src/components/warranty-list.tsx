@@ -12,6 +12,7 @@ import {
   Wallet,
   Loader2,
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { WarrantyTimeline } from '@/components/warranty-timeline';
 import { WarrantyPill } from '@/components/warranty-pill';
@@ -134,7 +135,7 @@ function WarrantyCard({
   const transferable = warrantyTransferableLabel(w.transferable, locale);
 
   return (
-    <div className="rounded-2xl border-[1.5px] border-border bg-surface-2 p-5">
+    <Card padding="md" tone="muted">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <span
@@ -223,7 +224,7 @@ function WarrantyCard({
 
       {hasWarrantyTerms(w) && (
         <div className="mt-4 rounded-xl border border-border bg-surface-2 px-4 py-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
             {t('Điều khoản hợp đồng')}
           </p>
           <div className="mt-2 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
@@ -249,7 +250,7 @@ function WarrantyCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -280,9 +281,10 @@ export function WarrantyList({
 
       {warranties.map((w) =>
         editingId === w.id ? (
-          <div
+          <Card
             key={w.id}
-            className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5"
+            padding="md"
+            className="border-primary bg-primary-soft"
           >
             <h4 className="mb-3 text-sm font-bold text-primary-ink">
               {t('Sửa gói bảo hành')}
@@ -312,7 +314,7 @@ export function WarrantyList({
               }}
               onCancel={() => setEditingId(null)}
             />
-          </div>
+          </Card>
         ) : (
           <WarrantyCard
             key={w.id}
@@ -324,12 +326,12 @@ export function WarrantyList({
       )}
 
       {adding && (
-        <div className="rounded-2xl border-[1.5px] border-primary bg-primary-soft p-5">
+        <Card padding="md" className="border-primary bg-primary-soft">
           <h4 className="mb-3 text-sm font-bold text-primary-ink">
             {t('Thêm gói bảo hành')}
           </h4>
           <WarrantyForm deviceId={deviceId} currency={currency} onCancel={() => setAdding(false)} />
-        </div>
+        </Card>
       )}
 
       {!adding && canAdd && editingId === null && (

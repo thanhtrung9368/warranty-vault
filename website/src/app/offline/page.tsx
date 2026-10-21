@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Vault, Wifi, Plane, RotateCcw, Info } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { getI18n } from '@/lib/i18n/server';
 import { OfflineSavedPages } from '@/components/offline-saved-pages';
 import { RetryButton } from './retry-button';
@@ -33,7 +34,7 @@ export default async function OfflinePage() {
       </header>
 
       <main className="flex flex-1 items-center justify-center px-4 pb-12">
-        <div className="w-full max-w-lg rounded-[var(--radius)] border border-border bg-card/80 px-6 py-10 text-center shadow-[0_30px_80px_-40px_rgba(60,20,5,0.25)] backdrop-blur md:px-10">
+        <Card padding="none" className="w-full max-w-lg bg-card/80 px-6 py-10 text-center shadow-pop backdrop-blur md:px-10">
           <div className="mb-2 flex justify-center">
             <span className="eyebrow">{t('Trạng thái · Ngoại tuyến')}</span>
           </div>
@@ -42,10 +43,10 @@ export default async function OfflinePage() {
             <OfflineCloudIllustration label={t('Mất kết nối')} />
           </div>
 
-          <h1 className="display text-[30px] text-ink md:text-[36px]">
+          <h1 className="display text-3xl text-ink md:text-4xl">
             {t('Mất kết nối rồi 📡')}
           </h1>
-          <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-[15px]">
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted md:text-base">
             {t(
               'Mày đang ngoại tuyến. Warrly lưu lại những trang mày đã mở khi còn mạng để xem tiếp — nhưng dữ liệu đã lưu có thể đã cũ, nên đừng coi đó là bảo hành còn hiệu lực nếu chưa kiểm tra lại.',
             )}
@@ -97,7 +98,7 @@ export default async function OfflinePage() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       </main>
     </div>
   );

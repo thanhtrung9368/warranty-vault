@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header';
+import { PageShell } from '@/components/page-shell';
 import { Inbox } from 'lucide-react';
 import { InboxUploader } from '@/components/inbox-uploader';
 import { InboxList } from '@/components/inbox-list';
@@ -52,16 +54,14 @@ export default async function InboxPage({
   const waiting = inboxCount(items);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="eyebrow">{t('Hộp thư')}</p>
-        <h1 className="display mt-1 text-3xl text-ink md:text-4xl">{t('File chờ gán')}</h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground md:text-base">
-          {t(
-            'Tải hoá đơn lên trước, chọn thiết bị sau. File nằm ở đây cho tới khi bạn gán vào một thiết bị.',
-          )}
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        eyebrow={t('Hộp thư')}
+        title={t('File chờ gán')}
+        description={t(
+          'Tải hoá đơn lên trước, chọn thiết bị sau. File nằm ở đây cho tới khi bạn gán vào một thiết bị.',
+        )}
+      />
 
       {justShared && (
         <p
@@ -72,9 +72,9 @@ export default async function InboxPage({
         </p>
       )}
 
-      <Card className="rounded-2xl border-[1.5px]">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2">
             <Inbox className="h-5 w-5 text-primary" />
             {t('Tải file lên hộp thư')}
           </CardTitle>
@@ -108,6 +108,6 @@ export default async function InboxPage({
         </h2>
         <InboxList items={items} devices={devices} />
       </section>
-    </div>
+    </PageShell>
   );
 }

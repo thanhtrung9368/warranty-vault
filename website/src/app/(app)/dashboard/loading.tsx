@@ -1,19 +1,28 @@
+import { PageShell } from '@/components/page-shell';
 import {
   PageHeaderSkeleton,
   Skeleton,
+  SkeletonCard,
   SkeletonRows,
   SkeletonStatCards,
 } from '@/components/ui/skeleton';
 
 export default function Loading() {
   return (
-    <div className="space-y-8">
+    <PageShell>
+      {/* Same header shape as the page, eyebrow included. */}
       <PageHeaderSkeleton />
-      <SkeletonStatCards count={4} />
-      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
-        <Skeleton className="h-5 w-44" />
-        <SkeletonRows count={4} />
+      <SkeletonStatCards count={5} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <SkeletonCard className="space-y-3">
+          <Skeleton className="h-5 w-44" />
+          <SkeletonRows count={4} />
+        </SkeletonCard>
+        <SkeletonCard className="space-y-3">
+          <Skeleton className="h-5 w-40" />
+          <SkeletonRows count={3} />
+        </SkeletonCard>
       </div>
-    </div>
+    </PageShell>
   );
 }

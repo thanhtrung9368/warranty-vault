@@ -73,8 +73,8 @@ export function UpdatePriceDialog({
           {t('Cập nhật giá')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md rounded-2xl border-[1.5px]">
-        <DialogTitle className="font-display text-xl text-ink">
+      <DialogContent className="max-w-md rounded-lg border-[1.5px]">
+        <DialogTitle className="font-display text-ink">
           {t('Cập nhật giá hiện tại')}
         </DialogTitle>
         <div className="space-y-3 pt-2">
