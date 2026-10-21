@@ -59,9 +59,13 @@ services:
       GO_API_URL: "http://api:4000/api"
 
       # ── Bắt buộc ──────────────────────────────────────────────────
-      # `app` chỉ thực sự đọc 2 biến: SESSION_SECRET (mã hoá cookie
-      # iron-session) và NEXT_PUBLIC_VAPID_PUBLIC_KEY (inline lúc build).
-      # DB, giải mã blob, gửi push/mail, cron đều là việc của `api`.
+      # `app` reads SESSION_SECRET (iron-session cookie encryption),
+      # NEXT_PUBLIC_VAPID_PUBLIC_KEY (inlined at build) and APP_URL. APP_URL is
+      # the public origin used by metadataBase, canonical, og:url, og:image,
+      # hreflang and sitemap.xml. A production deployment now throws without it
+      # instead of silently emitting http://localhost:3000. `:?` makes compose
+      # refuse to start instead of supplying the old localhost default.
+      APP_URL: ${APP_URL:?APP_URL must be set to the public site origin (e.g. https://warrly.com)}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set (>=32 chars)}
       NODE_ENV: production
 

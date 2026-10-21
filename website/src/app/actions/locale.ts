@@ -32,6 +32,48 @@ export type LocaleFormState = {
   message?: string;
 };
 
+/**
+ * Persist one language choice: the browser cookie first, then `User.locale`
+ * when there is a signed-in account.
+ *
+ * Shared by the form action below and by `rememberLocaleAction`, which the
+ * header switcher calls before navigating to `/vi` (or back to `/`). Keeping
+ * one writer means the two entry points cannot disagree about what "remember
+ * this language" does.
+ */
+async function writeLocale(locale: Locale): Promise<LocaleFormState> {
+  await setLocaleCookie(locale);
+
+  // `getCurrentUser()` reads the cookie AFTER the write above, so the API call
+  // below and any re-render that follows both see the new language.
+  const user = await getCurrentUser();
+  if (!user) return { ok: true, locale };
+
+  const res = await api.auth.updateLocale(locale);
+  if (!res.ok) {
+    // The cookie is already written, so the UI did change. Say so honestly
+    // rather than reporting a total failure: what did not happen is the part
+    // that reaches push and email.
+    return { ok: false, locale, message: res.message };
+  }
+
+  return { ok: true, locale };
+}
+
+/**
+ * The switcher's click handler.
+ *
+ * The switcher is a real `<Link>` to `/vi` or `/`; this action only persists
+ * the preference. The link itself is what makes the language discoverable by a
+ * crawler, so a failure here must never block the navigation — the caller
+ * navigates in both branches.
+ */
+export async function rememberLocaleAction(locale: Locale): Promise<LocaleFormState> {
+  const normalized = normalizeLocale(locale);
+  if (!normalized) return { ok: false };
+  return writeLocale(normalized);
+}
+
 export async function setLocaleAction(
   _prev: LocaleFormState,
   formData: FormData,
@@ -46,29 +88,20 @@ export async function setLocaleAction(
     return { ok: false, message: t('Ngôn ngữ không hợp lệ') };
   }
 
-  await setLocaleCookie(locale);
-
-  // `getCurrentUser()` reads the cookie AFTER the write above, so the API call
-  // below and the re-render that follows both see the new language.
-  const user = await getCurrentUser();
+  const result = await writeLocale(locale);
   const t = translatorFor(locale);
 
-  if (user) {
-    const res = await api.auth.updateLocale(locale);
-    if (!res.ok) {
-      // The cookie is already written, so the UI did change. Say so honestly
-      // rather than reporting a total failure: what did not happen is the part
-      // that reaches push and email.
-      return {
-        ok: false,
-        locale,
-        message: res.message ?? t('Không lưu được lựa chọn ngôn ngữ'),
-      };
-    }
+  if (!result.ok) {
+    return {
+      ok: false,
+      locale,
+      message: result.message ?? t('Không lưu được lựa chọn ngôn ngữ'),
+    };
   }
 
   // The whole shell changes language, so revalidate the root layout — the same
-  // broad call the login/logout flows use.
+  // broad call the login/logout flows use. The link-based switcher navigates
+  // instead, which is why `rememberLocaleAction` does not call this.
   revalidatePath('/', 'layout');
 
   return { ok: true, locale, message: t('Đã đổi ngôn ngữ') };

@@ -16,12 +16,23 @@
 
 import type { Metadata } from 'next';
 import { hslToRgb, parseHslTriple } from '@/lib/contrast';
-import type { Locale } from '@/lib/i18n/locale';
+import { localePath, type Locale } from '@/lib/i18n/locale';
 
 export const SITE_NAME = 'Warrly';
 
-/** Used only when neither env var is set. */
+/**
+ * Development/test fallback only.
+ *
+ * Production never reaches it: `siteBaseUrl()` throws when neither env var is
+ * set, because a silent `http://localhost:3000` here is exactly how a share
+ * card ends up pointing at a laptop. See `siteBaseUrl`.
+ */
 export const SITE_FALLBACK_URL = 'https://warrly.com';
+
+/** The public, indexable routes. The sitemap and `hreflang` set derive from it. */
+export const PUBLIC_PATHS = ['/', '/privacy', '/terms', '/cookies'] as const;
+
+export type PublicPath = (typeof PUBLIC_PATHS)[number];
 
 export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
 
@@ -29,20 +40,61 @@ export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
  * Base URL for absolute metadata URLs. `NEXT_PUBLIC_APP_URL` first so a
  * deployment can expose it to the client later without a second variable;
  * `APP_URL` is the server-side name the Go service already uses for mailed
- * links. An invalid/non-http value falls back rather than producing a
- * `metadataBase` that throws at request time.
+ * links.
+ *
+ * In production, a missing (or non-http) value is an ERROR, not a fallback.
+ * Falling back to `http://localhost:3000` shipped `metadataBase`, `canonical`,
+ * `og:url` and `og:image` pointing at a machine nobody else can reach — the
+ * concrete cause of a Zalo/Facebook share with no preview image. Tests and
+ * local development keep the documented fallback; a production request (or
+ * any page statically rendered during a production build) throws here instead
+ * of shipping the wrong hostname.
  */
 export function siteBaseUrl(): URL {
-  const configured = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;
-  if (configured) {
+  // `NEXT_PUBLIC_APP_URL` first, then the server-side name. Empty strings are
+  // "not set", and a malformed public value must not hide a valid `APP_URL`
+  // (compose passes only `APP_URL`), so each candidate is tried in turn.
+  const candidates = [process.env.NEXT_PUBLIC_APP_URL, process.env.APP_URL];
+  for (const configured of candidates) {
+    if (!configured) continue;
     try {
       const url = new URL(configured);
       if (url.protocol === 'http:' || url.protocol === 'https:') return url;
     } catch {
-      // fall through to the documented fallback
+      // try the next candidate
     }
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'APP_URL is not set (or is not an http(s) URL). Set APP_URL — or ' +
+        'NEXT_PUBLIC_APP_URL — to the public origin of this site ' +
+        '(for example https://warrly.com) before building for production. ' +
+        'Refusing to emit localhost metadata.',
+    );
+  }
+
   return new URL(SITE_FALLBACK_URL);
+}
+
+/** An absolute URL for a site-relative path, using the configured origin. */
+export function absoluteUrl(path: string): string {
+  return new URL(path, siteBaseUrl()).toString();
+}
+
+/**
+ * `hreflang` map for one route: both languages plus the `x-default` target.
+ *
+ * Absolute on purpose. Next resolves relative alternates against
+ * `metadataBase` too, but emitting the full URL here means the tags are
+ * verifiable from the HTML alone and cannot silently inherit a different base.
+ * `x-default` points at the unprefixed English URL — the default version a
+ * visitor with no language match should get.
+ */
+export function languageAlternates(path: string): Record<string, string> {
+  const en = absoluteUrl(localePath(path, 'en'));
+  const vi = absoluteUrl(localePath(path, 'vi'));
+  return { en, vi, 'x-default': en };
 }
 
 /**
@@ -104,7 +156,11 @@ export function openGraphImageUrl({
 export type PageMetadataInput = {
   title: string;
   description: string;
-  /** Site-relative canonical path, e.g. `/privacy`. */
+  /**
+   * The UNPREFIXED site path, e.g. `/privacy`. `pageMetadata` derives the
+   * canonical (`/privacy` for English, `/vi/privacy` for Vietnamese) and the
+   * `hreflang` pair from it; callers must not pass an already-prefixed path.
+   */
   path: string;
   locale: Locale;
 };
@@ -112,6 +168,12 @@ export type PageMetadataInput = {
 /**
  * Title/description/canonical/OG/Twitter for one public page. `metadataBase`
  * is set once in the root layout; relative URLs here are resolved against it.
+ *
+ * The canonical is SELF-REFERENTIAL PER LOCALE: an English page canonicalises
+ * to `/privacy`, a Vietnamese page to `/vi/privacy`. It never canonicalises
+ * `/vi` back to `/` — that would tell Google the Vietnamese page is a duplicate
+ * and erase the only Vietnamese URL a crawler can reach. `alternates.languages`
+ * then ties the pair together with absolute `hreflang` URLs.
  */
 export function pageMetadata({
   title,
@@ -121,11 +183,15 @@ export function pageMetadata({
 }: PageMetadataInput): Metadata {
   const image = openGraphImageUrl({ title, description, locale });
   const language = OPEN_GRAPH_LOCALES[locale];
+  const canonical = localePath(path, locale);
 
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: {
+      canonical,
+      languages: languageAlternates(path),
+    },
     openGraph: {
       type: 'website',
       siteName: SITE_NAME,
@@ -133,7 +199,7 @@ export function pageMetadata({
       alternateLocale: language.alternate,
       title,
       description,
-      url: path,
+      url: canonical,
       images: [
         {
           url: image,

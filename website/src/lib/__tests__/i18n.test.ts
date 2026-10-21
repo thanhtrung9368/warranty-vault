@@ -4,9 +4,12 @@ import {
   LOCALE_COOKIE,
   LOCALES,
   isLocale,
+  localePath,
   normalizeLocale,
   parseAcceptLanguage,
   resolveLocale,
+  splitLocalePath,
+  stripLocalePrefix,
   withLangParam,
 } from '@/lib/i18n/locale';
 import {
@@ -103,9 +106,81 @@ describe('Accept-Language parsing', () => {
   });
 });
 
+describe('the /vi URL', () => {
+  it('splits `/vi`/`/vi/...` into the unprefixed route and the language', () => {
+    expect(splitLocalePath('/vi')).toEqual({ pathname: '/', locale: 'vi' });
+    expect(splitLocalePath('/vi/')).toEqual({ pathname: '/', locale: 'vi' });
+    expect(splitLocalePath('/vi/privacy')).toEqual({
+      pathname: '/privacy',
+      locale: 'vi',
+    });
+  });
+
+  it('does not treat a longer segment as the prefix', () => {
+    // `/vietnamese` is a (nonexistent) route, not a malformed `/vi` URL. A
+    // startsWith('/vi') check would silently rewrite it and manufacture a 404
+    // that looked like a language bug.
+    expect(splitLocalePath('/vietnamese')).toEqual({
+      pathname: '/vietnamese',
+      locale: null,
+    });
+    expect(splitLocalePath('/v1/devices')).toEqual({
+      pathname: '/v1/devices',
+      locale: null,
+    });
+    expect(splitLocalePath('/')).toEqual({ pathname: '/', locale: null });
+  });
+
+  it('round-trips the two URLs for every public route', () => {
+    for (const base of ['/', '/privacy', '/terms', '/cookies']) {
+      expect(localePath(base, 'en')).toBe(base);
+      expect(stripLocalePrefix(localePath(base, 'vi'))).toBe(base);
+    }
+    expect(localePath('/', 'vi')).toBe('/vi');
+    expect(localePath('/privacy', 'vi')).toBe('/vi/privacy');
+  });
+
+  it('is idempotent when handed an already-prefixed path', () => {
+    // The switcher passes `usePathname()`, which is `/vi/privacy` on the
+    // Vietnamese page. Re-prefixing must not produce `/vi/vi/privacy`.
+    expect(localePath('/vi/privacy', 'vi')).toBe('/vi/privacy');
+    expect(localePath('/vi/privacy', 'en')).toBe('/privacy');
+    expect(stripLocalePrefix('/vi/privacy')).toBe('/privacy');
+  });
+});
+
 describe('the web language precedence', () => {
-  // cookie → stored preference → Accept-Language → en
-  it('lets the explicit cookie beat everything', () => {
+  // /vi URL → cookie → stored preference → Accept-Language → en
+  it('lets the URL beat the cookie and everything below it', () => {
+    // The whole point of `/vi`: a shared link must open in Vietnamese even in a
+    // browser whose cookie still says English. Googlebot has no cookie at all,
+    // so without this level every crawl was English.
+    expect(
+      resolveLocale({
+        pathLocale: 'vi',
+        cookie: 'en',
+        user: 'en',
+        acceptLanguage: 'en-US,en;q=0.9',
+      }),
+    ).toBe('vi');
+  });
+
+  it('leaves an unprefixed URL to the cookie', () => {
+    expect(
+      resolveLocale({
+        pathLocale: null,
+        cookie: 'en',
+        user: 'vi',
+        acceptLanguage: 'vi-VN,vi;q=0.9',
+      }),
+    ).toBe('en');
+  });
+
+  it('ignores a junk path signal rather than pinning it', () => {
+    expect(resolveLocale({ pathLocale: 'klingon', cookie: 'vi' })).toBe('vi');
+  });
+
+  it('lets the explicit cookie beat everything below the URL', () => {
     expect(
       resolveLocale({ cookie: 'en', user: 'vi', acceptLanguage: 'vi-VN,vi;q=0.9' }),
     ).toBe('en');

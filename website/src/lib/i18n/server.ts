@@ -1,9 +1,15 @@
 // The language a request renders in — resolved once, used everywhere.
 //
 // Precedence (and why) lives in `locale.ts::resolveLocale`. This module is only
-// the server half that gathers the three signals:
+// the server half that gathers the signals:
 //
-//   cookie (`wv_locale`)  →  `User.locale`  →  `Accept-Language`  →  `en`
+//   `/vi` URL (proxy header)  →  cookie (`wv_locale`)  →  `User.locale`
+//     →  `Accept-Language`  →  `en`
+//
+// The URL comes first because it is the only language signal a crawler or a
+// shared link can carry. Googlebot sends no cookie and (per Google's own
+// documentation) no `Accept-Language`, so without the URL every crawl rendered
+// English and there was no indexable Vietnamese page at all.
 //
 // `User.locale` is read through `getCurrentUser()`, which is already
 // `cache()`d per request and already needed by `(app)/layout.tsx` — so lifting
@@ -15,7 +21,7 @@ import { cache } from 'react';
 import { getCurrentUser } from '@/lib/auth';
 import { translatorFor, type Translator } from './catalog';
 import { DEFAULT_LOCALE, resolveLocale, type Locale } from './locale';
-import { getAcceptLanguageLocale, getCookieLocale } from './request';
+import { getAcceptLanguageLocale, getCookieLocale, getPathLocale } from './request';
 
 /**
  * The language of the current request.
@@ -24,11 +30,17 @@ import { getAcceptLanguageLocale, getCookieLocale } from './request';
  * React `cache()` makes the second and later calls free within one request.
  */
 export const getLocale = cache(async (): Promise<Locale> => {
+  // `/vi/...` is an explicit URL, so it outranks the browser's stored choice:
+  // a link someone shares must open in the language the sender wrote.
+  const pathLocale = await getPathLocale();
+  if (pathLocale) return pathLocale;
+
   const cookie = await getCookieLocale();
   if (cookie) return cookie;
 
-  // Only reached when this browser has no explicit choice. A signed-out visitor
-  // short-circuits inside `getCurrentUser` (no session cookie ⇒ no API call).
+  // Only reached when neither the URL nor this browser has an explicit choice.
+  // A signed-out visitor short-circuits inside `getCurrentUser` (no session
+  // cookie ⇒ no API call).
   const user = await getCurrentUser();
   const acceptLanguage = await getAcceptLanguageLocale();
 

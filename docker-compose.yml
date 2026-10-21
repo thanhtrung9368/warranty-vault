@@ -152,12 +152,18 @@ services:
       GO_API_URL: "http://api:4000/api"
 
       # ── Bắt buộc ──────────────────────────────────────────────────
-      # Web thực chất chỉ đọc ĐÚNG 2 biến: SESSION_SECRET (mã hoá cookie
-      # iron-session) và NEXT_PUBLIC_VAPID_PUBLIC_KEY (inline lúc build).
-      # DB, giải mã blob, gửi push, gửi mail, cron đều là việc của Go —
-      # web chỉ proxy. Đã grep xác nhận website/ không đọc những biến đã
-      # gỡ ở đây: DATABASE_URL, PRIVATE_UPLOAD_ROOT, FILE_MASTER_KEY,
-      # CRON_SECRET, APP_URL, VAPID_PRIVATE_KEY, VAPID_SUBJECT, RESEND_*.
+      # Web reads SESSION_SECRET (iron-session cookie encryption) and
+      # NEXT_PUBLIC_VAPID_PUBLIC_KEY (inlined at build time), and — since the
+      # SEO work — APP_URL. The Next app uses APP_URL for metadataBase,
+      # canonical, og:url, og:image, hreflang and sitemap.xml. Without it
+      # production now FAILS LOUDLY (compose refuses to start here, and the
+      # app throws) instead of emitting http://localhost:3000 — which is why a
+      # Zalo/Facebook share had no image. `:?` makes compose refuse to start
+      # rather than defaulting.
+      # Still not read by the web: DATABASE_URL, PRIVATE_UPLOAD_ROOT,
+      # FILE_MASTER_KEY, CRON_SECRET, VAPID_PRIVATE_KEY, VAPID_SUBJECT,
+      # RESEND_*.
+      APP_URL: ${APP_URL:?APP_URL must be set to the public site origin (e.g. https://warrly.com)}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set (>=32 chars)}
       NODE_ENV: production
 

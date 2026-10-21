@@ -11,10 +11,24 @@ import { cache } from 'react';
 import {
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE,
+  LOCALE_PATH_HEADER,
   normalizeLocale,
   parseAcceptLanguage,
   type Locale,
 } from './locale';
+
+/**
+ * The language the URL asked for, as written by `src/proxy.ts` after it saw a
+ * `/vi` prefix. `null` on every unprefixed route — including `/` — so the
+ * cookie and the stored preference still decide those.
+ *
+ * The proxy deletes any client-supplied value before this runs, so the header
+ * is not something a visitor can spoof to force a language.
+ */
+export const getPathLocale = cache(async (): Promise<Locale | null> => {
+  const store = await headers();
+  return normalizeLocale(store.get(LOCALE_PATH_HEADER));
+});
 
 /**
  * The visitor's explicit choice, from the `wv_locale` cookie.

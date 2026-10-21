@@ -23,7 +23,9 @@ import { WarrlyLockup, WarrlyMark, WarrlyWordmark } from '@/components/brand';
 import { getCurrentUser } from '@/lib/auth';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
+import { localePath } from '@/lib/i18n/locale';
 import { loginHref } from '@/lib/next-path';
+import { PublicStructuredData } from '@/lib/structured-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,8 +160,13 @@ type FaqEntry = {
 
 // The FAQ is built inside the page for the same reason as the arrays above: its
 // keys are copy, so it must be assembled with the request's `t`, not at module
-// scope. The same array feeds both the visible accordion and the FAQPage
-// JSON-LD, so a search engine and a reader can never be told different things.
+// scope.
+//
+// There is deliberately no FAQPage JSON-LD. Google retired FAQ rich results
+// (announced 2026-05-07, documentation removed 2026-06-15), so a second,
+// machine-only copy of these five answers was dead weight on every response.
+// The visible accordion stays; `lib/structured-data.tsx` emits only the
+// WebSite + Organization nodes that still do something.
 function buildFaq(t: Translator): FaqEntry[] {
   return [
     {
@@ -215,20 +222,13 @@ export default async function LandingPage() {
   const STAGE = buildStage(t);
   const FAQ = buildFaq(t);
 
-  // The machine-readable copy of the same five answers. `<` is escaped so a
-  // future answer containing markup cannot close the script element early.
-  const faqJsonLd = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: FAQ.map((item) => ({
-      '@type': 'Question',
-      name: item.q,
-      acceptedAnswer: { '@type': 'Answer', text: item.a },
-    })),
-  }).replace(/</g, '\\u003c');
-
   return (
     <div className="flex min-h-screen flex-col">
+      {/* WebSite + Organization. The landing page is outside the `(public)`
+          route group, so it renders the shared node set itself; the legal
+          pages get it from `(public)/layout.tsx`. One module builds both, so
+          the site name/URL/logo cannot differ between them. */}
+      <PublicStructuredData />
       {/* One observer for every <Reveal> on the page. It renders nothing; the
           wrapper markup and the animation are server/CSS-owned. Mounted here
           rather than in the root layout so no other route pays for the JS. */}
@@ -246,7 +246,7 @@ export default async function LandingPage() {
               the wordmark — one lockup per screen, and the header is it. The
               symbol + outline wordmark are a single SVG, so the mark cannot
               be restyled by the font/radius/accent presets. */}
-          <Link href="/" aria-label="Warrly" className="inline-flex">
+          <Link href={localePath('/', locale)} aria-label="Warrly" className="inline-flex">
             <WarrlyLockup height={40} />
           </Link>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
@@ -554,7 +554,7 @@ export default async function LandingPage() {
                     ))}
                   </ul>
                   <Link
-                    href="/terms#usage-limits"
+                    href={localePath('/terms#usage-limits', locale)}
                     className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
                   >
                     {t('Điều khoản, mục 4')} →
@@ -576,7 +576,7 @@ export default async function LandingPage() {
                     {t('Không quảng cáo, không pixel theo dõi, không bán dữ liệu.')}
                   </p>
                   <Link
-                    href="/privacy"
+                    href={localePath('/privacy', locale)}
                     className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
                   >
                     {t('Chính sách bảo mật, mục 2 và 5')} →
@@ -595,7 +595,7 @@ export default async function LandingPage() {
                     {t('Xuất mọi thứ ra JSON, hoặc .zip kèm nội dung ảnh đã mã hoá. Xoá tài khoản trong Cài đặt — không phải gửi yêu cầu qua email.')}
                   </p>
                   <Link
-                    href="/privacy#rights"
+                    href={localePath('/privacy#rights', locale)}
                     className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
                   >
                     {t('Chính sách bảo mật, mục 6')} →
@@ -609,7 +609,7 @@ export default async function LandingPage() {
         {/* FAQ.
             Native <details>/<summary>: the accordion opens and closes with the
             keyboard and with JavaScript disabled, and there is no client bundle
-            to pay for. The FAQPage JSON-LD is built from the same array above. */}
+            to pay for. */}
         <section className="px-4 pb-20 md:px-8" aria-labelledby="wv-faq-title">
           <div className="mx-auto max-w-3xl">
             <div className="text-center">
@@ -621,11 +621,6 @@ export default async function LandingPage() {
                 {t('Nếu câu bạn cần không có ở đây, email hỗ trợ ở cuối trang.')}
               </p>
             </div>
-
-            <script
-              type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: faqJsonLd }}
-            />
 
             <Reveal>
               <div className="mt-8 overflow-hidden rounded-xl border-[1.5px] border-border bg-card shadow-soft">
@@ -646,7 +641,7 @@ export default async function LandingPage() {
                       <p>{item.a}</p>
                       {item.href && item.link ? (
                         <Link
-                          href={item.href}
+                          href={localePath(item.href, locale)}
                           className="mt-2 inline-block text-[13px] font-semibold text-primary hover:underline"
                         >
                           {item.link} →
@@ -718,7 +713,7 @@ export default async function LandingPage() {
         <footer className="border-t-[1.5px] border-border bg-card px-4 py-8 md:px-8">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
             {/* Footer: the wordmark alone, per the brand lockup rules. */}
-            <Link href="/" aria-label="Warrly" className="inline-flex">
+            <Link href={localePath('/', locale)} aria-label="Warrly" className="inline-flex">
               <WarrlyWordmark height={22} />
             </Link>
             {/* The year is interpolated rather than concatenated, so the
@@ -729,13 +724,16 @@ export default async function LandingPage() {
               })}
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-              <Link href="/privacy" className="text-muted hover:text-ink">
+              {/* The legal pages exist in both languages; keep the footer
+                  inside the language of the page the reader is on, so a
+                  `/vi` link does not hand them an English document. */}
+              <Link href={localePath('/privacy', locale)} className="text-muted hover:text-ink">
                 Privacy
               </Link>
-              <Link href="/terms" className="text-muted hover:text-ink">
+              <Link href={localePath('/terms', locale)} className="text-muted hover:text-ink">
                 Terms
               </Link>
-              <Link href="/cookies" className="text-muted hover:text-ink">
+              <Link href={localePath('/cookies', locale)} className="text-muted hover:text-ink">
                 Cookies
               </Link>
               {/* The support address is data, not copy: it is the same mailbox

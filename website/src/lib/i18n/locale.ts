@@ -23,6 +23,61 @@ export const LOCALES = ['en', 'vi'] as const satisfies readonly Locale[];
 export const DEFAULT_LOCALE: Locale = 'en';
 
 /**
+ * The URL prefix that makes a page Vietnamese.
+ *
+ * English is the default and stays unprefixed (`/`, `/privacy`), so those URLs
+ * are also the `x-default` targets. Vietnamese has exactly one URL shape —
+ * `/vi`, `/vi/privacy` — and `src/proxy.ts` rewrites it onto the unprefixed
+ * route. The prefix is deliberately a path segment and not a query parameter:
+ * a crawler follows links, and a link with a language in the path is one URL
+ * per language, which is what `hreflang` is allowed to describe.
+ */
+export const VI_PREFIX = '/vi';
+
+/**
+ * Request header the proxy writes after it has resolved the URL prefix.
+ *
+ * The header is the highest-priority language signal (see `resolveLocale`).
+ * It has to outrank the cookie: a shared `/vi` link must render Vietnamese even
+ * in a browser whose `wv_locale` cookie still says English. The proxy also
+ * DELETES any incoming value on unprefixed paths, so a client cannot spoof a
+ * language by sending this header itself.
+ */
+export const LOCALE_PATH_HEADER = 'x-wv-locale';
+
+/**
+ * Split a pathname into the route it should render and the language its URL
+ * asked for. `/vi` and `/vi/...` are the only prefixed forms; `/vietnamese`
+ * is a different route, not a malformed prefix.
+ */
+export function splitLocalePath(pathname: string): {
+  pathname: string;
+  locale: Locale | null;
+} {
+  if (pathname === VI_PREFIX) return { pathname: '/', locale: 'vi' };
+  if (pathname.startsWith(`${VI_PREFIX}/`)) {
+    return { pathname: pathname.slice(VI_PREFIX.length) || '/', locale: 'vi' };
+  }
+  return { pathname, locale: null };
+}
+
+/** The unprefixed route for a pathname that may already carry `/vi`. */
+export function stripLocalePrefix(pathname: string): string {
+  return splitLocalePath(pathname).pathname;
+}
+
+/**
+ * The URL for one route in one language. This is the ONLY function that
+ * decides where a language lives, so metadata, the sitemap, the switcher and
+ * the proxy cannot disagree about it.
+ */
+export function localePath(pathname: string, locale: Locale): string {
+  const base = stripLocalePrefix(pathname);
+  if (locale === 'en') return base;
+  return base === '/' ? VI_PREFIX : `${VI_PREFIX}${base}`;
+}
+
+/**
  * Cookie carrying the visitor's explicit choice of language.
  *
  * Deliberately NOT part of the iron-session payload: `wv_session` is encrypted
@@ -122,6 +177,11 @@ export function parseAcceptLanguage(header: string | null | undefined): Locale |
 }
 
 export type LocaleSources = {
+  /**
+   * The language the URL asked for (`/vi/...`), as resolved by the proxy.
+   * `null`/undefined on an unprefixed path.
+   */
+  pathLocale?: string | null;
   /** `wv_locale` cookie — an explicit choice made in THIS browser. */
   cookie?: string | null;
   /** `User.locale` from `GET /v1/auth/me` — authoritative for the account. */
@@ -133,10 +193,19 @@ export type LocaleSources = {
 /**
  * The web's language precedence, first match wins:
  *
- *   1. `wv_locale` cookie   — the visitor said so, in this browser
- *   2. `User.locale`        — the account said so (set here or on a phone)
- *   3. `Accept-Language`    — the only signal a brand-new visitor has
- *   4. `en`                 — the product default
+ *   1. URL path `/vi`      — the link itself says Vietnamese
+ *   2. `wv_locale` cookie  — the visitor said so, in this browser
+ *   3. `User.locale`       — the account said so (set here or on a phone)
+ *   4. `Accept-Language`   — the only signal a brand-new visitor has
+ *   5. `en`                — the product default
+ *
+ * The URL outranks everything because it is the only signal a crawler (or a
+ * recipient of a shared link) can carry. Without that, Googlebot — which sends
+ * neither a cookie nor `Accept-Language` — only ever saw English, and there was
+ * no address that returned Vietnamese at all. `/vi` exists to be that address,
+ * so it must render Vietnamese even when the browser's stored preference says
+ * otherwise. The cookie still wins on unprefixed URLs, which is why the
+ * switcher is a real link to `/vi` rather than a cookie write with no href.
  *
  * Why the cookie outranks the stored preference rather than the other way
  * round: both levels exist, and one of them has to win. The cookie wins because
@@ -160,6 +229,7 @@ export type LocaleSources = {
  */
 export function resolveLocale(sources: LocaleSources): Locale {
   return (
+    normalizeLocale(sources.pathLocale) ??
     normalizeLocale(sources.cookie) ??
     normalizeLocale(sources.user) ??
     parseAcceptLanguage(sources.acceptLanguage) ??

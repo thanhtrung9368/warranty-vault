@@ -63,13 +63,14 @@ describe('pageMetadata', () => {
       locale: 'vi',
     });
 
-    expect(metadata.alternates?.canonical).toBe('/privacy');
+    // Vietnamese content canonicalises to its OWN URL, never back to `/privacy`.
+    expect(metadata.alternates?.canonical).toBe('/vi/privacy');
     expect(metadata.openGraph).toMatchObject({
       type: 'website',
       siteName: 'Warrly',
       locale: 'vi_VN',
       alternateLocale: ['en_US'],
-      url: '/privacy',
+      url: '/vi/privacy',
       title: 'Chính sách bảo mật — Warrly',
       description: 'Chính sách bảo mật và xử lý dữ liệu của Warrly',
     });
@@ -105,6 +106,34 @@ describe('pageMetadata', () => {
       locale: 'en_US',
       alternateLocale: ['vi_VN'],
     });
+    expect(en.alternates?.canonical).toBe('/');
+  });
+
+  it('emits absolute hreflang alternates for both languages plus x-default', () => {
+    // `metadataBase` resolves these too, but the tags are emitted absolute so
+    // their correctness is checkable from the metadata object alone.
+    const metadata = pageMetadata({
+      title: 'Chính sách bảo mật — Warrly',
+      description: 'Chính sách bảo mật và xử lý dữ liệu của Warrly',
+      path: '/privacy',
+      locale: 'vi',
+    });
+    expect(metadata.alternates?.languages).toEqual({
+      en: 'https://warrly.com/privacy',
+      vi: 'https://warrly.com/vi/privacy',
+      'x-default': 'https://warrly.com/privacy',
+    });
+  });
+
+  it('never canonicalises a Vietnamese page to the English URL', () => {
+    const vi = pageMetadata({
+      title: 'Điều khoản sử dụng — Warrly',
+      description: 'Điều khoản sử dụng dịch vụ Warrly',
+      path: '/terms',
+      locale: 'vi',
+    });
+    expect(vi.alternates?.canonical).toBe('/vi/terms');
+    expect(vi.alternates?.canonical).not.toBe('/terms');
   });
 
   it('builds a 1200×630 image URL with the same copy as the tags', () => {
@@ -136,6 +165,24 @@ describe('siteBaseUrl', () => {
   it('ignores a malformed value instead of emitting a broken metadataBase', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
     vi.stubEnv('APP_URL', 'not a url');
+    expect(siteBaseUrl().toString()).toBe('https://warrly.com/');
+  });
+
+  it('throws in production instead of silently shipping localhost', () => {
+    // The regression this pins: `metadataBase`, canonical, og:url and og:image
+    // all inherited http://localhost:3000 in production, so a Zalo/Facebook
+    // share resolved no image. A production build must stop, naming the var.
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
+    vi.stubEnv('APP_URL', '');
+    expect(() => siteBaseUrl()).toThrow(/APP_URL/);
+    expect(() => siteBaseUrl()).toThrow(/NEXT_PUBLIC_APP_URL/);
+  });
+
+  it('allows a production build when APP_URL is configured', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
+    vi.stubEnv('APP_URL', 'https://warrly.com');
     expect(siteBaseUrl().toString()).toBe('https://warrly.com/');
   });
 });

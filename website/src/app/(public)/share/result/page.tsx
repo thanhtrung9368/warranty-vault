@@ -19,7 +19,16 @@ import {
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
-  return { title: t('Không nhận được file — Warrly') };
+  return {
+    title: t('Không nhận được file — Warrly'),
+    // A share attempt that failed is not a destination and must not inherit the
+    // root layout's `/` canonical or enter an index. The certificate itself is
+    // served by Go and already carries `X-Robots-Tag: noindex` (+ `<meta
+    // name="robots">`); this is the Next-side failure screen, covered here so
+    // neither half of the share flow can be indexed.
+    robots: { index: false, follow: false },
+    alternates: { canonical: null },
+  };
 }
 
 export default async function ShareResultPage({
