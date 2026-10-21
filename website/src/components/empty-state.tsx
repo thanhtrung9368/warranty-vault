@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getI18n } from '@/lib/i18n/server';
 import { emptyStateCopy, type EmptyReason } from '@/lib/empty-state';
+import { EmptyStateArt } from '@/components/empty-state-art';
 
 type Tone = 'primary' | 'amber' | 'emerald' | 'rose' | 'sky' | 'violet' | 'zinc';
 
@@ -74,14 +75,23 @@ export async function EmptyState({
 
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-16 text-center">
-      <div
-        className={cn(
-          'mb-5 flex h-24 w-24 items-center justify-center rounded-full',
-          TONE_CLASSES[tone],
-        )}
-      >
-        <Icon className="h-10 w-10" strokeWidth={1.75} />
-      </div>
+      {emptyReason === 'no-data' ? (
+        // Cold start: a receipt with a date dot and a soft plus. The copy/CTA
+        // below are untouched — this only replaces the tinted icon chip on the
+        // one state where the app is asking for a first device.
+        <div className="mb-3 flex justify-center">
+          <EmptyStateArt label={t('Sổ bảo hành và hoá đơn')} />
+        </div>
+      ) : (
+        <div
+          className={cn(
+            'mb-5 flex h-24 w-24 items-center justify-center rounded-full',
+            TONE_CLASSES[tone],
+          )}
+        >
+          <Icon className="h-10 w-10" strokeWidth={1.75} />
+        </div>
+      )}
       <h3 className="display mb-2 text-2xl !leading-tight text-ink">{resolvedTitle}</h3>
       <p className="mb-6 max-w-sm text-sm text-muted-foreground">{resolvedDescription}</p>
       {cta && (

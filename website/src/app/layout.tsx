@@ -58,9 +58,15 @@ export async function generateMetadata(): Promise<Metadata> {
       statusBarStyle: 'default',
       title: 'Warrly',
     },
+    // The tab icon is the SYMBOL alone. `favicon.ico` is a real 16/32/48
+    // multi-size ICO (the old build had none at all, so every tab showed a
+    // generic globe); `favicon.svg` is the crisp modern path. `/icon.svg` is
+    // deliberately NOT listed here: it is the in-app `currentColor` mark and
+    // a standalone favicon has no CSS to resolve those variables.
     icons: {
       icon: [
-        { url: '/icon.svg', type: 'image/svg+xml' },
+        { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
+        { url: '/favicon.svg', type: 'image/svg+xml' },
         { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
         { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       ],

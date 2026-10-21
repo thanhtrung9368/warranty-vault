@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowLeft, Vault } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { WarrlyLockup } from '@/components/brand';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { getI18n } from '@/lib/i18n/server';
@@ -14,13 +15,8 @@ export default async function PublicLayout({
     <div className="flex min-h-screen flex-col">
       <header className="border-b-[1.5px] border-border bg-card">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="brand-mark">
-              <Vault className="h-[18px] w-[18px]" />
-            </span>
-            <span className="font-display text-base font-extrabold tracking-tight text-ink">
-              Warrly
-            </span>
+          <Link href="/" aria-label="Warrly" className="inline-flex">
+            <WarrlyLockup height={40} />
           </Link>
           {/* These pages have no session, so the switcher here is the only way a
               first-time visitor can override their browser's Accept-Language.

@@ -94,6 +94,27 @@ export const publicPages = defineMessages({
   'Theo tháng, theo loại, thiết bị đắt nhất. Biết tiền đã đi đâu.':
     'By month, by category, the most expensive device. See where the money went.',
 
+  // ── Feature illustrations (`components/landing/feature-visuals.tsx`) ─────
+  // Alt text is content, not decoration: it is read in the UI language, so
+  // every subject needs both columns. `Điện thoại` already exists in
+  // `common.ts` as "Phone" and is reused rather than redefined.
+  'Sổ bảo hành': 'Warranty booklet',
+  'Chìa khoá xe máy': 'Motorbike key',
+  'Điều khiển điều hoà': 'Air-conditioner remote',
+  'Hoá đơn đỏ': 'Red invoice',
+  'Nồi cơm điện': 'Rice cooker',
+
+  // ── Brand line ──────────────────────────────────────────────────────────
+  // Two sentences, two jobs: keep the date, keep the paper. It is the OG
+  // card's descriptor and may be used wherever the lockup needs a line under
+  // it. The share card is an ARTIFACT (it leaves the app and is read by
+  // someone who never chose a language), so `/og` renders the Vietnamese
+  // column by default; the English is here for in-app descriptors.
+  'Giữ ngày. Giữ giấy.': 'Keep the date. Keep the paper.',
+
+  // ── Empty-state art (`components/empty-state-art.tsx`) ──────────────────
+  'Sổ bảo hành và hoá đơn': 'Warranty booklet and receipt',
+
   // ── Landing page — 3 steps ──────────────────────────────────────────────
   // The eyebrow reads `Bắt đầu` in the original. It could NOT be reused as a
   // key: `subscriptions.ts` and `devices.ts` already register that exact

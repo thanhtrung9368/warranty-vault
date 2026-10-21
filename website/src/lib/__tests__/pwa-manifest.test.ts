@@ -107,6 +107,37 @@ describe('PWA shortcuts', () => {
   });
 });
 
+describe('manifest icons', () => {
+  const icons = buildWebManifest('en').icons ?? [];
+
+  it('separates the maskable icon from the unrounded `any` icon', () => {
+    const maskable = icons.filter((icon) => icon.purpose === 'maskable');
+    const any = icons.filter((icon) => icon.purpose === 'any');
+    expect(maskable).toHaveLength(1);
+    // The bug this pins: `icon-512.png` was declared maskable even though it
+    // was a transparent, pre-rounded PNG. A maskable icon is a crop target.
+    expect(maskable[0].src).toBe('/icon-maskable-512.png');
+    expect(maskable[0].sizes).toBe('512x512');
+    const any512 = any.find((icon) => icon.sizes === '512x512');
+    expect(any512?.src).toBe('/icon-512.png');
+    expect(icons.some((icon) => icon.src === '/icon-512.png' && icon.purpose === 'maskable')).toBe(false);
+  });
+
+  it('offers an SVG favicon and the 180px iOS icon', () => {
+    expect(icons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ src: '/favicon.svg', type: 'image/svg+xml' }),
+        expect.objectContaining({ src: '/apple-touch-icon.png', sizes: '180x180' }),
+        expect.objectContaining({ src: '/icon-192.png', sizes: '192x192' }),
+      ]),
+    );
+  });
+
+  it('does not advertise the in-app currentColor icon.svg as a standalone icon', () => {
+    expect(icons.some((icon) => icon.src === '/icon.svg')).toBe(false);
+  });
+});
+
 describe('generated manifest', () => {
   it('is English by default and Vietnamese when asked', () => {
     const en = buildWebManifest('en');

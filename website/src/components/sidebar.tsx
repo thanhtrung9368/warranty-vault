@@ -9,7 +9,6 @@ import {
   Bell,
   BarChart3,
   Settings,
-  Vault,
   Heart,
   RefreshCw,
   ListChecks,
@@ -24,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { WarrlyMark } from '@/components/brand';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/client';
 
@@ -233,16 +233,14 @@ export function Sidebar({
   return (
     <aside className="wv-sidebar sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-1.5 border-r border-border bg-card px-3.5 py-4 md:flex">
       {/* Brand */}
+      {/* Symbol alone. The wordmark lives in the landing/auth lockup; the
+          signed-in shell is chrome, not a place to repeat the trademark. */}
       <Link
         href="/dashboard"
-        className="wv-sidebar-brand flex items-center gap-2.5 px-2 pb-4 pt-2.5"
+        aria-label="Warrly"
+        className="wv-sidebar-brand flex items-center px-2 pb-4 pt-2.5"
       >
-        <span className="brand-mark brand-mark-sm">
-          <Vault className="h-4 w-4" />
-        </span>
-        <span className="wv-sidebar-brand-text font-display text-lg font-extrabold tracking-tight text-ink">
-          Warrly
-        </span>
+        <WarrlyMark size={36} />
       </Link>
 
       {/* Grouped nav. The scrolling area holds the three groups; Settings sits

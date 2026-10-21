@@ -65,11 +65,21 @@ const SHORTCUT_ICON = {
   type: 'image/png',
 } as const;
 
+// `any` and `maskable` are DIFFERENT files, on purpose.
+//
+// The old manifest pointed both purposes at `icon-512.png`, which was
+// transparent and pre-rounded. Android treats a `maskable` icon as a crop
+// target: it throws away the outer 20% and paints the launcher's own shape
+// behind it. Feeding it a pre-rounded transparent PNG produced a rounded
+// square with a visible halo inside the launcher mask. `icon-512.png` is now
+// the unrounded, full-bleed (opaque cream) `any` icon, and
+// `icon-maskable-512.png` is a separate 512 with the glyph kept inside the
+// inner 80% safe circle.
 const ICONS: NonNullable<MetadataRoute.Manifest['icons']> = [
-  { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+  { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
   { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
   { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-  { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+  { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
   { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
 ];
 

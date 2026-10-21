@@ -1,6 +1,6 @@
 /* Warrly service worker — push receive + honest offline document cache. */
 
-importScripts('/sw-core.js?v=4');
+importScripts('/sw-core.js?v=5');
 
 const {
   SHELL_CACHE,
@@ -393,8 +393,12 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body,
       tag,
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      // `icon` is the colour notification image; `badge` is the Android status
+      // bar glyph and MUST be monochrome on transparent. The old code sent
+      // `/icon.svg` for both, so the status-bar badge was a full-colour,
+      // transparent-cornered scene that Android rendered as a grey blob.
+      icon: '/notification-icon-192.png',
+      badge: '/notification-badge-96.png',
       lang: 'vi',
       data: { url },
     }),

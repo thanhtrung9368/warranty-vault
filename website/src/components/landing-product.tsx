@@ -1,5 +1,6 @@
-import { Bell, Paperclip, Plus, ShieldCheck, Vault } from 'lucide-react';
+import { Bell, Paperclip, Plus, ShieldCheck } from 'lucide-react';
 import { CategoryIconBadge } from '@/components/category-icon';
+import { WarrlyMark } from '@/components/brand';
 import { formatDate, warrantyState } from '@/lib/format';
 import type { Translator } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
@@ -114,7 +115,7 @@ export function LandingProduct({ t, locale, className }: LandingProductProps) {
         <div className="wv-product-clip">
           <div className="wv-product-head">
             <span className="wv-product-mark">
-              <Vault />
+              <WarrlyMark size={32} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="wv-product-head-title">{t('Thiết bị')}</p>

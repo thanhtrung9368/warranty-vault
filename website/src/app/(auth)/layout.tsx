@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Vault } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { OfflineCacheCleaner } from '@/components/offline-cache-cleaner';
 import { AppBadge } from '@/components/app-badge';
+import { WarrlyLockup } from '@/components/brand';
 import { getI18n } from '@/lib/i18n/server';
 
 // Same reasoning as `(app)/layout.tsx`: a sign-in form is not a duplicate of
@@ -40,13 +40,8 @@ export default async function AuthLayout({
           There is no reminders read on these pages, so the honest count is 0. */}
       <AppBadge count={0} />
       <header className="flex items-center justify-between gap-3 px-4 py-5 md:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="brand-mark">
-            <Vault className="h-[18px] w-[18px]" />
-          </span>
-          <span className="font-display text-base font-extrabold tracking-tight text-ink">
-            Warrly
-          </span>
+        <Link href="/" aria-label="Warrly" className="inline-flex">
+          <WarrlyLockup height={40} />
         </Link>
         <div className="flex items-center gap-2">
           <LocaleSwitcher current={locale} variant="compact" />

@@ -53,9 +53,10 @@
   // Bump this when the cache shape changes. Activate drops every other
   // `wv-*` cache, including the legacy single-cache `wv-v1`.
   //
-  // v4: the manifest stopped being a cache-first static asset (it is generated
-  // per request in the reader's language); the bump evicts the copy v3 pinned.
-  const CACHE_VERSION = 4;
+  // v5: the icon set changed (fail-fast favicon.ico + favicon.svg, a separate
+  // maskable 512, a 192 colour notification icon and a 96 white-on-alpha
+  // badge). The bump makes install precache the new set and activate drop v4.
+  const CACHE_VERSION = 5;
   const CACHE_PREFIX = 'wv-';
   const SHELL_CACHE = 'wv-shell-v' + CACHE_VERSION;
   const PAGE_CACHE = 'wv-pages-v' + CACHE_VERSION;
@@ -79,10 +80,14 @@
   // time. There is nothing in it that is needed offline.
   const SHELL_URLS = [
     OFFLINE_URL,
-    '/icon.svg',
+    '/favicon.ico',
+    '/favicon.svg',
     '/icon-192.png',
     '/icon-512.png',
+    '/icon-maskable-512.png',
     '/apple-touch-icon.png',
+    '/notification-icon-192.png',
+    '/notification-badge-96.png',
   ];
 
   // Pages worth having offline even if the user never clicked them. The
@@ -105,9 +110,14 @@
   // (and its shortcut labels) at the language it was first fetched in.
   const STATIC_ASSET_PATHS = new Set([
     '/icon.svg',
+    '/favicon.ico',
+    '/favicon.svg',
     '/apple-touch-icon.png',
     '/icon-192.png',
     '/icon-512.png',
+    '/icon-maskable-512.png',
+    '/notification-icon-192.png',
+    '/notification-badge-96.png',
   ]);
 
   function urlPath(input) {

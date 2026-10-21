@@ -108,6 +108,26 @@
 
     --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
+    /* THE BRAND — not a theme.
+       `--brand-body` and `--brand-dot` are the only two colours the mark and
+       wordmark use. They are deliberately NOT `--foreground` / `--primary`
+       directly: the dot's job is to contrast with the receipt body, not with
+       the page, and that contract is pinned in
+       `__tests__/brand-contrast.test.ts`. Light mode: ink body + accent dot
+       (emerald and violet need `--primary-2`; their `--primary` is 2.85 / 3.04
+       against ink). Dark mode: cream body + `--primary-soft` dot — NEVER the
+       bright dark-mode accent, which is 2.24:1 on cream. */
+    --brand-body: var(--ink);
+    --brand-dot: var(--primary);
+
+    /* The wordmark is fixed SVG outlines (see lib/brand.ts), so this token is
+       not what draws the logo. It is the pinned family for any future surface
+       that genuinely needs live brand text: `--font-sans` is the Plus Jakarta
+       Sans instance loaded once in app/layout.tsx (weight 800 included), and
+       unlike `--font-display` it is never rewritten by [data-font]. */
+    --font-brand: var(--font-sans), 'Plus Jakarta Sans', system-ui, -apple-system,
+      'Segoe UI', sans-serif;
+
     --shadow-1: 0 1px 0 rgba(50, 30, 10, 0.04), 0 2px 6px rgba(80, 50, 20, 0.04);
     --shadow-2: 0 2px 4px rgba(60, 35, 10, 0.06), 0 10px 30px -10px rgba(80, 50, 20, 0.18);
     --shadow-3: 0 12px 40px -8px rgba(80, 50, 20, 0.24);
@@ -186,6 +206,11 @@
     --zinc: 33 9% 60%;
     --zinc-soft: 226 14% 20%;
 
+    /* The mark in dark mode: a cream receipt with a dark soft-tint date dot.
+       This is also the fallback when no [data-accent] attribute is set. */
+    --brand-body: 32 100% 96%;
+    --brand-dot: var(--primary-soft);
+
     --shadow-1: 0 1px 0 rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.3);
     --shadow-2: 0 2px 4px rgba(0,0,0,0.4), 0 10px 30px -10px rgba(0,0,0,0.6);
     --shadow-3: 0 12px 40px -8px rgba(0,0,0,0.7);
@@ -235,6 +260,10 @@
   --ring: 13 100% 64%;
 }
 [data-accent="emerald"] {
+  /* `--primary` is only 2.85:1 against ink; `--primary-2` is 3.41:1 and clears
+     the 3:1 non-text threshold. The dot is a graphic, but it is still a mark:
+     it must not disappear on the receipt. */
+  --brand-dot: var(--primary-2);
   --primary: 153 77% 25%;             /* #0F7145 — white 6.05:1, hover 5.06:1 */
   --primary-2: 153 65% 30%;           /* #1B7E51 */
   --primary-soft: 148 64% 87%;        /* #C8F3DC */
@@ -245,6 +274,8 @@
   --ring: 153 77% 25%;
 }
 [data-accent="violet"] {
+  /* `--primary` is 3.04:1 — right at the line. `--primary-2` is 3.46:1. */
+  --brand-dot: var(--primary-2);
   --primary: 254 68% 58%;             /* #6D4BDD — white 5.67:1, hover 4.99:1 */
   --primary-2: 255 79% 62%;           /* #7852EB */
   --primary-soft: 255 84% 90%;        /* #DCD2FB */
@@ -267,6 +298,10 @@
 
 /* Same swatches, dark-mode variants (the design's ACCENTS_DARK) */
 .dark[data-accent="coral"] {
+  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
+     is 2.24:1 on cream — never use it for the dot. */
+  --brand-body: 32 100% 96%;
+  --brand-dot: var(--primary-soft);
   --primary: 14 100% 69%;             /* #FF8060 */
   --primary-2: 18 100% 77%;           /* #FFA489 */
   --primary-soft: 12 70% 17%;         /* #4A1A0C */
@@ -277,6 +312,10 @@
   --ring: 14 100% 69%;
 }
 .dark[data-accent="emerald"] {
+  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
+     is 2.24:1 on cream — never use it for the dot. */
+  --brand-body: 32 100% 96%;
+  --brand-dot: var(--primary-soft);
   --primary: 158 64% 52%;             /* #34D399 */
   --primary-2: 157 72% 67%;           /* #6EE7B8 */
   --primary-soft: 153 59% 15%;        /* #0F3B27 */
@@ -287,6 +326,10 @@
   --ring: 158 64% 52%;
 }
 .dark[data-accent="violet"] {
+  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
+     is 2.24:1 on cream — never use it for the dot. */
+  --brand-body: 32 100% 96%;
+  --brand-dot: var(--primary-soft);
   --primary: 255 92% 76%;             /* #A78BFA */
   --primary-2: 252 95% 85%;           /* #C4B5FD */
   --primary-soft: 252 48% 23%;        /* #2A1F58 */
@@ -297,6 +340,10 @@
   --ring: 255 92% 76%;
 }
 .dark[data-accent="sky"] {
+  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
+     is 2.24:1 on cream — never use it for the dot. */
+  --brand-body: 32 100% 96%;
+  --brand-dot: var(--primary-soft);
   --primary: 198 93% 60%;             /* #38BDF8 */
   --primary-2: 199 95% 74%;           /* #7DD3FC */
   --primary-soft: 204 78% 18%;        /* #0A3450 */
@@ -321,7 +368,6 @@
   justify-content: center;
   padding-inline: 0;
 }
-[data-sidebar="icon"] .wv-sidebar-brand-text,
 [data-sidebar="icon"] .wv-sidebar-label {
   display: none;
 }
@@ -380,26 +426,18 @@
 }
 
 /* ============================================================
-   Vault brand mark
-============================================================ */
-.brand-mark {
-  width: 38px; height: 38px;
-  border-radius: calc(var(--radius-sm) - 2px);
-  background: hsl(var(--ink));
-  color: hsl(var(--background));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.dark .brand-mark {
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-ink));
-}
-/* Corner size follows the user's radius preset instead of hardcoded px. The
-   max() floor keeps a sharp preset from collapsing a chip to a square. */
-.brand-mark-sm { width: 30px; height: 30px; border-radius: max(4px, calc(var(--radius-sm) - 5px)); }
-.brand-mark-lg { width: 48px; height: 48px; border-radius: calc(var(--radius-sm) + 4px); }
+   Brand type
+   ============================================================
+
+   There is deliberately no `.brand-mark` chip any more. The old rule sized a
+   background square off `--radius-sm`, tinted it with `--ink`/`--primary`, and
+   centred a lucide Vault inside it — so the logo changed shape, colour and
+   typeface whenever the user opened Settings. The symbol now has no tile, no
+   radius token and no background (see components/brand/warrly-mark.tsx); only
+   the generated app icon carries a tile. `--font-brand` is pinned in :root
+   and is not read by the outline wordmark; it is the fallback for any future
+   live brand text, and it must never be used for body copy. */
+.font-brand { font-family: var(--font-brand); }
 
 /* ============================================================
    Tints — pastel chip backgrounds keyed off the semantic palette
@@ -986,20 +1024,14 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
   border-bottom: 1px solid hsl(var(--border));
   background: hsl(var(--surface-2) / 0.65);
 }
+/* The in-product app chrome uses the symbol alone — no chip, no radius token.
+   The 26px size is fixed in the component, not derived from `em`, because the
+   logo is a trademark asset rather than part of the composition's type scale. */
 .wv-product-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.2em;
-  height: 2.2em;
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  background: hsl(var(--ink));
-  color: hsl(var(--background));
-}
-.wv-product-mark svg {
-  width: 1.15em;
-  height: 1.15em;
 }
 .wv-product-head-title {
   font-family: var(--font-display);

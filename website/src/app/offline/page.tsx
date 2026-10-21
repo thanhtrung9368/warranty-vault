@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Vault, Wifi, Plane, RotateCcw, Info } from 'lucide-react';
+import { Wifi, Plane, RotateCcw, Info } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { WarrlyLockup } from '@/components/brand';
 import { getI18n } from '@/lib/i18n/server';
 import { OfflineSavedPages } from '@/components/offline-saved-pages';
 import { RetryButton } from './retry-button';
@@ -23,13 +24,8 @@ export default async function OfflinePage() {
   return (
     <div className="auth-gradient flex min-h-screen flex-col">
       <header className="flex items-center justify-between px-4 py-5 md:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="brand-mark">
-            <Vault className="h-[18px] w-[18px]" />
-          </span>
-          <span className="font-display text-base font-extrabold tracking-tight text-ink">
-            Warrly
-          </span>
+        <Link href="/" aria-label="Warrly" className="inline-flex">
+          <WarrlyLockup height={40} />
         </Link>
       </header>
 

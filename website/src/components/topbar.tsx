@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Plus, Vault } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { WarrlyMark } from '@/components/brand';
 import { GlobalSearch } from '@/components/global-search';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserMenu } from '@/components/user-menu';
@@ -11,16 +12,15 @@ export async function Topbar({ user }: { user: CurrentUser }) {
   const { t } = await getI18n();
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-card/85 px-4 backdrop-blur md:gap-3 md:px-8">
-      {/* Mobile brand. The wordmark is `sm:`-only so the search box (and the
-          rest of the actions) still fit on a 360px-wide phone; the vault mark
-          stays as the link back to /dashboard. */}
-      <Link href="/dashboard" className="flex items-center gap-2 md:hidden">
-        <span className="brand-mark brand-mark-sm">
-          <Vault className="h-4 w-4" />
-        </span>
-        <span className="hidden font-display text-base font-extrabold tracking-tight text-ink sm:inline">
-          Warrly
-        </span>
+      {/* Mobile brand: the symbol alone, fixed at 24px. No wordmark here —
+          the shell already has a lockup on the landing/auth screens, and the
+          topbar has to leave room for search on a 360px phone. */}
+      <Link
+        href="/dashboard"
+        aria-label="Warrly"
+        className="flex items-center md:hidden"
+      >
+        <WarrlyMark size={36} />
       </Link>
 
       {/* Global cross-entity search (devices + subscriptions + wishlist, one

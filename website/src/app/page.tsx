@@ -1,12 +1,5 @@
 import Link from 'next/link';
 import {
-  Vault,
-  ShieldCheck,
-  Bell,
-  Receipt,
-  BarChart3,
-  Repeat,
-  Heart,
   ArrowRight,
   CheckCircle2,
   Sparkles,
@@ -22,6 +15,11 @@ import { Reveal } from '@/components/reveal';
 import { RevealObserver } from '@/components/reveal-observer';
 import { PinnedStage } from '@/components/pinned-stage';
 import { LandingProduct } from '@/components/landing-product';
+import {
+  FeatureVisual,
+  type FeatureVisualSubject,
+} from '@/components/landing/feature-visuals';
+import { WarrlyLockup, WarrlyMark, WarrlyWordmark } from '@/components/brand';
 import { getCurrentUser } from '@/lib/auth';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
@@ -33,10 +31,24 @@ export const dynamic = 'force-dynamic';
 // inside the page (and inside `t`) rather than at module scope: a module-level
 // constant cannot see the request's language. Only the icons and hrefs — which
 // are not copy — would survive out here, so the whole shape moved together.
-function buildFeatures(t: Translator) {
+// The six feature cards now carry a household illustration instead of a
+// lucide line icon. The subject is chosen per feature and the alt text is a
+// translated key (see `messages/public.ts`), never an English literal: the
+// images are content, so a screen reader must hear them in the reader's
+// language.
+type Feature = {
+  title: string;
+  desc: string;
+  href: string;
+  visual: FeatureVisualSubject;
+  alt: string;
+};
+
+function buildFeatures(t: Translator): Feature[] {
   return [
     {
-      icon: ShieldCheck,
+      visual: 'warranty-booklet',
+      alt: t('Sổ bảo hành'),
       title: t('Bảo hành'),
       desc: t(
         'Mỗi thiết bị có thể có nhiều gói — gốc, mở rộng, bên thứ ba. Warrly tự đếm ngược.',
@@ -44,19 +56,22 @@ function buildFeatures(t: Translator) {
       href: '/devices',
     },
     {
-      icon: Repeat,
+      visual: 'phone',
+      alt: t('Điện thoại'),
       title: t('Gói đăng ký'),
       desc: t('Netflix, iCloud, ChatGPT: chu kỳ, ngày gia hạn, và chi phí mỗi tháng.'),
       href: '/subscriptions',
     },
     {
-      icon: Heart,
+      visual: 'motorbike-key',
+      alt: t('Chìa khoá xe máy'),
       title: t('Wishlist'),
       desc: t('Món đang ngắm — ngày mục tiêu, giá, và mua xong thì thành thiết bị.'),
       href: '/wishlist',
     },
     {
-      icon: Bell,
+      visual: 'ac-remote',
+      alt: t('Điều khiển điều hoà'),
       title: t('Nhắc trước khi hết hạn'),
       // The old card promised "the web and the iOS/Android apps". There is no
       // store link in this repo and iOS ships through TestFlight, so that was
@@ -68,7 +83,8 @@ function buildFeatures(t: Translator) {
       href: '/reminders',
     },
     {
-      icon: Receipt,
+      visual: 'red-invoice',
+      alt: t('Hoá đơn đỏ'),
       title: t('Hoá đơn & phiếu bảo hành'),
       desc: t(
         'Ảnh hoặc PDF, tối đa 5 tệp mỗi thiết bị, mã hoá AES-256. Mở lại đúng lúc bạn cần đi bảo hành.',
@@ -79,7 +95,8 @@ function buildFeatures(t: Translator) {
       href: '/inbox',
     },
     {
-      icon: BarChart3,
+      visual: 'rice-cooker',
+      alt: t('Nồi cơm điện'),
       title: t('Chi tiêu'),
       desc: t('Theo tháng, theo loại, thiết bị đắt nhất. Biết tiền đã đi đâu.'),
       href: '/stats',
@@ -225,13 +242,12 @@ export default async function LandingPage() {
             second, right-aligned row on narrow phones instead of pushing the
             header into horizontal overflow. */}
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-4 py-3.5 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="brand-mark">
-              <Vault className="h-[18px] w-[18px]" />
-            </span>
-            <span className="font-display text-base font-extrabold tracking-tight text-ink">
-              Warrly
-            </span>
+          {/* The one lockup on this screen. The hero beside it never repeats
+              the wordmark — one lockup per screen, and the header is it. The
+              symbol + outline wordmark are a single SVG, so the mark cannot
+              be restyled by the font/radius/accent presets. */}
+          <Link href="/" aria-label="Warrly" className="inline-flex">
+            <WarrlyLockup height={40} />
           </Link>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             {/* The same compact switcher `/privacy`, `/terms` and `/cookies`
@@ -422,7 +438,6 @@ export default async function LandingPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((f, index) => {
-                const Icon = f.icon;
                 // Signed-out visitors cannot render an `(app)` route: its
                 // layout calls `requireUser()`, and a bare redirect to /login
                 // would throw this card's destination away. Send them through
@@ -440,11 +455,10 @@ export default async function LandingPage() {
                     scrollDriven={index < 3}
                   >
                     <div className="feature-card relative flex h-full w-full flex-col rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft">
-                      {/* No pastel chip behind the icon. The six tinted
-                          badges made the grid read like a toy dashboard; a
-                          single-colour line icon is the quieter, more Apple
-                          shape and lets the card copy carry the hierarchy. */}
-                      <Icon className="h-6 w-6 text-primary" strokeWidth={1.75} aria-hidden />
+                      {/* A Vietnamese household object, not a line icon.
+                          One accent dot per drawing ties the set to the mark's
+                          date dot; the card copy still carries the meaning. */}
+                      <FeatureVisual subject={f.visual} label={f.alt} />
                       <h3 className="mt-4 font-display text-[17px] font-bold tracking-tight">
                         {/* The title is the card's link. Its ::after stretches
                             over the whole card, so the entire card is a target
@@ -656,8 +670,9 @@ export default async function LandingPage() {
                   'linear-gradient(135deg, hsl(var(--primary-soft)), hsl(var(--primary-soft-2)))',
               }}
             >
-              <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[18px] bg-ink text-background">
-                <Vault className="h-8 w-8" />
+              {/* Symbol alone: no background tile, no radius token. */}
+              <div className="mx-auto mb-4 flex justify-center">
+                <WarrlyMark size={64} />
               </div>
               <h2 className="display text-3xl text-primary-ink">
                 {t('Giữ ngày bảo hành ngay từ hôm nay.')}
@@ -702,13 +717,9 @@ export default async function LandingPage() {
         {/* Footer */}
         <footer className="border-t-[1.5px] border-border bg-card px-4 py-8 md:px-8">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="brand-mark brand-mark-sm">
-                <Vault className="h-4 w-4" />
-              </span>
-              <span className="font-display text-sm font-extrabold tracking-tight text-ink">
-                Warrly
-              </span>
+            {/* Footer: the wordmark alone, per the brand lockup rules. */}
+            <Link href="/" aria-label="Warrly" className="inline-flex">
+              <WarrlyWordmark height={22} />
             </Link>
             {/* The year is interpolated rather than concatenated, so the
                 sentence stays one translatable key. */}

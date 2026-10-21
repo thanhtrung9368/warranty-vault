@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Vault } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { WarrlyLockup } from '@/components/brand';
 import { getI18n } from '@/lib/i18n/server';
 
 // A 404 is served in the visitor's own language like every other page, and the
@@ -19,13 +19,8 @@ export default async function NotFound() {
   return (
     <div className="auth-gradient flex min-h-screen flex-col">
       <header className="flex items-center justify-between px-4 py-5 md:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="brand-mark">
-            <Vault className="h-[18px] w-[18px]" />
-          </span>
-          <span className="font-display text-base font-extrabold tracking-tight text-ink">
-            Warrly
-          </span>
+        <Link href="/" aria-label="Warrly" className="inline-flex">
+          <WarrlyLockup height={40} />
         </Link>
       </header>
 
