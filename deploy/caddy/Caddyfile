@@ -107,10 +107,15 @@ warrly.com, www.warrly.com {
 	}
 	import security_headers
 
-	# Redirect apex → www (hoặc ngược lại) tuỳ ý. Mặc định serve cả 2.
-	# Nếu muốn canonical:
-	# @www host www.warrly.com
-	# redir @www https://warrly.com{uri} permanent
+	# www → apex, 301. Both hostnames used to serve identical HTML with HTTP 200,
+	# which is textbook duplicate content: Google picks one to index and splits
+	# whatever signal the other earns. Apex is canonical because APP_URL and
+	# every metadataBase-derived URL in the app point at https://warrly.com.
+	#
+	# 301, not 302 — this is permanent. `{uri}` keeps path and query so a shared
+	# deep link keeps its destination instead of landing on the homepage.
+	@www host www.warrly.com
+	redir @www https://warrly.com{uri} permanent
 
 	# Block cron route từ public (Next.js cũ có /api/cron/*; sau Phase F xoá rồi
 	# nhưng giữ defense-in-depth).
