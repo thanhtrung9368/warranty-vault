@@ -88,4 +88,26 @@ describe('calcEndDate', () => {
     expect(out.getUTCFullYear()).toBe(2026);
     expect(out.getUTCMonth()).toBe(11); // December
   });
+
+  it('clamps a month-end start instead of rolling into the next month', () => {
+    // The create wizard shows this as "Warranty ends …", so the boundary has to
+    // be the calendar's answer: 31 Jan + 1 month is 28/29 Feb, not 3 March.
+    // (Tested via local components: `toDayDate` anchors a bare day at LOCAL
+    // midnight, so UTC getters would shift west of UTC.)
+    const jan31 = calcEndDate('2026-01-31', 1);
+    expect([jan31.getFullYear(), jan31.getMonth(), jan31.getDate()]).toEqual([
+      2026, 1, 28,
+    ]);
+    const leapJan31 = calcEndDate('2028-01-31', 1);
+    expect([leapJan31.getFullYear(), leapJan31.getMonth(), leapJan31.getDate()]).toEqual([
+      2028, 1, 29,
+    ]);
+  });
+
+  it('treats 0 months as "same day" (the form shows no end date at all)', () => {
+    const same = calcEndDate('2026-10-21', 0);
+    expect([same.getFullYear(), same.getMonth(), same.getDate()]).toEqual([
+      2026, 9, 21,
+    ]);
+  });
 });

@@ -465,12 +465,37 @@ export default async function DeviceDetailPage({
             </CardContent>
           </Card>
 
-          {/* Brand warranty lookup (frozen contract). Placed directly under the
-              warranty overview, because it is the section that can REINTERPRET
-              "còn hạn": the brand may record a start date months before the
-              invoice. The card owns the mismatch explanation, the brand's own
-              lookup link (or the honest no-link sentence) and the small record
-              form — see `@/components/brand-warranty-card`. */}
+          {/* The product's second job — "stop me losing the paperwork" — at the
+              moment motivation is highest: you just saved the device. Only
+              while the device has NO attachments; once a file exists the full
+              gallery card further down owns the story. The gallery itself is
+              left exactly where it was (it is the manage/delete surface, not
+              the first-upload nudge). */}
+          {device.attachments.length === 0 && (
+            <Card className="rounded-2xl border-[1.5px] border-primary/30 bg-primary-soft/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Paperclip className="h-5 w-5 text-primary" />
+                  {t('Giữ lại hoá đơn')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-ink-2">
+                  {t(
+                    'Ảnh hoá đơn hoặc phiếu bảo hành nằm cùng thiết bị này — tải lên ngay để lúc cần không phải đi tìm.',
+                  )}
+                </p>
+                <AttachmentUploader deviceId={device.id} remaining={5} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Brand warranty lookup (frozen contract). Sits with the warranty
+              cards, before the rest of the page, because it is the section that
+              can REINTERPRET "còn hạn": the brand may record a start date
+              months before the invoice. The card owns the mismatch explanation,
+              the brand's own lookup link (or the honest no-link sentence) and
+              the small record form — see `@/components/brand-warranty-card`. */}
           <BrandWarrantyCard
             deviceId={device.id}
             brandName={device.brand}

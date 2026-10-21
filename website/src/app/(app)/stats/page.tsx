@@ -132,6 +132,7 @@ export default async function StatsPage({
         <EmptyState
           icon={BarChart3}
           tone="violet"
+          emptyReason="no-data"
           title={t('Chưa có dữ liệu để thống kê')}
           description={t('Thêm thiết bị xong tao sẽ vẽ chart cho mày xem chi tiêu mỗi tháng.')}
         />
@@ -479,11 +480,11 @@ export default async function StatsPage({
         <EmptyState
           icon={Package}
           tone="primary"
+          emptyReason="no-data"
           title={t('Chưa có thiết bị nào')}
           description={t(
             'Phí định kỳ bên trên vẫn được tính từ các gói đăng ký. Thêm thiết bị để thấy chi tiêu mua sắm ở đây.',
           )}
-          cta={false}
         />
       )}
     </div>

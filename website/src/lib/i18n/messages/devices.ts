@@ -101,6 +101,16 @@ export const devices = defineMessages({
     'This is the standard warranty plan created with the device. You can add other plans (AppleCare+, FPT Care...) after saving.',
   'Ngày hết = ngày mua + số tháng. Để 0 nếu không có.':
     'Expiry date = purchase date + this many months. Leave 0 for none.',
+  // Confirm-step summary of the create wizard. The end date is DERIVED from the
+  // purchase date and the month count, so the user has to see it before saving
+  // (the wizard used to write a 12-month end date nobody was shown). "adjust"
+  // jumps back to the warranty step.
+  'Bảo hành tới {date} — tính từ {months} tháng':
+    'Warranty ends {date} — from {months} months',
+  'chỉnh lại': 'adjust',
+  // Badge on a summary value the wizard filled in itself and the user never
+  // touched — a default, not a fact.
+  'mặc định': 'default',
   'Đơn vị bảo hành': 'Warranty provider',
   'Ghi đè SĐT/địa chỉ/ghi chú từ template':
     'Overwrite the phone/address/notes with the template values',
@@ -321,6 +331,13 @@ export const devices = defineMessages({
   'So sánh với các thiết bị khác →': 'Compare with your other devices →',
   'File đính kèm': 'Attachments',
   'File đính kèm ({count})': { en: 'Attachments ({count})', enOne: 'Attachment ({count})' },
+  // First-upload card on the device detail page, shown directly under the
+  // warranty overview while the device has no attachments at all. The full
+  // gallery/uploader card lower down is unchanged; this one exists because a
+  // just-saved device is the moment the receipt is in hand.
+  'Giữ lại hoá đơn': 'Keep the receipt',
+  'Ảnh hoá đơn hoặc phiếu bảo hành nằm cùng thiết bị này — tải lên ngay để lúc cần không phải đi tìm.':
+    'A photo of the receipt or warranty card belongs to this device — upload it now so you are not hunting for it later.',
   'Gói bảo hành': 'Warranty plan',
   'Thông tin nhanh': 'Quick facts',
   'Số gói BH': 'Warranty plans',

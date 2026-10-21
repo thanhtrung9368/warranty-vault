@@ -83,15 +83,19 @@ describe('parseDay', () => {
 });
 
 describe('formatDay', () => {
-  it('renders the day in each language order without touching a timezone', () => {
+  it('renders the day in each language, unambiguously', () => {
     expect(formatDay('2025-11-20', 'vi')).toBe('20/11/2025');
-    expect(formatDay('2025-11-20', 'en')).toBe('11/20/2025');
+    // English is the default language and a slash date cannot say whether
+    // `11/12` is 11 December or 12 November, so the month is spelled.
+    expect(formatDay('2025-11-20', 'en')).toBe('20 Nov 2025');
+    expect(formatDay('2025-12-11', 'en')).toBe('11 Dec 2025');
   });
 
   it('does not shift the day for dates near a month boundary', () => {
     // `new Date('2025-11-01')` formats as 10/31 on a negative-offset machine.
-    expect(formatDay('2025-11-01', 'en')).toBe('11/01/2025');
+    expect(formatDay('2025-11-01', 'en')).toBe('1 Nov 2025');
     expect(formatDay('2026-01-01', 'vi')).toBe('01/01/2026');
+    expect(formatDay('2026-01-01', 'en')).toBe('1 Jan 2026');
   });
 
   it('returns an empty string for a value that is not a day', () => {
@@ -159,9 +163,9 @@ describe('parseDayValue / formatDayValue — server-derived day instants', () =>
 
   it('formats a derived instant as the day it stands for', () => {
     expect(formatDayValue('2026-10-28T00:00:00Z', 'vi')).toBe('28/10/2026');
-    expect(formatDayValue('2026-10-28T00:00:00Z', 'en')).toBe('10/28/2026');
-    expect(formatDayValue('2026-01-01T00:00:00Z', 'en')).toBe('01/01/2026');
-    expect(formatDayValue('2026-10-28', 'en')).toBe('10/28/2026');
+    expect(formatDayValue('2026-10-28T00:00:00Z', 'en')).toBe('28 Oct 2026');
+    expect(formatDayValue('2026-01-01T00:00:00Z', 'en')).toBe('1 Jan 2026');
+    expect(formatDayValue('2026-10-28', 'en')).toBe('28 Oct 2026');
   });
 
   it('refuses a real instant — those are rendered in the reader’s own zone', () => {

@@ -21,6 +21,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ActionItemSnooze } from '@/components/action-item-snooze';
 import { api } from '@/lib/api';
 import type { ActionItem } from '@/lib/api/actions';
+import { emptyReasonFor } from '@/lib/empty-state';
 import { requireUser } from '@/lib/auth';
 import {
   SEVERITY_SECTIONS,
@@ -167,7 +168,14 @@ export default async function ActionsPage() {
   // "chỉ thêm dòng, không bao giờ bớt dòng"), so the same payload drives both
   // the queue and "Đang hoãn". `counts` still counts the actionable subset —
   // that is what the badge below and the sidebar show.
-  const res = await api.actions.list({ snoozed: true });
+  //
+  // The device list only decides which empty state to show: an empty queue for
+  // an account with no devices is "we have nothing to reason about", not "you
+  // are all caught up".
+  const [res, devicesRes] = await Promise.all([
+    api.actions.list({ snoozed: true }),
+    api.devices.list(),
+  ]);
 
   if (!res.ok) {
     return (
@@ -186,6 +194,10 @@ export default async function ActionsPage() {
   const sections = groupBySeverity(active);
   // Badge/summary number: always the actionable subset, never + snoozed.
   const total = badgeCount(queue.counts);
+  // Same rule as `/reminders`: a failed device read is not evidence of data, so
+  // it falls to the actionable `no-data` copy rather than the green tick.
+  const hasDevices = devicesRes.ok && devicesRes.data.length > 0;
+  const emptyReason = emptyReasonFor(hasDevices);
 
   return (
     <div className="space-y-6">
@@ -244,11 +256,17 @@ export default async function ActionsPage() {
         <EmptyState
           icon={CheckCircle2}
           tone="emerald"
-          title={t('Không có việc nào đang chờ')}
-          description={t(
-            'Từ dữ liệu bạn đã nhập, app chưa suy ra được việc nào cần bạn quyết. Việc mới sẽ xuất hiện ở đây khi dữ liệu đổi.',
-          )}
-          cta={false}
+          emptyReason={emptyReason}
+          // "Nothing is waiting" is only a reassurance when the queue had
+          // something to read. With no devices, the `no-data` preset speaks.
+          title={hasDevices ? t('Không có việc nào đang chờ') : undefined}
+          description={
+            hasDevices
+              ? t(
+                  'Từ dữ liệu bạn đã nhập, app chưa suy ra được việc nào cần bạn quyết. Việc mới sẽ xuất hiện ở đây khi dữ liệu đổi.',
+                )
+              : undefined
+          }
         />
       ) : (
         <div className="space-y-2">

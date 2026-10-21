@@ -99,10 +99,53 @@ export function tryParseDay(value: string | null | undefined): Date | null {
   }
 }
 
+// English month names, spelled out here rather than pulled from `date-fns`'
+// locale data: this module is deliberately dependency-free, and the English
+// display form must be one fixed spelling ("12 Nov 2026"), not whatever the
+// bundled locale data happens to say.
+const ENGLISH_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
 /**
- * Render a calendar day in the reader's convention: `20/11/2025` (vi) /
- * `11/20/2025` (en) — the same order `formatDate` uses, and the same split the
- * two languages need (`07/05/2026` is two different days to the two readers).
+ * The ONE place a calendar day becomes display text.
+ *
+ *   vi → `20/11/2025`  (dd/MM/yyyy — the Vietnamese convention, unambiguous
+ *                       to the reader the app is written for)
+ *   en → `20 Nov 2025` (month name — a slash date cannot say whether `11/12`
+ *                       is 11 December or 12 November, and the app is English
+ *                       by default, so the English form has to be explicit)
+ *
+ * `formatDay` / `formatDayValue` / `format.ts::formatDate` all delegate here, so
+ * the two languages cannot drift into two different date shapes on two screens.
+ * Never build a `Date` for this: the day already is one, and a `Date` would put
+ * the rendering back at the mercy of the machine's timezone.
+ */
+export function formatDayParts(
+  year: number,
+  month: number,
+  date: number,
+  locale: Locale,
+): string {
+  if (locale === 'vi') {
+    return `${String(date).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+  }
+  return `${date} ${ENGLISH_MONTHS[month - 1]} ${year}`;
+}
+
+/**
+ * Render a calendar day in the reader's convention (`formatDayParts`).
  *
  * Sliced, never `new Date()`d: the whole point of this module is that
  * rendering a day cannot depend on the machine's timezone. `''` for malformed
@@ -113,9 +156,7 @@ export function formatDay(day: string, locale: Locale): string {
   const parts = components(day);
   if (!parts) return '';
   const [year, month, date] = parts;
-  const dd = String(date).padStart(2, '0');
-  const mm = String(month).padStart(2, '0');
-  return locale === 'vi' ? `${dd}/${mm}/${year}` : `${mm}/${dd}/${year}`;
+  return formatDayParts(year, month, date, locale);
 }
 
 /**

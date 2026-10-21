@@ -48,7 +48,7 @@ describe('attachmentUploadedLabel', () => {
     // where the test machine happens to be.
     const uploadedAt = '2026-02-01T12:00:00';
     expect(attachmentUploadedLabel(uploadedAt, 'vi')).toBe('Tải lên 01/02/2026');
-    expect(attachmentUploadedLabel(uploadedAt, 'en')).toBe('Uploaded 02/01/2026');
+    expect(attachmentUploadedLabel(uploadedAt, 'en')).toBe('Uploaded 1 Feb 2026');
   });
 
   it('returns an empty string rather than "Invalid Date"', () => {

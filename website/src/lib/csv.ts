@@ -88,8 +88,11 @@ export function csvNumber(value: number | null | undefined): string {
 const ISO_DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})/;
 
 /**
- * Date field as `dd/MM/yyyy` (the format the UI already shows via
- * `formatDate`), which is what vi-VN Excel parses as a real date.
+ * Date field as `dd/MM/yyyy` — the stable CSV interchange format, which is
+ * what vi-VN Excel parses as a real date. It deliberately does NOT follow the
+ * UI's locale-aware display (`formatDate` spells the month in English): a
+ * spreadsheet column that changes shape with the reader's language could not
+ * be read back by `lib/device-paste.ts` or by Excel.
  *
  * ISO strings are sliced rather than passed through `new Date()`: the Go API
  * serialises `timestamp without time zone` columns as RFC3339, and parsing

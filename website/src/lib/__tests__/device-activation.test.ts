@@ -20,7 +20,7 @@ describe('activationStateLabel', () => {
       'Đã kích hoạt ngày 01/03/2026',
     );
     expect(activationStateLabel({ activatedAt: '2026-03-01' }, 'en')).toBe(
-      'Activated on 03/01/2026',
+      'Activated on 1 Mar 2026',
     );
   });
 
@@ -31,7 +31,7 @@ describe('activationStateLabel', () => {
         { activationRequired: false, activatedAt: '2026-03-01' },
         'en',
       ),
-    ).toBe('Activated on 03/01/2026');
+    ).toBe('Activated on 1 Mar 2026');
   });
 
   it('warns "not activated" when activation is required but no date exists', () => {
@@ -59,7 +59,7 @@ describe('activationStateLabel', () => {
       purchaseDate: '2026-02-10',
     };
     expect(activationStateLabel(device, 'vi')).toBe('Đã kích hoạt ngày 05/01/2026');
-    expect(activationStateLabel(device, 'en')).toBe('Activated on 01/05/2026');
+    expect(activationStateLabel(device, 'en')).toBe('Activated on 5 Jan 2026');
   });
 });
 

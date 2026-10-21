@@ -12,6 +12,7 @@ import {
   Plus,
   Zap,
   Wrench,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,8 @@ import { WISHLIST_ACTIVE_STATUSES } from '@/lib/wishlist-types';
 import { requireUser } from '@/lib/auth';
 import { brokenDevicesWithoutOpenClaim } from '@/lib/claims';
 import { computeDeviceStats } from '@/lib/device-stats';
+import { emptyStateCopy } from '@/lib/empty-state';
+import { isColdStartAccount } from '@/lib/first-run';
 import { categoryLabel } from '@/lib/i18n/labels';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate, formatVND } from '@/lib/format';
@@ -173,10 +176,31 @@ export default async function DashboardPage() {
   ]);
   const devices = devicesRes.ok ? devicesRes.data : [];
   const stats = computeDeviceStats(devices);
-  const wishlist = computeWishlistTotals(wishlistRes.ok ? wishlistRes.data.items : []);
-  const subs = computeSubscriptionTotals(
-    subsRes.ok ? subsRes.data.subscriptions : [],
-  );
+  const wishlistItems = wishlistRes.ok ? wishlistRes.data.items : [];
+  const subscriptionRows = subsRes.ok ? subsRes.data.subscriptions : [];
+  const wishlist = computeWishlistTotals(wishlistItems);
+  const subs = computeSubscriptionTotals(subscriptionRows);
+  // A brand-new account gets ONE first-run panel instead of four zero tiles,
+  // a green "all good" tick and a quick-add card. The greeting above stays: it
+  // is the only place the app says hello.
+  //
+  // All three lists must have loaded: a failed read is not evidence that the
+  // account is empty, and telling a user with data "you have nothing" is worse
+  // than showing the normal dashboard (which reports its own errors).
+  const coldStart =
+    devicesRes.ok &&
+    wishlistRes.ok &&
+    subsRes.ok &&
+    isColdStartAccount({
+      devices: devices.length,
+      subscriptions: subscriptionRows.length,
+      wishlist: wishlistItems.length,
+    });
+  // Raw rows, not `stats.total`: a sold device is data the app can talk about,
+  // so it must not trigger the "no devices yet" copy. `stats.total` remains the
+  // right denominator for the warranty buckets.
+  const hasDevices = devices.length > 0;
+  const noDataCopy = emptyStateCopy('no-data');
   // The dead end this feature removes, surfaced ONCE on the dashboard: a device
   // marked BROKEN with no OPEN/IN_REPAIR case. Non-BROKEN devices are never
   // returned, so this cannot become a wall of alerts.
@@ -240,6 +264,50 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* First run: one panel that explains the loop, instead of a wall of
+          zeroes and a green tick congratulating an account we know nothing
+          about. Three ways in, in the order a new user actually has them:
+          buying now, already holding the receipt, already holding a list. */}
+      {coldStart ? (
+        <section className="rounded-[var(--radius)] border-[1.5px] border-border bg-gradient-to-br from-primary-soft to-primary-soft-2 p-6 shadow-soft md:p-8">
+          <div className="flex items-start gap-4">
+            <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-card text-primary sm:flex">
+              <ShieldCheck className="h-6 w-6" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="display text-2xl text-ink md:text-3xl">
+                {t('Bắt đầu với một thiết bị')}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-ink-2 md:text-base">
+                {t(
+                  'Thêm thiết bị kèm ngày hết bảo hành — Warrly nhắc bạn trước 30 và 7 ngày và giữ hoá đơn ở cùng một chỗ.',
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2.5">
+            <Button asChild size="lg" className="rounded-pill">
+              <Link href="/devices/new">
+                <Plus className="mr-1.5 h-4 w-4" />
+                {t('Thêm thiết bị')}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="rounded-pill bg-card">
+              <Link href="/inbox">
+                <Receipt className="mr-1.5 h-4 w-4" />
+                {t('Tôi đã có hoá đơn')}
+              </Link>
+            </Button>
+            <Link
+              href="/devices/import"
+              className="text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-ink"
+            >
+              {t('Có sẵn bảng tính?')}
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <>
       {/* Stat cards */}
       <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map((c) => (
@@ -310,7 +378,18 @@ export default async function DashboardPage() {
           title={t('Sắp hết bảo hành')}
           href="/reminders"
         >
-          {stats.soonList.length === 0 ? (
+          {!hasDevices ? (
+            <div className="py-2 text-sm text-muted-foreground">
+              <p>{t(noDataCopy.description)}</p>
+              <Link
+                href={noDataCopy.ctaHref}
+                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+              >
+                {t(noDataCopy.ctaLabel)}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          ) : stats.soonList.length === 0 ? (
             <div className="py-3 text-sm text-muted-foreground">
               <span className="text-emerald-ink">✓</span>{' '}
               {t('Tất cả đều ngon, không có gì sắp hết trong 30 ngày tới đâu.')}
@@ -484,9 +563,17 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
 
-      {stats.total === 0 && (
+      {/* The "has subscriptions or a wishlist, but no devices yet" case. The
+          first-run panel is only for an account with literally nothing; this
+          account has used the app, so it keeps the normal dashboard plus this
+          first-step card. `no-data`, not a green tick: there is still no device
+          for the warranty picture to be about. */}
+      {!coldStart && !hasDevices && (
         <EmptyState
+          emptyReason="no-data"
           title={t('Chưa có thiết bị nào, bắt đầu nào')}
           description={t(
             'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... để theo dõi bảo hành tự động.',

@@ -48,12 +48,13 @@ describe('soldAtToInputValue', () => {
 });
 
 describe('saleDayLabel', () => {
-  it('renders a YYYY-MM-DD day as dd/MM/yyyy without a Date round-trip', () => {
+  it('renders a YYYY-MM-DD day without a Date round-trip, per language', () => {
     expect(saleDayLabel('2026-03-01', 'vi')).toBe('01/03/2026');
     expect(saleDayLabel(' 2026-12-31 ', 'vi')).toBe('31/12/2026');
     // The day is sliced, so it cannot move in a negative-offset timezone the
-    // way `new Date('2026-03-01')` + a formatter would.
-    expect(saleDayLabel('2026-03-01', 'en')).toBe('03/01/2026');
+    // way `new Date('2026-03-01')` + a formatter would. English spells the
+    // month because `03/01` is ambiguous to an English reader.
+    expect(saleDayLabel('2026-03-01', 'en')).toBe('1 Mar 2026');
   });
 
   it('is empty for the unset states and for input that is not a day', () => {

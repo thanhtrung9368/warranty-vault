@@ -131,9 +131,9 @@ describe('mismatch copy selector — all four kinds', () => {
     expect(mismatchCopy(mismatch, EN).sentence).toBe(
       'The brand says warranty started 1 day after your purchase date — your invoice may have been written after the device was activated.',
     );
-    expect(mismatchCopy(mismatch, EN).brandDateLabel).toBe('Brand start: 01/11/2026');
+    expect(mismatchCopy(mismatch, EN).brandDateLabel).toBe('Brand start: 11 Jan 2026');
     expect(mismatchCopy(mismatch, EN).purchaseDateLabel).toBe(
-      'Your purchase date: 01/10/2026',
+      'Your purchase date: 10 Jan 2026',
     );
   });
 
@@ -233,7 +233,7 @@ describe('agreement / no registration — no mismatch is information too', () =>
       'Không có lệch: hãng ghi bảo hành từ 10/01/2026 đến 10/01/2027. Ngày bắt đầu trùng với mốc bạn đang tính.',
     );
     expect(brandAgreementLine(base, EN)).toBe(
-      'No disagreement: the brand records warranty from 01/10/2026 to 01/10/2027. The start date matches the date you use.',
+      'No disagreement: the brand records warranty from 10 Jan 2026 to 10 Jan 2027. The start date matches the date you use.',
     );
   });
 

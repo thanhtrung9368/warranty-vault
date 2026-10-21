@@ -212,12 +212,12 @@ describe('renewalCountdownLabel', () => {
     // even though fewer than 9 full 24-hour periods remain.
     expect(
       renewalCountdownLabel(findingWith('2026-10-29'), 'en', new Date(2026, 9, 20, 23, 59)),
-    ).toBe('10/29/2026 · 9 days left');
+    ).toBe('29 Oct 2026 · 9 days left');
     // 00:01 the same day must produce the same count — this is the assertion
     // that fails if someone swaps calendar-day arithmetic for elapsed time.
     expect(
       renewalCountdownLabel(findingWith('2026-10-29'), 'en', new Date(2026, 9, 20, 0, 1)),
-    ).toBe('10/29/2026 · 9 days left');
+    ).toBe('29 Oct 2026 · 9 days left');
     // The Vietnamese column is unchanged and does not inflect.
     expect(
       renewalCountdownLabel(findingWith('2026-10-29'), 'vi', new Date(2026, 9, 20, 23, 59)),
@@ -227,10 +227,10 @@ describe('renewalCountdownLabel', () => {
   it('inflects the English count for one and zero', () => {
     expect(
       renewalCountdownLabel(findingWith('2026-10-21'), 'en', new Date(2026, 9, 20, 12)),
-    ).toBe('10/21/2026 · 1 day left');
+    ).toBe('21 Oct 2026 · 1 day left');
     expect(
       renewalCountdownLabel(findingWith('2026-10-20'), 'en', new Date(2026, 9, 20, 12)),
-    ).toBe('10/20/2026 · 0 days left');
+    ).toBe('20 Oct 2026 · 0 days left');
     expect(
       renewalCountdownLabel(findingWith('2026-10-21'), 'vi', new Date(2026, 9, 20, 12)),
     ).toBe('21/10/2026 · còn 1 ngày');

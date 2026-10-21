@@ -24,6 +24,7 @@ import {
   type ClaimStatus,
 } from '@/lib/claims';
 import { requireUser } from '@/lib/auth';
+import { emptyReasonFor } from '@/lib/empty-state';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
@@ -246,16 +247,19 @@ export default async function ClaimsPage({
         <EmptyState
           icon={Wrench}
           tone="amber"
-          title={t('Chưa có phiếu sửa chữa nào')}
-          description={t(
-            'Khi một thiết bị hỏng, tạo phiếu từ trang thiết bị để ghi lại nơi sửa, số phiếu và chi phí.',
-          )}
-          ctaHref={hasDevices ? '/devices?status=BROKEN' : '/devices/new'}
-          ctaLabel={
+          // A claim needs a device, so with zero devices this is "we have
+          // nothing to go on", not "no repairs — well done".
+          emptyReason={emptyReasonFor(hasDevices)}
+          title={hasDevices ? t('Chưa có phiếu sửa chữa nào') : undefined}
+          description={
             hasDevices
-              ? t('Thêm phiếu sửa chữa')
-              : t('Thêm thiết bị đầu tiên')
+              ? t(
+                  'Khi một thiết bị hỏng, tạo phiếu từ trang thiết bị để ghi lại nơi sửa, số phiếu và chi phí.',
+                )
+              : undefined
           }
+          ctaHref={hasDevices ? '/devices?status=BROKEN' : undefined}
+          ctaLabel={hasDevices ? t('Thêm phiếu sửa chữa') : undefined}
         />
       )}
 

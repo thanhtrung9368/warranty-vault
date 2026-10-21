@@ -72,6 +72,7 @@ import {
 } from '@/lib/lead-days';
 import { supportsSerialScan } from '@/lib/serial-scan';
 import { brandWarrantyValues, type BrandWarrantyStatus } from '@/lib/brand-warranty';
+import { calcEndDate } from '@/lib/warranty';
 import { BrandWarrantyFormSection } from '@/components/brand-warranty-form-section';
 import {
   createDevice,
@@ -394,9 +395,24 @@ export function DeviceForm({
   // ─── Field state — fully controlled so we can split across steps ────────
   const [step, setStep] = React.useState(0);
   const [name, setName] = React.useState(initial?.name ?? '');
-  const [category, setCategory] = React.useState<string>(
-    initial?.category ?? catalog.categories[0]?.code ?? 'OTHER',
-  );
+  // On CREATE the type starts EMPTY, so the required-field validation can
+  // actually fire. It used to start on `catalog.categories[0]` — PHONE, because
+  // the catalog is sorted — which meant the fastest path (name, Next ×3, Save)
+  // saved a phone nobody had chosen. On EDIT the saved value is a user fact and
+  // is kept.
+  const [category, setCategory] = React.useState<string>(initial?.category ?? '');
+  // Which of the wizard's own guesses the user has since touched. They are
+  // defaults, not facts, and the confirm step labels the untouched ones. The
+  // category and price defaults are now EMPTY (a required choice and a required
+  // entry), so only warranty can still reach the summary untouched; the flags
+  // stay for all three so the rule is one rule, not a special case.
+  const [touched, setTouched] = React.useState({
+    category: false,
+    price: false,
+    warranty: false,
+  });
+  const markTouched = (field: keyof typeof touched) =>
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
   const [brand, setBrand] = React.useState<string>(initial?.brand ?? '');
   const [model, setModel] = React.useState<string>(initial?.model ?? '');
   const [serialNumber, setSerialNumber] = React.useState<string>(
@@ -554,10 +570,12 @@ export function DeviceForm({
   // free-text brand / place is set verbatim (the comboboxes allowCustom).
   const applyDraft = React.useCallback(
     (d: import('@/lib/api/ai').DraftDevice) => {
+      const nextCategory =
+        d.category && catalog.categories.some((c) => c.code === d.category)
+          ? d.category
+          : null;
       if (d.name) setName(d.name);
-      if (d.category && catalog.categories.some((c) => c.code === d.category)) {
-        setCategory(d.category);
-      }
+      if (nextCategory) setCategory(nextCategory);
       if (d.brand) setBrand(d.brand);
       if (d.model) setModel(d.model);
       if (d.serialNumber) {
@@ -570,6 +588,13 @@ export function DeviceForm({
       }
       if (d.purchasePlace) setPurchasePlace(d.purchasePlace);
       if (typeof d.warrantyMonths === 'number') setWarrantyMonths(d.warrantyMonths);
+      // Values read off the receipt are data, not the wizard's defaults, so
+      // they must not carry the "default" badge on the confirm step.
+      setTouched((prev) => ({
+        category: prev.category || nextCategory !== null,
+        price: prev.price || typeof d.purchasePrice === 'number',
+        warranty: prev.warranty || typeof d.warrantyMonths === 'number',
+      }));
     },
     [catalog.categories, locale],
   );
@@ -689,15 +714,19 @@ export function DeviceForm({
 
   // ─── Catalog-driven options ─────────────────────────────────────────────
   const brandOptions: ComboboxOption[] = React.useMemo(() => {
+    const toOpt = (b: BrandOption): ComboboxOption => ({
+      value: b.name,
+      label: b.name,
+    });
+    // Until a category is chosen every brand is equally valid. Without this
+    // branch, choosing a category was implicit (PHONE) and every brand not
+    // tagged for it would have read "khác loại" on a brand-new form.
+    if (!category) return catalog.brands.map(toOpt);
     const inCat = catalog.brands.filter(
       (b) => b.categoryCodes.length === 0 || b.categoryCodes.includes(category),
     );
     const seen = new Set(inCat.map((b) => b.name));
     const others = catalog.brands.filter((b) => !seen.has(b.name));
-    const toOpt = (b: BrandOption): ComboboxOption => ({
-      value: b.name,
-      label: b.name,
-    });
     return [
       ...inCat.map(toOpt),
       ...others.map((b) => ({ value: b.name, label: b.name, hint: t('khác loại') })),
@@ -757,6 +786,14 @@ export function DeviceForm({
     }
     if (s === 1) {
       if (!purchaseDate) return 'purchaseDate';
+      // On CREATE the price is required. The API's `purchasePrice` is a
+      // non-nullable int (blank would become 0), so a blank field would either
+      // be a silent "0 ₫" device or a confirm step that prints "—" while 0 is
+      // saved. Requiring it here keeps display and payload identical; typing
+      // `0` is still allowed and is an explicit "free". On EDIT the field is
+      // prefilled from the saved row and stays optional, so editing a note on
+      // an imported device does not demand a price.
+      if (!isEdit && purchasePriceDisplay.trim() === '') return 'purchasePrice';
       // Frozen contract: a non-VND device without a positive integer rate must
       // not be submitted. VND never has a problem here (its rate is dropped).
       if (fxRateProblem(currency, fxRateValue)) return 'fxRate';
@@ -810,7 +847,8 @@ export function DeviceForm({
 
   const resetAll = () => {
     setName('');
-    setCategory(catalog.categories[0]?.code ?? 'OTHER');
+    setCategory('');
+    setTouched({ category: false, price: false, warranty: false });
     setBrand('');
     setModel('');
     setSerialNumber('');
@@ -856,6 +894,29 @@ export function DeviceForm({
 
   // ─── Render helpers ─────────────────────────────────────────────────────
   const categoryName = categoryLabel(category, locale);
+
+  // The warranty end date this save would create, computed from the purchase
+  // date + months with the same helper the edit flow uses (`calcEndDate`, which
+  // clamps month-end: 31 Jan + 1 month = 28/29 Feb). Only on create — on edit
+  // the saved warranty rows are the truth, and this field is just the standard
+  // plan's month count.
+  const warrantyEndPreview =
+    !isEdit && purchaseDate && warrantyMonths > 0
+      ? formatDate(calcEndDate(purchaseDate, warrantyMonths), locale)
+      : null;
+
+  // Which values are still the wizard's own guesses. `category` and `price`
+  // start EMPTY on create now (both are required choices), so only `warranty`
+  // can reach the confirm step untouched; the other two stay in the rule so a
+  // future default cannot slip through unlabelled.
+  const showCategoryDefault = !isEdit && !touched.category && category === '';
+  const showPriceDefault = !isEdit && !touched.price && purchasePriceDisplay === '';
+  const showWarrantyDefault = !isEdit && !touched.warranty && warrantyMonths === 12;
+  const defaultTag = (
+    <span className="ml-1.5 inline-flex items-center rounded-pill bg-surface-2 px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+      {t('mặc định')}
+    </span>
+  );
 
   // All steps share the same form, just toggle visibility per step.
   // This keeps every field mounted so its hidden input ships with submit.
@@ -1030,9 +1091,10 @@ export function DeviceForm({
               triggerId="category"
               options={categoryOptions}
               value={category}
-              onValueChange={(v) =>
-                setCategory(v || catalog.categories[0]?.code || 'OTHER')
-              }
+              onValueChange={(v) => {
+                setCategory(v);
+                markTouched('category');
+              }}
               placeholder={t('Chọn loại')}
               searchPlaceholder={t('Tìm loại...')}
               clearable={false}
@@ -1147,7 +1209,8 @@ export function DeviceForm({
 
           <div className="space-y-2">
             <Label htmlFor="purchasePrice">
-              {t('Giá mua ({currency})', { currency })}
+              {t('Giá mua ({currency})', { currency })}{' '}
+              {!isEdit && <span className="text-destructive">*</span>}
             </Label>
             <div className="flex gap-2">
               {/* The currency select sits next to the price it denominates, so
@@ -1178,7 +1241,10 @@ export function DeviceForm({
                 <MoneyInput
                   id="purchasePrice"
                   value={purchasePriceDisplay}
-                  onChange={setPurchasePriceDisplay}
+                  onChange={(v) => {
+                    setPurchasePriceDisplay(v);
+                    markTouched('price');
+                  }}
                   locale={locale}
                   currency={currency}
                 />
@@ -1306,7 +1372,10 @@ export function DeviceForm({
                 type="number"
                 min={0}
                 value={warrantyMonths}
-                onChange={(e) => setWarrantyMonths(Number(e.target.value))}
+                onChange={(e) => {
+                  setWarrantyMonths(Number(e.target.value));
+                  markTouched('warranty');
+                }}
               />
               <FieldError errors={errors.warrantyMonths} />
               <p className="text-xs text-muted-foreground">
@@ -1657,7 +1726,10 @@ export function DeviceForm({
               <div className="info-row">
                 <div className="min-w-0 flex-1">
                   <p className="info-row-label">{t('Loại')}</p>
-                  <p className="info-row-value text-sm">{categoryName}</p>
+                  <p className="info-row-value text-sm">
+                    {categoryName || '—'}
+                    {showCategoryDefault && defaultTag}
+                  </p>
                 </div>
               </div>
               <div className="info-row">
@@ -1680,9 +1752,12 @@ export function DeviceForm({
                 <div className="min-w-0 flex-1">
                   <p className="info-row-label">{t('Giá')}</p>
                   <p className="info-row-value text-sm tabular-nums">
-                    {purchasePriceDisplay
-                      ? formatMoney(purchasePriceValue || 0, currency, locale)
-                      : '—'}
+                    {/* Show the number that will actually be saved. A blank
+                        price used to print "—" while the payload sent 0; on
+                        create the step is now required, and on edit a blank
+                        field is an explicit reset to 0, so the two agree. */}
+                    {formatMoney(purchasePriceValue, currency, locale)}
+                    {showPriceDefault && defaultTag}
                   </p>
                   {needsFxRate(currency) &&
                     purchasePriceDisplay !== '' &&
@@ -1707,7 +1782,30 @@ export function DeviceForm({
                           })}${warrantyProvider ? ' · ' + warrantyProvider : ''}`,
                         })
                       : t('Không')}
+                    {showWarrantyDefault && defaultTag}
                   </p>
+                  {/* The end date the save will create. It is derived from the
+                      purchase date and the month count, so the user must SEE it
+                      before saving — the old wizard wrote a 12-month end date
+                      the fastest path never displayed. On edit it is not shown:
+                      the saved warranty rows are the truth there, not this
+                      guess. The "adjust" link goes back to the warranty step. */}
+                  {warrantyEndPreview && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('Bảo hành tới {date} — tính từ {months} tháng', {
+                        date: warrantyEndPreview,
+                        months: warrantyMonths,
+                      })}
+                      {', '}
+                      <button
+                        type="button"
+                        onClick={() => setStep(2)}
+                        className="font-semibold text-primary underline underline-offset-2"
+                      >
+                        {t('chỉnh lại')}
+                      </button>
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="info-row">

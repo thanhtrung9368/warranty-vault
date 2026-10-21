@@ -110,13 +110,35 @@ export const common = defineMessages({
 
   // ── Shared component defaults (`components/empty-state.tsx`) ────────────
   //
-  // Only the description lives here. `<EmptyState>`'s other two defaults,
-  // `Chưa có thiết bị nào, mày` and `Thêm thiết bị`, are registered by
-  // `messages/devices.ts` (the component is generic, the sentences are not), so
-  // the component looks them up through the merged catalog rather than getting a
-  // second, duplicate entry here.
+  // The two reason-based copy sets live in `lib/empty-state.ts`. They are
+  // registered here because the component is generic; the page-specific
+  // nothing-due sentences stay in the page's own message file (the calls pass
+  // their own title/description for that case).
+  //
+  // The old fallback description is kept: a caller that passes no `title` and
+  // no `description` still reads as the first-device nudge.
   'Bắt đầu bằng cách thêm thiết bị đầu tiên để theo dõi bảo hành.':
     'Start by adding your first device to track its warranty.',
+
+  // `lib/empty-state.ts` — reason `'no-data'` (the account has no devices).
+  'Thêm một thiết bị là mục này tự đầy.':
+    'Add one device and this fills itself.',
+
+  // `lib/empty-state.ts` — reason `'nothing-due'` (we looked at real data).
+  'Không có gì đang chờ': 'Nothing is waiting',
+  'Không có gì cần bạn quyết lúc này. Việc mới sẽ xuất hiện ở đây khi dữ liệu đổi.':
+    'Nothing needs your decision right now. New items appear here when the data changes.',
+
+  // ── Navigation groups (`components/sidebar.tsx`) ────────────────────────
+  //
+  // The ten destinations are grouped (tracking / needs attention / more) so the
+  // sidebar reads as a map instead of a flat list, and the phone bar keeps five
+  // fixed slots with the rest behind "More". `'Khác'` is deliberately NOT used
+  // here: it is already the "Other" category label above, and one Vietnamese
+  // key can only carry one English sentence.
+  'Theo dõi': 'Tracking',
+  'Cần chú ý': 'Needs attention',
+  'Mục khác': 'More',
 
   // ── Generic actions ─────────────────────────────────────────────────────
   'Lưu': 'Save',

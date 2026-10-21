@@ -9,9 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { format } from 'date-fns';
-import { enUS, vi } from 'date-fns/locale';
-import { formatVND } from '@/lib/format';
+import { formatDate, formatVND } from '@/lib/format';
 import { useLocale, useT } from '@/lib/i18n/client';
 import type { Locale } from '@/lib/i18n/locale';
 
@@ -45,11 +43,12 @@ export function PriceHistoryChart({ data }: { data: Point[] }) {
       </p>
     );
   }
-  // Recharts wants Date-formatted x labels. The pattern follows the language,
-  // the same way `formatDate` does (`vi-VN` was hard-coded here before).
-  const dateLocale = locale === 'vi' ? vi : enUS;
+  // The axis label is a day shown to the reader, so it goes through the SAME
+  // formatter as every other date (`formatDate`: dd/MM/yyyy in Vietnamese,
+  // `12 Nov 2026` in English). It used to hard-code `dd/MM/yy`, which read as
+  // the wrong month to an English reader and drifted from the rest of the app.
   const series = data.map((p) => ({
-    label: format(new Date(p.recordedAt), 'dd/MM/yy', { locale: dateLocale }),
+    label: formatDate(p.recordedAt, locale),
     price: p.price,
   }));
   return (

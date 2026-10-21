@@ -44,7 +44,8 @@
 //    and are normalised to the wire/form format `YYYY-MM-DD`:
 //      - `YYYY-MM-DD` (the `<input type="date">` value, what `services.parseDate`
 //        takes, and what every other write path sends);
-//      - `dd/MM/yyyy` (what `csvDate` writes and `formatDate` renders).
+//      - `dd/MM/yyyy` (what `csvDate` writes and the UI renders in Vietnamese;
+//        English display spells the month and is not parsed here).
 //    `-` and `.` separators are tolerated for the day-first form, as is a
 //    trailing time, because those are the same format, not a third one. A
 //    two-digit year (`15/3/26`) and anything else is an ERROR, never a guess.

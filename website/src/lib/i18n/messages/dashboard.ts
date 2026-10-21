@@ -49,6 +49,19 @@ export const dashboard = defineMessages({
   'Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... để theo dõi bảo hành tự động.':
     'Add your first device — a laptop, a phone, a washing machine… — and warranty tracking runs itself.',
 
+  // ── Dashboard cold start (`app/(app)/dashboard/page.tsx`) ────────────────
+  //
+  // One panel for an account with no devices, no subscriptions and no
+  // wishlist. The sentence is the product's loop in one line — the thing the
+  // old dashboard never explained to a new account: device → warranty end date
+  // → reminders before it lapses. Three ways in: create, upload the receipt you
+  // already have, or import the list you already keep.
+  'Bắt đầu với một thiết bị': 'Start with one device',
+  'Thêm thiết bị kèm ngày hết bảo hành — Warrly nhắc bạn trước 30 và 7 ngày và giữ hoá đơn ở cùng một chỗ.':
+    'Add a device with its warranty end date — Warrly reminds you 30 and 7 days before it lapses and keeps the receipt in the same place.',
+  'Tôi đã có hoá đơn': 'I already have the receipt',
+  'Có sẵn bảng tính?': 'Have a spreadsheet?',
+
   // ── Dashboard subscription / wishlist cards ─────────────────────────────
   'Mỗi tháng': 'Per month',
   '~ {amount} / năm • {count} gói đang hoạt động':

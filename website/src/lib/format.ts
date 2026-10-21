@@ -1,15 +1,25 @@
 import { format, differenceInCalendarDays } from 'date-fns';
 import { enUS, vi } from 'date-fns/locale';
-import { formatDay, isApiDay, parseDayValue, toDayDate } from '@/lib/api-day';
+import {
+  dayKey,
+  formatDay,
+  isApiDay,
+  parseDayValue,
+  toDayDate,
+} from '@/lib/api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
 
 // Locale-aware value formatting. These are not sentences but they do reach the
 // user, and both of them are ambiguous across the two languages:
 //
-//   dates  — `07/05/2026` is 7 May to a Vietnamese reader and 5 July to an
-//            American one. There is no "neutral" rendering, so the date has to
-//            follow the language (mirrors `i18n.FormatDate` in the Go service).
+//   dates  — a pure `dd/MM/yyyy` form is right for Vietnamese, but English is
+//            the default language and a slash date cannot tell an English
+//            reader whether `11/12/2026` is 11 December or 12 November. So the
+//            English form spells the month (`12 Nov 2026`). The ONE definition
+//            of that pair lives in `api-day.ts::formatDayParts`; `formatDate`
+//            only turns a `Date` into a calendar day and delegates, so a
+//            second formatter cannot creep in and drift.
 //   money  — Vietnamese đồng is not denominated in a foreign currency, so only
 //            its position and the thousands separator change:
 //            `1.200.000 ₫` / `₫1,200,000` (mirrors `i18n.FormatMoney`).
@@ -39,11 +49,6 @@ const NUMBER_FORMAT: Record<Locale, Intl.NumberFormat> = {
   en: new Intl.NumberFormat('en-US'),
 };
 
-const DATE_PATTERN: Record<Locale, string> = {
-  vi: 'dd/MM/yyyy',
-  en: 'MM/dd/yyyy',
-};
-
 const DATE_LONG: Record<Locale, { pattern: string; locale: typeof vi }> = {
   vi: { pattern: "EEEE, dd 'tháng' MM, yyyy", locale: vi },
   en: { pattern: 'EEEE, MMMM d, yyyy', locale: enUS },
@@ -67,14 +72,16 @@ export function parseVNDInput(input: string): number {
 }
 
 export function formatDate(date: Date | string, locale: Locale): string {
-  // A bare `YYYY-MM-DD` is a CALENDAR DAY, not an instant. `new Date(day)` is
-  // defined to be UTC midnight, which renders as the previous day west of UTC —
-  // the bug `lib/api-day.ts` exists to remove. Every day-bearing wire field has
-  // that exact shape, so this safety net fixes render sites the moment they
-  // move to the new contract; arithmetic must still go through `api-day.ts`.
-  if (typeof date === 'string' && isApiDay(date)) return formatDay(date, locale);
-  const d = toDayDate(date);
-  return format(d, DATE_PATTERN[locale], { locale: locale === 'vi' ? vi : enUS });
+  // Every day-bearing value converges on a `YYYY-MM-DD` day and one formatter:
+  //   * a bare `YYYY-MM-DD` is a CALENDAR DAY, not an instant — pass it through
+  //     untouched (`formatDay` slices, it never builds a `Date`);
+  //   * anything else is an instant (or a `Date`), whose LOCAL calendar day is
+  //     what the reader sees, so it is reduced to that day with `dayKey`.
+  // `new Date('2026-11-12')` would be UTC midnight and render as the 11th west
+  // of UTC — the bug `lib/api-day.ts` exists to remove.
+  const day =
+    typeof date === 'string' && isApiDay(date) ? date.trim() : dayKey(toDayDate(date));
+  return formatDay(day, locale);
 }
 
 export function formatDateLong(date: Date | string, locale: Locale): string {

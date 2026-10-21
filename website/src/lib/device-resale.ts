@@ -67,7 +67,7 @@ export function soldAtToInputValue(value: string | null | undefined): string {
 /**
  * Display a `YYYY-MM-DD` value (what the form's date input holds) as a plain
  * calendar day in the reader's convention — `dd/MM/yyyy` in Vietnamese,
- * `MM/dd/yyyy` in English.
+ * `12 Nov 2026` in English (see `api-day.ts::formatDayParts`).
  *
  * `formatDay` slices the day; `new Date(day)` would be UTC midnight and render
  * the *previous* day for anyone west of UTC. Empty for input that is not a day.

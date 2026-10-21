@@ -50,7 +50,7 @@ describe('trialLabel', () => {
       'Dùng thử đến 20/04/2026',
     );
     expect(trialLabel({ trialEndsAt: '2026-04-20' }, 'en', now)).toBe(
-      'Trial until 04/20/2026',
+      'Trial until 20 Apr 2026',
     );
   });
 
@@ -59,7 +59,7 @@ describe('trialLabel', () => {
       'Đã hết dùng thử từ 01/03/2026',
     );
     expect(trialLabel({ trialEndsAt: '2026-03-01' }, 'en', now)).toBe(
-      'Trial ended 03/01/2026',
+      'Trial ended 1 Mar 2026',
     );
   });
 

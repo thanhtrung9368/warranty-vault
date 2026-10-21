@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/empty-state';
 import { api } from '@/lib/api';
 import type { ReminderRow as ApiReminder } from '@/lib/api/reminders';
 import { dismissedReminders, type DismissedReminder } from '@/lib/dismissed-reminders';
+import { emptyReasonFor } from '@/lib/empty-state';
 import { requireUser } from '@/lib/auth';
 import {
   type Category,
@@ -104,12 +105,20 @@ export default async function RemindersPage() {
   // `includeDismissed=true`, instead of the whole-database export document it
   // used to parse — see `lib/dismissed-reminders.ts`. The plain call is left
   // exactly as it was so the active sections keep their previous behaviour.
-  const [res, dismissedRes] = await Promise.all([
+  const [res, dismissedRes, devicesRes] = await Promise.all([
     api.reminders.list(90),
     api.reminders.list(90, { includeDismissed: true }),
+    // Only to tell the two empty states apart: "nothing is due" is a claim
+    // about data the account actually has, and an account with no devices has
+    // none. One extra list read, no extra endpoint.
+    api.devices.list(),
   ]);
   const now = new Date();
   const active: ReminderItem[] = res.ok ? res.data.map((r) => toItem(r, now)) : [];
+  // A failed read falls to `no-data`: the safer lie is "add a device" (which is
+  // always actionable) rather than congratulating an account we could not read.
+  const hasDevices = devicesRes.ok && devicesRes.data.length > 0;
+  const emptyReason = emptyReasonFor(hasDevices);
 
   let dismissed: DismissedReminder[] = [];
   let dismissedUnavailable = false;
@@ -141,9 +150,13 @@ export default async function RemindersPage() {
         <EmptyState
           icon={Bell}
           tone="emerald"
-          title={t('Không có nhắc nhở nào, ngon!')}
-          description={t('Tất cả gói bảo hành đều an toàn. Mày khỏi lo gì hết.')}
-          cta={false}
+          emptyReason={emptyReason}
+          // The reassuring sentence is only true when there are devices for it
+          // to be about; with none, the component's `no-data` copy takes over.
+          title={hasDevices ? t('Không có nhắc nhở nào, ngon!') : undefined}
+          description={
+            hasDevices ? t('Tất cả gói bảo hành đều an toàn. Mày khỏi lo gì hết.') : undefined
+          }
         />
       ) : (
         <div className="space-y-2">

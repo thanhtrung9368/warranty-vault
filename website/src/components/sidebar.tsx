@@ -15,7 +15,15 @@ import {
   ListChecks,
   Inbox,
   Wrench,
+  Menu,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useT } from '@/lib/i18n/client';
 
@@ -112,6 +120,39 @@ const items: NavItem[] = [
   },
 ];
 
+const ITEM_BY_HREF = new Map(items.map((item) => [item.href, item]));
+
+function itemFor(href: string): NavItem {
+  const item = ITEM_BY_HREF.get(href);
+  if (!item) throw new Error(`sidebar: unknown nav href ${href}`);
+  return item;
+}
+
+// Ten flat destinations is a list, not a map. Three labelled groups put the
+// three questions the app answers in order — "what am I tracking?", "what needs
+// me?", "everything else" — and Settings is pinned to the bottom because it is
+// about the account, not about the vault. The labels are Vietnamese catalog
+// keys (`messages/common.ts`).
+const NAV_GROUPS: { id: string; label: string; hrefs: string[] }[] = [
+  { id: 'tracking', label: 'Theo dõi', hrefs: ['/dashboard', '/devices', '/reminders'] },
+  { id: 'attention', label: 'Cần chú ý', hrefs: ['/actions', '/inbox', '/claims'] },
+  { id: 'more', label: 'Mục khác', hrefs: ['/subscriptions', '/wishlist', '/stats'] },
+];
+
+// Material's phone guidance is 3–5 fixed destinations. The five the phone keeps
+// are the ones that answer "now": overview, the vault itself, the two queues,
+// and a way to reach everything else. The other six (Settings included) live in
+// the "More" sheet.
+const MOBILE_PRIMARY_HREFS = ['/dashboard', '/devices', '/actions', '/inbox'];
+const MOBILE_SHEET_HREFS = [
+  '/reminders',
+  '/claims',
+  '/subscriptions',
+  '/wishlist',
+  '/stats',
+  '/settings',
+];
+
 // Per-item badge. The reminders count is "gói bảo hành sắp hết"; the actions
 // count is `ActionQueue.counts.total`, i.e. the ACTIONABLE subset — the server
 // keeps snoozed rows out of it on purpose, so a snooze never inflates the badge.
@@ -147,6 +188,48 @@ export function Sidebar({
   const pathname = usePathname();
   const t = useT();
 
+  const renderItem = (item: NavItem) => {
+    const Icon = item.icon;
+    const active = item.match(pathname);
+    const badge = navBadge(item.href, reminderCount, actionCount, inboxCount);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        data-active={active ? 'true' : undefined}
+        title={t(item.label)}
+        aria-label={t(item.label)}
+        className={cn(
+          'wv-sidebar-item relative flex h-[42px] items-center gap-3 overflow-hidden rounded-md px-3 text-sm font-semibold transition-colors',
+          active
+            ? 'bg-primary-soft text-primary-ink'
+            : 'text-ink-2 hover:bg-secondary hover:text-ink',
+        )}
+      >
+        {active && (
+          <span
+            aria-hidden
+            className="absolute -left-3.5 top-2.5 bottom-2.5 w-1 rounded-r bg-primary"
+          />
+        )}
+        <span className="flex w-[22px] items-center justify-center">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <span className="wv-sidebar-label flex-1 truncate">{t(item.label)}</span>
+        {badge > 0 && (
+          <span
+            className={cn(
+              'wv-sidebar-badge ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
+              BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
+            )}
+          >
+            {badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
   return (
     <aside className="wv-sidebar sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-1.5 border-r border-border bg-card px-3.5 py-4 md:flex">
       {/* Brand */}
@@ -162,59 +245,38 @@ export function Sidebar({
         </span>
       </Link>
 
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const active = item.match(pathname);
-          const badge = navBadge(item.href, reminderCount, actionCount, inboxCount);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              data-active={active ? 'true' : undefined}
-              title={t(item.label)}
-              aria-label={t(item.label)}
-              className={cn(
-                'wv-sidebar-item relative flex h-[42px] items-center gap-3 overflow-hidden rounded-md px-3 text-sm font-semibold transition-colors',
-                active
-                  ? 'bg-primary-soft text-primary-ink'
-                  : 'text-ink-2 hover:bg-secondary hover:text-ink',
-              )}
-            >
-              {active && (
-                <span
-                  aria-hidden
-                  className="absolute -left-3.5 top-2.5 bottom-2.5 w-1 rounded-r bg-primary"
-                />
-              )}
-              <span className="flex w-[22px] items-center justify-center">
-                <Icon className="h-[18px] w-[18px]" />
-              </span>
-              <span className="wv-sidebar-label flex-1 truncate">{t(item.label)}</span>
-              {badge > 0 && (
-                <span
-                  className={cn(
-                    'wv-sidebar-badge ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
-                    BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
-                  )}
-                >
-                  {badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      {/* Grouped nav. The scrolling area holds the three groups; Settings sits
+          outside it so it stays pinned to the bottom however short the viewport
+          is (it used to be the tenth item of the same flat list). */}
+      <nav className="flex flex-1 flex-col gap-2 overflow-y-auto">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.id} className="flex flex-col gap-0.5">
+            <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+              {t(group.label)}
+            </p>
+            {group.hrefs.map((href) => renderItem(itemFor(href)))}
+          </div>
+        ))}
       </nav>
+      <div className="mt-1 border-t border-border pt-2">
+        {renderItem(itemFor('/settings'))}
+      </div>
     </aside>
   );
 }
 
 /**
- * Mobile pill-shaped bottom navigation. Renders every section (same order +
- * labels as the desktop sidebar) in a horizontally scrollable strip — the 10
- * entries don't fit on a phone at once, so the active one is scrolled into
- * view. Hidden on desktop (sidebar takes over from md: up).
+ * Phone navigation: exactly five fixed destinations, as Material guidance says
+ * (3–5). It used to render all ten in a horizontal scroller — about 5.5 fit at
+ * 390px, there was no affordance that more existed, and on `/settings` the
+ * strip opened scrolled to its end.
+ *
+ * Overview / Devices / Action items / Inbox are the four that answer "now";
+ * "More" opens a bottom sheet with the remaining six (Reminders, Claims,
+ * Subscriptions, Wishlist, Stats, Settings). The sheet can show the reminder
+ * badge that the bar no longer has a slot for, and the More button still
+ * carries the total of the hidden badges so a due reminder is never invisible.
+ * Hidden on desktop (the sidebar takes over from md: up).
  */
 export function MobileBottomNav({
   reminderCount = 0,
@@ -227,20 +289,37 @@ export function MobileBottomNav({
 }) {
   const pathname = usePathname();
   const t = useT();
-  const navRef = React.useRef<HTMLElement>(null);
-
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  // A route change (including back/forward while the sheet is open) closes it;
+  // the rows also close it on click so the page transition is not behind an
+  // overlay.
   React.useEffect(() => {
-    const active = navRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- closing a sheet in response to navigation
+    setMoreOpen(false);
   }, [pathname]);
+
+  const primary = MOBILE_PRIMARY_HREFS.map(itemFor);
+  const sheet = MOBILE_SHEET_HREFS.map(itemFor);
+  const moreActive = sheet.some((item) => item.match(pathname));
+  // The bar has no Reminders slot anymore, so the More button carries the sum
+  // of the badges hiding behind it. Today that is only the reminder count.
+  const moreBadge = sheet.reduce(
+    (sum, item) => sum + navBadge(item.href, reminderCount, actionCount, inboxCount),
+    0,
+  );
+
+  const itemClass = (active: boolean) =>
+    cn(
+      'relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-pill px-0.5 text-[10px] font-semibold transition-colors',
+      active ? 'bg-primary-soft text-primary-ink' : 'text-ink-2 hover:text-ink',
+    );
 
   return (
     <nav
-      ref={navRef}
-      className="no-scrollbar fixed bottom-3 left-3 right-3 z-40 flex h-16 items-center gap-1 overflow-x-auto rounded-pill border border-border bg-card p-1.5 shadow-lift md:hidden"
+      className="fixed bottom-3 left-3 right-3 z-40 flex h-16 items-center gap-1 rounded-pill border border-border bg-card p-1.5 shadow-lift md:hidden"
       aria-label={t('Điều hướng chính')}
     >
-      {items.map((item) => {
+      {primary.map((item) => {
         const Icon = item.icon;
         const active = item.match(pathname);
         const badge = navBadge(item.href, reminderCount, actionCount, inboxCount);
@@ -250,19 +329,14 @@ export function MobileBottomNav({
             href={item.href}
             data-active={active ? 'true' : undefined}
             aria-label={t(item.label)}
-            className={cn(
-              'relative flex h-full min-w-[62px] flex-1 flex-col items-center justify-center gap-0.5 rounded-pill px-1.5 text-[10px] font-semibold transition-colors',
-              active
-                ? 'bg-primary-soft text-primary-ink'
-                : 'text-ink-2 hover:text-ink',
-            )}
+            className={itemClass(active)}
           >
             <Icon className="h-5 w-5" />
-            <span className="whitespace-nowrap leading-none">{t(item.label)}</span>
+            <span className="block min-h-[23px] w-full text-center leading-[1.15]">{t(item.label)}</span>
             {badge > 0 && (
               <span
                 className={cn(
-                  'absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold',
+                  'absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold',
                   BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
                 )}
               >
@@ -272,6 +346,72 @@ export function MobileBottomNav({
           </Link>
         );
       })}
+
+      <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            data-active={moreActive ? 'true' : undefined}
+            aria-label={t('Mục khác')}
+            className={itemClass(moreActive)}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="block min-h-[23px] w-full text-center leading-[1.15]">{t('Mục khác')}</span>
+            {moreBadge > 0 && (
+              <span className="absolute right-1.5 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                {moreBadge}
+              </span>
+            )}
+          </button>
+        </DialogTrigger>
+        <DialogContent
+          placement="bottom"
+          className="max-h-[85vh] overflow-y-auto md:hidden"
+        >
+          <DialogTitle className="font-display text-lg font-bold tracking-tight">
+            {t('Mục khác')}
+          </DialogTitle>
+          {/* Radix wants a description for the dialog; the nav landmark already
+              carries the same sentence for screen readers. */}
+          <DialogDescription className="sr-only">
+            {t('Điều hướng chính')}
+          </DialogDescription>
+          <div className="grid gap-1">
+            {sheet.map((item) => {
+              const Icon = item.icon;
+              const active = item.match(pathname);
+              const badge = navBadge(item.href, reminderCount, actionCount, inboxCount);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  data-active={active ? 'true' : undefined}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors',
+                    active
+                      ? 'bg-primary-soft text-primary-ink'
+                      : 'text-ink-2 hover:bg-surface-2 hover:text-ink',
+                  )}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className="flex-1 truncate">{t(item.label)}</span>
+                  {badge > 0 && (
+                    <span
+                      className={cn(
+                        'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
+                        BADGE_CLASS[item.href] ?? 'bg-primary text-primary-foreground',
+                      )}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 }

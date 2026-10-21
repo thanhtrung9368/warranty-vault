@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { PackageOpen, Plus, type LucideIcon } from 'lucide-react';
+import { ArrowRight, PackageOpen, Plus, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getI18n } from '@/lib/i18n/server';
+import { emptyStateCopy, type EmptyReason } from '@/lib/empty-state';
 
 type Tone = 'primary' | 'amber' | 'emerald' | 'rose' | 'sky' | 'violet' | 'zinc';
 
@@ -18,15 +19,29 @@ const TONE_CLASSES: Record<Tone, string> = {
 };
 
 /**
- * The three copy props default to the Vietnamese originals, resolved through the
- * dictionary. They are defaults and not `t(...)` calls in the parameter list
- * because a default parameter cannot await `getI18n()` — hence the `async`
- * component and the `??` fallbacks below. Every call site keeps working
- * unchanged, whether it passes `title`/`description`/`ctaLabel` or nothing.
+ * The app's empty state.
  *
- * Which dictionary: `Chưa có thiết bị nào, mày` and `Thêm thiết bị` are
- * registered by `messages/devices.ts` (this component is generic, those
- * sentences are not), and the description by `messages/common.ts`.
+ * `emptyReason` is the important prop. The same visual (a green tick, "nothing
+ * is waiting") means two different things:
+ *
+ *   * `'nothing-due'` — we read data the user entered and nothing needs them.
+ *     Reassuring, and legitimately so.
+ *   * `'no-data'`     — the account has no devices, so we read NOTHING. A tick
+ *     here is a lie; the copy says so and the CTA starts the loop.
+ *
+ * The two copy sets live in `lib/empty-state.ts` (one place, tested). A page
+ * that wants its own words for the genuine nothing-due case passes
+ * `title`/`description`; for `'no-data'` it should pass nothing and let the
+ * preset speak, or its own honest wording if it has context.
+ *
+ * A CTA is always rendered for these two states. `cta={false}` remains for a
+ * FILTERED list ("no rows match this filter"), which is not an empty account and
+ * whose right action is "clear the filter", not "add a device" — the call sites
+ * that use it (`/subscriptions`, `/wishlist`, `/devices`) are exactly those.
+ *
+ * The copy props default to `undefined` rather than to `t(...)` in the parameter
+ * list because a default parameter cannot await `getI18n()` — hence the preset
+ * lookup and the `??` fallbacks below.
  */
 export async function EmptyState({
   title,
@@ -34,8 +49,9 @@ export async function EmptyState({
   icon: Icon = PackageOpen,
   tone = 'primary',
   cta = true,
-  ctaHref = '/devices/new',
+  ctaHref,
   ctaLabel,
+  emptyReason = 'nothing-due',
 }: {
   title?: string;
   description?: string;
@@ -44,12 +60,17 @@ export async function EmptyState({
   cta?: boolean;
   ctaHref?: string;
   ctaLabel?: string;
+  emptyReason?: EmptyReason;
 }) {
   const { t } = await getI18n();
-  const resolvedTitle = title ?? t('Chưa có thiết bị nào, mày');
-  const resolvedDescription =
-    description ?? t('Bắt đầu bằng cách thêm thiết bị đầu tiên để theo dõi bảo hành.');
-  const resolvedCtaLabel = ctaLabel ?? t('Thêm thiết bị');
+  const copy = emptyStateCopy(emptyReason);
+  const resolvedTitle = title ?? t(copy.title);
+  const resolvedDescription = description ?? t(copy.description);
+  const resolvedCtaHref = ctaHref ?? copy.ctaHref;
+  const resolvedCtaLabel = ctaLabel ?? t(copy.ctaLabel);
+  // The first-run CTA adds something; the nothing-due CTA goes somewhere. Using
+  // a plus sign for "View your devices" would promise the wrong action.
+  const CtaIcon = emptyReason === 'no-data' ? Plus : ArrowRight;
 
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border-[1.5px] border-dashed border-border-strong bg-card/60 px-6 py-16 text-center">
@@ -69,8 +90,8 @@ export async function EmptyState({
           size="lg"
           className="rounded-pill transition-transform hover:scale-[1.02]"
         >
-          <Link href={ctaHref}>
-            <Plus className="mr-1.5 h-4 w-4" />
+          <Link href={resolvedCtaHref}>
+            <CtaIcon className="mr-1.5 h-4 w-4" />
             {resolvedCtaLabel}
           </Link>
         </Button>

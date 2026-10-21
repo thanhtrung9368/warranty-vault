@@ -28,8 +28,20 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /**
+     * `center` is the default modal. `bottom` is the phone-sheet placement used
+     * by the bottom navigation's "More" sheet: full width, anchored to the
+     * bottom edge, only the top corners rounded, and safe-area padding so the
+     * last row is not under the home indicator.
+     *
+     * It is a prop rather than a `className` override because position,
+     * transform and radius are a single decision — overriding half of them with
+     * `twMerge` is how a sheet ended up visually centred on one breakpoint.
+     */
+    placement?: 'center' | 'bottom';
+  }
+>(({ className, children, placement = 'center', ...props }, ref) => {
   // `useT()` is legal in a `forwardRef` render callback — it is a component
   // body, not a plain function call.
   const t = useT();
@@ -39,7 +51,10 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border-[1.5px] bg-card p-6 shadow-pop duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2',
+          'fixed z-50 grid gap-4 border-[1.5px] bg-card p-6 shadow-pop duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+          placement === 'bottom'
+            ? 'inset-x-0 bottom-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom'
+            : 'left-[50%] top-[50%] w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-xl data-[state=open]:slide-in-from-bottom-2',
           className,
         )}
         {...props}
