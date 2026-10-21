@@ -10,15 +10,14 @@ import {
   ArrowRight,
   CheckCircle2,
   Sparkles,
-  Package,
-  ShieldX,
-  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { Reveal } from '@/components/reveal';
 import { RevealObserver } from '@/components/reveal-observer';
+import { PinnedStage } from '@/components/pinned-stage';
+import { LandingProduct } from '@/components/landing-product';
 import { getCurrentUser } from '@/lib/auth';
 import { getI18n } from '@/lib/i18n/server';
 import type { Translator } from '@/lib/i18n/catalog';
@@ -28,53 +27,48 @@ export const dynamic = 'force-dynamic';
 
 // The three content arrays below carry user-facing copy, so they are built
 // inside the page (and inside `t`) rather than at module scope: a module-level
-// constant cannot see the request's language. Only the icons and tints — which
+// constant cannot see the request's language. Only the icons and hrefs — which
 // are not copy — would survive out here, so the whole shape moved together.
 function buildFeatures(t: Translator) {
   return [
     {
       icon: ShieldCheck,
-      title: t('Theo dõi bảo hành'),
+      title: t('Bảo hành'),
       desc: t(
-        'Mỗi thiết bị có thể có nhiều gói bảo hành — gốc, mở rộng, bên thứ 3. Đếm ngược tự động.',
+        'Mỗi thiết bị có thể có nhiều gói — gốc, mở rộng, bên thứ ba. Warrly tự đếm ngược.',
       ),
-      tint: 'tint-primary',
       href: '/devices',
     },
     {
       icon: Repeat,
-      title: t('Quản lý gói đăng ký'),
-      desc: t(
-        'Netflix, iCloud, ChatGPT... theo dõi chu kỳ và ngày gia hạn. Quy ra chi phí mỗi tháng.',
-      ),
-      tint: 'tint-sky',
+      title: t('Gói đăng ký'),
+      desc: t('Netflix, iCloud, ChatGPT: chu kỳ, ngày gia hạn, và chi phí mỗi tháng.'),
       href: '/subscriptions',
     },
     {
       icon: Heart,
-      title: t('Wishlist “đang thèm”'),
-      desc: t(
-        'Món đang ngắm — đặt ngày mục tiêu, theo dõi giá. Mua xong là thành thiết bị luôn.',
-      ),
-      tint: 'tint-rose',
+      title: t('Wishlist'),
+      desc: t('Món đang ngắm — ngày mục tiêu, giá, và mua xong thì thành thiết bị.'),
       href: '/wishlist',
     },
     {
       icon: Bell,
-      title: t('Cảnh báo sắp hết'),
+      title: t('Nhắc trước khi hết hạn'),
+      // The old card promised "the web and the iOS/Android apps". There is no
+      // store link in this repo and iOS ships through TestFlight, so that was
+      // an unactionable claim. This names the one install a visitor can
+      // actually get.
       desc: t(
-        'Bọn tao nhắc trước qua push notification — cả trên web lẫn app iOS/Android. Khỏi lo bỏ lỡ.',
+        'Thông báo đẩy trên web, và trên iOS beta qua TestFlight. Đủ sớm để bạn kịp xử lý.',
       ),
-      tint: 'tint-amber',
       href: '/reminders',
     },
     {
       icon: Receipt,
-      title: t('Lưu hoá đơn & phiếu BH'),
+      title: t('Hoá đơn & phiếu bảo hành'),
       desc: t(
-        'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.',
+        'Ảnh hoặc PDF, tối đa 5 tệp mỗi thiết bị, mã hoá AES-256. Mở lại đúng lúc bạn cần đi bảo hành.',
       ),
-      tint: 'tint-emerald',
       // The capture-first inbox is where an invoice/PDF is uploaded before it
       // is attached to a device; the warranty card above already points at
       // /devices, so each card keeps its own destination.
@@ -82,9 +76,8 @@ function buildFeatures(t: Translator) {
     },
     {
       icon: BarChart3,
-      title: t('Thống kê chi tiêu'),
-      desc: t('Biểu đồ theo tháng, theo loại, top thiết bị đắt nhất. Biết tiền đi đâu.'),
-      tint: 'tint-violet',
+      title: t('Chi tiêu'),
+      desc: t('Theo tháng, theo loại, thiết bị đắt nhất. Biết tiền đã đi đâu.'),
       href: '/stats',
     },
   ];
@@ -92,203 +85,46 @@ function buildFeatures(t: Translator) {
 
 function buildSteps(t: Translator) {
   return [
-    { n: 1, title: t('Đăng ký miễn phí'), desc: t('Email + mật khẩu. 30 giây xong.') },
+    {
+      n: 1,
+      title: t('Đăng ký miễn phí'),
+      desc: t('Email và mật khẩu. Xong trong 30 giây.'),
+    },
     {
       n: 2,
       title: t('Thêm thiết bị'),
-      desc: t('Laptop, điện thoại, máy giặt... bất cứ thứ gì có bảo hành.'),
+      desc: t('Laptop, điện thoại, máy giặt — bất cứ thứ gì có bảo hành.'),
     },
-    { n: 3, title: t('Theo dõi tự động'), desc: t('Khỏi đụng vào, tao lo phần đếm ngược.') },
+    {
+      n: 3,
+      title: t('Để Warrly nhắc'),
+      desc: t('Warrly giữ ngày hết hạn và nhắc bạn trước.'),
+    },
   ];
 }
 
-function buildStatCards(t: Translator) {
-  return [
-    { l: t('Tổng'), v: '10', Icon: Package, tint: 'tint-primary' },
-    { l: t('Còn BH'), v: '8', Icon: ShieldCheck, tint: 'tint-emerald' },
-    { l: t('Sắp hết'), v: '2', Icon: AlertTriangle, tint: 'tint-amber' },
-    // `Hết hạn`, not the bare `Hết` this card used to carry. The dictionary is
-    // keyed by the Vietnamese sentence, and `Hết` is already taken by
-    // `warranties.ts` as "Expires" — the end DATE on a warranty timeline, the
-    // opposite sense to this card, which counts devices whose warranty has
-    // already run out. One Vietnamese key cannot carry two English meanings, so
-    // the two-character shorthand gave way to the unambiguous term the Go
-    // catalog already uses for this state ("Đã hết hạn" → "Expired").
-    { l: t('Hết hạn'), v: '1', Icon: ShieldX, tint: 'tint-zinc' },
-  ];
-}
-
-function HeroIllustration() {
-  return (
-    <svg
-      viewBox="0 0 320 280"
-      width="100%"
-      className="hero-illustration max-w-[360px]"
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id="vault-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="hsl(var(--primary-2))" />
-          <stop offset="100%" stopColor="hsl(var(--primary))" />
-        </linearGradient>
-      </defs>
-      {/* Background blobs */}
-      <circle cx="60" cy="70" r="40" fill="hsl(var(--violet-soft))" opacity="0.5" />
-      <circle cx="280" cy="220" r="36" fill="hsl(var(--emerald-soft))" opacity="0.6" />
-      <circle cx="270" cy="60" r="20" fill="hsl(var(--amber-soft))" />
-      {/* Vault */}
-      <g transform="translate(60, 50)">
-        <rect
-          x="0"
-          y="20"
-          width="200"
-          height="180"
-          rx="24"
-          fill="url(#vault-grad)"
-          stroke="hsl(var(--ink))"
-          strokeWidth="3"
-        />
-        <rect
-          x="14"
-          y="34"
-          width="172"
-          height="150"
-          rx="16"
-          fill="hsl(var(--card))"
-          stroke="hsl(var(--ink))"
-          strokeWidth="3"
-        />
-        {/* dial */}
-        <circle
-          cx="80"
-          cy="108"
-          r="50"
-          fill="hsl(var(--surface-2))"
-          stroke="hsl(var(--ink))"
-          strokeWidth="3"
-        />
-        <circle
-          cx="80"
-          cy="108"
-          r="36"
-          fill="hsl(var(--card))"
-          stroke="hsl(var(--ink))"
-          strokeWidth="2"
-        />
-        <circle cx="80" cy="108" r="10" fill="hsl(var(--ink))" />
-        {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => {
-          const rad = ((deg - 90) * Math.PI) / 180;
-          const x1 = 80 + Math.cos(rad) * 42;
-          const y1 = 108 + Math.sin(rad) * 42;
-          const x2 = 80 + Math.cos(rad) * 48;
-          const y2 = 108 + Math.sin(rad) * 48;
-          return (
-            <line
-              key={deg}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke="hsl(var(--ink))"
-              strokeWidth="2"
-            />
-          );
-        })}
-        <line
-          x1="80"
-          y1="108"
-          x2="80"
-          y2="76"
-          stroke="hsl(var(--ink))"
-          strokeWidth="4"
-          strokeLinecap="round"
-          transform="rotate(45 80 108)"
-        />
-        {/* handle */}
-        <circle cx="160" cy="108" r="6" fill="hsl(var(--ink))" />
-        <rect x="156" y="60" width="8" height="100" rx="4" fill="hsl(var(--ink))" />
-        <circle cx="160" cy="60" r="10" fill="hsl(var(--ink))" />
-        <circle cx="160" cy="158" r="10" fill="hsl(var(--ink))" />
-        {/* feet */}
-        <rect x="4" y="200" width="16" height="14" rx="3" fill="hsl(var(--ink))" />
-        <rect x="180" y="200" width="16" height="14" rx="3" fill="hsl(var(--ink))" />
-        {/* eyes */}
-        <circle cx="65" cy="102" r="3" fill="hsl(var(--ink))" />
-        <circle cx="95" cy="102" r="3" fill="hsl(var(--ink))" />
-        <path
-          d="M 70 118 Q 80 124 90 118"
-          stroke="hsl(var(--ink))"
-          strokeWidth="2.5"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </g>
-      {/* Floating receipt */}
-      <g transform="translate(220, 80) rotate(12)">
-        <rect
-          x="0"
-          y="0"
-          width="56"
-          height="72"
-          rx="6"
-          fill="hsl(var(--card))"
-          stroke="hsl(var(--ink))"
-          strokeWidth="2"
-        />
-        <line
-          x1="8"
-          y1="14"
-          x2="48"
-          y2="14"
-          stroke="hsl(var(--ink))"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <line
-          x1="8"
-          y1="24"
-          x2="42"
-          y2="24"
-          stroke="hsl(var(--muted))"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <line
-          x1="8"
-          y1="32"
-          x2="36"
-          y2="32"
-          stroke="hsl(var(--muted))"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <circle cx="28" cy="50" r="10" fill="hsl(var(--emerald-soft))" />
-        <path
-          d="M 23 50 l 4 4 l 8 -8"
-          stroke="hsl(var(--emerald-ink))"
-          strokeWidth="2.5"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
-      {/* Floating bell */}
-      <g transform="translate(28, 168) rotate(-14)">
-        <circle
-          cx="0"
-          cy="0"
-          r="22"
-          fill="hsl(var(--amber-soft))"
-          stroke="hsl(var(--ink))"
-          strokeWidth="2.5"
-        />
-        <path
-          d="M -8 -2 a 8 8 0 0 1 16 0 v 6 l 2 4 h -20 l 2 -4 z"
-          fill="hsl(var(--ink))"
-        />
-      </g>
-    </svg>
-  );
+function buildStage(t: Translator) {
+  return {
+    eyebrow: t('Trước khi hết hạn'),
+    title: t('Từ lúc mua đến lúc hết hạn.'),
+    sub: t('Warrly giữ ngày bảo hành, hoá đơn và lời nhắc ở cùng một chỗ.'),
+    beats: [
+      {
+        title: t('Mọi thứ trong nhà'),
+        desc: t('Tủ lạnh, máy giặt, chiếc iPhone. Một danh sách, đúng tên bạn gọi.'),
+      },
+      {
+        title: t('Ngày và hoá đơn'),
+        desc: t('Ngày hết hạn, các gói bảo hành và tấm ảnh hoá đơn nằm cạnh nhau.'),
+      },
+      {
+        title: t('Nhắc trước khi quá muộn'),
+        desc: t(
+          'Warrly báo trước qua thông báo đẩy — đủ sớm để bạn kịp đi bảo hành.',
+        ),
+      },
+    ],
+  };
 }
 
 export default async function LandingPage() {
@@ -300,7 +136,7 @@ export default async function LandingPage() {
 
   const FEATURES = buildFeatures(t);
   const STEPS = buildSteps(t);
-  const STAT_CARDS = buildStatCards(t);
+  const STAGE = buildStage(t);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -359,23 +195,34 @@ export default async function LandingPage() {
       </header>
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="hero-gradient px-4 py-16 md:px-8 md:py-20">
-          <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div>
-              <span className="mb-5 inline-flex items-center gap-1.5 rounded-pill border-[1.5px] border-primary-soft-2 bg-primary-soft/70 px-3 py-1 text-xs font-bold text-primary-ink">
-                <Sparkles className="h-3 w-3" />
+        {/* Hero — the H1 is the LCP element and is deliberately never wrapped
+            in a reveal or an opacity-0 start state. The product composition
+            appears beside it from the server HTML. */}
+        <section className="wv-hero px-4 pb-16 pt-16 md:px-8 md:pb-24 md:pt-24">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14">
+            <div className="max-w-2xl">
+              <p className="wv-hero-eyebrow">
+                <Sparkles aria-hidden />
                 {t('Miễn phí · Không quảng cáo, không theo dõi · Xây cho Việt Nam')}
-              </span>
+              </p>
               {/* One sentence, one key. Both languages happen to put the
                   warranty words in the same slot, so the gradient highlight is
                   applied to whichever substring the active language uses — the
                   sentence itself is never cut in two, which would hand a
-                  translator two fragments whose order they cannot choose. */}
-              <h1 className="display text-[clamp(36px,5vw,60px)]">
+                  translator two fragments whose order they cannot choose.
+                  `sentence.indexOf` also means no text mask is involved: the
+                  Vietnamese diacritics are never clipped.
+
+                  The H1 is the LCP element and is deliberately never wrapped
+                  in a reveal and never starts at `opacity: 0`. Its font size is
+                  capped so the longer sentence stays at three lines in the
+                  desktop column rather than five. */}
+              <h1 className="display mt-5 text-[clamp(32px,3.2vw,46px)] text-ink">
                 {(() => {
-                  const sentence = t('Đừng quên ngày hết bảo hành thiết bị của bạn');
-                  // `t('bảo hành')` is a deliberate call on an unregistered key:
+                  const sentence = t(
+                    'Giữ ngày hết bảo hành — và cả hoá đơn — cho mọi thứ trong nhà.',
+                  );
+                  // `t('bảo hành')` is a deliberate call on a registered key:
                   // it returns "bảo hành" in Vietnamese and the dictionary's
                   // English word for it in English, which is exactly the
                   // substring this page wants to highlight. If a future English
@@ -402,12 +249,12 @@ export default async function LandingPage() {
                   );
                 })()}
               </h1>
-              <p className="mb-7 mt-4 max-w-xl text-[17px] leading-relaxed text-muted">
+              <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-muted md:text-[19px]">
                 {t(
-                  'Theo dõi thiết bị, gói đăng ký và những món đang thèm — tất cả ở một chỗ. Nhắc bảo hành sắp hết, lưu hoá đơn, biết tiền chảy đi đâu.',
+                  'Tủ lạnh, máy giặt, chiếc iPhone: mỗi món có một ngày hết hạn và một tấm hoá đơn. Warrly giữ cả hai, và nhắc bạn trước khi bảo hành hết hiệu lực.',
                 )}
               </p>
-              <div className="mb-6 flex flex-wrap items-center gap-3">
+              <div className="mb-6 mt-8 flex flex-wrap items-center gap-3">
                 {user ? (
                   <Button asChild size="lg">
                     <Link href="/dashboard">
@@ -445,60 +292,48 @@ export default async function LandingPage() {
                 ))}
               </ul>
             </div>
-            <div className="flex justify-center lg:justify-end">
-              <HeroIllustration />
+            <div className="wv-hero-visual">
+              <LandingProduct t={t} locale={locale} />
             </div>
           </div>
         </section>
 
-        {/* Mock preview */}
-        <section className="px-4 md:px-8" style={{ marginTop: -40 }}>
-          <div
-            className="mx-auto max-w-5xl rounded-xl border-[2px] border-ink bg-card p-5 shadow-chunky"
-            style={{ transform: 'rotate(-0.4deg)' }}
-          >
-            <div className="mb-4 flex items-center gap-2">
-              {/* Traffic-light dots re-derived from the semantic palette, so
-                  they follow the active accent theme and dark mode instead of
-                  staying three hardcoded light-mode hexes. */}
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ background: 'hsl(var(--rose))' }}
-              />
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ background: 'hsl(var(--amber))' }}
-              />
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ background: 'hsl(var(--emerald))' }}
-              />
-              <span className="ml-2 text-xs text-muted">warrly.com/dashboard</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {STAT_CARDS.map((s) => {
-                const Icon = s.Icon;
-                return (
-                  <div
-                    key={s.l}
-                    className="rounded-lg border-[1.5px] border-border bg-card p-3.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="eyebrow">{s.l}</span>
-                      <span
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${s.tint}`}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
+        {/* Pinned product stage.
+            Above `lg` the wrapper is a tall track and the panel sticks below
+            the header; `PinnedStage` writes `--p` and every beat, the scale and
+            the clip wipe are CSS `calc()`. Below `lg` the pin is gone and the
+            same three beats are a plain vertical sequence with the existing
+            one-shot `<Reveal>`. Under reduced motion the CSS collapses the pin
+            entirely and the composition is shown static and unclipped. */}
+        <section className="wv-stage" aria-labelledby="wv-stage-title">
+          <PinnedStage>
+            <div className="wv-stage-copy">
+              <p className="eyebrow">{STAGE.eyebrow}</p>
+              <h2 id="wv-stage-title" className="display wv-stage-title">
+                {STAGE.title}
+              </h2>
+              <p className="wv-stage-sub">{STAGE.sub}</p>
+              <div className="wv-stage-beats">
+                {STAGE.beats.map((beat, index) => (
+                  <Reveal key={beat.title} index={index} className="wv-stage-beat">
+                    <div className="wv-stage-beat-inner">
+                      <p className="wv-stage-beat-num">
+                        {String(index + 1).padStart(2, '0')}
+                      </p>
+                      <h3 className="wv-stage-beat-title">{beat.title}</h3>
+                      <p className="wv-stage-beat-desc">{beat.desc}</p>
                     </div>
-                    <div className="mt-1.5 font-display text-2xl font-extrabold tracking-tight">
-                      {s.v}
-                    </div>
-                  </div>
-                );
-              })}
+                  </Reveal>
+                ))}
+              </div>
+              <div className="wv-stage-progress" aria-hidden>
+                <span />
+              </div>
             </div>
-          </div>
+            <div className="wv-stage-visual">
+              <LandingProduct t={t} locale={locale} />
+            </div>
+          </PinnedStage>
         </section>
 
         {/* Features */}
@@ -506,9 +341,11 @@ export default async function LandingPage() {
           <div className="mx-auto max-w-5xl">
             <div className="mb-10 text-center">
               <span className="eyebrow">{t('Tính năng')}</span>
-              <h2 className="display mt-2 text-4xl">{t('Tất cả những gì mày cần')}</h2>
+              <h2 className="display mt-2 text-4xl text-ink">
+                {t('Sáu việc nhỏ. Một chỗ.')}
+              </h2>
               <p className="mx-auto mt-3 max-w-lg text-muted">
-                {t('Không spam tính năng, không tracking. Chỉ những thứ thực sự hữu ích.')}
+                {t('Không bảng điều khiển rối rắm. Mỗi mục trả lời đúng một câu hỏi.')}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -531,11 +368,11 @@ export default async function LandingPage() {
                     scrollDriven={index < 3}
                   >
                     <div className="feature-card relative flex h-full w-full flex-col rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft">
-                      <span
-                        className={`icon-badge-sm inline-flex h-11 w-11 items-center justify-center rounded-xl ${f.tint}`}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </span>
+                      {/* No pastel chip behind the icon. The six tinted
+                          badges made the grid read like a toy dashboard; a
+                          single-colour line icon is the quieter, more Apple
+                          shape and lets the card copy carry the hierarchy. */}
+                      <Icon className="h-6 w-6 text-primary" strokeWidth={1.75} aria-hidden />
                       <h3 className="mt-4 font-display text-[17px] font-bold tracking-tight">
                         {/* The title is the card's link. Its ::after stretches
                             over the whole card, so the entire card is a target
@@ -563,7 +400,9 @@ export default async function LandingPage() {
           <div className="mx-auto max-w-5xl">
             <div className="mb-10 text-center">
               <span className="eyebrow">{t('Bắt đầu như thế nào')}</span>
-              <h2 className="display mt-2 text-3xl">{t('3 bước để bắt đầu')}</h2>
+              <h2 className="display mt-2 text-3xl text-ink">
+                {t('Ba bước để bắt đầu.')}
+              </h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {STEPS.map((s, index) => (
@@ -595,7 +434,7 @@ export default async function LandingPage() {
                 <Vault className="h-8 w-8" />
               </div>
               <h2 className="display text-3xl text-primary-ink">
-                {t('Sẵn sàng quản lý thiết bị?')}
+                {t('Giữ ngày bảo hành ngay từ hôm nay.')}
               </h2>
               <p className="mt-2 text-primary-ink/80">
                 {t('Free mãi mãi. Không cần thẻ. Không quảng cáo.')}

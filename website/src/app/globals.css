@@ -452,14 +452,8 @@
 }
 
 /* ============================================================
-   Hero / auth gradient backgrounds
+   Auth gradient background
 ============================================================ */
-.hero-gradient {
-  background:
-    radial-gradient(circle at 20% 10%, hsl(var(--primary-soft)) 0%, transparent 35%),
-    radial-gradient(circle at 80% 30%, hsl(var(--violet-soft)) 0%, transparent 40%),
-    radial-gradient(circle at 60% 80%, hsl(var(--emerald-soft)) 0%, transparent 35%);
-}
 .auth-gradient {
   background:
     radial-gradient(circle at 15% 20%, hsl(var(--primary-soft)) 0%, transparent 40%),
@@ -832,13 +826,598 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
 }
 
 /* ============================================================
-   Hero illustration shadow — token-derived
-   Light: warm ink at low alpha. Dark: the page background itself, which is a
-   very dark navy there, instead of the fixed brown rgba that went muddy.
-   ============================================================ */
-.hero-illustration {
-  filter: drop-shadow(0 30px 40px hsl(var(--ink) / 0.18));
+   Landing page — hero + real product composition
+   ============================================================
+
+   The hero's right column is no longer a drawing. It is the app's own device
+   list, warranty summary and attachment chip rendered as DOM, using the same
+   `.wv-warranty-pill` and `.tint-*` tokens as `/devices`. Everything below is
+   in `em` or a token: the composition scales with the user's font choice, and
+   every corner is the user's `--radius*`. No fixed width can push the page
+   wider than the viewport — the frame is `width:100%` inside the page grid,
+   and the floating notification is positioned inside that box (no negative
+   horizontal offsets). */
+
+.wv-hero {
+  position: relative;
+  background:
+    radial-gradient(58% 70% at 78% 38%, hsl(var(--primary-soft) / 0.7) 0%, transparent 72%),
+    radial-gradient(46% 55% at 8% 6%, hsl(var(--violet-soft) / 0.42) 0%, transparent 70%);
 }
-.dark .hero-illustration {
-  filter: drop-shadow(0 30px 40px hsl(var(--background) / 0.9));
+
+.wv-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+  color: hsl(var(--muted));
+}
+.wv-hero-eyebrow svg {
+  width: 0.95em;
+  height: 0.95em;
+  color: hsl(var(--primary));
+  flex-shrink: 0;
+}
+
+.wv-hero-visual {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+@media (min-width: 1024px) {
+  .wv-hero-visual {
+    justify-content: flex-end;
+  }
+}
+
+/* ── The composition ────────────────────────────────────────────────────── */
+.wv-product {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 44rem;
+  margin-inline: auto;
+  /* The whole composition is em-based; this one clamp sets the scale. */
+  font-size: clamp(0.875rem, 0.82rem + 0.22vw, 1rem);
+  color: hsl(var(--ink));
+}
+
+/* Soft light behind the card. Horizontal inset is 0 on purpose: a negative
+   inline offset would extend the document's scrollable overflow at 390px. */
+.wv-product-glow {
+  position: absolute;
+  inset: -12% 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 55% at 30% 30%, hsl(var(--primary-soft) / 0.9) 0%, transparent 72%),
+    radial-gradient(50% 50% at 82% 78%, hsl(var(--sky-soft) / 0.5) 0%, transparent 72%);
+}
+
+.wv-product-frame {
+  position: relative;
+  overflow: clip;
+  border: 1.5px solid hsl(var(--border-strong));
+  border-radius: var(--radius-lg);
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-3);
+}
+
+/* Floating notification — the emotional payoff (beat 3 of the stage). It is a
+   sibling of the frame, so the frame's `overflow: clip` does not cut it off. */
+.wv-product-toast {
+  position: absolute;
+  z-index: 2;
+  top: -2.2em;
+  right: 1.2em;
+  max-width: calc(100% - 2.8em);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7em;
+  padding: 0.8em 0.95em;
+  border: 1.5px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-2);
+}
+.wv-product-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: hsl(var(--primary-soft));
+  color: hsl(var(--primary-ink));
+}
+.wv-product-toast-icon svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+/* On a phone the notification must not cover the app's own title. Narrower
+   than the full card leaves the "Thiết bị" header readable underneath and
+   wraps the reminder into two or three lines instead. */
+@media (max-width: 640px) {
+  .wv-product-toast {
+    max-width: 16em;
+  }
+}
+.wv-product-toast-title {
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1.35;
+  color: hsl(var(--ink));
+}
+.wv-product-toast-meta {
+  margin-top: 0.15em;
+  font-size: 0.72em;
+  line-height: 1.35;
+  color: hsl(var(--muted));
+}
+
+.wv-product-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 1em 1.15em;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--surface-2) / 0.65);
+}
+.wv-product-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: hsl(var(--ink));
+  color: hsl(var(--background));
+}
+.wv-product-mark svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+.wv-product-head-title {
+  font-family: var(--font-display);
+  font-size: 0.98em;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.wv-product-head-meta {
+  margin-top: 0.1em;
+  font-size: 0.72em;
+  color: hsl(var(--muted));
+}
+.wv-product-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.42em 0.75em;
+  border-radius: var(--radius-pill);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 0.72em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.wv-product-add svg {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.wv-product-list {
+  display: flex;
+  flex-direction: column;
+}
+.wv-product-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.8em 1.15em;
+}
+.wv-product-row + .wv-product-row {
+  border-top: 1px dashed hsl(var(--border));
+}
+
+/* Reuse the app's category chip, but let it scale with the composition's em
+   instead of the fixed px size the signed-in app uses. */
+.wv-product .icon-badge-sm {
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: var(--radius-sm);
+}
+.wv-product .icon-badge-sm svg {
+  width: 1em;
+  height: 1em;
+}
+
+.wv-product-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: hsl(var(--ink));
+}
+.wv-product-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 0;
+  margin-top: 0.15em;
+  font-size: 0.72em;
+  line-height: 1.3;
+  color: hsl(var(--muted));
+}
+.wv-product-files {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18em;
+  flex-shrink: 0;
+  color: hsl(var(--muted));
+}
+.wv-product-files svg {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+/* The countdown pill is the shared component's class; these overrides only
+   change its scale so it sits inside a row rather than a table cell. */
+.wv-product .wv-warranty-pill {
+  flex-shrink: 0;
+  gap: 0.35em;
+  padding: 0.3em 0.65em;
+  font-size: 0.72em;
+}
+.wv-product .wv-warranty-pill .dot {
+  width: 0.45em;
+  height: 0.45em;
+}
+
+.wv-product-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65em;
+  padding: 1em 1.15em 1.15em;
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--surface-2) / 0.55);
+}
+.wv-product-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+.wv-product-summary-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  min-width: 0;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted));
+}
+.wv-product-summary-title svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
+  color: hsl(var(--emerald));
+}
+.wv-product-summary-line {
+  font-size: 0.8em;
+  line-height: 1.45;
+  color: hsl(var(--ink-2));
+}
+
+.wv-product-attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  min-width: 0;
+  padding: 0.55em 0.7em;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  background: hsl(var(--card));
+}
+.wv-product-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9em;
+  height: 1.9em;
+  flex-shrink: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: hsl(var(--surface-2));
+  color: hsl(var(--muted));
+}
+.wv-product-file svg {
+  width: 0.95em;
+  height: 0.95em;
+}
+.wv-product-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: hsl(var(--ink));
+}
+.wv-product-file-meta {
+  margin-top: 0.1em;
+  font-size: 0.68em;
+  line-height: 1.3;
+  color: hsl(var(--muted));
+}
+.wv-product-file-tag {
+  flex-shrink: 0;
+  padding: 0.24em 0.5em;
+  border-radius: var(--radius-pill);
+  background: hsl(var(--surface-3));
+  color: hsl(var(--ink-2));
+  font-size: 0.64em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Landing page — the pinned stage
+   ============================================================
+
+   Structure:
+     .wv-stage-track   tall scroll track (lg only)
+       .wv-stage-panel sticky, 100svh, holds copy + composition
+         .wv-stage-copy      heading, three beats, progress bar
+         .wv-stage-visual    the same <LandingProduct>
+
+   The client engine (`components/pinned-stage.tsx`) writes one property,
+   `--p`, onto `.wv-stage-panel`. Everything geometric is `calc()` below.
+
+   `svh`, not `dvh`: the mobile address bar collapsing must not change the
+   denominator of the progress mid-scroll. The stage is `lg`-only anyway, but
+   using svh keeps the fallback layout honest too.
+
+   There is NO `overflow-x: hidden` anywhere on this path. It would turn the
+   ancestor into a scroll container and silently kill `position: sticky`. The
+   composition has no horizontal transform and no negative inline offset, so
+   there is nothing to clip. */
+
+.wv-stage {
+  --wv-stage-top: 4.25rem;
+  position: relative;
+  border-top: 1px solid hsl(var(--border) / 0.7);
+  background:
+    radial-gradient(50% 60% at 72% 42%, hsl(var(--primary-soft) / 0.28) 0%, transparent 72%);
+}
+
+.wv-stage-track {
+  position: relative;
+}
+
+.wv-stage-panel {
+  /* The no-JS / reduced-motion default is the settled composition. The three
+     beats are in normal flow until `data-wv-stage-live` opts into the
+     crossfade, so the stage is fully readable before any script runs. */
+  --p: 1;
+  display: grid;
+  gap: 2rem;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: clamp(3rem, 7vw, 4.5rem) clamp(1.25rem, 5vw, 4rem);
+}
+
+.wv-stage-copy {
+  min-width: 0;
+  max-width: 38rem;
+}
+
+.wv-stage-title {
+  margin-top: 0.5rem;
+  font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+  line-height: 1.05;
+  color: hsl(var(--ink));
+  text-wrap: balance;
+}
+
+.wv-stage-sub {
+  max-width: 32rem;
+  margin-top: 1rem;
+  font-size: clamp(1rem, 1.4vw, 1.125rem);
+  line-height: 1.6;
+  color: hsl(var(--muted));
+}
+
+.wv-stage-beats {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+.wv-stage-beat {
+  min-width: 0;
+}
+.wv-stage-beat-inner {
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--border));
+}
+.wv-stage-beat-num {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: hsl(var(--primary));
+}
+.wv-stage-beat-title {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: hsl(var(--ink));
+}
+.wv-stage-beat-desc {
+  max-width: 30rem;
+  margin-top: 0.45rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: hsl(var(--muted));
+}
+
+.wv-stage-visual {
+  display: none;
+}
+
+.wv-stage-progress {
+  display: none;
+  position: relative;
+  height: 2px;
+  max-width: 14rem;
+  margin-top: 2.5rem;
+  overflow: hidden;
+  border-radius: 2px;
+  background: hsl(var(--border));
+}
+.wv-stage-progress > span {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--p));
+  background: hsl(var(--primary));
+}
+
+@media (min-width: 1024px) {
+  .wv-stage-track {
+    height: 240svh;
+  }
+
+  .wv-stage-panel {
+    position: sticky;
+    top: var(--wv-stage-top);
+    align-items: center;
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    min-height: 100svh;
+    /* The panel is 100svh tall but sticks below a 68px header, so its bottom
+       68px sit under the fold. Reserve that strip at the bottom of the grid
+       instead of letting the composition creep into it. */
+    padding: clamp(2.5rem, 5vw, 4rem) clamp(2rem, 5vw, 4.5rem)
+      calc(var(--wv-stage-top) + 2rem);
+  }
+
+  .wv-stage-visual {
+    display: block;
+    min-width: 0;
+  }
+
+  /* Before the engine runs, every beat is visible in normal flow. */
+  .wv-stage .wv-stage-beat.wv-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* Once live, the beats share one grid cell and crossfade in sequence.
+     `--p` is written on the panel by PinnedStage. */
+  html[data-wv-stage-live] .wv-stage-beats {
+    display: grid;
+  }
+  html[data-wv-stage-live] .wv-stage-beat {
+    grid-area: 1 / 1;
+  }
+  html[data-wv-stage-live] .wv-stage .wv-stage-beat.wv-reveal {
+    --wv-beat-opacity: 1;
+    opacity: var(--wv-beat-opacity) !important;
+    transform: translateY(calc((1 - var(--wv-beat-opacity)) * 0.6em)) !important;
+    transition: none !important;
+  }
+  html[data-wv-stage-live] .wv-stage .wv-stage-beat:nth-child(1) {
+    --wv-beat-opacity: clamp(0, calc((0.34 - var(--p)) * 16), 1);
+  }
+  html[data-wv-stage-live] .wv-stage .wv-stage-beat:nth-child(2) {
+    --wv-beat-opacity: clamp(
+      0,
+      min(calc((var(--p) - 0.36) * 16), calc((0.66 - var(--p)) * 16)),
+      1
+    );
+  }
+  html[data-wv-stage-live] .wv-stage .wv-stage-beat:nth-child(3) {
+    --wv-beat-opacity: clamp(0, calc((var(--p) - 0.68) * 16), 1);
+  }
+
+  html[data-wv-stage-live] .wv-stage-progress {
+    display: block;
+  }
+
+  /* The composition settles, and a radius-matched clip wipe reveals it. Both
+     values are CSS-owned; the runtime only supplies `--p`. The scale never
+     exceeds 1, so it cannot enlarge the scrollable box the way the old 446px
+     hero did at 390px.
+
+     The clip is on the FRAME, not on `.wv-product`: the notification banner is
+     a sibling that floats above the frame's top edge, so clipping the outer
+     box would slice it forever, even at p=1. It gets its own late fade tied to
+     beat 3 instead. */
+  html[data-wv-stage-live] .wv-stage-visual .wv-product {
+    transform: scale(calc(0.94 + var(--p) * 0.06));
+    transform-origin: center center;
+  }
+  html[data-wv-stage-live] .wv-stage-visual .wv-product-clip {
+    clip-path: inset(calc((1 - var(--p)) * 4%) 0 0 0 round var(--radius-lg));
+  }
+  html[data-wv-stage-live] .wv-stage-visual .wv-product-toast {
+    opacity: clamp(0, calc((var(--p) - 0.55) * 6), 1);
+    transform: translateY(calc((1 - var(--p)) * -0.5em));
+  }
+}
+
+/* Reduced motion: the pin collapses into a plain vertical section. No JS
+   needed — the media query alone sets the final state, and the engine never
+   adds `data-wv-stage-live` while this query matches. The first beat is the
+   first thing in reading order and the composition is shown settled. */
+@media (prefers-reduced-motion: reduce) {
+  .wv-stage-track {
+    height: auto !important;
+  }
+  .wv-stage-panel {
+    position: static !important;
+    min-height: 0 !important;
+    --p: 1;
+  }
+  .wv-stage-beats {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+  }
+  .wv-stage .wv-stage-beat,
+  .wv-stage .wv-stage-beat.wv-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .wv-stage-visual .wv-product {
+    transform: none !important;
+    clip-path: none !important;
+  }
+  .wv-stage-progress {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (min-width: 1024px) {
+  .wv-stage-visual {
+    display: block;
+  }
 }

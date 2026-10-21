@@ -22,8 +22,13 @@ export const publicPages = defineMessages({
   // punctuation, so the English renders as a single sentence with the same word
   // picked out. Splitting it would produce two fragments no translator can
   // order — see the note in `page.tsx`.
-  'Đừng quên ngày hết bảo hành thiết bị của bạn':
-    "Don't forget when your device's warranty runs out",
+  //
+  // Rewritten for this wave. The old line named one entity (the device) and
+  // forgot the paperwork; this one names the job (keep the date), the receipt,
+  // and the household. The English is not a word-for-word rendering of the
+  // Vietnamese — it is the same plain-spoken sentence written natively.
+  'Giữ ngày hết bảo hành — và cả hoá đơn — cho mọi thứ trong nhà.':
+    'Keep the warranty date — and the receipt — for everything in your home.',
   // The landing page highlights ONE word inside the sentence above by looking
   // it up in whatever language that sentence came back in (`page.tsx` does
   // `sentence.indexOf(t('bảo hành'))`). That is why this bare noun needs an
@@ -44,8 +49,11 @@ export const publicPages = defineMessages({
   // VND / 1-đổi-1 / Vietnamese-warranty model rather than the UI language.
   'Miễn phí · Không quảng cáo, không theo dõi · Xây cho Việt Nam':
     'Free · No ads, no tracking · Built for Vietnam',
-  'Theo dõi thiết bị, gói đăng ký và những món đang thèm — tất cả ở một chỗ. Nhắc bảo hành sắp hết, lưu hoá đơn, biết tiền chảy đi đâu.':
-    'Track your devices, subscriptions and wishlist in one place. Get warned before a warranty ends, keep the receipts, and see where the money goes.',
+  // The subhead is deliberately NOT a feature list. It names the three things
+  // a Vietnamese household actually owns, then the two things Warrly keeps
+  // for them. One sentence, no "everything you need".
+  'Tủ lạnh, máy giặt, chiếc iPhone: mỗi món có một ngày hết hạn và một tấm hoá đơn. Warrly giữ cả hai, và nhắc bạn trước khi bảo hành hết hiệu lực.':
+    'The fridge, the washing machine, the iPhone — each one has an expiry date and a receipt. Warrly keeps both, and reminds you before the warranty runs out.',
   'Không cần thẻ tín dụng': 'No credit card needed',
   'Không quảng cáo': 'No ads',
   'Backup xuất/nhập JSON': 'JSON export/import backup',
@@ -56,30 +64,37 @@ export const publicPages = defineMessages({
   'Đã có tài khoản → Đăng nhập': 'Already have an account → Sign in',
 
   // ── Landing page — feature grid ─────────────────────────────────────────
-  'Tính năng': 'Features',
-  'Tất cả những gì mày cần': 'Everything you need',
-  'Không spam tính năng, không tracking. Chỉ những thứ thực sự hữu ích.':
-    'No feature spam, no tracking. Only what is genuinely useful.',
-  'Theo dõi bảo hành': 'Warranty tracking',
-  'Mỗi thiết bị có thể có nhiều gói bảo hành — gốc, mở rộng, bên thứ 3. Đếm ngược tự động.':
-    'Every device can carry several warranty plans — standard, extended, third-party. The countdown runs itself.',
-  'Quản lý gói đăng ký': 'Subscription management',
-  'Netflix, iCloud, ChatGPT... theo dõi chu kỳ và ngày gia hạn. Quy ra chi phí mỗi tháng.':
-    'Netflix, iCloud, ChatGPT… track the cycle and the renewal date, and see the cost per month.',
-  'Wishlist “đang thèm”': 'A “want list” wishlist',
-  'Món đang ngắm — đặt ngày mục tiêu, theo dõi giá. Mua xong là thành thiết bị luôn.':
-    'Things you are eyeing — set a target date, watch the price. Buy it and it becomes a device.',
-  'Cảnh báo sắp hết': 'Expiry alerts',
-  'Bọn tao nhắc trước qua push notification — cả trên web lẫn app iOS/Android. Khỏi lo bỏ lỡ.':
-    'We warn you ahead of time by push notification — on the web and in the iOS/Android apps. You will not miss it.',
-  'Lưu hoá đơn & phiếu BH': 'Store invoices & warranty slips',
-  'Tải ảnh hoặc PDF — tối đa 5 file mỗi thiết bị, mã hoá AES-256. Tìm lại nhanh khi cần đi bảo hành.':
-    'Upload photos or PDFs — up to 5 files per device, AES-256 encrypted. Find them fast when you need to claim.',
-  'Thống kê chi tiêu': 'Spending stats',
-  'Biểu đồ theo tháng, theo loại, top thiết bị đắt nhất. Biết tiền đi đâu.':
-    'Charts by month and by category, plus your most expensive devices. Know where the money goes.',
+  // The old heading and subhead were two of the audit's clichés ("Everything
+  // you need", "No feature spam"). Replaced with a concrete promise. The six
+  // pastel tint chips are gone in `page.tsx`; the icons are now plain and
+  // colour carries the accent only.
+  'Tính năng': 'What Warrly does',
+  'Sáu việc nhỏ. Một chỗ.': 'Six small jobs. One place.',
+  'Không bảng điều khiển rối rắm. Mỗi mục trả lời đúng một câu hỏi.':
+    'No dashboard to decipher. Each part answers one question.',
+  // `Bảo hành` and `Gói đăng ký` already exist in `devices.ts` / `common.ts`
+  // with the same English, so the landing page reuses those keys instead of
+  // redefining them.
+  'Mỗi thiết bị có thể có nhiều gói — gốc, mở rộng, bên thứ ba. Warrly tự đếm ngược.':
+    'Every device can carry several plans — standard, extended, third-party. Warrly keeps the countdown.',
+  'Netflix, iCloud, ChatGPT: chu kỳ, ngày gia hạn, và chi phí mỗi tháng.':
+    'Netflix, iCloud, ChatGPT: the cycle, the renewal date, and the cost per month.',
+  'Món đang ngắm — ngày mục tiêu, giá, và mua xong thì thành thiết bị.':
+    'The thing you are eyeing — a target date, the price, and one tap to make it a device.',
+  'Nhắc trước khi hết hạn': 'Reminders before expiry',
+  // The app claim now matches what a visitor can actually download. There is
+  // no store listing for either native app in this repo and iOS is TestFlight
+  // only, so the old "on the web and in the iOS/Android apps" was unactionable.
+  'Thông báo đẩy trên web, và trên iOS beta qua TestFlight. Đủ sớm để bạn kịp xử lý.':
+    'Push notifications on the web, and on iOS beta via TestFlight. Early enough to act on it.',
+  'Hoá đơn & phiếu bảo hành': 'Receipts & warranty slips',
+  'Ảnh hoặc PDF, tối đa 5 tệp mỗi thiết bị, mã hoá AES-256. Mở lại đúng lúc bạn cần đi bảo hành.':
+    'Photos or PDFs, up to 5 files per device, AES-256 encrypted. Open them exactly when you need to claim.',
+  'Chi tiêu': 'Spending',
+  'Theo tháng, theo loại, thiết bị đắt nhất. Biết tiền đã đi đâu.':
+    'By month, by category, the most expensive device. See where the money went.',
 
-  // ── Landing page — 3 steps + mock dashboard preview ─────────────────────
+  // ── Landing page — 3 steps ──────────────────────────────────────────────
   // The eyebrow reads `Bắt đầu` in the original. It could NOT be reused as a
   // key: `subscriptions.ts` and `devices.ts` already register that exact
   // sentence as "Started" (a start date, past tense), and one Vietnamese key
@@ -88,34 +103,44 @@ export const publicPages = defineMessages({
   // copy was extended to `Bắt đầu như thế nào`, which is what the section
   // actually says and no other domain owns.
   'Bắt đầu như thế nào': 'Get started',
-  '3 bước để bắt đầu': '3 steps to get started',
+  'Ba bước để bắt đầu.': 'Start in three steps.',
   'Đăng ký miễn phí': 'Sign up for free',
-  'Email + mật khẩu. 30 giây xong.': 'Email and a password. Done in 30 seconds.',
+  'Email và mật khẩu. Xong trong 30 giây.': 'Email and a password. Done in 30 seconds.',
   'Thêm thiết bị': 'Add a device',
-  'Laptop, điện thoại, máy giặt... bất cứ thứ gì có bảo hành.':
-    'A laptop, a phone, a washing machine… anything with a warranty.',
-  'Theo dõi tự động': 'Automatic tracking',
-  'Khỏi đụng vào, tao lo phần đếm ngược.': 'Touch nothing — we handle the countdown.',
-  // The four mock stat cards inside the preview. `Tổng` and `Sắp hết` are new
-  // sentences (the real dashboard cards read 'Tổng thiết bị' / 'Sắp hết (≤30
-  // ngày)'), so their English follows that vocabulary. `Còn BH` is the
-  // abbreviated form of `dashboard.ts`'s 'Còn bảo hành' → "Under warranty".
-  //
-  // The fourth card is plain `Hết` and is deliberately NOT registered: see the
-  // note in `page.tsx` where it renders. `warranties.ts` owns that exact
-  // sentence as "Expires" (the end date on a warranty timeline), which is the
-  // opposite of what this card counts, and `messages/index.ts` fails the suite
-  // when one Vietnamese key carries two English meanings.
-  'Tổng': 'Total',
-  'Còn BH': 'Under warranty',
-  'Sắp hết': 'Expiring soon',
-  // The fourth mock stat card on the landing hero. Distinct from
-  // `warranties.ts`'s `'Hết'` → "Expires" (a warranty's end DATE); this one
-  // says the cover has already run out. Wording from the Go catalog.
-  'Hết hạn': 'Expired',
+  'Laptop, điện thoại, máy giặt — bất cứ thứ gì có bảo hành.':
+    'A laptop, a phone, a washing machine — anything with a warranty.',
+  'Để Warrly nhắc': 'Let Warrly remember',
+  'Warrly giữ ngày hết hạn và nhắc bạn trước.': 'Warrly keeps the date and tells you before it arrives.',
+
+  // ── Landing page — pinned stage ─────────────────────────────────────────
+  // The stage is the product demonstration. Its copy is deliberately short and
+  // declarative: the composition on the right is the proof, the three beats
+  // are the narration. Each beat names one thing the UI is showing.
+  'Trước khi hết hạn': 'Before it expires',
+  'Từ lúc mua đến lúc hết hạn.': 'From purchase to expiry.',
+  'Warrly giữ ngày bảo hành, hoá đơn và lời nhắc ở cùng một chỗ.':
+    'Warrly keeps the date, the receipt and the reminder in one place.',
+  'Mọi thứ trong nhà': 'Everything at home',
+  'Tủ lạnh, máy giặt, chiếc iPhone. Một danh sách, đúng tên bạn gọi.':
+    'The fridge, the washing machine, the iPhone. One list, named the way you name them.',
+  'Ngày và hoá đơn': 'The date and the receipt',
+  'Ngày hết hạn, các gói bảo hành và tấm ảnh hoá đơn nằm cạnh nhau.':
+    'The expiry date, the warranty plans and the photo of the receipt, side by side.',
+  'Nhắc trước khi quá muộn': 'A reminder before it is too late',
+  'Warrly báo trước qua thông báo đẩy — đủ sớm để bạn kịp đi bảo hành.':
+    'Warrly warns you by push notification — early enough to claim.',
+
+  // ── Landing page — product composition (`components/landing-product.tsx`)
+  // These are real UI strings, not marketing copy: the device names use the
+  // same catalogue entries as `/devices`, and the two new labels describe the
+  // attachment chip exactly as the app does.
+  'Hoá đơn': 'Receipt',
+  'Đã mã hoá': 'Encrypted',
+  'Máy giặt / Sấy sắp hết bảo hành.':
+    'The washer is almost out of warranty.',
 
   // ── Landing page — final CTA + footer ───────────────────────────────────
-  'Sẵn sàng quản lý thiết bị?': 'Ready to get your devices in order?',
+  'Giữ ngày bảo hành ngay từ hôm nay.': 'Keep the date from today.',
   'Free mãi mãi. Không cần thẻ. Không quảng cáo.': 'Free forever. No card. No ads.',
   '© {year} Warrly.':
     '© {year} Warrly.',
