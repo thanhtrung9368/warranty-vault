@@ -43,6 +43,15 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
 
+        <!-- FCM renders notification-payload messages itself when the app is in
+             the background, bypassing WVMessagingService.setSmallIcon(). Without
+             this, it falls back to the adaptive launcher icon, which Android
+             tints as a white blob in the status bar. Must stay an alpha-only
+             glyph on a transparent ground. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
         <!-- launchMode="singleTop": a share delivered while the app is already
              running has to reach onNewIntent on the existing instance. With the
              default ("standard") Android would stack a SECOND MainActivity —

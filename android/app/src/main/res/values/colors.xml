@@ -4,6 +4,9 @@
   `?attr` colours a launcher's RemoteViews inflation can resolve, so the widget
   owns a tiny Material-ish palette. `values-night/colors.xml` overrides it for
   dark mode; the launcher resolves the qualifier from the system configuration.
+
+  The `ic_launcher_*` values at the bottom are the static launcher mark's
+  palette and deliberately have no night variant.
 -->
 <resources>
     <color name="widget_background">#FFFBFE</color>
@@ -12,4 +15,11 @@
     <color name="widget_accent">#6750A4</color>
     <color name="widget_stale">#B3261E</color>
     <color name="widget_divider">#E7E0EC</color>
+
+    <!-- Launcher brand mark ("The Kept Receipt"). These are static brand
+         values, not theme colours: the home-screen icon must never follow the
+         in-app accent setting or the night-mode widget palette. -->
+    <color name="ic_launcher_background">#FFF7EE</color>
+    <color name="ic_launcher_ink">#1F1A14</color>
+    <color name="ic_launcher_coral">#FF6B45</color>
 </resources>

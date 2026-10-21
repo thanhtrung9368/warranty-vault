@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The five legacy launcher PNGs are deliberately full-bleed cream squares.
+  Pre-API-26 launchers apply their own mask/corner treatment to the bitmap;
+  baking rounded corners into the PNG is the documented failure mode this
+  project is replacing (it leaves a visible square inside a round launcher).
+  IconLauncherShape's default advice is therefore wrong for this asset, and
+  the warning is suppressed for exactly these five files — not globally.
+-->
+<lint>
+    <issue id="IconLauncherShape">
+        <ignore path="src/main/res/mipmap-mdpi/ic_launcher.png" />
+        <ignore path="src/main/res/mipmap-hdpi/ic_launcher.png" />
+        <ignore path="src/main/res/mipmap-xhdpi/ic_launcher.png" />
+        <ignore path="src/main/res/mipmap-xxhdpi/ic_launcher.png" />
+        <ignore path="src/main/res/mipmap-xxxhdpi/ic_launcher.png" />
+    </issue>
+</lint>

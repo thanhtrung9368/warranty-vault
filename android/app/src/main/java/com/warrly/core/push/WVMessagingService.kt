@@ -76,7 +76,10 @@ class WVMessagingService : FirebaseMessagingService() {
         )
 
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            // White-on-transparent receipt, not the launcher mipmap: a
+            // notification icon is tinted as an alpha mask, so the adaptive
+            // (coloured, cream-ground) launcher icon renders as a white blob.
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

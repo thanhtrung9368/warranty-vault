@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from the geometry block in android/tools/generate_launcher_icons.py.
+
+     Android 13+ themed-icon layer: the receipt plus the date dot as an
+     even-odd knockout. The system tints this layer monochrome, so a second
+     solid shape would vanish into the receipt. No background here; the
+     themed ground is supplied by the launcher. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M39.38,27 L68.62,27 A3.38,3.38 0 0 1 72,30.38 L72,78.3 L69.75,81.45 L66.83,78.3 L63.45,80.33 L59.4,78.08 L55.8,81.22 L52.2,78.53 L48.15,80.55 L44.55,78.3 L40.95,81 L37.8,78.97 L36,80.33 L36,30.38 A3.38,3.38 0 0 1 39.38,27 Z M58.27,68.85 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0 Z" />
+</vector>
