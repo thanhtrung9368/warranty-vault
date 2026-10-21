@@ -20,10 +20,12 @@ set gets ignored by iOS.
 
 Geometry (32x32 grid)
 ---------------------
-* Receipt body 20x23: x=6..26, y=4..27, filled, no stroke.
-* Torn top: peaks y=1.6 and y=2.2; valleys y=5.4 and y=4.8.
-* Bottom corners radius 1.5.
-* Date dot: r=2.6 at (20.4, 20.8) -- 26% of the body width, low-right.
+* Receipt body 16x24: x=8..24, y=3..27, one filled path, no stroke.
+* Clean top, 1.5 top-corner radii.
+* Torn bottom: five asymmetric notches, y=25.7..27.2, max 1.5 deep.
+  Ink bounds are 16 x 24.2 (the lowest tooth reaches y=27.2).
+* Date dot: r=2.0 at (19.9, 21.6) -- 25% of the body width, low-right.
+* Tinted/mono: the dot is a knockout subpath, not a second grey.
 
 Colours are fixed brand values.  Nothing here reads the in-app accent setting.
 """
@@ -49,27 +51,36 @@ DARK_GROUND = "#0E1018"
 DARK_RECEIPT = "#F4EBDC"
 DARK_CORAL = "#E2573A"  # the light coral, darkened for a dark ground
 
-# Tinted (iOS 18+) is a single-channel glyph on transparent, no ground.  Two
-# grey levels let the stamp survive the system's tint: receipt near-full tint,
-# dot a darker tint so it still reads as a stamp at 40px.
+# Tinted (iOS 18+) is a single-channel glyph on transparent, no ground.  The
+# date dot is a knockout, so the system tint shows through it.
 TINT_RECEIPT = "#FFFFFF"
-TINT_DOT = "#8C8C8C"
 
 # --------------------------------------------------------------- geometry ---
+# Exact silhouette from the brand path (viewBox 0 0 32 32):
+#   M9.5 3H22.5A1.5 1.5 0 0 1 24 4.5V25.8L23 27.2 ...
+#   L8 26.7V4.5A1.5 1.5 0 0 1 9.5 3Z
 GRID = 32.0
-BODY_L, BODY_T, BODY_R, BODY_B = 6.0, 4.0, 26.0, 27.0
-# The tear replaces the body's top edge.  Left to right: two unequal peaks and
-# two shallow valleys, exactly the y values in the brand spec.
-TORN_TOP = [
-    (BODY_L, BODY_T),
-    (10.6, 1.6),   # taller, left peak
-    (14.6, 5.4),   # deeper valley
-    (18.8, 2.2),   # shorter, right peak
-    (22.8, 4.8),   # shallow valley
-    (BODY_R, BODY_T),
+BODY_L = 8.0
+BODY_T, TOP_RADIUS = 3.0, 1.5
+TOP_LEFT, TOP_RIGHT = (9.5, BODY_T), (22.5, BODY_T)
+# The tear is the bottom edge.  Stored right-to-left, the direction the path
+# travels after the right edge; the five upward notches are the odd-indexed
+# segments.  Values are the brand path's, unrounded.
+TORN_BOTTOM = [
+    (24.0, 25.8),
+    (23.0, 27.2),
+    (21.7, 25.8),
+    (20.2, 26.7),
+    (18.4, 25.7),
+    (16.8, 27.1),
+    (15.2, 25.9),
+    (13.4, 26.8),
+    (11.8, 25.8),
+    (10.2, 27.0),
+    (8.8, 26.1),
+    (8.0, 26.7),
 ]
-BOTTOM_RADIUS = 1.5
-DOT_CX, DOT_CY, DOT_R = 20.4, 20.8, 2.6
+DOT_CX, DOT_CY, DOT_R = 19.9, 21.6, 2.0
 
 MASTER = 1024
 SUPERSAMPLE = 4  # 4096px canvas for the 1024 master
@@ -80,25 +91,31 @@ def hex_rgb(value: str) -> tuple[int, int, int]:
     return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
 
 
+def _arc(
+    cx: float, cy: float, r: float, start_deg: float, end_deg: float, steps: int = 24
+) -> list[tuple[float, float]]:
+    """Sample a circular arc, excluding its start point."""
+    pts: list[tuple[float, float]] = []
+    for i in range(1, steps + 1):
+        a = math.radians(start_deg + (end_deg - start_deg) * i / steps)
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
 def receipt_polygon() -> list[tuple[float, float]]:
-    """Closed outline of the receipt in grid units, clockwise on screen."""
-    pts: list[tuple[float, float]] = list(TORN_TOP)
-    # Right edge down to the start of the bottom-right corner.
-    pts.append((BODY_R, BODY_B - BOTTOM_RADIUS))
-    # Bottom-right quarter arc: (26, 25.5) -> (24.5, 27).
-    cx, cy = BODY_R - BOTTOM_RADIUS, BODY_B - BOTTOM_RADIUS
-    steps = 24
-    for i in range(1, steps + 1):
-        a = math.radians(90.0 * i / steps)
-        pts.append((cx + BOTTOM_RADIUS * math.cos(a), cy + BOTTOM_RADIUS * math.sin(a)))
-    # Bottom edge to the start of the bottom-left corner.
-    pts.append((BODY_L + BOTTOM_RADIUS, BODY_B))
-    # Bottom-left quarter arc: (7.5, 27) -> (6, 25.5).
-    cx, cy = BODY_L + BOTTOM_RADIUS, BODY_B - BOTTOM_RADIUS
-    for i in range(1, steps + 1):
-        a = math.radians(90.0 + 90.0 * i / steps)
-        pts.append((cx + BOTTOM_RADIUS * math.cos(a), cy + BOTTOM_RADIUS * math.sin(a)))
-    # Left edge is closed implicitly back to (6, 4).
+    """Closed outline in grid units, clockwise on screen.
+
+    Top -> right -> torn bottom -> left.  This is the brand path's own
+    direction; the bottom teeth are therefore listed right-to-left.
+    """
+    pts: list[tuple[float, float]] = [TOP_LEFT, TOP_RIGHT]
+    # Top-right corner: (22.5, 3) -> (24, 4.5).
+    pts += _arc(TOP_RIGHT[0], BODY_T + TOP_RADIUS, TOP_RADIUS, 270.0, 360.0)
+    # Right edge down to (24, 25.8), then the five-notch tear to (8, 26.7).
+    pts += TORN_BOTTOM
+    # Left edge up to (8, 4.5), then the top-left corner to (9.5, 3).
+    pts.append((BODY_L, BODY_T + TOP_RADIUS))
+    pts += _arc(TOP_LEFT[0], BODY_T + TOP_RADIUS, TOP_RADIUS, 180.0, 270.0)
     return pts
 
 
@@ -120,7 +137,12 @@ def _draw_rgb(ground: str, receipt: str, dot: str, size: int) -> Image.Image:
 
 
 def _draw_tinted(size: int) -> Image.Image:
-    """Single-channel glyph + alpha; no ground, no colour."""
+    """Single-channel glyph + alpha; no ground, no colour.
+
+    The dot is a knockout (the evenodd subpath in the brand path): alpha is
+    punched out, the luminance stays white, so the system's tint shows through
+    the stamp instead of a second grey.
+    """
     ss = size * SUPERSAMPLE
     scale = ss / GRID
     # Luminance and coverage are downsampled separately so transparent edges
@@ -133,9 +155,7 @@ def _draw_tinted(size: int) -> Image.Image:
     da.polygon(poly, fill=255)
     r = DOT_R * scale
     cx, cy = DOT_CX * scale, DOT_CY * scale
-    box = (cx - r, cy - r, cx + r, cy + r)
-    dl.ellipse(box, fill=hex_rgb(TINT_DOT)[0])
-    da.ellipse(box, fill=255)
+    da.ellipse((cx - r, cy - r, cx + r, cy + r), fill=0)
     lum = lum.resize((size, size), Image.Resampling.BOX)
     alpha = alpha.resize((size, size), Image.Resampling.BOX)
     return Image.merge("LA", (lum, alpha))
@@ -197,13 +217,18 @@ def main() -> int:
     print(f"{tinted_path}  {tinted.width}x{tinted.height} {tinted.mode}")
 
     # Self-checks the reviewer would otherwise have to trust.
+    dot_px = (round(DOT_CX * size / GRID), round(DOT_CY * size / GRID))
+    receipt_px = (size // 2, size // 2)
     for name, img in variants.items():
         assert img.size == (size, size) and img.mode == "RGB"
         assert img.getpixel((0, 0)) == hex_rgb(CREAM if "dark" not in name else DARK_GROUND)
         assert img.getpixel((size - 1, size - 1)) == img.getpixel((0, 0))
+        assert img.getpixel(receipt_px) == hex_rgb(INK if "dark" not in name else DARK_RECEIPT)
+        assert img.getpixel(dot_px) == hex_rgb(CORAL if "dark" not in name else DARK_CORAL)
     assert tinted.size == (size, size) and tinted.mode == "LA"
     assert tinted.getpixel((0, 0))[1] == 0, "tinted must have a transparent ground"
-    assert tinted.getpixel((652, 665))[1] == 255, "tinted glyph must be opaque"
+    assert tinted.getpixel(receipt_px)[1] == 255, "tinted glyph must be opaque"
+    assert tinted.getpixel(dot_px)[1] == 0, "tinted dot must be a knockout"
 
     print(f"dot diameter: {_dot_pixels(size):.2f}px at {size}px "
           f"({2 * DOT_R / GRID:.2%} of the side)")
