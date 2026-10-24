@@ -1404,7 +1404,7 @@ export function DeviceForm({
                 options={providerOptions}
                 value={warrantyProvider}
                 onValueChange={handleProviderChange}
-                placeholder={t('vd: Apple Việt Nam')}
+                placeholder={t('vd: Apple')}
                 searchPlaceholder={t('Tìm đơn vị bảo hành...')}
                 allowCustom
                 customLabel={(v) => t('Dùng đơn vị "{value}"', { value: v })}

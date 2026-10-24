@@ -38,17 +38,19 @@ export const publicPages = defineMessages({
   // substring of the English sentence above ("warranty", never "warranties");
   // `page.tsx` degrades to an unhighlighted headline if it stops matching.
   'bảo hành': 'warranty',
-  // Rewritten from "Miễn phí · Local-first · Tiếng Việt". All three old claims
-  // were audited, not just the language one:
+  // Rewritten from "Miễn phí · Local-first · Tiếng Việt". Both old claims were
+  // audited, not just the language one:
   //   * "Local-first" was FALSE. Warrly is a Next.js UI over the Go API and
   //     Postgres; `public/sw.js` skips `/api/`, and there is no IndexedDB or
   //     device store. The device does not hold the primary copy.
   //   * "Tiếng Việt" (Vietnamese-only) was also false: English is the default.
-  // The replacement is true and specific — no ads/tracking matches the privacy
-  // policy, free matches the product, and "built for Vietnam" describes the
-  // VND / 1-đổi-1 / Vietnamese-warranty model rather than the UI language.
-  'Miễn phí · Không quảng cáo, không theo dõi · Xây cho Việt Nam':
-    'Free · No ads, no tracking · Built for Vietnam',
+  //
+  // "Xây cho Việt Nam" / "Built for Vietnam" was removed on the owner's call:
+  // the product is global, and a market label in the eyebrow narrows it to one
+  // country before a visitor has read a single sentence. Two true beats remain.
+  // Two beats, not three — there is no third claim here that is both global and
+  // checkable against the repo, and inventing one is how "Local-first" happened.
+  'Miễn phí · Không quảng cáo, không theo dõi': 'Free · No ads, no tracking',
   // The subhead is deliberately NOT a feature list. It names the three things
   // a Vietnamese household actually owns, then the two things Warrly keeps
   // for them. One sentence, no "everything you need".
@@ -236,8 +238,13 @@ export const publicPages = defineMessages({
   // roadmap. No founder name exists in the repo, so none is invented and the
   // signature stays role-only.
   'Ghi chú từ người làm Warrly': 'A note from the person who built Warrly',
-  'Warrly bắt đầu từ một cái hạn 30 ngày. Ở Việt Nam, 30 ngày đầu có thể là hạn đổi 1 đổi 1; khi hạn đó qua, chiếc máy vẫn có thể còn bảo hành nhưng chỉ còn đường gửi sửa. Ngày bảo hành có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.':
-    'Warrly started with a 30-day deadline. In Vietnam, the first 30 days can be a 1-for-1 exchange window; when it closes, the same machine may still be under warranty, but the only route left is a repair. The warranty clock can start at activation, when it leaves the warehouse, or at purchase, depending on the brand — and the receipt is what proves the date. I built Warrly to keep the date and the receipt together, remind you on the schedule you choose — 30 and 7 days by default — and promise nothing beyond that.',
+  // No country named: the 30-day exchange window is a retail policy that exists
+  // in many markets (and a 1-for-1 window is not universal), so the note states
+  // it as policy that varies rather than as one country's rule. The origin story
+  // survives — a deadline nobody wrote down — without pinning the product to a
+  // single place.
+  'Warrly bắt đầu từ một cái hạn 30 ngày. Một chiếc máy mới thường có một cửa sổ đổi trả ngắn — thường là 30 ngày — trước khi chỉ còn đường gửi sửa. Cửa sổ đó là chính sách của nơi bán và của hãng, không phải luật, và mỗi nơi một khác. Ngày bảo hành cũng có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.':
+    'Warrly started with a 30-day deadline. A new device usually has a short exchange window — often thirty days — before the only route left is a repair. That window is the retailer\'s policy and the brand\'s, not a law, and it differs from one place to the next. The warranty clock can also start at activation, when it leaves the warehouse, or at purchase, depending on the brand — and the receipt is what proves the date. I built Warrly to keep the date and the receipt together, remind you on the schedule you choose — 30 and 7 days by default — and promise nothing beyond that.',
   '— Người làm Warrly': '— The person who built Warrly',
   'Hỗ trợ': 'Support',
 

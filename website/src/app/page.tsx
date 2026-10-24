@@ -291,7 +291,7 @@ export default async function LandingPage() {
             <div className="max-w-2xl">
               <p className="wv-hero-eyebrow">
                 <Sparkles aria-hidden />
-                {t('Miễn phí · Không quảng cáo, không theo dõi · Xây cho Việt Nam')}
+                {t('Miễn phí · Không quảng cáo, không theo dõi')}
               </p>
               {/* One sentence, one key. Both languages happen to put the
                   warranty words in the same slot, so the gradient highlight is
@@ -699,7 +699,7 @@ export default async function LandingPage() {
                   {t('Ghi chú từ người làm Warrly')}
                 </p>
                 <p className="mt-3 text-[17px] leading-relaxed text-ink-2">
-                  {t('Warrly bắt đầu từ một cái hạn 30 ngày. Ở Việt Nam, 30 ngày đầu có thể là hạn đổi 1 đổi 1; khi hạn đó qua, chiếc máy vẫn có thể còn bảo hành nhưng chỉ còn đường gửi sửa. Ngày bảo hành có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.')}
+                  {t('Warrly bắt đầu từ một cái hạn 30 ngày. Một chiếc máy mới thường có một cửa sổ đổi trả ngắn — thường là 30 ngày — trước khi chỉ còn đường gửi sửa. Cửa sổ đó là chính sách của nơi bán và của hãng, không phải luật, và mỗi nơi một khác. Ngày bảo hành cũng có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.')}
                 </p>
                 <p className="mt-4 text-[13px] font-semibold text-muted">
                   {t('— Người làm Warrly')}

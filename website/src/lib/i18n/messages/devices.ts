@@ -121,7 +121,7 @@ export const devices = defineMessages({
   'Địa chỉ trung tâm BH': 'Warranty centre address',
   'Ghi chú bảo hành': 'Warranty notes',
   'Điều kiện, lưu ý khi đi bảo hành...': 'Conditions, things to remember when claiming...',
-  'vd: Apple Việt Nam': 'e.g. Apple Vietnam',
+  'vd: Apple': 'e.g. Apple',
   'vd: 123 Nguyễn Trãi, Q.1': 'e.g. 123 Nguyen Trai, District 1',
   'Ghi chú': 'Notes',
   'Ghi chú tự do về thiết bị...': 'Anything you want to note about this device...',
@@ -460,9 +460,9 @@ export const devices = defineMessages({
 
   // ── CSV export (`components/csv-export.tsx`, `lib/csv-export.ts`) ───────
   'Dấu phân cách': 'Delimiter',
-  'Excel (Việt Nam)': 'Excel (Vietnam)',
+  'Excel (dấu ;)': 'Excel (semicolon)',
   'Dấu chấm phẩy — Excel bản tiếng Việt tách cột bằng dấu này.':
-    'Semicolon — Vietnamese Excel splits columns on this character.',
+    'Semicolon — Excel splits columns on this character in many locales.',
   'Chuẩn quốc tế': 'International standard',
   'Dấu phẩy — hợp với Google Sheets, Excel bản tiếng Anh, hoặc khi gửi file cho người khác.':
     'Comma — works with Google Sheets, English Excel, or when you send the file to someone else.',

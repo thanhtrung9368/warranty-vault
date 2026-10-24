@@ -23,7 +23,7 @@ import { useT } from '@/lib/i18n/client';
 
 const DELIMITER_LABELS: Record<CsvDelimiter, { label: string; hint: string }> = {
   ';': {
-    label: 'Excel (Việt Nam)',
+    label: 'Excel (dấu ;)',
     hint: 'Dấu chấm phẩy — Excel bản tiếng Việt tách cột bằng dấu này.',
   },
   ',': {

@@ -3,7 +3,7 @@
 // `Device.extendedCoverBuyBy`.
 //
 // Why these three exist as fields rather than as notes:
-//   - In Vietnam the warranty often starts with a retailer action, not the
+//   - In some markets the warranty often starts with a retailer action, not the
 //     invoice. An unactivated device CAN be refused at the counter, so "chưa
 //     kích hoạt" is a warning about the device's state, not a missing form
 //     field.
