@@ -217,14 +217,55 @@ Rồi rsync `backups/` sang object storage / máy khác. Vẫn phải backup `.e
 
 ## Update
 
+Dùng script, đừng gõ tay từng lệnh:
+
 ```bash
 cd /opt/warranty-vault
-git pull
-docker compose up -d --build
-docker compose run --rm --entrypoint /app/migrate api up   # nếu có migration mới
+./deploy/deploy.sh <sha>        # hoặc `origin/main`
 ```
 
-Rollback: `git checkout <previous-sha>` rồi lặp lại. Migrate `down` nếu cần.
+Script làm đúng thứ tự và tự rollback nếu health check hỏng:
+
+```
+kiểm .env → ghi lại SHA đang chạy → git fetch + checkout <sha>
+→ docker compose build          (site CŨ vẫn đang chạy)
+→ migrate up                     (server CŨ chạy trên schema MỚI — an toàn vì
+                                  migration ở repo này là additive)
+→ docker compose up -d           (giờ mới đổi server)
+→ reload caddy → health check → rollback nếu hỏng
+```
+
+**Thứ tự này là điểm chính, không phải chi tiết.** Bản hướng dẫn trước đây ghi
+`docker compose up -d --build` *trước* rồi mới migrate — tức server mới đã nhận
+traffic trong khi schema còn cũ, hỏng đúng lúc có người đang dùng. `api/Dockerfile`
+không tự chạy migration khi khởi động (`CMD ["/app/server"]`, `migrate` là binary
+riêng), nên không có gì tự sửa được thứ tự đó ngoài chính người chạy.
+
+Rollback tay: `./deploy/deploy.sh <sha-cu>`. Migrate `down` chỉ khi thật sự cần —
+xem `api/migrations/` và `WV_ALLOW_DESTRUCTIVE=1`.
+
+### CD tự động (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploy mỗi khi `main` có commit mà **cả** `website`
+lẫn `api` CI xanh. Job `gate` kiểm lại bằng API chứ không tin một workflow, và
+**fail kèm tên secret** nếu thiếu — pipeline im lặng không deploy là kiểu hỏng tệ
+nhất.
+
+Tạo secret ở Settings → Secrets → Actions:
+
+| Secret | Bắt buộc | |
+|---|---|---|
+| `DEPLOY_HOST` | ✅ | IP/hostname VPS |
+| `DEPLOY_USER` | ✅ | user SSH, đọc/ghi được repo + chạy docker |
+| `DEPLOY_SSH_KEY` | ✅ | private key ed25519, **không passphrase** |
+| `DEPLOY_PATH` | ✗ | mặc định `/srv/warranty-vault` |
+| `DEPLOY_KNOWN_HOSTS` | ✗ | `ssh-keyscan <host>`. Không có thì mỗi lần chạy keyscan lại (TOFU) |
+
+Chưa có secret thì `deploy.yml` đỏ ngay ở `gate` và **không** chạm vào VPS — an
+toàn để merge trước khi cấu hình.
+
+Deploy lại một commit cũ: Actions → `deploy` → *Run workflow*, hoặc chạy
+`./deploy/deploy.sh <sha>` trên VPS.
 
 ---
 

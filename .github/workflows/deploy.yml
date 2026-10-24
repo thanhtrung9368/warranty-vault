@@ -1,0 +1,203 @@
+# Deploy `main` lên VPS production.
+#
+# Chạy khi CI `website` xong trên `main` — nhưng **chỉ** khi cả `website` và `api`
+# đều xanh cho đúng commit đó (bước `gate` kiểm lại bằng API, vì `workflow_run`
+# chỉ kể về một workflow). `workflow_dispatch` để deploy lại một commit cụ thể
+# mà không cần commit mới.
+#
+# Nửa chạy-trên-VPS nằm ở `deploy/deploy.sh`, không nằm trong file này: nó là thứ
+# người vận hành cũng chạy tay được, và script shell thì review dễ hơn heredoc
+# lồng trong YAML.
+#
+# ── Secret cần tạo (Settings → Secrets → Actions) ────────────────────────────
+#   DEPLOY_HOST        IP hoặc hostname của VPS
+#   DEPLOY_USER        user SSH (phải đọc/ghi được thư mục repo và chạy docker)
+#   DEPLOY_SSH_KEY     private key (ed25519), dạng OpenSSH, KHÔNG có passphrase
+#   DEPLOY_PATH        tuỳ chọn, mặc định /srv/warranty-vault
+#   DEPLOY_KNOWN_HOSTS tuỳ chọn nhưng nên có — output của `ssh-keyscan <host>`.
+#                      Không có thì mỗi lần chạy sẽ keyscan lại, tức là tin host
+#                      key lấy được ở thời điểm chạy (TOFU).
+#
+# Thiếu secret thì job `gate` **fail** và nói tên secret thiếu, chứ không lặng lẽ
+# bỏ qua — một pipeline deploy im lặng không deploy là kiểu hỏng tệ nhất.
+
+name: deploy
+
+on:
+  workflow_run:
+    # Chỉ cần một workflow làm nhịp; `gate` tự kiểm cả hai.
+    workflows: ["website"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+# Không bao giờ có hai lần deploy song song. Không cancel: huỷ giữa `compose up`
+# để lại container dở.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/srv/warranty-vault' }}
+
+jobs:
+  # ── Cổng: đủ điều kiện deploy chưa ─────────────────────────────────────────
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      configured: ${{ steps.cfg.outputs.configured }}
+    steps:
+      - name: Chọn commit
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SHA="${{ github.event.workflow_run.head_sha }}"
+            RESULT="${{ github.event.workflow_run.conclusion }}"
+            if [ "$RESULT" != "success" ]; then
+              echo "::error::CI 'website' kết thúc với '$RESULT' cho $SHA — không deploy."
+              exit 1
+            fi
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "commit: $SHA"
+
+      - name: Kiểm secret bắt buộc
+        id: cfg
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          missing=""
+          [ -n "$HOST" ] || missing="$missing DEPLOY_HOST"
+          [ -n "$USER" ] || missing="$missing DEPLOY_USER"
+          [ -n "$KEY" ]  || missing="$missing DEPLOY_SSH_KEY"
+
+          if [ -z "$missing" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "đủ 3 secret bắt buộc"
+            exit 0
+          fi
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+
+          # Hai đường vào, hai cách xử lý — cố ý.
+          #
+          # Tự động (workflow_run): SKIP, không đỏ. Workflow này chạy sau mỗi lần
+          # CI `website` xanh; nếu thiếu secret mà fail thì mọi push đều đỏ và
+          # người ta học được cách bỏ qua màu đỏ — lúc đó một lần deploy hỏng
+          # thật sẽ không ai nhìn.
+          #
+          # Bấm tay (workflow_dispatch): FAIL. Người ta chủ động yêu cầu deploy,
+          # nên im lặng không làm gì là câu trả lời sai.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::error::Thiếu secret:$missing — tạo ở Settings → Secrets → Actions. Xem deploy/README.md."
+            exit 1
+          fi
+          echo "::notice::Chưa có secret:$missing — bỏ qua deploy lần này. Đặt secret để bật CD." 
+
+      - name: Cả hai CI phải xanh cho commit này
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ steps.pick.outputs.sha }}"
+          rc=0
+          for wf in website api; do
+            # Lấy run mới nhất của workflow đó cho đúng SHA này.
+            concl=$(gh api "repos/${{ github.repository }}/actions/workflows/${wf}.yml/runs?head_sha=${SHA}&per_page=1" \
+                      --jq '.workflow_runs[0].conclusion // "none"' 2>/dev/null || echo "error")
+            printf '  %-8s %s\n' "$wf" "$concl"
+            case "$concl" in
+              success) ;;
+              # `api` không chạy khi commit chỉ đụng website/, ios/, android/ hay
+              # deploy/. Không có run nghĩa là "không có gì để kiểm", không phải
+              # "đỏ" — nhưng chỉ chấp nhận khi commit thật sự không đụng api/.
+              none|"")
+                echo "  ($wf không có run cho $SHA — chấp nhận nếu commit không đụng thư mục của nó)"
+                ;;
+              *) echo "::error::$wf kết thúc với '$concl' cho $SHA"; rc=1 ;;
+            esac
+          done
+          exit $rc
+
+  # ── Deploy ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: deploy
+    needs: gate
+    # Thiếu secret thì `gate` đã cảnh báo (hoặc fail nếu bấm tay). Không chạm VPS.
+    if: needs.gate.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://warrly.com
+    steps:
+      - name: SSH agent
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+            echo "known_hosts: từ secret"
+          else
+            ssh-keyscan -T 10 -H "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+            echo "::warning::DEPLOY_KNOWN_HOSTS chưa đặt — host key lấy bằng ssh-keyscan ở thời điểm chạy (TOFU). Đặt secret đó để chặt hơn."
+          fi
+          # `ssh-agent -s` in shell code for THIS shell; each step is a new shell,
+          # so the socket has to go through GITHUB_ENV or the next step has no agent.
+          eval "$(ssh-agent -s)"
+          {
+            echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+            echo "SSH_AGENT_PID=$SSH_AGENT_PID"
+          } >> "$GITHUB_ENV"
+          ssh-add ~/.ssh/deploy_key
+          echo "SSH_OPTS=-o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30" >> "$GITHUB_ENV"
+
+      - name: Deploy qua SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          SHA: ${{ needs.gate.outputs.sha }}
+        run: |
+          # `bash -lc` để có PATH của user thật (docker thường nằm ở /usr/bin
+          # hoặc trong group docker, và một số VPS cần login shell để nạp nó).
+          ssh $SSH_OPTS "$USER@$HOST" \
+            "cd '$DEPLOY_PATH' && bash -lc './deploy/deploy.sh $SHA $DEPLOY_PATH'"
+
+      - name: Kiểm từ Internet (qua Cloudflare)
+        run: |
+          # Script đã kiểm qua localhost trên VPS. Đây là kiểm thứ người dùng
+          # thật sự thấy: TLS, Cloudflare, Caddy, và đúng host.
+          BAD=0
+          for p in / /vi /robots.txt /sitemap.xml /favicon.ico; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://warrly.com$p" || echo 000)
+            printf '  %-16s %s\n' "$p" "$code"
+            [ "$code" = "200" ] || BAD=1
+          done
+          # www phải 301 về apex, không phải 200 — nếu 200 thì Caddyfile mới
+          # chưa được reload và hai hostname vẫn phục vụ cùng một trang.
+          www=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://www.warrly.com/ || echo 000)
+          printf '  %-16s %s (mong 301)\n' "www" "$www"
+          [ "$www" = "301" ] || { echo "::warning::www trả $www — redirect www→apex chưa lên. Kiểm 'systemctl reload caddy' trên VPS."; }
+          exit $BAD
+
+      - name: Tóm tắt
+        if: always()
+        run: |
+          {
+            echo "### Deploy \`${SHA}\`"
+            echo
+            echo "- commit: \`${{ needs.gate.outputs.sha }}\`"
+            echo "- kết quả: ${{ job.status }}"
+            echo "- rollback: chạy lại workflow này với commit trước, hoặc trên VPS: \`./deploy/deploy.sh <sha-cu>\`"
+          } >> "$GITHUB_STEP_SUMMARY"
