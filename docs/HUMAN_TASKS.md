@@ -631,27 +631,69 @@ Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, 
 
 ---
 
-## Nhóm 4 — Deploy production (chưa làm, chủ repo quyết định tạm hoãn)
+## Nhóm 4 — Deploy production — ✅ **XONG 2026-10-24 15:10** (`c682f2d` đang chạy)
 
-**Production đang chạy code CŨ.** Kiểm ngày 2026-10-24 bằng cách probe những thứ chỉ
-tồn tại sau các commit ngày 21/10:
+Trước đó production chạy code từ **18/10**. Đã deploy bằng đường thủ công có kiểm soát
+(vì `/opt/warrly` không phải git repo, xem dưới), và kiểm lại từ Internet:
 
-| probe trên `https://warrly.com` | kết quả |
-|---|---|
-| `/vi` | **404** |
-| `/favicon.ico` | **404** |
-| `/icon-maskable-512.png` | **404** |
-| `/sitemap.xml` | **404** |
-| `WarrlyLockup` trong HTML | 0 |
-| `WebSite` JSON-LD | 0 |
-| canonical | không có |
-| "Free. Here are the limits." / "Start with one device" | không có |
+| probe trên `https://warrly.com` | trước | sau |
+|---|---|---|
+| `/vi` | 404 | **200**, `<html lang="vi">`, tiêu đề tiếng Việt |
+| `/favicon.ico` | 404 | **200** |
+| `/icon-maskable-512.png` | 404 | **200** |
+| `/notification-badge-96.png` | 404 | **200** |
+| `/sitemap.xml` | 404 | **200**, 8 URL |
+| `WebSite` JSON-LD | không có | **có** |
+| canonical | không có | `https://warrly.com/vi` (tự trỏ) |
+| `hreflang` en/vi/x-default | không có | **có** |
+| `data-motion` (bootstrap trước paint) | không có | **`full`** |
+| reveal sau khi cuộn | — | opacity **0 → 1** (15 phần tử) |
+| `www` | 200 (trùng nội dung) | **301 → apex**, giữ path + query |
 
-Nghĩa là chưa có gì từ đợt 21/10 lên production: **không brand mới, không `/vi`,
-không robots/sitemap, không FAQ/giá, không cold-start**. Code đầy đủ đã nằm trên
-`origin/main`; khoảng cách là giữa GitHub và VPS, không phải trong code.
+Cột "sau" là đo trên site thật, không phải suy từ code.
 
-### Vì sao chưa tự deploy
+### Cách đã deploy (để lần sau lặp lại được)
+
+Không dùng `deploy.sh` được, vì nó `git fetch` còn `/opt/warrly` **không có `.git`**:
+
+```
+# trên máy local
+ssh root@171.244.39.41 'cp -a /opt/warrly /opt/warrly.bak-<stamp>'
+git archive --format=tar HEAD | ssh root@… 'tar -x -C /opt/warrly.new'
+ssh … 'cp -a /opt/warrly/.env /opt/warrly.new/.env'
+ssh … 'docker tag warranty-vault-{api,web}:local warranty-vault-{api,web}:pre-<stamp>'
+ssh … 'cd /opt/warrly.new && COMPOSE_PROJECT_NAME=warrly docker compose build'  # site cũ vẫn chạy
+ssh … 'docker exec …pg_dump | gzip > /opt/warrly-db-<stamp>.sql.gz'
+ssh … 'cd /opt/warrly && docker compose down && cd /opt && mv warrly warrly.old && mv warrly.new warrly'
+ssh … 'cd /opt/warrly && docker compose run --rm api /app/migrate up'
+ssh … 'cd /opt/warrly && docker compose up -d postgres api web'
+```
+
+Downtime ~5 phút (từ `down` đến `up` xong), phần lớn là chờ `api` qua health gate.
+
+**Rollback** có ba lớp, đều còn nguyên: `/opt/warrly.old` (code cũ), image tag
+`warranty-vault-{api,web}:pre-2026-10-24-1457`, và dump
+`/opt/warrly-db-2026-10-24-150704.sql.gz` (8.5K). Volumes `warrly_pgdata` +
+`warrly_uploads` không bị chạm ở bất kỳ bước nào.
+
+### ⚠️ Caddyfile trên VPS là của HAI project — đừng chép đè
+
+`/etc/caddy/Caddyfile` chứa **cả** `partner-api-staging`/`portal-staging` **và** Warrly.
+File `deploy/caddy/Caddyfile` trong repo **chỉ có Warrly** — chép đè là xoá cấu hình
+project kia và làm sập nó. Đã sửa `www → apex` trực tiếp trong file trên VPS (backup ở
+`/etc/caddy/Caddyfile.bak-*`), `caddy validate` báo "Valid configuration" trước khi
+`systemctl reload caddy`.
+
+### Việc còn lại (không gấp)
+
+- `/opt/warrly` vẫn **không có `.git`** → CD và `deploy.sh` vẫn chưa dùng được. Muốn bật
+  thì `git clone` (cần deploy key read-only) rồi đổi chỗ, **giữ nguyên tên `warrly`** để
+  không mất volume.
+- CD cần 3 secret: `DEPLOY_HOST=171.244.39.41`, `DEPLOY_USER=root`,
+  `DEPLOY_PATH=/opt/warrly`, `DEPLOY_SSH_KEY` (key mới, không passphrase).
+- Nên tạo user `deploy` riêng thay `root` khi rảnh.
+
+### Vì sao tự deploy chưa bật (giữ lại để tham khảo)
 
 `.github/workflows/deploy.yml` đã có và sẵn sàng, nhưng `gate` **bỏ qua** khi thiếu
 secret (cố ý: nếu nó đỏ mỗi lần push thì người ta học cách bỏ qua màu đỏ). Cần tạo ở
