@@ -13,7 +13,7 @@
 #   DEPLOY_HOST        IP hoặc hostname của VPS
 #   DEPLOY_USER        user SSH (phải đọc/ghi được thư mục repo và chạy docker)
 #   DEPLOY_SSH_KEY     private key (ed25519), dạng OpenSSH, KHÔNG có passphrase
-#   DEPLOY_PATH        tuỳ chọn, mặc định /srv/warranty-vault
+#   DEPLOY_PATH        tuỳ chọn, mặc định /opt/warranty-vault
 #   DEPLOY_KNOWN_HOSTS tuỳ chọn nhưng nên có — output của `ssh-keyscan <host>`.
 #                      Không có thì mỗi lần chạy sẽ keyscan lại, tức là tin host
 #                      key lấy được ở thời điểm chạy (TOFU).
@@ -42,7 +42,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/srv/warranty-vault' }}
+  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/warranty-vault' }}
 
 jobs:
   # ── Cổng: đủ điều kiện deploy chưa ─────────────────────────────────────────

@@ -20,7 +20,7 @@
 set -euo pipefail
 
 SHA="${1:-}"
-REPO_DIR="${2:-/srv/warranty-vault}"
+REPO_DIR="${2:-/opt/warranty-vault}"
 
 if [ -z "$SHA" ]; then
   echo "usage: $0 <sha> [repo-dir]" >&2

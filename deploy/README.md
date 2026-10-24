@@ -258,7 +258,7 @@ Tạo secret ở Settings → Secrets → Actions:
 | `DEPLOY_HOST` | ✅ | IP/hostname VPS |
 | `DEPLOY_USER` | ✅ | user SSH, đọc/ghi được repo + chạy docker |
 | `DEPLOY_SSH_KEY` | ✅ | private key ed25519, **không passphrase** |
-| `DEPLOY_PATH` | ✗ | mặc định `/srv/warranty-vault` |
+| `DEPLOY_PATH` | ✗ | mặc định `/opt/warranty-vault` |
 | `DEPLOY_KNOWN_HOSTS` | ✗ | `ssh-keyscan <host>`. Không có thì mỗi lần chạy keyscan lại (TOFU) |
 
 Chưa có secret thì `deploy.yml` đỏ ngay ở `gate` và **không** chạm vào VPS — an
