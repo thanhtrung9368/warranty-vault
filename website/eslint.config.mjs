@@ -5,8 +5,12 @@ import coreWebVitals from 'eslint-config-next/core-web-vitals';
 // The scale lives in `tailwind.config.ts` (12/14/16/18/24/30/36). New code
 // must use it. Two files are deliberately exempt:
 //
-//   * `src/app/page.tsx` + `landing-product.tsx` — the landing page has its own
-//     hand-tuned display type and is out of scope for this consolidation.
+//   * `src/app/page.tsx` + `src/components/landing/**` — the landing page has
+//     its own hand-tuned display type and is out of scope for this
+//     consolidation. Its visible markup moved from `page.tsx` into client
+//     components (so the copy can switch language in place), but it is still
+//     the landing page's design, so the exemption follows the screen rather
+//     than the filename.
 //   * `components/charts/**` — recharts passes `fontSize` as an SVG attribute
 //     (a number, not a class), so the rule would not see it anyway; the
 //     exemption documents that those sizes are chart internals, not UI type.
@@ -37,7 +41,7 @@ const config = [
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
       'src/app/page.tsx',
-      'src/components/landing-product.tsx',
+      'src/components/landing/**',
       'src/components/charts/**',
     ],
     rules: {

@@ -1,9 +1,11 @@
+'use client';
+
 import { Bell, Paperclip, Plus, ShieldCheck } from 'lucide-react';
 import { CategoryIconBadge } from '@/components/category-icon';
 import { WarrlyMark } from '@/components/brand';
-import { formatDate, warrantyState } from '@/lib/format';
-import type { Translator } from '@/lib/i18n/catalog';
-import type { Locale } from '@/lib/i18n/locale';
+import { formatDay } from '@/lib/api-day';
+import { warrantyStateFromDays } from '@/lib/warranty-state';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { leadDaysLabel } from '@/lib/lead-days';
 import { cn } from '@/lib/utils';
 
@@ -18,39 +20,32 @@ import { cn } from '@/lib/utils';
  * visitor who signs up meets the same shapes on day one instead of a drawing
  * that exists nowhere in the product.
  *
- * It is a Server Component. No hooks, no state, no client bundle — the two
- * countdowns are computed once on the server for this request. `page.tsx` is
- * `force-dynamic`, so the dates are relative to "now" on every request and the
- * composition cannot silently age into a wall of expired pills.
+ * It is a client component so the language switch reaches it too. That has one
+ * hard requirement: it must render the same string on the server and in the
+ * browser, or React would rewrite the demo after hydration. So the day
+ * arithmetic happens ONCE, on the server (`page.tsx` → `daysBetween`), and
+ * arrives as a calendar day (`YYYY-MM-DD`) plus its day count. `formatDay` on
+ * a bare day is a pure string slice (`api-day.ts`) and the count-to-label
+ * mapping is `warrantyStateFromDays`; neither reads the clock or the timezone.
  *
  * The whole thing is decorative (`aria-hidden`): the hero's H1 and subhead
  * carry the meaning, and the pinned stage repeats the same information in its
  * three beat captions. Reading every demo row twice would help nobody.
  */
+export type LandingProductShot = {
+  fridge: { endDay: string; daysLeft: number };
+  washer: { endDay: string; daysLeft: number };
+  phone: { endDay: string; daysLeft: number };
+};
+
 type LandingProductProps = {
-  t: Translator;
-  locale: Locale;
+  shot: LandingProductShot;
   className?: string;
 };
 
-const DAY_MS = 86_400_000;
-
-/**
- * A calendar day `offset` days from now, at local noon.
- *
- * Noon matters: `warrantyState` compares CALENDAR days (`differenceInCalendarDays`),
- * so a target built from `Date.now() + n * DAY_MS` can land at 23:5x and flip
- * the pill one day early. Anchoring at noon keeps the demo's "Còn 22 ngày"
- * stable for the whole day it is rendered.
- */
-function dayFromNow(offset: number): Date {
-  const day = new Date(Date.now() + offset * DAY_MS);
-  day.setHours(12, 0, 0, 0);
-  return day;
-}
-
-function CountdownPill({ end, locale }: { end: Date; locale: Locale }) {
-  const state = warrantyState(end, locale);
+function CountdownPill({ daysLeft }: { daysLeft: number }) {
+  const locale = useLocale();
+  const state = warrantyStateFromDays(daysLeft, locale);
   return (
     <span className="wv-warranty-pill" data-status={state.tone}>
       <span className="dot" />
@@ -59,24 +54,23 @@ function CountdownPill({ end, locale }: { end: Date; locale: Locale }) {
   );
 }
 
-export function LandingProduct({ t, locale, className }: LandingProductProps) {
-  const fridgeEnd = dayFromNow(342);
-  const washerEnd = dayFromNow(22);
-  const phoneEnd = dayFromNow(9);
+export function LandingProduct({ shot, className }: LandingProductProps) {
+  const t = useT();
+  const locale = useLocale();
 
   const devices = [
     {
       category: 'FRIDGE',
       name: t('Tủ lạnh'),
       meta: 'Samsung · Inverter 236L',
-      end: fridgeEnd,
+      end: shot.fridge,
       files: 2,
     },
     {
       category: 'WASHING',
       name: t('Máy giặt / Sấy'),
       meta: 'Electrolux · EWF1024',
-      end: washerEnd,
+      end: shot.washer,
       files: 1,
     },
     {
@@ -85,7 +79,7 @@ export function LandingProduct({ t, locale, className }: LandingProductProps) {
       category: 'PHONE',
       name: 'iPhone 15 Pro',
       meta: 'Apple · 128GB',
-      end: phoneEnd,
+      end: shot.phone,
       files: 1,
     },
   ];
@@ -104,7 +98,9 @@ export function LandingProduct({ t, locale, className }: LandingProductProps) {
         </span>
         <div className="min-w-0">
           <p className="wv-product-toast-title">{t('Máy giặt / Sấy sắp hết bảo hành.')}</p>
-          <p className="wv-product-toast-meta">{leadDaysLabel([30, 7], locale)}</p>
+          <p className="wv-product-toast-meta">
+            {leadDaysLabel([30, 7], locale)}
+          </p>
         </div>
       </div>
 
@@ -131,7 +127,7 @@ export function LandingProduct({ t, locale, className }: LandingProductProps) {
 
           <div className="wv-product-list">
             {devices.map((device) => (
-              <div className="wv-product-row" key={device.name}>
+              <div className="wv-product-row" key={device.category}>
                 <CategoryIconBadge category={device.category} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="wv-product-name">{device.name}</p>
@@ -143,7 +139,7 @@ export function LandingProduct({ t, locale, className }: LandingProductProps) {
                     </span>
                   </p>
                 </div>
-                <CountdownPill end={device.end} locale={locale} />
+                <CountdownPill daysLeft={device.end.daysLeft} />
               </div>
             ))}
           </div>
@@ -154,12 +150,12 @@ export function LandingProduct({ t, locale, className }: LandingProductProps) {
                 <ShieldCheck />
                 {t('Tổng quan bảo hành')}
               </span>
-              <CountdownPill end={washerEnd} locale={locale} />
+              <CountdownPill daysLeft={shot.washer.daysLeft} />
             </div>
             <p className="wv-product-summary-line">
               {t('Có {count} gói bảo hành. Gói xa nhất hết {date}.', {
                 count: 1,
-                date: formatDate(washerEnd, locale),
+                date: formatDay(shot.washer.endDay, locale),
               })}
             </p>
             <div className="wv-product-attachment">

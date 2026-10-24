@@ -30,7 +30,7 @@ export default async function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { locale, t } = await getI18n();
+  const { t } = await getI18n();
   return (
     <div className="auth-gradient flex min-h-screen flex-col">
       {/* A signed-out browser must not keep the previous account's cached
@@ -44,7 +44,7 @@ export default async function AuthLayout({
           <WarrlyLockup height={40} />
         </Link>
         <div className="flex items-center gap-2">
-          <LocaleSwitcher current={locale} variant="compact" />
+          <LocaleSwitcher variant="compact" />
           <ThemeToggle />
         </div>
       </header>

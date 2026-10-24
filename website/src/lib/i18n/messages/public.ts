@@ -153,7 +153,7 @@ export const publicPages = defineMessages({
   'Warrly báo trước qua thông báo đẩy — đủ sớm để bạn kịp đi bảo hành.':
     'Warrly warns you by push notification — early enough to claim.',
 
-  // ── Landing page — product composition (`components/landing-product.tsx`)
+  // ── Landing page — product composition (`components/landing/landing-product.tsx`)
   // These are real UI strings, not marketing copy: the device names use the
   // same catalogue entries as `/devices`, and the two new labels describe the
   // attachment chip exactly as the app does.

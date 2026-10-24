@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { getI18n } from '@/lib/i18n/server';
 import { pageMetadata } from '@/lib/metadata';
+import { CookiesContent } from '@/components/legal/cookies-content';
+import { DocumentTitleSync } from '@/components/i18n/document-title';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { locale, t } = await getI18n();
@@ -12,56 +14,18 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const UPDATED = '05/06/2026';
-
-// See the note in `privacy/page.tsx`: one paragraph is one key, split only where
-// the original puts inline markup (here: the `wv_session` code chip).
-export default async function CookiesPage() {
-  const { t } = await getI18n();
+// The visible copy lives in the client component so an in-place language
+// switch can re-render it without a request. This file stays a Server
+// Component because `generateMetadata` must run per request — the `<head>`,
+// canonical and hreflang are still server-emitted.
+export default function CookiesPage() {
   return (
-    <article className="prose prose-slate max-w-none dark:prose-invert">
-      <h1 className="display text-3xl">{t('Chính sách Cookie')}</h1>
-      <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
-
-      <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
-        <p>
-          {t(
-            'Warrly dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.',
-          )}
-        </p>
-
-        <div>
-          <h3 className="display text-lg">{t('1. Cookie thiết yếu')}</h3>
-          <p className="mt-2">
-            {t('Bọn tao dùng đúng một cookie cho phiên đăng nhập:')}{' '}
-            <code className="rounded-sm bg-surface-2 px-1.5 py-0.5 font-mono text-sm">
-              wv_session
-            </code>
-            .{' '}
-            {t(
-              'Nó được mã hoá, chỉ chứa token phiên và thời hạn — không có thông tin cá nhân đọc được. Tắt cookie này thì không đăng nhập được.',
-            )}
-          </p>
-        </div>
-
-        <div>
-          <h3 className="display text-lg">{t('2. Lưu trữ cục bộ trên máy')}</h3>
-          <p className="mt-2">
-            {t(
-              'Một vài tuỳ chọn giao diện (ví dụ chế độ sáng/tối) được lưu trong bộ nhớ cục bộ của trình duyệt (localStorage) trên máy mày, không gửi về máy chủ.',
-            )}
-          </p>
-        </div>
-
-        <div>
-          <h3 className="display text-lg">{t('3. Không cookie bên thứ ba')}</h3>
-          <p className="mt-2">
-            {t(
-              'Không Google Analytics, không pixel mạng xã hội, không cookie quảng cáo hay tracking xuyên trang.',
-            )}
-          </p>
-        </div>
-      </div>
-    </article>
+    <>
+      <DocumentTitleSync
+        title="Chính sách Cookie — Warrly"
+        description="Chính sách sử dụng cookie của Warrly"
+      />
+      <CookiesContent />
+    </>
   );
 }

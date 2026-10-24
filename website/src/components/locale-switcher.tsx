@@ -10,19 +10,20 @@
 //     headers. Those pages have no session, and without a control there a
 //     first-time visitor could never choose.
 //
-// Both render REAL `<Link>`s between the two URLs (`/privacy` ↔ `/vi/privacy`).
-// That is the point of the switch: before, the control was a form that only
-// wrote the `wv_locale` cookie, so a crawler — which sends no cookie and no
-// `Accept-Language` — could never discover a Vietnamese version, and there was
-// no `/vi` URL for one to live at. The link is now the discoverable surface.
+// Both render a REAL `<a>` (through `next/link`, which is only an anchor here)
+// between the two URLs (`/privacy` ↔ `/vi/privacy`). That is the point of the
+// switch: the href is what a crawler follows and what works with JavaScript
+// off. On the public marketing surface — where `InstantI18nProvider` is mounted
+// — a plain left click never follows that href: it calls `switchLocale`, which
+// changes the React tree, `<html lang>` and the URL synchronously. Zero network
+// requests, no router, no Server Action, no document replacement.
 //
-// The click still persists the choice first (`rememberLocaleAction`: the
-// `wv_locale` cookie, plus `User.locale` when signed in). It has to finish
-// before the next document request: switching from `/vi` back to `/` while the
-// cookie still says `vi` would otherwise render Vietnamese on the English URL,
-// because the cookie outranks an unprefixed path. A full `location.assign` —
-// rather than the client router — also guarantees the new request carries that
-// cookie and starts from a clean shell, which is what a language change means.
+// Everywhere else (the signed-in app, the auth screens) there is no in-place
+// provider, and the switch keeps its old shape: persist the choice with a
+// Server Action, then load the URL the link already points at. Those surfaces
+// resolve their copy on the server, so an in-place switch would leave half the
+// page in the old language — a reload is the honest behaviour there. The
+// distinction is read from `useLocaleSwitch()`, not guessed.
 
 import * as React from 'react';
 import Link from 'next/link';
@@ -31,7 +32,7 @@ import { Check, Languages } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { rememberLocaleAction } from '@/app/actions/locale';
-import { useT } from '@/lib/i18n/client';
+import { useLocale, useLocaleSwitch, useT } from '@/lib/i18n/client';
 import {
   LOCALES,
   LOCALE_LABELS,
@@ -40,49 +41,24 @@ import {
   type Locale,
 } from '@/lib/i18n/locale';
 
-function useLocaleSwitch(current: Locale) {
-  const pathname = usePathname() || '/';
-  const [pending, setPending] = React.useState<Locale | null>(null);
+type OptionProps = {
+  locale: Locale;
+  current: Locale;
+  compact: boolean;
+  href: string;
+  pending: Locale | null;
+  onSwitch: (event: React.MouseEvent<HTMLAnchorElement>, locale: Locale) => void;
+};
 
-  const switchTo = React.useCallback(
-    (event: React.MouseEvent<HTMLAnchorElement>, locale: Locale) => {
-      // Modified clicks (new tab, new window, download) keep the browser's
-      // normal anchor behaviour: the href is already the right URL.
-      if (
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      if (locale === current || pending) return;
-
-      const href = localePath(pathname, locale);
-      setPending(locale);
-
-      // Persist, then navigate — in both the success and the failure branch.
-      // A failed account write must not strand the reader on the old language;
-      // the URL they asked for is still the right destination.
-      void rememberLocaleAction(locale)
-        .then((state) => {
-          if (!state.ok && state.message) toast.error(state.message);
-        })
-        .catch(() => {
-          // Network/action failure: the URL still says which language to show
-          // (`/vi` forces Vietnamese), so navigation remains correct.
-        })
-        .finally(() => {
-          window.location.assign(href);
-        });
-    },
-    [current, pathname, pending],
+/** Modified clicks (new tab, new window, download) keep the anchor behaviour. */
+function isPlainLeftClick(event: React.MouseEvent<HTMLAnchorElement>): boolean {
+  return (
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
   );
-
-  return { pathname, pending, switchTo };
 }
 
 function OptionLink({
@@ -92,14 +68,7 @@ function OptionLink({
   href,
   pending,
   onSwitch,
-}: {
-  locale: Locale;
-  current: Locale;
-  compact: boolean;
-  href: string;
-  pending: Locale | null;
-  onSwitch: (event: React.MouseEvent<HTMLAnchorElement>, locale: Locale) => void;
-}) {
+}: OptionProps) {
   const active = locale === current;
   const busy = pending === locale;
 
@@ -107,6 +76,11 @@ function OptionLink({
     return (
       <Link
         href={href}
+        // The switch is never a Link navigation: on the instant surface it is
+        // prevented and handled in place, and on the fallback surface the page
+        // reloads. A prefetch of the other language's RSC payload would be a
+        // server render nobody asked for — the exact cost this change removes.
+        prefetch={false}
         onClick={(event) => onSwitch(event, locale)}
         aria-label={LOCALE_LABELS[locale]}
         aria-current={active ? 'page' : undefined}
@@ -125,6 +99,7 @@ function OptionLink({
   return (
     <Link
       href={href}
+      prefetch={false}
       onClick={(event) => onSwitch(event, locale)}
       aria-current={active ? 'page' : undefined}
       className={cn(
@@ -142,14 +117,56 @@ function OptionLink({
 }
 
 export function LocaleSwitcher({
-  current,
   variant = 'settings',
 }: {
-  current: Locale;
   variant?: 'settings' | 'compact';
 }) {
   const t = useT();
-  const { pathname, pending, switchTo } = useLocaleSwitch(current);
+  // The active language comes from the provider, not from a prop: on the
+  // instant surface it changes the moment the switch does, and the highlight
+  // has to move with it. Everywhere else it is the server's answer, unchanged.
+  const current = useLocale();
+  const switchInPlace = useLocaleSwitch();
+  const pathname = usePathname() || '/';
+  const [pending, setPending] = React.useState<Locale | null>(null);
+
+  const switchTo = React.useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>, locale: Locale) => {
+      if (!isPlainLeftClick(event)) return;
+
+      // The anchor is real. Without JavaScript (or without an in-place
+      // provider) it simply loads the URL it points at.
+      event.preventDefault();
+      if (locale === current) return;
+
+      // The instant path. Everything below this branch is the legacy path for
+      // surfaces whose copy is server-resolved.
+      if (switchInPlace) {
+        switchInPlace(locale);
+        return;
+      }
+
+      if (pending) return;
+      const href = localePath(pathname, locale);
+      setPending(locale);
+
+      // Persist, then navigate — in both the success and the failure branch.
+      // A failed account write must not strand the reader on the old language;
+      // the URL they asked for is still the right destination.
+      void rememberLocaleAction(locale)
+        .then((state) => {
+          if (!state.ok && state.message) toast.error(state.message);
+        })
+        .catch(() => {
+          // Network/action failure: the URL still says which language to show
+          // (`/vi` forces Vietnamese), so navigation remains correct.
+        })
+        .finally(() => {
+          window.location.assign(href);
+        });
+    },
+    [current, pathname, pending, switchInPlace],
+  );
 
   const links = LOCALES.map((locale) => ({
     locale,

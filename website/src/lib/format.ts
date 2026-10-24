@@ -9,6 +9,10 @@ import {
 } from '@/lib/api-day';
 import { translate } from '@/lib/i18n/catalog';
 import type { Locale } from '@/lib/i18n/locale';
+import {
+  warrantyStateFromDays,
+  type WarrantyState,
+} from './warranty-state';
 
 // Locale-aware value formatting. These are not sentences but they do reach the
 // user, and both of them are ambiguous across the two languages:
@@ -141,11 +145,8 @@ export function formatRelativeDay(
     : translate(locale, 'trong {years} năm', { years: y, count: y });
 }
 
-export type WarrantyState = {
-  daysLeft: number;
-  label: string;
-  tone: 'safe' | 'warn' | 'danger' | 'expired';
-};
+export { warrantyStateFromDays } from './warranty-state';
+export type { WarrantyState } from './warranty-state';
 
 export function warrantyState(warrantyEnd: Date | string, locale: Locale): WarrantyState {
   // Local midnight for a bare day (and for the server-derived day instant),
@@ -159,41 +160,7 @@ export function warrantyState(warrantyEnd: Date | string, locale: Locale): Warra
   // Calendar days, not elapsed 24-hour periods. At 18:00 on the 19th there are
   // 9 calendar days left but only 8 full days — the old `differenceInDays` said
   // "Còn 8 ngày" while the same page printed "Hết 28/10/2026".
-  const days = differenceInCalendarDays(end, new Date());
-  if (days < 0) {
-    const n = Math.abs(days);
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Đã hết {days} ngày', { days: n, count: n }),
-      tone: 'expired',
-    };
-  }
-  if (days === 0) return { daysLeft: 0, label: translate(locale, 'Hết hôm nay'), tone: 'danger' };
-  if (days <= 15)
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Còn {days} ngày', { days, count: days }),
-      tone: 'danger',
-    };
-  if (days <= 30)
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Còn {days} ngày', { days, count: days }),
-      tone: 'warn',
-    };
-  if (days <= 90)
-    return {
-      daysLeft: days,
-      label: translate(locale, 'Còn {days} ngày', { days, count: days }),
-      tone: 'safe',
-    };
-  // > 90 days, render as months for compactness
-  const months = Math.floor(days / 30);
-  return {
-    daysLeft: days,
-    label: translate(locale, 'Còn {months} tháng', { months, count: months }),
-    tone: 'safe',
-  };
+  return warrantyStateFromDays(differenceInCalendarDays(end, new Date()), locale);
 }
 
 export function warrantyToneClass(tone: WarrantyState['tone']): string {

@@ -51,14 +51,14 @@ describe('one mark, one implementation', () => {
 
   it('routes every branded screen through WarrlyMark/WarrlyLockup', () => {
     const screens: Array<[string, RegExp]> = [
-      ['app/page.tsx', /WarrlyLockup/],
-      ['app/(public)/layout.tsx', /WarrlyLockup/],
+      ['components/landing/landing-header.tsx', /WarrlyLockup/],
+      ['components/legal/public-chrome.tsx', /WarrlyLockup/],
       ['app/(auth)/layout.tsx', /WarrlyLockup/],
       ['app/not-found.tsx', /WarrlyLockup/],
       ['app/offline/page.tsx', /WarrlyLockup/],
       ['components/sidebar.tsx', /WarrlyMark/],
       ['components/topbar.tsx', /WarrlyMark/],
-      ['components/landing-product.tsx', /WarrlyMark/],
+      ['components/landing/landing-product.tsx', /WarrlyMark/],
     ];
     for (const [file, pattern] of screens) {
       expect(readFileSync(join(SRC, file), 'utf8'), file).toMatch(pattern);
@@ -66,7 +66,22 @@ describe('one mark, one implementation', () => {
   });
 
   it('keeps exactly one lockup on the landing screen and the wordmark alone in the footer', () => {
-    const landing = readFileSync(join(SRC, 'app', 'page.tsx'), 'utf8');
+    // The landing's visible markup is split across `components/landing/*` so
+    // the copy can switch language in place; the lockup/wordmark rule is about
+    // the rendered screen, so read every part of it (in render order).
+    const landing = [
+      'components/landing/landing-header.tsx',
+      'components/landing/landing-hero.tsx',
+      'components/landing/landing-stage.tsx',
+      'components/landing/landing-features.tsx',
+      'components/landing/landing-steps.tsx',
+      'components/landing/landing-price.tsx',
+      'components/landing/landing-faq.tsx',
+      'components/landing/landing-closing.tsx',
+      'components/landing/landing-footer.tsx',
+    ]
+      .map((file) => readFileSync(join(SRC, file), 'utf8'))
+      .join('\n');
     expect(landing.match(/<WarrlyLockup\b/g)).toHaveLength(1);
     expect(landing.match(/<WarrlyWordmark\b/g)).toHaveLength(1);
     // The footer wordmark link is separate from the header lockup.
@@ -138,7 +153,10 @@ describe('feature illustrations', () => {
   });
 
   it('carries alt text through the i18n catalog, never an English literal', () => {
-    const landing = readFileSync(join(SRC, 'app', 'page.tsx'), 'utf8');
+    const landing = readFileSync(
+      join(SRC, 'components', 'landing', 'landing-features.tsx'),
+      'utf8',
+    );
     for (const key of ['Sổ bảo hành', 'Chìa khoá xe máy', 'Điều khiển điều hoà', 'Hoá đơn đỏ', 'Nồi cơm điện']) {
       expect(landing).toContain(`alt: t('${key}')`);
     }

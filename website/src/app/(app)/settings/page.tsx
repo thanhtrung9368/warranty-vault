@@ -24,8 +24,10 @@ export default async function SettingsPage() {
   const user = await requireUser();
   // `getI18n()` resolves the language through the same chain `getLocale()` did
   // (cookie → stored preference → Accept-Language → `en`) and hands back the
-  // bound translator as well; `locale` is still what `<LocaleSwitcher>` needs.
-  const { locale, t } = await getI18n();
+  // bound translator. The switcher reads the active language from the provider
+  // itself (the same answer) so it stays correct when it is mounted below an
+  // in-place provider.
+  const { t } = await getI18n();
   const [pushSubscriptions, sessions] = await Promise.all([
     listMySubscriptions(),
     listMySessions(),
@@ -62,7 +64,7 @@ export default async function SettingsPage() {
           neither of which has a request to read a language from. The cookie it
           also writes is what a signed-out visitor has. */}
       <Section icon={<Languages className="h-4 w-4" />} tint="tint-sky" title={t('Ngôn ngữ')}>
-        <LocaleSwitcher current={locale} />
+        <LocaleSwitcher />
       </Section>
 
       <Section icon={<Bell className="h-4 w-4" />} tint="tint-primary" title={t('Thông báo')}>
