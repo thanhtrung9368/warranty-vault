@@ -164,7 +164,8 @@ export const publicPages = defineMessages({
 
   // ── Landing page — final CTA + footer ───────────────────────────────────
   'Giữ ngày bảo hành ngay từ hôm nay.': 'Keep the date from today.',
-  'Free mãi mãi. Không cần thẻ. Không quảng cáo.': 'Free forever. No card. No ads.',
+  'Miễn phí để bắt đầu. Không cần thẻ. Không quảng cáo.':
+    'Free to start. No card. No ads.',
   '© {year} Warrly.':
     '© {year} Warrly.',
 
@@ -174,11 +175,17 @@ export const publicPages = defineMessages({
   // (`services/devices.go`, `attachments.go`, `warranties.go`,
   // `subscriptions.go`, `wishlist.go`); the same list is written into Terms §4
   // so the link below the first column has something to substantiate.
+  //
+  // The earlier text went further and claimed there was no paid tier and
+  // nothing to upgrade to. That is not the owner's model: free is a TIER WITH
+  // LIMITS, not the whole product. The copy now says free, states the ceiling,
+  // and does not pretend the ceiling is the end of the roadmap. It still does
+  // not announce a price or a date, because none exists in this repo.
   'Miễn phí. Đây là toàn bộ giới hạn.': 'Free. Here are the limits.',
-  'Không có bậc trả phí, không có bản "Pro" đang chờ. Đây là các con số máy chủ thật sự giữ.':
-    'No paid tier, no "Pro" hiding behind a curtain. These are the numbers the server actually enforces.',
-  'Gói duy nhất': 'The only plan',
-  'Miễn phí, và đây là toàn bộ gói': 'Free, and here is the whole plan',
+  'Miễn phí là hạng bạn dùng hôm nay, với các giới hạn dưới đây. Và đây là những con số máy chủ thật sự giữ.':
+    'Free is the tier you use today, with the limits below. These are the numbers the server actually enforces.',
+  'Gói miễn phí': 'The free plan',
+  'Miễn phí, và đây là chỗ nó dừng': 'Free, and here is where it stops',
   '50 thiết bị đang dùng — 500 dòng nếu tính cả máy đã bán':
     '50 active devices — 500 rows if you count sold ones',
   '5 gói bảo hành mỗi thiết bị': '5 warranty plans per device',
@@ -211,8 +218,8 @@ export const publicPages = defineMessages({
   'Nếu câu bạn cần không có ở đây, email hỗ trợ ở cuối trang.':
     'If yours is not here, the support email is at the bottom of the page.',
   'Có thật là miễn phí không?': 'Is it really free?',
-  'Có. Không có bậc trả phí, không cần thẻ, không quảng cáo. Giới hạn là các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Không có gì để nâng cấp.':
-    'Yes. There is no paid tier, no card, no ads. The limits are the numbers above: 50 active devices, 5 files per device, 100 MB in total, 100 subscriptions, 200 wishlist items. There is nothing to upgrade to.',
+  'Có — và nó có giới hạn. Gói miễn phí không hết hạn, không cần thẻ, không quảng cáo, nhưng nó dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Hôm nay chưa có gói trả phí nào để mua; cần vượt các giới hạn đó thì phải chờ, hoặc dọn bớt dữ liệu.':
+    'Yes — and it is limited. The free tier does not expire, needs no card and carries no ads, but it stops at the numbers above: 50 active devices, 5 files per device, 100 MB in total, 100 subscriptions, 200 wishlist items. No paid plan is on sale today; to go past those limits you wait for one, or trim what you have.',
   'Nếu tôi ngừng dùng thì hoá đơn của tôi ra sao?':
     'What happens to my receipts if I stop using it?',
   'Không có gì tự xoá chỉ vì bạn không đăng nhập. Dữ liệu nằm đó cho đến khi bạn tự xoá tài khoản. Trước khi đi, vào Cài đặt → Sao lưu & khôi phục để tải JSON (thông tin) hoặc .zip (kèm nội dung ảnh đã mã hoá). Bản JSON không chứa ảnh; ảnh trong .zip chỉ mở lại được khi khôi phục vào một máy chủ còn giữ đúng khoá đó.':

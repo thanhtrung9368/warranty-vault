@@ -172,7 +172,7 @@ function buildFaq(t: Translator): FaqEntry[] {
     {
       q: t('Có thật là miễn phí không?'),
       a: t(
-        'Có. Không có bậc trả phí, không cần thẻ, không quảng cáo. Giới hạn là các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Không có gì để nâng cấp.',
+        'Có — và nó có giới hạn. Gói miễn phí không hết hạn, không cần thẻ, không quảng cáo, nhưng nó dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Hôm nay chưa có gói trả phí nào để mua; cần vượt các giới hạn đó thì phải chờ, hoặc dọn bớt dữ liệu.',
       ),
       href: '/terms#usage-limits',
       link: t('Điều khoản, mục 4'),
@@ -520,7 +520,7 @@ export default async function LandingPage() {
                 {t('Miễn phí. Đây là toàn bộ giới hạn.')}
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-muted">
-                {t('Không có bậc trả phí, không có bản "Pro" đang chờ. Đây là các con số máy chủ thật sự giữ.')}
+                {t('Miễn phí là hạng bạn dùng hôm nay, với các giới hạn dưới đây. Và đây là những con số máy chủ thật sự giữ.')}
               </p>
             </div>
 
@@ -529,10 +529,10 @@ export default async function LandingPage() {
                 <div className="flex flex-col border-b-[1.5px] border-border p-7 lg:border-b-0 lg:border-r-[1.5px]">
                   <Tag className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
                   <p className="mt-4 text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
-                    {t('Gói duy nhất')}
+                    {t('Gói miễn phí')}
                   </p>
                   <h3 className="mt-1 font-display text-[18px] font-bold tracking-tight text-ink">
-                    {t('Miễn phí, và đây là toàn bộ gói')}
+                    {t('Miễn phí, và đây là chỗ nó dừng')}
                   </h3>
                   <ul className="mt-5 space-y-2.5 text-[13px] leading-relaxed text-ink-2">
                     {[
@@ -673,7 +673,7 @@ export default async function LandingPage() {
                 {t('Giữ ngày bảo hành ngay từ hôm nay.')}
               </h2>
               <p className="mt-2 text-primary-ink/80">
-                {t('Free mãi mãi. Không cần thẻ. Không quảng cáo.')}
+                {t('Miễn phí để bắt đầu. Không cần thẻ. Không quảng cáo.')}
               </p>
               <div className="mt-6 flex justify-center">
                 <Button asChild size="lg">
