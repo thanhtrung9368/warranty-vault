@@ -631,6 +631,62 @@ Commit `48c8bbb` (*"wire the five inert controls — CSV, import, Face ID lock, 
 
 ---
 
+## Nhóm 4 — Deploy production (chưa làm, chủ repo quyết định tạm hoãn)
+
+**Production đang chạy code CŨ.** Kiểm ngày 2026-10-24 bằng cách probe những thứ chỉ
+tồn tại sau các commit ngày 21/10:
+
+| probe trên `https://warrly.com` | kết quả |
+|---|---|
+| `/vi` | **404** |
+| `/favicon.ico` | **404** |
+| `/icon-maskable-512.png` | **404** |
+| `/sitemap.xml` | **404** |
+| `WarrlyLockup` trong HTML | 0 |
+| `WebSite` JSON-LD | 0 |
+| canonical | không có |
+| "Free. Here are the limits." / "Start with one device" | không có |
+
+Nghĩa là chưa có gì từ đợt 21/10 lên production: **không brand mới, không `/vi`,
+không robots/sitemap, không FAQ/giá, không cold-start**. Code đầy đủ đã nằm trên
+`origin/main`; khoảng cách là giữa GitHub và VPS, không phải trong code.
+
+### Vì sao chưa tự deploy
+
+`.github/workflows/deploy.yml` đã có và sẵn sàng, nhưng `gate` **bỏ qua** khi thiếu
+secret (cố ý: nếu nó đỏ mỗi lần push thì người ta học cách bỏ qua màu đỏ). Cần tạo ở
+Settings → Secrets → Actions:
+
+| secret | giá trị |
+|---|---|
+| `DEPLOY_HOST` | `171.244.39.41` |
+| `DEPLOY_USER` | `root` (nên đổi sang user `deploy` riêng sau) |
+| `DEPLOY_PATH` | `/opt/warrly` |
+| `DEPLOY_SSH_KEY` | key ed25519 **mới**, không passphrase, public key đã thêm vào `/root/.ssh/authorized_keys` trên VPS |
+
+### Chướng ngại đã biết: `/opt/warrly` chưa phải git repo
+
+Thư mục trên VPS được `scp` lên, **không có `.git`** (`git rev-parse` → "not a git
+repository"), và `deploy/` ở đó vẫn là bản cũ — chưa có `deploy.sh`. Nên
+`deploy/deploy.sh` (dùng `git fetch` + `checkout`) **chưa chạy được** ở đó.
+
+Đường chuyển: tạo deploy key read-only cho GitHub → `git clone` vào `/opt/warrly.new`
+→ `cp .env` sang → `mv warrly warrly.old && mv warrly.new warrly` (phải **giữ đúng
+tên `warrly`**, vì tên đó quyết định tên Docker volume `warrly_pgdata`; đổi tên là
+mất dữ liệu) → `docker compose up -d --build`. Chi tiết trong `deploy/README.md`.
+
+### Kiểm tra trước khi `up`
+
+`docker-compose.yml` giờ dùng `${APP_URL:?...}`, nên thiếu `APP_URL` trong `.env`
+thì `docker compose up` **từ chối chạy** chứ không âm thầm trả metadata localhost.
+Đây là hành vi đúng — đặt `APP_URL=https://warrly.com` trong `/opt/warrly/.env`.
+
+Hmm — đừng quên: `toanthang-api` là project **khác** đang chạy cùng máy. Không chạy
+`docker system prune`, không `docker compose down -v`, và `--remove-orphans` chỉ
+đụng trong cùng compose project.
+
+---
+
 ## Thứ tự tao đề xuất
 
 ```
