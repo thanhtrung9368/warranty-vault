@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED from the geometry block in android/tools/generate_launcher_icons.py.
 
-     Android 13+ themed-icon layer: the receipt plus the date dot as an
-     even-odd knockout. The system tints this layer monochrome, so a second
-     solid shape would vanish into the receipt. No background here; the
-     themed ground is supplied by the launcher. -->
+     Android 13+ themed-icon layer: the flag first, then the plate with its
+     punch knocked out (even-odd). Both paths are white so there is exactly one
+     hole — the punch. The pennant is never knocked out of the plate: it has to
+     stay visible where it rises above the tag, so the two shapes are separate
+     fills. Painting the plate over the flag also hides the pole's 4-unit
+     overlap, so the pole emerges from behind the shoulder with no seam. The
+     system supplies the tint and the ground. No background here. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -13,6 +16,10 @@
 
     <path
         android:fillColor="#FFFFFFFF"
+        android:pathData="M58.84,52.48 L58.84,29.68 L74.8,29.68 L70.44,34.81 L74.8,39.94 L62.26,39.94 L62.26,52.48 L58.84,52.48 Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M39.38,27 L68.62,27 A3.38,3.38 0 0 1 72,30.38 L72,78.3 L69.75,81.45 L66.83,78.3 L63.45,80.33 L59.4,78.08 L55.8,81.22 L52.2,78.53 L48.15,80.55 L44.55,78.3 L40.95,81 L37.8,78.97 L36,80.33 L36,30.38 A3.38,3.38 0 0 1 39.38,27 Z M58.27,68.85 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0 Z" />
+        android:pathData="M42.5,44.88 L62.64,44.88 A2.85,2.85 0 0 1 65.49,47.73 L65.49,75.47 L65.49,78.32 L55.04,78.32 L49.34,73.95 L43.64,78.32 L36.05,78.32 A2.85,2.85 0 0 1 33.2,75.47 L33.2,54.19 L42.5,44.88 Z M38.84,53.56 A3.04,3.04 0 1 0 44.92,53.56 A3.04,3.04 0 1 0 38.84,53.56 Z" />
 </vector>

@@ -3,12 +3,20 @@
 
      Notification small icon. Android treats this as an alpha mask and replaces
      every colour with the notification tint, so a coloured or mipmap icon
-     becomes a white blob. This is the receipt as white-on-transparent with the
-     date dot knocked out, at the same 0.92 ink-centred badge scale as
-     renderNotificationBadgeSvg() in website/src/lib/brand.ts.
+     becomes a white blob. This is the brand's separately drawn SMALL cut
+     (the <=16px cut), not a downscale of the full launcher cut: at 24dp the
+     tag is 17.06dp tall, so the full cut's thinner pole, shallower V
+     notch and smaller punch would smear. (Measured at 24px: the full cut's V
+     notch is 2.16px and its pole 1.69px; the small cut gives 2.63px and
+     2.44px.) Scaled so the ink bbox fills the 24dp
+     box: tag 17.06dp, flag 10.88dp, punch 3.56dp,
+     V notch 2.63dp deep. No third cut was needed: the punch and the
+     V notch both survive at 24px, and at 16px the small cut still reads.
 
-     Silhouette 11.04 x 16.7 on the
-     24dp box; dot hole diameter 2.76. -->
+     The punch is a true even-odd knockout. The flag is painted first and the
+     plate over it, so the pole emerges from behind the shoulder instead of
+     ending in a white stub inside the tag. Both paths are white, so there is
+     exactly one hole. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -17,6 +25,10 @@
 
     <path
         android:fillColor="#FFFFFFFF"
+        android:pathData="M13.59,10.88 L13.59,0 L22.69,0 L20.25,3 L22.69,6 L16.03,6 L16.03,10.88 L13.59,10.88 Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M7.51,3.65 L16.48,3.65 A1.04,1.04 0 0 1 17.52,4.69 L17.52,19.38 L16.83,20.35 L15.93,19.38 L14.9,20 L13.66,19.31 L12.55,20.28 L11.45,19.45 L10.21,20.07 L9.1,19.38 L8,20.21 L7.03,19.59 L6.48,20 L6.48,4.69 A1.04,1.04 0 0 1 7.51,3.65 Z M13.31,16.48 a1.38,1.38 0 1,0 2.76,0 a1.38,1.38 0 1,0 -2.76,0 Z" />
+        android:pathData="M6.37,6.94 L16.69,6.94 A1.31,1.31 0 0 1 18,8.25 L18,22.69 L18,24 L12.84,24 L9.66,21.38 L6.47,24 L2.62,24 A1.31,1.31 0 0 1 1.31,22.69 L1.31,12 L6.37,6.94 Z M4.31,11.72 A1.78,1.78 0 1 0 7.87,11.72 A1.78,1.78 0 1 0 4.31,11.72 Z" />
 </vector>
