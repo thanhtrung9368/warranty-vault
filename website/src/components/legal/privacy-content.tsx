@@ -10,12 +10,18 @@
 // A paragraph is one key, except where the ORIGINAL puts a `<b>` or a `<code>`
 // inside it: there the sentence is split at that markup and both halves are
 // keys, which keeps the dictionary pure text (a translator should not have to
-// place XML) and leaves the emphasis exactly where the Vietnamese had it. Every
-// Vietnamese string below is byte-for-byte the original.
+// place XML) and leaves the emphasis exactly where the Vietnamese had it.
+//
+// The advertising/consent sections were rewritten for the free-with-ads,
+// paid-without model; the rest of the Vietnamese is the original. Sections 8
+// and 9 are appended rather than inserted because the existing numbers are
+// linked from the landing page and the FAQ, and renumbering would break those
+// anchors.
 
 import { useT } from '@/lib/i18n/client';
+import { Placeholder } from './placeholder';
 
-const UPDATED = '21/10/2026';
+const UPDATED = '25/10/2026';
 
 export function PrivacyContent() {
   const t = useT();
@@ -31,7 +37,7 @@ export function PrivacyContent() {
       )}{' '}
       <b>{t('dữ liệu của mày là của mày')}</b>
       {' — '}
-      {t('bọn tao không bán, không quảng cáo, không tracking.')}
+      {t('bọn tao không bán dữ liệu của mày. Gói miễn phí có quảng cáo; gói trả phí thì không.')}
     </p>
 
     <div>
@@ -92,16 +98,65 @@ export function PrivacyContent() {
           {' — '}
           {t('chuyển thông báo nhắc bảo hành tới thiết bị, chỉ khi mày bật push.')}
         </li>
+        <li>
+          <b>{t('Nhà cung cấp quảng cáo')}</b>
+          {' — '}
+          {t('chỉ ở gói miễn phí và chỉ khi mày đồng ý (xem mục 5).')}
+        </li>
       </ul>
       <p className="mt-2">{t('Ngoài các dịch vụ trên, bọn tao không chia sẻ dữ liệu với ai.')}</p>
     </div>
 
     <div>
-      <h3 id="no-ads" className="display scroll-mt-24 text-lg">
-        {t('5. Không quảng cáo, không tracking')}
+      <h3 id="ads" className="display scroll-mt-24 text-lg">
+        {t('5. Quảng cáo')}
       </h3>
       <p className="mt-2">
-        {t('Không gắn pixel, không Google Analytics, không Facebook SDK, không cookie quảng cáo.')}
+        {t('Gói miễn phí có quảng cáo. Gói trả phí không có quảng cáo và hiện chưa mở bán.')}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Quảng cáo có thể do một nhà cung cấp bên thứ ba phục vụ. Nhà cung cấp đó có thể đặt cookie hoặc đọc định danh thiết bị (ví dụ mã quảng cáo của hệ điều hành) để chọn, giới hạn và đo lường quảng cáo.',
+        )}
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          <b>{t('Nhà cung cấp quảng cáo')}:</b>{' '}
+          <Placeholder>
+            tên, địa chỉ và vai trò pháp lý (bên kiểm soát hay bên xử lý dữ liệu) của nhà cung cấp
+            quảng cáo
+          </Placeholder>
+        </li>
+        <li>
+          <b>{t('Dữ liệu nhận và mục đích')}:</b>{' '}
+          <Placeholder>
+            dữ liệu nhà cung cấp nhận, quảng cáo có được cá nhân hoá theo hành vi không, và việc
+            Warrly có chia sẻ dữ liệu với họ hay không
+          </Placeholder>
+        </li>
+        <li>
+          <b>{t('Cookie, định danh và thời hạn')}:</b>{' '}
+          <Placeholder>
+            tên cookie và định danh thiết bị, mục đích và thời hạn lưu
+          </Placeholder>
+        </li>
+        <li>
+          <b>{t('Thời hạn lưu dữ liệu quảng cáo')}:</b>{' '}
+          <Placeholder>thời hạn nhà cung cấp lưu dữ liệu quảng cáo</Placeholder>
+        </li>
+      </ul>
+      <p className="mt-2">
+        {t(
+          'Mặc định quảng cáo tắt. Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý. Mày có thể từ chối, chọn từng loại, hoặc đổi lựa chọn bất cứ lúc nào qua “Tuỳ chọn cookie” ở chân trang.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Từ chối quảng cáo không chặn mày dùng gói miễn phí. Nếu không muốn thấy quảng cáo, mày có thể dùng gói trả phí khi nó mở bán.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t('Warrly không nhúng Google Analytics hay Facebook SDK, và không tự theo dõi mày xuyên trang.')}
       </p>
     </div>
 
@@ -117,6 +172,11 @@ export function PrivacyContent() {
           'để xoá vĩnh viễn mọi thiết bị, hoá đơn, ảnh và cài đặt. Thao tác xoá không thể hoàn tác.',
         )}
       </p>
+      <p className="mt-2">
+        {t(
+          'Nếu mày ở EEA hoặc Vương quốc Anh, mày có quyền truy cập, sửa, xoá, hạn chế xử lý, phản đối xử lý, chuyển dữ liệu, rút lại đồng ý và khiếu nại với cơ quan bảo vệ dữ liệu. Để thực hiện, gửi email tới hi@warrly.com.',
+        )}
+      </p>
     </div>
 
     <div>
@@ -128,6 +188,75 @@ export function PrivacyContent() {
         <a href="mailto:hi@warrly.com" className="font-semibold text-primary hover:underline">
           hi@warrly.com
         </a>
+      </p>
+      <p className="mt-2">
+        {t(
+          'Yêu cầu truy cập, xoá hoặc sửa dữ liệu: gửi tới hi@warrly.com. Bọn tao trả lời trong thời hạn luật định.',
+        )}
+      </p>
+      <p className="mt-2">
+        <b>{t('Đơn vị chịu trách nhiệm')}:</b>{' '}
+        <Placeholder>tên pháp nhân, địa chỉ đăng ký và đại diện tại EU/UK (nếu có)</Placeholder>
+      </p>
+      <p className="mt-2">
+        <b>{t('Đầu mối bảo vệ dữ liệu')}:</b>{' '}
+        <Placeholder>email hoặc chức danh của DPO/đầu mối bảo vệ dữ liệu, nếu có</Placeholder>
+      </p>
+    </div>
+
+    <div>
+      <h3 className="display text-lg">{t('8. Cơ sở pháp lý')}</h3>
+      <p className="mt-2">{t('Bọn tao xử lý dữ liệu theo các cơ sở sau:')}</p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          {t(
+            'Phiên đăng nhập và ghi nhớ ngôn ngữ, giao diện: thực hiện hợp đồng và lợi ích hợp pháp trong việc giữ đúng lựa chọn của mày.',
+          )}
+        </li>
+        <li>
+          {t(
+            'Cung cấp dịch vụ (tài khoản, thiết bị, bảo hành, hoá đơn, sao lưu): thực hiện hợp đồng với mày.',
+          )}
+        </li>
+        <li>
+          {t(
+            'Thông báo đẩy và trợ lý AI: sự đồng ý của mày, có thể rút lại bất cứ lúc nào trong Cài đặt.',
+          )}
+        </li>
+        <li>
+          {t(
+            'Quảng cáo ở gói miễn phí: sự đồng ý của mày, thể hiện qua “Tuỳ chọn cookie”; từ chối thì không có quảng cáo.',
+          )}
+        </li>
+        <li>
+          {t(
+            'Bảo mật, chống lạm dụng và giới hạn tần suất: lợi ích hợp pháp của bọn tao trong việc giữ dịch vụ an toàn.',
+          )}
+        </li>
+        <li>
+          {t(
+            'Email giao dịch (đặt lại mật khẩu, xác nhận đổi email): thực hiện hợp đồng và bảo mật tài khoản.',
+          )}
+        </li>
+      </ul>
+    </div>
+
+    <div>
+      <h3 className="display text-lg">{t('9. Người dùng California (CCPA/CPRA)')}</h3>
+      <p className="mt-2">
+        {t(
+          'Nếu mày ở California, mày có quyền biết dữ liệu cá nhân bọn tao thu thập và chia sẻ, quyền xoá, quyền sửa và quyền từ chối bán hoặc chia sẻ dữ liệu cá nhân.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Warrly không bán dữ liệu cá nhân. Ở gói miễn phí, quảng cáo chỉ có khi mày đồng ý; mày có thể từ chối hoặc rút lại đồng ý bất cứ lúc nào qua “Tuỳ chọn cookie”.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Để thực hiện các quyền này, gửi email tới hi@warrly.com. Mày có thể dùng đại diện được uỷ quyền. Bọn tao sẽ xác minh yêu cầu và không phân biệt đối xử khi mày thực hiện quyền.',
+        )}
       </p>
     </div>
   </div>

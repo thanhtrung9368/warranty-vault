@@ -6,11 +6,12 @@
 // (Đăng nhập / Đăng ký / Thử lại / Quay về trang chủ …) deliberately lives in
 // `common.ts` and is NOT redefined here.
 //
-// One deliberate exception to "the Vietnamese is untouched", flagged where it
-// happens: the landing hero badge used to claim "Local-first". That claim was
-// false — the device copy lives in Postgres behind the Go API, the service
-// worker explicitly skips `/api/`, and there is no IndexedDB/device store — so
-// the sentence itself was rewritten (key, call site and translation together).
+// Two deliberate exceptions to "the Vietnamese is untouched", flagged where
+// they happen: the landing hero badge used to claim "Local-first" (false — the
+// device copy lives in Postgres behind the Go API, the service worker skips
+// `/api/`, and there is no device store), and the 2026-10 advertising/consent
+// rewrite replaced the "no ads / no paid tier" copy with the owner's actual
+// model (free with ads, paid without, no price or launch date in this repo).
 // Every other Vietnamese key in this file is the byte-for-byte original.
 
 import { defineMessages } from '../types';
@@ -50,14 +51,15 @@ export const publicPages = defineMessages({
   // country before a visitor has read a single sentence. Two true beats remain.
   // Two beats, not three — there is no third claim here that is both global and
   // checkable against the repo, and inventing one is how "Local-first" happened.
-  'Miễn phí · Không quảng cáo, không theo dõi': 'Free · No ads, no tracking',
+  'Miễn phí có quảng cáo · Gói trả phí chưa mở bán':
+    'Free with ads · Paid plan not on sale yet',
   // The subhead is deliberately NOT a feature list. It names the three things
   // a Vietnamese household actually owns, then the two things Warrly keeps
   // for them. One sentence, no "everything you need".
   'Tủ lạnh, máy giặt, chiếc iPhone: mỗi món có một ngày hết hạn và một tấm hoá đơn. Warrly giữ cả hai, và nhắc bạn trước khi bảo hành hết hiệu lực.':
     'The fridge, the washing machine, the iPhone — each one has an expiry date and a receipt. Warrly keeps both, and reminds you before the warranty runs out.',
   'Không cần thẻ tín dụng': 'No credit card needed',
-  'Không quảng cáo': 'No ads',
+  'Quảng cáo chỉ ở gói miễn phí': 'Ads only on the free tier',
   'Backup xuất/nhập JSON': 'JSON export/import backup',
   'Vào app': 'Open the app',
   'Bắt đầu miễn phí': 'Start for free',
@@ -164,8 +166,8 @@ export const publicPages = defineMessages({
 
   // ── Landing page — final CTA + footer ───────────────────────────────────
   'Giữ ngày bảo hành ngay từ hôm nay.': 'Keep the date from today.',
-  'Miễn phí để bắt đầu. Không cần thẻ. Không quảng cáo.':
-    'Free to start. No card. No ads.',
+  'Miễn phí để bắt đầu. Không cần thẻ. Gói miễn phí có quảng cáo; gói trả phí thì không.':
+    'Free to start. No card. The free tier has ads; the paid tier does not.',
   '© {year} Warrly.':
     '© {year} Warrly.',
 
@@ -181,11 +183,13 @@ export const publicPages = defineMessages({
   // LIMITS, not the whole product. The copy now says free, states the ceiling,
   // and does not pretend the ceiling is the end of the roadmap. It still does
   // not announce a price or a date, because none exists in this repo.
-  'Miễn phí. Đây là toàn bộ giới hạn.': 'Free. Here are the limits.',
-  'Miễn phí là hạng bạn dùng hôm nay, với các giới hạn dưới đây. Và đây là những con số máy chủ thật sự giữ.':
-    'Free is the tier you use today, with the limits below. These are the numbers the server actually enforces.',
+  'Miễn phí có quảng cáo. Gói trả phí nâng giới hạn.':
+    'Free with ads. The paid plan raises the limits.',
+  'Gói miễn phí là hạng bạn dùng hôm nay: có quảng cáo và dừng ở các con số dưới đây. Gói trả phí chưa mở bán; khi mở bán, nó bỏ quảng cáo và nâng các giới hạn này.':
+    'The free tier is what you use today: it carries ads and stops at the numbers below. The paid tier is not on sale yet; when it is, it removes the ads and raises these limits.',
   'Gói miễn phí': 'The free plan',
-  'Miễn phí, và đây là chỗ nó dừng': 'Free, and here is where it stops',
+  'Miễn phí, có quảng cáo, và đây là chỗ nó dừng':
+    'Free, ad-supported, and here is where it stops',
   '50 thiết bị đang dùng — 500 dòng nếu tính cả máy đã bán':
     '50 active devices — 500 rows if you count sold ones',
   '5 gói bảo hành mỗi thiết bị': '5 warranty plans per device',
@@ -198,8 +202,8 @@ export const publicPages = defineMessages({
   'Hoá đơn là của bạn': 'Your receipts are yours',
   'Ảnh và PDF được mã hoá AES-256-GCM trên máy chủ. Mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống.':
     'Photos and PDFs are encrypted on the server with AES-256-GCM. Each file has its own key, and that key is wrapped by the system master key.',
-  'Không quảng cáo, không pixel theo dõi, không bán dữ liệu.':
-    'No ads, no tracking pixels, no data sold.',
+  'Gói miễn phí có quảng cáo. Quảng cáo có thể dùng cookie hoặc định danh thiết bị; khi mở bán, gói trả phí sẽ bỏ quảng cáo. Chi tiết ở Chính sách bảo mật, mục 5.':
+    'The free tier carries ads. Ads may use cookies or device identifiers; when it goes on sale, the paid tier removes them. Details in the privacy policy, section 5.',
   'Chính sách bảo mật, mục 2 và 5': 'Privacy policy, sections 2 and 5',
   'Ra đi': 'Leaving',
   'Đi bất cứ lúc nào': 'Leave whenever',
@@ -218,8 +222,8 @@ export const publicPages = defineMessages({
   'Nếu câu bạn cần không có ở đây, email hỗ trợ ở cuối trang.':
     'If yours is not here, the support email is at the bottom of the page.',
   'Có thật là miễn phí không?': 'Is it really free?',
-  'Có — và nó có giới hạn. Gói miễn phí không hết hạn, không cần thẻ, không quảng cáo, nhưng nó dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Hôm nay chưa có gói trả phí nào để mua; cần vượt các giới hạn đó thì phải chờ, hoặc dọn bớt dữ liệu.':
-    'Yes — and it is limited. The free tier does not expire, needs no card and carries no ads, but it stops at the numbers above: 50 active devices, 5 files per device, 100 MB in total, 100 subscriptions, 200 wishlist items. No paid plan is on sale today; to go past those limits you wait for one, or trim what you have.',
+  'Có — và nó có giới hạn, cùng quảng cáo. Gói miễn phí không hết hạn, không cần thẻ, nhưng có quảng cáo và dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 gói bảo hành mỗi thiết bị, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Gói trả phí chưa mở bán; khi mở bán, nó bỏ quảng cáo và nâng các giới hạn đó.':
+    'Yes — and it has limits, plus ads. The free tier does not expire and needs no card, but it carries ads and stops at the numbers above: 50 active devices, 5 warranty plans per device, 5 files per device, 100 MB in total, 100 subscriptions, 200 wishlist items. The paid tier is not on sale yet; when it is, it removes the ads and raises those limits.',
   'Nếu tôi ngừng dùng thì hoá đơn của tôi ra sao?':
     'What happens to my receipts if I stop using it?',
   'Không có gì tự xoá chỉ vì bạn không đăng nhập. Dữ liệu nằm đó cho đến khi bạn tự xoá tài khoản. Trước khi đi, vào Cài đặt → Sao lưu & khôi phục để tải JSON (thông tin) hoặc .zip (kèm nội dung ảnh đã mã hoá). Bản JSON không chứa ảnh; ảnh trong .zip chỉ mở lại được khi khôi phục vào một máy chủ còn giữ đúng khoá đó.':
@@ -228,8 +232,8 @@ export const publicPages = defineMessages({
   'Được, qua Safari — không cần tải app. Trên iOS 16.4 trở lên, bạn có thể thêm Warrly vào màn hình chính rồi bật thông báo đẩy. Bản iOS native hiện là beta qua TestFlight, chưa có trên App Store.':
     'Yes, in Safari — no download needed. On iOS 16.4 or later you can add Warrly to your home screen and turn on push notifications. The native iOS app is in TestFlight beta; it is not on the App Store yet.',
   'Dữ liệu của tôi có an toàn không?': 'Is my data safe?',
-  'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có pixel theo dõi, không Google Analytics, không bán dữ liệu. Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.':
-    'Receipts are encrypted on the server with AES-256-GCM; each file has its own key, and that key is wrapped by the system master key. Passwords are stored as bcrypt hashes, and your session lives in an encrypted cookie. There are no tracking pixels, no Google Analytics, and no data sold. The AI assistant is off by default and only sends a decrypted receipt image or the content of a claim assessment to Anthropic after you turn it on.',
+  'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có Google Analytics, không Facebook SDK, không bán dữ liệu; gói miễn phí có quảng cáo và quảng cáo có thể dùng cookie hoặc định danh thiết bị (xem Chính sách bảo mật, mục 5). Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.':
+    'Receipts are encrypted on the server with AES-256-GCM; each file has its own key, and that key is wrapped by the system master key. Passwords are stored as bcrypt hashes, and your session lives in an encrypted cookie. There is no Google Analytics, no Facebook SDK and no data sold; the free tier carries ads, and ads may use cookies or device identifiers (see the privacy policy, section 5). The AI assistant is off by default and only sends a decrypted receipt image or the content of a claim assessment to Anthropic after you turn it on.',
   'Chính sách bảo mật, mục 2': 'Privacy policy, section 2',
   'Các bạn có phải đơn vị bảo hành không?': 'Are you a warranty provider?',
   'Không. Warrly chỉ ghi lại ngày, hoá đơn và gửi lời nhắc. Bảo hành là hợp đồng giữa bạn với hãng hoặc cửa hàng; việc sửa chữa, đổi trả hay từ chối bảo hành do họ quyết định. Phần đánh giá bằng AI, nếu bạn bật, chỉ là gợi ý để bạn kiểm tra — không phải cam kết bảo hành.':
@@ -301,8 +305,8 @@ export const publicPages = defineMessages({
   'Warrly là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:':
     'Warrly is a personal tool for tracking devices, warranties, subscriptions and your “want” list. This page describes what we collect, how we store it and who we share it with. The short version:',
   'dữ liệu của mày là của mày': 'your data is yours',
-  'bọn tao không bán, không quảng cáo, không tracking.':
-    'we do not sell it, advertise against it or track you.',
+  'bọn tao không bán dữ liệu của mày. Gói miễn phí có quảng cáo; gói trả phí thì không.':
+    'we do not sell your data. The free tier carries ads; the paid tier does not.',
   '1. Dữ liệu bọn tao lưu': '1. What we store',
   'Email và mật khẩu (lưu dưới dạng băm bcrypt, không bao giờ lưu mật khẩu gốc); các bản ghi mày tự nhập (thiết bị, gói bảo hành, subscription, wishlist); file đính kèm mày tải lên (ảnh hoá đơn / phiếu bảo hành); và token thông báo đẩy của thiết bị nếu mày bật push.':
     'Your email and password (stored as a bcrypt hash — the original password is never kept); the records you enter yourself (devices, warranty plans, subscriptions, wishlist); the attachments you upload (invoice / warranty-slip images); and the device push token, if you turn push on.',
@@ -335,9 +339,21 @@ export const publicPages = defineMessages({
     'carry warranty reminders to your devices, only when you turn push on.',
   'Ngoài các dịch vụ trên, bọn tao không chia sẻ dữ liệu với ai.':
     'Beyond those services, we share your data with nobody.',
-  '5. Không quảng cáo, không tracking': '5. No ads, no tracking',
-  'Không gắn pixel, không Google Analytics, không Facebook SDK, không cookie quảng cáo.':
-    'No pixels, no Google Analytics, no Facebook SDK, no advertising cookies.',
+  '5. Quảng cáo': '5. Advertising',
+  'Gói miễn phí có quảng cáo. Gói trả phí không có quảng cáo và hiện chưa mở bán.':
+    'The free tier carries ads. The paid tier has no ads and is not on sale yet.',
+  'Quảng cáo có thể do một nhà cung cấp bên thứ ba phục vụ. Nhà cung cấp đó có thể đặt cookie hoặc đọc định danh thiết bị (ví dụ mã quảng cáo của hệ điều hành) để chọn, giới hạn và đo lường quảng cáo.':
+    'Ads may be served by a third-party provider. That provider may set cookies or read device identifiers (an operating-system advertising ID, for example) to select, cap and measure ads.',
+  'Nhà cung cấp quảng cáo': 'Advertising provider',
+  'Dữ liệu nhận và mục đích': 'Data received and purpose',
+  'Cookie, định danh và thời hạn': 'Cookies, identifiers and duration',
+  'Thời hạn lưu dữ liệu quảng cáo': 'Ad data retention',
+  'Mặc định quảng cáo tắt. Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý. Mày có thể từ chối, chọn từng loại, hoặc đổi lựa chọn bất cứ lúc nào qua “Tuỳ chọn cookie” ở chân trang.':
+    'Advertising is off by default. Warrly does not load an ad script or set an advertising cookie before you agree. You can reject, choose per category, or change your choice at any time through “Cookie settings” in the footer.',
+  'Từ chối quảng cáo không chặn mày dùng gói miễn phí. Nếu không muốn thấy quảng cáo, mày có thể dùng gói trả phí khi nó mở bán.':
+    'Refusing advertising does not block you from using the free tier. If you do not want to see ads, you can use the paid tier when it goes on sale.',
+  'Warrly không nhúng Google Analytics hay Facebook SDK, và không tự theo dõi mày xuyên trang.':
+    'Warrly does not embed Google Analytics or the Facebook SDK, and does not track you across other sites itself.',
   '6. Quyền của mày': '6. Your rights',
   'Mày có thể': 'You can',
   'xuất toàn bộ dữ liệu': 'export all of your data',
@@ -347,6 +363,35 @@ export const publicPages = defineMessages({
   'để xoá vĩnh viễn mọi thiết bị, hoá đơn, ảnh và cài đặt. Thao tác xoá không thể hoàn tác.':
     'to permanently erase every device, invoice, image and setting. Deleting cannot be undone.',
   '7. Liên hệ': '7. Contact',
+  'chỉ ở gói miễn phí và chỉ khi mày đồng ý (xem mục 5).':
+    'only on the free tier, and only when you agree (see section 5).',
+  'Nếu mày ở EEA hoặc Vương quốc Anh, mày có quyền truy cập, sửa, xoá, hạn chế xử lý, phản đối xử lý, chuyển dữ liệu, rút lại đồng ý và khiếu nại với cơ quan bảo vệ dữ liệu. Để thực hiện, gửi email tới hi@warrly.com.':
+    'If you are in the EEA or the United Kingdom, you have the right to access, correct, erase, restrict or object to processing, port your data, withdraw consent and complain to a data protection authority. To exercise these rights, email hi@warrly.com.',
+  'Yêu cầu truy cập, xoá hoặc sửa dữ liệu: gửi tới hi@warrly.com. Bọn tao trả lời trong thời hạn luật định.':
+    'Access, deletion and correction requests: email hi@warrly.com. We answer within the time the law allows.',
+  'Đơn vị chịu trách nhiệm': 'Data controller',
+  'Đầu mối bảo vệ dữ liệu': 'Data protection contact',
+  '8. Cơ sở pháp lý': '8. Legal basis',
+  'Bọn tao xử lý dữ liệu theo các cơ sở sau:': 'We process data on these bases:',
+  'Phiên đăng nhập và ghi nhớ ngôn ngữ, giao diện: thực hiện hợp đồng và lợi ích hợp pháp trong việc giữ đúng lựa chọn của mày.':
+    'Sign-in session and remembering your language and appearance: performance of the contract and our legitimate interest in keeping your choices.',
+  'Cung cấp dịch vụ (tài khoản, thiết bị, bảo hành, hoá đơn, sao lưu): thực hiện hợp đồng với mày.':
+    'Providing the service (account, devices, warranties, receipts, backup): performance of our contract with you.',
+  'Thông báo đẩy và trợ lý AI: sự đồng ý của mày, có thể rút lại bất cứ lúc nào trong Cài đặt.':
+    'Push notifications and the AI assistant: your consent, which you can withdraw at any time in Settings.',
+  'Quảng cáo ở gói miễn phí: sự đồng ý của mày, thể hiện qua “Tuỳ chọn cookie”; từ chối thì không có quảng cáo.':
+    'Advertising on the free tier: your consent, given through “Cookie settings”; if you refuse, there are no ads.',
+  'Bảo mật, chống lạm dụng và giới hạn tần suất: lợi ích hợp pháp của bọn tao trong việc giữ dịch vụ an toàn.':
+    'Security, abuse prevention and rate limiting: our legitimate interest in keeping the service safe.',
+  'Email giao dịch (đặt lại mật khẩu, xác nhận đổi email): thực hiện hợp đồng và bảo mật tài khoản.':
+    'Transactional email (password reset, email-change confirmation): performance of the contract and account security.',
+  '9. Người dùng California (CCPA/CPRA)': '9. California residents (CCPA/CPRA)',
+  'Nếu mày ở California, mày có quyền biết dữ liệu cá nhân bọn tao thu thập và chia sẻ, quyền xoá, quyền sửa và quyền từ chối bán hoặc chia sẻ dữ liệu cá nhân.':
+    'If you are a California resident, you have the right to know what personal information we collect and share, the right to delete, the right to correct, and the right to opt out of the sale or sharing of personal information.',
+  'Warrly không bán dữ liệu cá nhân. Ở gói miễn phí, quảng cáo chỉ có khi mày đồng ý; mày có thể từ chối hoặc rút lại đồng ý bất cứ lúc nào qua “Tuỳ chọn cookie”.':
+    'Warrly does not sell personal information. On the free tier, ads run only when you agree; you can refuse or withdraw consent at any time through “Cookie settings”.',
+  'Để thực hiện các quyền này, gửi email tới hi@warrly.com. Mày có thể dùng đại diện được uỷ quyền. Bọn tao sẽ xác minh yêu cầu và không phân biệt đối xử khi mày thực hiện quyền.':
+    'To exercise these rights, email hi@warrly.com. You may use an authorised agent. We will verify the request and will not discriminate against you for exercising your rights.',
 
   // ── Terms (`app/(public)/terms/page.tsx`) ───────────────────────────────
   'Điều khoản sử dụng — Warrly': 'Terms of service — Warrly',
@@ -370,8 +415,8 @@ export const publicPages = defineMessages({
   // tiếng Việt" was also false once English became the default; the sentence
   // now says the message follows the interface language, and the Vietnamese
   // key was rewritten with its translation in the same change.
-  'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.':
-    'So the system stays healthy for everyone, each account has limits: 50 active devices (500 rows including sold ones), 5 warranty plans and 5 files per device, 5 MB per file, 100 MB of total file storage, 100 subscriptions and 200 wishlist items. When you hit a limit, the app says so in the language you are using.',
+  'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Gói miễn phí có quảng cáo. Gói trả phí, khi mở bán, sẽ nâng các giới hạn này và tắt quảng cáo trên tài khoản trả phí. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.':
+    'So the system stays healthy for everyone, each account has limits: 50 active devices (500 rows including sold ones), 5 warranty plans and 5 files per device, 5 MB per file, 100 MB of total file storage, 100 subscriptions and 200 wishlist items. The free tier carries ads. The paid tier, when it goes on sale, will raise these limits and turn ads off for paid accounts. When you hit a limit, the app says so in the language you are using.',
   '5. Không bảo đảm': '5. No warranty',
   'Dịch vụ được cung cấp “nguyên trạng” (as-is). Bọn tao cố gắng giữ dữ liệu an toàn và nhắc nhở đúng hạn, nhưng không bảo đảm dịch vụ không gián đoạn hay không có lỗi. Hãy tự sao lưu dữ liệu quan trọng (Cài đặt → Sao lưu & khôi phục).':
     'The service is provided “as is”. We do our best to keep your data safe and to remind you on time, but we cannot promise the service will never go down or never have a bug. Back up anything important yourself (Settings → Backup & restore).',
@@ -383,17 +428,55 @@ export const publicPages = defineMessages({
   'Chính sách Cookie — Warrly': 'Cookie policy — Warrly',
   'Chính sách sử dụng cookie của Warrly': 'How Warrly uses cookies',
   'Chính sách Cookie': 'Cookie policy',
-  'Warrly dùng cookie ở mức tối thiểu — chỉ đủ để mày đăng nhập và giữ phiên. Không có cookie quảng cáo hay theo dõi.':
-    'Warrly uses the bare minimum of cookies — just enough to sign you in and keep your session. There are no advertising or tracking cookies.',
+  'Warrly dùng cookie thiết yếu để mày đăng nhập, giữ phiên và ghi nhớ ngôn ngữ, giao diện. Ở gói miễn phí, quảng cáo có thể dùng cookie hoặc định danh thiết bị của bên thứ ba — nhưng chỉ sau khi mày đồng ý. Gói trả phí không có quảng cáo.':
+    'Warrly uses essential cookies to sign you in, keep your session and remember your language and appearance. On the free tier, ads may use third-party cookies or device identifiers — but only after you agree. The paid tier has no ads.',
   '1. Cookie thiết yếu': '1. Essential cookies',
-  'Bọn tao dùng đúng một cookie cho phiên đăng nhập:':
-    'We use exactly one cookie for the sign-in session:',
-  'Nó được mã hoá, chỉ chứa token phiên và thời hạn — không có thông tin cá nhân đọc được. Tắt cookie này thì không đăng nhập được.':
-    'It is encrypted and holds only the session token and its expiry — no readable personal information. Turn it off and you cannot sign in.',
+  'Bọn tao dùng hai cookie thiết yếu:':
+    'We use two essential cookies:',
+  'Được mã hoá, chỉ chứa token phiên và thời hạn (tối đa 7 ngày) — không có thông tin cá nhân đọc được. Tắt cookie này thì không đăng nhập được.':
+    'Encrypted, and holds only the session token and its expiry (up to seven days) — no readable personal information. Turn it off and you cannot sign in.',
+  'ghi nhớ ngôn ngữ mày chọn (en hoặc vi), tối đa 1 năm. Không chứa thông tin cá nhân.':
+    'remembers the language you chose (en or vi), for up to one year. It holds no personal information.',
+  'Cả hai cookie đều do Warrly đặt trên tên miền này, không phải cookie bên thứ ba.':
+    'Both cookies are set by Warrly on this domain; neither is a third-party cookie.',
   '2. Lưu trữ cục bộ trên máy': '2. Local storage on your device',
-  'Một vài tuỳ chọn giao diện (ví dụ chế độ sáng/tối) được lưu trong bộ nhớ cục bộ của trình duyệt (localStorage) trên máy mày, không gửi về máy chủ.':
-    'A few interface preferences (light/dark mode, for example) are kept in your browser\'s local storage (localStorage) on your own machine and are never sent to the server.',
-  '3. Không cookie bên thứ ba': '3. No third-party cookies',
-  'Không Google Analytics, không pixel mạng xã hội, không cookie quảng cáo hay tracking xuyên trang.':
-    'No Google Analytics, no social pixels, no advertising or cross-site tracking cookies.',
+  'Một vài tuỳ chọn giao diện (chế độ sáng/tối, cỡ chữ, màu nhấn) được lưu trong bộ nhớ cục bộ của trình duyệt (localStorage, các khoá theme và wv:prefs) trên máy mày, không gửi về máy chủ.':
+    'A few interface preferences (light/dark mode, font size, accent colour) are kept in your browser\'s local storage (localStorage, under the keys theme and wv:prefs) on your own machine and are never sent to the server.',
+  'Lựa chọn cookie được lưu trong localStorage dưới khoá wv_consent. Đây là bản ghi cần thiết để biết mày đã đồng ý hay từ chối; không có cookie nào được đặt cho việc này. Lựa chọn được nhớ tối đa 12 tháng, sau đó Warrly hỏi lại.':
+    'Your cookie choice is kept in localStorage under the key wv_consent. This record is necessary to know whether you agreed or refused; no cookie is set for it. The choice is remembered for up to 12 months, after which Warrly asks again.',
+  'Xoá dữ liệu trình duyệt sẽ xoá các mục này; xoá wv_consent khiến biểu ngữ cookie hiện lại.':
+    'Clearing your browser data removes these entries; clearing wv_consent makes the cookie banner appear again.',
+  '3. Cookie quảng cáo (chỉ ở gói miễn phí)': '3. Advertising cookies (free tier only)',
+  'Quảng cáo ở gói miễn phí có thể do một nhà cung cấp bên thứ ba phục vụ. Mặc định quảng cáo tắt: Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý.':
+    'Ads on the free tier may be served by a third-party provider. Advertising is off by default: Warrly does not load an ad script or set an advertising cookie before you agree.',
+  'Khi mày đồng ý, nhà cung cấp có thể đặt cookie hoặc đọc định danh thiết bị để chọn, giới hạn và đo lường quảng cáo. Gói trả phí không có quảng cáo, nên không có cookie quảng cáo.':
+    'When you agree, the provider may set cookies or read device identifiers to select, cap and measure ads. The paid tier has no ads, so it has no advertising cookies.',
+  '4. Đổi hoặc rút lại lựa chọn': '4. Changing or withdrawing your choice',
+  'Mở “Tuỳ chọn cookie” ở chân trang bất cứ lúc nào. Chọn “Từ chối không cần thiết” để tắt quảng cáo ngay, hoặc “Quản lý” để bật/tắt từng loại.':
+    'Open “Cookie settings” in the footer at any time. Choose “Reject non-essential” to turn advertising off immediately, or “Manage” to switch each category on or off.',
+  'Rút lại đồng ý không làm mất hiệu lực của việc xử lý đã xảy ra trước đó, và không chặn mày dùng gói miễn phí.':
+    'Withdrawing consent does not make earlier processing unlawful, and it does not block you from using the free tier.',
+
+  // ── Cookie consent banner + footer control ──────────────────────────────
+  // These labels are used by `components/consent/consent-banner.tsx`. The
+  // banner is mounted on the landing, legal and auth surfaces; the footer
+  // control reopens it.
+  'Tuỳ chọn cookie': 'Cookie settings',
+  'Cookie trên Warrly': 'Cookies on Warrly',
+  'Quản lý cookie': 'Manage cookies',
+  'Cookie thiết yếu': 'Strictly necessary',
+  'Luôn bật': 'Always on',
+  'Phiên đăng nhập, ngôn ngữ và giao diện. Luôn bật vì trang không chạy đúng nếu thiếu.':
+    'Sign-in session, language and appearance. Always on because the site cannot work properly without them.',
+  'Quảng cáo': 'Advertising',
+  'Cookie và định danh thiết bị dùng cho quảng cáo bên thứ ba, chỉ khi bạn đồng ý. Mặc định tắt.':
+    'Cookies and device identifiers used for third-party advertising, only if you agree. Off by default.',
+  'Warrly dùng cookie thiết yếu để đăng nhập và ghi nhớ ngôn ngữ, giao diện. Cookie quảng cáo là tuỳ chọn và mặc định tắt; chỉ bật khi bạn đồng ý.':
+    'Warrly uses essential cookies to sign you in and remember your language and appearance. Advertising cookies are optional and off by default; they are only used if you agree.',
+  'Bạn có thể đổi lựa chọn bất cứ lúc nào qua “Tuỳ chọn cookie” ở chân trang.':
+    'You can change your choice at any time through “Cookie settings” in the footer.',
+  'Chấp nhận tất cả': 'Accept all',
+  'Từ chối không cần thiết': 'Reject non-essential',
+  'Quản lý': 'Manage',
+  'Lưu lựa chọn': 'Save choices',
 });

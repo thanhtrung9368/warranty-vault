@@ -39,7 +39,7 @@ export function LandingClosing({ signedIn }: { signedIn: boolean }) {
             {t('Giữ ngày bảo hành ngay từ hôm nay.')}
           </h2>
           <p className="mt-2 text-primary-ink/80">
-            {t('Miễn phí để bắt đầu. Không cần thẻ. Không quảng cáo.')}
+            {t('Miễn phí để bắt đầu. Không cần thẻ. Gói miễn phí có quảng cáo; gói trả phí thì không.')}
           </p>
           <div className="mt-6 flex justify-center">
             <Button asChild size="lg">

@@ -1,6 +1,7 @@
 import { InstantI18nProvider } from '@/lib/i18n/client';
 import { PublicStructuredData } from '@/lib/structured-data';
-import { PublicBackLink, PublicHeader } from '@/components/legal/public-chrome';
+import { PublicBackLink, PublicFooter, PublicHeader } from '@/components/legal/public-chrome';
+import { ConsentBanner } from '@/components/consent/consent-banner';
 import { DocumentTitleSync } from '@/components/i18n/document-title';
 import { getI18n } from '@/lib/i18n/server';
 
@@ -34,9 +35,11 @@ export default async function PublicLayout({
             <div className="rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft sm:p-9">
               {children}
             </div>
+            <PublicFooter />
           </div>
         </main>
       </div>
+      <ConsentBanner />
     </InstantI18nProvider>
   );
 }

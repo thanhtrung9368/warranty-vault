@@ -14,8 +14,8 @@ export const auth = defineMessages({
   'Chào mừng quay lại 👋': 'Welcome back 👋',
   'Đăng nhập để xem thiết bị, gói đăng ký và wishlist của bạn.':
     'Sign in to see your devices, subscriptions and wishlist.',
-  'Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.':
-    'Signing up takes 30 seconds. No credit card, no ads.',
+  'Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; gói trả phí thì không.':
+    'Signing up takes 30 seconds. No credit card. The free tier has ads; the paid tier does not.',
   'Tên hiển thị': 'Display name',
   'Để trống cũng được': 'You can leave this blank',
   'Mật khẩu': 'Password',

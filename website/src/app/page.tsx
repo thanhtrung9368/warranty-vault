@@ -38,6 +38,7 @@ import { InstantI18nProvider } from '@/lib/i18n/client';
 import { PublicStructuredData } from '@/lib/structured-data';
 import { RevealObserver } from '@/components/reveal-observer';
 import { DocumentTitleSync } from '@/components/i18n/document-title';
+import { ConsentBanner } from '@/components/consent/consent-banner';
 import { LandingHeader } from '@/components/landing/landing-header';
 import { LandingHero } from '@/components/landing/landing-hero';
 import { LandingStage } from '@/components/landing/landing-stage';
@@ -121,6 +122,7 @@ export default async function LandingPage() {
           <LandingClosing signedIn={signedIn} />
           <LandingFooter year={year} />
         </main>
+        <ConsentBanner />
       </div>
     </InstantI18nProvider>
   );

@@ -80,7 +80,7 @@ export function AuthForm({
         <p className="mt-1.5 text-sm text-muted">
           {mode === 'login'
             ? t('Đăng nhập để xem thiết bị, gói đăng ký và wishlist của bạn.')
-            : t('Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.')}
+            : t('Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; gói trả phí thì không.')}
         </p>
       </div>
 

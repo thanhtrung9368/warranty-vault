@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { WarrlyWordmark } from '@/components/brand';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { localePath } from '@/lib/i18n/locale';
+import { ConsentSettingsLink } from '@/components/consent/consent-banner';
 
 /**
  * The landing footer.
@@ -65,6 +66,7 @@ export function LandingFooter({ year }: { year: number }) {
           >
             Cookies
           </Link>
+          <ConsentSettingsLink />
           {/* The support address is data, not copy: it is the same mailbox the
               privacy and terms pages already print. */}
           <a href="mailto:hi@warrly.com" className="text-muted hover:text-ink">

@@ -9,11 +9,13 @@ import { localePath } from '@/lib/i18n/locale';
 /**
  * Price & limits.
  *
- * This is the answer to the three "free forever" lines that used to appear with
+ * This is the answer to the older "free forever" lines that used to appear with
  * no explanation anywhere. The limits are the Go service's constants, and the
  * exact same numbers are written into Terms §4 so the link at the bottom of the
  * first column really does substantiate the list rather than pointing at a
- * vague promise.
+ * vague promise. The model is a free ad-supported tier plus a paid tier that
+ * removes ads and raises the limits — no price and no launch date exists in
+ * this repo, so none is stated here.
  *
  * The legal links are built from the ACTIVE locale, not the one the server
  * rendered with: after switching to Vietnamese on `/`, "Điều khoản" must go to
@@ -29,10 +31,10 @@ export function LandingPrice() {
         <div className="mb-10 text-center">
           <span className="eyebrow">{t('Giá')}</span>
           <h2 id="wv-price-title" className="display mt-2 text-3xl text-ink">
-            {t('Miễn phí. Đây là toàn bộ giới hạn.')}
+            {t('Miễn phí có quảng cáo. Gói trả phí nâng giới hạn.')}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted">
-            {t('Miễn phí là hạng bạn dùng hôm nay, với các giới hạn dưới đây. Và đây là những con số máy chủ thật sự giữ.')}
+            {t('Gói miễn phí là hạng bạn dùng hôm nay: có quảng cáo và dừng ở các con số dưới đây. Gói trả phí chưa mở bán; khi mở bán, nó bỏ quảng cáo và nâng các giới hạn này.')}
           </p>
         </div>
 
@@ -44,7 +46,7 @@ export function LandingPrice() {
                 {t('Gói miễn phí')}
               </p>
               <h3 className="mt-1 font-display text-[18px] font-bold tracking-tight text-ink">
-                {t('Miễn phí, và đây là chỗ nó dừng')}
+                {t('Miễn phí, có quảng cáo, và đây là chỗ nó dừng')}
               </h3>
               <ul className="mt-5 space-y-2.5 text-[13px] leading-relaxed text-ink-2">
                 {[
@@ -86,7 +88,7 @@ export function LandingPrice() {
                 {t('Ảnh và PDF được mã hoá AES-256-GCM trên máy chủ. Mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống.')}
               </p>
               <p className="mt-3 text-[13px] leading-relaxed text-muted">
-                {t('Không quảng cáo, không pixel theo dõi, không bán dữ liệu.')}
+                {t('Gói miễn phí có quảng cáo. Quảng cáo có thể dùng cookie hoặc định danh thiết bị; khi mở bán, gói trả phí sẽ bỏ quảng cáo. Chi tiết ở Chính sách bảo mật, mục 5.')}
               </p>
               <Link
                 href={localePath('/privacy', locale)}

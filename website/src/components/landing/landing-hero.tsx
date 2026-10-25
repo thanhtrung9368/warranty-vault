@@ -38,9 +38,9 @@ export function LandingHero({
     <section className="wv-hero px-4 pb-16 pt-16 md:px-8 md:pb-24 md:pt-24">
       <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14">
         <div className="max-w-2xl">
-          <p className="wv-hero-eyebrow">
+          <p className="wv-hero-eyebrow text-balance">
             <Sparkles aria-hidden />
-            {t('Miễn phí · Không quảng cáo, không theo dõi')}
+            {t('Miễn phí có quảng cáo · Gói trả phí chưa mở bán')}
           </p>
           {/* The H1 is the LCP element and is deliberately never wrapped in a
               reveal and never starts at `opacity: 0`. Its font size is capped
@@ -98,7 +98,7 @@ export function LandingHero({
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted">
             {[
               'Không cần thẻ tín dụng',
-              'Không quảng cáo',
+              'Quảng cáo chỉ ở gói miễn phí',
               'Backup xuất/nhập JSON',
             ].map((bullet) => (
               <li key={bullet} className="inline-flex items-center gap-1.5">

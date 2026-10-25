@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { localePath } from '@/lib/i18n/locale';
+import { ConsentSettingsLink } from '@/components/consent/consent-banner';
 
 /**
  * The header and the "back to the landing page" link shared by `/privacy`,
@@ -59,5 +60,50 @@ export function PublicBackLink() {
       <ArrowLeft className="h-4 w-4" />
       {t('Quay về trang chủ')}
     </Link>
+  );
+}
+
+
+/**
+ * Footer for the legal pages.
+ *
+ * The landing page has its own footer; these three documents are reached from
+ * the landing and from the auth screens and otherwise have no bottom chrome.
+ * The consent control belongs here as well as on the landing, because a reader
+ * who arrives at `/cookies` directly must be able to change the choice that
+ * document describes.
+ */
+export function PublicFooter() {
+  const locale = useLocale();
+  const t = useT();
+
+  return (
+    <footer className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t-[1.5px] border-border pt-6 text-sm text-muted">
+      <Link
+        href={localePath('/privacy', locale)}
+        prefetch={false}
+        className="hover:text-ink hover:underline"
+      >
+        {t('Chính sách bảo mật')}
+      </Link>
+      <Link
+        href={localePath('/terms', locale)}
+        prefetch={false}
+        className="hover:text-ink hover:underline"
+      >
+        {t('Điều khoản sử dụng')}
+      </Link>
+      <Link
+        href={localePath('/cookies', locale)}
+        prefetch={false}
+        className="hover:text-ink hover:underline"
+      >
+        {t('Chính sách Cookie')}
+      </Link>
+      <ConsentSettingsLink className="hover:text-ink" />
+      <a href="mailto:hi@warrly.com" className="hover:text-ink hover:underline">
+        {t('Hỗ trợ')}: hi@warrly.com
+      </a>
+    </footer>
   );
 }

@@ -5,6 +5,7 @@ import { LocaleSwitcher } from '@/components/locale-switcher';
 import { OfflineCacheCleaner } from '@/components/offline-cache-cleaner';
 import { AppBadge } from '@/components/app-badge';
 import { WarrlyLockup } from '@/components/brand';
+import { ConsentBanner, ConsentSettingsLink } from '@/components/consent/consent-banner';
 import { getI18n } from '@/lib/i18n/server';
 
 // Same reasoning as `(app)/layout.tsx`: a sign-in form is not a duplicate of
@@ -62,8 +63,10 @@ export default async function AuthLayout({
           <Link href="/cookies" className="hover:text-ink hover:underline">
             {t('Cookie')}
           </Link>
+          <ConsentSettingsLink className="hover:text-ink" />
         </nav>
       </footer>
+      <ConsentBanner />
     </div>
   );
 }

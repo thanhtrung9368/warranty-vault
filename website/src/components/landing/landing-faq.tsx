@@ -35,7 +35,7 @@ function buildFaq(t: Translator): FaqEntry[] {
     {
       q: t('Có thật là miễn phí không?'),
       a: t(
-        'Có — và nó có giới hạn. Gói miễn phí không hết hạn, không cần thẻ, không quảng cáo, nhưng nó dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Hôm nay chưa có gói trả phí nào để mua; cần vượt các giới hạn đó thì phải chờ, hoặc dọn bớt dữ liệu.',
+        'Có — và nó có giới hạn, cùng quảng cáo. Gói miễn phí không hết hạn, không cần thẻ, nhưng có quảng cáo và dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 gói bảo hành mỗi thiết bị, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Gói trả phí chưa mở bán; khi mở bán, nó bỏ quảng cáo và nâng các giới hạn đó.',
       ),
       href: '/terms#usage-limits',
       link: t('Điều khoản, mục 4'),
@@ -57,10 +57,10 @@ function buildFaq(t: Translator): FaqEntry[] {
     {
       q: t('Dữ liệu của tôi có an toàn không?'),
       a: t(
-        'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có pixel theo dõi, không Google Analytics, không bán dữ liệu. Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.',
+        'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có Google Analytics, không Facebook SDK, không bán dữ liệu; gói miễn phí có quảng cáo và quảng cáo có thể dùng cookie hoặc định danh thiết bị (xem Chính sách bảo mật, mục 5). Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.',
       ),
       href: '/privacy#encryption',
-      link: t('Chính sách bảo mật, mục 2'),
+      link: t('Chính sách bảo mật, mục 2 và 5'),
     },
     {
       q: t('Các bạn có phải đơn vị bảo hành không?'),
