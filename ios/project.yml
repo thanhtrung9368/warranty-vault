@@ -9,8 +9,12 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.10"
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # 1.0.0 — bản phát hành đầu tiên. Build number phải TĂNG mỗi lần upload lên
+    # App Store Connect, kể cả khi marketing version không đổi: TestFlight từ chối
+    # một build trùng số. Tăng CURRENT_PROJECT_VERSION, không sửa pbxproj tay —
+    # file đó sinh ra từ chính project.yml này.
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "2"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
   configs:
     # APNs dùng hai môi trường khác nhau: build Debug đăng ký token với
