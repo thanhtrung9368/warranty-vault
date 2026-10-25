@@ -111,11 +111,11 @@
     /* THE BRAND — not a theme.
        `--brand-body` and `--brand-dot` are the only two colours the mark and
        wordmark use. They are deliberately NOT `--foreground` / `--primary`
-       directly: the dot's job is to contrast with the receipt body, not with
+       directly: the pennant's job is to contrast with the tag body, not with
        the page, and that contract is pinned in
-       `__tests__/brand-contrast.test.ts`. Light mode: ink body + accent dot
+       `__tests__/brand-contrast.test.ts`. Light mode: ink tag + accent pennant
        (emerald and violet need `--primary-2`; their `--primary` is 2.85 / 3.04
-       against ink). Dark mode: cream body + `--primary-soft` dot — NEVER the
+       against ink). Dark mode: cream tag + `--primary-soft` pennant — NEVER the
        bright dark-mode accent, which is 2.24:1 on cream. */
     --brand-body: var(--ink);
     --brand-dot: var(--primary);
@@ -206,10 +206,18 @@
     --zinc: 33 9% 60%;
     --zinc-soft: 226 14% 20%;
 
-    /* The mark in dark mode: a cream receipt with a dark soft-tint date dot.
-       This is also the fallback when no [data-accent] attribute is set. */
+    /* The mark in dark mode: a cream tag with a BRIGHT pennant.
+       This block is also the fallback when no [data-accent] is set.
+
+       This used to be `--primary-soft` and it was correct for the previous
+       mark, whose accent sat INSIDE the cream tag and therefore had to
+       contrast with the body (10:1+). The new mark's pennant rises ABOVE the
+       tag: every visible pixel of it sits on the dark page, not on the body,
+       and the pole's overlap is covered by the plate. So the requirement
+       flipped — measure against the page. `--primary-soft` on #0E1018 is
+       1.30:1 (invisible); the bright accent is 6.73:1. */
     --brand-body: 32 100% 96%;
-    --brand-dot: var(--primary-soft);
+    --brand-dot: var(--primary);
 
     --shadow-1: 0 1px 0 rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.3);
     --shadow-2: 0 2px 4px rgba(0,0,0,0.4), 0 10px 30px -10px rgba(0,0,0,0.6);
@@ -261,8 +269,8 @@
 }
 [data-accent="emerald"] {
   /* `--primary` is only 2.85:1 against ink; `--primary-2` is 3.41:1 and clears
-     the 3:1 non-text threshold. The dot is a graphic, but it is still a mark:
-     it must not disappear on the receipt. */
+     the 3:1 non-text threshold. The pennant is a graphic, but it is still a
+     mark: it must not disappear on the tag. */
   --brand-dot: var(--primary-2);
   --primary: 153 77% 25%;             /* #0F7145 — white 6.05:1, hover 5.06:1 */
   --primary-2: 153 65% 30%;           /* #1B7E51 */
@@ -298,10 +306,12 @@
 
 /* Same swatches, dark-mode variants (the design's ACCENTS_DARK) */
 .dark[data-accent="coral"] {
-  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
-     is 2.24:1 on cream — never use it for the dot. */
+  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
+     cream (2.24:1), which is exactly why it is right here: the pennant sits
+     above the tag on the dark page, not on the cream body. See the note on the
+     :root dark block. */
   --brand-body: 32 100% 96%;
-  --brand-dot: var(--primary-soft);
+  --brand-dot: var(--primary);
   --primary: 14 100% 69%;             /* #FF8060 */
   --primary-2: 18 100% 77%;           /* #FFA489 */
   --primary-soft: 12 70% 17%;         /* #4A1A0C */
@@ -312,10 +322,12 @@
   --ring: 14 100% 69%;
 }
 .dark[data-accent="emerald"] {
-  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
-     is 2.24:1 on cream — never use it for the dot. */
+  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
+     cream (2.24:1), which is exactly why it is right here: the pennant sits
+     above the tag on the dark page, not on the cream body. See the note on the
+     :root dark block. */
   --brand-body: 32 100% 96%;
-  --brand-dot: var(--primary-soft);
+  --brand-dot: var(--primary);
   --primary: 158 64% 52%;             /* #34D399 */
   --primary-2: 157 72% 67%;           /* #6EE7B8 */
   --primary-soft: 153 59% 15%;        /* #0F3B27 */
@@ -326,10 +338,12 @@
   --ring: 158 64% 52%;
 }
 .dark[data-accent="violet"] {
-  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
-     is 2.24:1 on cream — never use it for the dot. */
+  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
+     cream (2.24:1), which is exactly why it is right here: the pennant sits
+     above the tag on the dark page, not on the cream body. See the note on the
+     :root dark block. */
   --brand-body: 32 100% 96%;
-  --brand-dot: var(--primary-soft);
+  --brand-dot: var(--primary);
   --primary: 255 92% 76%;             /* #A78BFA */
   --primary-2: 252 95% 85%;           /* #C4B5FD */
   --primary-soft: 252 48% 23%;        /* #2A1F58 */
@@ -340,10 +354,12 @@
   --ring: 255 92% 76%;
 }
 .dark[data-accent="sky"] {
-  /* Cream receipt + the DARK soft tint. The bright dark-mode `--primary`
-     is 2.24:1 on cream — never use it for the dot. */
+  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
+     cream (2.24:1), which is exactly why it is right here: the pennant sits
+     above the tag on the dark page, not on the cream body. See the note on the
+     :root dark block. */
   --brand-body: 32 100% 96%;
-  --brand-dot: var(--primary-soft);
+  --brand-dot: var(--primary);
   --primary: 198 93% 60%;             /* #38BDF8 */
   --primary-2: 199 95% 74%;           /* #7DD3FC */
   --primary-soft: 204 78% 18%;        /* #0A3450 */

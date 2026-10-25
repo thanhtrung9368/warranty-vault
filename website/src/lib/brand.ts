@@ -1,159 +1,200 @@
 // The Warrly brand geometry, as data.
 //
-// "The Kept Receipt" is the product's promise — keep the paper, remember the
-// date — so the mark is a tall torn receipt with a date dot stamped low-right,
-// not a vault (the repository's name) and not a shield (Warrly is not the
-// warranty provider; see the landing FAQ).
+// "The Warranty Tag" is the mark: a hanging tag — bevelled top-left corner, one
+// punched hole, a V notch cut up into the bottom edge — with a swallowtail
+// pennant on a pole rising from its shoulder. It is the object the product is
+// about: the tag that hangs on a device you bought, the thing you keep so the
+// date is not lost. The previous mark (a torn receipt with a date dot) told the
+// same story twice; this one says it with the object itself.
 //
-// The silhouette was revised after real renders: a nearly square 20×23 body
-// with two wide top teeth read as a battlemented slab / film strip at 60–1024,
-// and the dot competed with it. A receipt's defining silhouette is TALL and
-// NARROW (16×24 here), torn off the BOTTOM with five small irregular notches,
-// and the dot is a 2.0 stamp rather than a 2.6 badge.
+// TWO DRAWN CUTS, NOT ONE DOWNSCALED
+//
+// A tag this thin turns to mush at 16px: the 1.5-unit corner radius, the
+// 2.3-unit V and a 3.2-unit punch all land on sub-pixel edges. The small cut is
+// therefore REDRAWN on the same 32-unit grid with a thicker plate
+// (17.8×18.2 vs 17.0×17.6), a deeper V (2.8 vs 2.3), a wider punch (3.8 vs
+// 3.2 across) and a longer pennant (9.7 vs 8.4 wide). The two are not related
+// by a transform, and one must never be rendered from the other:
+//
+//   * `markCutForSize(n)` picks `full` for n >= 24 and `small` below that.
+//     24 is the documented switch; sizes 17–23 use the small cut scaled up,
+//     because downscaling the full cut below its 24px floor is exactly the
+//     blur the second cut exists to prevent.
+//   * Every raster asset (favicon.ico 16/32/48, icon-*.png, the badges) is
+//     rendered from the cut chosen for ITS OWN pixel size, never resampled.
+//
+// COLOUR
+//
+// Body = `--brand-body` (ink in light mode, cream in dark). Pennant = the
+// accent, `--brand-dot`. Mono = both paths in `currentColor` with ONE hole
+// (the punch); the pennant is never knocked out of the plate, because it has to
+// stay visible where it rises above the tag. These two custom properties are
+// the only theme input: the mark reads no font, radius or density token, so
+// changing those user settings cannot alter the logo (see
+// `__tests__/brand-wiring.test.ts` and the pixel-identity check in the
+// brand-assets suite).
 //
 // This module is pure geometry and string rendering. It has no React and no
 // Next import, for three reasons:
 //
 //   * the React components (`components/brand/*`) and the generated assets
-//     (`public/*.png`, `public/icon.svg`, `/og`) all draw from ONE source, so
+//     (`public/*.png`, `public/favicon.svg`, `/og`) all draw from ONE source, so
 //     the favicon and the header cannot drift;
 //   * the geometry can be unit-tested without a DOM;
-//   * a script can render the raster cuts at their exact pixel sizes instead
-//     of downscaling a 1024 canvas.
+//   * a script can render the raster cuts at their exact pixel sizes instead of
+//     downscaling a 1024 canvas.
 //
 // The wordmark is fixed SVG outlines, not live text. The paths were generated
 // from Plus Jakarta Sans ExtraBold (weight 800, cap height 745/1000 em) with
 // `-0.02em` tracking, then normalised so the lettering ink starts at x=0 and
 // the cap top is y=-100. The full stop is the typeface's own ExtraBold period
 // (a 150×150 square glyph, scaled to 20.13 units), drawn as a separate path so
-// it can be coral. Shipping outlines is what makes the logo immune to the
-// user's font preset and to a web-font load flash — see `--font-brand` in
+// it can carry the accent. Shipping outlines is what makes the logo immune to
+// the user's font preset and to a web-font load flash — see `--font-brand` in
 // globals.css for the pinned-family fallback.
 
-/** The mark's native drawing grid. All cut values below are in these units. */
+/** The mark's native drawing grid. Both cuts below are drawn in these units. */
 export const MARK_GRID = 32;
 
 /**
- * A size cut. The 32 grid is the master; 16 and 24 are redrawn at their own
- * pixel grid (whole-pixel tear and dot centre) so a favicon is not a 0.5×
- * antialiased downscale of the master.
+ * A size cut. Both cuts are drawn on the 32-unit grid; the name describes when
+ * the cut is used, not a different viewBox.
  */
-export type MarkCut = 16 | 24 | 32;
+export type MarkCut = 'full' | 'small';
 
 export type MarkGeometry = {
-  /** The SVG viewBox edge (square). */
-  viewBox: MarkCut;
-  /** One filled path: torn top, two rounded bottom corners. No stroke. */
+  /** Which drawn cut this is. */
+  cut: MarkCut;
+  /** The SVG viewBox edge (square) — 32 for both cuts. */
+  viewBox: number;
+  /** The tag plate, one filled path. No stroke. */
   body: string;
-  /** The date dot, stamped low-right rather than centred. */
-  dot: { cx: number; cy: number; r: number };
-  /** Rendered body height (bottom of the receipt to the lowest tear valley). */
+  /** The punched hole, appended to `body` under `fill-rule="evenodd"`. */
+  punch: string;
+  /** Pole + swallowtail pennant, painted in the accent (or currentColor in mono). */
+  flag: string;
+  /** The punch as a circle — the same geometry, for measurements/tests. */
+  punchCircle: { cx: number; cy: number; r: number };
+  /** Tag plate height (top edge to bottom edge), excluding the pennant. */
   bodyHeight: number;
-  /** The ink bounds (what a raster icon must centre, not the viewBox). */
+  /** Tag plate width (left edge to right edge), excluding the pennant. */
+  bodyWidth: number;
+  /** Depth of the V cut up into the bottom edge. */
+  notchDepth: number;
+  /** The flag path's ink width (pole + pennant) — the "accent's width" the clear space uses. */
+  flagWidth: number;
+  /** The whole silhouette (pennant tip → punch, tag bottom), i.e. what to centre. */
   ink: { x: number; y: number; width: number; height: number };
 };
 
-// ── The 32 cut ─────────────────────────────────────────────────────────────
+// ── The full cut (≥24px) ───────────────────────────────────────────────────
 //
-// Receipt body 16×24 at x=8…24, y=3…27 — tall and narrow, so it is paper, not
-// a card. The TOP is a printer-clean edge with 1.5 corners. The BOTTOM is the
-// torn end: five asymmetric notches between y=25.7 and y=27.2, none deeper
-// than 1.5 units, alternating ~1.4–1.8 units apart. The nominal body bottom is
-// y=27; the tear dips 0.2 below it. The path is clockwise, one fill, no stroke.
+// The plate is x=5.4…22.4, y=10.6…28.2. The top-left corner is a 45° bevel
+// from (5.4, 15.5) to (10.3, 10.6) — the "cut corner" that makes a tag a tag —
+// while the three other corners are the 1.5 radius (the bottom-right arc is
+// deliberately degenerate in the source path: the V notch starts at the
+// bottom-right corner, so that corner is square). The bottom edge carries a
+// 2.3-unit V between (16.9, 28.2) and (10.9, 28.2), apexed at (13.9, 25.9).
 //
-// The date dot is r=2.0 (4 units across = 25% of the 16-unit width) stamped at
-// (19.9, 21.6): low-right, above the tear, with 2.1 units of margin to the
-// right edge — a stamp, not a badge and not a centred bullet.
-const CUT_32: MarkGeometry = {
-  viewBox: 32,
+// The 3.2-unit punch sits at (9.97, 15.17), tucked under the bevel — the hole
+// the tag hangs by, not a decorative dot.
+//
+// The pennant rises from the plate's top edge at x=18.9…20.7 (the 1.8-unit
+// pole), is 8.4 units wide and ends in a swallowtail: the fly edge runs out to
+// x=27.3 at y=2.6 and y=8, and the notch between them is carved back to
+// (25, 5.3). The flag path also runs 4 units down the pole inside the plate
+// (to y=14.6) so the two fills overlap; the body is painted OVER the flag, so
+// the pole emerges from behind the shoulder with no seam and no notch.
+const CUT_FULL: MarkGeometry = {
+  cut: 'full',
+  viewBox: MARK_GRID,
   body:
-    'M9.5 3H22.5A1.5 1.5 0 0 1 24 4.5V25.8' +
-    'L23 27.2L21.7 25.8L20.2 26.7L18.4 25.7L16.8 27.1L15.2 25.9' +
-    'L13.4 26.8L11.8 25.8L10.2 27L8.8 26.1L8 26.7V4.5A1.5 1.5 0 0 1 9.5 3Z',
-  dot: { cx: 19.9, cy: 21.6, r: 2 },
-  bodyHeight: 24,
-  ink: { x: 8, y: 3, width: 16, height: 24.2 },
+    'M10.3 10.6L20.9 10.6A1.5 1.5 0 0 1 22.4 12.1L22.4 26.7A1.5 1.5 0 0 1 22.4 26.7L22.4 28.2L16.9 28.2L13.9 25.9L10.9 28.2L6.9 28.2A1.5 1.5 0 0 1 5.4 26.7L5.4 15.5L10.3 10.6Z',
+  punch: 'M8.37 15.17A1.6 1.6 0 1 0 11.57 15.17A1.6 1.6 0 1 0 8.37 15.17Z',
+  flag:
+    'M18.9 14.6L18.9 2.6L27.3 2.6L25 5.3L27.3 8L20.7 8L20.7 14.6L18.9 14.6Z',
+  punchCircle: { cx: 9.97, cy: 15.17, r: 1.6 },
+  bodyHeight: 17.6,
+  bodyWidth: 17,
+  notchDepth: 2.3,
+  flagWidth: 8.4,
+  ink: { x: 5.4, y: 2.6, width: 21.9, height: 25.6 },
 };
 
-// ── The 16 cut ─────────────────────────────────────────────────────────────
+// ── The small cut (≤16px) ──────────────────────────────────────────────────
 //
-// The 32 master is 8×12 at this size; at 8px wide the tear and the dot are
-// sub-pixel, so the 16 cut is drawn a little wider (10×12.5 at x=3…13,
-// y=2…14.5). The tear is redrawn at whole pixels with four notches ~2px deep
-// — exaggerated on purpose so a favicon still reads as torn paper — and the
-// dot is a 2.8px circle at (10,10), above the 2.5px floor.
-const CUT_16: MarkGeometry = {
-  viewBox: 16,
+// Same construction, redrawn for a 16px render (0.5× this grid): the plate is
+// 17.8×18.2 at x=5.2…23, y=10…28.2 so the strokes survive; the V is 2.8 deep
+// (apex 25.4) so it still reads as a notch rather than a ripple; the punch is
+// 3.8 across (r=1.9) so it stays a hole; the pennant is 9.7 wide with a
+// swallowtail notch 2.6 deep (25.4, 5.8 at 28 fly). Nothing here is the full
+// cut scaled — the corners are 1.4 and the pole is 2.6 wide (vs 1.8).
+const CUT_SMALL: MarkGeometry = {
+  cut: 'small',
+  viewBox: MARK_GRID,
   body:
-    'M3.7 2H12.3A0.7 0.7 0 0 1 13 2.7V12.3' +
-    'L12 14.4L10.8 12.4L9.4 14L8 12.3L6.5 14.2L4.2 12.7L3 13.2V2.7' +
-    'A0.7 0.7 0 0 1 3.7 2Z',
-  dot: { cx: 10, cy: 10, r: 1.4 },
-  bodyHeight: 12.5,
-  ink: { x: 3, y: 2, width: 10, height: 12.4 },
-};
-
-// ── The 24 cut ─────────────────────────────────────────────────────────────
-//
-// Body 12×18 at x=6…18, y=2…20. The bottom tear is redrawn on whole pixels
-// with four notches ~1.6px deep, and the dot is r=1.6 at (15,16) — 3.2px,
-// 27% of the width, still low-right.
-const CUT_24: MarkGeometry = {
-  viewBox: 24,
-  body:
-    'M7 2H17A1 1 0 0 1 18 3V19.2' +
-    'L17 20.4L15.9 18.7L14.4 20L13 18.6L11.5 20.2L9.8 18.8L8.4 20.1L6 19.4' +
-    'V3A1 1 0 0 1 7 2Z',
-  dot: { cx: 15, cy: 16, r: 1.6 },
-  bodyHeight: 18,
-  ink: { x: 6, y: 2, width: 12, height: 18.4 },
+    'M10.6 10L21.6 10A1.4 1.4 0 0 1 23 11.4L23 26.8A1.4 1.4 0 0 1 23 26.8L23 28.2L17.5 28.2L14.1 25.4L10.7 28.2L6.6 28.2A1.4 1.4 0 0 1 5.2 26.8L5.2 15.4L10.6 10Z',
+  punch: 'M8.4 15.1A1.9 1.9 0 1 0 12.2 15.1A1.9 1.9 0 1 0 8.4 15.1Z',
+  flag:
+    'M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z',
+  punchCircle: { cx: 10.3, cy: 15.1, r: 1.9 },
+  bodyHeight: 18.2,
+  bodyWidth: 17.8,
+  notchDepth: 2.8,
+  flagWidth: 9.7,
+  ink: { x: 5.2, y: 2.6, width: 22.8, height: 25.6 },
 };
 
 const CUTS: Record<MarkCut, MarkGeometry> = {
-  16: CUT_16,
-  24: CUT_24,
-  32: CUT_32,
+  full: CUT_FULL,
+  small: CUT_SMALL,
 };
 
 /**
  * Pick a cut for a requested CSS size.
  *
- * Up to 19px the 16px cut is rendered (a 20px mark on a high-DPI tab uses the
- * 24 cut at 0.83×, which is still sharper than scaling the 32 master); up to
- * 27px the 24 cut; everything larger uses the exact 32 master. The dot is
- * never allowed below a 2.5px diameter: the smallest rendered case is the 16
- * cut scaled to 16px, i.e. 3.2px.
+ * The design switches at 24px: `>= 24` is the full cut, everything below uses
+ * the separately drawn small cut. There is no third cut and no dead band — a
+ * 20px mark is the small cut at 1.25×, which is sharper than downscaling the
+ * full cut to 0.83×.
  */
 export function markCutForSize(size: number): MarkCut {
-  if (size <= 19) return 16;
-  if (size <= 27) return 24;
-  return 32;
+  return size >= 24 ? 'full' : 'small';
 }
 
 export function markGeometryForSize(size: number): MarkGeometry {
   return CUTS[markCutForSize(size)];
 }
 
-/** The smallest dot diameter any supported cut can render, in CSS pixels. */
-export function smallestRenderedDotDiameter(): number {
-  return CUT_16.dot.r * 2; // 2.8px at the 16px cut
+/** The full cut, for assets that are always large (the lockup, the badge). */
+export const CUT_32 = CUT_FULL;
+/** The small cut, for assets that are always small (the 16px favicon). */
+export const CUT_16 = CUT_SMALL;
+
+/** The smallest punch diameter any supported cut can render, in CSS pixels. */
+export function smallestRenderedPunchDiameter(): number {
+  // The small cut is drawn on the 32 grid and used at 16px: 3.8 grid units
+  // become 1.9 CSS pixels. It is a hole, not a coloured accent, so its floor is
+  // about surviving antialiasing rather than a contrast ratio.
+  return ((CUT_SMALL.punchCircle.r * 2) * 16) / MARK_GRID;
 }
 
 /**
- * A compound path for the monochrome variant: the receipt plus the dot as a
- * second, reversed subpath. `fill-rule="evenodd"` knocks the dot out, so the
- * same glyph works on any background and needs no mask, no second colour and
- * no filter.
+ * Historical name kept for API compatibility: the previous mark's accent was a
+ * dot. The measurable minimum is still the same idea — the smallest hole the
+ * mark can show at its smallest supported size.
+ */
+export function smallestRenderedDotDiameter(): number {
+  return smallestRenderedPunchDiameter();
+}
+
+/**
+ * The tag plate plus the punched hole as one compound path. `fill-rule="evenodd"`
+ * makes the punch a hole, so the same path works on any background and needs no
+ * mask. The pennant is NOT part of this compound path: it is a separate fill.
  */
 export function knockoutPath(geometry: MarkGeometry): string {
-  const { cx, cy, r } = geometry.dot;
-  // Two half arcs, drawn counter-clockwise, then Z. Evenodd makes the dot a
-  // hole; the direction is irrelevant to evenodd but keeps the subpath valid.
-  const circle =
-    `M${num(cx - r)} ${num(cy)}` +
-    `A${num(r)} ${num(r)} 0 1 0 ${num(cx + r)} ${num(cy)}` +
-    `A${num(r)} ${num(r)} 0 1 0 ${num(cx - r)} ${num(cy)}Z`;
-  return `${geometry.body}${circle}`;
+  return `${geometry.body}${geometry.punch}`;
 }
 
 function num(value: number): string {
@@ -172,8 +213,8 @@ export const WORDMARK_LETTERS =
 
 /**
  * The full stop: Plus Jakarta Sans ExtraBold's period glyph, positioned after
- * the 'y' (+ its advance and tracking) and kept as its own path so it can be
- * coral while the letters are ink. 20.13 units square at cap height 100 —
+ * the 'y' (+ its advance and tracking) and kept as its own path so it can carry
+ * the accent while the letters are ink. 20.13 units square at cap height 100 —
  * proportionally the typeface's own period, not a drawn bullet.
  */
 export const WORDMARK_PERIOD = {
@@ -199,35 +240,57 @@ export const WORDMARK_BOX = {
 
 // ── Lockup ─────────────────────────────────────────────────────────────────
 //
-// Geometry from the brand brief:
-//   * symbol body height = 1.15 × cap height → 115 units at cap 100;
-//   * gap = 0.5 × symbol width → the receipt body is 76.667 wide, so 38.333;
-//   * clear space = 2 × dot diameter → dot is 19.167 units across, so 38.333.
+// Geometry from the brand brief, applied to this mark:
+//   * mark body height = 1.15 × cap height → the mark's full silhouette (the
+//     pennant tip at y=2.6 down to the tag's bottom at y=28.2, 25.6 grid units)
+//     is drawn 115 units tall, i.e. scale = 115 / 25.6. The tag plate itself is
+//     therefore 79.06 units tall and the pennant accounts for the rest. This is
+//     the same intent as the previous mark, whose "body height" was its whole
+//     silhouette (the 0.2-unit tear overshoot was ignored);
+//   * gap = 0.5 × symbol width → the symbol is 21.9 grid units wide, so at
+//     scale 4.4921875 it is 98.37890625 wide and the gap is 49.189453125;
+//   * clear space = 2 × the accent's width → the flag path (pole + pennant)
+//     inks 8.4 grid units wide (37.734375 here), so 75.46875. It is not drawn:
+//     the caller must not crowd it.
 //
-// The symbol is the 32 master drawn at 115/24 ≈ 4.7917× (153.33 box, 76.667 ×
-// 115 body). Its box is shifted left by 38.333 and down by 129.375 so the
-// receipt's visual left edge sits at x=0 and its nominal bottom sits on the
-// wordmark baseline (y=0). The tear dips 0.958 below that baseline. The result
-// is one SVG, so the mark and the outline wordmark scale and align together.
+// The symbol is translated so its ink starts at x=0 and the tag's bottom edge
+// (y=28.2) sits on the wordmark baseline (y=0). Its top then lands exactly on
+// y=-115, the same top line the old lockup had, so the fixed box height
+// (115 + the 'y' descender 29.53 = 144.53) is unchanged. The design handoff
+// drew the same rules at wordmark scale 0.44 (cap 44): 1.15 × 44 = 50.6 =
+// 25.6 × 1.97, and the wordmark at x = 1.5 × 22.5 × 1.97 — it used a 22.5-unit
+// symbol width, while the shipped paths ink 21.9, which is why the recomputed
+// width below is 603.54 instead of the handoff's 267.12 / 0.44 = 607.09.
 export const LOCKUP = {
-  /** The 32-grid mark is drawn at this scale inside the lockup (115 / 24). */
-  markScale: 115 / 24,
-  /** Translation applied to the mark so its ink starts at x=0 and baseline at y=0. */
-  markX: -(8 * 115) / 24,
-  markY: -(27 * 115) / 24,
-  /** x where the wordmark group starts. 76.667 (body width) + 38.333 (gap). */
-  wordmarkX: 115,
-  /** viewBox — top is the receipt top (3 × S - 129.375 = -115). */
-  viewBox: { x: 0, y: -115, width: 570.97, height: 144.53 },
-  /** 2 × the dot's rendered diameter (2 × 19.167 = 38.333 units). */
-  clearSpace: 230 / 6,
+  /** Cap height of the outline wordmark, in lockup units. */
+  capHeight: 100,
+  /** The full 32-grid mark is drawn at this scale inside the lockup (115 / 25.6). */
+  markScale: 115 / 25.6,
+  /** Translation applied to the mark so its ink starts at x=0 and its bottom sits at y=0. */
+  markX: -(5.4 * 115) / 25.6,
+  markY: -(28.2 * 115) / 25.6,
+  /** x where the wordmark group starts: 98.37890625 (symbol) + 49.189453125 (gap). */
+  wordmarkX: (1.5 * 21.9 * 115) / 25.6,
+  /** viewBox — top is the pennant tip (2.6 × scale − 126.6796875 = −115). */
+  viewBox: {
+    x: 0,
+    y: -115,
+    width: (1.5 * 21.9 * 115) / 25.6 + 455.97,
+    height: 144.53,
+  },
+  /** 2 × the flag path's rendered ink width (2 × 8.4 × scale = 75.46875 units). */
+  clearSpace: (2 * 8.4 * 115) / 25.6,
 } as const;
 
 /** Aspect ratio for a standalone lockup sized by its height. */
 export const LOCKUP_ASPECT = LOCKUP.viewBox.width / LOCKUP.viewBox.height;
 export const WORDMARK_ASPECT = WORDMARK_BOX.width / WORDMARK_BOX.height;
 
-/** Minimal CSS custom properties the in-app components paint with. */
+/**
+ * Minimal CSS custom properties the in-app components paint with. `dot` is the
+ * accent slot the previous mark used for its date dot; on this mark it paints
+ * the pennant. The name is kept so every caller and the OG route keep working.
+ */
 export const BRAND_FILL = {
   body: 'hsl(var(--brand-body))',
   dot: 'hsl(var(--brand-dot))',
@@ -251,25 +314,22 @@ export type RenderMarkOptions = {
   backgroundRadius?: number;
 };
 
-function geometryGroup(
+/**
+ * The two paths, in paint order: the pennant first, then the plate (with its
+ * punched hole). Painting the plate last makes the pole run BEHIND the tag's
+ * shoulder — the flag path reaches down to y=14.6 only so the two fills
+ * overlap; if it were painted on top it would end in a coral stub halfway down
+ * the tag.
+ */
+function markPaths(
   geometry: MarkGeometry,
-  size: number,
-  fills: SvgFill,
+  fill: SvgFill,
   variant: 'colour' | 'mono',
 ): string {
-  const scale = size / geometry.viewBox;
-  if (variant === 'mono') {
-    return (
-      `<g transform="scale(${num(scale)})">` +
-      `<path d="${knockoutPath(geometry)}" fill="${fills.body}" fill-rule="evenodd"/>` +
-      `</g>`
-    );
-  }
+  const accent = variant === 'mono' ? fill.body : fill.dot;
   return (
-    `<g transform="scale(${num(scale)})">` +
-    `<path d="${geometry.body}" fill="${fills.body}"/>` +
-    `<circle cx="${num(geometry.dot.cx)}" cy="${num(geometry.dot.cy)}" r="${num(geometry.dot.r)}" fill="${fills.dot}"/>` +
-    `</g>`
+    `<path d="${geometry.flag}" fill="${accent}"/>` +
+    `<path d="${knockoutPath(geometry)}" fill="${fill.body}" fill-rule="evenodd"/>`
   );
 }
 
@@ -285,19 +345,21 @@ export function renderMarkSvg({
   background,
   backgroundRadius = 0,
 }: RenderMarkOptions): string {
-  // Small sizes use their dedicated cut (whole-pixel tear/dot); large ones use
-  // the exact 32 master. Either way the rendered box is `size × size`.
+  // Small sizes use their dedicated cut; large ones use the exact full cut.
   const geometry = markGeometryForSize(size);
   const fill = { body: fills.body ?? BRAND_FILL.body, dot: fills.dot ?? BRAND_FILL.dot };
   const bg =
     background === undefined
       ? ''
       : `<rect width="${size}" height="${size}" rx="${num(backgroundRadius)}" fill="${background}"/>`;
+  const scale = size / geometry.viewBox;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
     `viewBox="0 0 ${size} ${size}" role="img" aria-label="Warrly">` +
     bg +
-    geometryGroup(geometry, size, fill, variant) +
+    `<g transform="scale(${num(scale)})">` +
+    markPaths(geometry, fill, variant) +
+    `</g>` +
     `</svg>`
   );
 }
@@ -324,35 +386,34 @@ export function renderIconSvg({
 }): string {
   const glyph = size * glyphRatio;
   // The raster cut follows the GLYPH's rendered size, not the tile size: a
-  // 48px favicon gets the whole-pixel 32 master, a 16px one gets the 16 cut.
+  // 48px favicon gets the full cut, a 16px one gets the small cut.
   const geometry = markGeometryForSize(glyph);
   const fill = { body: fills?.body ?? BRAND_FILL.body, dot: fills?.dot ?? BRAND_FILL.dot };
   const scale = glyph / geometry.viewBox;
-  // Centre the VISIBLE receipt, not its 32-unit drawing box: the box has 6
-  // units of horizontal padding and 1.6/5 units above/below the tear, so
-  // centring the box would push the glyph up and left inside the tile.
+  // Centre the VISIBLE silhouette, not its 32-unit drawing box: the box has
+  // 5.2–5.4 units of padding on the left and 4–4.8 on the right, and 2.6 above
+  // the pennant / 3.8 below the tag, so centring the box would push the glyph
+  // up and left inside the tile.
   const offsetX = (size - geometry.ink.width * scale) / 2 - geometry.ink.x * scale;
   const offsetY = (size - geometry.ink.height * scale) / 2 - geometry.ink.y * scale;
-  const inner =
-    variant === 'mono'
-      ? `<path d="${knockoutPath(geometry)}" fill="${fill.body}" fill-rule="evenodd"/>`
-      : `<path d="${geometry.body}" fill="${fill.body}"/>` +
-        `<circle cx="${num(geometry.dot.cx)}" cy="${num(geometry.dot.cy)}" r="${num(geometry.dot.r)}" fill="${fill.dot}"/>`;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
     `viewBox="0 0 ${size} ${size}" role="img" aria-label="Warrly">` +
     `<rect width="${size}" height="${size}" rx="${num(backgroundRadius)}" fill="${background}"/>` +
-    `<g transform="translate(${num(offsetX)} ${num(offsetY)}) scale(${num(scale)})">${inner}</g>` +
+    `<g transform="translate(${num(offsetX)} ${num(offsetY)}) scale(${num(scale)})">` +
+    markPaths(geometry, fill, variant) +
+    `</g>` +
     `</svg>`
   );
 }
 
 /**
- * The white-on-alpha shape Android uses as a notification badge. One path, a
- * knockout hole for the dot: monochrome by construction, no second colour.
+ * The white-on-alpha shape Android uses as a notification badge. Both paths in
+ * white, ONE hole (the punch): the pennant must stay visible above the tag, so
+ * there is no knockout between them. Monochrome by construction.
  */
 export function renderNotificationBadgeSvg(size = 96): string {
-  const geometry = CUT_32;
+  const geometry = CUT_FULL;
   const scale = (size * 0.92) / MARK_GRID;
   const offsetX = (size - geometry.ink.width * scale) / 2 - geometry.ink.x * scale;
   const offsetY = (size - geometry.ink.height * scale) / 2 - geometry.ink.y * scale;
@@ -360,6 +421,7 @@ export function renderNotificationBadgeSvg(size = 96): string {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
     `viewBox="0 0 ${size} ${size}" role="img" aria-label="Warrly">` +
     `<g transform="translate(${num(offsetX)} ${num(offsetY)}) scale(${num(scale)})">` +
+    `<path d="${geometry.flag}" fill="#FFFFFF"/>` +
     `<path d="${knockoutPath(geometry)}" fill="#FFFFFF" fill-rule="evenodd"/>` +
     `</g></svg>`
   );
@@ -400,13 +462,14 @@ export function renderLockupSvg({
 }): string {
   const body = fills.body ?? BRAND_FILL.body;
   const dot = variant === 'mono' ? body : fills.dot ?? BRAND_FILL.dot;
+  const fill = { body, dot };
   const width = height * LOCKUP_ASPECT;
-  const mark = `<g transform="translate(${LOCKUP.markX} ${LOCKUP.markY}) scale(${LOCKUP.markScale})">` +
-    `<path d="${CUT_32.body}" fill="${body}"/>` +
-    `<circle cx="${num(CUT_32.dot.cx)}" cy="${num(CUT_32.dot.cy)}" r="${num(CUT_32.dot.r)}" fill="${dot}"/>` +
+  const mark =
+    `<g transform="translate(${num(LOCKUP.markX)} ${num(LOCKUP.markY)}) scale(${num(LOCKUP.markScale)})">` +
+    markPaths(CUT_FULL, fill, variant) +
     `</g>`;
   const wordmark =
-    `<g transform="translate(${LOCKUP.wordmarkX} 0)">` +
+    `<g transform="translate(${num(LOCKUP.wordmarkX)} 0)">` +
     `<path d="${WORDMARK_LETTERS}" fill="${body}"/>` +
     `<rect x="${WORDMARK_PERIOD.x}" y="${WORDMARK_PERIOD.y}" width="${WORDMARK_PERIOD.size}" height="${WORDMARK_PERIOD.size}" fill="${dot}"/>` +
     `</g>`;
@@ -419,17 +482,17 @@ export function renderLockupSvg({
 
 /**
  * The in-app mark asset (`public/icon.svg`). It deliberately has no literal
- * colour: the body is `currentColor` and the dot is the app's
+ * colour: the plate is `currentColor` and the pennant is the app's
  * `--brand-dot` custom property, so the same file works on cream, white, ink
  * and every accent without a second copy. No stroke, filter or gradient.
  */
 export function renderInAppMarkSvg(): string {
-  const g = CUT_32;
+  const g = CUT_FULL;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Warrly">` +
     `<title>Warrly</title>` +
-    `<path d="${g.body}" fill="currentColor"/>` +
-    `<circle cx="${num(g.dot.cx)}" cy="${num(g.dot.cy)}" r="${num(g.dot.r)}" fill="hsl(var(--brand-dot))"/>` +
+    `<path d="${g.flag}" fill="hsl(var(--brand-dot))"/>` +
+    `<path d="${knockoutPath(g)}" fill="currentColor" fill-rule="evenodd"/>` +
     `</svg>\n`
   );
 }

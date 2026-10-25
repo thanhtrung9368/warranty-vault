@@ -9,9 +9,9 @@ export type WarrlyMarkProps = {
   /** Rendered edge length in CSS pixels. Fixed: it does not scale with `em`. */
   size?: number;
   /**
-   * `colour` paints an ink/cream receipt with a contrasting accent dot.
-   * `mono` is one path with the dot knocked out — for stamps, watermarks and
-   * the white-on-alpha notification badge.
+   * `colour` paints an ink/cream tag with a contrasting accent pennant.
+   * `mono` is both paths in `currentColor` with the punch knocked out — for
+   * stamps, watermarks and the white-on-alpha notification badge.
    */
   variant?: 'colour' | 'mono';
   /** Accessible name. Omit for decorative marks (the default is `aria-hidden`). */
@@ -21,17 +21,22 @@ export type WarrlyMarkProps = {
 };
 
 /**
- * "The Kept Receipt" — the single Warrly symbol.
+ * "The Warranty Tag" — the single Warrly symbol.
  *
- * The receipt is the paper; the dot is the date. At 32 units it is a tall
- * 16×24 body at x=8…24, y=3…27: a clean 1.5-radius top, and a torn BOTTOM with
- * five small asymmetric notches (25.7…27.2). The 2.0-radius dot is stamped at
- * (19.9, 21.6) — low-right, above the tear, not centred. Dedicated 16/24 cuts
- * keep the tear and the dot legible at favicon sizes. There is no background
- * tile, no stroke, no radius token and no font token in here: the mark is a
- * trademark asset, not a themed UI chip. Its only variables are
- * `--brand-body` and `--brand-dot` (see globals.css), which exist so the dot
- * keeps contrast when the user changes accent.
+ * A hanging tag: bevelled top-left corner, one punched hole, a V notch in the
+ * bottom edge, and a swallowtail pennant on a pole rising from its shoulder.
+ * The plate is `--brand-body` (ink on light, cream on dark); the pennant is
+ * `--brand-dot`, the accent. The pole is painted first and the plate over it,
+ * so it emerges from behind the shoulder rather than ending in a stub on the
+ * tag.
+ *
+ * `size` selects the DRAWN cut, never a downscale: 24px and above is the full
+ * cut, below 24 is the separate small cut (thicker plate, deeper V, larger
+ * punch, longer pennant). There is no background tile, no stroke, no radius
+ * token and no font token in here: the mark is a trademark asset, not a themed
+ * UI chip. Its only variables are `--brand-body` and `--brand-dot` (see
+ * globals.css), which exist so the pennant keeps contrast when the user changes
+ * accent.
  */
 export function WarrlyMark({
   size = 32,
@@ -45,27 +50,8 @@ export function WarrlyMark({
   const a11y = title
     ? { role: 'img' as const, 'aria-label': title }
     : { 'aria-hidden': true as const, focusable: false };
-
-  if (variant === 'mono') {
-    return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox={box}
-        className={className}
-        style={style}
-        data-brand-mark={variant}
-        {...a11y}
-      >
-        <path
-          d={knockoutPath(geometry)}
-          fill="currentColor"
-          fillRule="evenodd"
-        />
-      </svg>
-    );
-  }
+  const accent = variant === 'mono' ? 'currentColor' : BRAND_FILL.dot;
+  const body = variant === 'mono' ? 'currentColor' : BRAND_FILL.body;
 
   return (
     <svg
@@ -78,13 +64,8 @@ export function WarrlyMark({
       data-brand-mark={variant}
       {...a11y}
     >
-      <path d={geometry.body} fill={BRAND_FILL.body} />
-      <circle
-        cx={geometry.dot.cx}
-        cy={geometry.dot.cy}
-        r={geometry.dot.r}
-        fill={BRAND_FILL.dot}
-      />
+      <path d={geometry.flag} fill={accent} />
+      <path d={knockoutPath(geometry)} fill={body} fillRule="evenodd" />
     </svg>
   );
 }

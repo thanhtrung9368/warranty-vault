@@ -18,7 +18,8 @@ export type WarrlyWordmarkProps = {
 
 /**
  * `Warrly` in fixed Plus Jakarta Sans ExtraBold 800 outlines, `-0.02em` track,
- * ending in a coral full stop.
+ * ending in a full stop painted with the accent — the same `--brand-dot` slot
+ * the mark's pennant uses.
  *
  * The wordmark is NOT live text. The paths are the real ExtraBold outlines
  * (cap height 100, baseline y=0) generated once from the font, so:
@@ -30,7 +31,8 @@ export type WarrlyWordmarkProps = {
  * the logo itself never asks the browser for a font.
  *
  * The full stop is the typeface's own period glyph, kept as a separate rect so
- * it can carry the accent. The size is fixed; only the colour tokens move.
+ * it can carry the accent (coral by default, matching the pennant). The size is
+ * fixed; only the colour tokens move.
  */
 export function WarrlyWordmark({
   height = 24,

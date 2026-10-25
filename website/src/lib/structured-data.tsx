@@ -5,9 +5,9 @@
 //   * `WebSite` — this is the node Google reads for the site name in a search
 //     result. `inLanguage` lists both languages the site actually serves.
 //   * `Organization` — the publisher of the site. The logo is the current
-//     "Kept Receipt" mark rasterised from `src/lib/brand.ts`
-//     (`renderIconSvg`), not the old vault/shield artwork; the support email is
-//     the same `hi@warrly.com` mailbox the footer and legal pages publish.
+//     "Warranty Tag" mark rasterised from `src/lib/brand.ts` (`renderIconSvg`),
+//     not the old vault/shield artwork; the support email is the same
+//     `hi@warrly.com` mailbox the footer and legal pages publish.
 //
 // What is deliberately NOT emitted:
 //
@@ -33,9 +33,9 @@ export const SUPPORT_EMAIL = 'hi@warrly.com';
  * The brand mark as a crawlable image URL.
  *
  * `public/icon-512.png` is generated from `brand.ts` (`renderIconSvg`: the
- * 32-grid receipt body plus the coral date dot on the brand background). The
- * wordmark is not the logo — Google wants a square brand image, and this is the
- * current mark, not the retired vault illustration.
+ * 32-grid tag plate with its punched hole plus the coral pennant on the brand
+ * background). The wordmark is not the logo — Google wants a square brand
+ * image, and this is the current mark, not the retired vault illustration.
  */
 export const BRAND_LOGO_PATH = '/icon-512.png';
 

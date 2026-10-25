@@ -85,15 +85,21 @@ describe('brand dot contrast (body vs dot)', () => {
       expect(ratio(body, dot)).toBeGreaterThanOrEqual(3);
     });
 
-    it(`${accent} / dark: cream receipt + soft dot clears 10:1`, () => {
+    // The old mark's accent sat INSIDE the cream tag, so this asserted 10:1
+    // against the body and explicitly rejected the bright accent. The new mark's
+    // pennant rises ABOVE the tag — every visible pixel is on the dark page, and
+    // the pole's overlap is covered by the plate — so the requirement moved to
+    // the page. `--primary-soft` on #0E1018 measures 1.30:1 and is invisible;
+    // this now pins the bright accent and measures it against the page.
+    it(`${accent} / dark: cream tag + bright pennant clears 3:1 on the page`, () => {
       const vars = dark(accent);
-      const body = resolve(vars, 'brand-body');
+      expect(resolve(vars, 'brand-body')).toBe('32 100% 96%');
       const dot = resolve(vars, 'brand-dot');
-      expect(body).toBe('32 100% 96%');
-      expect(dot).toBe(resolve(vars, 'primary-soft'));
-      expect(ratio(body, dot)).toBeGreaterThanOrEqual(10);
-      // And the bright dark-mode accent is NOT what we picked.
-      expect(dot).not.toBe(resolve(vars, 'primary'));
+      expect(dot).toBe(resolve(vars, 'primary'));
+      const page = resolve(vars, 'background');
+      expect(ratio(page, dot)).toBeGreaterThanOrEqual(3);
+      // And the body-relative token is NOT what we picked any more.
+      expect(dot).not.toBe(resolve(vars, 'primary-soft'));
     });
   }
 

@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { markGeometryForSize } from '@/lib/brand';
 
 const WEBSITE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const PUBLIC = join(WEBSITE, 'public');
@@ -34,8 +35,11 @@ function paeth(a: number, b: number, c: number): number {
 }
 
 function decodePng(path: string): Decoded {
-  const buffer = readFileSync(path);
-  expect(buffer.subarray(0, 8).toString('hex'), `${path} signature`).toBe(
+  return decodePngBuffer(readFileSync(path), path);
+}
+
+function decodePngBuffer(buffer: Buffer, label: string): Decoded {
+  expect(buffer.subarray(0, 8).toString('hex'), `${label} signature`).toBe(
     '89504e470d0a1a0a',
   );
   let offset = 8;
@@ -62,9 +66,9 @@ function decodePng(path: string): Decoded {
       break;
     }
   }
-  expect(bitDepth, `${path} bit depth`).toBe(8);
-  expect(interlace, `${path} interlace`).toBe(0);
-  expect([2, 6], `${path} colour type`).toContain(colorType);
+  expect(bitDepth, `${label} bit depth`).toBe(8);
+  expect(interlace, `${label} interlace`).toBe(0);
+  expect([2, 6], `${label} colour type`).toContain(colorType);
   const channels = colorType === 6 ? 4 : 3;
   const raw = inflateSync(Buffer.concat(idat));
   const stride = width * channels;
@@ -83,7 +87,7 @@ function decodePng(path: string): Decoded {
       else if (filter === 2) value += b;
       else if (filter === 3) value += Math.floor((a + b) / 2);
       else if (filter === 4) value += paeth(a, b, c);
-      else expect(filter, `${path} row ${y} filter`).toBe(0);
+      else expect(filter, `${label} row ${y} filter`).toBe(0);
       current[x] = value & 0xff;
     }
     current.copy(pixels, y * stride);
@@ -231,6 +235,7 @@ describe('favicon.ico + favicon.svg (defect 3)', () => {
     const count = ico.readUInt16LE(4);
     expect(count).toBe(3);
     const sizes: number[] = [];
+    const entries = new Map<number, Buffer>();
     for (let i = 0; i < count; i += 1) {
       const entry = 6 + i * 16;
       const width = ico[entry] === 0 ? 256 : ico[entry];
@@ -243,17 +248,36 @@ describe('favicon.ico + favicon.svg (defect 3)', () => {
       expect(ico.subarray(offset, offset + 8).toString('hex')).toBe(
         '89504e470d0a1a0a',
       );
+      entries.set(width, Buffer.from(ico.subarray(offset, offset + bytes)));
     }
     expect(sizes).toEqual([16, 32, 48]);
+
+    // The 16px entry is the SMALL cut, not a downscaled full one. The small
+    // pennant starts at x=18.3/32 = 9.15px, so pixel (9,1) is ~85% covered
+    // horizontally (× the ~70% coverage of the flag's top row) ≈ 156/255;
+    // the full cut starts at 18.9 → ~55% × 70% ≈ 99/255. Measured, not assumed.
+    const small = decodePngBuffer(entries.get(16)!, 'favicon.ico 16px entry');
+    expect(small.width).toBe(16);
+    expect(small.alpha(9, 1)).toBeGreaterThan(130);
+    expect(small.alpha(10, 1)).toBeGreaterThan(160);
+    const full = decodePngBuffer(entries.get(32)!, 'favicon.ico 32px entry');
+    expect(full.width).toBe(32);
   });
 
-  it('ships an adaptive SVG favicon with a real mark path', () => {
+  it('ships an adaptive SVG favicon with the SMALL cut', () => {
     const svg = readFileSync(join(PUBLIC, 'favicon.svg'), 'utf8');
+    const small = markGeometryForSize(16);
     expect(svg).toContain('<svg');
     expect(svg).toContain('prefers-color-scheme: dark');
-    expect(svg).toContain('<path');
-    expect(svg).toContain('<circle');
-    expect(svg).toContain('M3.7 2');
+    expect(svg).toContain('forced-colors: active');
+    // Two filled paths: the pennant, then the plate with the punch appended.
+    expect(svg.match(/<path/g)).toHaveLength(2);
+    expect(svg).not.toContain('<circle');
+    expect(svg).toContain(small.body);
+    expect(svg).toContain(small.punch);
+    expect(svg).toContain(small.flag);
+    // The full cut's plate must not be what a 16px tab renders.
+    expect(svg).not.toContain(markGeometryForSize(32).body);
     expect(svg.length).toBeGreaterThan(400);
   });
 });
@@ -296,21 +320,27 @@ describe('notification icon + badge (defect 4)', () => {
     expect(transparent).toBeGreaterThan(1000);
   });
 
-  it('knocks the dot out of the badge instead of painting it', () => {
-    // The dot centre in the 96px badge, computed from the same geometry:
-    // scale = 96*0.92/32, then the visible-ink offset (8..24 × 3..27.2).
+  it('knocks the punch out of the badge and keeps the pennant visible', () => {
+    // The geometry is imported, not retyped: this checks the RENDERER against
+    // the same source rather than against a second copy of the numbers.
+    const geometry = markGeometryForSize(32);
     const scale = (96 * 0.92) / 32;
-    const offsetX = (96 - 16 * scale) / 2 - 8 * scale;
-    const offsetY = (96 - 24.2 * scale) / 2 - 3 * scale;
-    const cx = Math.round(offsetX + 19.9 * scale);
-    const cy = Math.round(offsetY + 21.6 * scale);
+    const offsetX = (96 - geometry.ink.width * scale) / 2 - geometry.ink.x * scale;
+    const offsetY = (96 - geometry.ink.height * scale) / 2 - geometry.ink.y * scale;
+    const cx = Math.round(offsetX + geometry.punchCircle.cx * scale);
+    const cy = Math.round(offsetY + geometry.punchCircle.cy * scale);
     for (let dy = -1; dy <= 1; dy += 1) {
       for (let dx = -1; dx <= 1; dx += 1) {
-        expect(badge.alpha(cx + dx, cy + dy), `dot hole ${cx + dx},${cy + dy}`).toBe(0);
+        expect(badge.alpha(cx + dx, cy + dy), `punch hole ${cx + dx},${cy + dy}`).toBe(0);
       }
     }
-    // The receipt body around it is visible.
-    expect(badge.alpha(cx - 12, cy - 12)).toBe(255);
+    // The plate below/right of the punch is solid.
+    expect(badge.alpha(cx + 6, cy + 14)).toBe(255);
+    // The pennant above the plate is solid too — it is not knocked out, and
+    // the sample sits clear of the swallowtail notch.
+    const flagX = Math.round(offsetX + 23 * scale);
+    const flagY = Math.round(offsetY + 3.5 * scale);
+    expect(badge.alpha(flagX, flagY), `pennant ${flagX},${flagY}`).toBe(255);
   });
 });
 
