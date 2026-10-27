@@ -95,7 +95,7 @@ export function LandingPrice() {
                 prefetch={false}
                 className="mt-auto pt-6 text-[13px] font-semibold text-primary hover:underline"
               >
-                {t('Chính sách bảo mật, mục 2 và 5')} →
+                {t('Chính sách bảo mật, mục 3 và 5')} →
               </Link>
             </div>
 

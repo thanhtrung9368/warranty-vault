@@ -7,7 +7,9 @@
 //   * `Organization` — the publisher of the site. The logo is the current
 //     "Warranty Tag" mark rasterised from `src/lib/brand.ts` (`renderIconSvg`),
 //     not the old vault/shield artwork; the support email is the same
-//     `hi@warrly.com` mailbox the footer and legal pages publish.
+//     `support@warrly.com` mailbox the footer and legal pages publish. The
+//     privacy mailbox (`privacy@warrly.com`) is deliberately NOT the support
+//     one: data requests and product help are answered separately.
 //
 // What is deliberately NOT emitted:
 //
@@ -27,7 +29,7 @@
 import { SITE_NAME, absoluteUrl, siteBaseUrl } from '@/lib/metadata';
 
 /** The published support mailbox. Data, not translated copy. */
-export const SUPPORT_EMAIL = 'hi@warrly.com';
+export const SUPPORT_EMAIL = 'support@warrly.com';
 
 /**
  * The brand mark as a crawlable image URL.

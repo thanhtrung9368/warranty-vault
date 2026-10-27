@@ -69,8 +69,8 @@ export function LandingFooter({ year }: { year: number }) {
           <ConsentSettingsLink />
           {/* The support address is data, not copy: it is the same mailbox the
               privacy and terms pages already print. */}
-          <a href="mailto:hi@warrly.com" className="text-muted hover:text-ink">
-            {t('Hỗ trợ')}: hi@warrly.com
+          <a href="mailto:support@warrly.com" className="text-muted hover:text-ink">
+            {t('Hỗ trợ')}: support@warrly.com
           </a>
           <Link href="/login" className="font-semibold text-primary hover:underline">
             {t('Đăng nhập')}

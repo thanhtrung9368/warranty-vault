@@ -12,23 +12,46 @@
 // keys, which keeps the dictionary pure text (a translator should not have to
 // place XML) and leaves the emphasis exactly where the Vietnamese had it.
 //
-// The advertising/consent sections were rewritten for the free-with-ads,
-// paid-without model; the rest of the Vietnamese is the original. Sections 8
-// and 9 are appended rather than inserted because the existing numbers are
-// linked from the landing page and the FAQ, and renumbering would break those
-// anchors.
+// STRUCTURE. The document was restructured against the owner's shipped app
+// (Stavely, approved on both stores) for coverage, not wording: identity of the
+// controller first, then what is stored, then advertising, rights, third
+// parties, legal basis, California, and only then the sections Vietnamese law
+// adds — retention, cross-border transfer, children, international users,
+// changes, contact. Section numbers are load-bearing: the landing page and the
+// FAQ print them in link text ("Chính sách bảo mật, mục 5") and link to
+// `#encryption`, `#ads`, `#rights`. Advertising therefore stays §5 and rights
+// stay §6. The old §2 (encryption) is now §3 because identity took §1; those
+// two cross-references were updated in the same change.
+//
+// The controller's name is a CONSTANT, not a translation key. It is identical
+// in both languages, and `i18n.test.ts` fails any English column that still
+// contains Vietnamese characters — a legal name with diacritics would fail that
+// check while being exactly right. Same reason the email addresses are rendered
+// as links instead of being baked into a sentence: they are data, not copy.
+//
+// There is deliberately NO postal address and no placeholder for one. GDPR
+// Art 13(1)(a) requires the identity and contact details of the controller, not
+// a street address; CCPA requires a privacy contact; Google Play requires the
+// developer address in its own console, not here. The owner is a private
+// individual, so publishing one would be a privacy cost with no legal gain.
 
 import { useT } from '@/lib/i18n/client';
-import { Placeholder } from './placeholder';
 
-const UPDATED = '25/10/2026';
+const UPDATED = '27/10/2026';
+const LEGAL_NAME = 'Lê Thành Trung';
+const PRIVACY_EMAIL = 'privacy@warrly.com';
+const SUPPORT_EMAIL = 'support@warrly.com';
 
 export function PrivacyContent() {
   const t = useT();
+  const mailClass = 'font-semibold text-primary hover:underline';
   return (
 <article className="prose prose-slate max-w-none dark:prose-invert">
   <h1 className="display text-3xl">{t('Chính sách bảo mật')}</h1>
   <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
+  <p className="mt-2 text-sm text-muted">
+    {t('Với người dùng tại Việt Nam, bản tiếng Việt là bản có giá trị pháp lý.')}
+  </p>
 
   <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
     <p>
@@ -41,17 +64,68 @@ export function PrivacyContent() {
     </p>
 
     <div>
-      <h3 className="display text-lg">{t('1. Dữ liệu bọn tao lưu')}</h3>
+      <h3 id="who" className="display scroll-mt-24 text-lg">
+        {t('1. Chúng tôi là ai')}
+      </h3>
+      <p className="mt-2">
+        {t('Warrly do một cá nhân tại Việt Nam cung cấp —')} <b>{LEGAL_NAME}</b>{' '}
+        {t(
+          '— và không phải công ty. Trong chính sách này, “Warrly” và “bọn tao” là cá nhân đó.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Đây cũng là đầu mối xử lý dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP và Luật Bảo vệ dữ liệu cá nhân (Luật 91/2025/QH15, hiệu lực từ 01/01/2026). Warrly không có nhân viên nên không có DPO riêng: chính người đó là đầu mối.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Warrly được vận hành từ Việt Nam và phục vụ người dùng ở nhiều nước. Luật Việt Nam áp dụng cho toàn bộ hoạt động xử lý, bất kể người dùng ở đâu; luật địa phương của người dùng vẫn áp dụng thêm cho họ.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Vai trò của Warrly: bên kiểm soát dữ liệu tài khoản (email, thiết bị, bảo hành, hoá đơn, wishlist), và bên xử lý đối với dữ liệu vận hành do hạ tầng bên thứ ba sinh ra khi chạy dịch vụ. Với dữ liệu quảng cáo, Google là bên kiểm soát độc lập — xem mục 5.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t('Liên hệ về quyền riêng tư:')}{' '}
+        <a href={`mailto:${PRIVACY_EMAIL}`} className={mailClass}>
+          {PRIVACY_EMAIL}
+        </a>
+        {'. '}
+        {t('Hỗ trợ chung:')}{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className={mailClass}>
+          {SUPPORT_EMAIL}
+        </a>
+        .
+      </p>
+    </div>
+
+    <div>
+      <h3 id="data" className="display scroll-mt-24 text-lg">
+        {t('2. Dữ liệu bọn tao lưu')}
+      </h3>
       <p className="mt-2">
         {t(
           'Email và mật khẩu (lưu dưới dạng băm bcrypt, không bao giờ lưu mật khẩu gốc); các bản ghi mày tự nhập (thiết bị, gói bảo hành, subscription, wishlist); file đính kèm mày tải lên (ảnh hoá đơn / phiếu bảo hành); và token thông báo đẩy của thiết bị nếu mày bật push.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Trạng thái đồng ý quảng cáo chỉ nằm trên thiết bị của mày — localStorage khoá wv_consent trên web, và do SDK của Google giữ trong app. Warrly không lưu trạng thái đó trên máy chủ của mình.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Ngoài những mục trên, Warrly không lưu hồ sơ nào khác về mày: không có tài khoản quảng cáo gắn với mày, và không có hồ sơ hành vi để dựng chân dung quảng cáo.',
         )}
       </p>
     </div>
 
     <div>
       <h3 id="encryption" className="display scroll-mt-24 text-lg">
-        {t('2. Mã hoá & lưu trữ')}
+        {t('3. Mã hoá & lưu trữ')}
       </h3>
       <p className="mt-2">
         {t('File đính kèm được mã hoá')} <b>{t('AES-256-GCM')}</b>{' '}
@@ -65,10 +139,17 @@ export function PrivacyContent() {
         ).{' '}
         {t('Toàn bộ dữ liệu nằm trên cơ sở dữ liệu do bọn tao tự vận hành.')}
       </p>
+      <p className="mt-2">
+        {t(
+          'Máy chủ đó có thể đặt ngoài Việt Nam — xem mục 11.',
+        )}
+      </p>
     </div>
 
     <div>
-      <h3 className="display text-lg">{t('3. Trợ lý AI (tự chọn bật)')}</h3>
+      <h3 id="ai" className="display scroll-mt-24 text-lg">
+        {t('4. Trợ lý AI (tự chọn bật)')}
+      </h3>
       <p className="mt-2">
         {t('Mặc định tính năng này')} <b>{t('TẮT')}</b>
         {'. '}
@@ -81,79 +162,82 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h3 className="display text-lg">{t('4. Bên thứ ba bọn tao dùng')}</h3>
-      <ul className="mt-2 list-disc space-y-1 pl-5">
-        <li>
-          <b>{t('Anthropic')}</b>
-          {' — '}
-          {t('chỉ khi mày bật trợ lý AI (xem mục 3).')}
-        </li>
-        <li>
-          <b>{t('Resend')}</b>
-          {' — '}
-          {t('gửi email đặt lại mật khẩu khi mày yêu cầu.')}
-        </li>
-        <li>
-          <b>{t('Apple (APNs), Google (FCM), trình duyệt (Web Push)')}</b>
-          {' — '}
-          {t('chuyển thông báo nhắc bảo hành tới thiết bị, chỉ khi mày bật push.')}
-        </li>
-        <li>
-          <b>{t('Nhà cung cấp quảng cáo')}</b>
-          {' — '}
-          {t('chỉ ở gói miễn phí và chỉ khi mày đồng ý (xem mục 5).')}
-        </li>
-      </ul>
-      <p className="mt-2">{t('Ngoài các dịch vụ trên, bọn tao không chia sẻ dữ liệu với ai.')}</p>
-    </div>
-
-    <div>
       <h3 id="ads" className="display scroll-mt-24 text-lg">
-        {t('5. Quảng cáo')}
+        {t('5. Quảng cáo (Google AdMob)')}
       </h3>
       <p className="mt-2">
         {t('Gói miễn phí có quảng cáo. Gói trả phí không có quảng cáo và hiện chưa mở bán.')}
       </p>
       <p className="mt-2">
-        {t(
-          'Quảng cáo có thể do một nhà cung cấp bên thứ ba phục vụ. Nhà cung cấp đó có thể đặt cookie hoặc đọc định danh thiết bị (ví dụ mã quảng cáo của hệ điều hành) để chọn, giới hạn và đo lường quảng cáo.',
-        )}
+        {t('Khi Warrly có quảng cáo, chúng nằm trong app iOS và Android và do Google AdMob phục vụ — một mạng quảng cáo của Google. Tính đến lần cập nhật này, app chưa tích hợp SDK quảng cáo nào và chưa có quảng cáo nào được hiển thị; phần này mô tả mô hình, không phải trạng thái đã chạy. Trên web chưa có quảng cáo.')}
       </p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>
-          <b>{t('Nhà cung cấp quảng cáo')}:</b>{' '}
-          <Placeholder>
-            tên, địa chỉ và vai trò pháp lý (bên kiểm soát hay bên xử lý dữ liệu) của nhà cung cấp
-            quảng cáo
-          </Placeholder>
+          <b>{t('Nhà cung cấp:')}</b>{' '}
+          {t(
+            'Google AdMob — Google LLC (Hoa Kỳ) và Google Ireland Ltd (Ireland). Với dữ liệu quảng cáo, Google là bên kiểm soát độc lập: họ quyết định cách dùng dữ liệu đó theo chính sách của họ, không theo chỉ đạo của Warrly.',
+          )}
         </li>
         <li>
-          <b>{t('Dữ liệu nhận và mục đích')}:</b>{' '}
-          <Placeholder>
-            dữ liệu nhà cung cấp nhận, quảng cáo có được cá nhân hoá theo hành vi không, và việc
-            Warrly có chia sẻ dữ liệu với họ hay không
-          </Placeholder>
+          <b>{t('Dữ liệu AdMob nhận:')}</b>{' '}
+          {t(
+            'định danh quảng cáo của thiết bị (IDFA trên iOS, GAID trên Android); thông tin thiết bị tối thiểu (kiểu máy, phiên bản hệ điều hành, khu vực gần đúng suy ra từ IP); và sự kiện hiển thị, nhấp quảng cáo. Dữ liệu này được chia sẻ với Google để phục vụ và đo lường quảng cáo.',
+          )}
         </li>
         <li>
-          <b>{t('Cookie, định danh và thời hạn')}:</b>{' '}
-          <Placeholder>
-            tên cookie và định danh thiết bị, mục đích và thời hạn lưu
-          </Placeholder>
+          <b>{t('Cookie và định danh quảng cáo:')}</b>{' '}
+          {t(
+            'IDFA, GAID, và cookie hoặc định danh quảng cáo của Google (ví dụ NID, IDE — tuỳ sản phẩm Google dùng cho chỗ đặt quảng cáo). Mục đích: chọn quảng cáo, giới hạn tần suất và đo lường hiệu quả. Thời hạn: theo chính sách của Google; Warrly không đặt ra con số đó và không kiểm soát nó.',
+          )}
         </li>
         <li>
-          <b>{t('Thời hạn lưu dữ liệu quảng cáo')}:</b>{' '}
-          <Placeholder>thời hạn nhà cung cấp lưu dữ liệu quảng cáo</Placeholder>
+          <b>{t('Thời hạn lưu dữ liệu quảng cáo:')}</b>{' '}
+          {t(
+            'theo chính sách Ads/AdMob của Google. Warrly không lưu dữ liệu quảng cáo: không có bảng nào trên máy chủ ghi việc mày đã thấy hay bấm quảng cáo nào. Thứ duy nhất Warrly giữ là trạng thái đồng ý, và nó nằm trên thiết bị của mày.',
+          )}
         </li>
       </ul>
       <p className="mt-2">
         {t(
-          'Mặc định quảng cáo tắt. Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý. Mày có thể từ chối, chọn từng loại, hoặc đổi lựa chọn bất cứ lúc nào qua “Tuỳ chọn cookie” ở chân trang.',
+          'Mặc định quảng cáo không cá nhân hoá. Warrly chỉ phục vụ quảng cáo cá nhân hoá sau khi mày đồng ý: trên iOS là hộp thoại App Tracking Transparency (ATT) của Apple, và với người dùng EU, Vương quốc Anh hoặc Thuỵ Sĩ là hộp đồng ý của Google UMP (một nền tảng quản lý đồng ý đã được chứng nhận TCF v2.2). Từ chối thì quảng cáo vẫn hiển thị, nhưng là loại không cá nhân hoá.',
         )}
       </p>
       <p className="mt-2">
-        {t(
-          'Từ chối quảng cáo không chặn mày dùng gói miễn phí. Nếu không muốn thấy quảng cáo, mày có thể dùng gói trả phí khi nó mở bán.',
-        )}
+        <b>{t('Cách tắt hoặc đổi lựa chọn quảng cáo:')}</b>
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          {t(
+            'iOS: Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Theo dõi, bật hoặc tắt cho Warrly.',
+          )}
+        </li>
+        <li>
+          {t(
+            'Android: Cài đặt → Google → Quảng cáo, xoá hoặc đặt lại Advertising ID, hoặc từ chối quảng cáo cá nhân hoá.',
+          )}
+        </li>
+        <li>
+          {t(
+            'EU, Vương quốc Anh, Thuỵ Sĩ: mở lại lựa chọn bất cứ lúc nào qua nút “Tuỳ chọn quyền riêng tư” trong app (Google UMP).',
+          )}
+        </li>
+        <li>
+          {t(
+            'Web: quảng cáo mặc định tắt — Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý. Đổi lựa chọn bất cứ lúc nào qua “Tuỳ chọn cookie” ở chân trang.',
+          )}
+        </li>
+      </ul>
+      <p className="mt-2">
+        {t('Không đồng ý quảng cáo cá nhân hoá không chặn mày dùng app hay web. Cách Google dùng dữ liệu cho quảng cáo và cách quản lý lựa chọn:')}{' '}
+        <a
+          href="https://policies.google.com/technologies/ads"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-primary hover:underline"
+        >
+          policies.google.com/technologies/ads
+        </a>
+        .
       </p>
       <p className="mt-2">
         {t('Warrly không nhúng Google Analytics hay Facebook SDK, và không tự theo dõi mày xuyên trang.')}
@@ -174,38 +258,62 @@ export function PrivacyContent() {
       </p>
       <p className="mt-2">
         {t(
-          'Nếu mày ở EEA hoặc Vương quốc Anh, mày có quyền truy cập, sửa, xoá, hạn chế xử lý, phản đối xử lý, chuyển dữ liệu, rút lại đồng ý và khiếu nại với cơ quan bảo vệ dữ liệu. Để thực hiện, gửi email tới hi@warrly.com.',
+          'Theo Nghị định 13/2023/NĐ-CP và Luật 91/2025/QH15, mày có quyền: được biết về việc xử lý dữ liệu, truy cập, chỉnh sửa, xoá dữ liệu; rút lại đồng ý; hạn chế xử lý; phản đối xử lý; yêu cầu bồi thường thiệt hại; và khiếu nại tới cơ quan có thẩm quyền — Cục An ninh mạng, Bộ Công an (A05).',
         )}
-      </p>
-    </div>
-
-    <div>
-      <h3 id="contact" className="display scroll-mt-24 text-lg">
-        {t('7. Liên hệ')}
-      </h3>
-      <p className="mt-2">
-        {t('Có thắc mắc về dữ liệu:')}{' '}
-        <a href="mailto:hi@warrly.com" className="font-semibold text-primary hover:underline">
-          hi@warrly.com
-        </a>
       </p>
       <p className="mt-2">
         {t(
-          'Yêu cầu truy cập, xoá hoặc sửa dữ liệu: gửi tới hi@warrly.com. Bọn tao trả lời trong thời hạn luật định.',
+          'Nếu mày ở EEA hoặc Vương quốc Anh, mày có quyền truy cập, sửa, xoá, hạn chế xử lý, phản đối xử lý, chuyển dữ liệu, rút lại đồng ý và khiếu nại với cơ quan bảo vệ dữ liệu. Để thực hiện, gửi email tới privacy@warrly.com.',
         )}
       </p>
       <p className="mt-2">
-        <b>{t('Đơn vị chịu trách nhiệm')}:</b>{' '}
-        <Placeholder>tên pháp nhân, địa chỉ đăng ký và đại diện tại EU/UK (nếu có)</Placeholder>
-      </p>
-      <p className="mt-2">
-        <b>{t('Đầu mối bảo vệ dữ liệu')}:</b>{' '}
-        <Placeholder>email hoặc chức danh của DPO/đầu mối bảo vệ dữ liệu, nếu có</Placeholder>
+        {t(
+          'Để thực hiện bất kỳ quyền nào ở trên, gửi email tới privacy@warrly.com. Warrly có thể hỏi thêm vài thông tin để xác minh đó là mày trước khi xoá hoặc sửa dữ liệu, và không phân biệt đối xử khi mày thực hiện quyền.',
+        )}
       </p>
     </div>
 
     <div>
-      <h3 className="display text-lg">{t('8. Cơ sở pháp lý')}</h3>
+      <h3 id="third-parties" className="display scroll-mt-24 text-lg">
+        {t('7. Bên thứ ba & chia sẻ dữ liệu')}
+      </h3>
+      <p className="mt-2">
+        {t('Warrly chỉ chia sẻ dữ liệu với các bên sau, và chỉ phần cần cho việc đó:')}
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          <b>{t('Anthropic')}</b>
+          {' — '}
+          {t('chỉ khi mày bật trợ lý AI (xem mục 4).')}
+        </li>
+        <li>
+          <b>{t('Resend')}</b>
+          {' — '}
+          {t('gửi email đặt lại mật khẩu khi mày yêu cầu.')}
+        </li>
+        <li>
+          <b>{t('Apple (APNs), Google (FCM), trình duyệt (Web Push)')}</b>
+          {' — '}
+          {t('chuyển thông báo nhắc bảo hành tới thiết bị, chỉ khi mày bật push.')}
+        </li>
+        <li>
+          <b>{t('Google AdMob (Google LLC, Google Ireland Ltd)')}</b>
+          {' — '}
+          {t(
+            'quảng cáo trong app, chỉ ở gói miễn phí (xem mục 5). Dữ liệu quảng cáo được chia sẻ với Google để phục vụ và đo lường quảng cáo; với dữ liệu đó Google là bên kiểm soát độc lập.',
+          )}
+        </li>
+      </ul>
+      <p className="mt-2">{t('Ngoài các dịch vụ trên, bọn tao không chia sẻ dữ liệu với ai.')}</p>
+      <p className="mt-2">
+        {t('Warrly không bán dữ liệu cá nhân, và không có nhà quảng cáo nào khác ngoài Google.')}
+      </p>
+    </div>
+
+    <div>
+      <h3 id="legal-basis" className="display scroll-mt-24 text-lg">
+        {t('8. Cơ sở pháp lý & sự đồng ý')}
+      </h3>
       <p className="mt-2">{t('Bọn tao xử lý dữ liệu theo các cơ sở sau:')}</p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>
@@ -225,7 +333,7 @@ export function PrivacyContent() {
         </li>
         <li>
           {t(
-            'Quảng cáo ở gói miễn phí: sự đồng ý của mày, thể hiện qua “Tuỳ chọn cookie”; từ chối thì không có quảng cáo.',
+            'Quảng cáo ở gói miễn phí: sự đồng ý của mày — ATT trên iOS, hộp đồng ý Google UMP với người dùng EU/UK/Thuỵ Sĩ. Không đồng ý thì quảng cáo vẫn hiện nhưng không cá nhân hoá.',
           )}
         </li>
         <li>
@@ -239,10 +347,17 @@ export function PrivacyContent() {
           )}
         </li>
       </ul>
+      <p className="mt-2">
+        {t(
+          'Sự đồng ý ở Warrly là tự nguyện, theo từng mục đích, không gộp chung và không tích sẵn: mỗi công tắc là một quyết định riêng. Mày rút lại bất cứ lúc nào — tắt quyền theo dõi trong Cài đặt hệ thống (iOS), mở lại hộp UMP trong app, đổi “Tuỳ chọn cookie” trên web, hoặc tắt push và trợ lý AI trong Cài đặt.',
+        )}
+      </p>
     </div>
 
     <div>
-      <h3 className="display text-lg">{t('9. Người dùng California (CCPA/CPRA)')}</h3>
+      <h3 id="ccpa" className="display scroll-mt-24 text-lg">
+        {t('9. Người dùng California (CCPA/CPRA)')}
+      </h3>
       <p className="mt-2">
         {t(
           'Nếu mày ở California, mày có quyền biết dữ liệu cá nhân bọn tao thu thập và chia sẻ, quyền xoá, quyền sửa và quyền từ chối bán hoặc chia sẻ dữ liệu cá nhân.',
@@ -250,13 +365,163 @@ export function PrivacyContent() {
       </p>
       <p className="mt-2">
         {t(
-          'Warrly không bán dữ liệu cá nhân. Ở gói miễn phí, quảng cáo chỉ có khi mày đồng ý; mày có thể từ chối hoặc rút lại đồng ý bất cứ lúc nào qua “Tuỳ chọn cookie”.',
+          'Warrly không bán dữ liệu cá nhân. Mặc định quảng cáo không cá nhân hoá; quảng cáo cá nhân hoá chỉ chạy sau khi mày đồng ý, và mày có thể từ chối hoặc rút lại đồng ý bất cứ lúc nào.',
         )}
       </p>
       <p className="mt-2">
         {t(
-          'Để thực hiện các quyền này, gửi email tới hi@warrly.com. Mày có thể dùng đại diện được uỷ quyền. Bọn tao sẽ xác minh yêu cầu và không phân biệt đối xử khi mày thực hiện quyền.',
+          'Để thực hiện các quyền này, gửi email tới privacy@warrly.com. Mày có thể dùng đại diện được uỷ quyền. Bọn tao sẽ xác minh yêu cầu và không phân biệt đối xử khi mày thực hiện quyền.',
         )}
+      </p>
+    </div>
+
+    <div>
+      <h3 id="retention" className="display scroll-mt-24 text-lg">
+        {t('10. Lưu trữ trong bao lâu')}
+      </h3>
+      <p className="mt-2">
+        {t(
+          'Dữ liệu tài khoản (email, thiết bị, bảo hành, hoá đơn, wishlist) được giữ cho tới khi mày xoá tài khoản. Xoá tài khoản là xoá khỏi hệ thống; trong ứng dụng không có nút khôi phục.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Dữ liệu quảng cáo do Google lưu theo chính sách Ads/AdMob của Google. Warrly không giữ bản sao nào, nên không có thời hạn riêng của Warrly để nêu.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Trạng thái đồng ý trên web được nhớ tối đa 12 tháng — khớp với Chính sách Cookie — sau đó Warrly hỏi lại. Xoá localStorage là mất bản ghi đó, và biểu ngữ sẽ hiện lại.',
+        )}
+      </p>
+    </div>
+
+    <div>
+      <h3 id="transfers" className="display scroll-mt-24 text-lg">
+        {t('11. Chuyển dữ liệu ra nước ngoài')}
+      </h3>
+      <p className="mt-2">
+        {t(
+          'Warrly chạy từ Việt Nam, nhưng dữ liệu không chỉ nằm ở Việt Nam. Dữ liệu tài khoản nằm trên máy chủ do Warrly tự vận hành; phần còn lại đi qua các bên sau, và đó là chuyển dữ liệu ra nước ngoài:',
+        )}
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          <b>{t('Google')}</b>
+          {' — '}
+          {t(
+            'quảng cáo (AdMob) và thông báo đẩy trên Android (FCM): Google LLC tại Hoa Kỳ, và Google Ireland Ltd tại Ireland cho người dùng EU.',
+          )}
+        </li>
+        <li>
+          <b>{t('Apple')}</b>
+          {' — '}
+          {t('thông báo đẩy trên iOS qua APNs: Apple Inc. tại Hoa Kỳ.')}
+        </li>
+        <li>
+          <b>{t('Resend')}</b>
+          {' — '}
+          {t('email giao dịch (đặt lại mật khẩu, xác nhận đổi email): Hoa Kỳ.')}
+        </li>
+        <li>
+          <b>{t('Anthropic')}</b>
+          {' — '}
+          {t('chỉ khi mày bật trợ lý AI: Hoa Kỳ.')}
+        </li>
+      </ul>
+      <p className="mt-2">
+        {t(
+          'Nghị định 13/2023/NĐ-CP và Luật 91/2025/QH15 yêu cầu nêu rõ việc chuyển dữ liệu ra nước ngoài; mục này là chỗ nêu đó. Dữ liệu chỉ được chuyển tới các bên ở mục 7, cho các mục đích ở mục 8.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Mỗi bên nói trên có chính sách quyền riêng tư riêng và chịu luật bảo vệ dữ liệu áp dụng với họ. Chính sách quảng cáo của Google:',
+        )}{' '}
+        <a
+          href="https://policies.google.com/technologies/ads"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-primary hover:underline"
+        >
+          policies.google.com/technologies/ads
+        </a>
+        .
+      </p>
+    </div>
+
+    <div>
+      <h3 id="children" className="display scroll-mt-24 text-lg">
+        {t('12. Trẻ em')}
+      </h3>
+      <p className="mt-2">
+        {t(
+          'Warrly không hướng đến trẻ em và không cố ý thu thập dữ liệu của người dưới 16 tuổi. Nếu mày cho rằng Warrly đã thu thập nhầm dữ liệu của một trẻ em, gửi email tới privacy@warrly.com và bọn tao sẽ xoá.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Nếu phát hiện một tài khoản là của người dưới 16 tuổi, Warrly sẽ xoá tài khoản đó cùng dữ liệu bên trong.',
+        )}
+      </p>
+    </div>
+
+    <div>
+      <h3 id="international" className="display scroll-mt-24 text-lg">
+        {t('13. Người dùng quốc tế')}
+      </h3>
+      <p className="mt-2">
+        {t(
+          'Warrly được viết cho người dùng ở bất kỳ đâu, không chỉ Việt Nam. Người dùng EU, Vương quốc Anh và Thuỵ Sĩ được hưởng các quyền theo luật bảo vệ dữ liệu áp dụng — xem mục 6 — và với quảng cáo cá nhân hoá, Warrly dùng Google UMP, một nền tảng quản lý đồng ý đã được chứng nhận TCF v2.2.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Warrly không có đại diện tại EU hay Vương quốc Anh: đây là ứng dụng của một cá nhân, xử lý từ Việt Nam, và đầu mối cho mọi yêu cầu — kể cả từ EU/UK — là privacy@warrly.com.',
+        )}
+      </p>
+    </div>
+
+    <div>
+      <h3 id="changes" className="display scroll-mt-24 text-lg">
+        {t('14. Thay đổi')}
+      </h3>
+      <p className="mt-2">
+        {t(
+          'Warrly có thể cập nhật chính sách này. Bản mới luôn ghi ngày “Cập nhật lần cuối” ở đầu trang; mày nên đọc lại sau mỗi lần đổi. Nếu thay đổi làm tăng phạm vi dữ liệu thu thập, Warrly sẽ hỏi lại sự đồng ý thay vì coi như mày đã đồng ý.',
+        )}
+      </p>
+      <p className="mt-2">
+        {t(
+          'Bản tiếng Việt và bản tiếng Anh được cập nhật cùng lúc. Nếu hai bản lệch nhau, bản tiếng Việt là bản có giá trị pháp lý.',
+        )}
+      </p>
+    </div>
+
+    <div>
+      <h3 id="contact" className="display scroll-mt-24 text-lg">
+        {t('15. Liên hệ')}
+      </h3>
+      <p className="mt-2">
+        {t('Có thắc mắc về dữ liệu:')}{' '}
+        <a href={`mailto:${PRIVACY_EMAIL}`} className={mailClass}>
+          {PRIVACY_EMAIL}
+        </a>
+      </p>
+      <p className="mt-2">
+        {t('Hỗ trợ chung:')}{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className={mailClass}>
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
+      <p className="mt-2">
+        <b>{t('Đơn vị chịu trách nhiệm')}:</b> {LEGAL_NAME}
+        {', '}
+        {t('cá nhân, Việt Nam.')}
+      </p>
+      <p className="mt-2">
+        <b>{t('Đầu mối bảo vệ dữ liệu')}:</b>{' '}
+        {t('không có DPO riêng; chính chủ sở hữu trả lời mọi yêu cầu qua privacy@warrly.com.')}
       </p>
     </div>
   </div>

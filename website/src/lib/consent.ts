@@ -218,3 +218,68 @@ export function onConsentChange(
 export function openConsentSettings(): void {
   emit(CONSENT_OPEN_EVENT);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// APP-SIDE AD CONSENT — what the native clients must do. NOT implemented here.
+//
+// This module gates the WEB only. Ads ship in the iOS and Android apps; the web
+// carries none yet, which is why the self-built banner is still the whole web
+// story. That stops being sufficient the moment a web ad loads: the web would
+// then need Google UMP, the same TCF v2.2-certified CMP the apps use, before any
+// personalised ad. A hand-rolled banner is not a TCF-certified CMP, so do not
+// wire an ad script into the web app on the strength of `canLoadCategory`
+// alone.
+//
+// The app-side requirements, written down because the next person to touch this
+// will otherwise rediscover them from a store rejection:
+//
+// 1. CMP — Google UMP, not a hand-rolled dialog. Since 2024-01-16 a
+//    Google-certified CMP integrated with IAB TCF is required to serve
+//    personalised ads in the EEA/UK; 2024-07-31 extended that to Switzerland.
+//    UMP ships inside the Google Mobile Ads SDK. Order is: consent info update
+//    → form if required → and only THEN start the ads SDK. UMP is geo-gated, so
+//    a Vietnam-only user normally sees no form at all.
+//
+// 2. ATT ORDERING IS ENFORCED BY STATE, NOT BY A TIMEOUT. This has been
+//    rejected twice:
+//      * 2.1 (2026-07-27) — ATT sat behind a UMP call with no bound and no
+//        retry, so the reviewer never saw the prompt.
+//      * 5.1.1(iv) (2026-10-12) — the "fix" was a flat 6-second bound, and it
+//        was rejected as well: the ATT alert went up while UMP could still
+//        present its GDPR form. No number, short or long, can express "after".
+//    The rule that passes: request ATT only once UMP has ANSWERED, and close
+//    the form window once ATT is asked. A small state machine over
+//    (UMP status, ATT status, foreground count) with unit tests is the shape
+//    that passed review; re-attempt ATT on every foreground, because offline
+//    UMP's gather() can hang and a hung gather must not swallow the prompt.
+//    Android has no ATT, so only iOS has this ordering problem — but both
+//    platforms need the GDPR form.
+//
+// 3. PRIVACY MANIFEST (iOS), once AdMob is integrated: set
+//    `NSPrivacyTracking = true` AND list at least one domain in
+//    `NSPrivacyTrackingDomains`. The app shows ATT and uses the IDFA for
+//    personalised ads, and the App Store privacy answers already declare Device
+//    ID + Advertising Data with tracking = YES — the manifest has to agree.
+//
+//    THE ITMS-91064 TRAP: Apple's prose reads "NSPrivacyTracking must be true
+//    if NSPrivacyTrackingDomains isn't empty", which is the CONVERSE of what
+//    App Store Connect enforces. The enforced rule is: if you set
+//    NSPrivacyTracking to true, you must provide at least one internet domain
+//    in NSPrivacyTrackingDomains, or the upload is rejected with ITMS-91064.
+//    `true` with an empty array is the failing shape.
+//
+//    Runtime consequence — intended, not a bug: iOS blocks connections to the
+//    listed domains while ATT has not been granted, so a user who declines ATT
+//    may see no ads at all rather than non-personalised ones. Watch fill rate
+//    after it ships.
+//
+// 4. NON-PERSONALISED IS THE DEFAULT. `npa=1` (or the UMP equivalent) is the
+//    fallback when consent is absent — it is not the posture. Personalisation
+//    follows only an explicit yes: ATT on iOS, UMP in the EEA/UK/CH.
+//
+// 5. NEVER click a live ad. Use Google's sample ad units in debug builds and
+//    register test devices; clicking your own inventory is a bannable policy
+//    violation. The app id uses a tilde (`ca-app-pub-…~…`) and an ad unit uses a
+//    slash (`ca-app-pub-…/…`) — mixing them is the classic setup bug, and
+//    neither belongs in this repo.
+// ─────────────────────────────────────────────────────────────────────────

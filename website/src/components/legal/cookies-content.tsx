@@ -13,14 +13,19 @@
 // place XML) and leaves the emphasis exactly where the Vietnamese had it.
 //
 // The advertising section is deliberately not "no ads" copy any more. It states
-// the model (free with ads, paid without), the consent gate, and the facts only
-// the owner can supply as `[CẦN ĐIỀN: …]` markers. The cookie banner and the
-// `wv_consent` record it reads are described in sections 2 and 4.
+// the model (free with ads, paid without), the consent gate, and the provider
+// facts the owner confirmed — Google AdMob, Google LLC / Google Ireland Ltd,
+// independent controller for ad data, non-personalised by default. The cookie
+// banner and the `wv_consent` record it reads are described in sections 2 and 4.
+//
+// Ads ship in the iOS/Android apps only; the web carries none. If web ads are
+// ever enabled, this section and `privacy-content.tsx` §5 both have to say who
+// serves them, and the web consent banner has to be replaced by Google UMP —
+// the self-built banner is not a TCF-certified CMP.
 
 import { useT } from '@/lib/i18n/client';
-import { Placeholder } from './placeholder';
 
-const UPDATED = '25/10/2026';
+const UPDATED = '27/10/2026';
 
 export function CookiesContent() {
   const t = useT();
@@ -89,38 +94,36 @@ export function CookiesContent() {
       </h3>
       <p className="mt-2">
         {t(
-          'Quảng cáo ở gói miễn phí có thể do một nhà cung cấp bên thứ ba phục vụ. Mặc định quảng cáo tắt: Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý.',
+          'Khi có quảng cáo, chúng nằm trong app iOS và Android và do Google AdMob phục vụ. Trên web hiện chưa có quảng cáo: Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý.',
         )}
       </p>
       <p className="mt-2">
         {t(
-          'Khi mày đồng ý, nhà cung cấp có thể đặt cookie hoặc đọc định danh thiết bị để chọn, giới hạn và đo lường quảng cáo. Gói trả phí không có quảng cáo, nên không có cookie quảng cáo.',
+          'Trên app, khi mày đồng ý, AdMob có thể đọc định danh quảng cáo của thiết bị để chọn, giới hạn và đo lường quảng cáo. Gói trả phí không có quảng cáo, nên không có dữ liệu quảng cáo.',
         )}
       </p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>
           <b>{t('Nhà cung cấp quảng cáo')}:</b>{' '}
-          <Placeholder>
-            tên, địa chỉ và vai trò pháp lý (bên kiểm soát hay bên xử lý dữ liệu) của nhà cung cấp
-            quảng cáo
-          </Placeholder>
+          {t(
+            'Google AdMob — Google LLC (Hoa Kỳ) và Google Ireland Ltd (Ireland). Với dữ liệu quảng cáo, Google là bên kiểm soát độc lập.',
+          )}
         </li>
         <li>
           <b>{t('Cookie, định danh và thời hạn')}:</b>{' '}
-          <Placeholder>
-            tên cookie và định danh thiết bị, mục đích và thời hạn lưu
-          </Placeholder>
+          {t(
+            'Trên app: IDFA (iOS) và GAID (Android), cộng cookie hoặc định danh quảng cáo của Google (ví dụ NID, IDE); thời hạn theo chính sách của Google. Trên web hiện chưa có quảng cáo.',
+          )}
         </li>
         <li>
           <b>{t('Dữ liệu nhận và mục đích')}:</b>{' '}
-          <Placeholder>
-            dữ liệu nhà cung cấp nhận, quảng cáo có được cá nhân hoá theo hành vi không, và việc
-            Warrly có chia sẻ dữ liệu với họ hay không
-          </Placeholder>
+          {t(
+            'Định danh quảng cáo, thông tin thiết bị tối thiểu và sự kiện hiển thị, nhấp, để chọn và đo lường quảng cáo. Mặc định không cá nhân hoá; chỉ cá nhân hoá sau khi mày đồng ý (ATT trên iOS, Google UMP với EU/UK/Thuỵ Sĩ).',
+          )}
         </li>
         <li>
           <b>{t('Thời hạn lưu dữ liệu quảng cáo')}:</b>{' '}
-          <Placeholder>thời hạn nhà cung cấp lưu dữ liệu quảng cáo</Placeholder>
+          {t('theo chính sách Ads/AdMob của Google. Warrly không lưu dữ liệu quảng cáo.')}
         </li>
       </ul>
     </div>

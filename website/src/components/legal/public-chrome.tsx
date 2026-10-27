@@ -101,8 +101,8 @@ export function PublicFooter() {
         {t('Chính sách Cookie')}
       </Link>
       <ConsentSettingsLink className="hover:text-ink" />
-      <a href="mailto:hi@warrly.com" className="hover:text-ink hover:underline">
-        {t('Hỗ trợ')}: hi@warrly.com
+      <a href="mailto:support@warrly.com" className="hover:text-ink hover:underline">
+        {t('Hỗ trợ')}: support@warrly.com
       </a>
     </footer>
   );

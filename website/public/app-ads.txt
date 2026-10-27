@@ -1,0 +1,35 @@
+# app-ads.txt — Google AdMob seller authorisation for Warrly.
+#
+# ── WHAT TO FILL ──────────────────────────────────────────────────────────
+# Replace `pub-XXXXXXXXXXXXXXXX` on the last line with Warrly's own AdMob
+# publisher id (16 digits, `pub-` + digits). It is in AdMob → Settings →
+# Account → Publisher ID.
+#
+#   * It is NOT the AdMob app id — that one uses a tilde: ca-app-pub-…~…
+#   * It is NOT an ad unit id — that one uses a slash: ca-app-pub-…/…
+#   * Do not reuse another app's publisher id. This file authorises ONE
+#     publisher for warrants ads; a borrowed id credits the wrong account.
+#
+# Until it is filled, the line below authorises nothing and AdMob will keep
+# reporting this site as unverified.
+#
+# ── HOW IT MUST BE SERVED ─────────────────────────────────────────────────
+# URL:  https://warrly.com/app-ads.txt   (root of the developer website
+#       declared on the App Store and Google Play listings — not a subpath)
+# Must return: HTTP 200, `Content-Type: text/plain`, and ZERO redirects.
+#       Google's crawler follows no redirects, so an http→https hop, a
+#       trailing-slash hop or a CDN "pretty URL" rewrite all read as missing.
+#
+# Next.js serves this file statically out of `website/public/`, so editing it
+# requires a redeploy (`next build` copies `public/` verbatim). Check the live
+# bytes after deploying:
+#   curl -sSI https://warrly.com/app-ads.txt | head -20
+#
+# ── FORMAT ────────────────────────────────────────────────────────────────
+# One record per line: domain, publisher-id, relationship, cert-authority-id.
+# Lines starting with `#` and blank lines are ignored. Only the final line is a
+# record; everything above it is a comment.
+# `f08c47fec0942fa0` is Google's own TAG certification-authority id — it is
+# identical in every publisher's google.com record, so it is not an app-specific
+# secret and must not be changed.
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0

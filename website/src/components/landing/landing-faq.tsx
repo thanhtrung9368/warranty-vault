@@ -60,7 +60,7 @@ function buildFaq(t: Translator): FaqEntry[] {
         'Hoá đơn được mã hoá AES-256-GCM trên máy chủ; mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống. Mật khẩu lưu dưới dạng băm bcrypt, phiên đăng nhập nằm trong cookie đã mã hoá. Không có Google Analytics, không Facebook SDK, không bán dữ liệu; gói miễn phí có quảng cáo và quảng cáo có thể dùng cookie hoặc định danh thiết bị (xem Chính sách bảo mật, mục 5). Trợ lý AI mặc định tắt và chỉ gửi ảnh hoá đơn đã giải mã hoặc nội dung một lần đánh giá bảo hành tới Anthropic khi bạn tự bật.',
       ),
       href: '/privacy#encryption',
-      link: t('Chính sách bảo mật, mục 2 và 5'),
+      link: t('Chính sách bảo mật, mục 3 và 5'),
     },
     {
       q: t('Các bạn có phải đơn vị bảo hành không?'),
