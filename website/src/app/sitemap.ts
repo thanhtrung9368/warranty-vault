@@ -25,11 +25,14 @@ import { localePath, LOCALES } from '@/lib/i18n/locale';
 // so a new legal page cannot be added to the footer and forgotten here.
 export const dynamic = 'force-dynamic';
 
-// The visible copy on the legal pages was last revised on this date, and the
-// landing page's structured data describes the same site. Keeping the value
-// fixed is honest; `new Date()` on every request would claim every page changed
-// every second, and crawlers learn to ignore a lastmod that always moves.
-const LAST_MODIFIED = new Date('2026-10-21T00:00:00.000Z');
+// The date the visible copy on these pages last changed. A single constant, not
+// `new Date()`: claiming every page changed on every request is how a crawler
+// learns to ignore `lastmod` altogether. The cost of one constant is that it has
+// to be bumped when the copy changes — and it was not, for three releases, which
+// is exactly why Google discounts a `lastmod` it finds unreliable.
+//
+// BUMP THIS whenever the landing or legal copy changes. It is not decoration.
+const LAST_MODIFIED = new Date('2026-10-27T00:00:00.000Z');
 
 const PRIORITY: Record<PublicPath, number> = {
   '/': 1,
