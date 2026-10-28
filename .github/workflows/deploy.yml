@@ -181,14 +181,16 @@ jobs:
           # Script đã kiểm qua localhost trên VPS. Đây là kiểm thứ người dùng
           # thật sự thấy: TLS, Cloudflare, Caddy, và đúng host.
           BAD=0
+          # Runner ở Mỹ, VPS ở VN: đường đi thất thường (có lúc >15s), nên retry + timeout
+          # rộng thay vì coi một lần chậm là deploy hỏng.
           for p in / /vi /robots.txt /sitemap.xml /favicon.ico; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://warrly.com$p" || echo 000)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-all-errors --max-time 30 "https://warrly.com$p" || true)
             printf '  %-16s %s\n' "$p" "$code"
             [ "$code" = "200" ] || BAD=1
           done
           # www phải 301 về apex, không phải 200 — nếu 200 thì Caddyfile mới
           # chưa được reload và hai hostname vẫn phục vụ cùng một trang.
-          www=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://www.warrly.com/ || echo 000)
+          www=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-all-errors --max-time 30 https://www.warrly.com/ || true)
           printf '  %-16s %s (mong 301)\n' "www" "$www"
           [ "$www" = "301" ] || { echo "::warning::www trả $www — redirect www→apex chưa lên. Kiểm 'systemctl reload caddy' trên VPS."; }
           exit $BAD
