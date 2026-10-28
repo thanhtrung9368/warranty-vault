@@ -14,6 +14,7 @@
 #   DEPLOY_USER        user SSH (phải đọc/ghi được thư mục repo và chạy docker)
 #   DEPLOY_SSH_KEY     private key (ed25519), dạng OpenSSH, KHÔNG có passphrase
 #   DEPLOY_PATH        tuỳ chọn, mặc định /opt/warranty-vault
+#   DEPLOY_PORT        tuỳ chọn, cổng SSH, mặc định 22
 #   DEPLOY_KNOWN_HOSTS tuỳ chọn nhưng nên có — output của `ssh-keyscan <host>`.
 #                      Không có thì mỗi lần chạy sẽ keyscan lại, tức là tin host
 #                      key lấy được ở thời điểm chạy (TOFU).
@@ -43,6 +44,7 @@ concurrency:
 
 env:
   DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/warranty-vault' }}
+  DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
 
 jobs:
   # ── Cổng: đủ điều kiện deploy chưa ─────────────────────────────────────────
@@ -150,7 +152,7 @@ jobs:
             printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
             echo "known_hosts: từ secret"
           else
-            ssh-keyscan -T 10 -H "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+            ssh-keyscan -T 10 -p "$DEPLOY_PORT" -H "$HOST" > ~/.ssh/known_hosts 2>/dev/null
             echo "::warning::DEPLOY_KNOWN_HOSTS chưa đặt — host key lấy bằng ssh-keyscan ở thời điểm chạy (TOFU). Đặt secret đó để chặt hơn."
           fi
           # `ssh-agent -s` in shell code for THIS shell; each step is a new shell,
@@ -161,7 +163,7 @@ jobs:
             echo "SSH_AGENT_PID=$SSH_AGENT_PID"
           } >> "$GITHUB_ENV"
           ssh-add ~/.ssh/deploy_key
-          echo "SSH_OPTS=-o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30" >> "$GITHUB_ENV"
+          echo "SSH_OPTS=-o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p $DEPLOY_PORT" >> "$GITHUB_ENV"
 
       - name: Deploy qua SSH
         env:

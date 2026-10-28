@@ -84,6 +84,12 @@ sudo -n systemctl reload caddy 2>/dev/null || echo "  (bỏ qua — không có s
 # chúng chứng minh đúng commit đã lên chứ không chỉ "có gì đó trả 200".
 say "health check"
 BAD=0
+# `up -d` trả về khi container được tạo, không phải khi Next đã nghe port. Kiểm
+# ngay thì lần deploy nào cũng thấy 000 và rollback oan; chờ tối đa 90s cho web.
+for _ in $(seq 1 45); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:3000/ || echo 000)" = 200 ] && break
+  sleep 2
+done
 check() {
   local path="$1" want="$2" got
   got="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:3000${path}" || echo 000)"
