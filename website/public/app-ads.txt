@@ -1,17 +1,18 @@
 # app-ads.txt — Google AdMob seller authorisation for Warrly.
 #
 # ── WHAT TO FILL ──────────────────────────────────────────────────────────
-# Replace `pub-XXXXXXXXXXXXXXXX` on the last line with Warrly's own AdMob
-# publisher id (16 digits, `pub-` + digits). It is in AdMob → Settings →
-# Account → Publisher ID.
+# The record is filled. If the AdMob account ever changes, replace the 16-digit
+# id on the last line (AdMob → Settings → Account → Publisher ID) and redeploy.
 #
 #   * It is NOT the AdMob app id — that one uses a tilde: ca-app-pub-…~…
 #   * It is NOT an ad unit id — that one uses a slash: ca-app-pub-…/…
 #   * Do not reuse another app's publisher id. This file authorises ONE
 #     publisher for warrants ads; a borrowed id credits the wrong account.
 #
-# Until it is filled, the line below authorises nothing and AdMob will keep
-# reporting this site as unverified.
+# FILLED 2026-10-29: pub-1055054650162014, the same AdMob account that serves the
+# other app. One publisher id across several apps is normal and correct; the
+# requirement is that each app's developer website serves ITS publisher's line,
+# which is what this file does for warrly.com.
 #
 # ── HOW IT MUST BE SERVED ─────────────────────────────────────────────────
 # URL:  https://warrly.com/app-ads.txt   (root of the developer website
@@ -32,4 +33,4 @@
 # `f08c47fec0942fa0` is Google's own TAG certification-authority id — it is
 # identical in every publisher's google.com record, so it is not an app-specific
 # secret and must not be changed.
-google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+google.com, pub-1055054650162014, DIRECT, f08c47fec0942fa0
