@@ -693,39 +693,31 @@ project kia và làm sập nó. Đã sửa `www → apex` trực tiếp trong fi
   `DEPLOY_PATH=/opt/warrly`, `DEPLOY_SSH_KEY` (key mới, không passphrase).
 - Nên tạo user `deploy` riêng thay `root` khi rảnh.
 
-### Vì sao tự deploy chưa bật (giữ lại để tham khảo)
+### CD — ✅ BẬT 2026-10-28, đang deploy tự động
 
-`.github/workflows/deploy.yml` đã có và sẵn sàng, nhưng `gate` **bỏ qua** khi thiếu
-secret (cố ý: nếu nó đỏ mỗi lần push thì người ta học cách bỏ qua màu đỏ). Cần tạo ở
-Settings → Secrets → Actions:
+`.github/workflows/deploy.yml` chạy sau mỗi lần `website` CI xanh trên `main`, và đã
+deploy thành công 5 lần (`526af04`, `22aa252`, `75bb058`, `7f6c98e`, `f219e40`).
 
-| secret | giá trị |
-|---|---|
-| `DEPLOY_HOST` | `171.244.39.41` |
-| `DEPLOY_USER` | `root` (nên đổi sang user `deploy` riêng sau) |
-| `DEPLOY_PATH` | `/opt/warrly` |
-| `DEPLOY_SSH_KEY` | key ed25519 **mới**, không passphrase, public key đã thêm vào `/root/.ssh/authorized_keys` trên VPS |
+5 secret đã tạo (`2026-10-28`): `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`,
+`DEPLOY_KNOWN_HOSTS`, `DEPLOY_PORT`.
 
-### Chướng ngại đã biết: `/opt/warrly` chưa phải git repo
+Hmm — điểm khác với bản đầu: `357cdb0` đã sửa workflow cho **VPS dùng cổng SSH không
+mặc định** (`DEPLOY_PORT`, dòng 47/155/166) và đổi `DEPLOY_PATH` sang
+`/opt/warranty-vault`. Nên **không cần SSH tay nữa** — push là đủ.
 
-Thư mục trên VPS được `scp` lên, **không có `.git`** (`git rev-parse` → "not a git
-repository"), và `deploy/` ở đó vẫn là bản cũ — chưa có `deploy.sh`. Nên
-`deploy/deploy.sh` (dùng `git fetch` + `checkout`) **chưa chạy được** ở đó.
+Hmm — và **vì vậy đừng sửa `deploy.sh`/`deploy.yml` mà không thử**: một lần `workflow_dispatch`
+trên `357cdb0` đã đỏ vì `www.warrly.com` trả `000` đúng lúc chuyển server. Lỗi đó
+**tự hết**; `www` giờ trả 301.
 
-Đường chuyển: tạo deploy key read-only cho GitHub → `git clone` vào `/opt/warrly.new`
-→ `cp .env` sang → `mv warrly warrly.old && mv warrly.new warrly` (phải **giữ đúng
-tên `warrly`**, vì tên đó quyết định tên Docker volume `warrly_pgdata`; đổi tên là
-mất dữ liệu) → `docker compose up -d --build`. Chi tiết trong `deploy/README.md`.
+### Máy chủ đã đổi (2026-10-29) — DB mới, dữ liệu cũ không sang
 
-### Kiểm tra trước khi `up`
+Server mới **không mang volume `warrly_pgdata`** theo. Kiểm ngày 2026-10-29:
+`POST /auth/register` **200** (DB sống, ghi được) nhưng `verify@warrly.test` **không đăng
+nhập được** → tài khoản seed cũ không tồn tại → **DB rỗng**.
 
-`docker-compose.yml` giờ dùng `${APP_URL:?...}`, nên thiếu `APP_URL` trong `.env`
-thì `docker compose up` **từ chối chạy** chứ không âm thầm trả metadata localhost.
-Đây là hành vi đúng — đặt `APP_URL=https://warrly.com` trong `/opt/warrly/.env`.
-
-Hmm — đừng quên: `toanthang-api` là project **khác** đang chạy cùng máy. Không chạy
-`docker system prune`, không `docker compose down -v`, và `--remove-orphans` chỉ
-đụng trong cùng compose project.
+App chưa từng công bố nên nhiều khả năng chỉ mất dữ liệu test. Nếu server cũ **vẫn còn sống**
+thì volume vẫn nằm đó và chép sang được. **Nếu nó còn chạy cùng domain thì phải tắt** —
+hai bản app cùng ghi vào hai DB riêng, Cloudflare chỉ trỏ một.
 
 ---
 
