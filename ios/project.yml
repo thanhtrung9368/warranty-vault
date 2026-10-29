@@ -105,6 +105,17 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Warrly
+        # Export compliance. The app implements no encryption of its own: TLS
+        # and the Keychain are the OS's, and the AES-256-GCM for receipt blobs
+        # runs in the Go API, never on the device. Declaring it here means App
+        # Store Connect stops asking the "App Encryption Documentation" question
+        # on every upload, and the answer it records is the true one.
+        #
+        # If client-side encryption is ever added (an encrypted local store, a
+        # custom cipher), this must become true and the CCATS/self-classification
+        # path applies. Leaving it false when that changes is a compliance defect,
+        # not a formality.
+        ITSAppUsesNonExemptEncryption: false
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Resolved at build time from Config/{Debug,Release}.xcconfig. A
@@ -263,6 +274,17 @@ targets:
       path: ShareExtension/Info.plist
       properties:
         CFBundleDisplayName: Warrly
+        # Export compliance. The app implements no encryption of its own: TLS
+        # and the Keychain are the OS's, and the AES-256-GCM for receipt blobs
+        # runs in the Go API, never on the device. Declaring it here means App
+        # Store Connect stops asking the "App Encryption Documentation" question
+        # on every upload, and the answer it records is the true one.
+        #
+        # If client-side encryption is ever added (an encrypted local store, a
+        # custom cipher), this must become true and the CCATS/self-classification
+        # path applies. Leaving it false when that changes is a compliance defect,
+        # not a formality.
+        ITSAppUsesNonExemptEncryption: false
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -318,6 +340,17 @@ targets:
       path: WidgetExtension/Info.plist
       properties:
         CFBundleDisplayName: Warrly
+        # Export compliance. The app implements no encryption of its own: TLS
+        # and the Keychain are the OS's, and the AES-256-GCM for receipt blobs
+        # runs in the Go API, never on the device. Declaring it here means App
+        # Store Connect stops asking the "App Encryption Documentation" question
+        # on every upload, and the answer it records is the true one.
+        #
+        # If client-side encryption is ever added (an encrypted local store, a
+        # custom cipher), this must become true and the CCATS/self-classification
+        # path applies. Leaving it false when that changes is a compliance defect,
+        # not a formality.
+        ITSAppUsesNonExemptEncryption: false
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
