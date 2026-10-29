@@ -48,12 +48,19 @@ struct SubscriptionsScreen: View {
     let client: APIClient
     @StateObject private var store: SubscriptionsStore
     @EnvironmentObject private var toast: WVToastCenter
+    /// Destination requested by a tapped subscription-renewal notification
+    /// (`url: /subscriptions/<id>`). Consumed once the tab is on screen.
+    @EnvironmentObject private var router: AppRouter
 
     @State private var query      = ""
     @State private var filter     = SubFilter.activePaused
     @State private var sort       = SubSort.renewalAsc
     @State private var showSort   = false
     @State private var pushCreate = false
+    /// The id a push asked for. Its own destination binding rather than a value
+    /// pushed from the list: the detail screen loads by id, so it can open even
+    /// when the row is filtered out or the list has not arrived yet.
+    @State private var deepLinkedSubscriptionId: String?
 
     init(client: APIClient) {
         self.client = client
@@ -157,15 +164,33 @@ struct SubscriptionsScreen: View {
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: L.t("Tìm gói..."))
         .toolbar { toolbarContent }
-        .task { await store.load() }
+        .task {
+            await openPendingSubscriptionIfNeeded()
+            await store.load()
+        }
         .refreshable { await store.load() }
+        .onChange(of: router.pendingSubscriptionId) { _, id in
+            guard id != nil else { return }
+            Task { await openPendingSubscriptionIfNeeded() }
+        }
         .sheet(isPresented: $showSort) { sortSheet }
         .navigationDestination(for: Subscription.self) { sub in
             SubscriptionDetailView(client: client, store: store, subscriptionId: sub.id)
         }
+        .navigationDestination(item: $deepLinkedSubscriptionId) { id in
+            SubscriptionDetailView(client: client, store: store, subscriptionId: id)
+        }
         .navigationDestination(isPresented: $pushCreate) {
             SubscriptionFormView(client: client, store: store)
         }
+    }
+
+    /// Takes a notification's destination exactly once, after the tab appears.
+    /// `AppRouter` keeps the id until then, so a cold launch from a push still
+    /// lands on the right subscription.
+    private func openPendingSubscriptionIfNeeded() async {
+        guard let id = router.consumeSubscription() else { return }
+        deepLinkedSubscriptionId = id
     }
 
     // MARK: - Audit entry ("Soát gói đăng ký")

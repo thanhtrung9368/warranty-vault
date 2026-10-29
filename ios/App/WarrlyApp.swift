@@ -26,6 +26,10 @@ struct WarrlyApp: App {
         _auth = StateObject(wrappedValue: authStore)
         _catalog = StateObject(wrappedValue: CatalogStore(client: authStore.client))
         _localization = StateObject(wrappedValue: LocalizationStore(client: authStore.client))
+        // The notification-permission prompt must never land on top of UMP's
+        // form or ATT (see `PushRegistrar.adsPromptActive`). This is the one
+        // wire between the two prompt owners; neither drives the other.
+        PushRegistrar.shared.adsPromptActive = { AdsController.shared.hasPromptOnScreen }
     }
 #if canImport(UIKit)
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate

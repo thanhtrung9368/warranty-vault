@@ -328,8 +328,46 @@ struct DevicesScreen: View {
 
     // MARK: - List content
 
+    /// The four phases of this screen, and the only place they are decided.
+    ///
+    /// `DevicesStore.state` existed all along; this screen simply never read it.
+    /// A 40-device account on a cold launch was told **"Chưa có thiết bị nào"**
+    /// with three calls to action, and a failed read looked exactly like an
+    /// empty account. The gate is the one `RemindersView` already uses:
+    ///
+    ///   * idle / loading, no rows yet → skeleton;
+    ///   * error, no rows yet          → the failure stated, with a retry;
+    ///   * loaded                      → the real list, and the *real* empty
+    ///     state only when the account genuinely has no devices.
+    ///
+    /// A stale list is still shown if a refresh fails: the rows are real, and
+    /// replacing them with an error card would hide data the user can use.
     @ViewBuilder
     private var deviceList: some View {
+        if store.devices.isEmpty, case let .error(message) = store.state {
+            ScrollView {
+                WVEmpty(icon: "alert",
+                        title: L.t("Không tải được thiết bị"),
+                        description: message) {
+                    WVButton(L.t("Thử lại")) { Task { await store.load() } }
+                        .padding(.horizontal, 32)
+                }
+            }
+        } else if store.devices.isEmpty,
+                  store.state == .idle || store.state == .loading {
+            ScrollView {
+                DevicesListSkeleton()
+            }
+        } else {
+            loadedList
+        }
+    }
+
+    /// The list once the store has answered. An empty `filteredDevices` here is
+    /// a truthful "nothing here": the two cases above have already ruled out
+    /// "still loading" and "the read failed".
+    @ViewBuilder
+    private var loadedList: some View {
         let items = filteredDevices
         if items.isEmpty {
             let isFiltering = !searchQuery.isEmpty || hasActiveFilters
@@ -397,6 +435,42 @@ struct DevicesScreen: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Loading skeleton
+
+/// Redacted rows shaped like `DeviceListRow`, with **no** "Đang tải…" header on
+/// top: a skeleton that prints a label on itself is the state the owner called
+/// out as senseless — the grey bars already say what is happening.
+///
+/// Static `.redacted`, not a moving shimmer: four screens in this app already
+/// use a still placeholder, and motion would make the whole list look busy.
+private struct DevicesListSkeleton: View {
+    var body: some View {
+        WVGroup {
+            ForEach(0..<4) { i in
+                if i > 0 { WVDivider(inset: 60) }
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(width: 36, height: 36)
+                    VStack(alignment: .leading, spacing: 6) {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(height: 14)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 150, height: 12)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .redacted(reason: .placeholder)
+            }
+        }
+        .padding(.top, 16)
     }
 }
 

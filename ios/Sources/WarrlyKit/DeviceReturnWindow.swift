@@ -18,9 +18,11 @@ import Foundation
 //     Device.returnWindowDays ──carried(from:)──▶ DeviceInput.returnWindowDays
 //     Device.receivedAt       ──carried(from:)──▶ DeviceInput.receivedAt
 //
-// There is deliberately **no** input, stepper or picker for the window in this
-// pass. `DeviceReturnWindow.deadlineNote` exists only to *read* the derived
-// deadline the server computed.
+// The device form now also **offers** the window ("Hạn đổi/trả" + "Ngày nhận
+// hàng", via `DeviceReturnWindow.choices` / `suggestedDays` / `edited(...)`
+// below). The preserve-on-save rule is unchanged and still the point of
+// `carried` / `apply`: the form's save path uses the same `apply`, so an
+// untouched value still travels back unchanged.
 //
 // ## The three states, which are not two
 //
@@ -101,6 +103,86 @@ public enum DeviceReturnWindow {
     public static func apply(_ fields: ReturnWindowFields, to input: inout DeviceInput) {
         input.returnWindowDays = fields.returnWindowDays
         input.receivedAt = fields.receivedAt
+    }
+
+    // MARK: - Choosing a window (the form's "Hạn đổi/trả" row)
+
+    /// One pill in the form's return-window row.
+    ///
+    /// `days` keeps the API's three states apart instead of collapsing them into
+    /// an `Int`: `nil` = **chưa biết**, `0` = a real answer ("cửa hàng không cho
+    /// đổi trả"), `> 0` = that many days. A `0` that rendered as "absent" would
+    /// turn "no exchange" into "never recorded" on the next save.
+    public struct Choice: Identifiable, Equatable, Sendable {
+        public let days: Int?
+        public var id: String { days.map(String.init) ?? "unknown" }
+
+        public init(days: Int?) { self.days = days }
+
+        /// Label computed at render time, never captured in a `static let`:
+        /// `L.t`/`L.p` read the current language, which is not resolved when a
+        /// global constant would be initialised.
+        public var label: String {
+            guard let days else { return L.t("Chưa biết") }
+            if days == 0 { return L.t("Không đổi trả") }
+            return L.p("%d ngày", days)
+        }
+    }
+
+    /// The choices the form offers, in the order the row shows them.
+    public static let choices: [Choice] = [
+        Choice(days: nil),
+        Choice(days: 7),
+        Choice(days: 15),
+        Choice(days: 30),
+        Choice(days: 365),
+        Choice(days: 0),
+    ]
+
+    /// The length worth *suggesting* for a category, or `nil` when the app has
+    /// no basis for a guess.
+    ///
+    /// The suggestion is shown, never applied: a new device starts at "Chưa
+    /// biết" and the form prints "Gợi ý: 30 ngày cho Điện thoại" underneath. The
+    /// API has no default and never infers one, so silently storing a guess
+    /// would be the app inventing a shop's policy — the exact thing
+    /// `RETURN_WINDOW_UNKNOWN` exists to avoid.
+    ///
+    ///  * **30 days** — phones, tablets, laptops and smartwatches, the four
+    ///    categories Vietnamese shops most often sell with a 1-for-1 window;
+    ///  * **365 days** — accessories (headphones, speakers, keyboards, mice,
+    ///    cameras, monitors), which are commonly exchanged for a year;
+    ///  * **`nil`** — anything else. `0` is *not* used here: it means "the shop
+    ///    does not allow exchanges", which is a claim the app cannot support.
+    public static func suggestedDays(forCategory category: String?) -> Int? {
+        switch (category ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased() {
+        case "PHONE", "TABLET", "LAPTOP", "SMARTWATCH":
+            return 30
+        case "HEADPHONE", "SPEAKER", "KEYBOARD", "MOUSE", "CAMERA", "MONITOR":
+            return 365
+        default:
+            return nil
+        }
+    }
+
+    /// The pair the form writes back on save.
+    ///
+    ///  * a chosen length `> 0` travels with the delivery day on screen. When
+    ///    that day was never recorded, the picker seeds itself with the purchase
+    ///    day — which is exactly the day the server would have used anyway
+    ///    (`COALESCE(receivedAt, purchaseDate)`), so nothing is invented; it is
+    ///    only made explicit so a later purchase-date edit cannot move the
+    ///    deadline;
+    ///  * "chưa biết" and "không đổi trả" hide the picker, and the *stored*
+    ///    delivery day is preserved rather than erased by hiding its input. The
+    ///    two fields are independent on the wire.
+    public static func edited(returnWindowDays: Int?,
+                              receivedAt: String?,
+                              storedReceivedAt: String?) -> ReturnWindowFields {
+        let day = (returnWindowDays ?? 0) > 0
+            ? dayPrefix(receivedAt)
+            : dayPrefix(storedReceivedAt)
+        return ReturnWindowFields(returnWindowDays: returnWindowDays, receivedAt: day)
     }
 
     // MARK: - The stored answers

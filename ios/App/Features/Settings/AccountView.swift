@@ -55,6 +55,21 @@ struct AccountView: View {
                     .frame(minHeight: 44)
                 }
 
+                // Receipts by email. `GET /auth/me` returns the account's own
+                // forwarding address (migration 0020) and openapi says the
+                // client must show it in Settings for copy/forward. The section
+                // renders only when the server sent one: the key is `omitempty`,
+                // so a deployment without a mail provider answers without it and
+                // a row here would be a dead address to copy.
+                if let inboxAddress {
+                    WVSectionHeader(L.t("Hoá đơn qua email"))
+                    WVGroup {
+                        InboxAddressRow(address: inboxAddress)
+                    }
+                    WVSectionFooter(L.t("Địa chỉ này chỉ nhận thư. Ai biết địa chỉ cũng chỉ gửi được email vào hộp thư đến — không đọc, tải hay xoá được gì."))
+                    WVSectionFooter(L.t("Chuyển tiếp email hoá đơn (PDF hoặc ảnh đính kèm) tới địa chỉ này — tệp sẽ nằm trong Hộp thư đến để gán vào thiết bị."))
+                }
+
                 // Password + email + app lock.
                 //
                 // Email change lives here rather than in "Thông tin" because it
@@ -259,6 +274,16 @@ struct AccountView: View {
     private var userEmail: String {
         if case let .authenticated(u) = auth.status { return u.email }
         return "–"
+    }
+
+    /// The account's inbound receipt address, or `nil` when this deployment has
+    /// no mail provider (`inboxAddress` is omitted from `/auth/me` when
+    /// `INBOX_EMAIL_DOMAIN` is unset). `nil` renders no section at all.
+    private var inboxAddress: String? {
+        guard case let .authenticated(u) = auth.status,
+              let address = u.inboxAddress?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !address.isEmpty else { return nil }
+        return address
     }
 
     private var initials: String {

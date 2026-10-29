@@ -48,6 +48,9 @@ struct BulkDeviceAddView: View {
     @ObservedObject var store: DevicesStore
 
     @EnvironmentObject private var catalog: CatalogStore
+    /// The one-time notification rationale, offered when a batch is the first
+    /// thing the account ever created (see the alert below).
+    @EnvironmentObject private var push: PushRegistrar
     @Environment(\.dismiss) private var dismiss
 
     // Draft state. Never empty: removing the last row leaves a fresh blank one.
@@ -74,6 +77,10 @@ struct BulkDeviceAddView: View {
     @State private var isSubmitting = false
     @State private var categoryTarget: CategoryTarget?
     @State private var scrollToTopToken = 0
+    /// The one-time rationale before the system notification prompt. A batch can
+    /// be the first thing the account ever creates, and it is just as much a
+    /// "device save" as the single form.
+    @State private var showNotificationPrimer = false
 
     private static let topAnchorID = "bulkDeviceAddTop"
 
@@ -166,6 +173,22 @@ struct BulkDeviceAddView: View {
             }
         }
         .task { await catalog.loadIfNeeded() }
+        // The rationale comes before the system prompt, always. An alert is the
+        // right shape here because this screen is about to dismiss itself: there
+        // is no surface left for an inline card, and the answer decides whether
+        // the system prompt is raised at all. The wording is the same as the
+        // single-device form's card.
+        .alert(L.t("Bật nhắc nhở?"), isPresented: $showNotificationPrimer) {
+            Button(L.t("Bật thông báo")) {
+                Task {
+                    await push.requestAndRegister()
+                    dismiss()
+                }
+            }
+            Button(L.t("Để sau"), role: .cancel) { dismiss() }
+        } message: {
+            Text(L.t("Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi."))
+        }
     }
 
     // MARK: - Copy / derived
@@ -651,8 +674,14 @@ struct BulkDeviceAddView: View {
             createdNames.append(contentsOf: reconciliation.unmatchedCreatedDevices.map(\.name))
 
             // Everything was created: the screen has nothing left to do, and
-            // the shared store already inserted the devices.
+            // the shared store already inserted the devices. If this was the
+            // account's first device, ask once for notification permission
+            // before leaving — the reminder app cannot remind without it.
             guard reconciliation.hasRetryRows else {
+                if await push.offerPrimerAfterFirstSave() {
+                    showNotificationPrimer = true
+                    return
+                }
                 dismiss()
                 return
             }

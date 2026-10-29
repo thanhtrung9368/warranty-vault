@@ -270,11 +270,15 @@ struct MainTabView: View {
         // has an authenticated client, and therefore the first point where they
         // can be uploaded (device-less, straight into the inbox).
         .task {
-            // A pending destination from Spotlight / a URL / an App Intent
-            // wins over the default tab; the devices screen consumes the id
-            // once its list has loaded.
+            // A pending destination from Spotlight / a URL / an App Intent /
+            // a tapped push wins over the default tab; the target screen
+            // consumes the id once it can push.
             router.restorePendingFromSharedDefaults()
-            if router.pendingDeviceId != nil { selection = 1 }
+            if router.pendingDeviceId != nil {
+                selection = 1
+            } else if router.pendingSubscriptionId != nil {
+                selection = 2
+            }
             DeadlineSurface.shared.beginSession()
             // First authenticated surface fill: the widget and Spotlight have
             // no data until this runs at least once. Start it alongside the
@@ -294,7 +298,11 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             router.restorePendingFromSharedDefaults()
-            if router.pendingDeviceId != nil { selection = 1 }
+            if router.pendingDeviceId != nil {
+                selection = 1
+            } else if router.pendingSubscriptionId != nil {
+                selection = 2
+            }
             DeadlineSurface.shared.beginSession()
             // ATT is retried on EVERY foreground rather than once per install:
             // if the prompt was swallowed by a background transition, or the
@@ -312,6 +320,11 @@ struct MainTabView: View {
             // The app may already be showing this tab; switching is enough for
             // DevicesScreen's own onChange/task to push the detail view.
             if id != nil { selection = 1 }
+        }
+        .onChange(of: router.pendingSubscriptionId) { _, id in
+            // Same rule for a subscription-renewal notification: bring the
+            // "Đăng ký" tab forward and let its screen push the detail.
+            if id != nil { selection = 2 }
         }
     }
 }

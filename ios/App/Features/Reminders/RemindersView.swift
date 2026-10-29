@@ -343,7 +343,9 @@ struct RemindersView: View {
 private struct RemindersSkeleton: View {
     var body: some View {
         VStack(spacing: 0) {
-            WVSectionHeader(L.t("Đang tải…"))
+            // No "Đang tải…" header: the redacted bars are the loading state,
+            // and a label printed on top of a skeleton is the senseless state
+            // the owner called out. `DevicesListSkeleton` follows the same rule.
             WVGroup {
                 ForEach(0..<3) { i in
                     if i > 0 { WVDivider(inset: 60) }

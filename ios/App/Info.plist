@@ -35,6 +35,8 @@
 	<string>ca-app-pub-1055054650162014~5553247910</string>
 	<key>GADBannerUnitID</key>
 	<string>$(WV_ADMOB_BANNER_UNIT_ID)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

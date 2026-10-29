@@ -102,6 +102,17 @@ final class AdsController: ObservableObject {
         isAdFree = value
     }
 
+    /// Whether a Google consent prompt is on screen right now.
+    ///
+    /// Read by `PushRegistrar` before it asks for notification permission: a
+    /// notification alert is a *third* system prompt, and stacking it on UMP's
+    /// form or the ATT alert is the ordering mistake this app has already been
+    /// rejected for twice. The ATT phase is a flag; UMP's form has no public
+    /// observable, so it is detected in the view hierarchy like `advance()` does.
+    var hasPromptOnScreen: Bool {
+        isRequestingTracking || Self.isUMPMessageOnScreen()
+    }
+
     // MARK: - UMP phase
 
     private func requestConsentInfo() {

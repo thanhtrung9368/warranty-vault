@@ -22,6 +22,9 @@ struct DeviceFormView: View {
     /// Shared inbox state: an upload from this screen must move the "Thêm"
     /// badge immediately, not on the next screen load.
     @EnvironmentObject private var inboxStore: InboxStore
+    /// Notification permission. `PushRegistrar` decides *whether* the one-time
+    /// rationale is still owed; this screen only shows it.
+    @EnvironmentObject private var push: PushRegistrar
     @Environment(\.dismiss) private var dismiss
 
     // Form fields
@@ -66,16 +69,27 @@ struct DeviceFormView: View {
     /// 400 `fieldErrors.leadDays`.
     @State private var leadDays: [Int]
 
-    /// The exchange / return window, loaded from the device being edited and sent
-    /// straight back on every save.
+    /// The exchange / return window, loaded from the device being edited.
     ///
-    /// This screen deliberately has **no** input for it. `PATCH
-    /// /api/v1/devices/{id}` replaces the whole device, so a save that omitted
-    /// these two fields would silently erase a window recorded on the web or on
-    /// Android. Nothing here lets the user *set* a window — it only refuses to
-    /// destroy one. When `device` is nil (create) both values are `nil`, which the
-    /// encoder drops, i.e. exactly what the server already has.
+    /// The window is now **editable** here: `PATCH /api/v1/devices/{id}`
+    /// replaces the whole device, so the loaded pair still has to travel back on
+    /// every save (that is what `returnWindow` holds), and `returnWindowDays` /
+    /// `receivedAtDate` are the form's own inputs. `submit()` writes all of it
+    /// through `DeviceReturnWindow.edited` / `.apply`.
+    ///
+    /// `nil` = **chưa biết**, `0` = "cửa hàng không cho đổi trả", `> 0` = số
+    /// ngày. The two are different answers and the pill row keeps them apart.
     @State private var returnWindow: ReturnWindowFields
+    /// The length on the "Hạn đổi/trả" pill row.
+    @State private var returnWindowDays: Int?
+    /// The "Ngày nhận hàng" picker's day. Only shown when a window `> 0` is
+    /// chosen; seeded with the stored delivery day, or with the purchase day
+    /// (the same day the server's `COALESCE(receivedAt, purchaseDate)` uses).
+    @State private var receivedAtDate: Date
+
+    /// The one-time notification rationale, shown next to the "saved" state of
+    /// the first successful create. See `notificationPrimerCard`.
+    @State private var showNotificationPrimer = false
 
     /// Warranty activation + extended-cover deadline ("Bảo hành & kích hoạt").
     ///
@@ -202,12 +216,15 @@ struct DeviceFormView: View {
         self.client = client
         self.store = store
         self.device = device
+        // One `Date` for both the picker and the delivery-day default, so the
+        // two can never disagree about "the purchase day" when the form opens.
+        let purchaseDay = device?.purchaseDate ?? Date()
         _name = State(initialValue: device?.name ?? "")
         _category = State(initialValue: device?.category ?? "phone")
         _brand = State(initialValue: device?.brand ?? "")
         _model = State(initialValue: device?.model ?? "")
         _serial = State(initialValue: device?.serialNumber ?? "")
-        _purchaseDate = State(initialValue: device?.purchaseDate ?? Date())
+        _purchaseDate = State(initialValue: purchaseDay)
         _price = State(initialValue: device?.purchasePrice)
         _purchasePlace = State(initialValue: device?.purchasePlace ?? "")
         // A payload without `currency` means the contract default VND; the
@@ -227,8 +244,16 @@ struct DeviceFormView: View {
         _leadDays = State(initialValue: LeadDaysRules.normalize(
             device?.leadDays ?? LeadDaysRules.defaults
         ))
-        // Load the recorded window once; `submit()` writes it back unchanged.
-        _returnWindow = State(initialValue: device.map(DeviceReturnWindow.carried(from:)) ?? .unknown)
+        // Load the recorded window once. `submit()` writes it back — the loaded
+        // delivery day is kept even when the picker is hidden, so hiding an
+        // input can never erase a recorded fact.
+        let window = device.map(DeviceReturnWindow.carried(from:)) ?? .unknown
+        _returnWindow = State(initialValue: window)
+        _returnWindowDays = State(initialValue: window.returnWindowDays)
+        // The picker draws a `Date`, so the stored day is read in the device's
+        // own zone (never as an instant), and a device with no recorded day
+        // starts on the purchase day — exactly what the server would use.
+        _receivedAtDate = State(initialValue: WireDay.date(from: window.receivedAt) ?? purchaseDay)
         // Warranty activation / extended cover. `carried` normalises both wire
         // dates to their calendar day, so the picker below shows the same day the
         // server holds; `WireDay` turns that day into the picker's `Date` in the
@@ -462,6 +487,119 @@ struct DeviceFormView: View {
         catalog.stores(matching: purchasePlace).prefix(8).map(\.name)
     }
 
+    // MARK: - Return window (derived)
+
+    /// The chosen length as the row's trailing value: "Chưa biết", "Không đổi
+    /// trả" or "30 ngày". The three states must never collapse into each other.
+    private var returnWindowValueLabel: String {
+        switch returnWindowDays {
+        case nil:    return L.t("Chưa biết")
+        case 0:      return L.t("Không đổi trả")
+        case let d?: return L.p("%d ngày", d)
+        }
+    }
+
+    /// The delivery day is only meaningful for a window `> 0`; "no exchange"
+    /// and "chưa biết" hide the picker (and keep any stored day, below).
+    private var showsDeliveryDayPicker: Bool { (returnWindowDays ?? 0) > 0 }
+
+    /// The category-based suggestion, shown only while the answer is still
+    /// "chưa biết". It is a **suggestion**, never applied: the API has no
+    /// default, and storing a guess would be the app inventing a shop's policy.
+    private var returnWindowSuggestion: String? {
+        guard returnWindowDays == nil,
+              let days = DeviceReturnWindow.suggestedDays(forCategory: category)
+        else { return nil }
+        return L.t("Gợi ý: %d ngày cho %@", days, CategoryLabels.label(for: category))
+    }
+
+    /// The pair this save sends. `edited` keeps a stored delivery day when its
+    /// picker is hidden, so hiding an input never erases a recorded fact.
+    private var editedReturnWindow: ReturnWindowFields {
+        DeviceReturnWindow.edited(
+            returnWindowDays: returnWindowDays,
+            receivedAt: WireDay.string(from: receivedAtDate),
+            storedReceivedAt: returnWindow.receivedAt
+        )
+    }
+
+    /// "Hạn đổi/trả" — the 1 đổi 1 window, with the API's three states kept
+    /// apart as pills: Chưa biết · 7 · 15 · 30 · 365 · Không đổi trả.
+    private var returnWindowRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Text(L.t("Hạn đổi/trả"))
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                Spacer(minLength: 8)
+                Text(returnWindowValueLabel)
+                    .font(.system(size: 15))
+                    .foregroundStyle(returnWindowDays == nil ? WVColor.label3 : WVColor.label2)
+            }
+            .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(DeviceReturnWindow.choices) { choice in
+                        let active = choice.days == returnWindowDays
+                        Button {
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                returnWindowDays = choice.days
+                                fieldErrors["returnWindowDays"] = nil
+                            }
+                        } label: {
+                            Text(choice.label)
+                                .font(.system(size: 14, weight: active ? .semibold : .medium))
+                                .foregroundStyle(active ? Color.white : WVColor.label2)
+                                .padding(.horizontal, 12)
+                                .frame(height: 32)
+                                .background(active ? WVColor.tint : WVColor.fill3)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(active ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            if let suggestion = returnWindowSuggestion {
+                Text(suggestion)
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+            }
+        }
+        .padding(.vertical, 10)
+    }
+
+    /// The delivery day, drawn only for a real window. Without a recorded day
+    /// the picker starts on the purchase day — the same day the server's
+    /// `COALESCE(receivedAt, purchaseDate)` would have used — and says so, so
+    /// nothing about it looks invented.
+    private var deliveryDayRow: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L.t("Ngày nhận hàng"))
+                    .font(.system(size: 17))
+                    .foregroundStyle(WVColor.label)
+                Text(L.t("Mặc định là ngày mua."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(WVColor.label3)
+            }
+            Spacer(minLength: 8)
+            DatePicker("", selection: $receivedAtDate, displayedComponents: .date)
+                .labelsHidden()
+                .onChange(of: receivedAtDate) { _, _ in
+                    fieldErrors["receivedAt"] = nil
+                }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -488,6 +626,14 @@ struct DeviceFormView: View {
                 // everything else, and stated as a success.
                 if didSave && !savedWarnings.isEmpty {
                     saveWarningsCard
+                    Spacer().frame(height: 12)
+                }
+
+                // The one question this screen asks, once, after the very first
+                // device was created. Inline — not a modal — so it cannot stack
+                // on top of a UMP form or the ATT alert.
+                if showNotificationPrimer {
+                    notificationPrimerCard
                     Spacer().frame(height: 12)
                 }
 
@@ -793,7 +939,25 @@ struct DeviceFormView: View {
                         WVDivider()
                         AutocompleteRow(suggestions: storeSuggestions, text: $purchasePlace)
                     }
+
+                    // "Hạn đổi/trả" (migration 0010). The API already derived a
+                    // RETURN_WINDOW_UNKNOWN action from the missing value, and
+                    // this is the input that action was pointing at; without it
+                    // the queue handed the user a to-do with nowhere to do it.
+                    WVDivider()
+                    returnWindowRow
+                    fieldErrorRow("returnWindowDays")
+
+                    if showsDeliveryDayPicker {
+                        WVDivider()
+                        deliveryDayRow
+                        fieldErrorRow("receivedAt")
+                    }
                 }
+
+                // The window counts from the delivery day when one is recorded,
+                // otherwise from the purchase day — the server's own rule.
+                WVSectionFooter(L.t("Hạn đổi trả tính từ ngày nhận hàng (hoặc ngày mua nếu chưa ghi)."))
 
                 // The unit applies to every money field on this screen — the
                 // purchase, the resale and each warranty package — so it is
@@ -1669,11 +1833,12 @@ struct DeviceFormView: View {
         // schedule makes the save's intent explicit.
         input.leadDays = normalizedLeadDays
 
-        // The window is fully replaced by a PATCH, so the values loaded from the
-        // device travel back on every save — create included (both are nil there,
-        // which the encoder omits). There is no UI for this and deliberately so:
-        // no client may *set* a window until all three ship the fields.
-        DeviceReturnWindow.apply(returnWindow, to: &input)
+        // The window is a full-replacement field. The pill row and the delivery
+        // picker above decide the length; `edited` also preserves a stored
+        // delivery day when its input is hidden, so an unrelated edit cannot
+        // erase what another client recorded. On create with no answer both
+        // keys are omitted, which is exactly what the server already holds.
+        DeviceReturnWindow.apply(editedReturnWindow, to: &input)
 
         // Activation / extended cover. `apply` normalises both dates to their
         // calendar day; an untouched optional picker stays nil and is dropped, so
@@ -1711,6 +1876,7 @@ struct DeviceFormView: View {
         }
 
         do {
+            let wasCreate = device == nil
             let result: DeviceSaveResult
             if let device {
                 result = try await store.update(id: device.id, input)
@@ -1725,6 +1891,10 @@ struct DeviceFormView: View {
             savedDevice = result.device
             brandWarranty = BrandWarrantyRules.carried(from: result.device)
             brandWarrantyDirty = false
+            // The window pair that just went on the wire is what a second save
+            // from this screen must send, including a delivery day the picker
+            // no longer shows.
+            returnWindow = editedReturnWindow
 
             // Nothing is blocked: if the server flagged the serial, the device
             // was still created/updated. Keep the screen up just long enough to
@@ -1732,7 +1902,17 @@ struct DeviceFormView: View {
             // covers.
             let warnings = result.warningsOrEmpty
             if warnings.isEmpty {
-                dismiss()
+                // The first device ever created is the first moment the app has
+                // something worth reminding about. That is where the one-time
+                // notification rationale belongs — not at launch, where the ads
+                // consent flow owns the prompts. A serial advisory wins the
+                // screen instead; the offer waits for a later create.
+                if wasCreate, await push.offerPrimerAfterFirstSave() {
+                    showNotificationPrimer = true
+                    didSave = true
+                } else {
+                    dismiss()
+                }
             } else {
                 savedWarnings = warnings
                 didSave = true
@@ -1743,6 +1923,72 @@ struct DeviceFormView: View {
         } catch {
             topError = error.localizedDescription
         }
+    }
+
+    // MARK: - The one-time notification rationale
+
+    /// "Bật nhắc nhở?" — shown once, next to the success state of the very
+    /// first device create.
+    ///
+    /// Why here and not at launch: notification permission used to be
+    /// requestable **only** from Settings, so a user who never opened Settings
+    /// ran a reminder app that never reminded them. Meanwhile the launch moment
+    /// belongs to the ads consent flow (UMP → ATT); adding a third prompt there
+    /// is the ordering class this app has already been rejected for.
+    ///
+    /// So the rationale appears at the first moment the user owns something
+    /// worth being reminded about, is offered at most once per install
+    /// (`PushRegistrar` persists that it was offered), and is an **inline card**
+    /// rather than a modal — it cannot land on top of another prompt. Tapping
+    /// "Bật thông báo" is what raises the system alert.
+    private var notificationPrimerCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                WVIcon("checkCircle", size: 14)
+                Text(L.t("Đã lưu thiết bị"))
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(WVColor.green)
+
+            Text(L.t("Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi."))
+                .font(.system(size: 13))
+                .foregroundStyle(WVColor.label2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                WVButton(L.t("Bật thông báo"), kind: .primary, size: .small) {
+                    enableNotifications()
+                }
+                WVButton(L.t("Để sau"), kind: .secondary, size: .small) {
+                    finishAfterPrimer()
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WVColor.bg2)
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+        .padding(.horizontal, WVSpacing.gutter)
+    }
+
+    /// The user said yes: raise the system prompt, then leave the screen. The
+    /// dismiss waits for the answer, so the save confirmation is not replaced by
+    /// an alert mid-read.
+    private func enableNotifications() {
+        showNotificationPrimer = false
+        Task {
+            await push.requestAndRegister()
+            dismiss()
+        }
+    }
+
+    /// The user said "not now". The rationale was already marked as offered —
+    /// asking again on the next device would be nagging; Settings keeps the
+    /// explicit toggle.
+    private func finishAfterPrimer() {
+        showNotificationPrimer = false
+        dismiss()
     }
 
     // MARK: - Post-save advisories

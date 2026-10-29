@@ -283,6 +283,29 @@ public enum ActionQueueRules {
         return nil
     }
 
+    // MARK: The return-window rows
+
+    /// The two kinds whose whole complaint is "this device has no (or a closing)
+    /// 1-for-1 window".
+    ///
+    /// They are the only queue items the user cannot act on from the entity
+    /// screen — the fix lives in the device form's "Hạn đổi/trả" row — so the
+    /// row gets a trailing shortcut straight into that form. Before it existed,
+    /// the queue told the user to record a deadline and offered no place to
+    /// record it: a nag with no ending.
+    public static let returnWindowKinds: Set<String> = [
+        "RETURN_WINDOW_UNKNOWN",
+        "RETURN_WINDOW_CLOSING",
+    ]
+
+    /// The device whose form already has the return-window input, when this
+    /// item is one of the two kinds and names a device. `nil` for every other
+    /// row, so no unrelated item grows a button that would not fix it.
+    public static func returnWindowDeviceId(_ item: ActionItem) -> String? {
+        guard returnWindowKinds.contains(item.kind.uppercased()) else { return nil }
+        return nonBlank(item.deviceId)
+    }
+
     private static func nonBlank(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else { return nil }
         return trimmed

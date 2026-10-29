@@ -73,7 +73,12 @@ struct RegisterView: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
-                Text(L.t("Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo."))
+                // The price of the free tier, stated the way the web states it:
+                // "The free tier has ads; the paid tier does not." This line
+                // used to claim there were no ads while the Devices tab mounted
+                // an AdMob banner — App Review guideline 2.3.1, and the exact
+                // sentence a refund complaint would quote.
+                Text(L.t("Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; gói trả phí thì không."))
                     .font(.system(size: 13))
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)

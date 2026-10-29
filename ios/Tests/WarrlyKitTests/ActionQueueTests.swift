@@ -167,6 +167,22 @@ final class ActionQueueTests: KitTestCase {
         XCTAssertNil(ActionQueueRules.target(item("X:d1", deviceId: "   ")))
     }
 
+    /// Only the two return-window kinds get the trailing "Ghi hạn" shortcut, and
+    /// only when the row names a device. Every other kind's fix lives elsewhere —
+    /// a button that cannot fix the row would be worse than no button.
+    func testOnlyTheReturnWindowRowsGetTheFormShortcut() {
+        XCTAssertEqual(ActionQueueRules.returnWindowDeviceId(
+            item("RETURN_WINDOW_UNKNOWN:d1", kind: "RETURN_WINDOW_UNKNOWN", deviceId: "d1")), "d1")
+        XCTAssertEqual(ActionQueueRules.returnWindowDeviceId(
+            item("RETURN_WINDOW_CLOSING:d1", kind: "RETURN_WINDOW_CLOSING", deviceId: "d1")), "d1")
+        XCTAssertNil(ActionQueueRules.returnWindowDeviceId(
+            item("WARRANTY_EXPIRED:w1", kind: "WARRANTY_EXPIRED", deviceId: "d1")))
+        XCTAssertNil(ActionQueueRules.returnWindowDeviceId(
+            item("RETURN_WINDOW_UNKNOWN:d1", kind: "RETURN_WINDOW_UNKNOWN")))
+        XCTAssertNil(ActionQueueRules.returnWindowDeviceId(
+            item("RETURN_WINDOW_UNKNOWN:d1", kind: "RETURN_WINDOW_UNKNOWN", deviceId: "  ")))
+    }
+
     // MARK: - Dates + money
 
     /// `dueNote` reads the date half of a naive-UTC wire value through

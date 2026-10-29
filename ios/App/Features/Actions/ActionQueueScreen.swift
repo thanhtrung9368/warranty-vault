@@ -24,6 +24,10 @@ enum ActionQueueNav: Hashable {
     case device(String)
     case subscription(String)
     case wishlistItem(String)
+    /// The device form, not the detail screen. Only the form carries the
+    /// "Hạn đổi/trả" input a `RETURN_WINDOW_*` row is asking the user to fill in
+    /// — sending them to the detail screen would keep the nag alive.
+    case deviceForm(String)
 }
 
 struct ActionQueueScreen: View {
@@ -40,6 +44,8 @@ struct ActionQueueScreen: View {
     /// the screen.
     @State private var pendingKey: String?
     @State private var actionError: String?
+    /// `false` until the screen has appeared once; see the `.onAppear` above.
+    @State private var didAppear = false
 
     private var items: [ActionItem] { store.queue?.items ?? [] }
     private var actionable: [ActionItem] { ActionQueueRules.actionable(items) }
@@ -77,6 +83,15 @@ struct ActionQueueScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
         .refreshable { await store.load() }
+        // Coming back from a row's destination is a reason to re-read: the
+        // "Ghi hạn" shortcut opens the device form, and a stale
+        // RETURN_WINDOW_UNKNOWN row right after the user recorded the window is
+        // the nag without its ending all over again. The first appearance is
+        // already covered by `.task`, so only later ones reload here.
+        .onAppear {
+            guard didAppear else { didAppear = true; return }
+            Task { await store.load() }
+        }
         // The push destinations themselves are registered on the dashboard, which
         // owns the NavigationStack this screen is pushed onto and the stores the
         // entity screens need.
@@ -190,7 +205,8 @@ struct ActionQueueScreen: View {
 
     /// A row is a tappable door into its entity when the payload names one, and a
     /// plain card when it does not. The snooze control is a **sibling** of the
-    /// link, never nested inside it, so neither swallows the other's tap.
+    /// link, never nested inside it, so neither swallows the other's tap — and
+    /// so is the "Ghi hạn" shortcut below.
     @ViewBuilder
     private func row(_ item: ActionItem, isSnoozedRow: Bool) -> some View {
         HStack(spacing: 0) {
@@ -203,8 +219,34 @@ struct ActionQueueScreen: View {
                 rowBody(item, isSnoozedRow: isSnoozedRow, tappable: false)
             }
 
+            // The nag gets an ending. Only the two return-window kinds get this
+            // button, and only when the row names a device: every other kind's
+            // fix lives on its own screen.
+            if let deviceId = ActionQueueRules.returnWindowDeviceId(item) {
+                windowShortcut(deviceId)
+            }
+
             snoozeControl(item, isSnoozedRow: isSnoozedRow)
         }
+    }
+
+    /// Straight into the device form's new "Hạn đổi/trả" row.
+    private func windowShortcut(_ deviceId: String) -> some View {
+        NavigationLink(value: ActionQueueNav.deviceForm(deviceId)) {
+            HStack(spacing: 4) {
+                WVIcon("calendar", size: 11, weight: .bold)
+                Text(L.t("Ghi hạn"))
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(WVColor.tint)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(WVColor.tint.opacity(0.14))
+            .clipShape(Capsule())
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 6)
     }
 
     private func navTarget(_ item: ActionItem) -> ActionQueueNav? {
@@ -405,23 +447,7 @@ struct ActionQueueScreen: View {
     }
 }
 
-// MARK: - Device destination
-
-/// A queue row names a device id, but `DeviceDetailView` draws from a loaded
-/// `Device`. Resolve it from the store, loading once when the dashboard's copy is
-/// stale or absent — never a dead end.
-struct ActionDeviceDestination: View {
-    let client: APIClient
-    @ObservedObject var store: DevicesStore
-    let deviceId: String
-
-    var body: some View {
-        if let device = store.devices.first(where: { $0.id == deviceId }) {
-            DeviceDetailView(client: client, devicesStore: store, device: device)
-        } else {
-            ProgressView(L.t("Đang tải…"))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .task { await store.load() }
-        }
-    }
-}
+// The queue's push destinations are resolved by `DeviceRouteDestination` (in
+// `DeviceDetailView.swift`), which loads the id inline and states an honest "not
+// found" instead of pushing a spinner. `.deviceForm` uses the same resolver with
+// `mode: .edit` so the "Ghi hạn" shortcut lands on the form.

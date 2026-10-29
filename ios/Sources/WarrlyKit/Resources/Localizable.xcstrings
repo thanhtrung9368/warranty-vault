@@ -1376,6 +1376,23 @@
         }
       }
     },
+    "Bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranties"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo hành"
+          }
+        }
+      }
+    },
     "Bảo hành (%d/5)": {
       "extractionState": "manual",
       "localizations": {
@@ -1491,6 +1508,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bật"
+          }
+        }
+      }
+    },
+    "Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on reminders so Warrly can warn you before a warranty ends or an exchange window closes. Notifications are used for that only — never for promotions."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi."
+          }
+        }
+      }
+    },
+    "Bật nhắc nhở?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on reminders?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bật nhắc nhở?"
           }
         }
       }
@@ -1820,6 +1871,23 @@
         }
       }
     },
+    "Chuyển tiếp email hoá đơn (PDF hoặc ảnh đính kèm) tới địa chỉ này — tệp sẽ nằm trong Hộp thư đến để gán vào thiết bị.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward a receipt email (a PDF or an image attachment) to this address — the file lands in the inbox, ready to be filed."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chuyển tiếp email hoá đơn (PDF hoặc ảnh đính kèm) tới địa chỉ này — tệp sẽ nằm trong Hộp thư đến để gán vào thiết bị."
+          }
+        }
+      }
+    },
     "Chuỗi số này không phải IMEI 15 chữ số.": {
       "extractionState": "manual",
       "localizations": {
@@ -1952,6 +2020,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chưa ai mở"
+          }
+        }
+      }
+    },
+    "Chưa biết": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not sure yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa biết"
           }
         }
       }
@@ -3046,6 +3131,23 @@
         }
       }
     },
+    "File đính kèm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attachments"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File đính kèm"
+          }
+        }
+      }
+    },
     "File đính kèm (%d/5)": {
       "extractionState": "manual",
       "localizations": {
@@ -3144,6 +3246,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ghi chú thêm..."
+          }
+        }
+      }
+    },
+    "Ghi hạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set window"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ghi hạn"
           }
         }
       }
@@ -3675,6 +3794,23 @@
         }
       }
     },
+    "Gợi ý: %d ngày cho %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggested: %d days for %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gợi ý: %d ngày cho %@"
+          }
+        }
+      }
+    },
     "Gửi": {
       "extractionState": "manual",
       "localizations": {
@@ -3824,6 +3960,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hoàn tác"
+          }
+        }
+      }
+    },
+    "Hoá đơn qua email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipts by email"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoá đơn qua email"
           }
         }
       }
@@ -4096,6 +4249,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hạn %@ • %@"
+          }
+        }
+      }
+    },
+    "Hạn đổi trả tính từ ngày nhận hàng (hoặc ngày mua nếu chưa ghi).": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The exchange window counts from the delivery date (or the purchase date when that is not recorded)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hạn đổi trả tính từ ngày nhận hàng (hoặc ngày mua nếu chưa ghi)."
           }
         }
       }
@@ -5053,6 +5223,23 @@
         }
       }
     },
+    "Không tải được nhắc bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load warranty reminders"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được nhắc bảo hành"
+          }
+        }
+      }
+    },
     "Không tải được phần soát gói": {
       "extractionState": "manual",
       "localizations": {
@@ -5083,6 +5270,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không tải được số liệu"
+          }
+        }
+      }
+    },
+    "Không tải được thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load your devices"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được thiết bị"
           }
         }
       }
@@ -5236,6 +5440,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không đọc được, bạn tự nhập."
+          }
+        }
+      }
+    },
+    "Không đổi trả": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No exchange"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đổi trả"
           }
         }
       }
@@ -6396,6 +6617,23 @@
         }
       }
     },
+    "Mặc định là ngày mua.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Defaults to the purchase date."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mặc định là ngày mua."
+          }
+        }
+      }
+    },
     "Mỗi %d ngày": {
       "extractionState": "manual",
       "localizations": {
@@ -6839,6 +7077,23 @@
         }
       }
     },
+    "Ngày nhận hàng": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delivery date"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày nhận hàng"
+          }
+        }
+      }
+    },
     "Ngày trả": {
       "extractionState": "manual",
       "localizations": {
@@ -6954,6 +7209,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nhạc"
+          }
+        }
+      }
+    },
+    "Nhận hoá đơn qua email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get receipts by email"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhận hoá đơn qua email"
           }
         }
       }
@@ -7707,6 +7979,23 @@
         }
       }
     },
+    "Sao chép": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép"
+          }
+        }
+      }
+    },
     "Sao chép Serial": {
       "extractionState": "manual",
       "localizations": {
@@ -7737,6 +8026,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sao chép link"
+          }
+        }
+      }
+    },
+    "Sao chép địa chỉ nhận hoá đơn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy receipt address"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép địa chỉ nhận hoá đơn"
           }
         }
       }
@@ -8621,6 +8927,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thiết bị chưa đặt mã mở khoá."
+          }
+        }
+      }
+    },
+    "Thiết bị có thể đã bị xoá trên máy khác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The device may have been deleted on another device."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thiết bị có thể đã bị xoá trên máy khác."
           }
         }
       }
@@ -12387,19 +12710,19 @@
         }
       }
     },
-    "Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo.": {
+    "Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; gói trả phí thì không.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Signing up takes 30 seconds. No credit card, no ads."
+            "value": "Signing up takes 30 seconds. No credit card. The free tier has ads; the paid tier does not."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đăng ký mất 30 giây. Không thẻ tín dụng, không quảng cáo."
+            "value": "Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; gói trả phí thì không."
           }
         }
       }
@@ -12621,6 +12944,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Địa chỉ email mới"
+          }
+        }
+      }
+    },
+    "Địa chỉ nhận hoá đơn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your receipt address"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Địa chỉ nhận hoá đơn"
+          }
+        }
+      }
+    },
+    "Địa chỉ này chỉ nhận thư. Ai biết địa chỉ cũng chỉ gửi được email vào hộp thư đến — không đọc, tải hay xoá được gì.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This address only receives mail: anyone can send a receipt here, but no one can read, download or delete anything in the inbox."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Địa chỉ này chỉ nhận thư. Ai biết địa chỉ cũng chỉ gửi được email vào hộp thư đến — không đọc, tải hay xoá được gì."
           }
         }
       }

@@ -647,6 +647,21 @@ final class ModelsTests: KitTestCase {
         XCTAssertNil(change.message)
     }
 
+    func testUserDecodesTheInboxAddressOnlyWhenTheServerSendsIt() throws {
+        let withAddress = try decode(User.self, from: #"""
+        {"id": "usr_1", "email": "trung@example.vn",
+         "inboxAddress": "k7q2m4x9pt@inbox.warrly.com"}
+        """#)
+        XCTAssertEqual(withAddress.inboxAddress, "k7q2m4x9pt@inbox.warrly.com")
+
+        // A deployment with no mail provider omits the key entirely
+        // (`omitempty`). `nil` — never `""` — is what makes the Settings row
+        // render nothing instead of a dead address.
+        let without = try decode(User.self, from:
+            #"{"id": "usr_1", "email": "trung@example.vn"}"#)
+        XCTAssertNil(without.inboxAddress)
+    }
+
     func testRegisterLoginPushAndPasswordInputsEncode() throws {
         var payload = try encode(RegisterInput(email: "a@b.vn", password: "matkhau123",
                                                name: "Trung"))

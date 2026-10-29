@@ -1,6 +1,7 @@
 #if canImport(UIKit)
 import UIKit
 import UserNotifications
+import WarrlyKit
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -50,7 +51,25 @@ final class WVNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        // No-op — default tap behaviour brings the app foreground.
+        // Every reminder the cron sends carries the destination it is about
+        // (`api/internal/cron/run.go`): `url: /devices/<id>` for a warranty or
+        // device alert, `/subscriptions/<id>` for a renewal. iOS used to ignore
+        // the key entirely, so a tap opened whatever tab was last used — a
+        // "BH sắp hết" alert landed on a screen with no relation to the device.
+        //
+        // `PushDestination` owns the decision (and the negative case): a
+        // missing, malformed or unhandled `url` posts nothing, so a tap can
+        // never open the wrong screen. The router observes this signal.
+        let userInfo = response.notification.request.content.userInfo
+        if let destination = PushDestination.from(userInfo: userInfo) {
+            Task { @MainActor in
+                NotificationCenter.default.post(
+                    name: WarrlyPush.destinationNotification,
+                    object: nil,
+                    userInfo: [WarrlyPush.destinationUserInfoKey: destination]
+                )
+            }
+        }
         completionHandler()
     }
 }

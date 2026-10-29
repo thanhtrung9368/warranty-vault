@@ -24,10 +24,25 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     /// and lock the user out of their own account.
     public let locale: String?
 
+    /// The account's own address for forwarding receipts by email
+    /// (`<inboxToken>@INBOX_EMAIL_DOMAIN`, migration 0020; `POST
+    /// /api/v1/inbox/email` files the mail's attachment into the inbox).
+    ///
+    /// **Absent, not empty, when the deployment has no mail provider.** The
+    /// server omits the key entirely (`omitempty`), so `nil` is the one honest
+    /// answer and the UI renders *nothing* — a row holding an empty string
+    /// would look like a broken address and invite the user to copy it.
+    ///
+    /// It is a **write-only capability**: knowing the address only lets someone
+    /// send mail into the inbox. It cannot read, list, download or delete
+    /// anything, and it is deliberately not part of a backup.
+    public let inboxAddress: String?
+
     public init(id: String, email: String, name: String?, aiOptIn: Bool? = nil,
-                locale: String? = nil) {
+                locale: String? = nil, inboxAddress: String? = nil) {
         self.id = id; self.email = email; self.name = name
         self.aiOptIn = aiOptIn; self.locale = locale
+        self.inboxAddress = inboxAddress
     }
 
     /// `locale` resolved against the languages this build actually ships.

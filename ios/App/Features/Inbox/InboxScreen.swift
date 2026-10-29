@@ -16,6 +16,8 @@ struct InboxScreen: View {
     let client: APIClient
 
     @EnvironmentObject private var inbox: InboxStore
+    /// The signed-in account, for its inbound receipt address (`inboxAddress`).
+    @EnvironmentObject private var auth: AuthStore
     @StateObject private var devicesStore: DevicesStore
 
     @State private var sheet: InboxSheet?
@@ -30,14 +32,27 @@ struct InboxScreen: View {
 
     private enum InboxSheet: Identifiable {
         case capture
+        case address
         case assign(AttachmentMeta)
 
         var id: String {
             switch self {
             case .capture: return "capture"
+            case .address: return "address"
             case .assign(let attachment): return "assign-\(attachment.id)"
             }
         }
+    }
+
+    /// The account's own forwarding address, or `nil` when this deployment has
+    /// no mail provider (`inboxAddress` is omitted from `/auth/me`). `nil` must
+    /// render nothing: a button that opens an empty address is worse than no
+    /// button at all.
+    private var inboxAddress: String? {
+        guard case let .authenticated(user) = auth.status,
+              let address = user.inboxAddress?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !address.isEmpty else { return nil }
+        return address
     }
 
     var body: some View {
@@ -68,6 +83,10 @@ struct InboxScreen: View {
             case .capture:
                 InboxCaptureSheet(client: client) { _ in
                     Task { await inbox.load() }
+                }
+            case .address:
+                if let inboxAddress {
+                    InboxAddressSheet(address: inboxAddress)
                 }
             case .assign(let attachment):
                 InboxDevicePickerSheet(
@@ -133,8 +152,19 @@ struct InboxScreen: View {
                     title: L.t("Hộp thư đến đang trống"),
                     description: L.t("Ảnh hoá đơn hoặc PDF chưa gán thiết bị sẽ nằm ở đây.")
                 ) {
-                    WVButton(L.t("Thêm hoá đơn"), icon: "camera") {
-                        sheet = .capture
+                    VStack(spacing: 10) {
+                        WVButton(L.t("Thêm hoá đơn"), icon: "camera") {
+                            sheet = .capture
+                        }
+                        // The zero-tap path, offered next to the capture one.
+                        // Only when the account actually has an address this
+                        // deployment can receive mail on.
+                        if inboxAddress != nil {
+                            WVButton(L.t("Nhận hoá đơn qua email"), icon: "mail",
+                                     kind: .secondary) {
+                                sheet = .address
+                            }
+                        }
                     }
                 }
             }
@@ -364,5 +394,111 @@ private enum InboxThumbnailCache {
 
     static func store(_ image: UIImage, for id: String) {
         cache.setObject(image, forKey: id as NSString)
+    }
+}
+
+// MARK: - The inbound receipt address
+
+/// The account's own forwarding address (`GET /auth/me` → `inboxAddress`,
+/// migration 0020) as a group row with a copy button.
+///
+/// This is the inbound half of the capture flow, and the cheapest path in the
+/// app: forward a receipt email to this address and its attachment lands in the
+/// inbox with **zero** taps of manual entry (`POST /api/v1/inbox/email`).
+/// `openapi.yaml` tells clients to show it in Settings; iOS showed it nowhere.
+///
+/// It is a **write-only capability**, and the footer that accompanies this row
+/// says so: knowing the address lets someone send mail into the inbox, never
+/// read, list, download or delete anything from it. It is not a password and not
+/// part of a backup.
+///
+/// Shared by `InboxScreen`'s empty state and `AccountView`, so the copy button
+/// behaves identically in both and there is one place to change the wording.
+struct InboxAddressRow: View {
+    let address: String
+
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            WVLeadingIcon(icon: "mail", color: WVColor.blue)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L.t("Địa chỉ nhận hoá đơn"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(WVColor.label3)
+                Text(address)
+                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .textSelection(.enabled)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                UIPasteboard.general.string = address
+                withAnimation(.easeOut(duration: 0.15)) { copied = true }
+                Task {
+                    // Transient confirmation only: the address itself stays on
+                    // screen, so nothing is lost when the label reverts.
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    withAnimation(.easeOut(duration: 0.15)) { copied = false }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(copied ? L.t("Đã sao chép") : L.t("Sao chép"))
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(WVColor.tint)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(WVColor.tint.opacity(0.14))
+                .clipShape(Capsule())
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L.t("Sao chép địa chỉ nhận hoá đơn"))
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 10)
+    }
+}
+
+/// Sheet wrapper for `InboxAddressRow`, reached from the inbox's empty state.
+struct InboxAddressSheet: View {
+    let address: String
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 12)
+                    WVGroup {
+                        InboxAddressRow(address: address)
+                    }
+                    WVSectionFooter(L.t("Địa chỉ này chỉ nhận thư. Ai biết địa chỉ cũng chỉ gửi được email vào hộp thư đến — không đọc, tải hay xoá được gì."))
+                    WVSectionFooter(L.t("Chuyển tiếp email hoá đơn (PDF hoặc ảnh đính kèm) tới địa chỉ này — tệp sẽ nằm trong Hộp thư đến để gán vào thiết bị."))
+                    Spacer().frame(height: 24)
+                }
+            }
+            .wvScreen()
+            .navigationTitle(L.t("Hoá đơn qua email"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(L.t("Xong")) { dismiss() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }

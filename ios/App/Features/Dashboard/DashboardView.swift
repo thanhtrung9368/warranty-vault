@@ -54,6 +54,32 @@ struct DashboardView: View {
     }
 
     private var totalDevices: Int { statsStore.snapshot.totalDevices }
+
+    /// What a tile prints before the read that fills it has answered.
+    ///
+    /// A `0` here is a claim ("you have no devices", "nothing is expiring"), and
+    /// this screen used to make it during `.idle` and `.loading` — the same
+    /// false-state defect as the "Tất cả đều ngon" card below.
+    private static let unknownValue = "—"
+
+    /// `true` once the device list read has answered at least once.
+    ///
+    /// A failed *refresh* with rows already on screen keeps the tiles: those
+    /// numbers are stale, not invented, and blanking them on a flaky network
+    /// would hide data the user can still act on.
+    private var devicesReady: Bool {
+        if case .loaded = devicesStore.state { return true }
+        return !devicesStore.devices.isEmpty
+    }
+
+    /// The same rule for the server's own device tally (`GET /stats`). Its
+    /// snapshot survives a failed refresh, so a non-zero count means a read has
+    /// succeeded at least once.
+    private var deviceCountReady: Bool {
+        if case .loaded = statsStore.state { return true }
+        return statsStore.snapshot.totalDevices > 0
+    }
+
     /// The four warranty tiles, computed in `WarrlyKit.warrantyRollup` so the
     /// boundaries are testable and match Android and the web.
     ///
@@ -165,23 +191,25 @@ struct DashboardView: View {
             }
         }
         .navigationDestination(for: DashDeviceNav.self) { nav in
-            // Find the device from store; if not found yet show the detail with a placeholder.
-            let device = devicesStore.devices.first(where: { $0.id == nav.id })
-            if let device {
-                DeviceDetailView(client: client, devicesStore: devicesStore, device: device)
-            } else {
-                // Device not in store yet — navigate anyway with a loading placeholder.
-                ProgressView(L.t("Đang tải..."))
-                    .navigationTitle(nav.name)
-                    .task { await devicesStore.load() }
-            }
+            // The reminder row names a device id, not a loaded `Device`. The
+            // destination now loads it inline and then pushes the real screen;
+            // it used to push a bare `ProgressView`, i.e. a tap that navigates
+            // to "loading" and can stay there forever. `DeviceRouteDestination`
+            // also states an honest "not found" (with a retry) for a device
+            // deleted on another phone, instead of spinning.
+            DeviceRouteDestination(client: client, store: devicesStore, deviceId: nav.id)
         }
         // Where a "Việc cần xử lý" row can lead. Registered here, on the stack
         // that owns them, rather than inside the pushed screen.
         .navigationDestination(for: ActionQueueNav.self) { nav in
             switch nav {
             case .device(let id):
-                ActionDeviceDestination(client: client, store: devicesStore, deviceId: id)
+                DeviceRouteDestination(client: client, store: devicesStore, deviceId: id)
+            case .deviceForm(let id):
+                // The "Ghi hạn" shortcut on the two return-window rows. Same
+                // inline resolve, then the form that actually has the input.
+                DeviceRouteDestination(client: client, store: devicesStore,
+                                       deviceId: id, mode: .edit)
             case .subscription(let id):
                 SubscriptionDetailView(client: client, store: subsStore, subscriptionId: id)
             case .wishlistItem(let id):
@@ -234,30 +262,39 @@ struct DashboardView: View {
 
     private var statGrid: some View {
         let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        // `nil`/empty data is not zero. Each tile prints "—" until the read that
+        // produces it has answered, and the sub-line goes with it: "0 đang theo
+        // dõi" under an em dash would be the same lie one size smaller.
+        let devicesValue = deviceCountReady ? "\(totalDevices)" : Self.unknownValue
+        let inWarrantyValue = devicesReady ? "\(warranty.inWarranty)" : Self.unknownValue
+        let soonValue = devicesReady ? "\(warranty.soon)" : Self.unknownValue
+        let expiredValue = devicesReady ? "\(warranty.expired)" : Self.unknownValue
         return LazyVGrid(columns: cols, spacing: 12) {
             WVWidget(
                 eyebrow: L.t("Thiết bị"),
-                value: "\(totalDevices)",
-                sub: L.t("đang theo dõi"),
+                value: devicesValue,
+                sub: deviceCountReady ? L.t("đang theo dõi") : nil,
                 icon: "package",
                 brand: true
             )
             WVWidget(
                 eyebrow: L.t("Còn BH"),
-                value: "\(warranty.inWarranty)",
-                sub: L.t("được bảo vệ"),
+                value: inWarrantyValue,
+                sub: devicesReady ? L.t("được bảo vệ") : nil,
                 icon: "shieldCheck"
             )
             WVWidget(
                 eyebrow: L.t("Sắp hết ≤30d"),
-                value: "\(warranty.soon)",
-                sub: warranty.soon > 0 ? L.t("để ý nha") : L.t("không có"),
+                value: soonValue,
+                sub: devicesReady
+                    ? (warranty.soon > 0 ? L.t("để ý nha") : L.t("không có"))
+                    : nil,
                 icon: "alert"
             )
             WVWidget(
                 eyebrow: L.t("Đã hết"),
-                value: "\(warranty.expired)",
-                sub: L.t("hết kèo"),
+                value: expiredValue,
+                sub: devicesReady ? L.t("hết kèo") : nil,
                 icon: "shieldX"
             )
         }
@@ -338,28 +375,90 @@ struct DashboardView: View {
         WVDashSectionHead(L.t("Sắp hết bảo hành"))
             .padding(.top, 8)
 
-        if upcomingFromReminders.isEmpty {
+        // "Tất cả đều ngon / Không có gói nào sắp hết trong 30 ngày" is a
+        // conclusion, and it may only be drawn from a read that actually
+        // happened. An empty `entries` array means three different things —
+        // not read yet, still reading, and read-and-genuinely-empty — and the
+        // screen printed the third one for all three. `ActionQueueScreen` is
+        // the reference contract here: nil ≠ empty ≠ error.
+        switch remindersStore.state {
+        case .loaded:
+            if upcomingFromReminders.isEmpty {
+                WVGroup {
+                    WVRow(
+                        icon: "checkCircle",
+                        iconColor: WVColor.green,
+                        title: L.t("Tất cả đều ngon"),
+                        subtitle: L.t("Không có gói nào sắp hết trong 30 ngày")
+                    )
+                }
+                .padding(.bottom, 4)
+            } else {
+                WVGroup {
+                    ForEach(Array(upcomingFromReminders.enumerated()), id: \.offset) { idx, item in
+                        if idx > 0 { WVDivider(inset: 60) }
+                        NavigationLink(value: DashDeviceNav(id: item.deviceId, name: item.deviceName)) {
+                            DashWarrantyRow(
+                                name: item.deviceName,
+                                category: item.category,
+                                daysLeft: item.daysLeft
+                            )
+                        }
+                        .buttonStyle(WVRowButtonStyle())
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+
+        case .error(let message):
             WVGroup {
-                WVRow(
-                    icon: "checkCircle",
-                    iconColor: WVColor.green,
-                    title: L.t("Tất cả đều ngon"),
-                    subtitle: L.t("Không có gói nào sắp hết trong 30 ngày")
-                )
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "alert", color: WVColor.orange, size: 34)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L.t("Không tải được nhắc bảo hành"))
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(WVColor.label)
+                        Text(message)
+                            .font(.system(size: 13))
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button(L.t("Thử lại")) { Task { await remindersStore.load() } }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(WVColor.tint)
+                        .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 10)
             }
             .padding(.bottom, 4)
-        } else {
+
+        case .idle, .loading:
+            // Static redacted rows, the same skeleton the reminders screen uses
+            // (minus its label — grey bars already say "loading").
             WVGroup {
-                ForEach(Array(upcomingFromReminders.enumerated()), id: \.offset) { idx, item in
-                    if idx > 0 { WVDivider(inset: 60) }
-                    NavigationLink(value: DashDeviceNav(id: item.deviceId, name: item.deviceName)) {
-                        DashWarrantyRow(
-                            name: item.deviceName,
-                            category: item.category,
-                            daysLeft: item.daysLeft
-                        )
+                ForEach(0..<2) { i in
+                    if i > 0 { WVDivider(inset: 60) }
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 36, height: 36)
+                        VStack(alignment: .leading, spacing: 6) {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(height: 14)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(width: 140, height: 12)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(WVRowButtonStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .redacted(reason: .placeholder)
                 }
             }
             .padding(.bottom, 4)

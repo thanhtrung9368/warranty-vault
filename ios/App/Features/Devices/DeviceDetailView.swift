@@ -52,6 +52,13 @@ struct DeviceDetailView: View {
     private var warranties: [Warranty] { store.warranties }
     private var attachments: [AttachmentMeta] { store.device?.attachments ?? [] }
 
+    /// `true` once the detail read has landed.
+    ///
+    /// Section headers that print a count use this: `0/5` before the read is a
+    /// false state (the list is empty because nothing arrived, not because the
+    /// device has none), while after the read `0` is a fact worth showing.
+    private var detailLoaded: Bool { store.state == .loaded }
+
     /// The furthest warranty end, from the detail read when it has loaded and
     /// from the list projection otherwise. Used by the handover checklist's
     /// "know the warranty end date" line; `nil` means the app genuinely does not
@@ -351,8 +358,15 @@ struct DeviceDetailView: View {
                     }
                 }
 
-                // Warranty list group
-                WVSectionHeader(L.t("Bảo hành (%d/5)", warranties.count))
+                // Warranty list group.
+                //
+                // The count is only printed once the detail read has landed.
+                // Before that `warranties` is empty because *nothing has been
+                // read yet*, not because the device has none — "(0/5)" there is
+                // a claim the screen cannot support.
+                WVSectionHeader(detailLoaded
+                    ? L.t("Bảo hành (%d/5)", warranties.count)
+                    : L.t("Bảo hành"))
                 warrantyListGroup
 
                 // Warranty contact group (if phones/addresses present)
@@ -412,8 +426,11 @@ struct DeviceDetailView: View {
                     deviceName: currentDevice.name
                 )
 
-                // Attachments
-                WVSectionHeader(L.t("File đính kèm (%d/5)", attachments.count))
+                // Attachments. Same rule as the warranty header: the count is a
+                // fact from the read, so it appears with the read.
+                WVSectionHeader(detailLoaded
+                    ? L.t("File đính kèm (%d/5)", attachments.count)
+                    : L.t("File đính kèm"))
                 DeviceAttachmentsSection(
                     client: client,
                     deviceId: currentDevice.id,
@@ -743,6 +760,141 @@ struct WarrantyFormNav: Hashable {
     }
     static func == (lhs: WarrantyFormNav, rhs: WarrantyFormNav) -> Bool {
         lhs.warranty?.id == rhs.warranty?.id
+    }
+}
+
+// MARK: - Device route destination
+
+/// Resolves a device **id** into the screen that owns it.
+///
+/// A dashboard reminder, a stats "top device" row, an action-queue row and a
+/// push notification all carry an id; `DeviceDetailView` and `DeviceFormView`
+/// need a loaded `Device`. This view loads the list inline and then shows the
+/// real screen.
+///
+/// Two things it deliberately does not do:
+///
+///   * **it never pushes a bare spinner.** `ProgressView` was the destination
+///     for the dashboard and stats rows, which is why a tap looked like a
+///     broken screen that never resolved;
+///   * **it never spins forever.** A device deleted on another phone (or an id
+///     from a stale reminder) is stated as "not found" with a retry, and a read
+///     that failed is stated as a failure — the same nil ≠ empty ≠ error split
+///     `ActionQueueScreen` uses.
+///
+/// `mode: .edit` is what the action queue's "Ghi hạn" shortcut uses: the
+/// device form is where the return window is recorded.
+struct DeviceRouteDestination: View {
+    let client: APIClient
+    @ObservedObject var store: DevicesStore
+    let deviceId: String
+    var mode: Mode = .detail
+
+    enum Mode { case detail, edit }
+
+    /// True once the resolve attempt finished, so "not found" is never claimed
+    /// while the read is still running.
+    @State private var didAttempt = false
+
+    private var device: Device? { store.devices.first(where: { $0.id == deviceId }) }
+
+    var body: some View {
+        Group {
+            if let device {
+                switch mode {
+                case .detail:
+                    DeviceDetailView(client: client, devicesStore: store, device: device)
+                case .edit:
+                    DeviceFormView(client: client, store: store, device: device)
+                }
+            } else if didAttempt, case let .error(message) = store.state {
+                // The read failed. Say that, not "not found": the device may
+                // well exist and the list simply never arrived.
+                ScrollView {
+                    WVEmpty(icon: "alert",
+                            title: L.t("Không tải được thiết bị"),
+                            description: message) {
+                        WVButton(L.t("Thử lại")) { Task { await resolve(force: true) } }
+                            .padding(.horizontal, 32)
+                    }
+                }
+                .wvScreen()
+            } else if didAttempt {
+                ScrollView {
+                    WVEmpty(icon: "package",
+                            title: L.t("Không tìm thấy thiết bị này."),
+                            description: L.t("Thiết bị có thể đã bị xoá trên máy khác.")) {
+                        WVButton(L.t("Thử lại"), kind: .secondary) {
+                            Task { await resolve(force: true) }
+                        }
+                        .padding(.horizontal, 32)
+                    }
+                }
+                .wvScreen()
+            } else {
+                ScrollView { DeviceDetailSkeleton() }
+                    .wvScreen()
+            }
+        }
+        .task { await resolve(force: false) }
+    }
+
+    /// One read. A forced resolve is what the retry buttons use; otherwise the
+    /// already-loaded list is reused, so opening a row does not re-fetch the
+    /// account's devices on every tap.
+    private func resolve(force: Bool) async {
+        if !force {
+            if device != nil { didAttempt = true; return }
+            // The list answered and this id is not in it. A retry can still be
+            // asked for by hand.
+            if case .loaded = store.state { didAttempt = true; return }
+        }
+        await store.load()
+        didAttempt = true
+    }
+}
+
+// MARK: - Device detail skeleton
+
+/// The detail screen's shape while the router resolves which device to draw.
+/// Static and redacted, like the other skeletons in the app — the point is a
+/// surface that looks like the destination, not a spinner in an empty page.
+private struct DeviceDetailSkeleton: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                Circle()
+                    .fill(WVColor.fill3)
+                    .frame(width: 64, height: 64)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(WVColor.fill3)
+                    .frame(width: 170, height: 18)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(WVColor.fill3)
+                    .frame(width: 110, height: 12)
+            }
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity)
+
+            WVGroup {
+                ForEach(0..<3) { i in
+                    if i > 0 { WVDivider(inset: 60) }
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 30, height: 30)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(height: 14)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .redacted(reason: .placeholder)
+                }
+            }
+        }
+        .padding(.top, 8)
     }
 }
 

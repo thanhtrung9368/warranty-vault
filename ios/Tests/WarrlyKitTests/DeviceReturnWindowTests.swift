@@ -4,13 +4,19 @@ import XCTest
 
 /// Exchange / return window round trip (migration 0010) — the pure half.
 ///
-/// This is a PRESERVE-ONLY feature in this pass: no input, no picker, no setting.
-/// `PATCH /api/v1/devices/{id}` replaces the whole device, so the only thing that
-/// matters is that an edit made on iOS sends back exactly what it loaded. A device
-/// that arrives with a window recorded elsewhere must leave with the same window —
-/// otherwise the first iOS edit silently destroys data another client wrote.
+/// Two jobs, and the second one is new:
 ///
-/// The last two tests here go one level deeper than the mapping helpers: they
+///  * **Preserve on save.** `PATCH /api/v1/devices/{id}` replaces the whole
+///    device, so an edit made on iOS must send back exactly what it loaded. A
+///    device that arrives with a window recorded elsewhere must leave with the
+///    same window — otherwise the first iOS edit silently destroys data another
+///    client wrote.
+///  * **Offer the window.** The device form now has a "Hạn đổi/trả" pill row and
+///    a "Ngày nhận hàng" picker. The rules behind them (which categories get a
+///    suggestion, what the two fields do when the picker is hidden) are pinned
+///    here rather than in the view.
+///
+/// The last tests here go one level deeper than the mapping helpers: they
 /// build the very `DeviceInput` the form builds, encode it through the real
 /// `APIClient` and assert on the **literal JSON body on the wire**. A helper test
 /// alone cannot prove the key survives `JSONEncoder` — and a dropped key is
@@ -164,6 +170,85 @@ final class DeviceReturnWindowTests: KitTestCase {
 
         XCTAssertEqual(input.returnWindowDays, 365)
         XCTAssertNil(input.receivedAt)
+    }
+
+    // MARK: - Choosing a window (the form's pill row)
+
+    func testTheChoiceRowKeepsUnknownAndNoExchangeApart() {
+        // The row the form draws: "Chưa biết · 7 · 15 · 30 · 365 · Không đổi trả".
+        XCTAssertEqual(DeviceReturnWindow.choices.map(\.days),
+                       [nil, 7, 15, 30, 365, 0])
+        XCTAssertEqual(Set(DeviceReturnWindow.choices.map(\.id)).count,
+                       DeviceReturnWindow.choices.count,
+                       "every pill needs its own identity")
+        L.withLanguage(.vi) {
+            XCTAssertEqual(DeviceReturnWindow.choices[0].label, "Chưa biết")
+            XCTAssertEqual(DeviceReturnWindow.choices[3].label, "30 ngày")
+            XCTAssertEqual(DeviceReturnWindow.choices[5].label, "Không đổi trả")
+        }
+        L.withLanguage(.en) {
+            XCTAssertEqual(DeviceReturnWindow.choices[0].label, "Not sure yet")
+            XCTAssertEqual(DeviceReturnWindow.choices[3].label, "30 days")
+            XCTAssertEqual(DeviceReturnWindow.choices[5].label, "No exchange")
+        }
+    }
+
+    func testTheSuggestedWindowFollowsTheCategory() {
+        // 30 days for the four categories the 1-for-1 window exists for.
+        for code in ["PHONE", "TABLET", "LAPTOP", "SMARTWATCH"] {
+            XCTAssertEqual(DeviceReturnWindow.suggestedDays(forCategory: code), 30, code)
+        }
+        // A year for accessories.
+        for code in ["HEADPHONE", "SPEAKER", "KEYBOARD", "MOUSE", "CAMERA", "MONITOR"] {
+            XCTAssertEqual(DeviceReturnWindow.suggestedDays(forCategory: code), 365, code)
+        }
+        // The wire carries a category code, but the form's default is lowercase.
+        XCTAssertEqual(DeviceReturnWindow.suggestedDays(forCategory: "phone"), 30)
+    }
+
+    func testAnUnknownCategoryGetsNoSuggestionRatherThanZeroDays() {
+        // `0` means "the shop does not allow exchanges" — a recorded claim. A
+        // category the app cannot place must stay "chưa biết", never invent one.
+        XCTAssertNil(DeviceReturnWindow.suggestedDays(forCategory: nil))
+        XCTAssertNil(DeviceReturnWindow.suggestedDays(forCategory: ""))
+        XCTAssertNil(DeviceReturnWindow.suggestedDays(forCategory: "FURNITURE"))
+        XCTAssertNil(DeviceReturnWindow.suggestedDays(forCategory: "OTHER"))
+    }
+
+    func testAChosenWindowTravelsWithThePickerDay() {
+        XCTAssertEqual(
+            DeviceReturnWindow.edited(returnWindowDays: 30,
+                                      receivedAt: "2026-03-02T00:00:00Z",
+                                      storedReceivedAt: nil),
+            ReturnWindowFields(returnWindowDays: 30, receivedAt: "2026-03-02")
+        )
+    }
+
+    func testAChosenWindowWithNoPickableDayStaysNilRatherThanInventingOne() {
+        XCTAssertEqual(
+            DeviceReturnWindow.edited(returnWindowDays: 30,
+                                      receivedAt: nil,
+                                      storedReceivedAt: "2026-01-01"),
+            ReturnWindowFields(returnWindowDays: 30, receivedAt: nil)
+        )
+    }
+
+    func testNoExchangeKeepsAStoredDeliveryDayInsteadOfErasingIt() {
+        // The picker is hidden for `0`, but the two fields are independent on
+        // the wire: hiding an input must not delete data the user recorded
+        // earlier (the same rule as the return window itself).
+        XCTAssertEqual(
+            DeviceReturnWindow.edited(returnWindowDays: 0,
+                                      receivedAt: "2026-03-02",
+                                      storedReceivedAt: "2026-01-05"),
+            ReturnWindowFields(returnWindowDays: 0, receivedAt: "2026-01-05")
+        )
+        XCTAssertEqual(
+            DeviceReturnWindow.edited(returnWindowDays: nil,
+                                      receivedAt: "2026-03-02",
+                                      storedReceivedAt: "2026-01-05"),
+            ReturnWindowFields(returnWindowDays: nil, receivedAt: "2026-01-05")
+        )
     }
 
     // MARK: - The proof at the wire level

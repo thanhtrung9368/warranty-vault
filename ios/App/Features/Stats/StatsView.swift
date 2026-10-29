@@ -64,13 +64,11 @@ struct StatsView: View {
         .task { await loadAll() }
         .refreshable { await loadAll() }
         .navigationDestination(for: DashDeviceNav.self) { nav in
-            if let device = devicesStore.devices.first(where: { $0.id == nav.id }) {
-                DeviceDetailView(client: client, devicesStore: devicesStore, device: device)
-            } else {
-                ProgressView(L.t("Đang tải..."))
-                    .navigationTitle(nav.name)
-                    .task { await devicesStore.load() }
-            }
+            // Inline resolve, then the real screen. This used to push a
+            // `ProgressView` as the destination — a blank screen whose only
+            // content was the spinner, which is exactly the state the owner
+            // called out as "the user cannot tell what is happening".
+            DeviceRouteDestination(client: client, store: devicesStore, deviceId: nav.id)
         }
     }
 
