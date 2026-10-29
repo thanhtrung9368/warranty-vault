@@ -715,9 +715,13 @@ Server mới **không mang volume `warrly_pgdata`** theo. Kiểm ngày 2026-10-2
 `POST /auth/register` **200** (DB sống, ghi được) nhưng `verify@warrly.test` **không đăng
 nhập được** → tài khoản seed cũ không tồn tại → **DB rỗng**.
 
-App chưa từng công bố nên nhiều khả năng chỉ mất dữ liệu test. Nếu server cũ **vẫn còn sống**
-thì volume vẫn nằm đó và chép sang được. **Nếu nó còn chạy cùng domain thì phải tắt** —
-hai bản app cùng ghi vào hai DB riêng, Cloudflare chỉ trỏ một.
+**Không mất gì.** Chủ sản phẩm xác nhận ngày 2026-10-29: **chưa có người dùng nào**. DB
+rỗng là trạng thái đúng, không phải sự cố, và không cần chép volume từ server cũ.
+
+Hmm — nhưng **server cũ vẫn nên tắt** nếu nó còn chạy cùng domain: hai bản app ghi vào hai
+DB riêng trong khi Cloudflare chỉ trỏ một nghĩa là người đăng ký ở bản A có thể không đăng
+nhập được ở bản B. Với 0 user thì rủi ro bằng 0, nhưng nó vẫn **tốn tiền** và vẫn có thể
+**phục vụ code cũ** nếu ai đó trỏ DNS về.
 
 ---
 
