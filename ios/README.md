@@ -92,6 +92,10 @@ ios/
     ├── WarrlyApp.swift     # @main entry
     ├── RootView.swift             # Login / TabBar switch
     ├── AppIntents/                # Siri / Shortcuts intents + App Shortcuts
+    ├── Ads/                       # AdMob: consent order (UMP → ATT → start), adaptive banner
+    │   ├── AdsConfig.swift        # per-config ad-unit id, test devices, paid-tier flag
+    │   ├── AdsController.swift    # the only file that talks to Google's SDKs
+    │   └── AdsBannerView.swift    # UIViewRepresentable banner + the 50 pt slot
     ├── Core/Surface/              # deadline snapshot writer, Spotlight indexer, deep-link router
     ├── DesignSystem/
     │   ├── Theme.swift            # Colors mirror src/app/globals.css
@@ -163,16 +167,67 @@ Lưu ý ATS: app chỉ cho phép HTTP không mã hoá tới `localhost` (Debug).
 `http://<LAN-IP>:4000` từ iPhone thật sẽ bị iOS chặn; dùng HTTPS hoặc tunnel, đừng thêm lại
 `NSAllowsArbitraryLoads`.
 
+## Quảng cáo (Google AdMob) — chỉ ở gói miễn phí
+
+Banner **adaptive** ở đáy màn Thiết bị. SDK: `Google-Mobile-Ads-SDK` **13.11.0** + UMP
+**3.1.0**, khai báo trong `project.yml` bằng `exactVersion` (không phải `from:`) vì nâng SDK
+quảng cáo là thay đổi phải review, không phải resolve ngầm.
+
+- **Id cấu hình theo build.** `GADApplicationIdentifier` (dạng `~`) nằm trong `project.yml`;
+  ad-unit id (dạng `/`) đi qua `WV_ADMOB_BANNER_UNIT_ID`:
+  `Config/Debug.xcconfig` = unit **test** của Google, `Config/Release.xcconfig` = unit thật.
+  App đọc qua key `GADBannerUnitID` trong Info.plist (`App/Ads/AdsConfig.swift`).
+  Đây là ranh giới **policy**, không phải sở thích: publisher `pub-1055054650162014` dùng
+  chung với app khác của chủ sản phẩm — ⛔ **không bao giờ bấm quảng cáo thật**.
+- **Thứ tự consent do STATE quyết định, không do số giây** — `WarrlyKit/AdsConsentOrdering.swift`
+  (`AdsConsentSession`), có test ghim (`AdsConsentOrderingTests`):
+  UMP `requestConsentInfoUpdate` → form nếu bắt buộc, đợi form đóng → ATT → `MobileAds.start`
+  → banner mới được request. Ba lần bị từ chối của app trước đến từ đúng thứ tự này:
+  ATT nằm sau UMP không timeout (2.1), rồi timeout cứng làm ATT hiện **trước** form GDPR
+  (5.1.1(iv)), rồi IDFA explainer của UMP còn trên màn hình khi ATT hiện.
+  - Có **budget** 10 s cho pha UMP, nhưng budget chỉ *đóng cửa sổ form* — sau đó không form
+    nào được present nữa, nên ATT không thể chạy trước một form sẽ hiện sau. UMP lỗi/treo ⇒
+    quảng cáo vẫn khởi tạo ở trạng thái **non-personalised**, không phải không có quảng cáo.
+  - ATT được **retry ở mọi lần foreground** (không phải một lần mỗi cài đặt).
+  - UMP có message trên màn hình thì ATT đứng yên: không có API công khai cho việc này, nên
+    `AdsController` quét view hierarchy tìm class `UMPView`.
+- **`npa=1`** khi thiếu một trong hai cơ sở pháp lý: GDPR/TCF (UMP) hoặc ATT. Người chấp nhận
+  form GDPR nhưng từ chối ATT ⇒ quảng cáo **non-personalised**, không phải mất banner.
+- **Banner**: `App/Ads/AdsBannerView.swift` — `UIViewRepresentable` bọc `BannerView`, size
+  `inlineAdaptiveBanner(width:maxHeight:)`, gắn bằng `safeAreaInset(edge: .bottom)` **ngoài**
+  scroll view (không bị unmount khi scroll ⇒ không phát sinh request mỗi vòng), slot cao
+  **50 pt** giữ chỗ trước khi có ad nên list không nhảy (`ScreenMetrics.adBannerSlotHeight`).
+  `updateUIView` chỉ reload khi bề rộng đổi hoặc quyết định cá nhân hoá đổi.
+- **Gói trả phí**: banner ẩn hoàn toàn (`AdsController.isAdFree`). Gói trả phí **chưa mở bán**
+  nên chưa có gì bật cờ này; Debug có thể ép bằng `WV_ADS_FREE=1` để thử nhánh ẩn.
+- **Test device**: simulator luôn là test device; trên máy thật, Debug dùng unit test nên
+  không thể hiện quảng cáo thật. Nếu cố tình trỏ Debug vào unit thật để kiểm tra fill, đặt
+  `WV_ADS_TEST_DEVICES=<id>` (id SDK in ra console ở request đầu tiên).
+- **Đã build, CHƯA xác minh trên máy thật**: chưa ai thấy ATT prompt, form UMP, hay một
+  impression thật. Việc cần làm trên thiết bị nằm trong báo cáo bàn giao, không phải TODO
+  trong repo này.
+
 ## Privacy manifest
 
-Có **hai** file `PrivacyInfo.xcprivacy`, cả hai đều phải nằm trong bundle khi build:
+Có **bốn** file `PrivacyInfo.xcprivacy`, cả bốn đều phải nằm trong bundle khi build
+(`find Warrly.app -name PrivacyInfo.xcprivacy` sau khi build là cách kiểm tra):
 
-- `App/PrivacyInfo.xcprivacy` — app target; khai báo `UserDefaults` (`CA92.1`) và các loại dữ
-  liệu app thu thập (email, tên, user ID, push token, ảnh/PDF, nội dung người dùng nhập, lịch
-  sử mua). Không tracking.
-- `Sources/WarrlyKit/Resources/PrivacyInfo.xcprivacy` — bundle `WarrlyKit_WarrlyKit.bundle`;
-  `AppLock.swift` đọc/ghi `UserDefaults` nên bundle thư viện cũng dùng required-reason API.
-  File này được khai báo trong `Package.swift` cạnh `Localizable.xcstrings`.
+- `App/PrivacyInfo.xcprivacy` — app target. **`NSPrivacyTracking = true`** + danh sách
+  `NSPrivacyTrackingDomains` không rỗng (googleadservices.com, googleads.g.doubleclick.net,
+  doubleclick.net, pagead2.googlesyndication.com) vì app đọc IDFA cho AdMob; khai báo
+  `DeviceID` (tracking = true, gộp cả push token) + `AdvertisingData` (tracking = true), cùng
+  các loại dữ liệu app thu thập (email, tên, user ID, ảnh/PDF, nội dung người dùng nhập, lịch
+  sử mua) và `UserDefaults` (`CA92.1`, `1C8F.1`).
+- `ShareExtension/PrivacyInfo.xcprivacy`, `WidgetExtension/PrivacyInfo.xcprivacy`,
+  `Sources/WarrlyKit/Resources/PrivacyInfo.xcprivacy` — cùng cờ tracking + domains, nhưng
+  **không** khai báo dữ liệu quảng cáo: các bundle này không gọi mạng tới miền quảng cáo và
+  không thu thập IDFA. Cờ tracking phải khớp nhau ở mọi bundle trong archive.
+
+⚠️ `NSPrivacyTrackingDomains` **phải** không rỗng khi `NSPrivacyTracking = true`, nếu không
+App Store Connect trả **ITMS-91064** ("NSPrivacyTracking must be true if
+NSPrivacyTrackingDomains isn't empty" — câu chữ của Apple ngược với thứ họ thực thi). Hệ quả
+lúc chạy: iOS **chặn** các miền đó khi người dùng chưa cấp ATT, nên người từ chối ATT có thể
+không thấy ad nào; đó là hành vi đúng của key.
 
 Thêm required-reason API mới thì phải cập nhật đúng manifest tương ứng; thiếu file thì app
 vẫn build và ship, chỉ bị App Store từ chối một cách âm thầm.
@@ -200,6 +255,7 @@ vẫn build và ship, chỉ bị App Store từ chối một cách âm thầm.
 | Việc cần xử lý (`GET /api/v1/actions`) | ✅ — `ActionQueueScreen` từ card trên Dashboard: section theo mức độ, hoãn 1–365 ngày, tab "Đang hoãn" (`?snoozed=true` chỉ **thêm** dòng) + bỏ hoãn. Badge đọc `counts.total`, không đọc số dòng |
 | Soát gói đăng ký (`GET /api/v1/subscriptions/audit`) | ✅ — `SubscriptionAuditScreen` từ màn Đăng ký: chỉ tư vấn, render nguyên văn `title`/`detail`/`note` của server, luật lấy từ `thresholds`, không có nút huỷ/tắt tự gia hạn |
 | Hạn đổi/trả (migration 0010) | ✅ GIỮ NGUYÊN, không có UI đặt — `DeviceReturnWindow` + `DeviceFormView`/`DeviceDetailView` gửi lại `returnWindowDays`/`receivedAt` nguyên trạng mỗi lần PATCH (PATCH thay thế toàn bộ thiết bị) |
+| Quảng cáo (AdMob) | ⚠️ ĐÃ VIẾT + BUILD, **CHƯA CHẠY TRÊN MÁY THẬT** — `App/Ads/` (`AdsController` + adaptive banner ở đáy màn Thiết bị, slot 50 pt, ẩn với gói trả phí); thứ tự UMP → ATT → `MobileAds.start` ghim bằng test trong `WarrlyKit/AdsConsentOrdering.swift`. Chưa ai thấy ATT prompt / form UMP / impression thật — xem mục "Quảng cáo" ở trên |
 | Bán lại (migration 0006) | ✅ CÓ UI — `DeviceResale` (giữ nguyên cặp `soldAt`/`soldPrice` mỗi lần PATCH, kể cả PATCH chỉ đổi trạng thái) + khối "Bán lại" trong `DeviceFormView` (ngày bán, giá bán, lãi/lỗ trực tiếp) và mục chỉ đọc trong `DeviceDetailView`. Giá `0` = cho tặng, không phải "chưa bán"; server bắt buộc đủ cặp, thông báo tiếng Việt lấy nguyên văn từ server |
 
 Code pattern: mỗi module = 1 `Store: ObservableObject` (state) + 1 hoặc N `View` SwiftUI gọi store. Xem `DevicesStore.swift` + `DevicesScreen.swift` làm template.

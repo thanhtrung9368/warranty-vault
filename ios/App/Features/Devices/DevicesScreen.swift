@@ -171,6 +171,22 @@ struct DevicesScreen: View {
             deviceList
         }
         .wvScreen()
+        // Free-tier banner. A `safeAreaInset` — NOT a row inside the list and
+        // not a conditional view driven by scroll offset:
+        //
+        //  * it sits above the tab bar and above the home-indicator safe area,
+        //    and the list scrolls beneath it;
+        //  * it stays mounted for as long as this screen is on top, so scrolling
+        //    can never fire a fresh ad request (the other app learned that the
+        //    expensive way — one request per unmount/remount cycle);
+        //  * its slot reserves `ScreenMetrics.adBannerSlotHeight` before an ad
+        //    exists, so fill never shifts the list.
+        //
+        // Paid accounts render nothing at all (`AdsBannerSlot` returns
+        // `EmptyView`), which also drops the 50 pt reservation with it.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AdsBannerSlot()
+        }
         .navigationTitle(L.t("Thiết bị"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {

@@ -203,6 +203,10 @@ struct MainTabView: View {
     @State private var selection: Int = MainTabView.initialTab
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var router: AppRouter
+    /// AdMob consent + banner state. Started from this shell, not from app
+    /// launch: the prompts belong to the signed-in experience (the banner's only
+    /// surface needs a device list), and ATT cannot prompt before a scene exists.
+    @EnvironmentObject private var ads: AdsController
 
     init(client: APIClient) {
         self.client = client
@@ -276,6 +280,11 @@ struct MainTabView: View {
             // no data until this runs at least once. Start it alongside the
             // inbox drain so a large shared receipt cannot delay the widget.
             Task { await DeadlineSurface.shared.refresh(client: client) }
+            // Ads: UMP → ATT → MobileAds.start. Fires once per signed-in
+            // session; every later call only advances a phase that is already
+            // half-way through (and a prompt that was missed is retried on the
+            // next foreground, which is the fix for Apple reject 2.1).
+            ads.start()
             await inboxStore.importSharedFiles()
             await inboxStore.load()
         }
@@ -287,6 +296,10 @@ struct MainTabView: View {
             router.restorePendingFromSharedDefaults()
             if router.pendingDeviceId != nil { selection = 1 }
             DeadlineSurface.shared.beginSession()
+            // ATT is retried on EVERY foreground rather than once per install:
+            // if the prompt was swallowed by a background transition, or the
+            // SDK started on the tracking deadline, this is what recovers it.
+            ads.start()
             Task {
                 await inboxStore.importSharedFiles()
                 await inboxStore.load()

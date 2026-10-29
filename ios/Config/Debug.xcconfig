@@ -4,3 +4,9 @@
 // API started with `go run ./cmd/server` (api/cmd/server, port 4000).
 WV_API_SCHEME = http
 WV_API_HOST = localhost:4000
+
+// Google's published TEST banner unit for iOS
+// (https://developers.google.com/admob/ios/test-ads). Debug builds request
+// this, so no live ad is ever rendered — or clicked — from a development
+// build. The real unit id is in Release.xcconfig.
+WV_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716

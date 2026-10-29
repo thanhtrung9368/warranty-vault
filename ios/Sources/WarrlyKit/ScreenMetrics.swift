@@ -22,4 +22,17 @@ public enum ScreenMetrics {
     /// tab's `NavigationStack`, so every pushed screen inherits it and sheets
     /// presented outside the shell do not.
     public static let tabBarContentInset: CGFloat = 24
+
+    /// Height reserved for the AdMob banner at the bottom of the Devices list.
+    ///
+    /// Reserved BEFORE an ad loads and whether or not one ever loads: the slot
+    /// is part of the layout, so the list does not jump when the creative
+    /// arrives, when the SDK starts late, or when the request fails. Hiding the
+    /// slot until fill is what makes a free app feel like it is glitching.
+    ///
+    /// 50 pt is the height of a 320×50 banner and the recommended maximum for
+    /// `inlineAdaptiveBanner(width:maxHeight:)` — the adaptive creative is
+    /// letterboxed INSIDE this slot rather than allowed to resize it, which is
+    /// what lets the width adapt without the height shifting the list.
+    public static let adBannerSlotHeight: CGFloat = 50
 }

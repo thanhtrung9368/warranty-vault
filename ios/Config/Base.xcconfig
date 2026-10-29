@@ -15,3 +15,21 @@ WV_API_BASE_URL = $(WV_API_SCHEME):$(SLASH)$(SLASH)$(WV_API_HOST)
 // Build overrides still work:
 //   xcodebuild ... WV_API_BASE_URL=https://staging.warrly.com
 // and the launch-environment override `WV_BASE_URL` wins over both.
+
+// ── AdMob banner unit ───────────────────────────────────────────────────────
+// Reaches the app through the generated Info.plist key `GADBannerUnitID`
+// (`AdsConfig` in App/Ads/AdsConfig.swift). Per configuration, because the
+// value is a policy boundary, not a preference:
+//
+//   Debug   → Google's published TEST banner unit. Every impression is a test
+//             impression: no revenue, and tapping it cannot be a policy
+//             violation.
+//   Release → Warrly's real banner unit.
+//
+// The publisher id (pub-1055054650162014) is SHARED with the owner's other iOS
+// app, so a live ad clicked in this app would hurt that one too.
+//
+// No `//` anywhere in these values — in an .xcconfig that starts a comment and
+// would truncate the id (if a future unit id ever contains a double slash, use
+// the SLASH trick above). The value itself lives in Debug.xcconfig /
+// Release.xcconfig, like WV_API_SCHEME and WV_API_HOST.

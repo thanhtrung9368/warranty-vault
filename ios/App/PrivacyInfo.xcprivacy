@@ -2,8 +2,47 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- ── ADS: TRACKING IS ON ───────────────────────────────────────────────
+	     Warrly integrates the Google Mobile Ads SDK (AdMob) on the free tier and
+	     shows the ATT prompt for personalised advertising, so the IDFA
+	     (NSPrivacyCollectedDataTypeDeviceID) is read and advertising data is
+	     collected. That makes this manifest a tracking manifest: App Store
+	     Connect's App Privacy answers declare Device ID + Advertising Data with
+	     Tracking = YES, and this file has to agree with them.
+
+	     NSPrivacyTrackingDomains MUST be non-empty whenever NSPrivacyTracking is
+	     true. This is not Apple's prose but what App Store Connect enforces:
+	     build 10 of the owner's other app was refused with
+
+	       ITMS-91064: Invalid tracking information — NSPrivacyTracking must be
+	       true if NSPrivacyTrackingDomains isn't empty.
+
+	     Apple's wording states the converse of the rule ("if you set
+	     NSPrivacyTracking to true then you need to provide at least one internet
+	     domain"). Setting this flag to false was never an option here: the app
+	     shows ATT and collects the IDFA, so the manifest would contradict the
+	     store label.
+
+	     RUNTIME CONSEQUENCE, by design: iOS blocks connections to these domains
+	     when the user has not granted ATT. A user who declines ATT may therefore
+	     see no ad at all rather than a non-personalised one. Our own requests are
+	     sent with npa=1 in that state (see App/Ads/AdsController.swift); this
+	     key is the OS-level block, and it is the key's intended behaviour.
+
+	     Google publishes no authoritative publisher-facing list of tracking
+	     domains, and the SDK's OWN manifest (inside GoogleMobileAds.framework,
+	     present since 11.2.0) declares its practices separately — this list is
+	     our best-effort declaration of the ad-serving endpoints it connects to.
+	     Re-check it when the ads SDK is upgraded. -->
 	<key>NSPrivacyTracking</key>
-	<false/>
+	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array>
+		<string>googleadservices.com</string>
+		<string>googleads.g.doubleclick.net</string>
+		<string>doubleclick.net</string>
+		<string>pagead2.googlesyndication.com</string>
+	</array>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
 		<dict>
@@ -42,16 +81,40 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
+		<!-- Device ID, and the one entry that used to mean only the APNs push
+		     token. Apple's schema allows ONE entry per data type, so a device id
+		     used for two things has to be declared at the strongest level:
+		     tracking = true, because AdMob now reads the IDFA for personalised
+		     advertising on the free tier. `Linked = true` because the push token
+		     half of this entry is tied to the account (the IDFA half is not,
+		     which is the stricter of the two claims). Purposes keep
+		     AppFunctionality so the push token's original purpose is not lost. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+			</array>
+		</dict>
+		<!-- AdMob: ads served/seen and the events around them. Play/ASC label
+		     answers mark this "not linked to identity": Google receives it
+		     without our account id attached. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeAdvertisingData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
 			</array>
 		</dict>
 		<dict>

@@ -4,3 +4,9 @@
 // only `localhost` is allowed to use insecure HTTP (for local Debug builds).
 WV_API_SCHEME = https
 WV_API_HOST = api.warrly.com
+
+// Warrly's real AdMob banner unit (slash form = ad unit; the tilde app id is
+// `GADApplicationIdentifier` in project.yml). Release only: a Debug build must
+// never request it. ⛔ Never tap a live ad — the publisher account is shared
+// with the owner's other app.
+WV_ADMOB_BANNER_UNIT_ID = ca-app-pub-1055054650162014/4385625571

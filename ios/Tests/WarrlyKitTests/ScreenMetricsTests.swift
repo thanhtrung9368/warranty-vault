@@ -18,4 +18,18 @@ final class ScreenMetricsTests: XCTestCase {
         // screens are back to ending flush against the bar.
         XCTAssertGreaterThan(ScreenMetrics.tabBarContentInset, 0)
     }
+
+    // The banner slot is reserved before an ad exists, which is precisely why
+    // its height is pinned: a value that drifts (or a slot that shrinks to the
+    // creative) reintroduces the layout jump the reservation exists to prevent.
+    func testAdBannerSlotIsTheHeightReservedBeforeAnyAdLoads() {
+        XCTAssertEqual(ScreenMetrics.adBannerSlotHeight, 50)
+    }
+
+    func testAdBannerSlotFitsAStandardBanner() {
+        // A 320×50 banner must fit without clipping, and the adaptive width may
+        // not push the height past the slot either.
+        XCTAssertGreaterThanOrEqual(ScreenMetrics.adBannerSlotHeight, 50)
+        XCTAssertLessThanOrEqual(ScreenMetrics.adBannerSlotHeight, 90)
+    }
 }

@@ -2,8 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Ads: this library does not import the Google Mobile Ads SDK — the ads
+	     code lives in the app target on purpose, because both ad SDKs are iOS
+	     binaries and this package is also built for macOS by `swift test`. The
+	     app-level tracking declaration still appears here because App Store
+	     Connect evaluates EVERY bundle in the archive (this one ships as
+	     WarrlyKit_WarrlyKit.bundle), and the same flag must carry a non-empty
+	     domain list wherever it is set (ITMS-91064: NSPrivacyTracking true
+	     requires at least one NSPrivacyTrackingDomains entry). The collected
+	     data types — IDFA, advertising data — are declared once, in
+	     App/PrivacyInfo.xcprivacy, because only the app collects them. -->
 	<key>NSPrivacyTracking</key>
-	<false/>
+	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array>
+		<string>googleadservices.com</string>
+		<string>googleads.g.doubleclick.net</string>
+		<string>doubleclick.net</string>
+		<string>pagead2.googlesyndication.com</string>
+	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>

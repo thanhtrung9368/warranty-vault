@@ -14,6 +14,12 @@ struct WarrlyApp: App {
     @StateObject private var localization: LocalizationStore
     /// Spotlight / URL / App Intent destination hand-off.
     @StateObject private var router = AppRouter()
+    /// AdMob: the UMP → ATT → SDK-start sequence and the banner's state.
+    ///
+    /// A singleton wrapped in `@StateObject`: the controller must outlive the
+    /// view tree (the consent sequence resumes on every foreground), so a
+    /// second instance would mean a second UMP request and a second start.
+    @StateObject private var ads = AdsController.shared
 
     init() {
         let authStore = AuthStore(baseURL: AppConfig.baseURL)
@@ -36,6 +42,7 @@ struct WarrlyApp: App {
                 .environmentObject(appLock)
                 .environmentObject(localization)
                 .environmentObject(router)
+                .environmentObject(ads)
                 .wvToastHost(toasts)
                 .preferredColorScheme(theme.preference.colorScheme)
                 // `L.t(...)` is a plain function call, so SwiftUI cannot see

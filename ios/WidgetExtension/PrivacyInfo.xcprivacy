@@ -8,8 +8,23 @@
 	     CA92.1 alone would only cover defaults private to this bundle. The
 	     snapshot itself is a file in the App Group container, not a
 	     required-reason API. -->
+	<!-- Ads: the widget never imports the Google Mobile Ads SDK and never
+	     contacts an ad domain. The app-level tracking declaration still appears
+	     here because App Store Connect evaluates EVERY bundle in the archive,
+	     and the same flag must carry a non-empty domain list wherever it is set
+	     (ITMS-91064: NSPrivacyTracking true requires at least one
+	     NSPrivacyTrackingDomains entry). The collected data types — IDFA,
+	     advertising data — are declared once, in App/PrivacyInfo.xcprivacy,
+	     because only the app collects them. -->
 	<key>NSPrivacyTracking</key>
-	<false/>
+	<true/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array>
+		<string>googleadservices.com</string>
+		<string>googleads.g.doubleclick.net</string>
+		<string>doubleclick.net</string>
+		<string>pagead2.googlesyndication.com</string>
+	</array>
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>
