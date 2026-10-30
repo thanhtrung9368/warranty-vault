@@ -114,14 +114,14 @@ function fakeResponse(
 
 describe('cache versioning', () => {
   it('uses versioned cache names and drops every older wv-* cache', () => {
-    expect(core.CACHE_VERSION).toBe(5);
-    expect(core.SHELL_CACHE).toBe('wv-shell-v5');
-    expect(core.PAGE_CACHE).toBe('wv-pages-v5');
-    expect(core.ASSET_CACHE).toBe('wv-assets-v5');
+    expect(core.CACHE_VERSION).toBe(6);
+    expect(core.SHELL_CACHE).toBe('wv-shell-v6');
+    expect(core.PAGE_CACHE).toBe('wv-pages-v6');
+    expect(core.ASSET_CACHE).toBe('wv-assets-v6');
     expect(core.CURRENT_CACHES).toEqual([
-      'wv-shell-v5',
-      'wv-pages-v5',
-      'wv-assets-v5',
+      'wv-shell-v6',
+      'wv-pages-v6',
+      'wv-assets-v6',
     ]);
 
     expect(
@@ -131,14 +131,17 @@ describe('cache versioning', () => {
         'wv-pages-v2',
         'wv-pages-v3',
         'wv-pages-v4',
+        'wv-pages-v5',
         'wv-assets-v1',
         'wv-assets-v2',
         'wv-assets-v3',
         'wv-assets-v4',
+        'wv-assets-v5',
         'wv-shell-v1',
         'wv-shell-v2',
         'wv-shell-v3',
         'wv-shell-v4',
+        'wv-shell-v5',
         'unrelated-cache',
       ]),
     ).toEqual([
@@ -147,14 +150,17 @@ describe('cache versioning', () => {
       'wv-pages-v2',
       'wv-pages-v3',
       'wv-pages-v4',
+      'wv-pages-v5',
       'wv-assets-v1',
       'wv-assets-v2',
       'wv-assets-v3',
       'wv-assets-v4',
+      'wv-assets-v5',
       'wv-shell-v1',
       'wv-shell-v2',
       'wv-shell-v3',
       'wv-shell-v4',
+      'wv-shell-v5',
     ]);
   });
 

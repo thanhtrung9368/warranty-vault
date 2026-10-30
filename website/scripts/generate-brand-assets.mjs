@@ -199,6 +199,11 @@ function ico(entries) {
  * The adaptive SVG favicon: the SMALL cut, because a tab favicon is a 16px
  * surface. It is a static asset, so its colours are the documented literals;
  * the dark-mode rule mirrors `--brand-body` / `--brand-dot`.
+ *
+ * The W is a mask cut, like the punch: in light mode the tab shows through it
+ * (white-ish), in dark mode the page does (dark), which is exactly what the
+ * punched hole does. Painting it a literal cream would stop matching the punch
+ * under `prefers-color-scheme: dark`.
  */
 function faviconSvg() {
   return (
@@ -215,8 +220,14 @@ function faviconSvg() {
     '      .pennant { fill: CanvasText; }\n' +
     '    }\n' +
     '  </style>\n' +
+    '  <defs>\n' +
+    '    <mask id="warrly-favicon-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">\n' +
+    '      <rect x="0" y="0" width="32" height="32" fill="#fff"/>\n' +
+    `      <path d="${CUT_16.letter}" fill="none" stroke="#000" stroke-width="${CUT_16.letterWidth}" stroke-linecap="round" stroke-linejoin="round"/>\n` +
+    '    </mask>\n' +
+    '  </defs>\n' +
     `  <path class="pennant" d="${CUT_16.flag}"/>\n` +
-    `  <path class="plate" fill-rule="evenodd" d="${knockoutPath(CUT_16)}"/>\n` +
+    `  <path class="plate" fill-rule="evenodd" mask="url(#warrly-favicon-cut)" d="${knockoutPath(CUT_16)}"/>\n` +
     '</svg>\n'
   );
 }

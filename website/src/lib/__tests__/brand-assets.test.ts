@@ -113,6 +113,27 @@ const CREAM: [number, number, number] = [255, 247, 238];
 const INK: [number, number, number] = [31, 26, 20];
 const CORAL: [number, number, number] = [255, 107, 69];
 
+/** The PNG entries inside `public/favicon.ico`, keyed by declared width. */
+function icoEntries(path: string): Map<number, Decoded> {
+  const ico = readFileSync(path);
+  const count = ico.readUInt16LE(4);
+  const entries = new Map<number, Decoded>();
+  for (let i = 0; i < count; i += 1) {
+    const entry = 6 + i * 16;
+    const size = ico[entry] === 0 ? 256 : ico[entry];
+    const bytes = ico.readUInt32LE(entry + 8);
+    const offset = ico.readUInt32LE(entry + 12);
+    entries.set(
+      size,
+      decodePngBuffer(
+        Buffer.from(ico.subarray(offset, offset + bytes)),
+        `favicon.ico ${size}px entry`,
+      ),
+    );
+  }
+  return entries;
+}
+
 function distance(a: [number, number, number], b: [number, number, number]): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
@@ -270,12 +291,17 @@ describe('favicon.ico + favicon.svg (defect 3)', () => {
     expect(svg).toContain('<svg');
     expect(svg).toContain('prefers-color-scheme: dark');
     expect(svg).toContain('forced-colors: active');
-    // Two filled paths: the pennant, then the plate with the punch appended.
-    expect(svg.match(/<path/g)).toHaveLength(2);
+    // Three paths: the W's mask stroke, the pennant, then the plate with the
+    // punch appended. The W is a cut-out, never a painted third path colour.
+    expect(svg.match(/<path/g)).toHaveLength(3);
     expect(svg).not.toContain('<circle');
     expect(svg).toContain(small.body);
     expect(svg).toContain(small.punch);
     expect(svg).toContain(small.flag);
+    expect(svg).toContain(small.letter);
+    expect(svg).toContain(`stroke-width="${small.letterWidth}"`);
+    expect(svg).toContain('<mask');
+    expect(svg).toContain('mask="url(#warrly-favicon-cut)"');
     // The full cut's plate must not be what a 16px tab renders.
     expect(svg).not.toContain(markGeometryForSize(32).body);
     expect(svg.length).toBeGreaterThan(400);
@@ -341,6 +367,108 @@ describe('notification icon + badge (defect 4)', () => {
     const flagX = Math.round(offsetX + 23 * scale);
     const flagY = Math.round(offsetY + 3.5 * scale);
     expect(badge.alpha(flagX, flagY), `pennant ${flagX},${flagY}`).toBe(255);
+  });
+});
+
+describe('the W is cut into the generated rasters', () => {
+  const full = markGeometryForSize(32);
+
+  /** The polyline points of a letter path (`M x y` then repeated `l dx dy`). */
+  function letterPoints(path: string): Array<{ x: number; y: number }> {
+    const tokens = path.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
+    const points: Array<{ x: number; y: number }> = [];
+    let x = 0;
+    let y = 0;
+    let command = '';
+    for (let i = 0; i < tokens.length; ) {
+      if (/^[A-Za-z]$/.test(tokens[i])) {
+        command = tokens[i];
+        i += 1;
+        continue;
+      }
+      // SVG repeats the last command for every following coordinate pair, so
+      // `l2.7 5.2 2-3.4 …` is four relative linetos, not one.
+      const a = Number(tokens[i]);
+      const b = Number(tokens[i + 1]);
+      i += 2;
+      if (command === 'M' || command === 'L') {
+        x = a;
+        y = b;
+        command = 'L';
+      } else {
+        x += a;
+        y += b;
+      }
+      points.push({ x, y });
+    }
+    return points;
+  }
+
+  /**
+   * The W's ink position in a `renderIconSvg` tile, derived from the same
+   * geometry the generator used: glyph = size × 0.84, centred on the ink box.
+   */
+  function wPoint(size: number): { x: number; y: number; plateX: number; plateY: number } {
+    const scale = (size * 0.84) / full.viewBox;
+    const offsetX = (size - full.ink.width * scale) / 2 - full.ink.x * scale;
+    const offsetY = (size - full.ink.height * scale) / 2 - full.ink.y * scale;
+    const points = letterPoints(full.letter);
+    // Midpoint of the W's first down-stroke, whatever the geometry says today.
+    const firstMid = {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2,
+    };
+    return {
+      x: Math.round(offsetX + firstMid.x * scale),
+      y: Math.round(offsetY + firstMid.y * scale),
+      // A plate point above the W, clear of both the punch and the bevel.
+      plateX: Math.round(offsetX + 7 * scale),
+      plateY: Math.round(offsetY + 17 * scale),
+    };
+  }
+
+  for (const [file, size] of [
+    ['apple-touch-icon.png', 180],
+    ['icon-192.png', 192],
+    ['icon-512.png', 512],
+  ] as const) {
+    it(`cuts the W out of ${file}`, () => {
+      const icon = decodePng(join(PUBLIC, file));
+      const point = wPoint(size);
+      expect(
+        near(icon.rgb(point.x, point.y), CREAM, 12),
+        `W pixel ${point.x},${point.y} in ${file}`,
+      ).toBe(true);
+      expect(
+        near(icon.rgb(point.plateX, point.plateY), INK, 12),
+        `plate pixel ${point.plateX},${point.plateY} in ${file}`,
+      ).toBe(true);
+    });
+  }
+
+  it('cuts the W out of the 16px favicon entry', () => {
+    const small = icoEntries(join(PUBLIC, 'favicon.ico')).get(16);
+    expect(small).toBeDefined();
+    // Derive the W's window from the small cut itself, never from retyped
+    // coordinates: the 16px entry renders the 32-grid cut at 0.5×.
+    const geometry = markGeometryForSize(16);
+    const points = letterPoints(geometry.letter);
+    const half = geometry.letterWidth / 2;
+    const minX = Math.min(...points.map((point) => point.x)) - half;
+    const maxX = Math.max(...points.map((point) => point.x)) + half;
+    const minY = Math.min(...points.map((point) => point.y)) - half;
+    const maxY = Math.max(...points.map((point) => point.y)) + half;
+    const scale = 16 / geometry.viewBox;
+    let cut = 0;
+    for (let y = Math.ceil(minY * scale); y <= Math.floor(maxY * scale); y += 1) {
+      for (let x = Math.ceil(minX * scale); x <= Math.floor(maxX * scale); x += 1) {
+        if (small!.alpha(x, y) < 200) cut += 1;
+      }
+    }
+    expect(cut, 'transparent W pixels inside the plate').toBeGreaterThanOrEqual(6);
+    // The W is a cut, not a hole that eats the tag: the plate to the right of
+    // the letter stays opaque.
+    expect(small!.alpha(Math.floor((maxX + 0.6) * scale), Math.floor((minY + 1) * scale))).toBe(255);
   });
 });
 

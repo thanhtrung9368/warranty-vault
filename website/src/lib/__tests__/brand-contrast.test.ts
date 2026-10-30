@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { markGeometryForSize } from '@/lib/brand';
 import { contrastRatioOfHslTriples, parseHslTriple } from '@/lib/contrast';
 
 const WEBSITE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -128,7 +129,14 @@ describe('brand dot contrast (body vs dot)', () => {
     expect(svg).toContain('currentColor');
     expect(svg).toContain('hsl(var(--brand-dot))');
     expect(svg).not.toMatch(/#[0-9a-fA-F]{3,8}/);
-    expect(svg).not.toMatch(/stroke|filter|gradient/i);
+    expect(svg).not.toMatch(/filter|gradient/i);
+    // The W is cut out with a mask, whose one black stroke is a stencil rather
+    // than a painted third colour. A painted stroke would be a new brand
+    // colour, which the mark must not have.
+    expect(svg.match(/stroke="/g)).toHaveLength(1);
+    expect(svg).toContain('stroke="black"');
+    // The full cut's width, from the geometry rather than a copied number.
+    expect(svg).toContain(`stroke-width="${markGeometryForSize(32).letterWidth}"`);
   });
 
   it('parses every brand token as an HSL triple after resolution', () => {

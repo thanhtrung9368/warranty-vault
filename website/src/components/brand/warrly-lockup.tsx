@@ -6,6 +6,7 @@ import {
   WORDMARK_LETTERS,
   WORDMARK_PERIOD,
   knockoutPath,
+  markCutoutId,
   markGeometryForSize,
 } from '@/lib/brand';
 
@@ -39,6 +40,11 @@ export type WarrlyLockupProps = {
  * edge (the symbol's baseline) sits on the wordmark baseline. The pennant tip
  * is the tallest thing in the box at y=-115; the wordmark's 'y' descender ends
  * at 29.53, hence the 144.53 viewBox height.
+ *
+ * The W is cut out of the plate inside the same scaled group, so it scales with
+ * the symbol and shows the surface through it exactly as the punch does. The
+ * lockup's box and mark transforms are unchanged by the letter: the W is inside
+ * the plate, which is inside the ink box the layout was built around.
  */
 export function WarrlyLockup({
   height = 36,
@@ -51,6 +57,7 @@ export function WarrlyLockup({
   const geometry = markGeometryForSize(32);
   const body = variant === 'mono' ? 'currentColor' : BRAND_FILL.body;
   const dot = variant === 'mono' ? 'currentColor' : BRAND_FILL.dot;
+  const cutout = markCutoutId(geometry, 'warrly-lockup');
   const a11y = title
     ? { role: 'img' as const, 'aria-label': title }
     : { 'aria-hidden': true as const, focusable: false };
@@ -67,8 +74,39 @@ export function WarrlyLockup({
       {...a11y}
     >
       <g transform={`translate(${LOCKUP.markX} ${LOCKUP.markY}) scale(${LOCKUP.markScale})`}>
+        <defs>
+          <mask
+            id={cutout}
+            maskUnits="userSpaceOnUse"
+            x={0}
+            y={0}
+            width={geometry.viewBox}
+            height={geometry.viewBox}
+          >
+            <rect
+              x={0}
+              y={0}
+              width={geometry.viewBox}
+              height={geometry.viewBox}
+              fill="white"
+            />
+            <path
+              d={geometry.letter}
+              fill="none"
+              stroke="black"
+              strokeWidth={geometry.letterWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </mask>
+        </defs>
         <path d={geometry.flag} fill={dot} />
-        <path d={knockoutPath(geometry)} fill={body} fillRule="evenodd" />
+        <path
+          d={knockoutPath(geometry)}
+          fill={body}
+          fillRule="evenodd"
+          mask={`url(#${cutout})`}
+        />
       </g>
       <g transform={`translate(${LOCKUP.wordmarkX} 0)`}>
         <path d={WORDMARK_LETTERS} fill={body} />

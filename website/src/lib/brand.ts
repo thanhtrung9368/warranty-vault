@@ -121,10 +121,10 @@ const CUT_FULL: MarkGeometry = {
   punch: 'M8.37 15.17A1.6 1.6 0 1 0 11.57 15.17A1.6 1.6 0 1 0 8.37 15.17Z',
   flag:
     'M18.9 14.6L18.9 2.6L27.3 2.6L25 5.3L27.3 8L20.7 8L20.7 14.6L18.9 14.6Z',
-  // Sits below both the punch (y=15.17) and the flag's in-plate run (y=14.6),
-  // spanning x=8.6…18.4, y=19.4…25.0. Nothing overlaps and nothing touches the
-  // 2.3-unit V notch, whose apex is at y=25.9.
-  letter: 'M8.6 19.4l2.6 5.6 2-3.6 2 3.6 2.6-5.6',
+  // Sits below the punch (bottom y=16.77) and the flag's in-plate run (y=14.6),
+  // spanning x=8.6…18.4, y=18.9…24.5. The 1.9 stroke clears the punch by 1.18
+  // and the 2.3-unit V notch (apex y=25.9) by 0.45 without touching either.
+  letter: 'M8.6 18.9l2.6 5.6 2-3.6 2 3.6 2.6-5.6',
   letterWidth: 1.9,
   punchCircle: { cx: 9.97, cy: 15.17, r: 1.6 },
   bodyHeight: 17.6,
@@ -136,28 +136,37 @@ const CUT_FULL: MarkGeometry = {
 
 // ── The small cut (≤16px) ──────────────────────────────────────────────────
 //
-// Same construction, redrawn for a 16px render (0.5× this grid): the plate is
-// 17.8×18.2 at x=5.2…23, y=10…28.2 so the strokes survive; the V is 2.8 deep
-// (apex 25.4) so it still reads as a notch rather than a ripple; the punch is
-// 3.8 across (r=1.9) so it stays a hole; the pennant is 9.7 wide with a
-// swallowtail notch 2.6 deep (25.4, 5.8 at 28 fly). Nothing here is the full
-// cut scaled — the corners are 1.4 and the pole is 2.6 wide (vs 1.8).
+// The small cut DROPS the punch and the V notch, keeping only the plate, the
+// pennant and the W. That is not a simplification for its own sake: at a 16px
+// render one pixel is two grid units, and the four features need
+//
+//     1.9 (punch r) + 2 (gap) + 5.2 (W) + 2.6 (stroke) + 2 (gap) + 2.8 (notch)
+//   = 20.5 units
+//
+// against a plate 18.2 units tall. It does not fit. And when it *does* fit the
+// gaps are exactly one pixel by construction, which means invisible — the punch
+// and the W's left arm fuse into a single keyhole, which is precisely what the
+// 16px render showed. Dropping both leaves 4.3 units (2.15px) of clear plate
+// above the W and 4.1 below, so the letter is what you see.
+//
+// The notch was 2.8 units = 1.4px at that size: it was never going to read. The
+// pennant is unchanged — it is the one thing that survives at 16px.
 const CUT_SMALL: MarkGeometry = {
   cut: 'small',
   viewBox: MARK_GRID,
   body:
-    'M10.6 10L21.6 10A1.4 1.4 0 0 1 23 11.4L23 26.8A1.4 1.4 0 0 1 23 26.8L23 28.2L17.5 28.2L14.1 25.4L10.7 28.2L6.6 28.2A1.4 1.4 0 0 1 5.2 26.8L5.2 15.4L10.6 10Z',
-  punch: 'M8.4 15.1A1.9 1.9 0 1 0 12.2 15.1A1.9 1.9 0 1 0 8.4 15.1Z',
+    'M10.6 10H21.6A1.4 1.4 0 0 1 23 11.4V26.8A1.4 1.4 0 0 1 21.6 28.2H6.6A1.4 1.4 0 0 1 5.2 26.8V15.4Z',
+  punch: '',
   flag:
     'M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z',
-  // The same W with a 2.8 stroke, not 1.9: at a 16px render the full cut's 1.9
-  // becomes 0.95px, which is exactly where a thin line turns to grey mush.
-  letter: 'M8.7 19.5l2.7 5.6 2.1-3.6 2.1 3.6 2.7-5.6',
-  letterWidth: 2.8,
-  punchCircle: { cx: 10.3, cy: 15.1, r: 1.9 },
+  // 7.2 units tall against a plate 18.2 tall. Stroke 2.6 = 1.3px at 16px, which
+  // is a stroke rather than a smudge.
+  letter: 'M8.8 15.6l2.7 7.2 2-4.6 2 4.6 2.7-7.2',
+  letterWidth: 2.6,
+  punchCircle: { cx: 0, cy: 0, r: 0 },
   bodyHeight: 18.2,
   bodyWidth: 17.8,
-  notchDepth: 2.8,
+  notchDepth: 0,
   flagWidth: 9.7,
   ink: { x: 5.2, y: 2.6, width: 22.8, height: 25.6 },
 };
@@ -190,9 +199,14 @@ export const CUT_16 = CUT_SMALL;
 
 /** The smallest punch diameter any supported cut can render, in CSS pixels. */
 export function smallestRenderedPunchDiameter(): number {
-  // The small cut is drawn on the 32 grid and used at 16px: 3.8 grid units
-  // become 1.9 CSS pixels. It is a hole, not a coloured accent, so its floor is
-  // about surviving antialiasing rather than a contrast ratio.
+  // 0, and that is the design. The small cut has no punch: at 16px one pixel is
+  // two grid units, and a punch plus a gap plus the W plus a gap plus the notch
+  // needs 20.5 units against a plate 18.2 tall. Something had to go, and the W
+  // is the thing that carries the name.
+  //
+  // The full cut still has its punch and is used at every size >= 24, so the hole
+  // is not gone from the mark — it is gone from the one render where it could not
+  // be a hole.
   return ((CUT_SMALL.punchCircle.r * 2) * 16) / MARK_GRID;
 }
 
@@ -214,9 +228,40 @@ export function knockoutPath(geometry: MarkGeometry): string {
   return `${geometry.body}${geometry.punch}`;
 }
 
+/**
+ * The id of the mask that cuts the W out of the plate. Prefixed per renderer so
+ * a lockup and a standalone mark on the same page cannot shadow each other's
+ * `defs`; repeated marks of the same cut share an identical mask.
+ */
+export function markCutoutId(geometry: MarkGeometry, prefix = 'warrly-mark'): string {
+  return `${prefix}-cut-${geometry.cut}`;
+}
+
 function num(value: number): string {
   // Two decimals is enough at a 32-unit grid and keeps the emitted SVG small.
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+/**
+ * The mask that turns the stroked `letter` into negative space — the same
+ * treatment the punch gets.
+ *
+ * In a mask, black is the punch's colour: it is what removes paint, so the
+ * surface behind the mark shows through the W exactly as it does through the
+ * punched hole. Painting the letter with `fill.body` would draw an ink W on an
+ * ink plate (invisible), and painting it with a surface colour would break on
+ * the landing's gradient card and in the white-on-alpha notification badge. The
+ * mask is the only paint that matches the punch on every surface.
+ */
+function letterCutout(geometry: MarkGeometry, id: string): string {
+  return (
+    `<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" ` +
+    `width="${geometry.viewBox}" height="${geometry.viewBox}">` +
+    `<rect x="0" y="0" width="${geometry.viewBox}" height="${geometry.viewBox}" fill="white"/>` +
+    `<path d="${geometry.letter}" fill="none" stroke="black" ` +
+    `stroke-width="${geometry.letterWidth}" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `</mask></defs>`
+  );
 }
 
 // ── Wordmark outlines ──────────────────────────────────────────────────────
@@ -332,21 +377,29 @@ export type RenderMarkOptions = {
 };
 
 /**
- * The two paths, in paint order: the pennant first, then the plate (with its
- * punched hole). Painting the plate last makes the pole run BEHIND the tag's
- * shoulder — the flag path reaches down to y=14.6 only so the two fills
- * overlap; if it were painted on top it would end in a coral stub halfway down
- * the tag.
+ * The mark's paint, in order: the cutout mask, then the pennant, then the plate
+ * (with its punched hole and the W cut out of it). Painting the plate last makes
+ * the pole run BEHIND the tag's shoulder — the flag path reaches down to y=14.6
+ * only so the two fills overlap; if it were painted on top it would end in a
+ * coral stub halfway down the tag.
+ *
+ * The letter is always stroked into the mask, on both cuts and in both
+ * variants. `fill.body` is used for the plate and never for the letter: a W
+ * painted in the plate's colour would disappear into it, and a mono W painted
+ * in `currentColor` would do the same.
  */
 function markPaths(
   geometry: MarkGeometry,
   fill: SvgFill,
   variant: 'colour' | 'mono',
+  cutoutPrefix = 'warrly-mark',
 ): string {
   const accent = variant === 'mono' ? fill.body : fill.dot;
+  const cutout = markCutoutId(geometry, cutoutPrefix);
   return (
+    letterCutout(geometry, cutout) +
     `<path d="${geometry.flag}" fill="${accent}"/>` +
-    `<path d="${knockoutPath(geometry)}" fill="${fill.body}" fill-rule="evenodd"/>`
+    `<path d="${knockoutPath(geometry)}" fill="${fill.body}" fill-rule="evenodd" mask="url(#${cutout})"/>`
   );
 }
 
@@ -426,8 +479,9 @@ export function renderIconSvg({
 
 /**
  * The white-on-alpha shape Android uses as a notification badge. Both paths in
- * white, ONE hole (the punch): the pennant must stay visible above the tag, so
- * there is no knockout between them. Monochrome by construction.
+ * white, ONE punch hole; the pennant must stay visible above the tag, so there
+ * is no knockout between them. Monochrome by construction — and the W is cut
+ * out of the plate rather than painted white, which would make it vanish.
  */
 export function renderNotificationBadgeSvg(size = 96): string {
   const geometry = CUT_FULL;
@@ -438,8 +492,7 @@ export function renderNotificationBadgeSvg(size = 96): string {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
     `viewBox="0 0 ${size} ${size}" role="img" aria-label="Warrly">` +
     `<g transform="translate(${num(offsetX)} ${num(offsetY)}) scale(${num(scale)})">` +
-    `<path d="${geometry.flag}" fill="#FFFFFF"/>` +
-    `<path d="${knockoutPath(geometry)}" fill="#FFFFFF" fill-rule="evenodd"/>` +
+    markPaths(geometry, { body: '#FFFFFF', dot: '#FFFFFF' }, 'mono') +
     `</g></svg>`
   );
 }
@@ -483,7 +536,7 @@ export function renderLockupSvg({
   const width = height * LOCKUP_ASPECT;
   const mark =
     `<g transform="translate(${num(LOCKUP.markX)} ${num(LOCKUP.markY)}) scale(${num(LOCKUP.markScale)})">` +
-    markPaths(CUT_FULL, fill, variant) +
+    markPaths(CUT_FULL, fill, variant, 'warrly-lockup') +
     `</g>`;
   const wordmark =
     `<g transform="translate(${num(LOCKUP.wordmarkX)} 0)">` +
@@ -501,15 +554,15 @@ export function renderLockupSvg({
  * The in-app mark asset (`public/icon.svg`). It deliberately has no literal
  * colour: the plate is `currentColor` and the pennant is the app's
  * `--brand-dot` custom property, so the same file works on cream, white, ink
- * and every accent without a second copy. No stroke, filter or gradient.
+ * and every accent without a second copy. No paint stroke, filter or gradient:
+ * the only stroke is the black one inside the mask that cuts the W out.
  */
 export function renderInAppMarkSvg(): string {
   const g = CUT_FULL;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Warrly">` +
     `<title>Warrly</title>` +
-    `<path d="${g.flag}" fill="hsl(var(--brand-dot))"/>` +
-    `<path d="${knockoutPath(g)}" fill="currentColor" fill-rule="evenodd"/>` +
+    markPaths(g, { body: 'currentColor', dot: 'hsl(var(--brand-dot))' }, 'colour') +
     `</svg>\n`
   );
 }

@@ -53,10 +53,15 @@
   // Bump this when the cache shape changes. Activate drops every other
   // `wv-*` cache, including the legacy single-cache `wv-v1`.
   //
+  // v6: the MARK changed (the W is now cut into every asset), so the icons
+  // below are new bytes under the same URLs. Cache-first assets would never
+  // re-fetch on their own; the bump makes install precache the new set and
+  // activate drop v5.
+  //
   // v5: the icon set changed (fail-fast favicon.ico + favicon.svg, a separate
   // maskable 512, a 192 colour notification icon and a 96 white-on-alpha
   // badge). The bump makes install precache the new set and activate drop v4.
-  const CACHE_VERSION = 5;
+  const CACHE_VERSION = 6;
   const CACHE_PREFIX = 'wv-';
   const SHELL_CACHE = 'wv-shell-v' + CACHE_VERSION;
   const PAGE_CACHE = 'wv-pages-v' + CACHE_VERSION;

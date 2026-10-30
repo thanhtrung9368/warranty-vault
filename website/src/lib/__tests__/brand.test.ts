@@ -9,7 +9,11 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { WarrlyLockup } from '@/components/brand/warrly-lockup';
+import { WarrlyMark } from '@/components/brand/warrly-mark';
 import {
   BRAND_FILL,
   CUT_16,
@@ -22,6 +26,7 @@ import {
   knockoutPath,
   markCutForSize,
   markGeometryForSize,
+  renderIconSvg,
   renderInAppMarkSvg,
   renderLockupSvg,
   renderMarkSvg,
@@ -72,15 +77,25 @@ describe('The Warranty Tag geometry', () => {
     expect(small.viewBox).toBe(32);
     expect(small.ink).toEqual({ x: 5.2, y: 2.6, width: 22.8, height: 25.6 });
     expect(small.bodyHeight).toBe(18.2);
-    expect(small.punchCircle).toEqual({ cx: 10.3, cy: 15.1, r: 1.9 });
-    // Every small-size change is in the direction the brief describes.
+    // The small cut drops the punch. At 16px one pixel is two grid units, so
+    // punch + gap + W + gap + notch needs 20.5 units against a plate 18.2 tall:
+    // it cannot fit, and when it "fits" the gaps are exactly one pixel and the
+    // punch fuses into the W's left arm. The full cut keeps its punch.
+    expect(small.punchCircle).toEqual({ cx: 0, cy: 0, r: 0 });
+    expect(small.punch).toBe('');
+    // The small cut is a redraw, not a scale: its own plate, its own pennant,
+    // its own W. What it does NOT have is a punch or a notch — at 16px one pixel
+    // is two grid units and neither survives (see brand.ts for the arithmetic).
     expect(small.bodyHeight).toBeGreaterThan(full.bodyHeight);
     expect(small.bodyWidth).toBeGreaterThan(full.bodyWidth);
-    expect(small.punchCircle.r).toBeGreaterThan(full.punchCircle.r);
-    expect(small.notchDepth).toBeGreaterThan(full.notchDepth);
     expect(small.flagWidth).toBeGreaterThan(full.flagWidth);
-    // If it were a 0.71× scale of the full cut the punch would be 1.14 units.
-    expect(small.punchCircle.r).not.toBeCloseTo(full.punchCircle.r, 1);
+    expect(small.letterWidth).toBeGreaterThan(full.letterWidth);
+    expect(small.punch).toBe('');
+    expect(small.notchDepth).toBe(0);
+    // The letter is what carries the mark at that size, so it has to be big:
+    // 7.2 units tall in an 18.2-unit plate.
+    expect(small.letter.length).toBeGreaterThan(0);
+    expect(full.letter).not.toBe(small.letter);
     expect(CUT_16.cut).toBe('small');
     expect(CUT_32.cut).toBe('full');
   });
@@ -97,20 +112,24 @@ describe('The Warranty Tag geometry', () => {
     expect(markGeometryForSize(16).viewBox).toBe(markGeometryForSize(512).viewBox);
   });
 
-  it('keeps the punch measurable at every supported size', () => {
-    expect(smallestRenderedPunchDiameter()).toBeCloseTo(1.9, 6);
-    expect(smallestRenderedDotDiameter()).toBeCloseTo(1.9, 6);
-    // The small cut's punch is proportionally larger than the full cut's,
-    // which is the point of redrawing it.
-    expect(
-      (markGeometryForSize(16).punchCircle.r * 2) / markGeometryForSize(16).bodyWidth,
-    ).toBeGreaterThan(
-      (markGeometryForSize(32).punchCircle.r * 2) / markGeometryForSize(32).bodyWidth,
-    );
-    for (const size of [16, 20, 24, 32, 48, 64, 96, 128, 180, 192, 512, 1024]) {
+  it('keeps the punch only where it can be a hole', () => {
+    // Zero is correct: the small cut has no punch, by design (see brand.ts).
+    expect(smallestRenderedPunchDiameter()).toBe(0);
+    expect(smallestRenderedDotDiameter()).toBe(0);
+    // The full cut, used at every size >= 24, still has one — and at 24px it
+    // renders 1.2px across, which is the smallest hole that survives.
+    expect(markGeometryForSize(24).punchCircle.r).toBeCloseTo(1.6, 6);
+    expect((markGeometryForSize(24).punchCircle.r * 2 * 24) / 32).toBeCloseTo(2.4, 6);
+    // Below 24 the small cut draws no punch at all — 0, not a small hole.
+    for (const size of [16, 20]) {
+      expect(markGeometryForSize(size).punchCircle.r, `${size}px`).toBe(0);
+    }
+    // At and above 24 the full cut's punch must still be a hole rather than a
+    // smudge: >= 1.2px across at the switch point, growing from there.
+    for (const size of [24, 32, 48, 64, 96, 128, 180, 192, 512, 1024]) {
       const cut = markGeometryForSize(size);
       const rendered = (cut.punchCircle.r * 2 * size) / cut.viewBox;
-      expect(rendered, `${size}px punch`).toBeGreaterThanOrEqual(1.9);
+      expect(rendered, `${size}px punch`).toBeGreaterThanOrEqual(1.2);
     }
   });
 
@@ -130,6 +149,54 @@ describe('The Warranty Tag geometry', () => {
     expect(badge.match(/fill="#FFFFFF"/g)).toHaveLength(2);
     expect(badge).not.toContain('#1F1A14');
     expect(badge).not.toContain('#FF6B45');
+    // A white W painted over a white plate would vanish; the badge cuts it out.
+    expect(badge).toContain(geometry.letter);
+    expect(badge).toContain('stroke="black"');
+    expect(badge).toContain(`stroke-width="${geometry.letterWidth}"`);
+    expect(badge).toContain('mask="url(#warrly-mark-cut-full)"');
+  });
+});
+
+describe('the W survives every renderer', () => {
+  it('strokes the cut letter into a mask, using each cut’s own width', () => {
+    for (const size of [16, 32]) {
+      const geometry = markGeometryForSize(size);
+      const svg = renderMarkSvg({ size });
+      expect(svg, `${size}px letter path`).toContain(geometry.letter);
+      expect(svg, `${size}px stroke`).toContain(`stroke-width="${geometry.letterWidth}"`);
+      expect(svg, `${size}px caps`).toContain('stroke-linecap="round"');
+      expect(svg, `${size}px joins`).toContain('stroke-linejoin="round"');
+      expect(svg, `${size}px fill`).toContain('fill="none"');
+      expect(svg, `${size}px mask`).toContain(
+        `mask="url(#warrly-mark-cut-${geometry.cut})"`,
+      );
+    }
+    // Each cut carries its own weight; never reuse one cut's width on the
+    // other. Both numbers come from the geometry, never from this test.
+    const full = markGeometryForSize(32);
+    const small = markGeometryForSize(16);
+    expect(small.letterWidth).not.toBe(full.letterWidth);
+    expect(renderMarkSvg({ size: 16 })).toContain(`stroke-width="${small.letterWidth}"`);
+    expect(renderMarkSvg({ size: 16 })).not.toContain(
+      `stroke-width="${full.letterWidth}"`,
+    );
+  });
+
+  it('draws the letter in the icon, lockup, badge and in-app assets', () => {
+    const full = markGeometryForSize(32);
+    const small = markGeometryForSize(16);
+    expect(
+      renderIconSvg({ size: 192, glyphRatio: 0.84, background: '#FFF7EE' }),
+    ).toContain(full.letter);
+    expect(
+      renderIconSvg({ size: 180, glyphRatio: 0.84, background: '#FFF7EE' }),
+    ).toContain(full.letter);
+    expect(renderLockupSvg({ height: 36 })).toContain(full.letter);
+    expect(renderNotificationBadgeSvg(96)).toContain(full.letter);
+    expect(renderInAppMarkSvg()).toContain(full.letter);
+    // The lockup has its own mask id so it can share a page with a mark.
+    expect(renderLockupSvg({ height: 36 })).toContain('warrly-lockup-cut-full');
+    expect(renderMarkSvg({ size: 16 })).toContain(small.letter);
   });
 });
 
@@ -185,12 +252,12 @@ describe('the lockup proportions', () => {
     expect(LOCKUP_ASPECT).toBeCloseTo(LOCKUP.viewBox.width / LOCKUP.viewBox.height, 8);
   });
 
-  it('ships as a single SVG with the plate, the pennant and the wordmark', () => {
+  it('ships as a single SVG with the plate, the pennant, the W and the wordmark', () => {
     const svg = renderLockupSvg({ height: 36 });
-    // pennant + plate (with its punched hole) + lettering
-    expect(svg.match(/<path/g)).toHaveLength(3);
+    // the W's mask stroke + pennant + plate (with its punched hole) + lettering
+    expect(svg.match(/<path/g)).toHaveLength(4);
     expect(svg.match(/<circle/g)).toBeNull();
-    expect(svg.match(/<rect/g)).toHaveLength(1); // full stop
+    expect(svg.match(/<rect/g)).toHaveLength(2); // mask ground + full stop
     expect(svg).not.toContain('<text');
     expect(svg).not.toContain('background');
   });
@@ -199,26 +266,69 @@ describe('the lockup proportions', () => {
 describe('the in-app mark uses tokens, never literals', () => {
   it('has no background tile unless the caller asks for one', () => {
     const bare = renderMarkSvg({ size: 32 });
-    expect(bare).not.toContain('<rect');
+    // The only `<rect>` in a bare mark is the mask's white ground (no `rx`).
+    expect(bare).not.toContain('rx=');
     const tiled = renderMarkSvg({ size: 32, background: '#FFF7EE' });
-    expect(tiled).toContain('<rect');
+    expect(tiled).toContain('<rect width="32" height="32" rx="0"');
   });
 
-  it('paints with currentColor + --brand-dot and no stroke/filter/gradient/hex', () => {
+  it('paints with currentColor + --brand-dot and no paint stroke/filter/gradient/hex', () => {
     const svg = renderInAppMarkSvg();
     expect(svg).toContain('currentColor');
     expect(svg).toContain('var(--brand-dot)');
     expect(svg).toContain('fill-rule="evenodd"');
-    for (const forbidden of ['stroke', 'filter', 'Gradient', 'gradient', '#']) {
+    for (const forbidden of ['filter', 'Gradient', 'gradient']) {
       expect(svg, forbidden).not.toContain(forbidden);
     }
+    // The `#` in `mask="url(#…)"` is a reference, not a colour literal.
+    expect(svg).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // The one stroke in the file is the mask cut (black = punched out), not a
+    // painted outline: an outline would be a third colour on the mark.
+    expect(svg.match(/stroke="/g)).toHaveLength(1);
+    expect(svg).toContain('stroke="black"');
     expect(BRAND_FILL.body).toBe('hsl(var(--brand-body))');
     expect(BRAND_FILL.dot).toBe('hsl(var(--brand-dot))');
   });
 
   it('never emits a background square by default', () => {
     for (const size of [16, 20, 24, 32, 48, 64]) {
-      expect(renderMarkSvg({ size })).not.toContain('<rect');
+      expect(renderMarkSvg({ size })).not.toContain('rx=');
     }
+  });
+});
+
+describe('the React components draw the W as well', () => {
+  it('cuts the letter in both variants and both cuts', () => {
+    const full = markGeometryForSize(32);
+    const small = markGeometryForSize(16);
+
+    const colour = renderToStaticMarkup(React.createElement(WarrlyMark, { size: 32 }));
+    expect(colour).toContain(full.letter);
+    expect(colour).toContain(`stroke-width="${full.letterWidth}"`);
+    expect(colour).toContain('stroke-linecap="round"');
+    expect(colour).toContain('stroke-linejoin="round"');
+    expect(colour).toContain('mask="url(#warrly-mark-cut-full)"');
+
+    const mono = renderToStaticMarkup(
+      React.createElement(WarrlyMark, { size: 32, variant: 'mono' }),
+    );
+    expect(mono).toContain(full.letter);
+    // A mono W painted `currentColor` would sit in a `currentColor` plate and
+    // disappear; only a cut-out keeps it visible in a one-colour mark.
+    expect(mono).not.toContain('stroke="currentColor"');
+    expect(mono).toContain('stroke="black"');
+
+    const smallMark = renderToStaticMarkup(React.createElement(WarrlyMark, { size: 16 }));
+    expect(smallMark).toContain(small.letter);
+    expect(smallMark).toContain(`stroke-width="${small.letterWidth}"`);
+    expect(smallMark).toContain('mask="url(#warrly-mark-cut-small)"');
+  });
+
+  it('cuts the letter inside the lockup too', () => {
+    const html = renderToStaticMarkup(React.createElement(WarrlyLockup, { height: 36 }));
+    const geometry = markGeometryForSize(32);
+    expect(html).toContain(geometry.letter);
+    expect(html).toContain(`stroke-width="${geometry.letterWidth}"`);
+    expect(html).toContain('mask="url(#warrly-lockup-cut-full)"');
   });
 });
