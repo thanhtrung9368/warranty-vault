@@ -361,8 +361,13 @@ describe('notification icon + badge (defect 4)', () => {
         expect(badge.alpha(cx + dx, cy + dy), `punch hole ${cx + dx},${cy + dy}`).toBe(0);
       }
     }
-    // The plate below/right of the punch is solid.
-    expect(badge.alpha(cx + 6, cy + 14)).toBe(255);
+    // The plate between the punch and the W is solid. Derived from the geometry
+    // rather than sampled at a fixed offset: the W's apex moved up when the
+    // letter became a capital, and a hardcoded "+14px" landed inside it.
+    const wTop = Math.round(offsetY + (18.9 - 0.95) * scale);
+    const gapY = Math.round((cy + wTop) / 2);
+    expect(gapY, 'gap between punch and W exists').toBeGreaterThan(cy);
+    expect(badge.alpha(cx + 6, gapY), `plate ${cx + 6},${gapY}`).toBe(255);
     // The pennant above the plate is solid too — it is not knocked out, and
     // the sample sits clear of the swallowtail notch.
     const flagX = Math.round(offsetX + 23 * scale);
