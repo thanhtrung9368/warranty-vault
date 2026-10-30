@@ -48,7 +48,7 @@ enum WVIconMap {
         "trendingUp": "arrow.up.right", "trophy": "trophy.fill", "tv": "tv.fill",
         "unlock": "lock.open.fill", "upload": "arrow.up.circle.fill", "user": "person.fill",
         "userPlus": "person.badge.plus", "users": "person.2.fill", "wallet": "wallet.pass.fill",
-        "watch": "applewatch", "x": "xmark", "zap": "bolt.fill",
+        "watch": "applewatch", "wrench": "wrench.and.screwdriver.fill", "x": "xmark", "zap": "bolt.fill",
     ]
 
     static func symbol(_ name: String) -> String { table[name] ?? "questionmark" }

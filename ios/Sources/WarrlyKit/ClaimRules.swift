@@ -102,6 +102,26 @@ public enum ClaimRules {
         }
     }
 
+    /// Display order for a **cross-device** list: strictly newest `openedAt`
+    /// first, open and closed mixed together.
+    ///
+    /// The cross-device screen answers "what have I had repaired lately?", so
+    /// the date is the ordering the user expects; pinning open rows to the top
+    /// (as the per-device section does) would make an old open claim outrank a
+    /// repair closed yesterday. A missing `openedAt` sorts last, and the id is
+    /// the stable tie-break.
+    public static func sortedNewestFirst(_ claims: [Claim]) -> [Claim] {
+        claims.sorted { lhs, rhs in
+            let lhsKey = openedSortKey(lhs)
+            let rhsKey = openedSortKey(rhs)
+            let lhsMissing = lhsKey.isEmpty
+            let rhsMissing = rhsKey.isEmpty
+            if lhsMissing != rhsMissing { return !lhsMissing }
+            if lhsKey != rhsKey { return lhsKey > rhsKey }
+            return lhs.id < rhs.id
+        }
+    }
+
     // MARK: - The BROKEN dead end
 
     /// `true` when a device is marked **BROKEN** and nothing is being done about

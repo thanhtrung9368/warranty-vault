@@ -99,6 +99,14 @@ struct StatsView: View {
                 WVSectionHeader(L.t("Chi phí & tài sản"))
                 kpiGrid
 
+                // Repair money (`Claim.cost`). Deliberately its own line, not
+                // folded into "Tổng chi mua sắm": a repair is money spent after
+                // the purchase on a machine that already cost something, so
+                // adding it to the purchase total would compare two different
+                // kinds of number. The section disappears entirely when no
+                // claim carries a cost — see `RepairSpend.hasAnyCost`.
+                repairSection
+
                 // 12-month bar chart
                 WVSectionHeader(L.t("Chi phí 12 tháng gần nhất"))
                 WVSectionFooter(L.t("Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói)."))
@@ -566,6 +574,91 @@ struct StatsView: View {
         .padding(.horizontal, WVSpacing.gutter)
     }
 
+    // MARK: - Repair spend (Claim.cost)
+
+    /// What repairs actually cost, on its own line.
+    ///
+    /// The section is absent in three cases, each for a different reason:
+    ///
+    ///  * `repairSpend == nil` — the claims read failed or has not landed, so
+    ///    the app does not know; printing `0 ₫` would be a false fact;
+    ///  * `hasAnyCost == false` — every claim has `cost == nil`, i.e. nobody
+    ///    recorded money, so there is no line to draw;
+    ///  * the screen is otherwise empty (handled by the parent empty state).
+    ///
+    /// A recorded `0` still renders: a warranty-covered repair is an answer.
+    @ViewBuilder
+    private var repairSection: some View {
+        if let repairs = store.snapshot.repairSpend, repairs.hasAnyCost {
+            WVSectionHeader(L.t("Tiền sửa chữa"))
+            WVSectionFooter(L.t("Tách riêng khỏi tổng chi mua sắm: đây là tiền đã chi để sửa, sau khi đã mua thiết bị."))
+
+            WVCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(WVFormat.vnd(repairs.totalVnd))
+                        .wvFont(.statValue)
+                        .foregroundStyle(WVColor.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+
+                    Text(L.p("%d lần", repairs.pricedClaimCount)
+                         + " · " + L.p("%d thiết bị", repairs.deviceCount))
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+
+                    if repairs.comparisons.isEmpty {
+                        Text(L.t("Chưa có lần sửa nào đủ cả chi phí và giá mua để so sánh."))
+                            .wvFont(.caption)
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        WVDivider()
+                        Text(L.t("Đáng sửa hay không, so với giá mua"))
+                            .wvFont(.subheadlineEmphasis)
+                            .foregroundStyle(WVColor.label)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        ForEach(repairs.comparisons.prefix(5)) { comparison in
+                            RepairComparisonRow(comparison: comparison)
+                        }
+
+                        if repairs.comparisons.count > 5 {
+                            Text(L.p("… và %d lần sửa khác",
+                                     repairs.comparisons.count - 5))
+                                .wvFont(.caption)
+                                .foregroundStyle(WVColor.label3)
+                        }
+                    }
+                }
+            }
+
+            // The cross-device list is also reachable from "Thêm"; this is the
+            // contextual way in from the numbers that made the user ask.
+            NavigationLink {
+                ClaimsListView(client: client)
+            } label: {
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "wrench", color: WVColor.orange)
+                    Text(L.t("Xem tất cả lần sửa"))
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    Spacer(minLength: 8)
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVRowButtonStyle())
+            .background(WVColor.bg2)
+            .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, 10)
+        }
+    }
+
     // MARK: - Year breakdown
 
     private var currentYear: Int {
@@ -993,6 +1086,68 @@ private struct StatsSummaryRow: View {
     }
 
 
+}
+
+// MARK: - Repair spend row
+
+/// One "was this repair worth it?" comparison: what the repair cost against
+/// what the device was bought for.
+///
+/// The same shape and the same green/red/grey mapping as the resale block's
+/// "Lãi/lỗ so với giá mua" row — a second visual language for the same
+/// comparison would make two answered questions look like two different kinds
+/// of fact. The label already carries the amount ("rẻ hơn giá mua …"), so the
+/// row never prints a bare verdict.
+private struct RepairComparisonRow: View {
+    let comparison: StatsRollup.RepairComparison
+
+    private var tone: Color {
+        switch comparison.verdict {
+        case .worthFixing:    return WVColor.green
+        case .notWorthFixing: return WVColor.red
+        case .breakEven:      return WVColor.label2
+        }
+    }
+
+    private var title: some View {
+        Text(comparison.deviceName)
+            .wvFont(.subheadlineEmphasis)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var subtitle: some View {
+        Text(L.t("Sửa %@ · giá mua %@",
+                 WVFormat.vnd(comparison.costVnd),
+                 WVFormat.vnd(comparison.purchasePriceVnd)))
+            .wvFont(.caption)
+            .foregroundStyle(WVColor.label3)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var verdict: some View {
+        Text(comparison.label)
+            .wvFont(.footnoteEmphasis)
+            .foregroundStyle(tone)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Always a vertical block. Side-by-side looked compact at Large, but both
+    /// the amounts and the verdict sentence are long enough to ellipsize at the
+    /// default size — and a verdict cut after "cheaper th…" is worse than one
+    /// more line.
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            title
+            subtitle
+            verdict
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
 }
 
 private struct TopDeviceRow: View {

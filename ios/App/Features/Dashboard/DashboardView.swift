@@ -246,13 +246,17 @@ struct DashboardView: View {
     private var deadlineCandidates: [DeadlineCandidate] {
         var out: [DeadlineCandidate] = []
         for r in remindersStore.entries {
+            // Display-only legal extension: repair time is not counted against
+            // the warranty. The reminder feed still fires on the server's raw
+            // end date; only the date this card prints moves.
+            let end = remindersStore.adjustedEnd(r.endDate, deviceId: r.deviceId)
             out.append(DeadlineCandidate(
                 kind: .warranty,
                 entityId: r.deviceId,
                 title: r.device.name,
                 category: r.device.category,
-                date: r.endDate,
-                days: WVFormat.daysUntil(r.endDate)
+                date: end,
+                days: WVFormat.daysUntil(end)
             ))
         }
         for s in activeSubs {
@@ -340,6 +344,13 @@ struct DashboardView: View {
                     }
                 }
                 .padding(.top, 10)
+            }
+
+            // The legal extension moves dates on this board, so it has to be
+            // named here too — a deadline that silently jumped later would
+            // otherwise look like a server bug.
+            if remindersStore.hasRepairExtension {
+                WVSectionFooter(WarrantyRepairAdjustment.legalNote)
             }
 
             if deadlineReadError != nil {

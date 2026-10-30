@@ -97,6 +97,33 @@ struct DeviceDetailView: View {
         StatsRollup.effectiveWarrantyEnd(warranties) ?? currentDevice.effectiveWarrantyEnd
     }
 
+    /// The legal, **display-only** end of the device's warranty: the effective
+    /// end plus the duration of this device's closed repairs (Luật 19/2023,
+    /// Điều 30.2.c — repair time is not counted against the warranty period).
+    ///
+    /// `nil` before the detail read lands, because until then `store.claims`
+    /// is empty for "not read yet", not "no claims". Showing `+0` in that
+    /// window would be a claim the data cannot support; the hero falls back to
+    /// the raw server date, which is exactly today's behaviour. Once loaded,
+    /// `hasExtension == false` means the two dates are the same.
+    ///
+    /// Never written anywhere: `Warranty.endDate` and the server's reminder
+    /// schedule stay untouched. See `WarrantyRepairAdjustment`.
+    private var repairExtension: WarrantyRepairExtension? {
+        guard detailLoaded, let end = effectiveWarrantyEnd else { return nil }
+        return WarrantyRepairAdjustment.adjust(rawEnd: end, claims: store.claims)
+    }
+
+    /// The date the hero shows: adjusted when there is a repair extension,
+    /// the server's own end otherwise.
+    private var displayedWarrantyEnd: Date? {
+        guard let end = effectiveWarrantyEnd else { return nil }
+        if let extension_ = repairExtension, extension_.hasExtension {
+            return extension_.adjustedEnd
+        }
+        return end
+    }
+
     /// The device facts the pre-service checklist injects into its copy.
     private var checklistDevice: ServiceChecklistDevice {
         ServiceChecklistDevice(
@@ -594,8 +621,11 @@ struct DeviceDetailView: View {
         }
         .navigationDestination(for: WarrantyFormNav.self) { nav in
             // The fee is in the device's currency, so the form labels the unit.
+            // The purchase date seeds the start-date default and is the value
+            // the form discloses a conflict against.
             WarrantyFormView(store: store, warranty: nav.warranty,
-                             currency: currentDevice.currencyCode)
+                             currency: currentDevice.currencyCode,
+                             purchaseDate: currentDevice.purchaseDate)
         }
         .alert(L.t("Xoá thiết bị?"), isPresented: $showDeleteAlert) {
             Button(L.t("Huỷ"), role: .cancel) {}
@@ -694,9 +724,15 @@ struct DeviceDetailView: View {
     /// `effectiveWarrantyEnd` prefers the list projection, so the date is on
     /// screen before the detail read lands — the old hero could only show a
     /// pill once `warranties` had arrived.
+    ///
+    /// When this device has closed repairs, the date and day count shown are
+    /// the **legal** ones (`raw end + repair days`), and the two lines under it
+    /// say why and that the retailer has not necessarily agreed. The server's
+    /// raw date is still printed in the warranty card below, so the user can
+    /// see both numbers rather than being handed a silently moved date.
     @ViewBuilder
     private var heroDeadlineLine: some View {
-        if let end = effectiveWarrantyEnd {
+        if let end = displayedWarrantyEnd {
             let days = WVFormat.daysUntil(end)
             Text(DeadlineCopy.label(kind: .warranty,
                                     dateText: WVFormat.date(end),
@@ -705,6 +741,19 @@ struct DeviceDetailView: View {
                 .foregroundStyle(WarrantyPillCopy.status(daysLeft: days).heroColor)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let extension_ = repairExtension, extension_.hasExtension {
+                Text(WarrantyRepairAdjustment.addedDaysLabel(extension_.days))
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.label3)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(WarrantyRepairAdjustment.legalNote)
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.label3)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         } else {
             Text(L.t("Chưa ghi hạn bảo hành"))
                 .wvFont(.subheadline)
@@ -727,6 +776,31 @@ struct DeviceDetailView: View {
                         Rectangle().fill(WVColor.sep).frame(height: 0.5)
                     }
                     WarrantyTimelineRow(warranty: w)
+                }
+
+                // The per-package rows above keep the **server's** dates: they
+                // are per package, while the legal extension is per device. The
+                // device-level adjusted end is stated once here, with the raw
+                // date it came from, so the hero and this card cannot look like
+                // two unrelated numbers.
+                if let extension_ = repairExtension, extension_.hasExtension {
+                    Rectangle().fill(WVColor.sep).frame(height: 0.5)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L.t("Hạn điều chỉnh: %@ (gốc %@)",
+                                 WVFormat.date(extension_.adjustedEnd),
+                                 WVFormat.date(extension_.rawEnd)))
+                            .wvFont(.footnoteEmphasis)
+                            .foregroundStyle(WVColor.green)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(WarrantyRepairAdjustment.addedDaysLabel(extension_.days))
+                            .wvFont(.caption)
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(WarrantyRepairAdjustment.legalNote)
+                            .wvFont(.caption)
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }

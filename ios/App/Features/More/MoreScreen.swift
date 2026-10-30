@@ -225,6 +225,36 @@ struct MoreScreen: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
+
+                WVDivider(inset: 60)
+
+                // Every repair across every device. `GET /api/v1/claims` with
+                // no filter was implemented and called by nobody: iOS only ever
+                // asked per device. The list is the screen that makes the
+                // unfiltered read reachable; each row links back to its device.
+                NavigationLink {
+                    ClaimsListView(client: client)
+                } label: {
+                    HStack(spacing: 12) {
+                        WVLeadingIcon(icon: "wrench", color: WVColor.orange)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(L.t("Sửa chữa & bảo hành"))
+                                .wvFont(.body)
+                                .foregroundStyle(WVColor.label)
+                            Text(L.t("Tất cả lần sửa trên mọi thiết bị"))
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                        }
+                        Spacer(minLength: 8)
+                        WVIcon("arrowRight", size: 13, weight: .semibold)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 7)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(WVRowButtonStyle())
             }
         }
     }

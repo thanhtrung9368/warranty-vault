@@ -43,6 +43,15 @@ public final class StatsStore: ObservableObject {
         /// "Không tải được gói bảo hành của một vài thiết bị" banner.
         public var warrantiesComplete: Bool = true
 
+        // MARK: Repair spend (GET /api/v1/claims)
+
+        /// What the user spent on repairs, kept outside `spendEntries` on
+        /// purpose: a repair is money spent after the purchase, not a second
+        /// purchase. `nil` means the claims read failed or has not completed —
+        /// never "there were no repairs". The view renders the section only for
+        /// a value with `hasAnyCost`.
+        public var repairSpend: StatsRollup.RepairSpend? = nil
+
         // MARK: Spending forecast (GET /api/v1/forecast)
 
         /// The forward-looking window. Loaded separately from the historical
@@ -84,6 +93,12 @@ public final class StatsStore: ObservableObject {
         do {
             async let statsTask = client.getStats()
             async let devicesTask = client.listDevices()
+            // The cross-device claims read (`GET /api/v1/claims` with no
+            // filter) — the one endpoint that already returns repair money for
+            // the whole account. It is deliberately independent of the rest of
+            // the rollup: a failure removes the repair line, never the stats
+            // screen, so `try?` and `nil` are the correct degradation.
+            async let claimsTask = client.listClaims()
 
             let stats = try await statsTask
             let devices: [Device]
@@ -92,6 +107,7 @@ public final class StatsStore: ObservableObject {
             } catch {
                 devices = []
             }
+            let claims = try? await claimsTask
 
             // Warranty packages are not part of the device list projection
             // (only `effectiveWarrantyEnd` is), and openapi has no bulk
@@ -158,6 +174,12 @@ public final class StatsStore: ObservableObject {
             snap.assetValue = StatsRollup.activeAssetValue(devices, now: now)
             snap.topDevices = StatsRollup.topDevices(devices, limit: 5)
             snap.years = StatsRollup.yearsWithData(devices: devices, now: now)
+            // Repair money is its own line, never folded into `entries`.
+            // `nil` (the read failed) is not the same answer as "no claim has
+            // a cost", which is why the optional survives into the view.
+            snap.repairSpend = claims.map {
+                StatsRollup.repairSpend(claims: $0, devices: devices)
+            }
 
             snapshot = snap
             state = .loaded

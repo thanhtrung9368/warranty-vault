@@ -18,8 +18,17 @@ struct WarrantyFormView: View {
     /// contract default).
     let currency: String?
 
+    /// When the device was bought — the start date this form opens with.
+    ///
+    /// A device bought last Tết must not get a warranty that starts today: the
+    /// resulting end date would be more than a year late and the app would tell
+    /// the user they are covered when they are not. `nil` means the device has
+    /// no purchase information, and only then does today become the default.
+    let purchaseDate: Date?
+
     @EnvironmentObject private var catalog: CatalogStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // Fields
     @State private var type: WarrantyType
@@ -60,14 +69,22 @@ struct WarrantyFormView: View {
 
     private var isEditing: Bool { warranty != nil }
 
-    init(store: WarrantiesStore, warranty: Warranty?, currency: String? = nil) {
+    init(store: WarrantiesStore, warranty: Warranty?, currency: String? = nil,
+         purchaseDate: Date? = nil) {
         self.store = store
         self.warranty = warranty
         self.currency = currency
+        self.purchaseDate = purchaseDate
         _type = State(initialValue: warranty?.type ?? .STANDARD)
         _provider = State(initialValue: warranty?.provider ?? "")
-        _startDate = State(initialValue: warranty?.startDate ?? Date())
-        _months = State(initialValue: warranty.map { String($0.months) } ?? "12")
+        // The purchase date is the default *because* it is when cover normally
+        // starts; `today` is the fallback for a device with no purchase
+        // information, never the first choice. Editing an existing plan keeps
+        // the stored start date untouched.
+        _startDate = State(initialValue: warranty?.startDate
+            ?? WarrantyFormRules.defaultStartDate(purchaseDate: purchaseDate))
+        _months = State(initialValue: warranty.map { String($0.months) }
+            ?? String(WarrantyFormRules.defaultMonths))
         _cost = State(initialValue: warranty?.cost)
         _address = State(initialValue: warranty?.address ?? "")
         _phone = State(initialValue: warranty?.phone ?? "")
@@ -107,6 +124,61 @@ struct WarrantyFormView: View {
             claimsAllowed: Int(claimsAllowed),
             claimsUsed: Int(claimsUsed)
         )
+    }
+
+    // MARK: - Dates
+
+    /// One label + control row of the everyday form.
+    ///
+    /// At default sizes it is the existing fixed-label HStack. At Accessibility
+    /// sizes the label moves **above** the control: an 80 pt label column at
+    /// AX3 can only hold one letter per line, and the compact `DatePicker`
+    /// would otherwise force the whole form wider than the screen. The control
+    /// still gets the full width underneath.
+    @ViewBuilder
+    private func formRow<Content: View>(
+        _ label: String,
+        width: CGFloat = 80,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(label)
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                    content()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    Text(label)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        .frame(width: width, alignment: .leading)
+                    content()
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+    }
+
+    /// The end date the server will derive from the two fields above it, shown
+    /// live so a typo in the month count is visible before the save. `nil` for
+    /// an empty/non-positive month field — the same rule that disables the CTA.
+    private var computedEndDate: Date? {
+        WarrantyFormRules.endDate(startDate: startDate, months: Int(months) ?? 0)
+    }
+
+    /// The purchase-date disagreement, surfaced but never blocking. A plan can
+    /// legitimately start before or after the purchase (an extended plan bought
+    /// later, cover backdated by the retailer), so this is a disclosure with a
+    /// one-tap way back to the purchase date — not validation.
+    private var dateConflict: WarrantyDateConflict? {
+        WarrantyFormRules.conflict(startDate: startDate, purchaseDate: purchaseDate)
     }
 
     // MARK: - Suggestions
@@ -176,20 +248,14 @@ struct WarrantyFormView: View {
                 WVSectionHeader(L.t("Thông tin gói"))
                 WVGroup {
                     // Provider with autocomplete
-                    HStack(spacing: 12) {
-                        Text(L.t("Hãng BH"))
-                            .wvFont(.body)
-                            .foregroundStyle(WVColor.label)
-                            .frame(width: 80, alignment: .leading)
+                    formRow(L.t("Hãng BH")) {
                         TextField(L.t("Apple Việt Nam..."), text: $provider)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                            .multilineTextAlignment(.trailing)
+                            .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize
+                                                    ? .leading : .trailing)
                             .autocorrectionDisabled()
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
 
                     if !providerSuggestions.isEmpty {
                         WVDivider()
@@ -228,36 +294,39 @@ struct WarrantyFormView: View {
                     WVDivider()
 
                     // Start date
-                    HStack(spacing: 12) {
-                        Text(L.t("Ngày BĐ"))
-                            .wvFont(.body)
-                            .foregroundStyle(WVColor.label)
-                            .frame(width: 80, alignment: .leading)
-                        Spacer()
+                    formRow(L.t("Ngày BĐ")) {
                         DatePicker("", selection: $startDate, displayedComponents: .date)
                             .labelsHidden()
+                            // Same cap as the device form: the compact picker's
+                            // intrinsic width (≈399 pt at AX3) is wider than
+                            // the card interior and would push the whole form
+                            // off-centre. The value stays readable; only this
+                            // one system control is capped.
+                            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
 
                     WVDivider()
 
                     // Months
-                    HStack(spacing: 12) {
-                        Text(L.t("Số tháng"))
-                            .wvFont(.body)
-                            .foregroundStyle(WVColor.label)
-                            .frame(width: 80, alignment: .leading)
+                    formRow(L.t("Số tháng")) {
                         TextField("12", text: $months)
                             .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
+                            .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize
+                                                    ? .leading : .trailing)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+
+                    // The 12 is a default, not an assertion: say so where the
+                    // user can still change it. The create-device wizard labels
+                    // its own pre-filled 12 the same way.
+                    Text(L.t("Mặc định 12 tháng — đổi nếu hoá đơn ghi thời hạn khác."))
+                        .wvFont(.caption)
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     if let errs = fieldErrors["months"], let msg = errs.first {
                         WVDivider()
@@ -270,44 +339,86 @@ struct WarrantyFormView: View {
 
                     WVDivider()
 
+                    // Live end date. The server derives `startDate + months`
+                    // when no explicit end date is sent, so this is what the
+                    // save will store — not an estimate.
+                    formRow(L.t("Ngày kết thúc (dự kiến)"), width: 180) {
+                        Text(computedEndDate.map(WVFormat.date) ?? "—")
+                            .wvFont(.bodyEmphasis)
+                            .foregroundStyle(computedEndDate == nil ? WVColor.label3 : WVColor.label)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Text(L.t("Tính từ ngày bắt đầu + số tháng; máy chủ sẽ lưu đúng ngày này."))
+                        .wvFont(.caption)
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // The purchase date is the default, so a disagreement is
+                    // either a deliberate choice (an extended plan bought
+                    // later) or a mistake. Either way it must not pass
+                    // silently: state the gap and offer the purchase date back.
+                    if let conflict = dateConflict, let purchaseDate {
+                        WVDivider()
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top, spacing: 8) {
+                                WVIcon("alert", size: 14)
+                                    .foregroundStyle(WVColor.orange)
+                                    .padding(.top, 1)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(conflict.label)
+                                        .wvFont(.footnoteEmphasis)
+                                        .foregroundStyle(WVColor.orange)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Text(L.t("Ngày mua thiết bị: %@", WVFormat.date(purchaseDate)))
+                                        .wvFont(.caption)
+                                        .foregroundStyle(WVColor.label3)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            WVButton(L.t("Dùng ngày mua"), kind: .secondary,
+                                     size: .small, fullWidth: false) {
+                                startDate = purchaseDate
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    WVDivider()
+
                     // Cost. `Warranty.cost` is in the device's currency, so the
                     // field groups digits the same way and names the unit next
                     // to the number — a $99 plan must not read like 99 ₫.
-                    HStack(spacing: 12) {
-                        Text(L.t("Phí gói"))
-                            .wvFont(.body)
-                            .foregroundStyle(WVColor.label)
-                            .frame(width: 80, alignment: .leading)
-                        WVMoneyField(value: $cost, placeholder: L.t("Tuỳ chọn"),
-                                     groupingSeparator: CurrencyRules.groupingSeparator(for: currency))
-                        if CurrencyRules.requiresRate(currency) {
-                            Text(CurrencyRules.normalized(currency))
-                                .wvFont(.footnoteEmphasis)
-                                .foregroundStyle(WVColor.label3)
+                    formRow(L.t("Phí gói")) {
+                        HStack(spacing: 8) {
+                            WVMoneyField(value: $cost, placeholder: L.t("Tuỳ chọn"),
+                                         groupingSeparator: CurrencyRules.groupingSeparator(for: currency))
+                            if CurrencyRules.requiresRate(currency) {
+                                Text(CurrencyRules.normalized(currency))
+                                    .wvFont(.footnoteEmphasis)
+                                    .foregroundStyle(WVColor.label3)
+                            }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
                 }
 
                 // Contact
                 WVSectionHeader(L.t("Liên hệ"))
                 WVGroup {
-                    HStack(spacing: 12) {
-                        Text(L.t("SĐT"))
-                            .wvFont(.body)
-                            .foregroundStyle(WVColor.label)
-                            .frame(width: 80, alignment: .leading)
+                    formRow(L.t("SĐT")) {
                         TextField("1800-...", text: $phone)
                             .keyboardType(.phonePad)
-                            .multilineTextAlignment(.trailing)
+                            .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize
+                                                    ? .leading : .trailing)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
 
                     WVDivider()
 
@@ -596,36 +707,23 @@ struct WarrantyFormView: View {
     /// VND row, matching the existing "Phí gói" input: nil (empty) stays nil
     /// on the wire, and 0 — a real answer — is typed as 0.
     private func termsMoneyRow(_ label: String, value: Binding<Int?>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .wvFont(.body)
-                .foregroundStyle(WVColor.label)
-                .frame(width: 110, alignment: .leading)
+        formRow(label, width: 110) {
             WVMoneyField(value: value, placeholder: L.t("Tuỳ chọn"))
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
     }
 
     /// Small non-negative count (claims). Empty means "not recorded": for
     /// `claimsAllowed` that is nil (unbounded); for `claimsUsed` the wire
     /// default of 0 is written by `WarrantyTerms.apply`.
     private func termsCountRow(_ label: String, text: Binding<String>) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .wvFont(.body)
-                .foregroundStyle(WVColor.label)
-                .frame(width: 110, alignment: .leading)
+        formRow(label, width: 110) {
             TextField(L.t("Tuỳ chọn"), text: text)
                 .keyboardType(.numberPad)
-                .multilineTextAlignment(.trailing)
+                .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize
+                                        ? .leading : .trailing)
                 .wvFont(.body)
                 .foregroundStyle(WVColor.label)
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
     }
 
     /// Three-state transferable switch. A plain `Toggle` has only two states,

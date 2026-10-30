@@ -21488,6 +21488,642 @@
           }
         }
       }
+    },
+    "Đây là quyền lợi theo khoản 2.c Điều 30 Luật 19/2023, không phải thoả thuận với cửa hàng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is your right under Art. 30.2.c of Law 19/2023, not an agreement with the retailer."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đây là quyền lợi theo khoản 2.c Điều 30 Luật 19/2023, không phải thoả thuận với cửa hàng."
+          }
+        }
+      }
+    },
+    "Đã cộng %d ngày sửa chữa vào hạn bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 repair day added to the warranty end."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d repair days added to the warranty end."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Đã cộng %d ngày sửa chữa vào hạn bảo hành."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Gói bắt đầu muộn hơn ngày mua thiết bị %d ngày.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This plan starts 1 day after the device purchase."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This plan starts %d days after the device purchase."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gói bắt đầu muộn hơn ngày mua thiết bị %d ngày."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Gói bắt đầu sớm hơn ngày mua thiết bị %d ngày.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This plan starts 1 day before the device purchase."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This plan starts %d days before the device purchase."
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Gói bắt đầu sớm hơn ngày mua thiết bị %d ngày."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Đáng sửa · rẻ hơn giá mua %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worth repairing · %@ cheaper than the purchase"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đáng sửa · rẻ hơn giá mua %@"
+          }
+        }
+      }
+    },
+    "Không đáng sửa · sửa tốn hơn giá mua %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not worth repairing · the repair cost %@ more than the purchase"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không đáng sửa · sửa tốn hơn giá mua %@"
+          }
+        }
+      }
+    },
+    "Ngang giá mua": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same as the purchase price"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngang giá mua"
+          }
+        }
+      }
+    },
+    "Tiền sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repair spending"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiền sửa chữa"
+          }
+        }
+      }
+    },
+    "Tách riêng khỏi tổng chi mua sắm: đây là tiền đã chi để sửa, sau khi đã mua thiết bị.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept separate from the purchase total: this is money spent on repairs after the device was bought."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tách riêng khỏi tổng chi mua sắm: đây là tiền đã chi để sửa, sau khi đã mua thiết bị."
+          }
+        }
+      }
+    },
+    "Chưa có lần sửa nào đủ cả chi phí và giá mua để so sánh.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No repair has both a cost and a purchase price to compare yet."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có lần sửa nào đủ cả chi phí và giá mua để so sánh."
+          }
+        }
+      }
+    },
+    "Đáng sửa hay không, so với giá mua": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Worth repairing? Compared with the purchase price"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đáng sửa hay không, so với giá mua"
+          }
+        }
+      }
+    },
+    "… và %d lần sửa khác": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "… and 1 more repair"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "… and %d more repairs"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "… và %d lần sửa khác"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Xem tất cả lần sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all repairs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem tất cả lần sửa"
+          }
+        }
+      }
+    },
+    "Sửa %@ · giá mua %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repair %@ · purchase price %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sửa %@ · giá mua %@"
+          }
+        }
+      }
+    },
+    "Không tải được lần sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load repairs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được lần sửa chữa"
+          }
+        }
+      }
+    },
+    "Chưa có lần sửa chữa nào": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No repairs yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có lần sửa chữa nào"
+          }
+        }
+      }
+    },
+    "Mở một thiết bị và ghi lại lần sửa đầu tiên ở mục “Sửa chữa & bảo hành”.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open a device and record its first repair under “Repairs & warranty”."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở một thiết bị và ghi lại lần sửa đầu tiên ở mục “Sửa chữa & bảo hành”."
+          }
+        }
+      }
+    },
+    "%d đang sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 in repair"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d in repair"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d đang sửa"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%d đã xong": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "1 finished"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d finished"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d đã xong"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Mới nhất trước, trên mọi thiết bị. Chạm một dòng để mở thiết bị của lần sửa đó.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Newest first, across every device. Tap a row to open the device it belongs to."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mới nhất trước, trên mọi thiết bị. Chạm một dòng để mở thiết bị của lần sửa đó."
+          }
+        }
+      }
+    },
+    "Tất cả lần sửa trên mọi thiết bị": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every repair, across all devices"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tất cả lần sửa trên mọi thiết bị"
+          }
+        }
+      }
+    },
+    "Hạn điều chỉnh: %@ (gốc %@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjusted end: %@ (original %@)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hạn điều chỉnh: %@ (gốc %@)"
+          }
+        }
+      }
+    },
+    "Ngày hết hạn bên dưới đã cộng thời gian sửa chữa đã đóng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The end dates below include time spent in closed repairs."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày hết hạn bên dưới đã cộng thời gian sửa chữa đã đóng."
+          }
+        }
+      }
+    },
+    "+%d ngày sửa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "+1 repair day"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "+%d repair days"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "+%d ngày sửa"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Mặc định 12 tháng — đổi nếu hoá đơn ghi thời hạn khác.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 months is the default — change it if the invoice states a different term."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mặc định 12 tháng — đổi nếu hoá đơn ghi thời hạn khác."
+          }
+        }
+      }
+    },
+    "Ngày kết thúc (dự kiến)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End date (computed)"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày kết thúc (dự kiến)"
+          }
+        }
+      }
+    },
+    "Tính từ ngày bắt đầu + số tháng; máy chủ sẽ lưu đúng ngày này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start date + months; this is exactly the date the server will store."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính từ ngày bắt đầu + số tháng; máy chủ sẽ lưu đúng ngày này."
+          }
+        }
+      }
+    },
+    "Ngày mua thiết bị: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device purchase date: %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngày mua thiết bị: %@"
+          }
+        }
+      }
+    },
+    "Dùng ngày mua": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use purchase date"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng ngày mua"
+          }
+        }
+      }
+    },
+    "Sau 90 ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After 90 days"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sau 90 ngày"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

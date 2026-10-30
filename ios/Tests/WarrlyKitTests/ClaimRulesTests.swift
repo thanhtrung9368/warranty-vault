@@ -109,6 +109,32 @@ final class ClaimRulesTests: XCTestCase {
         XCTAssertEqual(ClaimRules.sortedForDisplay([sameB, sameA]).map(\.id), ["a", "b"])
     }
 
+    func testCrossDeviceOrderIsStrictlyNewestFirstWithOpenAndClosedMixed() {
+        // The per-device section pins open rows to the top; the cross-device
+        // list must not: a repair closed yesterday outranks one still open from
+        // last year when the user is asking "what have I had repaired lately?".
+        let oldOpen = makeClaim(id: "old_open", status: .IN_REPAIR,
+                                openedAt: "2025-01-01T00:00:00Z")
+        let newClosed = makeClaim(id: "new_closed", status: .RESOLVED,
+                                  openedAt: "2026-03-01T00:00:00Z",
+                                  closedAt: "2026-03-05T00:00:00Z")
+        let middle = makeClaim(id: "middle", status: .CANCELLED,
+                               openedAt: "2025-12-01T00:00:00Z")
+
+        let sorted = ClaimRules.sortedNewestFirst([oldOpen, newClosed, middle])
+        XCTAssertEqual(sorted.map(\.id), ["new_closed", "middle", "old_open"])
+
+        // Same instant → id is the stable tie-break, and an unreadable
+        // `openedAt` sorts last rather than jumping to the top.
+        let sameA = makeClaim(id: "a", openedAt: "2026-03-02")
+        let sameB = makeClaim(id: "b", openedAt: "2026-03-02")
+        let unreadable = makeClaim(id: "z", openedAt: "")
+        XCTAssertEqual(
+            ClaimRules.sortedNewestFirst([unreadable, sameB, sameA]).map(\.id),
+            ["a", "b", "z"]
+        )
+    }
+
     // MARK: - The BROKEN dead end
 
     func testBrokenWithNoOpenClaimNeedsTheNudge() {

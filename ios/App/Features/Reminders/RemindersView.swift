@@ -86,6 +86,25 @@ struct RemindersView: View {
                     .padding(.top, 12)
                 }
 
+                // The dates and day counts on every row below are the legal
+                // ones when the device has closed repairs; say so once, here,
+                // rather than mutating the server's data or hiding the note in
+                // a row the user may scroll past.
+                if store.hasRepairExtension {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(L.t("Ngày hết hạn bên dưới đã cộng thời gian sửa chữa đã đóng."))
+                            .wvFont(.footnoteEmphasis)
+                            .foregroundStyle(WVColor.label2)
+                        Text(WarrantyRepairAdjustment.legalNote)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 12)
+                }
+
                 if store.entries.isEmpty {
                     WVEmpty(icon: "checkCircle",
                             title: L.t("Không có nhắc nào, ngon!"),
@@ -127,7 +146,14 @@ struct RemindersView: View {
     // MARK: - Reminder row
 
     private func reminderRow(_ entry: UpcomingReminder) -> some View {
-        WVRowContainer {
+        // Display-only legal extension: a device with closed repairs ends
+        // later than the server's stored date. The pill, the date and the
+        // bucket above all read this one value.
+        let repairDays = store.repairDays(forDeviceId: entry.deviceId)
+        let endDate = store.adjustedEnd(entry.endDate, deviceId: entry.deviceId)
+        let daysLeft = CalendarDay.days(from: Date(), to: endDate)
+
+        return WVRowContainer {
             HStack(spacing: 12) {
                 WVLeadingIcon(
                     icon: WVCategory.icon(for: entry.device.category),
@@ -142,12 +168,15 @@ struct RemindersView: View {
                             .foregroundStyle(WVColor.label)
                             .lineLimit(1)
                         Spacer(minLength: 4)
-                        WarrantyPill(daysLeft: entry.daysRemaining)
+                        WarrantyPill(daysLeft: daysLeft)
                     }
 
                     HStack(spacing: 8) {
                         WVChip(entry.type.label, tone: chipTone(for: entry.type))
-                        Text("\(entry.provider ?? "–") · \(WVFormat.date(entry.endDate))")
+                        if repairDays > 0 {
+                            WVChip(L.p("+%d ngày sửa", repairDays), tone: .blue)
+                        }
+                        Text("\(entry.provider ?? "–") · \(WVFormat.date(endDate))")
                             .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
@@ -228,7 +257,11 @@ struct RemindersView: View {
     }
 
     private func dismissedRow(_ item: DismissedReminder) -> some View {
-        WVRowContainer {
+        let repairDays = store.repairDays(forDeviceId: item.deviceId)
+        let endDate = store.adjustedEnd(item.endDate, deviceId: item.deviceId)
+        let daysLeft = CalendarDay.days(from: Date(), to: endDate)
+
+        return WVRowContainer {
             HStack(spacing: 12) {
                 WVLeadingIcon(
                     icon: WVCategory.icon(for: item.deviceCategory),
@@ -243,7 +276,7 @@ struct RemindersView: View {
                             .foregroundStyle(WVColor.label)
                             .lineLimit(1)
                         Spacer(minLength: 4)
-                        WarrantyPill(daysLeft: item.daysRemaining())
+                        WarrantyPill(daysLeft: daysLeft)
                     }
 
                     HStack(spacing: 8) {
@@ -252,7 +285,10 @@ struct RemindersView: View {
                         if item.deviceStatus != .ACTIVE {
                             WVChip(item.deviceStatus.label, tone: .gray)
                         }
-                        Text("\(item.warrantyProvider ?? "–") · \(WVFormat.date(item.endDate))")
+                        if repairDays > 0 {
+                            WVChip(L.p("+%d ngày sửa", repairDays), tone: .blue)
+                        }
+                        Text("\(item.warrantyProvider ?? "–") · \(WVFormat.date(endDate))")
                             .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
@@ -295,11 +331,36 @@ struct RemindersView: View {
         let filter: (UpcomingReminder) -> Bool
     }
 
+    /// Whole days until the **legal** end: the server's `endDate` plus this
+    /// device's closed-repair days. Bucketing on the raw date would put a
+    /// device with a 10-day repair in the 30-day bucket while its row printed a
+    /// date 10 days later — the header and the row must use one number.
+    private func adjustedDays(_ entry: UpcomingReminder, now: Date) -> Int {
+        CalendarDay.days(from: now,
+                         to: store.adjustedEnd(entry.endDate, deviceId: entry.deviceId))
+    }
+
     private var buckets: [Bucket] {
-        [
-            Bucket(label: L.t("Sắp hết trong 30 ngày"), color: WVColor.red)   { $0.daysRemaining <= 30 },
-            Bucket(label: L.t("Sắp hết trong 60 ngày"), color: WVColor.orange) { $0.daysRemaining > 30 && $0.daysRemaining <= 60 },
-            Bucket(label: L.t("Sắp hết trong 90 ngày"), color: WVColor.green)  { $0.daysRemaining > 60 && $0.daysRemaining <= 90 },
+        let now = Date()
+        return [
+            Bucket(label: L.t("Sắp hết trong 30 ngày"), color: WVColor.red) {
+                adjustedDays($0, now: now) <= 30
+            },
+            Bucket(label: L.t("Sắp hết trong 60 ngày"), color: WVColor.orange) {
+                let days = adjustedDays($0, now: now)
+                return days > 30 && days <= 60
+            },
+            Bucket(label: L.t("Sắp hết trong 90 ngày"), color: WVColor.green) {
+                let days = adjustedDays($0, now: now)
+                return days > 60 && days <= 90
+            },
+            // The feed is queried on the server's raw end (≤ 90 days), but a
+            // closed repair can push the legal end past 90. Without this
+            // catch-all those rows would fall out of every filter and vanish
+            // from the screen — the opposite of the entitlement being shown.
+            Bucket(label: L.t("Sau 90 ngày"), color: WVColor.label3) {
+                adjustedDays($0, now: now) > 90
+            },
         ]
     }
 

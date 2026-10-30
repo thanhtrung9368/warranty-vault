@@ -212,9 +212,19 @@ struct ClaimsSection: View {
 /// because that is what the user recognises; the dates and the ticket number are
 /// the two facts they come back to look up. `serviceCenter` and `cost` ride on a
 /// third line only when they exist, so a minimum row stays one glance tall.
-private struct ClaimRow: View {
+///
+/// `deviceName` is non-nil only on the cross-device list (`ClaimsListView`),
+/// where the same row shape is reused rather than inventing a second visual
+/// language for claims. The per-device section leaves it `nil` because the
+/// screen title already names the device.
+struct ClaimRow: View {
     let claim: Claim
     let warranty: Warranty?
+    var deviceName: String? = nil
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var isAX: Bool { dynamicTypeSize.isAccessibilitySize }
 
     /// Ticket first: the number is the one thing the shop asks for when the
     /// user calls. Open claims show the promised return date; closed ones show
@@ -253,22 +263,51 @@ private struct ClaimRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .center, spacing: 8) {
-                Text(claim.issue)
-                    .wvFont(.body)
-                    .foregroundStyle(WVColor.label)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                WVChip(claim.status.label, tone: claim.status.chipTone)
-                WVIcon("arrowRight", size: 13, weight: .semibold)
-                    .foregroundStyle(WVColor.label4)
+            if isAX {
+                // At Accessibility sizes the status chip and the issue cannot
+                // share a line: the chip would be squeezed until its own label
+                // wrapped mid-word and the issue lost its only line. Stack them
+                // and let the text take as many lines as it needs.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(claim.issue)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        WVChip(claim.status.label, tone: claim.status.chipTone)
+                        Spacer(minLength: 8)
+                        WVIcon("arrowRight", size: 13, weight: .semibold)
+                            .foregroundStyle(WVColor.label4)
+                    }
+                }
+            } else {
+                HStack(alignment: .center, spacing: 8) {
+                    Text(claim.issue)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    WVChip(claim.status.label, tone: claim.status.chipTone)
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
+                }
+            }
+
+            if let deviceName, !deviceName.isEmpty {
+                Text(deviceName)
+                    .wvFont(.captionEmphasis)
+                    .foregroundStyle(WVColor.label2)
+                    .lineLimit(isAX ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if !dateLine.isEmpty {
                 Text(dateLine)
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(1)
+                    .lineLimit(isAX ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             let meta = [metaLine, warrantyLabel ?? ""]
@@ -278,7 +317,8 @@ private struct ClaimRow: View {
                 Text(meta)
                     .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(1)
+                    .lineLimit(isAX ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 16)
@@ -321,5 +361,162 @@ enum ClaimFormRoute: Identifiable {
     var claim: Claim? {
         if case let .edit(claim) = self { return claim }
         return nil
+    }
+}
+
+// ============================================================
+// ClaimsListView — every repair, across every device
+//
+// `GET /api/v1/claims` with no filter already returns the caller's whole
+// repair history; until this screen existed iOS only ever asked for one
+// device at a time. It lives under "Thêm" (and is linked from the Stats
+// repair section) because a claim needs its device name and a way back to
+// that device — which is exactly what this list adds.
+//
+// The row is `ClaimRow`, the same component the device detail uses: a claim
+// must not look like a different kind of record just because it is being
+// read from another screen. `deviceName` is the one extra line, and every row
+// is a link to its device detail.
+// ============================================================
+
+struct ClaimsListView: View {
+    let client: APIClient
+
+    private enum LoadState: Equatable {
+        case idle, loading, loaded, error(String)
+    }
+
+    @StateObject private var devicesStore: DevicesStore
+    @State private var claims: [Claim] = []
+    @State private var state: LoadState = .idle
+    /// The device whose detail is open. A plain state-driven destination rather
+    /// than a `NavigationLink`: this list is pushed from both "Thêm" and Stats,
+    /// and a value link for `DashDeviceNav` here would compete with the
+    /// destination Stats already declared on the same stack. A button + a local
+    /// `navigationDestination(item:)` has exactly one owner.
+    @State private var selectedDeviceId: String?
+
+    init(client: APIClient) {
+        self.client = client
+        _devicesStore = StateObject(wrappedValue: DevicesStore(client: client))
+    }
+
+    private var ordered: [Claim] { ClaimRules.sortedNewestFirst(claims) }
+    private var openCount: Int { claims.filter(ClaimRules.isOpen).count }
+    private var closedCount: Int { claims.filter(ClaimRules.isClosed).count }
+
+    private func deviceName(for claim: Claim) -> String? {
+        devicesStore.devices.first(where: { $0.id == claim.deviceId })?.name
+    }
+
+    var body: some View {
+        Group {
+            switch state {
+            case .idle, .loading:
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(0..<4, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous)
+                                .fill(WVColor.fill3)
+                                .frame(height: 82)
+                                .padding(.horizontal, WVSpacing.gutter)
+                        }
+                    }
+                    .padding(.top, 12)
+                    .redacted(reason: .placeholder)
+                }
+                .wvScreen()
+
+            case .error(let message):
+                ScrollView {
+                    WVEmpty(icon: "alert",
+                            title: L.t("Không tải được lần sửa chữa"),
+                            description: message) {
+                        WVButton(L.t("Thử lại")) { Task { await load() } }
+                            .padding(.horizontal, 32)
+                    }
+                }
+                .wvScreen()
+
+            case .loaded:
+                if claims.isEmpty {
+                    ScrollView {
+                        WVEmpty(icon: "wrench",
+                                title: L.t("Chưa có lần sửa chữa nào"),
+                                description: L.t("Mở một thiết bị và ghi lại lần sửa đầu tiên ở mục “Sửa chữa & bảo hành”."))
+                    }
+                    .wvScreen()
+                } else {
+                    list
+                }
+            }
+        }
+        .navigationTitle(L.t("Sửa chữa & bảo hành"))
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .refreshable { await load() }
+        .navigationDestination(item: $selectedDeviceId) { id in
+            DeviceRouteDestination(client: client, store: devicesStore, deviceId: id)
+        }
+    }
+
+    private var list: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 8)
+
+                HStack(spacing: 8) {
+                    Text(L.p("%d đang sửa", openCount))
+                        .wvFont(.footnoteEmphasis)
+                        .foregroundStyle(WVColor.red)
+                    Text("·")
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                    Text(L.p("%d đã xong", closedCount))
+                        .wvFont(.footnoteEmphasis)
+                        .foregroundStyle(WVColor.green)
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 8)
+
+                WVGroup {
+                    ForEach(Array(ordered.enumerated()), id: \.element.id) { index, claim in
+                        if index > 0 { WVDivider(inset: 16) }
+                        Button {
+                            selectedDeviceId = claim.deviceId
+                        } label: {
+                            ClaimRow(claim: claim,
+                                     warranty: nil,
+                                     deviceName: deviceName(for: claim))
+                        }
+                        .buttonStyle(WVRowButtonStyle())
+                    }
+                }
+
+                WVSectionFooter(L.t("Mới nhất trước, trên mọi thiết bị. Chạm một dòng để mở thiết bị của lần sửa đó."))
+
+                Spacer().frame(height: 24)
+            }
+        }
+        .wvScreen()
+    }
+
+    private func load() async {
+        if case .loading = state { return }
+        state = .loading
+        async let claimsTask = client.listClaims()
+        async let devicesTask: Void = devicesStore.load()
+        do {
+            claims = try await claimsTask
+            await devicesTask
+            state = .loaded
+        } catch let err as APIError {
+            _ = await devicesTask
+            state = .error(err.localizedDescription)
+        } catch {
+            _ = await devicesTask
+            state = .error(error.localizedDescription)
+        }
     }
 }

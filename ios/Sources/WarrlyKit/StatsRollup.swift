@@ -109,6 +109,185 @@ public enum StatsRollup {
         public static let zero = AssetValue(total: 0, count: 0)
     }
 
+    // MARK: - Repair spend (claims)
+
+    /// Which side of "worth fixing" a repair landed on.
+    ///
+    /// The same three-way split as `SaleTone` (profit / loss / even), because
+    /// the user is making the same kind of comparison the resale block makes —
+    /// what the machine cost versus what was spent on it. The labels differ
+    /// ("Lãi/Lỗ" is wrong for a repair), not the shape.
+    public enum RepairVerdict: String, Sendable, Equatable {
+        /// The repair cost less than the device's purchase price.
+        case worthFixing
+        /// The two amounts are equal.
+        case breakEven
+        /// The repair cost more than the device's purchase price.
+        case notWorthFixing
+    }
+
+    /// One claim's cost compared with the device it belongs to.
+    ///
+    /// Built only when both numbers exist **and** the purchase price is a real
+    /// positive amount: a `0 ₫` device is a gift, and "the repair cost more
+    /// than the purchase price" is arithmetic without meaning there. The claim
+    /// total below still counts that repair; only the comparison is skipped.
+    public struct RepairComparison: Sendable, Equatable, Identifiable {
+        public let claimId: String
+        public let deviceId: String
+        public let deviceName: String
+        public let category: String
+        /// The claim's recorded cost, **VND** (openapi `Claim.cost`).
+        public let costVnd: Int
+        /// The device's purchase price resolved to VND. For a foreign device
+        /// this is the server's locked `purchasePriceVnd`, never a market rate.
+        public let purchasePriceVnd: Int
+
+        public init(claimId: String,
+                    deviceId: String,
+                    deviceName: String,
+                    category: String,
+                    costVnd: Int,
+                    purchasePriceVnd: Int) {
+            self.claimId = claimId
+            self.deviceId = deviceId
+            self.deviceName = deviceName
+            self.category = category
+            self.costVnd = costVnd
+            self.purchasePriceVnd = purchasePriceVnd
+        }
+
+        public var id: String { claimId }
+
+        /// `purchasePriceVnd − costVnd`: what repairing saved versus replacing.
+        /// Negative means the repair cost more than the device did.
+        public var savingsVnd: Int { purchasePriceVnd - costVnd }
+
+        public var verdict: RepairVerdict {
+            if savingsVnd > 0 { return .worthFixing }
+            if savingsVnd < 0 { return .notWorthFixing }
+            return .breakEven
+        }
+
+        /// "Đáng sửa · rẻ hơn giá mua 2.000.000 ₫", "Không đáng sửa · sửa tốn hơn
+        /// giá mua 500.000 ₫", or "Ngang giá mua". Money is VND on both sides —
+        /// the comparison would be meaningless otherwise.
+        public var label: String {
+            switch verdict {
+            case .worthFixing:
+                return L.t("Đáng sửa · rẻ hơn giá mua %@",
+                           VndFormat.string(Int64(savingsVnd)))
+            case .notWorthFixing:
+                return L.t("Không đáng sửa · sửa tốn hơn giá mua %@",
+                           VndFormat.string(Int64(-savingsVnd)))
+            case .breakEven:
+                return L.t("Ngang giá mua")
+            }
+        }
+    }
+
+    /// What the user actually spent on repairs, kept **outside** the purchase
+    /// ledger.
+    ///
+    /// A repair is money spent after the purchase, on a machine that already
+    /// cost something — adding it to "Tổng chi mua sắm" would compare two
+    /// different kinds of number and make the headline depend on whether a
+    /// screen broke. So this is its own line, with its own count and its own
+    /// "worth fixing" comparisons.
+    public struct RepairSpend: Sendable, Equatable {
+        /// Sum of every recorded claim cost, in VND. `0` is a real total (free
+        /// or warranty-covered repairs), not "missing".
+        public let totalVnd: Int
+        /// Claims that carry a cost at all — including `0`.
+        public let pricedClaimCount: Int
+        /// Distinct devices with at least one priced claim.
+        public let deviceCount: Int
+        /// Claims whose cost can be compared with the device's purchase price.
+        /// Sorted by cost descending, then device name, so the biggest repairs
+        /// read first.
+        public let comparisons: [RepairComparison]
+
+        public init(totalVnd: Int,
+                    pricedClaimCount: Int,
+                    deviceCount: Int,
+                    comparisons: [RepairComparison]) {
+            self.totalVnd = totalVnd
+            self.pricedClaimCount = pricedClaimCount
+            self.deviceCount = deviceCount
+            self.comparisons = comparisons
+        }
+
+        public static let zero = RepairSpend(totalVnd: 0, pricedClaimCount: 0,
+                                             deviceCount: 0, comparisons: [])
+
+        /// The section must not render at all when no claim carries a cost.
+        /// `cost == 0` still counts: "this repair was free" is an answer.
+        public var hasAnyCost: Bool { pricedClaimCount > 0 }
+    }
+
+    /// Sums claims into the standalone repair line.
+    ///
+    /// ## What counts
+    ///
+    /// * `cost == nil` → the claim is ignored (not recorded).
+    /// * `cost == 0` → counted, and contributes `0` to the total. A free repair
+    ///   is a fact worth showing, not a missing value.
+    /// * A claim whose device is not in `devices` still contributes money and
+    ///   its claim count, but cannot be compared — the purchase price is not in
+    ///   this read.
+    ///
+    /// ## Currency
+    ///
+    /// `Claim.cost` is documented as **VND** on the wire, while
+    /// `Device.purchasePrice` is in the device's own currency. The comparison
+    /// therefore uses `device.purchasePriceInVnd` (the server's locked VND
+    /// value) and skips a foreign device whose VND value the read did not carry
+    /// rather than comparing dong with dollars.
+    public static func repairSpend(
+        claims: [Claim],
+        devices: [Device]
+    ) -> RepairSpend {
+        let devicesById = Dictionary(devices.map { ($0.id, $0) },
+                                     uniquingKeysWith: { first, _ in first })
+
+        var total = 0
+        var priced = 0
+        var deviceIds = Set<String>()
+        var comparisons: [RepairComparison] = []
+
+        for claim in claims {
+            guard let rawCost = claim.cost else { continue }
+            let cost = max(0, rawCost)
+            priced += 1
+            total += cost
+            deviceIds.insert(claim.deviceId)
+
+            guard let device = devicesById[claim.deviceId],
+                  let purchase = device.purchasePriceInVnd,
+                  purchase > 0 else { continue }
+
+            comparisons.append(RepairComparison(
+                claimId: claim.id,
+                deviceId: device.id,
+                deviceName: device.name,
+                category: device.category,
+                costVnd: cost,
+                purchasePriceVnd: purchase
+            ))
+        }
+
+        comparisons.sort { lhs, rhs in
+            if lhs.costVnd != rhs.costVnd { return lhs.costVnd > rhs.costVnd }
+            if lhs.deviceName != rhs.deviceName { return lhs.deviceName < rhs.deviceName }
+            return lhs.claimId < rhs.claimId
+        }
+
+        return RepairSpend(totalVnd: total,
+                           pricedClaimCount: priced,
+                           deviceCount: deviceIds.count,
+                           comparisons: comparisons)
+    }
+
     // MARK: - Entries
 
     /// Flattens devices + their warranty packages into a single **VND** spend
