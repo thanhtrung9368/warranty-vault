@@ -1,22 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" role="img" aria-label="Warrly">
   <style>
-    .plate { fill: #1F1A14; }
-    .pennant { fill: #FF6B45; }
-    @media (prefers-color-scheme: dark) {
-      .plate { fill: #FFF7EE; }
-      .pennant { fill: #4A1A0C; }
-    }
+    .plate { fill: #FF6B45; }
     @media (forced-colors: active) {
       .plate { fill: CanvasText; }
-      .pennant { fill: CanvasText; }
     }
   </style>
   <defs>
     <mask id="warrly-favicon-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
       <rect x="0" y="0" width="32" height="32" fill="#fff"/>
-      <path d="M8.8 15.6l2.7 7.2 2-5.9 2 5.9 2.7-7.2" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 11L13.2 19L16 12.6L18.8 19L22 11" fill="none" stroke="#000" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
     </mask>
   </defs>
-  <path class="pennant" d="M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z"/>
-  <path class="plate" fill-rule="evenodd" mask="url(#warrly-favicon-cut)" d="M10.6 10H21.6A1.4 1.4 0 0 1 23 11.4V26.8A1.4 1.4 0 0 1 21.6 28.2H6.6A1.4 1.4 0 0 1 5.2 26.8V15.4Z"/>
+  <path class="plate" mask="url(#warrly-favicon-cut)" d="M6 6.4L26 6.4A1.4 1.4 0 0 1 27.4 7.8L27.4 25.6L21.7 22.6L16 25.6L10.3 22.6L4.6 25.6L4.6 7.8A1.4 1.4 0 0 1 6 6.4Z"/>
 </svg>

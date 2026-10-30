@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED from the geometry block in android/tools/generate_launcher_icons.py.
 
-     Android 13+ themed-icon layer: the flag first, then the plate with its
-     punch knocked out (even-odd). Both paths are white so there is exactly one
-     hole — the punch. The pennant is never knocked out of the plate: it has to
-     stay visible where it rises above the tag, so the two shapes are separate
-     fills. Painting the plate over the flag also hides the pole's 4-unit
-     overlap, so the pole emerges from behind the shoulder with no seam. The
-     system supplies the tint and the ground. No background here. -->
+     Android 13+ themed-icon layer: the plate with the W knocked out (even-odd).
+     White; the system uses the alpha as the mask and applies its own tint, so
+     the W shows the themed ground.
+
+     The W is a stroked line on the colour foreground, but a transparent
+     stroke cannot subtract from an alpha mask, so this layer appends the
+     stroke's exact filled outline (round caps/joins and all) to the plate
+     path: inside it the even-odd fill is transparent. No background here. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -16,10 +17,6 @@
 
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M58.84,52.48 L58.84,29.68 L74.8,29.68 L70.44,34.81 L74.8,39.94 L62.26,39.94 L62.26,52.48 L58.84,52.48 Z" />
-
-    <path
-        android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M42.5,44.88 L62.64,44.88 A2.85,2.85 0 0 1 65.49,47.73 L65.49,75.47 L65.49,78.32 L55.04,78.32 L49.34,73.95 L43.64,78.32 L36.05,78.32 A2.85,2.85 0 0 1 33.2,75.47 L33.2,54.19 L42.5,44.88 Z M38.84,53.56 A3.04,3.04 0 1 0 44.92,53.56 A3.04,3.04 0 1 0 38.84,53.56 Z" />
+        android:pathData="M33.32,33.76 L74.68,33.76 A3.52,3.52 0 0 1 78.2,37.28 L78.2,74.24 L70.13,68.96 L62.07,74.24 L54,68.96 L45.93,74.24 L37.87,68.96 L29.8,74.24 L29.8,37.28 A3.52,3.52 0 0 1 33.32,33.76 Z M39.23,44.5 L45.35,61.18 L45.59,61.56 L45.88,61.9 L46.22,62.19 L46.6,62.43 L47.01,62.62 L47.44,62.74 L47.88,62.8 L48.33,62.79 L48.77,62.72 L49.2,62.58 L49.6,62.39 L49.97,62.13 L50.3,61.83 L50.59,61.48 L50.81,61.1 L54,54.73 L57.41,61.48 L57.7,61.83 L58.03,62.13 L58.4,62.39 L58.8,62.58 L59.23,62.72 L59.67,62.79 L60.12,62.8 L60.56,62.74 L60.99,62.62 L61.4,62.43 L61.78,62.19 L62.12,61.9 L62.41,61.56 L62.65,61.18 L62.83,60.78 L68.77,44.5 L68.92,43.91 L68.96,43.31 L68.87,42.71 L68.67,42.14 L68.37,41.62 L67.96,41.17 L67.48,40.81 L66.94,40.55 L66.35,40.4 L65.75,40.36 L65.15,40.45 L64.58,40.65 L64.06,40.95 L63.61,41.36 L63.25,41.84 L62.99,42.38 L59.5,51.95 L56.75,46.46 L56.54,46.1 L56.27,45.76 L55.97,45.47 L55.62,45.22 L55.24,45.02 L54.84,44.88 L54.42,44.79 L54,44.76 L53.58,44.79 L53.16,44.88 L52.76,45.02 L52.38,45.22 L52.03,45.47 L51.73,45.76 L51.46,46.1 L48.5,51.95 L45.01,42.38 L44.75,41.84 L44.39,41.36 L43.94,40.95 L43.42,40.65 L42.85,40.45 L42.25,40.36 L41.65,40.4 L41.06,40.55 L40.52,40.81 L40.04,41.17 L39.63,41.62 L39.33,42.14 L39.13,42.71 L39.04,43.31 L39.08,43.91 Z" />
 </vector>

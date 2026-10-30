@@ -10,9 +10,9 @@ export type WarrlyMarkProps = {
   /** Rendered edge length in CSS pixels. Fixed: it does not scale with `em`. */
   size?: number;
   /**
-   * `colour` paints an ink/cream tag with a contrasting accent pennant.
-   * `mono` is both paths in `currentColor` with the punch knocked out — for
-   * stamps, watermarks and the white-on-alpha notification badge.
+   * `colour` paints the accent-coloured tag with the W cut out.
+   * `mono` is the tag in `currentColor` with the W knocked out — for stamps,
+   * watermarks and the white-on-alpha notification badge.
    */
   variant?: 'colour' | 'mono';
   /** Accessible name. Omit for decorative marks (the default is `aria-hidden`). */
@@ -22,28 +22,21 @@ export type WarrlyMarkProps = {
 };
 
 /**
- * "The Warranty Tag" — the single Warrly symbol.
+ * "W in the tag" — the single Warrly symbol.
  *
- * A hanging tag: bevelled top-left corner, one punched hole, a V notch in the
- * bottom edge, a W cut into the plate, and a swallowtail pennant on a pole
- * rising from its shoulder. The plate is `--brand-body` (ink on light, cream on
- * dark); the pennant is `--brand-dot`, the accent. The pole is painted first and
- * the plate over it, so it emerges from behind the shoulder rather than ending
- * in a stub on the tag.
+ * A price-tag silhouette (rounded top corners, torn zigzag bottom edge) with a W
+ * cut out of it. The plate is `--brand-dot`, the accent.
  *
- * The W is cut out of the plate with a mask — the same negative-space treatment
- * as the punch. It is NOT painted `currentColor` or `--brand-body`: either would
- * draw the letter in the plate's own colour and erase it (and a mono W painted
- * white would vanish on the white-on-alpha badge). The mask keeps the mark two
- * colours on every surface, including the landing's gradient card.
+ * The W is cut out of the plate with a mask. It is NOT painted `currentColor` or
+ * a surface colour: either would break on a gradient card, and a mono W painted
+ * white would vanish on the white-on-alpha badge.
  *
  * `size` selects the DRAWN cut, never a downscale: 24px and above is the full
- * cut, below 24 is the separate small cut (thicker plate, deeper V, larger
- * punch, longer pennant, heavier W). There is no background tile, no paint
- * stroke, no radius token and no font token in here: the mark is a trademark
- * asset, not a themed UI chip. Its only variables are `--brand-body` and
- * `--brand-dot` (see globals.css), which exist so the pennant keeps contrast
- * when the user changes accent.
+ * cut, below 24 is the separate small cut (two wide teeth, heavier W). There is
+ * no background tile, no paint stroke, no radius token and no font token in here:
+ * the mark is a trademark asset, not a themed UI chip. Its only variable is
+ * `--brand-dot` (see globals.css), which exists so the plate keeps contrast when
+ * the user changes accent.
  */
 export function WarrlyMark({
   size = 32,
@@ -57,8 +50,7 @@ export function WarrlyMark({
   const a11y = title
     ? { role: 'img' as const, 'aria-label': title }
     : { 'aria-hidden': true as const, focusable: false };
-  const accent = variant === 'mono' ? 'currentColor' : BRAND_FILL.dot;
-  const body = variant === 'mono' ? 'currentColor' : BRAND_FILL.body;
+  const plate = variant === 'mono' ? 'currentColor' : BRAND_FILL.dot;
   const cutout = markCutoutId(geometry);
 
   return (
@@ -98,11 +90,9 @@ export function WarrlyMark({
           />
         </mask>
       </defs>
-      <path d={geometry.flag} fill={accent} />
       <path
         d={knockoutPath(geometry)}
-        fill={body}
-        fillRule="evenodd"
+        fill={plate}
         mask={`url(#${cutout})`}
       />
     </svg>

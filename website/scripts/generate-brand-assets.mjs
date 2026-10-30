@@ -198,26 +198,17 @@ function ico(entries) {
 /**
  * The adaptive SVG favicon: the SMALL cut, because a tab favicon is a 16px
  * surface. It is a static asset, so its colours are the documented literals;
- * the dark-mode rule mirrors `--brand-body` / `--brand-dot`.
+ * the coral plate holds on light and dark tabs alike.
  *
- * The W is a mask cut, like the punch: in light mode the tab shows through it
- * (white-ish), in dark mode the page does (dark), which is exactly what the
- * punched hole does. Painting it a literal cream would stop matching the punch
- * under `prefers-color-scheme: dark`.
+ * The W is a mask cut: the tab shows through it, in light and dark alike.
  */
 function faviconSvg() {
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" role="img" aria-label="Warrly">\n' +
     '  <style>\n' +
-    '    .plate { fill: #1F1A14; }\n' +
-    '    .pennant { fill: #FF6B45; }\n' +
-    '    @media (prefers-color-scheme: dark) {\n' +
-    '      .plate { fill: #FFF7EE; }\n' +
-    '      .pennant { fill: #4A1A0C; }\n' +
-    '    }\n' +
+    '    .plate { fill: #FF6B45; }\n' +
     '    @media (forced-colors: active) {\n' +
     '      .plate { fill: CanvasText; }\n' +
-    '      .pennant { fill: CanvasText; }\n' +
     '    }\n' +
     '  </style>\n' +
     '  <defs>\n' +
@@ -226,8 +217,7 @@ function faviconSvg() {
     `      <path d="${CUT_16.letter}" fill="none" stroke="#000" stroke-width="${CUT_16.letterWidth}" stroke-linecap="round" stroke-linejoin="round"/>\n` +
     '    </mask>\n' +
     '  </defs>\n' +
-    `  <path class="pennant" d="${CUT_16.flag}"/>\n` +
-    `  <path class="plate" fill-rule="evenodd" mask="url(#warrly-favicon-cut)" d="${knockoutPath(CUT_16)}"/>\n` +
+    `  <path class="plate" mask="url(#warrly-favicon-cut)" d="${knockoutPath(CUT_16)}"/>\n` +
     '</svg>\n'
   );
 }
@@ -276,8 +266,7 @@ async function main() {
     await writeFile(join(PUBLIC, 'notification-icon-192.png'), notification);
     written.push('notification-icon-192.png 192x192');
 
-    // Monochrome white-on-transparent badge. Both paths white: the pennant is
-    // not knocked out of the plate.
+    // Monochrome white-on-transparent badge. White plate, W knocked out.
     const badge = await renderPng(cdp, renderNotificationBadgeSvg(96), 96, {
       transparent: true,
     });

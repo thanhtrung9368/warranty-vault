@@ -1,38 +1,30 @@
 // The Warrly brand geometry, as data.
 //
-// "The Warranty Tag" is the mark: a hanging tag — bevelled top-left corner, one
-// punched hole, a V notch cut up into the bottom edge — with a swallowtail
-// pennant on a pole rising from its shoulder. It is the object the product is
-// about: the tag that hangs on a device you bought, the thing you keep so the
-// date is not lost. The previous mark (a torn receipt with a date dot) told the
-// same story twice; this one says it with the object itself.
+// "W in the tag" is the mark: a price-tag silhouette — rounded top corners, a
+// torn zigzag bottom edge — with a W cut out of the plate. No pennant, no punched
+// hole, no bevel: the tag plate and the letter, nothing else. The plate is the
+// accent (coral); the W is negative space, so whatever the mark sits on shows
+// through it.
 //
 // TWO DRAWN CUTS, NOT ONE DOWNSCALED
 //
-// A tag this thin turns to mush at 16px: the 1.5-unit corner radius, the
-// 2.3-unit V and a 3.2-unit punch all land on sub-pixel edges. The small cut is
-// therefore REDRAWN on the same 32-unit grid with a thicker plate
-// (17.8×18.2 vs 17.0×17.6), a deeper V (2.8 vs 2.3), a wider punch (3.8 vs
-// 3.2 across) and a longer pennant (9.7 vs 8.4 wide). The two are not related
-// by a transform, and one must never be rendered from the other:
+// The zigzag teeth and the W's stroke turn to mush at 16px if the full cut is
+// merely shrunk. The small cut is REDRAWN on the same 32-unit grid with a
+// larger plate (22.8×19.2 vs 22×18.4), two teeth instead of three (each one
+// twice as wide) and a heavier W (3.4 vs 2.8 stroke). The two are not related by
+// a transform, and one must never be rendered from the other:
 //
-//   * `markCutForSize(n)` picks `full` for n >= 24 and `small` below that.
-//     24 is the documented switch; sizes 17–23 use the small cut scaled up,
-//     because downscaling the full cut below its 24px floor is exactly the
-//     blur the second cut exists to prevent.
-//   * Every raster asset (favicon.ico 16/32/48, icon-*.png, the badges) is
+//   * `markCutForSize(n)` picks `full` for n >= 24 and `small` below that;
+//   * every raster asset (favicon.ico 16/32/48, icon-*.png, the badges) is
 //     rendered from the cut chosen for ITS OWN pixel size, never resampled.
 //
 // COLOUR
 //
-// Body = `--brand-body` (ink in light mode, cream in dark). Pennant = the
-// accent, `--brand-dot`. Mono = both paths in `currentColor` with ONE hole
-// (the punch); the pennant is never knocked out of the plate, because it has to
-// stay visible where it rises above the tag. These two custom properties are
-// the only theme input: the mark reads no font, radius or density token, so
-// changing those user settings cannot alter the logo (see
-// `__tests__/brand-wiring.test.ts` and the pixel-identity check in the
-// brand-assets suite).
+// Plate = `--brand-dot`, the accent. The W is a mask cut, not a paint: painting
+// it a surface colour would break on gradient cards and on the white-on-alpha
+// notification badge. Mono = the plate in `currentColor` with the W knocked out.
+// These two custom properties (`--brand-body` still paints the wordmark ink) are
+// the only theme input: the mark reads no font, radius or density token.
 //
 // This module is pure geometry and string rendering. It has no React and no
 // Next import, for three reasons:
@@ -69,106 +61,63 @@ export type MarkGeometry = {
   viewBox: number;
   /** The tag plate, one filled path. No stroke. */
   body: string;
-  /** The punched hole, appended to `body` under `fill-rule="evenodd"`. */
-  punch: string;
-  /** Pole + swallowtail pennant, painted in the accent (or currentColor in mono). */
-  flag: string;
   /**
-   * The W, stroked in the punch's colour so it reads as a cut-out of the plate.
-   * A stroked letter rather than a second filled path because the letter's job is
-   * to be a line: a filled W at 20px closes into a solid triangle.
+   * The W, stroked in the mask so it reads as a cut-out of the plate. A stroked
+   * letter rather than a filled path because the letter's job is to be a line.
    */
   letter: string;
   /** Stroke width of `letter`, in grid units. Thicker on the small cut. */
   letterWidth: number;
-  /** The punch as a circle — the same geometry, for measurements/tests. */
-  punchCircle: { cx: number; cy: number; r: number };
-  /** Tag plate height (top edge to bottom edge), excluding the pennant. */
+  /** Tag plate height (top edge to the lowest tooth tip). */
   bodyHeight: number;
-  /** Tag plate width (left edge to right edge), excluding the pennant. */
+  /** Tag plate width (left edge to right edge). */
   bodyWidth: number;
-  /** Depth of the V cut up into the bottom edge. */
+  /** Depth of one tooth of the torn bottom edge. */
   notchDepth: number;
-  /** The flag path's ink width (pole + pennant) — the "accent's width" the clear space uses. */
-  flagWidth: number;
-  /** The whole silhouette (pennant tip → punch, tag bottom), i.e. what to centre. */
+  /** The whole silhouette, i.e. what to centre. */
   ink: { x: number; y: number; width: number; height: number };
 };
 
 // ── The full cut (≥24px) ───────────────────────────────────────────────────
 //
-// The plate is x=5.4…22.4, y=10.6…28.2. The top-left corner is a 45° bevel
-// from (5.4, 15.5) to (10.3, 10.6) — the "cut corner" that makes a tag a tag —
-// while the three other corners are the 1.5 radius (the bottom-right arc is
-// deliberately degenerate in the source path: the V notch starts at the
-// bottom-right corner, so that corner is square). The bottom edge carries a
-// 2.3-unit V between (16.9, 28.2) and (10.9, 28.2), apexed at (13.9, 25.9).
+// The plate is x=5…27, y=7…25.4. The two top corners are a 1.6 radius; the
+// sides are straight. The bottom edge is a torn zigzag: four low points at
+// y=25.4 (x=5, 12.33, 19.67, 27) with three tooth tips between them at y=23.0
+// (x=8.67, 16, 23.33) — three teeth, each 2.4 deep.
 //
-// The 3.2-unit punch sits at (9.97, 15.17), tucked under the bevel — the hole
-// the tag hangs by, not a decorative dot.
-//
-// The pennant rises from the plate's top edge at x=18.9…20.7 (the 1.8-unit
-// pole), is 8.4 units wide and ends in a swallowtail: the fly edge runs out to
-// x=27.3 at y=2.6 and y=8, and the notch between them is carved back to
-// (25, 5.3). The flag path also runs 4 units down the pole inside the plate
-// (to y=14.6) so the two fills overlap; the body is painted OVER the flag, so
-// the pole emerges from behind the shoulder with no seam and no notch.
+// The W is a 2.8 stroke with round caps and joins, x=9.2…22.8, y=10.0…20.2. It
+// sits a little above the plate's centre: 3.0 clear of the top edge and 2.8 above
+// the tooth tips.
 const CUT_FULL: MarkGeometry = {
   cut: 'full',
   viewBox: MARK_GRID,
   body:
-    'M10.3 10.6L20.9 10.6A1.5 1.5 0 0 1 22.4 12.1L22.4 26.7A1.5 1.5 0 0 1 22.4 26.7L22.4 28.2L16.9 28.2L13.9 25.9L10.9 28.2L6.9 28.2A1.5 1.5 0 0 1 5.4 26.7L5.4 15.5L10.3 10.6Z',
-  punch: 'M8.37 15.17A1.6 1.6 0 1 0 11.57 15.17A1.6 1.6 0 1 0 8.37 15.17Z',
-  flag:
-    'M18.9 14.6L18.9 2.6L27.3 2.6L25 5.3L27.3 8L20.7 8L20.7 14.6L18.9 14.6Z',
-  // Sits below the punch (bottom y=16.77) and the flag's in-plate run (y=14.6),
-  // spanning x=8.6…18.4, y=18.9…24.5. The 1.9 stroke clears the punch by 1.18
-  // and the 2.3-unit V notch (apex y=25.9) by 0.45 without touching either.
-  letter: 'M8.6 18.9l2.6 5.6 2-4.6 2 4.6 2.6-5.6',
-  letterWidth: 1.9,
-  punchCircle: { cx: 9.97, cy: 15.17, r: 1.6 },
-  bodyHeight: 17.6,
-  bodyWidth: 17,
-  notchDepth: 2.3,
-  flagWidth: 8.4,
-  ink: { x: 5.4, y: 2.6, width: 21.9, height: 25.6 },
+    'M6.6 7L25.4 7A1.6 1.6 0 0 1 27 8.6L27 25.4L23.33 23L19.67 25.4L16 23L12.33 25.4L8.67 23L5 25.4L5 8.6A1.6 1.6 0 0 1 6.6 7Z',
+  letter: 'M10.6 11.4L13.3 18.8L16 13.4L18.7 18.8L21.4 11.4',
+  letterWidth: 2.8,
+  bodyHeight: 18.4,
+  bodyWidth: 22,
+  notchDepth: 2.4,
+  ink: { x: 5, y: 7, width: 22, height: 18.4 },
 };
 
-// ── The small cut (≤16px) ──────────────────────────────────────────────────
+// ── The small cut (<24px) ──────────────────────────────────────────────────
 //
-// The small cut DROPS the punch and the V notch, keeping only the plate, the
-// pennant and the W. That is not a simplification for its own sake: at a 16px
-// render one pixel is two grid units, and the four features need
-//
-//     1.9 (punch r) + 2 (gap) + 5.2 (W) + 2.6 (stroke) + 2 (gap) + 2.8 (notch)
-//   = 20.5 units
-//
-// against a plate 18.2 units tall. It does not fit. And when it *does* fit the
-// gaps are exactly one pixel by construction, which means invisible — the punch
-// and the W's left arm fuse into a single keyhole, which is precisely what the
-// 16px render showed. Dropping both leaves 4.3 units (2.15px) of clear plate
-// above the W and 4.1 below, so the letter is what you see.
-//
-// The notch was 2.8 units = 1.4px at that size: it was never going to read. The
-// pennant is unchanged — it is the one thing that survives at 16px.
+// At a 16px render one pixel is two grid units, so a 2.4-deep tooth is 1.2px and
+// three of them are a smudge. The small cut keeps two wide teeth (lows at x=4.6,
+// 16, 27.4; tips at 10.3 and 21.7, 3.0 deep), a plate 22.8×19.2, and a 3.4 W
+// stroke (1.7px at 16px — a stroke rather than a hairline).
 const CUT_SMALL: MarkGeometry = {
   cut: 'small',
   viewBox: MARK_GRID,
   body:
-    'M10.6 10H21.6A1.4 1.4 0 0 1 23 11.4V26.8A1.4 1.4 0 0 1 21.6 28.2H6.6A1.4 1.4 0 0 1 5.2 26.8V15.4Z',
-  punch: '',
-  flag:
-    'M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z',
-  // 7.2 units tall against a plate 18.2 tall. Stroke 2.6 = 1.3px at 16px, which
-  // is a stroke rather than a smudge.
-  letter: 'M8.8 15.6l2.7 7.2 2-5.9 2 5.9 2.7-7.2',
-  letterWidth: 2.6,
-  punchCircle: { cx: 0, cy: 0, r: 0 },
-  bodyHeight: 18.2,
-  bodyWidth: 17.8,
-  notchDepth: 0,
-  flagWidth: 9.7,
-  ink: { x: 5.2, y: 2.6, width: 22.8, height: 25.6 },
+    'M6 6.4L26 6.4A1.4 1.4 0 0 1 27.4 7.8L27.4 25.6L21.7 22.6L16 25.6L10.3 22.6L4.6 25.6L4.6 7.8A1.4 1.4 0 0 1 6 6.4Z',
+  letter: 'M10 11L13.2 19L16 12.6L18.8 19L22 11',
+  letterWidth: 3.4,
+  bodyHeight: 19.2,
+  bodyWidth: 22.8,
+  notchDepth: 3,
+  ink: { x: 4.6, y: 6.4, width: 22.8, height: 19.2 },
 };
 
 const CUTS: Record<MarkCut, MarkGeometry> = {
@@ -180,9 +129,7 @@ const CUTS: Record<MarkCut, MarkGeometry> = {
  * Pick a cut for a requested CSS size.
  *
  * The design switches at 24px: `>= 24` is the full cut, everything below uses
- * the separately drawn small cut. There is no third cut and no dead band — a
- * 20px mark is the small cut at 1.25×, which is sharper than downscaling the
- * full cut to 0.83×.
+ * the separately drawn small cut. There is no third cut and no dead band.
  */
 export function markCutForSize(size: number): MarkCut {
   return size >= 24 ? 'full' : 'small';
@@ -197,35 +144,9 @@ export const CUT_32 = CUT_FULL;
 /** The small cut, for assets that are always small (the 16px favicon). */
 export const CUT_16 = CUT_SMALL;
 
-/** The smallest punch diameter any supported cut can render, in CSS pixels. */
-export function smallestRenderedPunchDiameter(): number {
-  // 0, and that is the design. The small cut has no punch: at 16px one pixel is
-  // two grid units, and a punch plus a gap plus the W plus a gap plus the notch
-  // needs 20.5 units against a plate 18.2 tall. Something had to go, and the W
-  // is the thing that carries the name.
-  //
-  // The full cut still has its punch and is used at every size >= 24, so the hole
-  // is not gone from the mark — it is gone from the one render where it could not
-  // be a hole.
-  return ((CUT_SMALL.punchCircle.r * 2) * 16) / MARK_GRID;
-}
-
-/**
- * Historical name kept for API compatibility: the previous mark's accent was a
- * dot. The measurable minimum is still the same idea — the smallest hole the
- * mark can show at its smallest supported size.
- */
-export function smallestRenderedDotDiameter(): number {
-  return smallestRenderedPunchDiameter();
-}
-
-/**
- * The tag plate plus the punched hole as one compound path. `fill-rule="evenodd"`
- * makes the punch a hole, so the same path works on any background and needs no
- * mask. The pennant is NOT part of this compound path: it is a separate fill.
- */
+/** The plate as one filled path; the W is cut out of it by the mask, not by this path. */
 export function knockoutPath(geometry: MarkGeometry): string {
-  return `${geometry.body}${geometry.punch}`;
+  return geometry.body;
 }
 
 /**
@@ -244,14 +165,13 @@ function num(value: number): string {
 
 /**
  * The mask that turns the stroked `letter` into negative space — the same
- * treatment the punch gets.
+ * treatment as any other knocked-out shape.
  *
- * In a mask, black is the punch's colour: it is what removes paint, so the
- * surface behind the mark shows through the W exactly as it does through the
- * punched hole. Painting the letter with `fill.body` would draw an ink W on an
+ * In a mask, black is what removes paint, so the surface behind the mark shows
+ * through the W. Painting the letter with `fill.body` would draw an ink W on an
  * ink plate (invisible), and painting it with a surface colour would break on
  * the landing's gradient card and in the white-on-alpha notification badge. The
- * mask is the only paint that matches the punch on every surface.
+ * mask is the only paint that works on every surface.
  */
 function letterCutout(geometry: MarkGeometry, id: string): string {
   return (
@@ -302,46 +222,34 @@ export const WORDMARK_BOX = {
 
 // ── Lockup ─────────────────────────────────────────────────────────────────
 //
-// Geometry from the brand brief, applied to this mark:
-//   * mark body height = 1.15 × cap height → the mark's full silhouette (the
-//     pennant tip at y=2.6 down to the tag's bottom at y=28.2, 25.6 grid units)
-//     is drawn 115 units tall, i.e. scale = 115 / 25.6. The tag plate itself is
-//     therefore 79.06 units tall and the pennant accounts for the rest. This is
-//     the same intent as the previous mark, whose "body height" was its whole
-//     silhouette (the 0.2-unit tear overshoot was ignored);
-//   * gap = 0.5 × symbol width → the symbol is 21.9 grid units wide, so at
-//     scale 4.4921875 it is 98.37890625 wide and the gap is 49.189453125;
-//   * clear space = 2 × the accent's width → the flag path (pole + pennant)
-//     inks 8.4 grid units wide (37.734375 here), so 75.46875. It is not drawn:
-//     the caller must not crowd it.
+//   * the symbol is drawn at scale 5 (22 grid units wide → 110, 18.4 tall → 92),
+//     a little under the 100-unit cap height of the wordmark;
+//   * gap = 0.5 × symbol width = 55 units; clear space equals the gap;
+//   * the symbol is translated so its ink starts at x=0 and the tag's lowest
+//     point (y=25.4) sits on the wordmark baseline (y=0).
 //
-// The symbol is translated so its ink starts at x=0 and the tag's bottom edge
-// (y=28.2) sits on the wordmark baseline (y=0). Its top then lands exactly on
-// y=-115, the same top line the old lockup had, so the fixed box height
-// (115 + the 'y' descender 29.53 = 144.53) is unchanged. The design handoff
-// drew the same rules at wordmark scale 0.44 (cap 44): 1.15 × 44 = 50.6 =
-// 25.6 × 1.97, and the wordmark at x = 1.5 × 22.5 × 1.97 — it used a 22.5-unit
-// symbol width, while the shipped paths ink 21.9, which is why the recomputed
-// width below is 603.54 instead of the handoff's 267.12 / 0.44 = 607.09.
+// The box is the wordmark's own: the 'l' ascender (y=-101.61) down to the 'y'
+// descender (29.53), 131.14 tall.
+const LOCKUP_MARK_SCALE = 5;
+const LOCKUP_MARK_WIDTH = 22 * LOCKUP_MARK_SCALE;
 export const LOCKUP = {
   /** Cap height of the outline wordmark, in lockup units. */
   capHeight: 100,
-  /** The full 32-grid mark is drawn at this scale inside the lockup (115 / 25.6). */
-  markScale: 115 / 25.6,
+  /** The full 32-grid mark is drawn at this scale inside the lockup. */
+  markScale: LOCKUP_MARK_SCALE,
   /** Translation applied to the mark so its ink starts at x=0 and its bottom sits at y=0. */
-  markX: -(5.4 * 115) / 25.6,
-  markY: -(28.2 * 115) / 25.6,
-  /** x where the wordmark group starts: 98.37890625 (symbol) + 49.189453125 (gap). */
-  wordmarkX: (1.5 * 21.9 * 115) / 25.6,
-  /** viewBox — top is the pennant tip (2.6 × scale − 126.6796875 = −115). */
+  markX: -5 * LOCKUP_MARK_SCALE,
+  markY: -25.4 * LOCKUP_MARK_SCALE,
+  /** x where the wordmark group starts: symbol width + gap. */
+  wordmarkX: LOCKUP_MARK_WIDTH * 1.5,
   viewBox: {
     x: 0,
-    y: -115,
-    width: (1.5 * 21.9 * 115) / 25.6 + 455.97,
-    height: 144.53,
+    y: WORDMARK_BOX.y,
+    width: LOCKUP_MARK_WIDTH * 1.5 + WORDMARK_BOX.width,
+    height: WORDMARK_BOX.height,
   },
-  /** 2 × the flag path's rendered ink width (2 × 8.4 × scale = 75.46875 units). */
-  clearSpace: (2 * 8.4 * 115) / 25.6,
+  /** Equal to the gap: 0.5 × the symbol width. Not drawn — the caller must not crowd it. */
+  clearSpace: LOCKUP_MARK_WIDTH * 0.5,
 } as const;
 
 /** Aspect ratio for a standalone lockup sized by its height. */
@@ -350,8 +258,7 @@ export const WORDMARK_ASPECT = WORDMARK_BOX.width / WORDMARK_BOX.height;
 
 /**
  * Minimal CSS custom properties the in-app components paint with. `dot` is the
- * accent slot the previous mark used for its date dot; on this mark it paints
- * the pennant. The name is kept so every caller and the OG route keep working.
+ * accent slot; on this mark it paints the plate. The name is kept so every caller and the OG route keep working.
  */
 export const BRAND_FILL = {
   body: 'hsl(var(--brand-body))',
@@ -377,16 +284,10 @@ export type RenderMarkOptions = {
 };
 
 /**
- * The mark's paint, in order: the cutout mask, then the pennant, then the plate
- * (with its punched hole and the W cut out of it). Painting the plate last makes
- * the pole run BEHIND the tag's shoulder — the flag path reaches down to y=14.6
- * only so the two fills overlap; if it were painted on top it would end in a
- * coral stub halfway down the tag.
- *
- * The letter is always stroked into the mask, on both cuts and in both
- * variants. `fill.body` is used for the plate and never for the letter: a W
- * painted in the plate's colour would disappear into it, and a mono W painted
- * in `currentColor` would do the same.
+ * The mark's paint, in order: the cutout mask, then the plate with the W cut out
+ * of it. The plate takes the accent (`fill.dot`); in mono it takes `fill.body`
+ * (a single colour). The W is always stroked into the mask, on both cuts and in
+ * both variants — a W painted in the plate's colour would disappear into it.
  */
 function markPaths(
   geometry: MarkGeometry,
@@ -394,12 +295,11 @@ function markPaths(
   variant: 'colour' | 'mono',
   cutoutPrefix = 'warrly-mark',
 ): string {
-  const accent = variant === 'mono' ? fill.body : fill.dot;
+  const plate = variant === 'mono' ? fill.body : fill.dot;
   const cutout = markCutoutId(geometry, cutoutPrefix);
   return (
     letterCutout(geometry, cutout) +
-    `<path d="${geometry.flag}" fill="${accent}"/>` +
-    `<path d="${knockoutPath(geometry)}" fill="${fill.body}" fill-rule="evenodd" mask="url(#${cutout})"/>`
+    `<path d="${knockoutPath(geometry)}" fill="${plate}" mask="url(#${cutout})"/>`
   );
 }
 
@@ -460,10 +360,9 @@ export function renderIconSvg({
   const geometry = markGeometryForSize(glyph);
   const fill = { body: fills?.body ?? BRAND_FILL.body, dot: fills?.dot ?? BRAND_FILL.dot };
   const scale = glyph / geometry.viewBox;
-  // Centre the VISIBLE silhouette, not its 32-unit drawing box: the box has
-  // 5.2–5.4 units of padding on the left and 4–4.8 on the right, and 2.6 above
-  // the pennant / 3.8 below the tag, so centring the box would push the glyph
-  // up and left inside the tile.
+  // Centre the VISIBLE silhouette, not its 32-unit drawing box: the box carries
+  // different padding on each side, so centring the box would push the glyph off
+  // centre inside the tile.
   const offsetX = (size - geometry.ink.width * scale) / 2 - geometry.ink.x * scale;
   const offsetY = (size - geometry.ink.height * scale) / 2 - geometry.ink.y * scale;
   return (
@@ -479,8 +378,7 @@ export function renderIconSvg({
 
 /**
  * The white-on-alpha shape Android uses as a notification badge. Both paths in
- * white, ONE punch hole; the pennant must stay visible above the tag, so there
- * is no knockout between them. Monochrome by construction — and the W is cut
+ * white, the W cut out of the plate. Monochrome by construction — and the W is cut
  * out of the plate rather than painted white, which would make it vanish.
  */
 export function renderNotificationBadgeSvg(size = 96): string {
@@ -552,7 +450,7 @@ export function renderLockupSvg({
 
 /**
  * The in-app mark asset (`public/icon.svg`). It deliberately has no literal
- * colour: the plate is `currentColor` and the pennant is the app's
+ * colour: the plate is the app's
  * `--brand-dot` custom property, so the same file works on cream, white, ink
  * and every accent without a second copy. No paint stroke, filter or gradient:
  * the only stroke is the black one inside the mask that cuts the W out.

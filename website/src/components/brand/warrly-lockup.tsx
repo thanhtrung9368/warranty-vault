@@ -25,26 +25,16 @@ export type WarrlyLockupProps = {
  * they can never drift apart or be re-aligned by a theme.
  *
  * Relationships (at cap height 100):
- *   symbol height   = 1.15 × cap                → 115 units (pennant tip to
- *                                                 tag bottom, 25.6 grid units
- *                                                 at scale 115/25.6)
- *   gap             = 0.5 × symbol width        → 49.189453125 units (symbol
- *                                                 21.9 grid units → 98.37890625)
- *   clear space     = 2 × the accent's width    → 75.46875 units (the flag
- *                                                 path, pole + pennant, inks
- *                                                 8.4 grid units → 37.734375;
- *                                                 not drawn — the caller must
- *                                                 not crowd it)
+ *   symbol          = 22 × 18.4 grid units at scale 5 → 110 × 92 units
+ *   gap             = 0.5 × symbol width              → 55 units
+ *   clear space     = the gap; not drawn — the caller must not crowd it
  *
- * The 32-unit mark is translated so its ink starts at x=0 and the tag's bottom
- * edge (the symbol's baseline) sits on the wordmark baseline. The pennant tip
- * is the tallest thing in the box at y=-115; the wordmark's 'y' descender ends
- * at 29.53, hence the 144.53 viewBox height.
+ * The 32-unit mark is translated so its ink starts at x=0 and the tag's lowest
+ * point sits on the wordmark baseline. The box is the wordmark's own (the 'l'
+ * ascender down to the 'y' descender).
  *
  * The W is cut out of the plate inside the same scaled group, so it scales with
- * the symbol and shows the surface through it exactly as the punch does. The
- * lockup's box and mark transforms are unchanged by the letter: the W is inside
- * the plate, which is inside the ink box the layout was built around.
+ * the symbol and shows the surface through it.
  */
 export function WarrlyLockup({
   height = 36,
@@ -100,11 +90,9 @@ export function WarrlyLockup({
             />
           </mask>
         </defs>
-        <path d={geometry.flag} fill={dot} />
         <path
           d={knockoutPath(geometry)}
-          fill={body}
-          fillRule="evenodd"
+          fill={dot}
           mask={`url(#${cutout})`}
         />
       </g>

@@ -13,23 +13,24 @@ from it, so a new mark is a one-block edit followed by:
 The preview renders land in app/build/reports/icon-preview/ (git-ignored), and
 the script prints the scale arithmetic so a cropped mark cannot slip through.
 
-Geometry is on a 32x32 grid. The numbers below are the final mark: "The
-Warranty Tag" — a hanging tag with a bevelled top-left corner, one punched
-hole and a V notch in its bottom edge, plus a coral swallowtail pennant on a
-pole rising from its shoulder.
+Geometry is on a 32x32 grid. The numbers below are the final mark: "W in the
+tag" -- a price-tag silhouette (rounded top corners, a torn zigzag bottom edge)
+with a W cut out of the plate. No pennant, no punched hole, no bevel. The plate
+is coral; the W is the cream ground showing through.
 
 TWO CUTS. The full cut is for surfaces >= 24px. The small cut is separately
-drawn (thicker strokes, a deeper notch, a larger punch) for surfaces <= 16px.
-They are not scaled versions of one another: downscaling the full cut erases
-the punch and the V notch at status-bar size. The 24dp notification uses the
-small cut because its optical tag is only ~17dp tall.
+drawn (fewer, wider teeth and a heavier W) for
+surfaces <= 16px. They are not scaled versions of one another: downscaling the
+full cut smears its third tooth at status-bar size. The 24dp
+notification uses the small cut because its optical tag is only ~17dp tall.
 
 Why the adaptive foreground is not simply the 32 grid scaled to 108dp:
 Android scales adaptive layers 1.5x and masks the icon, so only the middle 72dp
 of the 108dp layer is visible. The guaranteed-safe circle is 66dp in diameter
-(radius 33). This script finds the largest uniform scale that keeps every ink
-pixel inside that circle, with a small antialias margin, and computes it from
-the actual outline rather than hard-coding a number.
+(radius 33). This script finds the largest uniform scale for the tag
+that keeps every ink pixel inside that circle, with a small antialias margin,
+then verifies the W sits inside it too. Both are computed from the actual
+outline rather than hard-coded.
 """
 
 from __future__ import annotations
@@ -51,54 +52,41 @@ except ImportError:  # pragma: no cover - environment hint only
 
 GRID = 32.0
 
-# Verbatim path data for the chosen mark, on the 32x32 grid. Tag and flag are
-# separate outlines because they are separate colours on the launcher; the
-# punch is a subpath of the tag and is knocked out with fillType="evenOdd".
+# Path data for the chosen mark, on the 32x32 grid, mirroring the full and small
+# cuts in website/src/lib/brand.ts.
 #
-# The source outline contains a zero-length arc in each tag path, at
-# (22.4 26.7)/(23 26.8). SVG treats an arc whose endpoints coincide as a
-# no-op, and Android's native PathParser has historically produced NaN
-# geometry for one, so parse_path() drops it. The bottom-right corner is
-# therefore square, exactly as the supplied outline renders it.
+# The W is a stroked OPEN path, not a fill: a filled W at small sizes closes
+# into a solid triangle. On the colour foreground it is stroked in the cream
+# background colour; on the alpha-only layers (monochrome, notification) the same
+# stroke is emitted as a filled outline subpath so it is a real transparent
+# hole. Widths are in grid units.
 FULL_CUT = {
+    # x=5..27, y=7..25.4; three teeth, tips at y=23.0, 2.4 deep.
     "tag": (
-        "M10.3 10.6L20.9 10.6A1.5 1.5 0 0 1 22.4 12.1L22.4 26.7"
-        "A1.5 1.5 0 0 1 22.4 26.7L22.4 28.2L16.9 28.2L13.9 25.9L10.9 28.2"
-        "L6.9 28.2A1.5 1.5 0 0 1 5.4 26.7L5.4 15.5L10.3 10.6Z"
+        "M6.6 7L25.4 7A1.6 1.6 0 0 1 27 8.6L27 25.4L23.33 23L19.67 25.4"
+        "L16 23L12.33 25.4L8.67 23L5 25.4L5 8.6A1.6 1.6 0 0 1 6.6 7Z"
     ),
-    "punch": (
-        "M8.37 15.17A1.6 1.6 0 1 0 11.57 15.17"
-        "A1.6 1.6 0 1 0 8.37 15.17Z"
-    ),
-    "flag": (
-        "M18.9 14.6L18.9 2.6L27.3 2.6L25 5.3L27.3 8L20.7 8L20.7 14.6"
-        "L18.9 14.6Z"
-    ),
+    # x=9.2..22.8, y=10.0..20.2 with the 2.8 stroke; 2.8 above the tooth tips.
+    "letter": "M10.6 11.4L13.3 18.8L16 13.4L18.7 18.8L21.4 11.4",
 }
 
-# The small cut is a distinct drawing, not a downscale. Its pole is thicker
-# (2.6 vs 1.8), its punch is larger (r=1.9 vs 1.6), its V notch is deeper
-# (2.8 vs 2.3) and its flag is a little shorter/wider so it survives 16px.
+# The small cut is a distinct drawing, not a downscale: two wide teeth (3.0
+# deep) and a heavier W (3.4 vs 2.8) so it survives 16px.
 SMALL_CUT = {
     "tag": (
-        "M10.6 10L21.6 10A1.4 1.4 0 0 1 23 11.4L23 26.8"
-        "A1.4 1.4 0 0 1 23 26.8L23 28.2L17.5 28.2L14.1 25.4L10.7 28.2"
-        "L6.6 28.2A1.4 1.4 0 0 1 5.2 26.8L5.2 15.4L10.6 10Z"
+        "M6 6.4L26 6.4A1.4 1.4 0 0 1 27.4 7.8L27.4 25.6L21.7 22.6L16 25.6"
+        "L10.3 22.6L4.6 25.6L4.6 7.8A1.4 1.4 0 0 1 6 6.4Z"
     ),
-    "punch": (
-        "M8.4 15.1A1.9 1.9 0 1 0 12.2 15.1"
-        "A1.9 1.9 0 1 0 8.4 15.1Z"
-    ),
-    "flag": (
-        "M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2"
-        "L18.3 14.2Z"
-    ),
+    "letter": "M10 11L13.2 19L16 12.6L18.8 19L22 11",
 }
+
+FULL_LETTER_WIDTH = 2.8
+SMALL_LETTER_WIDTH = 3.4
 
 # Fixed brand palette for the launcher. These are deliberately not theme
 # colours; the home-screen icon never follows the in-app accent.
 CREAM = "#FFF7EE"
-INK = "#1F1A14"
+INK = "#1F1A14"  # themed-icon preview only
 CORAL = "#FF6B45"
 
 # Android adaptive-icon geometry. 66/108 is the safe circle; the extra margin
@@ -130,25 +118,38 @@ PREVIEW = ROOT / "app" / "build" / "reports" / "icon-preview"
 def parse_path(data: str) -> list[tuple]:
     """Parse the M/L/A/Z subset used above into the op tuples the rest uses.
 
-    A zero-length arc is dropped: it is a no-op in SVG and a known source of
-    NaN geometry in Android's PathParser.
+    Absolute and relative commands are both accepted, and M/L may carry
+    multiple coordinate pairs (the W is authored as `M…l…`). A zero-length arc
+    is dropped: it is a no-op in SVG and a known source of NaN geometry in
+    Android's PathParser.
     """
-    tokens = re.findall(r"[MLAZ]|-?(?:\d+(?:\.\d*)?|\.\d+)", data)
+    commands = set("MLAZmlaz")
+    tokens = re.findall(r"[MLAZmlaz]|-?(?:\d+(?:\.\d*)?|\.\d+)", data)
     ops: list[tuple] = []
     current = (0.0, 0.0)
+    start = (0.0, 0.0)
     i = 0
     while i < len(tokens):
         kind = tokens[i]
         i += 1
-        if kind == "M":
-            current = (float(tokens[i]), float(tokens[i + 1]))
-            i += 2
-            ops.append(("M", current[0], current[1]))
-        elif kind == "L":
-            current = (float(tokens[i]), float(tokens[i + 1]))
-            i += 2
-            ops.append(("L", current[0], current[1]))
-        elif kind == "A":
+        upper = kind.upper()
+        relative = kind.islower()
+        if upper in ("M", "L"):
+            first = upper == "M"
+            while i < len(tokens) and tokens[i] not in commands:
+                x, y = float(tokens[i]), float(tokens[i + 1])
+                i += 2
+                if relative:
+                    x += current[0]
+                    y += current[1]
+                if first:
+                    ops.append(("M", x, y))
+                    start = (x, y)
+                    first = False
+                else:
+                    ops.append(("L", x, y))
+                current = (x, y)
+        elif upper == "A":
             rx, ry, rot, large_arc, sweep, x, y = (
                 float(tokens[i + 0]),
                 float(tokens[i + 1]),
@@ -159,14 +160,31 @@ def parse_path(data: str) -> list[tuple]:
                 float(tokens[i + 6]),
             )
             i += 7
+            if relative:
+                x += current[0]
+                y += current[1]
             if (x, y) != current:  # zero-length arc: no-op, do not emit
                 ops.append(("A", rx, ry, rot, large_arc, sweep, x, y))
                 current = (x, y)
-        elif kind == "Z":
+        elif upper == "Z":
             ops.append(("Z",))
+            current = start
         else:  # pragma: no cover - geometry authoring error
             raise ValueError(f"unsupported path command {kind!r}")
     return ops
+
+
+def polyline(ops: list[tuple]) -> list[tuple[float, float]]:
+    """The centreline of a stroked path: the M/L points, in order."""
+    points: list[tuple[float, float]] = []
+    for op in ops:
+        if op[0] == "M":
+            points.append((float(op[1]), float(op[2])))
+        elif op[0] == "L":
+            points.append((float(op[1]), float(op[2])))
+        else:  # pragma: no cover - the W is authored with M/L only
+            raise ValueError(f"a stroked path cannot contain {op[0]!r}")
+    return points
 
 
 FULL = {key: parse_path(value) for key, value in FULL_CUT.items()}
@@ -304,6 +322,182 @@ def transform_ops(
     return out
 
 
+def transform_points(
+    points: list[tuple[float, float]],
+    scale: float,
+    ox: float,
+    oy: float,
+    anchor: tuple[float, float],
+) -> list[tuple[float, float]]:
+    ax, ay = anchor
+    return [(ox + (x - ax) * scale, oy + (y - ay) * scale) for x, y in points]
+
+
+def _unit(x: float, y: float) -> tuple[float, float]:
+    length = math.hypot(x, y)
+    if length == 0:  # pragma: no cover - geometry authoring error
+        raise ValueError("zero-length segment in a stroked path")
+    return (x / length, y / length)
+
+
+def _clean_points(
+    points: list[tuple[float, float]], eps: float = 1e-9
+) -> list[tuple[float, float]]:
+    out = [points[0]]
+    for point in points[1:]:
+        if math.hypot(point[0] - out[-1][0], point[1] - out[-1][1]) > eps:
+            out.append(point)
+    return out
+
+
+def _short_delta(start: float, end: float) -> float:
+    """Signed angle from `start` to `end`, in (-pi, pi]."""
+    delta = end - start
+    while delta <= -math.pi:
+        delta += 2.0 * math.pi
+    while delta > math.pi:
+        delta -= 2.0 * math.pi
+    return delta
+
+
+def _arc_points(
+    center: tuple[float, float],
+    radius: float,
+    start_angle: float,
+    delta: float,
+    steps: int = 16,
+) -> list[tuple[float, float]]:
+    """Sample an arc, excluding its starting point and including its end."""
+    return [
+        (
+            center[0] + radius * math.cos(start_angle + delta * i / steps),
+            center[1] + radius * math.sin(start_angle + delta * i / steps),
+        )
+        for i in range(1, steps + 1)
+    ]
+
+
+def _line_intersection(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    p3: tuple[float, float],
+    p4: tuple[float, float],
+) -> tuple[float, float]:
+    """Intersection of the infinite lines p1-p2 and p3-p4."""
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    x4, y4 = p4
+    denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(denominator) < 1e-12:  # pragma: no cover - collinear segments
+        return ((x2 + x3) / 2.0, (y2 + y3) / 2.0)
+    determinant = x1 * y2 - y1 * x2
+    determinant2 = x3 * y4 - y3 * x4
+    return (
+        (determinant * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
+        (determinant * (y3 - y4) - (y1 - y2) * determinant2) / denominator,
+    )
+
+
+def stroke_outline(
+    points: list[tuple[float, float]], width: float, steps: int = 16
+) -> list[tuple[float, float]]:
+    """The closed boundary of a round-capped, round-joined stroke.
+
+    Android's VectorDrawable cannot subtract a stroke from a fill, so the
+    alpha-only layers need the W as a filled outline instead of a stroked
+    path. The outline is the same geometry: parallel offsets joined by a
+    circular arc on the outside of each bend, a semicircle at each end, and a
+    mitre (the offset-line intersection) on the inside. Only line segments are
+    emitted, sampled densely enough that the biggest chord error is far below
+    a pixel at 108dp.
+    """
+    pts = _clean_points(points)
+    if len(pts) < 2:  # pragma: no cover - geometry authoring error
+        raise ValueError("a stroked path needs at least two points")
+    half = width / 2.0
+    directions = [
+        _unit(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
+        for i in range(len(pts) - 1)
+    ]
+    normals = [(-dy, dx) for dx, dy in directions]
+
+    def side(sign: float) -> list[tuple[float, float]]:
+        path = [
+            (
+                pts[0][0] + sign * normals[0][0] * half,
+                pts[0][1] + sign * normals[0][1] * half,
+            )
+        ]
+        for i in range(len(directions) - 1):
+            cross = (
+                directions[i][0] * directions[i + 1][1]
+                - directions[i][1] * directions[i + 1][0]
+            )
+            vertex = pts[i + 1]
+            inner = (cross > 0 and sign > 0) or (cross < 0 and sign < 0)
+            if inner:
+                path.append(
+                    _line_intersection(
+                        (
+                            pts[i][0] + sign * normals[i][0] * half,
+                            pts[i][1] + sign * normals[i][1] * half,
+                        ),
+                        (
+                            pts[i + 1][0] + sign * normals[i][0] * half,
+                            pts[i + 1][1] + sign * normals[i][1] * half,
+                        ),
+                        (
+                            pts[i + 1][0] + sign * normals[i + 1][0] * half,
+                            pts[i + 1][1] + sign * normals[i + 1][1] * half,
+                        ),
+                        (
+                            pts[i + 2][0] + sign * normals[i + 1][0] * half,
+                            pts[i + 2][1] + sign * normals[i + 1][1] * half,
+                        ),
+                    )
+                )
+            else:
+                start = math.atan2(sign * normals[i][1], sign * normals[i][0])
+                end = math.atan2(sign * normals[i + 1][1], sign * normals[i + 1][0])
+                path.extend(
+                    _arc_points(vertex, half, start, _short_delta(start, end), steps)
+                )
+        path.append(
+            (
+                pts[-1][0] + sign * normals[-1][0] * half,
+                pts[-1][1] + sign * normals[-1][1] * half,
+            )
+        )
+        return path
+
+    end_angle = math.atan2(normals[-1][1], normals[-1][0])
+    start_angle = math.atan2(normals[0][1], normals[0][0])
+    boundary = side(1.0)
+    boundary.extend(_arc_points(pts[-1], half, end_angle, -math.pi, steps))
+    boundary.extend(reversed(side(-1.0)))
+    boundary.extend(_arc_points(pts[0], half, start_angle + math.pi, -math.pi, steps))
+    boundary = _clean_points(boundary)
+    if math.hypot(
+        boundary[0][0] - boundary[-1][0], boundary[0][1] - boundary[-1][1]
+    ) <= 1e-9:
+        boundary.pop()
+    return boundary
+
+
+def to_polygon_path(points: list[tuple[float, float]]) -> str:
+    commands = [f"M{fmt(points[0][0])},{fmt(points[0][1])}"]
+    commands.extend(f"L{fmt(x)},{fmt(y)}" for x, y in points[1:])
+    commands.append("Z")
+    return " ".join(commands)
+
+
+# The W's filled outline, in grid units. The colour foreground strokes the
+# centreline; the alpha-only layers need this outline as an even-odd subpath.
+FULL_LETTER_OUTLINE = stroke_outline(polyline(FULL["letter"]), FULL_LETTER_WIDTH)
+SMALL_LETTER_OUTLINE = stroke_outline(polyline(SMALL["letter"]), SMALL_LETTER_WIDTH)
+
+
 def to_path_data(ops: list[tuple]) -> str:
     commands: list[str] = []
     for op in ops:
@@ -334,10 +528,8 @@ def max_ink_radius(points: list[tuple[float, float]], anchor: tuple[float, float
 def adaptive_scale(points: list[tuple[float, float]]) -> tuple[float, float, tuple[float, float]]:
     """Largest 0.05-step uniform scale that fits the 66/108 safe circle.
 
-    The anchor is the centre of the mark's actual ink bounds. The previous mark
-    could use a nominal body box because its dot sat inside it; this mark's
-    flag pushes the box up and right, so the composite ink box is the honest
-    centre. The farthest ink point is then the flag's top-right tip.
+    The anchor is the centre of the mark's actual ink bounds; the farthest ink
+    point is then one of the tag's bottom corners.
     """
     left, top, right, bottom = ink_bounds(points)
     anchor = ((left + right) / 2.0, (top + bottom) / 2.0)
@@ -366,20 +558,25 @@ def draw_mark(
     ox: float,
     oy: float,
     anchor: tuple[float, float],
-    tag_fill: tuple = (*hex_rgb(INK),),
-    flag_fill: tuple = (*hex_rgb(CORAL),),
-    punch_fill: tuple = (*hex_rgb(CREAM),),
+    letter_width: float,
+    tag_fill: tuple = (*hex_rgb(CORAL),),
+    letter_fill: tuple = (*hex_rgb(CREAM),),
 ) -> None:
-    """Draw flag, then plate over it, then the punch.
+    """Draw the plate, then the W cut-out.
 
-    The flag path runs 4 units down the pole inside the plate; painting the
-    plate last makes the pole emerge from behind the shoulder and hides the
-    overlap, so there is no coral stub halfway down the tag. Both shapes stay
-    separate because they are different colours on the launcher.
+    The W is drawn as the stroked outline. On the colour rasters it is filled
+    with the background cream (so it reads as a cut-out); on the alpha-only
+    rasters `letter_fill` is transparent, which punches a real hole. Drawing
+    the outline rather than a stroked line matches the vector outputs exactly.
     """
-    for key, fill in (("flag", flag_fill), ("tag", tag_fill), ("punch", punch_fill)):
-        pts = flatten_ops(transform_ops(cut[key], scale, ox, oy, anchor))
-        draw.polygon(pts, fill=fill)
+    pts = flatten_ops(transform_ops(cut["tag"], scale, ox, oy, anchor))
+    draw.polygon(pts, fill=tag_fill)
+    draw.polygon(
+        transform_points(
+            stroke_outline(polyline(cut["letter"]), letter_width), scale, ox, oy, anchor
+        ),
+        fill=letter_fill,
+    )
 
 
 def raster_adaptive(scale: float, anchor: tuple[float, float], size: int = 1024) -> Image.Image:
@@ -387,7 +584,15 @@ def raster_adaptive(scale: float, anchor: tuple[float, float], size: int = 1024)
     px = size * ss
     unit = px / 108.0
     img = Image.new("RGB", (px, px), hex_rgb(CREAM))
-    draw_mark(ImageDraw.Draw(img), FULL, scale * unit, 54 * unit, 54 * unit, anchor)
+    draw_mark(
+        ImageDraw.Draw(img),
+        FULL,
+        scale * unit,
+        54 * unit,
+        54 * unit,
+        anchor,
+        letter_width=FULL_LETTER_WIDTH,
+    )
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 
@@ -395,7 +600,15 @@ def raster_legacy(scale_factor: float, size: int, anchor: tuple[float, float], o
     ss = 8
     px = size * ss
     img = Image.new("RGB", (px, px), hex_rgb(CREAM))
-    draw_mark(ImageDraw.Draw(img), FULL, scale_factor * ss, origin[0] * ss, origin[1] * ss, anchor)
+    draw_mark(
+        ImageDraw.Draw(img),
+        FULL,
+        scale_factor * ss,
+        origin[0] * ss,
+        origin[1] * ss,
+        anchor,
+        letter_width=FULL_LETTER_WIDTH,
+    )
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
 
@@ -447,7 +660,7 @@ def compose_on_plate(icon: Image.Image, mask: Image.Image) -> Image.Image:
 
 
 def mono_layer(scale: float, anchor: tuple[float, float], size: int, fill: tuple) -> Image.Image:
-    """Themed-icon layer: tag with a punched hole + a separate solid flag."""
+    """Themed-icon layer: the tag with the W knocked out."""
     ss = 4
     px = size * ss
     unit = px / 108.0
@@ -459,9 +672,9 @@ def mono_layer(scale: float, anchor: tuple[float, float], size: int, fill: tuple
         54 * unit,
         54 * unit,
         anchor,
+        letter_width=FULL_LETTER_WIDTH,
         tag_fill=fill,
-        flag_fill=fill,
-        punch_fill=(0, 0, 0, 0),
+        letter_fill=(0, 0, 0, 0),
     )
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
@@ -473,31 +686,29 @@ def mono_layer(scale: float, anchor: tuple[float, float], size: int, fill: tuple
 
 def foreground_xml(scale: float, anchor: tuple[float, float]) -> str:
     tag = to_path_data(transform_ops(FULL["tag"], scale, 54.0, 54.0, anchor))
-    punch = to_path_data(transform_ops(FULL["punch"], scale, 54.0, 54.0, anchor))
-    flag = to_path_data(transform_ops(FULL["flag"], scale, 54.0, 54.0, anchor))
-    tag_left, tag_top, tag_right, tag_bottom = ink_bounds(flatten_ops(FULL["tag"]))
-    tag_w = (tag_right - tag_left) * scale
-    tag_h = (tag_bottom - tag_top) * scale
-    pts = (
-        flatten_ops(transform_ops(FULL["tag"], scale, 54.0, 54.0, anchor))
-        + flatten_ops(transform_ops(FULL["flag"], scale, 54.0, 54.0, anchor))
-    )
+    letter = to_path_data(transform_ops(FULL["letter"], scale, 54.0, 54.0, anchor))
+    pts = flatten_ops(transform_ops(FULL["tag"], scale, 54.0, 54.0, anchor))
     left, top, right, bottom = ink_bounds(pts)
     radius = max_ink_radius(pts, (54.0, 54.0))
+    w_points = transform_points(FULL_LETTER_OUTLINE, scale, 54.0, 54.0, anchor)
+    w_left, w_top, w_right, w_bottom = ink_bounds(w_points)
+    w_radius = max_ink_radius(w_points, (54.0, 54.0))
+    w_width = FULL_LETTER_WIDTH * scale
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED by android/tools/generate_launcher_icons.py. Change the
      geometry block there and re-run; do not hand-edit this file.
 
-     "The Warranty Tag". Tag {fmt(tag_w)} x {fmt(tag_h)} at {fmt(scale)}x on
-     the 108dp canvas, anchored on the full-cut ink-bounds centre. Ink bounds
-     x={fmt(left)}..{fmt(right)}, y={fmt(top)}..{fmt(bottom)}; farthest ink
-     point {fmt(radius)}dp from centre (the flag tip), inside the
+     "W in the tag": a coral price tag (rounded top corners, torn zigzag bottom)
+     with a W cut out of it. Tag {fmt(right - left)} x {fmt(bottom - top)}dp at {fmt(scale)}x on the 108dp
+     canvas, anchored on the ink-bounds centre. Ink bounds x={fmt(left)}..{fmt(right)},
+     y={fmt(top)}..{fmt(bottom)}; farthest ink point {fmt(radius)}dp from centre, inside the
      66/108 safe circle (r=33).
 
-     The flag is painted first and the plate over it: the flag path runs 4
-     units down the pole inside the plate, so painting the plate last makes the
-     pole emerge from behind the shoulder with no coral stub. The punch is part
-     of the plate path, knocked out with even-odd. -->
+     The W is stroked {fmt(w_width)}dp wide in @color/ic_launcher_background, the
+     cream the cut-out reveals. Its ink is x={fmt(w_left)}..{fmt(w_right)},
+     y={fmt(w_top)}..{fmt(w_bottom)}; its farthest point is {fmt(w_radius)}dp from centre.
+     Round caps and joins. It is a stroked OPEN path (fill none) so it reads as
+     a line at list size; a filled W closes into a solid triangle. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -506,30 +717,35 @@ def foreground_xml(scale: float, anchor: tuple[float, float]) -> str:
 
     <path
         android:fillColor="@color/ic_launcher_coral"
-        android:pathData="{flag}" />
+        android:pathData="{tag}" />
 
     <path
-        android:fillColor="@color/ic_launcher_ink"
-        android:fillType="evenOdd"
-        android:pathData="{tag} {punch}" />
+        android:fillColor="#00000000"
+        android:strokeColor="@color/ic_launcher_background"
+        android:strokeWidth="{fmt(w_width)}"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="{letter}" />
 </vector>
 """
 
 
 def monochrome_xml(scale: float, anchor: tuple[float, float]) -> str:
     tag = to_path_data(transform_ops(FULL["tag"], scale, 54.0, 54.0, anchor))
-    punch = to_path_data(transform_ops(FULL["punch"], scale, 54.0, 54.0, anchor))
-    flag = to_path_data(transform_ops(FULL["flag"], scale, 54.0, 54.0, anchor))
+    w_hole = to_polygon_path(
+        transform_points(FULL_LETTER_OUTLINE, scale, 54.0, 54.0, anchor)
+    )
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED from the geometry block in android/tools/generate_launcher_icons.py.
 
-     Android 13+ themed-icon layer: the flag first, then the plate with its
-     punch knocked out (even-odd). Both paths are white so there is exactly one
-     hole — the punch. The pennant is never knocked out of the plate: it has to
-     stay visible where it rises above the tag, so the two shapes are separate
-     fills. Painting the plate over the flag also hides the pole's 4-unit
-     overlap, so the pole emerges from behind the shoulder with no seam. The
-     system supplies the tint and the ground. No background here. -->
+     Android 13+ themed-icon layer: the plate with the W knocked out (even-odd).
+     White; the system uses the alpha as the mask and applies its own tint, so
+     the W shows the themed ground.
+
+     The W is a stroked line on the colour foreground, but a transparent
+     stroke cannot subtract from an alpha mask, so this layer appends the
+     stroke's exact filled outline (round caps/joins and all) to the plate
+     path: inside it the even-odd fill is transparent. No background here. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -538,12 +754,8 @@ def monochrome_xml(scale: float, anchor: tuple[float, float]) -> str:
 
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="{flag}" />
-
-    <path
-        android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="{tag} {punch}" />
+        android:pathData="{tag} {w_hole}" />
 </vector>
 """
 
@@ -552,8 +764,7 @@ def notification_transform(
     cut: dict[str, list[tuple]], size: float, inset: float = NOTIFICATION_INSET
 ) -> tuple[float, tuple[float, float]]:
     """Fit the cut's ink bbox to the notification box, centred."""
-    points = flatten_ops(cut["tag"]) + flatten_ops(cut["flag"])
-    left, top, right, bottom = ink_bounds(points)
+    left, top, right, bottom = ink_bounds(flatten_ops(cut["tag"]))
     scale = size * inset / max(right - left, bottom - top)
     ox = (size - (right - left) * scale) / 2.0 - left * scale
     oy = (size - (bottom - top) * scale) / 2.0 - top * scale
@@ -564,31 +775,24 @@ def notification_xml() -> str:
     size = NOTIFICATION_SIZE_DP
     scale, (ox, oy) = notification_transform(SMALL, size)
     tag = to_path_data(transform_ops(SMALL["tag"], scale, ox, oy, (0.0, 0.0)))
-    punch = to_path_data(transform_ops(SMALL["punch"], scale, ox, oy, (0.0, 0.0)))
-    flag = to_path_data(transform_ops(SMALL["flag"], scale, ox, oy, (0.0, 0.0)))
-    tag_h = (28.2 - 10.0) * scale
-    flag_h = (14.2 - 2.6) * scale
-    punch_dia = (12.2 - 8.4) * scale
-    notch = (28.2 - 25.4) * scale
+    w_points = transform_points(SMALL_LETTER_OUTLINE, scale, ox, oy, (0.0, 0.0))
+    w_hole = to_polygon_path(w_points)
+    tag_h = (25.6 - 6.4) * scale
+    tooth = 3.0 * scale
+    w_left, w_top, w_right, w_bottom = ink_bounds(w_points)
+    w_stroke = SMALL_LETTER_WIDTH * scale
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <!-- GENERATED from the geometry block in android/tools/generate_launcher_icons.py.
 
      Notification small icon. Android treats this as an alpha mask and replaces
      every colour with the notification tint, so a coloured or mipmap icon
-     becomes a white blob. This is the brand's separately drawn SMALL cut
-     (the <=16px cut), not a downscale of the full launcher cut: at 24dp the
-     tag is {fmt(tag_h)}dp tall, so the full cut's thinner pole, shallower V
-     notch and smaller punch would smear. (Measured at 24px: the full cut's V
-     notch is 2.16px and its pole 1.69px; the small cut gives 2.63px and
-     2.44px.) Scaled so the ink bbox fills the 24dp
-     box: tag {fmt(tag_h)}dp, flag {fmt(flag_h)}dp, punch {fmt(punch_dia)}dp,
-     V notch {fmt(notch)}dp deep. No third cut was needed: the punch and the
-     V notch both survive at 24px, and at 16px the small cut still reads.
+     becomes a white blob. This is the brand's separately drawn SMALL cut, not a
+     downscale of the full launcher cut: two wide teeth ({fmt(tooth)}dp deep) instead of
+     three, and a {fmt(w_stroke)}dp W stroke inking {fmt(w_right - w_left)}x{fmt(w_bottom - w_top)}dp. Scaled so the
+     ink bbox fills the 24dp box: tag {fmt(tag_h)}dp tall.
 
-     The punch is a true even-odd knockout. The flag is painted first and the
-     plate over it, so the pole emerges from behind the shoulder instead of
-     ending in a white stub inside the tag. Both paths are white, so there is
-     exactly one hole. -->
+     The W is a true even-odd knockout (its stroked shape is emitted as its
+     filled outline, because a transparent stroke cannot erase an alpha mask). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -597,12 +801,8 @@ def notification_xml() -> str:
 
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="{flag}" />
-
-    <path
-        android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="{tag} {punch}" />
+        android:pathData="{tag} {w_hole}" />
 </vector>
 """
 
@@ -618,6 +818,9 @@ def adaptive_xml(comment: str) -> str:
 """
 
 
+LEGACY_ANCHOR = (16.0, 16.2)  # centre of the full cut's ink box
+
+
 def write_assets(scale: float, anchor: tuple[float, float]) -> list[Path]:
     written: list[Path] = []
 
@@ -631,7 +834,7 @@ def write_assets(scale: float, anchor: tuple[float, float]) -> list[Path]:
     write(RES / "drawable" / "ic_notification.xml", notification_xml())
 
     launcher_comment = (
-        'Cream ground + "The Warranty Tag". Monochrome layer for Android 13+ '
+        'Cream ground + "W in the tag". Monochrome layer for Android 13+ '
         "themed icons; generated by android/tools/generate_launcher_icons.py."
     )
     write(RES / "mipmap-anydpi-v26" / "ic_launcher.xml", adaptive_xml(launcher_comment))
@@ -647,10 +850,9 @@ def write_assets(scale: float, anchor: tuple[float, float]) -> list[Path]:
     # 32 grid maps onto the whole bitmap, which is how the iOS full-bleed icon
     # is composed too.
     for density, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
-        # The full 32 grid maps onto the bitmap: anchor and origin are both
-        # zero, so body coordinate 6 lands at 6/32 of the icon rather than
-        # being shifted by the adaptive anchor.
-        img = raster_legacy(size / GRID, size, (0.0, 0.0), (0.0, 0.0))
+        # Centre the tag's ink box on the bitmap at the web app-icon's size
+        # (22 grid units = 0.84 * 22/32 of the edge).
+        img = raster_legacy(0.84 * size / GRID, size, LEGACY_ANCHOR, (size / 2.0, size / 2.0))
         path = RES / f"mipmap-{density}" / "ic_launcher.png"
         path.parent.mkdir(parents=True, exist_ok=True)
         img.save(path, "PNG", optimize=True)
@@ -664,6 +866,14 @@ def write_previews(scale: float, anchor: tuple[float, float]) -> list[Path]:
     icon = raster_adaptive(scale, anchor, 1024)
     icon.save(PREVIEW / "adaptive-unmasked.png")
     written.append(PREVIEW / "adaptive-unmasked.png")
+
+    # The raw 108dp layer at the two sizes the brief asks to read back:
+    # 108dp is the drawable itself, 48dp is the Play Store list size.
+    for size in (108, 48):
+        raw = raster_adaptive(scale, anchor, size)
+        path = PREVIEW / f"foreground-{size}.png"
+        raw.save(path)
+        written.append(path)
 
     for name, mask_fn in (
         ("circle", mask_circle),
@@ -689,7 +899,7 @@ def write_previews(scale: float, anchor: tuple[float, float]) -> list[Path]:
 
     # Themed-icon layer on the two grounds the system may pick. The dark render
     # uses white (the standard tint); the light render uses the ink colour so
-    # the punch and the V notch are actually visible against a pale plate.
+    # the W is actually visible against a pale plate.
     for label, bg, fill in (
         ("dark", (32, 36, 48, 255), (255, 255, 255, 255)),
         ("light", (245, 242, 236, 255), (*hex_rgb(INK), 255)),
@@ -726,7 +936,7 @@ def write_previews(scale: float, anchor: tuple[float, float]) -> list[Path]:
 def raster_notification(
     cut: dict[str, list[tuple]], size: int, inset: float = NOTIFICATION_INSET
 ) -> Image.Image:
-    """White alpha cut with a transparent punch hole, ink-centered."""
+    """White alpha cut with the W as a transparent hole, ink-centered."""
     ss = 8
     px = size * ss
     scale, (ox, oy) = notification_transform(cut, size, inset)
@@ -738,9 +948,9 @@ def raster_notification(
         ox * ss,
         oy * ss,
         (0.0, 0.0),
+        letter_width=SMALL_LETTER_WIDTH,
         tag_fill=(255, 255, 255, 255),
-        flag_fill=(255, 255, 255, 255),
-        punch_fill=(0, 0, 0, 0),
+        letter_fill=(0, 0, 0, 0),
     )
     return img.resize((size, size), Image.Resampling.LANCZOS)
 
@@ -754,14 +964,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    points = flatten_ops(FULL["tag"]) + flatten_ops(FULL["flag"])
+    points = flatten_ops(FULL["tag"])
     scale, radius, anchor = adaptive_scale(points)
     left, top, right, bottom = ink_bounds(points)
     far = max(points, key=lambda p: math.hypot(p[0] - anchor[0], p[1] - anchor[1]))
     unit_radius = max_ink_radius(points, anchor)
     raw = (SAFE_RADIUS_DP - SAFE_MARGIN_DP) / unit_radius
-    tag_left, tag_top, tag_right, tag_bottom = ink_bounds(flatten_ops(FULL["tag"]))
-    flag_left, flag_top, flag_right, flag_bottom = ink_bounds(flatten_ops(FULL["flag"]))
 
     print(f"adaptive scale: {scale:.2f}x (safe radius 33dp, margin {SAFE_MARGIN_DP}dp)")
     print(
@@ -770,37 +978,42 @@ def main() -> int:
     )
     print(
         f"  anchor: ({anchor[0]:.2f}, {anchor[1]:.2f}) = ink-bounds centre;"
-        f" farthest ink point ({far[0]:.2f}, {far[1]:.2f}) = flag tip"
+        f" farthest ink point ({far[0]:.2f}, {far[1]:.2f})"
     )
     print(
         f"  arithmetic: unit radius {unit_radius:.4f};"
         f" ({SAFE_RADIUS_DP:.0f} - {SAFE_MARGIN_DP}) / {unit_radius:.4f}"
         f" = {raw:.4f}; snapped down to {scale:.2f}; final radius {radius:.4f}dp"
     )
+    w_points = transform_points(FULL_LETTER_OUTLINE, scale, 54.0, 54.0, anchor)
+    w_left, w_top, w_right, w_bottom = ink_bounds(w_points)
+    w_radius = max_ink_radius(w_points, (54.0, 54.0))
+    if w_radius > SAFE_RADIUS_DP:
+        raise ValueError(
+            f"the W reaches {w_radius:.2f}dp from centre; the safe radius is "
+            f"{SAFE_RADIUS_DP:.0f}dp"
+        )
     print(
-        f"  tag: {(tag_right - tag_left) * scale:.2f} x {(tag_bottom - tag_top) * scale:.2f} dp"
-        f"   flag: {(flag_right - flag_left) * scale:.2f} x {(flag_bottom - flag_top) * scale:.2f} dp"
+        f"  W: {w_right - w_left:.2f} x {w_bottom - w_top:.2f} dp,"
+        f" stroke {FULL_LETTER_WIDTH * scale:.2f}dp; ink x={w_left:.2f}..{w_right:.2f}"
+        f"  y={w_top:.2f}..{w_bottom:.2f}; farthest {w_radius:.2f}dp from centre"
+        f" ({SAFE_RADIUS_DP - w_radius:.2f}dp inside the {SAFE_RADIUS_DP:.0f}dp safe circle)"
     )
     print(
-        f"  transformed ink bounds: x={54 + (left - anchor[0]) * scale:.2f}.."
-        f"{54 + (right - anchor[0]) * scale:.2f}  y={54 + (top - anchor[1]) * scale:.2f}.."
-        f"{54 + (bottom - anchor[1]) * scale:.2f}"
-    )
-    print(
-        f"  at 48dp adaptive: tag {(tag_bottom - tag_top) * scale * 48 / 108:.2f}px,"
-        f" punch {3.2 * scale * 48 / 108:.2f}px, notch {2.3 * scale * 48 / 108:.2f}px"
-    )
-    print(
-        f"  at 48px legacy:   tag {(tag_bottom - tag_top) / GRID * 48:.2f}px,"
-        f" punch {3.2 / GRID * 48:.2f}px, notch {2.3 / GRID * 48:.2f}px"
+        f"  at 48px drawable:  W {(w_right - w_left) * 48 / 108:.2f}px wide,"
+        f" stroke {FULL_LETTER_WIDTH * scale * 48 / 108:.2f}px"
+        f"   | at 48dp adaptive icon: W {(w_right - w_left) * 48 / 72:.2f}px wide,"
+        f" stroke {FULL_LETTER_WIDTH * scale * 48 / 72:.2f}px"
     )
 
-    nscale, _ = notification_transform(SMALL, NOTIFICATION_SIZE_DP)
+    nscale, (nox, noy) = notification_transform(SMALL, NOTIFICATION_SIZE_DP)
+    nw_points = transform_points(SMALL_LETTER_OUTLINE, nscale, nox, noy, (0.0, 0.0))
+    nw_left, nw_top, nw_right, nw_bottom = ink_bounds(nw_points)
     print(
-        f"notification (small cut, 24dp): tag {(28.2 - 10.0) * nscale:.2f}dp,"
-        f" flag {(14.2 - 2.6) * nscale:.2f}dp, punch {(12.2 - 8.4) * nscale:.2f}dp,"
-        f" V notch {(28.2 - 25.4) * nscale:.2f}dp deep,"
-        f" pole {(20.9 - 18.3) * nscale:.2f}dp"
+        f"notification (small cut, 24dp): tag {(25.6 - 6.4) * nscale:.2f}dp,"
+        f" tooth {3.0 * nscale:.2f}dp deep,"
+        f" W {nw_right - nw_left:.2f}x{nw_bottom - nw_top:.2f}dp"
+        f" stroke {SMALL_LETTER_WIDTH * nscale:.2f}dp"
     )
 
     written = write_previews(scale, anchor)
