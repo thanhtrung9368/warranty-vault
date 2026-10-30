@@ -72,6 +72,24 @@ describe('effectiveWarrantyEnd', () => {
     ]);
     expect(out?.toISOString()).toBe(new Date(stringLater).toISOString());
   });
+  it('ignores component-scoped rows, keeping only whole-unit ones', () => {
+    // A fridge with a ten-year motor warranty and a two-year whole-unit one.
+    // Taking the max would say the fridge is covered until 2035 — the exact
+    // mistake `api/internal/services/brand_warranty.go` names in a comment.
+    const result = effectiveWarrantyEnd([
+      { endDate: '2028-01-01' },
+      { endDate: '2035-01-01', component: 'Động cơ' },
+      { endDate: '2026-06-01', component: '   ' }, // blank = whole unit
+    ]);
+    expect(result?.getFullYear()).toBe(2028);
+  });
+
+  it('returns null when every row is component-scoped', () => {
+    expect(
+      effectiveWarrantyEnd([{ endDate: '2035-01-01', component: 'Động cơ' }]),
+    ).toBeNull();
+  });
+
 });
 
 describe('calcEndDate', () => {
