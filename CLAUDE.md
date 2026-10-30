@@ -2,6 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Scope — làm đúng cái được kêu
+
+**Làm đúng việc được kêu. Không thêm gì khác.**
+
+- **Không tự viết test.** Chỉ viết test khi được kêu viết test. "Test xanh" không phải
+  điều kiện để báo xong, trừ khi được kêu chạy test.
+- **Không tự chạy gate.** Không chạy lint / tsc / build / test "cho chắc" khi không ai kêu.
+- **Không tự sửa thứ khác.** Thấy lỗi ở chỗ không liên quan thì **nói ra**, đừng sửa.
+- **Không mở rộng phạm vi.** "Nâng version" là nâng version — không kèm làm lại icon, đổi
+  màu, hay dọn code xung quanh.
+- **Không vẽ chuyện.** Nếu việc được kêu không làm được thì nói lý do. Đừng thay bằng một
+  việc khác rồi báo xong.
+
+Áp dụng cho mọi agent, kể cả agent con: brief phải hẹp đúng bằng việc được kêu, và agent
+con không được tự thêm test hay gate ngoài brief.
+
 ## Repo layout
 
 ```
