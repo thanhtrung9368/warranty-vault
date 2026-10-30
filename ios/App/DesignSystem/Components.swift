@@ -137,7 +137,7 @@ struct WVSectionHeader: View {
     init(_ text: String) { self.text = text }
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 13))
+            .wvFont(.footnote)
             .foregroundStyle(WVColor.label3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 32)
@@ -151,7 +151,7 @@ struct WVSectionFooter: View {
     init(_ text: String) { self.text = text }
     var body: some View {
         Text(text)
-            .font(.system(size: 13))
+            .wvFont(.footnote)
             .foregroundStyle(WVColor.label3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 32)
@@ -207,6 +207,8 @@ struct WVRow: View {
     var role: WVRowRole = .normal
     var action: (() -> Void)?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var titleColor: Color {
         switch role {
         case .destructive: return WVColor.red
@@ -225,6 +227,21 @@ struct WVRow: View {
     }
 
     private var content: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize && role != .centered {
+                accessibleContent
+            } else {
+                regularContent
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44)
+        .padding(.vertical, 7)
+        .contentShape(Rectangle())
+    }
+
+    /// The default row: icon, title/subtitle, trailing detail, chevron.
+    private var regularContent: some View {
         HStack(spacing: 12) {
             if role == .centered { Spacer(minLength: 0) }
             if let icon {
@@ -232,22 +249,31 @@ struct WVRow: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .layoutPriority(1)
             if role != .centered { Spacer(minLength: 8) }
             if let detail {
+                // A detail is usually a value, not prose (`15.900.000 ₫`,
+                // `30 and 7 days`). It keeps one line and gets layout priority
+                // over the title, so the title wraps instead of the number
+                // splitting mid-digits.
                 Text(detail)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .layoutPriority(2)
             }
             if chevron {
                 WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -255,10 +281,47 @@ struct WVRow: View {
             }
             if role == .centered { Spacer(minLength: 0) }
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
-        .contentShape(Rectangle())
+    }
+
+    /// At Accessibility sizes the trailing detail steals the width the title
+    /// needs, so it moves onto its own line under the title. Same information
+    /// and same order — only the axis changes.
+    private var accessibleContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 12) {
+                if let icon {
+                    WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 30)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .wvFont(.body)
+                        .foregroundStyle(titleColor)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let subtitle {
+                        Text(subtitle)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .layoutPriority(1)
+                if chevron {
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
+                }
+            }
+            if let detail {
+                Text(detail)
+                    .wvFont(.body)
+                    .foregroundStyle(WVColor.label3)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, icon == nil ? 0 : (iconLarge ? 48 : 42))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -333,7 +396,7 @@ struct WVButton: View {
     }
     private var height: CGFloat { size == .small ? 34 : (kind == .ghost ? 44 : 50) }
     private var radius: CGFloat { size == .small ? 10 : 14 }
-    private var fontSize: CGFloat { size == .small ? 15 : 17 }
+    private var titleFont: WVFont { size == .small ? .subheadline : .body }
 
     var body: some View {
         Button(action: action) {
@@ -341,10 +404,13 @@ struct WVButton: View {
                 if let icon { WVIcon(icon, size: 18) }
                 Text(title)
             }
-            .font(.system(size: fontSize, weight: .semibold))
+            .wvFont(titleFont, weight: .semibold)
             .foregroundStyle(fg)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
             .frame(maxWidth: fullWidth ? .infinity : nil)
-            .frame(height: height)
+            .frame(minHeight: height)
+            .padding(.vertical, 6)
             .padding(.horizontal, size == .small ? 14 : 18)
             .background(bg)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -393,19 +459,31 @@ struct WVChip: View {
     var tone: WVChipTone = .gray
     var icon: String?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     init(_ text: String, tone: WVChipTone = .gray, icon: String? = nil) {
         self.text = text; self.tone = tone; self.icon = icon
     }
 
     var body: some View {
+        // The default capsule is a fixed 22 pt tall, exactly as before. At
+        // Accessibility sizes it becomes a minimum so the label can grow and
+        // wrap inside the pill instead of being clipped by the height.
+        chip
+            .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 22 : nil)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? nil : 22)
+    }
+
+    private var chip: some View {
         HStack(spacing: 4) {
             if let icon { WVIcon(icon, size: 10, weight: .bold) }
             Text(text)
         }
-        .font(.system(size: 12, weight: .semibold))
+        .wvFont(.pill)
         .foregroundStyle(tone.fg)
+        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
         .padding(.horizontal, 8)
-        .frame(height: 22)
+        .padding(.vertical, 3)
         .background(tone.bg)
         .clipShape(Capsule())
     }
@@ -418,7 +496,7 @@ struct WVTag: View {
     init(_ text: String, brand: Bool = false) { self.text = text; self.brand = brand }
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .wvFont(.caption2Emphasis)
             .foregroundStyle(brand ? WVColor.brand : WVColor.label2)
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
@@ -457,7 +535,7 @@ struct WarrantyPill: View {
             }
             Text(label)
         }
-        .font(.system(size: 12, weight: .semibold))
+        .wvFont(.pill)
         .foregroundStyle(color)
         .padding(.horizontal, 8)
         .padding(.vertical, 2)
@@ -481,11 +559,13 @@ struct WVSegmented<T: Hashable>: View {
                     withAnimation(.easeOut(duration: 0.15)) { selection = opt.value }
                 } label: {
                     Text(opt.label)
-                        .font(.system(size: 13, weight: active ? .semibold : .medium))
+                        .wvFont(.footnote, weight: active ? .semibold : .medium)
                         .foregroundStyle(WVColor.label)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .padding(.vertical, 4)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 28)
+                        .frame(minHeight: 28)
                         .background {
                             if active {
                                 RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -518,11 +598,11 @@ struct WVEmpty<Action: View>: View {
                 .frame(width: 80, height: 80)
                 .overlay(WVIcon(icon, size: 32, weight: .regular).foregroundStyle(WVColor.label3))
             Text(title)
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .foregroundStyle(WVColor.label)
             if let description {
                 Text(description)
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 280)
@@ -566,7 +646,7 @@ struct WVSectionCard<Content: View>: View {
             VStack(alignment: .leading, spacing: 10) {
                 if let title {
                     Text(title.uppercased())
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.label3)
                 }
                 content
@@ -632,12 +712,12 @@ struct WVNotice: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let title, !title.isEmpty {
                     Text(title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.label)
                 }
                 ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
                     Text(message)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -669,19 +749,22 @@ struct WVWidget: View {
                 HStack(spacing: 6) {
                     if let icon { WVIcon(icon, size: 12, weight: .bold) }
                     Text(eyebrow.uppercased())
-                        .font(.system(size: 11, weight: .semibold))
-                        .lineLimit(1)
+                        .wvFont(.caption2Emphasis)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .foregroundStyle(brand ? Color.white.opacity(0.85) : WVColor.label3)
                 Text(value)
-                    .font(.system(size: 26, weight: .bold))
+                    .wvFont(.statValue)
                     .foregroundStyle(brand ? Color.white : WVColor.label)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                 if let sub {
                     Text(sub)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(brand ? Color.white.opacity(0.85) : WVColor.label3)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
@@ -709,14 +792,15 @@ struct WVStatCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(eyebrow.uppercased())
-                .font(.system(size: 11, weight: .semibold))
+                .wvFont(.caption2Emphasis)
                 .foregroundStyle(WVColor.label3)
             Text(value)
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .foregroundStyle(WVColor.label)
                 .lineLimit(1)
+                .minimumScaleFactor(0.6)
             if let sub {
-                Text(sub).font(.system(size: 12)).foregroundStyle(WVColor.label3)
+                Text(sub).wvFont(.caption).foregroundStyle(WVColor.label3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -742,12 +826,14 @@ struct WVHeroGreeting: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Text(initials.isEmpty ? "?" : initials)
-                        .font(.system(size: 18, weight: .bold))
+                        .wvFont(.title3, weight: .bold)
                         .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 )
             VStack(alignment: .leading, spacing: 1) {
-                Text(subtitle).font(.system(size: 13)).foregroundStyle(WVColor.label3)
-                Text(name).font(.system(size: 20, weight: .bold)).foregroundStyle(WVColor.label)
+                Text(subtitle).wvFont(.footnote).foregroundStyle(WVColor.label3)
+                Text(name).wvFont(.title3, weight: .bold).foregroundStyle(WVColor.label)
             }
             Spacer(minLength: 0)
         }
@@ -768,12 +854,12 @@ struct WVDashSectionHead: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .foregroundStyle(WVColor.label)
             Spacer(minLength: 12)
             if let actionLabel, let action {
                 Button(actionLabel, action: action)
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.tint)
             }
         }
@@ -838,7 +924,7 @@ struct WVMoneyField: View {
         TextField(placeholder, text: text)
             .keyboardType(.numberPad)
             .multilineTextAlignment(.trailing)
-            .font(.system(size: 17))
+            .wvFont(.body)
     }
 }
 
@@ -868,7 +954,7 @@ extension View {
                 ForEach(center.toasts) { toast in
                     HStack(spacing: 8) {
                         WVIcon("checkCircle", size: 16)
-                        Text(toast.message).font(.system(size: 14))
+                        Text(toast.message).wvFont(.subheadline)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)

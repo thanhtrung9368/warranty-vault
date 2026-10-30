@@ -178,11 +178,11 @@ struct WarrantyFormView: View {
                     // Provider with autocomplete
                     HStack(spacing: 12) {
                         Text(L.t("Hãng BH"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
                         TextField(L.t("Apple Việt Nam..."), text: $provider)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .multilineTextAlignment(.trailing)
                             .autocorrectionDisabled()
@@ -201,7 +201,7 @@ struct WarrantyFormView: View {
                                         prefillFromProvider(named: s.name)
                                     } label: {
                                         Text(s.name)
-                                            .font(.system(size: 12, weight: .medium))
+                                            .wvFont(.caption, weight: .medium)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 6)
                                             .background(WVColor.fill3)
@@ -219,7 +219,7 @@ struct WarrantyFormView: View {
                     if let errs = fieldErrors["provider"], let msg = errs.first {
                         WVDivider()
                         Text(msg)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -230,7 +230,7 @@ struct WarrantyFormView: View {
                     // Start date
                     HStack(spacing: 12) {
                         Text(L.t("Ngày BĐ"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
                         Spacer()
@@ -246,13 +246,13 @@ struct WarrantyFormView: View {
                     // Months
                     HStack(spacing: 12) {
                         Text(L.t("Số tháng"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
                         TextField("12", text: $months)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                     }
                     .padding(.horizontal, 16)
@@ -262,7 +262,7 @@ struct WarrantyFormView: View {
                     if let errs = fieldErrors["months"], let msg = errs.first {
                         WVDivider()
                         Text(msg)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -275,14 +275,14 @@ struct WarrantyFormView: View {
                     // to the number — a $99 plan must not read like 99 ₫.
                     HStack(spacing: 12) {
                         Text(L.t("Phí gói"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
                         WVMoneyField(value: $cost, placeholder: L.t("Tuỳ chọn"),
                                      groupingSeparator: CurrencyRules.groupingSeparator(for: currency))
                         if CurrencyRules.requiresRate(currency) {
                             Text(CurrencyRules.normalized(currency))
-                                .font(.system(size: 13, weight: .semibold))
+                                .wvFont(.footnoteEmphasis)
                                 .foregroundStyle(WVColor.label3)
                         }
                     }
@@ -296,13 +296,13 @@ struct WarrantyFormView: View {
                 WVGroup {
                     HStack(spacing: 12) {
                         Text(L.t("SĐT"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .frame(width: 80, alignment: .leading)
                         TextField("1800-...", text: $phone)
                             .keyboardType(.phonePad)
                             .multilineTextAlignment(.trailing)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                     }
                     .padding(.horizontal, 16)
@@ -312,7 +312,7 @@ struct WarrantyFormView: View {
                     WVDivider()
 
                     TextField(L.t("Địa chỉ trung tâm"), text: $address, axis: .vertical)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1...4)
                         .padding(.horizontal, 16)
@@ -324,7 +324,7 @@ struct WarrantyFormView: View {
                 WVSectionHeader(L.t("Ghi chú"))
                 WVGroup {
                     TextField(L.t("Ghi chú (tuỳ chọn)"), text: $notes, axis: .vertical)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                         .lineLimit(2...6)
                         .padding(.horizontal, 16)
@@ -341,7 +341,7 @@ struct WarrantyFormView: View {
                 // Error banner
                 if let topError {
                     Text(topError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, 32)
                         .padding(.top, 8)
@@ -405,7 +405,7 @@ struct WarrantyFormView: View {
                     Button(isEditing ? L.t("Lưu") : L.t("Thêm")) {
                         Task { await submit() }
                     }
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(isValid ? WVColor.tint : WVColor.label3)
                     .disabled(!isValid)
                 }
@@ -454,7 +454,7 @@ struct WarrantyFormView: View {
             } label: {
                 HStack(spacing: 6) {
                     Text(L.t("Điều khoản hợp đồng").uppercased())
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
@@ -463,7 +463,7 @@ struct WarrantyFormView: View {
                     Spacer(minLength: 8)
                     if !termsExpanded, currentTerms.hasAnyTerms {
                         Text(currentTerms.componentTitle)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
                     }
@@ -514,7 +514,7 @@ struct WarrantyFormView: View {
                     if currentTerms.hasClaimsConflict {
                         WVDivider()
                         Text(L.t("Số lần đã dùng không được lớn hơn số lần cho phép."))
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -524,7 +524,7 @@ struct WarrantyFormView: View {
                     if let msg = termsFieldError {
                         WVDivider()
                         Text(msg)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -573,10 +573,10 @@ struct WarrantyFormView: View {
                                    limit: Int) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
             TextField(placeholder, text: text, axis: .vertical)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
                 .lineLimit(lines)
                 .autocorrectionDisabled()
@@ -598,7 +598,7 @@ struct WarrantyFormView: View {
     private func termsMoneyRow(_ label: String, value: Binding<Int?>) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
                 .frame(width: 110, alignment: .leading)
             WVMoneyField(value: value, placeholder: L.t("Tuỳ chọn"))
@@ -614,13 +614,13 @@ struct WarrantyFormView: View {
     private func termsCountRow(_ label: String, text: Binding<String>) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
                 .frame(width: 110, alignment: .leading)
             TextField(L.t("Tuỳ chọn"), text: text)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.trailing)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
         }
         .padding(.horizontal, 16)
@@ -635,7 +635,7 @@ struct WarrantyFormView: View {
     private var transferableRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(L.t("Chuyển nhượng"))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
             WVSegmented(
                 options: TransferableChoice.allCases.map { (value: $0, label: $0.label) },

@@ -66,7 +66,7 @@ struct MoreScreen: View {
 
                 Spacer().frame(height: 8)
                 Text("Warrly iOS · v1.0.0")
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .padding(.vertical, 20)
             }
@@ -136,7 +136,7 @@ struct MoreScreen: View {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "search", color: WVColor.indigo)
                         Text(L.t("Tìm kiếm"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -161,7 +161,7 @@ struct MoreScreen: View {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "receipt", color: WVColor.orange)
                         Text(L.t("Hộp thư đến"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         if let badgeText = inbox.badgeText {
@@ -187,7 +187,7 @@ struct MoreScreen: View {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "bell", color: WVColor.red)
                         Text(L.t("Nhắc nhở"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         if reminderBadge > 0 {
@@ -213,7 +213,7 @@ struct MoreScreen: View {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "chart", color: WVColor.indigo)
                         Text(L.t("Thống kê"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -240,11 +240,11 @@ struct MoreScreen: View {
                     WVLeadingIcon(icon: "user", color: WVColor.blue)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(L.t("Hồ sơ"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         if !userEmail.isEmpty {
                             Text(userEmail)
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                                 .foregroundStyle(WVColor.label3)
                         }
                     }
@@ -271,7 +271,7 @@ struct MoreScreen: View {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "settings", color: WVColor.gray)
                     Text(L.t("Cài đặt"))
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 8)
                     WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -315,7 +315,7 @@ private struct MoreBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .wvFont(.captionEmphasis)
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .frame(height: 22)

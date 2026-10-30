@@ -146,7 +146,7 @@ struct DevicesScreen: View {
                         .font(.system(size: 15))
                         .foregroundStyle(WVColor.label3)
                     TextField(L.t("Tìm thiết bị..."), text: $searchQuery)
-                        .font(.system(size: 16))
+                        .wvFont(.callout)
                         .foregroundStyle(WVColor.label)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -158,7 +158,7 @@ struct DevicesScreen: View {
                     }
                 }
                 .padding(.horizontal, 10)
-                .frame(height: 36)
+                .frame(minHeight: 36)
                 .background(WVColor.fill2)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
@@ -406,7 +406,7 @@ struct DevicesScreen: View {
                     if let categoryFilterLabel {
                         HStack(spacing: 6) {
                             Text(L.t("Loại: %@", categoryFilterLabel))
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                                 .foregroundStyle(WVColor.label3)
                             Spacer()
                         }
@@ -426,7 +426,7 @@ struct DevicesScreen: View {
                     .padding(.top, 16)
 
                     Text(L.p("%d thiết bị", items.count))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 32)
@@ -479,54 +479,24 @@ private struct DevicesListSkeleton: View {
 private struct DeviceListRow: View {
     let device: Device
 
+    /// Device list rows are one line per field at the default size. At
+    /// Accessibility sizes the warranty pill alone can be wider than the name
+    /// column, so the row stacks: the name gets the full width, then the
+    /// status pill, then the metadata. Same content, same order — only the
+    /// axis changes.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             WVLeadingIcon(
                 icon: WVCategory.icon(for: device.category),
                 color: WVCategory.accent(for: device.category),
                 size: 36
             )
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .center, spacing: 6) {
-                    Text(device.name)
-                        .font(.system(size: 16, weight: .medium, design: .default))
-                        .foregroundStyle(WVColor.label)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    // Effective warranty end (max endDate across the device's
-                    // packages), straight from the list projection.
-                    if let end = device.effectiveWarrantyEnd {
-                        WarrantyPill(daysLeft: WVFormat.daysUntil(end))
-                    } else {
-                        DeviceStatusChip(status: device.status)
-                    }
-                }
-                HStack(spacing: 6) {
-                    Text("\(device.brand ?? "—") · \(WVFormat.currency(device.purchasePrice, device.currency))")
-                        .font(.system(size: 13))
-                        .foregroundStyle(WVColor.label3)
-                        .lineLimit(1)
-                    if let count = device.attachmentCount, count > 0 {
-                        HStack(spacing: 2) {
-                            WVIcon("paperclip", size: 10)
-                            Text("\(count)")
-                                .font(.system(size: 12))
-                        }
-                        .foregroundStyle(WVColor.label3)
-                    }
-                    // The brand disagrees with the date this row's pill was
-                    // computed from. Show it in the list too, so the flag is not
-                    // only discoverable after opening the device.
-                    if device.warrantyMismatch != nil {
-                        HStack(spacing: 2) {
-                            WVIcon("alert", size: 10)
-                            Text(BrandWarrantyCopy.mismatchBadge)
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundStyle(WVColor.orange)
-                        .lineLimit(1)
-                    }
-                }
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedContent
+            } else {
+                horizontalContent
             }
             WVIcon("arrowRight", size: 13)
                 .foregroundStyle(WVColor.label4)
@@ -535,6 +505,83 @@ private struct DeviceListRow: View {
         .frame(minHeight: 44)
         .padding(.vertical, 7)
         .contentShape(Rectangle())
+    }
+
+    private var horizontalContent: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .center, spacing: 6) {
+                Text(device.name)
+                    .wvFont(.callout, weight: .medium)
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                statusBadge
+            }
+            HStack(spacing: 6) {
+                metaText
+                    .lineLimit(1)
+                extraBadges
+            }
+        }
+    }
+
+    private var stackedContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(device.name)
+                .wvFont(.callout, weight: .medium)
+                .foregroundStyle(WVColor.label)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            statusBadge
+            metaText
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            extraBadges
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        // Effective warranty end (max endDate across the device's packages),
+        // straight from the list projection.
+        if let end = device.effectiveWarrantyEnd {
+            WarrantyPill(daysLeft: WVFormat.daysUntil(end))
+        } else {
+            DeviceStatusChip(status: device.status)
+        }
+    }
+
+    private var metaText: some View {
+        Text("\(device.brand ?? "—") · \(WVFormat.currency(device.purchasePrice, device.currency))")
+            .wvFont(.footnote)
+            .foregroundStyle(WVColor.label3)
+    }
+
+    @ViewBuilder
+    private var extraBadges: some View {
+        HStack(spacing: 6) {
+            if let count = device.attachmentCount, count > 0 {
+                HStack(spacing: 2) {
+                    WVIcon("paperclip", size: 10)
+                    Text("\(count)")
+                        .wvFont(.caption)
+                }
+                .foregroundStyle(WVColor.label3)
+            }
+            // The brand disagrees with the date this row's pill was computed
+            // from. Show it in the list too, so the flag is not only
+            // discoverable after opening the device.
+            if device.warrantyMismatch != nil {
+                HStack(spacing: 2) {
+                    WVIcon("alert", size: 10)
+                    Text(BrandWarrantyCopy.mismatchBadge)
+                        .wvFont(.caption2Emphasis)
+                }
+                .foregroundStyle(WVColor.orange)
+                .lineLimit(1)
+            }
+        }
     }
 }
 
@@ -682,7 +729,7 @@ private struct DeviceFilterSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }

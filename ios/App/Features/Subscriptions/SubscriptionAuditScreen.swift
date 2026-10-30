@@ -101,7 +101,7 @@ struct SubscriptionAuditScreen: View {
                     HStack(spacing: 8) {
                         WVIcon("shieldCheck", size: 14)
                         Text(advisory)
-                            .font(.system(size: 13, weight: .semibold))
+                            .wvFont(.footnoteEmphasis)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .foregroundStyle(WVColor.green)
@@ -111,18 +111,18 @@ struct SubscriptionAuditScreen: View {
                 // cannot know (bank transactions, whether a package is in use).
                 if !audit.note.isEmpty {
                     Text(audit.note)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Text(L.t("Soát từ lịch sử thanh toán bạn đã ghi, tính tới %@.", generatedAtLabel(audit)))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
 
                 // From `counts` — the server's own tally, never `findings.count`.
                 Text(SubscriptionAuditRules.subtitle(audit.counts))
-                    .font(.system(size: 13, weight: .semibold))
+                    .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -137,7 +137,7 @@ struct SubscriptionAuditScreen: View {
     private var emptyCard: some View {
         WVGroup {
             Text(L.t("Không có phát hiện nào từ dữ liệu bạn đã ghi. Các luật bên dưới vẫn được chạy lại mỗi lần bạn mở màn hình này."))
-                .font(.system(size: 14))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
@@ -165,31 +165,31 @@ struct SubscriptionAuditScreen: View {
 
             // The server's own sentences, verbatim.
             Text(finding.title)
-                .font(.system(size: 16, weight: .semibold))
+                .wvFont(.calloutEmphasis)
                 .foregroundStyle(WVColor.label)
                 .fixedSize(horizontal: false, vertical: true)
             Text(finding.detail)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
 
             // A small rise must read as minor, not as an alert.
             if let material = SubscriptionAuditRules.materialNote(finding, thresholds: thresholds) {
                 Text(material)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let money = SubscriptionAuditRules.moneyLine(finding) {
                 Text(money)
-                    .font(.system(size: 13, weight: .semibold))
+                    .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label)
             }
 
             if let timeline = SubscriptionAuditRules.timelineNote(finding) {
                 Text(timeline)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -197,7 +197,7 @@ struct SubscriptionAuditScreen: View {
             // Why the verdict exists, from the payload's own thresholds.
             if let rule = SubscriptionAuditRules.ruleLabel(finding, thresholds: thresholds) {
                 Text(rule)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -210,7 +210,7 @@ struct SubscriptionAuditScreen: View {
                         NavigationLink(value: AuditSubscriptionNav(subscriptionId: link.subscriptionId)) {
                             HStack(spacing: 4) {
                                 Text(link.name ?? L.t("Gói đăng ký"))
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .wvFont(.captionEmphasis)
                                     .lineLimit(1)
                                 WVIcon("arrowRight", size: 10, weight: .bold)
                             }
@@ -260,7 +260,7 @@ struct SubscriptionAuditScreen: View {
                             Text(line)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }

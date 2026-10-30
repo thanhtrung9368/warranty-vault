@@ -77,12 +77,12 @@ struct AttachmentSearchPreviewSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(hit.attachment.fileName)
-                .font(.system(size: 20, weight: .semibold))
+                .wvFont(.title3Emphasis)
                 .foregroundStyle(WVColor.label)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Text(WVFormat.dateTime(hit.attachment.uploadedAt))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                 WVChip(hit.filing.label, tone: hit.isInInbox ? .orange : .blue)
                 Spacer(minLength: 0)
@@ -100,7 +100,7 @@ struct AttachmentSearchPreviewSheet: View {
             HStack(spacing: 8) {
                 ProgressView()
                 Text(L.t("Đang tải tệp…"))
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
             }
             .frame(maxWidth: .infinity)
@@ -128,7 +128,7 @@ struct AttachmentSearchPreviewSheet: View {
         case .failed(let message):
             VStack(spacing: 8) {
                 Text(message)
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.red)
                     .multilineTextAlignment(.center)
                 WVButton(L.t("Thử lại"), kind: .secondary) {
@@ -148,7 +148,7 @@ struct AttachmentSearchPreviewSheet: View {
             WVSectionHeader(L.t("Nội dung OCR"))
             WVGroup {
                 Text(text)
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)

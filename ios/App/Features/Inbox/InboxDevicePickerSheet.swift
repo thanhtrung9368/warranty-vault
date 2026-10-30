@@ -34,7 +34,7 @@ struct InboxDevicePickerSheet: View {
                     Spacer().frame(height: 8)
 
                     Text(attachment.fileName)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(2)
                         .padding(.horizontal, 32)
@@ -44,7 +44,7 @@ struct InboxDevicePickerSheet: View {
 
                     if let deleteError {
                         Text(deleteError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 32)
                             .padding(.top, 8)
@@ -146,11 +146,11 @@ struct InboxDevicePickerSheet: View {
                 )
                 VStack(alignment: .leading, spacing: 1) {
                     Text(device.name)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1)
                     Text(deviceSubtitle(device))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
                 }
@@ -163,7 +163,7 @@ struct InboxDevicePickerSheet: View {
                     // here stops most doomed picks before the round trip.
                     if isFull {
                         Text("5/5")
-                            .font(.system(size: 12, weight: .semibold))
+                            .wvFont(.captionEmphasis)
                             .foregroundStyle(WVColor.red)
                     }
                     WVIcon("arrowRight", size: 13, weight: .semibold)

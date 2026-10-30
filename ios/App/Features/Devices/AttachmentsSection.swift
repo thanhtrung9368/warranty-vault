@@ -29,6 +29,7 @@ struct DeviceAttachmentsSection: View {
     /// The attachment whose description is being edited. Non-nil presents the
     /// one-field sheet (`PATCH /api/v1/attachments/{id}`).
     @State private var editingAttachment: AttachmentMeta?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(client: APIClient, deviceId: String, initialAttachments: [AttachmentMeta]) {
         self.client = client
@@ -55,11 +56,17 @@ struct DeviceAttachmentsSection: View {
                     // (written on any client), which needs the width. Three
                     // columns only had room for a filename.
                     if !attachments.isEmpty {
+                        // One column at Accessibility sizes: a half-width square
+                        // cannot hold a filename plus its description at 2× text
+                        // without ellipsizing both. The tile becomes a full-width
+                        // card and grows vertically instead.
                         LazyVGrid(
-                            columns: [
-                                GridItem(.flexible(), spacing: 8),
-                                GridItem(.flexible(), spacing: 8),
-                            ],
+                            columns: dynamicTypeSize.isAccessibilitySize
+                                ? [GridItem(.flexible(), spacing: 8)]
+                                : [
+                                    GridItem(.flexible(), spacing: 8),
+                                    GridItem(.flexible(), spacing: 8),
+                                ],
                             spacing: 8
                         ) {
                             ForEach(attachments) { att in
@@ -86,10 +93,10 @@ struct DeviceAttachmentsSection: View {
                                 WVLeadingIcon(icon: "upload", color: WVColor.blue, size: 30)
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(L.t("Tải file mới lên"))
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.tint)
                                     Text(L.t("Ảnh hoặc PDF, ≤5MB"))
-                                        .font(.system(size: 13))
+                                        .wvFont(.footnote)
                                         .foregroundStyle(WVColor.label3)
                                 }
                                 Spacer()
@@ -117,7 +124,7 @@ struct DeviceAttachmentsSection: View {
                             HStack(spacing: 12) {
                                 WVLeadingIcon(icon: "paperclip", color: WVColor.orange, size: 30)
                                 Text(L.t("Thêm PDF"))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.tint)
                                 Spacer()
                             }
@@ -135,7 +142,7 @@ struct DeviceAttachmentsSection: View {
             // Error
             if let errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.red)
                     .padding(.horizontal, 32)
                     .padding(.top, 8)
@@ -278,6 +285,8 @@ private struct AttachmentThumbnail: View {
     let onDelete: () -> Void
     let onEditDescription: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var isImage: Bool { att.fileType.hasPrefix("image/") }
 
     /// What the tile prints under the filename. A description set on the web or
@@ -288,46 +297,78 @@ private struct AttachmentThumbnail: View {
         return text
     }
 
+    private var tileBackground: LinearGradient {
+        LinearGradient(
+            colors: [WVColor.fill3, WVColor.fill4],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Tile background
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [WVColor.fill3, WVColor.fill4],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .aspectRatio(1, contentMode: .fit)
-                .overlay {
-                    // Icon + filename + description
-                    VStack(spacing: 4) {
+            // Tile background. At Accessibility sizes the square becomes a
+            // full-width row so the filename and description can wrap instead
+            // of ellipsizing inside a fixed square.
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    HStack(alignment: .top, spacing: 10) {
                         WVIcon(isImage ? "camera" : "receipt", size: 24, weight: .regular)
                             .foregroundStyle(WVColor.label3)
-                        Text(att.fileName)
-                            .font(.system(size: 11))
-                            .foregroundStyle(WVColor.label3)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                        if let description {
-                            Text(description)
-                                .font(.system(size: 10))
-                                .foregroundStyle(WVColor.label2)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
+                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(att.fileName)
+                                .wvFont(.caption2)
+                                .foregroundStyle(WVColor.label3)
+                                .lineLimit(4)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let description {
+                                Text(description)
+                                    .wvFont(.caption2)
+                                    .foregroundStyle(WVColor.label2)
+                                    .lineLimit(4)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 6)
-                }
-                .overlay {
-                    // Tap to open
-                    if let url = downloadURL {
-                        Link(destination: url) {
-                            Color.clear
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(tileBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(tileBackground)
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            VStack(spacing: 4) {
+                                WVIcon(isImage ? "camera" : "receipt", size: 24, weight: .regular)
+                                    .foregroundStyle(WVColor.label3)
+                                Text(att.fileName)
+                                    .wvFont(.caption2)
+                                    .foregroundStyle(WVColor.label3)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.center)
+                                if let description {
+                                    Text(description)
+                                        .wvFont(.caption2)
+                                        .foregroundStyle(WVColor.label2)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                            .padding(.horizontal, 6)
                         }
+                }
+            }
+            .overlay {
+                // Tap to open
+                if let url = downloadURL {
+                    Link(destination: url) {
+                        Color.clear
                     }
                 }
+            }
 
             // Delete button
             Button(action: onDelete) {

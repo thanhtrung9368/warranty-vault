@@ -210,10 +210,10 @@ struct SubscriptionsScreen: View {
                     WVLeadingIcon(icon: "search", color: WVColor.purple, size: 34)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(SubscriptionAuditRules.entryTitle)
-                            .font(.system(size: 16, weight: .semibold))
+                            .wvFont(.calloutEmphasis)
                             .foregroundStyle(WVColor.label)
                         Text(SubscriptionAuditRules.entrySubtitle)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -254,15 +254,17 @@ struct SubscriptionsScreen: View {
     private var subCostCard: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L.t("CHI MỖI THÁNG"))
-                .font(.system(size: 11, weight: .semibold))
+                .wvFont(.caption2Emphasis)
                 .tracking(1)
                 .foregroundStyle(.white.opacity(0.85))
             Text(WVFormat.vnd(Int(monthly.rounded())))
-                .font(.system(size: 28, weight: .bold))
+                .wvFont(.statValue)
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             Text(L.t("~ %@ / năm", WVFormat.vnd(Int(yearly.rounded())))
                  + " · " + L.p("%d gói chạy", activeSubs.count))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(.white.opacity(0.85))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -315,7 +317,7 @@ struct SubscriptionsScreen: View {
                             } label: {
                                 HStack {
                                     Text(s.label)
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
                                     Spacer()
                                     if sort == s {
@@ -339,7 +341,7 @@ struct SubscriptionsScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") { showSort = false }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -353,43 +355,86 @@ struct SubscriptionsScreen: View {
 private struct SubRowContent: View {
     let sub: Subscription
 
+    /// The name and the price share one line at the default size. At
+    /// Accessibility sizes they stop fitting side by side, so the row stacks
+    /// them: name, price, then the renewal metadata. The price is never the
+    /// thing that gets ellipsized, because it is the number the screen is for.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var days: Int   { WVFormat.daysUntil(sub.renewalDate) }
     private var overdue: Bool { days < 0 }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             WVLeadingIcon(
                 icon: WVCategory.icon(for: sub.category),
                 color: WVCategory.accent(for: sub.category),
                 size: 36
             )
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(sub.name)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(WVColor.label)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    Text(WVFormat.vnd(sub.price))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(WVColor.label)
-                }
-                HStack(spacing: 0) {
-                    Text([sub.brand, sub.billingCycle.shortLabel]
-                        .compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 13))
-                        .foregroundStyle(WVColor.label3)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    if sub.billingCycle != .LIFETIME {
-                        Text(overdue ? L.t("Quá hạn %dd", abs(days)) : L.t("%dd nữa", days))
-                            .font(.system(size: 13))
-                            .foregroundStyle(overdue ? WVColor.red : WVColor.label3)
-                    }
-                }
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedContent
+            } else {
+                horizontalContent
             }
             WVIcon("arrowRight", size: 13, weight: .semibold)
                 .foregroundStyle(WVColor.label4)
+        }
+    }
+
+    private var horizontalContent: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Text(sub.name)
+                    .wvFont(.callout, weight: .medium)
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                priceText
+            }
+            HStack(spacing: 0) {
+                cycleText
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                renewalText
+            }
+        }
+    }
+
+    private var stackedContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(sub.name)
+                .wvFont(.callout, weight: .medium)
+                .foregroundStyle(WVColor.label)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            priceText
+            cycleText
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            renewalText
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var priceText: some View {
+        Text(WVFormat.vnd(sub.price))
+            .wvFont(.subheadlineEmphasis)
+            .foregroundStyle(WVColor.label)
+    }
+
+    private var cycleText: some View {
+        Text([sub.brand, sub.billingCycle.shortLabel]
+            .compactMap { $0 }.joined(separator: " · "))
+            .wvFont(.footnote)
+            .foregroundStyle(WVColor.label3)
+    }
+
+    @ViewBuilder
+    private var renewalText: some View {
+        if sub.billingCycle != .LIFETIME {
+            Text(overdue ? L.t("Quá hạn %dd", abs(days)) : L.t("%dd nữa", days))
+                .wvFont(.footnote)
+                .foregroundStyle(overdue ? WVColor.red : WVColor.label3)
         }
     }
 }

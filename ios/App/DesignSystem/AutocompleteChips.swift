@@ -20,7 +20,7 @@ struct AutocompleteChips: View {
                             onPick?(name)
                         } label: {
                             Text(name)
-                                .font(.system(size: 12, weight: .medium))
+                                .wvFont(.caption, weight: .medium)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
                                 .background(WVColor.fill3)

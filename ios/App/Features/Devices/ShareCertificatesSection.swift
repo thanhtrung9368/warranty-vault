@@ -72,7 +72,7 @@ struct ShareCertificatesSection: View {
 
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.red)
                     .padding(.horizontal, 32)
                     .padding(.top, 8)
@@ -115,14 +115,14 @@ struct ShareCertificatesSection: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(ShareCopy.expiryLabel)
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.label2)
                     WVSegmented(
                         options: ShareLinks.expiryChoices.map { (value: $0.days, label: $0.label) },
                         selection: $expiryDays
                     )
                     Text(ShareCopy.expiryNote)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -132,12 +132,12 @@ struct ShareCertificatesSection: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $includeSerial) {
                         Text(ShareCopy.serialLabel)
-                            .font(.system(size: 14, weight: .semibold))
+                            .wvFont(.subheadlineEmphasis)
                             .foregroundStyle(WVColor.label2)
                     }
                     .tint(WVColor.tint)
                     Text(includeSerial ? ShareCopy.serialOnNote : ShareCopy.serialOffNote)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(includeSerial ? WVColor.orange : WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -156,17 +156,17 @@ struct ShareCertificatesSection: View {
                     .padding(.top, 8)
                 } label: {
                     Text(ShareCopy.projectionTitle)
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label2)
                 }
                 .tint(WVColor.tint)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(ShareLinks.capacityLine(shares, now: now))
-                        .font(.system(size: 12, weight: .semibold))
+                        .wvFont(.captionEmphasis)
                         .foregroundStyle(capacity.full ? WVColor.orange : WVColor.label3)
                     Text(ShareCopy.limitNote)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -175,7 +175,7 @@ struct ShareCertificatesSection: View {
                     HStack(spacing: 8) {
                         ProgressView()
                         Text(L.t("Đang tạo link…"))
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                     }
                     .frame(maxWidth: .infinity)
@@ -194,7 +194,7 @@ struct ShareCertificatesSection: View {
     private func bulletList(title: String, lines: [String], icon: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .wvFont(.footnoteEmphasis)
                 .foregroundStyle(WVColor.label)
             ForEach(lines, id: \.self) { line in
                 HStack(alignment: .top, spacing: 6) {
@@ -202,7 +202,7 @@ struct ShareCertificatesSection: View {
                         .foregroundStyle(color)
                         .padding(.top, 3)
                     Text(line)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -350,15 +350,15 @@ private struct ShareRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 WVChip(status.label, tone: tone)
                 Text(L.t("Tạo ngày %@", WVFormat.date(share.createdAt)))
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                 Text(termsLine)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
                 if let lastViewed = share.lastViewedAt {
                     Text(L.t("Mở lần cuối %@", WVFormat.date(lastViewed)))
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                 }
             }
@@ -366,7 +366,7 @@ private struct ShareRowView: View {
             if canRevoke {
                 Button(action: onRevoke) {
                     Text(ShareCopy.revokeAction)
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, 10)
                         .frame(height: 30)
@@ -418,7 +418,7 @@ private struct OneTimeTokenSheet: View {
                     WVIcon("alert", size: 22)
                         .foregroundStyle(WVColor.red)
                     Text(ShareCopy.oneTimeTitle)
-                        .font(.system(size: 22, weight: .bold))
+                        .wvFont(.title2Emphasis)
                         .foregroundStyle(WVColor.red)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -431,10 +431,10 @@ private struct OneTimeTokenSheet: View {
                 if let url = link.url {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(ShareCopy.linkLabel)
-                            .font(.system(size: 13, weight: .semibold))
+                            .wvFont(.footnoteEmphasis)
                             .foregroundStyle(WVColor.label2)
                         Text(url.absoluteString)
-                            .font(.system(size: 13, design: .monospaced))
+                            .wvFont(.footnote, design: .monospaced)
                             .foregroundStyle(WVColor.label)
                             .textSelection(.enabled)
                             .padding(10)
@@ -442,13 +442,13 @@ private struct OneTimeTokenSheet: View {
                             .background(WVColor.fill3)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         Text(ShareCopy.previewNote)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } else {
                     Text(ShareCopy.missingPath)
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.red)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -456,7 +456,7 @@ private struct OneTimeTokenSheet: View {
                 // 4. What the link is, in the owner's own terms.
                 Text(L.t("Hạn %@ • %@", WVFormat.date(link.created.share.expiresAt),
                                      ShareLinks.serialExposureLabel(link.created.share.includeSerial)))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
 
                 // 5. Copy + share, above every way out of this screen.
@@ -476,7 +476,7 @@ private struct OneTimeTokenSheet: View {
                                 Image(systemName: "square.and.arrow.up")
                                 Text(ShareCopy.shareAction)
                             }
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.tint)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
@@ -492,7 +492,7 @@ private struct OneTimeTokenSheet: View {
                             WVIcon("externalLink", size: 14)
                             Text(L.t("Mở phiếu (xem trước)"))
                         }
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.tint)
                     }
                     .buttonStyle(WVPressableStyle())
@@ -505,7 +505,7 @@ private struct OneTimeTokenSheet: View {
                         WVIcon("checkCircle", size: 13)
                             .foregroundStyle(WVColor.green)
                         Text(ShareCopy.copiedToast)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -522,7 +522,7 @@ private struct OneTimeTokenSheet: View {
                             .font(.system(size: 20))
                             .foregroundStyle(acknowledged ? WVColor.green : WVColor.label3)
                         Text(ShareCopy.ackLabel)
-                            .font(.system(size: 14))
+                            .wvFont(.subheadline)
                             .foregroundStyle(WVColor.label2)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
@@ -534,7 +534,7 @@ private struct OneTimeTokenSheet: View {
                 // 8. Why "Đóng" is refused, printed before it is reached.
                 if !canClose {
                     Text(ShareCopy.closeBlockedHint)
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.red)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -573,11 +573,11 @@ private struct WarningBox: View {
                 WVIcon("alert", size: 14)
                     .foregroundStyle(WVColor.red)
                 Text(title)
-                    .font(.system(size: 14, weight: .bold))
+                    .wvFont(.subheadline, weight: .bold)
                     .foregroundStyle(WVColor.red)
             }
             Text(message)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
         }

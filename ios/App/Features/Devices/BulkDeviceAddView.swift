@@ -154,7 +154,7 @@ struct BulkDeviceAddView: View {
                     Button(L.t("Thêm")) {
                         Task { await submit() }
                     }
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(WVColor.tint)
                 }
             }
@@ -222,11 +222,11 @@ struct BulkDeviceAddView: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(BulkDeviceCopy.intro)
-                .font(.system(size: 14))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
             Text(BulkDeviceCopy.priceNote)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label3)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -241,25 +241,25 @@ struct BulkDeviceAddView: View {
                 WVIcon("checkCircle", size: 16)
                     .foregroundStyle(WVColor.green)
                 Text(BulkDeviceCopy.created(createdTotal))
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
             }
             if !createdNames.isEmpty {
                 Text(createdNamesLine)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(2)
             }
             Text(BulkDeviceCopy.rowsToFix(rows.count))
-                .font(.system(size: 13, weight: .semibold))
+                .wvFont(.footnoteEmphasis)
                 .foregroundStyle(WVColor.label2)
             Text(BulkDeviceCopy.retryNote)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label3)
                 .fixedSize(horizontal: false, vertical: true)
             if unconfirmedCount > 0 {
                 Text(BulkDeviceCopy.unconfirmedNote)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -281,46 +281,46 @@ struct BulkDeviceAddView: View {
                 WVIcon("alert", size: 15)
                     .foregroundStyle(WVColor.red)
                 Text(BulkDeviceCopy.limitTitle)
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
             }
             Text(BulkDeviceCopy.limitBody)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let quota = limitQuota {
                 if quota.isFull {
                     Text(BulkDeviceCopy.quotaFull)
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text(BulkDeviceCopy.remaining(quota.remaining))
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.label)
                     let overflow = max(0, rows.count - quota.remaining)
                     if overflow > 0 {
                         Text(BulkDeviceCopy.overflow(overflow))
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                     } else {
                         Text(BulkDeviceCopy.capacityStale)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             } else {
                 Text(BulkDeviceCopy.capacityUnknown)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let limitServerMessage, !limitServerMessage.isEmpty {
                 Text(limitServerMessage)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -340,7 +340,7 @@ struct BulkDeviceAddView: View {
             WVIcon("alert", size: 14)
                 .foregroundStyle(WVColor.red)
             Text(message)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.red)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -358,7 +358,7 @@ struct BulkDeviceAddView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Text(BulkDeviceCopy.rowTitle(index + 1))
-                    .font(.system(size: 13, weight: .semibold))
+                    .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label3)
 
                 if let status = rowStatus[row.id] {
@@ -390,7 +390,7 @@ struct BulkDeviceAddView: View {
 
             fieldRow(BulkDeviceCopy.nameLabel) {
                 TextField(BulkDeviceCopy.namePlaceholder, text: textBinding(row.id, \.name, field: "name"))
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .multilineTextAlignment(.trailing)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
@@ -406,7 +406,7 @@ struct BulkDeviceAddView: View {
             } label: {
                 HStack(spacing: 8) {
                     Text(BulkDeviceCopy.categoryLabel)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 8)
                     WVLeadingIcon(
@@ -415,7 +415,7 @@ struct BulkDeviceAddView: View {
                         size: 22
                     )
                     Text(categoryLabel(row.category))
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
                     WVIcon("arrowRight", size: 12)
@@ -434,7 +434,7 @@ struct BulkDeviceAddView: View {
 
             HStack(spacing: 12) {
                 Text(BulkDeviceCopy.purchaseDateLabel)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer()
                 DatePicker("", selection: dateBinding(row.id), displayedComponents: .date)
@@ -450,14 +450,14 @@ struct BulkDeviceAddView: View {
 
             HStack(spacing: 10) {
                 Text(BulkDeviceCopy.priceLabel)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 8)
                 WVMoneyField(value: priceBinding(row.id))
                     .frame(width: 150)
                     .disabled(isSubmitting)
                 Text("₫")
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
             }
             .padding(.horizontal, 16)
@@ -470,13 +470,13 @@ struct BulkDeviceAddView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(otherFieldErrors(row.id).enumerated()), id: \.offset) { _, message in
                         Text(message)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.red)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let message = rowMessages[row.id] {
                         Text(message)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.red)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -497,7 +497,7 @@ struct BulkDeviceAddView: View {
                                          @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
             Spacer(minLength: 8)
             content()
@@ -511,7 +511,7 @@ struct BulkDeviceAddView: View {
     private func fieldError(_ messages: [String]?) -> some View {
         if let message = messages?.first {
             Text(message)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -535,10 +535,10 @@ struct BulkDeviceAddView: View {
             HStack(spacing: 8) {
                 WVIcon("plus", size: 15)
                 Text(BulkDeviceCopy.addRow)
-                    .font(.system(size: 16, weight: .semibold))
+                    .wvFont(.calloutEmphasis)
                 Spacer()
                 Text(BulkDeviceCopy.rowCount(rows.count))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
             }
             .foregroundStyle(BulkDeviceRules.canAddRow(rows) ? WVColor.tint : WVColor.label3)

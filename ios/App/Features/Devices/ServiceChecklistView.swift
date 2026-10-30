@@ -116,7 +116,7 @@ struct ServiceChecklistSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(L.t("Xong")) { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -132,11 +132,11 @@ struct ServiceChecklistSheet: View {
                     WVLeadingIcon(icon: "checklist", color: WVColor.orange, size: 32)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(device.name)
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.label)
                             .lineLimit(2)
                         Text(L.t("Chuẩn bị trước khi giao máy cho trung tâm bảo hành"))
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -145,13 +145,13 @@ struct ServiceChecklistSheet: View {
 
                 if let serial = clean(device.serialNumber) {
                     Text(L.t("Serial/IMEI: %@", serial))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .textSelection(.enabled)
                 }
                 if let end = clean(device.warrantyEndText) {
                     Text(L.t("Hạn bảo hành: %@", end))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                 }
             }
@@ -165,7 +165,7 @@ struct ServiceChecklistSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Text(L.t("Đã chuẩn bị %d/%d bước", completed, total))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 0)
                     if completed == total && total > 0 {
@@ -197,14 +197,14 @@ struct ServiceChecklistSheet: View {
                         WVIcon(item.icon, size: 13)
                             .foregroundStyle(checked ? WVColor.label3 : WVColor.tint)
                         Text(item.title)
-                            .font(.system(size: 16, weight: .semibold))
+                            .wvFont(.calloutEmphasis)
                             .foregroundStyle(checked ? WVColor.label3 : WVColor.label)
                             .strikethrough(checked, color: WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }
                     Text(item.detail)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)

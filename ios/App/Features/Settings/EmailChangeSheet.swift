@@ -74,7 +74,7 @@ struct EmailChangeSheet: View {
                     if let topError {
                         HStack(spacing: 8) {
                             WVIcon("alert", size: 14)
-                            Text(topError).font(.system(size: 13))
+                            Text(topError).wvFont(.footnote)
                         }
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, WVSpacing.gutter)
@@ -166,21 +166,21 @@ struct EmailChangeSheet: View {
             HStack(spacing: 8) {
                 WVIcon("checkCircle", size: 14)
                 Text(L.t("Đã ghi nhận yêu cầu"))
-                    .font(.system(size: 13, weight: .semibold))
+                    .wvFont(.footnoteEmphasis)
             }
             .foregroundStyle(WVColor.green)
 
             if let neutralMessage {
                 Text(neutralMessage)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
             }
             Text(L.t("Mở hộp thư của địa chỉ MỚI (%@) — kể cả mục Spam/Quảng cáo — rồi dán mã xác nhận vào Bước 2.",
                          requestedEmail ?? "—"))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
             Text(L.t("Địa chỉ cũ vẫn dùng được cho tới khi xác nhận xong."))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,7 +192,7 @@ struct EmailChangeSheet: View {
     private func inlineError(_ message: String?) -> some View {
         if let message {
             Text(message)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.red)
                 .padding(.horizontal, WVSpacing.titleGutter)
                 .padding(.top, 6)
@@ -275,7 +275,7 @@ private struct EmailField: View {
             .textContentType(.emailAddress)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
-            .font(.system(size: 17))
+            .wvFont(.body)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
     }
@@ -295,7 +295,7 @@ private struct ECPSecureRow: View {
             .textContentType(.password)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
-            .font(.system(size: 17))
+            .wvFont(.body)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
     }
@@ -314,7 +314,7 @@ private struct ECPTokenRow: View {
         TextField(placeholder, text: $text)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
-            .font(.system(size: 15, design: .monospaced))
+            .wvFont(.subheadline, design: .monospaced)
             .lineLimit(2)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)

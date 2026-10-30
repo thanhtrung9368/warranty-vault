@@ -19,6 +19,8 @@ import WarrlyKit
 struct WarrantyTermsBlock: View {
     let terms: WarrantyTerms
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     /// The timeline card is an overview: same fields where they matter, tighter
     /// line limits so five warranties with caps do not turn it into a page.
     var compact: Bool = false
@@ -26,29 +28,33 @@ struct WarrantyTermsBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(terms.componentTitle)
-                .font(.system(size: 12, weight: .semibold))
+                .wvFont(.captionEmphasis)
                 .foregroundStyle(WVColor.label2)
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let economics {
                 Text(economics)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let coverage {
                 Text(coverage)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(compact ? 1 : 2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : (compact ? 1 : 2))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let exclusions = terms.exclusions {
                 Text(L.t("Loại trừ: %@", exclusions))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(compact ? 1 : 3)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : (compact ? 1 : 3))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

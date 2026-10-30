@@ -116,7 +116,7 @@ struct BrandWarrantySection: View {
 
             if savedAt != nil {
                 Text(BrandWarrantyCopy.savedMark)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.green)
                     .padding(.horizontal, 32)
                     .padding(.top, 7)
@@ -175,18 +175,18 @@ struct BrandWarrantySection: View {
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                     .fixedSize(horizontal: false, vertical: true)
                 if let detail {
                     Text(detail)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let extra {
                     Text(extra)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -209,7 +209,7 @@ struct BrandWarrantySection: View {
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small)
                 Text(BrandWarrantyCopy.lookupLoading)
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label2)
                 Spacer(minLength: 0)
             }
@@ -246,7 +246,7 @@ struct BrandWarrantySection: View {
                         .foregroundStyle(WVColor.orange)
                         .padding(.top, 1)
                     Text(BrandWarrantyCopy.lookupFailed)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -255,7 +255,7 @@ struct BrandWarrantySection: View {
                     Task { await loadLookup() }
                 } label: {
                     Text(L.t("Thử lại"))
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
                 .buttonStyle(.plain)
@@ -274,11 +274,11 @@ struct BrandWarrantySection: View {
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -463,11 +463,11 @@ struct BrandWarrantyRecordSheet: View {
                         WVDivider(inset: 16)
                         HStack(spacing: 12) {
                             Text(BrandWarrantyCopy.recordSheetLinkLabel)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             TextField(BrandWarrantyCopy.recordSheetLinkPlaceholder,
                                       text: $lookupURL)
-                                .font(.system(size: 15))
+                                .wvFont(.subheadline)
                                 .foregroundStyle(WVColor.label)
                                 .keyboardType(.URL)
                                 .textInputAutocapitalization(.never)
@@ -497,7 +497,7 @@ struct BrandWarrantyRecordSheet: View {
                                     Text(BrandWarrantyCopy.clearAction)
                                     Spacer(minLength: 0)
                                 }
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.red)
                                 .padding(.horizontal, 16)
                                 .frame(minHeight: 44)
@@ -512,7 +512,7 @@ struct BrandWarrantyRecordSheet: View {
 
                     if let topError {
                         Text(topError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 32)
                             .padding(.top, 8)
@@ -536,7 +536,7 @@ struct BrandWarrantyRecordSheet: View {
                         ProgressView()
                     } else {
                         Button(L.t("Lưu")) { Task { await save() } }
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.tint)
                             .disabled(status == nil)
                     }
@@ -582,11 +582,11 @@ struct BrandWarrantyRecordSheet: View {
         } label: {
             HStack(spacing: 12) {
                 Text(BrandWarrantyCopy.recordSheetStatusLabel)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 8)
                 Text(status?.label ?? BrandWarrantyCopy.notChosen)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(status == nil ? WVColor.label3 : WVColor.label)
                     .multilineTextAlignment(.trailing)
                     .lineLimit(1)
@@ -608,7 +608,7 @@ struct BrandWarrantyRecordSheet: View {
                          errorKey: String) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
             Spacer(minLength: 8)
             if let value = date.wrappedValue {
@@ -635,7 +635,7 @@ struct BrandWarrantyRecordSheet: View {
                 Button(BrandWarrantyCopy.notRecorded) {
                     date.wrappedValue = purchaseDate ?? Date()
                 }
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.tint)
                 .buttonStyle(.plain)
                 .disabled(isSaving)
@@ -650,7 +650,7 @@ struct BrandWarrantyRecordSheet: View {
     private func fieldErrorRow(_ key: String) -> some View {
         if let message = fieldErrors[key]?.first {
             Text(message)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.red)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)

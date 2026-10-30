@@ -138,7 +138,7 @@ struct SessionsView: View {
                 HStack(spacing: 6) {
                     // `deviceLabel` is nullable: never render an empty row.
                     Text(SessionLabels.deviceLabel(session))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1)
                     if session.current {
@@ -147,17 +147,17 @@ struct SessionsView: View {
                 }
 
                 Text(SessionLabels.platformLabel(session))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
 
                 Text(L.t("Hoạt động %@ · Đăng nhập %@",
                          WVFormat.date(session.lastSeenAt), WVFormat.date(session.createdAt)))
-                    .font(.system(size: 11))
+                    .wvFont(.caption2)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
 
                 Text(L.t("Hết hạn %@", WVFormat.date(session.expiresAt)))
-                    .font(.system(size: 11))
+                    .wvFont(.caption2)
                     .foregroundStyle(WVColor.label4)
             }
 
@@ -247,7 +247,7 @@ struct SessionsView: View {
             HStack(spacing: 8) {
                 WVIcon(toastIsError ? "alert" : "checkCircle", size: 15)
                 Text(toastMessage)
-                    .font(.system(size: 13, weight: .medium))
+                    .wvFont(.footnote, weight: .medium)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)

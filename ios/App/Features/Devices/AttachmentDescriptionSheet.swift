@@ -43,7 +43,7 @@ struct AttachmentDescriptionSheet: View {
                     Spacer().frame(height: 8)
 
                     Text(attachment.fileName)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(2)
                         .padding(.horizontal, 32)
@@ -51,7 +51,7 @@ struct AttachmentDescriptionSheet: View {
 
                     WVGroup {
                         TextField(L.t("Mô tả"), text: $text, axis: .vertical)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .lineLimit(2...5)
                             .disabled(isSaving)
@@ -63,7 +63,7 @@ struct AttachmentDescriptionSheet: View {
                         if let fieldError {
                             WVDivider()
                             Text(fieldError)
-                                .font(.system(size: 12))
+                                .wvFont(.caption)
                                 .foregroundStyle(WVColor.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 16)
@@ -75,7 +75,7 @@ struct AttachmentDescriptionSheet: View {
 
                     if let topError {
                         Text(topError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 32)
                             .padding(.top, 8)
@@ -98,7 +98,7 @@ struct AttachmentDescriptionSheet: View {
                         ProgressView()
                     } else {
                         Button(L.t("Lưu")) { Task { await save() } }
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.tint)
                     }
                 }

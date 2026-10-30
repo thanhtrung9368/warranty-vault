@@ -14,6 +14,7 @@ struct DashboardView: View {
     let client: APIClient
 
     @EnvironmentObject private var auth: AuthStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @StateObject private var devicesStore: DevicesStore
     @StateObject private var subsStore: SubscriptionsStore
@@ -261,7 +262,11 @@ struct DashboardView: View {
     // MARK: - Stat grid
 
     private var statGrid: some View {
-        let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        // At Accessibility sizes a two-column tile is narrower than its own
+        // wrapped label; four full-width tiles read in order and never clip.
+        let cols = dynamicTypeSize.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
         // `nil`/empty data is not zero. Each tile prints "—" until the read that
         // produces it has answered, and the sub-line goes with it: "0 đang theo
         // dõi" under an em dash would be the same lie one size smaller.
@@ -336,12 +341,12 @@ struct DashboardView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(L.t("Việc cần xử lý"))
-                    .font(.system(size: 16, weight: .semibold))
+                    .wvFont(.calloutEmphasis)
                     .foregroundStyle(WVColor.label)
                 // A failed read shows no number at all: "0 việc" would be a claim
                 // this screen cannot support.
                 Text(ActionQueueRules.entrySubtitle(counts: actionsStore.queue?.counts))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -351,10 +356,11 @@ struct DashboardView: View {
 
             if let total, total > 0 {
                 Text("\(total)")
-                    .font(.system(size: 12, weight: .bold))
+                    .wvFont(.caption, weight: .bold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 9)
-                    .frame(height: 22)
+                    .padding(.vertical, 3)
+                    .frame(minHeight: 22)
                     .background(WVColor.red)
                     .clipShape(Capsule())
             }
@@ -416,17 +422,17 @@ struct DashboardView: View {
                     WVLeadingIcon(icon: "alert", color: WVColor.orange, size: 34)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L.t("Không tải được nhắc bảo hành"))
-                            .font(.system(size: 16, weight: .semibold))
+                            .wvFont(.calloutEmphasis)
                             .foregroundStyle(WVColor.label)
                         Text(message)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
                     Button(L.t("Thử lại")) { Task { await remindersStore.load() } }
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.tint)
                         .buttonStyle(.plain)
                 }
@@ -476,15 +482,17 @@ struct DashboardView: View {
                     // Monthly total
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(WVFormat.vnd(monthlyTotal))
-                            .font(.system(size: 28, weight: .bold))
+                            .wvFont(.statValue)
                             .foregroundStyle(WVColor.label)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
                         Text(L.t("/ tháng"))
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                     }
                     Text(L.t("~ %@/năm", WVFormat.vnd(monthlyTotal * 12))
                                 + " · " + L.p("%d gói đang chạy", activeSubs.count))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .padding(.top, 2)
 
@@ -494,7 +502,7 @@ struct DashboardView: View {
                         .padding(.vertical, 12)
 
                     Text(L.t("SẮP GIA HẠN"))
-                        .font(.system(size: 12, weight: .semibold))
+                        .wvFont(.captionEmphasis)
                         .foregroundStyle(WVColor.label3)
                         .padding(.bottom, 6)
 
@@ -546,8 +554,10 @@ private struct DashWarrantyRow: View {
     let category: String
     let daysLeft: Int
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             WVLeadingIcon(
                 icon: WVCategory.icon(for: category),
                 color: WVCategory.accent(for: category),
@@ -555,16 +565,25 @@ private struct DashWarrantyRow: View {
             )
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(.system(size: 16, weight: .medium))
+                    .wvFont(.callout, weight: .medium)
                     .foregroundStyle(WVColor.label)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(CategoryLabels.label(for: category))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if dynamicTypeSize.isAccessibilitySize {
+                    WarrantyPill(daysLeft: daysLeft)
+                        .padding(.top, 2)
+                }
             }
-            Spacer(minLength: 8)
-            WarrantyPill(daysLeft: daysLeft)
+            .layoutPriority(1)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer(minLength: 8)
+                WarrantyPill(daysLeft: daysLeft)
+            }
             WVIcon("arrowRight", size: 13)
                 .foregroundStyle(WVColor.label4)
         }
@@ -581,24 +600,43 @@ private struct DashSubRow: View {
     let sub: Subscription
     let days: Int
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 10) {
             WVLeadingIcon(
                 icon: WVCategory.icon(for: sub.category),
                 color: WVCategory.accent(for: sub.category),
                 size: 28
             )
-            Text(sub.name)
-                .font(.system(size: 15))
-                .foregroundStyle(WVColor.label)
-                .lineLimit(1)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    nameText
+                    dateText
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(WVFormat.date(sub.renewalDate))
-                .font(.system(size: 13))
-                .foregroundStyle(days < 0 ? WVColor.red : WVColor.label3)
-                .lineLimit(1)
+            } else {
+                nameText
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                dateText
+            }
         }
         .padding(.vertical, 4)
+    }
+
+    private var nameText: some View {
+        Text(sub.name)
+            .wvFont(.subheadline)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var dateText: some View {
+        Text(WVFormat.date(sub.renewalDate))
+            .wvFont(.footnote)
+            .foregroundStyle(days < 0 ? WVColor.red : WVColor.label3)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
     }
 }
 
@@ -642,7 +680,7 @@ private struct DashQuickAddSheet: View {
                         } label: {
                             Label {
                                 Text(target.title)
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                             } icon: {
                                 WVIcon(target.icon, size: 15)

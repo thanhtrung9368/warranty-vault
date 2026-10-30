@@ -121,7 +121,7 @@ struct ClaimAssessmentView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         HStack(alignment: .center, spacing: 8) {
                             Text(claim.issue)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                                 .lineLimit(2)
                             Spacer(minLength: 8)
@@ -129,7 +129,7 @@ struct ClaimAssessmentView: View {
                         }
                         if let ticket = filledTicket {
                             Text(L.t("Phiếu %@", ticket))
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                                 .foregroundStyle(WVColor.label3)
                         }
                     }
@@ -153,7 +153,7 @@ struct ClaimAssessmentView: View {
                 questions: assessment.questionsOrEmpty
             ) {
                 Text(intro)
-                    .font(.system(size: 13, weight: .semibold))
+                    .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label2)
                     .padding(.horizontal, 32)
                     .padding(.top, 10)
@@ -187,7 +187,7 @@ struct ClaimAssessmentView: View {
                     WVIcon("sparkles", size: 14)
                         .foregroundStyle(WVColor.indigo)
                     Text(L.t("Gợi ý, không phải kết luận"))
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                         .foregroundStyle(WVColor.label2)
                     Spacer(minLength: 8)
                     WVChip(L.t("Độ tin cậy: %@", advice.confidenceLabel),
@@ -195,12 +195,12 @@ struct ClaimAssessmentView: View {
                 }
 
                 Text(advice.headline)
-                    .font(.system(size: 22, weight: .bold))
+                    .wvFont(.title2Emphasis)
                     .foregroundStyle(WVColor.label)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(advice.summary)
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -210,12 +210,12 @@ struct ClaimAssessmentView: View {
                             .foregroundStyle(WVColor.orange)
                             .padding(.top, 1)
                         Text(advice.disclaimer)
-                            .font(.system(size: 13, weight: .semibold))
+                            .wvFont(.footnoteEmphasis)
                             .foregroundStyle(WVColor.label)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Text(advice.confidenceNote)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label2)
                         .padding(.leading, 22)
                         .fixedSize(horizontal: false, vertical: true)
@@ -239,13 +239,13 @@ struct ClaimAssessmentView: View {
                     if index > 0 { WVDivider(inset: 16) }
                     HStack(alignment: .top, spacing: 10) {
                         Text("\(index + 1)")
-                            .font(.system(size: 12, weight: .bold))
+                            .wvFont(.caption, weight: .bold)
                             .foregroundStyle(WVColor.tint)
                             .frame(width: 22, height: 22)
                             .background(WVColor.brandSoft)
                             .clipShape(Circle())
                         Text(question)
-                            .font(.system(size: 16))
+                            .wvFont(.callout)
                             .foregroundStyle(WVColor.label)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -266,7 +266,7 @@ struct ClaimAssessmentView: View {
                 WVSectionHeader(L.t("Vì sao"))
                 WVCard(padding: 16) {
                     Text(trimmed)
-                        .font(.system(size: 15))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -288,22 +288,22 @@ struct ClaimAssessmentView: View {
                         WVLeadingIcon(icon: "receipt", color: WVColor.blue, size: 30)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(L.t("Luôn bằng tiếng Việt"))
-                                .font(.system(size: 16, weight: .semibold))
+                                .wvFont(.calloutEmphasis)
                                 .foregroundStyle(WVColor.label)
                             Text(L.t("Đọc được ở quầy bảo hành Việt Nam"))
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                                 .foregroundStyle(WVColor.label3)
                         }
                         Spacer(minLength: 0)
                     }
 
                     Text(ClaimAssessmentRules.letterLanguageNote)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(letter)
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label)
                         .textSelection(.enabled)
                         .padding(12)
@@ -323,7 +323,7 @@ struct ClaimAssessmentView: View {
                                 Image(systemName: "square.and.arrow.up")
                                 Text(L.t("Chia sẻ"))
                             }
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.tint)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
@@ -350,24 +350,24 @@ struct ClaimAssessmentView: View {
                     WVIcon("sparkles", size: 18)
                         .foregroundStyle(WVColor.indigo)
                     Text(L.t("Bật trợ lý AI để đánh giá"))
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Text(L.t("Đánh giá bảo hành dùng chung một lần bật AI với tính năng quét hoá đơn. Khi bật, thông tin lần sửa chữa (mô tả lỗi, chẩn đoán, chi phí) và điều khoản bảo hành sẽ được gửi tới dịch vụ AI bên thứ ba để phân tích."))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(L.t("Bạn có thể tắt lại bất cứ lúc nào trong Cài đặt → Trợ lý AI."))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let optInError {
                     Text(optInError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -394,12 +394,12 @@ struct ClaimAssessmentView: View {
                     WVIcon("info", size: 16)
                         .foregroundStyle(WVColor.label3)
                     Text(L.t("Tính năng đánh giá bằng AI chưa khả dụng"))
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(L.t("Máy chủ chưa bật tính năng này. Đây không phải lỗi của bạn — bạn vẫn có thể xem điều khoản bảo hành và tiếp tục dùng app bình thường."))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -412,7 +412,7 @@ struct ClaimAssessmentView: View {
             HStack(spacing: 12) {
                 ProgressView()
                 Text(title)
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -424,10 +424,10 @@ struct ClaimAssessmentView: View {
         WVCard(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(L.t("Không đánh giá được lúc này."))
-                    .font(.system(size: 16, weight: .semibold))
+                    .wvFont(.calloutEmphasis)
                     .foregroundStyle(WVColor.label)
                 Text(message)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.red)
                     .fixedSize(horizontal: false, vertical: true)
                 WVButton(L.t("Thử lại"), kind: .secondary) {

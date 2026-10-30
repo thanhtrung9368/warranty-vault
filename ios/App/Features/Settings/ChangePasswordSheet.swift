@@ -58,7 +58,7 @@ struct ChangePasswordSheet: View {
                         HStack(spacing: 8) {
                             WVIcon("alert", size: 14)
                             Text(topError)
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                         }
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, WVSpacing.gutter)
@@ -68,7 +68,7 @@ struct ChangePasswordSheet: View {
                         HStack(spacing: 8) {
                             WVIcon("checkCircle", size: 14)
                             Text(successMessage)
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                         }
                         .foregroundStyle(WVColor.green)
                         .padding(.horizontal, WVSpacing.gutter)
@@ -157,7 +157,7 @@ private struct CPSecureRow: View {
             .textContentType(.password)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
-            .font(.system(size: 17))
+            .wvFont(.body)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
     }

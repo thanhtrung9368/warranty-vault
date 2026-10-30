@@ -173,7 +173,7 @@ struct InboxScreen: View {
 
             if let loadError {
                 Text(loadError)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.red)
                     .padding(.horizontal, 32)
                     .padding(.bottom, 6)
@@ -215,18 +215,18 @@ struct InboxScreen: View {
                             .foregroundStyle(WVColor.tint)
                     }
                     Text(sharedImportTitle)
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 4)
                 }
 
                 if let error = inbox.sharedImportError {
                     Text(error)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(L.t("Tệp vẫn được giữ lại trên máy và sẽ thử lại."))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -235,7 +235,7 @@ struct InboxScreen: View {
                     Button(L.t("Thử lại")) {
                         Task { await load() }
                     }
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.tint)
                 }
             }
@@ -298,16 +298,16 @@ private struct InboxAttachmentRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(attachment.fileName)
-                    .font(.system(size: 16, weight: .medium))
+                    .wvFont(.callout, weight: .medium)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 Text(WVFormat.dateTime(attachment.uploadedAt))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
 
                 Button(action: onAssign) {
                     Text(L.t("Gán vào thiết bị"))
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
                 .buttonStyle(.plain)
@@ -425,10 +425,10 @@ struct InboxAddressRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(L.t("Địa chỉ nhận hoá đơn"))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                 Text(address)
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .wvFont(.subheadline, weight: .medium, design: .monospaced)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -451,7 +451,7 @@ struct InboxAddressRow: View {
                     Image(systemName: copied ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 11, weight: .bold))
                     Text(copied ? L.t("Đã sao chép") : L.t("Sao chép"))
-                        .font(.system(size: 12, weight: .semibold))
+                        .wvFont(.captionEmphasis)
                 }
                 .foregroundStyle(WVColor.tint)
                 .padding(.horizontal, 10)
@@ -494,7 +494,7 @@ struct InboxAddressSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(L.t("Xong")) { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }

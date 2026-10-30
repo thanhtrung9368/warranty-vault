@@ -171,14 +171,16 @@ struct WishlistScreen: View {
     private var wishSummaryCard: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(L.p("ĐANG THÈM %d MÓN", watching.count))
-                .font(.system(size: 11, weight: .semibold))
+                .wvFont(.caption2Emphasis)
                 .tracking(1)
                 .foregroundStyle(.white.opacity(0.85))
             Text(WVFormat.vnd(watchingTotal))
-                .font(.system(size: 28, weight: .bold))
+                .wvFont(.statValue)
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             Text(L.t("Tổng (theo giá hiện tại)"))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(.white.opacity(0.85))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -231,7 +233,7 @@ struct WishlistScreen: View {
                             } label: {
                                 HStack {
                                     Text(s.label)
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
                                     Spacer()
                                     if sort == s {
@@ -255,7 +257,7 @@ struct WishlistScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") { showSort = false }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -285,13 +287,13 @@ private struct WishRowContent: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     Text(item.name)
-                        .font(.system(size: 16, weight: .medium))
+                        .wvFont(.callout, weight: .medium)
                         .foregroundStyle(WVColor.label)
                         .lineLimit(1)
                     Spacer(minLength: 0)
                     if let cur = item.currentPrice {
                         Text(WVFormat.vnd(cur))
-                            .font(.system(size: 15, weight: .semibold))
+                            .wvFont(.subheadlineEmphasis)
                             .foregroundStyle(WVColor.label)
                     }
                 }
@@ -299,13 +301,13 @@ private struct WishRowContent: View {
                     Text([item.brand, item.category]
                         .compactMap { $0 }.filter { !$0.isEmpty }
                         .joined(separator: " · "))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     if let d = delta {
                         Text("\(d < 0 ? "↓" : "↑") \(String(format: "%.1f", abs(d)))%")
-                            .font(.system(size: 12, weight: .semibold))
+                            .wvFont(.captionEmphasis)
                             .foregroundStyle(d < 0 ? WVColor.green : WVColor.red)
                     }
                 }

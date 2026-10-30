@@ -26,6 +26,7 @@ struct DeviceFormView: View {
     /// rationale is still owed; this screen only shows it.
     @EnvironmentObject private var push: PushRegistrar
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // Form fields
     @State private var name: String
@@ -357,7 +358,7 @@ struct DeviceFormView: View {
         WVGroup {
             WVRowContainer {
                 Toggle(L.t("Cần kích hoạt"), isOn: $activationRequired)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .onChange(of: activationRequired) { _, _ in
                         fieldErrors["activatedAt"] = nil
                     }
@@ -365,86 +366,96 @@ struct DeviceFormView: View {
 
             if activationRequired || activatedAt != nil {
                 WVDivider()
-                HStack(spacing: 12) {
+                formRow {
                     Text(L.t("Ngày kích hoạt"))
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
-                    Spacer(minLength: 8)
-                    if let date = activatedAt {
-                        DatePicker("", selection: Binding(
-                            get: { date },
-                            set: { activatedAt = $0 }
-                        ), displayedComponents: .date)
-                        .labelsHidden()
-                        .onChange(of: activatedAt) { _, _ in
-                            fieldErrors["activatedAt"] = nil
-                        }
-                        Button {
-                            activatedAt = nil
-                        } label: {
-                            WVIcon("x", size: 13)
-                                .foregroundStyle(WVColor.label4)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(L.t("Xoá"))
-                    } else {
-                        // No date is a real state: the warranty is required to be
-                        // activated but the retailer has not done it yet. Tapping
-                        // seeds the picker with the purchase day (pre-activation is
-                        // allowed, so the user may move it earlier).
-                        Button(L.t("Chưa kích hoạt")) {
-                            activatedAt = purchaseDate
-                        }
-                        .font(.system(size: 17))
-                        .foregroundStyle(WVColor.tint)
-                        .buttonStyle(.plain)
-                    }
+                } value: {
+                    activatedAtValue
                 }
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .padding(.vertical, 7)
                 fieldErrorRow("activatedAt")
             }
 
             WVDivider()
 
-            HStack(spacing: 12) {
+            formRow {
                 Text(L.t("Mua gói mở rộng trước"))
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
-                Spacer(minLength: 8)
-                if let date = extendedCoverBuyBy {
-                    DatePicker("", selection: Binding(
-                        get: { date },
-                        set: { extendedCoverBuyBy = $0 }
-                    ), displayedComponents: .date)
-                    .labelsHidden()
-                    .onChange(of: extendedCoverBuyBy) { _, _ in
-                        fieldErrors["extendedCoverBuyBy"] = nil
-                    }
-                    Button {
-                        extendedCoverBuyBy = nil
-                    } label: {
-                        WVIcon("x", size: 13)
-                            .foregroundStyle(WVColor.label4)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(L.t("Xoá"))
-                } else {
-                    // The API has no default for this window and never infers one:
-                    // an empty value means "not tracking it", not "60 days".
-                    Button(L.t("Chưa đặt")) {
-                        extendedCoverBuyBy = Date()
-                    }
-                    .font(.system(size: 17))
-                    .foregroundStyle(WVColor.tint)
-                    .buttonStyle(.plain)
-                }
+            } value: {
+                extendedCoverValue
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .padding(.vertical, 7)
             fieldErrorRow("extendedCoverBuyBy")
+        }
+    }
+
+    @ViewBuilder
+    private var activatedAtValue: some View {
+        if let date = activatedAt {
+            HStack(spacing: 12) {
+                DatePicker("", selection: Binding(
+                    get: { date },
+                    set: { activatedAt = $0 }
+                ), displayedComponents: .date)
+                .labelsHidden()
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .onChange(of: activatedAt) { _, _ in
+                    fieldErrors["activatedAt"] = nil
+                }
+                Button {
+                    activatedAt = nil
+                } label: {
+                    WVIcon("x", size: 13)
+                        .foregroundStyle(WVColor.label4)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L.t("Xoá"))
+            }
+        } else {
+            // No date is a real state: the warranty is required to be activated
+            // but the retailer has not done it yet. Tapping seeds the picker with
+            // the purchase day (pre-activation is allowed, so the user may move
+            // it earlier).
+            Button(L.t("Chưa kích hoạt")) {
+                activatedAt = purchaseDate
+            }
+            .wvFont(.body)
+            .foregroundStyle(WVColor.tint)
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var extendedCoverValue: some View {
+        if let date = extendedCoverBuyBy {
+            HStack(spacing: 12) {
+                DatePicker("", selection: Binding(
+                    get: { date },
+                    set: { extendedCoverBuyBy = $0 }
+                ), displayedComponents: .date)
+                .labelsHidden()
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .onChange(of: extendedCoverBuyBy) { _, _ in
+                    fieldErrors["extendedCoverBuyBy"] = nil
+                }
+                Button {
+                    extendedCoverBuyBy = nil
+                } label: {
+                    WVIcon("x", size: 13)
+                        .foregroundStyle(WVColor.label4)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L.t("Xoá"))
+            }
+        } else {
+            // The API has no default for this window and never infers one: an
+            // empty value means "not tracking it", not "60 days".
+            Button(L.t("Chưa đặt")) {
+                extendedCoverBuyBy = Date()
+            }
+            .wvFont(.body)
+            .foregroundStyle(WVColor.tint)
+            .buttonStyle(.plain)
         }
     }
 
@@ -527,14 +538,28 @@ struct DeviceFormView: View {
     /// apart as pills: Chưa biết · 7 · 15 · 30 · 365 · Không đổi trả.
     private var returnWindowRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Text(L.t("Hạn đổi/trả"))
-                    .font(.system(size: 17))
-                    .foregroundStyle(WVColor.label)
-                Spacer(minLength: 8)
-                Text(returnWindowValueLabel)
-                    .font(.system(size: 15))
-                    .foregroundStyle(returnWindowDays == nil ? WVColor.label3 : WVColor.label2)
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(L.t("Hạn đổi/trả"))
+                            .wvFont(.body)
+                            .foregroundStyle(WVColor.label)
+                        Text(returnWindowValueLabel)
+                            .wvFont(.subheadline)
+                            .foregroundStyle(returnWindowDays == nil ? WVColor.label3 : WVColor.label2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HStack(spacing: 12) {
+                        Text(L.t("Hạn đổi/trả"))
+                            .wvFont(.body)
+                            .foregroundStyle(WVColor.label)
+                        Spacer(minLength: 8)
+                        Text(returnWindowValueLabel)
+                            .wvFont(.subheadline)
+                            .foregroundStyle(returnWindowDays == nil ? WVColor.label3 : WVColor.label2)
+                    }
+                }
             }
             .padding(.horizontal, 16)
 
@@ -549,10 +574,11 @@ struct DeviceFormView: View {
                             }
                         } label: {
                             Text(choice.label)
-                                .font(.system(size: 14, weight: active ? .semibold : .medium))
+                                .wvFont(.subheadline, weight: active ? .semibold : .medium)
                                 .foregroundStyle(active ? Color.white : WVColor.label2)
                                 .padding(.horizontal, 12)
-                                .frame(height: 32)
+                                .padding(.vertical, 4)
+                                .frame(minHeight: 32)
                                 .background(active ? WVColor.tint : WVColor.fill3)
                                 .clipShape(Capsule())
                         }
@@ -565,7 +591,7 @@ struct DeviceFormView: View {
 
             if let suggestion = returnWindowSuggestion {
                 Text(suggestion)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 16)
@@ -579,25 +605,23 @@ struct DeviceFormView: View {
     /// `COALESCE(receivedAt, purchaseDate)` would have used — and says so, so
     /// nothing about it looks invented.
     private var deliveryDayRow: some View {
-        HStack(spacing: 12) {
+        formRow {
             VStack(alignment: .leading, spacing: 1) {
                 Text(L.t("Ngày nhận hàng"))
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Text(L.t("Mặc định là ngày mua."))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
             }
-            Spacer(minLength: 8)
+        } value: {
             DatePicker("", selection: $receivedAtDate, displayedComponents: .date)
                 .labelsHidden()
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 .onChange(of: receivedAtDate) { _, _ in
                     fieldErrors["receivedAt"] = nil
                 }
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
     }
 
     // MARK: - Body
@@ -662,10 +686,10 @@ struct DeviceFormView: View {
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(scanning ? L.t("Đang quét hoá đơn…") : L.t("Quét hoá đơn / phiếu bảo hành"))
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .wvFont(.calloutEmphasis)
                                     .foregroundStyle(WVColor.label)
                                 Text(L.t("Chọn ảnh (JPG/PNG/WEBP/HEIC) hoặc tệp PDF để tự điền — vẫn kiểm tra lại trước khi lưu"))
-                                    .font(.system(size: 12))
+                                    .wvFont(.caption)
                                     .foregroundStyle(WVColor.label3)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -686,7 +710,7 @@ struct DeviceFormView: View {
                             Text(info.confidence == "high"
                                  ? L.t("Đã điền nháp từ hoá đơn")
                                  : L.t("Đã điền nháp — độ tin cậy chưa cao, kiểm tra kỹ nhé"))
-                                .font(.system(size: 12, weight: .medium))
+                                .wvFont(.caption, weight: .medium)
                                 .foregroundStyle(WVColor.label2)
                             // Used, but it looks wrong (e.g. an IMEI that fails
                             // its checksum). The value stays in the form.
@@ -694,7 +718,7 @@ struct DeviceFormView: View {
                                 Text(DeviceWarningCopy.draftWarningsNote + " "
                                      + info.warnings.map { "\($0.fieldLabel): \($0.displayMessage)" }
                                         .joined(separator: " · "))
-                                    .font(.system(size: 12))
+                                    .wvFont(.caption)
                                     .foregroundStyle(WVColor.orange)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -702,7 +726,7 @@ struct DeviceFormView: View {
                             if !info.unmatched.isEmpty {
                                 Text(DeviceWarningCopy.draftUnmatchedNote + " "
                                      + info.unmatched.map(Self.unmatchedLabel).joined(separator: ", "))
-                                    .font(.system(size: 12))
+                                    .wvFont(.caption)
                                     .foregroundStyle(WVColor.label3)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -719,7 +743,7 @@ struct DeviceFormView: View {
                             scanInboxNotice(upload)
                         } else if let scanError {
                             Text(scanError)
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                                 .foregroundStyle(WVColor.red)
                                 .padding(.horizontal, 20)
                                 .padding(.top, 8)
@@ -744,28 +768,54 @@ struct DeviceFormView: View {
                     WVDivider()
                     // Category picker row
                     Button { showCategoryPicker = true } label: {
-                        HStack(spacing: 12) {
-                            Text(L.t("Loại"))
-                                .font(.system(size: 17))
-                                .foregroundStyle(WVColor.label)
-                            Spacer(minLength: 8)
-                            HStack(spacing: 6) {
-                                WVLeadingIcon(
-                                    icon: WVCategory.icon(for: category),
-                                    color: WVCategory.accent(for: category),
-                                    size: 22
-                                )
-                                Text(selectedCategoryLabel)
-                                    .font(.system(size: 17))
-                                    .foregroundStyle(WVColor.label3)
+                        if dynamicTypeSize.isAccessibilitySize {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(L.t("Loại"))
+                                    .wvFont(.body)
+                                    .foregroundStyle(WVColor.label)
+                                HStack(spacing: 6) {
+                                    WVLeadingIcon(
+                                        icon: WVCategory.icon(for: category),
+                                        color: WVCategory.accent(for: category),
+                                        size: 22
+                                    )
+                                    Text(selectedCategoryLabel)
+                                        .wvFont(.body)
+                                        .foregroundStyle(WVColor.label3)
+                                        .lineLimit(3)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    WVIcon("arrowRight", size: 13)
+                                        .foregroundStyle(WVColor.label4)
+                                }
                             }
-                            WVIcon("arrowRight", size: 13)
-                                .foregroundStyle(WVColor.label4)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .contentShape(Rectangle())
+                        } else {
+                            HStack(spacing: 12) {
+                                Text(L.t("Loại"))
+                                    .wvFont(.body)
+                                    .foregroundStyle(WVColor.label)
+                                Spacer(minLength: 8)
+                                HStack(spacing: 6) {
+                                    WVLeadingIcon(
+                                        icon: WVCategory.icon(for: category),
+                                        color: WVCategory.accent(for: category),
+                                        size: 22
+                                    )
+                                    Text(selectedCategoryLabel)
+                                        .wvFont(.body)
+                                        .foregroundStyle(WVColor.label3)
+                                }
+                                WVIcon("arrowRight", size: 13)
+                                    .foregroundStyle(WVColor.label4)
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 7)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .padding(.vertical, 7)
-                        .contentShape(Rectangle())
                     }
                     .buttonStyle(WVRowButtonStyle())
                     WVDivider()
@@ -780,17 +830,15 @@ struct DeviceFormView: View {
                 WVSectionHeader(L.t("Mua hàng"))
                 WVGroup {
                     // Date picker
-                    HStack(spacing: 12) {
+                    formRow {
                         Text(L.t("Ngày mua"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer()
+                    } value: {
                         DatePicker("", selection: $purchaseDate, displayedComponents: .date)
                             .labelsHidden()
+                            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
 
                     WVDivider()
 
@@ -798,43 +846,43 @@ struct DeviceFormView: View {
                     // one value. Changing the currency re-denominates what the
                     // typed number means, so the footer below says so and the
                     // live VND preview makes the effect visible.
-                    HStack(spacing: 10) {
+                    formRow {
                         Text(L.t("Giá mua"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
-                        WVMoneyField(value: $price,
-                                     placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
-                                     groupingSeparator: priceFieldGrouping)
-                        Menu {
-                            ForEach(CurrencyRules.pickerCodes(current: currency), id: \.self) { code in
-                                Button {
-                                    selectCurrency(code)
-                                } label: {
-                                    if code == CurrencyRules.normalized(currency) {
-                                        Label(CurrencyRules.label(for: code),
-                                              systemImage: "checkmark")
-                                    } else {
-                                        Text(CurrencyRules.label(for: code))
+                    } value: {
+                        HStack(spacing: 10) {
+                            WVMoneyField(value: $price,
+                                         placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
+                                         groupingSeparator: priceFieldGrouping)
+                            Menu {
+                                ForEach(CurrencyRules.pickerCodes(current: currency), id: \.self) { code in
+                                    Button {
+                                        selectCurrency(code)
+                                    } label: {
+                                        if code == CurrencyRules.normalized(currency) {
+                                            Label(CurrencyRules.label(for: code),
+                                                  systemImage: "checkmark")
+                                        } else {
+                                            Text(CurrencyRules.label(for: code))
+                                        }
                                     }
                                 }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(currency)
+                                        .wvFont(.subheadlineEmphasis)
+                                    WVIcon("arrowDown", size: 10)
+                                }
+                                .foregroundStyle(WVColor.tint)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(WVColor.tint.opacity(0.10))
+                                .clipShape(Capsule())
                             }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Text(currency)
-                                    .font(.system(size: 15, weight: .semibold))
-                                WVIcon("arrowDown", size: 10)
-                            }
-                            .foregroundStyle(WVColor.tint)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .background(WVColor.tint.opacity(0.10))
-                            .clipShape(Capsule())
+                            .fixedSize()
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 7)
 
                     fieldErrorRow("currency")
 
@@ -847,10 +895,10 @@ struct DeviceFormView: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(L.t("Tỷ giá"))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                                 Text(L.t("VND cho 1 %@", currency))
-                                    .font(.system(size: 12))
+                                    .wvFont(.caption)
                                     .foregroundStyle(WVColor.label3)
                             }
                             Spacer(minLength: 8)
@@ -886,7 +934,7 @@ struct DeviceFormView: View {
                                     WVIcon("refresh", size: 14)
                                 }
                                 Text(fxLoading ? L.t("Đang lấy tỷ giá…") : L.t("Lấy tỷ giá"))
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .wvFont(.subheadlineEmphasis)
                                 Spacer(minLength: 0)
                             }
                             .foregroundStyle(WVColor.tint)
@@ -903,7 +951,7 @@ struct DeviceFormView: View {
                                 WVIcon(fxNoticeIsError ? "alert" : "info", size: 12)
                                     .foregroundStyle(fxNoticeIsError ? WVColor.orange : WVColor.label3)
                                 Text(fxNotice)
-                                    .font(.system(size: 12))
+                                    .wvFont(.caption)
                                     .foregroundStyle(fxNoticeIsError ? WVColor.orange : WVColor.label3)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .textSelection(.enabled)
@@ -920,11 +968,11 @@ struct DeviceFormView: View {
                         // the same locked rate that goes on the wire.
                         HStack(spacing: 10) {
                             Text(L.t("Quy đổi sang VND"))
-                                .font(.system(size: 15))
+                                .wvFont(.subheadline)
                                 .foregroundStyle(WVColor.label2)
                             Spacer(minLength: 8)
                             Text(priceVndPreview.map(WVFormat.vnd) ?? "—")
-                                .font(.system(size: 15, weight: .semibold))
+                                .wvFont(.subheadlineEmphasis)
                                 .foregroundStyle(priceVndPreview == nil ? WVColor.label3 : WVColor.label)
                                 .lineLimit(1)
                         }
@@ -1009,13 +1057,13 @@ struct DeviceFormView: View {
                     WVGroup {
                         HStack(spacing: 12) {
                             Text(L.t("Số tháng"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             Spacer(minLength: 8)
                             TextField("12", text: $warrantyMonths)
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                         }
                         .padding(.horizontal, 16)
@@ -1048,7 +1096,7 @@ struct DeviceFormView: View {
                             } label: {
                                 HStack {
                                     Text(pair.1)
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
                                     Spacer()
                                     if status == pair.0 {
@@ -1071,7 +1119,7 @@ struct DeviceFormView: View {
                 WVSectionHeader(L.t("Ghi chú"))
                 WVGroup {
                     TextField(L.t("Ghi chú thêm..."), text: $notes, axis: .vertical)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                         .lineLimit(2...8)
                         .padding(.horizontal, 16)
@@ -1094,7 +1142,7 @@ struct DeviceFormView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Text(saleRecorded ? L.t("Bỏ ghi nhận") : L.t("Ghi nhận đã bán"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.tint)
                             Spacer(minLength: 0)
                             if saleRecorded {
@@ -1112,18 +1160,16 @@ struct DeviceFormView: View {
                     if saleRecorded {
                         WVDivider()
 
-                        HStack(spacing: 12) {
+                        formRow {
                             Text(L.t("Ngày bán"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
-                            Spacer()
+                        } value: {
                             DatePicker("", selection: $soldDate, displayedComponents: .date)
                                 .labelsHidden()
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                                 .onChange(of: soldDate) { _, _ in fieldErrors["soldAt"] = nil }
                         }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .padding(.vertical, 7)
                         // The server's own message, never a paraphrase of it.
                         fieldErrorRow("soldAt")
 
@@ -1131,7 +1177,7 @@ struct DeviceFormView: View {
 
                         HStack(spacing: 12) {
                             Text(L.t("Giá bán"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             Spacer(minLength: 8)
                             // Blank ⇒ nil ("chưa bán"), `0` ⇒ a real price
@@ -1145,7 +1191,7 @@ struct DeviceFormView: View {
                                 .onChange(of: soldPrice) { _, _ in fieldErrors["soldPrice"] = nil }
                             if usesForeignCurrency {
                                 Text(currency)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .wvFont(.footnoteEmphasis)
                                     .foregroundStyle(WVColor.label3)
                             }
                         }
@@ -1158,7 +1204,7 @@ struct DeviceFormView: View {
 
                         HStack(spacing: 8) {
                             Text(L.t("Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán."))
-                                .font(.system(size: 12))
+                                .wvFont(.caption)
                                 .foregroundStyle(WVColor.label3)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
@@ -1175,11 +1221,11 @@ struct DeviceFormView: View {
                                     .foregroundStyle(Self.saleToneColor(profit.tone))
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(profit.label)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .wvFont(.subheadlineEmphasis)
                                         .foregroundStyle(Self.saleToneColor(profit.tone))
                                     Text(L.t("so với giá mua %@",
                                              WVFormat.currency(price ?? 0, currency)))
-                                        .font(.system(size: 12))
+                                        .wvFont(.caption)
                                         .foregroundStyle(WVColor.label3)
                                 }
                                 Spacer(minLength: 0)
@@ -1194,7 +1240,7 @@ struct DeviceFormView: View {
                 // Error
                 if let topError {
                     Text(topError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, 32)
                         .padding(.top, 8)
@@ -1224,6 +1270,11 @@ struct DeviceFormView: View {
 
                 Spacer().frame(height: 24)
             }
+            // Pin the form to the scroll view's width. Without this a 40 pt
+            // placeholder (or a compact DatePicker) reports an ideal width
+            // wider than the phone, the whole card is laid out at that width
+            // and centred, and every row's leading edge is pushed off-screen.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa thiết bị") : L.t("Thiết bị mới"))
@@ -1243,13 +1294,13 @@ struct DeviceFormView: View {
                     ProgressView()
                 } else if didSave {
                     Button("Xong") { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 } else {
                     Button(isEditing ? L.t("Lưu") : L.t("Thêm")) {
                         Task { await submit() }
                     }
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(isValid ? WVColor.tint : WVColor.label3)
                     .disabled(!isValid)
                 }
@@ -1500,28 +1551,28 @@ struct DeviceFormView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(WVColor.tint)
                 Text(L.t("Đã thêm vào Hộp thư đến"))
-                    .font(.system(size: 13, weight: .semibold))
+                    .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 0)
             }
 
             Text(upload.fileName)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label3)
                 .lineLimit(1)
 
             if let scanError {
                 Text(scanError)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.red)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(L.t("Không quét được hoá đơn, nhưng tệp vẫn nằm trong Hộp thư đến — không bị mất."))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(L.t("Tệp vẫn nằm trong Hộp thư đến kể cả khi bạn chưa lưu thiết bị này."))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1534,7 +1585,7 @@ struct DeviceFormView: View {
                info.hasExtractedText,
                info.extractedTextStored == false {
                 Text(L.t("Chưa lưu được văn bản OCR nên hoá đơn này chưa tìm thấy bằng từ khoá."))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1542,7 +1593,7 @@ struct DeviceFormView: View {
             Button { showScanInbox = true } label: {
                 HStack(spacing: 4) {
                     Text(L.t("Mở Hộp thư đến"))
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                     WVIcon("arrowRight", size: 11)
                 }
                 .foregroundStyle(WVColor.tint)
@@ -1600,43 +1651,35 @@ struct DeviceFormView: View {
     /// simulator (or any device without `DataScannerViewController` support) it
     /// does not appear at all, rather than opening a dead camera surface.
     private var serialRow: some View {
-        HStack(spacing: 10) {
-            Text("Serial / IMEI")
-                .font(.system(size: 17))
-                .foregroundStyle(WVColor.label)
-                .frame(width: 110, alignment: .leading)
-
-            TextField(L.t("Không bắt buộc"), text: $serial)
-                .font(.system(size: 17))
-                .foregroundStyle(WVColor.label)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .multilineTextAlignment(.trailing)
-                .onChange(of: serial) { _, newValue in
-                    fieldErrors["serialNumber"] = nil
-                    if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
-                        serialScanNotice = false
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Serial / IMEI")
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    HStack(spacing: 10) {
+                        serialField(alignment: .leading)
+                        serialScanButton
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+            } else {
+                HStack(spacing: 10) {
+                    Text("Serial / IMEI")
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        .frame(width: 110, alignment: .leading)
 
-            if SerialScannerSupport.isSupported {
-                Button {
-                    Task { await beginSerialScan() }
-                } label: {
-                    Image(systemName: "barcode.viewfinder")
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(WVColor.tint)
-                        .frame(width: 38, height: 38)
-                        .background(WVColor.tint.opacity(0.12))
-                        .clipShape(Circle())
+                    serialField(alignment: .trailing)
+                    serialScanButton
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L.t("Quét serial / IMEI"))
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 7)
             }
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
         // Attached to the serial row, not the form root: the root already has
         // the discard alert, and stacking two alerts on one view is the classic
         // way to get "only the last one shows" behaviour.
@@ -1661,13 +1704,48 @@ struct DeviceFormView: View {
         }
     }
 
+    private func serialField(alignment: TextAlignment) -> some View {
+        TextField(L.t("Không bắt buộc"), text: $serial)
+            .wvFont(.body)
+            .foregroundStyle(WVColor.label)
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .multilineTextAlignment(alignment)
+            .frame(maxWidth: .infinity,
+                   alignment: alignment == .leading ? .leading : .trailing)
+            .onChange(of: serial) { _, newValue in
+                fieldErrors["serialNumber"] = nil
+                if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                    serialScanNotice = false
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var serialScanButton: some View {
+        if SerialScannerSupport.isSupported {
+            Button {
+                Task { await beginSerialScan() }
+            } label: {
+                Image(systemName: "barcode.viewfinder")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(WVColor.tint)
+                    .frame(width: 38, height: 38)
+                    .background(WVColor.tint.opacity(0.12))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L.t("Quét serial / IMEI"))
+        }
+    }
+
     private var serialScanNoticeRow: some View {
         HStack(alignment: .top, spacing: 7) {
             WVIcon("checkCircle", size: 13)
                 .foregroundStyle(WVColor.green)
                 .padding(.top, 1)
             Text(L.t("Đã điền serial từ bản quét — kiểm tra lại trước khi lưu."))
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -1683,22 +1761,83 @@ struct DeviceFormView: View {
         keyboard: UIKeyboardType = .default,
         autocapitalize: TextInputAutocapitalization = .sentences
     ) -> some View {
-        HStack(spacing: 12) {
-            Text(label)
-                .font(.system(size: 17))
-                .foregroundStyle(WVColor.label)
-                .frame(width: 110, alignment: .leading)
-            TextField(placeholder, text: text)
-                .font(.system(size: 17))
-                .foregroundStyle(WVColor.label)
-                .keyboardType(keyboard)
-                .textInputAutocapitalization(autocapitalize)
-                .autocorrectionDisabled()
-                .multilineTextAlignment(.trailing)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(label)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    inputField(placeholder: placeholder, text: text, keyboard: keyboard,
+                               autocapitalize: autocapitalize, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+            } else {
+                HStack(spacing: 12) {
+                    Text(label)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        .frame(width: 110, alignment: .leading)
+                    inputField(placeholder: placeholder, text: text, keyboard: keyboard,
+                               autocapitalize: autocapitalize, alignment: .trailing)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 7)
+            }
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
+    }
+
+    private func inputField(
+        placeholder: String,
+        text: Binding<String>,
+        keyboard: UIKeyboardType,
+        autocapitalize: TextInputAutocapitalization,
+        alignment: TextAlignment
+    ) -> some View {
+        TextField(placeholder, text: text)
+            .wvFont(.body)
+            .foregroundStyle(WVColor.label)
+            .keyboardType(keyboard)
+            .textInputAutocapitalization(autocapitalize)
+            .autocorrectionDisabled()
+            .multilineTextAlignment(alignment)
+            // A TextField reports the placeholder's width as its ideal width.
+            // At 40 pt that is wider than the phone, which used to widen the
+            // whole card. The field must take the row's width instead.
+            .frame(maxWidth: .infinity,
+                   alignment: alignment == .leading ? .leading : .trailing)
+    }
+
+    /// A label/value row that turns into a vertical pair at Accessibility
+    /// sizes. The default (large) layout is the original HStack; the stacked
+    /// form exists because a compact `DatePicker` at 2× text is wider than the
+    /// screen minus its label, which used to push the whole form off-centre.
+    @ViewBuilder
+    private func formRow<Label: View, Value: View>(
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder value: () -> Value
+    ) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                label()
+                value()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+        } else {
+            HStack(spacing: 12) {
+                label()
+                Spacer(minLength: 8)
+                value()
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+        }
     }
 
     /// The server's own field message under a sale input — shown verbatim, in
@@ -1709,7 +1848,7 @@ struct DeviceFormView: View {
     private func fieldErrorRow(_ key: String) -> some View {
         if let message = fieldErrors[key]?.first {
             Text(message)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.red)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1946,13 +2085,13 @@ struct DeviceFormView: View {
             HStack(spacing: 8) {
                 WVIcon("checkCircle", size: 14)
                 Text(L.t("Đã lưu thiết bị"))
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                 Spacer(minLength: 0)
             }
             .foregroundStyle(WVColor.green)
 
             Text(L.t("Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi."))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -2000,7 +2139,7 @@ struct DeviceFormView: View {
             HStack(spacing: 8) {
                 WVIcon("checkCircle", size: 14)
                 Text(DeviceWarningCopy.savedHeading)
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
             }
             .foregroundStyle(WVColor.green)
 
@@ -2009,14 +2148,14 @@ struct DeviceFormView: View {
                     WVIcon("alert", size: 12)
                         .foregroundStyle(WVColor.orange)
                     Text("\(warning.fieldLabel): \(warning.displayMessage)")
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
             Text(DeviceWarningCopy.savedNote)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label3)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -2056,7 +2195,7 @@ private struct AutocompleteRow: View {
                         text = s
                     } label: {
                         Text(s)
-                            .font(.system(size: 12, weight: .medium))
+                            .wvFont(.caption, weight: .medium)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(WVColor.fill3)
@@ -2097,7 +2236,7 @@ struct CategoryPickerSheet: View {
                                 size: 28
                             )
                             Text(opt.name)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             Spacer()
                             if selected.lowercased() == opt.code.lowercased() {
@@ -2116,7 +2255,7 @@ struct CategoryPickerSheet: View {
                     // `L.t`, not a literal: this sheet is now also part of the
                     // bulk flow, and an English UI must not show "Xong".
                     Button(L.t("Xong")) { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }

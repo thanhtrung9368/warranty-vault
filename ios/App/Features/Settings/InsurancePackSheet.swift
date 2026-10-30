@@ -90,14 +90,14 @@ struct InsurancePackSheet: View {
                 HStack(spacing: 10) {
                     WVLeadingIcon(icon: "shieldCheck", color: WVColor.blue, size: 34)
                     Text(L.t("Bảng kê cho bảo hiểm (tiếng Việt)"))
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
 
                 Text(L.t("Tải một tệp PDF để gửi cho công ty bảo hiểm khi họ yêu cầu bảng kê tài sản: trang bìa, bảng kê giá trị và giá mua, từng thiết bị kèm điều khoản bảo hành và ảnh, cùng danh mục tệp đính kèm."))
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -107,7 +107,7 @@ struct InsurancePackSheet: View {
                 HStack(alignment: .top, spacing: 8) {
                     WVIcon("globe", size: 13)
                     Text(L.t("Tệp PDF luôn ở tiếng Việt vì người đọc là công ty bảo hiểm hoặc giám định viên, không phải người dùng ứng dụng."))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .foregroundStyle(WVColor.blue)
@@ -128,7 +128,7 @@ struct InsurancePackSheet: View {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "tag", color: WVColor.orange)
                     Text(L.t("Bao gồm cả thiết bị đã bán"))
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 8)
                     Toggle("", isOn: $includeSold)
@@ -144,7 +144,7 @@ struct InsurancePackSheet: View {
             Text(includeSold
                  ? L.t("Phạm vi: tất cả thiết bị, kể cả đã bán.")
                  : L.t("Phạm vi: tất cả thiết bị đang sở hữu."))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .padding(.horizontal, 32)
                 .padding(.top, 10)
@@ -161,7 +161,7 @@ struct InsurancePackSheet: View {
         HStack(alignment: .top, spacing: 8) {
             WVIcon("alert", size: 14)
             Text(message)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -188,7 +188,7 @@ struct InsurancePackSheet: View {
             .disabled(isBuilding)
 
             Text(L.t("Tệp được chia sẻ qua bảng chia sẻ của iOS — bạn chọn nơi gửi."))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

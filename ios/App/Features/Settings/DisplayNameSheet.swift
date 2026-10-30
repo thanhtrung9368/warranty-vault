@@ -41,7 +41,7 @@ struct DisplayNameSheet: View {
 
                     WVGroup {
                         TextField(L.t("Tên hiển thị"), text: $name)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .textInputAutocapitalization(.words)
                             .autocorrectionDisabled()
@@ -56,7 +56,7 @@ struct DisplayNameSheet: View {
                         if let nameError {
                             WVDivider()
                             Text(nameError)
-                                .font(.system(size: 12))
+                                .wvFont(.caption)
                                 .foregroundStyle(WVColor.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 16)
@@ -68,7 +68,7 @@ struct DisplayNameSheet: View {
 
                     if let topError {
                         Text(topError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 32)
@@ -92,7 +92,7 @@ struct DisplayNameSheet: View {
                         ProgressView()
                     } else {
                         Button(L.t("Lưu")) { Task { await save() } }
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.tint)
                     }
                 }

@@ -67,7 +67,7 @@ struct ActionQueueScreen: View {
 
                 if let actionError {
                     Text(actionError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, WVSpacing.titleGutter)
                         .padding(.top, 8)
@@ -103,7 +103,7 @@ struct ActionQueueScreen: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text(subtitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label2)
                 Spacer(minLength: 8)
             }
@@ -237,7 +237,7 @@ struct ActionQueueScreen: View {
                 WVIcon("calendar", size: 11, weight: .bold)
                 Text(L.t("Ghi hạn"))
             }
-            .font(.system(size: 12, weight: .semibold))
+            .wvFont(.captionEmphasis)
             .foregroundStyle(WVColor.tint)
             .padding(.horizontal, 10)
             .frame(height: 26)
@@ -267,13 +267,13 @@ struct ActionQueueScreen: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Server copy, verbatim.
                 Text(item.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .wvFont(.calloutEmphasis)
                     .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(item.detail)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -284,12 +284,12 @@ struct ActionQueueScreen: View {
                     }
                     if let amount = item.amountVnd {
                         Text(VndFormat.string(amount))
-                            .font(.system(size: 12, weight: .semibold))
+                            .wvFont(.captionEmphasis)
                             .foregroundStyle(WVColor.label2)
                     }
                     if isSnoozedRow, let until = ActionQueueRules.dateLabel(item.snoozedUntil) {
                         Text(L.t("Hiện lại %@", until))
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                     }
                 }
@@ -349,7 +349,7 @@ struct ActionQueueScreen: View {
                 Text(text)
             }
         }
-        .font(.system(size: 12, weight: .semibold))
+        .wvFont(.captionEmphasis)
         .foregroundStyle(WVColor.tint)
         .padding(.horizontal, 10)
         .frame(height: 26)
@@ -401,7 +401,7 @@ struct ActionQueueScreen: View {
                 .foregroundStyle(WVColor.label3)
                 .padding(.top, 1)
             Text(note)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
         }

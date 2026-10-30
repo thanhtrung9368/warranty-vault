@@ -95,10 +95,10 @@ struct SerialScannerSheet: View {
             if !startFailed {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(L.t("Đưa camera vào mã vạch hoặc dòng chữ in serial/IMEI trên hộp hoặc mặt máy."))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(.white)
                     Text(L.t("Chạm vào dòng chữ hoặc mã vạch được đánh dấu để chọn. Mã vạch có thể tự nhận; kết quả luôn là bản nháp để bạn kiểm tra lại."))
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -117,11 +117,11 @@ struct SerialScannerSheet: View {
                 .font(.system(size: 44, weight: .regular))
                 .foregroundStyle(WVColor.label3)
             Text(L.t("Không mở được camera quét."))
-                .font(.system(size: 19, weight: .semibold))
+                .wvFont(.title3Emphasis)
                 .foregroundStyle(WVColor.label)
                 .multilineTextAlignment(.center)
             Text(L.t("Thử đóng màn hình này rồi mở lại. Nếu một ứng dụng khác đang dùng camera, hãy đóng ứng dụng đó trước."))
-                .font(.system(size: 14))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label3)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -142,17 +142,17 @@ struct SerialScannerSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text(L.t("Kết quả quét"))
-                    .font(.system(size: 22, weight: .bold))
+                    .wvFont(.title2Emphasis)
                     .foregroundStyle(WVColor.label)
                     .padding(.top, 20)
 
                 Text(L.t("Đây là chuỗi camera đọc được. Sửa lại nếu thiếu hoặc thừa ký tự, rồi bấm dùng. Ứng dụng chỉ điền vào biểu mẫu — chưa lưu gì."))
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 TextField("Serial / IMEI", text: $reviewText)
-                    .font(.system(size: 20, weight: .semibold))
+                    .wvFont(.title3Emphasis)
                     .foregroundStyle(WVColor.label)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
@@ -164,7 +164,7 @@ struct SerialScannerSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 Text(L.t("Kết quả có thể là cả dòng chữ in trên hộp. Hãy xoá phần nhãn còn sót lại nếu có."))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -181,7 +181,7 @@ struct SerialScannerSheet: View {
                     scannerID = UUID()
                 } label: {
                     Text(L.t("Quét lại"))
-                        .font(.system(size: 16, weight: .semibold))
+                        .wvFont(.calloutEmphasis)
                         .foregroundStyle(WVColor.tint)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)

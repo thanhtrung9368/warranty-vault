@@ -75,11 +75,11 @@ struct LoginView: View {
 
             VStack(spacing: 6) {
                 Text(L.t("Chào mừng quay lại"))
-                    .font(.system(size: 28, weight: .bold))
+                    .wvFont(.titleEmphasis)
                     .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
                 Text(L.t("Đăng nhập để xem bảo hành, đăng ký và wishlist của mày."))
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
@@ -119,7 +119,7 @@ struct LoginView: View {
                 HStack(spacing: 6) {
                     WVIcon("alert", size: 13)
                     Text(topError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                 }
                 .foregroundStyle(WVColor.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -143,7 +143,7 @@ struct LoginView: View {
                 showForgot = true
             } label: {
                 Text(L.t("Quên mật khẩu?"))
-                    .font(.system(size: 14, weight: .medium))
+                    .wvFont(.subheadline, weight: .medium)
                     .foregroundStyle(WVColor.tint)
             }
             .padding(.top, 12)
@@ -162,7 +162,7 @@ struct LoginView: View {
                 Text(L.t("Chưa có tài khoản? ")) +
                 Text(L.t("Đăng ký")).foregroundColor(WVColor.tint).bold()
             }
-            .font(.system(size: 14))
+            .wvFont(.subheadline)
             .foregroundStyle(WVColor.label3)
             .padding(.top, 4)
         }
@@ -203,7 +203,7 @@ struct AuthTextField: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Text(label)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                     .frame(width: 100, alignment: .leading)
 
@@ -213,7 +213,7 @@ struct AuthTextField: View {
                         .textContentType(contentType)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                         .multilineTextAlignment(.trailing)
                 } else {
@@ -222,7 +222,7 @@ struct AuthTextField: View {
                         .textContentType(contentType)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                         .multilineTextAlignment(.trailing)
                 }
@@ -232,7 +232,7 @@ struct AuthTextField: View {
 
             if let error {
                 Text(error)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.red)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)

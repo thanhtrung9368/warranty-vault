@@ -150,7 +150,7 @@ struct ClaimsSection: View {
                 HStack(spacing: 6) {
                     WVIcon("sparkles", size: 13)
                     Text(L.t("Đánh giá bảo hành"))
-                        .font(.system(size: 13, weight: .semibold))
+                        .wvFont(.footnoteEmphasis)
                     Spacer(minLength: 0)
                 }
                 .foregroundStyle(WVColor.tint)
@@ -180,12 +180,12 @@ struct ClaimsSection: View {
                         .foregroundStyle(WVColor.orange)
                         .padding(.top, 1)
                     Text(L.t("Thiết bị đang Hỏng nhưng chưa có lần sửa chữa nào đang mở"))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(L.t("Ghi lại nơi sửa, số phiếu và ngày dự kiến trả để lần đi bảo hành này không bị quên."))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
                     .fixedSize(horizontal: false, vertical: true)
                 WVButton(L.t("Bắt đầu sửa chữa"), icon: "plus", size: .small) {
@@ -255,7 +255,7 @@ private struct ClaimRow: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .center, spacing: 8) {
                 Text(claim.issue)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 Spacer(minLength: 8)
@@ -266,7 +266,7 @@ private struct ClaimRow: View {
 
             if !dateLine.isEmpty {
                 Text(dateLine)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
             }
@@ -276,7 +276,7 @@ private struct ClaimRow: View {
                 .joined(separator: " · ")
             if !meta.isEmpty {
                 Text(meta)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
             }

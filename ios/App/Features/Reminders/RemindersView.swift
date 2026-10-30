@@ -53,7 +53,7 @@ struct RemindersView: View {
                     HStack(spacing: 8) {
                         WVIcon("alert", size: 14)
                         Text(actionError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                     }
                     .foregroundStyle(WVColor.red)
                     .padding(.horizontal, WVSpacing.gutter)
@@ -64,7 +64,7 @@ struct RemindersView: View {
                     HStack(spacing: 8) {
                         WVIcon("checkCircle", size: 14)
                         Text(L.t("Đã ẩn “%@”", dismissed.device.name))
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .lineLimit(1)
                         Spacer(minLength: 8)
                         Button {
@@ -74,7 +74,7 @@ struct RemindersView: View {
                                 ProgressView().scaleEffect(0.7)
                             } else {
                                 Text(L.t("Hoàn tác"))
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .wvFont(.footnoteEmphasis)
                             }
                         }
                         .buttonStyle(.plain)
@@ -99,7 +99,7 @@ struct RemindersView: View {
                         // Colored section header
                         HStack {
                             Text("\(bucket.label) · \(items.count)")
-                                .font(.system(size: 13, weight: .semibold))
+                                .wvFont(.footnoteEmphasis)
                                 .foregroundStyle(bucket.color)
                             Spacer()
                         }
@@ -138,7 +138,7 @@ struct RemindersView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(entry.device.name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .wvFont(.calloutEmphasis)
                             .foregroundStyle(WVColor.label)
                             .lineLimit(1)
                         Spacer(minLength: 4)
@@ -148,7 +148,7 @@ struct RemindersView: View {
                     HStack(spacing: 8) {
                         WVChip(entry.type.label, tone: chipTone(for: entry.type))
                         Text("\(entry.provider ?? "–") · \(WVFormat.date(entry.endDate))")
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
                     }
@@ -165,7 +165,7 @@ struct RemindersView: View {
                                 Text(L.t("Đã xem, ẩn đi"))
                             }
                         }
-                        .font(.system(size: 12, weight: .semibold))
+                        .wvFont(.captionEmphasis)
                         .foregroundStyle(WVColor.label3)
                         .padding(.horizontal, 8)
                         .frame(height: 22)
@@ -196,7 +196,7 @@ struct RemindersView: View {
 
         HStack {
             Text(L.t("Đã ẩn · %d", count))
-                .font(.system(size: 13, weight: .semibold))
+                .wvFont(.footnoteEmphasis)
                 .foregroundStyle(WVColor.label3)
             Spacer()
         }
@@ -208,13 +208,13 @@ struct RemindersView: View {
             if store.dismissedUnavailable {
                 WVRowContainer {
                     Text(L.t("Không tải được danh sách nhắc nhở đã ẩn — kéo xuống để tải lại nhé."))
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label3)
                 }
             } else if store.dismissed.isEmpty {
                 WVRowContainer {
                     Text(L.t("Chưa ẩn gói bảo hành nào. Gói nào bạn bấm “Đã xem, ẩn đi” sẽ nằm ở đây để khôi phục lại."))
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -239,7 +239,7 @@ struct RemindersView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(item.deviceName)
-                            .font(.system(size: 16, weight: .semibold))
+                            .wvFont(.calloutEmphasis)
                             .foregroundStyle(WVColor.label)
                             .lineLimit(1)
                         Spacer(minLength: 4)
@@ -253,7 +253,7 @@ struct RemindersView: View {
                             WVChip(item.deviceStatus.label, tone: .gray)
                         }
                         Text("\(item.warrantyProvider ?? "–") · \(WVFormat.date(item.endDate))")
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
                     }
@@ -269,7 +269,7 @@ struct RemindersView: View {
                                 Text(L.t("Khôi phục"))
                             }
                         }
-                        .font(.system(size: 12, weight: .semibold))
+                        .wvFont(.captionEmphasis)
                         .foregroundStyle(WVColor.tint)
                         .padding(.horizontal, 8)
                         .frame(height: 22)

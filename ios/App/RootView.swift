@@ -121,12 +121,12 @@ struct AppLockScreen: View {
                     .padding(.bottom, 4)
 
                 Text(L.t("Warrly đang khoá"))
-                    .font(.system(size: 22, weight: .bold))
+                    .wvFont(.title2Emphasis)
                     .foregroundStyle(WVColor.label)
 
                 Text(L.t("Mở khoá bằng %@ hoặc mã mở khoá của thiết bị để xem dữ liệu bảo hành.",
                          appLock.availability.biometry.label))
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, WVSpacing.gutter)
@@ -143,7 +143,7 @@ struct AppLockScreen: View {
 
                 if let error = appLock.lastError {
                     Text(error)
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.red)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, WVSpacing.gutter)
@@ -156,13 +156,13 @@ struct AppLockScreen: View {
                     }
                 } label: {
                     Text(L.t("Đăng xuất"))
-                        .font(.system(size: 16, weight: .semibold))
+                        .wvFont(.calloutEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
                 .padding(.top, 6)
 
                 Text(L.t("Nếu không mở khoá được, hãy đăng xuất rồi đăng nhập lại bằng email và mật khẩu."))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label4)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, WVSpacing.gutter)

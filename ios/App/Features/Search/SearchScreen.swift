@@ -113,7 +113,7 @@ struct SearchScreen: View {
             HStack(spacing: 8) {
                 ProgressView()
                 Text(L.t("Đang tìm…"))
-                    .font(.system(size: 15))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
             }
             .frame(maxWidth: .infinity)
@@ -143,7 +143,7 @@ struct SearchScreen: View {
     private func resultList(_ results: SearchResults) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(L.p("%d kết quả", results.totalCount))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .padding(.horizontal, WVSpacing.titleGutter)
                 .padding(.bottom, 4)
@@ -305,11 +305,11 @@ private struct SearchDeviceRow: View {
             )
             VStack(alignment: .leading, spacing: 2) {
                 Text(device.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .wvFont(.callout, weight: .medium)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 Text("\(device.brand ?? "—") · \(WVFormat.currency(device.purchasePrice, device.currency))")
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
             }
@@ -337,23 +337,23 @@ private struct SearchSubscriptionRow: View {
             )
             VStack(alignment: .leading, spacing: 2) {
                 Text(sub.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .wvFont(.callout, weight: .medium)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 Text([sub.brand, sub.plan, sub.accountEmail]
                     .compactMap { $0 }.filter { !$0.isEmpty }
                     .joined(separator: " · "))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(WVFormat.vnd(sub.price))
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                 Text(sub.status.label)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
             }
             WVIcon("arrowRight", size: 13)
@@ -378,13 +378,13 @@ private struct SearchWishlistRow: View {
             )
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .wvFont(.callout, weight: .medium)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 Text([item.brand, item.notes]
                     .compactMap { $0 }.filter { !$0.isEmpty }
                     .joined(separator: " · "))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
             }
@@ -392,11 +392,11 @@ private struct SearchWishlistRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 if let price = item.currentPrice {
                     Text(WVFormat.vnd(price))
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                 }
                 Text(item.status.label)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
             }
             WVIcon("arrowRight", size: 13)
@@ -427,17 +427,17 @@ private struct SearchAttachmentRow: View {
             WVLeadingIcon(icon: "receipt", color: WVColor.orange, size: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(hit.attachment.fileName)
-                    .font(.system(size: 16, weight: .medium))
+                    .wvFont(.callout, weight: .medium)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
                 if let snippet {
                     Text(snippet)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
                 }
                 Text(WVFormat.dateTime(hit.attachment.uploadedAt))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
             }
             Spacer(minLength: 8)

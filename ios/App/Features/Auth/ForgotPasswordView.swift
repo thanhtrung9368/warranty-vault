@@ -68,10 +68,10 @@ struct ForgotPasswordView: View {
                     .foregroundStyle(WVColor.brand)
             }
             Text(L.t("Đặt lại mật khẩu"))
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .foregroundStyle(WVColor.label)
             Text(L.t("Nhập email đã đăng ký để nhận link đặt lại."))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 16)
@@ -96,7 +96,7 @@ struct ForgotPasswordView: View {
             if let topError {
                 HStack(spacing: 6) {
                     WVIcon("alert", size: 13)
-                    Text(topError).font(.system(size: 13))
+                    Text(topError).wvFont(.footnote)
                 }
                 .foregroundStyle(WVColor.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -130,7 +130,7 @@ struct ForgotPasswordView: View {
                 HStack(spacing: 12) {
                     WVLeadingIcon(icon: "mail", color: WVColor.green)
                     Text(L.t("Nếu email đã đăng ký, link đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư."))
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                 }

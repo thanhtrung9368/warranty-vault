@@ -60,6 +60,7 @@
 		C1330D82F0F68FD467C4F867 /* WarrantyFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCDE32D624D890090538C46 /* WarrantyFormView.swift */; };
 		C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60CE06298DACE1DDBD26D736 /* Formatters.swift */; };
 		C5EBDFF0AF59F28C06CEFA16 /* LocalizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32BE9FC3440CF94FF17362FA /* LocalizationStore.swift */; };
+		C73A7DCDDF1BAB51A47971EC /* Fonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92DBBD8571A8AAA6922D911 /* Fonts.swift */; };
 		C7AC3247EAFD17CC03FB0798 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 569E34979FCE797CC256EF82 /* Components.swift */; };
 		CCF8B9EE27949317AB45DE66 /* SubscriptionsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3552F34924BA68A7F154BE7 /* SubscriptionsStore.swift */; };
 		CDBEDBF734B129F8A0BB03CD /* Charts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */; };
@@ -131,7 +132,7 @@
 /* Begin PBXFileReference section */
 		00F0C6B251B83320A9A05248 /* BrandWarrantySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandWarrantySection.swift; sourceTree = "<group>"; };
 		02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistScreen.swift; sourceTree = "<group>"; };
-		0937C68493CB01905B03134B /* WarrlyWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WarrlyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0937C68493CB01905B03134B /* WarrlyWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = WarrlyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		09877AAA02E03009FC63EF7B /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
 		0DCDE32D624D890090538C46 /* WarrantyFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyFormView.swift; sourceTree = "<group>"; };
 		11C9A2418F23E0EA06A4B9B5 /* ClaimFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimFormView.swift; sourceTree = "<group>"; };
@@ -157,7 +158,7 @@
 		46B05C8F7416303EECD37904 /* WishlistDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistDetailView.swift; sourceTree = "<group>"; };
 		4C326B2D0B7FECEC9BBCBE81 /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
 		4D7FFA6DAD7BA79660B9B450 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		4E274D2988BAB5CA226680B2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4E274D2988BAB5CA226680B2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		52FD9C4BD9E35D997B9A8C02 /* InboxStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxStore.swift; sourceTree = "<group>"; };
 		56135D31F4FA046E31F902A4 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		569E34979FCE797CC256EF82 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
@@ -185,12 +186,12 @@
 		A042C35BC3C17A27F6A73A59 /* BulkDeviceAddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkDeviceAddView.swift; sourceTree = "<group>"; };
 		A218A934DFAE22BEB8AAEB7D /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A578AD0736988AF89A6C50BC /* ShareCertificatesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCertificatesSection.swift; sourceTree = "<group>"; };
-		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
 		ACBE2AE96CDE899FE4D0695F /* ClaimAssessmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimAssessmentView.swift; sourceTree = "<group>"; };
 		AE23F30DA617EBC2492BA2FE /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionQueueStore.swift; sourceTree = "<group>"; };
-		B0C5A5578DCF334E06E81790 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B0C5A5578DCF334E06E81790 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B0F0DFA33018B41748664EBF /* SessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsView.swift; sourceTree = "<group>"; };
 		B1901A96E2C27AD419DF881E /* AttachmentSearchPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentSearchPreviewSheet.swift; sourceTree = "<group>"; };
 		B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushDevicesView.swift; sourceTree = "<group>"; };
@@ -215,7 +216,8 @@
 		F055799E348F2DDE968C3E04 /* SubscriptionAuditStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionAuditStore.swift; sourceTree = "<group>"; };
 		F14D4F5DC2451792F25172A9 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		F47C1974502CB1C3B5831E36 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
-		FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F92DBBD8571A8AAA6922D911 /* Fonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fonts.swift; sourceTree = "<group>"; };
+		FBB67179090E86F03BC37D87 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -447,6 +449,7 @@
 				A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */,
 				1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */,
 				569E34979FCE797CC256EF82 /* Components.swift */,
+				F92DBBD8571A8AAA6922D911 /* Fonts.swift */,
 				60CE06298DACE1DDBD26D736 /* Formatters.swift */,
 				888F7704865BD2666E99290B /* LeadDaysSection.swift */,
 				F14D4F5DC2451792F25172A9 /* Theme.swift */,
@@ -643,6 +646,7 @@
 						ProvisioningStyle = Automatic;
 					};
 					E7E092DAFB31291F155D4067 = {
+						DevelopmentTeam = RNCMNPBA9L;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -753,6 +757,7 @@
 				7C1EBB1B0A534E6E76CFFCD0 /* DevicesStore.swift in Sources */,
 				75D5A75BC2DFF4FBB1EDBC4B /* DisplayNameSheet.swift in Sources */,
 				18B4CC7B7F08AC5969307F04 /* EmailChangeSheet.swift in Sources */,
+				C73A7DCDDF1BAB51A47971EC /* Fonts.swift in Sources */,
 				D5C014DE56CFA32383CFD0C9 /* ForgotPasswordView.swift in Sources */,
 				C4868C2AA09986BBB5627FF3 /* Formatters.swift in Sources */,
 				E612F1B69AB506A3D47F3743 /* InboxCaptureSheet.swift in Sources */,
@@ -1013,7 +1018,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WarrlyWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = H572CC5N6D;
+				DEVELOPMENT_TEAM = RNCMNPBA9L;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1035,7 +1040,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WarrlyWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = H572CC5N6D;
+				DEVELOPMENT_TEAM = RNCMNPBA9L;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

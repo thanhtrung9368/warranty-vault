@@ -70,7 +70,7 @@ struct RegisterView: View {
 
             VStack(spacing: 6) {
                 Text(L.t("Tạo tài khoản miễn phí"))
-                    .font(.system(size: 24, weight: .bold))
+                    .wvFont(.titleEmphasis)
                     .foregroundStyle(WVColor.label)
                     .multilineTextAlignment(.center)
                 // The price of the free tier, stated the way the web states it:
@@ -79,7 +79,7 @@ struct RegisterView: View {
                 // an AdMob banner — App Review guideline 2.3.1, and the exact
                 // sentence a refund complaint would quote.
                 Text(L.t("Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; gói trả phí thì không."))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
@@ -122,7 +122,7 @@ struct RegisterView: View {
             if let topError {
                 HStack(spacing: 6) {
                     WVIcon("alert", size: 13)
-                    Text(topError).font(.system(size: 13))
+                    Text(topError).wvFont(.footnote)
                 }
                 .foregroundStyle(WVColor.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -150,7 +150,7 @@ struct RegisterView: View {
         } label: {
             (Text(L.t("Đã có tài khoản? ")) +
              Text(L.t("Đăng nhập")).foregroundColor(WVColor.tint).bold())
-                .font(.system(size: 14))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label3)
         }
     }

@@ -42,11 +42,11 @@ struct AccountView: View {
                     // Email
                     HStack(spacing: 16) {
                         Text("Email")
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer()
                         Text(userEmail)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -187,10 +187,10 @@ struct AccountView: View {
             WVLeadingIcon(icon: "lock", color: WVColor.purple)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Face ID & Touch ID")
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Text(appLockDetail)
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(2)
             }
@@ -235,16 +235,18 @@ struct AccountView: View {
                 .frame(width: 86, height: 86)
                 .overlay(
                     Text(initials)
-                        .font(.system(size: 36, weight: .bold))
+                        .wvFont(.display)
                         .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                 )
 
             Text(userName)
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .foregroundStyle(WVColor.label)
 
             Text(userEmail)
-                .font(.system(size: 14))
+                .wvFont(.subheadline)
                 .foregroundStyle(WVColor.label3)
         }
         .frame(maxWidth: .infinity)

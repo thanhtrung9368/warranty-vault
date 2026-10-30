@@ -15,6 +15,8 @@ struct DeviceDetailView: View {
     @ObservedObject var devicesStore: DevicesStore
     let device: Device
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     @StateObject private var store: WarrantiesStore
 
     @State private var showActionMenu = false
@@ -344,13 +346,13 @@ struct DeviceDetailView: View {
                                         size: 30
                                     )
                                     Text(L.t("Lãi/lỗ so với giá mua"))
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
                                     Spacer(minLength: 8)
                                     // "Lãi 2.000.000 ₫" / "Lỗ 500.000 ₫" / "Hoà vốn"
                                     // — the same wording web and Android render.
                                     Text(profit.label)
-                                        .font(.system(size: 17, weight: .semibold))
+                                        .wvFont(.bodyEmphasis)
                                         .foregroundStyle(DeviceFormView.saleToneColor(profit.tone))
                                 }
                             }
@@ -442,7 +444,7 @@ struct DeviceDetailView: View {
                     WVSectionHeader(L.t("Ghi chú"))
                     WVGroup {
                         Text(note)
-                            .font(.system(size: 15))
+                            .wvFont(.subheadline)
                             .foregroundStyle(WVColor.label)
                             .lineSpacing(4)
                             .padding(.horizontal, 16)
@@ -478,13 +480,13 @@ struct DeviceDetailView: View {
                                 WVIcon("alert", size: 12)
                                     .foregroundStyle(WVColor.orange)
                                 Text("\(warning.fieldLabel): \(warning.displayMessage)")
-                                    .font(.system(size: 12))
+                                    .wvFont(.caption)
                                     .foregroundStyle(WVColor.label2)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         Text(DeviceWarningCopy.savedNote)
-                            .font(.system(size: 11))
+                            .wvFont(.caption2)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -503,7 +505,7 @@ struct DeviceDetailView: View {
 
                 if let actionError {
                     Text(actionError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, 32)
                         .padding(.top, 8)
@@ -583,16 +585,18 @@ struct DeviceDetailView: View {
                 )
                 VStack(spacing: 4) {
                     Text(currentDevice.name)
-                        .font(.system(size: 22, weight: .bold))
+                        .wvFont(.title2Emphasis)
                         .foregroundStyle(WVColor.label)
                         .multilineTextAlignment(.center)
                     Text([currentDevice.brand, currentDevice.model]
                         .compactMap { $0 }
                         .joined(separator: " · "))
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label3)
                 }
-                HStack(spacing: 6) {
+                // Three badges do not fit on one line at Accessibility sizes;
+                // they stack in the same order instead of overflowing the card.
+                let badges = Group {
                     DeviceStatusBadge(status: currentDevice.status)
                     if let dl = maxDaysLeft {
                         WarrantyPill(daysLeft: dl)
@@ -603,6 +607,11 @@ struct DeviceDetailView: View {
                     if brandWarrantyMismatch != nil {
                         WVChip(BrandWarrantyCopy.mismatchBadge, tone: .orange, icon: "alert")
                     }
+                }
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: 6) { badges }
+                } else {
+                    HStack(spacing: 6) { badges }
                 }
             }
             .padding(.horizontal, WVSpacing.gutter)
@@ -617,7 +626,7 @@ struct DeviceDetailView: View {
         WVCard(padding: 16) {
             VStack(alignment: .leading, spacing: 14) {
                 Text(L.t("Tổng quan bảo hành"))
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                 ForEach(Array(warranties.enumerated()), id: \.element.id) { idx, w in
                     if idx > 0 {
@@ -933,6 +942,8 @@ private struct DeviceStatusBadge: View {
 private struct WarrantyTimelineRow: View {
     let warranty: Warranty
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     /// The nine optional contract fields, already reduced to the presentation
     /// rules. `hasAnyTerms` guards the whole block, so a warranty with no
     /// contract renders exactly as before.
@@ -972,27 +983,40 @@ private struct WarrantyTimelineRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 8) {
-                WVChip(typeLabel, tone: typeTone)
-                if let provider = warranty.provider {
-                    Text(provider)
-                        .font(.system(size: 13))
-                        .foregroundStyle(WVColor.label3)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Spacer(minLength: 0)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    WVChip(typeLabel, tone: typeTone)
+                    if let provider = warranty.provider {
+                        Text(provider)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    WarrantyPill(daysLeft: daysLeft)
                 }
-                WarrantyPill(daysLeft: daysLeft)
+            } else {
+                HStack(alignment: .center, spacing: 8) {
+                    WVChip(typeLabel, tone: typeTone)
+                    if let provider = warranty.provider {
+                        Text(provider)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
+                    WarrantyPill(daysLeft: daysLeft)
+                }
             }
             WVProgressBar(value: progressValue, tone: progressTone)
             HStack {
                 Text(WVFormat.date(warranty.startDate))
-                    .font(.system(size: 11))
+                    .wvFont(.caption2)
                     .foregroundStyle(WVColor.label3)
                 Spacer()
                 Text(WVFormat.date(warranty.endDate))
-                    .font(.system(size: 11))
+                    .wvFont(.caption2)
                     .foregroundStyle(WVColor.label3)
             }
             // Contract terms when the row has any. Compact: this card is the
@@ -1009,6 +1033,8 @@ private struct WarrantyTimelineRow: View {
 
 private struct WarrantyListRow: View {
     let warranty: Warranty
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Same derived terms as the timeline row. Rendered below the existing
     /// three-fragment subtitle only when there is something to show, so a
@@ -1044,9 +1070,10 @@ private struct WarrantyListRow: View {
             WVLeadingIcon(icon: "shieldCheck", color: iconColor, size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(warranty.provider ?? typeLabel)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
                 // Joined from three fragments rather than one template: the
                 // English month count inflects ("1 month" / "24 months") and a
                 // `%d` inside a whole sentence could not do that. Vietnamese
@@ -1055,9 +1082,10 @@ private struct WarrantyListRow: View {
                       L.p("%d tháng", warranty.months),
                       L.t("Hết %@", WVFormat.date(warranty.endDate))]
                         .joined(separator: " · "))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
                 // Full contract terms: component (or "Toàn bộ máy"), cap and
                 // deductible as money, claims used out of allowed, scope,
                 // region, transferability and exclusions. Absent for a row with

@@ -122,19 +122,19 @@ struct SubscriptionFormView: View {
                 WVGroup {
                     fieldRow(L.t("Tên")) {
                         TextField("Apple One, ChatGPT Plus...", text: $name)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
                     fieldRow(L.t("Hãng")) {
                         TextField("Apple, OpenAI...", text: $brand)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
                     fieldRow("Plan") {
                         TextField("Family, Plus...", text: $plan)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
@@ -142,7 +142,7 @@ struct SubscriptionFormView: View {
                     Button { showCatPicker = true } label: {
                         HStack {
                             Text(L.t("Loại"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             Spacer()
                             HStack(spacing: 6) {
@@ -152,7 +152,7 @@ struct SubscriptionFormView: View {
                                     size: 22
                                 )
                                 Text(catalogCategoryName(category))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label3)
                             }
                             WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -177,11 +177,11 @@ struct SubscriptionFormView: View {
                     Button { showCyclePicker = true } label: {
                         HStack {
                             Text(L.t("Chu kỳ"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             Spacer()
                             Text(billingCycle.shortLabel)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label3)
                             WVIcon("arrowRight", size: 13, weight: .semibold)
                                 .foregroundStyle(WVColor.label4)
@@ -196,34 +196,34 @@ struct SubscriptionFormView: View {
                     WVRowContainer {
                         DatePicker(L.t("Bắt đầu"), selection: $startedAt,
                                    displayedComponents: .date)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                     }
                     if billingCycle != .LIFETIME {
                         WVDivider()
                         WVRowContainer {
                             Toggle(L.t("Có ngày gia hạn"), isOn: $hasRenewal)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                         }
                         if hasRenewal {
                             WVDivider()
                             WVRowContainer {
                                 DatePicker(L.t("Gia hạn kế"), selection: $renewalDate,
                                            displayedComponents: .date)
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                             }
                         }
                     }
                     WVDivider()
                     WVRowContainer {
                         Toggle(L.t("Tự gia hạn"), isOn: $autoRenew)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                     }
                     if billingCycle == .CUSTOM {
                         WVDivider()
                         fieldRow(L.t("Số ngày / chu kỳ")) {
                             TextField("30", text: $intervalDays)
                                 .keyboardType(.numberPad)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .multilineTextAlignment(.trailing)
                         }
                     }
@@ -238,7 +238,7 @@ struct SubscriptionFormView: View {
                 WVGroup {
                     WVRowContainer {
                         Toggle(L.t("Có dùng thử"), isOn: $hasTrial)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .onChange(of: hasTrial) { _, isOn in
                                 if !isOn {
                                     convertsToPrice = nil
@@ -251,7 +251,7 @@ struct SubscriptionFormView: View {
                         WVRowContainer {
                             DatePicker(L.t("Dùng thử đến"), selection: $trialEndsAt,
                                        displayedComponents: .date)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .onChange(of: trialEndsAt) { _, _ in trialError = nil }
                         }
                         WVDivider()
@@ -263,7 +263,7 @@ struct SubscriptionFormView: View {
                         if let trialError {
                             WVDivider()
                             Text(trialError)
-                                .font(.system(size: 12))
+                                .wvFont(.caption)
                                 .foregroundStyle(WVColor.red)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -286,13 +286,13 @@ struct SubscriptionFormView: View {
                         TextField("account@example.com", text: $accountEmail)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
                     fieldRow(L.t("Thanh toán")) {
                         TextField("Visa **4242, Momo...", text: $paymentMethod)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
@@ -300,7 +300,7 @@ struct SubscriptionFormView: View {
                         TextField("https://...", text: $manageUrl)
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
@@ -308,7 +308,7 @@ struct SubscriptionFormView: View {
                         TextField("https://...", text: $cancelUrl)
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -318,7 +318,7 @@ struct SubscriptionFormView: View {
                 WVGroup {
                     WVRowContainer {
                         TextField(L.t("Ghi chú thêm..."), text: $notes, axis: .vertical)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .lineLimit(3...6)
                     }
                 }
@@ -326,7 +326,7 @@ struct SubscriptionFormView: View {
                 // Error
                 if let topError {
                     Text(topError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, WVSpacing.gutter)
                         .padding(.top, WVSpacing.sm)
@@ -358,7 +358,7 @@ struct SubscriptionFormView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(isValid ? WVColor.tint : WVColor.label4)
                     .disabled(!isValid || isBusy)
             }
@@ -383,7 +383,7 @@ struct SubscriptionFormView: View {
         WVRowContainer {
             HStack {
                 Text(label)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer()
                 field()
@@ -503,7 +503,7 @@ private struct SubCategoryPickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -520,7 +520,7 @@ private struct SubCategoryPickerSheet: View {
                 WVLeadingIcon(icon: WVCategory.icon(for: code),
                               color: WVCategory.accent(for: code), size: 30)
                 Text(name)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer()
                 if selected == code {
@@ -556,7 +556,7 @@ private struct SubCyclePickerSheet: View {
                             } label: {
                                 HStack {
                                     Text(c.shortLabel)
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
                                     Spacer()
                                     if selected == c {
@@ -581,7 +581,7 @@ private struct SubCyclePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }

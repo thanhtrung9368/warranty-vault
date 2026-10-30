@@ -79,13 +79,13 @@ struct ServiceDirectorySection: View {
                         WVIcon("store", size: 16)
                             .foregroundStyle(WVColor.tint)
                         Text(brand.name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .wvFont(.calloutEmphasis)
                             .foregroundStyle(WVColor.label)
                     }
                     Text(ServiceDirectoryInfo.hasVerifiedLink(brand)
                          ? DirectoryCopy.verifiedLinkNote
                          : DirectoryCopy.noVerifiedLink)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -98,7 +98,7 @@ struct ServiceDirectorySection: View {
                                 Text(link.label)
                                 Spacer(minLength: 0)
                             }
-                            .font(.system(size: 15, weight: .semibold))
+                            .wvFont(.subheadlineEmphasis)
                             .foregroundStyle(WVColor.tint)
                             .frame(minHeight: 32)
                             .contentShape(Rectangle())
@@ -108,7 +108,7 @@ struct ServiceDirectorySection: View {
 
                     if let note = ServiceDirectoryInfo.brandNote(brand) {
                         Text(note)
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -117,25 +117,25 @@ struct ServiceDirectorySection: View {
                     // Both honest causes are named in `detail`; the user's own
                     // text is quoted back so they can see what was looked up.
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.orange)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(L.t("Hãng bạn ghi trên thiết bị: “%@”", brandInput))
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(detail)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
 
                 case .noInput(let title, let detail):
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(detail)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -192,15 +192,15 @@ private struct CentreRowView: View {
             // is fuzzy, so the user's own words are what they can check.
             VStack(alignment: .leading, spacing: 2) {
                 Text(provider.line)
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                     .fixedSize(horizontal: false, vertical: true)
                 if case .unmatched(_, let input, let note) = provider {
                     Text(L.t("Bạn ghi: “%@”", input))
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                     Text(note)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -213,12 +213,12 @@ private struct CentreRowView: View {
                     .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(ServiceDirectoryInfo.centreAddress(centre) ?? DirectoryCopy.addressNone)
-                        .font(.system(size: 14))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label2)
                         .fixedSize(horizontal: false, vertical: true)
                     if ServiceDirectoryInfo.centreAddress(centre) != nil {
                         Text(DirectoryCopy.addressUserLabel)
-                            .font(.system(size: 11))
+                            .wvFont(.caption2)
                             .foregroundStyle(WVColor.label3)
                     }
                 }
@@ -277,16 +277,16 @@ private struct CentreRowView: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(number)
-                        .font(.system(size: 14, weight: label == nil ? .regular : .semibold))
+                        .wvFont(.subheadline, weight: label == nil ? .regular : .semibold)
                         .foregroundStyle(label == nil ? WVColor.label2 : WVColor.label)
                     if let label {
                         Text(label)
-                            .font(.system(size: 11))
+                            .wvFont(.caption2)
                             .foregroundStyle(WVColor.label3)
                     }
                 }
                 Text(hint)
-                    .font(.system(size: 11))
+                    .wvFont(.caption2)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
             }

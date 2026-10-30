@@ -138,14 +138,14 @@ struct WishlistDetailView: View {
                 size: 64
             )
             Text(w.name)
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .tracking(-0.4)
                 .foregroundStyle(WVColor.label)
             let sub = [w.brand, w.category]
                 .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
             if !sub.isEmpty {
                 Text(sub)
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
             }
             HStack(spacing: 6) {
@@ -171,7 +171,7 @@ struct WishlistDetailView: View {
                 HStack(spacing: 8) {
                     WVIcon("shoppingBag", size: 14)
                     Text(L.t("Đã mua → Xem thiết bị"))
-                        .font(.system(size: 14, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                     Spacer(minLength: 4)
                     WVIcon("arrowRight", size: 12, weight: .semibold)
                 }
@@ -196,14 +196,16 @@ struct WishlistDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .lastTextBaseline, spacing: 8) {
                     Text(WVFormat.vnd(w.currentPrice ?? 0))
-                        .font(.system(size: 26, weight: .bold))
+                        .wvFont(.statValue)
                         .foregroundStyle(WVColor.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
 
                     if let init_ = w.initialPrice, let cur = w.currentPrice,
                        init_ != 0, cur != init_ {
                         let d = Double(cur - init_) / Double(init_) * 100
                         Text("\(d < 0 ? "↓" : "↑") \(String(format: "%.1f", abs(d)))%")
-                            .font(.system(size: 14, weight: .semibold))
+                            .wvFont(.subheadlineEmphasis)
                             .foregroundStyle(d < 0 ? WVColor.green : WVColor.red)
                     }
                 }
@@ -214,7 +216,7 @@ struct WishlistDetailView: View {
                 let maxP = pVals.max() ?? 0
                 Text(L.t("Giá ban đầu %@ · Min %@ · Max %@",
                              WVFormat.vnd(w.initialPrice ?? 0), WVFormat.vnd(minP), WVFormat.vnd(maxP)))
-                    .font(.system(size: 13))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .padding(.top, 2)
 
@@ -275,7 +277,7 @@ struct WishlistDetailView: View {
                 if rows.isEmpty && buyURL == nil {
                     WVRowContainer {
                         Text(L.t("Không có thông tin bổ sung"))
-                            .font(.system(size: 15))
+                            .wvFont(.subheadline)
                             .foregroundStyle(WVColor.label3)
                     }
                 } else {
@@ -306,7 +308,7 @@ struct WishlistDetailView: View {
                 if prices.isEmpty {
                     WVRowContainer {
                         Text(L.t("Chưa có lịch sử giá nào"))
-                            .font(.system(size: 15))
+                            .wvFont(.subheadline)
                             .foregroundStyle(WVColor.label3)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, WVSpacing.sm)
@@ -351,7 +353,7 @@ struct WishlistDetailView: View {
                             }
                         } label: {
                             Text(s.wishChipLabel)
-                                .font(.system(size: 13, weight: .semibold))
+                                .wvFont(.footnoteEmphasis)
                                 .foregroundStyle(active ? .white : WVColor.label2)
                                 .padding(.horizontal, 12)
                                 .frame(height: 30)
@@ -375,7 +377,7 @@ struct WishlistDetailView: View {
             WVGroup {
                 WVRowContainer {
                     Text(text)
-                        .font(.system(size: 15))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label)
                         .lineSpacing(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -540,7 +542,7 @@ struct WishUpdatePriceSheet: View {
                         WVRowContainer {
                             HStack {
                                 Text(L.t("Giá"))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
                                 WVMoneyField(value: $price)
@@ -551,12 +553,12 @@ struct WishUpdatePriceSheet: View {
                         WVRowContainer {
                             HStack {
                                 Text(L.t("Ghi chú"))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
                                 TextField("vd: Sale Lazada...", text: $note)
                                     .multilineTextAlignment(.trailing)
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label3)
                                     .frame(width: 160)
                             }
@@ -564,7 +566,7 @@ struct WishUpdatePriceSheet: View {
                     }
                     if let topError {
                         Text(topError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, WVSpacing.gutter)
                             .padding(.top, WVSpacing.sm)
@@ -581,7 +583,7 @@ struct WishUpdatePriceSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(L.t("Lưu")) { Task { await submit() } }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                         .disabled(isBusy || (price ?? 0) <= 0)
                 }

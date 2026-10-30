@@ -66,10 +66,10 @@ struct PushDevicesView: View {
                     WVLeadingIcon(icon: "send", color: WVColor.brand)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L.t("Gửi thông báo thử"))
-                            .font(.system(size: 15, weight: .semibold))
+                            .wvFont(.subheadlineEmphasis)
                             .foregroundStyle(WVColor.label)
                         Text(L.p("Bắn 1 push đến tất cả %d thiết bị bên dưới.", subscriptions.count))
-                            .font(.system(size: 12))
+                            .wvFont(.caption)
                             .foregroundStyle(WVColor.label3)
                     }
                     Spacer()
@@ -108,7 +108,7 @@ struct PushDevicesView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(platformLabel(sub.platform))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 4)
                     WVChip(platformBadge(sub.platform),
@@ -116,13 +116,13 @@ struct PushDevicesView: View {
                 }
                 if let ua = sub.userAgent, !ua.isEmpty {
                     Text(ua)
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
                 Text(L.t("Đăng ký lúc %@", WVFormat.date(sub.createdAt)))
-                    .font(.system(size: 11))
+                    .wvFont(.caption2)
                     .foregroundStyle(WVColor.label3)
             }
 
@@ -188,7 +188,7 @@ struct PushDevicesView: View {
             HStack(spacing: 8) {
                 WVIcon(toastIsError ? "alert" : "checkCircle", size: 15)
                 Text(toastMessage)
-                    .font(.system(size: 13, weight: .medium))
+                    .wvFont(.footnote, weight: .medium)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)

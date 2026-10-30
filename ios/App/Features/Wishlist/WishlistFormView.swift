@@ -68,20 +68,20 @@ struct WishlistFormView: View {
                 WVGroup {
                     fieldRow(L.t("Tên")) {
                         TextField("iPhone 16 Pro...", text: $name)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
                     fieldRow(L.t("Hãng")) {
                         TextField("Apple...", text: $brand)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
                     Button { showCatPicker = true } label: {
                         HStack {
                             Text(L.t("Loại"))
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
                             Spacer()
                             HStack(spacing: 6) {
@@ -91,7 +91,7 @@ struct WishlistFormView: View {
                                     size: 22
                                 )
                                 Text(catName(category))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label3)
                             }
                             WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -120,7 +120,7 @@ struct WishlistFormView: View {
                         TextField("https://...", text: $buyUrl)
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -130,21 +130,21 @@ struct WishlistFormView: View {
                 WVGroup {
                     WVRowContainer {
                         Toggle(L.t("Có ngày dự kiến"), isOn: $hasTargetDate)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                     }
                     if hasTargetDate {
                         WVDivider()
                         WVRowContainer {
                             DatePicker(L.t("Ngày dự kiến"), selection: $targetDate,
                                        displayedComponents: .date)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                         }
                     }
                     WVDivider()
                     fieldRow(L.t("Nhắc lại (ngày)")) {
                         TextField("14", text: $reminderDays)
                             .keyboardType(.numberPad)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -177,14 +177,14 @@ struct WishlistFormView: View {
                 WVGroup {
                     WVRowContainer {
                         TextField(L.t("Ghi chú thêm..."), text: $notes, axis: .vertical)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .lineLimit(3...6)
                     }
                 }
 
                 if let topError {
                     Text(topError)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .padding(.horizontal, WVSpacing.gutter)
                         .padding(.top, WVSpacing.sm)
@@ -215,7 +215,7 @@ struct WishlistFormView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(isValid ? WVColor.tint : WVColor.label4)
                     .disabled(!isValid || isBusy)
             }
@@ -235,7 +235,7 @@ struct WishlistFormView: View {
         WVRowContainer {
             HStack {
                 Text(label)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer()
                 field().foregroundStyle(WVColor.label3)
@@ -309,7 +309,7 @@ private struct WishCategoryPickerSheet: View {
                                         size: 30
                                     )
                                     Text(c.name)
-                                        .font(.system(size: 17))
+                                        .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
                                     Spacer()
                                     if selected == c.code {
@@ -338,7 +338,7 @@ private struct WishCategoryPickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Xong") { dismiss() }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -363,7 +363,7 @@ private struct WishCategoryPickerSheet: View {
                     WVLeadingIcon(icon: WVCategory.icon(for: cat.0),
                                   color: WVCategory.accent(for: cat.0), size: 30)
                     Text(cat.1)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                     Spacer()
                     if selected == cat.0 {

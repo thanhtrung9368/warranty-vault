@@ -132,7 +132,7 @@ struct SubscriptionDetailView: View {
                 size: 64
             )
             Text(sub.name)
-                .font(.system(size: 22, weight: .bold))
+                .wvFont(.title2Emphasis)
                 .tracking(-0.4)
                 .foregroundStyle(WVColor.label)
 
@@ -140,7 +140,7 @@ struct SubscriptionDetailView: View {
                 .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
             if !meta.isEmpty {
                 Text(meta)
-                    .font(.system(size: 14))
+                    .wvFont(.subheadline)
                     .foregroundStyle(WVColor.label3)
             }
 
@@ -164,10 +164,12 @@ struct SubscriptionDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .lastTextBaseline, spacing: 8) {
                     Text(WVFormat.vnd(sub.price))
-                        .font(.system(size: 26, weight: .bold))
+                        .wvFont(.statValue)
                         .foregroundStyle(WVColor.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                     Text(sub.billingCycle.shortLabel)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                 }
                 if sub.billingCycle != .LIFETIME {
@@ -175,7 +177,7 @@ struct SubscriptionDetailView: View {
                     let total   = payments.reduce(0) { $0 + $1.amount }
                     Text(L.t("~ %@ / tháng · Đã chi tổng %@",
                          WVFormat.vnd(Int(monthly.rounded())), WVFormat.vnd(total)))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .padding(.top, 2)
                 }
@@ -192,23 +194,23 @@ struct SubscriptionDetailView: View {
                         Text(sub.billingCycle == .LIFETIME
                              ? "LIFETIME"
                              : SubscriptionTrial.termHeading(trialEndsAt: sub.trialEndsAt))
-                            .font(.system(size: 12, weight: .semibold))
+                            .wvFont(.captionEmphasis)
                             .tracking(0.5)
                             .foregroundStyle(WVColor.label3)
                         if sub.billingCycle == .LIFETIME {
                             Text("∞")
-                                .font(.system(size: 20, weight: .semibold))
+                                .wvFont(.title3Emphasis)
                                 .foregroundStyle(WVColor.label)
                         } else if let trialDay = SubscriptionTrial.dayLabel(sub.trialEndsAt) {
                             // The trial day is a calendar day on the wire; never
                             // re-parse it as an instant just to draw it.
                             Text(trialDay)
-                                .font(.system(size: 17, weight: .semibold))
+                                .wvFont(.bodyEmphasis)
                                 .foregroundStyle(WVColor.label)
                         } else {
                             let days = WVFormat.daysUntil(sub.renewalDate)
                             Text(WVFormat.date(sub.renewalDate))
-                                .font(.system(size: 17, weight: .semibold))
+                                .wvFont(.bodyEmphasis)
                                 .foregroundStyle(days < 0 ? WVColor.red : WVColor.label)
                         }
                     }
@@ -281,7 +283,7 @@ struct SubscriptionDetailView: View {
                 Link(destination: url) {
                     HStack(spacing: 6) {
                         WVIcon("externalLink", size: 14)
-                        Text(L.t("Quản lý")).font(.system(size: 15, weight: .semibold))
+                        Text(L.t("Quản lý")).wvFont(.subheadlineEmphasis)
                     }
                     .foregroundStyle(WVColor.tint)
                     .frame(maxWidth: .infinity, minHeight: 34)
@@ -393,7 +395,7 @@ struct SubscriptionDetailView: View {
                 if payments.isEmpty {
                     WVRowContainer {
                         Text(L.t("Chưa có thanh toán nào"))
-                            .font(.system(size: 15))
+                            .wvFont(.subheadline)
                             .foregroundStyle(WVColor.label3)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, WVSpacing.sm)
@@ -422,7 +424,7 @@ struct SubscriptionDetailView: View {
             WVGroup {
                 WVRowContainer {
                     Text(text)
-                        .font(.system(size: 15))
+                        .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label)
                         .lineSpacing(4)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -559,7 +561,7 @@ struct SubLogPaymentSheet: View {
                         WVRowContainer {
                             HStack {
                                 Text(L.t("Số tiền"))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
                                 WVMoneyField(value: $amount)
@@ -570,18 +572,18 @@ struct SubLogPaymentSheet: View {
                         WVRowContainer {
                             DatePicker(L.t("Ngày trả"), selection: $paidAt,
                                        displayedComponents: .date)
-                                .font(.system(size: 17))
+                                .wvFont(.body)
                         }
                         WVDivider()
                         WVRowContainer {
                             HStack {
                                 Text(L.t("Ghi chú"))
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
                                 TextField(L.t("vd: Tháng 4/2026"), text: $note)
                                     .multilineTextAlignment(.trailing)
-                                    .font(.system(size: 17))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.label3)
                                     .frame(width: 160)
                             }
@@ -589,7 +591,7 @@ struct SubLogPaymentSheet: View {
                     }
                     if let topError {
                         Text(topError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, WVSpacing.gutter)
                             .padding(.top, WVSpacing.sm)
@@ -607,7 +609,7 @@ struct SubLogPaymentSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(L.t("Lưu")) { Task { await submit() } }
-                        .font(.system(size: 17, weight: .semibold))
+                        .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                         .disabled(isBusy || (amount ?? 0) <= 0)
                 }

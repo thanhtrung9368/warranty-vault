@@ -45,7 +45,7 @@ struct LeadDaysSection: View {
 
             if let error {
                 Text(error)
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.red)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -69,11 +69,11 @@ struct LeadDaysSection: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Text(L.t("Đã chọn"))
-                        .font(.system(size: 15, weight: .semibold))
+                        .wvFont(.subheadlineEmphasis)
                         .foregroundStyle(WVColor.label)
                     Spacer(minLength: 8)
                     Text("\(days.count)/\(LeadDaysRules.maximumCount)")
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                 }
 
@@ -81,7 +81,7 @@ struct LeadDaysSection: View {
                     // Required, not optional: an empty array is a 400 on the
                     // server, so the form says so before the user taps Save.
                     Text(L.t("Chọn ít nhất 1 mốc nhắc"))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -109,7 +109,7 @@ struct LeadDaysSection: View {
         WVRowContainer {
             VStack(alignment: .leading, spacing: 8) {
                 Text(L.t("Mốc có sẵn"))
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -123,7 +123,7 @@ struct LeadDaysSection: View {
 
                 if isFull {
                     Text(L.t("Tối đa 5 mốc"))
-                        .font(.system(size: 12))
+                        .wvFont(.caption)
                         .foregroundStyle(WVColor.label3)
                 }
             }
@@ -149,13 +149,13 @@ struct LeadDaysSection: View {
         WVRowContainer {
             HStack(spacing: 12) {
                 Text(L.t("Mốc khác"))
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 8)
                 TextField("90", text: $customText)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                     .frame(width: 80)
                     .onChange(of: customText) { _, newValue in
@@ -166,7 +166,7 @@ struct LeadDaysSection: View {
                         if digits != newValue { customText = digits }
                     }
                 Button(L.t("Thêm")) { addCustom() }
-                    .font(.system(size: 15, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(canAddCustom ? WVColor.tint : WVColor.label4)
                     .disabled(!canAddCustom)
             }
@@ -203,7 +203,7 @@ struct LeadDaysSection: View {
                 WVIcon("x", size: 9, weight: .bold)
             }
         }
-        .font(.system(size: 13, weight: .semibold))
+        .wvFont(.footnoteEmphasis)
         .foregroundStyle(selected ? WVColor.tint : WVColor.label2)
         .padding(.horizontal, 10)
         .frame(height: 30)

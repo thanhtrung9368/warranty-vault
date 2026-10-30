@@ -50,7 +50,7 @@ struct InboxCaptureSheet: View {
                         HStack(spacing: 8) {
                             ProgressView()
                             Text(L.t("Đang tải…"))
-                                .font(.system(size: 13))
+                                .wvFont(.footnote)
                                 .foregroundStyle(WVColor.label3)
                         }
                         .padding(.horizontal, 32)
@@ -59,7 +59,7 @@ struct InboxCaptureSheet: View {
 
                     if let errorMessage {
                         Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 32)
                             .padding(.top, 12)
@@ -162,11 +162,11 @@ struct InboxCaptureSheet: View {
             WVLeadingIcon(icon: icon, color: color, size: 30)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                 }
             }
@@ -194,15 +194,15 @@ struct InboxCaptureSheet: View {
                     .font(.system(size: 22))
                     .foregroundStyle(WVColor.green)
                 Text(L.t("Đã thêm vào Hộp thư đến"))
-                    .font(.system(size: 17, weight: .semibold))
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(WVColor.label)
             }
             Text(fileName)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .lineLimit(2)
             Text(L.t("Gán tệp vào thiết bị để nó không còn trong hộp thư."))
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .fixedSize(horizontal: false, vertical: true)
         }

@@ -127,7 +127,7 @@ struct ClaimFormView: View {
 
                     if let topError {
                         Text(topError)
-                            .font(.system(size: 13))
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.red)
                             .padding(.horizontal, 32)
                             .padding(.top, 10)
@@ -157,7 +157,7 @@ struct ClaimFormView: View {
                         ProgressView()
                     } else {
                         Button(L.t("Lưu")) { Task { await submit() } }
-                            .font(.system(size: 17, weight: .semibold))
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(isValid ? WVColor.tint : WVColor.label3)
                             .disabled(!isValid || isDeleting)
                     }
@@ -242,7 +242,7 @@ struct ClaimFormView: View {
                 WVRowContainer {
                     DatePicker(L.t("Ngày mở"), selection: $openedAt,
                                displayedComponents: .date)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .disabled(isSaving)
                 }
 
@@ -250,7 +250,7 @@ struct ClaimFormView: View {
 
                 WVRowContainer {
                     Toggle(L.t("Có ngày dự kiến trả"), isOn: $hasExpectedReturn)
-                        .font(.system(size: 17))
+                        .wvFont(.body)
                         .disabled(isSaving)
                 }
 
@@ -259,7 +259,7 @@ struct ClaimFormView: View {
                     WVRowContainer {
                         DatePicker(L.t("Ngày dự kiến trả"), selection: $expectedReturnAt,
                                    displayedComponents: .date)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .disabled(isSaving)
                     }
                 }
@@ -288,11 +288,11 @@ struct ClaimFormView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Text(L.t("Gói bảo hành"))
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         Text(selectedWarrantyLabel)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
                         WVIcon("arrowRight", size: 13, weight: .semibold)
@@ -402,7 +402,7 @@ struct ClaimFormView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L.t("Bảo hành chi trả"))
-                        .font(.system(size: 13))
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                     WVSegmented(
                         options: CoveredChoice.allCases.map { (value: $0, label: $0.label) },
@@ -459,24 +459,24 @@ struct ClaimFormView: View {
                     .foregroundStyle(WVColor.orange)
                     .padding(.top, 1)
                 Text(ClaimRules.openClaimTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text(ClaimRules.openClaimExistsMessage)
-                .font(.system(size: 12))
+                .wvFont(.caption)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
             if let opened = ClaimRules.dayLabel(existing.openedAt) {
                 Text(L.t("Mở %@", opened))
-                    .font(.system(size: 12))
+                    .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)
             }
             Button {
                 open(existing)
             } label: {
                 Text(ClaimRules.openClaimActionTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.tint)
             }
             .disabled(isSaving)
@@ -495,7 +495,7 @@ struct ClaimFormView: View {
                                          @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
             Spacer(minLength: 8)
             content()
@@ -509,10 +509,10 @@ struct ClaimFormView: View {
                               text: Binding<String>, limit: Int) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label)
-                .font(.system(size: 13))
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
             TextField(placeholder, text: capped(text, limit), axis: .vertical)
-                .font(.system(size: 17))
+                .wvFont(.body)
                 .foregroundStyle(WVColor.label)
                 .lineLimit(2...6)
                 .disabled(isSaving)
@@ -545,7 +545,7 @@ struct ClaimFormView: View {
 
     private func fieldErrorText(_ message: String) -> some View {
         Text(message)
-            .font(.system(size: 12))
+            .wvFont(.caption)
             .foregroundStyle(WVColor.red)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)

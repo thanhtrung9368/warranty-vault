@@ -308,7 +308,7 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         WVLeadingIcon(icon: "globe", color: WVColor.blue)
                         Text(option.label)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         if localization.isSaving && selectedChoice == option {
@@ -364,7 +364,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 WVLeadingIcon(icon: "sparkles", color: WVColor.tint)
                 Text(L.t("Quét hoá đơn & đánh giá bảo hành"))
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 8)
                 if aiBusy {
@@ -451,7 +451,7 @@ struct SettingsView: View {
                             color: WVColor.gray
                         )
                         Text(option.label)
-                            .font(.system(size: 17))
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                         Spacer(minLength: 8)
                         if theme.preference == option {
@@ -478,7 +478,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 WVLeadingIcon(icon: "bell", color: WVColor.red)
                 Text(L.t("Bật thông báo"))
-                    .font(.system(size: 17))
+                    .wvFont(.body)
                     .foregroundStyle(WVColor.label)
                 Spacer(minLength: 8)
                 pushStatusBadge
