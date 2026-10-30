@@ -73,6 +73,14 @@ export type MarkGeometry = {
   punch: string;
   /** Pole + swallowtail pennant, painted in the accent (or currentColor in mono). */
   flag: string;
+  /**
+   * The W, stroked in the punch's colour so it reads as a cut-out of the plate.
+   * A stroked letter rather than a second filled path because the letter's job is
+   * to be a line: a filled W at 20px closes into a solid triangle.
+   */
+  letter: string;
+  /** Stroke width of `letter`, in grid units. Thicker on the small cut. */
+  letterWidth: number;
   /** The punch as a circle — the same geometry, for measurements/tests. */
   punchCircle: { cx: number; cy: number; r: number };
   /** Tag plate height (top edge to bottom edge), excluding the pennant. */
@@ -113,6 +121,11 @@ const CUT_FULL: MarkGeometry = {
   punch: 'M8.37 15.17A1.6 1.6 0 1 0 11.57 15.17A1.6 1.6 0 1 0 8.37 15.17Z',
   flag:
     'M18.9 14.6L18.9 2.6L27.3 2.6L25 5.3L27.3 8L20.7 8L20.7 14.6L18.9 14.6Z',
+  // Sits below both the punch (y=15.17) and the flag's in-plate run (y=14.6),
+  // spanning x=8.6…18.4, y=19.4…25.0. Nothing overlaps and nothing touches the
+  // 2.3-unit V notch, whose apex is at y=25.9.
+  letter: 'M8.6 19.4l2.6 5.6 2-3.6 2 3.6 2.6-5.6',
+  letterWidth: 1.9,
   punchCircle: { cx: 9.97, cy: 15.17, r: 1.6 },
   bodyHeight: 17.6,
   bodyWidth: 17,
@@ -137,6 +150,10 @@ const CUT_SMALL: MarkGeometry = {
   punch: 'M8.4 15.1A1.9 1.9 0 1 0 12.2 15.1A1.9 1.9 0 1 0 8.4 15.1Z',
   flag:
     'M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z',
+  // The same W with a 2.8 stroke, not 1.9: at a 16px render the full cut's 1.9
+  // becomes 0.95px, which is exactly where a thin line turns to grey mush.
+  letter: 'M8.7 19.5l2.7 5.6 2.1-3.6 2.1 3.6 2.7-5.6',
+  letterWidth: 2.8,
   punchCircle: { cx: 10.3, cy: 15.1, r: 1.9 },
   bodyHeight: 18.2,
   bodyWidth: 17.8,
