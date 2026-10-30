@@ -158,6 +158,9 @@ struct SettingsView: View {
     @EnvironmentObject private var push: PushRegistrar
     @EnvironmentObject private var theme: ThemeStore
     @EnvironmentObject private var localization: LocalizationStore
+    /// Owns the UMP privacy options form and the requirement that decides
+    /// whether its Settings row exists at all.
+    @EnvironmentObject private var ads: AdsController
 
     @State private var showChangePassword = false
     @State private var showPushDevices = false
@@ -226,6 +229,16 @@ struct SettingsView: View {
                 WVSectionFooter(L.t("File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn."))
                 dataSection
 
+                // Privacy options. Deliberately conditional INCLUDING the
+                // header: when UMP does not require a privacy options form
+                // there must be nothing here at all — not a disabled row and
+                // not an error. The pure rule (pinned by swift test) is
+                // `AdsConsentOrdering.showsPrivacyOptionsEntry`.
+                if AdsConsentOrdering.showsPrivacyOptionsEntry(ads.privacyOptionsRequirement) {
+                    WVSectionHeader(L.t("Quyền riêng tư"))
+                    privacySection
+                }
+
                 // Info
                 WVSectionHeader(L.t("Thông tin"))
                 infoSection
@@ -252,6 +265,10 @@ struct SettingsView: View {
         }
         .task {
             if let v = try? await client.getAIOptIn() { aiOptIn = v }
+            // UMP's requirement can change after launch (the privacy options
+            // form itself, a region/console change). Re-read it on entry so
+            // the row is never left stale in either direction.
+            ads.refreshPrivacyOptionsRequirement()
         }
         .backupImportFlow(
             client: client,
@@ -550,6 +567,28 @@ struct SettingsView: View {
                   subtitle: L.t("PDF · luôn ở tiếng Việt cho công ty bảo hiểm"),
                   chevron: true) {
                 showInsurancePack = true
+            }
+        }
+    }
+
+    // MARK: - Privacy options
+
+    /// The one way back into UMP's privacy options form after the consent form
+    /// has been answered. Lives next to the data/info sections because it is
+    /// about what leaves the device (ad personalisation), not about appearance.
+    ///
+    /// The row is only ever built when
+    /// `privacyOptionsRequirement == .required` (see the conditional in
+    /// `body`); the button also re-checks it live, so a stale view cannot
+    /// present a form Google says does not exist.
+    private var privacySection: some View {
+        WVGroup {
+            WVRow(icon: "lock", iconColor: WVColor.purple,
+                  title: L.t("Tuỳ chọn quyền riêng tư"),
+                  subtitle: L.t("Đổi cách quảng cáo được cá nhân hoá hoặc rút lại sự đồng ý."),
+                  subtitleLineLimit: 4,
+                  chevron: true) {
+                ads.presentPrivacyOptionsForm()
             }
         }
     }

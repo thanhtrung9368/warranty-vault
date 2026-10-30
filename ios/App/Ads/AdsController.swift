@@ -55,6 +55,16 @@ final class AdsController: ObservableObject {
     /// kept in step for any request the SDK makes on its own (banner refresh).
     @Published private(set) var requestsNonPersonalisedAds = true
 
+    /// Google's answer on whether this user must be offered a way to change the
+    /// ad-consent decision they already made
+    /// (`privacyOptionsRequirementStatus`).
+    ///
+    /// Published because Settings renders its "Tuỳ chọn quyền riêng tư" row
+    /// from it and must render NOTHING when this is not `.required`. It is
+    /// refreshed on every UMP answer, including the answer that follows the
+    /// privacy options form.
+    @Published private(set) var privacyOptionsRequirement: AdsPrivacyOptionsRequirement = .unknown
+
     /// Paid tier. The banner is not rendered at all when this is true.
     @Published private(set) var isAdFree: Bool
 
@@ -67,6 +77,9 @@ final class AdsController: ObservableObject {
 
     /// An ATT prompt is on screen and its callback has not returned.
     private var isRequestingTracking = false
+    /// UMP's privacy options form is on screen and its callback has not
+    /// returned. Guards against a second tap opening a second form.
+    private var isPresentingPrivacyOptions = false
     private var didStartSDK = false
 
     private init() {
@@ -110,7 +123,82 @@ final class AdsController: ObservableObject {
     /// rejected for twice. The ATT phase is a flag; UMP's form has no public
     /// observable, so it is detected in the view hierarchy like `advance()` does.
     var hasPromptOnScreen: Bool {
-        isRequestingTracking || Self.isUMPMessageOnScreen()
+        isRequestingTracking || isPresentingPrivacyOptions || Self.isUMPMessageOnScreen()
+    }
+
+    // MARK: - Privacy options (withdraw consent)
+
+    /// Re-reads whether UMP owes this user a privacy options form.
+    ///
+    /// Called by the launch flow (through `refreshPrivacyState()`), after the
+    /// form closes, and when Settings appears. `@Published`, so a change makes
+    /// the row appear or disappear without relaunching the app.
+    func refreshPrivacyOptionsRequirement() {
+        let requirement = Self.mappedPrivacyOptionsRequirement()
+        guard requirement != privacyOptionsRequirement else { return }
+        log("privacy options requirement: \(requirement.rawValue)")
+        privacyOptionsRequirement = requirement
+    }
+
+    /// Opens UMP's privacy options form, where a user can change — or withdraw
+    /// — the ad consent they gave earlier.
+    ///
+    /// GDPR Art. 7(3) requires withdrawing consent to be as easy as giving it,
+    /// and App Review 5.1.1 looks for the same entry point when AdMob marks
+    /// privacy options as required for the user's region. Without this, the only
+    /// way out of an accepted consent form was reinstalling the app.
+    ///
+    /// Returns `false` when there is nothing to present: the requirement is not
+    /// `.required`, the app is not active, another UMP prompt is already on
+    /// screen, or there is no view controller. The caller does nothing rather
+    /// than reporting an error for a row that should not exist.
+    ///
+    /// After the form closes, `refreshPrivacyState()` re-derives
+    /// `requestsNonPersonalisedAds` from the live consent + ATT answers — the
+    /// same rule as the launch flow. A withdrawal therefore flips `npa=1` and
+    /// `publisherPrivacyPersonalizationState` without a second condition.
+    @discardableResult
+    public func presentPrivacyOptionsForm() -> Bool {
+        // Same guard as `start()`: UMP cannot present from a scene that is not
+        // active. Read the requirement LIVE rather than trusting the published
+        // copy — Settings can outlive a region/console change.
+        guard UIApplication.shared.applicationState == .active else { return false }
+        refreshPrivacyOptionsRequirement()
+        guard AdsConsentOrdering.canPresentPrivacyOptions(
+            privacyOptionsRequirement,
+            isApplicationActive: true
+        ) else { return false }
+        guard !isPresentingPrivacyOptions, !Self.isUMPMessageOnScreen() else { return false }
+        guard let presenter = Self.topViewController() else {
+            log("UMP privacy options requested but there is no view controller to present from")
+            return false
+        }
+
+        isPresentingPrivacyOptions = true
+        log("UMP presenting the privacy options form")
+        ConsentForm.presentPrivacyOptionsForm(from: presenter) { [weak self] error in
+            // UMP calls back on the main queue; hop through the actor anyway so
+            // the compiler enforces what the docs merely promise.
+            Task { @MainActor in
+                self?.privacyOptionsFormFinished(error: error)
+            }
+        }
+        return true
+    }
+
+    private func privacyOptionsFormFinished(error: Error?) {
+        isPresentingPrivacyOptions = false
+        if let error {
+            // Worth saying out loud: UMP completes with an error on the next
+            // run loop when it could not preload a form. Nothing to recover —
+            // the ad state is re-derived below either way.
+            log("UMP privacy options form finished with an error: \(error.localizedDescription)")
+        }
+        // Re-read BOTH answers. A withdrawal shows up in `consentStatus`, and
+        // the requirement itself can change once the form has been answered;
+        // `refreshPrivacyState()` owns both reads and the personalisation
+        // rule, so this must not duplicate either.
+        refreshPrivacyState()
     }
 
     // MARK: - UMP phase
@@ -308,7 +396,13 @@ final class AdsController: ObservableObject {
     // MARK: - State
 
     /// Recomputes the personalisation decision from the two lawful bases.
+    ///
+    /// Also re-reads UMP's privacy-options requirement first: the same answer
+    /// that updates `consentStatus` (a form dismissal, including the privacy
+    /// options form) updates both, and Settings renders its row from the
+    /// published requirement.
     private func refreshPrivacyState() {
+        refreshPrivacyOptionsRequirement()
         let value = AdsConsentOrdering.requestsNonPersonalisedAds(
             consent: Self.mappedConsentStatus(),
             tracking: Self.currentTrackingStatus()
@@ -348,6 +442,22 @@ final class AdsController: ObservableObject {
         switch ConsentInformation.shared.formStatus {
         case .available: return .available
         case .unavailable: return .unavailable
+        default: return .unknown
+        }
+    }
+
+    private static func mappedPrivacyOptionsRequirement() -> AdsPrivacyOptionsRequirement {
+#if DEBUG
+        // Screenshot-QA hook: the privacy options form exists only where AdMob
+        // marks it required, and this simulator is not in such a region — so
+        // the Settings row would correctly never render here. The flag forces
+        // it on for rendering verification, the same way `WV_ADS_FREE` forces
+        // the paid-tier path. Never compiled into Release.
+        if AdsConfig.qaPrivacyOptionsRequired { return .required }
+#endif
+        switch ConsentInformation.shared.privacyOptionsRequirementStatus {
+        case .required: return .required
+        case .notRequired: return .notRequired
         default: return .unknown
         }
     }

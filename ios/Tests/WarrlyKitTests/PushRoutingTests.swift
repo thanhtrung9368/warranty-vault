@@ -23,6 +23,14 @@ final class PushRoutingTests: XCTestCase {
         XCTAssertEqual(PushDestination.parse("/subscriptions/sub_9"), .subscription("sub_9"))
     }
 
+    func testTheWishlistTargetDateURLOpensTheWishlistItem() {
+        // `api/internal/cron/run.go` sends the same shape for both wishlist
+        // notifications (target date and check-in):
+        // URL = fmt.Sprintf("/wishlist/%s", it.ID)
+        XCTAssertEqual(PushDestination.parse("/wishlist/w_1"), .wishlist("w_1"))
+        XCTAssertEqual(PushDestination.parse("/wishlist/w_1/"), .wishlist("w_1"))
+    }
+
     func testAQueryStringOrFragmentIsNeverPartOfTheID() {
         XCTAssertEqual(PushDestination.parse("/devices/dev_42?utm=push"), .device("dev_42"))
         XCTAssertEqual(PushDestination.parse("/devices/dev_42#top"), .device("dev_42"))
@@ -36,10 +44,13 @@ final class PushRoutingTests: XCTestCase {
 
     // MARK: - Unknown, malformed, and deliberately unhandled
 
-    func testWishlistURLsOpenNothing() {
-        // The cron sends `/wishlist/<id>` too, and this app has no destination
-        // for it yet. Doing nothing is correct; opening the last screen is not.
-        XCTAssertNil(PushDestination.parse("/wishlist/w_1"))
+    func testAWishlistPathWithoutExactlyOneIDOpensNothing() {
+        // The positive route must not be a prefix match: `/wishlist/` has no
+        // id, and `/wishlist/a/b` is a different shape that a future route
+        // could own. Guessing either into the first id is how the wrong item
+        // opens.
+        XCTAssertNil(PushDestination.parse("/wishlist/"))
+        XCTAssertNil(PushDestination.parse("/wishlist/a/b"))
     }
 
     func testAnythingThatIsNotTheDocumentedShapeOpensNothing() {
@@ -64,7 +75,9 @@ final class PushRoutingTests: XCTestCase {
     func testAnAbsoluteURLIsReadByItsPath() {
         XCTAssertEqual(PushDestination.parse("https://api.warrly.com/devices/dev_42"),
                        .device("dev_42"))
-        XCTAssertNil(PushDestination.parse("https://api.warrly.com/wishlist/w_1"))
+        XCTAssertEqual(PushDestination.parse("https://api.warrly.com/wishlist/w_1"),
+                       .wishlist("w_1"))
+        XCTAssertNil(PushDestination.parse("https://api.warrly.com/wishlist/w_1/extra"))
     }
 
     // MARK: - userInfo

@@ -22124,6 +22124,57 @@
           }
         }
       }
+    },
+    "Quyền riêng tư": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quyền riêng tư"
+          }
+        }
+      }
+    },
+    "Tuỳ chọn quyền riêng tư": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy options"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuỳ chọn quyền riêng tư"
+          }
+        }
+      }
+    },
+    "Đổi cách quảng cáo được cá nhân hoá hoặc rút lại sự đồng ý.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change how ads are personalised, or withdraw your consent."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đổi cách quảng cáo được cá nhân hoá hoặc rút lại sự đồng ý."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

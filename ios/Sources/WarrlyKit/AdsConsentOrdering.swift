@@ -39,6 +39,11 @@ import Foundation
 //   3. A user who declines ATT, or for whom UMP never answered, still gets
 //      ads — non-personalised ones (`npa=1`), which `requestsNonPersonalisedAds`
 //      decides. Consent absent is a targeting downgrade, not an outage.
+//   4. A consent that was given must be withdrawable. UMP's privacy options
+//      form is reachable only while `privacyOptionsRequirementStatus` says it
+//      is required (`showsPrivacyOptionsEntry`); after the form closes, the
+//      same `requestsNonPersonalisedAds` rule — not a second copy of it —
+//      re-derives `npa=1` from the refreshed consent status.
 //
 // Deliberately free of `GoogleMobileAds`, `UserMessagingPlatform`,
 // `AppTrackingTransparency` and UIKit imports: this file builds and is tested
@@ -106,6 +111,24 @@ public enum AdsFormStatus: String, Sendable, Equatable, CaseIterable {
     case unavailable
 
     public var isAvailable: Bool { self == .available }
+}
+
+/// `UMPPrivacyOptionsRequirementStatus`, restated without UserMessagingPlatform.
+///
+/// Whether the app must give the user a way back into UMP's *privacy options*
+/// form — the screen where an answer already given can be changed or withdrawn.
+/// This is deliberately separate from `AdsConsentStatus`: a user can have
+/// answered the consent form (`.obtained`) and still need the entry point,
+/// because the requirement is about being able to change that answer later —
+/// GDPR Art. 7(3) ("as easy to withdraw as to give") and the App Review 5.1.1
+/// expectation that an app which asks for ad consent also offers a way out.
+public enum AdsPrivacyOptionsRequirement: String, Sendable, Equatable, CaseIterable {
+    /// `requestConsentInfoUpdate` has not answered yet.
+    case unknown
+    /// The platform says this user must be able to open the form.
+    case required
+    /// There is no privacy options form for this user or region.
+    case notRequired
 }
 
 // MARK: - Session state
@@ -255,6 +278,35 @@ public enum AdsConsentOrdering {
 
     /// The single class name `isUMPMessageViewClass` accepts.
     public static let umpMessageViewClassName = "UMPView"
+
+    // MARK: Privacy options (withdrawing a consent that was already given)
+
+    /// Whether the Settings entry point for UMP's privacy options form exists
+    /// at all. The row renders NOTHING unless this is `true`.
+    ///
+    /// `.unknown` is "UMP has not answered yet", not "show it": an entry point
+    /// that appears before the launch consent update resolves would be a dead
+    /// end for however long UMP takes. `.notRequired` means there is no form to
+    /// open for this user/region, and Google's contract is explicit that the
+    /// form may only be presented when the requirement is `.required` — so a
+    /// disabled row or an error there would still be wrong.
+    public static func showsPrivacyOptionsEntry(
+        _ requirement: AdsPrivacyOptionsRequirement
+    ) -> Bool {
+        requirement == .required
+    }
+
+    /// Whether the privacy options form may be presented right now.
+    ///
+    /// The app must be active: UMP presents a view controller, and a scene that
+    /// is not active has nowhere to put it. That is the same guard `start()`
+    /// uses before it touches UMP or ATT.
+    public static func canPresentPrivacyOptions(
+        _ requirement: AdsPrivacyOptionsRequirement,
+        isApplicationActive: Bool
+    ) -> Bool {
+        showsPrivacyOptionsEntry(requirement) && isApplicationActive
+    }
 
     /// Whether the next ad request must be non-personalised (`npa=1`).
     ///

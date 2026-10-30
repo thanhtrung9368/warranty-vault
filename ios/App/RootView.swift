@@ -278,6 +278,8 @@ struct MainTabView: View {
                 selection = 1
             } else if router.pendingSubscriptionId != nil {
                 selection = 2
+            } else if router.pendingWishlistId != nil {
+                selection = 3
             }
             DeadlineSurface.shared.beginSession()
             // First authenticated surface fill: the widget and Spotlight have
@@ -302,6 +304,8 @@ struct MainTabView: View {
                 selection = 1
             } else if router.pendingSubscriptionId != nil {
                 selection = 2
+            } else if router.pendingWishlistId != nil {
+                selection = 3
             }
             DeadlineSurface.shared.beginSession()
             // ATT is retried on EVERY foreground rather than once per install:
@@ -325,6 +329,11 @@ struct MainTabView: View {
             // Same rule for a subscription-renewal notification: bring the
             // "Đăng ký" tab forward and let its screen push the detail.
             if id != nil { selection = 2 }
+        }
+        .onChange(of: router.pendingWishlistId) { _, id in
+            // And for a wishlist target-date / check-in notification: bring the
+            // "Wishlist" tab forward and let its screen push the detail.
+            if id != nil { selection = 3 }
         }
     }
 }

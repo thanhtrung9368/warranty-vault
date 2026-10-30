@@ -35,12 +35,19 @@ struct WishlistScreen: View {
     let client: APIClient
     @StateObject private var store: WishlistStore
     @EnvironmentObject private var toast: WVToastCenter
+    /// Destination requested by a tapped wishlist reminder
+    /// (`url: /wishlist/<id>`). Consumed once the tab is on screen.
+    @EnvironmentObject private var router: AppRouter
 
     @State private var query      = ""
     @State private var filter     = WishFilter.watchingDecided
     @State private var sort       = WishSort.priorityDesc
     @State private var showSort   = false
     @State private var pushCreate = false
+    /// The id a push asked for. Its own destination binding rather than a value
+    /// pushed from the list: the detail screen loads by id, so it can open even
+    /// when the row is filtered out or the list has not arrived yet.
+    @State private var deepLinkedWishlistId: String?
 
     init(client: APIClient) {
         self.client = client
@@ -137,15 +144,34 @@ struct WishlistScreen: View {
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: L.t("Tìm món..."))
         .toolbar { toolbarContent }
-        .task { await store.load() }
+        .task {
+            await openPendingWishlistIfNeeded()
+            await store.load()
+        }
         .refreshable { await store.load() }
+        .onChange(of: router.pendingWishlistId) { _, id in
+            guard id != nil else { return }
+            Task { await openPendingWishlistIfNeeded() }
+        }
         .sheet(isPresented: $showSort) { sortSheet }
         .navigationDestination(for: WishlistItem.self) { item in
             WishlistDetailView(client: client, store: store, itemId: item.id)
         }
+        .navigationDestination(item: $deepLinkedWishlistId) { id in
+            WishlistDetailView(client: client, store: store, itemId: id)
+        }
         .navigationDestination(isPresented: $pushCreate) {
             WishlistFormView(client: client, store: store)
         }
+    }
+
+    /// Takes a notification's destination exactly once, after the tab appears.
+    /// `AppRouter` keeps the id until then, so a cold launch from a push still
+    /// lands on the right wishlist item. `WishlistDetailView` fetches by id, so
+    /// the item does not have to be in `store` yet.
+    private func openPendingWishlistIfNeeded() async {
+        guard let id = router.consumeWishlist() else { return }
+        deepLinkedWishlistId = id
     }
 
     // MARK: - Toolbar

@@ -9,6 +9,7 @@ import Foundation
 //
 //     {"aps": {...}, "url": "/devices/<device-id>"}
 //     {"aps": {...}, "url": "/subscriptions/<subscription-id>"}
+//     {"aps": {...}, "url": "/wishlist/<wishlist-id>"}
 //
 // iOS used to ignore the key entirely — `WVNotificationDelegate.didReceive` was
 // a no-op — so every tap landed on whatever tab was last open. That is worse
@@ -18,18 +19,18 @@ import Foundation
 // The parser lives here rather than in `AppDelegate` so `swift test` can pin the
 // two things that matter without a simulator:
 //
-//   * the two known paths map to the right screen;
+//   * the three known paths map to the right screen;
 //   * **anything else maps to `nil`.** A missing key, a malformed path, a
-//     `/wishlist/<id>` (no destination screen yet) and the `warrly://device/<id>`
-//     deep-link shape this enum does not handle all have to do nothing. Opening
-//     "the last screen" on an unknown key is how a notification tap starts
-//     showing the wrong device.
+//     `/settings/<id>` and the `warrly://device/<id>` deep-link shape this enum
+//     does not handle all have to do nothing. Opening "the last screen" on an
+//     unknown key is how a notification tap starts showing the wrong device.
 // ============================================================
 
 /// The screen a tapped push asks for.
 public enum PushDestination: Hashable, Sendable {
     case device(String)
     case subscription(String)
+    case wishlist(String)
 
     /// Reads the `url` key out of a notification's `userInfo`.
     ///
@@ -59,6 +60,7 @@ public enum PushDestination: Hashable, Sendable {
         switch parts[0].lowercased() {
         case "devices":       return .device(id)
         case "subscriptions": return .subscription(id)
+        case "wishlist":      return .wishlist(id)
         default:              return nil
         }
     }

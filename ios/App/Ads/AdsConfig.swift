@@ -66,6 +66,23 @@ enum AdsConfig {
         return UserDefaults.standard.bool(forKey: adFreeDefaultsKey)
     }
 
+    /// Debug-only: pretend UMP reports the privacy options form as required.
+    ///
+    /// The privacy options form — and therefore the `required` status that
+    /// makes its Settings row render — only exists in regions AdMob marks as
+    /// needing it. A Vietnamese simulator reports `.notRequired`, which
+    /// correctly renders no row at all, so the row could not otherwise be
+    /// photographed. `WV_QA_PRIVACY_OPTIONS=1` makes the same row render for
+    /// screenshot QA, exactly as `WV_ADS_FREE` does for the paid-tier path.
+    /// Never compiled into Release.
+    static var qaPrivacyOptionsRequired: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.environment["WV_QA_PRIVACY_OPTIONS"] == "1"
+#else
+        false
+#endif
+    }
+
     /// Test devices, from `WV_ADS_TEST_DEVICES=a,b` in a Debug launch
     /// environment.
     ///

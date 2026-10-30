@@ -272,4 +272,45 @@ final class AdsConsentOrderingTests: XCTestCase {
         XCTAssertFalse(AdsTrackingStatus.notDetermined.isRefusal)
         XCTAssertFalse(AdsTrackingStatus.authorized.isRefusal)
     }
+
+    // MARK: - Privacy options: withdrawing a consent that was already given
+
+    func testThePrivacyOptionsEntryExistsOnlyWhenUMPRequiresIt() {
+        XCTAssertTrue(
+            AdsConsentOrdering.showsPrivacyOptionsEntry(.required),
+            "AdMob marked privacy options required: the user must have a way to change their answer."
+        )
+        XCTAssertFalse(
+            AdsConsentOrdering.showsPrivacyOptionsEntry(.notRequired),
+            "There is no form to open in this region — a disabled row or an error would still be wrong."
+        )
+        XCTAssertFalse(
+            AdsConsentOrdering.showsPrivacyOptionsEntry(.unknown),
+            "UMP has not answered yet; the entry point must not appear on a guess."
+        )
+    }
+
+    func testThePrivacyOptionsFormCannotBePresentedFromTheBackground() {
+        XCTAssertFalse(
+            AdsConsentOrdering.canPresentPrivacyOptions(.required, isApplicationActive: false),
+            "UMP presents a view controller; a scene that is not active has nowhere to put it."
+        )
+        XCTAssertTrue(AdsConsentOrdering.canPresentPrivacyOptions(.required, isApplicationActive: true))
+    }
+
+    func testThePrivacyOptionsFormNeedsTheRequirementEvenWhenTheAppIsActive() {
+        XCTAssertFalse(AdsConsentOrdering.canPresentPrivacyOptions(.notRequired, isApplicationActive: true))
+        XCTAssertFalse(AdsConsentOrdering.canPresentPrivacyOptions(.unknown, isApplicationActive: true))
+    }
+
+    func testWithdrawingConsentAfterTheFormFallsBackToNonPersonalisedAds() {
+        // The form's dismissal re-reads UMP's consent status; when the user
+        // withdraws, that status is `.required` again. The SAME launch rule
+        // must then produce `npa=1`, even though ATT was granted earlier —
+        // otherwise a withdrawal would only change the stored UMP flag and the
+        // banner would keep personalising.
+        XCTAssertTrue(
+            AdsConsentOrdering.requestsNonPersonalisedAds(consent: .required, tracking: .authorized)
+        )
+    }
 }

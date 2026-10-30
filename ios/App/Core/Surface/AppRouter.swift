@@ -7,8 +7,8 @@ import WarrlyKit
 /// Four entry points feed it: a Spotlight result tap (an `NSUserActivity`), a
 /// `warrly://device/<id>` URL, the "Open device" App Intent (which writes the
 /// id into the App Group because Siri may run before the UI exists), and a
-/// **tapped push notification** (whose payload carries `url: /devices/<id>` or
-/// `/subscriptions/<id>`).
+/// **tapped push notification** (whose payload carries `url: /devices/<id>`,
+/// `/subscriptions/<id>` or `/wishlist/<id>`).
 ///
 /// The id is kept until the destination tab has loaded enough to push the real
 /// screen. Consuming it earlier would drop the request on a cold launch.
@@ -18,6 +18,9 @@ final class AppRouter: ObservableObject {
     /// A subscription a push asked for. Consumed by `SubscriptionsScreen`,
     /// which switches the tab before pushing — same cold-launch rule as above.
     @Published private(set) var pendingSubscriptionId: String?
+    /// A wishlist item a target-date / check-in push asked for. Consumed by
+    /// `WishlistScreen`, which switches the tab before pushing — same rule.
+    @Published private(set) var pendingWishlistId: String?
 
     private var observer: NSObjectProtocol?
     private var pushObserver: NSObjectProtocol?
@@ -47,6 +50,7 @@ final class AppRouter: ObservableObject {
                 switch destination {
                 case .device(let id): self?.openDevice(id: id)
                 case .subscription(let id): self?.openSubscription(id: id)
+                case .wishlist(let id): self?.openWishlist(id: id)
                 }
             }
         }
@@ -70,6 +74,10 @@ final class AppRouter: ObservableObject {
 
     func openSubscription(id: String) {
         pendingSubscriptionId = id
+    }
+
+    func openWishlist(id: String) {
+        pendingWishlistId = id
     }
 
     /// Picks up the id an App Intent queued in the App Group. Called on every
@@ -108,11 +116,18 @@ final class AppRouter: ObservableObject {
         return pendingSubscriptionId
     }
 
+    /// Hands the wishlist id to the wishlist screen exactly once.
+    func consumeWishlist() -> String? {
+        defer { pendingWishlistId = nil }
+        return pendingWishlistId
+    }
+
     /// Sign-out hygiene. Also clears the App Group queue so a queued intent
     /// cannot open a device after the account changed.
     func clear() {
         pendingDeviceId = nil
         pendingSubscriptionId = nil
+        pendingWishlistId = nil
         WarrlyIntentBridge.clearPendingDevice()
     }
 }

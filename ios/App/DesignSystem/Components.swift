@@ -202,6 +202,14 @@ struct WVRow: View {
     var iconLarge: Bool = false
     var title: String
     var subtitle: String?
+    /// Maximum lines the subtitle may use.
+    ///
+    /// One by default, so every existing row keeps its exact height. A row
+    /// whose subtitle *explains an action* rather than naming a value (e.g.
+    /// "what does this privacy row do?") can raise it, instead of shipping
+    /// mid-sentence ellipsis. Accessibility sizes keep their existing
+    /// three-line floor and show more when this is raised.
+    var subtitleLineLimit: Int = 1
     var detail: String?
     var chevron: Bool = false
     var role: WVRowRole = .normal
@@ -257,7 +265,7 @@ struct WVRow: View {
                     Text(subtitle)
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
-                        .lineLimit(1)
+                        .lineLimit(subtitleLineLimit)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -302,7 +310,7 @@ struct WVRow: View {
                         Text(subtitle)
                             .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
-                            .lineLimit(3)
+                            .lineLimit(max(subtitleLineLimit, 3))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
