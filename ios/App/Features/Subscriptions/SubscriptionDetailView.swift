@@ -20,6 +20,10 @@ struct SubscriptionDetailView: View {
     @State private var showDelete               = false
     @State private var status: SubscriptionStatus = .ACTIVE
     @State private var pushEdit                 = false
+    /// The account/links/chart/history tail is one collapsed disclosure: the
+    /// detail's job is "what is this, when is it due, what can I do", not a
+    /// second list of every recorded field.
+    @State private var infoExpanded             = false
 
     // MARK: Body
 
@@ -110,10 +114,23 @@ struct SubscriptionDetailView: View {
                 }
                 quickActions(sub)
                 statusSegmented(sub)
-                if payments.count > 1 { paymentChart }
-                accountSection(sub)
-                linksSection(sub)
-                paymentsSection
+
+                // One collapsed disclosure for the recorded facts. Each block
+                // keeps its own header and card inside, exactly as it appeared
+                // when it was a top-level section.
+                WVDisclosure(
+                    title: L.t("Thông tin & thanh toán"),
+                    subtitle: L.t("Tài khoản, liên kết, biểu đồ và lịch sử thanh toán"),
+                    icon: "creditCard",
+                    iconColor: WVColor.purple,
+                    isExpanded: $infoExpanded
+                ) {
+                    if payments.count > 1 { paymentChart }
+                    accountSection(sub)
+                    linksSection(sub)
+                    paymentsSection
+                }
+
                 if let notes = sub.notes, !notes.isEmpty { noteSection(notes) }
                 deleteSection
                 Spacer().frame(height: WVSpacing.xl)
@@ -150,6 +167,21 @@ struct SubscriptionDetailView: View {
                 if days < 0 && sub.status == .ACTIVE {
                     WVChip(L.t("Quá hạn %dd", abs(days)), tone: .red, icon: "alert")
                 }
+            }
+
+            // The date, not just a countdown. A lifetime subscription has no
+            // renewal to name, so it prints nothing rather than a fake one.
+            if sub.billingCycle != .LIFETIME {
+                let days = WVFormat.daysUntil(sub.renewalDate)
+                Text(DeadlineCopy.label(
+                    kind: .subscription,
+                    dateText: WVFormat.date(sub.renewalDate),
+                    days: days
+                ))
+                .wvFont(.subheadlineEmphasis)
+                .foregroundStyle(deadlineTone(days))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, WVSpacing.titleGutter)

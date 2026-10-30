@@ -85,6 +85,11 @@ final class AppRouter: ObservableObject {
             openDevice(id: qa)
             return
         }
+        // The subscription counterpart, for the same reason: a detail screen
+        // that has to be reached by tapping cannot be photographed headlessly.
+        if let qa = ProcessInfo.processInfo.environment["WV_QA_SUBSCRIPTION_ID"], !qa.isEmpty {
+            openSubscription(id: qa)
+        }
 #endif
         if let id = WarrlyIntentBridge.consumePendingDevice() {
             openDevice(id: id)

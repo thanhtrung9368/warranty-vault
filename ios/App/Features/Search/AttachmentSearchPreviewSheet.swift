@@ -198,39 +198,6 @@ struct AttachmentSearchPreviewSheet: View {
     }
 }
 
-// MARK: - Quick Look host
-
-/// Hosts `QLPreviewController` for a single local file. Used instead of a
-/// `Link` because the authenticated route cannot be opened by an external app.
-private struct QuickLookFileView: UIViewControllerRepresentable {
-    let url: URL
-
-    func makeUIViewController(context: Context) -> QLPreviewController {
-        let controller = QLPreviewController()
-        controller.dataSource = context.coordinator
-        return controller
-    }
-
-    func updateUIViewController(_ controller: QLPreviewController, context: Context) {
-        controller.reloadData()
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(url: url)
-    }
-
-    final class Coordinator: NSObject, QLPreviewControllerDataSource {
-        let url: URL
-
-        init(url: URL) {
-            self.url = url
-        }
-
-        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
-
-        func previewController(_ controller: QLPreviewController,
-                               previewItemAt index: Int) -> QLPreviewItem {
-            url as NSURL
-        }
-    }
-}
+// The Quick Look host itself lives in `App/DesignSystem/AttachmentPreview.swift`,
+// together with the device detail's preview sheet: one file type for a
+// bearer-gated receipt, used by every surface that opens one.

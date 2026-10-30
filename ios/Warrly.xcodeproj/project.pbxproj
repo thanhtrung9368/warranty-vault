@@ -20,7 +20,9 @@
 		314D3E283DC579C17545BCD4 /* ActionQueueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */; };
 		37E59A5567895D8F428B9345 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17993834773F9CB178159EEA /* SearchScreen.swift */; };
 		3AA54CD6CF963EA894E4A7D8 /* WishlistScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AE835619DA3ECDE28FD7DE /* WishlistScreen.swift */; };
+		3AEF75F54D1247E93840D9E6 /* Disclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8D046A3DB1A1BC8D7867CA /* Disclosure.swift */; };
 		3C7CCD3942EE6348D1590F4D /* DeviceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB0C807D1BBF00C15B226DE8 /* DeviceDetailView.swift */; };
+		41AD94A2BF5E561EF021E248 /* DeadlineSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACDABAA4264A80546E4D6F75 /* DeadlineSection.swift */; };
 		41C0BF530D6878E6F862E3EB /* AdsBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DB5D5E80AD5FDEFB4CCD26E /* AdsBannerView.swift */; };
 		43DD33674FF461E3E92E14EE /* ClaimFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11C9A2418F23E0EA06A4B9B5 /* ClaimFormView.swift */; };
 		44DBCC2CAF1DFF5FFE11B708 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33AE91C9B8486FF06C36BF43 /* SettingsView.swift */; };
@@ -38,6 +40,7 @@
 		64098F1E020CA14620A80ECF /* MoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */; };
 		6A567C7E8DC0896FA7857042 /* CatalogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8126004F477522699C8B5716 /* CatalogStore.swift */; };
 		75D5A75BC2DFF4FBB1EDBC4B /* DisplayNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE8446F5D3080E7AE569BA1 /* DisplayNameSheet.swift */; };
+		76AB1C235AD0E9737288F197 /* AttachmentPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118660EBEABDC48A7BDCA123 /* AttachmentPreview.swift */; };
 		7C1EBB1B0A534E6E76CFFCD0 /* DevicesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B935ABD3E30E1BAF6C3C17F1 /* DevicesStore.swift */; };
 		7C90CD9D820A0B3185341FA9 /* PushDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B4BCD1EB9641583880B03A /* PushDevicesView.swift */; };
 		7E0A6EFB1C0672C7DE6E24B3 /* ClaimAssessmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBE2AE96CDE899FE4D0695F /* ClaimAssessmentView.swift */; };
@@ -135,6 +138,7 @@
 		0937C68493CB01905B03134B /* WarrlyWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = WarrlyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		09877AAA02E03009FC63EF7B /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
 		0DCDE32D624D890090538C46 /* WarrantyFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarrantyFormView.swift; sourceTree = "<group>"; };
+		118660EBEABDC48A7BDCA123 /* AttachmentPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPreview.swift; sourceTree = "<group>"; };
 		11C9A2418F23E0EA06A4B9B5 /* ClaimFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimFormView.swift; sourceTree = "<group>"; };
 		143D541B310E553009B6714B /* SubscriptionAuditScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionAuditScreen.swift; sourceTree = "<group>"; };
 		163670807C633A5A52D2510E /* EmailChangeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailChangeSheet.swift; sourceTree = "<group>"; };
@@ -189,6 +193,7 @@
 		A68B1C27E2E7AB61E0D8105C /* Warrly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Warrly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocompleteChips.swift; sourceTree = "<group>"; };
 		ACBE2AE96CDE899FE4D0695F /* ClaimAssessmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimAssessmentView.swift; sourceTree = "<group>"; };
+		ACDABAA4264A80546E4D6F75 /* DeadlineSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeadlineSection.swift; sourceTree = "<group>"; };
 		AE23F30DA617EBC2492BA2FE /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		AED24B4774895B3D9DCA0852 /* ActionQueueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionQueueStore.swift; sourceTree = "<group>"; };
 		B0C5A5578DCF334E06E81790 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -200,6 +205,7 @@
 		B7B4E664E69C4E53E8D17BF0 /* MoreScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreScreen.swift; sourceTree = "<group>"; };
 		B935ABD3E30E1BAF6C3C17F1 /* DevicesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesStore.swift; sourceTree = "<group>"; };
 		B9AF840B96E049E176AC9599 /* AdsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsConfig.swift; sourceTree = "<group>"; };
+		BA8D046A3DB1A1BC8D7867CA /* Disclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Disclosure.swift; sourceTree = "<group>"; };
 		BB3E30DB5F2BED0874601B3F /* SerialScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialScannerView.swift; sourceTree = "<group>"; };
 		BCFCE97A0BB1747FDE1A7AA5 /* AttachmentDescriptionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentDescriptionSheet.swift; sourceTree = "<group>"; };
 		BF5409F5513C1FDE5B33A354 /* InboxScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxScreen.swift; sourceTree = "<group>"; };
@@ -372,6 +378,7 @@
 			isa = PBXGroup;
 			children = (
 				837638321876BA6937EC02F1 /* DashboardView.swift */,
+				ACDABAA4264A80546E4D6F75 /* DeadlineSection.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -446,9 +453,11 @@
 		7FE8D91156E6412EB7510E5B /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				118660EBEABDC48A7BDCA123 /* AttachmentPreview.swift */,
 				A8E6C06BC5E2C37AD993156A /* AutocompleteChips.swift */,
 				1C1FBEE7DBBA46C09F5EC2D8 /* Charts.swift */,
 				569E34979FCE797CC256EF82 /* Components.swift */,
+				BA8D046A3DB1A1BC8D7867CA /* Disclosure.swift */,
 				F92DBBD8571A8AAA6922D911 /* Fonts.swift */,
 				60CE06298DACE1DDBD26D736 /* Formatters.swift */,
 				888F7704865BD2666E99290B /* LeadDaysSection.swift */,
@@ -735,6 +744,7 @@
 				5B4EF61B86E168CF518470F3 /* AppDelegate.swift in Sources */,
 				10156C4BE0C5C2D54070AF1F /* AppRouter.swift in Sources */,
 				9FD39E81BFAFBA06C5D6C7CF /* AttachmentDescriptionSheet.swift in Sources */,
+				76AB1C235AD0E9737288F197 /* AttachmentPreview.swift in Sources */,
 				4C5CE511D0E4807822A335A0 /* AttachmentSearchPreviewSheet.swift in Sources */,
 				DA51F5A007F18FFB37D7C73E /* AttachmentsSection.swift in Sources */,
 				D1C905C7BD2AE84702AD9F4A /* AuthStore.swift in Sources */,
@@ -749,12 +759,14 @@
 				8D2F1A7A91E9883302BD2E21 /* ClaimsSection.swift in Sources */,
 				C7AC3247EAFD17CC03FB0798 /* Components.swift in Sources */,
 				0E3B00937D901B8A205AB34C /* DashboardView.swift in Sources */,
+				41AD94A2BF5E561EF021E248 /* DeadlineSection.swift in Sources */,
 				D95433841D57BF3B3BC60A95 /* DeadlineSurface.swift in Sources */,
 				3C7CCD3942EE6348D1590F4D /* DeviceDetailView.swift in Sources */,
 				D10445D364810FD53A47B3F2 /* DeviceFormView.swift in Sources */,
 				DE4CCFEDE948509BEDAC4AB8 /* DeviceSpotlightIndexer.swift in Sources */,
 				5339B998E6614AA044485023 /* DevicesScreen.swift in Sources */,
 				7C1EBB1B0A534E6E76CFFCD0 /* DevicesStore.swift in Sources */,
+				3AEF75F54D1247E93840D9E6 /* Disclosure.swift in Sources */,
 				75D5A75BC2DFF4FBB1EDBC4B /* DisplayNameSheet.swift in Sources */,
 				18B4CC7B7F08AC5969307F04 /* EmailChangeSheet.swift in Sources */,
 				C73A7DCDDF1BAB51A47971EC /* Fonts.swift in Sources */,

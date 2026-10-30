@@ -18,6 +18,12 @@ struct DeviceDetailView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @StateObject private var store: WarrantiesStore
+    /// The device's receipts, shared by the hero strip and the full section.
+    @StateObject private var attachmentsModel: DeviceAttachmentsModel
+
+    /// The warranty/repair apparatus is one disclosure, collapsed by default:
+    /// it is the second tier of this screen, not the answer to "am I covered?".
+    @State private var warrantyRepairExpanded = false
 
     @State private var showActionMenu = false
     @State private var showDeleteAlert = false
@@ -42,6 +48,9 @@ struct DeviceDetailView: View {
         self.devicesStore = devicesStore
         self.device = device
         _store = StateObject(wrappedValue: WarrantiesStore(client: client, deviceId: device.id))
+        _attachmentsModel = StateObject(
+            wrappedValue: DeviceAttachmentsModel(client: client, deviceId: device.id)
+        )
         _deviceStatus = State(initialValue: device.status)
     }
 
@@ -52,7 +61,7 @@ struct DeviceDetailView: View {
     }
 
     private var warranties: [Warranty] { store.warranties }
-    private var attachments: [AttachmentMeta] { store.device?.attachments ?? [] }
+    private var attachments: [AttachmentMeta] { attachmentsModel.attachments }
 
     /// `true` once the detail read has landed.
     ///
@@ -81,11 +90,6 @@ struct DeviceDetailView: View {
             // the list projection carries a count for the moment before it is.
             attachmentCount: max(attachments.count, currentDevice.attachmentCount ?? 0)
         )
-    }
-
-    private var maxDaysLeft: Int? {
-        guard !warranties.isEmpty else { return nil }
-        return warranties.map { warrantyDaysLeft($0) }.max()
     }
 
     /// The exchange / return window as a **read-only** row, or `nil` when nothing
@@ -204,37 +208,128 @@ struct DeviceDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Hero section
+                // Hero section — name, warranty end date, day count, receipts.
                 heroSection
 
-                // Warranty timeline card (if any)
-                if !warranties.isEmpty {
-                    warrantyTimelineCard
-                        .padding(.top, 12)
-                }
+                // Receipts: the strip in the hero is the viewing surface; this
+                // is the managing one (add, describe, delete). It sits directly
+                // under the strip it feeds, not at the bottom of the page.
+                WVSectionHeader(attachmentsModel.hasLoaded
+                    ? L.t("File đính kèm (%d/5)", attachmentsModel.attachments.count)
+                    : L.t("File đính kèm"))
+                DeviceAttachmentsSection(client: client, model: attachmentsModel)
 
-                // Brand warranty lookup ("Đối chiếu với hãng"). It sits high on
-                // the screen on purpose: the mismatch is the one fact that can
-                // change what the user believes about the warranty, so it must
-                // not be buried under the contact directory.
-                BrandWarrantySection(
-                    client: client,
-                    brand: currentDevice.brand,
-                    fields: brandWarrantyFields,
-                    mismatch: brandWarrantyMismatch,
-                    purchaseDate: currentDevice.purchaseDate,
-                    persist: { fields in
-                        try await recordBrandWarranty(fields)
+                // The warranty/repair apparatus — warranty packages, brand
+                // lookup, claims, contacts, the pre-service checklist, the
+                // service directory and the handover certificate — is one
+                // collapsed disclosure. Each block keeps its own card and
+                // header inside; together they were six of this screen's
+                // sixteen sections, which made a device with two facts read
+                // like a document. The mismatch signal is not lost: the hero
+                // carries an orange chip while this is closed.
+                WVDisclosure(
+                    title: L.t("Bảo hành & sửa chữa"),
+                    subtitle: L.t("Gói bảo hành, sửa chữa, liên hệ, bàn giao và chia sẻ"),
+                    icon: "shieldCheck",
+                    iconColor: WVColor.green,
+                    isExpanded: $warrantyRepairExpanded
+                ) {
+                    // The per-package progress cards are the overview; the
+                    // list below is where a package is added or edited.
+                    if !warranties.isEmpty {
+                        warrantyTimelineCard
+                            .padding(.top, 8)
                     }
-                )
 
-                // Repairs ("Sửa chữa & bảo hành"). A claim belongs to a device,
-                // so the device detail is its anchor: the section lists this
-                // device's claims and carries the add/edit form. It sits high on
-                // the screen on purpose — when the device is marked BROKEN and
-                // no claim is open, its inline nudge is the way out of the dead
-                // end that used to be the end of the journey.
-                ClaimsSection(store: store, device: currentDevice, client: client)
+                    // Warranty packages.
+                    //
+                    // The count is only printed once the detail read has
+                    // landed. Before that `warranties` is empty because
+                    // *nothing has been read yet*, not because the device has
+                    // none — "(0/5)" there is a claim it cannot support.
+                    WVSectionHeader(detailLoaded
+                        ? L.t("Bảo hành (%d/5)", warranties.count)
+                        : L.t("Bảo hành"))
+                    warrantyListGroup
+
+                    // Brand warranty lookup ("Đối chiếu với hãng"). Its
+                    // mismatch is the one fact that can change what the user
+                    // believes about the warranty, which is why the hero chip
+                    // repeats it while this block is closed.
+                    BrandWarrantySection(
+                        client: client,
+                        brand: currentDevice.brand,
+                        fields: brandWarrantyFields,
+                        mismatch: brandWarrantyMismatch,
+                        purchaseDate: currentDevice.purchaseDate,
+                        persist: { fields in
+                            try await recordBrandWarranty(fields)
+                        }
+                    )
+
+                    // Repairs ("Sửa chữa & bảo hành"). A claim belongs to a
+                    // device, so the device detail is its anchor. When the
+                    // device is marked BROKEN and no claim is open, the
+                    // section's inline nudge is the way out of the dead end.
+                    ClaimsSection(store: store, device: currentDevice, client: client)
+
+                    // Warranty contact group (if phones/addresses present)
+                    let contactWarranties = warranties.filter { $0.phone != nil || $0.address != nil }
+                    if !contactWarranties.isEmpty {
+                        WVSectionHeader(L.t("Liên hệ bảo hành"))
+                        WVGroup {
+                            ForEach(Array(contactWarranties.enumerated()), id: \.element.id) { _, w in
+                                if let phone = w.phone {
+                                    WVDivider(inset: 60)
+                                    WVRow(icon: "phone", iconColor: WVColor.green,
+                                          title: phone,
+                                          subtitle: w.provider,
+                                          chevron: true,
+                                          action: { openURL("tel:\(phone)") })
+                                }
+                                if let address = w.address {
+                                    WVDivider(inset: 60)
+                                    WVRow(icon: "mapPin", iconColor: WVColor.red,
+                                          title: address,
+                                          subtitle: w.provider,
+                                          chevron: true,
+                                          action: { openURL("https://maps.google.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") })
+                                }
+                            }
+                        }
+                    }
+
+                    // Pre-service handover checklist. It sits with the
+                    // warranty contact details because that is the moment the
+                    // user is about to hand the machine over; the list itself
+                    // is generated per device and ticked in memory only.
+                    WVSectionHeader(L.t("Trước khi đi bảo hành"))
+                    WVSectionFooter(L.t("Danh sách nhắc bạn gỡ khoá, sao lưu, chuẩn bị giấy tờ và kiểm tra máy khi nhận lại — những việc quyết định chuyến đi có thành công hay không."))
+                    WVGroup {
+                        WVRow(icon: "checklist", iconColor: WVColor.orange,
+                              title: L.t("Danh sách bàn giao trước khi sửa"),
+                              subtitle: L.t("Chỉ tick trong phiên này, không lưu lên máy chủ"),
+                              chevron: true,
+                              action: { showServiceChecklist = true })
+                    }
+
+                    // Where to actually take the machine (FEATURE_IDEAS #15).
+                    // Its own read: a failure to load it must not look like
+                    // "the app has no information".
+                    ServiceDirectorySection(
+                        client: client,
+                        deviceId: currentDevice.id
+                    )
+
+                    // The handover certificate (FEATURE_IDEAS #2). The link
+                    // exists to be handed to a buyer, so it is offered with the
+                    // warranty contact details rather than with the receipts.
+                    ShareCertificatesSection(
+                        client: client,
+                        deviceId: currentDevice.id,
+                        deviceName: currentDevice.name
+                    )
+                }
 
                 // Info group — purchase
                 WVSectionHeader(L.t("Mua hàng"))
@@ -359,85 +454,6 @@ struct DeviceDetailView: View {
                         }
                     }
                 }
-
-                // Warranty list group.
-                //
-                // The count is only printed once the detail read has landed.
-                // Before that `warranties` is empty because *nothing has been
-                // read yet*, not because the device has none — "(0/5)" there is
-                // a claim the screen cannot support.
-                WVSectionHeader(detailLoaded
-                    ? L.t("Bảo hành (%d/5)", warranties.count)
-                    : L.t("Bảo hành"))
-                warrantyListGroup
-
-                // Warranty contact group (if phones/addresses present)
-                let contactWarranties = warranties.filter { $0.phone != nil || $0.address != nil }
-                if !contactWarranties.isEmpty {
-                    WVSectionHeader(L.t("Liên hệ bảo hành"))
-                    WVGroup {
-                        ForEach(Array(contactWarranties.enumerated()), id: \.element.id) { _, w in
-                            if let phone = w.phone {
-                                WVDivider(inset: 60)
-                                WVRow(icon: "phone", iconColor: WVColor.green,
-                                      title: phone,
-                                      subtitle: w.provider,
-                                      chevron: true,
-                                      action: { openURL("tel:\(phone)") })
-                            }
-                            if let address = w.address {
-                                WVDivider(inset: 60)
-                                WVRow(icon: "mapPin", iconColor: WVColor.red,
-                                      title: address,
-                                      subtitle: w.provider,
-                                      chevron: true,
-                                      action: { openURL("https://maps.google.com/?q=\(address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") })
-                            }
-                        }
-                    }
-                }
-
-                // Pre-service handover checklist. Sits with the warranty contact
-                // details because that is the moment the user is about to hand
-                // the machine over; the list itself is generated per device and
-                // ticked in memory only (no API field exists for it).
-                WVSectionHeader(L.t("Trước khi đi bảo hành"))
-                WVSectionFooter(L.t("Danh sách nhắc bạn gỡ khoá, sao lưu, chuẩn bị giấy tờ và kiểm tra máy khi nhận lại — những việc quyết định chuyến đi có thành công hay không."))
-                WVGroup {
-                    WVRow(icon: "checklist", iconColor: WVColor.orange,
-                          title: L.t("Danh sách bàn giao trước khi sửa"),
-                          subtitle: L.t("Chỉ tick trong phiên này, không lưu lên máy chủ"),
-                          chevron: true,
-                          action: { showServiceChecklist = true })
-                }
-
-                // Where to actually take the machine (FEATURE_IDEAS #15). Its own
-                // read: the directory is a device-level answer, and a failure to
-                // load it must not look like "the app has no information".
-                ServiceDirectorySection(
-                    client: client,
-                    deviceId: currentDevice.id
-                )
-
-                // The handover certificate (FEATURE_IDEAS #2). The link exists to
-                // be handed to a buyer, so it is offered next to the warranty
-                // contact details rather than buried under the attachments.
-                ShareCertificatesSection(
-                    client: client,
-                    deviceId: currentDevice.id,
-                    deviceName: currentDevice.name
-                )
-
-                // Attachments. Same rule as the warranty header: the count is a
-                // fact from the read, so it appears with the read.
-                WVSectionHeader(detailLoaded
-                    ? L.t("File đính kèm (%d/5)", attachments.count)
-                    : L.t("File đính kèm"))
-                DeviceAttachmentsSection(
-                    client: client,
-                    deviceId: currentDevice.id,
-                    initialAttachments: attachments
-                )
 
                 // Note
                 if let note = currentDevice.notes, !note.isEmpty {
@@ -569,8 +585,16 @@ struct DeviceDetailView: View {
                 session: checklistSession
             )
         }
-        .task { await store.load() }
-        .refreshable { await store.load() }
+        .task {
+            await store.load()
+            // The hero strip has its own read so a receipt is visible before
+            // the rest of the detail lands; the full section shares the result.
+            await attachmentsModel.loadIfNeeded()
+        }
+        .refreshable {
+            await store.load()
+            await attachmentsModel.reload()
+        }
     }
 
     // MARK: - Hero section
@@ -588,19 +612,19 @@ struct DeviceDetailView: View {
                         .wvFont(.title2Emphasis)
                         .foregroundStyle(WVColor.label)
                         .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text([currentDevice.brand, currentDevice.model]
                         .compactMap { $0 }
                         .joined(separator: " · "))
                         .wvFont(.subheadline)
                         .foregroundStyle(WVColor.label3)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                // Three badges do not fit on one line at Accessibility sizes;
+                // Two badges do not fit on one line at Accessibility sizes;
                 // they stack in the same order instead of overflowing the card.
                 let badges = Group {
                     DeviceStatusBadge(status: currentDevice.status)
-                    if let dl = maxDaysLeft {
-                        WarrantyPill(daysLeft: dl)
-                    }
                     // The mismatch flag is deliberately in the hero: the user
                     // should see that the brand disagrees before they read any
                     // other number on this screen. Orange, never red.
@@ -613,10 +637,46 @@ struct DeviceDetailView: View {
                 } else {
                     HStack(spacing: 6) { badges }
                 }
+
+                // The fact the old pill could not state: the absolute end date.
+                // "Còn 9d" is a countdown; this is the date a user can put in a
+                // calendar, in the same wording every deadline row uses.
+                heroDeadlineLine
             }
             .padding(.horizontal, WVSpacing.gutter)
-            .padding(.vertical, 20)
-            .frame(maxWidth: .infinity)
+            .padding(.top, 20)
+            .padding(.bottom, 14)
+
+            // The receipt, where the eye lands — directly under the name and
+            // the end date, not as the fourteenth section of sixteen.
+            ReceiptStrip(client: client, model: attachmentsModel)
+
+            Spacer().frame(height: 16)
+        }
+    }
+
+    /// "Hết hạn 15/09/2027 · còn 9 ngày", or an honest "not recorded" line.
+    ///
+    /// `effectiveWarrantyEnd` prefers the list projection, so the date is on
+    /// screen before the detail read lands — the old hero could only show a
+    /// pill once `warranties` had arrived.
+    @ViewBuilder
+    private var heroDeadlineLine: some View {
+        if let end = effectiveWarrantyEnd {
+            let days = WVFormat.daysUntil(end)
+            Text(DeadlineCopy.label(kind: .warranty,
+                                    dateText: WVFormat.date(end),
+                                    days: days))
+                .wvFont(.subheadlineEmphasis)
+                .foregroundStyle(WarrantyPillCopy.status(daysLeft: days).heroColor)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(L.t("Chưa ghi hạn bảo hành"))
+                .wvFont(.subheadline)
+                .foregroundStyle(WVColor.label3)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -1110,4 +1170,20 @@ private struct WarrantyListRow: View {
 
 private func warrantyDaysLeft(_ w: Warranty) -> Int {
     WVFormat.daysUntil(w.endDate)
+}
+
+// MARK: - Deadline tone
+
+/// The pill's tone, as a color. `WarrantyPillCopy` lives in the Kit and knows
+/// no SwiftUI colors; the hero date line uses the same safe/warn/danger/expired
+/// mapping as the pill so the two cannot disagree about urgency.
+private extension WarrantyPillCopy.Status {
+    var heroColor: Color {
+        switch self {
+        case .safe:    return WVColor.green
+        case .warn:    return WVColor.orange
+        case .danger:  return WVColor.red
+        case .expired: return WVColor.label3
+        }
+    }
 }

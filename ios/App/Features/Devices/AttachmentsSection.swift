@@ -4,47 +4,306 @@ import UniformTypeIdentifiers
 import WarrlyKit
 
 // ============================================================
-// DeviceAttachmentsSection — inline attachments inside device detail
+// Device attachments — the receipt surface of a device
 //
-// Keeps all upload/download/delete wiring from the old
-// AttachmentsSection.swift and rebuilds the UI to match the
-// prototype (thumbnail grid + "Tải file mới lên" row).
+// Two views over one model:
+//
+//  * `ReceiptStrip` — the horizontal strip in the hero. A receipt is the
+//    product's promise ("keep the receipt"), so it belongs where the eye
+//    lands, not as the fourteenth section of sixteen.
+//  * `DeviceAttachmentsSection` — the full management block: add a photo or
+//    PDF, edit a description, delete. It stays a normal section below the
+//    hero.
+//
+// Both read and write `DeviceAttachmentsModel`, so an upload from the strip
+// appears in the full section immediately (and vice versa) without a second
+// device read.
+//
+// Tapping a tile opens `QLPreviewSheet` (see DesignSystem/AttachmentPreview):
+// the byte stream is bearer-gated, so this used to be a `Link` that handed
+// Safari a request with no Authorization header and got a 404.
 // ============================================================
+
+// MARK: - Model
+
+/// The attachments of one device, shared by the hero strip and the full
+/// section.
+///
+/// Ownership used to sit inside the section: it fetched its own list, so a
+/// second surface could not exist without a second read and the two could
+/// disagree after an upload.
+@MainActor
+final class DeviceAttachmentsModel: ObservableObject {
+    @Published private(set) var attachments: [AttachmentMeta]
+    @Published private(set) var isLoading = false
+    @Published private(set) var isUploading = false
+    @Published private(set) var pendingDeleteId: String?
+    @Published var errorMessage: String?
+
+    /// True once a list read has answered (successfully or not), so a count is
+    /// never printed before the read that produces it.
+    @Published private(set) var hasLoaded = false
+
+    private let client: APIClient
+    let deviceId: String
+
+    init(client: APIClient, deviceId: String, initial: [AttachmentMeta] = []) {
+        self.client = client
+        self.deviceId = deviceId
+        self.attachments = initial
+    }
+
+    /// The server's per-device ceiling (`MAX_ATTACHMENTS_PER_DEVICE`).
+    var canUpload: Bool { attachments.count < 5 }
+
+    // MARK: Read
+
+    func loadIfNeeded() async {
+        guard !hasLoaded else { return }
+        await reload()
+    }
+
+    func reload() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            attachments = try await client.listAttachments(deviceId: deviceId)
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
+        hasLoaded = true
+    }
+
+    // MARK: Write
+
+    func apply(_ updated: AttachmentMeta) {
+        guard let idx = attachments.firstIndex(where: { $0.id == updated.id }) else { return }
+        attachments[idx] = updated
+    }
+
+    func delete(_ att: AttachmentMeta) async {
+        errorMessage = nil
+        pendingDeleteId = att.id
+        defer { pendingDeleteId = nil }
+        do {
+            try await client.deleteAttachment(id: att.id)
+            attachments.removeAll { $0.id == att.id }
+            AttachmentThumbnailCache.remove(for: att.id)
+        } catch {
+            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
+    }
+
+    @discardableResult
+    func upload(data: Data, fileName: String, fileType: String) async -> AttachmentMeta? {
+        errorMessage = nil
+        guard data.count <= AttachmentFileType.maxBytes else {
+            errorMessage = AttachmentFileType.tooLargeMessage
+            return nil
+        }
+        isUploading = true
+        defer { isUploading = false }
+        do {
+            let meta = try await client.uploadAttachment(
+                deviceId: deviceId, fileName: fileName, fileType: fileType,
+                data: data, description: nil
+            )
+            attachments.insert(meta, at: 0)
+            return meta
+        } catch {
+            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Upload a picked photo. Declares the bytes' real type: iPhones shoot HEIC
+    /// by default, and Go rejects an upload whose Content-Type disagrees with
+    /// its magic bytes.
+    func uploadPhoto(item: PhotosPickerItem) async {
+        errorMessage = nil
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else { return }
+            guard let type = AttachmentFileType.detect(data) else {
+                errorMessage = AttachmentFileType.unsupportedMessage
+                return
+            }
+            let name = "photo-\(Int(Date().timeIntervalSince1970)).\(type.fileExtension)"
+            await upload(data: data, fileName: name, fileType: type.mimeType)
+        } catch {
+            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
+    }
+
+    func importPDF(result: Result<[URL], Error>) async {
+        errorMessage = nil
+        do {
+            let urls = try result.get()
+            guard let url = urls.first else { return }
+            let needsScope = url.startAccessingSecurityScopedResource()
+            defer { if needsScope { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            // The importer is restricted to `.pdf`, but sniff anyway so a
+            // renamed file can't produce a declared/actual mismatch.
+            guard let type = AttachmentFileType.detect(data) else {
+                errorMessage = AttachmentFileType.unsupportedMessage
+                return
+            }
+            await upload(data: data, fileName: url.lastPathComponent, fileType: type.mimeType)
+        } catch {
+            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Hero strip
+
+/// Horizontal receipt strip for the device hero: one 64 pt tile per
+/// attachment, plus an "add receipt" ghost tile while there is room.
+///
+/// Reads only for viewing; deleting and writing descriptions stay in the full
+/// section below, where each tile has room for those affordances.
+struct ReceiptStrip: View {
+    let client: APIClient
+    @ObservedObject var model: DeviceAttachmentsModel
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    @State private var previewing: AttachmentMeta?
+    @State private var photoItem: PhotosPickerItem?
+    @State private var showPhotoPicker = false
+    @State private var showFileImporter = false
+
+    private let tile = 64.0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(model.attachments) { att in
+                        Button {
+                            previewing = att
+                        } label: {
+                            AttachmentThumbnailImage(
+                                client: client,
+                                attachment: att,
+                                size: tile,
+                                cornerRadius: 12
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(WVColor.sep, lineWidth: 0.5)
+                            }
+                        }
+                        .buttonStyle(WVPressableStyle())
+                        .accessibilityLabel(att.fileName)
+                        .accessibilityHint(L.t("Mở tệp"))
+                        .accessibilityIdentifier("receipt-thumb-\(att.id)")
+                    }
+
+                    if model.canUpload { addTile }
+                }
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.vertical, 2)
+            }
+
+            if let error = model.errorMessage {
+                Text(error)
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.red)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .fullScreenCover(item: $previewing) { att in
+            QLPreviewSheet(client: client, attachment: att)
+        }
+        .photosPicker(
+            isPresented: $showPhotoPicker,
+            selection: $photoItem,
+            matching: .images
+        )
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            photoItem = nil
+            Task { await model.uploadPhoto(item: item) }
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            Task { await model.importPDF(result: result) }
+        }
+    }
+
+    /// The empty slot at the end of the strip. A menu rather than a photos
+    /// picker directly, because a receipt can be a photo or a PDF and both
+    /// paths already exist below.
+    private var addTile: some View {
+        Menu {
+            Button {
+                showPhotoPicker = true
+            } label: {
+                Label(L.t("Thêm ảnh"), systemImage: "photo")
+            }
+            Button {
+                showFileImporter = true
+            } label: {
+                Label(L.t("Thêm PDF"), systemImage: "doc")
+            }
+        } label: {
+            VStack(spacing: 3) {
+                if model.isUploading {
+                    ProgressView().controlSize(.small)
+                } else {
+                    WVIcon("plus", size: 20, weight: .semibold)
+                        .foregroundStyle(WVColor.tint)
+                }
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Text(L.t("Thêm"))
+                        .wvFont(.caption2Emphasis)
+                        .foregroundStyle(WVColor.tint)
+                        .lineLimit(1)
+                }
+            }
+            .frame(width: tile, height: tile)
+            .background(WVColor.tint.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        WVColor.tint.opacity(0.55),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                    )
+            }
+            .contentShape(Rectangle())
+        }
+        .disabled(model.isUploading)
+        .accessibilityLabel(L.t("Thêm hoá đơn"))
+        .accessibilityIdentifier("receipt-add")
+    }
+}
+
+// MARK: - Full section
 
 struct DeviceAttachmentsSection: View {
     let client: APIClient
-    let deviceId: String
-    let initialAttachments: [AttachmentMeta]
+    @ObservedObject var model: DeviceAttachmentsModel
 
-    @State private var attachments: [AttachmentMeta]
-    @State private var downloadURLs: [String: URL] = [:]
-    @State private var hasLoadedInitial = false
-    @State private var isLoading = false
-    @State private var pendingDeleteId: String?
-    @State private var pendingUpload = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showFileImporter = false
-    @State private var errorMessage: String?
-    @State private var showPreviewURL: URL?
+    @State private var previewing: AttachmentMeta?
     /// The attachment whose description is being edited. Non-nil presents the
     /// one-field sheet (`PATCH /api/v1/attachments/{id}`).
     @State private var editingAttachment: AttachmentMeta?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    init(client: APIClient, deviceId: String, initialAttachments: [AttachmentMeta]) {
-        self.client = client
-        self.deviceId = deviceId
-        self.initialAttachments = initialAttachments
-        _attachments = State(initialValue: initialAttachments)
-    }
-
-    private var canUpload: Bool { attachments.count < 5 }
-
     // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if isLoading && attachments.isEmpty {
+            if model.isLoading && model.attachments.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, WVSpacing.lg)
@@ -55,7 +314,7 @@ struct DeviceAttachmentsSection: View {
                     // the tile now also carries the attachment's description
                     // (written on any client), which needs the width. Three
                     // columns only had room for a filename.
-                    if !attachments.isEmpty {
+                    if !model.attachments.isEmpty {
                         // One column at Accessibility sizes: a half-width square
                         // cannot hold a filename plus its description at 2× text
                         // without ellipsizing both. The tile becomes a full-width
@@ -69,12 +328,13 @@ struct DeviceAttachmentsSection: View {
                                 ],
                             spacing: 8
                         ) {
-                            ForEach(attachments) { att in
+                            ForEach(model.attachments) { att in
                                 AttachmentThumbnail(
+                                    client: client,
                                     att: att,
-                                    downloadURL: downloadURLs[att.id],
-                                    isDeleting: pendingDeleteId == att.id,
-                                    onDelete: { Task { await delete(att) } },
+                                    isDeleting: model.pendingDeleteId == att.id,
+                                    onOpen: { previewing = att },
+                                    onDelete: { Task { await model.delete(att) } },
                                     onEditDescription: { editingAttachment = att }
                                 )
                             }
@@ -84,7 +344,7 @@ struct DeviceAttachmentsSection: View {
                     }
 
                     // Upload row
-                    if canUpload {
+                    if model.canUpload {
                         // Images only: the server's MIME whitelist is
                         // JPG/PNG/WEBP/GIF/HEIC + PDF, so offering videos here
                         // just produced a rejected upload.
@@ -100,7 +360,7 @@ struct DeviceAttachmentsSection: View {
                                         .foregroundStyle(WVColor.label3)
                                 }
                                 Spacer()
-                                if pendingUpload {
+                                if model.isUploading {
                                     ProgressView()
                                 } else {
                                     WVIcon("arrowRight", size: 13)
@@ -112,7 +372,7 @@ struct DeviceAttachmentsSection: View {
                             .padding(.vertical, 7)
                             .contentShape(Rectangle())
                         }
-                        .disabled(pendingUpload)
+                        .disabled(model.isUploading)
                         .buttonStyle(WVRowButtonStyle())
 
                         WVDivider()
@@ -133,14 +393,14 @@ struct DeviceAttachmentsSection: View {
                             .padding(.vertical, 7)
                             .contentShape(Rectangle())
                         }
-                        .disabled(pendingUpload)
+                        .disabled(model.isUploading)
                         .buttonStyle(WVRowButtonStyle())
                     }
                 }
             }
 
             // Error
-            if let errorMessage {
+            if let errorMessage = model.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.red)
@@ -148,130 +408,26 @@ struct DeviceAttachmentsSection: View {
                     .padding(.top, 8)
             }
         }
-        .task {
-            guard !hasLoadedInitial else { return }
-            hasLoadedInitial = true
-            rebuildURLs()
-            await refresh()
-        }
+        .task { await model.loadIfNeeded() }
         .onChange(of: photoItem) { _, newItem in
             guard let newItem else { return }
-            Task { await uploadPhoto(item: newItem) }
+            photoItem = nil
+            Task { await model.uploadPhoto(item: newItem) }
         }
         .fileImporter(
             isPresented: $showFileImporter,
             allowedContentTypes: [.pdf],
             allowsMultipleSelection: false
         ) { result in
-            Task { await handleFileImport(result: result) }
+            Task { await model.importPDF(result: result) }
         }
         .sheet(item: $editingAttachment) { att in
             AttachmentDescriptionSheet(client: client, attachment: att) { updated in
-                replace(updated)
+                model.apply(updated)
             }
         }
-    }
-
-    // MARK: - Actions
-
-    /// Swaps one attachment's metadata after a PATCH, keeping its position in
-    /// the grid and its cached download URL.
-    private func replace(_ updated: AttachmentMeta) {
-        guard let idx = attachments.firstIndex(where: { $0.id == updated.id }) else { return }
-        attachments[idx] = updated
-    }
-
-    private func refresh() async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            attachments = try await client.listAttachments(deviceId: deviceId)
-            rebuildURLs()
-        } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
-        }
-    }
-
-    private func rebuildURLs() {
-        var map: [String: URL] = [:]
-        for att in attachments {
-            map[att.id] = client.attachmentDownloadURL(id: att.id)
-        }
-        downloadURLs = map
-    }
-
-    private func delete(_ att: AttachmentMeta) async {
-        errorMessage = nil
-        pendingDeleteId = att.id
-        defer { pendingDeleteId = nil }
-        do {
-            try await client.deleteAttachment(id: att.id)
-            attachments.removeAll { $0.id == att.id }
-            downloadURLs.removeValue(forKey: att.id)
-        } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
-        }
-    }
-
-    private func uploadPhoto(item: PhotosPickerItem) async {
-        defer { photoItem = nil }
-        errorMessage = nil
-        pendingUpload = true
-        defer { pendingUpload = false }
-        do {
-            guard let data = try await item.loadTransferable(type: Data.self) else { return }
-            guard data.count <= AttachmentFileType.maxBytes else {
-                errorMessage = AttachmentFileType.tooLargeMessage
-                return
-            }
-            // Declare what the bytes actually are. iPhones shoot HEIC by
-            // default, and Go rejects an upload whose Content-Type disagrees
-            // with its magic bytes.
-            guard let type = AttachmentFileType.detect(data) else {
-                errorMessage = AttachmentFileType.unsupportedMessage
-                return
-            }
-            let name = "photo-\(Int(Date().timeIntervalSince1970)).\(type.fileExtension)"
-            let meta = try await client.uploadAttachment(
-                deviceId: deviceId, fileName: name, fileType: type.mimeType,
-                data: data, description: nil
-            )
-            attachments.insert(meta, at: 0)
-            downloadURLs[meta.id] = client.attachmentDownloadURL(id: meta.id)
-        } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
-        }
-    }
-
-    private func handleFileImport(result: Result<[URL], Error>) async {
-        errorMessage = nil
-        do {
-            let urls = try result.get()
-            guard let url = urls.first else { return }
-            let needsScope = url.startAccessingSecurityScopedResource()
-            defer { if needsScope { url.stopAccessingSecurityScopedResource() } }
-            pendingUpload = true
-            defer { pendingUpload = false }
-            let data = try Data(contentsOf: url)
-            guard data.count <= AttachmentFileType.maxBytes else {
-                errorMessage = AttachmentFileType.tooLargeMessage
-                return
-            }
-            // The importer is restricted to `.pdf`, but sniff anyway so a
-            // renamed file can't produce a declared/actual mismatch.
-            guard let type = AttachmentFileType.detect(data) else {
-                errorMessage = AttachmentFileType.unsupportedMessage
-                return
-            }
-            let fileName = url.lastPathComponent
-            let meta = try await client.uploadAttachment(
-                deviceId: deviceId, fileName: fileName, fileType: type.mimeType,
-                data: data, description: nil
-            )
-            attachments.insert(meta, at: 0)
-            downloadURLs[meta.id] = client.attachmentDownloadURL(id: meta.id)
-        } catch {
-            errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+        .fullScreenCover(item: $previewing) { att in
+            QLPreviewSheet(client: client, attachment: att)
         }
     }
 }
@@ -279,9 +435,10 @@ struct DeviceAttachmentsSection: View {
 // MARK: - Attachment thumbnail
 
 private struct AttachmentThumbnail: View {
+    let client: APIClient
     let att: AttachmentMeta
-    let downloadURL: URL?
     let isDeleting: Bool
+    let onOpen: () -> Void
     let onDelete: () -> Void
     let onEditDescription: () -> Void
 
@@ -313,9 +470,9 @@ private struct AttachmentThumbnail: View {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     HStack(alignment: .top, spacing: 10) {
-                        WVIcon(isImage ? "camera" : "receipt", size: 24, weight: .regular)
-                            .foregroundStyle(WVColor.label3)
-                            .padding(.top, 2)
+                        AttachmentThumbnailImage(
+                            client: client, attachment: att, size: 44, cornerRadius: 8
+                        )
                         VStack(alignment: .leading, spacing: 4) {
                             Text(att.fileName)
                                 .wvFont(.caption2)
@@ -342,8 +499,13 @@ private struct AttachmentThumbnail: View {
                         .aspectRatio(1, contentMode: .fit)
                         .overlay {
                             VStack(spacing: 4) {
-                                WVIcon(isImage ? "camera" : "receipt", size: 24, weight: .regular)
-                                    .foregroundStyle(WVColor.label3)
+                                // The receipt image itself, when it has loaded.
+                                // The tile used to draw only a fixed glyph, so
+                                // the file's content was never visible anywhere.
+                                AttachmentThumbnailImage(
+                                    client: client, attachment: att,
+                                    size: 56, cornerRadius: 6
+                                )
                                 Text(att.fileName)
                                     .wvFont(.caption2)
                                     .foregroundStyle(WVColor.label3)
@@ -362,12 +524,15 @@ private struct AttachmentThumbnail: View {
                 }
             }
             .overlay {
-                // Tap to open
-                if let url = downloadURL {
-                    Link(destination: url) {
-                        Color.clear
-                    }
+                // Tap to open — inside the app, through the authenticated
+                // client. A `Link` here was the 404: Safari has no bearer.
+                Button(action: onOpen) {
+                    Color.clear
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L.t("Mở tệp"))
+                .accessibilityValue(att.fileName)
             }
 
             // Delete button

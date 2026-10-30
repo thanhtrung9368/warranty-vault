@@ -294,7 +294,7 @@ private struct InboxAttachmentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            InboxThumbnail(client: client, attachment: attachment)
+            AttachmentThumbnailImage(client: client, attachment: attachment)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(attachment.fileName)
@@ -334,68 +334,9 @@ private struct InboxAttachmentRow: View {
     }
 }
 
-// MARK: - Thumbnail
-
-private struct InboxThumbnail: View {
-    let client: APIClient
-    let attachment: AttachmentMeta
-
-    @State private var image: UIImage?
-
-    private var isImage: Bool { attachment.fileType.hasPrefix("image/") }
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(WVColor.fill3)
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                WVIcon(isImage ? "camera" : "receipt", size: 20, weight: .regular)
-                    .foregroundStyle(WVColor.label3)
-            }
-        }
-        .frame(width: 52, height: 52)
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(WVColor.sep, lineWidth: 0.5)
-        }
-        .task(id: attachment.id) { await loadThumbnail() }
-        .accessibilityHidden(true)
-    }
-
-    private func loadThumbnail() async {
-        guard isImage else { return }
-        if let cached = InboxThumbnailCache.image(for: attachment.id) {
-            image = cached
-            return
-        }
-        guard let data = try? await client.attachmentData(id: attachment.id),
-              let decoded = UIImage(data: data) else { return }
-        guard !Task.isCancelled else { return }
-        InboxThumbnailCache.store(decoded, for: attachment.id)
-        image = decoded
-    }
-}
-
-/// Small in-memory cache so scrolling the inbox does not re-download every
-/// receipt photo each time a row is recycled. Deliberately not persisted: these
-/// are decrypted bytes, and the disk copy stays encrypted on the server.
-@MainActor
-private enum InboxThumbnailCache {
-    private static let cache = NSCache<NSString, UIImage>()
-
-    static func image(for id: String) -> UIImage? {
-        cache.object(forKey: id as NSString)
-    }
-
-    static func store(_ image: UIImage, for id: String) {
-        cache.setObject(image, forKey: id as NSString)
-    }
-}
+// Thumbnails moved to `App/DesignSystem/AttachmentPreview.swift` when the
+// device detail needed the same authenticated image: one cache and one
+// download path, so a receipt cannot render in one list and 404 in another.
 
 // MARK: - The inbound receipt address
 

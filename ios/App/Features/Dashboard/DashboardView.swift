@@ -40,45 +40,14 @@ struct DashboardView: View {
 
     // MARK: - Computed stats
 
-    /// Upcoming warranties: devices from reminders, sorted soonest first, up to 4.
-    private var upcomingFromReminders: [(deviceName: String, category: String, daysLeft: Int, deviceId: String)] {
-        remindersStore.entries
-            .filter { $0.daysRemaining >= 0 && $0.daysRemaining <= 30 }
-            .sorted { $0.daysRemaining < $1.daysRemaining }
-            .prefix(4)
-            .map { r in
-                (deviceName: r.device.name,
-                 category: r.device.category,
-                 daysLeft: r.daysRemaining,
-                 deviceId: r.deviceId)
-            }
-    }
-
-    private var totalDevices: Int { statsStore.snapshot.totalDevices }
-
-    /// What a tile prints before the read that fills it has answered.
+    /// `true` once the device list read has answered at least once, so the
+    /// quiet rollup line is never drawn as a row of zeroes before a read.
     ///
-    /// A `0` here is a claim ("you have no devices", "nothing is expiring"), and
-    /// this screen used to make it during `.idle` and `.loading` — the same
-    /// false-state defect as the "Tất cả đều ngon" card below.
-    private static let unknownValue = "—"
-
-    /// `true` once the device list read has answered at least once.
-    ///
-    /// A failed *refresh* with rows already on screen keeps the tiles: those
-    /// numbers are stale, not invented, and blanking them on a flaky network
-    /// would hide data the user can still act on.
+    /// A failed *refresh* with rows already on screen keeps the line: those
+    /// numbers are stale, not invented.
     private var devicesReady: Bool {
         if case .loaded = devicesStore.state { return true }
         return !devicesStore.devices.isEmpty
-    }
-
-    /// The same rule for the server's own device tally (`GET /stats`). Its
-    /// snapshot survives a failed refresh, so a non-zero count means a read has
-    /// succeeded at least once.
-    private var deviceCountReady: Bool {
-        if case .loaded = statsStore.state { return true }
-        return statsStore.snapshot.totalDevices > 0
     }
 
     /// The four warranty tiles, computed in `WarrlyKit.warrantyRollup` so the
@@ -121,18 +90,16 @@ struct DashboardView: View {
                 // Greeting
                 greetingSection
 
-                // 2×2 stat widget grid
-                statGrid
-                    .padding(.horizontal, WVSpacing.gutter)
-                    .padding(.bottom, 4)
+                // "Hạn gần nhất" — one card naming the nearest deadline,
+                // then the next three. This replaced a 2×2 grid of counts:
+                // a count says how many are coming without ever saying when,
+                // which is the one fact the home screen exists to answer.
+                deadlineSection
 
-                // "Việc cần xử lý" — the derived queue, one tap away. Placed
-                // above the warranty preview because it is the only block here
-                // that asks the user to do something.
+                // "Việc cần xử lý" — the derived queue, one tap away, directly
+                // below the deadline because it is the other block that asks
+                // for something.
                 actionQueueSection
-
-                // Upcoming warranties
-                upcomingWarrantiesSection
 
                 // Subscriptions cost card
                 if activeSubs.count > 0 {
@@ -142,6 +109,13 @@ struct DashboardView: View {
                 // Wishlist preview
                 if wishItems.count > 0 {
                     wishlistSection
+                }
+
+                // The four counts the old grid shouted, demoted to one quiet
+                // line. `warrantyRollup` stays the single source of truth, so
+                // Dashboard, Stats and Android still agree numerically.
+                if devicesReady {
+                    DeadlineSummaryLine(rollup: warranty)
                 }
 
                 Spacer().frame(height: 24)
@@ -259,51 +233,199 @@ struct DashboardView: View {
         WVHeroGreeting(name: userName, subtitle: greetingTitle)
     }
 
-    // MARK: - Stat grid
+    // MARK: - Deadlines
 
-    private var statGrid: some View {
-        // At Accessibility sizes a two-column tile is narrower than its own
-        // wrapped label; four full-width tiles read in order and never clip.
-        let cols = dynamicTypeSize.isAccessibilitySize
-            ? [GridItem(.flexible())]
-            : [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
-        // `nil`/empty data is not zero. Each tile prints "—" until the read that
-        // produces it has answered, and the sub-line goes with it: "0 đang theo
-        // dõi" under an em dash would be the same lie one size smaller.
-        let devicesValue = deviceCountReady ? "\(totalDevices)" : Self.unknownValue
-        let inWarrantyValue = devicesReady ? "\(warranty.inWarranty)" : Self.unknownValue
-        let soonValue = devicesReady ? "\(warranty.soon)" : Self.unknownValue
-        let expiredValue = devicesReady ? "\(warranty.expired)" : Self.unknownValue
-        return LazyVGrid(columns: cols, spacing: 12) {
-            WVWidget(
-                eyebrow: L.t("Thiết bị"),
-                value: devicesValue,
-                sub: deviceCountReady ? L.t("đang theo dõi") : nil,
-                icon: "package",
-                brand: true
-            )
-            WVWidget(
-                eyebrow: L.t("Còn BH"),
-                value: inWarrantyValue,
-                sub: devicesReady ? L.t("được bảo vệ") : nil,
-                icon: "shieldCheck"
-            )
-            WVWidget(
-                eyebrow: L.t("Sắp hết ≤30d"),
-                value: soonValue,
-                sub: devicesReady
-                    ? (warranty.soon > 0 ? L.t("để ý nha") : L.t("không có"))
-                    : nil,
-                icon: "alert"
-            )
-            WVWidget(
-                eyebrow: L.t("Đã hết"),
-                value: expiredValue,
-                sub: devicesReady ? L.t("hết kèo") : nil,
-                icon: "shieldX"
-            )
+    /// The three dated feeds merged into one board.
+    ///
+    /// Warranty reminders are the feed the server already sorted and filtered
+    /// to warranties ending inside the window; active subscriptions and
+    /// wishlist target dates are the other two things with a date the user
+    /// could miss. Return windows are deliberately absent: they exist only on
+    /// the device detail read, so including them here would cost one request
+    /// per device.
+    private var deadlineCandidates: [DeadlineCandidate] {
+        var out: [DeadlineCandidate] = []
+        for r in remindersStore.entries {
+            out.append(DeadlineCandidate(
+                kind: .warranty,
+                entityId: r.deviceId,
+                title: r.device.name,
+                category: r.device.category,
+                date: r.endDate,
+                days: WVFormat.daysUntil(r.endDate)
+            ))
         }
-        .padding(.bottom, 4)
+        for s in activeSubs {
+            out.append(DeadlineCandidate(
+                kind: .subscription,
+                entityId: s.id,
+                title: s.name,
+                category: s.category,
+                date: s.renewalDate,
+                days: WVFormat.daysUntil(s.renewalDate)
+            ))
+        }
+        for item in wishStore.items
+        where item.status == .WATCHING || item.status == .DECIDED {
+            guard let target = item.targetDate else { continue }
+            out.append(DeadlineCandidate(
+                kind: .wishlist,
+                entityId: item.id,
+                title: item.name,
+                category: item.category,
+                date: target,
+                days: WVFormat.daysUntil(target)
+            ))
+        }
+        return out
+    }
+
+    /// True once every feed that can produce a deadline has answered (loaded
+    /// or failed). Until then the board must not claim "no deadline": an empty
+    /// array is not the same fact as an empty account.
+    private var deadlineReadsSettled: Bool {
+        let reminders: Bool
+        switch remindersStore.state {
+        case .loaded, .error: reminders = true
+        case .idle, .loading: reminders = false
+        }
+        let subscriptions: Bool
+        switch subsStore.state {
+        case .loaded, .error: subscriptions = true
+        case .idle, .loading: subscriptions = false
+        }
+        let wishlist: Bool
+        switch wishStore.state {
+        case .loaded, .error: wishlist = true
+        case .idle, .loading: wishlist = false
+        }
+        return reminders && subscriptions && wishlist
+    }
+
+    /// The first feed failure, if any. While candidates exist this is a
+    /// footnote — the board shown is real, just possibly incomplete. With no
+    /// candidates it replaces the empty state, because "nothing dated" cannot
+    /// be concluded from a read that failed.
+    private var deadlineReadError: String? {
+        if case let .error(message) = remindersStore.state { return message }
+        if case let .error(message) = subsStore.state { return message }
+        if case let .error(message) = wishStore.state { return message }
+        return nil
+    }
+
+    private func deadlineNav(_ candidate: DeadlineCandidate) -> ActionQueueNav {
+        switch candidate.kind {
+        case .warranty:     return .device(candidate.entityId)
+        case .subscription: return .subscription(candidate.entityId)
+        case .wishlist:     return .wishlistItem(candidate.entityId)
+        }
+    }
+
+    @ViewBuilder
+    private var deadlineSection: some View {
+        let board = DeadlineBoard.board(deadlineCandidates)
+
+        if let nearest = board.nearest {
+            WVDashSectionHead(L.t("Hạn gần nhất"))
+            DeadlineCard(candidate: nearest, navigation: deadlineNav(nearest))
+
+            if !board.rows.isEmpty {
+                WVGroup {
+                    ForEach(Array(board.rows.enumerated()), id: \.element.id) { idx, row in
+                        if idx > 0 { WVDivider(inset: 62) }
+                        NavigationLink(value: deadlineNav(row)) {
+                            DeadlineRow(candidate: row)
+                        }
+                        .buttonStyle(WVRowButtonStyle())
+                    }
+                }
+                .padding(.top, 10)
+            }
+
+            if deadlineReadError != nil {
+                deadlinePartialFailureNote
+            }
+        } else if !deadlineReadsSettled {
+            WVDashSectionHead(L.t("Hạn gần nhất"))
+            DeadlineSkeleton()
+        } else if let message = deadlineReadError {
+            WVDashSectionHead(L.t("Hạn gần nhất"))
+            WVGroup {
+                HStack(spacing: 12) {
+                    WVLeadingIcon(icon: "alert", color: WVColor.orange, size: 34)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L.t("Không tải được hạn gần nhất"))
+                            .wvFont(.calloutEmphasis)
+                            .foregroundStyle(WVColor.label)
+                        Text(message)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button(L.t("Thử lại")) { Task { await reloadDeadlineSources() } }
+                        .wvFont(.footnoteEmphasis)
+                        .foregroundStyle(WVColor.tint)
+                        .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .padding(.vertical, 10)
+            }
+            .padding(.bottom, 4)
+        } else {
+            WVDashSectionHead(L.t("Hạn gần nhất"))
+            WVGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        WVLeadingIcon(icon: "calendar", color: WVColor.orange, size: 34)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L.t("Chưa có hạn nào"))
+                                .wvFont(.calloutEmphasis)
+                                .foregroundStyle(WVColor.label)
+                            Text(L.t("Thêm thiết bị để app nhắc bạn trước khi hết bảo hành."))
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 8)
+                    }
+                    WVButton(L.t("Thêm thiết bị"), icon: "plus",
+                             kind: .secondary, size: .small) {
+                        quickAddTarget = .device
+                    }
+                }
+                .padding(16)
+            }
+            .padding(.bottom, 4)
+        }
+    }
+
+    private var deadlinePartialFailureNote: some View {
+        HStack(spacing: 6) {
+            WVIcon("alert", size: 11)
+                .foregroundStyle(WVColor.orange)
+            Text(L.t("Một số hạn có thể chưa được tải."))
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 6)
+            Button(L.t("Thử lại")) { Task { await reloadDeadlineSources() } }
+                .wvFont(.footnoteEmphasis)
+                .foregroundStyle(WVColor.tint)
+                .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 8)
+    }
+
+    private func reloadDeadlineSources() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.remindersStore.load() }
+            group.addTask { await self.subsStore.load() }
+            group.addTask { await self.wishStore.load() }
+        }
     }
 
     // MARK: - Action queue ("Việc cần xử lý")
@@ -372,103 +494,6 @@ struct DashboardView: View {
         .frame(minHeight: 44)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-    }
-
-    // MARK: - Upcoming warranties
-
-    @ViewBuilder
-    private var upcomingWarrantiesSection: some View {
-        WVDashSectionHead(L.t("Sắp hết bảo hành"))
-            .padding(.top, 8)
-
-        // "Tất cả đều ngon / Không có gói nào sắp hết trong 30 ngày" is a
-        // conclusion, and it may only be drawn from a read that actually
-        // happened. An empty `entries` array means three different things —
-        // not read yet, still reading, and read-and-genuinely-empty — and the
-        // screen printed the third one for all three. `ActionQueueScreen` is
-        // the reference contract here: nil ≠ empty ≠ error.
-        switch remindersStore.state {
-        case .loaded:
-            if upcomingFromReminders.isEmpty {
-                WVGroup {
-                    WVRow(
-                        icon: "checkCircle",
-                        iconColor: WVColor.green,
-                        title: L.t("Tất cả đều ngon"),
-                        subtitle: L.t("Không có gói nào sắp hết trong 30 ngày")
-                    )
-                }
-                .padding(.bottom, 4)
-            } else {
-                WVGroup {
-                    ForEach(Array(upcomingFromReminders.enumerated()), id: \.offset) { idx, item in
-                        if idx > 0 { WVDivider(inset: 60) }
-                        NavigationLink(value: DashDeviceNav(id: item.deviceId, name: item.deviceName)) {
-                            DashWarrantyRow(
-                                name: item.deviceName,
-                                category: item.category,
-                                daysLeft: item.daysLeft
-                            )
-                        }
-                        .buttonStyle(WVRowButtonStyle())
-                    }
-                }
-                .padding(.bottom, 4)
-            }
-
-        case .error(let message):
-            WVGroup {
-                HStack(spacing: 12) {
-                    WVLeadingIcon(icon: "alert", color: WVColor.orange, size: 34)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(L.t("Không tải được nhắc bảo hành"))
-                            .wvFont(.calloutEmphasis)
-                            .foregroundStyle(WVColor.label)
-                        Text(message)
-                            .wvFont(.footnote)
-                            .foregroundStyle(WVColor.label3)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 8)
-                    Button(L.t("Thử lại")) { Task { await remindersStore.load() } }
-                        .wvFont(.footnoteEmphasis)
-                        .foregroundStyle(WVColor.tint)
-                        .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .padding(.vertical, 10)
-            }
-            .padding(.bottom, 4)
-
-        case .idle, .loading:
-            // Static redacted rows, the same skeleton the reminders screen uses
-            // (minus its label — grey bars already say "loading").
-            WVGroup {
-                ForEach(0..<2) { i in
-                    if i > 0 { WVDivider(inset: 60) }
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(WVColor.fill3)
-                            .frame(width: 36, height: 36)
-                        VStack(alignment: .leading, spacing: 6) {
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(WVColor.fill3)
-                                .frame(height: 14)
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(WVColor.fill3)
-                                .frame(width: 140, height: 12)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .redacted(reason: .placeholder)
-                }
-            }
-            .padding(.bottom, 4)
-        }
     }
 
     // MARK: - Subscriptions section
@@ -545,53 +570,6 @@ struct DashboardView: View {
 struct DashDeviceNav: Hashable {
     let id: String
     let name: String
-}
-
-// MARK: - Dash warranty row
-
-private struct DashWarrantyRow: View {
-    let name: String
-    let category: String
-    let daysLeft: Int
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            WVLeadingIcon(
-                icon: WVCategory.icon(for: category),
-                color: WVCategory.accent(for: category),
-                size: 36
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .wvFont(.callout, weight: .medium)
-                    .foregroundStyle(WVColor.label)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(CategoryLabels.label(for: category))
-                    .wvFont(.footnote)
-                    .foregroundStyle(WVColor.label3)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                if dynamicTypeSize.isAccessibilitySize {
-                    WarrantyPill(daysLeft: daysLeft)
-                        .padding(.top, 2)
-                }
-            }
-            .layoutPriority(1)
-            if !dynamicTypeSize.isAccessibilitySize {
-                Spacer(minLength: 8)
-                WarrantyPill(daysLeft: daysLeft)
-            }
-            WVIcon("arrowRight", size: 13)
-                .foregroundStyle(WVColor.label4)
-        }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 7)
-        .contentShape(Rectangle())
-    }
 }
 
 // MARK: - Dash sub row

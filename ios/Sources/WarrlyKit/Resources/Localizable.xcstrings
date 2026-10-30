@@ -4712,23 +4712,6 @@
         }
       }
     },
-    "Không có gói nào sắp hết trong 30 ngày": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nothing expires in the next 30 days"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Không có gói nào sắp hết trong 30 ngày"
-          }
-        }
-      }
-    },
     "Không có khoản nào sắp tới trong %d tháng tới.": {
       "extractionState": "manual",
       "localizations": {
@@ -5219,23 +5202,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không tải được nhắc"
-          }
-        }
-      }
-    },
-    "Không tải được nhắc bảo hành": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn't load warranty reminders"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Không tải được nhắc bảo hành"
           }
         }
       }
@@ -8302,23 +8268,6 @@
         }
       }
     },
-    "Sắp hết bảo hành": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Warranty ending soon"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sắp hết bảo hành"
-          }
-        }
-      }
-    },
     "Sắp hết trong 30 ngày": {
       "extractionState": "manual",
       "localizations": {
@@ -8366,23 +8315,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sắp hết trong 90 ngày"
-          }
-        }
-      }
-    },
-    "Sắp hết ≤30d": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ending ≤30d"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sắp hết ≤30d"
           }
         }
       }
@@ -10292,23 +10224,6 @@
         }
       }
     },
-    "Tất cả đều ngon": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All good"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tất cả đều ngon"
-          }
-        }
-      }
-    },
     "Tắt": {
       "extractionState": "manual",
       "localizations": {
@@ -11088,23 +11003,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "hôm nay là ngày cuối"
-          }
-        }
-      }
-    },
-    "hết kèo": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "out of cover"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "hết kèo"
           }
         }
       }
@@ -13220,23 +13118,6 @@
         }
       }
     },
-    "đang theo dõi": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "being tracked"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "đang theo dõi"
-          }
-        }
-      }
-    },
     "đã qua %d ngày": {
       "extractionState": "manual",
       "localizations": {
@@ -13268,40 +13149,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "được bảo vệ": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "protected"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "được bảo vệ"
-          }
-        }
-      }
-    },
-    "để ý nha": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "worth a look"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "để ý nha"
           }
         }
       }
@@ -21279,6 +21126,365 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Gia hạn %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renews %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gia hạn %@"
+          }
+        }
+      }
+    },
+    "Dự kiến mua %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planned purchase %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dự kiến mua %@"
+          }
+        }
+      }
+    },
+    "quá hạn %d ngày": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d day overdue"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d days overdue"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "quá hạn %d ngày"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "hôm nay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "today"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hôm nay"
+          }
+        }
+      }
+    },
+    "Bảo hành & sửa chữa": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty & repairs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bảo hành & sửa chữa"
+          }
+        }
+      }
+    },
+    "Gói bảo hành, sửa chữa, liên hệ, bàn giao và chia sẻ": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warranty packages, repairs, contacts, handover and sharing"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói bảo hành, sửa chữa, liên hệ, bàn giao và chia sẻ"
+          }
+        }
+      }
+    },
+    "Chưa ghi hạn bảo hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No warranty end date yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa ghi hạn bảo hành"
+          }
+        }
+      }
+    },
+    "Thu gọn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapse"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thu gọn"
+          }
+        }
+      }
+    },
+    "Thêm ảnh": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a photo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm ảnh"
+          }
+        }
+      }
+    },
+    "Hạn gần nhất": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next deadline"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hạn gần nhất"
+          }
+        }
+      }
+    },
+    "Chưa có hạn nào": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No deadline yet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có hạn nào"
+          }
+        }
+      }
+    },
+    "Thêm thiết bị để app nhắc bạn trước khi hết bảo hành.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a device and the app will remind you before its warranty ends."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm thiết bị để app nhắc bạn trước khi hết bảo hành."
+          }
+        }
+      }
+    },
+    "Không tải được hạn gần nhất": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load the next deadline"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được hạn gần nhất"
+          }
+        }
+      }
+    },
+    "%d thiết bị · %d còn BH · %d sắp hết · %d đã hết": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d device · %d in warranty · %d ending soon · %d expired"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d devices · %d in warranty · %d ending soon · %d expired"
+                }
+              }
+            }
+          }
+        },
+        "vi": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%d thiết bị · %d còn BH · %d sắp hết · %d đã hết"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Xem chi tiết": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View details"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem chi tiết"
+          }
+        }
+      }
+    },
+    "Thông tin & thanh toán": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Info & payments"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thông tin & thanh toán"
+          }
+        }
+      }
+    },
+    "Tài khoản, liên kết, biểu đồ và lịch sử thanh toán": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account, links, chart and payment history"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài khoản, liên kết, biểu đồ và lịch sử thanh toán"
+          }
+        }
+      }
+    },
+    "Mở chi tiết": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở chi tiết"
+          }
+        }
+      }
+    },
+    "Một số hạn có thể chưa được tải.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some deadlines may not have loaded."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một số hạn có thể chưa được tải."
           }
         }
       }
