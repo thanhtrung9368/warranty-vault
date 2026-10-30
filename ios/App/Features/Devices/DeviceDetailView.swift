@@ -23,7 +23,11 @@ struct DeviceDetailView: View {
 
     /// The warranty/repair apparatus is one disclosure, collapsed by default:
     /// it is the second tier of this screen, not the answer to "am I covered?".
-    @State private var warrantyRepairExpanded = false
+    @State private var warrantyRepairExpanded: Bool
+    /// Screenshot-QA only: setting this to `warrantyRepairAnchor` scrolls the
+    /// disclosure to the top. `nil` at every other time, so normal scrolling is
+    /// untouched.
+    @State private var qaScrollTarget: String?
 
     @State private var showActionMenu = false
     @State private var showDeleteAlert = false
@@ -52,6 +56,21 @@ struct DeviceDetailView: View {
             wrappedValue: DeviceAttachmentsModel(client: client, deviceId: device.id)
         )
         _deviceStatus = State(initialValue: device.status)
+        _warrantyRepairExpanded = State(initialValue: Self.qaWarrantyRepairExpanded)
+    }
+
+    /// Screenshot-QA only: `WV_QA_EXPAND_WARRANTY_REPAIR=1` starts the
+    /// warranty/repair disclosure open, and `WV_QA_SCROLL_TO_WARRANTY=1`
+    /// scrolls it to the top after the first read. DEBUG-only, like the other
+    /// `WV_QA_*` hooks: a physical tap cannot be injected into a headless
+    /// simulator, and the expanded state is exactly what needs photographing at
+    /// Accessibility sizes.
+    private static var qaWarrantyRepairExpanded: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.environment["WV_QA_EXPAND_WARRANTY_REPAIR"] == "1"
+#else
+        false
+#endif
     }
 
     // MARK: - Computed
@@ -330,6 +349,7 @@ struct DeviceDetailView: View {
                         deviceName: currentDevice.name
                     )
                 }
+                .modifier(WVQAScrollAnchor())
 
                 // Info group — purchase
                 WVSectionHeader(L.t("Mua hàng"))
@@ -529,7 +549,12 @@ struct DeviceDetailView: View {
 
                 Spacer().frame(height: 24)
             }
+            .modifier(WVQAScrollTargetLayout())
         }
+        // QA screenshots scroll the disclosure's top to the top of the scroll
+        // view. The translucent nav bar may sit over the card's rounded
+        // corners, but the header's text is below it and stays whole.
+        .modifier(WVQAScrollPosition(target: $qaScrollTarget))
         .wvScreen()
         .wvQAScrollBottom()
         .navigationTitle(currentDevice.name)
@@ -590,6 +615,15 @@ struct DeviceDetailView: View {
             // The hero strip has its own read so a receipt is visible before
             // the rest of the detail lands; the full section shares the result.
             await attachmentsModel.loadIfNeeded()
+#if DEBUG
+            // Screenshot-QA only. Wait for the attachments read (and the
+            // receipt decode that follows it) before moving, so the anchor's
+            // final position is the one used.
+            if ProcessInfo.processInfo.environment["WV_QA_SCROLL_TO_WARRANTY"] == "1" {
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                qaScrollTarget = warrantyRepairAnchor
+            }
+#endif
         }
         .refreshable {
             await store.load()
@@ -817,6 +851,52 @@ struct DeviceDetailView: View {
     private func openURL(_ string: String) {
         guard let url = URL(string: string) else { return }
         UIApplication.shared.open(url)
+    }
+}
+
+// MARK: - Screenshot-QA scroll plumbing
+
+#if DEBUG
+/// The disclosure's scroll anchor. DEBUG-only so the Release binary contains
+/// neither the hook's identity nor its string.
+private let warrantyRepairAnchor = "warranty-repair-disclosure"
+#endif
+
+/// Gives the disclosure a scroll identity only in DEBUG. In Release this is
+/// the identity modifier.
+private struct WVQAScrollAnchor: ViewModifier {
+    func body(content: Content) -> some View {
+#if DEBUG
+        content.id(warrantyRepairAnchor)
+#else
+        content
+#endif
+    }
+}
+
+/// Marks the scroll targets only in DEBUG. In Release this is the identity
+/// modifier, so the layout carries no state for a screenshot hook.
+private struct WVQAScrollTargetLayout: ViewModifier {
+    func body(content: Content) -> some View {
+#if DEBUG
+        content.scrollTargetLayout()
+#else
+        content
+#endif
+    }
+}
+
+/// Applies the screenshot-QA scroll binding only in DEBUG. In Release this is
+/// the identity modifier, so ordinary scrolling never writes `@State`.
+private struct WVQAScrollPosition: ViewModifier {
+    @Binding var target: String?
+
+    func body(content: Content) -> some View {
+#if DEBUG
+        content.scrollPosition(id: $target, anchor: .top)
+#else
+        content
+#endif
     }
 }
 
