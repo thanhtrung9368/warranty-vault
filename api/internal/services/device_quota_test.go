@@ -108,3 +108,35 @@ func TestDeviceActiveIncomingMatchesTheSQLPredicate(t *testing.T) {
 		}
 	}
 }
+
+// The per-device warranty cap is the other half of the 500×5 = 2500 structural
+// bound (the device ceilings above are the 500). It is pure, so pin the boundary
+// and the exact sentence the warranty form has always returned: both doors into
+// Warranty must say "too many" the same way, not just return the same status.
+func TestEnforceWarrantyQuotaBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		existing int64
+		wantErr  bool
+	}{
+		{0, false},
+		{1, false},
+		{MaxWarrantiesPerDevice - 1, false},
+		{MaxWarrantiesPerDevice, true},
+		{MaxWarrantiesPerDevice + 1, true},
+	} {
+		err := enforceWarrantyQuota(viCtx(), tc.existing)
+		if !tc.wantErr {
+			if err != nil {
+				t.Fatalf("enforceWarrantyQuota(%d) = %v, want nil", tc.existing, err)
+			}
+			continue
+		}
+		svc, ok := As(err)
+		if !ok || svc.Code != "LIMIT_REACHED" || svc.HTTPStatus() != 409 {
+			t.Fatalf("enforceWarrantyQuota(%d) = %#v, want a 409 LIMIT_REACHED", tc.existing, err)
+		}
+		if got, want := svc.Error(), "Mỗi thiết bị tối đa 5 gói bảo hành."; got != want {
+			t.Errorf("limit message = %q, want %q (the message the warranty form already returns)", got, want)
+		}
+	}
+}

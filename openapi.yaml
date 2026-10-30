@@ -720,6 +720,21 @@ paths:
         '400': { $ref: '#/components/responses/BadInput' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            **`limit_reached`** — `warrantyMonths > 0` muốn tạo gói STANDARD
+            nhưng thiết bị đã có đủ 5 gói bảo hành, **bất kể loại** (STANDARD /
+            EXTENDED / THIRD_PARTY). Cùng mã lỗi và cùng câu từ chối với
+            `POST /api/v1/devices/{id}/warranties`: cả hai đều là cửa ghi vào
+            cùng bảng nên không được nói "quá nhiều" theo hai cách khác nhau.
+
+            Chỉ áp dụng khi **tạo thêm** dòng. Thiết bị đã có gói STANDARD thì
+            PATCH chỉ cập nhật dòng đó (số dòng không tăng), còn
+            `warrantyMonths: 0` xoá nó — nên một thiết bị đã vượt trần từ dữ
+            liệu cũ vẫn sửa được và có thể tự đưa về dưới trần, không bị kẹt.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
     delete:
       tags: [devices]
       responses:
@@ -5217,7 +5232,18 @@ components:
             khoảng trắng ⇒ 400 `fieldErrors.brandLookupUrl`. Server **không**
             fetch URL này và không kiểm tra nó còn sống hay không: đây là bản
             ghi để kiểm chứng, không phải request.
-        warrantyMonths: { type: integer, minimum: 0, default: 0, description: 'If > 0, an inline STANDARD warranty is created/updated.' }
+        warrantyMonths:
+          type: integer
+          minimum: 0
+          default: 0
+          description: |
+            If > 0, an inline STANDARD warranty is created/updated.
+
+            Trên `PATCH /api/v1/devices/{id}`, **tạo mới** khi thiết bị đã có
+            đủ 5 gói (bất kể loại) trả **409 `limit_reached`** — cùng giới hạn
+            và cùng câu từ chối với `POST /api/v1/devices/{id}/warranties`.
+            Cập nhật gói STANDARD đã có thì không bị chặn (không thêm dòng), và
+            `0` xoá gói STANDARD nếu có.
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
         warrantyPhone: { type: string, nullable: true }

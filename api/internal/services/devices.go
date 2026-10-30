@@ -1218,6 +1218,19 @@ func UpdateDevice(ctx context.Context, db *pgxpool.Pool, userID, id string, in D
 				return DeviceVND{}, fmt.Errorf("update warranty: %w", uerr)
 			}
 		} else {
+			// This is a second door into "Warranty", so it must obey the same
+			// per-device ceiling as the warranty form (services.CreateWarranty).
+			// `hasExisting` is false for a device with five EXTENDED/THIRD_PARTY
+			// rows and no STANDARD row — the inline sync used to treat that as
+			// "no warranty" and insert a sixth. Count inside this transaction,
+			// before the insert, and return the identical ErrLimit shape.
+			count, cerr := tq.CountWarrantiesByDevice(ctx, id)
+			if cerr != nil {
+				return DeviceVND{}, fmt.Errorf("count warranties: %w", cerr)
+			}
+			if qerr := enforceWarrantyQuota(ctx, count); qerr != nil {
+				return DeviceVND{}, qerr
+			}
 			if _, cerr := tq.CreateWarranty(ctx, store.CreateWarrantyParams{
 				ID:        auth.NewID(),
 				DeviceId:  id,

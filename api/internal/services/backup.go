@@ -1465,6 +1465,15 @@ func importBackup(ctx context.Context, db *pgxpool.Pool, userID string, payload 
 			if !safeIDRE.MatchString(w.ID) {
 				continue
 			}
+			// Deliberately NOT capped at MaxWarrantiesPerDevice. A restore
+			// replays one device's own history and never appends to a device
+			// that already exists (merge skips ids the user owns, so a new
+			// device id is always a fresh device; replace starts from zero).
+			// Refusing a payload with six rows would also strand the very
+			// legacy devices the live check must keep editable — a backup this
+			// server itself wrote before that check existed. Attachments are
+			// different: a payload with six cannot have come from this server,
+			// which is why validateBackupPayload refuses that one.
 			if err := q.BackupInsertWarranty(ctx, store.BackupInsertWarrantyParams{
 				ID:            w.ID,
 				DeviceId:      d.ID,

@@ -19,6 +19,27 @@ import (
 // MaxWarrantiesPerDevice mirrors website/src/lib/services/warranties.ts.
 const MaxWarrantiesPerDevice = 5
 
+// enforceWarrantyQuota is the single definition of the per-device warranty cap.
+// It is consulted before every write that would ADD a Warranty row, and it
+// counts EVERY type — STANDARD, EXTENDED and THIRD_PARTY alike. That last part
+// is the entire point: the inline STANDARD sync in UpdateDevice finds its row
+// with GetStandardWarrantyForDevice (type = 'STANDARD'), so a device holding
+// five EXTENDED/THIRD_PARTY rows has no STANDARD row and used to look empty to
+// that sync. Counting only STANDARD is what let the device form mint a sixth
+// row while the warranty form correctly refused.
+//
+// Only ADDS are capped. Updating or deleting a row a device already has holds or
+// lowers the count and must stay possible for devices already over the cap
+// (rows written before this check existed): the alternative is a device that can
+// never be edited again.
+func enforceWarrantyQuota(ctx context.Context, existing int64) error {
+	if existing < MaxWarrantiesPerDevice {
+		return nil
+	}
+	return ErrLimit(i18n.T(ctx,
+		"Mỗi thiết bị tối đa %d gói bảo hành.", MaxWarrantiesPerDevice))
+}
+
 // String bounds for the contract terms (migration 0017). These are RUNE counts,
 // matching every other user-typed cap in this service (subscription name,
 // wishlist note): a Vietnamese character is one character to the user even
@@ -291,9 +312,8 @@ func CreateWarranty(ctx context.Context, db *pgxpool.Pool, userID, deviceID stri
 	if err != nil {
 		return store.Warranty{}, fmt.Errorf("count warranties: %w", err)
 	}
-	if count >= MaxWarrantiesPerDevice {
-		return store.Warranty{}, ErrLimit(i18n.T(ctx,
-			"Mỗi thiết bị tối đa %d gói bảo hành.", MaxWarrantiesPerDevice))
+	if err := enforceWarrantyQuota(ctx, count); err != nil {
+		return store.Warranty{}, err
 	}
 
 	startDate, err := parseDate(in.StartDate)

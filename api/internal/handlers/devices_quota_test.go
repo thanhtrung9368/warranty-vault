@@ -431,3 +431,138 @@ func TestWishlistPurchaseObeysTheDeviceCeiling(t *testing.T) {
 		t.Errorf("devices = %d, want %d", deviceCount, services.MaxDevicesPerUser+1)
 	}
 }
+
+// ── Warranty ceiling (MAX_WARRANTIES_PER_DEVICE) ─────────────────────────────
+
+// seedWarranties writes n rows of one type directly. Raw SQL for the same reason
+// as seedDevices: the warranty FORM's own cap is not what is under test here.
+// The id embeds the type so a test can seed several types on one device without
+// a primary-key collision.
+func seedWarranties(t *testing.T, pool *pgxpool.Pool, deviceID, warrantyType string, n int) {
+	t.Helper()
+	if n == 0 {
+		return
+	}
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO "Warranty" (id, "deviceId", type, provider, "startDate", "endDate", months, "updatedAt")
+		SELECT $1 || ':' || $2 || ':' || g::text, $1, $2, 'Seed', '2025-01-01', '2027-01-01', 24, NOW()
+		FROM generate_series(1, $3) AS g`, deviceID, warrantyType, n)
+	if err != nil {
+		t.Fatalf("seed %s warranties: %v", warrantyType, err)
+	}
+}
+
+// patchDevice sends a minimal valid DeviceUpdateInput (a full replacement, so
+// the required device fields must be present) with the caller's extra fields.
+func patchDevice(t *testing.T, mux *http.ServeMux, token, deviceID string, extra map[string]any) *httptest.ResponseRecorder {
+	t.Helper()
+	payload := map[string]any{
+		"name":          "Máy đã sửa",
+		"category":      "PHONE",
+		"purchaseDate":  "2025-01-01",
+		"purchasePrice": 1000000,
+	}
+	for k, v := range extra {
+		payload[k] = v
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	// ?lang=vi: the refusal message is asserted below in Vietnamese.
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/devices/"+deviceID+"?lang=vi", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	return rr
+}
+
+// The defect: the inline STANDARD sync in services.UpdateDevice looked for a
+// STANDARD row only, so a device with five EXTENDED rows and no STANDARD row
+// looked empty and the device form inserted a sixth warranty — while the
+// warranty form correctly returned 409 limit_reached. Both doors must answer
+// the same way, and the refused write must roll back the device edit with it.
+func TestDevicePatchCannotCreateASixthWarranty(t *testing.T) {
+	pool, mux, token := setupQuotaTest(t)
+	seedDevices(t, pool, "wcap", "ACTIVE", 1)
+	seedWarranties(t, pool, "wcap1", "EXTENDED", services.MaxWarrantiesPerDevice)
+
+	rr := patchDevice(t, mux, token, "wcap1", map[string]any{"warrantyMonths": 12})
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("device patch at the warranty cap = %d, want 409 (%s)", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	for _, want := range []string{"limit_reached", "5", "gói bảo hành"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("refusal body %q must contain %q", body, want)
+		}
+	}
+
+	var total, standard int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*), COUNT(*) FILTER (WHERE type = 'STANDARD')
+		 FROM "Warranty" WHERE "deviceId" = 'wcap1'`).Scan(&total, &standard); err != nil {
+		t.Fatalf("count warranties: %v", err)
+	}
+	if total != services.MaxWarrantiesPerDevice {
+		t.Errorf("warranties after the refused patch = %d, want %d", total, services.MaxWarrantiesPerDevice)
+	}
+	if standard != 0 {
+		t.Errorf("STANDARD rows after the refused patch = %d, want 0", standard)
+	}
+
+	// The count happens after UpdateDevice in the same transaction, so a refusal
+	// must roll the device edit back rather than leave a half-saved form.
+	var name string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT name FROM "Device" WHERE id = 'wcap1'`).Scan(&name); err != nil {
+		t.Fatalf("read device name: %v", err)
+	}
+	if name != "Máy 1" {
+		t.Errorf("device name after the refused patch = %q, want the rollback to keep %q", name, "Máy 1")
+	}
+}
+
+// The legacy-data half of the rule. A device this bug already pushed to six rows
+// (five EXTENDED + the STANDARD the device form added) must stay editable: the
+// cap guards ADDS, not the update of the STANDARD row that already exists, and
+// clearing warrantyMonths (warrantyMonths=0) deletes that row and brings the
+// device back under the cap. Otherwise the fix would create a second, worse bug.
+func TestDevicePatchOnLegacyOverCapDeviceIsNotTrapped(t *testing.T) {
+	pool, mux, token := setupQuotaTest(t)
+	seedDevices(t, pool, "old", "ACTIVE", 1)
+	seedWarranties(t, pool, "old1", "EXTENDED", services.MaxWarrantiesPerDevice)
+	seedWarranties(t, pool, "old1", "STANDARD", 1)
+
+	countRows := func() (total, standard int) {
+		t.Helper()
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*), COUNT(*) FILTER (WHERE type = 'STANDARD')
+			 FROM "Warranty" WHERE "deviceId" = 'old1'`).Scan(&total, &standard); err != nil {
+			t.Fatalf("count warranties: %v", err)
+		}
+		return total, standard
+	}
+
+	// Editing the warranty window of the existing STANDARD row is an UPDATE, not
+	// a sixth INSERT: allowed, and the row count does not move.
+	rr := patchDevice(t, mux, token, "old1", map[string]any{"warrantyMonths": 24})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("patch of a legacy over-cap device = %d, want 200 (%s)", rr.Code, rr.Body.String())
+	}
+	if total, standard := countRows(); total != 6 || standard != 1 {
+		t.Errorf("rows after updating the legacy STANDARD row = %d total / %d standard, want 6/1", total, standard)
+	}
+
+	// Clearing warrantyMonths deletes the STANDARD row, which both un-traps the
+	// legacy device and demonstrates that deletes are never blocked at the cap.
+	rr = patchDevice(t, mux, token, "old1", map[string]any{"warrantyMonths": 0})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("clearing warrantyMonths on a legacy over-cap device = %d, want 200 (%s)", rr.Code, rr.Body.String())
+	}
+	if total, standard := countRows(); total != services.MaxWarrantiesPerDevice || standard != 0 {
+		t.Errorf("rows after clearing = %d total / %d standard, want %d/0",
+			total, standard, services.MaxWarrantiesPerDevice)
+	}
+}
