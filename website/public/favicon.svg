@@ -14,7 +14,7 @@
   <defs>
     <mask id="warrly-favicon-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
       <rect x="0" y="0" width="32" height="32" fill="#fff"/>
-      <path d="M8.8 15.6l2.7 7.2 2-4.6 2 4.6 2.7-7.2" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8.8 15.6l2.7 7.2 2-5.9 2 5.9 2.7-7.2" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
     </mask>
   </defs>
   <path class="pennant" d="M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z"/>

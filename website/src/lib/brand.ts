@@ -124,7 +124,7 @@ const CUT_FULL: MarkGeometry = {
   // Sits below the punch (bottom y=16.77) and the flag's in-plate run (y=14.6),
   // spanning x=8.6…18.4, y=18.9…24.5. The 1.9 stroke clears the punch by 1.18
   // and the 2.3-unit V notch (apex y=25.9) by 0.45 without touching either.
-  letter: 'M8.6 18.9l2.6 5.6 2-3.6 2 3.6 2.6-5.6',
+  letter: 'M8.6 18.9l2.6 5.6 2-4.6 2 4.6 2.6-5.6',
   letterWidth: 1.9,
   punchCircle: { cx: 9.97, cy: 15.17, r: 1.6 },
   bodyHeight: 17.6,
@@ -161,7 +161,7 @@ const CUT_SMALL: MarkGeometry = {
     'M18.3 14.2L18.3 2.6L28 2.6L25.4 5.8L28 9L20.9 9L20.9 14.2L18.3 14.2Z',
   // 7.2 units tall against a plate 18.2 tall. Stroke 2.6 = 1.3px at 16px, which
   // is a stroke rather than a smudge.
-  letter: 'M8.8 15.6l2.7 7.2 2-4.6 2 4.6 2.7-7.2',
+  letter: 'M8.8 15.6l2.7 7.2 2-5.9 2 5.9 2.7-7.2',
   letterWidth: 2.6,
   punchCircle: { cx: 0, cy: 0, r: 0 },
   bodyHeight: 18.2,

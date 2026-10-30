@@ -291,12 +291,13 @@ describe('favicon.ico + favicon.svg (defect 3)', () => {
     expect(svg).toContain('<svg');
     expect(svg).toContain('prefers-color-scheme: dark');
     expect(svg).toContain('forced-colors: active');
-    // Three paths: the W's mask stroke, the pennant, then the plate with the
-    // punch appended. The W is a cut-out, never a painted third path colour.
+    // Three paths: the W's mask stroke, the pennant, then the plate. The W is
+    // a cut-out, never a painted third path colour.
     expect(svg.match(/<path/g)).toHaveLength(3);
     expect(svg).not.toContain('<circle');
+    // The small cut has no punch by design, so the plate is exactly its body.
+    expect(small.punch).toBe('');
     expect(svg).toContain(small.body);
-    expect(svg).toContain(small.punch);
     expect(svg).toContain(small.flag);
     expect(svg).toContain(small.letter);
     expect(svg).toContain(`stroke-width="${small.letterWidth}"`);
