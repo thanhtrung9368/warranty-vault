@@ -908,6 +908,26 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
 
 .wv-hero {
   position: relative;
+  background:
+    radial-gradient(58% 70% at 78% 38%, hsl(var(--primary-soft) / 0.7) 0%, transparent 72%),
+    radial-gradient(46% 55% at 8% 6%, hsl(var(--violet-soft) / 0.42) 0%, transparent 70%);
+}
+
+.wv-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+  color: hsl(var(--muted));
+}
+.wv-hero-eyebrow svg {
+  width: 0.95em;
+  height: 0.95em;
+  color: hsl(var(--primary));
+  flex-shrink: 0;
 }
 
 .wv-hero-visual {
@@ -933,33 +953,43 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
   color: hsl(var(--ink));
 }
 
+/* Soft light behind the card. Horizontal inset is 0 on purpose: a negative
+   inline offset would extend the document's scrollable overflow at 390px. */
+.wv-product-glow {
+  position: absolute;
+  inset: -12% 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 55% at 30% 30%, hsl(var(--primary-soft) / 0.9) 0%, transparent 72%),
+    radial-gradient(50% 50% at 82% 78%, hsl(var(--sky-soft) / 0.5) 0%, transparent 72%);
+}
+
 .wv-product-frame {
   position: relative;
   overflow: clip;
   border: 1.5px solid hsl(var(--border-strong));
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: hsl(var(--card));
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-3);
 }
 
-/* The reminder. On a phone it is a plain banner above the app frame; above
-   `lg` it floats just clear of the frame's top edge. It used to sit half over
-   the app's own header at every width, covering the "Thêm thiết bị" control —
-   a product shot that hides the product's own button. */
+/* Floating notification — the emotional payoff (beat 3 of the stage). It is a
+   sibling of the frame, so the frame's `overflow: clip` does not cut it off. */
 .wv-product-toast {
-  position: relative;
+  position: absolute;
   z-index: 2;
+  top: -2.2em;
+  right: 1.2em;
+  max-width: calc(100% - 2.8em);
   display: flex;
   align-items: flex-start;
   gap: 0.7em;
-  width: 100%;
-  max-width: 24em;
-  margin: 0 0 0.9em auto;
   padding: 0.8em 0.95em;
   border: 1.5px solid hsl(var(--border));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: hsl(var(--card));
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-2);
 }
 .wv-product-toast-icon {
   display: inline-flex;
@@ -977,15 +1007,12 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
   height: 1.1em;
 }
 
-@media (min-width: 1024px) {
+/* On a phone the notification must not cover the app's own title. Narrower
+   than the full card leaves the "Thiết bị" header readable underneath and
+   wraps the reminder into two or three lines instead. */
+@media (max-width: 640px) {
   .wv-product-toast {
-    position: absolute;
-    top: auto;
-    right: 0;
-    bottom: calc(100% + 0.9em);
-    width: auto;
-    max-width: 22em;
-    margin: 0;
+    max-width: 16em;
   }
 }
 .wv-product-toast-title {
@@ -1037,7 +1064,7 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
   margin-left: auto;
   flex-shrink: 0;
   padding: 0.42em 0.75em;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
   font-size: 0.72em;
@@ -1138,15 +1165,17 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
   align-items: center;
   gap: 0.4em;
   min-width: 0;
-  font-size: 0.78em;
+  font-size: 0.72em;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: hsl(var(--muted));
 }
 .wv-product-summary-title svg {
   width: 1.1em;
   height: 1.1em;
   flex-shrink: 0;
-  color: hsl(var(--muted));
+  color: hsl(var(--emerald));
 }
 .wv-product-summary-line {
   font-size: 0.8em;
@@ -1197,7 +1226,7 @@ html[data-motion="reduce"] .feature-card:has(:focus-visible) {
 .wv-product-file-tag {
   flex-shrink: 0;
   padding: 0.24em 0.5em;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: hsl(var(--surface-3));
   color: hsl(var(--ink-2));
   font-size: 0.64em;

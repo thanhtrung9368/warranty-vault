@@ -23,59 +23,56 @@ export function LandingFooter({ year }: { year: number }) {
   const t = useT();
 
   return (
-    <footer className="border-t border-border px-4 py-10 md:px-8">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
-        <div>
-          {/* Footer: the wordmark alone, per the brand lockup rules. */}
-          <Link
-            href={localePath('/', locale)}
-            prefetch={false}
-            aria-label="Warrly"
-            className="inline-flex"
-          >
-            <WarrlyWordmark height={22} />
-          </Link>
-          {/* The year is interpolated rather than concatenated, so the sentence
-              stays one translatable key. */}
-          <div className="mt-3 text-[13px] text-ink-2/80">
-            {t('© {year} Warrly.', { year })}
-          </div>
+    <footer className="border-t-[1.5px] border-border bg-card px-4 py-8 md:px-8">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
+        {/* Footer: the wordmark alone, per the brand lockup rules. */}
+        <Link
+          href={localePath('/', locale)}
+          prefetch={false}
+          aria-label="Warrly"
+          className="inline-flex"
+        >
+          <WarrlyWordmark height={22} />
+        </Link>
+        {/* The year is interpolated rather than concatenated, so the sentence
+            stays one translatable key. */}
+        <div className="text-[13px] text-muted">
+          {t('© {year} Warrly.', {
+            year,
+          })}
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] sm:gap-x-8">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
           {/* The legal pages exist in both languages; keep the footer inside
               the language of the page the reader is on, so a `/vi` link does
               not hand them an English document. */}
           <Link
             href={localePath('/privacy', locale)}
             prefetch={false}
-            className="text-ink-2/80 hover:text-ink hover:underline"
+            className="text-muted hover:text-ink"
           >
             Privacy
           </Link>
           <Link
             href={localePath('/terms', locale)}
             prefetch={false}
-            className="text-ink-2/80 hover:text-ink hover:underline"
+            className="text-muted hover:text-ink"
           >
             Terms
           </Link>
           <Link
             href={localePath('/cookies', locale)}
             prefetch={false}
-            className="text-ink-2/80 hover:text-ink hover:underline"
+            className="text-muted hover:text-ink"
           >
             Cookies
           </Link>
-          <ConsentSettingsLink className="hover:text-ink" />
+          <ConsentSettingsLink />
           {/* The support address is data, not copy: it is the same mailbox the
               privacy and terms pages already print. */}
-          <a href="mailto:support@warrly.com" className="text-ink-2/80 hover:text-ink hover:underline">
+          <a href="mailto:support@warrly.com" className="text-muted hover:text-ink">
             {t('Hỗ trợ')}: support@warrly.com
           </a>
-          <Link
-            href="/login"
-            className="font-semibold text-ink-2 hover:text-ink hover:underline"
-          >
+          <Link href="/login" className="font-semibold text-primary hover:underline">
             {t('Đăng nhập')}
           </Link>
         </div>

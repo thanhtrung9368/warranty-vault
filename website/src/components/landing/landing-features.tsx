@@ -8,20 +8,17 @@ import type { Translator } from '@/lib/i18n/catalog';
 import { loginHref } from '@/lib/next-path';
 
 /**
- * The six jobs Warrly does.
+ * The six feature cards.
  *
- * This used to be a grid of six identical cards: same size, same padding,
- * same headline weight, a full-bleed illustration above each. Nothing told a
- * reader which one to read and the section ran to six screens on a phone. It
- * is now an index: one heading, then numbered rows in two columns on a wide
- * screen. The illustrations keep their one coral dot but are the size of a
- * stamp, not the size of the card, so the copy leads and the object supports
- * it. The whole section is one surface change rather than six boxes.
+ * The copy is built with `useT()` here rather than in the server page: the
+ * cards cover the whole lower half of the landing, and an in-place switch must
+ * reach every title, description and illustration alt text. The icons/SVGs are
+ * plain components, so they move into the client graph with the copy; the
+ * server still renders all of it to HTML.
  *
- * The copy is built with `useT()` here rather than in the server page: an
- * in-place switch must reach every title, description and illustration alt
- * text. The icons/SVGs are plain components, so they move into the client
- * graph with the copy; the server still renders all of it to HTML.
+ * The subject is chosen per feature and the alt text is a translated key (see
+ * `messages/public.ts`), never an English literal: the images are content, so a
+ * screen reader must hear them in the reader's language.
  */
 type Feature = {
   title: string;
@@ -96,65 +93,59 @@ export function LandingFeatures({ signedIn }: { signedIn: boolean }) {
   const features = buildFeatures(t);
 
   return (
-    <section
-      className="border-y border-border bg-card px-4 py-16 md:px-8 md:py-24"
-      aria-labelledby="wv-features-title"
-    >
-      <div className="mx-auto max-w-6xl">
-        <div className="max-w-2xl">
-          <p className="text-[13px] font-semibold text-ink-2/80">{t('Tính năng')}</p>
-          <h2
-            id="wv-features-title"
-            className="display mt-2 text-3xl leading-[1.1] tracking-[-0.02em] text-ink md:text-4xl"
-          >
+    <section className="px-4 py-24 md:px-8">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-10 text-center">
+          <span className="eyebrow">{t('Tính năng')}</span>
+          <h2 className="display mt-2 text-4xl text-ink">
             {t('Sáu việc nhỏ. Một chỗ.')}
           </h2>
-          <p className="mt-4 max-w-xl text-[17px] leading-[1.65] text-ink-2">
+          <p className="mx-auto mt-3 max-w-lg text-muted">
             {t('Không bảng điều khiển rối rắm. Mỗi mục trả lời đúng một câu hỏi.')}
           </p>
         </div>
-
-        <ul className="mt-10 grid border-t border-border md:grid-cols-2 md:gap-x-12">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f, index) => {
-            // Signed-out visitors cannot render an `(app)` route: its layout
-            // calls `requireUser()`, and a bare redirect to /login would throw
-            // this row's destination away. Send them through
-            // `/login?next=<this row's own href>` instead, so the auth action
-            // can return them here after signing in.
+            // Signed-out visitors cannot render an `(app)` route: its
+            // layout calls `requireUser()`, and a bare redirect to /login
+            // would throw this card's destination away. Send them through
+            // `/login?next=<this card's own href>` instead, so the auth
+            // action can return them here after signing in.
             const href = signedIn ? f.href : loginHref(f.href);
             return (
-              <li key={f.visual} className="border-b border-border">
-                <Reveal index={index} className="block">
-                  <Link
-                    href={href}
-                    className="group flex items-start gap-4 rounded-md py-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-card md:gap-5"
-                  >
-                    <span
-                      className="mt-0.5 flex w-[84px] shrink-0 items-center justify-center rounded-md bg-surface-2 p-1.5 transition-colors group-hover:bg-surface-3 md:w-24"
+              <Reveal
+                key={f.visual}
+                index={index}
+                className="flex"
+                // Three of the six get the CSS scroll-timeline path in
+                // Chrome 115+/Safari 26+; the rest are JS-revealed. The
+                // observer skips these only when that path is really live.
+                scrollDriven={index < 3}
+              >
+                <div className="feature-card relative flex h-full w-full flex-col rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft">
+                  {/* A Vietnamese household object, not a line icon.
+                      One accent dot per drawing ties the set to the mark's
+                      date dot; the card copy still carries the meaning. */}
+                  <FeatureVisual subject={f.visual} label={f.alt} />
+                  <h3 className="mt-4 font-display text-[17px] font-bold tracking-tight">
+                    {/* The title is the card's link. Its ::after stretches
+                        over the whole card, so the entire card is a target
+                        while the keyboard still gets one real, named link.
+                        `:has(:focus-visible)` below lifts the card and
+                        draws the ring when that link has keyboard focus. */}
+                    <Link
+                      href={href}
+                      className="feature-card-link after:absolute after:inset-0 after:content-['']"
                     >
-                      <FeatureVisual
-                        subject={f.visual}
-                        label={f.alt}
-                        className="h-auto w-full"
-                      />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[12px] font-semibold tabular-nums text-ink-2/50">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                      <span className="mt-0.5 block font-display text-[18px] font-bold tracking-[-0.01em] text-ink group-hover:underline group-hover:decoration-border-strong group-hover:underline-offset-4">
-                        {f.title}
-                      </span>
-                      <span className="mt-1.5 block text-[14px] leading-[1.6] text-ink-2/80">
-                        {f.desc}
-                      </span>
-                    </span>
-                  </Link>
-                </Reveal>
-              </li>
+                      {f.title}
+                    </Link>
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{f.desc}</p>
+                </div>
+              </Reveal>
             );
           })}
-        </ul>
+        </div>
       </div>
     </section>
   );

@@ -16,10 +16,6 @@ import { localePath } from '@/lib/i18n/locale';
  * here, so an in-place switch updates the questions and answers without the
  * page reloading.
  *
- * The section header sits in its own column on a wide screen instead of
- * centred above a card. The first answer is open, because a FAQ whose content
- * is invisible until clicked reads as an empty list; the rest stay collapsed.
- *
  * There is deliberately no FAQPage JSON-LD. Google retired FAQ rich results
  * (announced 2026-05-07, documentation removed 2026-06-15), so a second,
  * machine-only copy of these five answers was dead weight on every response.
@@ -83,53 +79,40 @@ export function LandingFaq() {
   const faq = buildFaq(t);
 
   return (
-    <section
-      className="border-y border-border bg-card px-4 py-16 md:px-8 md:py-24"
-      aria-labelledby="wv-faq-title"
-    >
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
-        <div>
-          <p className="text-[13px] font-semibold text-ink-2/80">{t('Hỏi thẳng')}</p>
-          <h2
-            id="wv-faq-title"
-            className="display mt-2 text-3xl leading-[1.1] tracking-[-0.02em] text-ink md:text-4xl"
-          >
+    <section className="px-4 pb-20 md:px-8" aria-labelledby="wv-faq-title">
+      <div className="mx-auto max-w-3xl">
+        <div className="text-center">
+          <span className="eyebrow">{t('Hỏi thẳng')}</span>
+          <h2 id="wv-faq-title" className="display mt-2 text-3xl text-ink">
             {t('Năm câu thường gặp.')}
           </h2>
-          <p className="mt-4 max-w-md text-[17px] leading-[1.65] text-ink-2">
+          <p className="mx-auto mt-3 max-w-lg text-muted">
             {t('Nếu câu bạn cần không có ở đây, email hỗ trợ ở cuối trang.')}
           </p>
         </div>
 
-        <Reveal className="border-t border-border">
-          <div>
+        <Reveal>
+          <div className="mt-8 overflow-hidden rounded-xl border-[1.5px] border-border bg-card shadow-soft">
             {faq.map((item, index) => (
               <details
                 key={index}
-                open={index === 0}
-                className="group border-b border-border"
+                className={`group${index > 0 ? ' border-t-[1.5px] border-border' : ''}`}
               >
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-5 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:py-6 [&::-webkit-details-marker]:hidden">
-                  <span className="flex min-w-0 items-start gap-4">
-                    <span className="mt-1 w-6 shrink-0 text-[12px] font-semibold tabular-nums text-ink-2/50">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <h3 className="font-display text-[17px] font-bold leading-[1.35] tracking-[-0.01em] text-ink md:text-[18px]">
-                      {item.q}
-                    </h3>
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-6 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+                  <h3 className="font-display text-[17px] font-bold tracking-tight text-ink">
+                    {item.q}
+                  </h3>
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] border-border text-muted transition-transform duration-200 group-open:rotate-45">
+                    <Plus className="h-3.5 w-3.5" aria-hidden />
                   </span>
-                  <Plus
-                    className="mt-1 h-4 w-4 shrink-0 text-ink-2/60 transition-transform duration-200 group-open:rotate-45"
-                    aria-hidden
-                  />
                 </summary>
-                <div className="pb-6 pl-10 pr-9 text-[15px] leading-[1.7] text-ink-2/80">
+                <div className="px-6 pb-5 text-sm leading-relaxed text-muted">
                   <p>{item.a}</p>
                   {item.href && item.link ? (
                     <Link
                       href={localePath(item.href, locale)}
                       prefetch={false}
-                      className="mt-2 inline-block text-[14px] font-semibold text-ink underline decoration-primary underline-offset-4 hover:decoration-2"
+                      className="mt-2 inline-block text-[13px] font-semibold text-primary hover:underline"
                     >
                       {item.link} →
                     </Link>

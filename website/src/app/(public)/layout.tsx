@@ -28,11 +28,13 @@ export default async function PublicLayout({
     <InstantI18nProvider locale={locale}>
       <div className="flex min-h-screen flex-col">
         <PublicHeader />
-        <main className="flex-1 px-4 py-8 md:px-8 md:py-12">
-          <div className="mx-auto w-full max-w-5xl">
+        <main className="flex-1 px-4 py-10 md:px-8">
+          <div className="mx-auto w-full max-w-3xl">
             <PublicStructuredData />
             <PublicBackLink />
-            {children}
+            <div className="rounded-xl border-[1.5px] border-border bg-card p-6 shadow-soft sm:p-9">
+              {children}
+            </div>
             <PublicFooter />
           </div>
         </main>

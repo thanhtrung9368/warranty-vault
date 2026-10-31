@@ -36,43 +36,24 @@
 // individual, so publishing one would be a privacy cost with no legal gain.
 
 import { useT } from '@/lib/i18n/client';
-import { LegalDocument } from './legal-document';
-import type { LegalSection } from './legal-toc';
 
 const UPDATED = '27/10/2026';
 const LEGAL_NAME = 'Lê Thành Trung';
 const PRIVACY_EMAIL = 'privacy@warrly.com';
 const SUPPORT_EMAIL = 'support@warrly.com';
 
-/** The document's own headings, in render order, for the contents rail. */
-const SECTIONS: LegalSection[] = [
-  { id: 'who', key: '1. Chúng tôi là ai' },
-  { id: 'data', key: '2. Dữ liệu bọn tao lưu' },
-  { id: 'encryption', key: '3. Mã hoá & lưu trữ' },
-  { id: 'ai', key: '4. Trợ lý AI (tự chọn bật)' },
-  { id: 'ads', key: '5. Quảng cáo (Google AdMob)' },
-  { id: 'rights', key: '6. Quyền của mày' },
-  { id: 'third-parties', key: '7. Bên thứ ba & chia sẻ dữ liệu' },
-  { id: 'legal-basis', key: '8. Cơ sở pháp lý & sự đồng ý' },
-  { id: 'ccpa', key: '9. Người dùng California (CCPA/CPRA)' },
-  { id: 'retention', key: '10. Lưu trữ trong bao lâu' },
-  { id: 'transfers', key: '11. Chuyển dữ liệu ra nước ngoài' },
-  { id: 'children', key: '12. Trẻ em' },
-  { id: 'international', key: '13. Người dùng quốc tế' },
-  { id: 'changes', key: '14. Thay đổi' },
-  { id: 'contact', key: '15. Liên hệ' },
-];
-
 export function PrivacyContent() {
   const t = useT();
-  const mailClass = 'font-semibold text-ink underline decoration-primary underline-offset-4 hover:decoration-2';
+  const mailClass = 'font-semibold text-primary hover:underline';
   return (
-<LegalDocument
-  titleKey="Chính sách bảo mật"
-  updated={UPDATED}
-  noteKey="Với người dùng tại Việt Nam, bản tiếng Việt là bản có giá trị pháp lý."
-  sections={SECTIONS}
->
+<article className="prose prose-slate max-w-none dark:prose-invert">
+  <h1 className="display text-3xl">{t('Chính sách bảo mật')}</h1>
+  <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
+  <p className="mt-2 text-sm text-muted">
+    {t('Với người dùng tại Việt Nam, bản tiếng Việt là bản có giá trị pháp lý.')}
+  </p>
+
+  <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
     <p>
       {t(
         'Warrly là công cụ cá nhân để theo dõi thiết bị, bảo hành, gói đăng ký và danh sách “thèm”. Trang này mô tả bọn tao thu thập gì, lưu thế nào và chia sẻ với ai. Nguyên tắc gọn lại:',
@@ -83,9 +64,9 @@ export function PrivacyContent() {
     </p>
 
     <div>
-      <h2 id="who" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="who" className="display scroll-mt-24 text-lg">
         {t('1. Chúng tôi là ai')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('Warrly do một cá nhân tại Việt Nam cung cấp —')} <b>{LEGAL_NAME}</b>{' '}
         {t(
@@ -122,9 +103,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="data" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="data" className="display scroll-mt-24 text-lg">
         {t('2. Dữ liệu bọn tao lưu')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Email và mật khẩu (lưu dưới dạng băm bcrypt, không bao giờ lưu mật khẩu gốc); các bản ghi mày tự nhập (thiết bị, gói bảo hành, subscription, wishlist); file đính kèm mày tải lên (ảnh hoá đơn / phiếu bảo hành); và token thông báo đẩy của thiết bị nếu mày bật push.',
@@ -143,9 +124,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="encryption" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="encryption" className="display scroll-mt-24 text-lg">
         {t('3. Mã hoá & lưu trữ')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('File đính kèm được mã hoá')} <b>{t('AES-256-GCM')}</b>{' '}
         {t(
@@ -166,9 +147,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="ai" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="ai" className="display scroll-mt-24 text-lg">
         {t('4. Trợ lý AI (tự chọn bật)')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('Mặc định tính năng này')} <b>{t('TẮT')}</b>
         {'. '}
@@ -181,9 +162,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="ads" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="ads" className="display scroll-mt-24 text-lg">
         {t('5. Quảng cáo (Google AdMob)')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('Gói miễn phí có quảng cáo. Gói trả phí không có quảng cáo và hiện chưa mở bán.')}
       </p>
@@ -252,7 +233,7 @@ export function PrivacyContent() {
           href="https://policies.google.com/technologies/ads"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-ink underline decoration-primary underline-offset-4 hover:decoration-2"
+          className="font-semibold text-primary hover:underline"
         >
           policies.google.com/technologies/ads
         </a>
@@ -264,9 +245,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="rights" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="rights" className="display scroll-mt-24 text-lg">
         {t('6. Quyền của mày')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('Mày có thể')} <b>{t('xuất toàn bộ dữ liệu')}</b>{' '}
         {t('ra file JSON hoặc .zip kèm ảnh đã mã hoá (Cài đặt → Sao lưu & khôi phục) bất cứ lúc nào, và')}{' '}
@@ -293,9 +274,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="third-parties" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="third-parties" className="display scroll-mt-24 text-lg">
         {t('7. Bên thứ ba & chia sẻ dữ liệu')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('Warrly chỉ chia sẻ dữ liệu với các bên sau, và chỉ phần cần cho việc đó:')}
       </p>
@@ -330,9 +311,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="legal-basis" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="legal-basis" className="display scroll-mt-24 text-lg">
         {t('8. Cơ sở pháp lý & sự đồng ý')}
-      </h2>
+      </h3>
       <p className="mt-2">{t('Bọn tao xử lý dữ liệu theo các cơ sở sau:')}</p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>
@@ -374,9 +355,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="ccpa" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="ccpa" className="display scroll-mt-24 text-lg">
         {t('9. Người dùng California (CCPA/CPRA)')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Nếu mày ở California, mày có quyền biết dữ liệu cá nhân bọn tao thu thập và chia sẻ, quyền xoá, quyền sửa và quyền từ chối bán hoặc chia sẻ dữ liệu cá nhân.',
@@ -395,9 +376,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="retention" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="retention" className="display scroll-mt-24 text-lg">
         {t('10. Lưu trữ trong bao lâu')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Dữ liệu tài khoản (email, thiết bị, bảo hành, hoá đơn, wishlist) được giữ cho tới khi mày xoá tài khoản. Xoá tài khoản là xoá khỏi hệ thống; trong ứng dụng không có nút khôi phục.',
@@ -416,9 +397,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="transfers" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="transfers" className="display scroll-mt-24 text-lg">
         {t('11. Chuyển dữ liệu ra nước ngoài')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Warrly chạy từ Việt Nam, nhưng dữ liệu không chỉ nằm ở Việt Nam. Dữ liệu tài khoản nằm trên máy chủ do Warrly tự vận hành; phần còn lại đi qua các bên sau, và đó là chuyển dữ liệu ra nước ngoài:',
@@ -461,7 +442,7 @@ export function PrivacyContent() {
           href="https://policies.google.com/technologies/ads"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-ink underline decoration-primary underline-offset-4 hover:decoration-2"
+          className="font-semibold text-primary hover:underline"
         >
           policies.google.com/technologies/ads
         </a>
@@ -470,9 +451,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="children" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="children" className="display scroll-mt-24 text-lg">
         {t('12. Trẻ em')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Warrly không hướng đến trẻ em và không cố ý thu thập dữ liệu của người dưới 16 tuổi. Nếu mày cho rằng Warrly đã thu thập nhầm dữ liệu của một trẻ em, gửi email tới privacy@warrly.com và bọn tao sẽ xoá.',
@@ -486,9 +467,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="international" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="international" className="display scroll-mt-24 text-lg">
         {t('13. Người dùng quốc tế')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Warrly được viết cho người dùng ở bất kỳ đâu, không chỉ Việt Nam. Người dùng EU, Vương quốc Anh và Thuỵ Sĩ được hưởng các quyền theo luật bảo vệ dữ liệu áp dụng — xem mục 6 — và với quảng cáo cá nhân hoá, Warrly dùng Google UMP, một nền tảng quản lý đồng ý đã được chứng nhận TCF v2.2.',
@@ -502,9 +483,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="changes" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="changes" className="display scroll-mt-24 text-lg">
         {t('14. Thay đổi')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t(
           'Warrly có thể cập nhật chính sách này. Bản mới luôn ghi ngày “Cập nhật lần cuối” ở đầu trang; mày nên đọc lại sau mỗi lần đổi. Nếu thay đổi làm tăng phạm vi dữ liệu thu thập, Warrly sẽ hỏi lại sự đồng ý thay vì coi như mày đã đồng ý.',
@@ -518,9 +499,9 @@ export function PrivacyContent() {
     </div>
 
     <div>
-      <h2 id="contact" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
+      <h3 id="contact" className="display scroll-mt-24 text-lg">
         {t('15. Liên hệ')}
-      </h2>
+      </h3>
       <p className="mt-2">
         {t('Có thắc mắc về dữ liệu:')}{' '}
         <a href={`mailto:${PRIVACY_EMAIL}`} className={mailClass}>
@@ -543,6 +524,7 @@ export function PrivacyContent() {
         {t('không có DPO riêng; chính chủ sở hữu trả lời mọi yêu cầu qua privacy@warrly.com.')}
       </p>
     </div>
-</LegalDocument>
+  </div>
+</article>
   );
 }

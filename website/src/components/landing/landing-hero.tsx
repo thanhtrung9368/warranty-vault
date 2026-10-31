@@ -1,20 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LandingProduct, type LandingProductShot } from './landing-product';
 import { useT } from '@/lib/i18n/client';
 
 /**
  * The hero.
- *
- * One lead: the sentence, in ink, at the largest type on the page. The old
- * hero stacked an uppercase free/paid disclaimer, a gradient-highlighted word
- * and a sparkle icon above it, so three things competed to be read first.
- * Coral is now reserved for the one action (`Tạo tài khoản miễn phí`); the
- * headline is monochrome, which is also what the shared visual direction asks
- * for — colour encodes a state or an action, never decoration.
  *
  * The H1 is an LCP element and is deliberately never wrapped in a reveal or an
  * opacity-0 start state. It is a client component anyway — React Server
@@ -31,66 +24,85 @@ export function LandingHero({
 }) {
   const t = useT();
 
+  // One sentence, one key. Both languages happen to put the warranty words in
+  // the same slot, so the gradient highlight is applied to whichever substring
+  // the active language uses — the sentence itself is never cut in two, which
+  // would hand a translator two fragments whose order they cannot choose.
+  // `sentence.indexOf` also means no text mask is involved: the Vietnamese
+  // diacritics are never clipped.
+  const sentence = t('Giữ ngày hết bảo hành — và cả hoá đơn — cho mọi thứ trong nhà.');
+  const mark = t('bảo hành');
+  const at = sentence.indexOf(mark);
+
   return (
-    <section className="wv-hero px-4 pb-14 pt-10 md:px-8 md:pb-24 md:pt-16 lg:pt-24">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16">
-        <div className="max-w-[37rem]">
+    <section className="wv-hero px-4 pb-16 pt-16 md:px-8 md:pb-24 md:pt-24">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14">
+        <div className="max-w-2xl">
+          <p className="wv-hero-eyebrow text-balance">
+            <Sparkles aria-hidden />
+            {t('Miễn phí có quảng cáo · Gói trả phí chưa mở bán')}
+          </p>
           {/* The H1 is the LCP element and is deliberately never wrapped in a
-              reveal and never starts at `opacity: 0`. The size is 32 px at
-              390 so the Vietnamese first line holds "Giữ ngày hết bảo hành"
-              whole — 34 px split the term across two lines. The manual
-              line-height leaves room for stacked diacritics. */}
-          <h1 className="display text-pretty text-[32px] leading-[1.08] tracking-[-0.03em] text-ink sm:text-[38px] md:text-[44px] lg:text-[46px]">
-            {t('Giữ ngày hết bảo hành — và cả hoá đơn — cho mọi thứ trong nhà.')}
+              reveal and never starts at `opacity: 0`. Its font size is capped
+              so the longer sentence stays at three lines in the desktop column
+              rather than five. */}
+          <h1 className="display mt-5 text-[clamp(32px,3.2vw,46px)] text-ink">
+            {at === -1 ? (
+              sentence
+            ) : (
+              <>
+                {sentence.slice(0, at)}
+                <span
+                  className="bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary-2)))',
+                  }}
+                >
+                  {mark}
+                </span>
+                {sentence.slice(at + mark.length)}
+              </>
+            )}
           </h1>
-          <p className="mt-5 max-w-[44ch] text-[17px] leading-[1.65] text-ink-2 md:mt-6 md:text-[18px]">
+          <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-muted md:text-[19px]">
             {t(
               'Tủ lạnh, máy giặt, chiếc iPhone: mỗi món có một ngày hết hạn và một tấm hoá đơn. Warrly giữ cả hai, và nhắc bạn trước khi bảo hành hết hiệu lực.',
             )}
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="mb-6 mt-8 flex flex-wrap items-center gap-3">
             {signedIn ? (
-              <Button
-                asChild
-                size="lg"
-                className="h-12 w-full !rounded-md px-6 text-[15px] shadow-none sm:w-auto"
-              >
+              <Button asChild size="lg">
                 <Link href="/dashboard">
                   {t('Mở Dashboard')}
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden />
+                  <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>
             ) : (
               <>
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-12 w-full !rounded-md px-6 text-[15px] shadow-none sm:w-auto"
-                >
+                <Button asChild size="lg">
                   <Link href="/register">
                     {t('Tạo tài khoản miễn phí')}
-                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden />
+                    <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
                 <Link
                   href="/login"
-                  className="text-sm font-semibold text-ink-2 underline decoration-border-strong underline-offset-4 hover:text-ink"
+                  className="text-sm font-semibold text-primary hover:underline"
                 >
                   {t('Đã có tài khoản → Đăng nhập')}
                 </Link>
               </>
             )}
           </div>
-          {/* Facts, not decorations: neutral checks, no emerald. Green is
-              reserved for a date state, per the shared direction. */}
-          <ul className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-ink-2/80">
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted">
             {[
               'Không cần thẻ tín dụng',
               'Quảng cáo chỉ ở gói miễn phí',
               'Backup xuất/nhập JSON',
             ].map((bullet) => (
               <li key={bullet} className="inline-flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-ink-2/50" aria-hidden />
+                <CheckCircle2 className="h-3.5 w-3.5" style={{ color: 'hsl(var(--emerald))' }} />
                 {t(bullet)}
               </li>
             ))}

@@ -298,9 +298,6 @@ export const publicPages = defineMessages({
 
   // ── Legal pages: shared chrome ──────────────────────────────────────────
   'Cập nhật lần cuối: {date}': 'Last updated: {date}',
-  // The label above the table of contents. It is chrome, not document copy;
-  // the section titles themselves are the existing legal keys.
-  'Mục lục': 'Contents',
   'Email': 'Email',
   'Liên hệ': 'Contact',
   'Có thắc mắc về dữ liệu:': 'Questions about your data:',

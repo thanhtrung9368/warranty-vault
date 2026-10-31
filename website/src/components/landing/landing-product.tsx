@@ -86,6 +86,8 @@ export function LandingProduct({ shot, className }: LandingProductProps) {
 
   return (
     <div className={cn('wv-product', className)} aria-hidden="true">
+      <div className="wv-product-glow" />
+
       {/* A push notification is the product's emotional payoff, so it floats
           above the app surface like a real lock-screen banner. Positioned
           inside the composition's own box — no negative horizontal offset, so
