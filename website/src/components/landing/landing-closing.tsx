@@ -17,51 +17,52 @@ import { useT } from '@/lib/i18n/client';
  * receipt requirement, and the default 30/7-day lead-day schedule in
  * `services/leaddays.go`). No name is invented; the signature says what the repo
  * can prove.
+ *
+ * The panel is ink, not coral. Coral on this page is the action (the button);
+ * a full coral block made the closing read as one more marketing surface and
+ * spent the accent before the reader reached the last thing to click. The
+ * inverse panel also gives the page a real ending instead of a seventh white
+ * card.
  */
 export function LandingClosing({ signedIn }: { signedIn: boolean }) {
   const t = useT();
 
   return (
-    <section className="px-4 py-20 md:px-8">
-      <div className="mx-auto max-w-2xl">
-        <div
-          className="rounded-xl border-[2px] border-ink p-12 text-center shadow-chunky"
-          style={{
-            background:
-              'linear-gradient(135deg, hsl(var(--primary-soft)), hsl(var(--primary-soft-2)))',
-          }}
-        >
-          {/* Symbol alone: no background tile, no radius token. */}
-          <div className="mx-auto mb-4 flex justify-center">
-            <WarrlyMark size={64} />
+    <section className="px-4 py-16 md:px-8 md:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="rounded-lg bg-ink px-6 py-10 text-background md:px-12 md:py-14">
+          <WarrlyMark size={52} />
+          <div className="mt-6 max-w-2xl">
+            <h2 className="display text-3xl leading-[1.1] tracking-[-0.02em] text-background md:text-4xl">
+              {t('Giữ ngày bảo hành ngay từ hôm nay.')}
+            </h2>
+            <p className="mt-3 max-w-xl text-[17px] leading-[1.65] text-background/70">
+              {t('Miễn phí để bắt đầu. Không cần thẻ. Gói miễn phí có quảng cáo; gói trả phí thì không.')}
+            </p>
           </div>
-          <h2 className="display text-3xl text-primary-ink">
-            {t('Giữ ngày bảo hành ngay từ hôm nay.')}
-          </h2>
-          <p className="mt-2 text-primary-ink/80">
-            {t('Miễn phí để bắt đầu. Không cần thẻ. Gói miễn phí có quảng cáo; gói trả phí thì không.')}
-          </p>
-          <div className="mt-6 flex justify-center">
-            <Button asChild size="lg">
+          <div className="mt-7">
+            <Button asChild size="lg" className="h-12 !rounded-md px-6 text-[15px] shadow-none">
               <Link href={signedIn ? '/dashboard' : '/register'}>
                 {signedIn ? t('Mở Dashboard') : t('Tạo tài khoản miễn phí')}
-                <ArrowRight className="ml-1 h-4 w-4" />
+                <ArrowRight className="ml-1 h-4 w-4" aria-hidden />
               </Link>
             </Button>
           </div>
         </div>
 
         <Reveal>
-          <div className="mt-6 rounded-xl border-[1.5px] border-border bg-card p-7 shadow-soft">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-muted">
+          <div className="mt-10 grid gap-5 border-t border-border pt-8 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] md:gap-10">
+            <p className="text-[13px] font-semibold leading-[1.5] text-ink-2/80">
               {t('Ghi chú từ người làm Warrly')}
             </p>
-            <p className="mt-3 text-[17px] leading-relaxed text-ink-2">
-              {t('Warrly bắt đầu từ một cái hạn 30 ngày. Một chiếc máy mới thường có một cửa sổ đổi trả ngắn — thường là 30 ngày — trước khi chỉ còn đường gửi sửa. Cửa sổ đó là chính sách của nơi bán và của hãng, không phải luật, và mỗi nơi một khác. Ngày bảo hành cũng có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.')}
-            </p>
-            <p className="mt-4 text-[13px] font-semibold text-muted">
-              {t('— Người làm Warrly')}
-            </p>
+            <div className="min-w-0">
+              <p className="max-w-[64ch] text-[17px] leading-[1.75] text-ink-2">
+                {t('Warrly bắt đầu từ một cái hạn 30 ngày. Một chiếc máy mới thường có một cửa sổ đổi trả ngắn — thường là 30 ngày — trước khi chỉ còn đường gửi sửa. Cửa sổ đó là chính sách của nơi bán và của hãng, không phải luật, và mỗi nơi một khác. Ngày bảo hành cũng có khi tính từ lúc kích hoạt, lúc xuất kho hay lúc mua, tuỳ hãng — và tấm hoá đơn là thứ chứng minh ngày đó. Tôi làm Warrly để giữ ngày và hoá đơn cạnh nhau, nhắc trước theo lịch bạn đặt — mặc định 30 và 7 ngày — và không hứa gì ngoài việc đó.')}
+              </p>
+              <p className="mt-4 text-[13px] font-semibold text-ink-2/80">
+                {t('— Người làm Warrly')}
+              </p>
+            </div>
           </div>
         </Reveal>
       </div>

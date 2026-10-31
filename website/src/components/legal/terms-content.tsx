@@ -32,25 +32,40 @@
 // reject an English column that still contains Vietnamese characters.
 
 import { useT } from '@/lib/i18n/client';
+import { LegalDocument } from './legal-document';
+import type { LegalSection } from './legal-toc';
 
 const UPDATED = '27/10/2026';
 const LEGAL_NAME = 'Lê Thành Trung';
 const PRIVACY_EMAIL = 'privacy@warrly.com';
 const SUPPORT_EMAIL = 'support@warrly.com';
 
+/** The document's own headings, in render order, for the contents rail. */
+const SECTIONS: LegalSection[] = [
+  { id: 'purpose', key: '1. Dịch vụ & mục đích cá nhân' },
+  { id: 'accounts', key: '2. Tài khoản & bảo mật' },
+  { id: 'your-content', key: '3. Nội dung của mày' },
+  { id: 'usage-limits', key: '4. Giới hạn sử dụng' },
+  { id: 'subscription', key: '5. Gói trả phí — chưa mở bán' },
+  { id: 'no-warranty', key: '6. Không bảo đảm' },
+  { id: 'termination', key: '7. Chấm dứt' },
+  { id: 'changes', key: '8. Thay đổi điều khoản' },
+  { id: 'governing-law', key: '9. Luật áp dụng' },
+  { id: 'contact', key: '10. Liên hệ' },
+];
+
 export function TermsContent() {
   const t = useT();
-  const mailClass = 'font-semibold text-primary hover:underline';
+  const mailClass = 'font-semibold text-ink underline decoration-primary underline-offset-4 hover:decoration-2';
   return (
-<article className="prose prose-slate max-w-none dark:prose-invert">
-  <h1 className="display text-3xl">{t('Điều khoản sử dụng')}</h1>
-  <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
-  <p className="mt-2 text-sm text-muted">
-    {t('Khi có khác biệt về diễn giải, ưu tiên bản tiếng Việt cho người dùng tại Việt Nam.')}
-  </p>
-
-  <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
-    <p>
+<LegalDocument
+  titleKey="Điều khoản sử dụng"
+  updated={UPDATED}
+  noteKey="Khi có khác biệt về diễn giải, ưu tiên bản tiếng Việt cho người dùng tại Việt Nam."
+  sections={SECTIONS}
+>
+    <div className="space-y-4">
+<p>
       {t('Warrly do một cá nhân tại Việt Nam cung cấp —')} <b>{LEGAL_NAME}</b>{' '}
       {t(
         '— và không phải công ty. Điều khoản này cũng là thoả thuận cấp phép người dùng cuối (EULA) giữa mày và Warrly.',
@@ -61,11 +76,12 @@ export function TermsContent() {
         'Dùng Warrly tức là mày đồng ý với các điều khoản dưới đây. Bọn tao cố giữ chúng ngắn và dễ hiểu.',
       )}
     </p>
+    </div>
 
     <div>
-      <h3 id="purpose" className="display scroll-mt-24 text-lg">
+      <h2 id="purpose" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('1. Dịch vụ & mục đích cá nhân')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Warrly là công cụ cá nhân để quản lý thiết bị, bảo hành, gói đăng ký và wishlist của chính mày. Đừng dùng để lưu trữ dữ liệu của người khác khi chưa được họ cho phép.',
@@ -79,9 +95,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="accounts" className="display scroll-mt-24 text-lg">
+      <h2 id="accounts" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('2. Tài khoản & bảo mật')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Mày chịu trách nhiệm giữ mật khẩu an toàn và mọi hoạt động dưới tài khoản của mình. Báo cho bọn tao ngay nếu nghi ngờ tài khoản bị truy cập trái phép.',
@@ -90,9 +106,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="your-content" className="display scroll-mt-24 text-lg">
+      <h2 id="your-content" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('3. Nội dung của mày')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Mày sở hữu dữ liệu mình nhập và tải lên. Mày tự đảm bảo nội dung đó hợp pháp và mày có quyền lưu trữ nó. Bọn tao không yêu cầu quyền sở hữu nội dung của mày.',
@@ -101,9 +117,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="usage-limits" className="display scroll-mt-24 text-lg">
+      <h2 id="usage-limits" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('4. Giới hạn sử dụng')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Gói miễn phí có quảng cáo. Gói trả phí, khi mở bán, sẽ nâng các giới hạn này và tắt quảng cáo trên tài khoản trả phí. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.',
@@ -112,9 +128,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="subscription" className="display scroll-mt-24 text-lg">
+      <h2 id="subscription" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('5. Gói trả phí — chưa mở bán')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Gói trả phí của Warrly chưa mở bán. Hiện không có giá, không có ngày ra mắt, và mày không thể mua nó ở đâu cả. Mục này nói trước những gì sẽ áp dụng khi nó mở bán — không phải những gì đang chạy hôm nay.',
@@ -165,9 +181,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="no-warranty" className="display scroll-mt-24 text-lg">
+      <h2 id="no-warranty" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('6. Không bảo đảm')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Dịch vụ được cung cấp “nguyên trạng” (as-is). Bọn tao cố gắng giữ dữ liệu an toàn và nhắc nhở đúng hạn, nhưng không bảo đảm dịch vụ không gián đoạn hay không có lỗi. Hãy tự sao lưu dữ liệu quan trọng (Cài đặt → Sao lưu & khôi phục).',
@@ -176,9 +192,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="termination" className="display scroll-mt-24 text-lg">
+      <h2 id="termination" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('7. Chấm dứt')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Mày có thể xoá tài khoản bất cứ lúc nào trong phần Cài đặt — toàn bộ dữ liệu sẽ bị xoá vĩnh viễn. Bọn tao có thể tạm ngưng tài khoản nếu phát hiện hành vi lạm dụng hệ thống.',
@@ -187,9 +203,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="changes" className="display scroll-mt-24 text-lg">
+      <h2 id="changes" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('8. Thay đổi điều khoản')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Warrly có thể cập nhật điều khoản này; bản mới ghi ngày “Cập nhật lần cuối” ở đầu trang. Dùng Warrly tiếp sau ngày đó là chấp nhận bản mới. Nếu thay đổi quan trọng, Warrly sẽ nói rõ thay đổi gì.',
@@ -198,9 +214,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="governing-law" className="display scroll-mt-24 text-lg">
+      <h2 id="governing-law" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('9. Luật áp dụng')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Điều khoản này theo pháp luật Việt Nam, và tranh chấp được giải quyết tại cơ quan có thẩm quyền ở Việt Nam. Nếu mày là người tiêu dùng ở nước khác, mày vẫn giữ các quyền bắt buộc mà luật nước mày dành cho mày.',
@@ -209,9 +225,9 @@ export function TermsContent() {
     </div>
 
     <div>
-      <h3 id="contact" className="display scroll-mt-24 text-lg">
+      <h2 id="contact" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('10. Liên hệ')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t('Có thắc mắc:')}{' '}
         <a href={`mailto:${SUPPORT_EMAIL}`} className={mailClass}>
@@ -230,7 +246,6 @@ export function TermsContent() {
         {t('cá nhân, Việt Nam.')}
       </p>
     </div>
-  </div>
-</article>
+</LegalDocument>
   );
 }

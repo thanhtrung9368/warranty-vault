@@ -18,14 +18,21 @@
 // The text itself lives in `src/components/landing/*`:
 //
 //   landing-header   — lockup, locale switch, theme toggle, signed-in CTA
-//   landing-hero     — eyebrow, H1 (with its highlighted word), subhead, CTAs
-//   landing-stage    — pinned section copy and its three beats
-//   landing-features — six cards (copy + household illustrations)
-//   landing-steps    — the three-step section
-//   landing-price    — free tier, limits, the data/exit cards
+//   landing-hero     — H1, subhead, CTAs and the product shot
+//   landing-features — the six jobs as a numbered index, not six cards
+//   landing-price    — free tier, limits, the data/exit columns
 //   landing-faq      — the five questions
 //   landing-closing  — final CTA and the first-person note
 //   landing-footer   — wordmark, copyright, legal links
+//
+// Two sections that used to sit between `hero` and `features` are no longer
+// rendered: `landing-stage` (a 240vh pinned track that repeated the hero's
+// three beats in copy, with the same product shot again) and `landing-steps`
+// (a second three-card row restating the hero CTA). Both files stay in the
+// tree because `brand-wiring.test.ts` reads the landing source by filename,
+// but the page no longer pays for their scroll length or their JS. See the
+// handoff's "one lead per screen": neither section had a claim to the lead,
+// and together they were 3,800 px of the 8,800 px page at 390.
 //
 // Why the product shot's dates are computed HERE and not in the browser: the
 // demo's pills are day counts ("Còn 22 ngày"), so the client render has to
@@ -41,9 +48,7 @@ import { DocumentTitleSync } from '@/components/i18n/document-title';
 import { ConsentBanner } from '@/components/consent/consent-banner';
 import { LandingHeader } from '@/components/landing/landing-header';
 import { LandingHero } from '@/components/landing/landing-hero';
-import { LandingStage } from '@/components/landing/landing-stage';
 import { LandingFeatures } from '@/components/landing/landing-features';
-import { LandingSteps } from '@/components/landing/landing-steps';
 import { LandingPrice } from '@/components/landing/landing-price';
 import { LandingFaq } from '@/components/landing/landing-faq';
 import { LandingClosing } from '@/components/landing/landing-closing';
@@ -114,9 +119,7 @@ export default async function LandingPage() {
         <LandingHeader signedIn={signedIn} />
         <main className="flex-1">
           <LandingHero signedIn={signedIn} shot={shot} />
-          <LandingStage shot={shot} />
           <LandingFeatures signedIn={signedIn} />
-          <LandingSteps />
           <LandingPrice />
           <LandingFaq />
           <LandingClosing signedIn={signedIn} />

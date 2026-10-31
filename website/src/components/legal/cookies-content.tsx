@@ -24,17 +24,27 @@
 // the self-built banner is not a TCF-certified CMP.
 
 import { useT } from '@/lib/i18n/client';
+import { LegalDocument } from './legal-document';
+import type { LegalSection } from './legal-toc';
 
 const UPDATED = '27/10/2026';
+
+/** The document's own headings, in render order, for the contents rail. */
+const SECTIONS: LegalSection[] = [
+  { id: 'essential', key: '1. Cookie thiết yếu' },
+  { id: 'local-storage', key: '2. Lưu trữ cục bộ trên máy' },
+  { id: 'ads', key: '3. Cookie quảng cáo (chỉ ở gói miễn phí)' },
+  { id: 'choices', key: '4. Đổi hoặc rút lại lựa chọn' },
+];
 
 export function CookiesContent() {
   const t = useT();
   return (
-<article className="prose prose-slate max-w-none dark:prose-invert">
-  <h1 className="display text-3xl">{t('Chính sách Cookie')}</h1>
-  <p className="text-sm text-muted">{t('Cập nhật lần cuối: {date}', { date: UPDATED })}</p>
-
-  <div className="mt-6 space-y-5 text-base leading-relaxed text-ink-2">
+<LegalDocument
+  titleKey="Chính sách Cookie"
+  updated={UPDATED}
+  sections={SECTIONS}
+>
     <p>
       {t(
         'Warrly dùng cookie thiết yếu để mày đăng nhập, giữ phiên và ghi nhớ ngôn ngữ, giao diện. Ở gói miễn phí, quảng cáo có thể dùng cookie hoặc định danh thiết bị của bên thứ ba — nhưng chỉ sau khi mày đồng ý. Gói trả phí không có quảng cáo.',
@@ -42,7 +52,7 @@ export function CookiesContent() {
     </p>
 
     <div>
-      <h3 className="display text-lg">{t('1. Cookie thiết yếu')}</h3>
+      <h2 id="essential" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">{t('1. Cookie thiết yếu')}</h2>
       <p className="mt-2">{t('Bọn tao dùng hai cookie thiết yếu:')}</p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>
@@ -70,7 +80,7 @@ export function CookiesContent() {
     </div>
 
     <div>
-      <h3 className="display text-lg">{t('2. Lưu trữ cục bộ trên máy')}</h3>
+      <h2 id="local-storage" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">{t('2. Lưu trữ cục bộ trên máy')}</h2>
       <p className="mt-2">
         {t(
           'Một vài tuỳ chọn giao diện (chế độ sáng/tối, cỡ chữ, màu nhấn) được lưu trong bộ nhớ cục bộ của trình duyệt (localStorage, các khoá theme và wv:prefs) trên máy mày, không gửi về máy chủ.',
@@ -89,9 +99,9 @@ export function CookiesContent() {
     </div>
 
     <div>
-      <h3 id="ads" className="display scroll-mt-24 text-lg">
+      <h2 id="ads" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">
         {t('3. Cookie quảng cáo (chỉ ở gói miễn phí)')}
-      </h3>
+      </h2>
       <p className="mt-2">
         {t(
           'Khi có quảng cáo, chúng nằm trong app iOS và Android và do Google AdMob phục vụ. Trên web hiện chưa có quảng cáo: Warrly không tải script quảng cáo và không đặt cookie quảng cáo trước khi mày đồng ý.',
@@ -129,7 +139,7 @@ export function CookiesContent() {
     </div>
 
     <div>
-      <h3 className="display text-lg">{t('4. Đổi hoặc rút lại lựa chọn')}</h3>
+      <h2 id="choices" className="display scroll-mt-28 border-t border-border pt-6 text-xl leading-[1.3] text-ink md:text-2xl">{t('4. Đổi hoặc rút lại lựa chọn')}</h2>
       <p className="mt-2">
         {t(
           'Mở “Tuỳ chọn cookie” ở chân trang bất cứ lúc nào. Chọn “Từ chối không cần thiết” để tắt quảng cáo ngay, hoặc “Quản lý” để bật/tắt từng loại.',
@@ -141,7 +151,6 @@ export function CookiesContent() {
         )}
       </p>
     </div>
-  </div>
-</article>
+</LegalDocument>
   );
 }

@@ -28,17 +28,17 @@ export function PublicHeader() {
   const locale = useLocale();
 
   return (
-    <header className="border-b-[1.5px] border-border bg-card">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 md:px-8">
+    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4 md:px-8">
         <Link
           href={localePath('/', locale)}
           prefetch={false}
           aria-label="Warrly"
-          className="inline-flex"
+          className="inline-flex shrink-0"
         >
-          <WarrlyLockup height={40} />
+          <WarrlyLockup height={32} />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <LocaleSwitcher variant="compact" />
           <ThemeToggle />
         </div>
@@ -55,9 +55,9 @@ export function PublicBackLink() {
     <Link
       href={localePath('/', locale)}
       prefetch={false}
-      className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink"
+      className="mb-8 inline-flex items-center gap-1.5 text-sm font-medium text-ink-2/80 hover:text-ink"
     >
-      <ArrowLeft className="h-4 w-4" />
+      <ArrowLeft className="h-4 w-4" aria-hidden />
       {t('Quay về trang chủ')}
     </Link>
   );
@@ -78,7 +78,7 @@ export function PublicFooter() {
   const t = useT();
 
   return (
-    <footer className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t-[1.5px] border-border pt-6 text-sm text-muted">
+    <footer className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-6 text-sm text-ink-2/80">
       <Link
         href={localePath('/privacy', locale)}
         prefetch={false}
