@@ -134,6 +134,53 @@ final class CurrencyRulesTests: KitTestCase {
         XCTAssertEqual(VndFormat.digits(25_400), "25.400")
     }
 
+    // MARK: - The language decides the dong shape
+
+    func testDongFollowsTheLanguageInsteadOfAlwaysRenderingVietnamese() {
+        // Go's `i18n.FormatMoney`, the web and Android emit exactly these two
+        // shapes: dot grouping + trailing sign in Vietnamese, comma grouping +
+        // leading sign in English. English is the product default, so a
+        // hard-coded Vietnamese shape is what an English reader used to get.
+        XCTAssertEqual(VndFormat.string(1_200_000, language: .vi), "1.200.000 ₫")
+        XCTAssertEqual(VndFormat.string(1_200_000, language: .en), "₫1,200,000")
+
+        XCTAssertEqual(VndFormat.string(0, language: .vi), "0 ₫")
+        XCTAssertEqual(VndFormat.string(0, language: .en), "₫0")
+
+        // The minus sign stays in front of the symbol in both languages
+        // (`-1.500 ₫` / `-₫1,500`), never after it.
+        XCTAssertEqual(VndFormat.string(-1_500, language: .vi), "-1.500 ₫")
+        XCTAssertEqual(VndFormat.string(-1_500, language: .en), "-₫1,500")
+
+        // `Int64.min` groups without overflowing.
+        XCTAssertEqual(VndFormat.string(Int64.min, language: .en),
+                       "-₫9,223,372,036,854,775,808")
+    }
+
+    func testTheDongDefaultLanguageIsTheAppsCurrentLanguage() {
+        // Every existing call site (`WVFormat.vnd`, the rules above) relies on
+        // this: the formatter follows the app switch without a parameter being
+        // threaded through the views.
+        L.withLanguage(.vi) {
+            XCTAssertEqual(VndFormat.string(1_200_000), "1.200.000 ₫")
+        }
+        L.withLanguage(.en) {
+            XCTAssertEqual(VndFormat.string(1_200_000), "₫1,200,000")
+        }
+        // No language chosen (the library's own tests) is the source language.
+        L.withLanguage(nil) {
+            XCTAssertEqual(VndFormat.string(1_200_000), "1.200.000 ₫")
+        }
+    }
+
+    func testForeignAmountsKeepTheirIsoCodeInBothLanguages() {
+        // The currency code, not the language, is what keeps a dollar amount
+        // unambiguous, so this branch deliberately does not flip.
+        XCTAssertEqual(VndFormat.string(1_299, currency: "USD"), "1,299 USD")
+        XCTAssertEqual(VndFormat.string(1_299, currency: "USD", language: .vi), "1,299 USD")
+        XCTAssertEqual(VndFormat.string(1_299, currency: "USD", language: .en), "1,299 USD")
+    }
+
     // MARK: - FX payload
 
     func testFxRatesPickTheVndQuoteAndTreatMissingValuesAsTypedByHand() {

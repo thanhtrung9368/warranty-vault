@@ -63,7 +63,7 @@ struct BackupImportFlow: ViewModifier {
                         messages: warnings
                     )
                     .padding(.horizontal, WVSpacing.gutter)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, WVSpacing.sm)
                     .frame(maxWidth: .infinity)
                     .background(WVColor.bg)
                 }
@@ -188,13 +188,17 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                Spacer().frame(height: 8)
+                Spacer().frame(height: WVSpacing.sm)
 
-                // Appearance
-                WVSectionHeader(L.t("Giao diện"))
-                appearanceSection
-
-                // Theme accent (simplified — just dark / light toggle + system)
+                // Chế độ — the only appearance control.
+                //
+                // The old first group held a single dark-mode toggle row with
+                // no switch glyph, directly above this three-way picker: two
+                // controls for one value, one of them reading as a dead row
+                // (§8.7, §1.12). The group and its header are gone with the
+                // row; their two catalog keys are now unreferenced and belong
+                // in the shared catalog cleanup (reported, not edited here —
+                // `Localizable.xcstrings` is outside this screen's ownership).
                 WVSectionHeader(L.t("Chế độ"))
                 themeSection
 
@@ -205,10 +209,11 @@ struct SettingsView: View {
                 languageSection
                 WVSectionFooter(L.t("Ngôn ngữ áp dụng cho cả ứng dụng, thông báo đẩy và email."))
 
-                // Notifications
+                // Notifications. The explanation sits below the rows it
+                // explains (§8.7): one rule for every group on this screen.
                 WVSectionHeader(L.t("Nhắc nhở"))
-                WVSectionFooter(L.t("Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày."))
                 notificationsSection
+                WVSectionFooter(L.t("Mốc nhắc được đặt riêng cho từng thiết bị và gói đăng ký — mở chi tiết để chỉnh. Mặc định là 30 và 7 ngày."))
 
                 // Sign-in sessions (who can reach the data)
                 WVSectionHeader(L.t("Bảo mật"))
@@ -221,13 +226,13 @@ struct SettingsView: View {
                 // to a third-party model, and a second toggle would let the two
                 // features disagree about it. The assessment sheet points here.
                 WVSectionHeader(L.t("Trợ lý AI"))
-                WVSectionFooter(L.t("Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
                 aiSection
+                WVSectionFooter(L.t("Khi bật, ảnh hoá đơn (đã giải mã) và thông tin lần sửa chữa sẽ được gửi tới dịch vụ AI bên thứ ba để tự điền thông tin hoặc đánh giá bảo hành. Bạn luôn kiểm tra lại trước khi lưu. Mặc định tắt."))
 
                 // Data
                 WVSectionHeader(L.t("Dữ liệu"))
-                WVSectionFooter(L.t("File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn."))
                 dataSection
+                WVSectionFooter(L.t("File backup chứa dữ liệu nhạy cảm (số seri, giá mua, trung tâm BH). Lưu ở nơi an toàn."))
 
                 // Privacy options. Deliberately conditional INCLUDING the
                 // header: when UMP does not require a privacy options form
@@ -243,7 +248,7 @@ struct SettingsView: View {
                 WVSectionHeader(L.t("Thông tin"))
                 infoSection
 
-                Spacer().frame(height: 24)
+                Spacer().frame(height: WVSpacing.xl)
             }
         }
         .wvScreen()
@@ -318,27 +323,28 @@ struct SettingsView: View {
     private var languageSection: some View {
         WVGroup {
             ForEach(Array(LanguageChoice.allCases.enumerated()), id: \.element.id) { idx, option in
-                if idx > 0 { WVDivider(inset: 60) }
+                if idx > 0 { WVDivider() }
                 Button {
                     Task { await localization.select(option.language) }
                 } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "globe", color: WVColor.blue)
+                    HStack(spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "globe")
                         Text(option.label)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         if localization.isSaving && selectedChoice == option {
                             ProgressView().scaleEffect(0.8)
                         } else if selectedChoice == option {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(WVColor.tint)
+                            // Position already says "selected"; the tick is
+                            // label, not coral (§5.1).
+                            WVIcon("check", size: 14, weight: .semibold)
+                                .foregroundStyle(WVColor.label)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
@@ -378,12 +384,12 @@ struct SettingsView: View {
 
     private var aiSection: some View {
         WVGroup {
-            HStack(spacing: 12) {
-                WVLeadingIcon(icon: "sparkles", color: WVColor.tint)
+            HStack(spacing: WVSpacing.md) {
+                WVLeadingIcon(icon: "sparkles")
                 Text(L.t("Quét hoá đơn & đánh giá bảo hành"))
                     .wvFont(.body)
                     .foregroundStyle(WVColor.label)
-                Spacer(minLength: 8)
+                Spacer(minLength: WVSpacing.sm)
                 if aiBusy {
                     ProgressView()
                 } else {
@@ -394,9 +400,9 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, WVSpacing.gutter)
             .frame(minHeight: 44)
-            .padding(.vertical, 7)
+            .padding(.vertical, WVSpacing.sm)
         }
     }
 
@@ -429,26 +435,11 @@ struct SettingsView: View {
 
     private var sessionsSection: some View {
         WVGroup {
-            WVRow(icon: "shieldCheck", iconColor: WVColor.green,
+            WVRow(icon: "shieldCheck",
                   title: L.t("Thiết bị đăng nhập"),
                   subtitle: L.t("Xem và thu hồi các phiên đang hoạt động"),
                   chevron: true) {
                 showSessions = true
-            }
-        }
-    }
-
-    // MARK: - Appearance
-
-    private var appearanceSection: some View {
-        WVGroup {
-            WVRow(
-                icon: "moon",
-                iconColor: WVColor.gray,
-                title: L.t("Giao diện tối"),
-                detail: theme.preference == .dark ? L.t("Bật") : nil
-            ) {
-                theme.preference = theme.preference == .dark ? .light : .dark
             }
         }
     }
@@ -458,28 +449,26 @@ struct SettingsView: View {
     private var themeSection: some View {
         WVGroup {
             ForEach(Array(ThemePreference.allCases.enumerated()), id: \.element.id) { idx, option in
-                if idx > 0 { WVDivider(inset: 60) }
+                if idx > 0 { WVDivider() }
                 Button {
                     theme.preference = option
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: WVSpacing.md) {
                         WVLeadingIcon(
-                            icon: option == .dark ? "moon" : option == .light ? "sun" : "settings",
-                            color: WVColor.gray
+                            icon: option == .dark ? "moon" : option == .light ? "sun" : "settings"
                         )
                         Text(option.label)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         if theme.preference == option {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(WVColor.tint)
+                            WVIcon("check", size: 14, weight: .semibold)
+                                .foregroundStyle(WVColor.label)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
@@ -491,37 +480,44 @@ struct SettingsView: View {
 
     private var notificationsSection: some View {
         WVGroup {
-            // Push status row
-            HStack(spacing: 12) {
-                WVLeadingIcon(icon: "bell", color: WVColor.red)
-                Text(L.t("Bật thông báo"))
+            // Push status row. The label names the SUBJECT; the trailing chip
+            // carries the state ("Chưa bật"), so the row reads "Thông báo:
+            // chưa bật" in the label-value grammar every other row on this
+            // screen uses. It used to be titled with the action verb ("Bật
+            // thông báo"), identical to the row directly below it, so the
+            // status line and the one control that enables notifications
+            // looked the same and only one of them did anything. A row with a
+            // verb is a row that acts; this one does not.
+            HStack(spacing: WVSpacing.md) {
+                WVLeadingIcon(icon: "bell")
+                Text(L.t("Thông báo"))
                     .wvFont(.body)
                     .foregroundStyle(WVColor.label)
-                Spacer(minLength: 8)
+                Spacer(minLength: WVSpacing.sm)
                 pushStatusBadge
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, WVSpacing.gutter)
             .frame(minHeight: 44)
-            .padding(.vertical, 7)
+            .padding(.vertical, WVSpacing.sm)
 
-            WVDivider(inset: 60)
+            WVDivider()
 
             // Enable / re-register
-            WVRow(icon: "refresh", iconColor: WVColor.orange,
+            WVRow(icon: "refresh",
                   title: pushButtonLabel, chevron: true) {
                 Task { await push.requestAndRegister() }
             }
             .disabled(pushButtonDisabled)
 
-            WVDivider(inset: 60)
+            WVDivider()
 
             // Devices list
-            WVRow(icon: "smartphone", iconColor: WVColor.blue,
+            WVRow(icon: "smartphone",
                   title: L.t("Thiết bị nhận thông báo"), chevron: true) {
                 showPushDevices = true
             }
 
-            WVDivider(inset: 60)
+            WVDivider()
 
             // Reminder lead time.
             //
@@ -532,7 +528,7 @@ struct SettingsView: View {
             // points at the per-item editor instead of stating a fixed
             // schedule; it stays non-interactive (no chevron, no action)
             // because there is no global value to change here.
-            WVRow(icon: "clock", iconColor: WVColor.purple,
+            WVRow(icon: "clock",
                   title: L.t("Nhắc trước"),
                   subtitle: L.t("Theo từng thiết bị / gói"),
                   detail: L.t("Tuỳ chỉnh"))
@@ -543,29 +539,32 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         WVGroup {
-            WVRow(icon: "download", iconColor: WVColor.green,
+            WVRow(icon: "download",
                   title: backupBusy ? L.t("Đang xử lý…") : L.t("Sao lưu (xuất JSON)"),
                   chevron: true) {
                 guard !backupBusy else { return }
                 exportBackup()
             }
-            WVDivider(inset: 60)
-            WVRow(icon: "upload", iconColor: WVColor.orange,
+            WVDivider()
+            WVRow(icon: "upload",
                   title: L.t("Khôi phục từ sao lưu"), chevron: true) {
                 guard !backupBusy else { return }
                 showImporter = true
             }
-            WVDivider(inset: 60)
+            WVDivider()
 
             // An account-wide document, not a per-device screen: the insurer
             // asks for the household's schedule, and this is where the other
             // "take my data out" controls live. The title names the language
             // and the subtitle says why, so the Vietnamese PDF does not read
             // as a localization bug.
-            WVRow(icon: "shieldCheck", iconColor: WVColor.blue,
-                  title: L.t("Bảng kê cho bảo hiểm (tiếng Việt)"),
-                  subtitle: L.t("PDF · luôn ở tiếng Việt cho công ty bảo hiểm"),
-                  chevron: true) {
+            //
+            // Two-line title: `WVRow` keeps every title to one line, and the
+            // trailing chevron then cut this one to "(tiếng V…" (§8.7). The
+            // row is local because the fix (a title that may wrap) is not a
+            // parameter `WVRow` exposes, and shared components are off limits
+            // during step 1 (§10.2).
+            InsurancePackRow {
                 showInsurancePack = true
             }
         }
@@ -583,7 +582,7 @@ struct SettingsView: View {
     /// present a form Google says does not exist.
     private var privacySection: some View {
         WVGroup {
-            WVRow(icon: "lock", iconColor: WVColor.purple,
+            WVRow(icon: "lock",
                   title: L.t("Tuỳ chọn quyền riêng tư"),
                   subtitle: L.t("Đổi cách quảng cáo được cá nhân hoá hoặc rút lại sự đồng ý."),
                   subtitleLineLimit: 4,
@@ -613,15 +612,15 @@ struct SettingsView: View {
 
     private var infoSection: some View {
         WVGroup {
-            WVRow(icon: "info", iconColor: WVColor.blue,
+            WVRow(icon: "info",
                   title: L.t("Phiên bản"), detail: appVersion)
-            WVDivider(inset: 60)
-            WVRow(icon: "shield", iconColor: WVColor.green,
+            WVDivider()
+            WVRow(icon: "shield",
                   title: L.t("Chính sách bảo mật"), chevron: true) {
                 open(.privacy)
             }
-            WVDivider(inset: 60)
-            WVRow(icon: "receipt", iconColor: WVColor.gray,
+            WVDivider()
+            WVRow(icon: "receipt",
                   title: L.t("Điều khoản sử dụng"), chevron: true) {
                 open(.terms)
             }
@@ -668,5 +667,52 @@ struct SettingsView: View {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return b.isEmpty ? v : "\(v) (\(b))"
+    }
+}
+
+// MARK: - Insurance-pack row
+
+/// "Bảng kê cho bảo hiểm (tiếng Việt)" — the one row on Cài đặt whose title is
+/// too long for the shared one-line OS row.
+///
+/// `WVRow` hard-codes `lineLimit(1)` on its title and gives the trailing
+/// chevron the remaining width, so this title rendered as
+/// `Bảng kê cho bảo hiểm (tiếng V…` plus a truncated subtitle (§8.7). The title
+/// is the thing a row must never lose, so this row allows it two lines and
+/// keeps the subtitle at the one-line `meta` it already was. `WVRowContainer`
+/// supplies the exact row padding, minimum height and tap highlight of
+/// `WVRow`; nothing else about the row changes — same icon, same typography,
+/// same action.
+///
+/// A shared `WVRow.titleLineLimit` would be the durable fix, but shared
+/// components are frozen during step 1 (§10.2); this row is reported instead.
+private struct InsurancePackRow: View {
+    let action: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        WVRowContainer(action: action) {
+            HStack(spacing: WVSpacing.md) {
+                WVLeadingIcon(icon: "shieldCheck")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L.t("Bảng kê cho bảo hiểm (tiếng Việt)"))
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                        // Two lines at the default size; unlimited at
+                        // Accessibility sizes so the title never clips (§10.3).
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(L.t("PDF · luôn ở tiếng Việt cho công ty bảo hiểm"))
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                }
+                .layoutPriority(1)
+                Spacer(minLength: WVSpacing.sm)
+                WVIcon("arrowRight", size: 13, weight: .semibold)
+                    .foregroundStyle(WVColor.label4)
+            }
+        }
     }
 }

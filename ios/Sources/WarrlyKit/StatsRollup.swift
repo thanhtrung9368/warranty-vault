@@ -12,7 +12,8 @@ import Foundation
 ///   - warranty money is attributed to the category of the device it covers;
 ///   - the 12-month bar chart buckets entries by calendar month;
 ///   - "tài sản còn bảo hành" counts ACTIVE devices whose effective warranty
-///     end (max `endDate` over the device's warranties) is still in the future.
+///     end (the max `endDate` over the device's **whole-unit** rows) is still
+///     in force — and the day it ends still counts as covered.
 ///
 /// ## Every amount here is VND
 ///
@@ -508,15 +509,26 @@ public enum StatsRollup {
     }
 
     /// Devices still under warranty: status ACTIVE **and** an effective
-    /// warranty end in the future. The total is in VND, resolved per device
-    /// through the same totals rule as the ledger.
-    public static func activeAssetValue(_ devices: [Device], now: Date = Date()) -> AssetValue {
+    /// warranty end that has not passed, where the end **day itself still
+    /// counts** — the same calendar-day rule as `WarrantyRollup`,
+    /// `WarrantyPillCopy` ("Hết hôm nay") and the web card
+    /// (`daysUntil(...) >= 0`).
+    ///
+    /// This used to compare the stored end (local midnight) with `now`, so from
+    /// 00:00:01 on the final day the device left the count and its value left
+    /// the total — a day early, on the one day the user might still be covered.
+    /// The total is in VND, resolved per device through the same totals rule as
+    /// the ledger.
+    public static func activeAssetValue(_ devices: [Device],
+                                        now: Date = Date(),
+                                        calendar: Calendar = .current) -> AssetValue {
         var total = 0
         var count = 0
         for device in devices {
             guard device.status == .ACTIVE,
                   let end = device.effectiveWarrantyEnd,
-                  end > now else { continue }
+                  CalendarDay.days(from: now, to: end, calendar: calendar) >= 0
+            else { continue }
             total += device.purchasePriceInVnd ?? 0
             count += 1
         }
@@ -535,11 +547,25 @@ public enum StatsRollup {
     }
 
     /// Effective warranty end for a device from its full warranty list — the
-    /// max `endDate`, or nil when the device has no packages. Mirrors
-    /// `effectiveWarrantyEnd()` in `website/src/lib/warranty.ts` and
-    /// `api/internal/services/devices.go`, for the one case the list endpoint
-    /// doesn't already answer: a device just created/edited locally.
+    /// latest `endDate` across **whole-unit** rows, or `nil` when no whole-unit
+    /// row has one.
+    ///
+    /// A row with a non-blank `component` covers one part, not the device: a
+    /// fridge's ten-year motor warranty must not become "the whole machine is
+    /// covered until 2035". `openapi.yaml`'s `effectiveWarrantyEnd` names
+    /// exactly that failure, and the server implements it in
+    /// `api/internal/services/brand_warranty.go::wholeUnitWarrantyEnd`. A blank
+    /// component is whole-unit — the service normalises `""` to NULL on write,
+    /// but a hand-edited row must not be silently excluded.
+    ///
+    /// This is the **fallback** only: the list and detail reads already carry
+    /// the server-computed value. It exists for a device created or edited
+    /// locally, whose richer payload has not been re-read yet.
     public static func effectiveWarrantyEnd(_ warranties: [Warranty]) -> Date? {
-        warranties.map(\.endDate).max()
+        warranties
+            .filter { ($0.component ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map(\.endDate)
+            .max()
     }
 }

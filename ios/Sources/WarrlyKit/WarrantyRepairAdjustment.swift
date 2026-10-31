@@ -25,7 +25,15 @@ import Foundation
 //      same partition `ClaimRules` owns), **and**
 //   2. the server actually wrote a `closedAt` (a terminal status with no close
 //      stamp is an incomplete row, not a completed repair), **and**
-//   3. both wire days can be read.
+//   3. both instants can be read.
+//
+// `openedAt` / `closedAt` are RFC 3339 **instants** (`openapi.yaml`: "Là
+// instant: RFC 3339 UTC kèm Z"), not calendar days. They are converted into the
+// caller's calendar before subtracting: a claim closed at 05:30 ICT is stored
+// `…T22:30Z` on the previous UTC day, and reading that day off the string made
+// the extension one day short; a claim opened at 03:00 ICT is stored `…T20:00Z`
+// on the previous day and made it one day long. `ClaimRules.instantDay` owns
+// that conversion.
 //
 // The contribution is `closedDay − openedDay` in **whole calendar days**,
 // floored at `0`. A same-day repair therefore adds `0`: no whole day was lost.
@@ -67,17 +75,23 @@ public enum WarrantyRepairAdjustment {
 
     /// Whole calendar days one claim contributed, or `nil` when it contributes
     /// nothing — an open claim, a terminal status without `closedAt`, or a wire
-    /// value that carries no readable day.
+    /// value that carries no readable date.
     ///
     /// `0` is a real answer (a same-day repair): it satisfies the "closed and
     /// stamped" tests but adds no whole day.
+    ///
+    /// The two instants are reduced to the day they fall on **in `calendar`'s
+    /// time zone** before they are subtracted — never their UTC day. See the
+    /// file header for the two one-day errors the UTC day produced.
     public static func repairDays(
         for claim: Claim,
         calendar: Calendar = .current
     ) -> Int? {
         guard ClaimRules.isClosed(claim),
-              let opened = WireDay.date(from: claim.openedAt, in: calendar.timeZone),
-              let closed = WireDay.date(from: claim.closedAt, in: calendar.timeZone)
+              let opened = ClaimRules.instantDay(claim.openedAt,
+                                                 in: calendar.timeZone),
+              let closed = ClaimRules.instantDay(claim.closedAt,
+                                                 in: calendar.timeZone)
         else { return nil }
 
         let days = CalendarDay.days(from: opened, to: closed, calendar: calendar)

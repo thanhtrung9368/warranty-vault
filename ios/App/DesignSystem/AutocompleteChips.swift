@@ -21,8 +21,8 @@ struct AutocompleteChips: View {
                         } label: {
                             Text(name)
                                 .wvFont(.caption, weight: .medium)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
+                                .padding(.horizontal, WVSpacing.md)
+                                .padding(.vertical, WVSpacing.sm)
                                 .background(WVColor.fill3)
                                 .foregroundStyle(WVColor.label)
                                 .clipShape(Capsule())

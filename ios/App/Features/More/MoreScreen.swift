@@ -44,7 +44,7 @@ struct MoreScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                Spacer().frame(height: 8)
+                Spacer().frame(height: WVSpacing.sm)
 
                 // MARK: Main actions — Tìm kiếm / Hộp thư đến / Nhắc nhở / Thống kê
                 moreActionsSection
@@ -55,7 +55,7 @@ struct MoreScreen: View {
                 WVSectionHeader(L.t("Ứng dụng"))
                 appSection
 
-                Spacer().frame(height: 16)
+                Spacer().frame(height: WVSpacing.lg)
 
                 // Logout button
                 WVGroup {
@@ -64,18 +64,18 @@ struct MoreScreen: View {
                     }
                 }
 
-                Spacer().frame(height: 8)
+                Spacer().frame(height: WVSpacing.sm)
                 Text("Warrly iOS · v1.0.0")
-                    .wvFont(.caption)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
-                    .padding(.vertical, 20)
+                    .padding(.vertical, WVSpacing.gutter)
             }
         }
         .wvScreen()
         .navigationTitle(L.t("Thêm"))
         .navigationBarTitleDisplayMode(.large)
         .task {
-            // Refresh both badges on every visit: a receipt filed from another
+            // Refresh both counts on every visit: a receipt filed from another
             // client must not leave a stale number sitting on this row.
             await remindersStore.load()
             await inbox.load()
@@ -133,100 +133,100 @@ struct MoreScreen: View {
                 NavigationLink {
                     SearchScreen(client: client)
                 } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "search", color: WVColor.indigo)
+                    HStack(spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "search")
                         Text(L.t("Tìm kiếm"))
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         WVIcon("arrowRight", size: 13, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
 
-                WVDivider(inset: 60)
+                WVDivider()
 
                 // Capture-first inbox. Placed in the same actions group as
-                // Nhắc nhở because this is the existing "row + count badge"
-                // navigation pattern — the badge is the number of receipts
+                // Nhắc nhở because this is the existing "row + trailing count"
+                // navigation pattern — the count is the number of receipts
                 // waiting to be filed, not a device's attachment count.
                 NavigationLink {
                     InboxScreen(client: client)
                 } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "receipt", color: WVColor.orange)
+                    HStack(spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "receipt")
                         Text(L.t("Hộp thư đến"))
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         if let badgeText = inbox.badgeText {
-                            MoreBadge(text: badgeText)
+                            MoreCount(text: badgeText)
                         }
                         WVIcon("arrowRight", size: 13, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
 
-                WVDivider(inset: 60)
+                WVDivider()
 
                 NavigationLink {
                     RemindersView(client: client)
                         .navigationTitle(L.t("Nhắc nhở"))
                         .navigationBarTitleDisplayMode(.inline)
                 } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "bell", color: WVColor.red)
+                    HStack(spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "bell")
                         Text(L.t("Nhắc nhở"))
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         if reminderBadge > 0 {
-                            MoreBadge(count: reminderBadge)
+                            MoreCount(count: reminderBadge)
                         }
                         WVIcon("arrowRight", size: 13, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
 
-                WVDivider(inset: 60)
+                WVDivider()
 
                 NavigationLink {
                     StatsView(client: client)
                         .navigationTitle(L.t("Thống kê"))
                         .navigationBarTitleDisplayMode(.inline)
                 } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "chart", color: WVColor.indigo)
+                    HStack(spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "chart")
                         Text(L.t("Thống kê"))
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         WVIcon("arrowRight", size: 13, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
 
-                WVDivider(inset: 60)
+                WVDivider()
 
                 // Every repair across every device. `GET /api/v1/claims` with
                 // no filter was implemented and called by nobody: iOS only ever
@@ -235,8 +235,8 @@ struct MoreScreen: View {
                 NavigationLink {
                     ClaimsListView(client: client)
                 } label: {
-                    HStack(spacing: 12) {
-                        WVLeadingIcon(icon: "wrench", color: WVColor.orange)
+                    HStack(spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "wrench")
                         VStack(alignment: .leading, spacing: 1) {
                             Text(L.t("Sửa chữa & bảo hành"))
                                 .wvFont(.body)
@@ -245,13 +245,13 @@ struct MoreScreen: View {
                                 .wvFont(.footnote)
                                 .foregroundStyle(WVColor.label3)
                         }
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                         WVIcon("arrowRight", size: 13, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())
@@ -266,8 +266,8 @@ struct MoreScreen: View {
                     .navigationTitle(L.t("Hồ sơ"))
                     .navigationBarTitleDisplayMode(.inline)
             } label: {
-                HStack(spacing: 12) {
-                    WVLeadingIcon(icon: "user", color: WVColor.blue)
+                HStack(spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: "user")
                     VStack(alignment: .leading, spacing: 1) {
                         Text(L.t("Hồ sơ"))
                             .wvFont(.body)
@@ -278,13 +278,13 @@ struct MoreScreen: View {
                                 .foregroundStyle(WVColor.label3)
                         }
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: WVSpacing.sm)
                     WVIcon("arrowRight", size: 13, weight: .semibold)
                         .foregroundStyle(WVColor.label4)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, WVSpacing.gutter)
                 .frame(minHeight: 44)
-                .padding(.vertical, 7)
+                .padding(.vertical, WVSpacing.sm)
                 .contentShape(Rectangle())
             }
             .buttonStyle(WVRowButtonStyle())
@@ -298,35 +298,35 @@ struct MoreScreen: View {
                     .navigationTitle(L.t("Cài đặt"))
                     .navigationBarTitleDisplayMode(.inline)
             } label: {
-                HStack(spacing: 12) {
-                    WVLeadingIcon(icon: "settings", color: WVColor.gray)
+                HStack(spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: "settings")
                     Text(L.t("Cài đặt"))
                         .wvFont(.body)
                         .foregroundStyle(WVColor.label)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: WVSpacing.sm)
                     WVIcon("arrowRight", size: 13, weight: .semibold)
                         .foregroundStyle(WVColor.label4)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, WVSpacing.gutter)
                 .frame(minHeight: 44)
-                .padding(.vertical, 7)
+                .padding(.vertical, WVSpacing.sm)
                 .contentShape(Rectangle())
             }
             .buttonStyle(WVRowButtonStyle())
 
-            WVDivider(inset: 60)
+            WVDivider()
 
-            WVRow(icon: "download", iconColor: WVColor.green,
+            WVRow(icon: "download",
                   title: fileBusy ? L.t("Đang xử lý…") : L.t("Xuất dữ liệu CSV"), chevron: true) {
                 guard !fileBusy else { return }
                 exportDevicesCSV()
             }
 
-            WVDivider(inset: 60)
+            WVDivider()
 
             // Same importer as Cài đặt → "Khôi phục từ sao lưu"; this row is a
             // shortcut into that one flow, not a second implementation.
-            WVRow(icon: "upload", iconColor: WVColor.orange,
+            WVRow(icon: "upload",
                   title: fileBusy ? L.t("Đang xử lý…") : L.t("Import từ file"), chevron: true) {
                 guard !fileBusy else { return }
                 showImporter = true
@@ -335,9 +335,16 @@ struct MoreScreen: View {
     }
 }
 
-// MARK: - Badge component
+// MARK: - Row count
 
-private struct MoreBadge: View {
+/// The trailing count on the inbox and reminder rows.
+///
+/// It used to be a filled red capsule. Red means "act", and a count is not a
+/// state (§5.2): N receipts waiting to be filed is a number, not N alarms. It is
+/// now the same neutral trailing value as any other row — 17 medium in
+/// `label3`, no fill and no capsule (§4). The system tab badge stays as the
+/// platform draws it (§9.6).
+private struct MoreCount: View {
     let text: String
 
     init(text: String) { self.text = text }
@@ -345,11 +352,8 @@ private struct MoreBadge: View {
 
     var body: some View {
         Text(text)
-            .wvFont(.captionEmphasis)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .frame(height: 22)
-            .background(WVColor.red)
-            .clipShape(Capsule())
+            .wvFont(.body, weight: .medium)
+            .foregroundStyle(WVColor.label3)
+            .lineLimit(1)
     }
 }

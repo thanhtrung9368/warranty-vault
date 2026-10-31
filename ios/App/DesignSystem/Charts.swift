@@ -32,7 +32,10 @@ struct WVBarChart: View {
     var formatY: (Double) -> String = { String(Int($0)) }
 
     private let ticks = 3
-    private let axisWidth: CGFloat = 34
+    /// Wide enough for the app's own compact money (`176 tr ₫`) at 9 pt. The
+    /// axis is geometry, not a text role (§2), so it stays a reservation rather
+    /// than a Dynamic Type label.
+    private let axisWidth: CGFloat = 46
 
     private var maxValue: Double { max(1, data.map(\.value).max() ?? 1) }
 
@@ -44,6 +47,8 @@ struct WVBarChart: View {
                     Text(formatY(maxValue * (1 - Double(i) / Double(ticks))))
                         .font(.system(size: 9))
                         .foregroundStyle(WVColor.label3)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .frame(maxHeight: .infinity, alignment: i == 0 ? .top : .center)
                 }
             }
@@ -65,7 +70,7 @@ struct WVBarChart: View {
                         ForEach(data) { point in
                             VStack {
                                 Spacer(minLength: 0)
-                                Capsule(style: .continuous)
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
                                     .fill(color.opacity(0.9))
                                     .frame(
                                         width: 14,
@@ -85,6 +90,7 @@ struct WVBarChart: View {
                             .font(.system(size: 9))
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                             .frame(maxWidth: .infinity)
                     }
                 }

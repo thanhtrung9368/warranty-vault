@@ -3,22 +3,29 @@ import WarrlyKit
 
 // ============================================================
 // StatsView — overview statistics dashboard.
-// Port of StatsScreen in screens-3.jsx.
-// Uses WVBarChart / WVDonut from Charts.swift.
-// Data comes from StatsStore (per-user rollups) + RemindersStore.
+//
+// One lead: the money still under warranty (§7 / §8.4). Under it, the
+// three number groups the brief asks for — Bảo hành, Chi phí, Gói đăng
+// ký — then the repair verdict card, the 12-month chart, the spending
+// forecast and the two navigable lists.
+//
+// Everything in this file follows the visual direction: no gradient
+// hero, no stat tiles, no uppercase kickers, no coloured identity
+// icons. Money is the full VND amount everywhere a value is shown;
+// the only compact money left is the chart's y-axis, which is
+// geometry (§2) and uses the app's own compact formatter.
 // ============================================================
 
 struct StatsView: View {
     let client: APIClient
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     @StateObject private var store: StatsStore
     /// Only used as the push destination for the "Top 5 thiết bị đắt nhất" rows.
     @StateObject private var devicesStore: DevicesStore
 
-    /// Year shown in the "Tổng chi theo năm" card. `nil` until the rollup has
-    /// loaded, so we can default to the current year without a flash.
+    /// Year shown in the "Tổng chi" row and the category breakdown. `nil`
+    /// until the rollup has loaded, so we can default to the newest year
+    /// with data without a flash.
     @State private var selectedYear: Int?
 
     init(client: APIClient) {
@@ -32,11 +39,7 @@ struct StatsView: View {
             switch store.state {
             case .idle, .loading:
                 ScrollView {
-                    VStack(spacing: 0) {
-                        Spacer().frame(height: 8)
-                        statsHeroSkeleton
-                        Spacer().frame(height: 24)
-                    }
+                    statsSkeleton
                 }
                 .wvScreen()
 
@@ -44,14 +47,12 @@ struct StatsView: View {
                 ScrollView {
                     WVEmpty(icon: "alert", title: L.t("Không tải được số liệu"), description: msg) {
                         WVButton(L.t("Thử lại")) { Task { await loadAll() } }
-                            .padding(.horizontal, 32)
                     }
                 }
                 .wvScreen()
 
             case .loaded:
-                if store.snapshot.totalDevices == 0 && store.snapshot.totalSubs == 0
-                    && store.snapshot.totalWishlist == 0 {
+                if statsIsEmpty {
                     ScrollView {
                         WVEmpty(icon: "chart",
                                 title: L.t("Chưa có gì để thống kê"),
@@ -72,6 +73,11 @@ struct StatsView: View {
             // called out as "the user cannot tell what is happening".
             DeviceRouteDestination(client: client, store: devicesStore, deviceId: nav.id)
         }
+        .toolbar {
+            if store.state == .loaded, !statsIsEmpty {
+                ToolbarItem(placement: .topBarTrailing) { yearMenu }
+            }
+        }
     }
 
     // MARK: - Main content
@@ -79,119 +85,264 @@ struct StatsView: View {
     private var mainContent: some View {
         ScrollView {
             VStack(spacing: 0) {
-                Spacer().frame(height: 8)
-
-                // Hero gradient card
-                heroCard
-                    .padding(.horizontal, WVSpacing.gutter)
-
-                Spacer().frame(height: 12)
-
-                // Widget row
-                widgetRow
-                    .padding(.horizontal, WVSpacing.gutter)
+                leadBlock
 
                 if !store.snapshot.warrantiesComplete {
                     incompleteWarrantiesBanner
                 }
 
-                // KPI row — same four numbers as the web stats page.
-                WVSectionHeader(L.t("Chi phí & tài sản"))
-                kpiGrid
+                warrantyGroup
+                costGroup
+                subscriptionGroup
 
-                // Repair money (`Claim.cost`). Deliberately its own line, not
-                // folded into "Tổng chi mua sắm": a repair is money spent after
-                // the purchase on a machine that already cost something, so
-                // adding it to the purchase total would compare two different
-                // kinds of number. The section disappears entirely when no
-                // claim carries a cost — see `RepairSpend.hasAnyCost`.
                 repairSection
-
-                // 12-month bar chart
-                WVSectionHeader(L.t("Chi phí 12 tháng gần nhất"))
-                WVSectionFooter(L.t("Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói)."))
-                WVCard {
-                    WVBarChart(
-                        data: monthBarData,
-                        height: 160,
-                        color: WVColor.brand,
-                        formatY: { v in
-                            if v >= 1_000_000 { return "\(Int(v / 1_000_000))M" }
-                            if v >= 1_000     { return "\(Int(v / 1_000))k" }
-                            return "\(Int(v))"
-                        }
-                    )
-                }
-
-                // Spending forecast — the forward-looking half of this screen
-                // (`GET /api/v1/forecast`), deliberately separate from the
-                // historical rollup above it.
+                spendChartSection
                 forecastSection
-
-                // Category donut
-                WVSectionHeader(L.t("Phân bổ theo loại"))
-                WVSectionFooter(L.t("Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ."))
-                WVCard {
-                    let legend = VStack(alignment: .leading, spacing: 6) {
-                        ForEach(donutSlices.prefix(6)) { slice in
-                            if dynamicTypeSize.isAccessibilitySize {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 6) {
-                                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                            .fill(slice.color)
-                                            .frame(width: 10, height: 10)
-                                        Text(slice.label)
-                                            .wvFont(.footnote)
-                                            .foregroundStyle(WVColor.label)
-                                            .lineLimit(3)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                    Text(WVFormat.compactVnd(Int(slice.value)))
-                                        .wvFont(.caption)
-                                        .foregroundStyle(WVColor.label3)
-                                }
-                            } else {
-                                HStack(spacing: 6) {
-                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                        .fill(slice.color)
-                                        .frame(width: 10, height: 10)
-                                    Text(slice.label)
-                                        .wvFont(.footnote)
-                                        .foregroundStyle(WVColor.label)
-                                        .lineLimit(1)
-                                    Spacer(minLength: 4)
-                                    Text(WVFormat.compactVnd(Int(slice.value)))
-                                        .wvFont(.caption)
-                                        .foregroundStyle(WVColor.label3)
-                                }
-                            }
-                        }
-                    }
-                    if dynamicTypeSize.isAccessibilitySize {
-                        VStack(alignment: .leading, spacing: 14) {
-                            WVDonut(data: donutSlices, size: 120)
-                            legend
-                        }
-                    } else {
-                        HStack(spacing: 16) {
-                            WVDonut(data: donutSlices, size: 120)
-                            legend
-                        }
-                    }
-                }
-
-                // Year breakdown + top 5
-                yearSection
+                categorySection
                 topDevicesSection
 
-                // Summary section cards
-                WVSectionHeader(L.t("Theo trạng thái"))
-                summaryCards
-
-                Spacer().frame(height: 24)
+                Spacer().frame(height: WVSpacing.xl)
             }
         }
         .wvScreen()
+    }
+
+    // MARK: - Lead
+
+    /// The one number this screen is about: what is still under warranty.
+    /// A plain block on `bg` — no card, no radius, no gradient.
+    private var leadBlock: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
+            Text(L.t("Tài sản còn bảo hành"))
+                .wvFont(.footnoteEmphasis)
+                .foregroundStyle(WVColor.label3)
+
+            Text(WVFormat.vnd(store.snapshot.assetValue.total))
+                .wvFont(.statValue)
+                .foregroundStyle(WVColor.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+
+            coverageLine
+                .wvFont(.footnote)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.xl)
+    }
+
+    /// `4/7 thiết bị · 1 thiết bị trong 30 ngày` — one sentence, two clauses.
+    ///
+    /// The count and the window are **one** clause, not two: `1 thiết bị` on its
+    /// own does not say which devices, and `Sắp hết trong 30 ngày` after another
+    /// separator turned the subline into a list of three unrelated facts. Joined
+    /// by a space they read the way §8.4 asks — "1 device ending inside 30 days".
+    /// The phrase is the catalogue's lowercase `trong 30 ngày` (the sub-label the
+    /// pre-redesign "Bảo hành sắp hết" widget printed under this same count),
+    /// because it can sit mid-sentence where the capitalised label
+    /// `Sắp hết trong 30 ngày` cannot.
+    ///
+    /// Composed from `Text` so the second clause wraps with the first and keeps
+    /// its own colour — that colour is the sentence's point.
+    private var coverageLine: Text {
+        let snap = store.snapshot
+        var line = Text(L.t("%d/%d thiết bị", snap.assetValue.count, snap.totalDevices))
+            .foregroundColor(WVColor.label3)
+        if snap.expiringIn30Days > 0 {
+            line = line
+                + Text(" · ").foregroundColor(WVColor.label4)
+                + Text(L.p("%d thiết bị", snap.expiringIn30Days) + " " + L.t("trong 30 ngày"))
+                    .foregroundColor(WVColor.red)
+        }
+        return line
+    }
+
+    private var incompleteWarrantiesBanner: some View {
+        WVNotice(message: L.t("Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu."))
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.md)
+    }
+
+    // MARK: - Number groups
+
+    private var warrantyGroup: some View {
+        VStack(spacing: 0) {
+            WVDashSectionHead(L.t("Bảo hành"))
+            WVGroup {
+                StatValueRow(
+                    label: L.t("Bảo hành sắp hết"),
+                    value: L.p("%d thiết bị", store.snapshot.expiringIn30Days)
+                )
+            }
+        }
+    }
+
+    private var costGroup: some View {
+        let snap = store.snapshot
+        return VStack(spacing: 0) {
+            WVDashSectionHead(L.t("Chi phí"))
+            WVGroup {
+                StatValueRow(
+                    label: L.t("Tổng chi mua sắm"),
+                    value: WVFormat.vnd(snap.allTimeTotals.total)
+                )
+                WVDivider(inset: WVSpacing.gutter)
+                StatValueRow(
+                    label: L.t("Tổng chi %d", currentYear),
+                    value: WVFormat.vnd(store.yearTotals(currentYear).total)
+                )
+                if let repairs = snap.repairSpend, repairs.hasAnyCost {
+                    WVDivider(inset: WVSpacing.gutter)
+                    StatValueRow(
+                        label: L.t("Tiền sửa chữa"),
+                        value: WVFormat.vnd(repairs.totalVnd)
+                    )
+                }
+            }
+        }
+    }
+
+    private var subscriptionGroup: some View {
+        let snap = store.snapshot
+        return VStack(spacing: 0) {
+            WVDashSectionHead(L.t("Gói đăng ký"))
+            WVGroup {
+                StatValueRow(
+                    label: L.t("Phí định kỳ mỗi tháng"),
+                    value: WVFormat.vnd(snap.monthlyEquivalent)
+                )
+                WVDivider(inset: WVSpacing.gutter)
+                StatValueRow(
+                    label: L.t("Đang hoạt động"),
+                    value: L.p("%d gói", snap.activeSubs)
+                )
+            }
+        }
+    }
+
+    // MARK: - Repair spend (Claim.cost)
+
+    /// What repairs actually cost, and — separately — whether each one was
+    /// worth it against the purchase price. The money total lives in the
+    /// "Chi phí" group above; this block is the verdict, and the only
+    /// screen-level card on the screen (§8.4).
+    ///
+    /// The section is absent in three cases, each for a different reason:
+    ///
+    ///  * `repairSpend == nil` — the claims read failed or has not landed, so
+    ///    the app does not know; printing `0 ₫` would be a false fact;
+    ///  * `hasAnyCost == false` — every claim has `cost == nil`, i.e. nobody
+    ///    recorded money, so there is no line to draw;
+    ///  * the screen is otherwise empty (handled by the parent empty state).
+    ///
+    /// A recorded `0` still renders: a warranty-covered repair is an answer.
+    @ViewBuilder
+    private var repairSection: some View {
+        if let repairs = store.snapshot.repairSpend, repairs.hasAnyCost {
+            // The total is the "Tiền sửa chữa" row in the Chi phí group above;
+            // this block is the verdict that explains it, so it carries its own
+            // sentence-case title instead of repeating the group's label.
+            WVCard {
+                VStack(alignment: .leading, spacing: WVSpacing.md) {
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                        Text(L.t("Đáng sửa hay không, so với giá mua"))
+                            .wvFont(.bodyEmphasis)
+                            .foregroundStyle(WVColor.label)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(L.p("%d lần", repairs.pricedClaimCount)
+                             + " · " + L.p("%d thiết bị", repairs.deviceCount))
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                    }
+
+                    if repairs.comparisons.isEmpty {
+                        Text(L.t("Chưa có lần sửa nào đủ cả chi phí và giá mua để so sánh."))
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        WVDivider(inset: 0)
+
+                        ForEach(repairs.comparisons.prefix(5)) { comparison in
+                            RepairComparisonRow(comparison: comparison)
+                        }
+
+                        if repairs.comparisons.count > 5 {
+                            Text(L.p("… và %d lần sửa khác",
+                                     repairs.comparisons.count - 5))
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                        }
+                    }
+                }
+            }
+            .padding(.top, WVSpacing.xl)
+
+            WVSectionFooter(L.t("Tách riêng khỏi tổng chi mua sắm: đây là tiền đã chi để sửa, sau khi đã mua thiết bị."))
+
+            // The cross-device list is also reachable from "Thêm"; this is the
+            // contextual way in from the numbers that made the user ask.
+            NavigationLink {
+                ClaimsListView(client: client)
+            } label: {
+                HStack(spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: "wrench", size: 28)
+                    Text(L.t("Xem tất cả lần sửa"))
+                        .wvFont(.bodyEmphasis)
+                        .foregroundStyle(WVColor.label)
+                    Spacer(minLength: WVSpacing.sm)
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
+                }
+                .padding(.horizontal, WVSpacing.gutter)
+                .frame(minHeight: 44)
+                .padding(.vertical, WVSpacing.sm)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVRowButtonStyle())
+            .background(WVColor.bg2)
+            .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.md)
+        }
+    }
+
+    // MARK: - 12-month chart
+
+    /// Historical spend. The one place coral survives in content (§5.2): a
+    /// chart is a picture of the data and needs data ink.
+    private var spendChartSection: some View {
+        VStack(spacing: 0) {
+            WVDashSectionHead(L.t("Chi phí 12 tháng gần nhất"))
+
+            // The calendar range belongs in the chart's header, but a 20 pt
+            // heading cannot hold both phrases on one line without a mid-phrase
+            // wrap — so it is the header's 13 pt caption at the same 16 inset.
+            if let range = monthRangeLabel {
+                WVSectionFooter(range)
+                    .padding(.bottom, WVSpacing.sm)
+            }
+
+            StatsCard {
+                WVBarChart(
+                    data: monthBarData,
+                    height: 160,
+                    color: WVColor.brand,
+                    formatY: { WVFormat.compactVnd(Int($0)) }
+                )
+            }
+
+            // The explanation moves below the chart (§8.4), where it does not
+            // stand between the heading and the picture.
+            WVSectionFooter(L.t("Gồm tiền thiết bị và gói bảo hành (tính theo ngày bắt đầu của gói)."))
+        }
+    }
+
+    private var monthRangeLabel: String? {
+        let buckets = store.snapshot.monthlyBuckets
+        guard let first = buckets.first, let last = buckets.last else { return nil }
+        return "\(String(format: "%02d/%04d", first.month, first.year)) – "
+            + "\(String(format: "%02d/%04d", last.month, last.year))"
     }
 
     // MARK: - Spending forecast (GET /api/v1/forecast)
@@ -210,67 +361,76 @@ struct StatsView: View {
     ///   * it never hides the API's own `note`, which says exactly that.
     @ViewBuilder
     private var forecastSection: some View {
-        WVSectionHeader(L.t("Dự báo chi tiêu"))
+        WVDashSectionHead(L.t("Dự báo chi tiêu"))
 
         if let forecast = store.snapshot.forecast {
-            WVSectionFooter(windowDescription(forecast))
-            forecastNoteCard(forecast.note)
-            forecastWindowPicker
+            VStack(spacing: WVSpacing.md) {
+                forecastNoteCard(forecast.note)
+                forecastWindowPicker
+                WVSectionFooter(windowDescription(forecast))
 
-            // Keeps `subscriptionVnd` honest: the sum the user sees below is
-            // the API's own total, not a re-add of the buckets.
-            forecastSummaryCard(forecast)
-            forecastChartCard(forecast)
-            forecastMonthList(forecast)
-            forecastWarrantyCard(forecast)
-            forecastWishlistCard(forecast)
+                // Keeps `subscriptionVnd` honest: the sum the user sees below is
+                // the API's own total, not a re-add of the buckets.
+                forecastSummaryCard(forecast)
+                forecastChartCard(forecast)
+                forecastMonthList(forecast)
+                forecastWarrantyCard(forecast)
+                forecastWishlistCard(forecast)
+            }
+            .padding(.bottom, WVSpacing.sm)
         } else if let error = store.snapshot.forecastError {
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        WVIcon("alert", size: 14)
-                        Text(L.t("Không tải được dự báo"))
-                            .wvFont(.subheadlineEmphasis)
-                    }
-                    .foregroundStyle(WVColor.orange)
-                    Text(error)
-                        .wvFont(.footnote)
-                        .foregroundStyle(WVColor.label3)
-                    Text(L.t("Các số liệu phía trên vẫn đúng — chỉ phần dự báo này bị thiếu."))
-                        .wvFont(.footnote)
-                        .foregroundStyle(WVColor.label3)
-                    WVButton(L.t("Thử lại"), kind: .secondary) {
-                        Task { await store.loadForecast(months: store.snapshot.forecastMonths) }
+            VStack(spacing: WVSpacing.md) {
+                StatsCard {
+                    VStack(alignment: .leading, spacing: WVSpacing.sm) {
+                        HStack(spacing: WVSpacing.sm) {
+                            WVIcon("alert", size: 14)
+                            Text(L.t("Không tải được dự báo"))
+                                .wvFont(.footnoteEmphasis)
+                        }
+                        .foregroundStyle(WVColor.orange)
+                        Text(error)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                        Text(L.t("Các số liệu phía trên vẫn đúng — chỉ phần dự báo này bị thiếu."))
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                        WVButton(L.t("Thử lại"), kind: .secondary) {
+                            Task { await store.loadForecast(months: store.snapshot.forecastMonths) }
+                        }
                     }
                 }
+                forecastWindowPicker
             }
-            forecastWindowPicker
+            .padding(.bottom, WVSpacing.sm)
         } else {
-            WVSectionFooter(L.t("Đang tính các khoản sắp tới…"))
-            WVCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(WVColor.fill3)
-                        .frame(height: 14)
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(WVColor.fill3)
-                        .frame(width: 200, height: 14)
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(WVColor.fill3)
-                        .frame(width: 140, height: 14)
+            VStack(spacing: WVSpacing.md) {
+                StatsCard {
+                    VStack(alignment: .leading, spacing: WVSpacing.sm) {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(height: 14)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 200, height: 14)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(WVColor.fill3)
+                            .frame(width: 140, height: 14)
+                    }
+                    .redacted(reason: .placeholder)
                 }
-                .redacted(reason: .placeholder)
+                WVSectionFooter(L.t("Đang tính các khoản sắp tới…"))
             }
+            .padding(.bottom, WVSpacing.sm)
         }
     }
 
     /// The server's own explanation of the model, shown verbatim and **before**
     /// the numbers, because it is what stops them being read as a bill.
     private func forecastNoteCard(_ note: String) -> some View {
-        WVCard {
-            HStack(alignment: .top, spacing: 8) {
+        StatsCard {
+            HStack(alignment: .top, spacing: WVSpacing.sm) {
                 WVIcon("info", size: 14)
-                    .foregroundStyle(WVColor.blue)
+                    .foregroundStyle(WVColor.label3)
                 Text(note)
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.label2)
@@ -296,7 +456,6 @@ struct StatsView: View {
             )
         )
         .padding(.horizontal, WVSpacing.gutter)
-        .padding(.top, 10)
         .disabled(store.snapshot.forecastLoading)
     }
 
@@ -309,13 +468,13 @@ struct StatsView: View {
     /// Certain spend vs. spend the user has to decide about. Never a single sum.
     private func forecastSummaryCard(_ forecast: Forecast) -> some View {
         let summary = ForecastRules.summary(forecast)
-        return WVCard {
-            VStack(alignment: .leading, spacing: 10) {
+        return StatsCard {
+            VStack(alignment: .leading, spacing: WVSpacing.sm) {
                 Text(WVFormat.vnd(summary.autoRenewTotalVnd))
-                    .wvFont(.statValue)
+                    .wvFont(.title3Emphasis)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.5)
+                    .minimumScaleFactor(0.6)
                 // Composed from per-count fragments rather than one template: English
                 // inflects each noun independently, so a two-count sentence cannot be a
                 // single key without printing "1 renewals · 1 subscriptions".
@@ -325,30 +484,27 @@ struct StatsView: View {
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
 
-                HStack(spacing: 6) {
-                    WVIcon("refresh", size: 12)
-                    Text("\(ForecastCopy.manualRenewHeading): \(WVFormat.vnd(summary.manualRenewTotalVnd))")
-                        .wvFont(.footnoteEmphasis)
-                }
-                .foregroundStyle(WVColor.orange)
+                Text("\(ForecastCopy.manualRenewHeading): \(WVFormat.vnd(summary.manualRenewTotalVnd))")
+                    .wvFont(.footnoteEmphasis)
+                    .foregroundStyle(WVColor.label2)
 
                 Text(ForecastCopy.autoRenewNote)
-                    .wvFont(.caption)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
 
-                WVDivider()
+                WVDivider(inset: 0)
 
                 Text(L.t("Trung bình theo tháng: %@ — bằng con số “Phí định kỳ mỗi tháng” ở trên.",
                              WVFormat.vnd(summary.monthlyAverageVnd)))
-                    .wvFont(.caption)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if summary.referenceOnlyTotalVnd > 0 {
                     Text(L.t("Ngoài ra còn %@ tiền tham khảo (bảo hành + wishlist) — KHÔNG cộng vào các con số trên.",
                                  WVFormat.vnd(summary.referenceOnlyTotalVnd)))
-                        .wvFont(.caption)
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -364,19 +520,15 @@ struct StatsView: View {
             WVChartPoint(label: label, value: Double(bucket.subscriptionVnd))
         }
         return VStack(spacing: 0) {
-            WVSectionFooter(L.t("Kỳ gia hạn subscription theo từng tháng trong cửa sổ (không gồm tiền bảo hành hay wishlist)."))
-            WVCard {
+            StatsCard {
                 WVBarChart(
                     data: points,
                     height: 160,
                     color: WVColor.brand,
-                    formatY: { v in
-                        if v >= 1_000_000 { return "\(Int(v / 1_000_000))M" }
-                        if v >= 1_000     { return "\(Int(v / 1_000))k" }
-                        return "\(Int(v))"
-                    }
+                    formatY: { WVFormat.compactVnd(Int($0)) }
                 )
             }
+            WVSectionFooter(L.t("Kỳ gia hạn subscription theo từng tháng trong cửa sổ (không gồm tiền bảo hành hay wishlist)."))
         }
     }
 
@@ -386,17 +538,17 @@ struct StatsView: View {
     private func forecastMonthList(_ forecast: Forecast) -> some View {
         let months = ForecastRules.activeBuckets(forecast.buckets)
         if months.isEmpty {
-            WVCard {
+            StatsCard {
                 Text(ForecastCopy.emptyWindow(months: forecast.months))
-                    .wvFont(.subheadline)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, WVSpacing.md)
             }
         } else {
             WVGroup {
                 ForEach(Array(months.enumerated()), id: \.element.id) { idx, bucket in
-                    if idx > 0 { WVDivider(inset: 16) }
+                    if idx > 0 { WVDivider(inset: WVSpacing.gutter) }
                     ForecastMonthRow(bucket: bucket)
                 }
             }
@@ -406,17 +558,17 @@ struct StatsView: View {
     @ViewBuilder
     private func forecastWarrantyCard(_ forecast: Forecast) -> some View {
         if !forecast.upcomingWarranties.isEmpty {
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
+            StatsCard {
+                VStack(alignment: .leading, spacing: WVSpacing.sm) {
+                    HStack(spacing: WVSpacing.sm) {
                         WVIcon("shieldCheck", size: 14)
-                            .foregroundStyle(WVColor.orange)
+                            .foregroundStyle(WVColor.label3)
                         Text(L.t("Bảo hành sắp hết trong cửa sổ"))
-                            .wvFont(.subheadlineEmphasis)
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.label)
                     }
                     Text(ForecastCopy.warrantySavingsNote)
-                        .wvFont(.caption)
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -426,7 +578,7 @@ struct StatsView: View {
                             subtitle: L.t("%@ · hết hạn %@",
                                            warranty.type.label + (warranty.provider.map { " · \($0)" } ?? ""),
                                            WVFormat.date(warranty.endDate)),
-                            trailing: warranty.costVnd.map(WVFormat.compactVnd) ?? ForecastCopy.noPriceRecorded,
+                            trailing: warranty.costVnd.map(WVFormat.vnd) ?? ForecastCopy.noPriceRecorded,
                             trailingDimmed: warranty.costVnd == nil
                         )
                     }
@@ -438,17 +590,17 @@ struct StatsView: View {
     @ViewBuilder
     private func forecastWishlistCard(_ forecast: Forecast) -> some View {
         if !forecast.upcomingWishlist.isEmpty {
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
+            StatsCard {
+                VStack(alignment: .leading, spacing: WVSpacing.sm) {
+                    HStack(spacing: WVSpacing.sm) {
                         WVIcon("heart", size: 14)
-                            .foregroundStyle(WVColor.pink)
+                            .foregroundStyle(WVColor.label3)
                         Text(L.t("Wishlist tới mốc trong cửa sổ"))
-                            .wvFont(.subheadlineEmphasis)
+                            .wvFont(.bodyEmphasis)
                             .foregroundStyle(WVColor.label)
                     }
                     Text(ForecastCopy.wishlistNote)
-                        .wvFont(.caption)
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -456,7 +608,7 @@ struct StatsView: View {
                         ForecastListRow(
                             title: item.name,
                             subtitle: "\(item.priority.label) · \(item.status.label) · \(WVFormat.date(item.targetDate))",
-                            trailing: item.currentPriceVnd.map(WVFormat.compactVnd) ?? ForecastCopy.noPriceRecorded,
+                            trailing: item.currentPriceVnd.map(WVFormat.vnd) ?? ForecastCopy.noPriceRecorded,
                             trailingDimmed: item.currentPriceVnd == nil
                         )
                     }
@@ -465,312 +617,42 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Hero gradient card
+    // MARK: - Category breakdown (selected year)
 
-    private var heroCard: some View {
-        let snap = store.snapshot
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(L.t("TỔNG GIÁ TRỊ THIẾT BỊ"))
-                .wvFont(.caption2Emphasis)
-                .foregroundStyle(.white.opacity(0.85))
-                .tracking(1)
-            Text(WVFormat.vnd(snap.totalDevicesValue))
-                .wvFont(.display)
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            Text(L.p("%d thiết bị", snap.totalDevices) + " · "
-                 + L.p("%d đăng ký đang hoạt động", snap.activeSubs))
-                .wvFont(.footnote)
-                .foregroundStyle(.white.opacity(0.85))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "FF6B45"), Color(hex: "FF2D55")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
-    }
-
-    private var statsHeroSkeleton: some View {
-        RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous)
-            .fill(WVColor.fill3)
-            .frame(height: 110)
-            .padding(.horizontal, WVSpacing.gutter)
-            .redacted(reason: .placeholder)
-    }
-
-    private var incompleteWarrantiesBanner: some View {
-        WVNotice(message: L.t("Không tải được gói bảo hành của một vài thiết bị — các con số bên dưới có thể thiếu."))
-            .padding(.horizontal, WVSpacing.gutter)
-            .padding(.top, 12)
-    }
-
-    // MARK: - Widget row
-
-    private var widgetRow: some View {
-        let snap = store.snapshot
-        let first = WVWidget(
-            eyebrow: L.t("Bảo hành sắp hết"),
-            value: "\(snap.expiringIn30Days)",
-            sub: L.t("trong 30 ngày"),
-            icon: "shieldCheck"
-        )
-        let second = WVWidget(
-            eyebrow: L.t("Sub mỗi tháng"),
-            value: WVFormat.compactVnd(snap.monthlyEquivalent),
-            sub: L.p("%d gói đang chạy", snap.activeSubs),
-            icon: "refresh"
-        )
-        // Two tiles side by side become one column at Accessibility sizes: a
-        // half-width tile can no longer hold its own eyebrow at 2× text.
-        return Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 12) { first; second }
-            } else {
-                HStack(spacing: 12) { first; second }
-            }
-        }
-    }
-
-    // MARK: - KPI grid
-
-    private var kpiGrid: some View {
-        let snap = store.snapshot
+    /// The category split for the year in the toolbar. This replaces the
+    /// two-column year card and the rainbow donut: the same numbers, as
+    /// rows, with money in the app's own format and no identity colours.
+    private var categorySection: some View {
         let year = currentYear
-        let yearTotals = store.yearTotals(year)
-        let columns = dynamicTypeSize.isAccessibilitySize
-            ? [GridItem(.flexible())]
-            : [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
-
-        return LazyVGrid(columns: columns, spacing: 12) {
-            WVStatCard(
-                eyebrow: L.t("Tổng chi %d", year),
-                value: WVFormat.compactVnd(yearTotals.total),
-                sub: L.p("%d thiết bị", yearTotals.deviceCount) + " • "
-                     + L.p("%d gói BH", yearTotals.warrantyCount)
-            )
-            WVStatCard(
-                eyebrow: L.t("Tổng chi mua sắm"),
-                value: WVFormat.compactVnd(snap.allTimeTotals.total),
-                sub: L.p("%d thiết bị", snap.allTimeTotals.deviceCount) + " • "
-                     + L.p("%d gói BH", snap.allTimeTotals.warrantyCount)
-            )
-            WVStatCard(
-                eyebrow: L.t("Tài sản còn bảo hành"),
-                value: WVFormat.compactVnd(snap.assetValue.total),
-                sub: L.t("%d/%d thiết bị", snap.assetValue.count, snap.totalDevices)
-            )
-            WVStatCard(
-                eyebrow: L.t("Phí định kỳ mỗi tháng"),
-                value: WVFormat.compactVnd(snap.monthlyEquivalent),
-                sub: L.t("~%@/năm", WVFormat.compactVnd(snap.monthlyEquivalent * 12))
-            )
-        }
-        .padding(.horizontal, WVSpacing.gutter)
-    }
-
-    // MARK: - Repair spend (Claim.cost)
-
-    /// What repairs actually cost, on its own line.
-    ///
-    /// The section is absent in three cases, each for a different reason:
-    ///
-    ///  * `repairSpend == nil` — the claims read failed or has not landed, so
-    ///    the app does not know; printing `0 ₫` would be a false fact;
-    ///  * `hasAnyCost == false` — every claim has `cost == nil`, i.e. nobody
-    ///    recorded money, so there is no line to draw;
-    ///  * the screen is otherwise empty (handled by the parent empty state).
-    ///
-    /// A recorded `0` still renders: a warranty-covered repair is an answer.
-    @ViewBuilder
-    private var repairSection: some View {
-        if let repairs = store.snapshot.repairSpend, repairs.hasAnyCost {
-            WVSectionHeader(L.t("Tiền sửa chữa"))
-            WVSectionFooter(L.t("Tách riêng khỏi tổng chi mua sắm: đây là tiền đã chi để sửa, sau khi đã mua thiết bị."))
-
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(WVFormat.vnd(repairs.totalVnd))
-                        .wvFont(.statValue)
-                        .foregroundStyle(WVColor.label)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-
-                    Text(L.p("%d lần", repairs.pricedClaimCount)
-                         + " · " + L.p("%d thiết bị", repairs.deviceCount))
-                        .wvFont(.footnote)
-                        .foregroundStyle(WVColor.label3)
-
-                    if repairs.comparisons.isEmpty {
-                        Text(L.t("Chưa có lần sửa nào đủ cả chi phí và giá mua để so sánh."))
-                            .wvFont(.caption)
-                            .foregroundStyle(WVColor.label3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        WVDivider()
-                        Text(L.t("Đáng sửa hay không, so với giá mua"))
-                            .wvFont(.subheadlineEmphasis)
-                            .foregroundStyle(WVColor.label)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        ForEach(repairs.comparisons.prefix(5)) { comparison in
-                            RepairComparisonRow(comparison: comparison)
-                        }
-
-                        if repairs.comparisons.count > 5 {
-                            Text(L.p("… và %d lần sửa khác",
-                                     repairs.comparisons.count - 5))
-                                .wvFont(.caption)
-                                .foregroundStyle(WVColor.label3)
-                        }
-                    }
-                }
-            }
-
-            // The cross-device list is also reachable from "Thêm"; this is the
-            // contextual way in from the numbers that made the user ask.
-            NavigationLink {
-                ClaimsListView(client: client)
-            } label: {
-                HStack(spacing: 12) {
-                    WVLeadingIcon(icon: "wrench", color: WVColor.orange)
-                    Text(L.t("Xem tất cả lần sửa"))
-                        .wvFont(.body)
-                        .foregroundStyle(WVColor.label)
-                    Spacer(minLength: 8)
-                    WVIcon("arrowRight", size: 13, weight: .semibold)
-                        .foregroundStyle(WVColor.label4)
-                }
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .padding(.vertical, 7)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(WVRowButtonStyle())
-            .background(WVColor.bg2)
-            .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
-            .padding(.horizontal, WVSpacing.gutter)
-            .padding(.top, 10)
-        }
-    }
-
-    // MARK: - Year breakdown
-
-    private var currentYear: Int {
-        selectedYear ?? Calendar.current.component(.year, from: Date())
-    }
-
-    private var yearSection: some View {
-        let year = currentYear
-        let totals = store.yearTotals(year)
         let byCategory = store.yearCategoryTotals(year)
             .filter { $0.total > 0 }
             .sorted { $0.total > $1.total }
 
         return VStack(spacing: 0) {
-            HStack {
-                Text(L.t("TỔNG CHI THEO NĂM"))
-                    .wvFont(.footnote)
-                    .foregroundStyle(WVColor.label3)
-                Spacer()
-                yearPicker
-            }
-            .padding(.horizontal, 32)
-            .padding(.top, 20)
-            .padding(.bottom, 6)
+            WVDashSectionHead(L.t("Phân bổ theo loại"))
 
-            WVCard {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(WVFormat.vnd(totals.total))
-                        .wvFont(.statValue)
-                        .foregroundStyle(WVColor.label)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                    Text(L.t("%d thiết bị • %d gói trong %d", totals.deviceCount, totals.warrantyCount, year))
+            if byCategory.isEmpty {
+                StatsCard {
+                    Text(L.t("Chưa có chi phí nào trong năm %d.", year))
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
-
-                    if byCategory.isEmpty {
-                        Text(L.t("Chưa có chi phí nào trong năm %d.", year))
-                            .wvFont(.footnote)
-                            .foregroundStyle(WVColor.label3)
-                            .padding(.top, 10)
-                    } else {
-                        ForEach(byCategory) { row in
-                            if dynamicTypeSize.isAccessibilitySize {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    HStack(spacing: 8) {
-                                        WVLeadingIcon(
-                                            icon: WVCategory.icon(for: row.category),
-                                            color: WVCategory.accent(for: row.category),
-                                            size: 26
-                                        )
-                                        Text(row.label)
-                                            .wvFont(.subheadline)
-                                            .foregroundStyle(WVColor.label)
-                                            .lineLimit(3)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                    Text(WVFormat.vnd(row.total))
-                                        .wvFont(.subheadlineEmphasis)
-                                        .foregroundStyle(WVColor.label)
-                                }
-                                .padding(.top, 8)
-                            } else {
-                                HStack(spacing: 8) {
-                                    WVLeadingIcon(
-                                        icon: WVCategory.icon(for: row.category),
-                                        color: WVCategory.accent(for: row.category),
-                                        size: 26
-                                    )
-                                    Text(row.label)
-                                        .wvFont(.subheadline)
-                                        .foregroundStyle(WVColor.label)
-                                        .lineLimit(1)
-                                    Spacer(minLength: 6)
-                                    Text(WVFormat.vnd(row.total))
-                                        .wvFont(.subheadlineEmphasis)
-                                        .foregroundStyle(WVColor.label)
-                                }
-                                .padding(.top, 8)
-                            }
-                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, WVSpacing.md)
+                }
+            } else {
+                WVGroup {
+                    ForEach(Array(byCategory.enumerated()), id: \.element.id) { idx, row in
+                        if idx > 0 { WVDivider(inset: WVDivider.rowInset) }
+                        CategorySpendRow(
+                            category: row.category,
+                            label: row.label,
+                            total: row.total
+                        )
                     }
                 }
             }
-        }
-    }
 
-    private var yearPicker: some View {
-        let years = store.snapshot.years.isEmpty
-            ? [Calendar.current.component(.year, from: Date())]
-            : store.snapshot.years
-
-        return Menu {
-            ForEach(years, id: \.self) { y in
-                Button {
-                    selectedYear = y
-                } label: {
-                    if y == currentYear {
-                        Label("\(y)", systemImage: "checkmark")
-                    } else {
-                        Text("\(y)")
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Text("\(currentYear)")
-                    .wvFont(.subheadlineEmphasis)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(WVColor.tint)
+            WVSectionFooter(L.t("Gói bảo hành được tính vào loại của thiết bị mà nó bảo vệ."))
         }
     }
 
@@ -779,21 +661,20 @@ struct StatsView: View {
     private var topDevicesSection: some View {
         let top = store.snapshot.topDevices
         return VStack(spacing: 0) {
-            WVSectionHeader(L.t("Top 5 thiết bị đắt nhất"))
-            WVSectionFooter(L.t("Xếp theo giá mua thiết bị (chưa gồm gói bảo hành)."))
+            WVDashSectionHead(L.t("Top 5 thiết bị đắt nhất"))
 
             if top.isEmpty {
-                WVCard {
+                StatsCard {
                     Text(L.t("Chưa có dữ liệu."))
-                        .wvFont(.subheadline)
+                        .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, WVSpacing.md)
                 }
             } else {
                 WVGroup {
                     ForEach(Array(top.enumerated()), id: \.element.id) { idx, device in
-                        if idx > 0 { WVDivider(inset: 60) }
+                        if idx > 0 { WVDivider(inset: WVDivider.rowInset) }
                         NavigationLink(value: DashDeviceNav(id: device.id, name: device.name)) {
                             TopDeviceRow(rank: idx + 1, device: device)
                         }
@@ -801,120 +682,90 @@ struct StatsView: View {
                     }
                 }
             }
+
+            WVSectionFooter(L.t("Xếp theo giá mua thiết bị (chưa gồm gói bảo hành)."))
         }
     }
 
-    // MARK: - Summary cards
+    // MARK: - Year
 
-    private var summaryCards: some View {
-        VStack(spacing: 0) {
-            // Devices by status
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label {
-                        Text(L.t("Theo trạng thái thiết bị"))
-                            .wvFont(.subheadlineEmphasis)
-                            .foregroundStyle(WVColor.label)
-                    } icon: {
-                        WVIcon("shieldCheck", size: 14)
-                            .foregroundStyle(WVColor.brand)
-                    }
-                    ForEach(DeviceStatus.allCases, id: \.self) { status in
-                        let n = store.snapshot.devicesByStatus[status] ?? 0
-                        if n > 0 {
-                            StatsSummaryRow(label: status.label, value: "\(n)")
-                        }
+    private var currentYear: Int {
+        selectedYear ?? Calendar.current.component(.year, from: Date())
+    }
+
+    /// `2026`, never `2.026`. A year is an identifier, not a quantity: built as
+    /// a `LocalizedStringKey` (`Text("\(currentYear)")`) the `Int` interpolation
+    /// goes through the localised integer formatter, which groups thousands —
+    /// `2.026` in Vietnamese, `2,026` in English. Every label below is therefore
+    /// built from a plain `String`, which the text and `Label` initialisers
+    /// render verbatim.
+    private var yearMenu: some View {
+        let years = store.snapshot.years.isEmpty
+            ? [Calendar.current.component(.year, from: Date())]
+            : store.snapshot.years
+
+        return Menu {
+            ForEach(years, id: \.self) { year in
+                Button {
+                    selectedYear = year
+                } label: {
+                    if year == currentYear {
+                        Label(String(year), systemImage: "checkmark")
+                    } else {
+                        Text(String(year))
                     }
                 }
             }
-
-            Spacer().frame(height: 12)
-
-            // Subscriptions by status
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label {
-                        Text(L.t("Theo trạng thái đăng ký"))
-                            .wvFont(.subheadlineEmphasis)
-                            .foregroundStyle(WVColor.label)
-                    } icon: {
-                        WVIcon("refresh", size: 14)
-                            .foregroundStyle(WVColor.blue)
-                    }
-                    ForEach(SubscriptionStatus.allCases, id: \.self) { status in
-                        let n = store.snapshot.subsByStatus[status] ?? 0
-                        if n > 0 {
-                            StatsSummaryRow(label: status.label, value: "\(n)")
-                        }
-                    }
-                }
+        } label: {
+            HStack(spacing: WVSpacing.xs) {
+                Text(String(currentYear))
+                    .wvFont(.body, weight: .medium)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
             }
-
-            Spacer().frame(height: 12)
-
-            // Wishlist by status
-            WVCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label {
-                        Text(L.t("Theo trạng thái wishlist"))
-                            .wvFont(.subheadlineEmphasis)
-                            .foregroundStyle(WVColor.label)
-                    } icon: {
-                        WVIcon("heart", size: 14)
-                            .foregroundStyle(WVColor.pink)
-                    }
-                    ForEach(WishlistStatus.allCases, id: \.self) { status in
-                        let n = store.snapshot.wishlistByStatus[status] ?? 0
-                        if n > 0 {
-                            StatsSummaryRow(label: status.label, value: "\(n)")
-                        }
-                    }
-                }
-            }
+            .foregroundStyle(WVColor.label2)
         }
     }
 
     // MARK: - Chart data
 
     /// Real 12-month spend: device purchases by `purchaseDate` plus warranty
-    /// package costs by `startDate`, bucketed by calendar month.
+    /// package costs by `startDate`, bucketed by calendar month. The bars are
+    /// labelled `T1…T12` (the window's position, not "January"); the calendar
+    /// range is in the section heading.
     private var monthBarData: [WVChartPoint] {
-        store.snapshot.monthlyBuckets.map { bucket in
-            WVChartPoint(label: bucket.label, value: Double(bucket.total))
+        let prefix = L.effectiveLanguage == .vi ? "T" : "M"
+        return store.snapshot.monthlyBuckets.enumerated().map { idx, bucket in
+            WVChartPoint(label: "\(prefix)\(idx + 1)", value: Double(bucket.total))
         }
     }
 
-    /// Real category breakdown. Slice size is money spent (devices +
-    /// warranties); the legend prints the same VND amount.
-    ///
-    /// Edge case: when every device in a category was recorded with a 0 ₫ price
-    /// and no warranty cost, every total is 0 and a money-weighted ring would
-    /// render empty — fall back to device counts so the chart still says
-    /// something. The legend keeps showing the (zero) money either way.
-    private var donutSlices: [WVDonutSlice] {
-        let colors: [Color] = [
-            WVColor.brand, WVColor.green, WVColor.orange,
-            WVColor.red, WVColor.purple, WVColor.blue,
-            WVColor.teal, WVColor.yellow
-        ]
-        let totals = store.snapshot.categoryTotals
-        let moneyWeighted = totals.reduce(0) { $0 + $1.total } > 0
-        let slices = totals
-            .filter { moneyWeighted ? $0.total > 0 : $0.count > 0 }
-            .sorted { moneyWeighted ? $0.total > $1.total : $0.count > $1.count }
-            .enumerated()
-            .map { idx, row in
-                WVDonutSlice(
-                    label: row.label,
-                    value: Double(moneyWeighted ? row.total : row.count),
-                    color: colors[idx % colors.count]
-                )
-            }
+    // MARK: - States
 
-        if slices.isEmpty {
-            return [WVDonutSlice(label: L.t("Trống"), value: 1, color: WVColor.fill3)]
+    private var statsIsEmpty: Bool {
+        store.snapshot.totalDevices == 0
+            && store.snapshot.totalSubs == 0
+            && store.snapshot.totalWishlist == 0
+    }
+
+    /// A calm static placeholder for the lead block — same silhouette, no
+    /// shimmer (§9.2).
+    private var statsSkeleton: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(WVColor.fill3)
+                .frame(width: 140, height: 13)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(WVColor.fill3)
+                .frame(width: 220, height: 28)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(WVColor.fill3)
+                .frame(width: 180, height: 13)
         }
-        return slices
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.xl)
+        .redacted(reason: .placeholder)
     }
 
     // MARK: - Load
@@ -934,74 +785,163 @@ struct StatsView: View {
 
 // MARK: - Supporting views
 
-/// One month of the spending forecast.
-///
-/// Keeps the auto-renew split visible per month (`tự động X`) and tags the
-/// warranty / wishlist money as reference-only, so no single number in the row
-/// can be mistaken for "this much will be charged".
-private struct ForecastMonthRow: View {
-    let bucket: ForecastBucket
+/// One label/value row in a number group (§8.4): label `rowTitle` left,
+/// value `rowValue` right. Money keeps the full VND amount and may scale,
+/// but never truncates mid-number.
+private struct StatValueRow: View {
+    let label: String
+    let value: String
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        Group {
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 3) {
-                    monthText
-                    amountText
+                VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                    labelText
+                    valueText
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    monthText
-
-                    Spacer(minLength: 6)
-
-                    amountText
+                HStack(alignment: .firstTextBaseline, spacing: WVSpacing.md) {
+                    labelText
+                        .layoutPriority(1)
+                    Spacer(minLength: WVSpacing.sm)
+                    valueText
                 }
+            }
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .frame(minHeight: 44)
+        .padding(.vertical, WVSpacing.sm)
+    }
+
+    private var labelText: some View {
+        Text(label)
+            .wvFont(.bodyEmphasis)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var valueText: some View {
+        Text(value)
+            .wvFont(.body, weight: .medium)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+    }
+}
+
+/// A category's spend for the selected year: neutral 28 pt tile, category
+/// label, full VND value.
+private struct CategorySpendRow: View {
+    let category: String
+    let label: String
+    let total: Int
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack(alignment: .top, spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: WVCategory.icon(for: category), size: 28)
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                        labelText
+                        valueText
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: WVCategory.icon(for: category), size: 28)
+                    labelText
+                        .layoutPriority(1)
+                    Spacer(minLength: WVSpacing.sm)
+                    valueText
+                }
+            }
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .frame(minHeight: 44)
+        .padding(.vertical, WVSpacing.sm)
+    }
+
+    private var labelText: some View {
+        Text(label)
+            .wvFont(.bodyEmphasis)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var valueText: some View {
+        Text(WVFormat.vnd(total))
+            .wvFont(.body, weight: .medium)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+    }
+}
+
+/// One month of the spending forecast.
+///
+/// Keeps the auto-renew split visible per month (`tự động X`) and tags the
+/// warranty / wishlist money as reference-only, so no single number in the row
+/// can be mistaken for "this much will be charged". The reference amounts are
+/// plain `label3` text — they are facts, not alarms, and not pills.
+private struct ForecastMonthRow: View {
+    let bucket: ForecastBucket
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: WVSpacing.sm) {
+                Text(ForecastRules.monthLabel(bucket.month))
+                    .wvFont(.bodyEmphasis)
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+
+                Spacer(minLength: WVSpacing.sm)
+
+                amountText
             }
 
             if bucket.subscriptionCount > 0 {
                 Text(L.p("%d kỳ", bucket.subscriptionCount) + " · "
                      + "\(ForecastCopy.autoRenewHeading) \(WVFormat.vnd(bucket.subscriptionAutoRenewVnd))")
-                    .wvFont(.caption)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                 if bucket.manualRenewVnd > 0 {
                     Text("\(ForecastCopy.manualRenewHeading): \(WVFormat.vnd(bucket.manualRenewVnd))")
-                        .wvFont(.caption)
-                        .foregroundStyle(WVColor.orange)
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
                 }
             }
 
-            HStack(spacing: 6) {
-                if bucket.warrantyExpiringCount > 0 {
-                    WVChip(L.t("BH hết hạn: %d · %@", bucket.warrantyExpiringCount,
-                                       WVFormat.compactVnd(bucket.warrantyExpiringVnd)),
-                           tone: .orange)
-                }
-                if bucket.wishlistTargetCount > 0 {
-                    WVChip("Wishlist: \(bucket.wishlistTargetCount) · \(WVFormat.compactVnd(bucket.wishlistTargetVnd))",
-                           tone: .blue)
-                }
-                Spacer(minLength: 0)
+            if bucket.warrantyExpiringCount > 0 {
+                Text(L.t("BH hết hạn: %d · %@", bucket.warrantyExpiringCount,
+                             WVFormat.vnd(bucket.warrantyExpiringVnd)))
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label3)
+            }
+            if bucket.wishlistTargetCount > 0 {
+                Text("Wishlist: \(bucket.wishlistTargetCount) · \(WVFormat.vnd(bucket.wishlistTargetVnd))")
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label3)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
-    private var monthText: some View {
-        Text(ForecastRules.monthLabel(bucket.month))
-            .wvFont(.subheadlineEmphasis)
-            .foregroundStyle(WVColor.label)
-            .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, WVSpacing.gutter)
+        .frame(minHeight: 44)
+        .padding(.vertical, WVSpacing.sm)
     }
 
     @ViewBuilder
     private var amountText: some View {
         if bucket.subscriptionCount > 0 {
             Text(WVFormat.vnd(bucket.subscriptionVnd))
-                .wvFont(.subheadline, weight: .bold)
+                .wvFont(.body, weight: .medium)
                 .foregroundStyle(WVColor.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -1025,67 +965,66 @@ private struct ForecastListRow: View {
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: WVSpacing.xs) {
                     titleText
                     subtitleText
                     trailingText
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(alignment: .top, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .top, spacing: WVSpacing.sm) {
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
                         titleText
                         subtitleText
                     }
-                    Spacer(minLength: 6)
+                    .layoutPriority(1)
+                    Spacer(minLength: WVSpacing.sm)
                     trailingText
                 }
             }
         }
-        .padding(.top, 4)
+        .padding(.top, WVSpacing.xs)
     }
 
     private var titleText: some View {
         Text(title)
-            .wvFont(.subheadlineEmphasis)
+            .wvFont(.bodyEmphasis)
             .foregroundStyle(WVColor.label)
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var subtitleText: some View {
         Text(subtitle)
-            .wvFont(.caption)
+            .wvFont(.footnote)
             .foregroundStyle(WVColor.label3)
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var trailingText: some View {
         Text(trailing)
-            .wvFont(.footnoteEmphasis)
+            .wvFont(.body, weight: .medium)
             .foregroundStyle(trailingDimmed ? WVColor.label4 : WVColor.label)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }
 }
 
-private struct StatsSummaryRow: View {
-    let label: String
-    let value: String
+/// A row-card at the chart/forecast scale: 12 pt, `bg2`, 16 pt padding.
+///
+/// §4 keeps 16 pt for the one screen-level card (the repair block); every
+/// other block on this screen is a row-card, so it uses the list radius.
+private struct StatsCard<Content: View>: View {
+    @ViewBuilder var content: Content
     var body: some View {
-        HStack {
-            Text(label)
-                .wvFont(.subheadline)
-                .foregroundStyle(WVColor.label)
-            Spacer()
-            Text(value)
-                .wvFont(.subheadlineEmphasis)
-                .foregroundStyle(WVColor.label)
-        }
+        content
+            .padding(WVSpacing.gutter)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(WVColor.bg2)
+            .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+            .padding(.horizontal, WVSpacing.gutter)
     }
-
-
 }
 
 // MARK: - Repair spend row
@@ -1097,7 +1036,8 @@ private struct StatsSummaryRow: View {
 /// "Lãi/lỗ so với giá mua" row — a second visual language for the same
 /// comparison would make two answered questions look like two different kinds
 /// of fact. The label already carries the amount ("rẻ hơn giá mua …"), so the
-/// row never prints a bare verdict.
+/// row never prints a bare verdict. The verdict is the coloured part; the
+/// amounts are meta (§8.4).
 private struct RepairComparisonRow: View {
     let comparison: StatsRollup.RepairComparison
 
@@ -1109,44 +1049,34 @@ private struct RepairComparisonRow: View {
         }
     }
 
-    private var title: some View {
-        Text(comparison.deviceName)
-            .wvFont(.subheadlineEmphasis)
-            .foregroundStyle(WVColor.label)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var subtitle: some View {
-        Text(L.t("Sửa %@ · giá mua %@",
-                 WVFormat.vnd(comparison.costVnd),
-                 WVFormat.vnd(comparison.purchasePriceVnd)))
-            .wvFont(.caption)
-            .foregroundStyle(WVColor.label3)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var verdict: some View {
-        Text(comparison.label)
-            .wvFont(.footnoteEmphasis)
-            .foregroundStyle(tone)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     /// Always a vertical block. Side-by-side looked compact at Large, but both
     /// the amounts and the verdict sentence are long enough to ellipsize at the
     /// default size — and a verdict cut after "cheaper th…" is worse than one
     /// more line.
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            title
-            subtitle
-            verdict
+        VStack(alignment: .leading, spacing: WVSpacing.xs) {
+            Text(comparison.deviceName)
+                .wvFont(.bodyEmphasis)
+                .foregroundStyle(WVColor.label)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(L.t("Sửa %@ · giá mua %@",
+                     WVFormat.vnd(comparison.costVnd),
+                     WVFormat.vnd(comparison.purchasePriceVnd)))
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label3)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(comparison.label)
+                .wvFont(.footnoteEmphasis)
+                .foregroundStyle(tone)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 4)
+        .padding(.top, WVSpacing.xs)
     }
 }
 
@@ -1157,64 +1087,80 @@ private struct TopDeviceRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(rank)")
-                .wvFont(.footnote, weight: .bold)
-                .foregroundStyle(rank == 1 ? WVColor.brand : WVColor.label3)
-                .frame(width: 18, alignment: .center)
-            WVLeadingIcon(
-                icon: WVCategory.icon(for: device.category),
-                color: WVCategory.accent(for: device.category),
-                size: 32
-            )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(device.name)
-                    .wvFont(.subheadlineEmphasis)
-                    .foregroundStyle(WVColor.label)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text([CategoryLabels.label(for: device.category),
-                      device.brand,
-                      WVFormat.date(device.purchaseDate)]
-                        .compactMap { $0 }
-                        .filter { !$0.isEmpty }
-                        .joined(separator: " • "))
-                    .wvFont(.caption)
-                    .foregroundStyle(WVColor.label3)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-                    .fixedSize(horizontal: false, vertical: true)
-                if dynamicTypeSize.isAccessibilitySize {
-                    priceText.alignmentGuide(.leading) { _ in 0 }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack(alignment: .top, spacing: WVSpacing.md) {
+                    icon
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                        titleText
+                        metaText
+                        priceText
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(alignment: .top, spacing: WVSpacing.md) {
+                    icon
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                        titleText
+                        metaText
+                    }
+                    .layoutPriority(1)
+                    Spacer(minLength: WVSpacing.sm)
+                    priceText
                 }
             }
-            if !dynamicTypeSize.isAccessibilitySize {
-                Spacer(minLength: 6)
-                // The ranking is by VND value, so a foreign device shows both:
-                // its own price (`999 USD`) and the VND it contributed
-                // (`25,4 tr ₫`). The native 999 is never rendered as dong.
-                priceText
-            }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, WVSpacing.gutter)
         .frame(minHeight: 44)
-        .padding(.vertical, 7)
+        .padding(.vertical, WVSpacing.sm)
         .contentShape(Rectangle())
     }
 
+    private var icon: some View {
+        WVLeadingIcon(icon: WVCategory.icon(for: device.category), size: 28)
+    }
+
+    private var titleText: some View {
+        Text(device.name)
+            .wvFont(.bodyEmphasis)
+            .foregroundStyle(WVColor.label)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The ranking is a fact about the list, not a decoration, so it stays —
+    /// as the first item of the meta line rather than a coral numeral column.
+    private var metaText: some View {
+        Text("#\(rank) · " + [CategoryLabels.label(for: device.category),
+                              device.brand,
+                              WVFormat.date(device.purchaseDate)]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: " · "))
+            .wvFont(.footnote)
+            .foregroundStyle(WVColor.label3)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private var priceText: some View {
-        VStack(alignment: .trailing, spacing: 1) {
+        VStack(alignment: .trailing, spacing: WVSpacing.xs) {
+            // The ranking is by VND value, so a foreign device shows both:
+            // its own price (`999 USD`) and the VND it contributed. The native
+            // 999 is never rendered as dong.
             Text(WVFormat.currency(device.purchasePrice, device.currency))
-                .wvFont(.subheadline, weight: .bold)
+                .wvFont(.body, weight: .medium)
                 .foregroundStyle(WVColor.label)
                 .lineLimit(1)
             if device.usesForeignCurrency, let vnd = device.purchasePriceInVnd {
-                Text(WVFormat.compactVnd(vnd))
-                    .wvFont(.caption2)
+                Text(WVFormat.vnd(vnd))
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(1)
             }
         }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
     }
-
 }

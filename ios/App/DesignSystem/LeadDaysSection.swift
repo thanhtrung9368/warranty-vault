@@ -49,8 +49,8 @@ struct LeadDaysSection: View {
                     .foregroundStyle(WVColor.red)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 32)
-                    .padding(.top, 6)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, WVSpacing.sm)
             }
         }
         // Every mutation already goes through `LeadDaysRules`; this also
@@ -205,7 +205,7 @@ struct LeadDaysSection: View {
         }
         .wvFont(.footnoteEmphasis)
         .foregroundStyle(selected ? WVColor.tint : WVColor.label2)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, WVSpacing.md)
         .frame(height: 30)
         .background(selected ? WVColor.tint.opacity(0.14) : WVColor.fill3)
         .clipShape(Capsule())

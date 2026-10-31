@@ -23,7 +23,7 @@ struct AccountView: View {
             VStack(spacing: 0) {
                 // Avatar + name header
                 avatarHeader
-                    .padding(.top, 8)
+                    .padding(.top, WVSpacing.sm)
 
                 // Info section. The display name is editable (PATCH /auth/me);
                 // the email stays read-only here because changing it is a
@@ -37,22 +37,25 @@ struct AccountView: View {
                         showDisplayName = true
                     }
 
-                    WVDivider(inset: 16)
+                    // No leading icon on this pair, so the hairline aligns to
+                    // the text edge, not to the 56 pt icon-track inset (§3).
+                    WVDivider(inset: WVSpacing.gutter)
 
                     // Email
-                    HStack(spacing: 16) {
+                    HStack(spacing: WVSpacing.gutter) {
                         Text("Email")
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label)
-                        Spacer()
+                        Spacer(minLength: WVSpacing.sm)
                         Text(userEmail)
                             .wvFont(.body)
                             .foregroundStyle(WVColor.label3)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 44)
+                    .padding(.vertical, WVSpacing.sm)
                 }
 
                 // Receipts by email. `GET /auth/me` returns the account's own
@@ -79,17 +82,17 @@ struct AccountView: View {
                 // mailed token is confirmed.
                 WVSectionHeader(L.t("Bảo mật"))
                 WVGroup {
-                    WVRow(icon: "key", iconColor: WVColor.orange,
+                    WVRow(icon: "key",
                           title: L.t("Đổi mật khẩu"), chevron: true) {
                         showChangePassword = true
                     }
-                    WVDivider(inset: 60)
-                    WVRow(icon: "mail", iconColor: WVColor.blue,
+                    WVDivider()
+                    WVRow(icon: "mail",
                           title: L.t("Đổi email"),
                           subtitle: userEmail, chevron: true) {
                         showChangeEmail = true
                     }
-                    WVDivider(inset: 60)
+                    WVDivider()
                     appLockRow
                 }
                 WVSectionFooter(L.t("Đổi email cần mật khẩu hiện tại và một mã xác nhận gửi tới địa chỉ MỚI. Địa chỉ cũ vẫn dùng được cho tới khi bạn xác nhận; sau đó mọi thiết bị phải đăng nhập lại."))
@@ -103,16 +106,16 @@ struct AccountView: View {
                     // identity-token verification and changes to the Go auth
                     // flow. The row stays honest instead of offering a login
                     // that cannot work.
-                    WVRow(icon: "mail", iconColor: WVColor.red,
+                    WVRow(icon: "mail",
                           title: "Apple ID", detail: L.t("Chưa khả dụng"))
-                    WVDivider(inset: 60)
-                    WVRow(icon: "users", iconColor: WVColor.blue,
+                    WVDivider()
+                    WVRow(icon: "users",
                           title: "Google", detail: L.t("Chưa khả dụng"))
                 }
                 WVSectionFooter(L.t("Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật."))
 
                 // Delete account
-                Spacer().frame(height: 20)
+                Spacer().frame(height: WVSpacing.gutter)
                 WVButton(isDeleting ? L.t("Đang xoá…") : L.t("Yêu cầu xoá tài khoản"),
                          kind: .destructiveGhost) {
                     deletePassword = ""
@@ -121,7 +124,7 @@ struct AccountView: View {
                 .disabled(isDeleting)
                 .padding(.horizontal, WVSpacing.gutter)
 
-                Spacer().frame(height: 24)
+                Spacer().frame(height: WVSpacing.xl)
             }
         }
         .wvScreen()
@@ -183,8 +186,8 @@ struct AccountView: View {
     /// user can never turn on a lock they'd be unable to satisfy. Both turning
     /// it on and off run one authentication first (`AppLockStore.setEnabled`).
     private var appLockRow: some View {
-        HStack(spacing: 12) {
-            WVLeadingIcon(icon: "lock", color: WVColor.purple)
+        HStack(spacing: WVSpacing.md) {
+            WVLeadingIcon(icon: "lock")
             VStack(alignment: .leading, spacing: 1) {
                 Text("Face ID & Touch ID")
                     .wvFont(.body)
@@ -194,7 +197,7 @@ struct AccountView: View {
                     .foregroundStyle(WVColor.label3)
                     .lineLimit(2)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: WVSpacing.sm)
             if appLock.isAuthenticating {
                 ProgressView()
             } else {
@@ -209,9 +212,9 @@ struct AccountView: View {
                 .disabled(!appLock.isEnabled && !appLock.availability.canEnableLock)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, WVSpacing.gutter)
         .frame(minHeight: 44)
-        .padding(.vertical, 7)
+        .padding(.vertical, WVSpacing.sm)
     }
 
     private var appLockDetail: String {
@@ -228,29 +231,33 @@ struct AccountView: View {
     // MARK: - Avatar header
 
     private var avatarHeader: some View {
-        VStack(spacing: 10) {
-            // Initials avatar
+        VStack(spacing: WVSpacing.md) {
+            // Initials avatar. Neutral, not coral: a profile monogram is
+            // identity, and coral means "the action" (§5.1). The dashboard's
+            // coral greeting avatar goes for the same reason (§8.3).
             Circle()
-                .fill(WVColor.brand)
+                .fill(WVColor.fill3)
                 .frame(width: 86, height: 86)
                 .overlay(
                     Text(initials)
                         .wvFont(.display)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(WVColor.label)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                 )
 
+            // 20 semibold / 13 label3: the type scale has no 22 and no 15, and
+            // the name is a content heading, not a second navigation title (§2).
             Text(userName)
-                .wvFont(.title2Emphasis)
+                .wvFont(.title3Emphasis)
                 .foregroundStyle(WVColor.label)
 
             Text(userEmail)
-                .wvFont(.subheadline)
+                .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, WVSpacing.xl)
     }
 
     // MARK: - Helpers

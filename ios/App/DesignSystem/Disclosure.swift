@@ -52,9 +52,9 @@ struct WVDisclosure<Content: View>: View {
                                size: 15, weight: .semibold)
                             .foregroundStyle(WVColor.label4)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, WVSpacing.gutter)
                     .frame(minHeight: 52)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, WVSpacing.sm)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(WVRowButtonStyle())

@@ -68,7 +68,7 @@ struct ClaimFormView: View {
         self.onOpenExisting = onOpenExisting
 
         _status = State(initialValue: claim?.status ?? .OPEN)
-        _openedAt = State(initialValue: ClaimRules.dayDate(claim?.openedAt) ?? Date())
+        _openedAt = State(initialValue: ClaimRules.instantDay(claim?.openedAt) ?? Date())
         _hasExpectedReturn = State(initialValue: claim?.expectedReturnAt != nil)
         _expectedReturnAt = State(initialValue: ClaimRules.dayDate(claim?.expectedReturnAt)
             ?? Date().addingTimeInterval(7 * 24 * 60 * 60))
@@ -266,7 +266,7 @@ struct ClaimFormView: View {
 
                 // `closedAt` is server-owned: it is shown when it exists and
                 // there is deliberately no control for it.
-                if let closed = ClaimRules.dayLabel(claim?.closedAt) {
+                if let closed = ClaimRules.instantDayLabel(claim?.closedAt) {
                     WVDivider()
                     WVRow(icon: "checkCircle", iconColor: WVColor.gray,
                           title: L.t("Ngày đóng"), detail: closed)
@@ -467,7 +467,7 @@ struct ClaimFormView: View {
                 .wvFont(.caption)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
-            if let opened = ClaimRules.dayLabel(existing.openedAt) {
+            if let opened = ClaimRules.instantDayLabel(existing.openedAt) {
                 Text(L.t("Mở %@", opened))
                     .wvFont(.caption)
                     .foregroundStyle(WVColor.label3)

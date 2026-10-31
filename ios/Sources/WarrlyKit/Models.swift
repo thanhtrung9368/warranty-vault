@@ -655,6 +655,19 @@ public struct DeviceDetailBody: Decodable, Sendable {
     public let attachments: [AttachmentMeta]?
     public let warranties: [Warranty]?
 
+    /// The server's effective warranty end for this device: the max `endDate`
+    /// over its **whole-unit** rows only (`openapi.yaml`
+    /// `DeviceWithEffectiveWarranty`, computed by
+    /// `wholeUnitWarrantyEnd`). `nil` when no whole-unit row has an end.
+    ///
+    /// The detail read carries it, so the screen never has to re-derive the
+    /// value from `warranties` — a local max over every row is what let a
+    /// component-scoped warranty (a ten-year motor) become the device's end.
+    /// Optional so a payload from a server that has not shipped the key still
+    /// decodes; `nil` there means "not returned", and
+    /// `StatsRollup.effectiveWarrantyEnd` is the fallback.
+    public let effectiveWarrantyEnd: Date?
+
     // The multi-currency trio on the detail read. The detail endpoint embeds the
     // whole `store.Device`, so these have the same wire shape and rules as
     // their `Device` counterparts: `currency`/`fxRate` describe what the money
@@ -1507,13 +1520,17 @@ public enum ClaimStatus: String, Codable, CaseIterable, Sendable {
 
 /// One repair claim, exactly as `GET /api/v1/claims` returns it.
 ///
-/// ## Dates are calendar days
+/// ## Two kinds of date
 ///
-/// `openedAt` / `expectedReturnAt` / `closedAt` stay the server's **raw wire
-/// strings**, not `Date`s. Only their calendar day is ever shown, and parsing a
-/// Z-less value as an instant would move the day in a negative-offset zone —
-/// the same rule `Device.soldAt` and `Device.receivedAt` follow. Read them
-/// through `ClaimRules.dayLabel` and never by parsing them here.
+/// `openedAt` / `closedAt` are RFC 3339 **instants** (`openapi.yaml`: "Là
+/// instant: RFC 3339 UTC kèm Z"; the server writes `time.Now().UTC()`), while
+/// `expectedReturnAt` is a **calendar day** (`format: date`). All three stay the
+/// server's raw wire strings, not `Date`s, so nothing here can silently parse a
+/// day as an instant. Read the instants through `ClaimRules.instantDay` /
+/// `instantDayLabel`, and the day through `ClaimRules.dayLabel` / `dayDate`:
+/// an instant's UTC day is the previous local day for a UTC+7 reader before
+/// 07:00, which is how the claim row used to print "Đóng 19/10" for a repair
+/// the user collected on the 20th.
 ///
 /// `closedAt` is **server-owned**: it is written when the status becomes
 /// `RESOLVED`, `REJECTED` or `CANCELLED`. It is deliberately absent from
@@ -1527,8 +1544,9 @@ public struct Claim: Codable, Sendable, Identifiable, Hashable {
     public let deviceId: String
     public let warrantyId: String?
     public let status: ClaimStatus
-    /// The server's date-time wire string; a date-only value (`YYYY-MM-DD`) is
-    /// accepted by the write side and is normal on a claim opened in the past.
+    /// The server's **RFC 3339 instant** (`…Z`). A date-only value
+    /// (`YYYY-MM-DD`) is still accepted on the write side (the form sends the
+    /// day the user picked) and is read as that local calendar day.
     public let openedAt: String
     public let expectedReturnAt: String?
     /// Server-owned. See the type doc.

@@ -4,17 +4,21 @@ import WarrlyKit
 // ============================================================
 // DashboardView — "Tổng quan" tab
 //
-// Ports DashboardScreen from project/ios/js/screens-1.jsx.
-// Hero greeting + 4-widget stat grid + upcoming-warranty
-// preview + subscriptions cost card + wishlist preview.
-// Subscription/wishlist rows are display-only (no cross-tab push).
+// The home screen answers one question — *what is the next date I could miss,
+// and how long do I have?* — so it has exactly one lead: the deadline card at
+// the top. Nothing sits above it but the 34 pt title (§7).
+//
+// That is why the greeting is gone. `WVHeroGreeting` carried the avatar, "Chào
+// buổi sáng" and the user's name — the largest coral thing on the screen, and
+// the only decoration above the one fact the user opened the app for. The name
+// lives in Hồ sơ.
+//
+// Subscription and wishlist previews are display-only (no cross-tab push); the
+// deadline rows and the action-queue door are the two things that navigate.
 // ============================================================
 
 struct DashboardView: View {
     let client: APIClient
-
-    @EnvironmentObject private var auth: AuthStore
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @StateObject private var devicesStore: DevicesStore
     @StateObject private var subsStore: SubscriptionsStore
@@ -50,15 +54,8 @@ struct DashboardView: View {
         return !devicesStore.devices.isEmpty
     }
 
-    /// The four warranty tiles, computed in `WarrlyKit.warrantyRollup` so the
-    /// boundaries are testable and match Android and the web.
-    ///
-    /// This used to be `max(0, activeDevices - expiringSoon)`: `activeDevices`
-    /// came from the server's `devicesByStatus[.ACTIVE]` (which counts any ACTIVE
-    /// row, warranty expired or not) while `expiringSoon` was a *subset* of the
-    /// genuinely covered ones — so the tile subtracted the very devices the card
-    /// below was pointing at and read 0 for an account with one device 9 days
-    /// out, and simultaneously kept devices whose warranty had already lapsed.
+    /// The four warranty tiles' numbers, computed in `WarrlyKit.warrantyRollup`
+    /// so the boundaries are testable and match Android and the web.
     private var warranty: WarrantyRollup { warrantyRollup(devices: devicesStore.devices) }
 
     private var activeSubs: [Subscription] {
@@ -87,13 +84,8 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Greeting
-                greetingSection
-
-                // "Hạn gần nhất" — one card naming the nearest deadline,
-                // then the next three. This replaced a 2×2 grid of counts:
-                // a count says how many are coming without ever saying when,
-                // which is the one fact the home screen exists to answer.
+                // "Hạn gần nhất" — one card naming the next deadline the user
+                // can still act on, then the next three. Nothing above it.
                 deadlineSection
 
                 // "Việc cần xử lý" — the derived queue, one tap away, directly
@@ -118,7 +110,7 @@ struct DashboardView: View {
                     DeadlineSummaryLine(rollup: warranty)
                 }
 
-                Spacer().frame(height: 24)
+                Spacer().frame(height: WVSpacing.xl)
             }
         }
         .wvScreen()
@@ -128,20 +120,21 @@ struct DashboardView: View {
             // Global search lives on the landing tab: it spans three other tabs
             // (thiết bị / đăng ký / wishlist), so it can't sit inside any one of
             // them without hiding two thirds of the results.
+            //
+            // Coral is the screen's one action, so the search glyph is neutral
+            // (§5.1). The `+` below keeps the tint.
             ToolbarItem(placement: .topBarLeading) {
                 NavigationLink {
                     SearchScreen(client: client)
                 } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(WVColor.tint)
+                    WVIcon("search", size: 17)
+                        .foregroundStyle(WVColor.label2)
                 }
                 .accessibilityLabel(L.t("Tìm kiếm"))
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showQuickAdd = true } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
+                    WVIcon("plus", size: 17)
                         .foregroundStyle(WVColor.tint)
                 }
             }
@@ -213,26 +206,6 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Greeting
-
-    private var userName: String {
-        if case .authenticated(let user) = auth.status {
-            return user.name ?? user.email.components(separatedBy: "@").first ?? L.t("Bạn")
-        }
-        return L.t("Bạn")
-    }
-
-    private var greetingTitle: String {
-        let h = Calendar.current.component(.hour, from: Date())
-        if h < 12 { return L.t("Chào buổi sáng,") }
-        if h < 18 { return L.t("Chào buổi chiều,") }
-        return L.t("Chào buổi tối,")
-    }
-
-    private var greetingSection: some View {
-        WVHeroGreeting(name: userName, subtitle: greetingTitle)
-    }
-
     // MARK: - Deadlines
 
     /// The three dated feeds merged into one board.
@@ -246,6 +219,11 @@ struct DashboardView: View {
     private var deadlineCandidates: [DeadlineCandidate] {
         var out: [DeadlineCandidate] = []
         for r in remindersStore.entries {
+            // A sold device is not a deadline (§8.1: sold rows sort out of
+            // every list). The status lives on the device, not on the date, so
+            // it cannot be asked of `WarrantyPill`; the honest thing is to drop
+            // the row rather than draw a countdown nobody should act on.
+            if r.device.status == DeviceStatus.SOLD.rawValue { continue }
             // Display-only legal extension: repair time is not counted against
             // the warranty. The reminder feed still fires on the server's raw
             // end date; only the date this card prints moves.
@@ -282,6 +260,30 @@ struct DashboardView: View {
             ))
         }
         return out
+    }
+
+    /// The board in date order, one row per entity.
+    private var orderedDeadlines: [DeadlineCandidate] {
+        DeadlineBoard.deduplicated(deadlineCandidates)
+    }
+
+    /// The card's candidate: the nearest deadline the user can still act on.
+    ///
+    /// `DeadlineBoard.board` is not used for this on purpose — its `nearest` is
+    /// the earliest date *including the past*, which is how a 2022 subscription
+    /// ended up above a watch with 18 days left (§1.4). An overdue date is a
+    /// record, not a task. When every candidate is past there is nothing to
+    /// act on, so the most recent one is shown and `DeadlineCard` says `Đã qua`.
+    private func leadCandidate(in ordered: [DeadlineCandidate]) -> DeadlineCandidate? {
+        ordered.first { $0.days >= 0 } ?? ordered.last
+    }
+
+    /// The three rows under the card: the next dates in order, so the overdue
+    /// ones come first with `đã hết hạn` (§8.3). The card's own candidate is
+    /// skipped so the same deadline is never listed twice.
+    private func boardRows(_ ordered: [DeadlineCandidate],
+                           card: DeadlineCandidate?) -> [DeadlineCandidate] {
+        Array(ordered.filter { $0.id != card?.id }.prefix(DeadlineBoard.rowCount))
     }
 
     /// True once every feed that can produce a deadline has answered (loaded
@@ -327,23 +329,30 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var deadlineSection: some View {
-        let board = DeadlineBoard.board(deadlineCandidates)
+        let ordered = orderedDeadlines
+        let card = leadCandidate(in: ordered)
 
-        if let nearest = board.nearest {
+        if let card {
             WVDashSectionHead(L.t("Hạn gần nhất"))
-            DeadlineCard(candidate: nearest, navigation: deadlineNav(nearest))
+            DeadlineCard(candidate: card, navigation: deadlineNav(card))
 
-            if !board.rows.isEmpty {
+            let rows = boardRows(ordered, card: card)
+            if !rows.isEmpty {
                 WVGroup {
-                    ForEach(Array(board.rows.enumerated()), id: \.element.id) { idx, row in
-                        if idx > 0 { WVDivider(inset: 62) }
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
+                        if idx > 0 { WVDivider() }
                         NavigationLink(value: deadlineNav(row)) {
-                            DeadlineRow(candidate: row)
+                            DashboardRow(icon: WVCategory.icon(for: row.category),
+                                         title: row.title,
+                                         meta: DeadlineCopy.kindLabel(row.kind),
+                                         chevron: true) {
+                                WarrantyPill(daysLeft: row.days, endDate: row.date)
+                            }
                         }
                         .buttonStyle(WVRowButtonStyle())
                     }
                 }
-                .padding(.top, 10)
+                .padding(.top, WVSpacing.md)
             }
 
             // The legal extension moves dates on this board, so it has to be
@@ -362,9 +371,9 @@ struct DashboardView: View {
         } else if let message = deadlineReadError {
             WVDashSectionHead(L.t("Hạn gần nhất"))
             WVGroup {
-                HStack(spacing: 12) {
-                    WVLeadingIcon(icon: "alert", color: WVColor.orange, size: 34)
-                    VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: "alert", size: 28)
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
                         Text(L.t("Không tải được hạn gần nhất"))
                             .wvFont(.calloutEmphasis)
                             .foregroundStyle(WVColor.label)
@@ -374,24 +383,24 @@ struct DashboardView: View {
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: WVSpacing.sm)
                     Button(L.t("Thử lại")) { Task { await reloadDeadlineSources() } }
                         .wvFont(.footnoteEmphasis)
-                        .foregroundStyle(WVColor.tint)
+                        .foregroundStyle(WVColor.label)
                         .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, WVSpacing.gutter)
                 .frame(minHeight: 44)
-                .padding(.vertical, 10)
+                .padding(.vertical, WVSpacing.sm)
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, WVSpacing.xs)
         } else {
             WVDashSectionHead(L.t("Hạn gần nhất"))
             WVGroup {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top, spacing: 12) {
-                        WVLeadingIcon(icon: "calendar", color: WVColor.orange, size: 34)
-                        VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: WVSpacing.md) {
+                    HStack(alignment: .top, spacing: WVSpacing.md) {
+                        WVLeadingIcon(icon: "calendar", size: 28)
+                        VStack(alignment: .leading, spacing: WVSpacing.xs) {
                             Text(L.t("Chưa có hạn nào"))
                                 .wvFont(.calloutEmphasis)
                                 .foregroundStyle(WVColor.label)
@@ -400,35 +409,35 @@ struct DashboardView: View {
                                 .foregroundStyle(WVColor.label3)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        Spacer(minLength: 8)
+                        Spacer(minLength: WVSpacing.sm)
                     }
                     WVButton(L.t("Thêm thiết bị"), icon: "plus",
                              kind: .secondary, size: .small) {
                         quickAddTarget = .device
                     }
                 }
-                .padding(16)
+                .padding(WVSpacing.gutter)
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, WVSpacing.xs)
         }
     }
 
     private var deadlinePartialFailureNote: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: WVSpacing.sm) {
             WVIcon("alert", size: 11)
                 .foregroundStyle(WVColor.orange)
             Text(L.t("Một số hạn có thể chưa được tải."))
                 .wvFont(.footnote)
                 .foregroundStyle(WVColor.label3)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 6)
+            Spacer(minLength: WVSpacing.sm)
             Button(L.t("Thử lại")) { Task { await reloadDeadlineSources() } }
                 .wvFont(.footnoteEmphasis)
-                .foregroundStyle(WVColor.tint)
+                .foregroundStyle(WVColor.label)
                 .buttonStyle(.plain)
         }
-        .padding(.horizontal, 32)
-        .padding(.top, 8)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.sm)
     }
 
     private func reloadDeadlineSources() async {
@@ -443,10 +452,12 @@ struct DashboardView: View {
 
     /// The dashboard's door into `GET /api/v1/actions`.
     ///
-    /// The badge is `counts.total` — the server's count of the items that are
+    /// The count is `counts.total` — the server's count of the items that are
     /// **actionable right now**. It is never the number of rows on screen (a
     /// `?snoozed=true` read adds rows without adding work) and never a local sum,
-    /// so a snooze can move a row without moving the badge's meaning.
+    /// so a snooze can move a row without moving the meaning. A failed read
+    /// shows no number at all: "0 việc" would be a claim this screen cannot
+    /// support.
     private var actionQueueSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             WVDashSectionHead(L.t("Việc cần xử lý"))
@@ -459,64 +470,51 @@ struct DashboardView: View {
                 }
                 .buttonStyle(WVRowButtonStyle())
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, WVSpacing.xs)
         }
     }
 
+    /// One row, not a card: the section head already names the queue, so the row
+    /// carries the workload (`6 việc cần xử lý`) and its severity (`1 mức cao`)
+    /// instead of repeating the heading in a title and again in a subtitle.
+    /// The old red count badge is gone — six things to do is not six alarms
+    /// (§5.2: a count is not a state).
     private var actionQueueRow: some View {
-        let total = actionsStore.badgeCount
-        let urgent = (total ?? 0) > 0
+        let counts = actionsStore.queue?.counts
 
-        return HStack(spacing: 12) {
-            WVLeadingIcon(icon: urgent ? "alert" : "checkCircle",
-                          color: urgent ? WVColor.orange : WVColor.green,
-                          size: 34)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L.t("Việc cần xử lý"))
-                    .wvFont(.calloutEmphasis)
-                    .foregroundStyle(WVColor.label)
-                // A failed read shows no number at all: "0 việc" would be a claim
-                // this screen cannot support.
-                Text(ActionQueueRules.entrySubtitle(counts: actionsStore.queue?.counts))
-                    .wvFont(.footnote)
-                    .foregroundStyle(WVColor.label3)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 8)
-
-            if let total, total > 0 {
-                Text("\(total)")
-                    .wvFont(.caption, weight: .bold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3)
-                    .frame(minHeight: 22)
-                    .background(WVColor.red)
-                    .clipShape(Capsule())
-            }
-
-            WVIcon("arrowRight", size: 13, weight: .semibold)
-                .foregroundStyle(WVColor.label4)
+        let title: String
+        if let total = actionsStore.badgeCount {
+            title = total == 0 ? L.t("Không còn việc nào")
+                               : L.p("%d việc cần xử lý", total)
+        } else {
+            title = L.t("Việc cần xử lý")
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
+        let meta: String? = (counts?.high ?? 0) > 0
+            ? L.p("%d mức cao", counts?.high ?? 0)
+            : nil
+
+        return DashboardRow(icon: (counts?.total ?? 0) > 0 ? "alert" : "checkCircle",
+                            tile: false,
+                            title: title,
+                            meta: meta,
+                            chevron: true) {
+            EmptyView()
+        }
     }
 
     // MARK: - Subscriptions section
 
+    /// The monthly total is this section's one card — a plain number, the
+    /// screen's second and last card (§4). The renewal rows are a group below
+    /// it, because a card never contains a divider: they are rows among
+    /// themselves, and each carries the §6 deadline column.
     private var subsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             WVDashSectionHead(L.t("Gói đăng ký"))
 
-            WVCard(padding: 16) {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Monthly total
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+            WVCard(padding: WVSpacing.gutter) {
+                VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                    HStack(alignment: .firstTextBaseline, spacing: WVSpacing.sm) {
                         Text(WVFormat.vnd(monthlyTotal))
                             .wvFont(.statValue)
                             .foregroundStyle(WVColor.label)
@@ -530,25 +528,36 @@ struct DashboardView: View {
                                 + " · " + L.p("%d gói đang chạy", activeSubs.count))
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
-                        .padding(.top, 2)
-
-                    Rectangle()
-                        .fill(WVColor.sep)
-                        .frame(height: 0.5)
-                        .padding(.vertical, 12)
-
-                    Text(L.t("SẮP GIA HẠN"))
-                        .wvFont(.captionEmphasis)
-                        .foregroundStyle(WVColor.label3)
-                        .padding(.bottom, 6)
-
-                    ForEach(upcomingSubs, id: \.sub.id) { pair in
-                        DashSubRow(sub: pair.sub, days: pair.days)
-                    }
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(.bottom, 4)
+
+            if !upcomingSubs.isEmpty {
+                WVGroup {
+                    ForEach(Array(upcomingSubs.enumerated()), id: \.element.sub.id) { idx, pair in
+                        if idx > 0 { WVDivider() }
+                        DashboardRow(icon: WVCategory.icon(for: pair.sub.category),
+                                     tile: false,
+                                     title: pair.sub.name,
+                                     meta: subMeta(pair.sub)) {
+                            WarrantyPill(daysLeft: pair.days, endDate: pair.sub.renewalDate)
+                        }
+                    }
+                }
+                .padding(.top, WVSpacing.md)
+            }
         }
+        .padding(.bottom, WVSpacing.xs)
+    }
+
+    /// `Apple · Hàng tháng` — the same meta line the Đăng ký screen uses (§8.5).
+    /// The renewal date itself is the trailing column's job (§6), so it is not
+    /// repeated here.
+    private func subMeta(_ sub: Subscription) -> String {
+        [sub.brand, sub.billingCycle.label]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
     }
 
     // MARK: - Wishlist section
@@ -558,20 +567,42 @@ struct DashboardView: View {
             WVDashSectionHead(L.t("Đang thèm"))
             WVGroup {
                 ForEach(Array(wishItems.enumerated()), id: \.element.id) { idx, item in
-                    if idx > 0 { WVDivider(inset: 60) }
-                    WVRow(
-                        icon: WVCategory.icon(for: item.category),
-                        iconColor: WVCategory.accent(for: item.category),
-                        iconLarge: false,
-                        title: item.name,
-                        subtitle: [item.brand, item.targetDate.map { WVFormat.date($0) }]
-                            .compactMap { $0 }.joined(separator: " • "),
-                        detail: item.currentPrice.map { WVFormat.vnd($0) },
-                        chevron: false
-                    )
+                    if idx > 0 { WVDivider() }
+                    wishRow(item)
                 }
             }
-            .padding(.bottom, 4)
+            .padding(.bottom, WVSpacing.xs)
+        }
+    }
+
+    /// Name and price, with the name holding layout priority so a long product
+    /// name wraps into the space instead of the price being pushed off (§1.13).
+    /// The meta uses the Vietnamese category label, never the raw code (§1.14).
+    @ViewBuilder
+    private func wishRow(_ item: WishlistItem) -> some View {
+        let meta = [item.brand, CategoryLabels.label(for: item.category)]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+
+        if let price = item.currentPrice {
+            DashboardRow(icon: WVCategory.icon(for: item.category),
+                         tile: false,
+                         title: item.name,
+                         meta: meta) {
+                Text(WVFormat.vnd(price))
+                    .wvFont(.body, weight: .medium)
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        } else {
+            DashboardRow(icon: WVCategory.icon(for: item.category),
+                         tile: false,
+                         title: item.name,
+                         meta: meta) {
+                EmptyView()
+            }
         }
     }
 }
@@ -581,52 +612,6 @@ struct DashboardView: View {
 struct DashDeviceNav: Hashable {
     let id: String
     let name: String
-}
-
-// MARK: - Dash sub row
-
-private struct DashSubRow: View {
-    let sub: Subscription
-    let days: Int
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            WVLeadingIcon(
-                icon: WVCategory.icon(for: sub.category),
-                color: WVCategory.accent(for: sub.category),
-                size: 28
-            )
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 2) {
-                    nameText
-                    dateText
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                nameText
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                dateText
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var nameText: some View {
-        Text(sub.name)
-            .wvFont(.subheadline)
-            .foregroundStyle(WVColor.label)
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var dateText: some View {
-        Text(WVFormat.date(sub.renewalDate))
-            .wvFont(.footnote)
-            .foregroundStyle(days < 0 ? WVColor.red : WVColor.label3)
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-    }
 }
 
 // MARK: - Quick-add sheet
@@ -672,8 +657,11 @@ private struct DashQuickAddSheet: View {
                                     .wvFont(.body)
                                     .foregroundStyle(WVColor.label)
                             } icon: {
+                                // A destination is not the screen's action: the
+                                // coral stays on the `+` that opened this sheet
+                                // (§5.1).
                                 WVIcon(target.icon, size: 15)
-                                    .foregroundStyle(WVColor.tint)
+                                    .foregroundStyle(WVColor.label2)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())

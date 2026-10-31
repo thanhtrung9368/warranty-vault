@@ -10,10 +10,17 @@ import WarrlyKit
 // ============================================================
 
 enum WVFormat {
-    /// VND amount with `.` thousands grouping and a trailing `₫` — matches the
-    /// prototype's `toLocaleString('vi-VN')` output.
+    /// VND in the **app language**: `1.200.000 ₫` in Vietnamese,
+    /// `₫1,200,000` in English.
+    ///
+    /// Delegates to the Kit's `VndFormat`, whose default language is
+    /// `L.effectiveLanguage` — the same accessor every screen's copy uses, so a
+    /// language switch re-renders money with the rest of the UI. There is no
+    /// second money implementation here: this used to be a hard-coded
+    /// `vi-VN`-shaped `NumberFormatter` and was the surface that stayed
+    /// Vietnamese in English mode.
     static func vnd(_ amount: Int) -> String {
-        (groupingFormatter.string(from: NSNumber(value: amount)) ?? "\(amount)") + " ₫"
+        VndFormat.string(Int64(amount))
     }
 
     /// A device's amount in **its own** currency: `25.000.000 ₫` for VND,
@@ -32,15 +39,34 @@ enum WVFormat {
         VndFormat.string(Int64(fxRate))
     }
 
-    /// Abbreviated money for tight widgets: `1,2 tr` / `980 ng`.
+    /// Abbreviated money for tight widgets: `1,2 tr` / `980 ng` in Vietnamese,
+    /// `₫1.2M` / `₫980K` in English.
+    ///
+    /// The scale words are part of the language, not of the amount: `tr`/`ng`
+    /// are Vietnamese ("triệu"/"nghìn") and mean nothing to an English reader,
+    /// so English uses the international `M`/`K` with a dot decimal and the
+    /// leading `₫` that `VndFormat` uses for full amounts. The two shapes never
+    /// mix — the decimal separator flips with the language, as it does in
+    /// `VndFormat`. Values under a thousand fall through to the full amount, so
+    /// there is exactly one formatter for the small case.
     static func compactVnd(_ amount: Int) -> String {
         let a = abs(amount)
         let sign = amount < 0 ? "-" : ""
-        if a >= 1_000_000 {
-            return "\(sign)\(decimal(Double(a) / 1_000_000)) tr ₫"
-        }
-        if a >= 1_000 {
-            return "\(sign)\(decimal(Double(a) / 1_000)) ng ₫"
+        switch L.effectiveLanguage {
+        case .vi:
+            if a >= 1_000_000 {
+                return "\(sign)\(decimal(Double(a) / 1_000_000)) tr ₫"
+            }
+            if a >= 1_000 {
+                return "\(sign)\(decimal(Double(a) / 1_000)) ng ₫"
+            }
+        case .en:
+            if a >= 1_000_000 {
+                return "\(sign)₫\(decimal(Double(a) / 1_000_000, separator: "."))M"
+            }
+            if a >= 1_000 {
+                return "\(sign)₫\(decimal(Double(a) / 1_000, separator: "."))K"
+            }
         }
         return vnd(amount)
     }
@@ -86,17 +112,12 @@ enum WVFormat {
         CalendarDay.days(from: now, to: date, calendar: .current)
     }
 
-    private static func decimal(_ value: Double) -> String {
+    private static func decimal(_ value: Double, separator: String = ",") -> String {
         let s = String(format: "%.1f", value)
-        return s.hasSuffix(".0") ? String(s.dropLast(2)) : s.replacingOccurrences(of: ".", with: ",")
+        return s.hasSuffix(".0") ? String(s.dropLast(2))
+                                   : s.replacingOccurrences(of: ".", with: separator)
     }
 
-    private static let groupingFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.groupingSeparator = "."
-        return f
-    }()
     private static let dayFormatter = makeFormatter("dd/MM/yyyy")
     private static let dateTimeFormatter = makeFormatter("dd/MM/yyyy HH:mm")
     private static let dayMonthFormatter = makeFormatter("dd 'thg' M")
@@ -113,56 +134,59 @@ enum WVFormat {
     }
 }
 
-/// Category → icon + accent color. Codes mirror `CATEGORIES` / `SUB_CATEGORIES`
-/// in the prototype's data.js; unknown codes fall back to a neutral box.
+/// Category → icon. Codes mirror `CATEGORIES` / `SUB_CATEGORIES` in the
+/// prototype's data.js; unknown codes fall back to a neutral box.
+///
+/// There is deliberately no colour in this table any more. Colour encodes
+/// state, never identity (§5.1): a row is not orange because it is a
+/// headphone. `accent(for:)` survives only so the existing call sites keep
+/// compiling, and always answers the neutral grey.
 enum WVCategory {
-    private struct Style { let icon: String; let accent: WVAccent }
-
     // Keys are lowercased — the lookup lowercases too, so this covers both the
     // prototype's data.js ids (`laptop`) and the Go catalog codes (`LAPTOP`,
     // `GAMING_CONSOLE`, `WASHING`, …).
-    private static let table: [String: Style] = [
+    private static let table: [String: String] = [
         // devices
-        "laptop":         Style(icon: "laptop", accent: .blue),
-        "phone":          Style(icon: "smartphone", accent: .brand),
-        "tablet":         Style(icon: "smartphone", accent: .purple),
-        "watch":          Style(icon: "watch", accent: .red),
-        "smartwatch":     Style(icon: "watch", accent: .red),
-        "tv":             Style(icon: "tv", accent: .purple),
-        "audio":          Style(icon: "headphones", accent: .orange),
-        "headphone":      Style(icon: "headphones", accent: .orange),
-        "speaker":        Style(icon: "headphones", accent: .orange),
-        "camera":         Style(icon: "camera", accent: .blue),
-        "appliance":      Style(icon: "database", accent: .green),
-        "ac":             Style(icon: "cloud", accent: .teal),
-        "fridge":         Style(icon: "database", accent: .teal),
-        "washing":        Style(icon: "database", accent: .green),
-        "kitchen":        Style(icon: "coffee", accent: .orange),
-        "console":        Style(icon: "gamepad", accent: .red),
-        "gaming_console": Style(icon: "gamepad", accent: .red),
-        "monitor":        Style(icon: "monitor", accent: .blue),
-        "keyboard":       Style(icon: "hash", accent: .gray),
-        "mouse":          Style(icon: "hash", accent: .gray),
-        "printer":        Style(icon: "printer", accent: .gray),
-        "electronics":    Style(icon: "zap", accent: .indigo),
-        "furniture":      Style(icon: "package", accent: .orange),
-        "vehicle":        Style(icon: "bike", accent: .green),
+        "laptop":         "laptop",
+        "phone":          "smartphone",
+        "tablet":         "smartphone",
+        "watch":          "watch",
+        "smartwatch":     "watch",
+        "tv":             "tv",
+        "audio":          "headphones",
+        "headphone":      "headphones",
+        "speaker":        "headphones",
+        "camera":         "camera",
+        "appliance":      "database",
+        "ac":             "cloud",
+        "fridge":         "database",
+        "washing":        "database",
+        "kitchen":        "coffee",
+        "console":        "gamepad",
+        "gaming_console": "gamepad",
+        "monitor":        "monitor",
+        "keyboard":       "hash",
+        "mouse":          "hash",
+        "printer":        "printer",
+        "electronics":    "zap",
+        "furniture":      "package",
+        "vehicle":        "bike",
         // subscriptions
-        "streaming":      Style(icon: "film", accent: .red),
-        "ai":             Style(icon: "sparkles", accent: .purple),
-        "cloud":          Style(icon: "cloud", accent: .blue),
-        "music":          Style(icon: "music", accent: .orange),
-        "work":           Style(icon: "briefcase", accent: .green),
-        "domain":         Style(icon: "globe", accent: .blue),
+        "streaming":      "film",
+        "ai":             "sparkles",
+        "cloud":          "cloud",
+        "music":          "music",
+        "work":           "briefcase",
+        "domain":         "globe",
     ]
 
     static func icon(for code: String?) -> String {
-        guard let code else { return "package" }
-        return table[code.lowercased()]?.icon ?? "package"
+        guard let code, let icon = table[code.lowercased()] else { return "package" }
+        return icon
     }
 
+    /// Identity colour is gone (§5.1). Kept so no call site breaks.
     static func accent(for code: String?) -> Color {
-        guard let code, let style = table[code.lowercased()] else { return WVColor.gray }
-        return style.accent.color
+        WVColor.gray
     }
 }

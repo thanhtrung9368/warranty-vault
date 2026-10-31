@@ -11,9 +11,10 @@ import WarrlyKit
 //  * `ReceiptStrip` — the horizontal strip in the hero. A receipt is the
 //    product's promise ("keep the receipt"), so it belongs where the eye
 //    lands, not as the fourteenth section of sixteen.
-//  * `DeviceAttachmentsSection` — the full management block: add a photo or
-//    PDF, edit a description, delete. It stays a normal section below the
-//    hero.
+//  * `DeviceAttachmentsSection` — the managing surface: a group of rows, one
+//    per receipt (56 pt thumbnail, filename, description, one `...` menu), then
+//    the add rows. It is a list of items among peers, not a card (§4), so it
+//    has no background, no radius and no floating buttons of its own.
 //
 // Both read and write `DeviceAttachmentsModel`, so an upload from the strip
 // appears in the full section immediately (and vice versa) without a second
@@ -162,7 +163,7 @@ final class DeviceAttachmentsModel: ObservableObject {
 /// attachment, plus an "add receipt" ghost tile while there is room.
 ///
 /// Reads only for viewing; deleting and writing descriptions stay in the full
-/// section below, where each tile has room for those affordances.
+/// section below, where each receipt gets a row of its own and one menu.
 struct ReceiptStrip: View {
     let client: APIClient
     @ObservedObject var model: DeviceAttachmentsModel
@@ -179,7 +180,7 @@ struct ReceiptStrip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ForEach(model.attachments) { att in
                         Button {
                             previewing = att
@@ -297,104 +298,43 @@ struct DeviceAttachmentsSection: View {
     /// The attachment whose description is being edited. Non-nil presents the
     /// one-field sheet (`PATCH /api/v1/attachments/{id}`).
     @State private var editingAttachment: AttachmentMeta?
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if model.isLoading && model.attachments.isEmpty {
+                // The loading vocabulary is fixed (§9.4): a spinner for a read
+                // that has not answered yet, never an empty group.
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, WVSpacing.lg)
                     .padding(.horizontal, WVSpacing.gutter)
             } else {
                 WVGroup {
-                    // Thumbnail grid (if any). Two columns rather than three:
-                    // the tile now also carries the attachment's description
-                    // (written on any client), which needs the width. Three
-                    // columns only had room for a filename.
-                    if !model.attachments.isEmpty {
-                        // One column at Accessibility sizes: a half-width square
-                        // cannot hold a filename plus its description at 2× text
-                        // without ellipsizing both. The tile becomes a full-width
-                        // card and grows vertically instead.
-                        LazyVGrid(
-                            columns: dynamicTypeSize.isAccessibilitySize
-                                ? [GridItem(.flexible(), spacing: 8)]
-                                : [
-                                    GridItem(.flexible(), spacing: 8),
-                                    GridItem(.flexible(), spacing: 8),
-                                ],
-                            spacing: 8
-                        ) {
-                            ForEach(model.attachments) { att in
-                                AttachmentThumbnail(
-                                    client: client,
-                                    att: att,
-                                    isDeleting: model.pendingDeleteId == att.id,
-                                    onOpen: { previewing = att },
-                                    onDelete: { Task { await model.delete(att) } },
-                                    onEditDescription: { editingAttachment = att }
-                                )
-                            }
-                        }
-                        .padding(12)
-                        WVDivider()
+                    // One row per receipt. The 176 pt tile with two floating
+                    // circular buttons is gone: a receipt is one item among
+                    // peers, and its two actions belong in one menu (§8.2).
+                    ForEach(Array(model.attachments.enumerated()), id: \.element.id) { idx, att in
+                        if idx > 0 { WVDivider() }
+                        AttachmentRow(
+                            client: client,
+                            att: att,
+                            isDeleting: model.pendingDeleteId == att.id,
+                            onOpen: { previewing = att },
+                            onDelete: { Task { await model.delete(att) } },
+                            onEditDescription: { editingAttachment = att }
+                        )
                     }
 
-                    // Upload row
+                    // The add rows. Neutral text and neutral glyphs: the one
+                    // coral action on this screen is the dashed "Thêm" tile in
+                    // the hero strip (§5.1).
                     if model.canUpload {
-                        // Images only: the server's MIME whitelist is
-                        // JPG/PNG/WEBP/GIF/HEIC + PDF, so offering videos here
-                        // just produced a rejected upload.
-                        PhotosPicker(selection: $photoItem, matching: .images) {
-                            HStack(spacing: 12) {
-                                WVLeadingIcon(icon: "upload", color: WVColor.blue, size: 30)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(L.t("Tải file mới lên"))
-                                        .wvFont(.body)
-                                        .foregroundStyle(WVColor.tint)
-                                    Text(L.t("Ảnh hoặc PDF, ≤5MB"))
-                                        .wvFont(.footnote)
-                                        .foregroundStyle(WVColor.label3)
-                                }
-                                Spacer()
-                                if model.isUploading {
-                                    ProgressView()
-                                } else {
-                                    WVIcon("arrowRight", size: 13)
-                                        .foregroundStyle(WVColor.label4)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 44)
-                            .padding(.vertical, 7)
-                            .contentShape(Rectangle())
-                        }
-                        .disabled(model.isUploading)
-                        .buttonStyle(WVRowButtonStyle())
-
+                        if !model.attachments.isEmpty { WVDivider() }
+                        uploadRow
                         WVDivider()
-
-                        // PDF picker row
-                        Button {
-                            showFileImporter = true
-                        } label: {
-                            HStack(spacing: 12) {
-                                WVLeadingIcon(icon: "paperclip", color: WVColor.orange, size: 30)
-                                Text(L.t("Thêm PDF"))
-                                    .wvFont(.body)
-                                    .foregroundStyle(WVColor.tint)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 44)
-                            .padding(.vertical, 7)
-                            .contentShape(Rectangle())
-                        }
-                        .disabled(model.isUploading)
-                        .buttonStyle(WVRowButtonStyle())
+                        pdfRow
                     }
                 }
             }
@@ -404,8 +344,8 @@ struct DeviceAttachmentsSection: View {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.red)
-                    .padding(.horizontal, 32)
-                    .padding(.top, 8)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, WVSpacing.sm)
             }
         }
         .task { await model.loadIfNeeded() }
@@ -430,11 +370,73 @@ struct DeviceAttachmentsSection: View {
             QLPreviewSheet(client: client, attachment: att)
         }
     }
+
+    // MARK: - Add rows
+
+    /// Pick a photo. Images only: the server's MIME whitelist is
+    /// JPG/PNG/WEBP/GIF/HEIC + PDF, so offering videos here just produced a
+    /// rejected upload.
+    private var uploadRow: some View {
+        PhotosPicker(selection: $photoItem, matching: .images) {
+            HStack(spacing: WVSpacing.md) {
+                WVLeadingIcon(icon: "upload", size: 28)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L.t("Tải file mới lên"))
+                        .wvFont(.bodyEmphasis)
+                        .foregroundStyle(WVColor.label)
+                    Text(L.t("Ảnh hoặc PDF, ≤5MB"))
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                }
+                Spacer(minLength: WVSpacing.sm)
+                if model.isUploading {
+                    ProgressView()
+                } else {
+                    WVIcon("arrowRight", size: 13)
+                        .foregroundStyle(WVColor.label4)
+                }
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+            .frame(minHeight: 44)
+            .padding(.vertical, WVSpacing.sm)
+            .contentShape(Rectangle())
+        }
+        .disabled(model.isUploading)
+        .buttonStyle(WVRowButtonStyle())
+    }
+
+    private var pdfRow: some View {
+        Button {
+            showFileImporter = true
+        } label: {
+            HStack(spacing: WVSpacing.md) {
+                WVLeadingIcon(icon: "paperclip", size: 28)
+                Text(L.t("Thêm PDF"))
+                    .wvFont(.bodyEmphasis)
+                    .foregroundStyle(WVColor.label)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, WVSpacing.gutter)
+            .frame(minHeight: 44)
+            .padding(.vertical, WVSpacing.sm)
+            .contentShape(Rectangle())
+        }
+        .disabled(model.isUploading)
+        .buttonStyle(WVRowButtonStyle())
+    }
 }
 
-// MARK: - Attachment thumbnail
+// MARK: - Attachment row
 
-private struct AttachmentThumbnail: View {
+/// One receipt as a row: 56 pt thumbnail (12 pt radius), filename in the
+/// `rowTitle` role, the description as `meta`, and a single `...` menu holding
+/// Sửa mô tả / Xoá.
+///
+/// The whole row is the preview target (`QLPreviewSheet`), because the byte
+/// stream is bearer-gated and a `Link` would hand Safari a request with no
+/// Authorization header. Deleting shows a spinner in the menu's place instead
+/// of removing the row optimistically.
+private struct AttachmentRow: View {
     let client: APIClient
     let att: AttachmentMeta
     let isDeleting: Bool
@@ -444,9 +446,11 @@ private struct AttachmentThumbnail: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var isImage: Bool { att.fileType.hasPrefix("image/") }
+    /// §8.2: 56 pt thumbnail, 12 pt radius. 56 is also the row's divider inset,
+    /// so the hairlines between receipts stay the one list constant.
+    private let thumbnail = 56.0
 
-    /// What the tile prints under the filename. A description set on the web or
+    /// What the row prints under the filename. A description set on the web or
     /// Android used to be decoded and then shown nowhere.
     private var description: String? {
         guard let text = att.description?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -454,113 +458,74 @@ private struct AttachmentThumbnail: View {
         return text
     }
 
-    private var tileBackground: LinearGradient {
-        LinearGradient(
-            colors: [WVColor.fill3, WVColor.fill4],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    var body: some View {
+        HStack(spacing: WVSpacing.md) {
+            // Tap to open — inside the app, through the authenticated client.
+            Button(action: onOpen) {
+                HStack(spacing: WVSpacing.md) {
+                    AttachmentThumbnailImage(
+                        client: client,
+                        attachment: att,
+                        size: thumbnail,
+                        cornerRadius: WVRadius.list
+                    )
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(att.fileName)
+                            .wvFont(.bodyEmphasis)
+                            .foregroundStyle(WVColor.label)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let description {
+                            Text(description)
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    // The filename is what must survive the width, not the menu.
+                    .layoutPriority(1)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVRowButtonStyle())
+            .accessibilityLabel(L.t("Mở tệp"))
+            .accessibilityValue(att.fileName)
+
+            if isDeleting {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 44, height: 44)
+            } else {
+                menu
+            }
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .frame(minHeight: 44)
+        .padding(.vertical, WVSpacing.sm)
+        .contentShape(Rectangle())
     }
 
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Tile background. At Accessibility sizes the square becomes a
-            // full-width row so the filename and description can wrap instead
-            // of ellipsizing inside a fixed square.
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    HStack(alignment: .top, spacing: 10) {
-                        AttachmentThumbnailImage(
-                            client: client, attachment: att, size: 44, cornerRadius: 8
-                        )
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(att.fileName)
-                                .wvFont(.caption2)
-                                .foregroundStyle(WVColor.label3)
-                                .lineLimit(4)
-                                .fixedSize(horizontal: false, vertical: true)
-                            if let description {
-                                Text(description)
-                                    .wvFont(.caption2)
-                                    .foregroundStyle(WVColor.label2)
-                                    .lineLimit(4)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(tileBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                } else {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(tileBackground)
-                        .aspectRatio(1, contentMode: .fit)
-                        .overlay {
-                            VStack(spacing: 4) {
-                                // The receipt image itself, when it has loaded.
-                                // The tile used to draw only a fixed glyph, so
-                                // the file's content was never visible anywhere.
-                                AttachmentThumbnailImage(
-                                    client: client, attachment: att,
-                                    size: 56, cornerRadius: 6
-                                )
-                                Text(att.fileName)
-                                    .wvFont(.caption2)
-                                    .foregroundStyle(WVColor.label3)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.center)
-                                if let description {
-                                    Text(description)
-                                        .wvFont(.caption2)
-                                        .foregroundStyle(WVColor.label2)
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.center)
-                                }
-                            }
-                            .padding(.horizontal, 6)
-                        }
-                }
+    private var menu: some View {
+        Menu {
+            Button {
+                onEditDescription()
+            } label: {
+                Label(L.t("Sửa mô tả"), systemImage: "pencil")
             }
-            .overlay {
-                // Tap to open — inside the app, through the authenticated
-                // client. A `Link` here was the 404: Safari has no bearer.
-                Button(action: onOpen) {
-                    Color.clear
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L.t("Mở tệp"))
-                .accessibilityValue(att.fileName)
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label(L.t("Xoá"), systemImage: "trash")
             }
-
-            // Delete button
-            Button(action: onDelete) {
-                if isDeleting {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .frame(width: 22, height: 22)
-                } else {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(WVColor.label2)
-                        .background(WVColor.bg2.clipShape(Circle()))
-                }
-            }
-            .offset(x: 6, y: -6)
-            .disabled(isDeleting)
-            .accessibilityLabel(L.t("Xoá"))
+        } label: {
+            WVIcon("more", size: 20, weight: .regular)
+                .foregroundStyle(WVColor.label2)
+                // A 44 pt tap target around a 20 pt glyph.
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
-        .overlay(alignment: .topLeading) {
-            Button(action: onEditDescription) {
-                Image(systemName: "pencil.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(WVColor.label2)
-                    .background(WVColor.bg2.clipShape(Circle()))
-            }
-            .offset(x: -6, y: -6)
-            .accessibilityLabel(L.t("Sửa mô tả"))
-        }
+        .accessibilityLabel(L.t("Tuỳ chọn"))
     }
 }

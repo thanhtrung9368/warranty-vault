@@ -13,6 +13,18 @@ struct DevicesScreen: View {
     let client: APIClient
 
     @StateObject private var store: DevicesStore
+    /// The *same* repair-extension source the dashboard, the reminders list and
+    /// the device hero read. Its only value here is `repairDaysByDevice`, built
+    /// from the claims read inside `load()`: time a device spent in a closed
+    /// repair does not count against its warranty (Luật 19/2023, Điều 30.2.c),
+    /// so the list must add it before printing a deadline. A second
+    /// implementation of that rule is a second number, and this screen already
+    /// printed one that disagreed with every other screen.
+    ///
+    /// The store's reminder reads are unused by this screen; `load()` is the
+    /// only door to the claims map it publishes, and the extension is display-
+    /// only — nothing here writes a date back.
+    @StateObject private var remindersStore: RemindersStore
     @EnvironmentObject private var catalog: CatalogStore
     /// Owned by `MainTabView`; capturing a receipt refreshes this so the
     /// "Thêm" badge is already correct when the user goes looking for it.
@@ -22,7 +34,14 @@ struct DevicesScreen: View {
     @State private var searchQuery = ""
     @State private var statusFilter: DeviceStatus? = nil
     @State private var categoryFilter: String? = nil
-    @State private var sortOrder: DeviceSortOrder = .purchaseDesc
+    /// **Deadline first**, not purchase date (§8.1, fixes §1.3).
+    ///
+    /// The list is the answer to "what needs me next?", so the default order is
+    /// the one that puts the device with 8 days left at the top instead of
+    /// fourth behind three devices that do not expire for years. The menu still
+    /// offers all five orders; this only changes which one you get without
+    /// asking.
+    @State private var sortOrder: DeviceSortOrder = .warrantyAsc
 
     /// One sheet binding for both the filter and the capture flow: two
     /// independent `.sheet` modifiers on the same view is a presentation race
@@ -46,6 +65,7 @@ struct DevicesScreen: View {
     init(client: APIClient) {
         self.client = client
         _store = StateObject(wrappedValue: DevicesStore(client: client))
+        _remindersStore = StateObject(wrappedValue: RemindersStore(client: client))
     }
 
     private enum DevicesSheet: Identifiable {
@@ -95,28 +115,63 @@ struct DevicesScreen: View {
         if let cf = categoryFilter {
             arr = arr.filter { $0.category == cf }
         }
-        switch sortOrder {
-        case .purchaseDesc:
-            arr.sort { $0.purchaseDate > $1.purchaseDate }
-        case .warrantyAsc:
-            arr = Self.sortedByWarrantyEndAscending(arr)
-        case .priceDesc:
-            arr = StatsRollup.sortedByPurchaseValue(arr, descending: true)
-        case .priceAsc:
-            arr = StatsRollup.sortedByPurchaseValue(arr, descending: false)
-        case .name:
-            arr.sort { $0.name.localizedCompare($1.name) == .orderedAscending }
-        }
-        return arr
+        return Self.soldLast(ordered(arr))
     }
 
-    /// "BH sắp hết trước": soonest effective warranty end first. Devices with
-    /// no warranty package sort last, mirroring the Go list endpoint
+    /// The chosen order, applied.
+    private func ordered(_ arr: [Device]) -> [Device] {
+        switch sortOrder {
+        case .purchaseDesc:
+            return arr.sorted { $0.purchaseDate > $1.purchaseDate }
+        case .warrantyAsc:
+            return sortedByWarrantyEndAscending(arr)
+        case .priceDesc:
+            return StatsRollup.sortedByPurchaseValue(arr, descending: true)
+        case .priceAsc:
+            return StatsRollup.sortedByPurchaseValue(arr, descending: false)
+        case .name:
+            return arr.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+        }
+    }
+
+    /// Sold devices go to the end of **every** order (§8.1).
+    ///
+    /// A sold device is not a deadline: there is nothing left to act on, and in
+    /// the old purchase-date order a sold Nintendo Switch sat at row two,
+    /// between two live devices, looking exactly as urgent as them. `filter`
+    /// preserves the order it is given, so this is a stable partition rather
+    /// than a second sort.
+    static func soldLast(_ devices: [Device]) -> [Device] {
+        devices.filter { $0.status != .SOLD } + devices.filter { $0.status == .SOLD }
+    }
+
+    /// The deadline this screen prints **and** sorts by: the server's
+    /// effective warranty end plus the days the device spent in closed repairs
+    /// (Luật 19/2023, Điều 30.2.c — repair time does not count against the
+    /// warranty period).
+    ///
+    /// This is `RemindersStore.adjustedEnd`, the same call the dashboard
+    /// (`DashboardView.swift:230`), the reminders list and the device hero
+    /// (`DeviceDetailView.swift:133`) make, so the Apple Watch cannot read
+    /// `còn 8 ngày` here and `còn 18 ngày` everywhere else. `nil` stays `nil`:
+    /// a device with no recorded end has no adjusted end either.
+    private func displayedWarrantyEnd(for device: Device) -> Date? {
+        guard let end = device.effectiveWarrantyEnd else { return nil }
+        return remindersStore.adjustedEnd(end, deviceId: device.id)
+    }
+
+    /// "BH sắp hết trước": soonest displayed deadline first. Devices with no
+    /// warranty package sort last, mirroring the Go list endpoint
     /// (`services.ListDevices` treats a missing `effectiveWarrantyEnd` as
     /// infinitely far away when ordering ascending).
-    static func sortedByWarrantyEndAscending(_ devices: [Device]) -> [Device] {
+    ///
+    /// It compares `displayedWarrantyEnd`, not the raw `effectiveWarrantyEnd`:
+    /// an order derived from one value while the row prints another is exactly
+    /// the disagreement defect A is about — the list would claim to be
+    /// "soonest first" and then show a row with 18 days above one with 8.
+    private func sortedByWarrantyEndAscending(_ devices: [Device]) -> [Device] {
         devices.sorted { a, b in
-            switch (a.effectiveWarrantyEnd, b.effectiveWarrantyEnd) {
+            switch (displayedWarrantyEnd(for: a), displayedWarrantyEnd(for: b)) {
             case let (lhs?, rhs?): return lhs < rhs
             case (nil, _?):        return false
             case (_?, nil):        return true
@@ -126,7 +181,7 @@ struct DevicesScreen: View {
     }
 
     private var hasActiveFilters: Bool {
-        statusFilter != nil || categoryFilter != nil || sortOrder != .purchaseDesc
+        statusFilter != nil || categoryFilter != nil || sortOrder != .warrantyAsc
     }
 
     private var categoryFilterLabel: String? {
@@ -138,37 +193,30 @@ struct DevicesScreen: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Search bar
-            HStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15))
-                        .foregroundStyle(WVColor.label3)
-                    TextField(L.t("Tìm thiết bị..."), text: $searchQuery)
-                        .wvFont(.callout)
-                        .foregroundStyle(WVColor.label)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    if !searchQuery.isEmpty {
-                        Button { searchQuery = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(WVColor.label3)
-                        }
-                    }
+        // One scroll view. The search field used to be pinned above it behind a
+        // full-width hairline, which cost the list 52 pt on every screen, could
+        // never scroll away, and left the 34 pt title collapsing over a bar that
+        // did not move with it. It now scrolls with the rows (§8.1).
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if showsSearchField {
+                    // 8 pt under the title; the content below brings its own
+                    // 16 pt gutter, so the field sits one gutter above the group.
+                    searchField
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .padding(.top, WVSpacing.sm)
                 }
-                .padding(.horizontal, 10)
-                .frame(minHeight: 36)
-                .background(WVColor.fill2)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                listContent
             }
-            .padding(.horizontal, WVSpacing.gutter)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-
-            Divider().foregroundStyle(WVColor.sep)
-
-            deviceList
+        }
+        .refreshable {
+            // The list and the claims behind the legal deadline extension are
+            // two independent reads; a refresh must re-read both, or the rows
+            // would keep a stale `+N ngày sửa` while saying they are fresh.
+            await withTaskGroup(of: Void.self) { g in
+                g.addTask { await self.store.load() }
+                g.addTask { await self.remindersStore.load() }
+            }
         }
         .wvScreen()
         // Free-tier banner. A `safeAreaInset` — NOT a row inside the list and
@@ -194,9 +242,24 @@ struct DevicesScreen: View {
                 Button {
                     activeSheet = .filter
                 } label: {
-                    Label(L.t("Lọc"), systemImage: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
-                        .foregroundStyle(WVColor.tint)
+                    // §5.1: coral is the action, not a secondary control. Filter
+                    // and camera are `label2` glyphs; the `+` is the screen's
+                    // one coral affordance.
+                    //
+                    // A bare `Image`, not a `Label`. A toolbar `Label` is
+                    // drawn by the bar as a template and takes the tint of the
+                    // nearest `.tint` (the tab view's coral), so this glyph
+                    // came out coral even with `foregroundStyle` on the label
+                    // — the camera beside it, a bare image with the same
+                    // `.foregroundStyle`, stayed grey. Same shape as the
+                    // camera so the two neighbours cannot diverge again.
+                    Image(systemName: hasActiveFilters
+                          ? "line.3.horizontal.decrease.circle.fill"
+                          : "line.3.horizontal.decrease")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(WVColor.label2)
                 }
+                .accessibilityLabel(L.t("Lọc"))
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 // Capture-first entry point. It lives on the Devices tab — the
@@ -205,9 +268,8 @@ struct DevicesScreen: View {
                 // counter before any row exists. The alternative (device
                 // detail) is exactly the detour this feature removes.
                 Button { activeSheet = .capture } label: {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(WVColor.tint)
+                    WVIcon("camera", size: 17)
+                        .foregroundStyle(WVColor.label2)
                 }
                 .accessibilityLabel(L.t("Thêm hoá đơn"))
 
@@ -227,8 +289,8 @@ struct DevicesScreen: View {
                         Label(BulkDeviceCopy.title, systemImage: "square.stack.3d.up")
                     }
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
+                    // The screen's one coral thing (§5.1).
+                    WVIcon("plus", size: 17)
                         .foregroundStyle(WVColor.tint)
                 }
                 .accessibilityLabel(L.t("Thêm thiết bị"))
@@ -297,17 +359,23 @@ struct DevicesScreen: View {
         }
         .task {
             router.restorePendingFromSharedDefaults()
-            if router.pendingDeviceId != nil {
-                await openPendingDeviceIfNeeded()
-            } else {
-                await store.load()
+            // Two independent reads, started together: the list itself, and
+            // the claims the legal repair extension is computed from. The
+            // extension is display-only, so a failed claims read leaves the
+            // server's own date in place rather than blanking the screen.
+            await withTaskGroup(of: Void.self) { g in
+                g.addTask { await self.remindersStore.load() }
+                if router.pendingDeviceId != nil {
+                    g.addTask { await self.openPendingDeviceIfNeeded() }
+                } else {
+                    g.addTask { await self.store.load() }
+                }
             }
         }
         .onChange(of: router.pendingDeviceId) { _, id in
             guard id != nil else { return }
             Task { await openPendingDeviceIfNeeded() }
         }
-        .refreshable { await store.load() }
     }
 
     /// Loads the list and pushes the requested device.
@@ -324,6 +392,52 @@ struct DevicesScreen: View {
         } else {
             showMissingDeviceAlert = true
         }
+    }
+
+    // MARK: - Search field
+
+    /// The one search field on this screen (§8.1): `fill3`, radius 8, 36 pt
+    /// tall, 16 pt gutter, 8 pt under the title, scrolling with the list.
+    ///
+    /// `minHeight` rather than a fixed `height`: at Accessibility sizes a 36 pt
+    /// box would clip the field it contains (§10.3 check 7).
+    private var searchField: some View {
+        HStack(spacing: WVSpacing.sm) {
+            WVIcon("search", size: 15)
+                .foregroundStyle(WVColor.label3)
+            TextField(L.t("Tìm thiết bị..."), text: $searchQuery)
+                .wvFont(.callout)
+                .foregroundStyle(WVColor.label)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            if !searchQuery.isEmpty {
+                Button {
+                    searchQuery = ""
+                } label: {
+                    // A glyph, not text: fixed sizes are the documented exception
+                    // for SF Symbols (Fonts.swift), and there is no `xCircle` in
+                    // the `WVIconMap`.
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(WVColor.label3)
+                }
+                .buttonStyle(.plain)
+                // Existing key, already translated ("Delete" / "Xoá"): no new
+                // string is invented for a label nobody sees (§10.3, correction D).
+                .accessibilityLabel(L.t("Xoá"))
+            }
+        }
+        .padding(.horizontal, WVSpacing.md)
+        .frame(minHeight: 36)
+        .background(WVColor.fill3)
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous))
+    }
+
+    /// A search field over zero rows is a dead control: it stays out of the way
+    /// on the first load's skeleton, on a failed read, and on the genuine empty
+    /// account — the three states below already say everything there is to say.
+    private var showsSearchField: Bool {
+        !store.devices.isEmpty || store.state == .idle || store.state == .loading
     }
 
     // MARK: - List content
@@ -343,97 +457,115 @@ struct DevicesScreen: View {
     /// A stale list is still shown if a refresh fails: the rows are real, and
     /// replacing them with an error card would hide data the user can use.
     @ViewBuilder
-    private var deviceList: some View {
+    private var listContent: some View {
+        let items = filteredDevices
         if store.devices.isEmpty, case let .error(message) = store.state {
-            ScrollView {
-                WVEmpty(icon: "alert",
-                        title: L.t("Không tải được thiết bị"),
-                        description: message) {
-                    WVButton(L.t("Thử lại")) { Task { await store.load() } }
-                        .padding(.horizontal, 32)
-                }
+            WVEmpty(icon: "alert",
+                    title: L.t("Không tải được thiết bị"),
+                    description: message) {
+                WVButton(L.t("Thử lại")) { Task { await store.load() } }
             }
         } else if store.devices.isEmpty,
                   store.state == .idle || store.state == .loading {
-            ScrollView {
-                DevicesListSkeleton()
-            }
+            DevicesListSkeleton()
+        } else if items.isEmpty {
+            emptyState(isFiltering: !searchQuery.isEmpty || hasActiveFilters)
         } else {
-            loadedList
+            rows(items)
         }
     }
 
-    /// The list once the store has answered. An empty `filteredDevices` here is
-    /// a truthful "nothing here": the two cases above have already ruled out
+    /// A truthful "nothing here": the two cases above have already ruled out
     /// "still loading" and "the read failed".
     @ViewBuilder
-    private var loadedList: some View {
-        let items = filteredDevices
-        if items.isEmpty {
-            let isFiltering = !searchQuery.isEmpty || hasActiveFilters
-            WVEmpty(
-                icon: isFiltering ? "search" : "package",
-                title: isFiltering ? L.t("Không có gì khớp") : L.t("Chưa có thiết bị nào"),
-                description: isFiltering
-                    ? L.t("Thử nới bộ lọc xem sao.")
-                    : L.t("Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.")
-            ) {
-                if !isFiltering {
-                    VStack(spacing: 10) {
-                        NavigationLink(value: DeviceFormNav.create) {
-                            WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
-                        }
-                        // The empty list is the strongest bulk case: someone
-                        // setting up a new flat has nothing here yet and a
-                        // stack of appliances to enter. Offer it before the
-                        // receipt path, which is not about device rows at all.
-                        WVButton(BulkDeviceCopy.title, icon: "package", kind: .secondary) {
-                            showBulkAdd = true
-                        }
-                        // A brand-new account is the strongest capture-first
-                        // case: the receipt exists but there is no device row
-                        // yet. Offer the inbox path right where the empty
-                        // device list otherwise dead-ends.
-                        WVButton(L.t("Thêm hoá đơn"), icon: "camera", kind: .secondary) {
-                            activeSheet = .capture
-                        }
+    private func emptyState(isFiltering: Bool) -> some View {
+        WVEmpty(
+            icon: isFiltering ? "search" : "package",
+            title: isFiltering ? L.t("Không có gì khớp") : L.t("Chưa có thiết bị nào"),
+            description: isFiltering
+                ? L.t("Thử nới bộ lọc xem sao.")
+                : L.t("Thêm thiết bị đầu tiên — laptop, điện thoại, máy giặt... gì cũng được.")
+        ) {
+            if !isFiltering {
+                VStack(spacing: WVSpacing.md) {
+                    NavigationLink(value: DeviceFormNav.create) {
+                        WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
+                    }
+                    // The empty list is the strongest bulk case: someone
+                    // setting up a new flat has nothing here yet and a
+                    // stack of appliances to enter. Offer it before the
+                    // receipt path, which is not about device rows at all.
+                    WVButton(BulkDeviceCopy.title, icon: "package", kind: .secondary) {
+                        showBulkAdd = true
+                    }
+                    // A brand-new account is the strongest capture-first
+                    // case: the receipt exists but there is no device row
+                    // yet. Offer the inbox path right where the empty
+                    // device list otherwise dead-ends.
+                    WVButton(L.t("Thêm hoá đơn"), icon: "camera", kind: .secondary) {
+                        activeSheet = .capture
                     }
                 }
             }
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if let categoryFilterLabel {
-                        HStack(spacing: 6) {
-                            Text(L.t("Loại: %@", categoryFilterLabel))
-                                .wvFont(.footnote)
-                                .foregroundStyle(WVColor.label3)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 32)
-                        .padding(.top, 12)
-                    }
+        }
+    }
 
-                    WVGroup {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { idx, device in
-                            if idx > 0 { WVDivider(inset: 60) }
-                            NavigationLink(value: device) {
-                                DeviceListRow(device: device)
-                            }
-                            .buttonStyle(WVRowButtonStyle())
-                        }
-                    }
-                    .padding(.top, 16)
-
-                    Text(L.p("%d thiết bị", items.count))
+    /// The rows themselves: one group, hairline inset to the title (56), footer
+    /// at the 16 pt gutter.
+    private func rows(_ items: [Device]) -> some View {
+        VStack(spacing: 0) {
+            if let categoryFilterLabel {
+                HStack(spacing: WVSpacing.sm) {
+                    Text(L.t("Loại: %@", categoryFilterLabel))
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 8)
-                        .padding(.bottom, 24)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.top, WVSpacing.md)
+            }
+
+            WVGroup {
+                ForEach(Array(items.enumerated()), id: \.element.id) { idx, device in
+                    // `WVDivider()` defaults to `rowInset` (56): 16 gutter +
+                    // 28 tile + 12 gap, so the hairline starts where the name
+                    // does (§3).
+                    if idx > 0 { WVDivider() }
+                    NavigationLink(value: device) {
+                        // The date is resolved here, once, from the same
+                        // `displayedWarrantyEnd` the sort above uses — so the
+                        // row cannot order by one date and print another.
+                        DeviceListRow(device: device,
+                                      warrantyEnd: displayedWarrantyEnd(for: device))
+                    }
+                    .buttonStyle(WVRowButtonStyle())
                 }
             }
+            .padding(.top, WVSpacing.gutter)
+
+            // Footer: the count, then the legal note exactly when it applies.
+            VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                Text(L.p("%d thiết bị", items.count))
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label3)
+
+                // The legal extension moves deadlines on this list, so it is
+                // named here exactly when it is in effect — the same note the
+                // dashboard and the reminders screen print, and the one
+                // `WarrantyRepairAdjustment` requires of every surface that
+                // shows the adjusted date. Without it a row's date would
+                // silently differ from the stored one and read as a bug.
+                if remindersStore.hasRepairExtension {
+                    Text(WarrantyRepairAdjustment.legalNote)
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.sm)
+            .padding(.bottom, WVSpacing.xl)
         }
     }
 }
@@ -447,15 +579,21 @@ struct DevicesScreen: View {
 /// Static `.redacted`, not a moving shimmer: four screens in this app already
 /// use a still placeholder, and motion would make the whole list look busy.
 private struct DevicesListSkeleton: View {
+    /// The row geometry it stands in for: 28 pt tile, 12 pt gap, 16 pt gutter,
+    /// 8 pt vertical padding — plus a **64 × 13 bar on the trailing edge**, so
+    /// the placeholder has the silhouette of a real row instead of stopping
+    /// where every row continues (§1.15, §8.1).
     var body: some View {
         WVGroup {
             ForEach(0..<4) { i in
-                if i > 0 { WVDivider(inset: 60) }
-                HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                if i > 0 { WVDivider() }
+                HStack(spacing: WVSpacing.md) {
+                    RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous)
                         .fill(WVColor.fill3)
-                        .frame(width: 36, height: 36)
-                    VStack(alignment: .leading, spacing: 6) {
+                        .frame(width: 28, height: 28)
+                    VStack(alignment: .leading, spacing: WVSpacing.sm) {
+                        // 4 pt is the one radius left for a placeholder text bar
+                        // (§4) — not a card or control radius.
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(WVColor.fill3)
                             .frame(height: 14)
@@ -463,36 +601,75 @@ private struct DevicesListSkeleton: View {
                             .fill(WVColor.fill3)
                             .frame(width: 150, height: 12)
                     }
-                    Spacer(minLength: 0)
+                    // The trailing value, inside the same 84 pt column the
+                    // real row reserves, so the title bar ends where the title
+                    // ends and the silhouette matches exactly.
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(width: 64, height: 13)
+                        .frame(width: 84, alignment: .trailing)
+                    WVIcon("arrowRight", size: 13)
+                        .foregroundStyle(WVColor.label4)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.vertical, WVSpacing.sm)
+                .frame(minHeight: 44)
                 .redacted(reason: .placeholder)
             }
         }
-        .padding(.top, 16)
+        .padding(.top, WVSpacing.gutter)
     }
 }
 
 // MARK: - Device list row
 
+/// One device, as it appears on this screen, on the dashboard and in search
+/// results (§4: "the same row everywhere it appears").
+///
+/// Anatomy (§8.1): 28 pt `fill3` tile → name 17 semibold → meta 13 `label3` →
+/// the §6 deadline column → 13 pt chevron. No pill: a capsule around a phrase
+/// was doing the work of a column, and status is text (§5.2).
+///
+/// The name is allowed a second line. At 402 pt the name column works out at
+/// 175 pt once the deadline keeps a legible 84 pt, and four of the QA account's
+/// names measure 180–218 pt; wrapping keeps the name whole where shrinking the
+/// type or truncating it would not (§8.1, §10.3 #8).
 private struct DeviceListRow: View {
     let device: Device
+    /// The row's deadline: `device.effectiveWarrantyEnd` plus this device's
+    /// closed-repair days, resolved by the list (`displayedWarrantyEnd`) so the
+    /// row and the "BH sắp hết trước" order read one value. `nil` is "no
+    /// date", not "expired".
+    let warrantyEnd: Date?
 
-    /// Device list rows are one line per field at the default size. At
-    /// Accessibility sizes the warranty pill alone can be wider than the name
-    /// column, so the row stacks: the name gets the full width, then the
-    /// status pill, then the metadata. Same content, same order — only the
-    /// axis changes.
+    /// The reserved width of the trailing deadline column: 84 pt at the default
+    /// content size, not the 96 §8.1 nominates.
+    ///
+    /// 96 is the widest a value ever needs, not what the name can spare. At
+    /// 402 pt the row has 271 pt for the name, the 12 pt gap and the value
+    /// (402 − 32 screen gutter − 32 row padding − 28 tile − 24 for the two
+    /// outer 12 pt gaps − 15.5 chevron), so the 96 pt reservation left the name
+    /// 163 — the four `…` in `after/01-devices.png`. 84 still prints every §6
+    /// value (`02/04/2027` measures 92 pt and the pill scales it to 0.91;
+    /// `Chưa ghi hạn` needs 84 at the pill's own 0.8 floor) and hands 175 pt to
+    /// the name, which is why the name wraps now instead of truncating.
+    ///
+    /// Reserved rather than measured so every row's value ends at the same x —
+    /// a column, not a ragged edge. Scaled, not pinned: at a large
+    /// non-Accessibility size a fixed 84 would clip a value mid-word.
+    @ScaledMetric(relativeTo: .body) private var valueColumnWidth: CGFloat = 84
+
+    /// At the default size the row is one line per field. At Accessibility
+    /// sizes the deadline alone can be wider than the name column, so the row
+    /// stacks: the name gets the full width, then the deadline, then the
+    /// metadata. Same content, same order — only the axis changes.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            WVLeadingIcon(
-                icon: WVCategory.icon(for: device.category),
-                color: WVCategory.accent(for: device.category),
-                size: 36
-            )
+        HStack(alignment: .center, spacing: WVSpacing.md) {
+            // Neutral by construction: `WVLeadingIcon` is `fill3` + a `label2`
+            // glyph. A category is not a state, so it carries no colour (§5.1).
+            WVLeadingIcon(icon: WVCategory.icon(for: device.category), size: 28)
             if dynamicTypeSize.isAccessibilitySize {
                 stackedContent
             } else {
@@ -501,55 +678,94 @@ private struct DeviceListRow: View {
             WVIcon("arrowRight", size: 13)
                 .foregroundStyle(WVColor.label4)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.vertical, WVSpacing.sm)
         .frame(minHeight: 44)
-        .padding(.vertical, 7)
         .contentShape(Rectangle())
     }
 
     private var horizontalContent: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .center, spacing: 6) {
+        HStack(alignment: .center, spacing: WVSpacing.md) {
+            VStack(alignment: .leading, spacing: WVSpacing.sm) {
                 Text(device.name)
-                    .wvFont(.callout, weight: .medium)
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(WVColor.label)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                statusBadge
+                    // §8.1 / §10.3 #8: the name is the one thing a row must
+                    // not lose. The narrower column gives it 175 pt, so the
+                    // names longer than that take a second line instead of an
+                    // ellipsis — never a smaller type size, and never a
+                    // truncated name beside a surviving value.
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: WVSpacing.sm) {
+                    metaText
+                        .lineLimit(1)
+                    extraBadges
+                        // The badges are signals (a receipt, a brand mismatch):
+                        // the brand · price line gives way first, never them.
+                        .layoutPriority(1)
+                }
             }
-            HStack(spacing: 6) {
-                metaText
-                    .lineLimit(1)
-                extraBadges
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // §10.3 #8: the priority belongs on the block that is the value
+            // column's *direct sibling*. `.layoutPriority(1)` on the Text one
+            // level down only negotiated with the meta line inside this VStack,
+            // never with the deadline column in this HStack. The narrower
+            // column is what actually buys the space; this keeps the name
+            // first in line if the column ever becomes elastic.
+            .layoutPriority(1)
+
+            deadlineColumn
+                .frame(width: valueColumnWidth, alignment: .trailing)
         }
     }
 
     private var stackedContent: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
             Text(device.name)
-                .wvFont(.callout, weight: .medium)
+                .wvFont(.bodyEmphasis)
                 .foregroundStyle(WVColor.label)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
-            statusBadge
-            metaText
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-            extraBadges
+            deadlineColumn
+            HStack(spacing: WVSpacing.sm) {
+                metaText
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                extraBadges
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// §6, the row form: the absolute date beyond 90 days, a day count inside
+    /// 90, `đã hết hạn` grey once it is gone, `chưa ghi hạn` when there is no
+    /// date at all. `WarrantyPill` *is* that grammar — it needs the date passed
+    /// through, or every deadline past 90 days falls back to a day count.
+    ///
+    /// Sold short-circuits ahead of it: `WarrantyPill` has no sold input, a sold
+    /// device has no deadline to report, and "Đã bán" must win over a date that
+    /// is still in the future.
     @ViewBuilder
-    private var statusBadge: some View {
-        // Effective warranty end (max endDate across the device's packages),
-        // straight from the list projection.
-        if let end = device.effectiveWarrantyEnd {
-            WarrantyPill(daysLeft: WVFormat.daysUntil(end))
+    private var deadlineColumn: some View {
+        if device.status == .SOLD {
+            Text(L.t("Đã bán"))
+                .wvFont(.body, weight: .medium)
+                .foregroundStyle(WVColor.label3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         } else {
-            DeviceStatusChip(status: device.status)
+            WarrantyPill(daysLeft: effectiveDaysLeft, endDate: warrantyEnd)
         }
+    }
+
+    /// `nil` is "no date", which `WarrantyPill` draws as `Chưa ghi hạn` in
+    /// `label4` — not as an expired warranty. Both numbers come from the same
+    /// `warrantyEnd` the row prints, so the pill's colour, its day count and
+    /// its date cannot disagree.
+    private var effectiveDaysLeft: Int? {
+        guard let end = warrantyEnd else { return nil }
+        return WVFormat.daysUntil(end)
     }
 
     private var metaText: some View {
@@ -560,58 +776,31 @@ private struct DeviceListRow: View {
 
     @ViewBuilder
     private var extraBadges: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: WVSpacing.sm) {
             if let count = device.attachmentCount, count > 0 {
-                HStack(spacing: 2) {
-                    WVIcon("paperclip", size: 10)
+                HStack(spacing: WVSpacing.xs) {
+                    WVIcon("paperclip", size: 12)
                     Text("\(count)")
-                        .wvFont(.caption)
+                        .wvFont(.footnote)
                 }
                 .foregroundStyle(WVColor.label3)
             }
-            // The brand disagrees with the date this row's pill was computed
-            // from. Show it in the list too, so the flag is not only
-            // discoverable after opening the device.
+            // The brand disagrees with the date this row's deadline was
+            // computed from. Show it in the list too, so the flag is not only
+            // discoverable after opening the device. Amber because it is data
+            // that needs a look, never a fill (§5.2).
             if device.warrantyMismatch != nil {
-                HStack(spacing: 2) {
-                    WVIcon("alert", size: 10)
+                HStack(spacing: WVSpacing.xs) {
+                    WVIcon("alert", size: 12)
                     Text(BrandWarrantyCopy.mismatchBadge)
-                        .wvFont(.caption2Emphasis)
+                        // 13 pt is the floor for text (§2); this badge used to
+                        // be 11 pt next to a 12 pt count.
+                        .wvFont(.footnote)
                 }
                 .foregroundStyle(WVColor.orange)
                 .lineLimit(1)
             }
         }
-    }
-}
-
-// MARK: - Device status chip
-
-private struct DeviceStatusChip: View {
-    let status: DeviceStatus
-
-    private var label: String {
-        switch status {
-        case .ACTIVE:  return L.t("Đang dùng")
-        case .EXPIRED: return L.t("Hết BH")
-        case .SOLD:    return L.t("Đã bán")
-        case .BROKEN:  return L.t("Hỏng")
-        case .LOST:    return L.t("Mất")
-        }
-    }
-
-    private var tone: WVChipTone {
-        switch status {
-        case .ACTIVE:  return .green
-        case .EXPIRED: return .gray
-        case .SOLD:    return .blue
-        case .BROKEN:  return .red
-        case .LOST:    return .orange
-        }
-    }
-
-    var body: some View {
-        WVChip(label, tone: tone)
     }
 }
 
@@ -623,6 +812,13 @@ private struct DeviceFilterSheet: View {
     @Binding var categoryFilter: String?
     @Binding var sortOrder: DevicesScreen.DeviceSortOrder
     let categories: [CategoryOption]
+
+    /// Coral is the action, and a checkmark is not one: the row's position
+    /// already says "selected", so the mark is plain `label` (§5.1).
+    private var checkmark: some View {
+        WVIcon("check", size: 15)
+            .foregroundStyle(WVColor.label)
+    }
 
     var body: some View {
         NavigationStack {
@@ -637,9 +833,7 @@ private struct DeviceFilterSheet: View {
                                     .foregroundStyle(WVColor.label)
                                 Spacer()
                                 if sortOrder == opt {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(WVColor.tint)
-                                        .font(.system(size: 15, weight: .semibold))
+                                    checkmark
                                 }
                             }
                         }
@@ -656,9 +850,7 @@ private struct DeviceFilterSheet: View {
                             Text(L.t("Tất cả")).foregroundStyle(WVColor.label)
                             Spacer()
                             if statusFilter == nil {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(WVColor.tint)
-                                    .font(.system(size: 15, weight: .semibold))
+                                checkmark
                             }
                         }
                     }
@@ -670,9 +862,7 @@ private struct DeviceFilterSheet: View {
                                 Text(s.label).foregroundStyle(WVColor.label)
                                 Spacer()
                                 if statusFilter == s {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(WVColor.tint)
-                                        .font(.system(size: 15, weight: .semibold))
+                                    checkmark
                                 }
                             }
                         }
@@ -691,9 +881,7 @@ private struct DeviceFilterSheet: View {
                             Text(L.t("Tất cả")).foregroundStyle(WVColor.label)
                             Spacer()
                             if categoryFilter == nil {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(WVColor.tint)
-                                    .font(.system(size: 15, weight: .semibold))
+                                checkmark
                             }
                         }
                     }
@@ -705,9 +893,7 @@ private struct DeviceFilterSheet: View {
                                 Text(option.name).foregroundStyle(WVColor.label)
                                 Spacer()
                                 if categoryFilter == option.code {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(WVColor.tint)
-                                        .font(.system(size: 15, weight: .semibold))
+                                    checkmark
                                 }
                             }
                         }
@@ -723,12 +909,15 @@ private struct DeviceFilterSheet: View {
                     Button(L.t("Xoá")) {
                         statusFilter = nil
                         categoryFilter = nil
-                        sortOrder = .purchaseDesc
+                        sortOrder = .warrantyAsc
                     }
-                    .foregroundStyle(WVColor.tint)
+                    // A secondary control, so not coral (§5.1 — the same rule
+                    // that takes the tint off "Hủy" in search, §8.8). "Xong" is
+                    // this sheet's one action.
+                    .foregroundStyle(WVColor.label)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { dismiss() }
+                    Button(L.t("Xong")) { dismiss() }
                         .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }

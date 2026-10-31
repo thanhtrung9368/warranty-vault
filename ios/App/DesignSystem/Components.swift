@@ -70,17 +70,31 @@ struct WVIcon: View {
     }
 }
 
-/// The rounded-square colored icon badge used at the leading edge of rows.
+/// The rounded-square icon badge used at the leading edge of rows.
+///
+/// Always neutral: a `fill3` tile with a `label2` glyph, in both schemes. The
+/// `color:` parameter is retained only so existing call sites keep compiling —
+/// colour encodes state, never identity (§5.1), and a row's category is not a
+/// state. The tile is 28 pt with a 20 pt glyph in a content row; the radius is
+/// the one control radius (8), not a size-derived value.
 struct WVLeadingIcon: View {
     let icon: String
     var color: Color = WVColor.gray
-    var size: CGFloat = 30
+    var size: CGFloat = 28
+
+    /// 20 pt for the standard 28 pt tile; clamped so a smaller ad-hoc tile can
+    /// never render a glyph larger than itself (and a large tile never grows
+    /// its glyph past 20 — the same optical size at every row height).
+    private var glyphSize: CGFloat { min(20, size * 0.72) }
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.23, style: .continuous)
-            .fill(color)
+        RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous)
+            .fill(WVColor.fill3)
             .frame(width: size, height: size)
-            .overlay(WVIcon(icon, size: size * 0.56).foregroundStyle(.white))
+            .overlay {
+                WVIcon(icon, size: glyphSize)
+                    .foregroundStyle(WVColor.label2)
+            }
     }
 }
 
@@ -137,12 +151,13 @@ struct WVSectionHeader: View {
     init(_ text: String) { self.text = text }
     var body: some View {
         Text(text.uppercased())
-            .wvFont(.footnote)
+            .wvFont(.footnoteEmphasis)
+            .tracking(0.5)
             .foregroundStyle(WVColor.label3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 32)
-            .padding(.top, 20)
-            .padding(.bottom, 6)
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.xl)
+            .padding(.bottom, WVSpacing.sm)
     }
 }
 
@@ -154,8 +169,8 @@ struct WVSectionFooter: View {
             .wvFont(.footnote)
             .foregroundStyle(WVColor.label3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 32)
-            .padding(.top, 7)
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.sm)
     }
 }
 
@@ -175,8 +190,11 @@ struct WVGroup<Content: View>: View {
 
 /// Inset hairline divider used between rows inside a `WVGroup`.
 struct WVDivider: View {
-    /// Leading inset — 60 when the rows carry leading icons, 16 otherwise.
-    var inset: CGFloat = 16
+    /// The one inset for every list: `16 + 28 + 12 = 56`, so the hairline
+    /// aligns to the title after the icon tile and its gap (§3). Pass `0` for
+    /// a full-bleed rule; there is no second icon-independent value.
+    static let rowInset: CGFloat = 56
+    var inset: CGFloat = WVDivider.rowInset
     var body: some View {
         Rectangle()
             .fill(WVColor.sep)
@@ -242,9 +260,9 @@ struct WVRow: View {
                 regularContent
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, WVSpacing.gutter)
         .frame(minHeight: 44)
-        .padding(.vertical, 7)
+        .padding(.vertical, WVSpacing.sm)
         .contentShape(Rectangle())
     }
 
@@ -253,7 +271,7 @@ struct WVRow: View {
         HStack(spacing: 12) {
             if role == .centered { Spacer(minLength: 0) }
             if let icon {
-                WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 30)
+                WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 28)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -298,7 +316,7 @@ struct WVRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 12) {
                 if let icon {
-                    WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 30)
+                    WVLeadingIcon(icon: icon, color: iconColor, size: iconLarge ? 36 : 28)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -350,9 +368,9 @@ struct WVRowContainer<Content: View>: View {
 
     private var padded: some View {
         content
-            .padding(.horizontal, 16)
+            .padding(.horizontal, WVSpacing.gutter)
             .frame(minHeight: 44)
-            .padding(.vertical, 7)
+            .padding(.vertical, WVSpacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
     }
@@ -403,7 +421,7 @@ struct WVButton: View {
         }
     }
     private var height: CGFloat { size == .small ? 34 : (kind == .ghost ? 44 : 50) }
-    private var radius: CGFloat { size == .small ? 10 : 14 }
+    private var radius: CGFloat { size == .small ? WVRadius.sm : WVRadius.list }
     private var titleFont: WVFont { size == .small ? .subheadline : .body }
 
     var body: some View {
@@ -418,8 +436,8 @@ struct WVButton: View {
             .lineLimit(2)
             .frame(maxWidth: fullWidth ? .infinity : nil)
             .frame(minHeight: height)
-            .padding(.vertical, 6)
-            .padding(.horizontal, size == .small ? 14 : 18)
+            .padding(.vertical, WVSpacing.sm)
+            .padding(.horizontal, WVSpacing.gutter)
             .background(bg)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         }
@@ -461,7 +479,10 @@ enum WVChipTone {
     }
 }
 
-/// Pill-shaped status chip (`.ios-chip`).
+/// Status chip (`.ios-chip`). No longer a capsule: every chip is the 8 pt
+/// control radius, 13 pt semibold. Status is moving to plain text in content
+/// (§5.2); the filled form survives for the one warning chip and for OS-shaped
+/// settings rows.
 struct WVChip: View {
     let text: String
     var tone: WVChipTone = .gray
@@ -474,81 +495,115 @@ struct WVChip: View {
     }
 
     var body: some View {
-        // The default capsule is a fixed 22 pt tall, exactly as before. At
-        // Accessibility sizes it becomes a minimum so the label can grow and
-        // wrap inside the pill instead of being clipped by the height.
+        // The default chip is a fixed 22 pt tall. At Accessibility sizes it
+        // becomes a minimum so the label can grow and wrap inside the chip
+        // instead of being clipped by the height.
         chip
             .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 22 : nil)
             .frame(height: dynamicTypeSize.isAccessibilitySize ? nil : 22)
     }
 
     private var chip: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: WVSpacing.xs) {
             if let icon { WVIcon(icon, size: 10, weight: .bold) }
             Text(text)
         }
-        .wvFont(.pill)
+        .wvFont(.footnoteEmphasis)
         .foregroundStyle(tone.fg)
         .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, WVSpacing.sm)
+        // 3 keeps the fixed 22 pt height: the 13 pt line plus 2 × 3 pt is 22.
+        // The 4 pt step would need a taller chip, which §10.1 does not ask for.
         .padding(.vertical, 3)
         .background(tone.bg)
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous))
     }
 }
 
-/// Compact inline tag (`.ios-tag`) — smaller than a chip, square corners.
+/// Compact inline tag (`.ios-tag`). The 8 pt control radius; 13 pt keeps it
+/// above the text-size floor (only icon glyphs may go below 13).
 struct WVTag: View {
     let text: String
     var brand: Bool = false
     init(_ text: String, brand: Bool = false) { self.text = text; self.brand = brand }
     var body: some View {
         Text(text)
-            .wvFont(.caption2Emphasis)
+            .wvFont(.footnoteEmphasis)
             .foregroundStyle(brand ? WVColor.brand : WVColor.label2)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, WVSpacing.sm)
             .padding(.vertical, 1)
             .background(brand ? WVColor.brandSoft : WVColor.fill3)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous))
     }
 }
 
 // MARK: - Warranty pill
 
-/// Days-left status pill (`WarrantyPill` in ios-ui.jsx).
+/// The trailing deadline value of a row (§6 of the visual direction).
 ///
-/// The rule that decides the label and the tone lives in the Kit
-/// (`WarrantyPillCopy`) so it is unit-tested; this view only draws it. That
-/// split matters because the English copy for the expired case used to read
-/// "%dd left", which rendered a warranty that ended 588 days ago as a positive
-/// "588d left" chip.
+/// Despite the name it is no longer a pill: there is no fill, no capsule and no
+/// leading dot. It is one line of `rowValue` text (17 pt medium), coloured only
+/// when the date is the thing to act on.
+///
+/// The state thresholds still live in the Kit (`WarrantyPillCopy.status`) and
+/// are unit-tested; the *wording* no longer uses that type's abbreviation
+/// strings ("Còn ~11th", "2 năm"). The grammar is §6's:
+///
+/// * more than 90 days → the absolute date in `label3` (when `endDate` is
+///   known), so the row answers "when exactly?" instead of counting months;
+/// * 31…90 days → `còn N ngày` in amber;
+/// * 0…30 days → `còn N ngày` (today: `hết hạn hôm nay`) in red;
+/// * past → `đã hết hạn` in `label3` — no alarm about something already gone;
+/// * no date → `chưa ghi hạn` in `label4`.
 struct WarrantyPill: View {
     let daysLeft: Int?
+    /// Absolute end date, printed once the deadline is more than 90 days away.
+    /// Optional so every existing `WarrantyPill(daysLeft:)` call site still
+    /// compiles; without it the view falls back to a precise day count.
+    var endDate: Date?
 
-    private var status: WarrantyPillCopy.Status { WarrantyPillCopy.status(daysLeft: daysLeft) }
-    private var label: String { WarrantyPillCopy.label(daysLeft: daysLeft) }
+    init(daysLeft: Int?, endDate: Date? = nil) {
+        self.daysLeft = daysLeft
+        self.endDate = endDate
+    }
+
     private var color: Color {
-        switch status {
-        case .safe: return WVColor.green
-        case .warn: return WVColor.orange
-        case .danger: return WVColor.red
+        // `nil` is "no date", not "expired". Everything else goes through the
+        // Kit's threshold rule so the view can never drift from the tested one;
+        // only the *drawing* changes (§5.2: green is for a verdict, not a date).
+        guard let days = daysLeft else { return WVColor.label4 }
+        switch WarrantyPillCopy.status(daysLeft: days) {
+        case .safe:    return WVColor.label3
+        case .warn:    return WVColor.orange
+        case .danger:  return WVColor.red
         case .expired: return WVColor.label3
         }
     }
 
-    var body: some View {
-        HStack(spacing: 4) {
-            if daysLeft != nil {
-                Circle().frame(width: 6, height: 6)
-            }
-            Text(label)
+    private var label: String {
+        guard let days = daysLeft else { return L.t("Chưa ghi hạn") }
+        switch WarrantyPillCopy.status(daysLeft: days) {
+        case .expired:
+            return L.t("Đã hết hạn")
+        case .danger:
+            return days == 0 ? L.t("Hết hạn hôm nay") : L.p("còn %d ngày", days)
+        case .warn:
+            return L.p("còn %d ngày", days)
+        case .safe:
+            // > 90 days: the absolute date is the actionable fact. Without one
+            // (an old call site), a precise day count beats the old month/year
+            // abbreviation and still fits on one line.
+            if let endDate { return WVFormat.date(endDate) }
+            return L.p("còn %d ngày", days)
         }
-        .wvFont(.pill)
-        .foregroundStyle(color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
-        .background(status == .expired ? WVColor.fill3 : color.opacity(0.18))
-        .clipShape(Capsule())
+    }
+
+    var body: some View {
+        Text(label)
+            .wvFont(.body, weight: .medium)
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
     }
 }
 
@@ -571,12 +626,12 @@ struct WVSegmented<T: Hashable>: View {
                         .foregroundStyle(WVColor.label)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, WVSpacing.xs)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 28)
                         .background {
                             if active {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous)
                                     .fill(WVColor.bg2)
                                     .shadow(color: .black.opacity(0.08), radius: 3, y: 2)
                             }
@@ -585,9 +640,10 @@ struct WVSegmented<T: Hashable>: View {
                 .buttonStyle(.plain)
             }
         }
+        // 2 pt is the documented segmented inset (§8.2/§8.5), not a layout step.
         .padding(2)
         .background(WVColor.fill3)
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.sm, style: .continuous))
     }
 }
 
@@ -600,26 +656,26 @@ struct WVEmpty<Action: View>: View {
     @ViewBuilder var action: Action
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: WVSpacing.md) {
             Circle()
                 .fill(WVColor.fill3)
                 .frame(width: 80, height: 80)
-                .overlay(WVIcon(icon, size: 32, weight: .regular).foregroundStyle(WVColor.label3))
+                .overlay(WVIcon(icon, size: 40, weight: .regular).foregroundStyle(WVColor.label3))
             Text(title)
-                .wvFont(.title2Emphasis)
+                .wvFont(.title3Emphasis)
                 .foregroundStyle(WVColor.label)
             if let description {
                 Text(description)
-                    .wvFont(.subheadline)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 280)
             }
-            action.padding(.top, 2)
+            action.padding(.top, WVSpacing.xs)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 32)
-        .padding(.vertical, 60)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.vertical, WVSpacing.xxl)
     }
 }
 
@@ -651,7 +707,7 @@ struct WVSectionCard<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         WVCard(padding: 16) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: WVSpacing.md) {
                 if let title {
                     Text(title.uppercased())
                         .wvFont(.footnoteEmphasis)
@@ -690,11 +746,14 @@ enum WVNoticeTone {
     }
 }
 
-/// Inline notice card. This is the shared form of the pattern already used by
+/// Inline notice. This is the shared form of the pattern already used by
 /// `StatsView` (partial stats) and `ClaimFormView` (an open claim): a tinted
-/// rounded card with one semantic icon, an optional bold title and one or more
+/// rounded block with one semantic icon, an optional bold title and one or more
 /// body sentences. Everything stays in the normal foreground so the row reads as
 /// information, not as an error dialog.
+///
+/// A notice is a row-card, not a screen-level card: 12 pt (`WVRadius.list`),
+/// not 16 (§4).
 struct WVNotice: View {
     var tone: WVNoticeTone = .warning
     var title: String?
@@ -732,10 +791,10 @@ struct WVNotice: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(WVSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(tone.color.opacity(0.12))
-        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
@@ -776,7 +835,7 @@ struct WVWidget: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-            .padding(14)
+            .padding(WVSpacing.gutter)
             .background {
                 if brand {
                     LinearGradient(colors: [WVColor.brand, WVColor.brand2],
@@ -812,7 +871,7 @@ struct WVStatCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(WVSpacing.gutter)
         .background(WVColor.bg2)
         .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
     }
@@ -846,12 +905,17 @@ struct WVHeroGreeting: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, WVSpacing.titleGutter)
-        .padding(.top, 6)
-        .padding(.bottom, 14)
+        .padding(.top, WVSpacing.sm)
+        .padding(.bottom, WVSpacing.gutter)
     }
 }
 
 /// Section heading with an optional trailing action (`.dash-section-head`).
+///
+/// The dashboard's content heading — sentence case, 20 pt semibold — is not the
+/// OS-shaped `WVSectionHeader` (13 pt uppercase, used by Cài đặt/Hồ sơ/Thêm).
+/// The two must not be swapped: §8.3's "WVSectionHeader at 20 semibold" refers
+/// to this component.
 struct WVDashSectionHead: View {
     let title: String
     var actionLabel: String?
@@ -862,7 +926,7 @@ struct WVDashSectionHead: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .wvFont(.title2Emphasis)
+                .wvFont(.title3Emphasis)
                 .foregroundStyle(WVColor.label)
             Spacer(minLength: 12)
             if let actionLabel, let action {
@@ -871,9 +935,9 @@ struct WVDashSectionHead: View {
                     .foregroundStyle(WVColor.tint)
             }
         }
-        .padding(.horizontal, WVSpacing.titleGutter)
-        .padding(.top, 24)
-        .padding(.bottom, 8)
+        .padding(.horizontal, WVSpacing.gutter)
+        .padding(.top, WVSpacing.xl)
+        .padding(.bottom, WVSpacing.sm)
     }
 }
 
@@ -965,16 +1029,16 @@ extension View {
                         Text(toast.message).wvFont(.subheadline)
                     }
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.vertical, WVSpacing.md)
                     .background(Color(hex: "282828").opacity(0.92))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
                     .shadow(color: .black.opacity(0.18), radius: 12, y: 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
+            .padding(.horizontal, WVSpacing.md)
+            .padding(.top, WVSpacing.sm)
             .animation(.spring(response: 0.32, dampingFraction: 0.8), value: center.toasts.count)
         }
     }

@@ -59,7 +59,7 @@ struct AttachmentThumbnailImage: View {
     let client: APIClient
     let attachment: AttachmentMeta
     var size: CGFloat = 52
-    var cornerRadius: CGFloat = 9
+    var cornerRadius: CGFloat = WVRadius.list
 
     @State private var image: UIImage?
 
@@ -159,12 +159,12 @@ struct QLPreviewSheet: View {
                     Button(L.t("Thử lại")) { Task { await load() } }
                         .wvFont(.bodyEmphasis)
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 18)
+                        .padding(.horizontal, WVSpacing.gutter)
                         .frame(minHeight: 44)
                         .background(Color.white.opacity(0.18))
                         .clipShape(Capsule())
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, WVSpacing.gutter)
             }
 
             // The filename is the one piece of context Quick Look does not
@@ -189,9 +189,9 @@ struct QLPreviewSheet: View {
                     .accessibilityLabel(L.t("Đóng"))
                     .accessibilityIdentifier("attachment-preview-close")
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.top, WVSpacing.md)
+                .padding(.bottom, WVSpacing.sm)
                 .background(.black.opacity(0.35))
 
                 Spacer(minLength: 0)

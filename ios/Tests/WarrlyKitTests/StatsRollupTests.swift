@@ -53,11 +53,13 @@ final class StatsRollupTests: KitTestCase {
                           cost: Int?,
                           start: String,
                           end: String,
-                          type: String = "STANDARD") throws -> Warranty {
+                          type: String = "STANDARD",
+                          component: String? = nil) throws -> Warranty {
         let costJSON = cost.map(String.init) ?? "null"
+        let componentJSON = component.map { #","component":"\#($0)""# } ?? ""
         let json = """
         {"id":"\(id)","deviceId":"dev","type":"\(type)","startDate":"\(start)",
-         "endDate":"\(end)","months":12,"cost":\(costJSON)}
+         "endDate":"\(end)","months":12,"cost":\(costJSON)\(componentJSON)}
         """
         return try APIClient.decoder.decode(Warranty.self, from: Data(json.utf8))
     }
@@ -420,5 +422,63 @@ final class StatsRollupTests: KitTestCase {
         ]
         XCTAssertEqual(StatsRollup.effectiveWarrantyEnd(warranties), instant("2027-01-01T00:00:00Z"))
         XCTAssertNil(StatsRollup.effectiveWarrantyEnd([]))
+    }
+
+    func testAComponentWarrantyIsNotTheDevicesWarrantyEnd() throws {
+        // A fridge: a ten-year motor warranty beside a shorter whole-unit plan.
+        // `max(endDate)` over every row said the whole machine was covered until
+        // 2035 — the exact failure `openapi.yaml` `effectiveWarrantyEnd` names.
+        let warranties = [
+            try warranty("whole", cost: 100,
+                         start: "2026-01-01T00:00:00Z", end: "2028-01-01T00:00:00Z"),
+            try warranty("motor", cost: 100,
+                         start: "2026-01-01T00:00:00Z", end: "2035-01-01T00:00:00Z",
+                         component: "Động cơ"),
+            // Blank is whole-unit: the service normalises "" to NULL on write,
+            // but a hand-edited row must not be silently excluded.
+            try warranty("blank", cost: 100,
+                         start: "2026-01-01T00:00:00Z", end: "2027-01-01T00:00:00Z",
+                         component: "   "),
+        ]
+        XCTAssertEqual(StatsRollup.effectiveWarrantyEnd(warranties),
+                       instant("2028-01-01T00:00:00Z"))
+    }
+
+    func testEffectiveWarrantyEndIsNilWhenEveryRowIsComponentScoped() throws {
+        let warranties = [
+            try warranty("motor", cost: 100,
+                         start: "2026-01-01T00:00:00Z", end: "2035-01-01T00:00:00Z",
+                         component: "Động cơ"),
+            try warranty("battery", cost: 100,
+                         start: "2026-01-01T00:00:00Z", end: "2029-01-01T00:00:00Z",
+                         component: "Pin"),
+        ]
+        XCTAssertNil(StatsRollup.effectiveWarrantyEnd(warranties),
+                     "no whole-unit row means no whole-unit end, not the motor's 2035")
+    }
+
+    // MARK: - The warranty end day is still covered
+
+    func testActiveAssetValueKeepsADeviceWhoseWarrantyEndsToday() throws {
+        let device = try device("today", purchased: "2025-01-01T00:00:00Z",
+                                price: 1_000, status: "ACTIVE",
+                                warrantyEnd: "2026-06-01T00:00:00Z")
+
+        // One second after the stored end instant, on the same calendar day:
+        // still covered. The old `end > now` comparison dropped the device from
+        // that second onward — a day early — while the pill on the same device
+        // said "Hết hôm nay".
+        let onTheDay = StatsRollup.activeAssetValue([device],
+                                                    now: instant("2026-06-01T00:00:01Z"),
+                                                    calendar: calendar)
+        XCTAssertEqual(onTheDay.count, 1)
+        XCTAssertEqual(onTheDay.total, 1_000)
+
+        // The day after, it is genuinely lapsed.
+        let nextDay = StatsRollup.activeAssetValue([device],
+                                                   now: instant("2026-06-02T00:00:01Z"),
+                                                   calendar: calendar)
+        XCTAssertEqual(nextDay.count, 0)
+        XCTAssertEqual(nextDay.total, 0)
     }
 }

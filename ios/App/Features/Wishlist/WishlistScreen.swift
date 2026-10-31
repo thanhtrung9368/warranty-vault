@@ -31,6 +31,14 @@ private let priorityOrder: [WishlistPriority: Int] = [.MUST: 3, .WANT: 2, .MAYBE
 
 // MARK: - WishlistScreen
 
+/// Wishlist — §8.6 of the visual direction.
+///
+/// This screen leads with the items: there is no summary block. The old
+/// pink→purple gradient hero is now one 13 pt line directly under the title
+/// (`3 món · 57.380.000 ₫`), and the segment control sits directly under that
+/// line. Rows are the shared content-row anatomy (§3/§8.1): 28 pt neutral tile,
+/// `rowTitle` name, `meta` brand · category label, then the price (`rowValue`)
+/// with the target date under it as the §6 deadline column.
 struct WishlistScreen: View {
     let client: APIClient
     @StateObject private var store: WishlistStore
@@ -102,10 +110,8 @@ struct WishlistScreen: View {
         ScrollView {
             VStack(spacing: 0) {
                 if !watching.isEmpty {
-                    wishSummaryCard
+                    wishSummaryLine
                 }
-
-                Spacer().frame(height: WVSpacing.md)
 
                 WVSegmented(
                     options: [
@@ -116,6 +122,7 @@ struct WishlistScreen: View {
                     selection: $filter
                 )
                 .padding(.horizontal, WVSpacing.gutter)
+                .padding(.top, WVSpacing.sm)
 
                 Spacer().frame(height: WVSpacing.md)
 
@@ -129,7 +136,6 @@ struct WishlistScreen: View {
                     ) {
                         if query.isEmpty {
                             WVButton(L.t("Thêm món"), icon: "plus") { pushCreate = true }
-                                .padding(.horizontal, WVSpacing.gutter)
                         }
                     }
                 } else {
@@ -178,68 +184,50 @@ struct WishlistScreen: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        // Sort is a secondary control: `label2`, not coral (§5.1).
         ToolbarItem(placement: .topBarLeading) {
             Button { showSort = true } label: {
-                WVIcon("filter", size: 18).foregroundStyle(WVColor.tint)
+                WVIcon("filter", size: 18).foregroundStyle(WVColor.label2)
             }
         }
+        // The one coral affordance on this screen.
         ToolbarItem(placement: .topBarTrailing) {
             Button { pushCreate = true } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
+                WVIcon("plus", size: 17, weight: .semibold)
                     .foregroundStyle(WVColor.tint)
             }
         }
     }
 
-    // MARK: - Summary card
+    // MARK: - Summary line
 
-    private var wishSummaryCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(L.p("ĐANG THÈM %d MÓN", watching.count))
-                .wvFont(.caption2Emphasis)
-                .tracking(1)
-                .foregroundStyle(.white.opacity(0.85))
-            Text(WVFormat.vnd(watchingTotal))
-                .wvFont(.statValue)
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            Text(L.t("Tổng (theo giá hiện tại)"))
-                .wvFont(.footnote)
-                .foregroundStyle(.white.opacity(0.85))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "FF2D55"), Color(hex: "AF52DE")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: WVRadius.card, style: .continuous))
-        .padding(.horizontal, WVSpacing.gutter)
-        .padding(.top, WVSpacing.sm)
+    /// The `ĐANG THÊM 3 MÓN / 57.380.000 ₫` hero used to be a gradient card.
+    /// This screen leads with the items, so it collapses to one meta line; the
+    /// item count now lives here instead of in the footer it replaced.
+    private var wishSummaryLine: some View {
+        Text(L.p("%d món", watching.count) + " · " + WVFormat.vnd(watchingTotal))
+            .wvFont(.footnote)
+            .foregroundStyle(WVColor.label3)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.sm)
     }
 
     // MARK: - List
 
     private var wishList: some View {
-        VStack(spacing: 0) {
-            WVGroup {
-                ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, item in
-                    if idx > 0 { WVDivider(inset: 62) }
-                    NavigationLink(value: item) {
-                        WishRowContent(item: item)
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 52)
-                            .padding(.vertical, 8)
-                    }
-                    .buttonStyle(WVRowButtonStyle())
+        WVGroup {
+            ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, item in
+                if idx > 0 { WVDivider() }
+                NavigationLink(value: item) {
+                    WishRowContent(item: item)
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, WVSpacing.sm)
                 }
+                .buttonStyle(WVRowButtonStyle())
             }
-            WVSectionFooter(L.p("%d món", filtered.count))
         }
     }
 
@@ -252,7 +240,9 @@ struct WishlistScreen: View {
                     Spacer().frame(height: WVSpacing.md)
                     WVGroup {
                         ForEach(Array(WishSort.allCases.enumerated()), id: \.element) { idx, s in
-                            if idx > 0 { WVDivider() }
+                            // Text-only rows have no leading icon, so the 56 pt
+                            // icon-derived hairline would float under the label.
+                            if idx > 0 { WVDivider(inset: WVSpacing.gutter) }
                             Button {
                                 sort = s
                                 showSort = false
@@ -263,13 +253,15 @@ struct WishlistScreen: View {
                                         .foregroundStyle(WVColor.label)
                                     Spacer()
                                     if sort == s {
+                                        // Position already says "selected" — the
+                                        // checkmark is `label`, not coral (§5.1).
                                         WVIcon("check", size: 16, weight: .bold)
-                                            .foregroundStyle(WVColor.tint)
+                                            .foregroundStyle(WVColor.label)
                                     }
                                 }
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, WVSpacing.gutter)
                                 .frame(minHeight: 44)
-                                .padding(.vertical, 4)
+                                .padding(.vertical, WVSpacing.xs)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(WVRowButtonStyle())
@@ -282,7 +274,7 @@ struct WishlistScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Xong") { showSort = false }
+                    Button(L.t("Xong")) { showSort = false }
                         .wvFont(.bodyEmphasis)
                         .foregroundStyle(WVColor.tint)
                 }
@@ -294,8 +286,27 @@ struct WishlistScreen: View {
 
 // MARK: - Row content
 
+/// One wishlist row. Same anatomy as every other content row (§3): neutral
+/// 28 pt tile with a 20 pt glyph, name + meta on the left, and the value
+/// column on the right — here the price, with the §6 target-date column under
+/// it. The value column is reserved at the shared 96 pt (§8.1), so the price
+/// can never be squeezed to a few points and reduced to a lone separator; the
+/// name takes whatever width is left after that column.
 private struct WishRowContent: View {
     let item: WishlistItem
+
+    /// The reserved width of the trailing value column — the same 96 pt the
+    /// device row uses (§8.1). Reserved rather than measured so every row's
+    /// price ends on the same x, and so a long name can never take the space
+    /// the price needs. This is the Breville-row fix: `layoutPriority(1)` on
+    /// the name without a reserved column let the name consume the row and
+    /// left the trailing price a few points wide.
+    ///
+    /// Scaled, not pinned: at a large non-Accessibility size a fixed 96 would
+    /// squeeze the price (and a target-date label) below their minimum scale.
+    @ScaledMetric(relativeTo: .body) private var valueColumnWidth: CGFloat = 96
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var delta: Double? {
         guard let init_ = item.initialPrice, let cur = item.currentPrice, init_ != 0 else { return nil }
@@ -303,43 +314,118 @@ private struct WishRowContent: View {
         return d == 0 ? nil : d
     }
 
+    /// `Apple · Laptop` — the catalog label, never the raw wire code (§8.6).
+    private var categoryLabel: String? {
+        guard let code = item.category, !code.isEmpty else { return nil }
+        return CategoryLabels.label(for: code)
+    }
+
+    private var meta: String {
+        [item.brand, categoryLabel]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            WVLeadingIcon(
-                icon: WVCategory.icon(for: item.category),
-                color: WVCategory.accent(for: item.category),
-                size: 36
-            )
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(item.name)
-                        .wvFont(.callout, weight: .medium)
-                        .foregroundStyle(WVColor.label)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    if let cur = item.currentPrice {
-                        Text(WVFormat.vnd(cur))
-                            .wvFont(.subheadlineEmphasis)
-                            .foregroundStyle(WVColor.label)
+        if dynamicTypeSize.isAccessibilitySize {
+            accessibilityRow
+        } else {
+            regularRow
+        }
+    }
+
+    // MARK: Layout
+
+    private var regularRow: some View {
+        HStack(spacing: WVSpacing.md) {
+            leadingIcon
+            // The name fills the width the value column does not need and keeps
+            // layout priority over the remainder (§10.3 #8), but the reserved
+            // column — not the priority — is what keeps the price on screen.
+            // Priority alone let a long name consume the row and left the
+            // trailing price a few points wide (§8.6).
+            nameAndMeta
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+            valueColumn(alignment: .trailing)
+                .frame(width: valueColumnWidth, alignment: .trailing)
+            chevron
+        }
+    }
+
+    /// At Accessibility sizes the value column no longer fits beside the name,
+    /// so it moves under it — same information, same order, one axis.
+    private var accessibilityRow: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
+            HStack(alignment: .top, spacing: WVSpacing.md) {
+                leadingIcon
+                nameAndMeta
+                    .layoutPriority(1)
+                chevron
+            }
+            valueColumn(alignment: .leading)
+                .padding(.leading, 40)   // 28 pt tile + 12 pt gap
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var leadingIcon: some View {
+        WVLeadingIcon(icon: WVCategory.icon(for: item.category), size: 28)
+    }
+
+    private var chevron: some View {
+        WVIcon("arrowRight", size: 13, weight: .semibold)
+            .foregroundStyle(WVColor.label4)
+    }
+
+    private var nameAndMeta: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.xs) {
+            Text(item.name)
+                .wvFont(.bodyEmphasis)
+                .foregroundStyle(WVColor.label)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !meta.isEmpty || delta != nil {
+                HStack(spacing: WVSpacing.sm) {
+                    if !meta.isEmpty {
+                        Text(meta)
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
                     }
-                }
-                HStack(spacing: 0) {
-                    Text([item.brand, item.category]
-                        .compactMap { $0 }.filter { !$0.isEmpty }
-                        .joined(separator: " · "))
-                        .wvFont(.footnote)
-                        .foregroundStyle(WVColor.label3)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
                     if let d = delta {
-                        Text("\(d < 0 ? "↓" : "↑") \(String(format: "%.1f", abs(d)))%")
-                            .wvFont(.captionEmphasis)
+                        // A verdict, not an identity: meta size, state colour.
+                        Text(deltaLabel(d))
+                            .wvFont(.footnote)
                             .foregroundStyle(d < 0 ? WVColor.green : WVColor.red)
+                            .lineLimit(1)
                     }
                 }
             }
-            WVIcon("arrowRight", size: 13, weight: .semibold)
-                .foregroundStyle(WVColor.label4)
         }
+    }
+
+    /// Price (`rowValue`, always `label`) over the target date (§6). The date
+    /// is only drawn when the item has one — a wishlist item is not a warranty,
+    /// so there is no "chưa ghi hạn" fallback here.
+    private func valueColumn(alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: WVSpacing.xs) {
+            if let cur = item.currentPrice {
+                Text(WVFormat.vnd(cur))
+                    .wvFont(.body, weight: .medium)
+                    .foregroundStyle(WVColor.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            if let target = item.targetDate {
+                WarrantyPill(daysLeft: WVFormat.daysUntil(target), endDate: target)
+            }
+        }
+    }
+
+    private func deltaLabel(_ d: Double) -> String {
+        "\(d < 0 ? "↓" : "↑") \(String(format: "%.1f", abs(d)))%"
     }
 }

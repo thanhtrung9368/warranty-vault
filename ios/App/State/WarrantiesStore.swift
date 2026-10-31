@@ -74,7 +74,12 @@ public final class WarrantiesStore: ObservableObject {
 
     public func delete(id: String) async throws {
         try await client.deleteWarranty(id: id)
+        // Drop the row immediately (a failed re-read below must not bring it
+        // back), then re-read. The hero prefers the detail read's
+        // `effectiveWarrantyEnd`, which is server-computed, so it must be
+        // refreshed or it would keep pointing at the warranty that just left.
         warranties.removeAll { $0.id == id }
+        await load()
         DeadlineSurface.refreshSoon(client: client)
     }
 

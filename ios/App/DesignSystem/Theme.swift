@@ -84,25 +84,42 @@ enum WVColor {
     static let gray3  = Color(hex: "C7C7CC")
 }
 
-/// Corner radii (styles.css `--r-*`).
+/// Corner radii. Three values only — 8 / 12 / 16 (§4 of the visual direction):
+///
+/// * `sm` — anything the size of a control: segmented track/thumb, chips,
+///   tags, an icon tile, a small button.
+/// * `list` — a group of rows, a row-card (notice, attachment), every button.
+/// * `card` — a screen-level card, the one block that leads a screen.
+///
+/// `widget` is retained as an alias of `card` so existing call sites keep
+/// compiling; the old 18 is gone.
 enum WVRadius {
-    static let card: CGFloat = 14
+    static let card: CGFloat = 16
     static let list: CGFloat = 12
-    static let widget: CGFloat = 18
+    static let widget: CGFloat = 16
     static let sm: CGFloat = 8
-    static let pill: CGFloat = 999
 }
 
-/// Common spacing steps. The prototype hangs grouped content off a 16pt
-/// horizontal gutter, with 20pt for large-title rows.
+/// Common spacing steps — a 4 pt base, six steps, no others (§3).
+///
+/// `titleGutter` is kept as an alias of `gutter` so the call sites that still
+/// name it compile; it is no longer a wider left edge. Every header, footer and
+/// card starts at 16.
 enum WVSpacing {
+    /// The screen gutter — cards, row padding, headers, footers, empty states.
     static let gutter: CGFloat = 16
-    static let titleGutter: CGFloat = 20
+    /// Retained alias of `gutter` (was 20). Do not add a new wider inset.
+    static let titleGutter: CGFloat = 16
     static let xs: CGFloat = 4
     static let sm: CGFloat = 8
     static let md: CGFloat = 12
+    /// The screen gutter under its other name.
     static let lg: CGFloat = 16
+    /// Above a section heading.
     static let xl: CGFloat = 24
+    /// The top of a screen hero and the vertical padding of an empty state —
+    /// nowhere else.
+    static let xxl: CGFloat = 32
 }
 
 // MARK: - Named accent colors

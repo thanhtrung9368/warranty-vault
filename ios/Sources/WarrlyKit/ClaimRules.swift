@@ -20,8 +20,15 @@ import Foundation
 //   * **The 409.** `saveFailure(_:)` turns `limit_reached` into copy with a way
 //     out instead of a generic error.
 //
-// Dates stay the raw wire strings (see `Claim`): only their day is shown, and
-// `dayLabel` reads it off the string so the calendar day cannot slide.
+// ## Two kinds of date on a claim
+//
+// `expectedReturnAt` is a **calendar day** (`format: date`): read its leading
+// day, never parse it as an instant. `openedAt` and `closedAt` are RFC 3339
+// **instants** (`openapi.yaml`: "Là instant: RFC 3339 UTC kèm Z"; the server
+// writes `time.Now().UTC()`): their UTC day is the previous local day for a
+// UTC+7 reader before 07:00 and the next one for a UTC−8 reader after 16:00, so
+// they go through `instantDay` / `instantDayLabel`, which reduce the instant to
+// the day the user's calendar shows.
 
 /// Which side of the one-open-claim rule a claim is on.
 public enum ClaimLifecycle: Equatable, Sendable {
@@ -155,19 +162,68 @@ public enum ClaimRules {
         return VndFormat.string(Int64(cost))
     }
 
-    // MARK: - Reading the stored days
+    // MARK: - Reading the stored dates
 
-    /// `dd/MM/yyyy` for a wire date, or `nil` when there is not one there.
+    /// `dd/MM/yyyy` for a wire **calendar day** (`Claim.expectedReturnAt`), or
+    /// `nil` when there is not one there.
     ///
     /// Delegates to the same day reduction `DeviceResale` and
     /// `DeviceReturnWindow` use: the value is a calendar day, so parsing it as
     /// an instant could move the calendar day by the device's offset.
+    ///
+    /// This is **not** the right reader for `Claim.openedAt` / `Claim.closedAt`:
+    /// those are RFC 3339 instants, and their UTC day is a different local day
+    /// for part of every day. Use `instantDayLabel(_:in:)` for them.
     public static func dayLabel(_ wire: String?) -> String? {
         DeviceReturnWindow.deadlineLabel(wire)
     }
 
-    /// `YYYY-MM-DD` → the `Date` a date picker should hold for that day, in
-    /// `timeZone`. `nil` when the wire value carries no readable day.
+    /// The local calendar day of a wire **instant** (`Claim.openedAt`,
+    /// `Claim.closedAt`), as local midnight in `timeZone`.
+    ///
+    /// `openedAt` / `closedAt` are RFC 3339 instants on the wire (`openapi.yaml`
+    /// `Claim.openedAt`: "Là instant: RFC 3339 UTC kèm Z"); the server writes
+    /// `time.Now().UTC()`. Reading their leading ten bytes — the rule for
+    /// calendar-day fields — takes the **UTC** day: a claim closed at 05:30 in
+    /// Vietnam is stored `…T22:30Z` on the previous day, and a claim opened at
+    /// 03:00 is stored `…T20:00Z` on the previous day too. Only the user's own
+    /// calendar shows the day they lived through, so this converts the instant
+    /// into `timeZone` first.
+    ///
+    /// A value with **no offset** is not an instant: it is a calendar day (a
+    /// legacy row, or the `YYYY-MM-DD` this client sends for a picked day), so
+    /// it is read with `WireDay` exactly like `dayLabel`. That keeps every
+    /// historical row meaningful and makes the function total over both shapes
+    /// the contract accepts on the write side.
+    public static func instantDay(_ wire: String?,
+                                  in timeZone: TimeZone = .current) -> Date? {
+        guard let raw = wire?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else { return nil }
+        guard let parsed = parseInstantOrDay(raw, in: timeZone) else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return calendar.startOfDay(for: parsed)
+    }
+
+    /// `dd/MM/yyyy` for the local day of a wire instant — the same day
+    /// `instantDay` returns, formatted like every other date row.
+    public static func instantDayLabel(_ wire: String?,
+                                       in timeZone: TimeZone = .current) -> String? {
+        guard let day = instantDay(wire, in: timeZone) else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = timeZone
+        f.dateFormat = "dd/MM/yyyy"
+        return f.string(from: day)
+    }
+
+    /// `YYYY-MM-DD` → the `Date` a date picker should hold for that **calendar
+    /// day**, in `timeZone`. `nil` when the wire value carries no readable day.
+    ///
+    /// For the day-granularity fields (`expectedReturnAt`). A picker holding an
+    /// instant (`openedAt`) must seed itself from `instantDay(_:in:)` — the same
+    /// distinction the web's claim form makes with `dayToInputValue` vs
+    /// `instantInputValue`.
     public static func dayDate(_ wire: String?, in timeZone: TimeZone = .current) -> Date? {
         WireDay.date(from: wire, in: timeZone)
     }
@@ -176,6 +232,22 @@ public enum ClaimRules {
     /// `dayDate(_:in:)`. Used for the form's write side.
     public static func dayString(_ date: Date, in timeZone: TimeZone = .current) -> String {
         WireDay.string(from: date, in: timeZone)
+    }
+
+    /// RFC 3339 with an offset → the instant it names. Anything else is a
+    /// calendar day and is re-anchored at local midnight in `timeZone` (the
+    /// `WireDay` rule) rather than at the machine's zone.
+    private static func parseInstantOrDay(_ raw: String, in timeZone: TimeZone) -> Date? {
+        guard hasUTCOffset(raw) else { return WireDay.date(from: raw, in: timeZone) }
+        return APIClient.DateFormatters.parse(raw)
+    }
+
+    /// `true` when the value carries a UTC designator or a numeric offset —
+    /// i.e. it names an instant rather than a calendar day.
+    private static func hasUTCOffset(_ raw: String) -> Bool {
+        if raw.hasSuffix("Z") || raw.hasSuffix("z") { return true }
+        guard let t = raw.firstIndex(of: "T") else { return false }
+        return raw[raw.index(after: t)...].contains { $0 == "+" || $0 == "-" }
     }
 
     // MARK: - Validation

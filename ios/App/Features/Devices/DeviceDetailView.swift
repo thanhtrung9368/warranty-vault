@@ -5,8 +5,10 @@ import WarrlyKit
 // ============================================================
 // DeviceDetailView — device detail screen
 //
-// Ports DeviceDetailScreen from project/ios/js/screens-1.jsx.
-// Hero icon + info groups + warranty timeline cards + attachments.
+// Ported from project/ios/js/screens-1.jsx, re-cut to the visual direction:
+// the hero leads with the deadline (§6), not with a 64 pt category icon.
+// Deadline hero + receipt strip + attachment rows + info groups + the
+// warranty/repair disclosure.
 // Edit → push DeviceFormView; add/edit warranty → push WarrantyFormView.
 // ============================================================
 
@@ -89,12 +91,21 @@ struct DeviceDetailView: View {
     /// device has none), while after the read `0` is a fact worth showing.
     private var detailLoaded: Bool { store.state == .loaded }
 
-    /// The furthest warranty end, from the detail read when it has loaded and
-    /// from the list projection otherwise. Used by the handover checklist's
-    /// "know the warranty end date" line; `nil` means the app genuinely does not
-    /// know, and the checklist says so rather than inventing a date.
+    /// The furthest warranty end, from the server. Used by the handover
+    /// checklist's "know the warranty end date" line; `nil` means the app
+    /// genuinely does not know, and the checklist says so rather than inventing
+    /// a date.
+    ///
+    /// The **server** answers this on both reads and only over whole-unit rows
+    /// (`openapi.yaml` `DeviceWithEffectiveWarranty`), so a component-scoped
+    /// warranty — a fridge's ten-year motor cover — cannot become the device's
+    /// end. Order: the detail read, then the list projection, and only then the
+    /// local `StatsRollup` helper, which exists for a device this process has
+    /// not re-read since it was created or edited.
     private var effectiveWarrantyEnd: Date? {
-        StatsRollup.effectiveWarrantyEnd(warranties) ?? currentDevice.effectiveWarrantyEnd
+        store.device?.effectiveWarrantyEnd
+            ?? currentDevice.effectiveWarrantyEnd
+            ?? StatsRollup.effectiveWarrantyEnd(warranties)
     }
 
     /// The legal, **display-only** end of the device's warranty: the effective
@@ -277,14 +288,13 @@ struct DeviceDetailView: View {
                     title: L.t("Bảo hành & sửa chữa"),
                     subtitle: L.t("Gói bảo hành, sửa chữa, liên hệ, bàn giao và chia sẻ"),
                     icon: "shieldCheck",
-                    iconColor: WVColor.green,
                     isExpanded: $warrantyRepairExpanded
                 ) {
                     // The per-package progress cards are the overview; the
                     // list below is where a package is added or edited.
                     if !warranties.isEmpty {
                         warrantyTimelineCard
-                            .padding(.top, 8)
+                            .padding(.top, WVSpacing.sm)
                     }
 
                     // Warranty packages.
@@ -326,16 +336,16 @@ struct DeviceDetailView: View {
                         WVGroup {
                             ForEach(Array(contactWarranties.enumerated()), id: \.element.id) { _, w in
                                 if let phone = w.phone {
-                                    WVDivider(inset: 60)
-                                    WVRow(icon: "phone", iconColor: WVColor.green,
+                                    WVDivider()
+                                    WVRow(icon: "phone",
                                           title: phone,
                                           subtitle: w.provider,
                                           chevron: true,
                                           action: { openURL("tel:\(phone)") })
                                 }
                                 if let address = w.address {
-                                    WVDivider(inset: 60)
-                                    WVRow(icon: "mapPin", iconColor: WVColor.red,
+                                    WVDivider()
+                                    WVRow(icon: "mapPin",
                                           title: address,
                                           subtitle: w.provider,
                                           chevron: true,
@@ -352,7 +362,7 @@ struct DeviceDetailView: View {
                     WVSectionHeader(L.t("Trước khi đi bảo hành"))
                     WVSectionFooter(L.t("Danh sách nhắc bạn gỡ khoá, sao lưu, chuẩn bị giấy tờ và kiểm tra máy khi nhận lại — những việc quyết định chuyến đi có thành công hay không."))
                     WVGroup {
-                        WVRow(icon: "checklist", iconColor: WVColor.orange,
+                        WVRow(icon: "checklist",
                               title: L.t("Danh sách bàn giao trước khi sửa"),
                               subtitle: L.t("Chỉ tick trong phiên này, không lưu lên máy chủ"),
                               chevron: true,
@@ -378,47 +388,49 @@ struct DeviceDetailView: View {
                 }
                 .modifier(WVQAScrollAnchor())
 
-                // Info group — purchase
+                // Info group — purchase. Every row here is a read-only fact: a
+                // neutral 20 pt glyph in the standard 28 pt tile, the label, and
+                // the value in the `rowValue` role (17 medium, `label3`).
                 WVSectionHeader(L.t("Mua hàng"))
                 WVGroup {
-                    WVRow(icon: "calendar", iconColor: WVColor.red,
-                          title: L.t("Ngày mua"),
-                          detail: WVFormat.date(currentDevice.purchaseDate))
+                    DeviceFactRow(icon: "calendar",
+                                  title: L.t("Ngày mua"),
+                                  detail: WVFormat.date(currentDevice.purchaseDate))
                     if let window = returnWindowDisplay {
-                        WVDivider(inset: 60)
+                        WVDivider()
                         // Read-only: this is the server's own derived deadline
                         // (`COALESCE(receivedAt, purchaseDate) + returnWindowDays`),
                         // never recomputed here. There is no input for the window
                         // length on purpose — see `DeviceReturnWindow`.
-                        WVRow(icon: "arrowDown", iconColor: WVColor.purple,
-                              title: L.t("Hạn đổi/trả"),
-                              subtitle: window.note,
-                              detail: window.value)
+                        DeviceFactRow(icon: "arrowDown",
+                                      title: L.t("Hạn đổi/trả"),
+                                      subtitle: window.note,
+                                      detail: window.value)
                     }
-                    WVDivider(inset: 60)
-                    WVRow(icon: "wallet", iconColor: WVColor.green,
-                          title: L.t("Giá mua"),
-                          subtitle: purchasePriceDisplay.subtitle,
-                          detail: purchasePriceDisplay.detail)
+                    WVDivider()
+                    DeviceFactRow(icon: "wallet",
+                                  title: L.t("Giá mua"),
+                                  subtitle: purchasePriceDisplay.subtitle,
+                                  detail: purchasePriceDisplay.detail)
                     if currentDevice.usesForeignCurrency {
-                        WVDivider(inset: 60)
+                        WVDivider()
                         // The locked rate, stated so the two prices above make
                         // sense together. It is history, not a live quote.
-                        WVRow(icon: "globe", iconColor: WVColor.blue,
-                              title: L.t("Tiền tệ"),
-                              subtitle: currentDevice.fxRate.map {
-                                  L.t("1 %@ = %@", currentDevice.currencyCode, WVFormat.rate($0))
-                              },
-                              detail: currentDevice.currencyCode)
+                        DeviceFactRow(icon: "globe",
+                                      title: L.t("Tiền tệ"),
+                                      subtitle: currentDevice.fxRate.map {
+                                          L.t("1 %@ = %@", currentDevice.currencyCode, WVFormat.rate($0))
+                                      },
+                                      detail: currentDevice.currencyCode)
                     }
-                    WVDivider(inset: 60)
-                    WVRow(icon: "store", iconColor: WVColor.orange,
-                          title: L.t("Nơi mua"),
-                          detail: currentDevice.purchasePlace ?? "—")
-                    WVDivider(inset: 60)
-                    WVRow(icon: "hash", iconColor: WVColor.blue,
-                          title: "Serial / IMEI",
-                          detail: currentDevice.serialNumber ?? "—")
+                    WVDivider()
+                    DeviceFactRow(icon: "store",
+                                  title: L.t("Nơi mua"),
+                                  detail: currentDevice.purchasePlace ?? "—")
+                    WVDivider()
+                    DeviceFactRow(icon: "hash",
+                                  title: "Serial / IMEI",
+                                  detail: currentDevice.serialNumber ?? "—")
                 }
 
                 // Warranty activation / extended cover (Feature A). Read-only;
@@ -429,21 +441,19 @@ struct DeviceDetailView: View {
                     WVSectionHeader(L.t("Bảo hành & kích hoạt"))
                     WVGroup {
                         if let status = activation.status {
-                            WVRow(
+                            DeviceFactRow(
                                 icon: activation.state == .requiredNotActivated
                                     ? "shieldX" : "shieldCheck",
-                                iconColor: activation.state == .requiredNotActivated
-                                    ? WVColor.red : WVColor.green,
                                 title: L.t("Kích hoạt"),
                                 detail: status
                             )
                         }
                         if let day = activation.buyByDay {
-                            if activation.status != nil { WVDivider(inset: 60) }
-                            WVRow(icon: "calendar", iconColor: WVColor.orange,
-                                  title: L.t("Hạn mua gói mở rộng"),
-                                  subtitle: activation.buyByNote,
-                                  detail: day)
+                            if activation.status != nil { WVDivider() }
+                            DeviceFactRow(icon: "calendar",
+                                          title: L.t("Hạn mua gói mở rộng"),
+                                          subtitle: activation.buyByNote,
+                                          detail: day)
                         }
                     }
                 }
@@ -455,9 +465,9 @@ struct DeviceDetailView: View {
                 if let leadDaysDisplay {
                     WVSectionHeader(L.t("Nhắc nhở"))
                     WVGroup {
-                        WVRow(icon: "clock", iconColor: WVColor.purple,
-                              title: L.t("Nhắc trước"),
-                              detail: leadDaysDisplay)
+                        DeviceFactRow(icon: "clock",
+                                      title: L.t("Nhắc trước"),
+                                      detail: leadDaysDisplay)
                     }
                 }
 
@@ -467,35 +477,36 @@ struct DeviceDetailView: View {
                     WVSectionHeader(L.t("Bán lại"))
                     WVGroup {
                         if let day = sale.day {
-                            WVRow(icon: "calendar", iconColor: WVColor.blue,
-                                  title: L.t("Ngày bán"),
-                                  detail: day)
+                            DeviceFactRow(icon: "calendar",
+                                          title: L.t("Ngày bán"),
+                                          detail: day)
                         }
                         if let price = sale.price {
-                            if sale.day != nil { WVDivider(inset: 60) }
-                            WVRow(icon: "wallet", iconColor: WVColor.green,
-                                  title: L.t("Giá bán"),
-                                  subtitle: soldPriceVndDisplay,
-                                  detail: WVFormat.currency(price, currentDevice.currency))
+                            if sale.day != nil { WVDivider() }
+                            DeviceFactRow(icon: "wallet",
+                                          title: L.t("Giá bán"),
+                                          subtitle: soldPriceVndDisplay,
+                                          detail: WVFormat.currency(price, currentDevice.currency))
                         }
                         if let profit = sale.profit {
-                            WVDivider(inset: 60)
+                            WVDivider()
                             WVRowContainer {
-                                HStack(spacing: 12) {
+                                HStack(spacing: WVSpacing.md) {
                                     WVLeadingIcon(
                                         icon: profit.tone == .loss ? "trendingDown" : "trendingUp",
-                                        color: DeviceFormView.saleToneColor(profit.tone),
-                                        size: 30
+                                        size: 28
                                     )
                                     Text(L.t("Lãi/lỗ so với giá mua"))
                                         .wvFont(.body)
                                         .foregroundStyle(WVColor.label)
-                                    Spacer(minLength: 8)
+                                    Spacer(minLength: WVSpacing.sm)
                                     // "Lãi 2.000.000 ₫" / "Lỗ 500.000 ₫" / "Hoà vốn"
                                     // — the same wording web and Android render.
+                                    // The word carries the verdict: money is
+                                    // never red or green (§5.2).
                                     Text(profit.label)
-                                        .wvFont(.bodyEmphasis)
-                                        .foregroundStyle(DeviceFormView.saleToneColor(profit.tone))
+                                        .wvFont(.body, weight: .medium)
+                                        .foregroundStyle(WVColor.label)
                                 }
                             }
                         }
@@ -507,12 +518,12 @@ struct DeviceDetailView: View {
                     WVSectionHeader(L.t("Ghi chú"))
                     WVGroup {
                         Text(note)
-                            .wvFont(.subheadline)
+                            .wvFont(.body)
                             .foregroundStyle(WVColor.label)
                             .lineSpacing(4)
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, WVSpacing.gutter)
                             .frame(minHeight: 44)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, WVSpacing.sm)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -537,44 +548,52 @@ struct DeviceDetailView: View {
                 // Serial advisories from the PATCH — amber, never an error: the
                 // status change went through.
                 if !statusWarnings.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
                         ForEach(Array(statusWarnings.enumerated()), id: \.offset) { _, warning in
-                            HStack(alignment: .top, spacing: 6) {
+                            HStack(alignment: .top, spacing: WVSpacing.sm) {
                                 WVIcon("alert", size: 12)
                                     .foregroundStyle(WVColor.orange)
                                 Text("\(warning.fieldLabel): \(warning.displayMessage)")
-                                    .wvFont(.caption)
+                                    .wvFont(.footnote)
                                     .foregroundStyle(WVColor.label2)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         Text(DeviceWarningCopy.savedNote)
-                            .wvFont(.caption2)
+                            .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.horizontal, WVSpacing.titleGutter)
-                    .padding(.top, 6)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, WVSpacing.sm)
                 }
 
-                // Delete row
+                // Delete row. Red text, and red only as text: a 20 pt red glyph
+                // and a red label with no tile behind them (§8.2). A destructive
+                // row is the one place red belongs outside a date (§5.2).
                 WVGroup {
-                    WVRow(icon: "trash", iconColor: WVColor.red,
-                          title: L.t("Xoá thiết bị"),
-                          role: .destructive,
-                          action: { showDeleteAlert = true })
+                    WVRowContainer(action: { showDeleteAlert = true }) {
+                        HStack(spacing: WVSpacing.md) {
+                            WVIcon("trash", size: 20)
+                                .foregroundStyle(WVColor.red)
+                            Text(L.t("Xoá thiết bị"))
+                                .wvFont(.body)
+                                .foregroundStyle(WVColor.red)
+                            Spacer(minLength: WVSpacing.sm)
+                        }
+                    }
                 }
-                .padding(.top, 16)
+                .padding(.top, WVSpacing.gutter)
 
                 if let actionError {
                     Text(actionError)
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.red)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 8)
+                        .padding(.horizontal, WVSpacing.gutter)
+                        .padding(.top, WVSpacing.sm)
                 }
 
-                Spacer().frame(height: 24)
+                Spacer().frame(height: WVSpacing.xl)
             }
             .modifier(WVQAScrollTargetLayout())
         }
@@ -605,9 +624,12 @@ struct DeviceDetailView: View {
                         Label(L.t("Xoá thiết bị"), systemImage: "trash")
                     }
                 } label: {
+                    // Neutral, not coral: this screen's one coral action is the
+                    // dashed "Thêm" receipt tile in the hero, and a coral "..."
+                    // was one of the four meanings §5.1 removes.
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(WVColor.tint)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
                 }
             }
         }
@@ -664,110 +686,146 @@ struct DeviceDetailView: View {
     // MARK: - Hero section
 
     private var heroSection: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 12) {
-                WVLeadingIcon(
-                    icon: WVCategory.icon(for: currentDevice.category),
-                    color: WVCategory.accent(for: currentDevice.category),
-                    size: 64
-                )
-                VStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: WVSpacing.md) {
+                // The name is the deadline's caption, not a second title
+                // competing with the navigation bar: one line, 20 semibold, a
+                // 20 pt neutral glyph in front of it. The 64 pt coral tile and
+                // the status chip are gone — the deadline block below already
+                // says the state, and coral belongs to the one action (§5.1).
+                HStack(spacing: WVSpacing.md) {
+                    WVIcon(WVCategory.icon(for: currentDevice.category),
+                           size: 20, weight: .regular)
+                        .foregroundStyle(WVColor.label2)
+                        .accessibilityHidden(true)
                     Text(currentDevice.name)
-                        .wvFont(.title2Emphasis)
+                        .wvFont(.title3Emphasis)
                         .foregroundStyle(WVColor.label)
-                        .multilineTextAlignment(.center)
+                        // One line at every content size; at Accessibility
+                        // sizes the name wraps instead of clipping.
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text([currentDevice.brand, currentDevice.model]
-                        .compactMap { $0 }
-                        .joined(separator: " · "))
-                        .wvFont(.subheadline)
-                        .foregroundStyle(WVColor.label3)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                // Two badges do not fit on one line at Accessibility sizes;
-                // they stack in the same order instead of overflowing the card.
-                let badges = Group {
-                    DeviceStatusBadge(status: currentDevice.status)
-                    // The mismatch flag is deliberately in the hero: the user
-                    // should see that the brand disagrees before they read any
-                    // other number on this screen. Orange, never red.
-                    if brandWarrantyMismatch != nil {
-                        WVChip(BrandWarrantyCopy.mismatchBadge, tone: .orange, icon: "alert")
-                    }
-                }
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(spacing: 6) { badges }
-                } else {
-                    HStack(spacing: 6) { badges }
                 }
 
-                // The fact the old pill could not state: the absolute end date.
-                // "Còn 9d" is a countdown; this is the date a user can put in a
-                // calendar, in the same wording every deadline row uses.
-                heroDeadlineLine
+                if !deviceModelLine.isEmpty {
+                    Text(deviceModelLine)
+                        .wvFont(.footnote)
+                        .foregroundStyle(WVColor.label3)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                heroDeadlineBlock
+
+                // The one chip on this screen, and the one fact that can change
+                // what the user believes about the warranty. Amber, never red.
+                if brandWarrantyMismatch != nil {
+                    WVChip(BrandWarrantyCopy.mismatchBadge, tone: .orange, icon: "alert")
+                }
             }
             .padding(.horizontal, WVSpacing.gutter)
-            .padding(.top, 20)
-            .padding(.bottom, 14)
+            .padding(.top, WVSpacing.xxl)
+            .padding(.bottom, WVSpacing.gutter)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            // The receipt, where the eye lands — directly under the name and
-            // the end date, not as the fourteenth section of sixteen.
+            // The receipt, where the eye lands — directly under the deadline,
+            // not as the fourteenth section of sixteen. Its behaviour is fixed
+            // (§9.1); the tile gap is the only thing that changed, 10 → 12.
             ReceiptStrip(client: client, model: attachmentsModel)
 
-            Spacer().frame(height: 16)
+            Spacer().frame(height: WVSpacing.gutter)
         }
     }
 
-    /// "Hết hạn 15/09/2027 · còn 9 ngày", or an honest "not recorded" line.
+    /// `Apple · iPhone 16 Pro Max 256GB`, or an empty string when neither is
+    /// recorded.
+    private var deviceModelLine: String {
+        [currentDevice.brand, currentDevice.model]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
+    // MARK: - Hero deadline block
+
+    /// The lead surface of §6: eyebrow, 28 pt day count, absolute date.
     ///
-    /// `effectiveWarrantyEnd` prefers the list projection, so the date is on
-    /// screen before the detail read lands — the old hero could only show a
-    /// pill once `warranties` had arrived.
+    /// Three literal lines — `Bảo hành` at 13 semibold `label3`, the day count
+    /// at 28 bold in the state colour, `Hết hạn 20/09/2027` at 13 `label3`. It
+    /// is deliberately **not** `WarrantyPill`: that is the row form, and past 90
+    /// days it prints the date in `label3`, which is exactly the line this
+    /// block already carries under the number.
     ///
-    /// When this device has closed repairs, the date and day count shown are
-    /// the **legal** ones (`raw end + repair days`), and the two lines under it
+    /// When this device has closed repairs, the date and the countdown are the
+    /// **legal** ones (`raw end + repair days`), and the two lines under them
     /// say why and that the retailer has not necessarily agreed. The server's
-    /// raw date is still printed in the warranty card below, so the user can
-    /// see both numbers rather than being handed a silently moved date.
+    /// raw date is still printed in the warranty card inside the disclosure, so
+    /// the user sees both numbers rather than a silently moved date.
     @ViewBuilder
-    private var heroDeadlineLine: some View {
-        if let end = displayedWarrantyEnd {
-            let days = WVFormat.daysUntil(end)
-            Text(DeadlineCopy.label(kind: .warranty,
-                                    dateText: WVFormat.date(end),
-                                    days: days))
-                .wvFont(.subheadlineEmphasis)
-                .foregroundStyle(WarrantyPillCopy.status(daysLeft: days).heroColor)
-                .multilineTextAlignment(.center)
+    private var heroDeadlineBlock: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.xs) {
+            Text(DeadlineCopy.kindLabel(.warranty))
+                .wvFont(.footnoteEmphasis)
+                .foregroundStyle(WVColor.label3)
+
+            Text(heroDeadlineLead)
+                .wvFont(.statValue)
+                .foregroundStyle(heroDeadlineColor)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let end = displayedWarrantyEnd {
+                Text(DeadlineCopy.dateLabel(kind: .warranty, dateText: WVFormat.date(end)))
+                    .wvFont(.footnote)
+                    .foregroundStyle(WVColor.label3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if let extension_ = repairExtension, extension_.hasExtension {
                 Text(WarrantyRepairAdjustment.addedDaysLabel(extension_.days))
-                    .wvFont(.caption)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
-                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(WarrantyRepairAdjustment.legalNote)
-                    .wvFont(.caption)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
-                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        } else {
-            Text(L.t("Chưa ghi hạn bảo hành"))
-                .wvFont(.subheadline)
-                .foregroundStyle(WVColor.label3)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// `còn 324 ngày` / `Hết hạn hôm nay` / `Đã hết hạn` — §6's grammar, at
+    /// 28 pt instead of row size.
+    ///
+    /// A **sold** device short-circuits to `Đã bán`: it is not a deadline, and
+    /// `WarrantyPill` has no `sold` input at all (the row form leaves that case
+    /// to the list screen). No recorded date is `Chưa ghi hạn`, never a
+    /// countdown the data cannot support.
+    private var heroDeadlineLead: String {
+        if currentDevice.status == .SOLD { return L.t("Đã bán") }
+        guard let end = displayedWarrantyEnd else { return L.t("Chưa ghi hạn") }
+        let days = WVFormat.daysUntil(end)
+        switch WarrantyPillCopy.status(daysLeft: days) {
+        case .expired:     return L.t("Đã hết hạn")
+        case .danger:      return days == 0 ? L.t("Hết hạn hôm nay") : L.p("còn %d ngày", days)
+        case .warn, .safe: return L.p("còn %d ngày", days)
+        }
+    }
+
+    /// The lead's colour: the state scale at large size. Green is the "> 90
+    /// days" state **on a lead surface** (§5.2 and the brief's correction E) —
+    /// the row form prints a grey date instead. Gray is sold or past; `label4`
+    /// is "no date", which is not a state.
+    private var heroDeadlineColor: Color {
+        if currentDevice.status == .SOLD { return WVColor.label3 }
+        guard let end = displayedWarrantyEnd else { return WVColor.label4 }
+        return WarrantyPillCopy.status(daysLeft: WVFormat.daysUntil(end)).heroColor
     }
 
     // MARK: - Warranty timeline card
 
     private var warrantyTimelineCard: some View {
-        WVCard(padding: 16) {
-            VStack(alignment: .leading, spacing: 14) {
+        WVCard(padding: WVSpacing.gutter) {
+            VStack(alignment: .leading, spacing: WVSpacing.gutter) {
                 Text(L.t("Tổng quan bảo hành"))
                     .wvFont(.subheadlineEmphasis)
                     .foregroundStyle(WVColor.label)
@@ -785,7 +843,7 @@ struct DeviceDetailView: View {
                 // two unrelated numbers.
                 if let extension_ = repairExtension, extension_.hasExtension {
                     Rectangle().fill(WVColor.sep).frame(height: 0.5)
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
                         Text(L.t("Hạn điều chỉnh: %@ (gốc %@)",
                                  WVFormat.date(extension_.adjustedEnd),
                                  WVFormat.date(extension_.rawEnd)))
@@ -812,18 +870,21 @@ struct DeviceDetailView: View {
         WVGroup {
             let canAdd = warranties.count < 5
             ForEach(Array(warranties.enumerated()), id: \.element.id) { idx, w in
-                if idx > 0 { WVDivider(inset: 60) }
+                if idx > 0 { WVDivider() }
                 NavigationLink(value: WarrantyFormNav(warranty: w)) {
                     WarrantyListRow(warranty: w)
                 }
                 .buttonStyle(WVRowButtonStyle())
             }
             if canAdd {
-                if !warranties.isEmpty { WVDivider(inset: 60) }
+                if !warranties.isEmpty { WVDivider() }
                 NavigationLink(value: WarrantyFormNav(warranty: nil)) {
-                    WVRow(icon: "plus", iconColor: WVColor.tint,
-                          title: L.t("Thêm gói bảo hành"),
-                          role: .tint)
+                    // Neutral, with a chevron for the affordance: the one coral
+                    // action on this screen is the receipt strip's "Thêm" tile
+                    // (§5.1), not every "add" row on the page.
+                    DeviceFactRow(icon: "plus",
+                                  title: L.t("Thêm gói bảo hành"),
+                                  chevron: true)
                 }
                 .buttonStyle(WVRowButtonStyle())
             }
@@ -1038,7 +1099,7 @@ struct DeviceRouteDestination: View {
                             title: L.t("Không tải được thiết bị"),
                             description: message) {
                         WVButton(L.t("Thử lại")) { Task { await resolve(force: true) } }
-                            .padding(.horizontal, 32)
+                            .padding(.horizontal, WVSpacing.gutter)
                     }
                 }
                 .wvScreen()
@@ -1050,7 +1111,7 @@ struct DeviceRouteDestination: View {
                         WVButton(L.t("Thử lại"), kind: .secondary) {
                             Task { await resolve(force: true) }
                         }
-                        .padding(.horizontal, 32)
+                        .padding(.horizontal, WVSpacing.gutter)
                     }
                 }
                 .wvScreen()
@@ -1082,72 +1143,158 @@ struct DeviceRouteDestination: View {
 /// The detail screen's shape while the router resolves which device to draw.
 /// Static and redacted, like the other skeletons in the app — the point is a
 /// surface that looks like the destination, not a spinner in an empty page.
+///
+/// Its *shape* follows the new hero (§9.2 allows that, the behaviour may not
+/// change): 20 pt glyph + name, then the three deadline lines, then the first
+/// group of rows. The old 64 pt circle promised an icon the screen no longer has.
 private struct DeviceDetailSkeleton: View {
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 12) {
-                Circle()
-                    .fill(WVColor.fill3)
-                    .frame(width: 64, height: 64)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: WVSpacing.md) {
+                HStack(spacing: WVSpacing.md) {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(width: 20, height: 20)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(WVColor.fill3)
+                        .frame(width: 170, height: 20)
+                }
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(WVColor.fill3)
-                    .frame(width: 170, height: 18)
+                    .frame(width: 64, height: 13)
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(WVColor.fill3)
-                    .frame(width: 110, height: 12)
+                    .frame(width: 150, height: 28)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(WVColor.fill3)
+                    .frame(width: 120, height: 13)
             }
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, WVSpacing.gutter)
+            .padding(.top, WVSpacing.xxl)
+            .padding(.bottom, WVSpacing.gutter)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             WVGroup {
                 ForEach(0..<3) { i in
-                    if i > 0 { WVDivider(inset: 60) }
-                    HStack(spacing: 12) {
+                    if i > 0 { WVDivider() }
+                    HStack(spacing: WVSpacing.md) {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(WVColor.fill3)
-                            .frame(width: 30, height: 30)
+                            .frame(width: 28, height: 28)
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(WVColor.fill3)
                             .frame(height: 14)
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.vertical, WVSpacing.sm)
                     .redacted(reason: .placeholder)
                 }
             }
         }
-        .padding(.top, 8)
     }
 }
 
-// MARK: - Device status badge
+// MARK: - Fact row
 
-private struct DeviceStatusBadge: View {
-    let status: DeviceStatus
+/// One read-only fact row of this screen: `Mua hàng`, `Nhắc nhở`, the activation
+/// rows, the resale pair and the "Thêm gói bảo hành" affordance.
+///
+/// Same geometry as `WVRow` — neutral 28 pt tile with its 20 pt `label2` glyph,
+/// 12 pt gap, 16 pt row inset, 44 pt floor, 8 pt vertical padding — plus the two
+/// roles §8.2 asks for and `WVRow` does not carry: the trailing value is
+/// `rowValue` (17 **medium**, `label3`, §2) and the title keeps layout priority
+/// so it is never the thing that truncates first (§10.3 check 8).
+private struct DeviceFactRow: View {
+    var icon: String?
+    let title: String
+    var subtitle: String?
+    var detail: String?
+    var chevron: Bool = false
 
-    private var tone: WVChipTone {
-        switch status {
-        case .ACTIVE:  return .green
-        case .EXPIRED: return .gray
-        case .SOLD:    return .blue
-        case .BROKEN:  return .red
-        case .LOST:    return .orange
-        }
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var titleText: some View {
+        Text(title)
+            .wvFont(.body)
+            .foregroundStyle(WVColor.label)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
-    private var label: String {
-        switch status {
-        case .ACTIVE:  return L.t("Đang dùng")
-        case .EXPIRED: return L.t("Hết BH")
-        case .SOLD:    return L.t("Đã bán")
-        case .BROKEN:  return L.t("Hỏng")
-        case .LOST:    return L.t("Mất")
-        }
+    private var subtitleText: some View {
+        Text(subtitle ?? "")
+            .wvFont(.footnote)
+            .foregroundStyle(WVColor.label3)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var detailText: some View {
+        Text(detail ?? "")
+            .wvFont(.body, weight: .medium)
+            .foregroundStyle(WVColor.label3)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     var body: some View {
-        WVChip(label, tone: tone)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                accessible
+            } else {
+                regular
+            }
+        }
+        .padding(.horizontal, WVSpacing.gutter)
+        .frame(minHeight: 44)
+        .padding(.vertical, WVSpacing.sm)
+        .contentShape(Rectangle())
+    }
+
+    private var regular: some View {
+        HStack(spacing: WVSpacing.md) {
+            if let icon { WVLeadingIcon(icon: icon, size: 28) }
+            VStack(alignment: .leading, spacing: 1) {
+                titleText.lineLimit(1)
+                if subtitle != nil { subtitleText.lineLimit(1) }
+            }
+            // The label is what must survive; the value may scale to fit.
+            .layoutPriority(1)
+            Spacer(minLength: WVSpacing.sm)
+            if detail != nil { detailText }
+            if chevron {
+                WVIcon("arrowRight", size: 13, weight: .semibold)
+                    .foregroundStyle(WVColor.label4)
+            }
+        }
+    }
+
+    /// At Accessibility sizes the trailing value steals the width the label
+    /// needs, so it moves onto its own line under it — the same split `WVRow`
+    /// makes, so a fact row and a shared row still look like one list.
+    private var accessible: some View {
+        VStack(alignment: .leading, spacing: WVSpacing.xs) {
+            HStack(alignment: .top, spacing: WVSpacing.md) {
+                if let icon { WVLeadingIcon(icon: icon, size: 28) }
+                VStack(alignment: .leading, spacing: 1) {
+                    titleText.lineLimit(3)
+                    if subtitle != nil { subtitleText.lineLimit(3) }
+                }
+                .layoutPriority(1)
+                if chevron {
+                    WVIcon("arrowRight", size: 13, weight: .semibold)
+                        .foregroundStyle(WVColor.label4)
+                }
+            }
+            if let detail {
+                Text(detail)
+                    .wvFont(.body, weight: .medium)
+                    .foregroundStyle(WVColor.label3)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, icon == nil ? 0 : 40)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -1179,14 +1326,6 @@ private struct WarrantyTimelineRow: View {
         return WVColor.green
     }
 
-    private var typeTone: WVChipTone {
-        switch warranty.type {
-        case .STANDARD:    return .brand
-        case .EXTENDED:    return .purple
-        case .THIRD_PARTY: return .blue
-        }
-    }
-
     private var typeLabel: String {
         switch warranty.type {
         case .STANDARD:    return L.t("BH chính hãng")
@@ -1195,22 +1334,30 @@ private struct WarrantyTimelineRow: View {
         }
     }
 
+    /// The package type as text, not a filled chip: pills are gone from content
+    /// (§4), and a type is identity, not state (§5.2).
+    private var typeText: some View {
+        Text(typeLabel)
+            .wvFont(.footnoteEmphasis)
+            .foregroundStyle(WVColor.label2)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: WVSpacing.sm) {
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 6) {
-                    WVChip(typeLabel, tone: typeTone)
+                VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                    typeText
                     if let provider = warranty.provider {
                         Text(provider)
                             .wvFont(.footnote)
                             .foregroundStyle(WVColor.label3)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    WarrantyPill(daysLeft: daysLeft)
+                    WarrantyPill(daysLeft: daysLeft, endDate: warranty.endDate)
                 }
             } else {
-                HStack(alignment: .center, spacing: 8) {
-                    WVChip(typeLabel, tone: typeTone)
+                HStack(alignment: .center, spacing: WVSpacing.sm) {
+                    typeText
                     if let provider = warranty.provider {
                         Text(provider)
                             .wvFont(.footnote)
@@ -1220,24 +1367,24 @@ private struct WarrantyTimelineRow: View {
                     } else {
                         Spacer(minLength: 0)
                     }
-                    WarrantyPill(daysLeft: daysLeft)
+                    WarrantyPill(daysLeft: daysLeft, endDate: warranty.endDate)
                 }
             }
             WVProgressBar(value: progressValue, tone: progressTone)
             HStack {
                 Text(WVFormat.date(warranty.startDate))
-                    .wvFont(.caption2)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
                 Spacer()
                 Text(WVFormat.date(warranty.endDate))
-                    .wvFont(.caption2)
+                    .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)
             }
             // Contract terms when the row has any. Compact: this card is the
             // overview, the full terms live in the warranty list below.
             if terms.hasAnyTerms {
                 WarrantyTermsBlock(terms: terms, compact: true)
-                    .padding(.top, 2)
+                    .padding(.top, WVSpacing.xs)
             }
         }
     }
@@ -1255,22 +1402,6 @@ private struct WarrantyListRow: View {
     /// no-terms row is byte-for-byte the old layout.
     private var terms: WarrantyTerms { warranty.terms }
 
-    private var typeTone: WVChipTone {
-        switch warranty.type {
-        case .STANDARD:    return .brand
-        case .EXTENDED:    return .purple
-        case .THIRD_PARTY: return .blue
-        }
-    }
-
-    private var iconColor: Color {
-        switch warranty.type {
-        case .STANDARD:    return WVColor.brand
-        case .EXTENDED:    return WVColor.purple
-        case .THIRD_PARTY: return WVColor.blue
-        }
-    }
-
     private var typeLabel: String {
         switch warranty.type {
         case .STANDARD:    return L.t("BH chính hãng")
@@ -1280,11 +1411,13 @@ private struct WarrantyListRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            WVLeadingIcon(icon: "shieldCheck", color: iconColor, size: 30)
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: WVSpacing.md) {
+            // Neutral tile, as every other row's icon is: a warranty type is
+            // identity, and colour is reserved for state (§5.1).
+            WVLeadingIcon(icon: "shieldCheck", size: 28)
+            VStack(alignment: .leading, spacing: WVSpacing.xs) {
                 Text(warranty.provider ?? typeLabel)
-                    .wvFont(.body)
+                    .wvFont(.bodyEmphasis)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1306,16 +1439,16 @@ private struct WarrantyListRow: View {
                 // no terms, which therefore looks exactly as before.
                 if terms.hasAnyTerms {
                     WarrantyTermsBlock(terms: terms)
-                        .padding(.top, 2)
+                        .padding(.top, WVSpacing.xs)
                 }
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: WVSpacing.sm)
             WVIcon("arrowRight", size: 13)
                 .foregroundStyle(WVColor.label4)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, WVSpacing.gutter)
         .frame(minHeight: 44)
-        .padding(.vertical, 7)
+        .padding(.vertical, WVSpacing.sm)
         .contentShape(Rectangle())
     }
 }
@@ -1328,9 +1461,11 @@ private func warrantyDaysLeft(_ w: Warranty) -> Int {
 
 // MARK: - Deadline tone
 
-/// The pill's tone, as a color. `WarrantyPillCopy` lives in the Kit and knows
-/// no SwiftUI colors; the hero date line uses the same safe/warn/danger/expired
-/// mapping as the pill so the two cannot disagree about urgency.
+/// The deadline tone, as a colour. `WarrantyPillCopy` lives in the Kit and knows
+/// no SwiftUI colors; the hero's 28 pt lead uses the same
+/// safe/warn/danger/expired mapping, so the lead and the rows cannot disagree
+/// about urgency — only about how the "> 90 days" state is drawn (§5.2: green
+/// on a lead surface, a grey absolute date in a row).
 private extension WarrantyPillCopy.Status {
     var heroColor: Color {
         switch self {

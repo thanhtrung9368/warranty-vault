@@ -234,14 +234,18 @@ struct ClaimRow: View {
         if let ticket = filled(claim.ticketNumber) {
             parts.append(L.t("Phiếu %@", ticket))
         }
-        if let opened = ClaimRules.dayLabel(claim.openedAt) {
+        // `openedAt` / `closedAt` are RFC 3339 instants, so their day is read in
+        // the reader's calendar — the UTC day is the previous local day for a
+        // UTC+7 claim closed before 07:00 ("Đóng 19/10" where the web prints
+        // 20/10). `expectedReturnAt` is a calendar day and keeps `dayLabel`.
+        if let opened = ClaimRules.instantDayLabel(claim.openedAt) {
             parts.append(L.t("Mở %@", opened))
         }
         if ClaimRules.isOpen(claim) {
             if let expected = ClaimRules.dayLabel(claim.expectedReturnAt) {
                 parts.append(L.t("Dự kiến trả %@", expected))
             }
-        } else if let closed = ClaimRules.dayLabel(claim.closedAt) {
+        } else if let closed = ClaimRules.instantDayLabel(claim.closedAt) {
             parts.append(L.t("Đóng %@", closed))
         }
         return parts.joined(separator: " · ")

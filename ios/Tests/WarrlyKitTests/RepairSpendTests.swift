@@ -138,8 +138,10 @@ final class RepairSpendTests: KitTestCase {
         XCTAssertEqual(comparison.savingsVnd, -2_000_000)
         XCTAssertEqual(comparison.verdict, .notWorthFixing)
         L.withLanguage(.en) {
+            // English money shape (`₫2,000,000`), not the Vietnamese one the
+            // formatter used to hard-code in both languages.
             XCTAssertEqual(comparison.label,
-                           "Not worth repairing · the repair cost 2.000.000 ₫ more than the purchase")
+                           "Not worth repairing · the repair cost ₫2,000,000 more than the purchase")
         }
     }
 

@@ -20,6 +20,8 @@ final class WarrantyRepairAdjustmentTests: XCTestCase {
         return cal
     }()
 
+    private let utc = TimeZone(identifier: "UTC")!
+
     private func day(_ string: String) -> Date {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -172,16 +174,78 @@ final class WarrantyRepairAdjustmentTests: XCTestCase {
                                                          calendar: calendar))
     }
 
-    func testWireTimestampsContributeTheirCalendarDay() {
-        // `openedAt` / `closedAt` are instants on the wire, but this app reads
-        // their **leading day** (the same rule `ClaimRules.dayLabel` uses for
-        // display): 01/03 → 11/03 is ten calendar days. Reading them as
-        // instants in the caller's zone would make the same claim contribute a
-        // different number of days on a different phone.
-        let withTimes = claim(openedAt: "2026-03-01T23:30:00Z",
-                              closedAt: "2026-03-11T01:00:00Z")
-        XCTAssertEqual(WarrantyRepairAdjustment.repairDays(for: withTimes,
-                                                           calendar: calendar), 10)
+    // MARK: - Instants, not days (the field bug)
+
+    /// `openedAt` / `closedAt` are RFC 3339 **instants** (`openapi.yaml`:
+    /// "Là instant: RFC 3339 UTC kèm Z"), not calendar days. These four cases
+    /// pin the two one-day errors that reading their UTC day produced, plus the
+    /// zone dependency that makes the mistake a data bug rather than a rounding
+    /// quirk.
+    func testAClaimClosedAt0530ICTNoLongerComesOutOneDayShort() {
+        // Closed 05:30 ICT on 11 March = 2026-03-10T22:30Z. The leading ten
+        // bytes are `2026-03-10` — the **UTC** day — so the old arithmetic
+        // counted 1 → 10 March = 9 days: one day short of what the user lived
+        // through, in the direction this product must never be wrong in.
+        let c = claim(openedAt: "2026-03-01T02:00:00Z",   // 09:00 ICT, 1 March
+                      closedAt: "2026-03-10T22:30:00Z")   // 05:30 ICT, 11 March
+        XCTAssertEqual(WarrantyRepairAdjustment.repairDays(for: c, calendar: calendar), 10)
+    }
+
+    func testAClaimOpenedAt0300ICTNoLongerOverstates() {
+        // Opened 03:00 ICT on 1 March = 2026-02-28T20:00Z. The leading ten
+        // bytes are `2026-02-28`, so the old arithmetic counted 28 February →
+        // 11 March = 11 days: one more than the user was actually without the
+        // machine.
+        let c = claim(openedAt: "2026-02-28T20:00:00Z",    // 03:00 ICT, 1 March
+                      closedAt: "2026-03-11T09:00:00Z")    // 16:00 ICT, 11 March
+        XCTAssertEqual(WarrantyRepairAdjustment.repairDays(for: c, calendar: calendar), 10)
+    }
+
+    func testTheSameInstantsCountDifferentlyOnDifferentCalendars() {
+        // Two hours apart on 1 March in Los Angeles (08:00 → 10:00 PST), but
+        // 23:00 on 1 March → 01:00 on 2 March in Vietnam: no whole day lost
+        // for one reader, one for the other. A UTC-day read says 0 for both.
+        let c = claim(openedAt: "2026-03-01T16:00:00Z",
+                      closedAt: "2026-03-01T18:00:00Z")
+
+        var losAngeles = Calendar(identifier: .gregorian)
+        losAngeles.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        losAngeles.locale = Locale(identifier: "en_US_POSIX")
+
+        XCTAssertEqual(WarrantyRepairAdjustment.repairDays(for: c, calendar: losAngeles), 0)
+        XCTAssertEqual(WarrantyRepairAdjustment.repairDays(for: c, calendar: calendar), 1)
+    }
+
+    func testAFractionalSecondInstantIsStillRead() {
+        // Go marshals `time.Time` as RFC3339Nano, so microsecond precision
+        // arrives as a fractional second. It must not make the claim
+        // unreadable (that would silently drop a real repair day).
+        let c = claim(openedAt: "2026-03-01T02:00:00.123456Z",
+                      closedAt: "2026-03-11T01:00:00.5Z")
+        XCTAssertEqual(WarrantyRepairAdjustment.repairDays(for: c, calendar: calendar), 10)
+    }
+
+    // MARK: - The claim card's day label
+
+    func testClaimDayLabelsUseTheReadersCalendarNotTheUTCDay() {
+        // Closed 05:30 ICT on 20 October = 2026-10-19T22:30Z. The card printed
+        // "Đóng 19/10"; the web prints 20/10 because it reduces the instant to
+        // the reader's day.
+        XCTAssertEqual(ClaimRules.instantDayLabel("2026-10-19T22:30:00Z",
+                                                  in: calendar.timeZone),
+                       "20/10/2026")
+        XCTAssertEqual(ClaimRules.instantDayLabel("2026-10-19T22:30:00Z",
+                                                  in: utc),
+                       "19/10/2026")
+
+        // Offset-less values are calendar days: the day never moves with the
+        // reader's zone (the `WireDay` rule, unchanged).
+        XCTAssertEqual(ClaimRules.instantDayLabel("2026-10-19", in: utc), "19/10/2026")
+        XCTAssertEqual(ClaimRules.instantDayLabel("2026-10-19",
+                                                  in: calendar.timeZone),
+                       "19/10/2026")
+        XCTAssertNil(ClaimRules.instantDayLabel(nil, in: calendar.timeZone))
+        XCTAssertNil(ClaimRules.instantDayLabel("not-a-date", in: calendar.timeZone))
     }
 
     // MARK: - Copy
