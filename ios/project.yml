@@ -14,7 +14,7 @@ settings:
     # một build trùng số. Tăng CURRENT_PROJECT_VERSION, không sửa pbxproj tay —
     # file đó sinh ra từ chính project.yml này.
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "6"
+    CURRENT_PROJECT_VERSION: "9"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
   configs:
     # APNs dùng hai môi trường khác nhau: build Debug đăng ký token với

@@ -56,7 +56,8 @@ public struct DismissedReminder: Sendable, Equatable, Identifiable {
 
     public var warrantyTypeLabel: String { warrantyType.label }
 
-    /// Vietnamese label for the owning device's category.
+    /// Localized label for the owning device's category, in the app's current
+    /// language (the code is all the reminders feed carries).
     public var deviceCategoryLabel: String { CategoryLabels.label(for: deviceCategory) }
 
     /// Whole days until `endDate` (negative once it has passed).

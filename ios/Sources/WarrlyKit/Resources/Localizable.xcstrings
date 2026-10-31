@@ -1819,23 +1819,6 @@
         }
       }
     },
-    "Chào mừng quay lại" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Welcome back"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chào mừng quay lại"
-          }
-        }
-      }
-    },
     "Chính sách bảo mật" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12249,6 +12232,23 @@
         }
       }
     },
+    "Đăng nhập Warrly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to Warrly"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đăng nhập Warrly"
+          }
+        }
+      }
+    },
     "Đăng nhập bằng Apple ID/Google chưa được hỗ trợ. Tài khoản Warrly dùng email và mật khẩu — đổi mật khẩu hoặc email ở mục Bảo mật." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12279,23 +12279,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đăng nhập lại"
-          }
-        }
-      }
-    },
-    "Đăng nhập để xem bảo hành, đăng ký và wishlist của mày." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in to see your warranties, subscriptions and wishlist."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đăng nhập để xem bảo hành, đăng ký và wishlist của mày."
           }
         }
       }
@@ -21710,6 +21693,40 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Hiện mật khẩu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show password"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện mật khẩu"
+          }
+        }
+      }
+    },
+    "Ẩn mật khẩu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide password"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ẩn mật khẩu"
           }
         }
       }

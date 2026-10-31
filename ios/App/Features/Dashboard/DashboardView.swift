@@ -148,14 +148,21 @@ struct DashboardView: View {
         // "Thêm nhanh" from the dashboard opens the same create forms the tabs
         // use. Previously the sheet just dismissed itself, so the buttons did
         // nothing.
+        // Each form carries its own `.toolbar` (Huỷ / Lưu) but none of them wraps
+        // itself in a NavigationStack — pushed from a screen it inherits the
+        // screen's stack, and presented as a sheet it inherits nothing, so the
+        // toolbar had no bar to render into and the sheet could not be dismissed
+        // from any control. Every sheet needs its own stack.
         .sheet(item: $quickAddTarget) { target in
-            switch target {
-            case .device:
-                DeviceFormView(client: client, store: devicesStore, device: nil)
-            case .subscription:
-                SubscriptionFormView(client: client, store: subsStore, subscription: nil)
-            case .wishlist:
-                WishlistFormView(client: client, store: wishStore, item: nil)
+            NavigationStack {
+                switch target {
+                case .device:
+                    DeviceFormView(client: client, store: devicesStore, device: nil)
+                case .subscription:
+                    SubscriptionFormView(client: client, store: subsStore, subscription: nil)
+                case .wishlist:
+                    WishlistFormView(client: client, store: wishStore, item: nil)
+                }
             }
         }
         .navigationDestination(for: DashDeviceNav.self) { nav in
@@ -644,6 +651,8 @@ private struct DashQuickAddSheet: View {
     /// and opens the matching create form.
     let onSelect: (DashQuickAdd) -> Void
 
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
             List {
@@ -673,7 +682,18 @@ private struct DashQuickAddSheet: View {
             }
             .navigationTitle(L.t("Thêm nhanh"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Every modal needs a visible way out that is not a gesture.
+                // The half-height sheet's swipe-down was the only exit.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L.t("Đóng")) { dismiss() }
+                        .foregroundStyle(WVColor.tint)
+                }
+            }
         }
-        .presentationDetents([.medium])
+        // Three rows fit in `.medium`; `.large` makes the sheet pullable when
+        // Dynamic Type grows them or the user wants the list off the bottom
+        // edge. A fixed height would clip at AX sizes.
+        .presentationDetents([.medium, .large])
     }
 }

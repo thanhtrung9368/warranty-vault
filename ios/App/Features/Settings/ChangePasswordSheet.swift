@@ -153,11 +153,7 @@ private struct CPSecureRow: View {
     }
 
     var body: some View {
-        SecureField(placeholder, text: $text)
-            .textContentType(.password)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-            .wvFont(.body)
+        WVPasswordField(placeholder: placeholder, text: $text)
             .padding(.horizontal, 16)
             .frame(minHeight: 44)
     }

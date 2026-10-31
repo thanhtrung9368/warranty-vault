@@ -50,11 +50,15 @@ struct DevicesScreen: View {
     @State private var captureSucceeded = false
     @State private var showCaptureAlert = false
     @State private var showInbox = false
-    /// The "+" menu's two pushes. Value-based links inside a `Menu` are
-    /// unreliable across iOS versions, so the menu buttons drive these flags and
-    /// the destinations below own the navigation.
+    /// The add-flow's two pushes. Value-based links inside a menu are
+    /// unreliable across iOS versions, so the dialog's buttons drive these flags
+    /// and the destinations below own the navigation.
     @State private var showCreateForm = false
     @State private var showBulkAdd = false
+    /// The "+" toolbar button presents a confirmation dialog (not a `Menu`):
+    /// a `Menu` with a custom `WVIcon` label stopped responding to taps on
+    /// iOS 27, and a plain button + system dialog has one predictable hit path.
+    @State private var showAddOptions = false
     /// Destination requested by Spotlight / a URL / an App Intent. It is only
     /// resolved after the list is loaded, so a cold launch from a search result
     /// still lands on the right device.
@@ -274,27 +278,27 @@ struct DevicesScreen: View {
                 .accessibilityLabel(L.t("Thêm hoá đơn"))
 
                 // Two ways to add: one device (the long form) or a batch (the
-                // four-field rows). The batch lives one tap behind the same "+"
-                // so a new account discovers it where it already looks, without
-                // displacing the single-device path every existing flow uses.
-                Menu {
-                    Button {
-                        showCreateForm = true
-                    } label: {
-                        Label(L.t("Thêm thiết bị"), systemImage: "plus")
-                    }
-                    Button {
-                        showBulkAdd = true
-                    } label: {
-                        Label(BulkDeviceCopy.title, systemImage: "square.stack.3d.up")
-                    }
-                } label: {
+                // four-field rows). This used to be a toolbar `Menu` with a
+                // custom `WVIcon` label; on iOS 27 that combination stopped
+                // answering taps, so it is now a plain `Button` + the standard
+                // confirmation dialog. The dialog needs no custom label
+                // rendering and has the same two choices.
+                Button { showAddOptions = true } label: {
                     // The screen's one coral thing (§5.1).
                     WVIcon("plus", size: 17)
                         .foregroundStyle(WVColor.tint)
                 }
                 .accessibilityLabel(L.t("Thêm thiết bị"))
             }
+        }
+        .confirmationDialog(
+            L.t("Thêm nhanh"),
+            isPresented: $showAddOptions,
+            titleVisibility: .visible
+        ) {
+            Button(L.t("Thêm thiết bị")) { showCreateForm = true }
+            Button(BulkDeviceCopy.title) { showBulkAdd = true }
+            Button(L.t("Huỷ"), role: .cancel) {}
         }
         .navigationDestination(for: DeviceFormNav.self) { nav in
             switch nav {
@@ -489,7 +493,7 @@ struct DevicesScreen: View {
             if !isFiltering {
                 VStack(spacing: WVSpacing.md) {
                     NavigationLink(value: DeviceFormNav.create) {
-                        WVButton(L.t("Thêm thiết bị"), icon: "plus") {}
+                        WVButton(L.t("Thêm thiết bị"), icon: "plus") { showCreateForm = true }
                     }
                     // The empty list is the strongest bulk case: someone
                     // setting up a new flat has nothing here yet and a

@@ -43,7 +43,7 @@ struct RegisterView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle(L.t("Đăng ký"))
+            .navigationTitle(L.t("Tạo tài khoản"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

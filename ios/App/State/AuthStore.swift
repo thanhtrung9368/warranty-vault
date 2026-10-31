@@ -74,6 +74,7 @@ public final class AuthStore: ObservableObject {
             deviceLabel: deviceLabel(), platform: "ios"
         ))
         keychain.write(res.accessToken)
+        RememberedEmail.save(res.user.email)
         status = .authenticated(res.user)
     }
 
@@ -83,12 +84,16 @@ public final class AuthStore: ObservableObject {
             deviceLabel: deviceLabel(), platform: "ios"
         ))
         keychain.write(res.accessToken)
+        RememberedEmail.save(res.user.email)
         status = .authenticated(res.user)
     }
 
     public func logout() async {
         try? await client.logout()
         keychain.clear()
+        // The next person at this phone must not find the previous account's
+        // address waiting in the login field.
+        RememberedEmail.clear()
         await DeadlineSurface.shared.clear()
         status = .unauthenticated
     }
@@ -117,6 +122,7 @@ public final class AuthStore: ObservableObject {
     public func deleteAccount(password: String) async throws {
         try await client.deleteAccount(password: password)
         keychain.clear()
+        RememberedEmail.clear()
         await DeadlineSurface.shared.clear()
         status = .unauthenticated
     }
@@ -127,5 +133,36 @@ public final class AuthStore: ObservableObject {
 #else
         return "macOS"
 #endif
+    }
+}
+
+/// The last account that successfully signed in on this device.
+///
+/// Direction 1 borrows one thing from Direction 2: the email is already in the
+/// field for the returning user, so the screen never asks them to remember
+/// which address they used. **Only the email.** The password is never written
+/// here (or anywhere outside the Keychain session) — Apple's rule for a login
+/// form is explicit: never prepopulate a password field.
+///
+/// Written after a successful login/registration and cleared on the two paths
+/// that hand the phone to someone else (`logout`, `deleteAccount`).
+enum RememberedEmail {
+    private static let key = "warrly.login.rememberedEmail"
+
+    static func load() -> String {
+        UserDefaults.standard.string(forKey: key) ?? ""
+    }
+
+    static func save(_ email: String) {
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if address.isEmpty {
+            UserDefaults.standard.removeObject(forKey: key)
+        } else {
+            UserDefaults.standard.set(address, forKey: key)
+        }
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
     }
 }

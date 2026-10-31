@@ -26,7 +26,7 @@ enum WVIconMap {
         "creditCard": "creditcard.fill", "database": "externaldrive.fill",
         "def": "shippingbox.fill", "download": "arrow.down.circle.fill", "edit": "pencil",
         "ellipse": "ellipsis", "externalLink": "arrow.up.right.square",
-        "film": "film.fill", "filter": "line.3.horizontal.decrease",
+        "eye": "eye", "eyeSlash": "eye.slash", "film": "film.fill", "filter": "line.3.horizontal.decrease",
         "gamepad": "gamecontroller.fill", "globe": "globe", "hash": "number",
         "headphones": "headphones", "heart": "heart.fill", "home": "house.fill",
         "http": "globe", "info": "info.circle.fill", "key": "key.fill",
@@ -396,16 +396,33 @@ struct WVButton: View {
     var kind: WVButtonKind = .primary
     var size: WVButtonSize = .regular
     var fullWidth: Bool = true
+    /// Overrides the regular button's 66 pt total height. Used by the login
+    /// screen's 52 pt CTA; `nil` keeps every existing call site's geometry.
+    ///
+    /// The override is a **minimum**: the label keeps its vertical padding, so
+    /// at Accessibility sizes the button grows with its 17 pt title instead of
+    /// clipping it the way a fixed `height` would.
+    var minHeight: CGFloat?
+
+    /// The one shared definition of "disabled": a filled control loses its
+    /// coral/red and becomes the neutral `fill3` surface with `label3` copy.
+    /// SwiftUI's automatic dimming does not reach a custom `ButtonStyle`, so
+    /// before this every disabled `WVButton` in the app rendered as a live one.
+    @Environment(\.isEnabled) private var isEnabled
+
     let action: () -> Void
 
     init(_ title: String, icon: String? = nil, kind: WVButtonKind = .primary,
          size: WVButtonSize = .regular, fullWidth: Bool = true,
+         minHeight: CGFloat? = nil,
          action: @escaping () -> Void) {
         self.title = title; self.icon = icon; self.kind = kind
-        self.size = size; self.fullWidth = fullWidth; self.action = action
+        self.size = size; self.fullWidth = fullWidth; self.minHeight = minHeight
+        self.action = action
     }
 
     private var bg: Color {
+        guard isEnabled else { return kind == .ghost ? .clear : WVColor.fill3 }
         switch kind {
         case .primary: return WVColor.tint
         case .secondary, .destructiveGhost: return WVColor.fill2
@@ -414,6 +431,7 @@ struct WVButton: View {
         }
     }
     private var fg: Color {
+        guard isEnabled else { return WVColor.label3 }
         switch kind {
         case .primary, .destructive: return .white
         case .secondary, .ghost: return WVColor.tint
@@ -424,19 +442,33 @@ struct WVButton: View {
     private var radius: CGFloat { size == .small ? WVRadius.sm : WVRadius.list }
     private var titleFont: WVFont { size == .small ? .subheadline : .body }
 
+    private var label: some View {
+        HStack(spacing: 6) {
+            if let icon { WVIcon(icon, size: 18) }
+            Text(title)
+        }
+        .wvFont(titleFont, weight: .semibold)
+        .foregroundStyle(fg)
+        .multilineTextAlignment(.center)
+        .lineLimit(2)
+        .frame(maxWidth: fullWidth ? .infinity : nil)
+    }
+
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon { WVIcon(icon, size: 18) }
-                Text(title)
+            Group {
+                if let minHeight {
+                    // Padding goes inside the minimum so 52 is the floor, not
+                    // the total: the label can still grow at AX sizes.
+                    label
+                        .padding(.vertical, WVSpacing.md)
+                        .frame(minHeight: minHeight)
+                } else {
+                    label
+                        .frame(minHeight: height)
+                        .padding(.vertical, WVSpacing.sm)
+                }
             }
-            .wvFont(titleFont, weight: .semibold)
-            .foregroundStyle(fg)
-            .multilineTextAlignment(.center)
-            .lineLimit(2)
-            .frame(maxWidth: fullWidth ? .infinity : nil)
-            .frame(minHeight: height)
-            .padding(.vertical, WVSpacing.sm)
             .padding(.horizontal, WVSpacing.gutter)
             .background(bg)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -446,9 +478,17 @@ struct WVButton: View {
 }
 
 /// Generic press-dim used by buttons (`:active { opacity: .72 }`).
+///
+/// `isEnabled` is read here as well: a disabled control must never answer a
+/// touch with the press wash. `WVButton` resolves the disabled *colours*
+/// (`fill3` + `label3`) because only it knows its kind; this style is the
+/// shared floor for every other `Button` that uses it.
 struct WVPressableStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.72 : 1)
+        configuration.label
+            .opacity(configuration.isPressed && isEnabled ? 0.72 : 1)
     }
 }
 
@@ -997,6 +1037,238 @@ struct WVMoneyField: View {
             .keyboardType(.numberPad)
             .multilineTextAlignment(.trailing)
             .wvFont(.body)
+    }
+}
+
+// MARK: - Brand mark
+
+/// The Warrly mark — "W in the tag" — drawn from the same 32-unit geometry the
+/// web (`website/src/lib/brand.ts`) and the app icon (`Tools/appicon.py`) use.
+///
+/// A vector view, not `icon-1024.png` scaled down: that PNG carries its own
+/// cream app-icon ground and rounded tile, which would read as a pasted-on icon
+/// rather than a mark floating on the screen.
+///
+/// The W is a real knockout (`destinationOut`), not a stroke painted in `bg`,
+/// so whatever surface sits behind the mark shows through the letter. The plate
+/// takes `WVColor.brand`.
+///
+/// Both drawn cuts are encoded exactly as the web encodes them (full at 24 pt
+/// and above, small below). They are separate drawings, not one scaled into the
+/// other — at small sizes the three teeth and the thin W turn to mush.
+struct WarrlyMark: View {
+    /// Width of the mark's ink box. The height follows the cut's aspect ratio.
+    var width: CGFloat = 64
+
+    var body: some View {
+        let cut = WarrlyMarkCut.forWidth(width)
+        let scale = width / cut.ink.width
+        ZStack {
+            cut.platePath(scale: scale)
+                .fill(WVColor.brand)
+            cut.letterPath(scale: scale)
+                .stroke(style: StrokeStyle(
+                    lineWidth: cut.letterWidth * scale,
+                    lineCap: .round,
+                    lineJoin: .round
+                ))
+                .foregroundStyle(.black)
+                .blendMode(.destinationOut)
+        }
+        .compositingGroup()
+        .frame(width: width, height: cut.ink.height * scale)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The two drawn cuts of the mark. Coordinates are the web's 32-unit grid.
+private enum WarrlyMarkCut {
+    case full
+    case small
+
+    /// The same threshold the web uses: `>= 24` is the full cut.
+    static func forWidth(_ width: CGFloat) -> WarrlyMarkCut {
+        width >= 24 ? .full : .small
+    }
+
+    var letterWidth: CGFloat {
+        switch self {
+        case .full: return 2.8
+        case .small: return 3.4
+        }
+    }
+
+    /// The visible silhouette in grid units — what the view scales and centres.
+    var ink: CGRect {
+        switch self {
+        case .full: return CGRect(x: 5, y: 7, width: 22, height: 18.4)
+        case .small: return CGRect(x: 4.6, y: 6.4, width: 22.8, height: 19.2)
+        }
+    }
+
+    /// The tag plate, one filled path. Top corners only; the bottom is torn.
+    var plate: Path {
+        var path = Path()
+        switch self {
+        case .full:
+            // Plate x=5…27, y=7…25.4; 1.6 top corners; three 2.4-deep teeth.
+            path.move(to: CGPoint(x: 6.6, y: 7))
+            path.addLine(to: CGPoint(x: 25.4, y: 7))
+            path.addCurve(to: CGPoint(x: 27, y: 8.6),
+                          control1: CGPoint(x: 26.284, y: 7),
+                          control2: CGPoint(x: 27, y: 7.716))
+            path.addLine(to: CGPoint(x: 27, y: 25.4))
+            path.addLine(to: CGPoint(x: 23.33, y: 23))
+            path.addLine(to: CGPoint(x: 19.67, y: 25.4))
+            path.addLine(to: CGPoint(x: 16, y: 23))
+            path.addLine(to: CGPoint(x: 12.33, y: 25.4))
+            path.addLine(to: CGPoint(x: 8.67, y: 23))
+            path.addLine(to: CGPoint(x: 5, y: 25.4))
+            path.addLine(to: CGPoint(x: 5, y: 8.6))
+            path.addCurve(to: CGPoint(x: 6.6, y: 7),
+                          control1: CGPoint(x: 5, y: 7.716),
+                          control2: CGPoint(x: 5.716, y: 7))
+        case .small:
+            // Plate 22.8×19.2, two wide teeth, 1.4 top corners, heavier W.
+            path.move(to: CGPoint(x: 6, y: 6.4))
+            path.addLine(to: CGPoint(x: 26, y: 6.4))
+            path.addCurve(to: CGPoint(x: 27.4, y: 7.8),
+                          control1: CGPoint(x: 26.773, y: 6.4),
+                          control2: CGPoint(x: 27.4, y: 7.027))
+            path.addLine(to: CGPoint(x: 27.4, y: 25.6))
+            path.addLine(to: CGPoint(x: 21.7, y: 22.6))
+            path.addLine(to: CGPoint(x: 16, y: 25.6))
+            path.addLine(to: CGPoint(x: 10.3, y: 22.6))
+            path.addLine(to: CGPoint(x: 4.6, y: 25.6))
+            path.addLine(to: CGPoint(x: 4.6, y: 7.8))
+            path.addCurve(to: CGPoint(x: 6, y: 6.4),
+                          control1: CGPoint(x: 4.6, y: 7.027),
+                          control2: CGPoint(x: 5.227, y: 6.4))
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    /// The stroked W, cut out of the plate by the caller.
+    var letter: Path {
+        var path = Path()
+        switch self {
+        case .full:
+            path.move(to: CGPoint(x: 10.6, y: 11.4))
+            path.addLine(to: CGPoint(x: 13.3, y: 18.8))
+            path.addLine(to: CGPoint(x: 16, y: 13.4))
+            path.addLine(to: CGPoint(x: 18.7, y: 18.8))
+            path.addLine(to: CGPoint(x: 21.4, y: 11.4))
+        case .small:
+            path.move(to: CGPoint(x: 10, y: 11))
+            path.addLine(to: CGPoint(x: 13.2, y: 19))
+            path.addLine(to: CGPoint(x: 16, y: 12.6))
+            path.addLine(to: CGPoint(x: 18.8, y: 19))
+            path.addLine(to: CGPoint(x: 22, y: 11))
+        }
+        return path
+    }
+
+    /// Map the grid onto a view whose ink box is `scale`-times larger.
+    private func scaled(_ path: Path, scale: CGFloat) -> Path {
+        let transform = CGAffineTransform(scaleX: scale, y: scale)
+            .concatenating(CGAffineTransform(
+                translationX: -ink.minX * scale,
+                y: -ink.minY * scale
+            ))
+        return path.applying(transform)
+    }
+
+    func platePath(scale: CGFloat) -> Path { scaled(plate, scale: scale) }
+
+    func letterPath(scale: CGFloat) -> Path { scaled(letter, scale: scale) }
+}
+
+// MARK: - Password field
+
+/// A secure text field with a reveal toggle **inside** the field's trailing
+/// edge — showing the password belongs to this field, not to a second action on
+/// the form.
+///
+/// Toggling swaps `SecureField` for `TextField`, which re-creates the view. The
+/// typed value persists in the caller's binding, and focus is put back on the
+/// next run-loop so the user can keep typing without tapping the field again.
+/// Hidden is the default on every appearance and whenever the app leaves the
+/// foreground: a password must not stay readable after backgrounding.
+struct WVPasswordField: View {
+    let placeholder: String
+    @Binding var text: String
+    var textContentType: UITextContentType? = .password
+    var keyboardType: UIKeyboardType = .default
+    var alignment: TextAlignment = .leading
+    var submitLabel: SubmitLabel = .return
+    /// Forms that chain the keyboard (Return in the email field focuses this
+    /// one) pass their own boolean focus binding. `nil` keeps the field's
+    /// private state, which is what the settings sheets use.
+    var focus: FocusState<Bool>.Binding? = nil
+    var onSubmit: (() -> Void)? = nil
+
+    @State private var isRevealed = false
+    @State private var shouldRestoreFocus = false
+    @FocusState private var isFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        HStack(spacing: 8) {
+            field
+
+            Button {
+                shouldRestoreFocus = focused
+                isRevealed.toggle()
+            } label: {
+                WVIcon(isRevealed ? "eyeSlash" : "eye", size: 18, weight: .regular)
+                    .foregroundStyle(WVColor.label3)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isRevealed ? L.t("Ẩn mật khẩu") : L.t("Hiện mật khẩu"))
+        }
+        .onAppear { isRevealed = false }
+        .onChange(of: isRevealed) { _, _ in
+            guard shouldRestoreFocus else { return }
+            shouldRestoreFocus = false
+            // The revealed field is a new view; put the caret back on the next
+            // run-loop, whichever binding owns focus.
+            DispatchQueue.main.async {
+                if let focus { focus.wrappedValue = true } else { isFocused = true }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { isRevealed = false }
+        }
+    }
+
+    private var focused: Bool {
+        if let focus { return focus.wrappedValue }
+        return isFocused
+    }
+
+    /// Both fields share one binding and one focus state, so the reveal swap
+    /// cannot lose the typed text and the caret can be put back.
+    @ViewBuilder
+    private var field: some View {
+        Group {
+            if isRevealed {
+                TextField(placeholder, text: $text)
+            } else {
+                SecureField(placeholder, text: $text)
+            }
+        }
+        .keyboardType(keyboardType)
+        .textContentType(textContentType)
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.never)
+        .multilineTextAlignment(alignment)
+        .wvFont(.body)
+        .focused(focus ?? $isFocused)
+        .submitLabel(submitLabel)
+        .onSubmit { onSubmit?() }
     }
 }
 
