@@ -1,10 +1,14 @@
-// The mark's geometry and the lockup's proportions, pinned as numbers.
+// The mark's geometry and the lockup's proportions, pinned as relationships.
 //
 // These are not "does the component render" tests. They are the brand
-// contract: the tag plate, the bevel, the V notch, the punch, the swallowtail
-// pennant and the lockup ratios. A future edit that rounds the punch, centres
-// the flag, drops the bevel, adds a background tile or scales the logo with a
-// theme token fails here.
+// contract of the chosen mark: a tag plate with a torn zigzag bottom edge and a
+// W cut out of it — no pennant, no punched hole, no second ink shape. A future
+// edit that reintroduces either, adds a background tile or changes the lockup
+// ratios fails here.
+//
+// Every assertion is derived from `markGeometryForSize(n)` or from the rendered
+// string. No path is retyped: an earlier revision of this file pinned the old
+// pennant's coordinates verbatim, and it broke twice when the mark changed.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,6 +24,7 @@ import {
   CUT_32,
   LOCKUP,
   LOCKUP_ASPECT,
+  MARK_GRID,
   WORDMARK_BOX,
   WORDMARK_LETTERS,
   WORDMARK_PERIOD,
@@ -32,72 +37,158 @@ import {
   renderMarkSvg,
   renderNotificationBadgeSvg,
   renderWordmarkSvg,
-  smallestRenderedDotDiameter,
-  smallestRenderedPunchDiameter,
 } from '@/lib/brand';
+import type { MarkGeometry } from '@/lib/brand';
 
 const WEBSITE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+type Bounds = { x: number; y: number; width: number; height: number };
+
+/**
+ * The bounds of a path's endpoints. The plate is authored with only M/L/A/Z
+ * commands and absolute coordinates, so the farthest points are the M/L pairs
+ * and the arc endpoints. Reading them back is how `ink` stays honest without a
+ * second copy of the numbers living in this file.
+ */
+function pathBounds(path: string): Bounds {
+  const tokens = path.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
+  const xs: number[] = [];
+  const ys: number[] = [];
+  let command = '';
+  for (let i = 0; i < tokens.length; ) {
+    const token = tokens[i];
+    if (/^[A-Za-z]$/.test(token)) {
+      command = token;
+      i += 1;
+      continue;
+    }
+    if (command === 'M' || command === 'L') {
+      xs.push(Number(tokens[i]));
+      ys.push(Number(tokens[i + 1]));
+      i += 2;
+      // Repeated coordinate pairs after M are implicit linetos; not used by
+      // the plate, but the parser stays correct if it is authored that way.
+      command = 'L';
+    } else if (command === 'A') {
+      // rx ry rotation large-arc sweep x y — only the endpoint moves the box.
+      xs.push(Number(tokens[i + 5]));
+      ys.push(Number(tokens[i + 6]));
+      i += 7;
+    } else {
+      i += 1;
+    }
+  }
+  if (xs.length === 0) throw new Error('path has no coordinates');
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+}
+
+/** The W's polyline points, resolving the relative `l` runs into absolutes. */
+function letterPoints(path: string): Array<{ x: number; y: number }> {
+  const tokens = path.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
+  const points: Array<{ x: number; y: number }> = [];
+  let x = 0;
+  let y = 0;
+  let command = '';
+  for (let i = 0; i < tokens.length; ) {
+    if (/^[A-Za-z]$/.test(tokens[i])) {
+      command = tokens[i];
+      i += 1;
+      continue;
+    }
+    const a = Number(tokens[i]);
+    const b = Number(tokens[i + 1]);
+    i += 2;
+    if (command === 'M' || command === 'L') {
+      x = a;
+      y = b;
+      command = 'L';
+    } else {
+      x += a;
+      y += b;
+    }
+    points.push({ x, y });
+  }
+  return points;
+}
+
+function expectPlateOnly(geometry: MarkGeometry): void {
+  // The type itself carries the removal: a renderer that still asked for these
+  // fields would not compile, and a future edit that adds them back fails here.
+  expect(geometry, `${geometry.cut} flag`).not.toHaveProperty('flag');
+  expect(geometry, `${geometry.cut} punch`).not.toHaveProperty('punch');
+  expect(geometry, `${geometry.cut} punchCircle`).not.toHaveProperty('punchCircle');
+  expect(geometry, `${geometry.cut} flagWidth`).not.toHaveProperty('flagWidth');
+
+  // `ink` is the plate's own bounds — no pennant tip, no punch radius. Both are
+  // derived from the body path rather than restated as numbers.
+  const body = pathBounds(geometry.body);
+  expect(geometry.ink.x).toBeCloseTo(body.x, 6);
+  expect(geometry.ink.y).toBeCloseTo(body.y, 6);
+  expect(geometry.ink.width).toBeCloseTo(body.width, 6);
+  expect(geometry.ink.height).toBeCloseTo(body.height, 6);
+  expect(geometry.bodyWidth).toBeCloseTo(body.width, 6);
+  expect(geometry.bodyHeight).toBeCloseTo(body.height, 6);
+
+  // One filled path. The plate has no stroke of its own; the only stroke in a
+  // rendered mark is the black stencil inside the mask.
+  expect(geometry.body.startsWith('M'), `${geometry.cut} starts`).toBe(true);
+  expect(geometry.body.endsWith('Z'), `${geometry.cut} closes`).toBe(true);
+  expect(geometry.body, `${geometry.cut} paint stroke`).not.toContain('stroke');
+
+  // The torn bottom edge stays part of the body on both cuts.
+  expect(geometry.notchDepth).toBeGreaterThan(0);
+  expect(geometry.notchDepth).toBeLessThan(geometry.bodyHeight / 2);
+}
+
 describe('The Warranty Tag geometry', () => {
-  it('draws the full cut exactly as specified', () => {
-    const g = markGeometryForSize(32);
-    expect(g.cut).toBe('full');
-    expect(g.viewBox).toBe(32);
-    // The plate is x=5.4…22.4, y=10.6…28.2; the pennant tip is the ink top.
-    expect(g.ink).toEqual({ x: 5.4, y: 2.6, width: 21.9, height: 25.6 });
-    expect(g.bodyHeight).toBe(17.6);
-    expect(g.bodyWidth).toBe(17);
-    expect(g.notchDepth).toBe(2.3);
-    // The bevelled top-left corner is a straight 45° cut, not a radius.
-    expect(g.body).toContain('M10.3 10.6');
-    expect(g.body).toContain('L5.4 15.5L10.3 10.6Z');
-    expect(g.body).toContain('A1.5 1.5 0 0 1 22.4 12.1'); // rounded top-right
-    // The V notch: bottom-right edge in to the apex, then back down.
-    expect(g.body).toContain('L16.9 28.2L13.9 25.9L10.9 28.2');
-    // One filled path: no stroke is expressible on the geometry at all.
-    expect(g.body).not.toContain('stroke');
-    // The punch: a 3.2-unit hole tucked under the bevel, not a badge.
-    expect(g.punchCircle).toEqual({ cx: 9.97, cy: 15.17, r: 1.6 });
-    expect(g.punch).toContain('A1.6 1.6 0 1 0');
-    expect(g.punchCircle.cx - g.punchCircle.r).toBeGreaterThan(g.ink.x);
-    expect(g.punchCircle.cy + g.punchCircle.r).toBeLessThan(28.2);
-    // The pennant rises ABOVE the plate and ends in a swallowtail notch.
-    expect(g.flag).toContain('L18.9 2.6L27.3 2.6');
-    expect(g.flag).toContain('L25 5.3L27.3 8');
-    expect(g.flagWidth).toBe(8.4);
-    expect(g.ink.y).toBeLessThan(10.6);
+  it('draws the plate alone on both cuts: no pennant, no punch', () => {
+    for (const geometry of [CUT_32, CUT_16]) {
+      expect(geometry.viewBox).toBe(MARK_GRID);
+      expectPlateOnly(geometry);
+    }
   });
 
-  it('has a separately drawn small cut that is not a scale of the full one', () => {
+  it('draws the small cut as a redraw, not a scale of the full one', () => {
     const small = markGeometryForSize(16);
     const full = markGeometryForSize(32);
     expect(small.cut).toBe('small');
     // Same 32-unit drawing grid as the full cut — the cut is a redraw, not a
     // different coordinate system.
-    expect(small.viewBox).toBe(32);
-    expect(small.ink).toEqual({ x: 5.2, y: 2.6, width: 22.8, height: 25.6 });
-    expect(small.bodyHeight).toBe(18.2);
-    // The small cut drops the punch. At 16px one pixel is two grid units, so
-    // punch + gap + W + gap + notch needs 20.5 units against a plate 18.2 tall:
-    // it cannot fit, and when it "fits" the gaps are exactly one pixel and the
-    // punch fuses into the W's left arm. The full cut keeps its punch.
-    expect(small.punchCircle).toEqual({ cx: 0, cy: 0, r: 0 });
-    expect(small.punch).toBe('');
-    // The small cut is a redraw, not a scale: its own plate, its own pennant,
-    // its own W. What it does NOT have is a punch or a notch — at 16px one pixel
-    // is two grid units and neither survives (see brand.ts for the arithmetic).
+    expect(small.viewBox).toBe(full.viewBox);
+    expectPlateOnly(small);
+    // The small cut is redrawn larger and heavier so it survives 16px: a wider
+    // and taller plate, a deeper tooth and a thicker W stroke.
     expect(small.bodyHeight).toBeGreaterThan(full.bodyHeight);
     expect(small.bodyWidth).toBeGreaterThan(full.bodyWidth);
-    expect(small.flagWidth).toBeGreaterThan(full.flagWidth);
     expect(small.letterWidth).toBeGreaterThan(full.letterWidth);
-    expect(small.punch).toBe('');
-    expect(small.notchDepth).toBe(0);
-    // The letter is what carries the mark at that size, so it has to be big:
-    // 7.2 units tall in an 18.2-unit plate.
-    expect(small.letter.length).toBeGreaterThan(0);
-    expect(full.letter).not.toBe(small.letter);
+    expect(small.notchDepth).toBeGreaterThan(full.notchDepth);
+    expect(small.letter).not.toBe(full.letter);
     expect(CUT_16.cut).toBe('small');
     expect(CUT_32.cut).toBe('full');
+  });
+
+  it('cuts a W out of both plates, clear of every edge', () => {
+    for (const geometry of [CUT_32, CUT_16]) {
+      expect(geometry.letter.length, `${geometry.cut} letter`).toBeGreaterThan(0);
+      expect(geometry.letterWidth, `${geometry.cut} stroke`).toBeGreaterThan(0);
+      const half = geometry.letterWidth / 2;
+      const left = geometry.ink.x;
+      const right = geometry.ink.x + geometry.ink.width;
+      const top = geometry.ink.y;
+      const bottom = geometry.ink.y + geometry.ink.height;
+      for (const point of letterPoints(geometry.letter)) {
+        expect(point.x - half, `${geometry.cut} W left`).toBeGreaterThan(left);
+        expect(point.x + half, `${geometry.cut} W right`).toBeLessThan(right);
+        expect(point.y - half, `${geometry.cut} W top`).toBeGreaterThan(top);
+        // Clear of the torn edge, not just the bounding box: the lowest tooth
+        // rises `notchDepth` into the plate.
+        expect(point.y + half, `${geometry.cut} W bottom`).toBeLessThan(
+          bottom - geometry.notchDepth,
+        );
+      }
+    }
   });
 
   it('selects the cut by rendered size, switching at exactly 24px', () => {
@@ -112,48 +203,24 @@ describe('The Warranty Tag geometry', () => {
     expect(markGeometryForSize(16).viewBox).toBe(markGeometryForSize(512).viewBox);
   });
 
-  it('keeps the punch only where it can be a hole', () => {
-    // Zero is correct: the small cut has no punch, by design (see brand.ts).
-    expect(smallestRenderedPunchDiameter()).toBe(0);
-    expect(smallestRenderedDotDiameter()).toBe(0);
-    // The full cut, used at every size >= 24, still has one — and at 24px it
-    // renders 1.2px across, which is the smallest hole that survives.
-    expect(markGeometryForSize(24).punchCircle.r).toBeCloseTo(1.6, 6);
-    expect((markGeometryForSize(24).punchCircle.r * 2 * 24) / 32).toBeCloseTo(2.4, 6);
-    // Below 24 the small cut draws no punch at all — 0, not a small hole.
-    for (const size of [16, 20]) {
-      expect(markGeometryForSize(size).punchCircle.r, `${size}px`).toBe(0);
+  it('renders the plate once, with the W knocked out by the mask', () => {
+    for (const size of [16, 24, 32, 96]) {
+      const geometry = markGeometryForSize(size);
+      const svg = renderMarkSvg({ size });
+      // Exactly two paths: the W's mask stroke and the plate. The removed mark
+      // shipped a third path (the pennant) and a circle (the punch).
+      expect(svg.match(/<path/g), `${size}px paths`).toHaveLength(2);
+      expect(svg, `${size}px circle`).not.toContain('<circle');
+      expect(svg, `${size}px compound fill`).not.toContain('fill-rule="evenodd"');
+      expect(svg).toContain(geometry.body);
+      expect(svg).toContain(geometry.letter);
+      // The plate is the only painted shape, and it is painted after the mask.
+      // With no pennant painted first, paint order cannot matter any more.
+      const maskAt = svg.indexOf('<defs>');
+      const plateAt = svg.indexOf(`d="${geometry.body}"`);
+      expect(maskAt).toBeGreaterThanOrEqual(0);
+      expect(plateAt).toBeGreaterThan(maskAt);
     }
-    // At and above 24 the full cut's punch must still be a hole rather than a
-    // smudge: >= 1.2px across at the switch point, growing from there.
-    for (const size of [24, 32, 48, 64, 96, 128, 180, 192, 512, 1024]) {
-      const cut = markGeometryForSize(size);
-      const rendered = (cut.punchCircle.r * 2 * size) / cut.viewBox;
-      expect(rendered, `${size}px punch`).toBeGreaterThanOrEqual(1.2);
-    }
-  });
-
-  it('renders mono as one compound path plus the pennant, with the punch knocked out', () => {
-    const geometry = markGeometryForSize(32);
-    const d = knockoutPath(geometry);
-    // The punch is appended to the plate path; the pennant is its own path so
-    // it stays visible where it rises above the tag.
-    expect(d.startsWith(geometry.body)).toBe(true);
-    expect(d.endsWith(geometry.punch)).toBe(true);
-    expect(d.match(/M/g)).toHaveLength(2);
-    expect(d).not.toContain(geometry.flag);
-    const badge = renderNotificationBadgeSvg(96);
-    expect(badge).toContain('fill-rule="evenodd"');
-    expect(badge).toContain('#FFFFFF');
-    expect(badge).toContain(geometry.flag);
-    expect(badge.match(/fill="#FFFFFF"/g)).toHaveLength(2);
-    expect(badge).not.toContain('#1F1A14');
-    expect(badge).not.toContain('#FF6B45');
-    // A white W painted over a white plate would vanish; the badge cuts it out.
-    expect(badge).toContain(geometry.letter);
-    expect(badge).toContain('stroke="black"');
-    expect(badge).toContain(`stroke-width="${geometry.letterWidth}"`);
-    expect(badge).toContain('mask="url(#warrly-mark-cut-full)"');
   });
 });
 
@@ -233,29 +300,36 @@ describe('the wordmark is fixed outlines', () => {
 });
 
 describe('the lockup proportions', () => {
-  it('uses mark height 1.15× cap, gap 0.5× symbol width and 2× accent clear space', () => {
+  it('uses gap 0.5× symbol width, and the gap is the clear space', () => {
     const g = markGeometryForSize(32);
-    const symbolHeight = g.ink.height * LOCKUP.markScale;
     const symbolWidth = g.ink.width * LOCKUP.markScale;
-    expect(symbolHeight).toBeCloseTo(1.15 * WORDMARK_BOX.capHeight, 6);
+    const symbolHeight = g.ink.height * LOCKUP.markScale;
     expect(LOCKUP.wordmarkX - symbolWidth).toBeCloseTo(0.5 * symbolWidth, 6);
-    expect(LOCKUP.clearSpace).toBeCloseTo(2 * g.flagWidth * LOCKUP.markScale, 6);
-    // The ink starts at x=0 and the tag's bottom sits on the wordmark baseline.
+    expect(LOCKUP.clearSpace).toBeCloseTo(LOCKUP.wordmarkX - symbolWidth, 6);
+
+    // The symbol is a little under the wordmark's cap height — close enough to
+    // read as one lockup, not stretched to fill the box.
+    expect(symbolHeight).toBeLessThan(WORDMARK_BOX.capHeight);
+    expect(symbolHeight).toBeGreaterThan(0.8 * WORDMARK_BOX.capHeight);
+
+    // The ink starts at x=0 and the tag's lowest point sits on the baseline.
     expect(LOCKUP.markX + g.ink.x * LOCKUP.markScale).toBeCloseTo(0, 6);
-    expect(LOCKUP.markY + 28.2 * LOCKUP.markScale).toBeCloseTo(0, 6);
-    // The pennant tip is the top of the box, exactly 1.15 cap above baseline.
-    expect(LOCKUP.markY + g.ink.y * LOCKUP.markScale).toBeCloseTo(-115, 6);
+    expect(
+      LOCKUP.markY + (g.ink.y + g.ink.height) * LOCKUP.markScale,
+    ).toBeCloseTo(0, 6);
+    // The top of the box is the wordmark ascender, not a removed pennant tip.
+    expect(LOCKUP.markY + g.ink.y * LOCKUP.markScale).toBeCloseTo(-symbolHeight, 6);
+    expect(LOCKUP.viewBox.y).toBe(WORDMARK_BOX.y);
+    expect(LOCKUP.viewBox.height).toBe(WORDMARK_BOX.height);
     expect(LOCKUP.viewBox.width).toBeCloseTo(LOCKUP.wordmarkX + WORDMARK_BOX.width, 6);
-    // 115 above the baseline to the wordmark's 'y' descender at +29.53.
-    expect(LOCKUP.viewBox.y).toBe(-115);
-    expect(LOCKUP.viewBox.height).toBeCloseTo(115 + 29.53, 6);
     expect(LOCKUP_ASPECT).toBeCloseTo(LOCKUP.viewBox.width / LOCKUP.viewBox.height, 8);
   });
 
-  it('ships as a single SVG with the plate, the pennant, the W and the wordmark', () => {
+  it('ships as a single SVG with the plate, the W and the wordmark', () => {
     const svg = renderLockupSvg({ height: 36 });
-    // the W's mask stroke + pennant + plate (with its punched hole) + lettering
-    expect(svg.match(/<path/g)).toHaveLength(4);
+    // the W's mask stroke + the plate + the wordmark lettering. The removed
+    // pennant would be a fourth path.
+    expect(svg.match(/<path/g)).toHaveLength(3);
     expect(svg.match(/<circle/g)).toBeNull();
     expect(svg.match(/<rect/g)).toHaveLength(2); // mask ground + full stop
     expect(svg).not.toContain('<text');
@@ -272,11 +346,14 @@ describe('the in-app mark uses tokens, never literals', () => {
     expect(tiled).toContain('<rect width="32" height="32" rx="0"');
   });
 
-  it('paints with currentColor + --brand-dot and no paint stroke/filter/gradient/hex', () => {
+  it('paints the plate with --brand-dot and no second ink shape', () => {
     const svg = renderInAppMarkSvg();
-    expect(svg).toContain('currentColor');
-    expect(svg).toContain('var(--brand-dot)');
-    expect(svg).toContain('fill-rule="evenodd"');
+    // One painted shape: the accent plate. The W is a mask cut, so there is no
+    // second `currentColor` shape and no even-odd compound path.
+    expect(svg).toContain('hsl(var(--brand-dot))');
+    expect(svg).not.toContain('currentColor');
+    expect(svg).not.toContain('fill-rule');
+    expect(svg.match(/<path/g)).toHaveLength(2);
     for (const forbidden of ['filter', 'Gradient', 'gradient']) {
       expect(svg, forbidden).not.toContain(forbidden);
     }
@@ -308,6 +385,8 @@ describe('the React components draw the W as well', () => {
     expect(colour).toContain('stroke-linecap="round"');
     expect(colour).toContain('stroke-linejoin="round"');
     expect(colour).toContain('mask="url(#warrly-mark-cut-full)"');
+    // One plate path; the W's mask stroke is the only other path.
+    expect(colour.match(/<path/g)).toHaveLength(2);
 
     const mono = renderToStaticMarkup(
       React.createElement(WarrlyMark, { size: 32, variant: 'mono' }),

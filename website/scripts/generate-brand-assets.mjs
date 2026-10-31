@@ -49,11 +49,11 @@ const CREAM = '#FFF7EE';
 const INK = '#1F1A14';
 const CORAL = '#FF6B45';
 
-// Glyph size as a fraction of the tile EDGE. 0.84 puts the silhouette at 67% of
-// the tile height (the same optical size the previous 16×24 receipt had at its
-// 0.882 glyph ratio), while the maskable cut is smaller so its 21.9×25.6
-// silhouette stays inside the inner 80% safe circle: its circumscribed radius is
-// 0.369 × 512 = 188.8px against the 204.8px limit.
+// Glyph size as a fraction of the tile EDGE. 0.84 draws the 22×18.4 silhouette
+// at 247px tall on a 512 tile (48% of the edge, the same optical size the
+// previous 16×24 receipt had at its 0.882 glyph ratio). The maskable cut is
+// smaller so the same silhouette stays inside the inner 80% safe circle: its
+// circumscribed radius is 0.314 × 512 = 160.6px against the 204.8px limit.
 const ANY_GLYPH = 0.84;
 const MASKABLE_GLYPH = 0.7;
 
@@ -295,7 +295,7 @@ async function main() {
     await writeFile(join(PUBLIC, 'favicon.svg'), faviconSvg());
     written.push('favicon.svg (small cut, 16px)');
     await writeFile(join(PUBLIC, 'icon.svg'), renderInAppMarkSvg());
-    written.push('icon.svg (full cut, currentColor + --brand-dot)');
+    written.push('icon.svg (full cut, --brand-dot plate with a cut W)');
 
     for (const line of written) console.log(`  ${line}`);
   } finally {

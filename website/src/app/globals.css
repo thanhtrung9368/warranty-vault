@@ -109,14 +109,16 @@
     --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
     /* THE BRAND — not a theme.
-       `--brand-body` and `--brand-dot` are the only two colours the mark and
-       wordmark use. They are deliberately NOT `--foreground` / `--primary`
-       directly: the pennant's job is to contrast with the tag body, not with
-       the page, and that contract is pinned in
-       `__tests__/brand-contrast.test.ts`. Light mode: ink tag + accent pennant
-       (emerald and violet need `--primary-2`; their `--primary` is 2.85 / 3.04
-       against ink). Dark mode: cream tag + `--primary-soft` pennant — NEVER the
-       bright dark-mode accent, which is 2.24:1 on cream. */
+       `--brand-body` paints the outline wordmark; `--brand-dot` paints the tag
+       plate (and the wordmark's full stop). The W is a mask cut, not a paint,
+       so the surface behind the mark shows through it. These are brand slots
+       that resolve through `--ink` / `--primary`, but the mark reads only these
+       two variables, so an accent change cannot drop a third colour into the
+       logo; `__tests__/brand-contrast.test.ts` pins the pair. Light mode: ink
+       wordmark + accent plate (emerald and violet use `--primary-2`; their
+       `--primary` is 2.85 / 3.04 against ink). Dark mode: the plate is the
+       bright accent against the page — never `--primary-soft`, which measures
+       1.30:1 there. */
     --brand-body: var(--ink);
     --brand-dot: var(--primary);
 
@@ -206,16 +208,14 @@
     --zinc: 33 9% 60%;
     --zinc-soft: 226 14% 20%;
 
-    /* The mark in dark mode: a cream tag with a BRIGHT pennant.
+    /* The mark in dark mode: the plate is the bright accent on the page.
        This block is also the fallback when no [data-accent] is set.
 
-       This used to be `--primary-soft` and it was correct for the previous
-       mark, whose accent sat INSIDE the cream tag and therefore had to
-       contrast with the body (10:1+). The new mark's pennant rises ABOVE the
-       tag: every visible pixel of it sits on the dark page, not on the body,
-       and the pole's overlap is covered by the plate. So the requirement
-       flipped — measure against the page. `--primary-soft` on #0E1018 is
-       1.30:1 (invisible); the bright accent is 6.73:1. */
+       The visible plate is the whole mark, so the colour that matters is the
+       one measured against the page. `--primary-soft` on #0E1018 is 1.30:1
+       (invisible); the bright accent is 6.73:1. `--brand-body` stays cream for
+       the wordmark, and the W is a mask cut, so the dark page shows through the
+       plate. */
     --brand-body: 32 100% 96%;
     --brand-dot: var(--primary);
 
@@ -269,8 +269,8 @@
 }
 [data-accent="emerald"] {
   /* `--primary` is only 2.85:1 against ink; `--primary-2` is 3.41:1 and clears
-     the 3:1 non-text threshold. The pennant is a graphic, but it is still a
-     mark: it must not disappear on the tag. */
+     the 3:1 non-text threshold. The plate is a graphic and the lockup pairs it
+     with the ink wordmark, so this is the pair `brand-contrast.test.ts` pins. */
   --brand-dot: var(--primary-2);
   --primary: 153 77% 25%;             /* #0F7145 — white 6.05:1, hover 5.06:1 */
   --primary-2: 153 65% 30%;           /* #1B7E51 */
@@ -306,10 +306,9 @@
 
 /* Same swatches, dark-mode variants (the design's ACCENTS_DARK) */
 .dark[data-accent="coral"] {
-  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
-     cream (2.24:1), which is exactly why it is right here: the pennant sits
-     above the tag on the dark page, not on the cream body. See the note on the
-     :root dark block. */
+  /* Bright accent plate on the dark page. The W is a mask cut, so the page
+     shows through it; the plate itself is measured against the page, never the
+     cream wordmark ink. See the note on the dark block. */
   --brand-body: 32 100% 96%;
   --brand-dot: var(--primary);
   --primary: 14 100% 69%;             /* #FF8060 */
@@ -322,10 +321,9 @@
   --ring: 14 100% 69%;
 }
 .dark[data-accent="emerald"] {
-  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
-     cream (2.24:1), which is exactly why it is right here: the pennant sits
-     above the tag on the dark page, not on the cream body. See the note on the
-     :root dark block. */
+  /* Bright accent plate on the dark page. The W is a mask cut, so the page
+     shows through it; the plate itself is measured against the page, never the
+     cream wordmark ink. See the note on the dark block. */
   --brand-body: 32 100% 96%;
   --brand-dot: var(--primary);
   --primary: 158 64% 52%;             /* #34D399 */
@@ -338,10 +336,9 @@
   --ring: 158 64% 52%;
 }
 .dark[data-accent="violet"] {
-  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
-     cream (2.24:1), which is exactly why it is right here: the pennant sits
-     above the tag on the dark page, not on the cream body. See the note on the
-     :root dark block. */
+  /* Bright accent plate on the dark page. The W is a mask cut, so the page
+     shows through it; the plate itself is measured against the page, never the
+     cream wordmark ink. See the note on the dark block. */
   --brand-body: 32 100% 96%;
   --brand-dot: var(--primary);
   --primary: 255 92% 76%;             /* #A78BFA */
@@ -354,10 +351,9 @@
   --ring: 255 92% 76%;
 }
 .dark[data-accent="sky"] {
-  /* Cream tag + the BRIGHT accent pennant. The bright accent is poor against
-     cream (2.24:1), which is exactly why it is right here: the pennant sits
-     above the tag on the dark page, not on the cream body. See the note on the
-     :root dark block. */
+  /* Bright accent plate on the dark page. The W is a mask cut, so the page
+     shows through it; the plate itself is measured against the page, never the
+     cream wordmark ink. See the note on the dark block. */
   --brand-body: 32 100% 96%;
   --brand-dot: var(--primary);
   --primary: 198 93% 60%;             /* #38BDF8 */

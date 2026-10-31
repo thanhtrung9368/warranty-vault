@@ -1,16 +1,16 @@
-// The brand dot's contrast contract, computed from the REAL globals.css.
+// The brand tokens' contrast contract, computed from the REAL globals.css.
 //
-// The dot is a graphic, not body text, but it is the whole trademark: a dot
-// that disappears on the receipt is a bug. The rule is body-vs-dot, NOT
-// dot-vs-page — a coral dot on a cream page is 2.5:1, yet coral on the ink
-// receipt is 6.1:1. This test replays the cascade for the four accents in both
-// modes and computes the actual ratio.
+// `--brand-body` paints the wordmark ink; `--brand-dot` paints the tag plate
+// (and the wordmark's full stop). The plate is the whole trademark: if it
+// disappeared into the surface, the mark would be a blank silhouette. The W is
+// a mask cut, so it shows the surface through and is never a painted second
+// colour. This test replays the cascade for the four accents in both modes and
+// computes the actual ratio.
 //
-// It also pins the reason `--brand-dot` is not simply `--primary`: emerald's
-// primary is 2.85:1 and violet's is 3.04:1 against ink; both accents therefore
-// redirect the dot to `--primary-2` (3.41 / 3.46). Dark mode is the other way
-// round: cream body + the DARK soft tint, never the bright dark-mode accent
-// (coral's bright dark primary is 2.24:1 on cream).
+// It also pins the accent overrides: emerald's primary is 2.85:1 and violet's
+// is 3.04:1 against ink, so in light mode both redirect the dot to
+// `--primary-2` (3.41 / 3.46). Dark mode is the other way round: the plate is
+// the bright accent against the page, never the soft tint (1.30:1 on #0E1018).
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -78,7 +78,7 @@ describe('brand dot contrast (body vs dot)', () => {
   });
 
   for (const accent of ACCENTS) {
-    it(`${accent} / light: ink receipt + accent dot clears 3:1`, () => {
+    it(`${accent} / light: ink wordmark + accent plate clears 3:1`, () => {
       const vars = light(accent);
       const body = resolve(vars, 'brand-body');
       const dot = resolve(vars, 'brand-dot');
@@ -86,20 +86,18 @@ describe('brand dot contrast (body vs dot)', () => {
       expect(ratio(body, dot)).toBeGreaterThanOrEqual(3);
     });
 
-    // The old mark's accent sat INSIDE the cream tag, so this asserted 10:1
-    // against the body and explicitly rejected the bright accent. The new mark's
-    // pennant rises ABOVE the tag — every visible pixel is on the dark page, and
-    // the pole's overlap is covered by the plate — so the requirement moved to
-    // the page. `--primary-soft` on #0E1018 measures 1.30:1 and is invisible;
-    // this now pins the bright accent and measures it against the page.
-    it(`${accent} / dark: cream tag + bright pennant clears 3:1 on the page`, () => {
+    // The mark is one accent plate, not an accent sitting inside a tag: every
+    // visible pixel of the plate sits on the dark page, so the requirement is
+    // page-vs-dot. `--primary-soft` on #0E1018 measures 1.30:1 and would be
+    // invisible; this pins the bright accent and measures it against the page.
+    it(`${accent} / dark: the bright accent plate clears 3:1 on the page`, () => {
       const vars = dark(accent);
       expect(resolve(vars, 'brand-body')).toBe('32 100% 96%');
       const dot = resolve(vars, 'brand-dot');
       expect(dot).toBe(resolve(vars, 'primary'));
       const page = resolve(vars, 'background');
       expect(ratio(page, dot)).toBeGreaterThanOrEqual(3);
-      // And the body-relative token is NOT what we picked any more.
+      // And the soft tint is NOT what paints the plate any more.
       expect(dot).not.toBe(resolve(vars, 'primary-soft'));
     });
   }
@@ -126,8 +124,12 @@ describe('brand dot contrast (body vs dot)', () => {
 
   it('has no literal colour in the in-app mark asset', () => {
     const svg = readFileSync(join(WEBSITE, 'public', 'icon.svg'), 'utf8');
-    expect(svg).toContain('currentColor');
+    // One painted shape, the accent plate. The W is a mask cut, so there is no
+    // `currentColor` second shape and no even-odd compound path.
     expect(svg).toContain('hsl(var(--brand-dot))');
+    expect(svg).not.toContain('currentColor');
+    expect(svg).not.toContain('fill-rule');
+    expect(svg.match(/<path/g)).toHaveLength(2);
     expect(svg).not.toMatch(/#[0-9a-fA-F]{3,8}/);
     expect(svg).not.toMatch(/filter|gradient/i);
     // The W is cut out with a mask, whose one black stroke is a stencil rather

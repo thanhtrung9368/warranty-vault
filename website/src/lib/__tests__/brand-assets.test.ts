@@ -142,6 +142,37 @@ function near(a: [number, number, number], b: [number, number, number], toleranc
   return distance(a, b) <= tolerance;
 }
 
+/** The polyline points of a letter path (`M x y` then repeated `l dx dy`). */
+function letterPoints(path: string): Array<{ x: number; y: number }> {
+  const tokens = path.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
+  const points: Array<{ x: number; y: number }> = [];
+  let x = 0;
+  let y = 0;
+  let command = '';
+  for (let i = 0; i < tokens.length; ) {
+    if (/^[A-Za-z]$/.test(tokens[i])) {
+      command = tokens[i];
+      i += 1;
+      continue;
+    }
+    // SVG repeats the last command for every following coordinate pair, so
+    // `l2.7 5.2 2-3.4 …` is four relative linetos, not one.
+    const a = Number(tokens[i]);
+    const b = Number(tokens[i + 1]);
+    i += 2;
+    if (command === 'M' || command === 'L') {
+      x = a;
+      y = b;
+      command = 'L';
+    } else {
+      x += a;
+      y += b;
+    }
+    points.push({ x, y });
+  }
+  return points;
+}
+
 describe('apple-touch-icon.png (defect 1)', () => {
   const icon = decodePng(join(PUBLIC, 'apple-touch-icon.png'));
 
@@ -202,16 +233,17 @@ describe('icon-512.png and icon-maskable-512.png (defect 2)', () => {
       expect(near(any.rgb(x, y), CREAM), `corner ${x},${y}`).toBe(true);
       expect(any.alpha(x, y)).toBe(255);
     }
-    // The glyph is larger than in the maskable cut: it is the `any` icon.
-    let anyInk = 0;
-    let maskInk = 0;
+    // The glyph is larger than in the maskable cut: it is the `any` icon. Count
+    // the accent plate, not ink — the mark has no ink shape any more.
+    let anyPlate = 0;
+    let maskPlate = 0;
     for (let y = 0; y < 512; y += 4) {
       for (let x = 0; x < 512; x += 4) {
-        if (near(any.rgb(x, y), INK, 30)) anyInk += 1;
-        if (near(maskable.rgb(x, y), INK, 30)) maskInk += 1;
+        if (near(any.rgb(x, y), CORAL, 30)) anyPlate += 1;
+        if (near(maskable.rgb(x, y), CORAL, 30)) maskPlate += 1;
       }
     }
-    expect(anyInk).toBeGreaterThan(maskInk);
+    expect(anyPlate).toBeGreaterThan(maskPlate);
   });
 
   it('keeps every maskable pixel inside the inner 80% safe circle', () => {
@@ -233,18 +265,23 @@ describe('icon-512.png and icon-maskable-512.png (defect 2)', () => {
     expect(glyphPixels).toBeGreaterThan(1000);
   });
 
-  it('draws the cream + ink + coral brand palette, not a placeholder', () => {
-    let ink = 0;
+  it('draws the cream ground + coral plate, not a placeholder', () => {
+    let cream = 0;
     let coral = 0;
+    let ink = 0;
     for (let y = 0; y < 512; y += 2) {
       for (let x = 0; x < 512; x += 2) {
         const pixel = maskable.rgb(x, y);
-        if (near(pixel, INK, 20)) ink += 1;
+        if (near(pixel, CREAM, 20)) cream += 1;
         if (near(pixel, CORAL, 20)) coral += 1;
+        if (near(pixel, INK, 20)) ink += 1;
       }
     }
-    expect(ink).toBeGreaterThan(1000);
-    expect(coral).toBeGreaterThan(100);
+    expect(cream).toBeGreaterThan(1000);
+    expect(coral).toBeGreaterThan(1000);
+    // The W is a cut-out, so it is the cream ground showing through the plate:
+    // there is no second painted colour to find.
+    expect(ink).toBe(0);
   });
 });
 
@@ -273,14 +310,21 @@ describe('favicon.ico + favicon.svg (defect 3)', () => {
     }
     expect(sizes).toEqual([16, 32, 48]);
 
-    // The 16px entry is the SMALL cut, not a downscaled full one. The small
-    // pennant starts at x=18.3/32 = 9.15px, so pixel (9,1) is ~85% covered
-    // horizontally (× the ~70% coverage of the flag's top row) ≈ 156/255;
-    // the full cut starts at 18.9 → ~55% × 70% ≈ 99/255. Measured, not assumed.
+    // The 16px entry is the SMALL cut, not a downscaled full one. Both cuts
+    // have the same straight top edge, so the coverage of the first plate row
+    // measures which cut was drawn: the small plate starts at 6.4/32 = 3.2px
+    // (row 3 is ~80% covered), the full one at 7/32 = 3.5px (~50%). Derive the
+    // expected coverage from `ink.y` instead of restating either number.
     const small = decodePngBuffer(entries.get(16)!, 'favicon.ico 16px entry');
     expect(small.width).toBe(16);
-    expect(small.alpha(9, 1)).toBeGreaterThan(130);
-    expect(small.alpha(10, 1)).toBeGreaterThan(160);
+    const geometry = markGeometryForSize(16);
+    const topEdge = (geometry.ink.y * 16) / geometry.viewBox;
+    const expectedAlpha = Math.round((1 - (topEdge % 1)) * 255);
+    const rowAlpha = small.alpha(8, Math.floor(topEdge));
+    expect(
+      Math.abs(rowAlpha - expectedAlpha),
+      `16px top-row alpha ${rowAlpha}, expected ≈${expectedAlpha} for the ${geometry.cut} cut`,
+    ).toBeLessThan(48);
     const full = decodePngBuffer(entries.get(32)!, 'favicon.ico 32px entry');
     expect(full.width).toBe(32);
   });
@@ -289,16 +333,12 @@ describe('favicon.ico + favicon.svg (defect 3)', () => {
     const svg = readFileSync(join(PUBLIC, 'favicon.svg'), 'utf8');
     const small = markGeometryForSize(16);
     expect(svg).toContain('<svg');
-    expect(svg).toContain('prefers-color-scheme: dark');
     expect(svg).toContain('forced-colors: active');
-    // Three paths: the W's mask stroke, the pennant, then the plate. The W is
-    // a cut-out, never a painted third path colour.
-    expect(svg.match(/<path/g)).toHaveLength(3);
+    // Two paths: the W's mask stroke and the plate. There is no pennant path
+    // and no punch any more; the W is a cut-out, never a painted third colour.
+    expect(svg.match(/<path/g)).toHaveLength(2);
     expect(svg).not.toContain('<circle');
-    // The small cut has no punch by design, so the plate is exactly its body.
-    expect(small.punch).toBe('');
     expect(svg).toContain(small.body);
-    expect(svg).toContain(small.flag);
     expect(svg).toContain(small.letter);
     expect(svg).toContain(`stroke-width="${small.letterWidth}"`);
     expect(svg).toContain('<mask');
@@ -347,68 +387,74 @@ describe('notification icon + badge (defect 4)', () => {
     expect(transparent).toBeGreaterThan(1000);
   });
 
-  it('knocks the punch out of the badge and keeps the pennant visible', () => {
+  it('knocks the W out of the badge, with no punch and no pennant', () => {
     // The geometry is imported, not retyped: this checks the RENDERER against
     // the same source rather than against a second copy of the numbers.
     const geometry = markGeometryForSize(32);
-    const scale = (96 * 0.92) / 32;
+    const scale = (96 * 0.92) / geometry.viewBox;
     const offsetX = (96 - geometry.ink.width * scale) / 2 - geometry.ink.x * scale;
     const offsetY = (96 - geometry.ink.height * scale) / 2 - geometry.ink.y * scale;
-    const cx = Math.round(offsetX + geometry.punchCircle.cx * scale);
-    const cy = Math.round(offsetY + geometry.punchCircle.cy * scale);
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        expect(badge.alpha(cx + dx, cy + dy), `punch hole ${cx + dx},${cy + dy}`).toBe(0);
+    const points = letterPoints(geometry.letter);
+    const half = (geometry.letterWidth / 2) * scale;
+    const toX = (gridX: number) => offsetX + gridX * scale;
+    const toY = (gridY: number) => offsetY + gridY * scale;
+
+    // Every segment midpoint is a transparent hole: the W is a cut, not a
+    // white stroke painted over the plate.
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const x = Math.round(toX((points[i].x + points[i + 1].x) / 2));
+      const y = Math.round(toY((points[i].y + points[i + 1].y) / 2));
+      expect(badge.alpha(x, y), `W cut ${x},${y}`).toBe(0);
+    }
+
+    // A plate point outside the letter is solid.
+    const plateX = Math.round(toX(7));
+    const plateY = Math.round(toY(23));
+    expect(badge.alpha(plateX, plateY), `plate ${plateX},${plateY}`).toBe(255);
+
+    // No punch: in a band around the W (large enough to cover the old hole's
+    // position, small enough to stay clear of the rounded corners and the
+    // torn edge), every transparent pixel must belong to the W.
+    const minX = Math.min(...points.map((point) => point.x)) * scale + offsetX - half;
+    const maxX = Math.max(...points.map((point) => point.x)) * scale + offsetX + half;
+    const minY = Math.min(...points.map((point) => point.y)) * scale + offsetY - half;
+    const maxY = Math.max(...points.map((point) => point.y)) * scale + offsetY + half;
+    const margin = geometry.notchDepth * scale;
+    const scanLeft = Math.ceil(minX - margin);
+    const scanRight = Math.floor(maxX + margin);
+    const scanTop = Math.ceil(minY - margin);
+    const scanBottom = Math.floor(maxY + margin);
+    for (let y = scanTop; y <= scanBottom; y += 1) {
+      for (let x = scanLeft; x <= scanRight; x += 1) {
+        if (badge.alpha(x, y) !== 0) continue;
+        expect(
+          x >= Math.floor(minX) && x <= Math.ceil(maxX) &&
+            y >= Math.floor(minY) && y <= Math.ceil(maxY),
+          `hole outside the W at ${x},${y}`,
+        ).toBe(true);
       }
     }
-    // The plate between the punch and the W is solid. Derived from the geometry
-    // rather than sampled at a fixed offset: the W's apex moved up when the
-    // letter became a capital, and a hardcoded "+14px" landed inside it.
-    const wTop = Math.round(offsetY + (18.9 - 0.95) * scale);
-    const gapY = Math.round((cy + wTop) / 2);
-    expect(gapY, 'gap between punch and W exists').toBeGreaterThan(cy);
-    expect(badge.alpha(cx + 6, gapY), `plate ${cx + 6},${gapY}`).toBe(255);
-    // The pennant above the plate is solid too — it is not knocked out, and
-    // the sample sits clear of the swallowtail notch.
-    const flagX = Math.round(offsetX + 23 * scale);
-    const flagY = Math.round(offsetY + 3.5 * scale);
-    expect(badge.alpha(flagX, flagY), `pennant ${flagX},${flagY}`).toBe(255);
+
+    // No pennant: every visible pixel belongs to the plate's own ink box. The
+    // removed flag rose above y=7 and would fail this.
+    const left = Math.floor(toX(geometry.ink.x)) - 2;
+    const right = Math.ceil(toX(geometry.ink.x + geometry.ink.width)) + 2;
+    const top = Math.floor(toY(geometry.ink.y)) - 2;
+    const bottom = Math.ceil(toY(geometry.ink.y + geometry.ink.height)) + 2;
+    for (let y = 0; y < badge.height; y += 1) {
+      for (let x = 0; x < badge.width; x += 1) {
+        if (badge.alpha(x, y) === 0) continue;
+        expect(
+          x >= left && x <= right && y >= top && y <= bottom,
+          `ink outside the plate at ${x},${y}`,
+        ).toBe(true);
+      }
+    }
   });
 });
 
 describe('the W is cut into the generated rasters', () => {
   const full = markGeometryForSize(32);
-
-  /** The polyline points of a letter path (`M x y` then repeated `l dx dy`). */
-  function letterPoints(path: string): Array<{ x: number; y: number }> {
-    const tokens = path.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
-    const points: Array<{ x: number; y: number }> = [];
-    let x = 0;
-    let y = 0;
-    let command = '';
-    for (let i = 0; i < tokens.length; ) {
-      if (/^[A-Za-z]$/.test(tokens[i])) {
-        command = tokens[i];
-        i += 1;
-        continue;
-      }
-      // SVG repeats the last command for every following coordinate pair, so
-      // `l2.7 5.2 2-3.4 …` is four relative linetos, not one.
-      const a = Number(tokens[i]);
-      const b = Number(tokens[i + 1]);
-      i += 2;
-      if (command === 'M' || command === 'L') {
-        x = a;
-        y = b;
-        command = 'L';
-      } else {
-        x += a;
-        y += b;
-      }
-      points.push({ x, y });
-    }
-    return points;
-  }
 
   /**
    * The W's ink position in a `renderIconSvg` tile, derived from the same
@@ -427,7 +473,7 @@ describe('the W is cut into the generated rasters', () => {
     return {
       x: Math.round(offsetX + firstMid.x * scale),
       y: Math.round(offsetY + firstMid.y * scale),
-      // A plate point above the W, clear of both the punch and the bevel.
+      // A plate point left of the W, clear of the torn edge.
       plateX: Math.round(offsetX + 7 * scale),
       plateY: Math.round(offsetY + 17 * scale),
     };
@@ -446,7 +492,7 @@ describe('the W is cut into the generated rasters', () => {
         `W pixel ${point.x},${point.y} in ${file}`,
       ).toBe(true);
       expect(
-        near(icon.rgb(point.plateX, point.plateY), INK, 12),
+        near(icon.rgb(point.plateX, point.plateY), CORAL, 12),
         `plate pixel ${point.plateX},${point.plateY} in ${file}`,
       ).toBe(true);
     });

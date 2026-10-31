@@ -35,7 +35,7 @@ export const SUPPORT_EMAIL = 'support@warrly.com';
  * The brand mark as a crawlable image URL.
  *
  * `public/icon-512.png` is generated from `brand.ts` (`renderIconSvg`: the
- * 32-grid tag plate with its punched hole plus the coral pennant on the brand
+ * 32-grid tag plate — torn zigzag bottom, W cut out — on the cream brand
  * background). The wordmark is not the logo — Google wants a square brand
  * image, and this is the current mark, not the retired vault illustration.
  */
