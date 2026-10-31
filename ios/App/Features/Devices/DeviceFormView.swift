@@ -28,6 +28,22 @@ struct DeviceFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// Which text input holds the keyboard. The long form's Save button is at
+    /// the bottom, so the keyboard toolbar's "Tiếp" / "Next" walks this order
+    /// instead of making the user scroll between fields.
+    ///
+    /// Only real text inputs are in the chain: a `DatePicker` / menu / pill row
+    /// cannot take `@FocusState`, and pretending otherwise would move focus to
+    /// nothing. The order is the visual order (with the conditional warranty and
+    /// FX fields inserted only while they are on screen).
+    @FocusState private var focusedField: FormField?
+
+    enum FormField: Hashable {
+        case name, brand, model, serial, price, fxRate, purchasePlace
+        case warrantyMonths, warrantyProvider, warrantyPhone, warrantyAddress
+        case notes
+    }
+
     // Form fields
     @State private var name: String
     @State private var category: String
@@ -148,6 +164,10 @@ struct DeviceFormView: View {
     @State private var isSubmitting = false
     @State private var topError: String?
     @State private var fieldErrors: [String: [String]] = [:]
+    /// Bumped on every failed save so the scroll view can bring the top error
+    /// banner into view. The Save button is at the bottom of a long form; an
+    /// error rendered above the fold is the same as no error.
+    @State private var errorScrollToken = 0
 
     /// Serial advisories from the last **successful** save (openapi:
     /// `{device, warnings}` on POST/PATCH). Non-empty means the device IS saved
@@ -213,6 +233,18 @@ struct DeviceFormView: View {
 
     private var isEditing: Bool { device != nil }
 
+    /// Create-mode default. DEBUG-only screenshot QA can override it
+    /// (`WV_QA_CATEGORY`, e.g. `FRIDGE`) so the category row can be photographed
+    /// without a tap; a Release build always starts on `PHONE`.
+    private static var defaultCategory: String {
+#if DEBUG
+        if let qa = ProcessInfo.processInfo.environment["WV_QA_CATEGORY"], !qa.isEmpty {
+            return qa
+        }
+#endif
+        return "PHONE"
+    }
+
     init(client: APIClient, store: DevicesStore, device: Device?) {
         self.client = client
         self.store = store
@@ -221,7 +253,11 @@ struct DeviceFormView: View {
         // two can never disagree about "the purchase day" when the form opens.
         let purchaseDay = device?.purchaseDate ?? Date()
         _name = State(initialValue: device?.name ?? "")
-        _category = State(initialValue: device?.category ?? "phone")
+        // `PHONE`, not `phone`: the server matches the code exactly against the
+        // seeded `Category.code`, which is uppercase. A lowercase default meant a
+        // form saved without touching the picker sent a code that cannot exist
+        // and came back as a 400 the user had no way to read.
+        _category = State(initialValue: device?.category ?? Self.defaultCategory)
         _brand = State(initialValue: device?.brand ?? "")
         _model = State(initialValue: device?.model ?? "")
         _serial = State(initialValue: device?.serialNumber ?? "")
@@ -498,6 +534,100 @@ struct DeviceFormView: View {
         catalog.stores(matching: purchasePlace).prefix(8).map(\.name)
     }
 
+    // MARK: - Keyboard "Next"
+
+    /// The fields "Tiếp" walks, in visual order. The warranty block only exists
+    /// in create mode and the FX rate only while a foreign currency is selected,
+    /// so the chain is rebuilt from the same conditions the body uses.
+    private var focusChain: [FormField] {
+        var fields: [FormField] = [.name, .brand, .model, .serial, .price]
+        if usesForeignCurrency { fields.append(.fxRate) }
+        fields.append(.purchasePlace)
+        if !isEditing {
+            fields.append(contentsOf: [
+                .warrantyMonths, .warrantyProvider, .warrantyPhone, .warrantyAddress,
+            ])
+        }
+        fields.append(.notes)
+        return fields
+    }
+
+    /// Moves the keyboard to the next text field. On the last field it closes the
+    /// keyboard, and submits when the form already passes the same local check
+    /// the Save button uses — so "Next" on the last field is never a dead tap and
+    /// never sends a request the button would have refused.
+    private func advanceFocus() {
+        guard let current = focusedField,
+              let index = focusChain.firstIndex(of: current)
+        else { return }
+        if index + 1 < focusChain.count {
+            focusedField = focusChain[index + 1]
+            return
+        }
+        focusedField = nil
+        guard isValid, !isSubmitting else { return }
+        Task { await submit() }
+    }
+
+    // MARK: - Error placement
+
+    /// Fields that draw their own `fieldErrorRow`. Anything else the server names
+    /// is listed under the top banner instead, so no message can be swallowed by
+    /// a form that has no matching input.
+    private static let inlineErrorFields: Set<String> = [
+        "name", "brand", "model", "serialNumber", "category", "purchaseDate",
+        "purchasePrice", "purchasePlace", "currency", "fxRate", "returnWindowDays",
+        "receivedAt", "leadDays", "soldAt", "soldPrice", "activatedAt",
+        "extendedCoverBuyBy", "warrantyMonths", "warrantyProvider", "warrantyPhone",
+        "warrantyAddress", "status", "notes",
+    ]
+
+    /// The localised label for a server field key. Used only by the top banner's
+    /// fallback list; an unknown key is grouped under "Khác" rather than printed
+    /// as an identifier the user cannot act on.
+    private static func fieldLabel(_ key: String) -> String {
+        switch key {
+        case "name":              return L.t("Tên")
+        case "brand":             return L.t("Hãng")
+        case "model":             return "Model"
+        case "serialNumber":      return "Serial / IMEI"
+        case "category":          return L.t("Loại")
+        case "purchaseDate":      return L.t("Ngày mua")
+        case "purchasePrice":     return L.t("Giá mua")
+        case "purchasePlace":     return L.t("Nơi mua")
+        case "currency":          return L.t("Tiền tệ")
+        case "fxRate":            return L.t("Tỷ giá")
+        case "returnWindowDays":  return L.t("Hạn đổi/trả")
+        case "receivedAt":        return L.t("Ngày nhận hàng")
+        case "leadDays":          return L.t("Nhắc trước")
+        case "soldAt":            return L.t("Ngày bán")
+        case "soldPrice":         return L.t("Giá bán")
+        case "activatedAt":       return L.t("Ngày kích hoạt")
+        case "extendedCoverBuyBy": return L.t("Mua gói mở rộng trước")
+        case "warrantyMonths":    return L.t("Số tháng")
+        case "warrantyProvider":  return L.t("Hãng BH")
+        case "warrantyPhone":     return L.t("SĐT BH")
+        case "warrantyAddress":   return L.t("Địa chỉ")
+        case "brandWarrantyStatus", "brandWarrantyEnd", "brandWarrantyCheckedAt",
+             "brandWarrantyLookupUrl", "brandWarrantyNotes":
+            return L.t("Đối chiếu với hãng")
+        case "status":            return L.t("Trạng thái")
+        case "notes":             return L.t("Ghi chú")
+        default:                  return L.t("Khác")
+        }
+    }
+
+    /// Field messages with no row of their own. Rendered under the top banner,
+    /// verbatim, with the field's label in front so they are still attributable.
+    private var topFieldErrorLines: [String] {
+        fieldErrors
+            .filter { !Self.inlineErrorFields.contains($0.key) }
+            .sorted { $0.key < $1.key }
+            .flatMap { key, messages in
+                messages.map { "\(Self.fieldLabel(key)): \($0)" }
+            }
+    }
+
     // MARK: - Return window (derived)
 
     /// The chosen length as the row's trailing value: "Chưa biết", "Không đổi
@@ -635,6 +765,12 @@ struct DeviceFormView: View {
                     guard saved else { return }
                     withAnimation { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
                 }
+                // A failed save scrolls to the same banner. The Save button is
+                // below a long form; an explanation the user would have to
+                // discover by scrolling is the bug this screen is fixing.
+                .onChange(of: errorScrollToken) { _, _ in
+                    withAnimation { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
+                }
         }
     }
 
@@ -645,6 +781,14 @@ struct DeviceFormView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer().frame(height: 8).id(Self.topAnchorID)
+
+                // A failed save is stated first: the server's sentence (or the
+                // mapped equivalent — never a raw code) plus any field message
+                // that has no input row to sit under.
+                if let topError {
+                    saveErrorCard(topError)
+                    Spacer().frame(height: 12)
+                }
 
                 // Saved, but the server flagged the serial. Shown first, above
                 // everything else, and stated as a success.
@@ -756,15 +900,21 @@ struct DeviceFormView: View {
 
                 // Basic info
                 WVGroup {
-                    inputRow(label: L.t("Tên"), placeholder: "MacBook Pro M3...", text: $name)
+                    inputRow(label: L.t("Tên"), placeholder: "MacBook Pro M3...", text: $name,
+                             focus: .name, errorKey: "name")
+                    fieldErrorRow("name")
                     WVDivider()
-                    inputRow(label: L.t("Hãng"), placeholder: "Apple, Samsung...", text: $brand)
+                    inputRow(label: L.t("Hãng"), placeholder: "Apple, Samsung...", text: $brand,
+                             focus: .brand, errorKey: "brand")
+                    fieldErrorRow("brand")
                     if !brandSuggestions.isEmpty {
                         WVDivider()
                         AutocompleteRow(suggestions: brandSuggestions, text: $brand)
                     }
                     WVDivider()
-                    inputRow(label: "Model", placeholder: "14-inch M3 Pro...", text: $model)
+                    inputRow(label: "Model", placeholder: "14-inch M3 Pro...", text: $model,
+                             focus: .model, errorKey: "model")
+                    fieldErrorRow("model")
                     WVDivider()
                     // Category picker row
                     Button { showCategoryPicker = true } label: {
@@ -818,6 +968,8 @@ struct DeviceFormView: View {
                         }
                     }
                     .buttonStyle(WVRowButtonStyle())
+                    .onChange(of: category) { _, _ in fieldErrors["category"] = nil }
+                    fieldErrorRow("category")
                     WVDivider()
                     serialRow
                     if serialScanNotice {
@@ -838,7 +990,9 @@ struct DeviceFormView: View {
                         DatePicker("", selection: $purchaseDate, displayedComponents: .date)
                             .labelsHidden()
                             .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                            .onChange(of: purchaseDate) { _, _ in fieldErrors["purchaseDate"] = nil }
                     }
+                    fieldErrorRow("purchaseDate")
 
                     WVDivider()
 
@@ -855,6 +1009,8 @@ struct DeviceFormView: View {
                             WVMoneyField(value: $price,
                                          placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
                                          groupingSeparator: priceFieldGrouping)
+                                .focused($focusedField, equals: .price)
+                                .onChange(of: price) { _, _ in fieldErrors["purchasePrice"] = nil }
                             Menu {
                                 ForEach(CurrencyRules.pickerCodes(current: currency), id: \.self) { code in
                                     Button {
@@ -884,6 +1040,8 @@ struct DeviceFormView: View {
                         }
                     }
 
+                    fieldErrorRow("purchasePrice")
+
                     fieldErrorRow("currency")
 
                     // Rate + "Lấy tỷ giá". Only for a foreign currency: VND
@@ -906,6 +1064,7 @@ struct DeviceFormView: View {
                             // not the only way in. A 503 leaves this field to
                             // the user instead of blocking the save.
                             WVMoneyField(value: $fxRate, placeholder: "25.400")
+                                .focused($focusedField, equals: .fxRate)
                                 // Only the stale server error is cleared here.
                                 // The notice is deliberately not touched: the
                                 // fetch itself sets `fxRate`, and an onChange
@@ -982,7 +1141,9 @@ struct DeviceFormView: View {
                     }
 
                     WVDivider()
-                    inputRow(label: L.t("Nơi mua"), placeholder: "CellphoneS, TopZone...", text: $purchasePlace)
+                    inputRow(label: L.t("Nơi mua"), placeholder: "CellphoneS, TopZone...", text: $purchasePlace,
+                             focus: .purchasePlace, errorKey: "purchasePlace")
+                    fieldErrorRow("purchasePlace")
                     if !storeSuggestions.isEmpty {
                         WVDivider()
                         AutocompleteRow(suggestions: storeSuggestions, text: $purchasePlace)
@@ -1065,16 +1226,30 @@ struct DeviceFormView: View {
                                 .multilineTextAlignment(.trailing)
                                 .wvFont(.body)
                                 .foregroundStyle(WVColor.label)
+                                .focused($focusedField, equals: .warrantyMonths)
+                                .onChange(of: warrantyMonths) { _, _ in
+                                    fieldErrors["warrantyMonths"] = nil
+                                }
                         }
                         .padding(.horizontal, 16)
                         .frame(minHeight: 44)
                         .padding(.vertical, 7)
+                        fieldErrorRow("warrantyMonths")
                         WVDivider()
-                        inputRow(label: L.t("Hãng BH"), placeholder: L.t("Apple Việt Nam..."), text: $warrantyProvider)
+                        inputRow(label: L.t("Hãng BH"), placeholder: L.t("Apple Việt Nam..."),
+                                 text: $warrantyProvider,
+                                 focus: .warrantyProvider, errorKey: "warrantyProvider")
+                        fieldErrorRow("warrantyProvider")
                         WVDivider()
-                        inputRow(label: L.t("SĐT BH"), placeholder: "1800-...", text: $warrantyPhone, keyboard: .phonePad)
+                        inputRow(label: L.t("SĐT BH"), placeholder: "1800-...",
+                                 text: $warrantyPhone, keyboard: .phonePad,
+                                 focus: .warrantyPhone, errorKey: "warrantyPhone")
+                        fieldErrorRow("warrantyPhone")
                         WVDivider()
-                        inputRow(label: L.t("Địa chỉ"), placeholder: "Bitexco, Q.1, TP.HCM", text: $warrantyAddress)
+                        inputRow(label: L.t("Địa chỉ"), placeholder: "Bitexco, Q.1, TP.HCM",
+                                 text: $warrantyAddress,
+                                 focus: .warrantyAddress, errorKey: "warrantyAddress")
+                        fieldErrorRow("warrantyAddress")
                     }
                 }
 
@@ -1093,6 +1268,7 @@ struct DeviceFormView: View {
                             if idx > 0 { WVDivider() }
                             Button {
                                 status = pair.0
+                                fieldErrors["status"] = nil
                             } label: {
                                 HStack {
                                     Text(pair.1)
@@ -1112,6 +1288,7 @@ struct DeviceFormView: View {
                             }
                             .buttonStyle(WVRowButtonStyle())
                         }
+                        fieldErrorRow("status")
                     }
                 }
 
@@ -1125,7 +1302,10 @@ struct DeviceFormView: View {
                         .padding(.horizontal, 16)
                         .frame(minHeight: 44)
                         .padding(.vertical, 10)
+                        .focused($focusedField, equals: .notes)
+                        .onChange(of: notes) { _, _ in fieldErrors["notes"] = nil }
                 }
+                fieldErrorRow("notes")
 
                 // Resale ("Bán lại", migration 0006). Independent of `status`: the
                 // server accepts SOLD with no figures, and figures without SOLD.
@@ -1237,15 +1417,6 @@ struct DeviceFormView: View {
                     }
                 }
 
-                // Error
-                if let topError {
-                    Text(topError)
-                        .wvFont(.footnote)
-                        .foregroundStyle(WVColor.red)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 8)
-                }
-
                 // CTA button
                 VStack(spacing: 0) {
                     if didSave {
@@ -1305,6 +1476,22 @@ struct DeviceFormView: View {
                     .disabled(!isValid)
                 }
             }
+            // Keyboard-adjacent "Next": the form is long and Save is at the
+            // bottom, so a user filling the first few fields can advance without
+            // dismissing the keyboard and scrolling. On the last text field it
+            // closes the keyboard and saves only when the form is already valid.
+            //
+            // Hidden while the keyboard belongs to a field this FocusState does
+            // not own (the lead-days editor's custom-day input): a "Next" that
+            // jumped from there back to Name would be worse than no button.
+            ToolbarItemGroup(placement: .keyboard) {
+                if focusedField != nil {
+                    Spacer()
+                    Button(L.t("Tiếp")) { advanceFocus() }
+                        .wvFont(.bodyEmphasis)
+                        .foregroundStyle(WVColor.tint)
+                }
+            }
         }
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerSheet(selected: $category, options: categoryOptions)
@@ -1328,6 +1515,22 @@ struct DeviceFormView: View {
         .task {
             if !isEditing, let v = try? await client.getAIOptIn() { aiEnabled = v }
         }
+#if DEBUG
+        // Screenshot QA only: submit the untouched form once so a real server
+        // 400 can be photographed without a tap (`WV_QA_AUTOSUBMIT=1`).
+        .task {
+            if ProcessInfo.processInfo.environment["WV_QA_AUTOSUBMIT"] == "1" {
+                await submit()
+            }
+        }
+        // Screenshot QA only: open the keyboard on Name so the keyboard toolbar
+        // is photographable (`WV_QA_FOCUS_NAME=1`). The simulator has no tap.
+        .task {
+            guard ProcessInfo.processInfo.environment["WV_QA_FOCUS_NAME"] == "1" else { return }
+            try? await Task.sleep(for: .milliseconds(700))
+            focusedField = .name
+        }
+#endif
         .onChange(of: scanPhotoItem) { _, item in
             guard let item else { return }
             Task { await handleScan(item) }
@@ -1711,6 +1914,7 @@ struct DeviceFormView: View {
             .textInputAutocapitalization(.characters)
             .autocorrectionDisabled()
             .multilineTextAlignment(alignment)
+            .focused($focusedField, equals: .serial)
             .frame(maxWidth: .infinity,
                    alignment: alignment == .leading ? .leading : .trailing)
             .onChange(of: serial) { _, newValue in
@@ -1759,7 +1963,9 @@ struct DeviceFormView: View {
         placeholder: String,
         text: Binding<String>,
         keyboard: UIKeyboardType = .default,
-        autocapitalize: TextInputAutocapitalization = .sentences
+        autocapitalize: TextInputAutocapitalization = .sentences,
+        focus: FormField? = nil,
+        errorKey: String? = nil
     ) -> some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
@@ -1768,7 +1974,8 @@ struct DeviceFormView: View {
                         .wvFont(.body)
                         .foregroundStyle(WVColor.label)
                     inputField(placeholder: placeholder, text: text, keyboard: keyboard,
-                               autocapitalize: autocapitalize, alignment: .leading)
+                               autocapitalize: autocapitalize, alignment: .leading,
+                               focus: focus, errorKey: errorKey)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -1780,7 +1987,8 @@ struct DeviceFormView: View {
                         .foregroundStyle(WVColor.label)
                         .frame(width: 110, alignment: .leading)
                     inputField(placeholder: placeholder, text: text, keyboard: keyboard,
-                               autocapitalize: autocapitalize, alignment: .trailing)
+                               autocapitalize: autocapitalize, alignment: .trailing,
+                               focus: focus, errorKey: errorKey)
                 }
                 .padding(.horizontal, 16)
                 .frame(minHeight: 44)
@@ -1794,7 +2002,9 @@ struct DeviceFormView: View {
         text: Binding<String>,
         keyboard: UIKeyboardType,
         autocapitalize: TextInputAutocapitalization,
-        alignment: TextAlignment
+        alignment: TextAlignment,
+        focus: FormField? = nil,
+        errorKey: String? = nil
     ) -> some View {
         TextField(placeholder, text: text)
             .wvFont(.body)
@@ -1803,6 +2013,10 @@ struct DeviceFormView: View {
             .textInputAutocapitalization(autocapitalize)
             .autocorrectionDisabled()
             .multilineTextAlignment(alignment)
+            .focused($focusedField, equals: focus)
+            .onChange(of: text.wrappedValue) { _, _ in
+                if let errorKey { fieldErrors[errorKey] = nil }
+            }
             // A TextField reports the placeholder's width as its ideal width.
             // At 40 pt that is wider than the phone, which used to widen the
             // whole card. The field must take the row's width instead.
@@ -1936,6 +2150,7 @@ struct DeviceFormView: View {
         // wire rejects an empty array with 400 `fieldErrors.leadDays`.
         guard let normalizedLeadDays = LeadDaysRules.wireValue(leadDays) else {
             topError = L.t("Chọn ít nhất 1 mốc nhắc")
+            errorScrollToken += 1
             return
         }
 
@@ -1946,6 +2161,7 @@ struct DeviceFormView: View {
         if let rateError = CurrencyRules.rateError(currency: currency, rate: submittedRate) {
             fieldErrors = CurrencyRules.fieldErrors(currency: currency, rate: submittedRate)
             topError = rateError
+            errorScrollToken += 1
             return
         }
 
@@ -1995,6 +2211,7 @@ struct DeviceFormView: View {
         if !saleErrors.isEmpty {
             fieldErrors = saleErrors
             topError = saleErrors["soldAt"]?.first ?? saleErrors["soldPrice"]?.first
+            errorScrollToken += 1
             return
         }
         DeviceResale.apply(sale, to: &input)
@@ -2056,11 +2273,21 @@ struct DeviceFormView: View {
                 savedWarnings = warnings
                 didSave = true
             }
-        } catch let err as APIError {
-            topError = err.localizedDescription
-            fieldErrors = err.fieldErrors
         } catch {
-            topError = error.localizedDescription
+            // Every failure goes through one classifier: a raw `envelope.error`
+            // never reaches the banner, a 5xx / transport failure says nothing
+            // was saved, and a LIMIT_REACHED names the ceiling it hit.
+            let failure = FormErrorCopy.presentation(
+                for: error,
+                limitFallback: L.t(
+                    "Đã đạt giới hạn %d thiết bị chưa bán hoặc %d thiết bị lưu trữ. Bán hoặc xoá bớt rồi thử lại.",
+                    DeviceQuota.maxActiveDevices,
+                    DeviceQuota.maxTotalDevices
+                )
+            )
+            topError = failure.headline
+            fieldErrors = failure.fieldErrors
+            errorScrollToken += 1
         }
     }
 
@@ -2130,6 +2357,43 @@ struct DeviceFormView: View {
         dismiss()
     }
 
+    // MARK: - Save failure
+
+    /// The top-of-form explanation for a save that did not happen.
+    ///
+    /// It is deliberately one card rather than a bare red line: the headline says
+    /// what happened (and, for 5xx / transport, that nothing was saved), while
+    /// the lines below carry any field message the form has no row for. Errors
+    /// for fields the form does render stay next to those fields — this card must
+    /// not become a second, divergent copy of the same sentence.
+    private func saveErrorCard(_ headline: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                WVIcon("alert", size: 14)
+                    .foregroundStyle(WVColor.red)
+                    .padding(.top, 1)
+                Text(headline)
+                    .wvFont(.footnoteEmphasis)
+                    .foregroundStyle(WVColor.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+
+            ForEach(Array(topFieldErrorLines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .wvFont(.caption)
+                    .foregroundStyle(WVColor.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 22)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WVColor.red.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
+        .padding(.horizontal, WVSpacing.gutter)
+    }
+
     // MARK: - Post-save advisories
 
     /// "Saved, but this looks wrong" — deliberately green (a success) carrying
@@ -2168,16 +2432,22 @@ struct DeviceFormView: View {
 
     // MARK: - Fallback categories
 
+    /// Only used when the catalog request has not landed yet. The codes must be
+    /// the seeded ones exactly: `watch`, `audio`, `appliance` and `console` were
+    /// never in migration 0004, so a device created from this list while offline
+    /// was rejected by the server with CATEGORY_INVALID.
     private static let fallbackCategories: [CategoryOption] = [
-        .init(code: "phone",   name: L.t("Điện thoại")),
-        .init(code: "laptop",  name: "Laptop"),
-        .init(code: "tablet",  name: L.t("Máy tính bảng")),
-        .init(code: "watch",   name: L.t("Đồng hồ")),
-        .init(code: "tv",      name: "TV"),
-        .init(code: "audio",   name: "Tai nghe / Loa"),
-        .init(code: "appliance", name: L.t("Gia dụng")),
-        .init(code: "console", name: L.t("Máy game")),
-        .init(code: "other",   name: L.t("Khác")),
+        .init(code: "PHONE",          name: L.t("Điện thoại")),
+        .init(code: "LAPTOP",         name: "Laptop"),
+        .init(code: "TABLET",         name: L.t("Máy tính bảng")),
+        .init(code: "SMARTWATCH",     name: L.t("Đồng hồ thông minh")),
+        .init(code: "HEADPHONE",      name: L.t("Tai nghe")),
+        .init(code: "SPEAKER",        name: L.t("Loa")),
+        .init(code: "TV",             name: "TV"),
+        .init(code: "FRIDGE",         name: L.t("Tủ lạnh")),
+        .init(code: "WASHING",        name: L.t("Máy giặt / Sấy")),
+        .init(code: "GAMING_CONSOLE", name: L.t("Máy chơi game")),
+        .init(code: "OTHER",          name: L.t("Khác")),
     ]
 }
 

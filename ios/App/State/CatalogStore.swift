@@ -47,7 +47,16 @@ public final class CatalogStore: ObservableObject {
     public func brands(matching query: String, category: String? = nil) -> [BrandOption] {
         let pool: [BrandOption]
         if let category, !category.isEmpty {
-            pool = brands.filter { $0.categoryCodes.contains(category) }
+            // The category link is a hint, not a filter the user can see. An
+            // empty BrandCategory for a category (or a category added after the
+            // last seed) must not turn the whole brand field back into free
+            // text; the scoped list falls back to every brand instead.
+            let scoped = brands.filter { brand in
+                brand.categoryCodes.contains {
+                    $0.caseInsensitiveCompare(category) == .orderedSame
+                }
+            }
+            pool = scoped.isEmpty ? brands : scoped
         } else {
             pool = brands
         }

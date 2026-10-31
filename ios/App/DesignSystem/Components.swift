@@ -15,7 +15,9 @@ import WarrlyKit
 /// screens can keep using the same names the design refers to.
 enum WVIconMap {
     static let table: [String: String] = [
-        "alert": "exclamationmark.triangle.fill", "arrowDown": "arrow.down",
+        "airConditioner": "air.conditioner.horizontal.fill",
+        "alert": "exclamationmark.triangle.fill", "appliance": "powerplug.fill",
+        "arrowDown": "arrow.down",
         "arrowLeft": "arrow.left", "arrowRight": "arrow.right", "arrowUp": "arrow.up",
         "bar": "chart.bar.fill", "bell": "bell.fill", "bellOff": "bell.slash.fill",
         "bike": "bicycle", "box": "shippingbox", "briefcase": "briefcase.fill", "calendar": "calendar",
@@ -25,17 +27,21 @@ enum WVIconMap {
         "clock": "clock.fill", "cloud": "cloud.fill", "coffee": "cup.and.saucer.fill",
         "creditCard": "creditcard.fill", "database": "externaldrive.fill",
         "def": "shippingbox.fill", "download": "arrow.down.circle.fill", "edit": "pencil",
+        "electronics": "cpu.fill",
         "ellipse": "ellipsis", "externalLink": "arrow.up.right.square",
         "eye": "eye", "eyeSlash": "eye.slash", "film": "film.fill", "filter": "line.3.horizontal.decrease",
+        "fridge": "refrigerator.fill", "furniture": "sofa.fill",
         "gamepad": "gamecontroller.fill", "globe": "globe", "hash": "number",
         "headphones": "headphones", "heart": "heart.fill", "home": "house.fill",
         "http": "globe", "info": "info.circle.fill", "key": "key.fill",
+        "keyboard": "keyboard.fill", "kitchen": "frying.pan.fill",
         "laptop": "laptopcomputer", "layout": "square.grid.2x2.fill",
         "line": "chart.xyaxis.line", "link": "link", "lock": "lock.fill",
         "logIn": "arrow.right.to.line", "logOut": "rectangle.portrait.and.arrow.right",
         "mail": "envelope.fill", "mapPin": "mappin.circle.fill", "menu": "line.3.horizontal",
         "minus": "minus", "monitor": "display", "more": "ellipsis",
-        "moreH": "ellipsis", "moon": "moon.fill", "music": "music.note",
+        "moreH": "ellipsis", "moon": "moon.fill", "mouse": "computermouse.fill",
+        "music": "music.note",
         "package": "shippingbox.fill", "paperclip": "paperclip", "phone": "phone.fill",
         "plus": "plus", "printer": "printer.fill", "receipt": "doc.text.fill",
         "refresh": "arrow.clockwise", "rotateCcw": "arrow.counterclockwise",
@@ -43,11 +49,13 @@ enum WVIconMap {
         "send": "paperplane.fill", "settings": "gearshape.fill", "shield": "shield.fill",
         "shieldCheck": "checkmark.shield.fill", "shieldX": "xmark.shield.fill",
         "shoppingBag": "bag.fill", "sim": "simcard", "smartphone": "iphone", "sparkles": "sparkles",
+        "speaker": "hifispeaker.fill",
         "stickyNote": "note.text", "store": "building.2.fill", "sun": "sun.max.fill",
-        "tag": "tag.fill", "trash": "trash.fill", "trendingDown": "arrow.down.right",
+        "tablet": "ipad", "tag": "tag.fill", "trash": "trash.fill", "trendingDown": "arrow.down.right",
         "trendingUp": "arrow.up.right", "trophy": "trophy.fill", "tv": "tv.fill",
         "unlock": "lock.open.fill", "upload": "arrow.up.circle.fill", "user": "person.fill",
         "userPlus": "person.badge.plus", "users": "person.2.fill", "wallet": "wallet.pass.fill",
+        "washer": "washer.fill",
         "watch": "applewatch", "wrench": "wrench.and.screwdriver.fill", "x": "xmark", "zap": "bolt.fill",
     ]
 
@@ -168,6 +176,12 @@ struct WVSectionFooter: View {
         Text(text)
             .wvFont(.footnote)
             .foregroundStyle(WVColor.label3)
+            // `fixedSize(horizontal: false)` makes the footer take the width it
+            // is offered and wrap, instead of reporting its single-line ideal
+            // width back to the parent. Without it a long footer at AX sizes
+            // widened the whole form's VStack past the screen and every row's
+            // leading edge was clipped off-screen.
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, WVSpacing.gutter)
             .padding(.top, WVSpacing.sm)
@@ -182,6 +196,13 @@ struct WVGroup<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         VStack(spacing: 0) { content }
+            // Fill the width offered by the form instead of taking the widest
+            // child's ideal width. At Accessibility sizes one long placeholder
+            // or a date row used to widen the whole group past the phone; the
+            // group then centred itself and every row's leading edge went
+            // off-screen. The clip shape below keeps an over-wide child (a
+            // horizontal chip strip, a long value) inside the card.
+            .frame(maxWidth: .infinity)
             .background(WVColor.bg2)
             .clipShape(RoundedRectangle(cornerRadius: WVRadius.list, style: .continuous))
             .padding(.horizontal, WVSpacing.gutter)
@@ -1313,5 +1334,130 @@ extension View {
             .padding(.top, WVSpacing.sm)
             .animation(.spring(response: 0.32, dampingFraction: 0.8), value: center.toasts.count)
         }
+    }
+}
+
+// MARK: - Form failures
+
+// The contract's error envelope is `{error, message?, fieldErrors?}`. Before
+// this helper the forms rendered `APIError.localizedDescription`, which is
+// `envelope.message ?? envelope.error` — i.e. the raw machine code when the
+// server had no sentence, and never "nothing was saved". This turns the same
+// envelope into copy with three guarantees:
+//
+//   * no raw code ever reaches the screen (`looksLikeCode` rejects it);
+//   * a field error keeps the server's own sentence (already localised by the
+//     handler from `Accept-Language`);
+//   * a 5xx / transport failure says the request did not complete and nothing
+//     was written, which is the fact a user needs before tapping Save again.
+//
+// The caller owns presentation: device/subscription forms put `fieldErrors`
+// next to the matching input and show `headline` at the top.
+
+struct FormFailurePresentation {
+    let headline: String
+    let fieldErrors: [String: [String]]
+}
+
+enum FormErrorCopy {
+
+    /// Classifies a failed save into the one headline the form shows.
+    ///
+    /// - Parameter limitFallback: shown for `LIMIT_REACHED` when the server did
+    ///   not send a sentence. It should name the limit the caller enforces (the
+    ///   device form passes the 50 / 500 ceilings), because "reached the limit"
+    ///   without the number is not actionable.
+    static func presentation(for error: Error, limitFallback: String) -> FormFailurePresentation {
+        guard let apiError = error as? APIError else {
+            return FormFailurePresentation(
+                headline: L.t("Không thể hoàn tất yêu cầu. Chưa có gì được lưu."),
+                fieldErrors: [:]
+            )
+        }
+
+        switch apiError {
+        case let .server(status, envelope):
+            let fieldErrors = envelope.fieldErrors ?? [:]
+            let code = envelope.error
+            let message = sentence(envelope.message, code: code)
+
+            if code.caseInsensitiveCompare("LIMIT_REACHED") == .orderedSame {
+                // The server's sentence already names the ceiling it hit
+                // ("Đã đạt giới hạn 50 thiết bị…"). The local fallback exists
+                // only for a server that sends no message.
+                return FormFailurePresentation(
+                    headline: message ?? limitFallback,
+                    fieldErrors: fieldErrors
+                )
+            }
+
+            if status >= 500 {
+                return FormFailurePresentation(
+                    headline: L.t("Máy chủ đang gặp sự cố. Yêu cầu chưa hoàn tất và chưa có gì được lưu — thử lại sau."),
+                    fieldErrors: [:]
+                )
+            }
+
+            if status == 401 {
+                return FormFailurePresentation(
+                    headline: L.t("Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại."),
+                    fieldErrors: fieldErrors
+                )
+            }
+
+            if status == 429 {
+                return FormFailurePresentation(
+                    headline: message ?? L.t("Bạn thao tác quá nhanh. Chờ một lát rồi thử lại."),
+                    fieldErrors: fieldErrors
+                )
+            }
+
+            if !fieldErrors.isEmpty {
+                return FormFailurePresentation(
+                    headline: message ?? L.t("Kiểm tra các ô được đánh dấu rồi thử lại."),
+                    fieldErrors: fieldErrors
+                )
+            }
+
+            return FormFailurePresentation(
+                headline: message ?? L.t("Máy chủ từ chối yêu cầu. Kiểm tra lại thông tin rồi thử lại."),
+                fieldErrors: fieldErrors
+            )
+
+        case .transport:
+            return FormFailurePresentation(
+                headline: L.t("Không kết nối được máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — kiểm tra mạng rồi thử lại."),
+                fieldErrors: [:]
+            )
+
+        case .decoding, .invalidURL:
+            return FormFailurePresentation(
+                headline: L.t("Không đọc được phản hồi từ máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — thử lại sau."),
+                fieldErrors: [:]
+            )
+        }
+    }
+
+    /// A server sentence, or `nil` when the envelope only carried a machine code.
+    private static func sentence(_ raw: String?, code: String) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        // `envelope.error` is a code, never copy. Some proxies answer with the
+        // code in both fields; showing `LIMIT_REACHED` in a red banner is the
+        // exact failure this helper exists to stop.
+        if trimmed.caseInsensitiveCompare(code) == .orderedSame { return nil }
+        if looksLikeCode(trimmed) { return nil }
+        return trimmed
+    }
+
+    private static func looksLikeCode(_ text: String) -> Bool {
+        guard text.rangeOfCharacter(from: .whitespacesAndNewlines) == nil else { return false }
+        guard !text.isEmpty else { return false }
+        let allowed = CharacterSet(charactersIn:
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-.")
+        guard text.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return false }
+        let isAllCaps = text == text.uppercased() && text.contains(where: { $0.isLetter })
+        return text.contains("_") || isAllCaps
     }
 }

@@ -94,6 +94,12 @@ final class AdsController: ObservableObject {
     /// foreground. Safe to call repeatedly: every step is guarded by the
     /// session's state, and the SDK starts exactly once.
     func start() {
+#if DEBUG
+        // Screenshot QA only: the UMP form / ATT alert is a system sheet and a
+        // headless simulator cannot dismiss it, so every such shot would be a
+        // picture of the prompt. Never set in a normal Debug run.
+        if ProcessInfo.processInfo.environment["WV_QA_NO_ADS"] == "1" { return }
+#endif
         // ATT cannot prompt while the app is not active, and UMP's form cannot
         // present. A call from a background transition is simply ignored; the
         // foreground call retries it.

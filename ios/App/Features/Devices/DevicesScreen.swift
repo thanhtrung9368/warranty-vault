@@ -55,6 +55,11 @@ struct DevicesScreen: View {
     /// and the destinations below own the navigation.
     @State private var showCreateForm = false
     @State private var showBulkAdd = false
+#if DEBUG
+    /// Screenshot QA only: `WV_QA_NEW_DEVICE=1` opens the create form on launch,
+    /// once — the simulator cannot be tapped headlessly from CI.
+    @State private var qaDidOpenCreateForm = false
+#endif
     /// The "+" toolbar button presents a confirmation dialog (not a `Menu`):
     /// a `Menu` with a custom `WVIcon` label stopped responding to taps on
     /// iOS 27, and a plain button + system dialog has one predictable hit path.
@@ -363,6 +368,13 @@ struct DevicesScreen: View {
         }
         .task {
             router.restorePendingFromSharedDefaults()
+#if DEBUG
+            if ProcessInfo.processInfo.environment["WV_QA_NEW_DEVICE"] == "1",
+               !qaDidOpenCreateForm {
+                qaDidOpenCreateForm = true
+                showCreateForm = true
+            }
+#endif
             // Two independent reads, started together: the list itself, and
             // the claims the legal repair extension is computed from. The
             // extension is display-only, so a failed claims read leaves the

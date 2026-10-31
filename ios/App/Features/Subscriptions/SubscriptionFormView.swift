@@ -11,6 +11,7 @@ struct SubscriptionFormView: View {
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var toast:   WVToastCenter
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     // Form fields
     @State private var name:          String
@@ -68,6 +69,30 @@ struct SubscriptionFormView: View {
             && (hasTrial || convertsToPrice == nil)
     }
 
+    // MARK: - Plan suggestions
+
+    /// Common services sold in Vietnam. A plan is free text — "Spotify Premium
+    /// Family", "ChatGPT Plus" and a gym membership are all valid — so these are
+    /// chips that fill the field, never a picker that limits it. The list is
+    /// deliberately short: it is a starting point, not a catalog.
+    private static let commonPlanSuggestions = [
+        "Netflix", "Spotify Premium", "YouTube Premium", "Apple One",
+        "Apple Music", "iCloud+", "Google One", "ChatGPT Plus", "Claude Pro",
+        "Microsoft 365", "Canva Pro", "Adobe Creative Cloud", "FPT Play",
+        "Galaxy Play", "VieON", "TV360", "Zing MP3", "GrabUnlimited", "ShopeeVIP",
+    ]
+
+    /// Filtered by what is already typed. With an empty field the first few
+    /// services are offered; once the user types something that matches nothing
+    /// the chips disappear and the field is simply text again.
+    private var planSuggestions: [String] {
+        let query = plan.trimmingCharacters(in: .whitespaces).lowercased()
+        let pool = query.isEmpty
+            ? Self.commonPlanSuggestions
+            : Self.commonPlanSuggestions.filter { $0.lowercased().contains(query) }
+        return Array(pool.prefix(8))
+    }
+
     // MARK: - Init
 
     init(client: APIClient, store: SubscriptionsStore, subscription: Subscription? = nil) {
@@ -121,21 +146,34 @@ struct SubscriptionFormView: View {
                 // Basic info
                 WVGroup {
                     fieldRow(L.t("Tên")) {
-                        TextField("Apple One, ChatGPT Plus...", text: $name)
+                        TextField("Apple One...", text: $name)
                             .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
                     fieldRow(L.t("Hãng")) {
-                        TextField("Apple, OpenAI...", text: $brand)
+                        TextField("Apple...", text: $brand)
                             .wvFont(.body)
                             .multilineTextAlignment(.trailing)
                     }
                     WVDivider()
-                    fieldRow("Plan") {
-                        TextField("Family, Plus...", text: $plan)
+                    fieldRow(L.t("Gói")) {
+                        TextField("Family...", text: $plan)
                             .wvFont(.body)
                             .multilineTextAlignment(.trailing)
+                    }
+                    if !planSuggestions.isEmpty {
+                        WVDivider()
+                        // Tapping a suggestion is a suggestion, not a selection:
+                        // the value goes into the same editable field. If the
+                        // required name is still empty, the picked service fills
+                        // it too, so the chip is a usable starting point rather
+                        // than a plan with no subscription behind it.
+                        AutocompleteChips(suggestions: planSuggestions, text: $plan) { picked in
+                            if name.trimmingCharacters(in: .whitespaces).isEmpty {
+                                name = picked
+                            }
+                        }
                     }
                     WVDivider()
                     // Category picker trigger
@@ -165,6 +203,7 @@ struct SubscriptionFormView: View {
                     }
                     .buttonStyle(WVRowButtonStyle())
                 }
+                WVSectionFooter(L.t("Gợi ý dịch vụ phổ biến — bạn vẫn có thể nhập bất kỳ gói nào."))
 
                 // Cost
                 WVSectionHeader(L.t("Chi phí"))
@@ -194,9 +233,7 @@ struct SubscriptionFormView: View {
                     .buttonStyle(WVRowButtonStyle())
                     WVDivider()
                     WVRowContainer {
-                        DatePicker(L.t("Bắt đầu"), selection: $startedAt,
-                                   displayedComponents: .date)
-                            .wvFont(.body)
+                        datePickerRow(L.t("Bắt đầu"), selection: $startedAt)
                     }
                     if billingCycle != .LIFETIME {
                         WVDivider()
@@ -207,9 +244,7 @@ struct SubscriptionFormView: View {
                         if hasRenewal {
                             WVDivider()
                             WVRowContainer {
-                                DatePicker(L.t("Gia hạn kế"), selection: $renewalDate,
-                                           displayedComponents: .date)
-                                    .wvFont(.body)
+                                datePickerRow(L.t("Gia hạn kế"), selection: $renewalDate)
                             }
                         }
                     }
@@ -346,6 +381,12 @@ struct SubscriptionFormView: View {
                     Spacer().frame(height: WVSpacing.xl)
                 }
             }
+            // Pin the form to the scroll view's width. Without this a long
+            // placeholder or a date row reports an ideal width wider than the
+            // phone at AX sizes, the whole card is laid out at that width and
+            // centred, and every row's leading edge is pushed off-screen — the
+            // same guard `DeviceFormView` already has.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa gói") : L.t("Gói mới"))
@@ -381,14 +422,66 @@ struct SubscriptionFormView: View {
 
     private func fieldRow<F: View>(_ label: String, @ViewBuilder field: () -> F) -> some View {
         WVRowContainer {
-            HStack {
+            // At Accessibility sizes the label and a real placeholder cannot
+            // share a line: "Apple One, ChatGPT Plus..." alone is wider than
+            // the phone, and an HStack cannot compress a TextField below its
+            // content width — it widened the whole form past the screen. The
+            // device form's `inputRow` stacks for the same reason.
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(label)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    field()
+                        .foregroundStyle(WVColor.label3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // A TextField's placeholder sets its ideal width; at AX
+                        // sizes "Apple One, ChatGPT Plus..." is wider than the
+                        // phone. Deprioritising the field lets the label and the
+                        // row's width win, so the form cannot widen past the
+                        // screen.
+                        .layoutPriority(-1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack {
+                    Text(label)
+                        .wvFont(.body)
+                        .foregroundStyle(WVColor.label)
+                    Spacer()
+                    field()
+                        .foregroundStyle(WVColor.label3)
+                        // A TextField reports its placeholder's width as its
+                        // ideal width; take the row's remaining width instead.
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .layoutPriority(-1)
+                }
+            }
+        }
+    }
+
+    /// A date row that stacks at Accessibility sizes.
+    ///
+    /// The compact `DatePicker` draws its label and the full Vietnamese date
+    /// ("ngày 31 thg 10, 2026") on one line; at AX3 that pair is wider than the
+    /// phone, and an HStack cannot compress it — the form's whole content width
+    /// grew with it. Stacking the label above a label-less picker keeps both
+    /// readable inside the screen.
+    @ViewBuilder
+    private func datePickerRow(_ label: String, selection: Binding<Date>) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(label)
                     .wvFont(.body)
                     .foregroundStyle(WVColor.label)
-                Spacer()
-                field()
-                    .foregroundStyle(WVColor.label3)
+                DatePicker("", selection: selection, displayedComponents: .date)
+                    .labelsHidden()
+                    .wvFont(.body)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            DatePicker(label, selection: selection, displayedComponents: .date)
+                .wvFont(.body)
         }
     }
 
@@ -453,13 +546,17 @@ struct SubscriptionFormView: View {
                 toast.show(L.t("Đã thêm gói 🎉"))
             }
             dismiss()
-        } catch let err as APIError {
-            topError = err.localizedDescription
-            leadDaysError = err.fieldErrors["leadDays"]?.first
-            trialError = err.fieldErrors["convertsToPrice"]?.first
-                ?? err.fieldErrors["trialEndsAt"]?.first
         } catch {
-            topError = error.localizedDescription
+            // Same classifier as the device form: never a raw wire code, and a
+            // 5xx / transport failure says the request did not complete.
+            let failure = FormErrorCopy.presentation(
+                for: error,
+                limitFallback: L.t("Đã đạt giới hạn gói đăng ký. Xoá bớt rồi thử lại.")
+            )
+            topError = failure.headline
+            leadDaysError = failure.fieldErrors["leadDays"]?.first
+            trialError = failure.fieldErrors["convertsToPrice"]?.first
+                ?? failure.fieldErrors["trialEndsAt"]?.first
         }
     }
 }

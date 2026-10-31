@@ -57,6 +57,11 @@ struct SubscriptionsScreen: View {
     @State private var sort       = SubSort.renewalAsc
     @State private var showSort   = false
     @State private var pushCreate = false
+#if DEBUG
+    /// Screenshot QA only: `WV_QA_NEW_SUBSCRIPTION=1` opens the create form on
+    /// launch, once — the simulator cannot be tapped headlessly from CI.
+    @State private var qaDidOpenCreateForm = false
+#endif
     /// The id a push asked for. Its own destination binding rather than a value
     /// pushed from the list: the detail screen loads by id, so it can open even
     /// when the row is filtered out or the list has not arrived yet.
@@ -150,6 +155,13 @@ struct SubscriptionsScreen: View {
         .toolbar { toolbarContent }
         .task {
             await openPendingSubscriptionIfNeeded()
+#if DEBUG
+            if ProcessInfo.processInfo.environment["WV_QA_NEW_SUBSCRIPTION"] == "1",
+               !qaDidOpenCreateForm {
+                qaDidOpenCreateForm = true
+                pushCreate = true
+            }
+#endif
             await store.load()
         }
         .refreshable { await store.load() }

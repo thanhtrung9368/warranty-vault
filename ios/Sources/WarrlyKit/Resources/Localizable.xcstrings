@@ -3164,23 +3164,6 @@
         }
       }
     },
-    "Gia dụng" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Home appliance"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gia dụng"
-          }
-        }
-      }
-    },
     "Gia hạn" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6136,23 +6119,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Máy chủ không trả về đường dẫn cho link này. Hãy thu hồi và tạo lại."
-          }
-        }
-      }
-    },
-    "Máy game" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Game console"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Máy game"
           }
         }
       }
@@ -21743,6 +21709,227 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đã qua"
+          }
+        }
+      }
+    },
+    "Tiếp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiếp"
+          }
+        }
+      }
+    },
+    "Gói" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gói"
+          }
+        }
+      }
+    },
+    "Gợi ý dịch vụ phổ biến — bạn vẫn có thể nhập bất kỳ gói nào." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Common services as suggestions — you can still type any plan."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gợi ý dịch vụ phổ biến — bạn vẫn có thể nhập bất kỳ gói nào."
+          }
+        }
+      }
+    },
+    "Không thể hoàn tất yêu cầu. Chưa có gì được lưu." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The request could not be completed. Nothing was saved."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể hoàn tất yêu cầu. Chưa có gì được lưu."
+          }
+        }
+      }
+    },
+    "Không kết nối được máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — kiểm tra mạng rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not reach the server. The request was not completed and nothing was saved — check your connection and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không kết nối được máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — kiểm tra mạng rồi thử lại."
+          }
+        }
+      }
+    },
+    "Máy chủ đang gặp sự cố. Yêu cầu chưa hoàn tất và chưa có gì được lưu — thử lại sau." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is having trouble. The request was not completed and nothing was saved — try again later."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy chủ đang gặp sự cố. Yêu cầu chưa hoàn tất và chưa có gì được lưu — thử lại sau."
+          }
+        }
+      }
+    },
+    "Không đọc được phản hồi từ máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — thử lại sau." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not read the server response. The request was not completed and nothing was saved — try again later."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không đọc được phản hồi từ máy chủ. Yêu cầu chưa hoàn tất và chưa có gì được lưu — thử lại sau."
+          }
+        }
+      }
+    },
+    "Máy chủ từ chối yêu cầu. Kiểm tra lại thông tin rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server rejected the request. Check the details and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máy chủ từ chối yêu cầu. Kiểm tra lại thông tin rồi thử lại."
+          }
+        }
+      }
+    },
+    "Kiểm tra các ô được đánh dấu rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the highlighted fields and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra các ô được đánh dấu rồi thử lại."
+          }
+        }
+      }
+    },
+    "Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your session has expired. Sign in again and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại."
+          }
+        }
+      }
+    },
+    "Bạn thao tác quá nhanh. Chờ một lát rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are doing that too quickly. Wait a moment and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn thao tác quá nhanh. Chờ một lát rồi thử lại."
+          }
+        }
+      }
+    },
+    "Đã đạt giới hạn %d thiết bị chưa bán hoặc %d thiết bị lưu trữ. Bán hoặc xoá bớt rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have reached the limit of %d unsold devices or %d stored devices. Sell or delete some and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đạt giới hạn %d thiết bị chưa bán hoặc %d thiết bị lưu trữ. Bán hoặc xoá bớt rồi thử lại."
+          }
+        }
+      }
+    },
+    "Đã đạt giới hạn gói đăng ký. Xoá bớt rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have reached the subscription limit. Delete some and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đạt giới hạn gói đăng ký. Xoá bớt rồi thử lại."
           }
         }
       }
