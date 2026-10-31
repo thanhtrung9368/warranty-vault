@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Fraunces, Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
@@ -8,28 +7,9 @@ import { I18nProvider } from '@/lib/i18n/client';
 import { getI18n } from '@/lib/i18n/server';
 import { pageMetadata, siteBaseUrl } from '@/lib/metadata';
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin', 'vietnamese'],
-  display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-sans',
-});
-
-const inter = Inter({
-  subsets: ['latin', 'vietnamese'],
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-inter',
-  preload: false,
-});
-
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['600', '700', '800'],
-  variable: '--font-fraunces',
-  preload: false,
-});
+// Fonts are self-hosted in `globals.css` — see the note there. `next/font/google`
+// fetched Inter, Jakarta and Fraunces from fonts.googleapis.com during `docker build`,
+// and made the production build depend on that call succeeding.
 
 // Metadata follows the same per-request language as the page it describes —
 // `/` is indexable, and a link preview is copy a user reads. It is
@@ -109,7 +89,6 @@ export default async function RootLayout({
     <html
       lang={locale}
       suppressHydrationWarning
-      className={`${jakarta.variable} ${inter.variable} ${fraunces.variable}`}
     >
       <head>
         {/* Plain inline script, not `next/script`'s beforeInteractive queue:
@@ -124,7 +103,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: PREFS_BOOTSTRAP }}
         />
       </head>
-      <body className={jakarta.className}>
+      <body>
         {/* Answered by the service worker: empty for a fresh page, a generated
             stale-data bar when it just served this document from cache. It is
             part of the React tree, so no DOM injection and no hydration
