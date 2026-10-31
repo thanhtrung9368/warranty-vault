@@ -412,10 +412,13 @@ func TestTranslationsAreActuallyTranslated(t *testing.T) {
 			continue
 		}
 		if entry.en == entry.vi {
-			// Two legitimate identical pairs: "Required" is the same word, and
-			// the emoji-only segments are not sentences. Anything else is a
+			// Legitimate identical pairs, listed by hand: "Required" is the same
+			// word, and "Laptop" is the same loanword in Vietnamese and English
+			// (it is both the seeded Category name and its client-table English
+			// label, so there is nothing to translate). Anything else is a
 			// missed translation.
-			if key == "Required" {
+			switch key {
+			case "Required", "Laptop":
 				continue
 			}
 			t.Errorf("catalog entry %q has identical vi/en text %q — is it actually translated?", key, entry.en)

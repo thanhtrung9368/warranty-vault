@@ -402,6 +402,19 @@ paths:
     get:
       tags: [catalog]
       summary: Form-fill catalog (categories, brands, stores, warranty providers)
+      description: |
+        Bundle dùng để đổ vào form thiết bị. `categories[].name` được render
+        theo ngôn ngữ của request — `?lang=`, rồi `Accept-Language`, rồi
+        `User.locale`, mặc định tiếng Anh — trong khi `categories[].code` và
+        mọi trường còn lại không đổi theo ngôn ngữ.
+
+        Giá trị canonical trong DB (`Category.name`) vẫn là tiếng Việt do
+        migration 0004 seed và không bị request nào sửa; bản dịch chỉ áp lên
+        bản copy trả về, sau khi đọc cache 60 giây. Cache giữ nguyên bản
+        canonical nên hai request khác ngôn ngữ không thể nhận nhầm ngôn ngữ
+        của nhau.
+      parameters:
+        - { $ref: '#/components/parameters/Lang' }
       responses:
         '200':
           description: Catalog bundle
@@ -5965,7 +5978,15 @@ components:
             required: [code, name]
             properties:
               code: { type: string }
-              name: { type: string }
+              name:
+                type: string
+                description: |
+                  Tên hiển thị theo ngôn ngữ của request (`?lang=` →
+                  `Accept-Language` → `User.locale` → tiếng Anh). Giá trị lưu
+                  trong `Category.name` vẫn là tiếng Việt và không đổi; một
+                  tên không có trong catalog i18n (ví dụ dòng bị sửa tay) được
+                  trả nguyên văn. `code` mới là khoá để client khớp và không
+                  bao giờ bị dịch.
         brands:
           type: array
           items:

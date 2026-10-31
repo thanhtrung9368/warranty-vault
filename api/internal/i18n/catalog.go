@@ -1712,4 +1712,39 @@ var messages = map[string]message{
 		vi: "Bản sao lưu có link tra cứu bảo hành hãng không hợp lệ cho thiết bị \"%s\".",
 		en: "The backup has an invalid brand warranty lookup URL for device \"%s\".",
 	},
+
+	// ── Category catalog names (migration 0004, GET /api/v1/catalog).
+	//
+	// These are the `Category.name` values the seed migration stores. The DB is
+	// canonical and stays Vietnamese: only the COPY served by the catalog
+	// endpoint is translated (services.CatalogForRequest), so a request never
+	// changes a row and the cache keeps no language. The English text matches
+	// the client tables' English exactly (iOS Localizable.xcstrings, keyed on
+	// these same Vietnamese strings).
+	//
+	// The CODE is never translated — it is the key clients match on and what the
+	// write paths validate. The static per-client label tables also stay
+	// Vietnamese-keyed: services/category_seed_test.go re-parses them against
+	// migration 0004, and this catalog is additive to that arrangement, not a
+	// replacement for it.
+	"Điện thoại":          {vi: "Điện thoại", en: "Phone"},
+	"Laptop":              {vi: "Laptop", en: "Laptop"},
+	"Máy tính bảng":       {vi: "Máy tính bảng", en: "Tablet"},
+	"Đồng hồ thông minh":  {vi: "Đồng hồ thông minh", en: "Smartwatch"},
+	"Tai nghe":            {vi: "Tai nghe", en: "Headphones"},
+	"Loa":                 {vi: "Loa", en: "Speaker"},
+	"Máy ảnh / Quay phim": {vi: "Máy ảnh / Quay phim", en: "Camera / Camcorder"},
+	"Tivi":                {vi: "Tivi", en: "TV"},
+	"Màn hình":            {vi: "Màn hình", en: "Monitor"},
+	"Bàn phím":            {vi: "Bàn phím", en: "Keyboard"},
+	"Chuột":               {vi: "Chuột", en: "Mouse"},
+	"Máy chơi game":       {vi: "Máy chơi game", en: "Game console"},
+	"Điều hòa":            {vi: "Điều hòa", en: "Air conditioner"},
+	"Tủ lạnh":             {vi: "Tủ lạnh", en: "Fridge"},
+	"Máy giặt / Sấy":      {vi: "Máy giặt / Sấy", en: "Washer / Dryer"},
+	"Đồ nhà bếp":          {vi: "Đồ nhà bếp", en: "Kitchen appliance"},
+	"Đồ gia dụng khác":    {vi: "Đồ gia dụng khác", en: "Other home appliance"},
+	"Điện tử khác":        {vi: "Điện tử khác", en: "Other electronics"},
+	"Nội thất":            {vi: "Nội thất", en: "Furniture"},
+	"Khác":                {vi: "Khác", en: "Other"},
 }

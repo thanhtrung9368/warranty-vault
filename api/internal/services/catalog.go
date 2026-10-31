@@ -23,6 +23,10 @@ import (
 const CatalogTTL = 60 * time.Second
 
 // CategoryOption mirrors website/src/lib/services/catalog.ts::CategoryOption.
+//
+// `Name` is the DB's canonical Vietnamese name rendered in the request's
+// language by CatalogForRequest. `Code` is never translated: it is the key the
+// three clients match on and what the write paths validate against.
 type CategoryOption struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
@@ -126,6 +130,13 @@ type catalogResult struct {
 
 // ListCatalog returns the bundled catalog, populating the in-process TTL cache.
 // Concurrent callers during a miss share the in-flight load.
+//
+// The returned bundle is CANONICAL and language-free: Category.Name holds the
+// Vietnamese string stored in the database, exactly as migration 0004 seeded
+// it. Callers that need names for one request must go through
+// CatalogForRequest, which localizes a copy AFTER this cache read; translating
+// the cached value here would pin the first request's language for every user
+// until the TTL expired.
 func ListCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 	const key = "catalog"
 	rawAny, _ := catalogCache.LoadOrStore(key, &catalogEntry{})
@@ -167,6 +178,54 @@ func ListCatalog(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
 		ch <- catalogResult{value: value, err: err}
 	}
 	return value, err
+}
+
+// CatalogForRequest returns the catalog as one HTTP response must carry it:
+// every non-category field comes straight from the cached bundle, and Categories
+// is a NEW slice whose Name is rendered in the request's language (resolved on
+// ctx — `?lang=` > Accept-Language > User.locale > English).
+//
+// The cache stores the canonical bundle, so the language decision happens here,
+// after the cache read, on a copy. Two properties keep that safe:
+//
+//   - Copy-on-read. The cached *Catalog is never written, and neither is any
+//     CategoryOption inside it: localizeCategoryNames allocates a fresh
+//     Categories slice and writes only into that. The other four slices
+//     (brands / stores / warranty providers / brand service info) share their
+//     backing arrays with the cache, but nothing here or in the handler writes
+//     to them — the handler marshals the result and drops it. That is a
+//     deliberate difference from keying the cache by language, which would need
+//     one cache entry (and one in-flight load) per language.
+//   - The cache stays language-keyed by nothing. A language-keyed cache would
+//     have to localize at load time, and ListCatalog is also read by
+//     ai_extract.go's matchCategory (fuzzy-matching OCR text) and by the
+//     device-bulk validator. Feeding those request-language names would change
+//     OCR matching and buy validation nothing, since validation only ever looks
+//     at the code.
+//
+// A Name missing from the i18n catalog — an operator renamed the row, or a
+// future seed — renders as itself, because i18n.Text returns the key. An edited
+// DB value stays visible rather than becoming an empty string.
+func CatalogForRequest(ctx context.Context, db *pgxpool.Pool) (*Catalog, error) {
+	cached, err := ListCatalog(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	return localizeCategoryNames(ctx, cached), nil
+}
+
+// localizeCategoryNames returns a COPY of cached whose category names are
+// rendered for ctx. It must never write through to cached.Categories: that
+// slice is shared with every other request the 60 s cache serves, and a write
+// here would leak one request's language into the next one — the shared-struct
+// bug this repo has had before.
+func localizeCategoryNames(ctx context.Context, cached *Catalog) *Catalog {
+	out := *cached
+	out.Categories = make([]CategoryOption, len(cached.Categories))
+	for i, c := range cached.Categories {
+		out.Categories[i] = CategoryOption{Code: c.Code, Name: i18n.Text(ctx, c.Name)}
+	}
+	return &out
 }
 
 // InvalidateCatalogCache drops the cached entry. Nothing calls this in
