@@ -217,8 +217,9 @@ fun canSubmitBulk(rows: List<BulkDeviceDraft>): Boolean = bulkDraftsToSubmit(row
  *  * `purchasePrice` defaults to `0` when the field is empty (the contract's
  *    default, and a legitimate "price not known" on this screen);
  *  * `leadDays`, `warrantyMonths`, brand, model, serial, sale record, return
- *    window and the brand-lookup group are all left to the single-device
- *    defaults.
+ *    window and the brand-lookup group are all omitted (their `null` default).
+ *    In particular `warrantyMonths` is absent, not `0`: this is a create, so
+ *    there is nothing to keep, and `0` is the PATCH delete sentinel.
  *
  * The trim is the client's only normalisation: the server owns validation, and
  * a name made solely of spaces must be refused by the server's rule (which is

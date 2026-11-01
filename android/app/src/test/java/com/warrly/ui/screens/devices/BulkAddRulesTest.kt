@@ -59,7 +59,8 @@ class BulkAddRulesTest {
     /**
      * The row keeps only the four collected fields; everything else is the
      * single-device create's default. In particular a bulk row can never send a
-     * serial, a sale record or a warranty schedule by accident.
+     * serial, a sale record or a warranty schedule by accident — and the
+     * PATCH-only `warrantyMonths` block stays absent, never `0`.
      */
     @Test
     fun aRowMapsOnlyTheFourCollectedFieldsOntoDeviceInput() {
@@ -89,7 +90,7 @@ class BulkAddRulesTest {
         assertNull(input.leadDays)
         assertNull(input.brandWarrantyStatus)
         assertNull(input.brandLookupUrl)
-        assertEquals(0, input.warrantyMonths)
+        assertNull("a bulk create never carries the PATCH-only warranty block", input.warrantyMonths)
     }
 
     @Test

@@ -588,6 +588,15 @@ class BrandWarrantyRulesTest {
             soldPrice = 900,
             returnWindowDays = 30,
             receivedAt = "2026-03-02T00:00:00",
+            warranties = listOf(
+                Fixtures.warranty(endDate = "2026-03-01").copy(
+                    months = 24,
+                    provider = "Samsung",
+                    address = "12 Láng Hạ, Hà Nội",
+                    phone = "1900 1234",
+                    notes = "Kích hoạt tại cửa hàng",
+                ),
+            ),
         ).copy(
             model = "S25 Ultra",
             purchasePlace = "CellphoneS",
@@ -627,13 +636,26 @@ class BrandWarrantyRulesTest {
         assertEquals("2026-02-20", input.activatedAt)
         assertEquals("2026-06-01", input.extendedCoverBuyBy)
         assertEquals("the reminder schedule is normalised, not dropped", listOf(30, 7), input.leadDays)
-        assertEquals(0, input.warrantyMonths)
+        assertEquals(
+            "the inline package is carried, or the PATCH would delete it",
+            24,
+            input.warrantyMonths,
+        )
+        assertEquals("Samsung", input.warrantyProvider)
+        assertEquals("12 Láng Hạ, Hà Nội", input.warrantyAddress)
+        assertEquals("1900 1234", input.warrantyPhone)
+        assertEquals("Kích hoạt tại cửa hàng", input.warrantyNotes)
 
         assertEquals(draft.status, input.brandWarrantyStatus)
         assertEquals(draft.startDate, input.brandWarrantyStart)
         assertEquals(draft.endDate, input.brandWarrantyEnd)
         assertEquals(draft.checkedAt, input.brandCheckedAt)
         assertEquals(draft.lookupUrl, input.brandLookupUrl)
+
+        // No inline package: the block is omitted (null), never sent as `0`,
+        // which on PATCH is the delete sentinel.
+        val bare = deviceInputForBrandWarranty(device.copy(warranties = emptyList()), draft)
+        assertNull(bare.warrantyMonths)
     }
 
     // ---- mismatch carry-over --------------------------------------------

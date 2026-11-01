@@ -978,7 +978,34 @@ data class DeviceInput(
     val brandCheckedAt: String? = null,
     /** The page that produced the record. Absolute `http(s)` or `null`. */
     val brandLookupUrl: String? = null,
-    val warrantyMonths: Int = 0,
+    // ---- Inline STANDARD warranty block (write half) ----
+    //
+    // Same full-replacement trap as the block above, and a sharper one: on
+    // PATCH this field is TRI-state (openapi `DeviceInput.warrantyMonths`).
+    //
+    //  * `null` — the key is dropped (`ApiClient.json` has `explicitNulls =
+    //    false`), which the contract reads as "this request says nothing about
+    //    the standard warranty". On CREATE no package is made; on UPDATE the
+    //    stored row and its four detail fields are left exactly as they are.
+    //  * `0` — an explicit "no warranty". On UPDATE this DELETES the stored
+    //    STANDARD warranty and, by cascade, every reminder pointing at it.
+    //  * `N > 0` — create (create) or create/replace (update) the row.
+    //
+    // Android has no screen that sends `0`: removing a package is
+    // `DELETE /api/v1/warranties/{id}` on the device detail screen. Every
+    // device PATCH carries the stored row back instead (see
+    // `AddDeviceSheet` and `deviceInputForBrandWarranty`); `null` is only for a
+    // device that has no inline package, where there is nothing to preserve.
+    /**
+     * Length in months of the inline STANDARD package, or `null` for "this
+     * request does not carry the block".
+     */
+    val warrantyMonths: Int? = null,
+    /*
+     * The four details belong to the block: the API writes them only when
+     * [warrantyMonths] is present. With `N > 0` they are a full replacement —
+     * an absent value stores NULL — so a PATCH has to carry them too.
+     */
     val warrantyProvider: String? = null,
     val warrantyAddress: String? = null,
     val warrantyPhone: String? = null,

@@ -9,6 +9,7 @@ import com.warrly.network.DEFAULT_CURRENCY
 import com.warrly.network.Device
 import com.warrly.network.DeviceInput
 import com.warrly.network.WarrantyMismatch
+import com.warrly.network.WarrantyType
 import com.warrly.network.normalizeLeadDays
 import com.warrly.ui.components.PillKind
 import com.warrly.ui.components.parseIsoDate
@@ -425,19 +426,25 @@ internal fun brandWarrantyProblemMessage(
  * body. Sending only the brand block would erase the name, the price, the
  * warranty activation, the reminder schedule and the return window. Every
  * writable column is therefore copied from the loaded [device], and only the
- * brand fields come from [draft]. The columns a PATCH does not own
- * (`warranties`, `claims`, `attachmentCount`, derived dates) are absent from
- * [DeviceInput] by design and are untouched server-side.
+ * brand fields come from [draft]. A write body cannot carry `warranties`,
+ * `claims`, `attachmentCount` or the derived dates at all — those are read-side
+ * projections — so they stay untouched server-side.
  *
- * `warrantyMonths` stays `0`, exactly like the edit path of `AddDeviceSheet`:
- * it is the create-only shortcut, not a replacement for the separate warranty
- * endpoints.
+ * The inline STANDARD package is carried from the warranty rows rather than
+ * from a device column. `PATCH` writes the `warrantyMonths` block as a full
+ * replacement and `0` is its DELETE sentinel; this sheet has no control for the
+ * package, so it sends the stored row back unchanged. A device with no
+ * positive-term STANDARD row omits the block — the API's absent state is "leave
+ * the row alone", which is exactly the truth here.
  */
 internal fun deviceInputForBrandWarranty(
     device: Device,
     draft: BrandWarrantyDraft,
 ): DeviceInput {
     val currency = normalizeCurrency(device.currency)
+    // Never `0`: that is the delete sentinel, not "unset".
+    val inlineStandardWarranty = device.warranties
+        .firstOrNull { it.type == WarrantyType.STANDARD && it.months > 0 }
     return DeviceInput(
         name = device.name,
         category = device.category,
@@ -467,6 +474,13 @@ internal fun deviceInputForBrandWarranty(
         brandWarrantyEnd = draft.endDate,
         brandCheckedAt = draft.checkedAt,
         brandLookupUrl = draft.lookupUrl,
+        // The stored inline package, carried so recording a brand answer cannot
+        // take the warranty — and every reminder hanging off it — with it.
+        warrantyMonths = inlineStandardWarranty?.months,
+        warrantyProvider = inlineStandardWarranty?.provider,
+        warrantyAddress = inlineStandardWarranty?.address,
+        warrantyPhone = inlineStandardWarranty?.phone,
+        warrantyNotes = inlineStandardWarranty?.notes,
     )
 }
 

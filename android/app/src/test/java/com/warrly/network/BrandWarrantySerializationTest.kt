@@ -134,6 +134,12 @@ class BrandWarrantySerializationTest {
         assertFalse(encoded.contains("brandWarrantyEnd"))
         assertFalse(encoded.contains("brandCheckedAt"))
         assertFalse(encoded.contains("brandLookupUrl"))
+
+        // The inline warranty block follows the same rule. `warrantyMonths = 0`
+        // is the server's DELETE sentinel, so a body with nothing to carry must
+        // omit the key, never default it back to 0.
+        assertFalse("no package to carry means no key: $encoded", encoded.contains("warrantyMonths"))
+        assertFalse(encoded.contains("warrantyProvider"))
     }
 
     @Test

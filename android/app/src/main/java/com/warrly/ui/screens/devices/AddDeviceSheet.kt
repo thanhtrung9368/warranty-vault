@@ -80,6 +80,7 @@ import com.warrly.network.DeviceStatus
 import com.warrly.network.DeviceWarning
 import com.warrly.network.DraftDevice
 import com.warrly.network.StoreOption
+import com.warrly.network.WarrantyType
 import com.warrly.network.fieldErrors
 import com.warrly.network.leadDaysForRequest
 import com.warrly.network.normalizeLeadDays
@@ -127,6 +128,21 @@ fun AddDeviceSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val isEdit = existing != null
+
+    // The inline STANDARD package when the loaded device has one. `PATCH
+    // /devices/{id}` treats `warrantyMonths` as a tri-state, and a save that
+    // omits the block leaves the stored row alone — but a save that carries the
+    // wrong value (`0`) DELETES it, together with every reminder pointing at it.
+    // This sheet never edits the package (edit mode hides the field), so it must
+    // carry the stored row back verbatim. `months > 0` is deliberate: `0` is the
+    // delete sentinel and removal has its own action, `DELETE
+    // /api/v1/warranties/{id}`. No row ⇒ the block is omitted entirely.
+    //
+    // Edit mode is only entered from the detail screen, whose `GET
+    // /devices/{id}` carries `warranties`; the list projection is never passed
+    // here as `existing`.
+    val inlineStandardWarranty = existing?.warranties
+        ?.firstOrNull { it.type == WarrantyType.STANDARD && it.months > 0 }
 
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var brand by remember { mutableStateOf(existing?.brand ?: "") }
@@ -907,7 +923,21 @@ fun AddDeviceSheet(
                             brandWarrantyEnd = brandWarrantyDraft.endDate,
                             brandCheckedAt = brandWarrantyDraft.checkedAt,
                             brandLookupUrl = brandWarrantyDraft.lookupUrl,
-                            warrantyMonths = if (isEdit) 0 else (months.toIntOrNull() ?: 0),
+                            // The inline STANDARD package: carry the stored row
+                            // on edit so the PATCH replaces it with itself
+                            // instead of deleting it. On create the months field
+                            // is the whole input; a blank/zero term means "no
+                            // package" and is omitted (null), never sent as the
+                            // delete sentinel `0`.
+                            warrantyMonths = if (isEdit) {
+                                inlineStandardWarranty?.months
+                            } else {
+                                months.toIntOrNull()?.takeIf { it > 0 }
+                            },
+                            warrantyProvider = inlineStandardWarranty?.provider,
+                            warrantyAddress = inlineStandardWarranty?.address,
+                            warrantyPhone = inlineStandardWarranty?.phone,
+                            warrantyNotes = inlineStandardWarranty?.notes,
                         )
                         try {
                             val res = if (existing != null) {
