@@ -13,7 +13,11 @@ const searchAttachments = `-- name: SearchAttachments :many
 SELECT id, "deviceId", "fileName", "storagePath", "fileType", "fileSize", iv, "wrappedKey", description, "uploadedAt", "userId", "extractedText"
 FROM "Attachment"
 WHERE "userId" = $1::text
-  AND lower(public.wv_unaccent("extractedText")) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
+  AND (
+    lower(public.wv_unaccent("extractedText")) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
+    OR lower(public.wv_unaccent("fileName")) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
+    OR lower(public.wv_unaccent(description)) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
+  )
 ORDER BY "uploadedAt" DESC
 LIMIT $3::int
 `
@@ -24,18 +28,30 @@ type SearchAttachmentsParams struct {
 	RowLimit int32  `json:"rowLimit"`
 }
 
-// Full-text OCR search (roadmap #13, migration 0019). Only `extractedText` is
-// searched, not fileName/description: the feature is "find the receipt that says
-// 65W", and a NULL extractedText (never OCR'd) matches nothing — exactly like a
-// receipt that was never scanned should.
+// Receipt search (roadmap #13, migration 0019) over the three text columns an
+// attachment actually has: `extractedText` (what OCR read off the file),
+// `fileName` and `description` (what the user typed or the camera generated).
 //
-// The expression is byte-for-byte the index definition in migration 0019:
+// All three are searched since migration 0026. Before that only `extractedText`
+// was, and that column is written by exactly one path — the opt-in OCR call —
+// so on a default account (`User.aiOptIn = false`) the group could never match
+// anything. A receipt named "hoa-don-cellphones.png" or described "Ảnh hộp máy
+// chụp lúc mở seal" was unfindable even though both strings are stored, shown
+// in the UI and editable.
+//
+// No join is needed for any of the three: `Attachment."userId"` (migration 0018)
+// is the stored owner, so the group is owner-scoped without going through
+// "Device" — which matters because an inbox attachment has no device at all.
+//
+// The expression is byte-for-byte each index definition (migrations 0019/0026):
 //
 //	index: lower(public.wv_unaccent("extractedText"))
-//	query: lower(public.wv_unaccent("extractedText")) LIKE ...
+//	index: lower(public.wv_unaccent("fileName"))
+//	index: lower(public.wv_unaccent(description))
+//	query: lower(public.wv_unaccent(<same column>)) LIKE ...
 //
 // Do not add an alias, a cast or a different function ordering here without
-// rebuilding that index in the same migration.
+// rebuilding those indexes in the same migration.
 //
 // The result is the full Attachment row; the service redacts it through
 // toAttachmentMeta and adds the owning deviceId, because the raw row carries
@@ -83,6 +99,7 @@ WHERE "userId" = $1::text
     OR lower(public.wv_unaccent(brand)) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
     OR lower(public.wv_unaccent(model)) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
     OR lower(public.wv_unaccent("serialNumber")) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
+    OR lower(public.wv_unaccent("purchasePlace")) LIKE '%' || lower(public.wv_unaccent($2::text)) || '%'
   )
 ORDER BY "createdAt" DESC
 LIMIT $3::int
@@ -109,23 +126,30 @@ type SearchDevicesParams struct {
 //
 // Searched fields (documented in openapi.yaml):
 //
-//	Device       name, brand, model, serialNumber      (same set as GET /devices?q=)
+//	Device       name, brand, model, serialNumber, purchasePlace  (same set as GET /devices?q=)
 //	Subscription name, brand, plan, accountEmail
 //	WishlistItem name, brand, notes
-//	Attachment   extractedText (the OCR text, migration 0019)
+//	Attachment   extractedText (the OCR text, migration 0019), fileName and
+//	             description (migration 0026)
 //
-// Index note: migration 0007's trigram indexes cover exactly the four Device
-// expressions used here (and the pattern is built with `'%' || <immutable expr> ||
-// '%'`, which PostgreSQL can fold into a constant and match against the index in a
-// custom plan). Subscription / WishlistItem have no trigram index on purpose:
-// the write path caps them at 100 and 200 rows per user (services/subscriptions.go,
-// services/wishlist.go), so scanning the caller's own rows is cheap by
-// construction and an index would only add write cost.
+// `purchasePlace` is the shop the device was bought from (migration 0025). It is
+// the field that answers "I only remember the shop" — the form asks for it, so
+// search has to be able to give it back.
 //
-// Attachment DOES have one (migration 0019), on the same
+// Index note: migration 0007's trigram indexes cover the four original Device
+// columns and migration 0025 adds the fifth (`"purchasePlace"`) — all five use
+// the expression in SearchDevices below (and the pattern is built with
+// `'%' || <immutable expr> || '%'`, which PostgreSQL can fold into a constant and
+// match against the index in a custom plan). Subscription / WishlistItem have no
+// trigram index on purpose: the write path caps them at 100 and 200 rows per
+// user (services/subscriptions.go, services/wishlist.go), so scanning the
+// caller's own rows is cheap by construction and an index would only add write
+// cost.
+//
+// Attachment HAS three (migrations 0019 and 0026), on the same
 // `lower(public.wv_unaccent(...))` expression used by SearchAttachments below.
 // The expression must stay byte-for-byte identical to the index definition or the
-// planner silently stops using it; TestSearchPersistedOCRTextAgainstRealPostgres
+// planner silently stops using it; TestSearchAttachmentsAgainstRealPostgres
 // pins both the index definition and the plan.
 func (q *Queries) SearchDevices(ctx context.Context, arg SearchDevicesParams) ([]Device, error) {
 	rows, err := q.db.Query(ctx, searchDevices, arg.UserId, arg.Q, arg.RowLimit)

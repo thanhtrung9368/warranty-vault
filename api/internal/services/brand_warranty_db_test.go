@@ -237,7 +237,7 @@ func TestBrandWarrantyAgainstRealPostgres(t *testing.T) {
 		Brand:               strPtr("Apple"),
 		PurchaseDate:        "2025-06-01",
 		PurchasePrice:       20_000_000,
-		WarrantyMonths:      12,
+		WarrantyMonths:      i32(12),
 		BrandWarrantyStatus: strPtr(BrandWarrantyStatusPreActivated),
 		BrandWarrantyStart:  strPtr("2025-03-01"),
 		BrandWarrantyEnd:    strPtr("2025-12-01"),
@@ -316,7 +316,7 @@ func TestBrandWarrantyAgainstRealPostgres(t *testing.T) {
 		Brand:               strPtr("Apple"),
 		PurchaseDate:        "2025-06-01",
 		PurchasePrice:       20_000_000,
-		WarrantyMonths:      12,
+		WarrantyMonths:      i32(12),
 		BrandWarrantyStatus: strPtr(BrandWarrantyStatusNotRegistered),
 	})
 	if err != nil {
@@ -340,7 +340,7 @@ func TestBrandWarrantyAgainstRealPostgres(t *testing.T) {
 		Category:           "PHONE",
 		PurchaseDate:       "2025-06-01",
 		PurchasePrice:      20_000_000,
-		WarrantyMonths:     12,
+		WarrantyMonths:     i32(12),
 		BrandWarrantyStart: strPtr("2025-03-01"), // no status
 	})
 	if svc, ok := As(err); !ok || len(svc.FieldErrors["brandWarrantyStatus"]) == 0 {
@@ -358,7 +358,7 @@ func TestBrandWarrantyAgainstRealPostgres(t *testing.T) {
 		Brand:               strPtr("Apple"),
 		PurchaseDate:        "2025-06-01",
 		PurchasePrice:       20_000_000,
-		WarrantyMonths:      12,
+		WarrantyMonths:      i32(12),
 		BrandWarrantyStatus: strPtr(BrandWarrantyStatusActive),
 		BrandWarrantyStart:  strPtr("2025-03-01"),
 		BrandWarrantyEnd:    strPtr("2027-01-01"),

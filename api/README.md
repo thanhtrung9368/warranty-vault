@@ -216,12 +216,23 @@ inbox item) and then call the OCR endpoint with that id.
 search; the index expression in migration 0019 and the predicate in
 `internal/store/queries/search.sql` must stay byte-for-byte identical.
 
+Since migration 0026 that group matches `Attachment.fileName` and
+`Attachment.description` as well as `extractedText` — each with its own GIN
+trigram index on the same expression. No join is involved: `Attachment."userId"`
+(migration 0018) is the stored owner, so an inbox item with no device is still
+found. Before 0026 only the OCR column was searched, and that column is written
+by one opt-in path, so on a default account the group was always empty. Device
+search likewise gained `purchasePlace` (the shop) in migration 0025, so a
+"CellphoneS" query reaches the device the receipt is filed to.
+
 **Privacy:** the blob stays AES-256-GCM encrypted, but `extractedText` is
 **plaintext in Postgres** — the trigram index has to read the unaccented value.
 The write only happens after the user opts in to AI, every read is owner-scoped,
 and the text is deliberately **not** included in backups (it is a derived search
 projection; see `openapi.yaml` → `BackupV1`). The value is trimmed, NUL-free and
-capped at 8000 runes before it is stored or returned.
+capped at 8000 runes before it is stored or returned. `fileName` / `description`
+are plaintext columns that were already in every `AttachmentMeta` payload, so
+indexing them adds no new exposure.
 
 ## Inbound email — the mail path into the inbox (migration 0020)
 

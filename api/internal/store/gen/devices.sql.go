@@ -479,6 +479,7 @@ WHERE "userId" = $1
     OR lower(public.wv_unaccent(brand)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
     OR lower(public.wv_unaccent(model)) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
     OR lower(public.wv_unaccent("serialNumber")) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
+    OR lower(public.wv_unaccent("purchasePlace")) LIKE '%' || lower(public.wv_unaccent($4::text)) || '%'
   )
 ORDER BY "createdAt" DESC
 `
@@ -494,8 +495,12 @@ type ListDevicesByUserParams struct {
 //
 // The web service layer (`website/src/lib/devices.ts::listDevices`) supports
 // filters by category/status and a free-text search across name/brand/model/
-// serialNumber. We expose those as `NULLIF($N, ”)` filters so handlers can
-// pass empty strings for "no filter" without branching SQL.
+// serialNumber/purchasePlace. We expose those as `NULLIF($N, ”)` filters so
+// handlers can pass empty strings for "no filter" without branching SQL.
+//
+// `purchasePlace` (migration 0025) is the shop the device was bought from. It is
+// in this set because it is the one fact a user can still recall when the model
+// number is gone: the form asks for it precisely so it can be searched back.
 //
 // Sorting: SQL handles purchaseDate / purchasePrice / name. Sort by effective
 // warranty end date is computed from the related `Warranty` rows and is
@@ -511,9 +516,10 @@ type ListDevicesByUserParams struct {
 // lower() is ASCII-only — 'Đ' survives it and unaccent turns it into an
 // uppercase 'D', so the search silently matches nothing. See migration 0007.
 //
-// Index note: migration 0007 creates GIN trigram indexes on exactly these four
-// expressions (in this order), but a trigram index can only be used when the LIKE
-// pattern is known at plan time. `'%' || lower(wv_unaccent($4)) || '%'` is
+// Index note: migrations 0007 and 0025 create one GIN trigram index per searched
+// column — `name`, `brand`, `model`, `"serialNumber"` (0007) and
+// `"purchasePlace"` (0025) — each on exactly the expression below, but a trigram
+// index can only be used when the LIKE pattern is known at plan time. `'%' || lower(wv_unaccent($4)) || '%'` is
 // immutable, so PostgreSQL folds it into a constant in a *custom* plan and can
 // then use the index; under a generic plan (pgx caches statements,
 // plan_cache_mode=auto) the planner falls back to a sequential scan. Correctness

@@ -4,9 +4,10 @@
 // "samsung" could not find their Samsung Cloud subscription or the Galaxy Buds on
 // their wishlist. The per-entity filters are unchanged; this adds one grouped
 // endpoint that searches devices, subscriptions, wishlist and — since roadmap
-// #13 / migration 0019 — the OCR text stored on attachments, in a single round
-// trip (see openapi.yaml for the choice of a new endpoint over extending the
-// list endpoints).
+// #13 / migrations 0019 and 0026 — the receipt text stored on attachments
+// (`extractedText`, `fileName`, `description`), in a single round trip (see
+// openapi.yaml for the choice of a new endpoint over extending the list
+// endpoints).
 package services
 
 import (
@@ -178,10 +179,11 @@ func Search(ctx context.Context, db *pgxpool.Pool, userID, rawQuery string, limi
 	if err != nil {
 		return nil, fmt.Errorf("search wishlist: %w", err)
 	}
-	// OCR text on attachments (migration 0019). The query returns raw Attachment
-	// rows, which carry storagePath/iv/wrappedKey, so every hit goes through the
-	// same redaction the attachment endpoints use; deviceId is added because a
-	// search hit may be filed or still in the inbox.
+	// Receipt text on attachments: extractedText (OCR, 0019) plus fileName and
+	// description (0026). The query returns raw Attachment rows, which carry
+	// storagePath/iv/wrappedKey, so every hit goes through the same redaction the
+	// attachment endpoints use; deviceId is added because a search hit may be
+	// filed or still in the inbox.
 	attachments, err := q.SearchAttachments(ctx, store.SearchAttachmentsParams{
 		UserId:   userID,
 		Q:        query,

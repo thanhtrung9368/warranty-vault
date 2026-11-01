@@ -485,7 +485,7 @@ paths:
       parameters:
         - name: q
           in: query
-          description: Case- and accent-insensitive substring match on name, brand, model or serialNumber.
+          description: Case- and accent-insensitive substring match on name, brand, model, serialNumber or purchasePlace (the shop the device was bought from, e.g. "CellphoneS").
           schema: { type: string }
         - name: category
           in: query
@@ -743,8 +743,9 @@ paths:
 
             Chỉ áp dụng khi **tạo thêm** dòng. Thiết bị đã có gói STANDARD thì
             PATCH chỉ cập nhật dòng đó (số dòng không tăng), còn
-            `warrantyMonths: 0` xoá nó — nên một thiết bị đã vượt trần từ dữ
-            liệu cũ vẫn sửa được và có thể tự đưa về dưới trần, không bị kẹt.
+            `warrantyMonths: 0` (gửi tường minh; vắng mặt thì không đụng tới gói
+            nào) xoá nó — nên một thiết bị đã vượt trần từ dữ liệu cũ vẫn sửa
+            được và có thể tự đưa về dưới trần, không bị kẹt.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
@@ -2053,21 +2054,23 @@ paths:
   /api/v1/search:
     get:
       tags: [search]
-      summary: Tìm kiếm xuyên thực thể (thiết bị, subscription, wishlist, văn bản OCR)
+      summary: Tìm kiếm xuyên thực thể (thiết bị, subscription, wishlist, hoá đơn)
       description: |
         Roadmap #7. Trước endpoint này, `q` chỉ tồn tại trên `GET /api/v1/devices`,
         nên gõ "samsung" không tìm được subscription "Samsung Cloud" hay món
         wishlist "Galaxy Buds".
 
-        **Roadmap #13 — nhóm `attachments`:** văn bản OCR mà người dùng đã quét
-        trên một file đính kèm (lưu ở `Attachment.extractedText`, migration 0019)
-        được tìm như một nhóm thứ tư. Nhờ vậy câu hỏi thật — "hoá đơn nào là củ
-        sạc 65W", "hoá đơn nào có gói bảo hành mở rộng" — trả lời được dù người
-        dùng chưa từng gõ hai chữ đó vào trường nào. Chỉ `extractedText` được
-        tìm trong nhóm này; `fileName`/`description` không nằm trong index.
-        File chưa từng quét OCR (hoặc lần quét không đọc được chữ) có
-        `extractedText` NULL nên không bao giờ khớp — đúng nghĩa "chưa có gì để
-        tìm".
+        **Roadmap #13 — nhóm `attachments`:** hoá đơn được tìm như một nhóm thứ
+        tư, theo **ba** cột chữ của file: `Attachment.extractedText` (văn bản OCR
+        mà người dùng đã quét, migration 0019), `fileName` và `description`
+        (migration 0026). Nhờ vậy câu hỏi thật — "hoá đơn nào là củ sạc 65W",
+        "hoá đơn nào có gói bảo hành mở rộng", "hoá đơn của CellphoneS" — trả lời
+        được dù người dùng chưa từng gõ hai chữ đó vào trường nào. Trước migration
+        0026 chỉ `extractedText` được tìm, mà cột đó chỉ được ghi bởi đường OCR
+        opt-in, nên trên tài khoản mặc định (`aiOptIn = false`) nhóm này **luôn
+        rỗng** dù hoá đơn đã có tên file và mô tả. File chưa quét OCR vẫn tìm
+        được bằng tên/mô tả; một file không có cả ba thì không khớp — đúng nghĩa
+        "chưa có gì để tìm".
 
         **Quyền riêng tư — đọc kỹ:** file đính kèm vẫn được mã hoá AES-256-GCM
         trên đĩa, nhưng `extractedText` là **plaintext trong Postgres**. Đây là
@@ -2077,7 +2080,10 @@ paths:
         đã đồng ý gửi bản giải mã tới Anthropic), mọi truy vấn đều giới hạn theo
         người dùng, và văn bản **không** nằm trong bản sao lưu (xem `BackupV1`).
         Nếu cần mã hoá at-rest cho cột này thì phải đổi cả cách tìm kiếm, không
-        chỉ đổi kiểu cột.
+        chỉ đổi kiểu cột. `fileName` và `description` (migration 0026) không mở
+        thêm bề mặt nào: cả hai vốn đã là plaintext và đã nằm trong mọi payload
+        `AttachmentMeta` (chi tiết thiết bị, hộp thư, backup); chúng chỉ được
+        thêm vào index.
 
         **Vì sao thêm endpoint mới thay vì mở rộng 3 endpoint danh sách:** một
         truy vấn trả cả bốn nhóm (client không phải gọi 4 lần rồi tự trộn), không
@@ -2091,10 +2097,10 @@ paths:
         trần (ILIKE không bỏ dấu tiếng Việt).
 
         Các trường được tìm (không dấu, không phân biệt hoa thường):
-          * `devices`: `name`, `brand`, `model`, `serialNumber` (giống `GET /api/v1/devices?q=`)
+          * `devices`: `name`, `brand`, `model`, `serialNumber`, `purchasePlace` (giống `GET /api/v1/devices?q=`)
           * `subscriptions`: `name`, `brand`, `plan`, `accountEmail`
           * `wishlist`: `name`, `brand`, `notes`
-          * `attachments`: `extractedText` (văn bản OCR, migration 0019)
+          * `attachments`: `extractedText` (văn bản OCR, migration 0019), `fileName` và `description` (migration 0026)
 
         `q` rỗng hoặc chỉ có khoảng trắng trả về 200 với **bốn** mảng rỗng (không
         phải 400) — người dùng xoá hết chữ trong ô tìm kiếm không phải là lỗi.
@@ -5031,9 +5037,9 @@ components:
             400 `bad_input` nếu client gửi nó (giống mọi key không được khai
             báo).
           * PATCH **thay thế** cả nhóm: không gửi cả năm trường nghĩa là **xoá**
-            dữ liệu hãng đã lưu. Đây là ngoại lệ thứ ba của PATCH (sau
-            `leadDays` và `currency`), và client nào có hiển thị dữ liệu hãng phải
-            gửi lại đủ.
+            dữ liệu hãng đã lưu. Đây là một ngoại lệ có chủ ý của PATCH (cùng
+            `leadDays`, `currency` và khối `warrantyMonths`), và client nào có
+            hiển thị dữ liệu hãng phải gửi lại đủ.
       required: [name, category, purchaseDate]
       properties:
         name: { type: string, minLength: 1 }
@@ -5248,15 +5254,37 @@ components:
         warrantyMonths:
           type: integer
           minimum: 0
-          default: 0
+          nullable: true
           description: |
-            If > 0, an inline STANDARD warranty is created/updated.
+            Số tháng của gói STANDARD tạo kèm / cập nhật inline. Trường này là
+            **ba trạng thái**, không phải hai:
 
-            Trên `PATCH /api/v1/devices/{id}`, **tạo mới** khi thiết bị đã có
-            đủ 5 gói (bất kể loại) trả **409 `limit_reached`** — cùng giới hạn
-            và cùng câu từ chối với `POST /api/v1/devices/{id}/warranties`.
-            Cập nhật gói STANDARD đã có thì không bị chặn (không thêm dòng), và
-            `0` xoá gói STANDARD nếu có.
+              * **Vắng mặt** (hoặc `null`) ⇒ request này **không** mang khối bảo
+                hành chuẩn. `POST`/bulk: không tạo gói nào. `PATCH`: gói STANDARD
+                đang có — cùng `warrantyProvider` / `warrantyAddress` /
+                `warrantyPhone` / `warrantyNotes` của nó — được **giữ nguyên**.
+                Nhờ vậy một PATCH chỉ đổi tên, trạng thái hay dữ liệu hãng không
+                còn xoá bảo hành (và mọi reminder của nó) như trước.
+              * `0` ⇒ "không có bảo hành". `POST`/bulk: không tạo gói nào (không
+                có gì để giữ nên giống vắng mặt). `PATCH`: **xoá** gói STANDARD
+                nếu có. Đây là cách duy nhất để nói "bỏ bảo hành", và nó phải
+                được gửi tường minh.
+              * `N > 0` ⇒ `POST`/bulk tạo gói STANDARD; `PATCH` cập nhật gói đã có
+                (không thêm dòng) hoặc tạo mới nếu chưa có.
+
+            Bốn trường `warranty*` còn lại thuộc cùng khối và **chỉ** được ghi
+            khi `warrantyMonths` có mặt. Khi khối có mặt với `N > 0` thì phần chi
+            tiết là **thay thế toàn bộ**: provider / address / phone / notes
+            không gửi ⇒ `null`, đúng quy tắc full-replacement của PATCH. Muốn
+            sửa riêng phần chi tiết mà không đổi thời hạn, dùng
+            `PATCH /api/v1/warranties/{id}`.
+
+            Trên `PATCH /api/v1/devices/{id}`, **tạo mới** khi thiết bị đã có đủ
+            5 gói (bất kể loại) trả **409 `limit_reached`** — cùng giới hạn và
+            cùng câu từ chối với `POST /api/v1/devices/{id}/warranties`. Cập
+            nhật gói STANDARD đã có thì không bị chặn (không thêm dòng).
+        # Bốn trường chi tiết thuộc khối `warrantyMonths` ở trên: chỉ được ghi
+        # khi `warrantyMonths` có mặt (xem mô tả của nó).
         warrantyProvider: { type: string, nullable: true }
         warrantyAddress: { type: string, nullable: true }
         warrantyPhone: { type: string, nullable: true }
@@ -5302,7 +5330,10 @@ components:
         Gửi `fromWishlistId` ở đây là 400 `bad_input`.
 
         Giống mọi PATCH khác, đây là **full replacement** trừ các ngoại lệ có
-        chủ ý được ghi trong mô tả `DeviceInput` (`leadDays` và `currency`).
+        chủ ý được ghi trong mô tả `DeviceInput`: `leadDays` và `currency` (vắng
+        mặt ⇒ giữ nguyên), khối bảo hành chuẩn `warrantyMonths` (vắng mặt ⇒ giữ
+        nguyên gói STANDARD; `0` ⇒ xoá), và nhóm `brandWarranty*` (vắng mặt ⇒
+        xoá — ngoại lệ ngược lại, có chủ ý).
 
     Warranty:
       type: object
