@@ -24,6 +24,21 @@ public final class PushRegistrar: ObservableObject {
 
     @Published public private(set) var status: Status = .unknown
 
+    /// The system's notification answer as last read, or `nil` before the app
+    /// has read it.
+    ///
+    /// `status` is the *registration* lifecycle (requesting → registering →
+    /// registered/failed); this is the system's own answer, which a failed
+    /// upload cannot change. The two are deliberately separate: a device can be
+    /// authorised yet not registered (the POST failed), and a device can be
+    /// denied after it was registered (the user changed it in iOS Settings
+    /// while the app was in the background).
+    ///
+    /// `nil` means "not read yet", never "not determined". Every screen that
+    /// makes a claim about reminders waits for a real answer, so no surface can
+    /// say notifications are off before iOS has actually been asked.
+    @Published public private(set) var permission: NotificationPermission?
+
     public static let shared = PushRegistrar()
 
     /// Set by AuthStore so we can call the API as the current user.
@@ -38,9 +53,11 @@ public final class PushRegistrar: ObservableObject {
     /// consent flow's own deadlines) for the screen to clear first.
     public var adsPromptActive: (@MainActor () -> Bool)?
 
-    /// UserDefaults key for the once-ever rationale flag. Set when the rationale
-    /// is **shown**, not when permission is granted: a user who dismisses it has
-    /// answered, and asking again would be nagging.
+    /// UserDefaults key for the once-ever rationale flag. Written when the
+    /// rationale is **answered** — "Để sau" or "Bật thông báo" — not when it is
+    /// shown. A card the user never answered (the app was killed, or they
+    /// swiped back) is therefore offered again on the next device save instead
+    /// of being consumed silently.
     private static let primerOfferedKey = "wv.notificationPrimerOffered"
 
     private var primerOffered: Bool {
@@ -58,23 +75,45 @@ public final class PushRegistrar: ObservableObject {
 
     /// Whether the app should show its inline "bật nhắc nhở" explanation now.
     ///
-    /// Called exactly once, right after the **first** successful device save —
-    /// the moment the user has created something worth reminding about. Not at
-    /// launch: the ads consent flow owns the launch prompts, and a reminder
-    /// app that asks for notification permission before it has any reminders is
-    /// asking for nothing.
+    /// Called after every successful device create, but answers `true` only
+    /// while the rationale is still owed — the moment the user owns something
+    /// worth reminding about. Not at launch: the ads consent flow owns the
+    /// launch prompts, and a reminder app that asks for notification permission
+    /// before it has any reminders is asking for nothing.
     ///
-    /// Returns `true` at most once per install: the flag is written here, when
-    /// the rationale is offered, so a later device save never asks again. The
-    /// Settings toggle remains the way to grant permission afterwards.
+    /// Returns `true` at most once per *answered* offer: an offer that was shown
+    /// but never answered (the app was killed while the card was open) is not
+    /// recorded here, so a later device save can offer it again. Declining is an
+    /// answer and is recorded by `markPrimerAnswered()`, which is why a decline
+    /// never asks again.
     public func offerPrimerAfterFirstSave() async -> Bool {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        let current = await readAuthorization()
         guard NotificationPrimerRules.shouldOffer(
-            permission: Self.permission(from: settings.authorizationStatus),
+            permission: current,
             alreadyOffered: primerOffered
         ) else { return false }
-        primerOffered = true
         return true
+    }
+
+    /// Records that the user answered the rationale.
+    ///
+    /// Called from both answers — "Bật thông báo" and "Để sau" — so the offer is
+    /// consumed only once it has actually been answered. Merely showing it must
+    /// not set the flag: that is what made an unanswered card disappear forever
+    /// when the app was killed.
+    public func markPrimerAnswered() {
+        primerOffered = true
+    }
+
+    /// Reads the system answer and stores it. The single entry point for every
+    /// read, so `permission` cannot drift from `UNAuthorizationStatus` at one
+    /// call site while another keeps a stale copy.
+    @discardableResult
+    private func readAuthorization() async -> NotificationPermission {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        let current = Self.permission(from: settings.authorizationStatus)
+        permission = current
+        return current
     }
 
     private static func permission(from status: UNAuthorizationStatus) -> NotificationPermission {
@@ -100,9 +139,8 @@ public final class PushRegistrar: ObservableObject {
         await waitForAdsPromptsToClear()
 
         let center = UNUserNotificationCenter.current()
-        let settings = await center.notificationSettings()
 
-        switch settings.authorizationStatus {
+        switch await readAuthorization() {
         case .denied:
             status = .denied
             return
@@ -110,34 +148,91 @@ public final class PushRegistrar: ObservableObject {
             status = .requesting
             do {
                 let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
+                // The prompt's return value is the answer; re-reading here would
+                // race the system's own write. If the call threw, `permission`
+                // stays at the `.notDetermined` read above and the retry row
+                // will ask again.
+                permission = granted ? .authorized : .denied
                 if !granted { status = .denied; return }
             } catch {
                 status = .failed(error.localizedDescription)
                 return
             }
-        case .authorized, .provisional, .ephemeral:
-            break
-        @unknown default:
+        case .authorized:
             break
         }
 
         await registerWithSystem()
     }
 
+    /// Re-read the system answer without prompting. When permission is on but
+    /// this install has no successful registration yet — the user just granted
+    /// it in iOS Settings, or the last attempt failed — it registers again. An
+    /// already-registered device is left alone: this runs whenever Settings is
+    /// opened or the app returns to the foreground, and re-uploading the token
+    /// each time would be noise.
+    public func refreshPermission() async {
+        switch await readAuthorization() {
+        case .authorized:
+            switch status {
+            case .registered, .registering, .requesting:
+                break
+            case .unknown, .denied, .failed:
+                await registerWithSystem()
+            }
+        case .denied:
+            status = .denied
+        case .notDetermined:
+            status = .unknown
+        }
+    }
+
     /// Re-register silently if the user already granted permission previously.
     /// Never prompts. Safe to call on every authenticated launch.
     public func refreshIfAlreadyAuthorized() async {
-        let center = UNUserNotificationCenter.current()
-        let settings = await center.notificationSettings()
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
+        switch await readAuthorization() {
+        case .authorized:
             await registerWithSystem()
         case .denied:
             status = .denied
         case .notDetermined:
             status = .unknown
-        @unknown default:
-            break
+        }
+    }
+
+    // MARK: - Getting back to the system
+
+    /// Opens this app's page in iOS Settings.
+    ///
+    /// The only way back for a `.denied` notification decision: the system
+    /// prompt is offered once and `requestAuthorization` never shows it again.
+    /// This is the same `openSettingsURLString` path the camera permission uses
+    /// in `DeviceFormView`; before this, the Settings row named the destination
+    /// but called `requestAndRegister`, which returns immediately when denied —
+    /// so the one advertised recovery did nothing at all.
+    public func openSystemSettings() {
+#if canImport(UIKit)
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+#endif
+    }
+
+    /// A quiet, honest sentence for a screen that is showing a deadline, or
+    /// `nil` when reminders can reach the user.
+    ///
+    /// Deliberately not an error: the warranty data is still correct and the
+    /// deadline is still shown. It states the delivery fact the countdown
+    /// cannot state itself. `.authorized` returns `nil` even when registration
+    /// failed — an old token may still be delivering, so the app cannot claim
+    /// it cannot reach the user.
+    public var reminderReachabilityNote: String? {
+        switch permission {
+        case .denied:
+            return L.t("Thông báo đang tắt nên Warrly không thể nhắc bạn trước khi hết hạn. Bật lại trong Cài đặt iOS.")
+        case .notDetermined:
+            return L.t("Chưa bật thông báo nên Warrly chưa thể nhắc bạn trước khi hết hạn. Bật trong Cài đặt.")
+        case .authorized, .none:
+            return nil
         }
     }
 

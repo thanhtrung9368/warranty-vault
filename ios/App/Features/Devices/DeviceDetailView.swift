@@ -17,6 +17,10 @@ struct DeviceDetailView: View {
     @ObservedObject var devicesStore: DevicesStore
     let device: Device
 
+    /// The hero is the deadline; this is whether a reminder can reach the user
+    /// about it.
+    @EnvironmentObject private var push: PushRegistrar
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @StateObject private var store: WarrantiesStore
@@ -41,6 +45,10 @@ struct DeviceDetailView: View {
     /// Advisory `warnings` returned by the status PATCH. Non-blocking: the
     /// status change did happen, this only says the serial looks odd.
     @State private var statusWarnings: [DeviceWarning] = []
+    /// The status the user tapped when the device still has an open repair, held
+    /// while the confirmation below asks whether that repair is finished too.
+    @State private var pendingStatus: DeviceStatus?
+    @State private var showCloseRepairAlert = false
 
     /// In-memory, per-device tick state for the pre-service checklist. Shared so
     /// leaving the sheet (or this screen) and returning keeps the ticks for the
@@ -53,7 +61,26 @@ struct DeviceDetailView: View {
         self.client = client
         self.devicesStore = devicesStore
         self.device = device
-        _store = StateObject(wrappedValue: WarrantiesStore(client: client, deviceId: device.id))
+        let warranties = WarrantiesStore(client: client, deviceId: device.id)
+        // A claim write moves the device's status (the claim is the richer
+        // record and drives it — see `ClaimRules.deviceStatus`), but the claim
+        // store has neither a `DevicesStore` nor the device projection a
+        // full-replacement `PATCH /devices/{id}` must be built from. This screen
+        // has both, so the write is injected here: one closure, one PATCH path,
+        // shared with the status control below.
+        warranties.writeDeviceStatus = { [weak warranties, devicesStore] status in
+            // Read the projection at write time, not the copy captured at init:
+            // a PATCH sent from a stale row silently reverts fields another
+            // screen just saved.
+            let current = devicesStore.devices.first { $0.id == device.id } ?? device
+            _ = try await devicesStore.update(
+                id: current.id,
+                Self.deviceInput(for: current,
+                                 status: status,
+                                 standardWarranty: warranties?.standardWarranty)
+            )
+        }
+        _store = StateObject(wrappedValue: warranties)
         _attachmentsModel = StateObject(
             wrappedValue: DeviceAttachmentsModel(client: client, deviceId: device.id)
         )
@@ -528,7 +555,14 @@ struct DeviceDetailView: View {
                     }
                 }
 
-                // Status quick-change
+                // Status quick-change.
+                //
+                // This control is not a free-standing flag: `Device.status` is a
+                // projection of the repair record (`ClaimRules.deviceStatus`),
+                // and the warranty-expiry query reads it
+                // (`warranties.sql`, `d.status = 'ACTIVE'`), which is why the
+                // two directions are wired below and the consequence is printed
+                // under the control rather than left to be discovered.
                 WVSectionHeader(L.t("Trạng thái"))
                 WVSegmented(
                     options: [
@@ -542,7 +576,65 @@ struct DeviceDetailView: View {
                 .disabled(statusSaving)
                 .onChange(of: deviceStatus) { _, newStatus in
                     guard newStatus != currentDevice.status else { return }
+                    // Taking the device off Hỏng while a repair is still open is
+                    // the user saying "it is not in repair any more" — the claim
+                    // cannot stay open (`ClaimRules.claimStatus`). Closing the
+                    // richer record is worth one confirmation, so it is asked
+                    // for here rather than done silently.
+                    if ClaimRules.claimStatus(afterSettingDeviceStatus: newStatus,
+                                              openClaim: store.openClaim) != nil {
+                        pendingStatus = newStatus
+                        showCloseRepairAlert = true
+                        return
+                    }
                     Task { await saveStatus(newStatus) }
+                }
+                // The claim drives this field, so the control has to follow it:
+                // a repair saved in the sheet above can move the device to Hỏng
+                // (or back to Đang dùng) while this segmented control is still
+                // showing the value it was created with.
+                .onChange(of: currentDevice.status) { _, newStatus in
+                    if deviceStatus != newStatus { deviceStatus = newStatus }
+                }
+
+                // What the field costs, shown only when it is actually being
+                // paid: the reminder query matches `status = 'ACTIVE'` and
+                // nothing else (`warranties.sql:203,216,256`), so a device
+                // marked Hỏng stops receiving warranty-expiry reminders. That
+                // consequence used to be invisible — filing a claim silenced a
+                // device without any screen saying so — and this is the moment
+                // the user needs to know it.
+                if deviceStatus != .ACTIVE {
+                    WVSectionFooter(L.t("Máy không ở trạng thái Đang dùng nên Warrly tạm dừng nhắc hết hạn bảo hành. Chọn Đang dùng để nhận lại nhắc nhở."))
+                }
+
+                // The claim sync failed: the two records are out of step. Say it
+                // and offer the one action that fixes it.
+                if let failure = store.statusSyncFailure {
+                    HStack(alignment: .top, spacing: WVSpacing.sm) {
+                        WVIcon("alert", size: 12)
+                            .foregroundStyle(WVColor.orange)
+                            .padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L.t("Chưa cập nhật được trạng thái thiết bị theo lần sửa chữa."))
+                                .wvFont(.footnoteEmphasis)
+                                .foregroundStyle(WVColor.label)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(failure)
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button(L.t("Thử lại")) {
+                                Task { await store.retryDeviceStatusSync() }
+                            }
+                            .wvFont(.footnoteEmphasis)
+                            .foregroundStyle(WVColor.tint)
+                            .disabled(statusSaving)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, WVSpacing.gutter)
+                    .padding(.top, WVSpacing.sm)
                 }
 
                 // Serial advisories from the PATCH — amber, never an error: the
@@ -655,6 +747,23 @@ struct DeviceDetailView: View {
         } message: {
             Text(L.t("\"%@\" sẽ bị xoá vĩnh viễn cùng toàn bộ gói bảo hành.", currentDevice.name))
         }
+        // The claim owns the status, so the one status the user can tap away
+        // from an open repair has to carry that repair with it.
+        .alert(L.t("Đóng lần sửa chữa đang mở?"),
+               isPresented: $showCloseRepairAlert,
+               presenting: pendingStatus) { status in
+            Button(L.t("Đóng và đổi trạng thái")) {
+                Task { await saveStatus(status, closingOpenClaim: true) }
+            }
+            Button(L.t("Giữ nguyên"), role: .cancel) {
+                // The segmented control moved before the question was asked;
+                // put it back on the status the device actually holds.
+                deviceStatus = currentDevice.status
+                pendingStatus = nil
+            }
+        } message: { _ in
+            Text(L.t("Thiết bị đang có một lần sửa chữa đang mở. Đổi trạng thái sẽ đóng lần sửa đó với kết quả Đã xử lý."))
+        }
         .sheet(isPresented: $showServiceChecklist) {
             ServiceChecklistSheet(
                 device: checklistDevice,
@@ -680,6 +789,13 @@ struct DeviceDetailView: View {
         .refreshable {
             await store.load()
             await attachmentsModel.reload()
+        }
+        // Same reason as the dashboard: the permission can be changed in iOS
+        // Settings while this screen is in the background, and the note under
+        // the hero must not keep claiming the old answer.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await push.refreshPermission() }
         }
     }
 
@@ -716,6 +832,15 @@ struct DeviceDetailView: View {
                 }
 
                 heroDeadlineBlock
+
+                // The date is the warranty fact; this is the delivery fact.
+                // Quiet, under the hero, never an error: the warranty is
+                // still correct and this screen still shows it.
+                if let note = push.reminderReachabilityNote {
+                    ReminderReachabilityLine(note: note,
+                                             horizontalPadding: 0,
+                                             topPadding: 0)
+                }
 
                 // The one chip on this screen, and the one fact that can change
                 // what the user believes about the warranty. Amber, never red.
@@ -902,11 +1027,37 @@ struct DeviceDetailView: View {
         }
     }
 
-    private func saveStatus(_ status: DeviceStatus) async {
+    /// Writes the tapped status, and — when the device still has an open repair
+    /// — closes that repair first, because the two records are one fact.
+    ///
+    /// `closingOpenClaim` is set only by the confirmation above. The claim is
+    /// closed as `Đã xử lý` through `store`, and that store's own status write is
+    /// suppressed (`updateDeviceStatus: false`): this method is the writer for
+    /// this action, and two writes would mean two PATCHes and an intermediate
+    /// status nobody asked for.
+    private func saveStatus(_ status: DeviceStatus, closingOpenClaim: Bool = false) async {
         statusSaving = true
         defer { statusSaving = false }
+
+        if closingOpenClaim, let open = store.openClaim {
+            do {
+                try await store.updateClaim(id: open.id,
+                                            ClaimRules.input(for: open, status: .RESOLVED),
+                                            updateDeviceStatus: false)
+            } catch {
+                // The repair is still open, so the device must stay Hỏng: put the
+                // control back and say why.
+                actionError = (error as? APIError)?.localizedDescription ?? error.localizedDescription
+                deviceStatus = currentDevice.status
+                pendingStatus = nil
+                return
+            }
+        }
+        pendingStatus = nil
+
         let d = currentDevice
-        let input = deviceInput(for: d, status: status)
+        let input = Self.deviceInput(for: d, status: status,
+                                     standardWarranty: store.standardWarranty)
         do {
             let result = try await devicesStore.update(id: d.id, input)
             // PATCH /devices/{id} carries the same advisory array as create. The
@@ -921,11 +1072,19 @@ struct DeviceDetailView: View {
         }
     }
 
-    /// The full `DeviceInput` for a save that is not the form: a status tap or
-    /// the brand-check sheet. `PATCH /api/v1/devices/{id}` replaces every field,
-    /// so each preserved block below is load-bearing — omitting one erases data
+    /// The full `DeviceInput` for a save that is not the form: a status tap,
+    /// the brand-check sheet, or the status write that follows a claim.
+    ///
+    /// **Static on purpose.** The claim sync runs through
+    /// `WarrantiesStore.writeDeviceStatus`, which is a closure created before
+    /// `self` exists — and both writers must send byte-identical payloads, or a
+    /// claim save and a status tap would disagree about which fields survive.
+    ///
+    /// `PATCH /api/v1/devices/{id}` replaces every field, so each preserved
+    /// block below is load-bearing — omitting one erases data
     /// recorded on the web or on Android.
-    private func deviceInput(for d: Device, status: DeviceStatus) -> DeviceInput {
+    private static func deviceInput(for d: Device, status: DeviceStatus,
+                                    standardWarranty: Warranty?) -> DeviceInput {
         // `d.purchaseDate` came from the shared decoder, which reads the Z-less
         // wire value in the device's own zone. Writing it back through a
         // zone-pinned formatter would move the day east of that pin — so a bare
@@ -969,7 +1128,23 @@ struct DeviceDetailView: View {
         // status tap or an unrelated edit must not erase what the user recorded
         // from the brand's page. `brandWarrantyFields` is the fresh list
         // projection; `recordBrandWarranty` overrides it with the fresh answer.
-        BrandWarrantyRules.apply(brandWarrantyFields, to: &input)
+        BrandWarrantyRules.apply(BrandWarrantyRules.carried(from: d), to: &input)
+        // The legacy inline-warranty block, and the one block that is NOT
+        // merely "nice to preserve": `PATCH /devices/{id}` reads
+        // `warrantyMonths > 0` as "update the STANDARD warranty row" and
+        // **anything else as "delete it"** (`services/devices.go`, the
+        // `else if hasExisting { DeleteWarranty }` branch). The encoder always
+        // sends the key, so a save that omits these fields sends `0` and takes
+        // the device's warranty — and every expiry reminder attached to it —
+        // with it. A status tap used to do exactly that; the claim sync below
+        // would have inherited it.
+        if let standardWarranty, standardWarranty.months > 0 {
+            input.warrantyMonths = standardWarranty.months
+            input.warrantyProvider = standardWarranty.provider
+            input.warrantyAddress = standardWarranty.address
+            input.warrantyPhone = standardWarranty.phone
+            input.warrantyNotes = standardWarranty.notes
+        }
         return input
     }
 
@@ -977,7 +1152,8 @@ struct DeviceDetailView: View {
     /// `warrantyMismatch` (and the brand fields) update in place.
     private func recordBrandWarranty(_ fields: BrandWarrantyFields) async throws {
         let d = currentDevice
-        var input = deviceInput(for: d, status: d.status)
+        var input = Self.deviceInput(for: d, status: d.status,
+                                     standardWarranty: store.standardWarranty)
         BrandWarrantyRules.apply(fields, to: &input)
         _ = try await devicesStore.update(id: d.id, input)
         await store.load()

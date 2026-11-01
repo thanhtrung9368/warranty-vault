@@ -114,7 +114,14 @@ struct DevicesScreen: View {
         let q = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
         if !q.isEmpty {
             arr = arr.filter {
-                let hay = "\($0.name) \($0.brand ?? "") \($0.model ?? "") \($0.serialNumber ?? "")".lowercased()
+                // The same five fields the server searches for `GET /devices?q=`
+                // (`api/internal/store/queries/devices.sql`). `purchasePlace` is
+                // here because it is the one field a user can still name when the
+                // device is forgotten — "I only remember the shop" — and this
+                // filter is local-only: leaving the column out would keep this
+                // tab answering "nothing" for a shop the app has already stored.
+                // Keep the two lists in step.
+                let hay = "\($0.name) \($0.brand ?? "") \($0.model ?? "") \($0.serialNumber ?? "") \($0.purchasePlace ?? "")".lowercased()
                 return hay.contains(q)
             }
         }

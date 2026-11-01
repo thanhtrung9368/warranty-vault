@@ -188,6 +188,44 @@ struct WVSectionFooter: View {
     }
 }
 
+// MARK: - Deadline reachability line
+
+/// A quiet state line under a deadline surface: "notifications are off, so
+/// this countdown will not reach you".
+///
+/// Deliberately not `WVNotice` and not a chip. Nothing is wrong with the
+/// deadline or the warranty data; colour would make a delivery fact read as an
+/// error state (§5.1). One footnote line in `label3` with a bell-off glyph, so
+/// it sits under the lead surface without competing with it.
+///
+/// The copy itself lives on `PushRegistrar.reminderReachabilityNote` — the
+/// owner of the permission state — so the dashboard, the device detail and
+/// the reminders screen cannot drift into three different sentences.
+struct ReminderReachabilityLine: View {
+    let note: String
+    /// The dashboard and the detail hero use the 16 pt gutter; the reminders
+    /// screen passes 32 to align with its section headers.
+    var horizontalPadding: CGFloat = WVSpacing.gutter
+    /// The reminders header needs a larger gap than a line under a card.
+    var topPadding: CGFloat = WVSpacing.sm
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            WVIcon("bellOff", size: 12)
+                .foregroundStyle(WVColor.label3)
+                .padding(.top, 2)
+                .accessibilityHidden(true)
+            Text(note)
+                .wvFont(.footnote)
+                .foregroundStyle(WVColor.label3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, topPadding)
+    }
+}
+
 // MARK: - Grouped container + rows
 
 /// Inset rounded container (`.ios-group`). Place `WVRow`s / custom rows inside,

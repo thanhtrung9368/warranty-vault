@@ -2,10 +2,10 @@ import Foundation
 
 // Warranty claim rules ("Sửa chữa & bảo hành") — the pure half of the feature.
 //
-// A claim is the answer to `Device.status == .BROKEN`: it records where the
-// machine went, what the shop said and whether the warranty paid. Everything
-// this file decides is decided from the claim payload alone, so the device
-// detail screen, the form and the tests can never disagree about it:
+// A claim records where the machine went, what the shop said and whether the
+// warranty paid. Everything this file decides is decided from the claim payload
+// alone, so the device detail screen, the form and the tests can never disagree
+// about it:
 //
 //   * **Open vs closed.** `OPEN` and `IN_REPAIR` are open; `RESOLVED`,
 //     `REJECTED` and `CANCELLED` are closed. The status is the source of truth —
@@ -15,6 +15,10 @@ import Foundation
 //   * **The BROKEN dead end.** `needsRepairNudge` is the selector behind
 //     "this device is marked broken and nothing was recorded about it" — the gap
 //     this feature exists to close.
+//   * **Which record owns `Device.status`.** The claim does, because it is the
+//     richer record; `deviceStatus(claimWasOpen:claimIsOpen:current:)` is the
+//     projection and `claimStatus(afterSettingDeviceStatus:openClaim:)` is the
+//     inverse, so the two records can never be left saying different things.
 //   * **Money.** `costLabel` renders the VND amount, keeping "not recorded"
 //     (`nil`) distinct from a real `0`.
 //   * **The 409.** `saveFailure(_:)` turns `limit_reached` into copy with a way
@@ -146,6 +150,103 @@ public enum ClaimRules {
     /// wrong claim list.
     public static func needsRepairNudge(device: Device, claims: [Claim]) -> Bool {
         needsRepairNudge(status: device.status, claims: claims)
+    }
+
+    // MARK: - One record, not two: the claim owns the device status
+
+    /// The device status a claim write implies, or `nil` when the write leaves
+    /// the device alone.
+    ///
+    /// ## Which record drives, and why
+    ///
+    /// **The claim drives.** It is the richer record — issue, shop, ticket,
+    /// opened/expected-return dates, diagnosis, outcome, cost — and "the machine
+    /// is in repair" is nothing more than one fact about it. `Device.status` is
+    /// that fact projected onto a single field, and this function is the
+    /// projection. The direction matters because `Device.status` is also what
+    /// the reminder query reads (`warranties.sql`, `d.status = 'ACTIVE'`): a
+    /// claim that changes but does not write the status is how the app used to
+    /// end up with a finished repair on a device that still said "Hỏng", and
+    /// with a device that never warned about an expiring warranty again. So
+    /// every claim write that changes the open/closed state has to write it —
+    /// see `WarrantiesStore.writeDeviceStatus`.
+    ///
+    /// The mapping, exhaustively:
+    ///
+    ///  * a repair becomes open (a claim created `OPEN`/`IN_REPAIR`, or a closed
+    ///    one re-opened) → `.BROKEN`;
+    ///  * a repair becomes closed (a closed status chosen, or an open claim
+    ///    deleted) → `.ACTIVE`, but only when the device is currently `.BROKEN`
+    ///    — a device that was already `ACTIVE` is left alone rather than
+    ///    rewritten to the same value;
+    ///  * no transition (an open claim staying open, a closed claim edited while
+    ///    closed, a claim recorded as already finished) → `nil`, meaning **do
+    ///    not PATCH**. "No change" and "no opinion" are the same answer here on
+    ///    purpose: a status write is a full-row replacement, so a needless one
+    ///    is a needless chance to clobber another field.
+    ///
+    /// Two statuses are deliberately **never** overwritten. `SOLD` and `LOST`
+    /// are facts about the device's lifecycle, not an assessment of its
+    /// condition: rewriting `SOLD` would un-sell the device (moving it back into
+    /// the 50-active quota) and rewriting `LOST` would resurrect one the user
+    /// recorded as gone. A repair filed against a sold or lost device is a
+    /// data-entry mistake, and the app does not undo a sale to cover for it.
+    public static func deviceStatus(claimWasOpen: Bool,
+                                    claimIsOpen: Bool,
+                                    current: DeviceStatus) -> DeviceStatus? {
+        if claimIsOpen {
+            guard !claimWasOpen else { return nil }        // already open: nothing moved
+            guard current != .SOLD, current != .LOST else { return nil }
+            return current == .BROKEN ? nil : .BROKEN
+        }
+        guard claimWasOpen else { return nil }             // nothing was open
+        return current == .BROKEN ? .ACTIVE : nil
+    }
+
+    /// The claim status a **device-status edit** implies, or `nil` when the edit
+    /// says nothing about any claim — the inverse direction of the same rule.
+    ///
+    /// The device screen's status control is the coarse lever, so taking a
+    /// device **off** `BROKEN` while a repair is still open is the user saying
+    /// "it is not in repair any more": the claim must not stay open, and it is
+    /// closed as `.RESOLVED` ("Đã xử lý"), which is the closed status the app
+    /// already treats as "the repair finished". Nothing else maps —
+    ///  * setting `BROKEN` does **not** invent a claim (a repair is a record of
+    ///    facts the app does not have: where, ticket, outcome), and
+    ///  * moving between `ACTIVE`/`SOLD`/`LOST` says nothing about a repair at
+    ///    all, beyond the fact that none is open any more.
+    ///
+    /// The caller must **ask** before applying this. Closing a claim is a
+    /// destructive edit to the richer record; it is worth one confirmation, not
+    /// a silent side effect of tapping a segmented control.
+    public static func claimStatus(afterSettingDeviceStatus new: DeviceStatus,
+                                   openClaim: Claim?) -> ClaimStatus? {
+        guard openClaim != nil, new != .BROKEN else { return nil }
+        return .RESOLVED
+    }
+
+    /// `claim`, re-saved with a different status and every other field carried
+    /// verbatim — the write behind "close this repair from the status control".
+    ///
+    /// The raw wire strings are passed through rather than re-formatted:
+    /// `openedAt` is an instant (re-writing it as a calendar day would move the
+    /// recorded moment) and `expectedReturnAt` is already a calendar day. The
+    /// server keeps the stored `openedAt` when it is sent unchanged, and
+    /// `closedAt` is server-owned from here as it is from the form.
+    public static func input(for claim: Claim, status: ClaimStatus) -> ClaimInput {
+        var input = ClaimInput(deviceId: claim.deviceId,
+                               issue: claim.issue,
+                               openedAt: claim.openedAt,
+                               status: status,
+                               warrantyId: claim.warrantyId)
+        input.expectedReturnAt = claim.expectedReturnAt
+        input.ticketNumber = claim.ticketNumber
+        input.serviceCenter = claim.serviceCenter
+        input.diagnosis = claim.diagnosis
+        input.outcome = claim.outcome
+        input.cost = claim.cost
+        input.coveredByWarranty = claim.coveredByWarranty
+        return input
     }
 
     // MARK: - Money

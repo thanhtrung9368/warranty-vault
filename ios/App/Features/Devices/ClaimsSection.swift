@@ -2,19 +2,22 @@ import SwiftUI
 import WarrlyKit
 
 // ============================================================
-// ClaimsSection — "Sửa chữa & bảo hành" on the device detail
+// ClaimsSection — the repairs list on the device detail
 //
-// A claim belongs to a device: it starts from `Device.status == .BROKEN`, and
-// the device detail is where the warranty plans, the shop's contact details and
-// the pre-service checklist already live. So this is the anchor.
+// A claim belongs to a device, and the device detail is where the warranty
+// plans, the shop's contact details and the pre-service checklist already live.
+// So this is the anchor.
 //
-// There is deliberately **no standalone claims screen** in this pass. A claim
-// is not meaningful without its device — every row would need the device name
-// and a tap-through to this very screen — and the one-open-per-device rule
-// means the cross-device question ("what is in repair right now?") is already
-// answered by the BROKEN badge on the device list plus this section. The
-// `GET /api/v1/claims?status=` filter is implemented and tested so a future
-// cross-device view costs one read, not a model change.
+// **This section is the record that owns `Device.status`** (see
+// `ClaimRules.deviceStatus`): filing an open repair marks the device broken,
+// closing the last one marks it in use again, and the status PATCH itself is
+// issued by `WarrantiesStore` right after the claim write. The section's own
+// `BROKEN` nudge is therefore only for the state no claim covers — a device
+// marked broken with nothing recorded about it yet.
+//
+// The `GET /api/v1/claims?status=` filter is implemented and tested so a
+// cross-device view of "what is in repair right now?" costs one read, not a
+// model change; `ClaimsListView` below is that view.
 //
 // Three things this section owns:
 //
@@ -65,7 +68,11 @@ struct ClaimsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            WVSectionHeader(L.t("Sửa chữa & bảo hành"))
+            // Not "Sửa chữa & bảo hành" — that is the name of the
+            // *disclosure* this section lives inside, and reading a near
+            // anagram of the label you just tapped is where the user loses
+            // their place (H2 in `docs/handoff/ux-friction-claim.md`).
+            WVSectionHeader(L.t("Lần sửa chữa"))
 
             if needsNudge {
                 nudgeCard
@@ -260,9 +267,16 @@ struct ClaimRow: View {
 
     /// The warranty plan invoked, when the section could resolve it. A claim
     /// whose plan was deleted keeps its row — only the reference is gone.
+    ///
+    /// Skipped when it repeats `Nơi sửa`: the claim form now seeds that field
+    /// from the package provider (see `ClaimFormView.seed`), so a claim filed
+    /// with the default would otherwise read "CellphoneS · CellphoneS" — the
+    /// same word twice on one line, which reads as a bug.
     private var warrantyLabel: String? {
         guard let warranty else { return nil }
-        return warranty.provider ?? warranty.type.label
+        let label = warranty.provider ?? warranty.type.label
+        guard let center = filled(claim.serviceCenter) else { return label }
+        return label.caseInsensitiveCompare(center) == .orderedSame ? nil : label
     }
 
     var body: some View {

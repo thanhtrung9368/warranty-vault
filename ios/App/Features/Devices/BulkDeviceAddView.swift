@@ -180,12 +180,20 @@ struct BulkDeviceAddView: View {
         // single-device form's card.
         .alert(L.t("Bật nhắc nhở?"), isPresented: $showNotificationPrimer) {
             Button(L.t("Bật thông báo")) {
+                // Both buttons answer the rationale; only showing it does not
+                // consume the one offer (see `PushRegistrar`).
+                push.markPrimerAnswered()
                 Task {
                     await push.requestAndRegister()
                     dismiss()
                 }
             }
-            Button(L.t("Để sau"), role: .cancel) { dismiss() }
+            // `.cancel` is the "Để sau" answer, and it is recorded exactly like
+            // a tap on the other button: a decline must not ask again.
+            Button(L.t("Để sau"), role: .cancel) {
+                push.markPrimerAnswered()
+                dismiss()
+            }
         } message: {
             Text(L.t("Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi."))
         }

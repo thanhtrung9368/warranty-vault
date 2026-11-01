@@ -107,14 +107,17 @@ public enum NotificationPermission: String, Sendable, Equatable, CaseIterable {
 /// The fix is one offer, at the first moment the user has created something
 /// worth reminding about — the first successful device save — never at cold
 /// launch (where it would compete with the ads consent flow for prompts) and
-/// never again after that. If the user ignores or declines the rationale, the
-/// Settings toggle is still there; re-asking would be nagging.
+/// not again once it has been **answered**. If the user declines, the Settings
+/// toggle is still there; re-asking would be nagging. An offer that was only
+/// shown and never answered is not a decline: it may be offered again after a
+/// kill.
 public enum NotificationPrimerRules {
     /// - Parameters:
     ///   - permission: the current system answer.
     ///   - alreadyOffered: persisted once-ever flag. It is set when the
-    ///     rationale is *shown*, not when permission is granted, so a user who
-    ///     dismisses the card is not asked again.
+    ///     rationale is *answered* (declined, or "Bật thông báo" tapped), not
+    ///     when it is shown and not when permission is granted, so an app killed
+    ///     with the card open does not consume the one offer.
     public static func shouldOffer(permission: NotificationPermission,
                                    alreadyOffered: Bool) -> Bool {
         permission == .notDetermined && !alreadyOffered

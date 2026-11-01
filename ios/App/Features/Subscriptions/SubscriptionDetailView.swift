@@ -205,10 +205,14 @@ struct SubscriptionDetailView: View {
                         .foregroundStyle(WVColor.label3)
                 }
                 if sub.billingCycle != .LIFETIME {
-                    let monthly = subMonthlyEquivalent(sub)
+                    let monthly = SubscriptionBilling.monthlyEquivalent(
+                        price: sub.price,
+                        cycle: sub.billingCycle,
+                        intervalDays: sub.intervalDays
+                    )
                     let total   = payments.reduce(0) { $0 + $1.amount }
                     Text(L.t("~ %@ / tháng · Đã chi tổng %@",
-                         WVFormat.vnd(Int(monthly.rounded())), WVFormat.vnd(total)))
+                         WVFormat.vnd(monthly), WVFormat.vnd(total)))
                         .wvFont(.footnote)
                         .foregroundStyle(WVColor.label3)
                         .padding(.top, 2)
@@ -549,21 +553,6 @@ extension SubscriptionStatus {
         case .CANCELED: return .red
         case .EXPIRED:  return .gray
         }
-    }
-}
-
-// MARK: - monthlyEquivalent
-
-private func subMonthlyEquivalent(_ sub: Subscription) -> Double {
-    let p = Double(sub.price)
-    switch sub.billingCycle {
-    case .MONTHLY:   return p
-    case .QUARTERLY: return p / 3
-    case .YEARLY:    return p / 12
-    case .LIFETIME:  return 0
-    case .CUSTOM:
-        let d = Double(sub.intervalDays ?? 30)
-        return d > 0 ? p / d * 30 : 0
     }
 }
 

@@ -17,6 +17,14 @@ struct DeviceFormView: View {
     let client: APIClient
     @ObservedObject var store: DevicesStore
     let device: Device?   // nil = create mode
+    /// `true` when this form is the root of a sheet's own `NavigationStack`.
+    ///
+    /// The two presentations need different leading controls. A sheet root has
+    /// nothing to go back to, so it shows "Huỷ" and must never show a back
+    /// chevron; pushed from a tab it shows the system back button instead, and
+    /// its own "Huỷ" would overlap that button. The sheet presenter sets this;
+    /// every push leaves it `false`.
+    private let presentedAsSheet: Bool
 
     @EnvironmentObject private var catalog: CatalogStore
     /// Shared inbox state: an upload from this screen must move the "Thêm"
@@ -40,7 +48,7 @@ struct DeviceFormView: View {
 
     enum FormField: Hashable {
         case name, brand, model, serial, price, fxRate, purchasePlace
-        case warrantyMonths, warrantyProvider, warrantyPhone, warrantyAddress
+        case warrantyMonths, warrantyProvider
         case notes
     }
 
@@ -71,9 +79,11 @@ struct DeviceFormView: View {
     @State private var fxLoading = false
 
     @State private var warrantyMonths: String
+    /// The default warranty package's provider. Its phone and address used to be
+    /// typed here as well; the create form now asks for the two values that
+    /// create the deadline (the term and who backs it) and leaves the contact
+    /// details to the package's own form, where they are edited today.
     @State private var warrantyProvider: String
-    @State private var warrantyPhone: String
-    @State private var warrantyAddress: String
     @State private var status: DeviceStatus
     @State private var notes: String
 
@@ -104,9 +114,64 @@ struct DeviceFormView: View {
     /// (the same day the server's `COALESCE(receivedAt, purchaseDate)` uses).
     @State private var receivedAtDate: Date
 
+    /// What a **create** form started from, copied from the user's most recently
+    /// added device.
+    ///
+    /// The second device of the same kind used to cost exactly what the first
+    /// one did, although the app was already holding its brand, shop and
+    /// category in `DevicesStore`. These values prefill the form (and the chip
+    /// rows put them first); the user only touches what differs. The pill is
+    /// still a suggestion — it is tagged as one and stays one tap from change.
+    ///
+    /// Kept as state rather than merely written into the fields because the chip
+    /// rows need to know whether the current value is still the carried one
+    /// (while it is, the full list is offered instead of filtering to a single
+    /// chip), and because the device list can arrive *after* this form was
+    /// pushed — see `applyCarriedValuesIfNeeded()`.
+    @State private var carried = CarriedValues()
+    /// The category and window length this form opened with, so a late carry
+    /// only overwrites values the user has not answered yet.
+    @State private var initialCategory: String
+    @State private var initialWindowDays: Int?
+    /// True while the window is the app's suggestion rather than the user's
+    /// answer. Tapping a pill ends it; changing category re-runs it.
+    @State private var returnWindowIsAuto: Bool
+    /// Set when the category sheet changes the value, so the late carry cannot
+    /// overwrite a choice made before the list arrived.
+    @State private var categoryPicked = false
+
+    /// The values a new device inherits from the previous one.
+    struct CarriedValues: Equatable {
+        var category: String?
+        var brand: String?
+        var store: String?
+        var returnWindow: Int?
+
+        var isEmpty: Bool {
+            category == nil && brand == nil && store == nil && returnWindow == nil
+        }
+    }
+
     /// The one-time notification rationale, shown next to the "saved" state of
     /// the first successful create. See `notificationPrimerCard`.
-    @State private var showNotificationPrimer = false
+    ///
+    /// It is a state, not a `Bool`: "the user was asked and said not now" is a
+    /// different thing from "the question is still open", and the screen used
+    /// to collapse both into a dismissal that read as success. The card stays
+    /// up for every answer so the next sentence can say what will not happen.
+    @State private var notificationPrimer: NotificationPrimerState = .hidden
+
+    enum NotificationPrimerState: Equatable {
+        case hidden
+        /// The rationale is on screen; nobody has answered it yet.
+        case offered
+        /// "Để sau": permission is still undecided and nothing will remind.
+        case declined
+        /// iOS refused at the system alert — only Settings can undo that.
+        case denied
+        /// `requestAndRegister` failed for another reason (APNs, transport).
+        case failed(String)
+    }
 
     /// Warranty activation + extended-cover deadline ("Bảo hành & kích hoạt").
     ///
@@ -233,22 +298,53 @@ struct DeviceFormView: View {
 
     private var isEditing: Bool { device != nil }
 
-    /// Create-mode default. DEBUG-only screenshot QA can override it
-    /// (`WV_QA_CATEGORY`, e.g. `FRIDGE`) so the category row can be photographed
-    /// without a tap; a Release build always starts on `PHONE`.
-    private static var defaultCategory: String {
+    /// DEBUG-only screenshot QA can pin a category (`WV_QA_CATEGORY`, e.g.
+    /// `FRIDGE`) so the category row can be photographed without a tap. `nil`
+    /// in a Release build, and the normal create path still starts from the
+    /// previous device.
+    private static var qaCategoryOverride: String? {
 #if DEBUG
         if let qa = ProcessInfo.processInfo.environment["WV_QA_CATEGORY"], !qa.isEmpty {
             return qa
         }
 #endif
-        return "PHONE"
+        return nil
     }
 
-    init(client: APIClient, store: DevicesStore, device: Device?) {
+    /// The most recently **added** device, which is what a create form starts
+    /// from. `store.devices` is the server's list order (newest purchase first),
+    /// so its first row is not "last added" — `createdAt` is the fact the form
+    /// actually means.
+    private static func carriedValues(from devices: [Device]) -> CarriedValues {
+        let sorted = devices.sorted {
+            ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
+        }
+        guard let last = sorted.first else { return CarriedValues() }
+        func clean(_ value: String?) -> String? {
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        return CarriedValues(
+            category: clean(last.category),
+            brand: clean(last.brand),
+            store: clean(last.purchasePlace),
+            returnWindow: last.returnWindowDays
+        )
+    }
+
+    init(client: APIClient, store: DevicesStore, device: Device?,
+         presentedAsSheet: Bool = false) {
         self.client = client
         self.store = store
         self.device = device
+        self.presentedAsSheet = presentedAsSheet
+        // A create starts from the user's most recent device: the second device
+        // of the same kind must not cost what the first one did. The list can
+        // still be in flight when this form is pushed (the dashboard quick add,
+        // or a cold launch straight into it), in which case
+        // `applyCarriedValuesIfNeeded()` fills the gaps once it lands — but only
+        // where the user has not answered.
+        let carried = device == nil ? Self.carriedValues(from: store.devices) : CarriedValues()
         // One `Date` for both the picker and the delivery-day default, so the
         // two can never disagree about "the purchase day" when the form opens.
         let purchaseDay = device?.purchaseDate ?? Date()
@@ -257,21 +353,29 @@ struct DeviceFormView: View {
         // seeded `Category.code`, which is uppercase. A lowercase default meant a
         // form saved without touching the picker sent a code that cannot exist
         // and came back as a 400 the user had no way to read.
-        _category = State(initialValue: device?.category ?? Self.defaultCategory)
-        _brand = State(initialValue: device?.brand ?? "")
+        //
+        // The QA override outranks the carry so `WV_QA_CATEGORY` can pin a
+        // category for a screenshot; the carry outranks the bare `PHONE`
+        // default, which is the whole point of change 3.
+        let openingCategory = device?.category
+            ?? Self.qaCategoryOverride
+            ?? carried.category
+            ?? "PHONE"
+        _category = State(initialValue: openingCategory)
+        _initialCategory = State(initialValue: openingCategory)
+        _carried = State(initialValue: carried)
+        _brand = State(initialValue: device?.brand ?? carried.brand ?? "")
         _model = State(initialValue: device?.model ?? "")
         _serial = State(initialValue: device?.serialNumber ?? "")
         _purchaseDate = State(initialValue: purchaseDay)
         _price = State(initialValue: device?.purchasePrice)
-        _purchasePlace = State(initialValue: device?.purchasePlace ?? "")
+        _purchasePlace = State(initialValue: device?.purchasePlace ?? carried.store ?? "")
         // A payload without `currency` means the contract default VND; the
         // normalized value is what the picker and the payload use from here on.
         _currency = State(initialValue: CurrencyRules.normalized(device?.currency))
         _fxRate = State(initialValue: device?.fxRate)
         _warrantyMonths = State(initialValue: "12")
         _warrantyProvider = State(initialValue: "")
-        _warrantyPhone = State(initialValue: "")
-        _warrantyAddress = State(initialValue: "")
         _status = State(initialValue: device?.status ?? .ACTIVE)
         _notes = State(initialValue: device?.notes ?? "")
         // Load the stored schedule. A payload from before `leadDays` existed
@@ -286,7 +390,21 @@ struct DeviceFormView: View {
         // input can never erase a recorded fact.
         let window = device.map(DeviceReturnWindow.carried(from:)) ?? .unknown
         _returnWindow = State(initialValue: window)
-        _returnWindowDays = State(initialValue: window.returnWindowDays)
+        // On a create the window starts from the previous device's recorded
+        // answer, else from the app's own category suggestion. It is visibly a
+        // suggestion (`returnWindowSuggestion`) and stays one tap from change;
+        // on an edit the stored value — including "chưa biết" — is loaded
+        // untouched, exactly as before.
+        let openingWindow: Int?
+        if device != nil {
+            openingWindow = window.returnWindowDays
+        } else {
+            openingWindow = carried.returnWindow
+                ?? DeviceReturnWindow.suggestedDays(forCategory: openingCategory)
+        }
+        _returnWindowDays = State(initialValue: openingWindow)
+        _initialWindowDays = State(initialValue: openingWindow)
+        _returnWindowIsAuto = State(initialValue: device == nil)
         // The picker draws a `Date`, so the stored day is read in the device's
         // own zone (never as an instant), and a device with no recorded day
         // starts on the purchase day — exactly what the server would use.
@@ -526,12 +644,130 @@ struct DeviceFormView: View {
             ?? category
     }
 
+    /// The brand chips, this account's own brands first.
+    ///
+    /// The catalog is name-ascending (`catalog.sql`), so the brand a person
+    /// actually buys sat behind a swipe past ASUS/Apple/HONOR. The devices the
+    /// account already owns are the better sort key: most used first, most
+    /// recent as the tie-break. While the field still holds the carried value
+    /// the whole category list is offered instead of filtering to that one
+    /// value, so changing the brand is still a single tap.
     private var brandSuggestions: [String] {
-        catalog.brands(matching: brand, category: category).prefix(8).map(\.name)
+        let query = brand == carried.brand ? "" : brand
+        let pool = catalog.brands(matching: "", category: category).map(\.name)
+        let filtered = query.isEmpty
+            ? pool
+            : pool.filter { $0.localizedCaseInsensitiveContains(query) }
+        return Self.recentFirst(filtered, recent: recentValues(\.brand), limit: 8)
     }
 
+    /// The shop chips, ordered the same way. See `brandSuggestions`.
     private var storeSuggestions: [String] {
-        catalog.stores(matching: purchasePlace).prefix(8).map(\.name)
+        let query = purchasePlace == carried.store ? "" : purchasePlace
+        return Self.recentFirst(catalog.stores(matching: query).map(\.name),
+                                recent: recentValues(\.purchasePlace),
+                                limit: 8)
+    }
+
+    /// The provider catalogue behind "Hãng BH" — the same chip pattern the
+    /// warranty form already uses for the same field, so a provider the
+    /// catalogue spells is one tap instead of eight typed characters.
+    private var providerSuggestions: [String] {
+        catalog.warrantyProviders(matching: warrantyProvider).prefix(8).map(\.name)
+    }
+
+    /// The account's own values for one device field, most frequent first and
+    /// most recent as the tie-break.
+    private func recentValues(_ keyPath: KeyPath<Device, String?>) -> [String] {
+        let sorted = store.devices.sorted {
+            ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
+        }
+        var counts: [String: Int] = [:]
+        var firstSeen: [String: Int] = [:]
+        for (index, device) in sorted.enumerated() {
+            let raw = device[keyPath: keyPath]?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !raw.isEmpty else { continue }
+            counts[raw, default: 0] += 1
+            if firstSeen[raw] == nil { firstSeen[raw] = index }
+        }
+        return counts.keys.sorted { a, b in
+            let countA = counts[a] ?? 0, countB = counts[b] ?? 0
+            if countA != countB { return countA > countB }
+            return (firstSeen[a] ?? .max) < (firstSeen[b] ?? .max)
+        }
+    }
+
+    /// `recent` values that are still in `pool`, then the rest of the pool, in
+    /// pool order, with a case-insensitive dedupe.
+    private static func recentFirst(_ pool: [String], recent: [String],
+                                    limit: Int) -> [String] {
+        var ordered: [String] = []
+        for name in recent where pool.contains(where: {
+            $0.caseInsensitiveCompare(name) == .orderedSame
+        }) {
+            if !ordered.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+                ordered.append(name)
+            }
+        }
+        for name in pool where !ordered.contains(where: {
+            $0.caseInsensitiveCompare(name) == .orderedSame
+        }) {
+            ordered.append(name)
+        }
+        return Array(ordered.prefix(limit))
+    }
+
+    /// Whether the "prefilled from your previous device" footer is still true.
+    private var showsCarriedNote: Bool {
+        guard !isEditing else { return false }
+        return (carried.brand != nil && brand == carried.brand)
+            || (carried.store != nil && purchasePlace == carried.store)
+            || (carried.category != nil && category == carried.category)
+    }
+
+    /// Fills the carried values once the device list has actually arrived.
+    ///
+    /// The normal path is `init`: the list is in memory by the time the user
+    /// taps `+` on the Devices tab. But this form can be pushed before that read
+    /// finishes (the dashboard quick add, or a cold launch straight into create
+    /// with `WV_QA_NEW_DEVICE`), and starting that second device from scratch is
+    /// exactly the friction this change removes. Only untouched fields are
+    /// filled — whatever the user has already answered wins.
+    private func applyCarriedValuesIfNeeded() async {
+        guard !isEditing else { return }
+        let listIsStillLoading = store.state == .idle || store.state == .loading
+        if store.devices.isEmpty, listIsStillLoading {
+            // Bounded wait: the read is already in flight from the screen that
+            // pushed this form. A loaded-empty account (or a failed read) falls
+            // straight through.
+            for _ in 0..<25 {
+                if !store.devices.isEmpty { break }
+                try? await Task.sleep(for: .milliseconds(120))
+            }
+        }
+        let values = Self.carriedValues(from: store.devices)
+        guard !values.isEmpty else { return }
+        if carried.isEmpty { carried = values }
+
+        if brand.trimmingCharacters(in: .whitespaces).isEmpty, let value = values.brand {
+            brand = value
+        }
+        if purchasePlace.trimmingCharacters(in: .whitespaces).isEmpty, let value = values.store {
+            purchasePlace = value
+        }
+        // The QA override pins the opening category; the carry only wins over
+        // the bare `PHONE` default.
+        if !categoryPicked,
+           category == initialCategory,
+           initialCategory == "PHONE",
+           let value = values.category {
+            category = value
+        }
+        if returnWindowIsAuto, returnWindowDays == initialWindowDays {
+            returnWindowDays = values.returnWindow
+                ?? DeviceReturnWindow.suggestedDays(forCategory: category)
+        }
     }
 
     // MARK: - Keyboard "Next"
@@ -544,9 +780,7 @@ struct DeviceFormView: View {
         if usesForeignCurrency { fields.append(.fxRate) }
         fields.append(.purchasePlace)
         if !isEditing {
-            fields.append(contentsOf: [
-                .warrantyMonths, .warrantyProvider, .warrantyPhone, .warrantyAddress,
-            ])
+            fields.append(contentsOf: [.warrantyMonths, .warrantyProvider])
         }
         fields.append(.notes)
         return fields
@@ -578,8 +812,8 @@ struct DeviceFormView: View {
         "name", "brand", "model", "serialNumber", "category", "purchaseDate",
         "purchasePrice", "purchasePlace", "currency", "fxRate", "returnWindowDays",
         "receivedAt", "leadDays", "soldAt", "soldPrice", "activatedAt",
-        "extendedCoverBuyBy", "warrantyMonths", "warrantyProvider", "warrantyPhone",
-        "warrantyAddress", "status", "notes",
+        "extendedCoverBuyBy", "warrantyMonths", "warrantyProvider",
+        "status", "notes",
     ]
 
     /// The localised label for a server field key. Used only by the top banner's
@@ -644,12 +878,27 @@ struct DeviceFormView: View {
     /// and "chưa biết" hide the picker (and keep any stored day, below).
     private var showsDeliveryDayPicker: Bool { (returnWindowDays ?? 0) > 0 }
 
-    /// The category-based suggestion, shown only while the answer is still
-    /// "chưa biết". It is a **suggestion**, never applied: the API has no
-    /// default, and storing a guess would be the app inventing a shop's policy.
+    /// The suggestion caption under the pill row.
+    ///
+    /// A create now *starts* on a window instead of on "chưa biết" — otherwise
+    /// the form's own default creates the `RETURN_WINDOW_UNKNOWN` to-do that
+    /// sends the user back here. The value is still the app's guess, so it is
+    /// labelled as one for as long as it is the app's (tapping any pill, or
+    /// changing the category before the carry landed, makes it the user's).
+    /// The API still stores exactly what is transmitted; nothing is inferred on
+    /// the server.
     private var returnWindowSuggestion: String? {
-        guard returnWindowDays == nil,
-              let days = DeviceReturnWindow.suggestedDays(forCategory: category)
+        guard !isEditing, returnWindowIsAuto, let days = returnWindowDays else { return nil }
+        if let carriedWindow = carried.returnWindow, carriedWindow == days {
+            // `0` is a real carried answer ("cửa hàng không cho đổi trả"), and
+            // "Gợi ý: 0 ngày" would read like a missing value.
+            if days == 0 {
+                return L.t("Gợi ý: không đổi trả, theo thiết bị gần nhất.")
+            }
+            return L.t("Gợi ý: %d ngày theo thiết bị gần nhất.", days)
+        }
+        guard let suggested = DeviceReturnWindow.suggestedDays(forCategory: category),
+              suggested == days
         else { return nil }
         return L.t("Gợi ý: %d ngày cho %@", days, CategoryLabels.label(for: category))
     }
@@ -700,6 +949,10 @@ struct DeviceFormView: View {
                         Button {
                             withAnimation(.easeOut(duration: 0.15)) {
                                 returnWindowDays = choice.days
+                                // The answer is now the user's; stop calling
+                                // it a suggestion (and stop re-running it when
+                                // the category changes).
+                                returnWindowIsAuto = false
                                 fieldErrors["returnWindowDays"] = nil
                             }
                         } label: {
@@ -800,7 +1053,7 @@ struct DeviceFormView: View {
                 // The one question this screen asks, once, after the very first
                 // device was created. Inline — not a modal — so it cannot stack
                 // on top of a UMP form or the ATT alert.
-                if showNotificationPrimer {
+                if notificationPrimer != .hidden {
                     notificationPrimerCard
                     Spacer().frame(height: 12)
                 }
@@ -904,19 +1157,10 @@ struct DeviceFormView: View {
                              focus: .name, errorKey: "name")
                     fieldErrorRow("name")
                     WVDivider()
-                    inputRow(label: L.t("Hãng"), placeholder: "Apple, Samsung...", text: $brand,
-                             focus: .brand, errorKey: "brand")
-                    fieldErrorRow("brand")
-                    if !brandSuggestions.isEmpty {
-                        WVDivider()
-                        AutocompleteRow(suggestions: brandSuggestions, text: $brand)
-                    }
-                    WVDivider()
-                    inputRow(label: "Model", placeholder: "14-inch M3 Pro...", text: $model,
-                             focus: .model, errorKey: "model")
-                    fieldErrorRow("model")
-                    WVDivider()
-                    // Category picker row
+                    // Category picker row. It sits **above** "Hãng" because the
+                    // category decides which brands are relevant at all: the
+                    // brand chips below are filtered by a value the user used to
+                    // see only after them.
                     Button { showCategoryPicker = true } label: {
                         if dynamicTypeSize.isAccessibilitySize {
                             VStack(alignment: .leading, spacing: 6) {
@@ -968,14 +1212,43 @@ struct DeviceFormView: View {
                         }
                     }
                     .buttonStyle(WVRowButtonStyle())
-                    .onChange(of: category) { _, _ in fieldErrors["category"] = nil }
+                    .onChange(of: category) { _, newCategory in
+                        fieldErrors["category"] = nil
+                        // The category decides the suggestion, so an untouched
+                        // suggestion follows it. A user-answered pill or a
+                        // window carried from the previous device does not.
+                        guard !isEditing, returnWindowIsAuto else { return }
+                        returnWindowDays = carried.returnWindow
+                            ?? DeviceReturnWindow.suggestedDays(forCategory: newCategory)
+                    }
                     fieldErrorRow("category")
+
+                    WVDivider()
+                    inputRow(label: L.t("Hãng"), placeholder: "Apple, Samsung...", text: $brand,
+                             focus: .brand, errorKey: "brand")
+                    fieldErrorRow("brand")
+                    if !brandSuggestions.isEmpty {
+                        WVDivider()
+                        AutocompleteRow(suggestions: brandSuggestions, text: $brand)
+                    }
+                    WVDivider()
+                    inputRow(label: "Model", placeholder: "14-inch M3 Pro...", text: $model,
+                             focus: .model, errorKey: "model")
+                    fieldErrorRow("model")
                     WVDivider()
                     serialRow
                     if serialScanNotice {
                         WVDivider()
                         serialScanNoticeRow
                     }
+                }
+
+                // Where the pre-filled values came from. Shown only while at
+                // least one of them is still the carried one; once the user
+                // changes them they are the user's, and this note would be a
+                // lie. The return window has its own caption under the pills.
+                if showsCarriedNote {
+                    WVSectionFooter(L.t("Một số giá trị được điền sẵn theo thiết bị gần nhất — sửa nếu khác."))
                 }
 
                 // Purchase info
@@ -1175,46 +1448,55 @@ struct DeviceFormView: View {
                     WVSectionFooter(L.t("Giá mua và giá bán tính bằng %@.", currency))
                 }
 
-                // Reminder lead times ("Nhắc trước"). The cron used to fire at a
-                // fixed 7/30 days; each device now carries its own schedule, in
-                // both create and edit mode. The rules (0...365, dedupe,
-                // descending, 1...5) live in WarrlyKit so they are testable
-                // without a simulator.
-                LeadDaysSection(days: $leadDays, error: fieldErrors["leadDays"]?.first)
-                    .onChange(of: leadDays) { _, _ in fieldErrors["leadDays"] = nil }
+                // Reminder lead times ("Nhắc trước") — **edit only**. A new
+                // device has no history for a schedule to react to, and the
+                // created default is the server's own [30, 7]; the editor is
+                // two taps away on the device screen (device → ⋯ → Sửa thông
+                // tin). The rules (0...365, dedupe, descending, 1...5) live in
+                // WarrlyKit so they are testable without a simulator.
+                if isEditing {
+                    LeadDaysSection(days: $leadDays, error: fieldErrors["leadDays"]?.first)
+                        .onChange(of: leadDays) { _, _ in fieldErrors["leadDays"] = nil }
+                }
 
-                // Warranty activation + extended-cover deadline (Feature A).
-                // Three fields inside the warranty area, not a new step.
-                activationSection
+                // Warranty activation + extended-cover deadline (Feature A) —
+                // **edit only**. "Cần kích hoạt" and the extended-cover buy-by
+                // date are decisions about a device that already exists; the
+                // detail screen renders both and sends the user here to change
+                // them. Create still sends the same defaults it always sent.
+                if isEditing {
+                    activationSection
+                }
 
-                // Brand warranty lookup ("Đối chiếu với hãng"). Available in both
-                // modes: in create mode there is no device id yet, so the sheet
-                // is local-only and the answer rides along with this save — the
-                // same path the edit form uses. The lookup itself only needs the
-                // typed brand and the catalog, so it works before the first save.
-                BrandWarrantySection(
-                    client: client,
-                    // The **typed** brand, not the stored one: if the user
-                    // edits the brand field, the page offered must belong to the
-                    // brand on screen.
-                    brand: brand,
-                    fields: brandWarranty,
-                    mismatch: brandWarrantyDirty
-                        ? nil
-                        : (savedDevice ?? device)?.warrantyMismatch,
-                    purchaseDate: purchaseDate,
-                    persist: nil,
-                    onRecordLocally: { recorded in
-                        brandWarranty = recorded
-                        brandWarrantyDirty = true
-                    },
-                    pendingLocalChanges: brandWarrantyDirty
-                )
+                // Brand warranty lookup ("Đối chiếu với hãng") — **edit only**.
+                // It is a comparison against a device that already has a
+                // recorded expiry, and the detail screen offers the same
+                // section. A brand-new device has nothing to compare yet.
+                if isEditing {
+                    BrandWarrantySection(
+                        client: client,
+                        // The **typed** brand, not the stored one: if the user
+                        // edits the brand field, the page offered must belong
+                        // to the brand on screen.
+                        brand: brand,
+                        fields: brandWarranty,
+                        mismatch: brandWarrantyDirty
+                            ? nil
+                            : (savedDevice ?? device)?.warrantyMismatch,
+                        purchaseDate: purchaseDate,
+                        persist: nil,
+                        onRecordLocally: { recorded in
+                            brandWarranty = recorded
+                            brandWarrantyDirty = true
+                        },
+                        pendingLocalChanges: brandWarrantyDirty
+                    )
+                }
 
                 // Default warranty (create mode only)
                 if !isEditing {
                     WVSectionHeader(L.t("Bảo hành mặc định"))
-                    WVSectionFooter(L.t("Mày có thể thêm nhiều gói khác trong chi tiết thiết bị."))
+                    WVSectionFooter(L.t("Bạn có thể thêm nhiều gói khác trong chi tiết thiết bị."))
                     WVGroup {
                         HStack(spacing: 12) {
                             Text(L.t("Số tháng"))
@@ -1240,16 +1522,11 @@ struct DeviceFormView: View {
                                  text: $warrantyProvider,
                                  focus: .warrantyProvider, errorKey: "warrantyProvider")
                         fieldErrorRow("warrantyProvider")
-                        WVDivider()
-                        inputRow(label: L.t("SĐT BH"), placeholder: "1800-...",
-                                 text: $warrantyPhone, keyboard: .phonePad,
-                                 focus: .warrantyPhone, errorKey: "warrantyPhone")
-                        fieldErrorRow("warrantyPhone")
-                        WVDivider()
-                        inputRow(label: L.t("Địa chỉ"), placeholder: "Bitexco, Q.1, TP.HCM",
-                                 text: $warrantyAddress,
-                                 focus: .warrantyAddress, errorKey: "warrantyAddress")
-                        fieldErrorRow("warrantyAddress")
+                        if !providerSuggestions.isEmpty {
+                            WVDivider()
+                            AutocompleteRow(suggestions: providerSuggestions,
+                                            text: $warrantyProvider)
+                        }
                     }
                 }
 
@@ -1307,112 +1584,119 @@ struct DeviceFormView: View {
                 }
                 fieldErrorRow("notes")
 
-                // Resale ("Bán lại", migration 0006). Independent of `status`: the
-                // server accepts SOLD with no figures, and figures without SOLD.
-                // What it does *not* accept is half a pair — the form checks the
-                // server's own rule before it sends, and shows the server's own
-                // Vietnamese copy when it refuses.
-                WVSectionHeader(L.t("Bán lại"))
-                WVSectionFooter(L.t("Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán."))
-                WVGroup {
-                    Button {
-                        saleRecorded.toggle()
-                        fieldErrors["soldAt"] = nil
-                        fieldErrors["soldPrice"] = nil
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(saleRecorded ? L.t("Bỏ ghi nhận") : L.t("Ghi nhận đã bán"))
-                                .wvFont(.body)
-                                .foregroundStyle(WVColor.tint)
-                            Spacer(minLength: 0)
-                            if saleRecorded {
-                                WVIcon("check", size: 15)
+                // Resale ("Bán lại", migration 0006) — **edit only**. A sale is
+                // recorded after the purchase, and the detail screen shows the
+                // pair read-only while sending the user here to change it: a
+                // brand-new device cannot have been sold.
+                //
+                // Independent of `status`: the server accepts SOLD with no
+                // figures, and figures without SOLD. What it does *not* accept
+                // is half a pair — the form checks the server's own rule before
+                // it sends, and shows the server's own Vietnamese copy when it
+                // refuses.
+                if isEditing {
+                    WVSectionHeader(L.t("Bán lại"))
+                    WVSectionFooter(L.t("Ghi ngày bán và giá bán để tính lãi/lỗ so với giá mua. Bỏ trống nếu chưa bán."))
+                    WVGroup {
+                        Button {
+                            saleRecorded.toggle()
+                            fieldErrors["soldAt"] = nil
+                            fieldErrors["soldPrice"] = nil
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(saleRecorded ? L.t("Bỏ ghi nhận") : L.t("Ghi nhận đã bán"))
+                                    .wvFont(.body)
                                     .foregroundStyle(WVColor.tint)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .padding(.vertical, 7)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(WVRowButtonStyle())
-
-                    if saleRecorded {
-                        WVDivider()
-
-                        formRow {
-                            Text(L.t("Ngày bán"))
-                                .wvFont(.body)
-                                .foregroundStyle(WVColor.label)
-                        } value: {
-                            DatePicker("", selection: $soldDate, displayedComponents: .date)
-                                .labelsHidden()
-                                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                                .onChange(of: soldDate) { _, _ in fieldErrors["soldAt"] = nil }
-                        }
-                        // The server's own message, never a paraphrase of it.
-                        fieldErrorRow("soldAt")
-
-                        WVDivider()
-
-                        HStack(spacing: 12) {
-                            Text(L.t("Giá bán"))
-                                .wvFont(.body)
-                                .foregroundStyle(WVColor.label)
-                            Spacer(minLength: 8)
-                            // Blank ⇒ nil ("chưa bán"), `0` ⇒ a real price
-                            // ("cho tặng"). The field is digit-only, so the
-                            // server's negative-price rule cannot be typed here.
-                            // The sale is in the device's currency — the code
-                            // next to it says so.
-                            WVMoneyField(value: $soldPrice,
-                                         placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
-                                         groupingSeparator: priceFieldGrouping)
-                                .onChange(of: soldPrice) { _, _ in fieldErrors["soldPrice"] = nil }
-                            if usesForeignCurrency {
-                                Text(currency)
-                                    .wvFont(.footnoteEmphasis)
-                                    .foregroundStyle(WVColor.label3)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .padding(.vertical, 7)
-                        fieldErrorRow("soldPrice")
-
-                        WVDivider()
-
-                        HStack(spacing: 8) {
-                            Text(L.t("Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán."))
-                                .wvFont(.caption)
-                                .foregroundStyle(WVColor.label3)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-
-                        // Lãi/lỗ so với giá mua, updated as the user types — the
-                        // same wording the web and Android clients render.
-                        if let profit = liveProfitLoss {
-                            WVDivider()
-                            HStack(spacing: 10) {
-                                WVIcon(profit.tone == .loss ? "trendingDown" : "trendingUp", size: 15)
-                                    .foregroundStyle(Self.saleToneColor(profit.tone))
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(profit.label)
-                                        .wvFont(.subheadlineEmphasis)
-                                        .foregroundStyle(Self.saleToneColor(profit.tone))
-                                    Text(L.t("so với giá mua %@",
-                                             WVFormat.currency(price ?? 0, currency)))
-                                        .wvFont(.caption)
-                                        .foregroundStyle(WVColor.label3)
-                                }
                                 Spacer(minLength: 0)
+                                if saleRecorded {
+                                    WVIcon("check", size: 15)
+                                        .foregroundStyle(WVColor.tint)
+                                }
                             }
                             .padding(.horizontal, 16)
                             .frame(minHeight: 44)
                             .padding(.vertical, 7)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(WVRowButtonStyle())
+
+                        if saleRecorded {
+                            WVDivider()
+
+                            formRow {
+                                Text(L.t("Ngày bán"))
+                                    .wvFont(.body)
+                                    .foregroundStyle(WVColor.label)
+                            } value: {
+                                DatePicker("", selection: $soldDate, displayedComponents: .date)
+                                    .labelsHidden()
+                                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                                    .onChange(of: soldDate) { _, _ in fieldErrors["soldAt"] = nil }
+                            }
+                            // The server's own message, never a paraphrase of it.
+                            fieldErrorRow("soldAt")
+
+                            WVDivider()
+
+                            HStack(spacing: 12) {
+                                Text(L.t("Giá bán"))
+                                    .wvFont(.body)
+                                    .foregroundStyle(WVColor.label)
+                                Spacer(minLength: 8)
+                                // Blank ⇒ nil ("chưa bán"), `0` ⇒ a real price
+                                // ("cho tặng"). The field is digit-only, so the
+                                // server's negative-price rule cannot be typed here.
+                                // The sale is in the device's currency — the code
+                                // next to it says so.
+                                WVMoneyField(value: $soldPrice,
+                                             placeholder: CurrencyRules.isVnd(currency) ? "0 ₫" : "0",
+                                             groupingSeparator: priceFieldGrouping)
+                                    .onChange(of: soldPrice) { _, _ in fieldErrors["soldPrice"] = nil }
+                                if usesForeignCurrency {
+                                    Text(currency)
+                                        .wvFont(.footnoteEmphasis)
+                                        .foregroundStyle(WVColor.label3)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .padding(.vertical, 7)
+                            fieldErrorRow("soldPrice")
+
+                            WVDivider()
+
+                            HStack(spacing: 8) {
+                                Text(L.t("Nhập 0 nếu cho tặng. Cần cả ngày bán và giá bán."))
+                                    .wvFont(.caption)
+                                    .foregroundStyle(WVColor.label3)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+
+                            // Lãi/lỗ so với giá mua, updated as the user types — the
+                            // same wording the web and Android clients render.
+                            if let profit = liveProfitLoss {
+                                WVDivider()
+                                HStack(spacing: 10) {
+                                    WVIcon(profit.tone == .loss ? "trendingDown" : "trendingUp", size: 15)
+                                        .foregroundStyle(Self.saleToneColor(profit.tone))
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(profit.label)
+                                            .wvFont(.subheadlineEmphasis)
+                                            .foregroundStyle(Self.saleToneColor(profit.tone))
+                                        Text(L.t("so với giá mua %@",
+                                                 WVFormat.currency(price ?? 0, currency)))
+                                            .wvFont(.caption)
+                                            .foregroundStyle(WVColor.label3)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(minHeight: 44)
+                                .padding(.vertical, 7)
+                            }
                         }
                     }
                 }
@@ -1447,17 +1731,28 @@ struct DeviceFormView: View {
             // and centred, and every row's leading edge is pushed off-screen.
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // Screenshot QA only: the interesting bottom half (the sections that are
+        // left in create) cannot be reached without a scroll gesture, and the
+        // simulator has no tap injection. DEBUG-only and inert otherwise.
+        .wvQAScrollBottom()
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa thiết bị") : L.t("Thiết bị mới"))
         .navigationBarTitleDisplayMode(.inline)
+        // A sheet root has no previous screen to go back to. Hiding the system
+        // back button here makes the leading edge unambiguous even if a
+        // presentation inherits one; when pushed, the system back button is the
+        // single leading control and the form does not add a second one.
+        .navigationBarBackButtonHidden(presentedAsSheet)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                if didSave {
-                    Button(L.t("Đóng")) { dismiss() }
-                        .foregroundStyle(WVColor.tint)
-                } else {
-                    Button(L.t("Huỷ")) { showDiscardAlert = true }
-                        .foregroundStyle(WVColor.tint)
+            if presentedAsSheet {
+                ToolbarItem(placement: .topBarLeading) {
+                    if didSave {
+                        Button(L.t("Đóng")) { dismiss() }
+                            .foregroundStyle(WVColor.tint)
+                    } else {
+                        Button(L.t("Huỷ")) { showDiscardAlert = true }
+                            .foregroundStyle(WVColor.tint)
+                    }
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -1494,7 +1789,16 @@ struct DeviceFormView: View {
             }
         }
         .sheet(isPresented: $showCategoryPicker) {
-            CategoryPickerSheet(selected: $category, options: categoryOptions)
+            // The setter is wrapped so a late carry (the device list arriving
+            // after this form was pushed) can tell "the user chose" from "the
+            // form defaulted". Picking the same value still counts as a choice.
+            CategoryPickerSheet(selected: Binding(
+                get: { category },
+                set: { newValue in
+                    categoryPicked = true
+                    category = newValue
+                }
+            ), options: categoryOptions)
         }
         .sheet(isPresented: $showSerialScanner) {
             SerialScannerSheet { value in
@@ -1512,10 +1816,32 @@ struct DeviceFormView: View {
             Text(L.t("Tất cả thông tin đã nhập sẽ mất."))
         }
         .task { await catalog.loadIfNeeded() }
+        // A create form can be pushed before the device list has finished
+        // loading (the dashboard quick add, or a cold launch straight into it).
+        // Fill the carried values once the list lands, without touching a field
+        // the user has already answered.
+        .task { await applyCarriedValuesIfNeeded() }
         .task {
             if !isEditing, let v = try? await client.getAIOptIn() { aiEnabled = v }
         }
 #if DEBUG
+        // Screenshot QA only: show the permission card in a chosen state
+        // (`WV_QA_PRIMER=offered|declined|denied|failed`) without a tap. The
+        // simulator cannot inject a tap, and the card only appears after a
+        // successful create.
+        .task {
+            guard !isEditing,
+                  let qa = ProcessInfo.processInfo.environment["WV_QA_PRIMER"],
+                  !qa.isEmpty else { return }
+            switch qa {
+            case "offered":  notificationPrimer = .offered
+            case "declined": notificationPrimer = .declined
+            case "denied":   notificationPrimer = .denied
+            case "failed":   notificationPrimer = .failed("APNs chưa sẵn sàng")
+            default:         return
+            }
+            didSave = true
+        }
         // Screenshot QA only: submit the untouched form once so a real server
         // 400 can be photographed without a tap (`WV_QA_AUTOSUBMIT=1`).
         .task {
@@ -2223,10 +2549,11 @@ struct DeviceFormView: View {
         BrandWarrantyRules.apply(brandWarranty, to: &input)
 
         if !isEditing {
+            // The create form asks only for the two facts that create the
+            // deadline: the term and who backs it. The contact details belong
+            // to the package's own form, which is where they are edited.
             input.warrantyMonths = Int(warrantyMonths) ?? 0
             input.warrantyProvider = warrantyProvider.isEmpty ? nil : warrantyProvider
-            input.warrantyPhone = warrantyPhone.isEmpty ? nil : warrantyPhone
-            input.warrantyAddress = warrantyAddress.isEmpty ? nil : warrantyAddress
         } else {
             input.warrantyMonths = 0
         }
@@ -2264,7 +2591,7 @@ struct DeviceFormView: View {
                 // consent flow owns the prompts. A serial advisory wins the
                 // screen instead; the offer waits for a later create.
                 if wasCreate, await push.offerPrimerAfterFirstSave() {
-                    showNotificationPrimer = true
+                    notificationPrimer = .offered
                     didSave = true
                 } else {
                     dismiss()
@@ -2303,31 +2630,64 @@ struct DeviceFormView: View {
     /// is the ordering class this app has already been rejected for.
     ///
     /// So the rationale appears at the first moment the user owns something
-    /// worth being reminded about, is offered at most once per install
-    /// (`PushRegistrar` persists that it was offered), and is an **inline card**
-    /// rather than a modal — it cannot land on top of another prompt. Tapping
-    /// "Bật thông báo" is what raises the system alert.
+    /// worth being reminded about, is offered on later creates until it is
+    /// **answered** (`PushRegistrar` persists only an answer), and is an
+    /// **inline card** rather than a modal — it cannot land on top of another
+    /// prompt. Tapping "Bật thông báo" is what raises the system alert.
     private var notificationPrimerCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                WVIcon("checkCircle", size: 14)
-                Text(L.t("Đã lưu thiết bị"))
+                WVIcon(primerIcon, size: 14)
+                Text(primerTitle)
                     .wvFont(.subheadlineEmphasis)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(WVColor.green)
+            .foregroundStyle(primerTone)
 
-            Text(L.t("Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi."))
+            Text(primerBody)
                 .wvFont(.footnote)
                 .foregroundStyle(WVColor.label2)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
-                WVButton(L.t("Bật thông báo"), kind: .primary, size: .small) {
-                    enableNotifications()
-                }
-                WVButton(L.t("Để sau"), kind: .secondary, size: .small) {
-                    finishAfterPrimer()
+                switch notificationPrimer {
+                case .offered:
+                    WVButton(L.t("Bật thông báo"), kind: .primary, size: .small) {
+                        enableNotifications()
+                    }
+                    WVButton(L.t("Để sau"), kind: .secondary, size: .small) {
+                        declineNotifications()
+                    }
+                case .declined:
+                    // The question is still open: the row was offered, not
+                    // answered, and "Để sau" must not be the end of it. Asking
+                    // from here is user-initiated, so it does not nag.
+                    WVButton(L.t("Bật thông báo"), kind: .primary, size: .small) {
+                        enableNotifications()
+                    }
+                    WVButton(L.t("Xong"), kind: .secondary, size: .small) {
+                        dismiss()
+                    }
+                case .denied:
+                    // Only iOS Settings can undo a system denial. Take the user
+                    // there and leave the (already saved) screen, so the card
+                    // cannot go stale behind the Settings app.
+                    WVButton(L.t("Mở Cài đặt iOS"), kind: .primary, size: .small) {
+                        openSettings()
+                        dismiss()
+                    }
+                    WVButton(L.t("Xong"), kind: .secondary, size: .small) {
+                        dismiss()
+                    }
+                case .failed:
+                    WVButton(L.t("Thử lại"), kind: .primary, size: .small) {
+                        enableNotifications()
+                    }
+                    WVButton(L.t("Xong"), kind: .secondary, size: .small) {
+                        dismiss()
+                    }
+                case .hidden:
+                    EmptyView()
                 }
             }
         }
@@ -2338,23 +2698,82 @@ struct DeviceFormView: View {
         .padding(.horizontal, WVSpacing.gutter)
     }
 
-    /// The user said yes: raise the system prompt, then leave the screen. The
-    /// dismiss waits for the answer, so the save confirmation is not replaced by
-    /// an alert mid-read.
-    private func enableNotifications() {
-        showNotificationPrimer = false
-        Task {
-            await push.requestAndRegister()
-            dismiss()
+    private var primerIcon: String {
+        switch notificationPrimer {
+        case .offered:  return "checkCircle"
+        case .failed:   return "alert"
+        case .declined, .denied, .hidden: return "bellOff"
         }
     }
 
-    /// The user said "not now". The rationale was already marked as offered —
-    /// asking again on the next device would be nagging; Settings keeps the
-    /// explicit toggle.
-    private func finishAfterPrimer() {
-        showNotificationPrimer = false
-        dismiss()
+    private var primerTone: Color {
+        switch notificationPrimer {
+        case .offered: return WVColor.green
+        case .declined, .denied, .failed, .hidden: return WVColor.orange
+        }
+    }
+
+    private var primerTitle: String {
+        switch notificationPrimer {
+        case .offered:  return L.t("Đã lưu thiết bị")
+        case .declined: return L.t("Chưa bật nhắc nhở")
+        case .denied:   return L.t("Thông báo đang tắt")
+        case .failed:   return L.t("Chưa bật được nhắc nhở")
+        case .hidden:   return ""
+        }
+    }
+
+    /// What the user reads for each answer.
+    ///
+    /// The declined/denied bodies exist because the old card replaced itself
+    /// with `dismiss()` — the sheet closed like a finished job while no push
+    /// could ever arrive. Saying what will *not* happen is the whole fix.
+    private var primerBody: String {
+        switch notificationPrimer {
+        case .offered:
+            return L.t("Bật nhắc nhở để Warrly báo trước khi hết bảo hành hoặc tới hạn đổi trả. Thông báo chỉ dùng cho việc đó — không gửi khuyến mãi.")
+        case .declined:
+            return L.t("Thiết bị đã được lưu, nhưng Warrly sẽ không báo trước khi hết bảo hành hoặc tới hạn đổi trả cho đến khi bạn bật thông báo.")
+        case .denied:
+            return L.t("iOS đang chặn thông báo của Warrly, nên sẽ không có nhắc bảo hành nào được gửi. Bật lại trong Cài đặt iOS.")
+        case .failed(let message):
+            return L.t("Warrly sẽ không báo trước khi hết bảo hành. Lỗi: %@.", message)
+        case .hidden:
+            return ""
+        }
+    }
+
+    /// The user said yes: raise the system prompt, then read the real answer.
+    ///
+    /// The dismiss waits for the answer, and the answer is not assumed: a
+    /// refusal at the system alert keeps the screen (the device is already
+    /// saved) and says that reminders are off, instead of closing as success.
+    private func enableNotifications() {
+        notificationPrimer = .hidden
+        Task {
+            await push.requestAndRegister()
+            switch push.status {
+            case .denied:
+                notificationPrimer = .denied
+            case .failed(let message):
+                notificationPrimer = .failed(message)
+            default:
+                dismiss()
+            }
+        }
+        // Tapping yes answers the rationale, even if iOS then denies or the
+        // registration fails: the user has made their choice about the card.
+        push.markPrimerAnswered()
+    }
+
+    /// The user said "not now". That is an answer: record it so the next create
+    /// does not ask again, then turn the card into the truthful "nothing will
+    /// remind you" state, with the same one-tap way to change that answer.
+    private func declineNotifications() {
+        push.markPrimerAnswered()
+        withAnimation(.easeOut(duration: 0.15)) {
+            notificationPrimer = .declined
+        }
     }
 
     // MARK: - Save failure

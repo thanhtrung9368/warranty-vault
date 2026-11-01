@@ -162,6 +162,11 @@ struct SettingsView: View {
     /// whether its Settings row exists at all.
     @EnvironmentObject private var ads: AdsController
 
+    /// Used to re-read the notification answer when the user comes back from
+    /// iOS Settings: the change happens outside the app, so nothing else would
+    /// tell the row to update.
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var showChangePassword = false
     @State private var showPushDevices = false
     @State private var showSessions = false
@@ -274,6 +279,17 @@ struct SettingsView: View {
             // form itself, a region/console change). Re-read it on entry so
             // the row is never left stale in either direction.
             ads.refreshPrivacyOptionsRequirement()
+            // The answer may have changed in iOS Settings since launch. Read it
+            // without prompting; this is what makes the row tell the truth on
+            // entry rather than at the next cold start.
+            await push.refreshPermission()
+        }
+        // Returning from iOS Settings is the case this screen exists for: the
+        // decision was changed outside the app, and only a re-read can replace
+        // the stale "Đã tắt" with the truth.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await push.refreshPermission() }
         }
         .backupImportFlow(
             client: client,
@@ -502,10 +518,25 @@ struct SettingsView: View {
 
             WVDivider()
 
-            // Enable / re-register
-            WVRow(icon: "refresh",
-                  title: pushButtonLabel, chevron: true) {
-                Task { await push.requestAndRegister() }
+            // The recovery control. Its title and subtitle are derived from the
+            // system's answer, not from the registration lifecycle: authorised,
+            // denied and not-determined each say what is true and what this tap
+            // will do. Only `.denied` leaves the app for iOS Settings, because
+            // only that state cannot be fixed from here — the system prompt is
+            // never shown twice. The row used to say "Mở Cài đặt iOS để bật" in
+            // every state and call `requestAndRegister`, which returns
+            // immediately when denied: the one advertised way back did nothing.
+            WVRow(icon: pushRowIcon,
+                  title: pushRowTitle,
+                  subtitle: pushRowSubtitle,
+                  subtitleLineLimit: 4,
+                  chevron: true) {
+                switch push.permission {
+                case .denied:
+                    push.openSystemSettings()
+                default:
+                    Task { await push.requestAndRegister() }
+                }
             }
             .disabled(pushButtonDisabled)
 
@@ -631,28 +662,85 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var pushStatusBadge: some View {
-        switch push.status {
-        case .registered:
-            WVChip(L.t("Đã bật"), tone: .green)
-        case .registering, .requesting:
-            ProgressView().scaleEffect(0.8)
-        case .denied:
+        // The system answer wins over the registration state: a device that was
+        // registered and later denied in iOS Settings is "off" now, whatever
+        // the last upload did.
+        if push.permission == .denied {
             WVChip(L.t("Đã tắt"), tone: .red)
-        case .failed:
-            WVChip(L.t("Lỗi"), tone: .orange)
-        case .unknown:
-            WVChip(L.t("Chưa bật"), tone: .gray)
+        } else {
+            switch push.status {
+            case .registered:
+                WVChip(L.t("Đã bật"), tone: .green)
+            case .registering, .requesting:
+                ProgressView().scaleEffect(0.8)
+            case .denied:
+                WVChip(L.t("Đã tắt"), tone: .red)
+            case .failed:
+                WVChip(L.t("Lỗi"), tone: .orange)
+            case .unknown:
+                WVChip(L.t("Chưa bật"), tone: .gray)
+            }
         }
     }
 
-    private var pushButtonLabel: String {
+    /// The three answers, in the order the user meets them.
+    ///
+    /// - authorised: reminders are on; the row can only re-register.
+    /// - denied: only iOS Settings can change it — the row says so and goes
+    ///   there.
+    /// - not determined: the prompt has never been answered, so the row can
+    ///   still ask.
+    private var pushRowTitle: String {
+        // Transient states win: a request or registration is what the row is
+        // doing right now, whatever the last read said.
         switch push.status {
-        case .registered:       return L.t("Đăng ký lại token")
-        case .denied:           return L.t("Mở Cài đặt iOS để bật")
-        case .failed(let m):    return L.t("Thử lại — %@", m)
         case .registering:      return L.t("Đang đăng ký…")
         case .requesting:       return L.t("Đang xin quyền…")
-        case .unknown:          return L.t("Bật thông báo")
+        case .failed(let m):    return L.t("Thử lại — %@", m)
+        default:                break
+        }
+        // The system answer decides the recovery affordance. Only `.denied`
+        // leaves the app, because only that state cannot be fixed from here.
+        if push.permission == .denied { return L.t("Mở Cài đặt iOS") }
+        if push.permission == .notDetermined { return L.t("Bật thông báo") }
+        // Authorised: the only action left is to register again. `.denied` here
+        // would mean the status is stale before the first read; the button's
+        // action still re-registers rather than leaving the app, so the label
+        // must not promise Settings.
+        if push.status == .unknown { return L.t("Bật thông báo") }
+        return L.t("Đăng ký lại token")
+    }
+
+    /// One honest line per answer. The subtitle is the sentence that was
+    /// missing: "denied" now says reminders cannot arrive, and "authorised"
+    /// says what the app will actually do rather than only that a permission
+    /// exists.
+    private var pushRowSubtitle: String? {
+        switch push.permission {
+        case .denied:
+            return L.t("Thông báo đang tắt — Warrly không thể nhắc bạn cho tới khi bạn bật lại trong Cài đặt iOS.")
+        case .authorized:
+            switch push.status {
+            case .registered:
+                return L.t("Đã bật — Warrly sẽ nhắc bạn trước khi hết hạn.")
+            case .failed:
+                return L.t("Đã bật nhưng chưa đăng ký được thiết bị nhận thông báo. Chạm để thử lại.")
+            default:
+                return nil
+            }
+        case .notDetermined:
+            return L.t("Chưa bật — chạm để nhận nhắc trước khi hết hạn.")
+        case .none:
+            return nil
+        }
+    }
+
+    private var pushRowIcon: String {
+        switch push.permission {
+        case .denied:        return "settings"
+        case .notDetermined: return "bell"
+        case .authorized:    return "refresh"
+        case .none:          return "refresh"
         }
     }
 

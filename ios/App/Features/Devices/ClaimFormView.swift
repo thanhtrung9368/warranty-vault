@@ -48,6 +48,7 @@ struct ClaimFormView: View {
     @State private var covered: CoveredChoice
 
     // UI state
+    @State private var showsClosedStatuses: Bool
     @State private var isSaving = false
     @State private var isDeleting = false
     @State private var topError: String?
@@ -67,19 +68,48 @@ struct ClaimFormView: View {
         self.claim = claim
         self.onOpenExisting = onOpenExisting
 
+        // What the app already knows about this repair instead of asking for it.
+        // Both defaults come from the screen behind the sheet (§4 K0 and change
+        // #3 in `docs/handoff/ux-friction-claim.md`).
+        let seed = claim == nil ? Self.seed(device: device, warranties: store.warranties) : nil
+
         _status = State(initialValue: claim?.status ?? .OPEN)
+        _showsClosedStatuses = State(initialValue: claim.map { ClaimRules.isClosed($0.status) } ?? false)
         _openedAt = State(initialValue: ClaimRules.instantDay(claim?.openedAt) ?? Date())
         _hasExpectedReturn = State(initialValue: claim?.expectedReturnAt != nil)
         _expectedReturnAt = State(initialValue: ClaimRules.dayDate(claim?.expectedReturnAt)
             ?? Date().addingTimeInterval(7 * 24 * 60 * 60))
-        _warrantyId = State(initialValue: claim?.warrantyId)
+        _warrantyId = State(initialValue: claim?.warrantyId ?? seed?.warrantyId)
         _ticketNumber = State(initialValue: claim?.ticketNumber ?? "")
-        _serviceCenter = State(initialValue: claim?.serviceCenter ?? "")
+        _serviceCenter = State(initialValue: claim?.serviceCenter ?? seed?.serviceCenter ?? "")
         _issue = State(initialValue: claim?.issue ?? "")
         _diagnosis = State(initialValue: claim?.diagnosis ?? "")
         _outcome = State(initialValue: claim?.outcome ?? "")
         _cost = State(initialValue: claim?.cost)
         _covered = State(initialValue: CoveredChoice(claim?.coveredByWarranty))
+    }
+
+    /// The two answers the form already holds on create: which package, and
+    /// which shop.
+    ///
+    ///  * **The package**, when exactly one of the device's plans is still in
+    ///    date. That is the one a claim at the counter is against, and the
+    ///    silent "Không gắn gói nào" default made every per-package answer
+    ///    unknowable (H6). Zero or several in-date plans stay unanswered: the
+    ///    menu is then a real choice.
+    ///  * **The shop**, from that package's provider — the name already printed
+    ///    on the warranty row the user is looking at. Falls back to where the
+    ///    device was bought, and only when the user has typed nothing (K0).
+    ///
+    /// Only ever used for a **create**: a claim saved with no package must not
+    /// gain one because the form was opened again.
+    private static func seed(device: Device,
+                             warranties: [Warranty]) -> (warrantyId: String?, serviceCenter: String) {
+        let today = Calendar.current.startOfDay(for: Date())
+        let inDate = warranties.filter { $0.endDate >= today }
+        let chosen = inDate.count == 1 ? inDate[0] : nil
+        let shop = chosen?.provider ?? device.purchasePlace
+        return (chosen.map(\.id), shop ?? "")
     }
 
     // MARK: - Validation
@@ -123,7 +153,12 @@ struct ClaimFormView: View {
                     datesSection
                     warrantySection
                     detailsSection
-                    costSection
+                    // The money half of "what the shop said" — same rule as the
+                    // diagnosis and the outcome: it cannot be filled in at the
+                    // counter, so it is not asked for there (H5).
+                    if showsOutcomeFields {
+                        costSection
+                    }
 
                     if let topError {
                         Text(topError)
@@ -210,18 +245,27 @@ struct ClaimFormView: View {
         VStack(alignment: .leading, spacing: 0) {
             WVSectionHeader(L.t("Trạng thái"))
             WVGroup {
-                ForEach(Array(ClaimStatus.allCases.enumerated()), id: \.element) { index, candidate in
+                ForEach(Array(visibleStatuses.enumerated()), id: \.element) { index, candidate in
                     if index > 0 { WVDivider(inset: 16) }
+                    statusRow(candidate)
+                }
+
+                // Recording a repair that is **already over** is legitimate —
+                // "I collected it last month" — but it is the exception at
+                // filing time, so it costs one tap of its own instead of
+                // sitting in the list as four of five equal answers (H4).
+                if !isEditing && !showsClosedStatuses {
+                    WVDivider(inset: 16)
                     Button {
-                        status = candidate
+                        showsClosedStatuses = true
                     } label: {
                         HStack(spacing: 12) {
-                            WVChip(candidate.label, tone: tone(for: candidate))
+                            WVIcon("plus", size: 13, weight: .semibold)
+                                .foregroundStyle(WVColor.tint)
+                            Text(L.t("Lần sửa này đã xong từ trước"))
+                                .wvFont(.body)
+                                .foregroundStyle(WVColor.tint)
                             Spacer(minLength: 8)
-                            if status == candidate {
-                                WVIcon("check", size: 15, weight: .bold)
-                                    .foregroundStyle(WVColor.tint)
-                            }
                         }
                         .padding(.horizontal, 16)
                         .frame(minHeight: 44)
@@ -231,8 +275,43 @@ struct ClaimFormView: View {
                     .buttonStyle(WVRowButtonStyle())
                 }
             }
-            WVSectionFooter(L.t("Đóng lần sửa chữa bằng cách chọn Đã xử lý, Bị từ chối hoặc Đã huỷ; máy chủ tự ghi ngày đóng."))
+            // What the choice actually does, in one line: it moves the device,
+            // and it costs the expiry reminder. Both facts were previously
+            // invisible from this screen (H3, §5 F1).
+            WVSectionFooter(L.t("Lần sửa đang mở đánh dấu thiết bị là Hỏng; đóng lần sửa trả thiết bị về Đang dùng. Máy Hỏng tạm dừng nhắc hết hạn bảo hành."))
         }
+    }
+
+    /// The statuses the picker offers.
+    ///
+    /// On **create** the two in-progress statuses come first and the three
+    /// finished ones appear after the "already finished" row is tapped. On
+    /// **edit** all five are always listed: the person changing an existing
+    /// claim must never have its current status hidden from them.
+    private var visibleStatuses: [ClaimStatus] {
+        if isEditing || showsClosedStatuses { return ClaimStatus.allCases }
+        let open = ClaimStatus.allCases.filter(ClaimRules.isOpen)
+        return open.isEmpty ? ClaimStatus.allCases : open
+    }
+
+    private func statusRow(_ candidate: ClaimStatus) -> some View {
+        Button {
+            status = candidate
+        } label: {
+            HStack(spacing: 12) {
+                WVChip(candidate.label, tone: tone(for: candidate))
+                Spacer(minLength: 8)
+                if status == candidate {
+                    WVIcon("check", size: 15, weight: .bold)
+                        .foregroundStyle(WVColor.tint)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(WVRowButtonStyle())
     }
 
     private var datesSection: some View {
@@ -272,7 +351,11 @@ struct ClaimFormView: View {
                           title: L.t("Ngày đóng"), detail: closed)
                 }
             }
-            WVSectionFooter(L.t("Ngày đóng do máy chủ đặt khi lần sửa chữa kết thúc; biểu mẫu không gửi ngày này."))
+            // H7: the toggle is a question about the paper, not about the
+            // repair, and nothing used to say that leaving it off is correct.
+            WVSectionFooter(claim?.closedAt == nil
+                ? L.t("Không phải phiếu nào cũng hẹn ngày trả — để trống nếu phiếu của bạn không có.")
+                : L.t("Ngày đóng do máy chủ đặt khi lần sửa chữa kết thúc; biểu mẫu không gửi ngày này."))
         }
     }
 
@@ -305,13 +388,31 @@ struct ClaimFormView: View {
                 }
                 .disabled(isSaving)
             }
-            WVSectionFooter(store.warranties.isEmpty
-                ? L.t("Thiết bị chưa có gói bảo hành nào.")
-                : L.t("Chỉ các gói bảo hành của thiết bị này được chọn. Để trống nếu sửa ngoài bảo hành."))
+            WVSectionFooter(warrantyFooter)
             if let message = fieldErrors["warrantyId"]?.first {
                 WVSectionFooter(message)
                     .foregroundStyle(WVColor.red)
             }
+        }
+    }
+
+    /// The package section's footer.
+    ///
+    /// An **empty** list is only "this device has no package" once the read has
+    /// actually answered: on a failed read the same empty array means "nothing
+    /// arrived", and printing the affirmative sentence turned a dead request
+    /// into a fact about the device (§5 F3).
+    private var warrantyFooter: String {
+        if !store.warranties.isEmpty {
+            return L.t("Chỉ các gói bảo hành của thiết bị này được chọn. Để trống nếu sửa ngoài bảo hành.")
+        }
+        switch store.state {
+        case .loaded:
+            return L.t("Thiết bị chưa có gói bảo hành nào.")
+        case .error:
+            return L.t("Không tải được gói bảo hành của thiết bị. Thử lại ở màn hình thiết bị.")
+        default:
+            return L.t("Đang tải gói bảo hành…")
         }
     }
 
@@ -358,30 +459,54 @@ struct ClaimFormView: View {
                     fieldErrorText(message)
                 }
 
-                WVDivider()
-
-                multilineRow(L.t("Chẩn đoán"),
-                             placeholder: L.t("Trung tâm nói gì"),
-                             text: $diagnosis,
-                             limit: ClaimRules.maxDiagnosisRunes)
-                if let message = fieldErrors["diagnosis"]?.first {
+                // The four "what the shop said" answers cannot be known when the
+                // claim is filed, so they are not asked for then (H5). They come
+                // back as soon as the claim is closed — which is the moment
+                // recording a past repair starts — or when the claim already
+                // carries one of them, so an existing record is never hidden
+                // from its editor and never dropped on save.
+                if showsOutcomeFields {
                     WVDivider()
-                    fieldErrorText(message)
-                }
 
-                WVDivider()
+                    multilineRow(L.t("Chẩn đoán"),
+                                 placeholder: L.t("Trung tâm nói gì"),
+                                 text: $diagnosis,
+                                 limit: ClaimRules.maxDiagnosisRunes)
+                    if let message = fieldErrors["diagnosis"]?.first {
+                        WVDivider()
+                        fieldErrorText(message)
+                    }
 
-                multilineRow(L.t("Kết quả"),
-                             placeholder: L.t("Sửa xong, đổi máy, hoàn tiền…"),
-                             text: $outcome,
-                             limit: ClaimRules.maxOutcomeRunes)
-                if let message = fieldErrors["outcome"]?.first {
                     WVDivider()
-                    fieldErrorText(message)
+
+                    multilineRow(L.t("Kết quả"),
+                                 placeholder: L.t("Sửa xong, đổi máy, hoàn tiền…"),
+                                 text: $outcome,
+                                 limit: ClaimRules.maxOutcomeRunes)
+                    if let message = fieldErrors["outcome"]?.first {
+                        WVDivider()
+                        fieldErrorText(message)
+                    }
                 }
             }
-            WVSectionFooter(L.t("Mô tả lỗi là bắt buộc; các mục còn lại có thể để trống. Kết quả do trung tâm trả lời."))
+            WVSectionFooter(showsOutcomeFields
+                ? L.t("Mô tả lỗi là bắt buộc; các mục còn lại có thể để trống.")
+                : L.t("Chỉ mô tả lỗi là bắt buộc. Chẩn đoán, kết quả và chi phí hiện khi lần sửa đã xong."))
         }
+    }
+
+    /// Whether the "after the shop answered" fields are on screen: the diagnosis,
+    /// the outcome, the cost and whether the warranty paid.
+    ///
+    /// Two ways in, and the second one is why this is not simply
+    /// `isClosed(status)`: a claim that already carries any of them keeps them
+    /// visible whatever its status, so nothing the user (or another client)
+    /// recorded becomes uneditable the moment the repair reopens.
+    private var showsOutcomeFields: Bool {
+        if ClaimRules.isClosed(status) { return true }
+        if cost != nil || covered != .unknown { return true }
+        return !diagnosis.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !outcome.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var costSection: some View {
@@ -562,10 +687,35 @@ struct ClaimFormView: View {
     }
 
     private func warrantyLabel(_ warranty: Warranty) -> String {
-        [warranty.provider ?? warranty.type.label,
-         L.p("%d tháng", warranty.months),
-         L.t("Hết %@", WVFormat.date(warranty.endDate))]
-            .joined(separator: " · ")
+        // Order matters: the row is one line and truncates from the right, so
+        // the two facts that decide the choice — which plan, and whether it is
+        // still good — come first and the term length goes last.
+        //
+        // A **verdict**, not a date: the old label ended with "Hết 12/03/2027"
+        // and left the user comparing it to today in their head while holding
+        // the phone at a counter (H6). The wording is the hero's own — the
+        // countdown the app already prints everywhere else.
+        var parts = [warranty.provider ?? warranty.type.label]
+        if let coverage = Self.coverageVerdict(for: warranty) {
+            parts.append(coverage)
+        }
+        parts.append(L.p("%d tháng", warranty.months))
+        return parts.joined(separator: " · ")
+    }
+
+    /// "còn 324 ngày" / "Hết hạn hôm nay" / "Đã hết hạn 12 ngày" for a package,
+    /// in the same day-count copy `DeviceReturnWindow` and the hero use.
+    private static func coverageVerdict(for warranty: Warranty,
+                                        now: Date = Date()) -> String? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        let end = calendar.startOfDay(for: warranty.endDate)
+        guard let days = calendar.dateComponents([.day], from: today, to: end).day else {
+            return nil
+        }
+        if days > 0 { return L.p("còn %d ngày", days) }
+        if days == 0 { return L.t("Hết hạn hôm nay") }
+        return L.p("Đã hết hạn %d ngày", -days)
     }
 
     private func tone(for status: ClaimStatus) -> WVChipTone {

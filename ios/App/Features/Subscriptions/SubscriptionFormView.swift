@@ -7,6 +7,10 @@ struct SubscriptionFormView: View {
     let client: APIClient
     @ObservedObject var store: SubscriptionsStore
     var subscription: Subscription?          // nil → create
+    /// `true` when this form is the root of a sheet's own `NavigationStack`:
+    /// the sheet shows Huỷ / Thêm and no back chevron; a pushed form keeps the
+    /// system back button as its only leading control. See `DeviceFormView`.
+    private let presentedAsSheet: Bool
 
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var toast:   WVToastCenter
@@ -24,6 +28,10 @@ struct SubscriptionFormView: View {
     @State private var startedAt:     Date
     @State private var renewalDate:   Date
     @State private var hasRenewal:    Bool
+    /// `true` once a person has picked a renewal date by hand (or the form is
+    /// editing a stored subscription). Until then the date is the server's own
+    /// derivation and follows `startedAt` / `billingCycle` / `intervalDays`.
+    @State private var renewalDateIsUserSet: Bool
     @State private var autoRenew:     Bool
     @State private var accountEmail:  String
     @State private var paymentMethod: String
@@ -69,6 +77,66 @@ struct SubscriptionFormView: View {
             && (hasTrial || convertsToPrice == nil)
     }
 
+    // MARK: - Derived money and date
+
+    /// The custom cycle's interval, when it parses. The server enforces 1…3650;
+    /// the form only needs a positive number to be able to derive a date.
+    private var parsedIntervalDays: Int? {
+        billingCycle == .CUSTOM ? Int(intervalDays) : nil
+    }
+
+    /// The monthly equivalent of what is typed, when there is one to show.
+    ///
+    /// Lifetime has no monthly cost and an empty custom interval has no divisor,
+    /// so both hide the row instead of printing a `0 ₫` that would claim the plan
+    /// is free.
+    private var monthlyEquivalent: Int? {
+        guard let price, price > 0 else { return nil }
+        let monthly = SubscriptionBilling.monthlyEquivalent(
+            price: price,
+            cycle: billingCycle,
+            intervalDays: parsedIntervalDays
+        )
+        return monthly > 0 ? monthly : nil
+    }
+
+    /// The rule the server itself applies when a create omits `renewalDate`
+    /// (`services/subscriptions.go:268-271`). Shown in the picker on create, so
+    /// "when does it charge me" has an answer before the save — and so the
+    /// default can never be today, which the daily cron would turn into a
+    /// payment that never happened.
+    private var derivedRenewalDate: Date? {
+        SubscriptionBilling.nextRenewalDate(
+            from: startedAt,
+            cycle: billingCycle,
+            intervalDays: parsedIntervalDays
+        )
+    }
+
+    /// The picker writes through this binding, so a date the user chose is never
+    /// overwritten when they then change the cycle or the start date. The
+    /// programmatic seeds in `init` / `syncRenewalDate` do not go through it.
+    private var renewalDateBinding: Binding<Date> {
+        Binding(
+            get: { renewalDate },
+            set: {
+                renewalDate = $0
+                renewalDateIsUserSet = true
+            }
+        )
+    }
+
+    /// Keep the seeded date in step with the inputs it was derived from.
+    ///
+    /// Create only, and only until the user picks a date: editing a stored
+    /// subscription must not silently move a real renewal date, and a deliberate
+    /// choice must survive a later cycle change.
+    private func syncRenewalDate() {
+        guard !isEditing, !renewalDateIsUserSet, hasRenewal,
+              let derived = derivedRenewalDate else { return }
+        renewalDate = derived
+    }
+
     // MARK: - Plan suggestions
 
     /// Common services sold in Vietnam. A plan is free text — "Spotify Premium
@@ -93,24 +161,80 @@ struct SubscriptionFormView: View {
         return Array(pool.prefix(8))
     }
 
+    // MARK: - Screenshot QA
+
+    /// Where the form starts scrolled. `.top` in every build; the
+    /// `WV_QA_SUB_SCROLL=cost` launch value starts mid-form so the cost block can
+    /// be photographed headlessly. See the modifier in `body`.
+    private static var initialScrollAnchor: UnitPoint {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["WV_QA_SUB_SCROLL"] == "cost" {
+            // Slightly above centre: puts the price/monthly/cycle/date block in
+            // the viewport without clipping the row above it under the bar.
+            return UnitPoint(x: 0.5, y: 0.435)
+        }
+#endif
+        return .top
+    }
+
     // MARK: - Init
 
-    init(client: APIClient, store: SubscriptionsStore, subscription: Subscription? = nil) {
+    init(client: APIClient, store: SubscriptionsStore, subscription: Subscription? = nil,
+         presentedAsSheet: Bool = false) {
         self.client       = client
         self.store        = store
         self.subscription = subscription
+        self.presentedAsSheet = presentedAsSheet
 
         let sub = subscription
+
+        // Screenshot-QA only (DEBUG): the simulator cannot type or tap
+        // headlessly, so the create-form shots prefill the two fields this screen
+        // exists to make visible. Never applied while editing, never compiled
+        // into Release.
+#if DEBUG
+        let qaEnv = sub == nil ? ProcessInfo.processInfo.environment : [:]
+        let qaPrice = qaEnv["WV_QA_SUB_PRICE"].flatMap(Int.init)
+        let qaCycle = qaEnv["WV_QA_SUB_CYCLE"].flatMap(BillingCycle.init(rawValue:))
+        let qaRenewalOff = qaEnv["WV_QA_SUB_RENEWAL"] == "0"
+#else
+        let qaPrice: Int? = nil
+        let qaCycle: BillingCycle? = nil
+        let qaRenewalOff = false
+#endif
+
+        let initialCycle = qaCycle ?? sub?.billingCycle ?? .MONTHLY
+        let initialStart = sub?.startedAt ?? Date()
+        // Seed the date from the server's own rule, not from `Date()`. The old
+        // `Date()` default handed the daily cron an already-due renewal: a
+        // user could toggle the row on, accept it, and the next pass would write
+        // a `SubscriptionPayment` for money that was never taken.
+        let derivedRenewal = SubscriptionBilling.nextRenewalDate(
+            from: initialStart,
+            cycle: initialCycle,
+            intervalDays: sub?.intervalDays
+        )
+
         _name          = State(initialValue: sub?.name ?? "")
         _brand         = State(initialValue: sub?.brand ?? "")
         _plan          = State(initialValue: sub?.plan ?? "")
-        _category      = State(initialValue: sub?.category ?? "ai")
-        _price         = State(initialValue: sub?.price)
-        _billingCycle  = State(initialValue: sub?.billingCycle ?? .MONTHLY)
+        // No category is preselected. The old "ai" default was a value the user
+        // never chose: every untouched subscription claimed to be AI, which made
+        // the audit's brand+category duplicate rule report Apple One + iCloud+
+        // as "you may be paying twice". An empty category is a valid
+        // subscription and is excluded from that rule.
+        _category      = State(initialValue: sub?.category ?? "")
+        _price         = State(initialValue: qaPrice ?? sub?.price)
+        _billingCycle  = State(initialValue: initialCycle)
         _intervalDays  = State(initialValue: sub?.intervalDays.map { String($0) } ?? "")
-        _startedAt     = State(initialValue: sub?.startedAt ?? Date())
-        _renewalDate   = State(initialValue: sub?.renewalDate ?? Date())
-        _hasRenewal    = State(initialValue: sub != nil)
+        _startedAt     = State(initialValue: initialStart)
+        _renewalDate   = State(initialValue: sub?.renewalDate ?? derivedRenewal ?? initialStart)
+        // On create the toggle starts on, with the date above already filled
+        // from the cycle; on edit it reflects the stored row. The row stays
+        // hidden for a lifetime plan, which never renews.
+        _hasRenewal    = State(initialValue:
+            !qaRenewalOff && (sub != nil || initialCycle != .LIFETIME))
+        _renewalDateIsUserSet = State(initialValue: sub != nil)
         _autoRenew     = State(initialValue: sub?.autoRenew ?? true)
         _accountEmail  = State(initialValue: sub?.accountEmail ?? "")
         _paymentMethod = State(initialValue: sub?.paymentMethod ?? "")
@@ -184,12 +308,16 @@ struct SubscriptionFormView: View {
                                 .foregroundStyle(WVColor.label)
                             Spacer()
                             HStack(spacing: 6) {
-                                WVLeadingIcon(
-                                    icon: WVCategory.icon(for: category),
-                                    color: WVCategory.accent(for: category),
-                                    size: 22
-                                )
-                                Text(catalogCategoryName(category))
+                                if !category.isEmpty {
+                                    WVLeadingIcon(
+                                        icon: WVCategory.icon(for: category),
+                                        color: WVCategory.accent(for: category),
+                                        size: 22
+                                    )
+                                }
+                                Text(category.isEmpty
+                                     ? L.t("Chưa chọn")
+                                     : catalogCategoryName(category))
                                     .wvFont(.body)
                                     .foregroundStyle(WVColor.label3)
                             }
@@ -211,6 +339,19 @@ struct SubscriptionFormView: View {
                     fieldRow(L.t("Giá / chu kỳ")) {
                         WVMoneyField(value: $price)
                             .frame(width: 150)
+                    }
+                    // The division the form used to leave to the user: a yearly
+                    // price shown as what it costs per month, updated as the
+                    // price and cycle change. Read-only, so it costs no taps.
+                    if let monthlyEquivalent {
+                        WVDivider()
+                        WVRowContainer {
+                            Text(L.t("~ %@ / tháng", WVFormat.vnd(monthlyEquivalent)))
+                                .wvFont(.footnote)
+                                .foregroundStyle(WVColor.label3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityElement(children: .combine)
                     }
                     WVDivider()
                     Button { showCyclePicker = true } label: {
@@ -240,11 +381,31 @@ struct SubscriptionFormView: View {
                         WVRowContainer {
                             Toggle(L.t("Có ngày gia hạn"), isOn: $hasRenewal)
                                 .wvFont(.body)
+                                .onChange(of: hasRenewal) { _, isOn in
+                                    // Turning it back on re-seeds from the cycle
+                                    // rather than leaving the old picker where it
+                                    // was — unless the user picked a date by hand.
+                                    if isOn { syncRenewalDate() }
+                                }
                         }
                         if hasRenewal {
                             WVDivider()
-                            WVRowContainer {
-                                datePickerRow(L.t("Gia hạn kế"), selection: $renewalDate)
+                            if derivedRenewalDate != nil {
+                                WVRowContainer {
+                                    datePickerRow(L.t("Gia hạn kế"),
+                                                  selection: renewalDateBinding)
+                                }
+                            } else {
+                                // A custom cycle with no interval yet. Say what
+                                // is missing instead of opening the picker on
+                                // today, which the daily cron would later read as
+                                // an overdue renewal and bill.
+                                WVRowContainer {
+                                    Text(L.t("Nhập số ngày / chu kỳ để tính ngày gia hạn."))
+                                        .wvFont(.footnote)
+                                        .foregroundStyle(WVColor.label3)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                         }
                     }
@@ -391,11 +552,29 @@ struct SubscriptionFormView: View {
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa gói") : L.t("Gói mới"))
         .navigationBarTitleDisplayMode(.inline)
+        // As a sheet root there is nothing to go back to: Huỷ is the leading
+        // control and any inherited back chevron is hidden. Pushed from a tab,
+        // the system back button is the only leading control.
+        .navigationBarBackButtonHidden(presentedAsSheet)
+        // Screenshot-QA only: the charge-date control sits below the fold at the
+        // default text size and the simulator cannot be scrolled headlessly.
+        // `.top` is the normal behaviour; the QA value just starts the form
+        // mid-way so the cost block can be photographed. DEBUG-only, like
+        // `WV_QA_NEW_SUBSCRIPTION`.
+        .defaultScrollAnchor(Self.initialScrollAnchor)
         .task { await catalog.loadIfNeeded() }
+        // The seeded renewal date follows the inputs it is derived from. The
+        // handlers live here, not on each control, so the cycle sheet, the date
+        // picker and the custom-interval field all take the same path.
+        .onChange(of: startedAt) { _, _ in syncRenewalDate() }
+        .onChange(of: billingCycle) { _, _ in syncRenewalDate() }
+        .onChange(of: intervalDays) { _, _ in syncRenewalDate() }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(L.t("Huỷ")) { showDiscard = true }
-                    .foregroundStyle(WVColor.tint)
+            if presentedAsSheet {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(L.t("Huỷ")) { showDiscard = true }
+                        .foregroundStyle(WVColor.tint)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }

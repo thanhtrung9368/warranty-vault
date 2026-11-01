@@ -20,8 +20,17 @@ import WarrlyKit
 struct AttachmentSearchPreviewSheet: View {
     let client: APIClient
     let hit: AttachmentSearchHit
+    /// The device this file is filed to, when the presenting screen already
+    /// holds it. Only used for the label and the category glyph: the row itself
+    /// works from `hit.deviceId`, because "where is this receipt?" must be
+    /// answerable even when the device did not match the query.
+    var device: Device?
 
     @Environment(\.dismiss) private var dismiss
+    /// Opening the owning device is the same navigation a Spotlight hit, a
+    /// `warrly://device/<id>` URL and a tapped push use: it brings the Thiết bị
+    /// tab forward and pushes that device's detail, receipt strip included.
+    @EnvironmentObject private var router: AppRouter
 
     @State private var phase: Phase = .loading
     @State private var image: UIImage?
@@ -48,6 +57,7 @@ struct AttachmentSearchPreviewSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
+                    if let deviceId = hit.deviceId { deviceSection(deviceId) }
                     fileSection
                     if let transcript { transcriptSection(transcript) }
                 }
@@ -89,6 +99,57 @@ struct AttachmentSearchPreviewSheet: View {
             }
         }
         .padding(.horizontal, WVSpacing.gutter)
+    }
+
+    // MARK: - Owning device
+
+    /// Where the file lives — one tap, not a dead end.
+    ///
+    /// A receipt is searchable by its own text (`extractedText`, `fileName`,
+    /// `description`), and none of those strings is the device's name, so the
+    /// hit is the one search result whose owner the row cannot show. Without
+    /// this the sheet printed "Đã gắn thiết bị" and the only way to reach that
+    /// device was to close, switch tab and find it again.
+    ///
+    /// The row is drawn exactly like every other row (`WVLeadingIcon` +
+    /// name + chevron), so this is not a second drawing of a search result.
+    private func deviceSection(_ deviceId: String) -> some View {
+        let icon = device.map { WVCategory.icon(for: $0.category) } ?? "shippingbox"
+        return WVGroup {
+            Button {
+                // The device detail belongs to the Thiết bị tab's stack, not to
+                // this sheet, so the sheet closes first and the router pushes
+                // the destination — leaving a modal on top of it would hide the
+                // thing the tap asked for.
+                dismiss()
+                router.openDevice(id: deviceId)
+            } label: {
+                HStack(spacing: WVSpacing.md) {
+                    WVLeadingIcon(icon: icon, size: 28)
+                    VStack(alignment: .leading, spacing: WVSpacing.xs) {
+                        Text(device?.name ?? L.t("Thiết bị đã gắn tệp này"))
+                            .wvFont(.bodyEmphasis)
+                            .foregroundStyle(WVColor.label)
+                            .lineLimit(1)
+                        // The affordance is a second line of text, not a filled
+                        // pill: the name is the identity, and this line says
+                        // what the row does. Same grammar as the search rows'
+                        // value column.
+                        Text(L.t("Mở thiết bị"))
+                            .wvFont(.footnote)
+                            .foregroundStyle(WVColor.label3)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    WVIcon("arrowRight", size: 13)
+                        .foregroundStyle(WVColor.label4)
+                }
+                .padding(.horizontal, WVSpacing.gutter)
+                .padding(.vertical, WVSpacing.sm)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WVRowButtonStyle())
+        }
     }
 
     // MARK: - File

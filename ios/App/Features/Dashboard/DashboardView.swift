@@ -20,6 +20,12 @@ import WarrlyKit
 struct DashboardView: View {
     let client: APIClient
 
+    /// The notification answer. The lead card is the app's main countdown, so
+    /// this screen is where "nothing will remind you about it" has to be
+    /// visible if it is true.
+    @EnvironmentObject private var push: PushRegistrar
+    @Environment(\.scenePhase) private var scenePhase
+
     @StateObject private var devicesStore: DevicesStore
     @StateObject private var subsStore: SubscriptionsStore
     @StateObject private var wishStore: WishlistStore
@@ -152,16 +158,22 @@ struct DashboardView: View {
         // itself in a NavigationStack — pushed from a screen it inherits the
         // screen's stack, and presented as a sheet it inherits nothing, so the
         // toolbar had no bar to render into and the sheet could not be dismissed
-        // from any control. Every sheet needs its own stack.
+        // from any control. Every sheet needs its own stack, and the form needs
+        // to know it is that stack's root: at a root there is no back chevron,
+        // only Huỷ / Thêm, while a pushed form keeps the system back button and
+        // must not add a second leading control beside it.
         .sheet(item: $quickAddTarget) { target in
             NavigationStack {
                 switch target {
                 case .device:
-                    DeviceFormView(client: client, store: devicesStore, device: nil)
+                    DeviceFormView(client: client, store: devicesStore, device: nil,
+                                   presentedAsSheet: true)
                 case .subscription:
-                    SubscriptionFormView(client: client, store: subsStore, subscription: nil)
+                    SubscriptionFormView(client: client, store: subsStore, subscription: nil,
+                                         presentedAsSheet: true)
                 case .wishlist:
-                    WishlistFormView(client: client, store: wishStore, item: nil)
+                    WishlistFormView(client: client, store: wishStore, item: nil,
+                                     presentedAsSheet: true)
                 }
             }
         }
@@ -210,6 +222,14 @@ struct DashboardView: View {
                 g.addTask { await self.statsStore.load() }
                 g.addTask { await self.actionsStore.load() }
             }
+        }
+        // The deadline is the thing the reminder is about. If the user changes
+        // the notification answer in iOS Settings and comes back here, the
+        // quiet line below the card must follow in the same frame — not at the
+        // next cold start.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await push.refreshPermission() }
         }
     }
 
@@ -342,6 +362,12 @@ struct DashboardView: View {
         if let card {
             WVDashSectionHead(L.t("Hạn gần nhất"))
             DeadlineCard(candidate: card, navigation: deadlineNav(card))
+            // The countdown is correct either way; this line is the delivery
+            // fact a countdown cannot carry. Quiet, never an error card: the
+            // warranty data is fine, only the reminder path is off.
+            if let note = push.reminderReachabilityNote {
+                ReminderReachabilityLine(note: note)
+            }
 
             let rows = boardRows(ordered, card: card)
             if !rows.isEmpty {

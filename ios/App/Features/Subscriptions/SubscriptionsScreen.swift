@@ -1,21 +1,6 @@
 import SwiftUI
 import WarrlyKit
 
-// MARK: - Monthly‑equivalent helper
-
-private func subMonthlyEquivalent(_ sub: Subscription) -> Double {
-    let p = Double(sub.price)
-    switch sub.billingCycle {
-    case .MONTHLY:   return p
-    case .QUARTERLY: return p / 3
-    case .YEARLY:    return p / 12
-    case .LIFETIME:  return 0
-    case .CUSTOM:
-        let d = Double(sub.intervalDays ?? 30)
-        return d > 0 ? p / d * 30 : 0
-    }
-}
-
 // MARK: - Status filter
 
 private enum SubFilter: String, Hashable {
@@ -77,10 +62,14 @@ struct SubscriptionsScreen: View {
     private var activeSubs: [Subscription] {
         store.subscriptions.filter { $0.status == .ACTIVE }
     }
-    private var monthly: Double {
-        activeSubs.reduce(0) { $0 + subMonthlyEquivalent($1) }
+    private var monthly: Int {
+        activeSubs.reduce(0) {
+            $0 + SubscriptionBilling.monthlyEquivalent(price: $1.price,
+                                                       cycle: $1.billingCycle,
+                                                       intervalDays: $1.intervalDays)
+        }
     }
-    private var yearly: Double { monthly * 12 }
+    private var yearly: Int { monthly * 12 }
 
     private var filtered: [Subscription] {
         var arr = store.subscriptions
@@ -104,7 +93,14 @@ struct SubscriptionsScreen: View {
             // the selected segment. This is already the default `sort`.
             arr.sort { $0.renewalDate < $1.renewalDate }
         case .monthlyDesc:
-            arr.sort { subMonthlyEquivalent($0) > subMonthlyEquivalent($1) }
+            arr.sort {
+                SubscriptionBilling.monthlyEquivalent(price: $0.price,
+                                                      cycle: $0.billingCycle,
+                                                      intervalDays: $0.intervalDays)
+                    > SubscriptionBilling.monthlyEquivalent(price: $1.price,
+                                                            cycle: $1.billingCycle,
+                                                            intervalDays: $1.intervalDays)
+            }
         case .priceDesc:
             arr.sort { $0.price > $1.price }
         case .nameAsc:
@@ -282,7 +278,7 @@ struct SubscriptionsScreen: View {
                 Text(L.t("Phí định kỳ mỗi tháng"))
                     .wvFont(.footnoteEmphasis)
                     .foregroundStyle(WVColor.label3)
-                Text(WVFormat.vnd(Int(monthly.rounded())))
+                Text(WVFormat.vnd(monthly))
                     .wvFont(.statValue)
                     .foregroundStyle(WVColor.label)
                     .lineLimit(1)
@@ -290,7 +286,7 @@ struct SubscriptionsScreen: View {
                     // "≈ 8.688.000 ₫ một năm" in the brief; "~ %@ / năm" is the
                     // existing translated key for the same estimate and keeps the
                     // app's one money format (§1.6).
-                    Text(L.t("~ %@ / năm", WVFormat.vnd(Int(yearly.rounded())))
+                    Text(L.t("~ %@ / năm", WVFormat.vnd(yearly))
                          + " · " + L.p("%d gói đang chạy", activeSubs.count))
                     .wvFont(.footnote)
                     .foregroundStyle(WVColor.label3)

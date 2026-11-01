@@ -108,8 +108,27 @@ struct SearchScreen: View {
             destination(for: nav)
         }
         .sheet(item: $previewHit) { hit in
-            AttachmentSearchPreviewSheet(client: client, hit: hit)
+            AttachmentSearchPreviewSheet(
+                client: client,
+                hit: hit,
+                // A receipt hit only carries its owning `deviceId`. The name and
+                // the category icon come from whatever this screen already
+                // holds, so opening a receipt by its file name does not need a
+                // second request just to label the row.
+                device: owningDevice(of: hit)
+            )
         }
+    }
+
+    /// The device a receipt hit is filed to, when this screen happens to hold
+    /// it: the `devices` group first (a shop query puts the device there), then
+    /// the lazily-filled list store. `nil` is normal — a receipt found by its
+    /// file name matches no device — and the sheet degrades to the generic label
+    /// while still being able to open the device by id.
+    private func owningDevice(of hit: AttachmentSearchHit) -> Device? {
+        guard let deviceId = hit.deviceId else { return nil }
+        return results?.devices.first { $0.id == deviceId }
+            ?? devicesStore.devices.first { $0.id == deviceId }
     }
 
     // MARK: - States

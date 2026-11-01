@@ -7,6 +7,10 @@ struct WishlistFormView: View {
     let client: APIClient
     @ObservedObject var store: WishlistStore
     var item: WishlistItem?      // nil → create
+    /// `true` when this form is the root of a sheet's own `NavigationStack`:
+    /// the sheet shows Huỷ / Thêm and no back chevron; a pushed form keeps the
+    /// system back button as its only leading control. See `DeviceFormView`.
+    private let presentedAsSheet: Bool
 
     @EnvironmentObject private var catalog: CatalogStore
     @EnvironmentObject private var toast:   WVToastCenter
@@ -39,10 +43,12 @@ struct WishlistFormView: View {
 
     // MARK: - Init
 
-    init(client: APIClient, store: WishlistStore, item: WishlistItem? = nil) {
+    init(client: APIClient, store: WishlistStore, item: WishlistItem? = nil,
+         presentedAsSheet: Bool = false) {
         self.client = client
         self.store  = store
         self.item   = item
+        self.presentedAsSheet = presentedAsSheet
 
         _name           = State(initialValue: item?.name ?? "")
         _brand          = State(initialValue: item?.brand ?? "")
@@ -207,11 +213,17 @@ struct WishlistFormView: View {
         .wvScreen()
         .navigationTitle(isEditing ? L.t("Sửa món") : L.t("Thêm món"))
         .navigationBarTitleDisplayMode(.inline)
+        // As a sheet root there is nothing to go back to: Huỷ is the leading
+        // control and any inherited back chevron is hidden. Pushed from a tab,
+        // the system back button is the only leading control.
+        .navigationBarBackButtonHidden(presentedAsSheet)
         .task { await catalog.loadIfNeeded() }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(L.t("Huỷ")) { showDiscard = true }
-                    .foregroundStyle(WVColor.tint)
+            if presentedAsSheet {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(L.t("Huỷ")) { showDiscard = true }
+                        .foregroundStyle(WVColor.tint)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(isEditing ? L.t("Lưu") : L.t("Thêm")) { Task { await submit() } }

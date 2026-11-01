@@ -9,6 +9,10 @@ import WarrlyKit
 
 struct RemindersView: View {
     @EnvironmentObject private var auth: AuthStore
+    /// The screen whose whole promise is "we will remind you" has to say when
+    /// it cannot. Same state the Settings row reads.
+    @EnvironmentObject private var push: PushRegistrar
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var store: RemindersStore
 
     @State private var pendingDismiss: String?
@@ -42,6 +46,12 @@ struct RemindersView: View {
         }
         .task { await store.load() }
         .refreshable { await store.load() }
+        // The answer may have changed in iOS Settings while this screen sat in
+        // the background; refresh it before the next frame claims anything.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await push.refreshPermission() }
+        }
     }
 
     // MARK: - Main list
@@ -84,6 +94,16 @@ struct RemindersView: View {
                     .foregroundStyle(WVColor.label2)
                     .padding(.horizontal, WVSpacing.gutter)
                     .padding(.top, 12)
+                }
+
+                // Above the feed, so it also sits above the "Tất cả gói bảo
+                // hành đều an toàn" empty state. That sentence is true about
+                // the dates and says nothing about delivery; this line is the
+                // part the feed cannot know.
+                if let note = push.reminderReachabilityNote {
+                    ReminderReachabilityLine(note: note,
+                                             horizontalPadding: 32,
+                                             topPadding: 12)
                 }
 
                 // The dates and day counts on every row below are the legal
@@ -221,10 +241,13 @@ struct RemindersView: View {
     /// not just during the few seconds the undo banner is on screen.
     @ViewBuilder
     private var dismissedSection: some View {
+        // The placeholder is `?` when the hidden-rows read failed, so the
+        // format verb must be `%@`: a `String` passed to `%d` is read as the
+        // bridged object's pointer, which is where the garbage count came from.
         let count = store.dismissedUnavailable ? "?" : "\(store.dismissed.count)"
 
         HStack {
-            Text(L.t("Đã ẩn · %d", count))
+            Text(L.t("Đã ẩn · %@", count))
                 .wvFont(.footnoteEmphasis)
                 .foregroundStyle(WVColor.label3)
             Spacer()

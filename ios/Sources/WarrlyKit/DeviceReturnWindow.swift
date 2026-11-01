@@ -142,11 +142,14 @@ public enum DeviceReturnWindow {
     /// The length worth *suggesting* for a category, or `nil` when the app has
     /// no basis for a guess.
     ///
-    /// The suggestion is shown, never applied: a new device starts at "Chưa
-    /// biết" and the form prints "Gợi ý: 30 ngày cho Điện thoại" underneath. The
-    /// API has no default and never infers one, so silently storing a guess
-    /// would be the app inventing a shop's policy — the exact thing
-    /// `RETURN_WINDOW_UNKNOWN` exists to avoid.
+    /// The create form **pre-selects** this value instead of starting at "Chưa
+    /// biết", and labels it as the app's guess ("Gợi ý: 30 ngày cho Điện thoại")
+    /// for as long as it is one; tapping any pill changes it in a single tap and
+    /// hands the answer to the user. It is still only a suggestion, not a
+    /// server-side default: the API has no default and never infers one, and it
+    /// stores exactly what the form sends. A value the app invented and then
+    /// silently stored would be the app writing a shop's policy — the exact
+    /// thing `RETURN_WINDOW_UNKNOWN` exists to avoid.
     ///
     ///  * **30 days** — phones, tablets, laptops and smartwatches, the four
     ///    categories Vietnamese shops most often sell with a 1-for-1 window;
