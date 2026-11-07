@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/page-header';
 import { PageShell } from '@/components/page-shell';
-import { Bell, Database, FileSpreadsheet, FileText, Info, Languages, Lock, MonitorSmartphone, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
+import { Bell, Database, FileSpreadsheet, FileText, Languages, Lock, MonitorSmartphone, Palette, ScanLine, Trash2, UserRound } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { AppearanceTweaks } from '@/components/appearance-tweaks';
 import { BackupTools } from '@/components/backup-tools';
@@ -126,22 +126,6 @@ export default async function SettingsPage() {
           {t('Xoá tài khoản')}
         </h2>
         <DeleteAccountForm />
-      </Card>
-
-      <Card padding="md" tone="muted">
-        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-ink">
-          <span className="icon-badge icon-badge-sm tint-zinc">
-            <Info className="h-4 w-4" />
-          </span>
-          {t('Về Warrly')}
-        </h2>
-        <div className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            {t('App cá nhân theo dõi thiết bị, bảo hành và chi phí. Mỗi tài khoản dữ liệu riêng, không chia sẻ. Backup JSON xuất/nhập bất cứ lúc nào.')}
-          </p>
-          {/* No Vietnamese here: the stack list is already English. */}
-          <p>Tech stack: Next.js 16, React 19, Go backend, Tailwind, shadcn/ui, recharts.</p>
-        </div>
       </Card>
     </PageShell>
   );
