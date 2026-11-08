@@ -50,6 +50,11 @@ type userDTO struct {
 	Email   string  `json:"email"`
 	Name    *string `json:"name"`
 	AiOptIn bool    `json:"aiOptIn"`
+	// Premium is the live entitlement bit from "PremiumEntitlement"
+	// (migration 0027). `omitempty` keeps every free-account auth response
+	// byte-identical to the pre-Premium shape; the clients treat an absent key
+	// as false. A true value is the only thing that changes the JSON.
+	Premium bool `json:"premium,omitempty"`
 	// Locale is the stored language preference (migration 0014), or nil when the
 	// user has never chosen one.
 	//
@@ -453,8 +458,16 @@ func Me(d Deps) http.HandlerFunc {
 			locale = u.Locale
 			inboxAddress = services.InboxAddress(u.InboxToken)
 		}
+		premium, perr := services.IsPremium(r.Context(), d.DB, us.UserID)
+		if perr != nil {
+			// Never turn a database hiccup into "paying users are not premium":
+			// false is the safe default for the ad-free cut-off, and the next
+			// request retries. The entitlement is still checked by every write
+			// path, so a missed bit here cannot grant a higher quota.
+			slog.Warn("read premium entitlement", "err", perr, "userId", us.UserID)
+		}
 		httpx.WriteJSONC(w, ctx, http.StatusOK, map[string]userDTO{
-			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, Locale: locale, InboxAddress: inboxAddress},
+			"user": {ID: us.UserID, Email: us.Email, Name: us.Name, AiOptIn: aiOptIn, Locale: locale, InboxAddress: inboxAddress, Premium: premium},
 		})
 	}
 }

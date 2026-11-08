@@ -243,6 +243,10 @@ func BulkCreateDevices(ctx context.Context, db *pgxpool.Pool, userID string, inp
 	if err != nil {
 		return nil, err
 	}
+	quotaPlan, err := PlanFor(ctx, db, userID)
+	if err != nil {
+		return nil, err
+	}
 
 	result := &BulkDeviceResult{
 		Created: make([]DeviceVND, 0, len(plan.candidates)),
@@ -273,7 +277,8 @@ func BulkCreateDevices(ctx context.Context, db *pgxpool.Pool, userID string, inp
 		return nil, err
 	}
 	tq := store.New(tx)
-	if err := assertDeviceQuota(ctx, tq, userID, incomingActive, incomingTotal); err != nil {
+	if err := assertDeviceQuotaWithLimits(ctx, tq, userID, incomingActive, incomingTotal,
+		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); err != nil {
 		return nil, err
 	}
 

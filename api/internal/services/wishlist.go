@@ -230,13 +230,17 @@ func CreateWishlist(ctx context.Context, db *pgxpool.Pool, userID string, in Wis
 	}
 
 	q := store.New(db)
+	quotaPlan, err := PlanFor(ctx, db, userID)
+	if err != nil {
+		return store.WishlistItem{}, err
+	}
 	count, err := q.CountWishlistByUser(ctx, userID)
 	if err != nil {
 		return store.WishlistItem{}, fmt.Errorf("count wishlist: %w", err)
 	}
-	if count >= MaxWishlistPerUser {
+	if count >= quotaPlan.MaxWishlist {
 		return store.WishlistItem{}, ErrLimit(
-			i18n.T(ctx, wishlistLimitMessage, MaxWishlistPerUser))
+			i18n.T(ctx, wishlistLimitMessage, quotaPlan.MaxWishlist))
 	}
 
 	var targetTS wire.Day
@@ -409,7 +413,12 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 		// wishlist item, mark it PURCHASED, repeat. Checked here, before the insert,
 		// so a refused transition leaves the item exactly as it was (the deferred
 		// rollback discards the update above).
-		if qerr := assertDeviceQuota(ctx, q, userID, 1, 1); qerr != nil {
+		quotaPlan, perr := PlanFor(ctx, db, userID)
+		if perr != nil {
+			return store.WishlistItem{}, perr
+		}
+		if qerr := assertDeviceQuotaWithLimits(ctx, q, userID, 1, 1,
+			quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); qerr != nil {
 			return store.WishlistItem{}, qerr
 		}
 		// Map wishlist fields → device. Use currentPrice ?? initialPrice as

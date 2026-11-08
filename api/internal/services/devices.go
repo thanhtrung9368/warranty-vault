@@ -894,9 +894,15 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 		return DeviceVND{}, err
 	}
 
+	quotaPlan, err := PlanFor(ctx, db, userID)
+	if err != nil {
+		return DeviceVND{}, err
+	}
+
 	// Cheap pre-check, kept at its historic position for error precedence. It is
 	// NOT the concurrency-safe check; the one under the lock below is.
-	if err := assertDeviceQuota(ctx, q, userID, deviceActiveIncoming(in.Status), 1); err != nil {
+	if err := assertDeviceQuotaWithLimits(ctx, q, userID, deviceActiveIncoming(in.Status), 1,
+		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); err != nil {
 		return DeviceVND{}, err
 	}
 
@@ -918,7 +924,8 @@ func CreateDevice(ctx context.Context, db *pgxpool.Pool, userID string, in Devic
 	// The authoritative check: count and insert now happen in one transaction
 	// serialised per user, so two concurrent creates cannot both pass a 49→50
 	// read and write a 51st active row.
-	if err := assertDeviceQuota(ctx, tq, userID, deviceActiveIncoming(in.Status), 1); err != nil {
+	if err := assertDeviceQuotaWithLimits(ctx, tq, userID, deviceActiveIncoming(in.Status), 1,
+		quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); err != nil {
 		return DeviceVND{}, err
 	}
 
@@ -1403,6 +1410,15 @@ type deviceQuotaCounter interface {
 // from the HTTP handlers AND from the backup importer / wishlist transitions,
 // and all of them already carry one.
 func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal int64) error {
+	return assertDeviceQuotaWithLimits(ctx, q, userID, incomingActive, incomingTotal,
+		MaxDevicesPerUser, MaxDevicesTotalPerUser)
+}
+
+// assertDeviceQuotaWithLimits is the same rule with the account's plan supplied
+// by the caller. Every production write path resolves a PlanFor first; the
+// four-argument wrapper above remains for the free-limit tests and for any
+// caller that genuinely wants the default ceilings.
+func assertDeviceQuotaWithLimits(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal, maxActive, maxTotal int64) error {
 	if incomingTotal <= 0 {
 		return nil
 	}
@@ -1411,13 +1427,13 @@ func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string,
 		return fmt.Errorf("count all devices: %w", err)
 	}
 	if incomingActive <= 0 {
-		return enforceDeviceQuota(ctx, 0, total, 0, incomingTotal)
+		return enforceDeviceQuotaWithLimits(ctx, 0, total, 0, incomingTotal, maxActive, maxTotal)
 	}
 	active, err := q.CountActiveDevicesByUser(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("count active devices: %w", err)
 	}
-	return enforceDeviceQuota(ctx, active, total, incomingActive, incomingTotal)
+	return enforceDeviceQuotaWithLimits(ctx, active, total, incomingActive, incomingTotal, maxActive, maxTotal)
 }
 
 // lockUserDeviceWrites serialises every device-creating transaction for one
@@ -1473,18 +1489,25 @@ func lockUserDeviceWrites(ctx context.Context, tx pgx.Tx, userID string) error {
 // storage one — because the flat "Đã đạt giới hạn 50 thiết bị" this replaced was
 // wrong on exactly that point.
 func enforceDeviceQuota(ctx context.Context, active, total, incomingActive, incomingTotal int64) error {
+	return enforceDeviceQuotaWithLimits(ctx, active, total, incomingActive, incomingTotal,
+		MaxDevicesPerUser, MaxDevicesTotalPerUser)
+}
+
+// enforceDeviceQuotaWithLimits takes the ceilings as parameters so a premium
+// account's refusal names 200/2.000 rather than the free 50/500.
+func enforceDeviceQuotaWithLimits(ctx context.Context, active, total, incomingActive, incomingTotal, maxActive, maxTotal int64) error {
 	if incomingTotal <= 0 {
 		return nil
 	}
-	if total+incomingTotal > MaxDevicesTotalPerUser {
+	if total+incomingTotal > maxTotal {
 		return ErrLimit(i18n.T(ctx,
 			"Đã đạt giới hạn %d thiết bị lưu trữ (tính cả thiết bị đã bán). Xoá bớt hồ sơ cũ rồi thử lại.",
-			MaxDevicesTotalPerUser))
+			maxTotal))
 	}
-	if incomingActive > 0 && active+incomingActive > MaxDevicesPerUser {
+	if incomingActive > 0 && active+incomingActive > maxActive {
 		return ErrLimit(i18n.T(ctx,
 			"Đã đạt giới hạn %d thiết bị chưa bán. Thiết bị đã đánh dấu \"Đã bán\" không chiếm suất — đánh dấu đã bán một thiết bị rồi thử lại.",
-			MaxDevicesPerUser))
+			maxActive))
 	}
 	return nil
 }

@@ -256,12 +256,16 @@ func CreateSubscription(ctx context.Context, db *pgxpool.Pool, userID string, in
 	}
 
 	q := store.New(db)
+	quotaPlan, err := PlanFor(ctx, db, userID)
+	if err != nil {
+		return store.Subscription{}, err
+	}
 	count, err := q.CountSubscriptionsByUser(ctx, userID)
 	if err != nil {
 		return store.Subscription{}, fmt.Errorf("count subscriptions: %w", err)
 	}
-	if count >= MaxSubscriptionsPerUser {
-		return store.Subscription{}, ErrLimit(subscriptionLimitMessage(ctx, MaxSubscriptionsPerUser))
+	if count >= quotaPlan.MaxSubscriptions {
+		return store.Subscription{}, ErrLimit(subscriptionLimitMessage(ctx, int(quotaPlan.MaxSubscriptions)))
 	}
 
 	var renewal time.Time

@@ -52,7 +52,7 @@ npm test                 # vitest run (unit tests under src/**/__tests__/)
 
 Test the cron endpoint: `curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:4000/api/v1/cron/warranty-check` (Go service). Schema management is via goose in `api/migrations/` (`go run ./cmd/migrate up` / `status` / `down`). The HTTP end-to-end suite is `api/scripts/test_*.sh`, and `api/scripts/e2e.sh` is the runner that makes it usable: it creates a throwaway database, migrates it, builds and starts the server on a test port, runs every script, and drops the database afterwards (`--only <name>`, `--go-tests`, `--list`). The scripts need no `psql` — SQL goes through `api/scripts/dbtool` (Go + pgx).
 
-`bash api/scripts/check_openapi_drift.sh` diffs the `"METHOD /api/…"` literals registered in `api/cmd/server/main.go` + `api/internal/handlers/` against `openapi.yaml`; CI (`api.yml`) fails on drift. It currently reports **81 endpoints** (a number that keeps moving — trust the script, not this line) — add the route literal *and* the openapi entry in the same commit or CI goes red. The path count is the number of distinct `paths:` keys carrying at least one method in `openapi.yaml`; the script prints the endpoint count itself.
+`bash api/scripts/check_openapi_drift.sh` diffs the `"METHOD /api/…"` literals registered in `api/cmd/server/main.go` + `api/internal/handlers/` against `openapi.yaml`; CI (`api.yml`) fails on drift. It currently reports **82 endpoints** (a number that keeps moving — trust the script, not this line) — add the route literal *and* the openapi entry in the same commit or CI goes red. The path count is the number of distinct `paths:` keys carrying at least one method in `openapi.yaml`; the script prints the endpoint count itself.
 
 iOS (`cd ios/`): `swift build` verifies the `WarrlyKit` library; `swift test` runs its 830 tests (a fast-moving number — the iOS client is under active development, so trust the run over this line; the runner prints `Executed N tests`). `cd ios && swift test` now runs directly on this machine: `xcode-select` was pointed at the real Xcode, so neither `DEVELOPER_DIR` nor `--disable-sandbox` is needed any more. The Xcode app project itself is created by the user (see `ios/README.md`), which is why CI only builds the library.
 
@@ -86,11 +86,19 @@ There is no middleware — the `(app)/` layout calls `requireUser()` from `src/l
 | MAX_SUBS_PER_USER | `services/subscriptions.go` | 100 |
 | MAX_WISHLIST_PER_USER | `services/wishlist.go` | 200 |
 
-Both device ceilings are applied by the single rule `enforceDeviceQuota` (`services/devices.go`), reached on **three** write paths into `Device`: `CreateDevice`, the backup importer (`services/backup.go`), and wishlist → `PURCHASED` (`services/wishlist.go`) — that last one used to bypass the limit entirely. A write that adds no active rows skips the active count. Deliberately *not* blocked: un-selling a device, so an account can sit above 50 active rows after undoing a mistaken sale (bounded by the 500-row ceiling). Clients must treat `status`, not the quota, as the source of truth for "how many devices do I have".
+**Warrly Premium** (migration 0027, iOS StoreKit 2) raises those four to
+**200 active / 2.000 total / 500 subscriptions / 1.000 wishlist** and removes the
+ad banner. `services.PlanFor` picks `FreePlan` or `PremiumPlan`; every write path
+passes that plan into `assertDeviceQuotaWithLimits` / its own limit check, so the
+refusal message names the ceiling that actually applies. `GET /auth/me` carries
+`premium`; `POST /api/v1/billing/verify` verifies the signed StoreKit transaction
+and stores the entitlement. See `docs/SPEC-PREMIUM.md`.
+
+Both device ceilings are applied by `enforceDeviceQuotaWithLimits` (`services/devices.go`), reached on **three** write paths into `Device`: `CreateDevice`, the backup importer (`services/backup.go`), and wishlist → `PURCHASED` (`services/wishlist.go`) — that last one used to bypass the limit entirely. A write that adds no active rows skips the active count. Deliberately *not* blocked: un-selling a device, so an account can sit above 50 active rows after undoing a mistaken sale (bounded by the 500-row ceiling). Clients must treat `status`, not the quota, as the source of truth for "how many devices do I have".
 
 The web doesn't pre-validate these. Which status a limit surfaces as: **`LIMIT_REACHED` → 409** with a Vietnamese `message` (the action surfaces it through `useFormState`), while `VALIDATION` and `CATEGORY_INVALID` → 400. The 409 was previously a 400 in Go while `openapi.yaml` documented 409; Go was the side that was wrong and it was fixed in `services/errors.go`, so a client that stops a doomed bulk import on 409 now really does get 409.
 
-**Migrations (`api/migrations/`, goose).** Twenty-six so far — `ls api/migrations/` is the authority:
+**Migrations (`api/migrations/`, goose).** Twenty-seven so far — `ls api/migrations/` is the authority:
 - `0001_initial` (17 tables) · `0002_cron_idempotency` · `0003_user_ai_optin`.
 - `0004_seed_category_catalog` (the 20 `CATEGORY_LABELS` codes — without it no device can be created on a fresh DB) · `0008_seed_brand_store_warranty_provider` (the other three catalogs, so a fresh DB has working pickers and `BrandCategory` + the OCR `matchBrand` path are not dead code).
 - `0005_device_search_unaccent` + `0007_locale_safe_unaccent` (search: `0007` rebuilds the indexes on `lower(public.wv_unaccent(x))` because `0005`'s `wv_unaccent(lower(x))` order is wrong under a C collation).
@@ -112,8 +120,9 @@ The web doesn't pre-validate these. Which status a limit surfaces as: **`LIMIT_R
 - `0024_utc_timestamp_baseline` — normalises existing timestamp columns to UTC.
 - `0025_device_purchase_place_search` — the fifth device GIN trigram index, on `purchasePlace`.
 - `0026_attachment_name_description_search` — two more GIN trigram indexes, on `Attachment.fileName` and `Attachment.description`.
+- `0027_premium_entitlement` — table `PremiumEntitlement`, one row per StoreKit transaction (`transactionId` PK, `originalTransactionId` indexed), server-verified JWS. Rows are kept rather than overwritten so a renewal cannot release the purchase chain to another account; premium is derived from `expiresAt > now()` and `revokedAt IS NULL`.
 
-`deploy/PRODUCTION_CHECKLIST.md` §2 pins the same list and is currently **in sync** at 26 — keep it that way when you add one. Migrations run through `api/cmd/migrate`, which refuses destructive commands unless `WV_ALLOW_DESTRUCTIVE=1`.
+`deploy/PRODUCTION_CHECKLIST.md` §2 pins the same list and is currently **in sync** at 27 — keep it that way when you add one. Migrations run through `api/cmd/migrate`, which refuses destructive commands unless `WV_ALLOW_DESTRUCTIVE=1`.
 
 **Search.** Device search (`GET /api/v1/devices?q=`) is diacritic-insensitive via the `IMMUTABLE` SQL wrapper `public.wv_unaccent` + five GIN trigram indexes over `lower(public.wv_unaccent(col))` for `name`/`brand`/`model`/`serialNumber`/`purchasePlace` — the shop, because "I only remember where I bought it" is a real way to look for a device. Attachment search reaches `extractedText`, `fileName` and `description` (two more indexes).  The index expression and the query predicate in `api/internal/store/queries/devices.sql` must stay byte-for-byte identical or the planner silently stops using them. Cross-entity search is a separate endpoint — `GET /api/v1/search?q=&limit=` returns `{query, devices[], subscriptions[], wishlist[]}` in one round trip (`services/search.go`): groups are always `[]` (never `null`), `limit` is **per group** (default 20, max 50), a blank `q` is a 200 with empty groups (deleting the last character of a search box must not raise an error), and `q` over 200 runes is a 400. The per-entity `q`/`status` filters on the list endpoints are unchanged. All of this needs the database to be **UTF-8 encoded** (a non-UTF-8 cluster stores no Vietnamese characters and search returns empty with no error); collation no longer matters. `services/device_search_locale_test.go` covers it against both C and UTF-8 clusters.
 

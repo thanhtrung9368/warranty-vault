@@ -60,6 +60,7 @@ except ImportError:  # pragma: no cover - environment problem, not drift
 SCHEMA_BY_STRUCT: dict[str, str] = {
     "registerRequest": "RegisterInput",
     "loginRequest": "LoginInput",
+    "premiumVerifyRequest": "PremiumVerifyInput",
     "forgotRequest": "ForgotRequest",
     "changePasswordRequest": "ChangePasswordRequest",
     "resetPasswordRequest": "ResetPasswordRequest",

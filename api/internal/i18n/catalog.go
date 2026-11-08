@@ -83,6 +83,27 @@ var messages = map[string]message{
 	"Body phải là JSON hợp lệ":   {vi: "Body phải là JSON hợp lệ", en: "Request body must be valid JSON"},
 	"Bạn chưa đăng nhập":         {vi: "Bạn chưa đăng nhập", en: "You are not signed in"},
 	"Lỗi hệ thống":               {vi: "Lỗi hệ thống", en: "Something went wrong"},
+
+	// Premium billing (migration 0027, POST /api/v1/billing/verify). The
+	// App Store receipt is the one input here that comes from outside the app,
+	// so "could not verify" must not leak whether the signature, the bundle or
+	// the product id was the part that failed.
+	"Thiếu mã giao dịch App Store.": {
+		vi: "Thiếu mã giao dịch App Store.",
+		en: "The App Store transaction is missing.",
+	},
+	"Không xác minh được giao dịch App Store.": {
+		vi: "Không xác minh được giao dịch App Store.",
+		en: "The App Store transaction could not be verified.",
+	},
+	"Gói đăng ký này không được hỗ trợ.": {
+		vi: "Gói đăng ký này không được hỗ trợ.",
+		en: "This subscription product is not supported.",
+	},
+	"Giao dịch này đã thuộc về một tài khoản khác.": {
+		vi: "Giao dịch này đã thuộc về một tài khoản khác.",
+		en: "This transaction already belongs to another account.",
+	},
 	"Thao tác quá nhanh. Đợi %s": {vi: "Thao tác quá nhanh. Đợi %s", en: "Too many attempts. Try again in %s"},
 
 	// ── Validation copy shared by the auth endpoints.

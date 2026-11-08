@@ -89,6 +89,7 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/change-password", handlers.ChangePassword(deps))
 	mux.HandleFunc("POST /api/v1/auth/change-email", handlers.RequestEmailChange(deps))
 	mux.HandleFunc("POST /api/v1/auth/confirm-email-change", handlers.ConfirmEmailChange(deps))
+	mux.HandleFunc("POST /api/v1/billing/verify", handlers.VerifyPremium(deps))
 	handlers.RegisterProfile(mux, deps)
 	handlers.RegisterSessions(mux, deps)
 

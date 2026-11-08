@@ -26,6 +26,7 @@ servers:
 
 tags:
   - { name: auth }
+  - { name: billing, description: 'Warrly Premium: verify a StoreKit 2 signed transaction and record the server-side entitlement (migration 0027).' }
   - { name: devices }
   - { name: warranties }
   - { name: claims, description: 'Yêu cầu bảo hành / sửa chữa: một thiết bị hỏng đi đâu, bệnh viện nào, ai nói gì, bảo hành có trả tiền không. Migration 0021.' }
@@ -421,6 +422,42 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Catalog' }
+
+  /api/v1/billing/verify:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    post:
+      tags: [billing]
+      summary: Verify a StoreKit 2 transaction
+      description: |
+        Xác minh JWS của một giao dịch StoreKit 2 và ghi entitlement phía server.
+        Client gọi endpoint này cho từng transaction trong
+        `Transaction.currentEntitlements` khi launch/foreground, sau khi mua và
+        khi Restore Purchases. Endpoint idempotent theo `transactionId`.
+
+        Một transaction hợp lệ nhưng đã hết hạn hoặc đã bị thu hồi trả **200**
+        với `premium: false` — đó là trạng thái bình thường, không phải lỗi.
+
+        Giao dịch đã thuộc tài khoản khác trả **409 `receipt_owned`**: receipt
+        không được replay sang account thứ hai.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PremiumVerifyInput' }
+      responses:
+        '200':
+          description: Entitlement sau khi xác minh
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PremiumStatus' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: Transaction/originalTransaction đã thuộc user khác
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/brands/{brandId}/service-info:
     parameters:
@@ -3523,6 +3560,18 @@ components:
         email: { type: string, format: email }
         name: { type: string, nullable: true }
         aiOptIn: { type: boolean, description: 'Người dùng đã bật tính năng quét hoá đơn AI (mặc định false)' }
+        premium:
+          type: boolean
+          description: |
+            Tài khoản đang có entitlement Warrly Premium còn hiệu lực
+            (`PremiumEntitlement`, migration 0027). `true` = không có banner
+            quảng cáo và được hưởng giới hạn premium; `false` = free.
+
+            Đây là trạng thái **tính từ server** (expiresAt còn tương lai và
+            chưa bị thu hồi), không phải một cột plan có thể quên cập nhật.
+            **Vắng mặt = false**: trường được `omitempty` để response của tài
+            khoản free giữ nguyên từng byte như trước khi có Premium; client
+            đọc `nil` là free. Chỉ tài khoản đang Premium mới thấy `true`.
         locale:
           type: string
           nullable: true
@@ -3572,6 +3621,34 @@ components:
       required: [email]
       properties:
         email: { type: string, format: email }
+
+    PremiumVerifyInput:
+      type: object
+      required: [jws]
+      properties:
+        jws:
+          type: string
+          description: |
+            `Transaction.jwsRepresentation` do StoreKit 2 trả về. Server xác
+            minh chữ ký ES256 và chuỗi chứng thư `x5c` tới Apple Root CA - G3;
+            nội dung payload không được tin trước khi bước đó thành công.
+
+    PremiumStatus:
+      type: object
+      required: [premium]
+      properties:
+        premium: { type: boolean }
+        productId:
+          type: string
+          description: 'Chỉ có khi `premium = true`; một trong hai product ID của Warrly Premium.'
+        expiresAt:
+          type: string
+          format: date-time
+          description: 'Chỉ có khi `premium = true`; thời điểm hết hạn hiện tại (UTC).'
+        environment:
+          type: string
+          enum: [Production, Sandbox]
+          description: 'Môi trường Apple của transaction gần nhất. Sandbox được chấp nhận để App Review mua thử.'
 
     # Body of PATCH /api/v1/auth/me. Email change is NOT part of this contract.
     UpdateProfileInput:
@@ -6624,7 +6701,7 @@ components:
       properties:
         quietMinAutoCharges: { type: integer, description: 'Số khoản tự động trừ tối thiểu để xét `QUIET_AUTO_RENEW` (3).' }
         quietMinMonths: { type: integer, description: 'Khoản tự trừ ĐẦU TIÊN phải cách đây ít nhất bao nhiêu tháng (6).' }
-        upcomingRenewalDays: { type: integer, description: 'Cửa sổ để một phát hiện còn hành động được trước khi bị trừ tiền (14 ngày).' }
+        upcomingRenewalDays: { type: integer, description: 'Cửa sổ mà một phát hiện cần rơi vào để còn kịp hành động trước khi bị trừ tiền (14 ngày). **Hiện KHÔNG luật nào dùng giá trị này** — nó được trả về nhưng không lọc gì cả, nên client đừng in nó ra như một quy tắc. Giữ lại vì xoá là thay đổi hợp đồng; hoặc cài một loại phát hiện theo cửa sổ gia hạn, hoặc bỏ hẳn trường này.' }
         priceRiseMinPercent: { type: integer, description: 'Mức tăng (%) từ đó `material` = true. Mọi mức tăng vẫn được báo; ngưỡng này chỉ để client quyết định độ nổi bật (5).' }
         duplicateNormalized: { type: boolean, description: 'Luôn `true`: so khớp trùng tên có bỏ dấu và không phân biệt hoa/thường (`public.wv_unaccent`).' }
 
