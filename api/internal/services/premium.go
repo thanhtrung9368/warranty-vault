@@ -85,13 +85,26 @@ var (
 	ErrPremiumOwned   = errors.New("premium: transaction already belongs to another account")
 )
 
+// premiumQuerier is the one database method the entitlement checks need. The
+// pool and an open transaction both implement it, which matters: a quota check
+// that runs INSIDE a transaction must reuse that transaction's connection.
+// Querying the pool from an open transaction can deadlock when the pool is
+// exhausted (and the test suite deliberately runs a small pool).
+type premiumQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // IsPremium is the cheap existence check used by /auth/me and PlanFor. It
 // deliberately runs in the database rather than caching: an expiry is a
 // timestamp, and a cached "true" past expiresAt is exactly the bug a paid
 // feature cannot afford.
 func IsPremium(ctx context.Context, db *pgxpool.Pool, userID string) (bool, error) {
+	return isPremiumOn(ctx, db, userID)
+}
+
+func isPremiumOn(ctx context.Context, q premiumQuerier, userID string) (bool, error) {
 	var active bool
-	err := db.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1
 			FROM public."PremiumEntitlement"
@@ -105,11 +118,16 @@ func IsPremium(ctx context.Context, db *pgxpool.Pool, userID string) (bool, erro
 	return active, nil
 }
 
-// PlanFor resolves the quota set for one account. Every create path calls this
-// once and passes the result down; that keeps the free and premium numbers in
-// one place while preserving the existing free-limit functions for tests.
+// PlanFor resolves the quota set for one account from the pool. Every create
+// path calls this once and passes the result down; the transaction-scoped
+// variant exists for the wishlist transition, which is already inside a tx.
 func PlanFor(ctx context.Context, db *pgxpool.Pool, userID string) (Plan, error) {
-	premium, err := IsPremium(ctx, db, userID)
+	return PlanForOn(ctx, db, userID)
+}
+
+// PlanForOn is the same check against a pool or an open transaction.
+func PlanForOn(ctx context.Context, q premiumQuerier, userID string) (Plan, error) {
+	premium, err := isPremiumOn(ctx, q, userID)
 	if err != nil {
 		return FreePlan, err
 	}

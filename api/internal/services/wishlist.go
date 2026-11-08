@@ -413,11 +413,11 @@ func UpdateWishlist(ctx context.Context, db *pgxpool.Pool, userID, id string, in
 		// wishlist item, mark it PURCHASED, repeat. Checked here, before the insert,
 		// so a refused transition leaves the item exactly as it was (the deferred
 		// rollback discards the update above).
-		quotaPlan, perr := PlanFor(ctx, db, userID)
+		quotaPlan, perr := PlanForOn(ctx, tx, userID)
 		if perr != nil {
 			return store.WishlistItem{}, perr
 		}
-		if qerr := assertDeviceQuotaWithLimits(ctx, q, userID, 1, 1,
+		if qerr := assertDeviceQuotaWithLimits(ctx, tq, userID, 1, 1,
 			quotaPlan.MaxActiveDevices, quotaPlan.MaxTotalDevices); qerr != nil {
 			return store.WishlistItem{}, qerr
 		}
