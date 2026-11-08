@@ -1383,15 +1383,19 @@ type deviceQuotaCounter interface {
 	CountAllDevicesByUser(ctx context.Context, userID string) (int64, error)
 }
 
-// assertDeviceQuota enforces both device ceilings for a write that is about to
-// add `incomingActive` active rows and `incomingTotal` rows in total.
+// assertDeviceQuotaWithLimits enforces both device ceilings for a write that is
+// about to add `incomingActive` active rows and `incomingTotal` rows in total.
 // FEATURE_IDEAS #14.
+//
+// The caller supplies the ceilings because they differ by plan: a free account
+// gets 50 active / 500 total, a Premium account 200 / 2.000. The refusal
+// messages name the numbers that actually apply.
 //
 // Two independent ceilings, because "sold devices are free" on its own is
 // gameable (mark sold → add → un-sell → repeat):
 //
-//   - active ≤ MaxDevicesPerUser      (50)  — rows with status <> 'SOLD'
-//   - total  ≤ MaxDevicesTotalPerUser (500) — every row, sold ones included
+//   - active ≤ maxActive — rows with status <> 'SOLD'
+//   - total  ≤ maxTotal  — every row, sold ones included
 //
 // A write that adds no active rows skips the active count entirely: a 500-row
 // archive import must not be slowed down (or refused) for a set it cannot affect.
@@ -1409,15 +1413,6 @@ type deviceQuotaCounter interface {
 // read later so a nil context is impossible to pass by accident: this is called
 // from the HTTP handlers AND from the backup importer / wishlist transitions,
 // and all of them already carry one.
-func assertDeviceQuota(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal int64) error {
-	return assertDeviceQuotaWithLimits(ctx, q, userID, incomingActive, incomingTotal,
-		MaxDevicesPerUser, MaxDevicesTotalPerUser)
-}
-
-// assertDeviceQuotaWithLimits is the same rule with the account's plan supplied
-// by the caller. Every production write path resolves a PlanFor first; the
-// four-argument wrapper above remains for the free-limit tests and for any
-// caller that genuinely wants the default ceilings.
 func assertDeviceQuotaWithLimits(ctx context.Context, q deviceQuotaCounter, userID string, incomingActive, incomingTotal, maxActive, maxTotal int64) error {
 	if incomingTotal <= 0 {
 		return nil
