@@ -12,16 +12,10 @@
 // keys, which keeps the dictionary pure text (a translator should not have to
 // place XML) and leaves the emphasis exactly where the Vietnamese had it.
 //
-// STRUCTURE. Section 5 is new and is modelled on the subscription clause of the
-// owner's shipped app (Stavely), but it describes a tier that does NOT exist
-// yet. That is the whole constraint: the paid tier has no price, no billing
-// interval, no trial and no launch date, and inventing any of the four would be
-// a false statement in a contract. So the section states the commitments that
-// WILL apply when it goes on sale — auto-renewal, cancellation at least 24 h
-// before the period ends, billing and cancellation through the App Store / Play,
-// price shown in-app before purchase, ads removed — and says explicitly which
-// facts are absent and why. If a future launch adds a price, this is the file
-// that has to change.
+// STRUCTURE. Section 5 describes the live Warrly Premium auto-renewable
+// subscription. Prices, the 7-day trial and auto-renewal are stated there
+// because the App Store products now exist; if any of those changes, this file
+// and the landing pricing copy must change in the same commit.
 //
 // `#usage-limits` stays §4 because the landing page links to it and prints the
 // number. The subscription section was inserted after it, and every later
@@ -106,62 +100,58 @@ export function TermsContent() {
       </h3>
       <p className="mt-2">
         {t(
-          'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Gói miễn phí có quảng cáo. Gói trả phí, khi mở bán, sẽ nâng các giới hạn này và tắt quảng cáo trên tài khoản trả phí. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.',
+          'Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Gói miễn phí có quảng cáo. Warrly Premium nâng giới hạn lên 200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký và 1.000 món wishlist, đồng thời tắt quảng cáo. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.',
         )}
       </p>
     </div>
 
     <div>
       <h3 id="subscription" className="display scroll-mt-24 text-lg">
-        {t('5. Gói trả phí — chưa mở bán')}
+        {t('5. Warrly Premium')}
       </h3>
       <p className="mt-2">
         {t(
-          'Gói trả phí của Warrly chưa mở bán. Hiện không có giá, không có ngày ra mắt, và mày không thể mua nó ở đâu cả. Mục này nói trước những gì sẽ áp dụng khi nó mở bán — không phải những gì đang chạy hôm nay.',
+          'Warrly Premium là gói đăng ký tự động gia hạn mua qua App Store trên iOS. Giá niêm yết là 49.000đ mỗi tháng hoặc 399.000đ mỗi năm; giá hiển thị trong ứng dụng theo App Store và khu vực tài khoản của bạn. Người đăng ký mới có 7 ngày dùng thử miễn phí.',
         )}
       </p>
-      <p className="mt-2">{t('Khi mở bán, gói trả phí sẽ:')}</p>
+      <p className="mt-2">{t('Warrly Premium:')}</p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>
+          <b>{t('Không quảng cáo:')}</b>{' '}
+          {t('Warrly Premium bỏ toàn bộ quảng cáo trong ứng dụng.')}
+        </li>
+        <li>
+          <b>{t('Giới hạn cao hơn:')}</b>{' '}
+          {t('200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký và 1.000 món wishlist.')}
+        </li>
+        <li>
           <b>{t('Tự động gia hạn:')}</b>{' '}
-          {t(
-            'gói tự gia hạn cho tới khi mày tắt tự động gia hạn, và phải tắt xong ít nhất 24 giờ trước khi kỳ hiện tại kết thúc.',
-          )}
+          {t('gói tự gia hạn cho tới khi bạn tắt tự động gia hạn. Phải tắt ít nhất 24 giờ trước khi kỳ hiện tại kết thúc; nếu không, Apple thu tiền cho kỳ kế tiếp.')}
         </li>
         <li>
-          <b>{t('Do cửa hàng thu tiền:')}</b>{' '}
-          {t(
-            'mua qua App Store (iOS) hoặc Google Play (Android), trừ vào tài khoản cửa hàng của mày. Warrly không nhận, không lưu và không xử lý thông tin thanh toán.',
-          )}
+          <b>{t('Dùng thử 7 ngày:')}</b>{' '}
+          {t('nếu chưa huỷ trước khi hết 7 ngày, gói chuyển sang trả phí theo giá đã hiển thị. Dùng thử chỉ áp dụng một lần cho tài khoản đủ điều kiện.')}
         </li>
         <li>
-          <b>{t('Huỷ trong cửa hàng:')}</b>{' '}
-          {t(
-            'huỷ trong phần quản lý gói đăng ký của App Store hoặc Google Play; huỷ có hiệu lực từ kỳ kế tiếp, và mày dùng tiếp đến hết kỳ đã trả tiền.',
-          )}
+          <b>{t('Do Apple thu tiền:')}</b>{' '}
+          {t('giao dịch do App Store xử lý và trừ vào tài khoản Apple của bạn. Warrly không nhận, không lưu và không xử lý số thẻ hay thông tin ngân hàng.')}
         </li>
         <li>
-          <b>{t('Giá hiện trước khi mua:')}</b>{' '}
-          {t(
-            'giá và độ dài kỳ hiện trong ứng dụng trước khi mày xác nhận, theo tiền tệ tài khoản cửa hàng của mày.',
-          )}
+          <b>{t('Huỷ trong App Store:')}</b>{' '}
+          {t('huỷ trong phần quản lý đăng ký của Apple; huỷ có hiệu lực từ kỳ kế tiếp và bạn dùng tiếp đến hết kỳ đã trả tiền.')}
         </li>
         <li>
-          <b>{t('Bỏ quảng cáo:')}</b>{' '}
-          {t('gói trả phí tắt quảng cáo và nâng các giới hạn ở mục 4.')}
+          <b>{t('Khôi phục mua hàng:')}</b>{' '}
+          {t('dùng nút Khôi phục mua hàng trong ứng dụng nếu bạn đổi máy hoặc cài lại; quyền lợi gắn với tài khoản Apple đã mua.')}
         </li>
       </ul>
       <p className="mt-2">
-        {t(
-          'Mục này không nêu giá, không nêu độ dài kỳ và không nêu bản dùng thử, vì chưa có cái nào được chốt. Khi có, chúng sẽ hiện trong ứng dụng trước khi mua — Warrly không bán một gói mà mày chưa thấy giá.',
-        )}
+        {t('Nếu giá thay đổi, Apple sẽ thông báo theo chính sách của App Store trước khi áp dụng cho kỳ tiếp theo.')}
       </p>
       <p className="mt-2">
-        {t(
-          'Hoàn tiền: giao dịch trong ứng dụng do Apple và Google xử lý theo chính sách của họ; Warrly không tự hoàn tiền, nhưng trả lời email support@warrly.com nếu mày gặp trục trặc.',
-        )}
+        {t('Hoàn tiền: giao dịch do Apple xử lý theo chính sách của Apple; Warrly không tự hoàn tiền, nhưng trả lời email support@warrly.com nếu bạn gặp trục trặc.')}
       </p>
-      <p className="mt-2">{t('Điều khoản này là EULA áp dụng cho gói trả phí.')}</p>
+      <p className="mt-2">{t('Điều khoản này là EULA áp dụng cho Warrly Premium.')}</p>
     </div>
 
     <div>

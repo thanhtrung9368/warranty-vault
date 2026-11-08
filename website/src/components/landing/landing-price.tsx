@@ -13,9 +13,9 @@ import { localePath } from '@/lib/i18n/locale';
  * no explanation anywhere. The limits are the Go service's constants, and the
  * exact same numbers are written into Terms §4 so the link at the bottom of the
  * first column really does substantiate the list rather than pointing at a
- * vague promise. The model is a free ad-supported tier plus a paid tier that
- * removes ads and raises the limits — no price and no launch date exists in
- * this repo, so none is stated here.
+ * vague promise. The model is a free ad-supported tier plus Warrly Premium at
+ * 49.000đ/month or 399.000đ/year with a 7-day free trial; the localized price
+ * is always StoreKit's, so this section only states the VND list price.
  *
  * The legal links are built from the ACTIVE locale, not the one the server
  * rendered with: after switching to Vietnamese on `/`, "Điều khoản" must go to
@@ -31,10 +31,10 @@ export function LandingPrice() {
         <div className="mb-10 text-center">
           <span className="eyebrow">{t('Giá')}</span>
           <h2 id="wv-price-title" className="display mt-2 text-3xl text-ink">
-            {t('Miễn phí có quảng cáo. Gói trả phí nâng giới hạn.')}
+            {t('Miễn phí có quảng cáo. Premium bỏ quảng cáo và nâng giới hạn.')}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted">
-            {t('Gói miễn phí là hạng bạn dùng hôm nay: có quảng cáo và dừng ở các con số dưới đây. Gói trả phí chưa mở bán; khi mở bán, nó bỏ quảng cáo và nâng các giới hạn này.')}
+            {t('Gói miễn phí là hạng bạn dùng hôm nay: có quảng cáo và dừng ở các con số dưới đây. Warrly Premium bỏ quảng cáo và nâng giới hạn lên 200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký và 1.000 món wishlist — 49.000đ/tháng hoặc 399.000đ/năm, 7 ngày dùng thử.')}
           </p>
         </div>
 
@@ -88,7 +88,7 @@ export function LandingPrice() {
                 {t('Ảnh và PDF được mã hoá AES-256-GCM trên máy chủ. Mỗi tệp có một khoá riêng, khoá đó lại được bọc bằng khoá chủ của hệ thống.')}
               </p>
               <p className="mt-3 text-[13px] leading-relaxed text-muted">
-                {t('Gói miễn phí có quảng cáo. Quảng cáo có thể dùng cookie hoặc định danh thiết bị; khi mở bán, gói trả phí sẽ bỏ quảng cáo. Chi tiết ở Chính sách bảo mật, mục 5.')}
+                {t('Gói miễn phí có quảng cáo. Quảng cáo có thể dùng cookie hoặc định danh thiết bị; Warrly Premium không có quảng cáo. Chi tiết ở Chính sách bảo mật, mục 5.')}
               </p>
               <Link
                 href={localePath('/privacy', locale)}

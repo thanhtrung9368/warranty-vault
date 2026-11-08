@@ -11,7 +11,8 @@
 // copy lives in Postgres behind the Go API, the service worker skips `/api/`,
 // and there is no device store), and the 2026-10 advertising/consent rewrite
 // replaced the "no ads / no paid tier" copy with the owner's actual model (free
-// with ads, paid without, no price or launch date in this repo).
+// with ads; Warrly Premium removes them and raises the limits, at the fixed VND
+// list prices).
 //
 // The legal block was restructured again on 2026-10-27 against the owner's
 // shipped app, and there the Vietnamese is NOT byte-for-byte: identity, the
@@ -694,4 +695,35 @@ export const publicPages = defineMessages({
   'Từ chối không cần thiết': 'Reject non-essential',
   'Quản lý': 'Manage',
   'Lưu lựa chọn': 'Save choices',
+  "5. Warrly Premium": "5. Warrly Premium",
+  "Warrly Premium là gói đăng ký tự động gia hạn mua qua App Store trên iOS. Giá niêm yết là 49.000đ mỗi tháng hoặc 399.000đ mỗi năm; giá hiển thị trong ứng dụng theo App Store và khu vực tài khoản của bạn. Người đăng ký mới có 7 ngày dùng thử miễn phí.": "Warrly Premium is an auto-renewable subscription purchased through the App Store on iOS. The list price is VND 49,000 per month or VND 399,000 per year; the in-app price follows the App Store and your account region. New subscribers get a 7-day free trial.",
+  "Warrly Premium:": "Warrly Premium:",
+  "Không quảng cáo:": "No ads:",
+  "Warrly Premium bỏ toàn bộ quảng cáo trong ứng dụng.": "Warrly Premium removes all ads from the app.",
+  "Giới hạn cao hơn:": "Higher limits:",
+  "200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký và 1.000 món wishlist.": "200 active devices (2,000 rows including sold devices), 500 subscriptions and 1,000 wishlist items.",
+  "gói tự gia hạn cho tới khi bạn tắt tự động gia hạn. Phải tắt ít nhất 24 giờ trước khi kỳ hiện tại kết thúc; nếu không, Apple thu tiền cho kỳ kế tiếp.": "the plan renews automatically until you turn off auto-renewal. Turn it off at least 24 hours before the current period ends; otherwise Apple charges for the next period.",
+  "Dùng thử 7 ngày:": "7-day free trial:",
+  "nếu chưa huỷ trước khi hết 7 ngày, gói chuyển sang trả phí theo giá đã hiển thị. Dùng thử chỉ áp dụng một lần cho tài khoản đủ điều kiện.": "if you do not cancel before the 7 days end, the plan converts to the paid price shown. The trial is available once per eligible account.",
+  "Do Apple thu tiền:": "Apple bills you:",
+  "giao dịch do App Store xử lý và trừ vào tài khoản Apple của bạn. Warrly không nhận, không lưu và không xử lý số thẻ hay thông tin ngân hàng.": "the App Store processes the transaction and charges your Apple account. Warrly does not receive, store or process card or banking details.",
+  "Huỷ trong App Store:": "Cancel in the App Store:",
+  "huỷ trong phần quản lý đăng ký của Apple; huỷ có hiệu lực từ kỳ kế tiếp và bạn dùng tiếp đến hết kỳ đã trả tiền.": "cancel in Apple's subscription settings; cancellation takes effect from the next period and you keep access until the paid period ends.",
+  "Khôi phục mua hàng:": "Restore purchases:",
+  "dùng nút Khôi phục mua hàng trong ứng dụng nếu bạn đổi máy hoặc cài lại; quyền lợi gắn với tài khoản Apple đã mua.": "use Restore purchases in the app if you change devices or reinstall; the entitlement belongs to the Apple account that bought it.",
+  "Nếu giá thay đổi, Apple sẽ thông báo theo chính sách của App Store trước khi áp dụng cho kỳ tiếp theo.": "If the price changes, Apple will notify you under the App Store rules before it applies to the next period.",
+  "Hoàn tiền: giao dịch do Apple xử lý theo chính sách của Apple; Warrly không tự hoàn tiền, nhưng trả lời email support@warrly.com nếu bạn gặp trục trặc.": "Refunds: Apple handles in-app transactions under its own policy; Warrly cannot issue refunds itself, but will answer email at support@warrly.com if something goes wrong.",
+  "Điều khoản này là EULA áp dụng cho Warrly Premium.": "These terms are the EULA for Warrly Premium.",
+  "Để hệ thống chạy ổn cho mọi người, mỗi tài khoản có giới hạn: 50 thiết bị đang dùng (500 dòng kể cả máy đã bán), 5 gói bảo hành và 5 tệp mỗi thiết bị, 5 MB mỗi tệp, 100 MB tổng dung lượng tệp, 100 gói đăng ký và 200 món wishlist. Gói miễn phí có quảng cáo. Warrly Premium nâng giới hạn lên 200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký và 1.000 món wishlist, đồng thời tắt quảng cáo. Khi chạm giới hạn, ứng dụng báo rõ trong ngôn ngữ bạn đang dùng.": "To keep the service stable for everyone, each account has limits: 50 active devices (500 rows including sold devices), 5 warranties and 5 files per device, 5 MB per file, 100 MB of total file storage, 100 subscriptions and 200 wishlist items. The free tier has ads. Warrly Premium raises the limits to 200 active devices (2,000 rows including sold devices), 500 subscriptions and 1,000 wishlist items, and removes ads. When you reach a limit, the app explains it in your language.",
+  "bọn tao không bán dữ liệu của mày. Gói miễn phí có quảng cáo; Warrly Premium thì không.": "we do not sell your data. The free tier has ads; Warrly Premium does not.",
+  "Gói miễn phí có quảng cáo. Warrly Premium không có quảng cáo.": "The free tier has ads. Warrly Premium has no ads.",
+  "Quảng cáo hiện được phục vụ trong app iOS qua Google AdMob — một mạng quảng cáo của Google. Android và web chưa hiển thị quảng cáo. Phần dưới mô tả dữ liệu AdMob nhận khi quảng cáo được hiển thị.": "Ads are currently served in the iOS app by Google AdMob, a Google advertising network. Android and the web do not show ads. The section below describes the data AdMob receives when ads are shown.",
+  "Khi bạn mua Warrly Premium, Apple xử lý thanh toán. Warrly chỉ nhận và lưu mã sản phẩm, mã giao dịch, thời hạn quyền lợi và môi trường Sandbox/Production để xác minh quyền lợi; không nhận số thẻ, số tài khoản ngân hàng hay thông tin thanh toán khác.": "When you buy Warrly Premium, Apple processes the payment. Warrly only receives and stores the product ID, transaction ID, entitlement expiry and Sandbox/Production environment to verify the entitlement; it does not receive card numbers, bank account numbers or other payment details.",
+  "Miễn phí có quảng cáo · Warrly Premium 49.000đ/tháng": "Free with ads · Warrly Premium VND 49,000/month",
+  "Miễn phí có quảng cáo. Premium bỏ quảng cáo và nâng giới hạn.": "Free with ads. Premium removes ads and raises the limits.",
+  "Gói miễn phí là hạng bạn dùng hôm nay: có quảng cáo và dừng ở các con số dưới đây. Warrly Premium bỏ quảng cáo và nâng giới hạn lên 200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký và 1.000 món wishlist — 49.000đ/tháng hoặc 399.000đ/năm, 7 ngày dùng thử.": "The free tier is what you use today: it has ads and stops at the numbers below. Warrly Premium removes ads and raises the limits to 200 active devices (2,000 rows including sold devices), 500 subscriptions and 1,000 wishlist items — VND 49,000/month or VND 399,000/year, with a 7-day trial.",
+  "Gói miễn phí có quảng cáo. Quảng cáo có thể dùng cookie hoặc định danh thiết bị; Warrly Premium không có quảng cáo. Chi tiết ở Chính sách bảo mật, mục 5.": "The free tier has ads. Ads may use cookies or device identifiers; Warrly Premium has no ads. See the Privacy Policy, section 5.",
+  "Có — và nó có giới hạn, cùng quảng cáo. Gói miễn phí không hết hạn, không cần thẻ, nhưng có quảng cáo và dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 gói bảo hành mỗi thiết bị, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Warrly Premium đã mở bán: bỏ quảng cáo và nâng lên 200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký, 1.000 món wishlist; 49.000đ/tháng hoặc 399.000đ/năm, 7 ngày dùng thử.": "Yes - and it has limits, plus ads. The free tier never expires and needs no card, but it has ads and stops at the numbers above: 50 active devices, 5 warranties per device, 5 files per device, 100 MB total, 100 subscriptions and 200 wishlist items. Warrly Premium is on sale: it removes ads and raises the limits to 200 active devices (2,000 rows including sold devices), 500 subscriptions and 1,000 wishlist items — VND 49,000/month or VND 399,000/year, with a 7-day trial.",
+  "Đăng ký mất 30 giây. Không thẻ tín dụng. Gói miễn phí có quảng cáo; Warrly Premium thì không.": "Signing up takes 30 seconds. No credit card required. The free tier has ads; Warrly Premium does not.",
+  "Miễn phí để bắt đầu. Không cần thẻ. Gói miễn phí có quảng cáo; Warrly Premium thì không.": "Free to start. No card required. The free tier has ads; Warrly Premium does not.",
 });

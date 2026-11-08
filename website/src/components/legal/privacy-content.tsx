@@ -60,7 +60,7 @@ export function PrivacyContent() {
       )}{' '}
       <b>{t('dữ liệu của mày là của mày')}</b>
       {' — '}
-      {t('bọn tao không bán dữ liệu của mày. Gói miễn phí có quảng cáo; gói trả phí thì không.')}
+      {t('bọn tao không bán dữ liệu của mày. Gói miễn phí có quảng cáo; Warrly Premium thì không.')}
     </p>
 
     <div>
@@ -166,10 +166,13 @@ export function PrivacyContent() {
         {t('5. Quảng cáo (Google AdMob)')}
       </h3>
       <p className="mt-2">
-        {t('Gói miễn phí có quảng cáo. Gói trả phí không có quảng cáo và hiện chưa mở bán.')}
+        {t('Gói miễn phí có quảng cáo. Warrly Premium không có quảng cáo.')}
       </p>
       <p className="mt-2">
-        {t('Khi Warrly có quảng cáo, chúng nằm trong app iOS và Android và do Google AdMob phục vụ — một mạng quảng cáo của Google. Tính đến lần cập nhật này, app chưa tích hợp SDK quảng cáo nào và chưa có quảng cáo nào được hiển thị; phần này mô tả mô hình, không phải trạng thái đã chạy. Trên web chưa có quảng cáo.')}
+        {t('Quảng cáo hiện được phục vụ trong app iOS qua Google AdMob — một mạng quảng cáo của Google. Android và web chưa hiển thị quảng cáo. Phần dưới mô tả dữ liệu AdMob nhận khi quảng cáo được hiển thị.')}
+      </p>
+      <p className="mt-2">
+        {t('Khi bạn mua Warrly Premium, Apple xử lý thanh toán. Warrly chỉ nhận và lưu mã sản phẩm, mã giao dịch, thời hạn quyền lợi và môi trường Sandbox/Production để xác minh quyền lợi; không nhận số thẻ, số tài khoản ngân hàng hay thông tin thanh toán khác.')}
       </p>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li>

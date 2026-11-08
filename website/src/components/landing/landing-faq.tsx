@@ -35,7 +35,7 @@ function buildFaq(t: Translator): FaqEntry[] {
     {
       q: t('Có thật là miễn phí không?'),
       a: t(
-        'Có — và nó có giới hạn, cùng quảng cáo. Gói miễn phí không hết hạn, không cần thẻ, nhưng có quảng cáo và dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 gói bảo hành mỗi thiết bị, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Gói trả phí chưa mở bán; khi mở bán, nó bỏ quảng cáo và nâng các giới hạn đó.',
+        'Có — và nó có giới hạn, cùng quảng cáo. Gói miễn phí không hết hạn, không cần thẻ, nhưng có quảng cáo và dừng ở các con số ở trên: 50 thiết bị đang dùng, 5 gói bảo hành mỗi thiết bị, 5 tệp mỗi thiết bị, 100 MB tổng, 100 gói đăng ký, 200 món wishlist. Warrly Premium đã mở bán: bỏ quảng cáo và nâng lên 200 thiết bị đang dùng (2.000 dòng kể cả máy đã bán), 500 gói đăng ký, 1.000 món wishlist; 49.000đ/tháng hoặc 399.000đ/năm, 7 ngày dùng thử.',
       ),
       href: '/terms#usage-limits',
       link: t('Điều khoản, mục 4'),

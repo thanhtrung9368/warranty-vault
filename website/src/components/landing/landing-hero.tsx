@@ -40,7 +40,7 @@ export function LandingHero({
         <div className="max-w-2xl">
           <p className="wv-hero-eyebrow text-balance">
             <Sparkles aria-hidden />
-            {t('Miễn phí có quảng cáo · Gói trả phí chưa mở bán')}
+            {t('Miễn phí có quảng cáo · Warrly Premium 49.000đ/tháng')}
           </p>
           {/* The H1 is the LCP element and is deliberately never wrapped in a
               reveal and never starts at `opacity: 0`. Its font size is capped
