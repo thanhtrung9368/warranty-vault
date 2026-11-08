@@ -22443,6 +22443,567 @@
           }
         }
       }
+    },
+    "Chưa tải được gói Premium. Kiểm tra kết nối rồi thử lại." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load Premium plans. Check your connection and try again."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa tải được gói Premium. Kiểm tra kết nối rồi thử lại."
+          }
+        }
+      }
+    },
+    "Không tải được gói Premium: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load Premium plans: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tải được gói Premium: %@"
+          }
+        }
+      }
+    },
+    "Giao dịch đã được xác minh nhưng chưa kích hoạt Premium. Thử Khôi phục mua hàng." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The transaction was verified but did not activate Premium. Try Restore purchases."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao dịch đã được xác minh nhưng chưa kích hoạt Premium. Thử Khôi phục mua hàng."
+          }
+        }
+      }
+    },
+    "Không xác minh được giao dịch App Store." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store transaction could not be verified."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không xác minh được giao dịch App Store."
+          }
+        }
+      }
+    },
+    "Giao dịch đang chờ xử lý. Premium sẽ bật khi Apple xác nhận." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The transaction is pending. Premium activates after Apple confirms it."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giao dịch đang chờ xử lý. Premium sẽ bật khi Apple xác nhận."
+          }
+        }
+      }
+    },
+    "Không kích hoạt được Premium." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not activate Premium."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không kích hoạt được Premium."
+          }
+        }
+      }
+    },
+    "Không kích hoạt được Premium: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not activate Premium: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không kích hoạt được Premium: %@"
+          }
+        }
+      }
+    },
+    "Không tìm thấy giao dịch Premium nào để khôi phục." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Premium transaction was found to restore."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tìm thấy giao dịch Premium nào để khôi phục."
+          }
+        }
+      }
+    },
+    "Khôi phục mua hàng thất bại: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore purchases failed: %@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khôi phục mua hàng thất bại: %@"
+          }
+        }
+      }
+    },
+    "Warrly Premium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warrly Premium"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warrly Premium"
+          }
+        }
+      }
+    },
+    "Bỏ quảng cáo và mở rộng giới hạn — một lần nâng cấp cho cả tài khoản." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove ads and raise the limits — one upgrade for the whole account."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ quảng cáo và mở rộng giới hạn — một lần nâng cấp cho cả tài khoản."
+          }
+        }
+      }
+    },
+    "Premium đang hoạt động" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium is active"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium đang hoạt động"
+          }
+        }
+      }
+    },
+    "Bạn không còn thấy quảng cáo và đang dùng giới hạn cao hơn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You no longer see ads and are using the higher limits."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn không còn thấy quảng cáo và đang dùng giới hạn cao hơn."
+          }
+        }
+      }
+    },
+    "Quản lý đăng ký trong App Store" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage subscription in the App Store"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quản lý đăng ký trong App Store"
+          }
+        }
+      }
+    },
+    "Tới 200 thiết bị đang theo dõi" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up to 200 active devices"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tới 200 thiết bị đang theo dõi"
+          }
+        }
+      }
+    },
+    "500 gói đăng ký và 1.000 mục wishlist" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "500 subscriptions and 1,000 wishlist items"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "500 gói đăng ký và 1.000 mục wishlist"
+          }
+        }
+      }
+    },
+    "Áp dụng trên mọi thiết bị đăng nhập cùng tài khoản" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Works on every device signed in to the same account"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Áp dụng trên mọi thiết bị đăng nhập cùng tài khoản"
+          }
+        }
+      }
+    },
+    "Đang tải gói…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading plans…"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang tải gói…"
+          }
+        }
+      }
+    },
+    "Chưa tải được gói Premium." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load Premium plans."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa tải được gói Premium."
+          }
+        }
+      }
+    },
+    "Kiểm tra kết nối mạng rồi thử lại. Nếu vẫn lỗi, gói có thể chưa sẵn sàng trong App Store." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your connection and try again. If it keeps failing, the plans may not be available in the App Store yet."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiểm tra kết nối mạng rồi thử lại. Nếu vẫn lỗi, gói có thể chưa sẵn sàng trong App Store."
+          }
+        }
+      }
+    },
+    "mỗi năm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per year"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi năm"
+          }
+        }
+      }
+    },
+    "mỗi tháng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per month"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi tháng"
+          }
+        }
+      }
+    },
+    "mỗi tuần" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per week"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi tuần"
+          }
+        }
+      }
+    },
+    "mỗi ngày" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "per day"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mỗi ngày"
+          }
+        }
+      }
+    },
+    "Dùng thử 7 ngày" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start 7-day free trial"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng thử 7 ngày"
+          }
+        }
+      }
+    },
+    "7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 days free, then automatically renews. Cancel anytime in your Apple subscription settings."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 ngày miễn phí, sau đó tự động gia hạn. Huỷ bất cứ lúc nào trong phần quản lý đăng ký của Apple."
+          }
+        }
+      }
+    },
+    "Khôi phục mua hàng" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore purchases"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khôi phục mua hàng"
+          }
+        }
+      }
+    },
+    "Gói tự động gia hạn cho tới khi bạn huỷ. Giá hiển thị do App Store cung cấp; thời hạn và ưu đãi dùng thử áp dụng theo gói bạn chọn." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The plan renews automatically until you cancel. The price is supplied by the App Store; the term and trial offer depend on the plan you choose."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gói tự động gia hạn cho tới khi bạn huỷ. Giá hiển thị do App Store cung cấp; thời hạn và ưu đãi dùng thử áp dụng theo gói bạn chọn."
+          }
+        }
+      }
+    },
+    "Điều khoản" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Điều khoản"
+          }
+        }
+      }
+    },
+    "Premium bỏ quảng cáo và nâng giới hạn cho toàn bộ tài khoản. Gói tự động gia hạn; quản lý hoặc huỷ trong phần đăng ký của Apple." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium removes ads and raises the limits for the whole account. The plan renews automatically; manage or cancel it in your Apple subscription settings."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium bỏ quảng cáo và nâng giới hạn cho toàn bộ tài khoản. Gói tự động gia hạn; quản lý hoặc huỷ trong phần đăng ký của Apple."
+          }
+        }
+      }
+    },
+    "Nâng cấp Warrly Premium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Warrly Premium"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp Warrly Premium"
+          }
+        }
+      }
+    },
+    "Không quảng cáo · giới hạn cao hơn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ad-free · higher limits"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không quảng cáo · giới hạn cao hơn"
+          }
+        }
+      }
+    },
+    "Bỏ quảng cáo · tới 200 thiết bị" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ad-free · up to 200 devices"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ quảng cáo · tới 200 thiết bị"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

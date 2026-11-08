@@ -13,6 +13,11 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     public let email: String
     public let name: String?
     public let aiOptIn: Bool?
+    /// Live server entitlement (`PremiumEntitlement`, migration 0027).
+    ///
+    /// Optional because an older server does not send it; `nil` means "this
+    /// deployment has no paid tier", which the app treats as free.
+    public let premium: Bool?
     /// The language the user picked in Settings (`User.locale`, migration 0014).
     ///
     /// `nil` means **"never chosen"**, which is NOT the same as `"en"`: the
@@ -39,14 +44,43 @@ public struct User: Codable, Sendable, Identifiable, Hashable {
     public let inboxAddress: String?
 
     public init(id: String, email: String, name: String?, aiOptIn: Bool? = nil,
-                locale: String? = nil, inboxAddress: String? = nil) {
+                locale: String? = nil, inboxAddress: String? = nil,
+                premium: Bool? = nil) {
         self.id = id; self.email = email; self.name = name
         self.aiOptIn = aiOptIn; self.locale = locale
-        self.inboxAddress = inboxAddress
+        self.inboxAddress = inboxAddress; self.premium = premium
     }
 
     /// `locale` resolved against the languages this build actually ships.
     public var preferredLanguage: AppLanguage? { AppLanguage.parse(locale) }
+}
+
+// MARK: - Warrly Premium (StoreKit 2 verification)
+
+/// Body of `POST /api/v1/billing/verify`. The string is StoreKit 2's signed
+/// transaction (`Transaction.jwsRepresentation`), not a client-made receipt:
+/// the server verifies its ES256 signature and x5c chain before writing anything.
+public struct PremiumVerifyInput: Encodable, Sendable {
+    public let jws: String
+
+    public init(jws: String) { self.jws = jws }
+}
+
+/// Result of a verified transaction. `premium == false` is a valid answer for
+/// an expired or revoked subscription; it is not an error.
+public struct PremiumVerifyResult: Decodable, Sendable {
+    public let premium: Bool
+    public let productId: String?
+    public let expiresAt: String?
+    public let environment: String?
+
+    public init(premium: Bool, productId: String? = nil,
+                expiresAt: String? = nil, environment: String? = nil) {
+        self.premium = premium
+        self.productId = productId
+        self.expiresAt = expiresAt
+        self.environment = environment
+    }
 }
 
 // MARK: - Profile update (PATCH /auth/me)

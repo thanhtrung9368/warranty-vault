@@ -25,6 +25,16 @@ extension APIClient {
         return w.user
     }
 
+    // MARK: - Warrly Premium
+
+    /// Verifies one StoreKit 2 transaction with the backend. Call for every
+    /// current entitlement on launch/foreground and for the transaction the
+    /// user just bought/restored; the endpoint is idempotent by transaction id.
+    public func verifyPremium(jws: String) async throws -> PremiumVerifyResult {
+        try await request("POST", "/api/v1/billing/verify",
+                          body: PremiumVerifyInput(jws: jws))
+    }
+
     /// Updates the profile — display name and/or language.
     ///
     /// Only the fields whose `Field` is not `.unchanged` are sent, which is the

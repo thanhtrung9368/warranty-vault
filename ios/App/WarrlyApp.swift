@@ -20,12 +20,17 @@ struct WarrlyApp: App {
     /// view tree (the consent sequence resumes on every foreground), so a
     /// second instance would mean a second UMP request and a second start.
     @StateObject private var ads = AdsController.shared
+    /// StoreKit 2 + the server-side Premium entitlement. Kept beside `auth`
+    /// because its lifetime is the signed-in account, and because the ads
+    /// controller's `isAdFree` is driven from its published answer.
+    @StateObject private var premium: PremiumStore
 
     init() {
         let authStore = AuthStore(baseURL: AppConfig.baseURL)
         _auth = StateObject(wrappedValue: authStore)
         _catalog = StateObject(wrappedValue: CatalogStore(client: authStore.client))
         _localization = StateObject(wrappedValue: LocalizationStore(client: authStore.client))
+        _premium = StateObject(wrappedValue: PremiumStore(client: authStore.client))
         // The notification-permission prompt must never land on top of UMP's
         // form or ATT (see `PushRegistrar.adsPromptActive`). This is the one
         // wire between the two prompt owners; neither drives the other.
@@ -47,8 +52,16 @@ struct WarrlyApp: App {
                 .environmentObject(localization)
                 .environmentObject(router)
                 .environmentObject(ads)
+                .environmentObject(premium)
                 .wvToastHost(toasts)
                 .preferredColorScheme(theme.preference.colorScheme)
+                // The banner is entitlement-driven, not a local preference:
+                // hide it the moment the server confirms Premium, and show it
+                // again on sign-out. `setAdFree` also persists the value for
+                // the next launch before the first /auth/me round-trip.
+                .onChange(of: premium.isPremium) { _, isPremium in
+                    ads.setAdFree(isPremium)
+                }
                 // `L.t(...)` is a plain function call, so SwiftUI cannot see
                 // that a view depends on the selected language. Rebuilding the
                 // tree on a switch is what makes every label follow — and it
@@ -69,10 +82,19 @@ struct WarrlyApp: App {
                         // the user already granted permission previously.
                         await catalog.loadIfNeeded()
                         await push.refreshIfAlreadyAuthorized()
+                        // Premium: apply the bit from /auth/me immediately,
+                        // then reconcile against StoreKit (renewal/refund on
+                        // another device) and load the two products for the
+                        // paywall. All three are safe to repeat on foreground.
+                        premium.apply(user: user)
+                        await premium.loadProducts()
+                        await premium.syncEntitlement()
                     case .unauthenticated:
                         // Never let the next account on this device inherit a
                         // language it did not choose.
                         localization.reset()
+                        premium.reset()
+                        ads.setAdFree(false)
                     case .idle:
                         break
                     }

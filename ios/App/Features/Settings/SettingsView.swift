@@ -161,6 +161,8 @@ struct SettingsView: View {
     /// Owns the UMP privacy options form and the requirement that decides
     /// whether its Settings row exists at all.
     @EnvironmentObject private var ads: AdsController
+    /// Server-verified Premium entitlement + the two StoreKit products.
+    @EnvironmentObject private var premium: PremiumStore
 
     /// Used to re-read the notification answer when the user comes back from
     /// iOS Settings: the change happens outside the app, so nothing else would
@@ -170,6 +172,7 @@ struct SettingsView: View {
     @State private var showChangePassword = false
     @State private var showPushDevices = false
     @State private var showSessions = false
+    @State private var showPremium = false
 
     // AI receipt-scan opt-in.
     @State private var aiOptIn = false
@@ -194,6 +197,14 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 Spacer().frame(height: WVSpacing.sm)
+
+                // Warrly Premium — the only paid surface. The paywall owns
+                // price/trial/restore/legal; this row is the entry point and
+                // the human-readable state. Ads and the server quota read the
+                // same store, so a purchase affects them without another tap.
+                WVSectionHeader(L.t("Warrly Premium"))
+                premiumSection
+                WVSectionFooter(L.t("Premium bỏ quảng cáo và nâng giới hạn cho toàn bộ tài khoản. Gói tự động gia hạn; quản lý hoặc huỷ trong phần đăng ký của Apple."))
 
                 // Chế độ — the only appearance control.
                 //
@@ -259,6 +270,9 @@ struct SettingsView: View {
         .wvScreen()
         .sheet(isPresented: $showChangePassword) {
             ChangePasswordSheet(client: client)
+        }
+        .sheet(isPresented: $showPremium) {
+            PremiumPaywallView()
         }
         .sheet(isPresented: $showInsurancePack) {
             InsurancePackSheet(client: client)
@@ -328,6 +342,26 @@ struct SettingsView: View {
             Button("OK", role: .cancel) { aiError = nil }
         } message: {
             Text(aiError ?? "")
+        }
+    }
+
+    // MARK: - Premium
+
+    private var premiumSection: some View {
+        WVGroup {
+            WVRow(
+                icon: "sparkles",
+                iconColor: WVColor.orange,
+                title: premium.isPremium
+                    ? L.t("Premium đang hoạt động")
+                    : L.t("Nâng cấp Warrly Premium"),
+                subtitle: premium.isPremium
+                    ? L.t("Không quảng cáo · giới hạn cao hơn")
+                    : L.t("Bỏ quảng cáo · tới 200 thiết bị"),
+                chevron: true
+            ) {
+                showPremium = true
+            }
         }
     }
 
