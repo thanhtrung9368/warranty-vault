@@ -137,6 +137,18 @@ type PasswordReset struct {
 	PendingEmail *string      `json:"pendingEmail"`
 }
 
+type PremiumEntitlement struct {
+	TransactionId         string       `json:"transactionId"`
+	OriginalTransactionId string       `json:"originalTransactionId"`
+	UserId                string       `json:"userId"`
+	ProductId             string       `json:"productId"`
+	ExpiresAt             wire.Instant `json:"expiresAt"`
+	RevokedAt             wire.Instant `json:"revokedAt"`
+	Environment           string       `json:"environment"`
+	CreatedAt             wire.Instant `json:"createdAt"`
+	UpdatedAt             wire.Instant `json:"updatedAt"`
+}
+
 type PushSubscription struct {
 	ID        string       `json:"id"`
 	UserId    string       `json:"userId"`
@@ -167,6 +179,20 @@ type Session struct {
 	ExpiresAt   wire.Instant `json:"expiresAt"`
 	RevokedAt   wire.Instant `json:"revokedAt"`
 	CreatedAt   wire.Instant `json:"createdAt"`
+}
+
+type Staple struct {
+	ID           string       `json:"id"`
+	UserId       string       `json:"userId"`
+	Name         string       `json:"name"`
+	Category     *string      `json:"category"`
+	Unit         *string      `json:"unit"`
+	CadenceDays  *int32       `json:"cadenceDays"`
+	LastBoughtAt wire.Day     `json:"lastBoughtAt"`
+	State        string       `json:"state"`
+	Notes        *string      `json:"notes"`
+	CreatedAt    wire.Instant `json:"createdAt"`
+	UpdatedAt    wire.Instant `json:"updatedAt"`
 }
 
 type Store struct {

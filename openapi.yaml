@@ -2088,6 +2088,85 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/Ok' }
 
+  /api/v1/staples:
+    parameters: [{ $ref: '#/components/parameters/Lang' }]
+    get:
+      tags: [wishlist]
+      summary: Đồ dùng thiết yếu (restock list)
+      description: |
+        Danh sách đồ dùng lặp lại (dầu gội, kem đánh răng, giấy…). Tách khỏi
+        WishlistItem vì mua đồ dùng **không** tạo Device và không có lịch sử giá.
+        `state` là quan sát của người dùng (ENOUGH/LOW/OUT); `cadenceDays` chỉ là
+        khoảng nhắc, không phải dự đoán hết hàng. `lastBoughtAt` là ngày mua lại
+        gần nhất (`YYYY-MM-DD`).
+      parameters:
+        - name: state
+          in: query
+          description: Lọc theo trạng thái; bỏ trống trả tất cả.
+          schema: { type: string, enum: [ENOUGH, LOW, OUT] }
+      responses:
+        '200':
+          description: Danh sách đồ dùng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Staple' }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [wishlist]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StapleInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { item: { $ref: '#/components/schemas/Staple' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/staples/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - { $ref: '#/components/parameters/Lang' }
+    patch:
+      tags: [wishlist]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StapleInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { item: { $ref: '#/components/schemas/Staple' } }
+        '400': { $ref: '#/components/responses/BadInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      tags: [wishlist]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /api/v1/search:
     get:
       tags: [search]
@@ -6039,6 +6118,43 @@ components:
         status: { type: string, enum: [WATCHING, DECIDED, SKIPPED, PURCHASED] }
         notes: { type: string, nullable: true }
         reminderIntervalDays: { type: integer, minimum: 1, nullable: true }
+
+    Staple:
+      type: object
+      required: [id, userId, name, state, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        name: { type: string }
+        category: { type: string, nullable: true }
+        unit: { type: string, nullable: true }
+        cadenceDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+          nullable: true
+          description: Khoảng nhắc lại (ngày). Không phải dự đoán hết hàng.
+        lastBoughtAt:
+          type: string
+          format: date
+          nullable: true
+          description: Ngày mua lại gần nhất (YYYY-MM-DD).
+        state: { type: string, enum: [ENOUGH, LOW, OUT] }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    StapleInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string, maxLength: 100, nullable: true }
+        unit: { type: string, maxLength: 30, nullable: true }
+        cadenceDays: { type: integer, minimum: 1, maximum: 3650, nullable: true }
+        lastBoughtAt: { type: string, format: date, nullable: true }
+        state: { type: string, enum: [ENOUGH, LOW, OUT] }
+        notes: { type: string, maxLength: 2000, nullable: true }
 
     PriceLogInput:
       type: object

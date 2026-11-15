@@ -29,7 +29,7 @@ import (
 )
 
 // calendarDays is every calendar-day column in the API, by Go field name. These
-// are the 14 columns sqlc maps to wire.Day (api/sqlc.yaml). A fifth field would be
+// are the 15 columns sqlc maps to wire.Day (api/sqlc.yaml). A fifth field would be
 // a contract decision, not a rename, so it must be added in both places.
 var calendarDays = map[string]bool{
 	// Device
@@ -49,6 +49,8 @@ var calendarDays = map[string]bool{
 	"TrialEndsAt": true,
 	// WishlistItem
 	"TargetDate": true,
+	// Staple
+	"LastBoughtAt": true,
 	// Claim
 	"ExpectedReturnAt": true,
 }
@@ -66,6 +68,7 @@ var responseModels = []any{
 	store.PushSubscription{},
 	store.Reminder{},
 	store.Session{},
+	store.Staple{},
 	store.Subscription{},
 	store.SubscriptionPayment{},
 	store.User{},

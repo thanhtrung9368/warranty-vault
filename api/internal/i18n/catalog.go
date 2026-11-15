@@ -79,10 +79,10 @@ type message struct {
 var messages = map[string]message{
 	// ── Shared envelopes (auth slice only; the helpers that emit these take a
 	// request context so out-of-scope callers can pass it without translating).
-	"Dữ liệu không hợp lệ":       {vi: "Dữ liệu không hợp lệ", en: "Invalid input"},
-	"Body phải là JSON hợp lệ":   {vi: "Body phải là JSON hợp lệ", en: "Request body must be valid JSON"},
-	"Bạn chưa đăng nhập":         {vi: "Bạn chưa đăng nhập", en: "You are not signed in"},
-	"Lỗi hệ thống":               {vi: "Lỗi hệ thống", en: "Something went wrong"},
+	"Dữ liệu không hợp lệ":     {vi: "Dữ liệu không hợp lệ", en: "Invalid input"},
+	"Body phải là JSON hợp lệ": {vi: "Body phải là JSON hợp lệ", en: "Request body must be valid JSON"},
+	"Bạn chưa đăng nhập":       {vi: "Bạn chưa đăng nhập", en: "You are not signed in"},
+	"Lỗi hệ thống":             {vi: "Lỗi hệ thống", en: "Something went wrong"},
 
 	// Premium billing (migration 0027, POST /api/v1/billing/verify). The
 	// App Store receipt is the one input here that comes from outside the app,
@@ -627,6 +627,12 @@ var messages = map[string]message{
 	"Tên gói tối đa 200 ký tự":      {vi: "Tên gói tối đa 200 ký tự", en: "Subscription name must be at most 200 characters"},
 	"Tên sản phẩm bắt buộc":         {vi: "Tên sản phẩm bắt buộc", en: "Wishlist item name is required"},
 	"Tên sản phẩm tối đa 200 ký tự": {vi: "Tên sản phẩm tối đa 200 ký tự", en: "Wishlist item name must be at most 200 characters"},
+	"Tên đồ dùng bắt buộc":          {vi: "Tên đồ dùng bắt buộc", en: "Essential name is required"},
+	"Tên đồ dùng tối đa 200 ký tự":  {vi: "Tên đồ dùng tối đa 200 ký tự", en: "Essential name must be at most 200 characters"},
+	"Nhóm đồ dùng tối đa 100 ký tự": {vi: "Nhóm đồ dùng tối đa 100 ký tự", en: "Essential category must be at most 100 characters"},
+	"Đơn vị tối đa 30 ký tự":        {vi: "Đơn vị tối đa 30 ký tự", en: "Unit must be at most 30 characters"},
+	"Ghi chú tối đa 2.000 ký tự":    {vi: "Ghi chú tối đa 2.000 ký tự", en: "Note must be at most 2,000 characters"},
+	"Không tìm thấy đồ dùng":        {vi: "Không tìm thấy đồ dùng", en: "Essential not found"},
 	"Chu kỳ không hợp lệ":           {vi: "Chu kỳ không hợp lệ", en: "Invalid billing cycle"},
 	"Mức ưu tiên không hợp lệ":      {vi: "Mức ưu tiên không hợp lệ", en: "Invalid priority"},
 	"URL không hợp lệ":              {vi: "URL không hợp lệ", en: "Invalid URL"},
