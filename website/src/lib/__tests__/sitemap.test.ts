@@ -101,6 +101,11 @@ describe('robots.txt', () => {
     expect(disallow).toContain('/api/');
     expect(disallow).toContain('/og');
     expect(disallow).toContain('/share/');
-    expect(disallow).toContain('/_next/');
+    // Cloudflare's email-protection endpoint is not a page of this site and
+    // used to produce a phantom 404 when Email Address Obfuscation was on.
+    expect(disallow).toContain('/cdn-cgi/');
+    // Build assets must remain crawlable: the renderer needs the JS/CSS/fonts.
+    // Blocking `_next` also produced "Blocked by robots.txt" for a font chunk.
+    expect(disallow).not.toContain('/_next/');
   });
 });

@@ -12,7 +12,15 @@ import { siteBaseUrl } from '@/lib/metadata';
 //     link someone was given, never in a search result.
 //   * `/og` — the generated share card is an image, not a page.
 //   * `/share/` — the Next share-target failure screen (noindex in metadata too).
-//   * `/_next/` — build assets.
+//   * `/cdn-cgi/` — Cloudflare's internal email-protection endpoint
+//     (`/cdn-cgi/l/email-protection`). It is not a page of this site; Cloudflare
+//     Email Address Obfuscation can put it in links, and the endpoint 404s on
+//     this host, which made Search Console report a phantom 404.
+//
+// `/_next/` is deliberately NOT disallowed. It contains the JS/CSS/font assets
+// the renderer needs; blocking it made Search Console report the build chunk /
+// font as "Blocked by robots.txt" and can stop Google from rendering the very
+// pages we want indexed. Static assets are not indexable pages anyway.
 //
 // The legal pages are NOT disallowed; they are the indexable copy. Protected
 // `(app)` routes are not listed here either: their layout already emits
@@ -31,7 +39,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/og', '/share/', '/_next/'],
+        disallow: ['/api/', '/og', '/share/', '/cdn-cgi/'],
       },
     ],
     sitemap: `${base}/sitemap.xml`,
