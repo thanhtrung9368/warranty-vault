@@ -56,6 +56,16 @@ const nextConfig = {
     // used get bundled — cuts dead weight from these large packages.
     optimizePackageImports: ['recharts', 'lucide-react', 'date-fns'],
   },
+  async redirects() {
+    return [
+      // These are the token-less forms of two deep links that arrive from
+      // transactional emails. Without a token they used to render the 404 page
+      // (and Search Console reported one of them as "Not found"); send the
+      // visitor to the page where they can request a fresh link instead.
+      { source: '/reset', destination: '/forgot', permanent: false },
+      { source: '/confirm-email', destination: '/login', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

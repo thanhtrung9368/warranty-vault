@@ -9,7 +9,13 @@ import { RetryButton } from './retry-button';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
-  return { title: t('Ngoại tuyến — Warrly') };
+  return {
+    title: t('Ngoại tuyến — Warrly'),
+    // Utility/PWA fallback, never a search result. The service worker can
+    // serve this page on any route, so a crawler that runs the worker would
+    // otherwise be able to index it as a normal document.
+    robots: { index: false, follow: false },
+  };
 }
 
 // Served by the service worker when the network is gone. `getI18n()` still
